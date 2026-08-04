@@ -10,11 +10,18 @@
  *
  * Connections:
  *   Imports → react-native-svg, constants/motifs, lib/useAppTheme (useIsDark)
- *   Used by → components/ScreenBackground.tsx (the tab strip + the calm sub-tier backdrop),
- *             components/SectionDivider.tsx (trunk-divider), components/StarterCard.tsx
- *             (tree-natural-seed), components/TourSpotlight.tsx (halo-ring),
+ *   Used by → components/SectionDivider.tsx (trunk-divider), components/StageTree.tsx (the four
+ *             tree-natural-* growth stages — and through it components/StarterCard.tsx and
+ *             app/(tabs)/habits.tsx), components/TourSpotlight.tsx (halo-ring),
  *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx
- *             (leaf-icon corner accent, DESIGN_COMPARISON/04)
+ *             (leaf-icon corner accent, DESIGN_COMPARISON/04 option (b)),
+ *             components/HabitLeading.tsx (leaf-icon as a habit row's leading mark,
+ *             DESIGN_COMPARISON/04 option (a))
+ *             — NOT components/ScreenBackground.tsx, which draws its own geometry directly and
+ *             has never imported this (that line claimed the tab strip + calm backdrop until
+ *             2026-08-04; both were reverted in PR #449 and this file's mount went with them),
+ *             and NOT components/EnergyMeter.tsx, which an earlier version of this line credited
+ *             with `halo-ring` — the real halo-ring caller is components/TourSpotlight.tsx:211.
  *   Data    → none — pure presentation
  *
  * Edit notes:

@@ -108,3 +108,40 @@ No `npm run preview` — nothing renders it yet.
 
 Update the table in `assets/decorative/illustrations/README.md` (it lists three stages and
 says the fourth is missing — both stop being true). Then commit, PR into `main`, merge.
+
+---
+
+## Outcome — **(a) shipped**, 2026-08-04
+
+The fourth stage is in: `assets/decorative/illustrations/tree-natural-full-{light,dark}.svg`,
+554 elements, compiled into `constants/motifs.ts` as `tree-natural-full`.
+`lib/__tests__/motifs.test.ts` passes (62 tests), and the `constants/motifs.ts` diff is
+additive only — one new entry, no existing motif touched.
+
+**This task's earlier close-out — "cannot be fetched from here; DesignSync requires an
+interactive `/design-login`" — was wrong about the conclusion, not about the tool.** The tool
+really is unusable from a remote session. But the art was never only in the design project:
+the maintainer's uploaded `UnFocus_Design_System_1.mht` carries it as MIME part 51, and parts
+52/53/54 of that same file byte-match the repo's existing sapling/sprout/seed art, which is
+what identified it. **Check the upload before declaring a design asset unobtainable.**
+
+Only the **light** file was recovered; the dark twin was derived mechanically, not hand-picked:
+
+- All three existing pairs (`seed` 12 elements, `sprout` 49, `sapling` 219) are byte-identical
+  in geometry *and* in every `opacity` attribute, and all three agree on the same 1:1,
+  9-entry light→dark colour map — verified by zipping each pair element-wise rather than by
+  trusting the map already written in the README.
+- Every one of the 9 colours in `tree-natural-full-light.svg` is covered by that map, with
+  nothing left over. So the dark file is a pure token substitution.
+- **The substitution must be ONE pass.** The map is chained — `#1E3A6B → #3B6BC4 → #5C8FD9 →
+  #7FA8E8` — so a sequence of string replaces cascades a colour through three steps and
+  silently produces wrong art. A single regex pass with a lookup is the only safe shape.
+- Post-check: stripping every hex from both files leaves byte-identical skeletons, so the
+  geometry provably did not move.
+
+The README's note not to author a substitute stands and was not needed — this is the real
+asset, and the "if the maintainer ever transfers the light file, the port is a two-file drop
+plus `node scripts/build-motifs.mjs`" prediction held exactly. No generator work; PR #481 had
+already taught the pipeline full-colour illustrations.
+
+It is no longer an unmounted asset either — see 03.

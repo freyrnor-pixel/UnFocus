@@ -17,8 +17,10 @@
  *
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
- *             components/HabitIcon, components/PressableScale, components/ProgressBar,
- *             components/Motif (the `leaf-icon` corner accent, DESIGN_COMPARISON/04),
+ *             components/HabitIcon (starter chips only), components/HabitLeading (2026-08-04 —
+ *             the row's leading mark: the habit's icon, or the brand leaf when it has none,
+ *             DESIGN_COMPARISON/04 option (a)), components/PressableScale, components/ProgressBar,
+ *             components/Motif (the `leaf-icon` corner accent, DESIGN_COMPARISON/04 option (b)),
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
  *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
@@ -105,7 +107,8 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
 import Motif from '@/components/Motif';
-import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
+import HabitIcon from '@/components/HabitIcon';
+import HabitLeading from '@/components/HabitLeading';
 import CardHintNote from '@/components/CardHintNote';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -257,12 +260,13 @@ export default function HomeHabitsCard() {
           // A.4: done is a STATUS, so it takes the status token as ink (`good`); the habit's
           // own glyph is neutral ink. Neither is the identity hue — that stays a fill (the
           // header badge + the card edge).
+          // A habit with no chosen icon draws the brand leaf rather than nothing (2026-08-04,
+          // design comparison task 04(a)) — see components/HabitLeading.tsx for why the leaf
+          // can fill a slot the neutral hollow-circle default could not.
           isDone ? (
             <Ionicons name="checkmark" size={16} color={theme.good} />
           ) : (
-            hasChosenHabitIcon(habit.icon) ? (
-              <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />
-            ) : undefined
+            <HabitLeading icon={habit.icon} size={16} color={theme.textMuted} />
           )
         }
         rightValue={goal > 1 ? `${count}/${goal}` : undefined}

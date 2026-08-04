@@ -135,3 +135,53 @@ Apply these whichever option is picked:
 
 Update the headers of every file you touched, both ends of each `Connections:` block. Commit,
 PR into `main`, merge.
+
+---
+
+## Outcome — **the ambient option shipped**, 2026-08-04
+
+**This task was previously closed as "declined on `lib/growth.ts`'s authority". That close-out
+is superseded: the maintainer's tie-break for this session is that the design system wins over
+a decision recorded in the repo's docs.** But that reversal does *not* reach the three bindings
+this file spends most of its length weighing, and it is worth being precise about why, so the
+next session doesn't reopen them thinking a rule got relaxed:
+
+> The design project's **own readme** declines canopy-fullness-from-Energy,
+> grow-a-tree-over-a-focus-session and stage-advances-on-a-habit-streak — *"the art was
+> accepted; the bindings were not."*
+
+Both sides say no, so there is nothing for a tie-break to decide. What both sides *allow* is the
+guidance card's fourth candidate — **"Ambient (decorative) — no data bound. Plain backdrop use,
+sway only, no fill logic."** That is what shipped.
+
+### What landed
+
+- **`components/StageTree.tsx`** — the four stages behind one component, with the design's idle
+  sway (±1.1°, ~6s ease-in-out via the new `Duration.sway`, pivoting at the trunk's base) and
+  reduced motion freezing it flat at 0°. It has **no data prop and cannot reach a store**; that
+  is deliberate and its header says so.
+- **`components/StarterCard.tsx`** gains `stage`, defaulting to `'seed'` — the floor. Raising it
+  is a *layout* call (this card is big enough for a fuller drawing), never a reading of user data.
+- **`app/(tabs)/habits.tsx`** — `stage="sprout"` on its StarterCard (the app's largest empty
+  state), and `tree-natural-full` standing on the open backdrop at the foot of the column.
+- **`components/EnergyMeter.tsx`** — `stage="sapling"` on the tutorial card that replaces the
+  whole meter. Deliberately NOT `current / capacity`, which is one of the three declined bindings
+  and would land squarely on the "ten pips read as a score" problem that rework existed to fix.
+
+All four stages now render somewhere. **One tree per screen holds**: Habits' foot tree is gated
+on the exact complement of its StarterCard's own gate, and Home's other cards draw inline
+explainers rather than StarterCards, so the Energy tutorial is the only tree there.
+
+### Two things worth not re-learning
+
+- **"Behind the header" doesn't exist on this screen.** The foot tree was first mounted as an
+  absolutely-positioned watermark at the top-right of `styles.content`. Every card on the Habits
+  tab is full-width and opaque, so it was almost entirely covered — the preview showed a sliver
+  past the card's edge and nothing else. Below the list, where the backdrop is genuinely open, it
+  reads as the scenery it is meant to be. Confirmed by screenshot, not by reasoning.
+- **A fixed-height row won't clip a taller child** in React Native. The foot tree's row carries
+  the tree's own height (150), not the bottom spacer's (96), or the canopy spills over BottomNav.
+
+The "recolour, don't redraw" rule is still *not possible* — the trees are illustrations with a
+baked `pal` and `Motif.tsx` ignores `color` for those. Unchanged by this task; still its own
+follow-up if per-domain tree colour is ever wanted.

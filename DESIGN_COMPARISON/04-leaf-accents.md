@@ -126,3 +126,49 @@ the art — expand the touch area instead." Use `HitSlop.*`, never a bare `hitSl
 
 Update the `Connections:` blocks on both ends of anything you touched, and
 `components/Motif.tsx`'s `Used by →` line. Commit, PR into `main`, merge.
+
+---
+
+## Outcome — **(c): both (a) and (b) shipped**, 2026-08-04
+
+(b), the `HomeHabitsCard` corner accent, landed first. **(a) landed 2026-08-04**, in the narrow
+form this file recommends — a leaf **only where `hasChosenHabitIcon()` currently draws nothing**,
+never option (d)'s leaf on every row, which was tried and reverted as noise and must not be
+re-run.
+
+- **`components/HabitLeading.tsx`** is the new shared owner of that decision: the habit's chosen
+  icon, or `leaf-icon` when it hasn't got one. All four habit row sites go through it —
+  `app/(tabs)/habits.tsx`'s Today PadRow (22), Week grid label (16) and Month grid label (14),
+  and `components/HomeHabitsCard.tsx`'s row leading (16). Neither screen inlines the gate any more.
+- **The duplicate-mark objection this file raises does not apply to a leaf, and that is the
+  whole reason (a) is buildable.** `hasChosenHabitIcon()` exists because the neutral default is a
+  hollow *circle* sitting next to the row's real hollow-circle check. A leaf is not a circle. The
+  gate itself is unchanged and the ellipse still must not be painted — see the note added to
+  `components/HabitIcon.tsx`'s header.
+- **It adds no width to any row**, which is why the wrap audit is unmoved by it: every one of the
+  four sites already laid out a leading slot at that exact size for habits that *do* have an icon.
+  It fills a hole rather than opening one.
+- `leaf-icon` (tintable) at the row's own `theme.textMuted`, never `leaf-sprig` — same call, same
+  reason, as (b).
+- `components/HabitIcon.tsx` deliberately does **not** import `Motif`:
+  `lib/__tests__/habitStarters.test.ts` imports it in a plain node env, and pulling
+  react-native-svg into that chain is why the leaf lives in a separate component.
+
+### Use 3 — the leaf inside an icon-only button — is **not built**, and the reason is factual
+
+The task was scoped to `components/AddFAB.tsx` "on the Habits tab". Neither half of that is true
+of the repo:
+
+- **`AddFAB` has zero JSX call sites anywhere in the app.** `grep -rn "<AddFAB"` returns nothing;
+  `components/VoiceNoteFAB.tsx` imports only its `FAB_LG_SIZE`/`FAB_DEFAULT_BOTTOM` constants.
+  Putting a leaf in it would ship dead code that no screenshot could ever show.
+- **The Habits tab has no FAB.** Its add affordance has been the inline `AddRow` → `PadTypeRow`
+  type line since 2026-07-13, which explicitly replaced a header "+" AddFAB.
+- Every icon-only button that *is* live on that screen carries a **meaningful** glyph — the
+  card's settings gear, the ⓘ, the layout picker, the "Edit Goals" flag. The design's own wording
+  scopes this use to *"a low-key, on-brand replacement for a **generic** bullet/chevron icon"*, so
+  a leaf on any of those would destroy an affordance rather than replace a generic one.
+
+This is not a design-vs-repo tie-break — there is no disagreement to break, only a target that
+does not exist. If use 3 is wanted, it needs a real icon-only button first; naming one is a
+maintainer call, not something to guess at.

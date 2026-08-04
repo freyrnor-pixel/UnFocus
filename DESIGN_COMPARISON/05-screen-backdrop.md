@@ -119,3 +119,45 @@ oversight rather than a decision.
 ## Close out
 
 Commit, PR into `main`, merge.
+
+---
+
+## Outcome — **the leaf redraw shipped; the per-screen backdrop set did not**, 2026-08-04
+
+`components/ScreenBackground.tsx`'s header left exactly one door open, and this took it on
+exactly those terms:
+
+> "redrawing THIS file's corner branches in the illustrated leaf style (static, single-field, no
+> per-tab variation); if you take it, `GROWTH_STROKES` has to be redrawn in the same language or
+> the reward branches end up in a different vocabulary from the base art."
+
+### What landed
+
+- The corner cluster's leaves were filled `<Circle>` dots; they are now filled **leaf
+  silhouettes**, taken from `leaf-icon`'s own path (`M12,20 Q18.9,14.8 12,5 Q5.1,14.8 12,20 Z`)
+  and re-expressed in terms of leaf length as `leafD()`. Each leaf keeps the `r` of the dot it
+  replaced as its size unit, so the cluster's visual weight did not shift.
+- **`GROWTH_LEAVES` was redrawn in the same edit** — that was the condition, and reward branches
+  sprouting dots out of a canopy of leaves would have been two languages in one picture.
+- Each leaf carries an angle that fans it outward from the middle of the screen, hand-varied
+  around that baseline; a canopy of identically-angled marks reads as a pattern, not foliage.
+- Rotation is `rotation` + `origin` on the `<Path>` — the same pair `components/Motif.tsx` uses
+  for its canopy ellipses, which is the transform shape react-native-svg handles identically on
+  native and in the web preview.
+- The source leaf's **midrib** stroke is deliberately dropped: these render 7–13px tall once the
+  280-wide viewBox is scaled to a phone, where a 0.8-width rib is sub-pixel noise.
+- **Static, one field on every tab**, as scoped. Nothing about the growth contract moved —
+  neutral is still the floor, `intensity` 0 is still byte-for-byte the always-there art, there is
+  still no number and no "you broke it" state.
+
+### What stays declined, and why that is *not* the tie-break being applied
+
+The per-screen-type backdrop set (`screen-bg-calm` / `-grow` / `-list`) and its edge-continuity
+rule are still out. **This is not "a repo doc beat the design system"** — it is that PR #449
+already built this mechanism and reverted it the same day for fighting the pager's swipe feel,
+and the continuity rule addresses the *art*, not the *motion* that failed. A nicer picture on the
+same mechanism re-runs a known failure. `screen-bg-strip`/`screen-bg-calm` remain retained source
+art in `constants/motifs.ts`: generated, tested, deliberately mounted nowhere.
+
+The illustrated tree as a drop-in behind the pager is out with it, on the art's own "one tree per
+screen" rule — task 03 spends that budget on `StarterCard` and the Habits tab's foot tree instead.
