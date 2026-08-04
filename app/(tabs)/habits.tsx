@@ -25,9 +25,13 @@
  *             components/AnimatedListItem (habit
  *             add/remove fade), components/DraggableTaskRow (the long-press-drag gesture),
  *             components/GlowPulse (done-state static halo),
- *             components/HabitIcon, components/EmptyState, components/StarterCard
- *             (first-run explainer — no example row since 2026-07-30; the starter chips
- *             in its `children` slot are the example), components/SlideSelector,
+ *             components/HabitIcon (starter chips only — every ROW's leading mark goes through
+ *             components/HabitLeading, 2026-08-04, which draws the brand leaf when a habit has
+ *             no chosen icon), components/StageTree (2026-08-04 — the ambient `full`-stage
+ *             corner watermark, suppressed while the StarterCard's own tree is up),
+ *             components/EmptyState, components/StarterCard
+ *             (first-run explainer at `stage="sprout"` — no example row since 2026-07-30; the
+ *             starter chips in its `children` slot are the example), components/SlideSelector,
  *             components/PressableScale,
  *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
@@ -122,10 +126,12 @@ import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
-import HabitIcon, { hasChosenHabitIcon } from '@/components/HabitIcon';
+import HabitIcon from '@/components/HabitIcon';
+import HabitLeading from '@/components/HabitLeading';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
+import StageTree from '@/components/StageTree';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
 import GhostRow from '@/components/GhostRow';
@@ -336,14 +342,15 @@ function HabitCard({
           done={isDone}
           // A.4: done is a STATUS, so it takes the status token as ink; the habit's own glyph
           // is neutral. Mirrors HomeHabitsCard's leading exactly.
-          // A habit with no chosen icon draws NO leading mark — the neutral default is a
-          // hollow circle, and this row already ends in one (the check). Two identical rings,
-          // the leading one inert, was the result. See hasChosenHabitIcon's own comment.
+          // A habit with no chosen icon used to draw NO leading mark — the neutral default is a
+          // hollow circle, and this row already ends in one (the check), so two identical rings
+          // with the leading one inert was the result. As of 2026-08-04 (design comparison task
+          // 04(a)) that hole is filled with the brand leaf instead: a leaf is not a circle, so
+          // it can't be confused with the check the way the ellipse was. components/HabitLeading
+          // owns that decision for all four habit row sites — don't re-inline the gate here.
           leading={isDone
             ? <Ionicons name="checkmark" size={22} color={theme.good} />
-            : hasChosenHabitIcon(habit.icon)
-              ? <HabitIcon icon={habit.icon} size={22} color={theme.textMuted} />
-              : undefined}
+            : <HabitLeading icon={habit.icon} size={22} color={theme.textMuted} />}
           meta={hasMetaLine ? (
             <>
               {linkedGoal ? (
@@ -483,7 +490,7 @@ function WeekView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={styles.weekGridRow}>
           <View style={styles.weekGridLabel}>
-            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={16} color={theme.textMuted} />}
+            <HabitLeading icon={habit.icon} size={16} color={theme.textMuted} />
             <Text style={[styles.weekGridTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           {weekDates.map((date) => {
@@ -575,7 +582,7 @@ function MonthView({
       {visibleHabits.map((habit) => (
         <View key={habit.id} style={[styles.monthRow, { borderBottomColor: theme.border }]}>
           <View style={styles.monthRowLabel}>
-            {hasChosenHabitIcon(habit.icon) && <HabitIcon icon={habit.icon} size={14} color={theme.textMuted} />}
+            <HabitLeading icon={habit.icon} size={14} color={theme.textMuted} />
             <Text style={[styles.monthRowTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -868,7 +875,12 @@ export default function HabitsScreen() {
                     // example, and unlike the row they actually do something. Same call, same
                     // reason, as components/HomeHabitsCard.tsx's own empty state.
                     profileHabits.length === 0 ? (
-                      <StarterCard text={t.starters.habits.text}>
+                      // `stage="sprout"` (2026-08-04, design comparison task 03): this is the
+                      // app's largest empty state — a whole screen with one card on it — so the
+                      // watermark can carry a fuller drawing than the default seed. It is a
+                      // layout call and nothing else; the stage never moves, and it is the same
+                      // sprout on day 1 and day 400. See components/StageTree.tsx.
+                      <StarterCard text={t.starters.habits.text} stage="sprout">
                         <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
                         {/* Two chips, not four (2026-07-30) — the same measured call
                             components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
@@ -991,7 +1003,32 @@ export default function HabitsScreen() {
             />
           )}
 
-          <View style={{ height: Spacing.xl + Spacing.xxl }} />
+          {/* Ambient stage tree (2026-08-04, design comparison task 03) — the `full` stage,
+              standing on the backdrop at the foot of the column where the content ends. It is
+              decorative and nothing else: bound to no data, it never advances, and it is the
+              same tree on a first launch as after a year of habits. That is the ONE use of the
+              stage art both the design project's readme and lib/growth.ts allow ("Ambient
+              (decorative) — no data bound. Plain backdrop use, sway only, no fill logic"); the
+              canopy-from-Energy, grow-over-a-focus-session and stage-from-streak bindings the
+              same guideline card proposes are declined by BOTH sides, so don't wire this to
+              useGrowth, a habit count or anything else.
+
+              It sits BELOW the list rather than behind the header, which is where this first
+              landed: every card on this screen is full-width and opaque, so a tree up there was
+              covered by the Habits card with only an accidental sliver showing past its edge.
+              Down here it stands on open backdrop and overlaps nothing. It replaced the plain
+              bottom spacer, and carries that spacer's height itself.
+
+              Suppressed while the StarterCard is up — that card draws a tree of its own, and
+              the art's rule is ONE TREE PER SCREEN. `profileHabits.length === 0` is exactly the
+              StarterCard's own gate above; keep the two in step if either moves. */}
+          {profileHabits.length === 0 ? (
+            <View style={styles.footSpacer} />
+          ) : (
+            <View style={styles.footTreeRow}>
+              <StageTree stage="full" opacity={0.3} style={styles.footTree} />
+            </View>
+          )}
         </View>
       </ScreenScaffold>
       <GoalsSheet visible={goalsSheetOpen} onClose={() => setGoalsSheetOpen(false)} />
@@ -1001,6 +1038,31 @@ export default function HabitsScreen() {
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md },
+
+  // The bottom spacer this screen has always ended on, kept as its own style so the ambient
+  // tree below can be swapped in for it without the two disagreeing about how much room the
+  // foot of the list needs.
+  footSpacer: { height: Spacing.xl + Spacing.xxl },
+
+  // The ambient stage tree (design comparison task 03) standing at the foot of the column.
+  // Right-aligned and allowed to run past the screen edge (`marginRight` is negative) for the
+  // same reason ScreenBackground's branches are corners-only: the middle is where content
+  // lives. It carries footSpacer's height itself, so nothing is lost by replacing it.
+  // `pointerEvents` is already 'none' inside both StageTree and Motif, so it can never eat a
+  // tap on whatever ends up scrolled under it.
+  // Height is the tree's own, not footSpacer's — a fixed-height row with a taller child would
+  // let the canopy spill over BottomNav (RN doesn't clip by default). It is ~50px more scroll
+  // than the bare spacer was, on a screen that already ends in open backdrop.
+  footTreeRow: {
+    height: 150,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  footTree: {
+    width: 132,
+    height: 150,
+    marginRight: -Spacing.sm,
+  },
 
   // ─── Habits section ───────────────────────────────────────────────────────
   // Boxed in a <SectionCard> (2026-07-17): the section's inner controls stack with a

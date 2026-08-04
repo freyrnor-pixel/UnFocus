@@ -683,7 +683,14 @@ export default function EnergyMeter() {
           will stand, and the button is the same pop-up the ✏️ opens, so the first thing a new
           user can do here is the deliberate thing rather than a nudge. */}
       {!pause.paused && showTutorial && (
-        <StarterCard text={t.starters.energy.text}>
+        // `stage="sapling"` (2026-08-04, design comparison task 03): this card REPLACES the
+        // whole meter, so it is the tallest StarterCard in the app and has room for a fuller
+        // watermark than the default seed. Purely a size call — the stage is fixed art, bound
+        // to nothing, and specifically NOT to `current / capacity`, which is one of the three
+        // bindings the design project and lib/growth.ts both decline. See components/StageTree.tsx.
+        // It is also the only tree on Home: the other Home cards draw inline explainers rather
+        // than StarterCards, so "one tree per screen" holds without a suppression term here.
+        <StarterCard text={t.starters.energy.text} stage="sapling">
           <Button
             label={t.starters.energy.action}
             variant="secondary"

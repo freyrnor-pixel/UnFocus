@@ -25,13 +25,15 @@
  * "instructions for this screen".
  *
  * Connections:
- *   Imports → components/Surface, components/Motif (the `tree-natural-seed` watermark),
+ *   Imports → components/Surface, components/StageTree (the growth-stage watermark),
  *             components/Badge (via StarterExampleRow), constants/theme,
  *             lib/useAppTheme, @expo/vector-icons
- *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`),
- *             app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/health.tsx,
- *             components/EnergyMeter.tsx — each also uses components/StarterExampleRow.tsx
- *             to build the `example` node
+ *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`, and
+ *             `stage="sprout"`), app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
+ *             app/(tabs)/health.tsx, app/goals.tsx, components/GoalsSheet.tsx,
+ *             components/MedicineTrayCard.tsx (compact — no watermark),
+ *             components/EnergyMeter.tsx (`stage="sapling"`) — most also use
+ *             components/StarterExampleRow.tsx to build the `example` node
  *   Data    → none — pure presentation; callers pass already-localized strings
  *
  * Edit notes:
@@ -55,27 +57,36 @@
  *     carrying example rows in the first place. Energy's compact card, the other original
  *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
  *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size.
- *   - **The watermark is `tree-natural-seed` as of 2026-08-04** (design comparison task 01).
+ *   - **The watermark is a growth-stage tree as of 2026-08-04** (design comparison task 01).
  *     It was `empty-branch` tinted in `theme.border` — a bare, leafless line, which was the
  *     one place the app's art read as absence rather than potential. The design system's rule
  *     is "floor at seed, never bare": the tree has no dead or leafless-in-decline state, the
  *     same shame-free framing the rest of the app already applies to streaks and goals.
- *     This is the codebase's ONLY mount of a growth-stage tree, and it is deliberately a
- *     low-opacity watermark, not an illustration the card is built around.
- *   - **It takes no `color` prop, and that is not an omission.** `tree-natural-seed` is an
- *     ILLUSTRATION (it carries its own baked light/dark `pal`), and components/Motif ignores
+ *   - **`stage` (2026-08-04, design comparison task 03) is a CALL-SITE choice, never data.**
+ *     It defaults to `'seed'` — the floor — and a caller only raises it because its card is
+ *     large enough to carry a fuller drawing (Habits' full-screen empty state takes `sprout`;
+ *     the Energy tutorial, which replaces the whole meter, takes `sapling`). Nothing the user
+ *     does moves it. See components/StageTree.tsx's header for why binding it to Energy, a
+ *     streak or a focus session is declined by the design project *and* by lib/growth.ts.
+ *   - **One tree per screen.** This card draws one whenever it is visible, so a screen that
+ *     also wants an ambient tree of its own has to suppress one of them —
+ *     app/(tabs)/habits.tsx is the worked example.
+ *   - **It takes no `color` prop, and that is not an omission.** Every stage is an
+ *     ILLUSTRATION (each carries its own baked light/dark `pal`), and components/Motif ignores
  *     `color` for those — passing one would be a prop that silently does nothing. Its
- *     strength is set with Motif's `opacity` multiplier instead. Keep it well under the copy:
- *     a full-colour illustration is a bigger visual event than the line art it replaced, and
- *     if it starts competing with the HintCard that can sit above it, the answer is lower
+ *     strength is set with StageTree's `opacity` multiplier instead. Keep it well under the
+ *     copy: a full-colour illustration is a bigger visual event than the line art it replaced,
+ *     and if it starts competing with the HintCard that can sit above it, the answer is lower
  *     opacity, not a redesign of the card.
+ *   - The watermark sways (±1.1°, ~6s, frozen under reduced motion). That lives in StageTree,
+ *     not here — don't add a second transform on `styles.branch`.
  *   - The watermark is also the reason `card` sets `overflow: 'hidden'`.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import Motif from '@/components/Motif';
+import StageTree, { type TreeStage } from '@/components/StageTree';
 import { Fonts, FontSize, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
@@ -93,19 +104,26 @@ type Props = {
    * Edit notes.
    */
   compact?: boolean;
+  /**
+   * Which growth stage the watermark draws. Default `'seed'` — the floor, and right for
+   * almost every caller. Raise it only because the card is physically large enough to carry
+   * a fuller drawing; it is a layout decision, never a reading of the user's data. See the
+   * Edit notes and components/StageTree.tsx.
+   */
+  stage?: TreeStage;
 };
 
-export default function StarterCard({ text, example, children, compact }: Props) {
+export default function StarterCard({ text, example, children, compact, stage }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   return (
     <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
-      {/* The seed stage of the growth tree — the empty-state member of the motif family. It
-          says "nothing has grown here yet" without saying anything is wrong, and it visually
-          anticipates the growth backdrop the app fills in later. Skipped on `compact`, which
-          is too small to carry a watermark without crowding its one line of text. */}
+      {/* The growth tree — the empty-state member of the motif family. It says "nothing has
+          grown here yet" without saying anything is wrong, and it visually anticipates the
+          growth backdrop the app fills in later. Skipped on `compact`, which is too small to
+          carry a watermark without crowding its one line of text. */}
       {compact ? null : (
-        <Motif id="tree-natural-seed" opacity={0.34} fit="meet" style={styles.branch} />
+        <StageTree stage={stage} opacity={0.34} style={styles.branch} />
       )}
       <View style={styles.textRow}>
         <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
@@ -134,13 +152,27 @@ const baseStyles = StyleSheet.create({
   // inside Motif, so it can never intercept a tap on the example row.
   branch: {
     position: 'absolute',
-    right: -Spacing.sm,
+    // `right: 0`, not the -Spacing.sm this carried while the watermark was a bare <Svg>
+    // (2026-08-04). StageTree wraps the Motif in a View to carry the sway transform, and
+    // `npm run wraps`' clipped-controls detector deliberately skips <svg> elements but not a
+    // plain wrapper — so the 8px overhang went from invisible to 8 reported "sliced control"
+    // findings across every screen with a StarterCard. The overhang bought nothing: `fit="meet"`
+    // letterboxes the 300×340 art inside this box, so the tree sat inside the card's edge
+    // either way. Don't reintroduce a negative offset here to "tuck" it.
+    //
+    // A small POSITIVE inset, not 0: on the three surfaces where a StarterCard is nested inside
+    // another card (Home's and the config sheet's Energy tutorial, the Habits list), the nearest
+    // overflow-clipping ancestor is that outer card, not this one, so `right: 0` still left the
+    // wrapper 2–3px past the real mask. Spacing.xs clears every nesting depth in the app.
+    right: Spacing.xs,
     top: 0,
     bottom: 0,
     width: 96,
-    // No `opacity` here: the seed tree is an ILLUSTRATION with its own baked palette, so its
-    // strength is set once via Motif's `opacity` prop at the call site. Two opacity controls
-    // on one watermark is how it ends up invisible in one theme and loud in the other.
+    // No `opacity` here: every stage is an ILLUSTRATION with its own baked palette, so its
+    // strength is set once via StageTree's `opacity` prop at the call site. Two opacity
+    // controls on one watermark is how it ends up invisible in one theme and loud in the other.
+    // No `transform` here either — the idle sway is StageTree's, and a second transform on the
+    // same view would replace it outright rather than compose with it.
   },
   cardCompact: {
     paddingHorizontal: Spacing.sm,

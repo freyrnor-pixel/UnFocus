@@ -11,22 +11,29 @@
  * motif system itself (`constants/motifs.ts`, `components/Motif.tsx`) stays — SectionDivider,
  * StarterCard and onboarding still use it — only this file's own consumption of it is undone.
  *
- * **Re-proposed and declined again 2026-08-04** (design comparison task 05). The design
- * system ships a per-screen-type backdrop set — `screen-bg-calm` (settings/detail),
+ * **The leaf redraw SHIPPED 2026-08-04** (design comparison task 05, the one door the previous
+ * pass left open). The corner leaves were plain filled `<Circle>` dots; they are now filled
+ * leaf silhouettes taken from the design system's own `leaf-icon` path — see `leafD()` below —
+ * and `GROWTH_LEAVES` was redrawn in the same vocabulary in the same edit, which was the
+ * condition attached to taking this on: reward branches drawn as dots growing out of a canopy
+ * of leaves would have been two languages in one picture. **Static, one field on every tab, no
+ * per-tab variation**, exactly as scoped. Nothing about the growth contract changed — neutral
+ * is still the floor, there is still no number and no "you broke it" state, and `intensity` 0
+ * is still byte-for-byte the always-there art.
+ *
+ * **The REST of task 05 stays declined, and that part is not a docs-vs-design tie-break.** The
+ * design system ships a per-screen-type backdrop set — `screen-bg-calm` (settings/detail),
  * `screen-bg-grow` (home/hub), `screen-bg-list` (scrollable lists) — held together by an edge
  * continuity rule (every file crosses the left edge at y=660 and the right at y=600) so
- * adjacent screens read as one line. It is declined for the same reason PR #449 was reverted,
- * and the continuity rule does not address that reason: the revert was about MOTION, not art.
- * A backdrop that changes or slides per tab fights the pager's own swipe feel; a nicer picture
- * on the same mechanism re-runs a known failure. The illustrated tree as a straight drop-in on
- * hero surfaces is declined with it — `components/StarterCard.tsx` now mounts the seed stage
- * (task 01), and "one tree per screen" means a second one behind the pager is out.
- * `screen-bg-strip`/`screen-bg-calm` stay in `constants/motifs.ts` as **retained source art**,
- * generated and tested but deliberately mounted nowhere — that is a decision, not an oversight.
- * The one option left open is redrawing THIS file's corner branches in the illustrated leaf
- * style (static, single-field, no per-tab variation); if you take it, `GROWTH_STROKES` has to
- * be redrawn in the same language or the reward branches end up in a different vocabulary
- * from the base art.
+ * adjacent screens read as one line. That is out for the same reason PR #449 was reverted, and
+ * the continuity rule does not address the reason: the revert was about MOTION, not art. A
+ * backdrop that changes or slides per tab fights the pager's own swipe feel; a nicer picture on
+ * the same mechanism re-runs a known failure. `screen-bg-strip`/`screen-bg-calm` stay in
+ * `constants/motifs.ts` as **retained source art**, generated and tested but deliberately
+ * mounted nowhere — a decision, not an oversight. The illustrated tree as a drop-in behind the
+ * pager is out with it: `components/StarterCard.tsx` draws a growth-stage tree whenever it is
+ * visible and `app/(tabs)/habits.tsx` draws an ambient one (task 03), so "one tree per screen"
+ * already spends that budget elsewhere.
  *
  * As of 2026-07-19 this is the "abstract branch" background (maintainer handoff
  * `HANDOFF_ABSTRACT_TREE_BACKGROUND.md`): a soft blue gradient — a vertical base plus two
@@ -89,7 +96,7 @@
  */
 import React, { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
-import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Path, Circle, G } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Path, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
@@ -127,19 +134,50 @@ const BRANCHES: Stroke[] = [
   { d: 'M158 472 Q 148 496 118 508', w: 1.1 },
 ];
 
-type Leaf = { cx: number; cy: number; r: number };
+/**
+ * A leaf. `r` is the radius of the dot this replaced, kept as the size unit so the cluster's
+ * visual weight didn't shift when the shape changed; `a` is the rotation in degrees, 0 =
+ * pointing straight up.
+ */
+type Leaf = { cx: number; cy: number; r: number; a: number };
 
+/**
+ * The illustrated leaf silhouette, in the design system's own vocabulary — two symmetric
+ * quadratic curves from base to tip, taken directly from `leaf-icon`'s path
+ * (`M12,20 Q18.9,14.8 12,5 Q5.1,14.8 12,20 Z` in a 24×24 box) and re-expressed in terms of a
+ * leaf's length. Normalised: length 15 of that box, control points 6.9 out and 2.3 below
+ * centre → half-width 0.46L, control offset 0.153L.
+ *
+ * Length is 2.6r so a leaf reads at about the mass of the r-radius dot it replaced. The
+ * source art also carries a midrib stroke at 0.4 opacity; it is deliberately dropped here —
+ * these leaves are 7–13px tall once the 280-wide viewBox is scaled to a phone, where a
+ * 0.8-width rib is sub-pixel noise rather than detail.
+ */
+function leafD(cx: number, cy: number, r: number): string {
+  const half = 1.3 * r;      // tip and base, either side of centre
+  const wide = 1.196 * r;    // 0.46 × length, the control points' half-width
+  const bulge = 0.398 * r;   // 0.153 × length, how far below centre they sit
+  return (
+    `M${cx},${cy + half} ` +
+    `Q${cx + wide},${cy + bulge} ${cx},${cy - half} ` +
+    `Q${cx - wide},${cy + bulge} ${cx},${cy + half} Z`
+  );
+}
+
+// Angles fan each leaf outward from the middle of the screen, so a corner cluster opens into
+// its own corner rather than every leaf leaning the same way. Hand-varied around that
+// baseline — a canopy of identically-angled marks reads as a pattern, not as foliage.
 const LEAVES: Leaf[] = [
   // top-left
-  { cx: 52, cy: 36, r: 4.5 }, { cx: 128, cy: 25, r: 5 }, { cx: 150, cy: 20, r: 4 },
-  { cx: 144, cy: 75, r: 4 }, { cx: 128, cy: -6, r: 3.5 }, { cx: 178, cy: 93, r: 3.5 },
-  { cx: 145, cy: 131, r: 4 },
+  { cx: 52, cy: 36, r: 4.5, a: -35 }, { cx: 128, cy: 25, r: 5, a: -12 }, { cx: 150, cy: 20, r: 4, a: 14 },
+  { cx: 144, cy: 75, r: 4, a: 28 }, { cx: 128, cy: -6, r: 3.5, a: -6 }, { cx: 178, cy: 93, r: 3.5, a: 42 },
+  { cx: 145, cy: 131, r: 4, a: 24 },
   // top-right
-  { cx: 238, cy: 70, r: 4.5 }, { cx: 250, cy: 81, r: 4 }, { cx: 232, cy: 57, r: 3.5 },
-  { cx: 176, cy: 127, r: 3.5 }, { cx: 150, cy: 157, r: 4 },
+  { cx: 238, cy: 70, r: 4.5, a: 30 }, { cx: 250, cy: 81, r: 4, a: 18 }, { cx: 232, cy: 57, r: 3.5, a: 8 },
+  { cx: 176, cy: 127, r: 3.5, a: 46 }, { cx: 150, cy: 157, r: 4, a: 62 },
   // bottom-left
-  { cx: 42, cy: 565, r: 4.5 }, { cx: 48, cy: 559, r: 4 }, { cx: 62, cy: 575, r: 3.5 },
-  { cx: 158, cy: 470, r: 4 }, { cx: 118, cy: 507, r: 3.5 },
+  { cx: 42, cy: 565, r: 4.5, a: -152 }, { cx: 48, cy: 559, r: 4, a: -168 }, { cx: 62, cy: 575, r: 3.5, a: -140 },
+  { cx: 158, cy: 470, r: 4, a: 152 }, { cx: 118, cy: 507, r: 3.5, a: 166 },
 ];
 
 // ─── Growth geometry (lib/growth.ts `level` — 2026-07-31) ──────────────────────────────────
@@ -151,7 +189,7 @@ const LEAVES: Leaf[] = [
 // y 170–440) where cards sit.
 
 type GrowthStroke = { tier: number; d: string; w: number };
-type GrowthLeaf = { tier: number; cx: number; cy: number; r: number };
+type GrowthLeaf = Leaf & { tier: number };
 
 const GROWTH_STROKES: GrowthStroke[] = [
   // tier 1 — bottom-right corner opens
@@ -172,14 +210,17 @@ const GROWTH_STROKES: GrowthStroke[] = [
   { tier: 5, d: 'M208 496 Q 190 520 186 548', w: 1.2 },
 ];
 
+// Same leaf shape and the same outward fan as the base cluster — the reward branches have to
+// speak the illustrated vocabulary too, or growth ends up drawn in a different language from
+// the art it grows out of. (That is the condition this file's header attached to the redraw.)
 const GROWTH_LEAVES: GrowthLeaf[] = [
-  { tier: 1, cx: 268, cy: 566, r: 4 }, { tier: 1, cx: 208, cy: 495, r: 3.5 },
-  { tier: 1, cx: 246, cy: 556, r: 3 },
-  { tier: 2, cx: 52, cy: 399, r: 4 }, { tier: 2, cx: 36, cy: 466, r: 3.5 },
-  { tier: 3, cx: 232, cy: 267, r: 4 }, { tier: 3, cx: 244, cy: 249, r: 3.5 },
-  { tier: 4, cx: 162, cy: 34, r: 3.5 }, { tier: 4, cx: 148, cy: 587, r: 3.5 },
-  { tier: 5, cx: 30, cy: 173, r: 3 }, { tier: 5, cx: 262, cy: 453, r: 3 },
-  { tier: 5, cx: 186, cy: 549, r: 3 },
+  { tier: 1, cx: 268, cy: 566, r: 4, a: 148 }, { tier: 1, cx: 208, cy: 495, r: 3.5, a: 168 },
+  { tier: 1, cx: 246, cy: 556, r: 3, a: 136 },
+  { tier: 2, cx: 52, cy: 399, r: 4, a: -128 }, { tier: 2, cx: 36, cy: 466, r: 3.5, a: -156 },
+  { tier: 3, cx: 232, cy: 267, r: 4, a: 62 }, { tier: 3, cx: 244, cy: 249, r: 3.5, a: 78 },
+  { tier: 4, cx: 162, cy: 34, r: 3.5, a: 18 }, { tier: 4, cx: 148, cy: 587, r: 3.5, a: 170 },
+  { tier: 5, cx: 30, cy: 173, r: 3, a: -48 }, { tier: 5, cx: 262, cy: 453, r: 3, a: 132 },
+  { tier: 5, cx: 186, cy: 549, r: 3, a: 160 },
 ];
 
 // ─── Per-theme palette ──────────────────────────────────────────────────────────────────────
@@ -231,11 +272,15 @@ function Cluster({ branch, leaf, level }: { branch: string; leaf: string; level:
       {GROWTH_STROKES.filter((g) => g.tier <= level).map((g, i) => (
         <Path key={`g${i}`} d={g.d} stroke={branch} strokeWidth={g.w} strokeLinecap="round" fill="none" />
       ))}
+      {/* Filled leaf silhouettes, rotated about their own centre — same `rotation`/`origin`
+          pair components/Motif.tsx uses for the canopy ellipses, which is the shape of
+          transform react-native-svg handles identically on native and in the web preview.
+          Still a plain `fill`, so the two-copy tint crossfade below is unaffected. */}
       {LEAVES.map((l, i) => (
-        <Circle key={`l${i}`} cx={l.cx} cy={l.cy} r={l.r} fill={leaf} />
+        <Path key={`l${i}`} d={leafD(l.cx, l.cy, l.r)} fill={leaf} rotation={l.a} origin={`${l.cx}, ${l.cy}`} />
       ))}
       {GROWTH_LEAVES.filter((g) => g.tier <= level).map((g, i) => (
-        <Circle key={`gl${i}`} cx={g.cx} cy={g.cy} r={g.r} fill={leaf} />
+        <Path key={`gl${i}`} d={leafD(g.cx, g.cy, g.r)} fill={leaf} rotation={g.a} origin={`${g.cx}, ${g.cy}`} />
       ))}
     </>
   );

@@ -7,15 +7,25 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons
- *   Used by → app/habit-form.tsx (icon picker), app/(tabs)/habits.tsx (cards/week/month rows
- *             + empty-state starter chips), components/HomeHabitsCard.tsx (row leading),
+ *   Used by → app/habit-form.tsx (icon picker), app/(tabs)/habits.tsx + components/
+ *             HomeHabitsCard.tsx (empty-state starter chips only — since 2026-08-04 both
+ *             screens' ROWS go through components/HabitLeading.tsx instead),
+ *             components/HabitLeading.tsx (the row-leading policy: this glyph, or the brand
+ *             leaf when `hasChosenHabitIcon` says no icon was chosen),
  *             lib/habitStarters.ts (HABIT_ICON_NAMES, to type the starter glyphs)
  *   Data    → none
  *
  * Edit notes:
  *   - `hasChosenHabitIcon()` is the gate every ROW should ask before drawing a leading mark.
  *     Rendering the neutral default put a second, inert hollow circle next to the row's real
- *     check — see that function's own comment before reintroducing it anywhere.
+ *     check — see that function's own comment before reintroducing it anywhere. As of
+ *     2026-08-04 the four habit rows ask it via components/HabitLeading.tsx, which draws the
+ *     brand LEAF in that slot rather than nothing: a leaf isn't a circle, so it can't be
+ *     confused with the trailing check the way the neutral ellipse was. That does not soften
+ *     this gate — the ellipse still must not be painted.
+ *   - **Don't import components/Motif here.** lib/__tests__/habitStarters.test.ts imports this
+ *     module in a plain node env for HABIT_ICON_NAMES; pulling react-native-svg into that chain
+ *     is why the leaf lives in HabitLeading.tsx rather than as a fallback branch in this file.
  */
 import React from 'react';
 import { Text, TextStyle } from 'react-native';
