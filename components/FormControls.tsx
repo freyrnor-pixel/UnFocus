@@ -8,7 +8,9 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
  *             components/PressableScale, components/OptionalTag, react-native-reanimated
- *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input
+ *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input. Switch
+ *             callers include components/PlanTaskCard.tsx (2026-08-04 — the quick-add
+ *             "add as task/moment" row, task 15's boolean-is-a-slider rule)
  *   Data    → none (purely presentational, controlled components)
  *
  * Edit notes:
@@ -101,9 +103,10 @@ type SwitchProps = {
   checked: boolean;
   onChange: (next: boolean) => void;
   disabled?: boolean;
+  accessibilityLabel?: string;
 };
 
-export function Switch({ checked, onChange, disabled }: SwitchProps) {
+export function Switch({ checked, onChange, disabled, accessibilityLabel }: SwitchProps) {
   const theme = useAppTheme();
   return (
     <View style={styles.switchRow}>
@@ -111,6 +114,7 @@ export function Switch({ checked, onChange, disabled }: SwitchProps) {
         value={checked}
         onValueChange={onChange}
         disabled={disabled}
+        accessibilityLabel={accessibilityLabel}
         trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
         // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
         // in dark mode (it means "text on an accent-colored fill"), which made the off-state

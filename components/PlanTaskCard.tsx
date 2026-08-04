@@ -93,7 +93,10 @@
  *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
  *             (quick-add's inline time field), components/QuickAddOptionsPanel +
  *             components/QuickAddOptionRow (2026-08-04 — the type line's labeled Time/Repeat/
- *             "Add as" dropdown panel, replacing icon-only chips), components/Collapsible + components/AnimatedChevron
+ *             "Add as" dropdown panel, replacing icon-only chips), components/FormControls
+ *             (Switch — the "Add as task/moment" row's control; task 15's boolean-is-always-
+ *             a-slider rule, not the accent-tinted-text look the row used before),
+ *             components/Collapsible + components/AnimatedChevron
  *             (done-zone reveal + chevron), react-native-reanimated (FadeInDown/FadeOutDown/
  *             LinearTransition for the anytime list + done-zone + footer, which share one
  *             `containerLayout` LinearTransition so the whole card reflows together),
@@ -291,6 +294,7 @@ import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import { Switch as FormSwitch } from '@/components/FormControls';
 import CardHintNote from '@/components/CardHintNote';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
@@ -1363,11 +1367,14 @@ export default function PlanTaskCard({
             <QuickAddOptionRow
               icon={captureAsMoment ? 'time-outline' : 'checkbox-outline'}
               label={t.pad.captureTarget.label}
-              value={captureAsMoment ? t.pad.captureTarget.moment : t.pad.captureTarget.task}
-              isSet={captureAsMoment}
+              value={
+                <FormSwitch
+                  checked={captureAsMoment}
+                  onChange={(v) => { tap(); setCaptureAsMoment(v); }}
+                  accessibilityLabel={t.dayLog.capturePrompt}
+                />
+              }
               accent={domainColor.accent}
-              onPress={() => { tap(); setCaptureAsMoment((v) => !v); }}
-              accessibilityLabel={t.dayLog.capturePrompt}
             />
           ) : null}
           {captureAsMoment ? null : (
