@@ -148,53 +148,32 @@ async function main() {
     await page.waitForTimeout(500);
     await shot(page, 'onboarding-basics-en');
 
-    // Walk a few rows so the live preview actually gets exercised rather than just rendered.
-    // Values are left on the shipped defaults (Light / Default / Full / Right / Home) so the
-    // tab screenshots further down still show the standard app.
-    for (const [row, option] of [['Appearance', 'Light'], ['Text size', 'Default'], ['Movement', 'Full']]) {
-      await page.getByRole('radio', { name: new RegExp(`^${row}: ${option}\\.`) }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(300);
-    }
+    // A fresh install draws ONE row here — language. The other five (Appearance, Text size,
+    // Movement, Menu side, Starting screen) moved behind the `?rows=all` re-run from
+    // Settings → Personal → Layout in the 2026-08-03 onboarding split, because screen one of
+    // a new install was asking for fifteen decisions before the user knew what the app was.
+    //
+    // This walk used to click Appearance/Text size/Movement unconditionally and hung for
+    // 10s on a radio that no longer renders, which took the whole preview — and `npm run
+    // wraps`, which drives the same walk — down with it. Those rows are still worth
+    // exercising, so they're driven on the re-run route below rather than dropped.
     await shot(page, 'onboarding-basics-picked');
     await clickText(page, 'Continue');
     await page.waitForTimeout(600);
 
-    // "Have you used UnFocus before?" — the returning-user restore step. Take the
-    // "No, I'm new here" path to continue a fresh onboarding walk.
-    console.log('> onboarding: restore prompt');
-    await shot(page, 'onboarding-restore');
-    await clickText(page, "No, I'm new here");
-    await page.waitForTimeout(500);
-
-    console.log('> onboarding: privacy');
+    // Privacy is the LAST screen since the 2026-08-03 split — onboarding is two screens now,
+    // basics → privacy, and this button finishes setup rather than advancing (which is why
+    // its label is "Start" and no longer "Got it →").
+    //
+    // Four screens this walk used to step through are gone from the flow and must not be
+    // re-added here: the standalone `restore` prompt (now an optional link BELOW this
+    // screen's primary button — a returning user's question, so it waits for the person who
+    // needs it, instead of being asked of everyone), the guided/explore/AI branch, the
+    // energy explainer, and the name screen. Only `basics`, `privacy` and `restore` exist
+    // under app/onboarding/ at all.
+    console.log('> onboarding: privacy (last screen)');
     await shot(page, 'onboarding-privacy');
-    await clickText(page, 'Got it →');
-    await page.waitForTimeout(500);
-
-    // Three peer ways to start since 2026-08-02 (guided / explore / AI setup). The AI card is
-    // deliberately NOT driven here: it opens the OS share sheet, which Playwright can't see.
-    console.log('> onboarding: guided/explore/AI choice');
-    await shot(page, 'onboarding-guided-choice');
-    await clickText(page, 'Walk me through it');
-    await page.waitForTimeout(500);
-
-    // Energy vs Quiet growth (2026-07-31) — the screen that replaced the 8-page intro
-    // slideshow's one-liner about each. Left on its seeded values (Energy on, growth off),
-    // which is what a real new user lands with.
-    console.log('> onboarding: energy');
-    await shot(page, 'onboarding-energy');
-    await clickText(page, 'Next →');
-    await page.waitForTimeout(500);
-
-    // The feature picker used to sit here and was deleted 2026-07-31 (B1-1): onboarding no
-    // longer offers any feature opt-in, so energy pushes straight to the name screen. The
-    // "stripped-back default app" the tab shots below are meant to show is now what a new
-    // user gets by default rather than by leaving switches off — same screenshots, one
-    // fewer tap. Don't re-add a `Next →` here; there is no screen to advance past.
-
-    console.log('> onboarding: name + finish');
-    await shot(page, 'onboarding-name');
-    await clickText(page, "Let's go! 🌿");
+    await clickText(page, 'Start');
     await page.waitForTimeout(1800);
 
     // The guided tour (2026-07-31) starts as soon as onboarding finishes: one spotlight step
