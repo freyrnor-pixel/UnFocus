@@ -38,6 +38,12 @@
  *     solid `colors.bg` fill with a single calm `mat.innerLine` border (no rim/fill
  *     gradient) — matching the flat, bordered chip-pill convention used elsewhere (habit-form/
  *     task-form chips, FormControls' SegmentedControl) rather than the full glass CTA treatment.
+ *   - **Every variant has a border now (task 16, 2026-08-04)**: glass-off primary/secondary used
+ *     to be a bare solid pill (danger was the only bordered flat variant); they now get the same
+ *     `mat.innerLine` edge danger always had. `ghost` (no fill, so no `mat` to tint) gets
+ *     `theme.border` instead. Glass-on primary/secondary keep their existing rim+innerLine ring
+ *     unchanged — this only fixes the flat/glass-off path. Not a return of the removed specular
+ *     highlight (`__tests__/glassMaterial.test.ts`) — a flat border, not a shine.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
@@ -159,9 +165,16 @@ export default function Button({
         // Glass moves the label padding onto the inner mask (the rim ring + mask fill the pill);
         // the solid path keeps it on the pressable itself, as before.
         useGlass ? null : { paddingVertical: vertPad, paddingHorizontal: horizPad },
-        // danger's flat fill still gets a single calm border (no rim) — see the
-        // 2026-07-21 note above `useGlass`.
-        variant === 'danger' ? { borderWidth: 1.5, borderColor: mat.innerLine } : null,
+        // Task 16 (2026-08-04, "buttons... still lack a border"): every flat (non-glass) fill
+        // gets a calm hue-tinted edge, not just danger — glass-off primary/secondary used to be
+        // a bare solid pill with no boundary at all. `mat.innerLine` is derived from the
+        // variant's own fill colour, matching the glass path's inner ring so toggling
+        // glassSurfaces doesn't change the edge hue, only whether there's a rim behind it too.
+        !useGlass && variant !== 'ghost' ? { borderWidth: 1.5, borderColor: mat.innerLine } : null,
+        // Ghost has no fill for `mat` to tint (colors.bg is 'transparent'), so it borrows the
+        // app's standard control-boundary token instead — same fix, same task, different source
+        // colour. Without this a ghost button was a glyph-less label floating on the background.
+        variant === 'ghost' ? { borderWidth: 1.5, borderColor: theme.border } : null,
         // With travel, `style` goes on the cap+base wrapper instead — a caller's margin/width
         // must size the whole key, not just the cap, or the base would stick out past it.
         travel ? null : style,
