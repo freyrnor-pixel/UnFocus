@@ -178,7 +178,7 @@ Full table in `DESIGN_RULES.md` § *Open conflicts*. Summarised with what a ruli
 | **2** | "No arbitrary values" vs 76 sub-token literals in `components/*.tsx` | A 44-file mechanical pass with real visual risk — these are 1–6px optical corrections, not a rival scale | Add a sentence permitting sub-token optical nudges, and cap them (say ≤6px) |
 | **3** | Max 3 type sizes vs `FontSize` (7) + `Type` (8 roles) + `HEADER_TITLE_BASE_SIZE` | Finishing the `FontSize`→`Type` migration *and* collapsing `Type` to 3 roles — a large, app-wide retypesetting | Reword as "max 3 per screen" (which the app may already satisfy) and finish the migration separately |
 | **4** | Max 2 font weights vs 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×) | Remapping ~370 call sites | Rule 16 becomes "max 2 per screen" |
-| **5** | One accent vs 1 + 9 `feat` + 9 `card` hues, `screenColor.ts` and `domainColor.ts` deliberately allowed to disagree on one screen | Deleting the identity-hue system — this is a core part of how the app reads | Carve out identity hues explicitly; they're wayfinding, not action colour. The contrast test already holds them to 3:1 ink |
+| **5** | One accent vs 1 + 4 live `card` domain hues (`lib/domainColor.ts`). *(Corrected 2026-08-04, DESIGN_COMPARISON/06: this row previously also counted 9 `feat` screen hues as a second live, disagreeing system — `lib/screenColor.ts` was actually retired 2026-07-31, addendum A.5, zero production consumers; the `feat*` tokens are dormant, contrast-tested only. That task reaffirmed keeping it retired rather than reviving it for card colour.)* | Deleting the identity-hue system — this is a core part of how the app reads | Carve out identity hues explicitly; they're wayfinding, not action colour. The contrast test already holds them to 3:1 ink |
 | **6** | Every target ≥44 vs `PAD_ROW_HEIGHT` 38, `Button` `sm` 36, FormControls' 40px rows | Undoing your own 2026-07-30 "lines can be compressed" request | Note the exception and require compensating `hitSlop` — which `hitSlopFor()` now makes a one-liner |
 | **7** | Never "!" vs 13 celebratory strings ("Nice work!", "Bra jobbet!") | Rewriting warm confirmations into flat ones, in an app whose whole point is not being punitive | Narrow rule 23's "!" clause to urgency/guilt only. **Recommended** — the clause is a proxy for the real rule, and here it fires on the opposite of the target |
 | **8** | Whitespace over lines / nothing jumps vs the notepad pass's full-width rules, first-visit hint auto-expand, `NewSinceGlow` | Undoing the 2026-07-30 "look like notepads" work and the teaching layer | Carve out ruled-sheet surfaces (rule 5) and first-visit teaching (rule 9). The glow already only fires on an explicit user action |
@@ -302,6 +302,7 @@ re-propose them as design direction. They are not.
 | `HomeScreen.jsx` `DayRail` | Fixed 56px time column, 20px minimum connector, simple sorted list | **Do not port** |
 | `screen-bg-{calm,grow,list}` | Per-screen-type backdrops + an edge-continuity rule | **Declined** |
 | `natural-tree.card.html` bindings | Stage advances on habit streak / Energy fullness / focus session | **Declined** |
+| `HomeScreen.jsx` cards | Colours every card from the 9-hue `--c-feat-*` set | **Declined** (kept the 4-hue `--c-card-*` system, option (a)) |
 
 **1. Check position and trailing icons** (`DESIGN_COMPARISON/12`). The design's left-check +
 dual-trailing-icon row is this app's **pre-2026-07-30** state. The check moved to the right
@@ -364,3 +365,57 @@ the app rules them flush on one sheet. Declined — boxed rows are cards inside 
 the exact complaint PR #483 fixed one day earlier, and `PadSheet`/`PadRow` exist because of a
 direct user report ("look like notepads", "related cards/things in other screens should look
 practically the same"). Recorded in `components/PadSheet.tsx`'s header.
+
+**7. Which colour system colours a card** (`DESIGN_COMPARISON/06`, 2026-08-04 — gates tasks
+07/08/09/11). The design's `HomeScreen.jsx` colours every card from the 9-hue `--c-feat-*` set;
+the app colours cards from the 4-hue `--c-card-*` set (`lib/domainColor.ts`). **Decision: keep
+the 4-hue system everywhere (option (a)), zero visible change from the top-level choice.**
+
+Declined (b)/(c) — moving cards fully or partly onto `feat*` — for a reason the task file's own
+framing (written against `tokens/colors.css`, which mirrors the palette values, not which
+systems are actually wired up) didn't have: `lib/screenColor.ts`, the module that used to route
+`feat*` hues to screens, was already **fully retired 2026-07-31 (addendum A.5)**, four days
+before this task ran. Every consumer — `ScreenColorContext`, `ScreenScaffold`'s `screenColor`
+prop, `app/scan.tsx`, `app/(tabs)/shopping.tsx`, `components/NoteRow.tsx`, `app/(tabs)/habits.tsx`
+— was migrated off it; `grep -rn "\.feat[A-Z]"` over `app/`+`components/` returns nothing.
+`screenColor.ts`'s own header states why: "That collided with the per-card identity hues...
+two different systems were competing for the same 2.5px bevel. The screen-hue term lost."
+Reviving it for (b)/(c) means relitigating that retirement, which is a bigger and more
+consequential call than an S-sized task should make alone — so it stayed declined. (This also
+means `DESIGN_RULES.md`/`DESIGN_RULES_AUDIT.md`'s Open conflict #5, which described
+`screenColor.ts` and `domainColor.ts` as two live systems "deliberately allowed to disagree,"
+was itself stale by four days; corrected in the same edit as this note.)
+
+Declined (d) — a Notes identity hue — because `cardNote: IDENTITY_NEUTRAL` is A.3's deliberate
+"four things a person actually thinks of as a separate part of their life," not an oversight;
+adding a fifth hue for Notes reopens that the same way (b)/(c) reopen A.5, and it wasn't what
+the maintainer actually flagged today (see below).
+
+**The maintainer's named complaint** ("the current color scheme is not pleasing, like the one
+for recurring and habits," 2026-08-04) got two different-sized answers:
+- **Habits** (`IDENTITY_HUES.habits`, `#1F7A2E`, L\* 44.8) — confirmed as the outlier (darker/
+  more saturated than `todo`/`health`) but **left unchanged**: it's one of the four
+  mutually-constrained, mode-invariant, CI-pinned hues (`lib/__tests__/colors.test.ts` asserts
+  its exact L\*, its ΔE2000 from the other three, and Shopping's ≥15 L\* gap from it), so
+  touching it means re-deriving and re-pinning those constants for a system every card in the
+  app shares — out of proportion for this task's "at most one visible change" budget. A
+  verified candidate is recorded for whoever picks this up next: **`#218432`** (same hue,
+  scaled brighter — L\* 48.33, chroma unchanged at 57.87), white badge ink 4.761:1 on the fill
+  / 6.478:1 on the gradient's second stop, ΔE2000 52.2 vs `todo` / 63.1 vs `health` (≫25), L\*
+  gap to Shopping 22.33 (≫15) — every constraint `colors.test.ts` checks, cleared with margin.
+  Full derivation: the addendum note above `IDENTITY_NEUTRAL` in `constants/colors.ts`.
+- **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) — **fixed**. It borrows a card-identity
+  domain purely for a distinct look (the section has no real identity of its own); that borrow
+  was `meal`, which the 2026-07-31 four-hue collapse silently aliased onto `cardShop`'s exact
+  gold (`#D9A441`) — so Recurring had been rendering in the literal Shopping-tab colour for four
+  days with nobody having chosen that, which reads as arbitrary/muddy rather than as its own
+  identity. That's the real defect, not the gold hue itself. Fixed by switching the borrow to
+  `health` (`#A84A60`, rose) — the one card-identity hue nothing else on the Plans or Home
+  screens already carries, so it doesn't cost another surface its distinctiveness. Zero new
+  palette tokens, one file (`app/(tabs)/plans.tsx`, plus its comment in `components/SectionCard.tsx`).
+
+Screenshots were not taken for this task — `npm run preview` is skipped per the task's own
+Verify section when no visible hue actually changed under test, and the Recurring fix is
+precise enough to verify from source (`getDomainColor(theme, 'health').accent`) and the
+contrast numbers above rather than a screenshot. `npx tsc --noEmit` and
+`lib/__tests__/colors.test.ts` (unchanged — no palette token was touched) are the verification.
