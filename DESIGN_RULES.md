@@ -109,6 +109,14 @@ design, not the rule.
     else is immediately reversible (undo).** The app must be safe to explore —
     a user should never fear tapping something. Existing vocabulary: `undoBtn`,
     and "This cannot be undone." on every confirm body in `lib/i18n.ts`.
+19a. **A boolean is always a slider.** An on/off setting or flag is rendered with
+    `Switch` (`components/FormControls.tsx`) — coloured track when on, grey when
+    off — never a checkbox, a pill, a chip, a tick, or a highlighted row. One
+    shape, everywhere. This does not apply to a list row's own completion check
+    (that's `PadRow`'s `○`, not a setting), a `SegmentedControl`/`TabSlider`/
+    `SlideSelector` (3+ options), or a multi-select chip row (tags, weekdays,
+    people) — those are membership or choice, not on/off. (`DESIGN_COMPARISON/
+    15-toggles-always-sliders.md`.)
 
 ## 6. Motion
 

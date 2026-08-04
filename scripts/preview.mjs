@@ -441,8 +441,9 @@ async function main() {
     // text — hence filling first, then switching what a submit commits. Pressing it must
     // NOT commit the draft as a task on the way (components/PadTypeRow.tsx's
     // internalPressRef); if this step starts producing a task named "Moment …", that guard
-    // has regressed.
-    const captureToggle = page.getByRole('button', { name: 'What just happened?', exact: true }).first();
+    // has regressed. Task 15 (2026-08-04) made this control a Switch, not a Pressable row —
+    // it now carries accessibilityRole "switch", not "button".
+    const captureToggle = page.getByRole('switch', { name: 'What just happened?', exact: true }).first();
     await captureToggle.click({ timeout: 10000 });
     await page.waitForTimeout(400);
     // Re-locate: switching the target RENAMES the field (its accessible name is its prompt,
