@@ -11,6 +11,23 @@
  * motif system itself (`constants/motifs.ts`, `components/Motif.tsx`) stays — SectionDivider,
  * StarterCard and onboarding still use it — only this file's own consumption of it is undone.
  *
+ * **Re-proposed and declined again 2026-08-04** (design comparison task 05). The design
+ * system ships a per-screen-type backdrop set — `screen-bg-calm` (settings/detail),
+ * `screen-bg-grow` (home/hub), `screen-bg-list` (scrollable lists) — held together by an edge
+ * continuity rule (every file crosses the left edge at y=660 and the right at y=600) so
+ * adjacent screens read as one line. It is declined for the same reason PR #449 was reverted,
+ * and the continuity rule does not address that reason: the revert was about MOTION, not art.
+ * A backdrop that changes or slides per tab fights the pager's own swipe feel; a nicer picture
+ * on the same mechanism re-runs a known failure. The illustrated tree as a straight drop-in on
+ * hero surfaces is declined with it — `components/StarterCard.tsx` now mounts the seed stage
+ * (task 01), and "one tree per screen" means a second one behind the pager is out.
+ * `screen-bg-strip`/`screen-bg-calm` stay in `constants/motifs.ts` as **retained source art**,
+ * generated and tested but deliberately mounted nowhere — that is a decision, not an oversight.
+ * The one option left open is redrawing THIS file's corner branches in the illustrated leaf
+ * style (static, single-field, no per-tab variation); if you take it, `GROWTH_STROKES` has to
+ * be redrawn in the same language or the reward branches end up in a different vocabulary
+ * from the base art.
+ *
  * As of 2026-07-19 this is the "abstract branch" background (maintainer handoff
  * `HANDOFF_ABSTRACT_TREE_BACKGROUND.md`): a soft blue gradient — a vertical base plus two
  * radial glows (upper-centre focal glow + a broad bottom glow) — with tapered branch-and-leaf

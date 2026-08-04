@@ -25,7 +25,7 @@
  * "instructions for this screen".
  *
  * Connections:
- *   Imports → components/Surface, components/Motif (the `empty-branch` watermark),
+ *   Imports → components/Surface, components/Motif (the `tree-natural-seed` watermark),
  *             components/Badge (via StarterExampleRow), constants/theme,
  *             lib/useAppTheme, @expo/vector-icons
  *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`),
@@ -55,10 +55,21 @@
  *     carrying example rows in the first place. Energy's compact card, the other original
  *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
  *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size.
- *   - **The `empty-branch` watermark (2026-07-31)** is drawn in `theme.border`, NOT the
- *     accent — this card is deliberately the neutral twin of HintCard's accent-barred look
- *     (see above), and an accent watermark would undo exactly that distinction. It is also
- *     the reason `card` sets `overflow: 'hidden'`.
+ *   - **The watermark is `tree-natural-seed` as of 2026-08-04** (design comparison task 01).
+ *     It was `empty-branch` tinted in `theme.border` — a bare, leafless line, which was the
+ *     one place the app's art read as absence rather than potential. The design system's rule
+ *     is "floor at seed, never bare": the tree has no dead or leafless-in-decline state, the
+ *     same shame-free framing the rest of the app already applies to streaks and goals.
+ *     This is the codebase's ONLY mount of a growth-stage tree, and it is deliberately a
+ *     low-opacity watermark, not an illustration the card is built around.
+ *   - **It takes no `color` prop, and that is not an omission.** `tree-natural-seed` is an
+ *     ILLUSTRATION (it carries its own baked light/dark `pal`), and components/Motif ignores
+ *     `color` for those — passing one would be a prop that silently does nothing. Its
+ *     strength is set with Motif's `opacity` multiplier instead. Keep it well under the copy:
+ *     a full-colour illustration is a bigger visual event than the line art it replaced, and
+ *     if it starts competing with the HintCard that can sit above it, the answer is lower
+ *     opacity, not a redesign of the card.
+ *   - The watermark is also the reason `card` sets `overflow: 'hidden'`.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -89,12 +100,12 @@ export default function StarterCard({ text, example, children, compact }: Props)
   const styles = useScaledStyles(baseStyles);
   return (
     <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
-      {/* A bare trunk, no canopy — the empty-state member of the motif family. It says
-          "nothing has grown here yet" without saying anything is wrong, and it visually
+      {/* The seed stage of the growth tree — the empty-state member of the motif family. It
+          says "nothing has grown here yet" without saying anything is wrong, and it visually
           anticipates the growth backdrop the app fills in later. Skipped on `compact`, which
           is too small to carry a watermark without crowding its one line of text. */}
       {compact ? null : (
-        <Motif id="empty-branch" color={theme.border} fit="meet" style={styles.branch} />
+        <Motif id="tree-natural-seed" opacity={0.34} fit="meet" style={styles.branch} />
       )}
       <View style={styles.textRow}>
         <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
@@ -127,7 +138,9 @@ const baseStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 96,
-    opacity: 0.5,
+    // No `opacity` here: the seed tree is an ILLUSTRATION with its own baked palette, so its
+    // strength is set once via Motif's `opacity` prop at the call site. Two opacity controls
+    // on one watermark is how it ends up invisible in one theme and loud in the other.
   },
   cardCompact: {
     paddingHorizontal: Spacing.sm,
