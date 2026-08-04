@@ -5,10 +5,10 @@
  * accent background + border. Always pass `label` for accessibility.
  *
  * Connections:
- *   Imports → constants/theme (incl. computeRimGradient), lib/useAppTheme, lib/useToggleColor
- *             (animated active-state background/border crossfade), store/useSettingsStore
- *             (glassSurfaces), react-native-reanimated, expo-linear-gradient,
- *             components/PressableScale
+ *   Imports → constants/theme (incl. computeRimGradient, darken), lib/useAppTheme,
+ *             lib/useToggleColor (animated active-state background/border crossfade),
+ *             store/useSettingsStore (glassSurfaces), react-native-reanimated,
+ *             expo-linear-gradient, components/PressableScale
  *   Used by → header actions, focus toggles, standalone icon controls
  *   Data    → reads `glassSurfaces` from the settings store
  *
@@ -21,6 +21,14 @@
  *     which is what keeps it readable in greyscale, in glare, and for a colour-blind user. Border is always 1.5px
  *     (transparent when inactive) so toggling active never shifts the icon by the border width.
  *   - Default (inactive, enabled) icon colour is `text`; disabled icon colour is `textMuted`.
+ *   - **Keycap base (task 16, 2026-08-04)**: `travel` was sinking the cap with nothing under it
+ *     — every call site had the "cap with no base" bug AGENTS.md warns about. Now wrapped in a
+ *     `keyWrap`/`keyBase` pair (same shape as Button.tsx): a stationary `darken(fill, 0.22)`
+ *     slab, revealed as a sliver by `paddingBottom: Travel.md` on the wrapper. **`style` now
+ *     applies to the wrapper, not the inner `PressableScale`** — a caller's margin/position has
+ *     to size the whole key or the base sticks out past the cap (same rule Button.tsx follows).
+ *     This also grows the component's total footprint by `Travel.md` (a few px) versus before;
+ *     a caller relying on the old exact height should re-check its layout.
  *   - **Keycap bevel ring (2026-07-21)**: when `settings.glassSurfaces` is on, the circular fill
  *     is wrapped in the same rim-gradient technique Button.tsx/Surface.tsx already use
  *     (`computeRimGradient`, light-top/dark-bottom, 3 gradient stops) — a `LinearGradient` ring
@@ -32,11 +40,11 @@
  *     unchanged.
  */
 import React from 'react';
-import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, StyleProp, View, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { MIN_TAP_TARGET, Radius, Spacing, computeRimGradient } from '@/constants/theme';
+import { darken, MIN_TAP_TARGET, Radius, Spacing, computeRimGradient } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -102,41 +110,59 @@ export default function IconButton({
     </Animated.View>
   );
 
+  // Task 16 (2026-08-04): `travel` was sinking the cap with no base under it — AGENTS.md's own
+  // "press = sink, not shrink" rule ("a caller passing travel must also draw a base... or the
+  // cap sinks into nothing"), which every IconButton call site was silently violating. Same
+  // `keyWrap`/`keyBase` shape as Button.tsx: a stationary darker slab the visible circle rests
+  // on, revealed as a sliver by the wrapper's `paddingBottom: Travel.md` and covered when the
+  // cap sinks on press. `style` moves here (the wrapper), not the PressableScale, for the same
+  // reason Button's does — a caller's width/margin has to size the whole key, not just the cap.
+  const keyBaseColor = darken(active ? theme.accent : inactiveBg, 0.22);
+
   return (
-    <PressableScale
-      onPress={onPress}
-      disabled={disabled}
-      scaleTo={0.9}
-      // Key press (2026-07-28): an icon button sinks rather than shrinking, and an ACTIVE one
-      // stays sunk — v6's "Pressed = on", so a focus/filter toggle reads as engaged by depth
-      // and not only by the accentSoft crossfade below.
-      travel={Travel.md}
-      sunk={active}
-      accessibilityLabel={label}
-      accessibilityRole="button"
-      accessibilityState={{ disabled, selected: active }}
-      style={[
-        styles.hit,
-        { width: hitTarget, height: hitTarget, opacity: disabled ? 0.45 : 1 },
-        style,
-      ]}
-    >
-      {glass ? (
-        <LinearGradient
-          colors={rim.colors}
-          locations={rim.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={{ width: size, height: size, borderRadius: Radius.full, padding: EDGE_WIDTH, alignItems: 'center', justifyContent: 'center' }}
-        >
-          {fill}
-        </LinearGradient>
-      ) : fill}
-    </PressableScale>
+    <View style={[styles.keyWrap, { width: hitTarget, paddingBottom: Travel.md }, style]}>
+      <View
+        style={[
+          styles.keyBase,
+          { borderRadius: Radius.full, backgroundColor: keyBaseColor, opacity: disabled ? 0.45 : 1 },
+        ]}
+      />
+      <PressableScale
+        onPress={onPress}
+        disabled={disabled}
+        scaleTo={0.9}
+        // Key press (2026-07-28): an icon button sinks rather than shrinking, and an ACTIVE one
+        // stays sunk — v6's "Pressed = on", so a focus/filter toggle reads as engaged by depth
+        // and not only by the accentSoft crossfade below.
+        travel={Travel.md}
+        sunk={active}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ disabled, selected: active }}
+        style={[
+          styles.hit,
+          { width: hitTarget, height: hitTarget, opacity: disabled ? 0.45 : 1 },
+        ]}
+      >
+        {glass ? (
+          <LinearGradient
+            colors={rim.colors}
+            locations={rim.locations}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ width: size, height: size, borderRadius: Radius.full, padding: EDGE_WIDTH, alignItems: 'center', justifyContent: 'center' }}
+          >
+            {fill}
+          </LinearGradient>
+        ) : fill}
+      </PressableScale>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  keyWrap: { position: 'relative' },
+  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   hit: {
     alignItems: 'center',
     justifyContent: 'center',
