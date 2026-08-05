@@ -49,6 +49,11 @@
  *     flakier path across native and the web preview; four plain views need no mask support
  *     anywhere, and they leave the middle genuinely untouched — so the card underneath is
  *     still tappable, which a full-screen scrim with a masked hole would not be.
+ *   - **The hole re-measures on a cadence while a step is up** (2026-08-05, remeasureTargets()).
+ *     A target's rect is measured on mount/focus/onLayout, and none of those fire when
+ *     something above it grows and pushes it down — which is what a Collapsible reveal does,
+ *     from a worklet. Don't replace the interval with a one-shot on step entry: the card under
+ *     the hole stays live and tappable by design, so it can resize at any point in the step.
  *   - A step whose target isn't mounted, measured, or currently ON SCREEN renders NOTHING
  *     rather than a hole in the wrong place. That last condition matters more than it looks:
  *     the pager runs with `lazy: false`, so all five tab screens are mounted from launch and
@@ -81,7 +86,7 @@ import {
   parseProgress,
   stepPosition,
 } from '@/lib/tourSteps';
-import { getTargetRect, subscribeTargets, type TargetRect } from '@/components/TourTarget';
+import { getTargetRect, remeasureTargets, subscribeTargets, type TargetRect } from '@/components/TourTarget';
 // Where to leave the user when the tour ends — see dismissAll. Same map app/(tabs)/_layout.tsx
 // uses for `initialRouteName`, in its navigate-there-now form.
 import { START_SCREEN_PATHS } from '@/lib/firstRunOptions';
@@ -92,6 +97,14 @@ const HOLE_PAD = 8;
 const RING_GAP = 4;
 /** Space the coach card is guaranteed, so it can never be pushed off either edge. */
 const CARD_RESERVE = 260;
+/**
+ * How often the active step re-measures its target. One `measureInWindow` per mounted target,
+ * and TourTarget's own measure() skips the update (and the re-render) whenever the rect is
+ * unchanged — which is the normal case. Duration.card because that is the timescale the
+ * layout shifts this exists to catch actually move on; the point is a stale ring corrects
+ * itself within a frame or two of the thing that moved, not that it polls fast.
+ */
+const REMEASURE_INTERVAL = Duration.card;
 
 export default function TourSpotlight() {
   const router = useRouter();
@@ -135,6 +148,27 @@ export default function TourSpotlight() {
     // navigate, not push: these are tabs, and pushing would pile up back-stack entries.
     router.navigate(step.route);
   }, [step, router]);
+
+  /**
+   * Keep the hole on the card (2026-08-05). A target's registered rect is measured on mount,
+   * on focus and on its own onLayout — none of which fire when something ABOVE it resizes and
+   * pushes it down the screen. On a fresh install that happens within a beat of the tour
+   * starting: the Shopping tab's first-visit HintCard reveals itself through
+   * components/Collapsible.tsx, which animates its height from a Reanimated worklet, so every
+   * sibling below it moves with no React layout pass of its own. The recorded rect stayed put
+   * and the ring sat ~130px above the card it was pointing at, over blank space.
+   *
+   * Re-measuring on a cadence for as long as the step is showing — not just once on entry —
+   * answers that and everything shaped like it (async store loads, a scroll, the user actually
+   * using the live card the tour invites them to use) with one mechanism. See
+   * remeasureTargets() for the cost, which is negligible.
+   */
+  useEffect(() => {
+    if (!step) return;
+    remeasureTargets();
+    const iv = setInterval(remeasureTargets, REMEASURE_INTERVAL);
+    return () => clearInterval(iv);
+  }, [step]);
 
   const fade = useRef(new Animated.Value(0)).current;
   const visible = Boolean((step && rect) || showFinale);

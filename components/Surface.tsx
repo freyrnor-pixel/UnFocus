@@ -34,9 +34,12 @@
  *     (wash-only, cheapest path); overlay surfaces (sheets/modals/nav) get a real frost. What
  *     sits *behind* the card (ScreenBackground colour field for ambient, live scrolling content
  *     for overlay) is decided by where the caller mounts the Surface, not here.
- *   - **Colour-architecture inversion (2026-07-18, retuned)**: the translucent FILL frosts the
- *     ScreenBackground FIELD showing through behind the card, so every card on a screen shares
- *     one uniform frosted hue; the card's identity COLOUR lives ONLY in the thin beveled EDGE. The
+ *   - **Colour-architecture inversion (2026-07-18, retuned; ambient fill went opaque 2026-08-05)**:
+ *     one uniform neutral FILL on every card of a screen, with the card's identity COLOUR living
+ *     ONLY in the thin beveled EDGE. Ambient cards used to let the ScreenBackground FIELD show
+ *     through that fill at 15%, which is where "uniform frosted hue" came from; on a device that
+ *     read as a grey cast rather than as frost, so the fill is now opaque and the edge plus the
+ *     face lift carry the material alone (see GLASS_WASH_ALPHA below). The
  *     edge is a translucent gradient ring (not an opaque full-rect gradient behind the fill) —
  *     that's what stops each card bleeding its own edge colour through the fill (the earlier
  *     thick opaque-ring version tinted every card's whole face, reading as a multi-hue screen).
@@ -188,14 +191,23 @@ const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
 // through, so they stay denser. GlassFill additionally floors the wash on Android, where
 // the backdrop blur is unavailable and opacity is the only contrast lever.
 const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // Ambient at 0.85 (2026-07-18 "looks like flat white, not frosted glass"). The previous 0.94
-  // read as an opaque white/navy tile — the face lift alone wasn't enough to
-  // sell "glass". Dropping ~9pts lets a gentle wash of the colorful ScreenBackground field show
-  // through the neutral fill, so a card reads as a genuinely translucent frosted pane over the
-  // field (the whole point of the finish) while still staying neutral enough that text keeps its
-  // contrast and cards don't fully take on the screen hue. The colour identity still lives in the
-  // keycap EDGE (domain/screen hue) and the CTAs; this is just enough translucency to look like glass.
-  ambient: 0.85,
+  // **Ambient is OPAQUE (2026-08-05).** It was 0.85 — deliberately, to let "a gentle wash of the
+  // colorful ScreenBackground field show through the neutral fill" so a card read as a
+  // translucent frosted pane rather than a flat tile. On a device it read as dirt: 15% of a
+  // blue-grey field under every card face is a grey cast, worst on Home where the hero glow
+  // sits behind the topmost card, and the maintainer's report was that the cards looked
+  // tinted and dirty rather than frosted.
+  //
+  // Translucency was the wrong lever for "this is a material". The other two are untouched and
+  // now carry it alone: the beveled EDGE (GLASS_EDGE_WIDTH, the card's identity hue) and the
+  // face lift (mat.scrim — a 10% white top that's gone by 42%, a 4% shade at the bottom), which
+  // is explicitly kept so a card still reads as moulded rather than printed on the page.
+  //
+  // Nothing is lost structurally: the fill base is the card's own colour
+  // (lighten(theme.surface, 0.10)), so alpha 1 just stops the field behind it from mixing in.
+  // Overlay and nav below are NOT part of this — they sit over live scrolling content, where
+  // translucency is doing a job nobody reported a problem with.
+  ambient: 1,
   overlay: 0.8,
   // Near-opaque (2026-07-27): unlike overlay's "blurred but present" sheets/headers, the
   // bottom nav sits over live scrolled content for as long as a tab stays open, so any
@@ -290,9 +302,9 @@ export default function Surface({
   // the normal path never re-renders on press.
   const [heldFlat, setHeldFlat] = React.useState(false);
   const staticPressed = isKey && reducedMotion && heldFlat && !disabled;
-  // Colour-architecture (2026-07-18, retuned): the translucent FILL frosts the ScreenBackground
-  // FIELD behind the card (base = theme.surface, near-white/near-navy), so cards on one screen all
-  // read as a single uniform frosted hue. Card COLOUR lives ONLY in the thin beveled EDGE, and only
+  // Colour-architecture (2026-07-18, retuned): one uniform neutral FILL on every card of a screen
+  // (base = theme.surface, near-white/near-navy) — opaque for ambient cards since 2026-08-05, see
+  // GLASS_WASH_ALPHA. Card COLOUR lives ONLY in the thin beveled EDGE, and only
   // when the card carries its own identity hue. An explicit `tint` overrides the fill base;
   // `borderColor` overrides the edge hue.
   const base = staticPressed ? theme.surfaceMuted : (tint ?? theme.surface);

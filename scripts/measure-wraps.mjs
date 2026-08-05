@@ -23,16 +23,32 @@
  *                       a segmented control) whose children spill onto a second line.
  *                       These can't be fixed by shortening copy — the row has a hard
  *                       minimum width — so they have to be measured, not eyeballed.
- *   4. CLIPPED        — a NON-text element (a button, an icon, a chip) whose box runs past
- *                       the horizontal edge of the nearest ancestor that clips overflow, so
- *                       part of it is physically sliced off. Added 2026-08-01 after the task
- *                       editor's voice mic shipped sliced in half at 360px (#465): the row
- *                       held a TextInput with no `flex: 1`/`minWidth: 0`, so the input kept
- *                       its intrinsic width and shoved the mic out through the card's
- *                       overflow mask. None of the three modes above can see that — the mic
- *                       has no text to wrap or truncate, and its row has only two children,
- *                       under the >= 3 that WRAPPED ROWS needs. It was found by eye, in a
- *                       screenshot, which is exactly what this script exists to replace.
+ *   4. CLIPPED        — an element whose box runs past the edge of the nearest ancestor that
+ *                       clips overflow, so part of it is physically sliced off. Reported per
+ *                       AXIS, because the two axes catch different bugs and neither is
+ *                       visible to the three modes above:
+ *                         [x] a NON-text element (a button, an icon, a chip) shoved out
+ *                             sideways. Added 2026-08-01 after the task editor's voice mic
+ *                             shipped sliced in half at 360px (#465): the row held a
+ *                             TextInput with no `flex: 1`/`minWidth: 0`, so the input kept
+ *                             its intrinsic width and pushed the mic through the card's
+ *                             mask. The mic has no text to wrap or truncate and its row has
+ *                             two children, under the >= 3 WRAPPED ROWS needs.
+ *                         [y] anything sliced top/bottom, TEXT INCLUDED (a label in a
+ *                             fixed-height mask neither wraps nor truncates, so modes 1 and 2
+ *                             both see a perfectly healthy single line). Added 2026-08-05.
+ *                       ⚠️ **The [y] axis did NOT catch the bug it was written for, and that
+ *                       is worth knowing before trusting a green run.** It went in after every
+ *                       `size="sm"` Button shipped with its descenders cut off (a pinned
+ *                       `height` + the glass overflow mask). Putting that height back and
+ *                       re-running reports 0 exactly as before: in CSS the label overflows the
+ *                       mask's PADDING box without crossing its border box, so nothing measures
+ *                       as clipped, while Yoga squeezes the same label on device. Same family as
+ *                       `adjustsFontSizeToFit` below — real natively, invisible here. That case
+ *                       is guarded by a source scan instead (lib/__tests__/designTokens.test.ts,
+ *                       "Button sizes with minHeight"). [y] is kept because an element genuinely
+ *                       sliced by a mask's border box IS a real bug it can see, and it is silent
+ *                       across the app today — but do not read "0 clipped" as "no text is cut off".
  *
  * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, the **Energy
  * config sheet**, and — since 2026-08-01 — the **task editor** (where the mic bug lived),
@@ -151,21 +167,32 @@ const SCAN = () => {
   const clipped = [];
   const visible = (el, cs) => cs.display !== 'none' && cs.visibility !== 'hidden';
 
-  // How far past a clipping ancestor's horizontal edge this element sticks out, or 0.
+  // How far past a clipping ancestor's edge this element sticks out on the given axis, or 0.
   //
   // Only `hidden`/`clip` count, never `auto`/`scroll`: content outside a SCROLLER is
   // reachable by scrolling, which is not a bug — and treating the tab pager (a horizontal
   // scroller holding all five screens, lazy:false) as a clipper would report every
   // off-screen tab on every run.
-  const clipOverflow = (el, rect) => {
+  //
+  // A scroller doesn't just fail to be a clipper, it ENDS THE WALK (2026-08-05). Once an
+  // ancestor can scroll on this axis the element is reachable, so no ancestor further out can
+  // slice it in the sense this mode means. Walking past one is what made the first cut of the
+  // vertical axis useless: every screen's ScrollView is `overflow-y: scroll`, so the search
+  // sailed past it to the app root's `overflow: hidden` and reported all normal below-the-fold
+  // content — 57 findings, none of them bugs, on a run whose real finding count was 0.
+  const clipOverflow = (el, rect, axis) => {
+    const horiz = axis === 'x';
     for (let p = el.parentElement; p; p = p.parentElement) {
       const pcs = getComputedStyle(p);
-      const ox = pcs.overflowX;
-      if (ox !== 'hidden' && ox !== 'clip') continue;
+      const ov = horiz ? pcs.overflowX : pcs.overflowY;
+      if (ov === 'auto' || ov === 'scroll') return null;
+      if (ov !== 'hidden' && ov !== 'clip') continue;
       const pr = p.getBoundingClientRect();
       // Border-box vs the child's rect: a 1px border is not a clipped control.
-      const over = Math.max(rect.right - pr.right, pr.left - rect.left);
-      return { over, clipper: p, clipperWidth: pr.width };
+      const over = horiz
+        ? Math.max(rect.right - pr.right, pr.left - rect.left)
+        : Math.max(rect.bottom - pr.bottom, pr.top - rect.top);
+      return { over, clipper: p, clipperSize: horiz ? pr.width : pr.height };
     }
     return null;
   };
@@ -196,28 +223,41 @@ const SCAN = () => {
       // Reported as a real clipped control until 2026-08-03, which is exactly the kind of
       // false positive that teaches people to ignore this section.
       const inNoscript = el.tagName.toLowerCase() === 'noscript' || !!el.closest('noscript');
-      if (!isTextLeaf && !inSvg && !inNoscript) {
-        const c = clipOverflow(el, rect);
+      if (!inSvg && !inNoscript) {
         // 2px tolerance absorbs subpixel rounding and rounded-corner masks.
         //
-        // `width <= clipperWidth` is what separates a BUG from a MECHANISM. The mic was
-        // 28px inside a 257px box: it fits with room to spare and was merely shoved out,
-        // which is always wrong. A child WIDER than its clipper is a sliding track — the
-        // tab pager (1800px of five screens in a 360px window), onboarding's three-panel
-        // triptych — where being clipped is the entire design. Without this the report is
+        // `size <= clipperSize` is what separates a BUG from a MECHANISM. The mic was 28px
+        // inside a 257px box: it fits with room to spare and was merely shoved out, which is
+        // always wrong. A child BIGGER than its clipper is a sliding track — the tab pager
+        // (1800px of five screens in a 360px window), onboarding's three-panel triptych, a
+        // collapsed Collapsible measuring its content at natural height inside a 0-height
+        // clip — where being clipped is the entire design. Without this the report is
         // dominated by carousels and the one real finding is lost in them.
-        if (c && c.over > 2 && rect.width <= c.clipperWidth) {
+        const record = (axis, c, size) => {
+          if (!c || c.over <= 2 || size > c.clipperSize) return;
           clipped.push({
             kind: 'clipped',
+            axis,
             tag: el.tagName.toLowerCase(),
             label: (el.getAttribute('aria-label') || el.getAttribute('data-testid') || '').slice(0, 40),
             over: Math.round(c.over),
-            width: Math.round(rect.width),
-            clipperWidth: Math.round(c.clipperWidth),
+            size: Math.round(size),
+            clipperSize: Math.round(c.clipperSize),
             // The clipper's own text is the most useful way to say WHERE this is.
             near: (c.clipper.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44),
+            text: axis === 'y' ? (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44) : '',
           });
-        }
+        };
+        // Horizontally, text leaves are the TRUNCATED category's job — reporting them here
+        // too would double-count every ellipsised label.
+        if (!isTextLeaf) record('x', clipOverflow(el, rect, 'x'), rect.width);
+        // Vertically, text leaves are included rather than deferred to TRUNCATED — that mode
+        // only ever compares widths, so it cannot see a label sliced top-and-bottom. Same
+        // three guards as the horizontal axis, and the size filter matters more here since a
+        // scroll body is always taller than its viewport. Read the ⚠️ in the file header
+        // before treating a clean [y] run as proof that no text is cut off: the fixed-height
+        // Button case this axis was written for does not reproduce in CSS at all.
+        record('y', clipOverflow(el, rect, 'y'), rect.height);
       }
     }
 
@@ -513,11 +553,13 @@ async function main() {
   // Listed first, and deliberately: unlike the other three this one has no "confirm on
   // device" caveat and no judgement call. A control sliced by an overflow mask is a bug at
   // every width where it reproduces.
-  const clip = uniq(allClipped, (c) => `${c.screen}|${c.near}|${c.over}`);
+  const clip = uniq(allClipped, (c) => `${c.screen}|${c.axis}|${c.near}|${c.over}`);
   console.log(`CLIPPED controls (sliced by an ancestor's overflow mask): ${clip.length}`);
   for (const c of clip.sort((a, b) => b.over - a.over)) {
-    console.log(`  ${c.over}px past the edge | ${c.tag} w=${c.width} inside a ${c.clipperWidth}px box `
-      + `[${c.screen}]${c.label ? ` "${c.label}"` : ''} near ${JSON.stringify(c.near)}`);
+    const dim = c.axis === 'y' ? 'h' : 'w';
+    const what = c.label || c.text;
+    console.log(`  [${c.axis}] ${c.over}px past the edge | ${c.tag} ${dim}=${c.size} inside a ${c.clipperSize}px box `
+      + `[${c.screen}]${what ? ` "${what}"` : ''} near ${JSON.stringify(c.near)}`);
   }
 
   const rowsWrapped = uniq(allRows, (r) => r.sample);

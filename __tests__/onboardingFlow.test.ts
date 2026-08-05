@@ -104,6 +104,28 @@ describe('the backdrop knows about every step', () => {
     expect([...steps].sort()).toEqual(screenFiles);
   });
 
+  // 2026-08-05: the position used to be DERIVED (`index / (STEPS.length - 1)`), so it could
+  // not go out of sync. It is stated per step now — which is what let screen one be moved off
+  // the near-empty seed panel — so the two lists need pinning to each other.
+  it('gives every step an explicit backdrop position', () => {
+    const src = read('app/onboarding/_layout.tsx');
+    const m = src.match(/const STEP_POSITION[^=]*=\s*\{([^}]+)\}/);
+    expect(m).not.toBeNull();
+    const positioned = [...m![1].matchAll(/(\w+)\s*:/g)].map((x) => x[1]);
+    expect([...positioned].sort()).toEqual([...steps].sort());
+  });
+
+  it('starts screen one on branches, not on the blank seed panel', () => {
+    // Panel 1 of `onboarding-triptych` is a ground arc, a trunk stub and a dot, all below
+    // y≈680 — as the FIRST thing a new user sees it read as a blank field with no art at all
+    // (2026-08-05 device walkthrough). Anything above 0 puts the rising branch behind the
+    // screen; 0 is the specific value that must not come back.
+    const src = read('app/onboarding/_layout.tsx');
+    const basics = src.match(/basics:\s*([\d.]+)/);
+    expect(basics).not.toBeNull();
+    expect(Number(basics![1])).toBeGreaterThan(0);
+  });
+
   it('starts at the screen the app actually redirects new users to', () => {
     // app/_layout.tsx's guard is the entry point; if it and STEPS disagree on which screen is
     // first, the tree starts part-grown.

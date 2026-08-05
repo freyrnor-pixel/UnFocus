@@ -1494,7 +1494,17 @@ export default function ShoppingScreen() {
     // (The focused-list name + live-progress summary row under the tabs was removed
     // 2026-07-21 — the per-list card already carries its own name and progress, so the
     // sticky strip is now just the tab row.)
-    <TabSlider value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
+    // The tour points HERE (2026-08-05). Its Shopping step is about the weekly and monthly
+    // lists — "a weekly list for groceries and a monthly one for what the house needs; the
+    // weekly list starts fresh on the day you choose" — and these two tabs ARE that
+    // distinction, in the user's own words. It used to ring `foodCatalogueLinks` instead,
+    // which the copy never mentions, chosen because those buttons are small and always
+    // present. This row is both of those AND the thing being described. It also sits in the
+    // sticky block rather than the ScrollView, so it is the one target on any tab that cannot
+    // drift when content above it resizes.
+    <TourTarget id="tour.shopping.list">
+      <TabSlider value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
+    </TourTarget>
   );
 
   // Screen intro chrome (first-run hint + incoming shared requests), shared by both tabs.
@@ -1618,11 +1628,11 @@ export default function ShoppingScreen() {
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
           {shoppingIntro}
-          {/* The tour points HERE, not at the whole list region: this anchor wraps the entire
-              screen (right for a debug note, useless for a spotlight — a hole around everything
-              highlights nothing), and these links are small, always present, and actually what
-              the Shopping step talks about. */}
-          <TourTarget id="tour.shopping.list">{foodCatalogueLinks}</TourTarget>
+          {/* The tour's target moved OFF these links and onto the Weekly/Monthly tab row in
+              `stickyBelowHeader` (2026-08-05) — see the comment there. Note what stays true
+              either way: the spotlight must never wrap the `DebugNoteAnchor` region above,
+              which is the whole screen — a hole around everything highlights nothing. */}
+          {foodCatalogueLinks}
 
           {tab === 'monthly' && (
             <>
