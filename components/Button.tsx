@@ -13,6 +13,13 @@
  *
  * Edit notes:
  *   - Size sm=36, md=44-48, lg=56. All meet 44px minimum touch target (md,lg exceed it; sm is inset slightly for small/secondary uses).
+ *   - **Those are MINIMUMS, not fixed heights (2026-08-05)**: `minHeight`, so a label that
+ *     needs a taller line box than the pill's resting height grows the pill instead of being
+ *     sliced by the glass path's overflow mask. It was a fixed `height` and shipped clipped
+ *     descenders on every `size="sm"` button — see the comment at the call site. Don't put a
+ *     px `lineHeight` on `styles.label` as the "fix" either: Android re-scales a style
+ *     lineHeight by the OS font scale when allowFontScaling is on, double-scaling the line box
+ *     (constants/theme.ts's getHeaderMetrics block documents that trap in full).
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
@@ -157,7 +164,14 @@ export default function Button({
       style={[
         styles.base,
         {
-          height: SIZE_HEIGHT[size],
+          // minHeight, NOT height (2026-08-05). A fixed height plus the glass path's
+          // overflow:'hidden' mask is a clipper: at sm the box left 15px of content for a 14px
+          // Nunito label whose natural line box is ~19px, and the OS text scale (capped at
+          // MAX_FONT_SCALE) grows the label without growing the box — so "Sett dagens energi"
+          // and "Last ned AI-oppsettsguide" shipped with their descenders sliced off. Same bug
+          // getHeaderMetrics() exists to solve for the screen header band. As a minimum, every
+          // size keeps its resting height and a label that needs more room grows the pill.
+          minHeight: SIZE_HEIGHT[size],
           backgroundColor: useGlass ? 'transparent' : colors.bg,
           overflow: useGlass ? 'hidden' : undefined,
           opacity: disabled ? 0.45 : 1,

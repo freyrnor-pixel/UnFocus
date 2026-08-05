@@ -30,6 +30,12 @@
  *   - Measuring uses `measureInWindow`, not `onLayout`'s local coordinates: the spotlight is a
  *     full-screen overlay, so it needs window coordinates, and a card's onLayout gives its
  *     offset within its scroll parent — which is not the same thing once the list scrolls.
+ *   - **A rect goes stale silently, so the spotlight re-measures on a cadence** (2026-08-05).
+ *     mount/focus/onLayout all miss the commonest way a card moves — something above it
+ *     resizing, especially a Collapsible reveal, which animates from a Reanimated worklet and
+ *     shifts its siblings with no layout pass of their own. `remeasureTargets()` below is what
+ *     components/TourSpotlight.tsx calls for that; read its doc comment before adding another
+ *     event listener here, because the event you want probably doesn't exist.
  *   - A target that unmounts unregisters itself. The spotlight treats a missing rect as "skip
  *     this step" rather than drawing a hole at (0,0), so a step whose screen isn't mounted
  *     degrades to nothing rather than to a black rectangle.
@@ -56,6 +62,11 @@ type Listener = () => void;
 
 const rects = new Map<string, TargetRect>();
 const listeners = new Set<Listener>();
+/**
+ * Each mounted target's own measure function, so the spotlight can ask everything to
+ * re-measure without holding a ref to any of it. See remeasureTargets() below.
+ */
+const measurers = new Map<string, () => void>();
 
 function emit() {
   for (const l of listeners) l();
@@ -72,6 +83,28 @@ export function subscribeTargets(l: Listener): () => void {
 /** The current rect for a target id, or undefined if it isn't mounted/measured yet. */
 export function getTargetRect(id: string): TargetRect | undefined {
   return rects.get(id);
+}
+
+/**
+ * Ask every mounted target to re-measure itself. Called on a cadence by
+ * components/TourSpotlight.tsx for as long as a step is on screen (2026-08-05).
+ *
+ * **The registered rect goes stale in ways nothing here can observe.** The events this
+ * component listens for — mount, focus, `onLayout` — all fire when the target's own layout
+ * changes. But a card moves whenever anything ABOVE it resizes, and the commonest such thing
+ * is a `components/Collapsible.tsx` reveal: it animates its wrapper height from a Reanimated
+ * worklet, which shifts every sibling below it without a React layout pass for them. On a
+ * fresh install the Shopping tab's first-visit HintCard does exactly that a beat after the
+ * tour starts, which put the spotlight ring ~130px above the card it was pointing at.
+ *
+ * Async store loads, a scroll, and the user tapping the live card the tour deliberately
+ * leaves interactive all do the same thing by different routes. Re-measuring on a cadence
+ * answers all of them at once instead of chasing each; it costs one `measureInWindow` per
+ * mounted target and `measure()` below already no-ops (no `emit`, so no re-render) whenever
+ * the rect is unchanged, which is almost always.
+ */
+export function remeasureTargets(): void {
+  for (const m of measurers.values()) m();
 }
 
 type Props = {
@@ -110,8 +143,12 @@ export default function TourTarget({ id, active, style, children }: Props) {
 
   useEffect(() => {
     if (!running) return;
+    // Registered alongside the rect and torn down with it, so remeasureTargets() can only ever
+    // reach targets that are mounted and actually measuring.
+    measurers.set(id, measure);
     measure();
     return () => {
+      measurers.delete(id);
       rects.delete(id);
       emit();
     };

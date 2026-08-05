@@ -224,6 +224,23 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     expect(offenders).toEqual([]);
   });
 
+  test('Button sizes with minHeight, never a fixed height', () => {
+    // 2026-08-05: every `size="sm"` button shipped with its label's descenders sliced off.
+    // `height: SIZE_HEIGHT[size]` plus the glass path's overflow mask left a 14px Nunito label
+    // 15px of content box, and the OS text scale (up to MAX_FONT_SCALE) grows the label without
+    // growing the box.
+    //
+    // This is a source scan and not a measurement because **the web preview cannot see this
+    // bug** — verified by putting the fixed height back and re-running `npm run wraps`, which
+    // reported 0 either way. CSS flexbox lets the label overflow the mask's padding box without
+    // crossing its border box, so nothing measures as clipped; Yoga squeezes it instead. Same
+    // family as `adjustsFontSizeToFit` and Android's SP lineHeight conversion — real on device,
+    // invisible on react-native-web. A scan is the only guard that actually holds here.
+    const src = readCode(join(ROOT, 'components/Button.tsx'));
+    expect(src).toMatch(/minHeight:\s*SIZE_HEIGHT\[size\]/);
+    expect(src).not.toMatch(/[^n]height:\s*SIZE_HEIGHT\[size\]/);
+  });
+
   test('no raw millisecond literals in animated code — use Duration.*', () => {
     const ALLOW = new Set([
       // Per-particle drift times for ambient background scenery — data describing a scene,

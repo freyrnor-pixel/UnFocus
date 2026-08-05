@@ -12,11 +12,15 @@
  * which was the app's entire visual identity at the one moment a new user is forming an
  * impression of it.
  *
- * The travel is INTERPOLATED across however many steps there are, rather than snapping one
- * panel per screen, so adding or removing a step needs no change here beyond the STEPS list —
- * the last entry always lands exactly on the full-tree panel because the position is
- * `index / (STEPS.length - 1)`. That generality earned its keep on 2026-08-03, when
- * onboarding went from six screens to two: seed → full tree, no code change here.
+ * The travel is INTERPOLATED rather than snapping one panel per screen, so a step can sit
+ * anywhere along the strip, including between two panels. Each step's position is stated
+ * outright in STEP_POSITION below, which is what makes "where does the FIRST screen start"
+ * a decision rather than a by-product of how many screens there happen to be.
+ *
+ * It was derived instead — `index / (STEPS.length - 1)` — until 2026-08-05. That was
+ * self-maintaining, which is why it survived the six-screens-to-two cut with no code change
+ * here, but it also silently moved screen one onto the emptiest panel of the strip the moment
+ * onboarding got short. See STEP_POSITION for what that looked like on a device.
  *
  * This doubles as the progress indicator. That is deliberate — a filling progress bar is
  * exactly the "how much more of this is there" pressure app/onboarding/basics.tsx's copy
@@ -37,9 +41,11 @@
  *     the backdrop rendered perfectly and was then covered by a flat grey rectangle — nothing
  *     in the DOM, the logs or a typecheck says so, and the art simply looks absent. Hence the
  *     ThemeProvider. The opaque base colour lives on this layout's own wrapper View.
- *   - **Adding/reordering a step means updating STEPS**, which is keyed by route segment. An
- *     unknown segment falls back to position 0 rather than throwing — a wrong-looking
- *     backdrop is a far better failure than a crash in the middle of onboarding.
+ *   - **Adding/reordering a step means updating STEPS *and* STEP_POSITION**, both keyed by
+ *     route segment. `__tests__/onboardingFlow.test.ts` pins them to each other and to the
+ *     screens that actually exist, because nothing else does. An unknown segment falls back
+ *     rather than throwing — a wrong-looking backdrop is a far better failure than a crash in
+ *     the middle of onboarding.
  *   - The strip needs `overflow: 'hidden'` on its container: it is three screens wide and
  *     React Native does not clip overflow by default (on web it widens the whole document).
  *   - Honour reducedMotion — it snaps between positions instead of animating (ANIMATION_GUIDELINES §7).
@@ -62,6 +68,34 @@ import { Duration, Ease } from '@/constants/motion';
  * the end where the tree is already full. Nobody sees the tree grow into it and then back.
  */
 const STEPS = ['basics', 'privacy', 'restore'] as const;
+
+/**
+ * Where along the triptych each step sits, 0 = seed panel, 1 = full-tree panel.
+ *
+ * This was `stepIndex / (STEPS.length - 1)`, i.e. the first step always sat at 0. That was
+ * right when onboarding had six screens and the seed was one beat of a long growth; with two
+ * screens it pinned the FIRST thing a new user ever sees to the emptiest panel there is —
+ * `onboarding-triptych`'s panel 1 is a ground arc, a short trunk stub and a dot, all below
+ * y≈680, so screen one was a headline, one row of pills, and a blank field (2026-08-05 device
+ * walkthrough: "lacks the tree, and a welcoming feeling").
+ *
+ * 0.5 lands Basics on panel 2 — the rising branch and its small canopy cluster — so there are
+ * branches behind the screen rather than a bare field. Deliberately the BACKDROP and not an
+ * illustration on the screen itself: the maintainer's call was "background can be branches,
+ * not the tree hero". Privacy keeps the full tree at 1, so the tree still visibly grows across
+ * the flow and still doubles as the progress indicator.
+ *
+ * `restore` sits at 1 for the same reason it sits last in STEPS — it is a detour off privacy,
+ * not a step anyone walks through, so the tree is already full when it appears.
+ */
+const STEP_POSITION: Record<(typeof STEPS)[number], number> = {
+  basics: 0.5,
+  privacy: 1,
+  restore: 1,
+};
+
+/** An unknown segment gets branches, not the blank seed panel — see the fallback note below. */
+const FALLBACK_POSITION = 0.5;
 
 /** Three panels wide means two screen widths of travel. */
 const TRIPTYCH_PANELS = MOTIFS['onboarding-triptych'].w / MOTIFS['screen-bg-calm'].w;
@@ -112,9 +146,11 @@ export default function OnboardingLayout() {
 
   // Last segment under /onboarding; the name step is the group's index route.
   const leaf = segments[segments.length - 1];
-  const found = STEPS.indexOf((leaf === 'onboarding' ? 'index' : leaf) as (typeof STEPS)[number]);
-  const stepIndex = found < 0 ? 0 : found;
-  const progress = STEPS.length > 1 ? stepIndex / (STEPS.length - 1) : 0;
+  const step = (leaf === 'onboarding' ? 'index' : leaf) as (typeof STEPS)[number];
+  // An unknown segment falls back rather than throwing — a wrong-looking backdrop is a far
+  // better failure than a crash in the middle of onboarding. It falls back to BRANCHES, not to
+  // position 0: the blank seed panel is the one position that reads as "the art failed to load".
+  const progress = STEP_POSITION[step] ?? FALLBACK_POSITION;
 
   const anim = useRef(new Animated.Value(progress)).current;
   useEffect(() => {
