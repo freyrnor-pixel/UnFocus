@@ -24,6 +24,7 @@
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
  *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
+ *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/domainColor, lib/habitRecurrence (habitOccursOn, habitProgress),
  *             lib/habitStarters (HABIT_STARTERS — one-tap starter chips), store/useHabitStore,
@@ -84,6 +85,13 @@
  *     it's the same fill vocabulary carrying a number nothing else on the card shows.
  *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** Fixed-position
  *     header-row sibling, not inline after the title — see HomeNotesCard's edit note for why.
+ *   - **The header "⋮" (2026-08-04, workstream A)**: `cardMenu` is optional and BUILT BY HOME
+ *     (app/(tabs)/index.tsx), not here — the rows it carries change `settings.homeCardOrder` and
+ *     Home's reorder mode, neither of which this card can reach. Adding it split the header the
+ *     way HomeNotesCard/HomeShoppingCard already were: the tap-through PressableScale now wraps
+ *     only the badge + title (`headerLeft`), so the count pill and the ⋮ are its siblings rather
+ *     than nested pressables inside it. The progress bar stopped being part of the tap target in
+ *     the same change — it is a readout, not a button, and the title above it still navigates.
  *   - **`leaf-icon` corner accent (2026-08-04, DESIGN_COMPARISON/04).** A single small leaf
  *     motif tucked top-right, behind the header row (painted first, so it sits BEHIND the
  *     badge/count pill rather than competing with them — it simply disappears where they're
@@ -110,6 +118,7 @@ import Motif from '@/components/Motif';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import CardHintNote from '@/components/CardHintNote';
+import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
