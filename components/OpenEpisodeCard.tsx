@@ -17,7 +17,7 @@
  * forgets for a week loses nothing and the app never has to guess on their behalf.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, components/Button,
+ *   Imports → components/Surface (its `onPress` key path — no PressableScale wrapper), components/Button,
  *             constants/theme, lib/haptics (tap), lib/i18n, lib/useAppTheme
  *   Used by → app/(tabs)/health.tsx (above MedicineTrayCard, below the StarterCard)
  *   Data    → none — presentational. The caller owns dismissal and calls closeEpisode.
@@ -34,7 +34,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Surface from '@/components/Surface';
-import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -56,10 +55,11 @@ export default function OpenEpisodeCard({ symptom, onStillGoing, onItsOver, onOp
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
+  // Neutral border, flat elevation — see the header. Do not pass `elevated`.
+  // The press is Surface's own key path (task 16, 2026-08-04): the card sinks onto a base
+  // rather than shrinking, which is why there is no PressableScale wrapper here any more.
   return (
-    <PressableScale onPress={onOpen} scaleTo={0.98} accessibilityRole="button">
-      {/* Neutral border, flat elevation — see the header. Do not pass `elevated`. */}
-      <Surface borderColor={theme.border} style={styles.card}>
+    <Surface borderColor={theme.border} style={styles.card} onPress={onOpen} accessibilityRole="button">
         <Text style={[styles.prompt, { color: theme.text }]}>{t.episodes.stillGoingPrompt(symptom)}</Text>
         <View style={styles.actions}>
           <Button
@@ -83,8 +83,7 @@ export default function OpenEpisodeCard({ symptom, onStillGoing, onItsOver, onOp
             }}
           />
         </View>
-      </Surface>
-    </PressableScale>
+    </Surface>
   );
 }
 

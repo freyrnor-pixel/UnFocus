@@ -17,9 +17,11 @@
  *             (2026-07-31 A.5: lib/screenColor's useScreenColor is NO LONGER imported — see the
  *             `edgeHue` comment; the per-screen hue no longer reaches any pixel)
  *   Used by → app screens that render a "card" surface (see grep for `<Surface`). Callers that
- *             pass `onPress` (the key-press path, 2026-08-04): components/OpenEpisodeCard,
- *             components/SubScreenLinkButton, app/health-log, app/health-detail,
- *             app/(tabs)/shopping (Food/Catalogue links), app/scan (the idle option cards)
+ *             pass `onPress` (the key-press path, 2026-08-04) — these FIVE, verified rather
+ *             than assumed: components/OpenEpisodeCard, components/SubScreenLinkButton,
+ *             app/health-log, app/health-detail, app/scan (the idle option cards).
+ *             Shopping's Food/Catalogue links go through SubScreenLinkButton, so they inherit
+ *             it rather than being their own call site.
  *   Data    → reads `glassSurfaces` from the settings store, `reducedMotion` via useAccessibility()
  *
  * Edit notes:
@@ -468,7 +470,11 @@ export default function Surface({
   const innerTopRightRadius = Math.max(0, topRightRadius - EDGE_WIDTH);
   const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
   const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
-  return (
+  // `asKey` is the last wrapper applied: on the non-key path it returns the card untouched, so
+  // every existing caller renders byte-identically; with `onPress` it puts the card in its
+  // cap-on-base housing. It has to wrap the FINISHED element rather than being spread into it,
+  // because the base is a sibling of the card, not a style on it.
+  return asKey(
     <View
       style={[
         outer,
@@ -530,6 +536,22 @@ const styles = StyleSheet.create({
   // around the mask. alignSelf:'stretch' so it spans the full card width; the HEIGHT counterpart
   // (flexGrow) is applied conditionally via `maskGrowStyle`, same as `mask` below.
   ring: { alignSelf: 'stretch' },
+  // ── Key-press housing (task 16, 2026-08-04) ─────────────────────────────────────────────
+  // Same two-part shape components/Button.tsx already uses (`keyWrap`/`keyBase` there), so a
+  // pressed card and a pressed button are the same object in two sizes rather than two
+  // techniques. `relative` is what the absolutely-positioned base anchors to; the wrapper's
+  // own `paddingBottom: Travel.md` (applied at the call site, since it depends on the travel
+  // distance) is what leaves the base visible as a sliver under the resting cap.
+  keyWrap: { position: 'relative' },
+  // Fills the whole wrapper INCLUDING that padding, so the sliver shows along the bottom edge
+  // and the base is flush with the cap on the other three — a moulded edge, not a drop shadow.
+  // It keeps its full height while the cap sinks, which is what makes the travel read as the
+  // cap moving rather than the whole card shrinking.
+  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  // A caller's `flex`/`flexGrow` moved to the wrapper (WRAPPER_KEYS), so the cap needs telling
+  // to fill the housing — without this the card hugs its content inside a stretched wrapper
+  // and the base shows through as a gap below it.
+  capStretch: { flexGrow: 1, alignSelf: 'stretch' },
   // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
   // and floats as a narrower box inside the bordered card). The HEIGHT counterpart

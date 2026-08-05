@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
- *             components/Surface, components/PressableScale, components/AnimatedListItem
+ *             components/Surface (its `onPress` key path), components/AnimatedListItem
  *             (symptom-section add/remove fade), lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore
  *   Note    → store hydration happens once at startup in app/_layout.tsx; this screen has
@@ -42,7 +42,6 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
-import PressableScale from '@/components/PressableScale';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import AddRow from '@/components/AddRow';
 import { useT } from '@/lib/i18n';
@@ -139,8 +138,8 @@ export default function HealthLogScreen() {
               const sev = SEVERITIES.find((x) => x.value === s.lastSeverity);
               return (
                 <AnimatedListItem key={s.key} enabled={hasMounted.current}>
-                <PressableScale onPress={() => openDetail(s)} scaleTo={0.97}>
-                  <Surface style={styles.sectionRow}>
+                  {/* Surface's own key path (task 16) — sinks onto a base, doesn't shrink. */}
+                  <Surface style={styles.sectionRow} onPress={() => openDetail(s)} accessibilityRole="button">
                     <View style={styles.sectionInfo}>
                       <Text style={[styles.sectionName, { color: theme.text }]} numberOfLines={1}>{s.name}</Text>
                       <Text style={[styles.sectionMeta, { color: theme.textMuted }]}>
@@ -154,7 +153,6 @@ export default function HealthLogScreen() {
                     </View>
                     <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                   </Surface>
-                </PressableScale>
                 </AnimatedListItem>
               );
             })

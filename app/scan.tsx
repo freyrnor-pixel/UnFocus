@@ -615,16 +615,22 @@ export default function ScanScreen() {
                 { icon: 'images-outline' as const, color: theme.border, label: t.chooseFromLibrary, onPress: pickImage },
                 { icon: 'pencil-outline' as const, color: theme.border, label: t.addManually, onPress: () => setMode('manual') },
                 { icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner },
+              // Surface's own key path (task 16) — each option sinks onto a base, doesn't shrink.
               ].map((opt) => (
-                <PressableScale key={opt.label} onPress={opt.onPress} scaleTo={0.98}>
-                  <Surface borderColor={opt.color} style={styles.optionCardRow}>
+                  <Surface
+                    key={opt.label}
+                    borderColor={opt.color}
+                    style={styles.optionCardRow}
+                    onPress={opt.onPress}
+                    accessibilityRole="button"
+                    accessibilityLabel={opt.label}
+                  >
                     <View style={[styles.optionBadge, { backgroundColor: rgba(opt.color, 0.16) }]}>
                       <Ionicons name={opt.icon} size={22} color={opt.color} />
                     </View>
                     <Text style={[styles.optionLabel, { color: theme.text }]}>{opt.label}</Text>
                     <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
                   </Surface>
-                </PressableScale>
               ))}
             </View>
 
