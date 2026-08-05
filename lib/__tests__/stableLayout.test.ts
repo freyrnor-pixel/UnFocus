@@ -109,6 +109,15 @@ describe('PlanTaskCard — the Home header reserves its space', () => {
     expect(src).toMatch(/headerTopRow: \{[^}]*minHeight: 32/);
     expect(src).toMatch(/\{countableTasks\.length > 0 && \(\s*<Badge/);
   });
+
+  it('keeps the summary wording as the pill\'s accessible name', () => {
+    // The sentence was deleted from the SCREEN, not from the app. Sighted users read the
+    // fraction off a two-number pill in context; a screen reader announcing a bare "3/7" has
+    // lost the noun. `t.pad.summary` is the whole of what survived task 09's deletion, so it
+    // is worth pinning — a visual review cannot see this one go missing, which is exactly the
+    // class of regression the rest of this file exists to catch.
+    expect(src).toMatch(/accessibilityLabel=\{t\.pad\.summary\(pendingCount, countableTasks\.length\)\}/);
+  });
 });
 
 /**
