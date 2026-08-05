@@ -149,7 +149,12 @@ import { useCardState } from '@/lib/useCardState';
  */
 const STARTER_PREVIEW_COUNT = 2;
 
-export default function HomeHabitsCard() {
+type Props = {
+  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
+  cardMenu?: CardMenu;
+};
+
+export default function HomeHabitsCard({ cardMenu }: Props) {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -323,12 +328,17 @@ export default function HomeHabitsCard() {
       <Motif id="leaf-icon" color={theme.textMuted} opacity={0.45} fit="meet" style={styles.leafAccent} />
       <View style={styles.cardContent}>
         {/* Badge is a normal flex child — one left edge for the whole card. */}
-        <PressableScale onPress={handleTitlePress} style={styles.titleRowPressable} scaleTo={0.98}>
+        <View style={styles.titleRowPressable}>
           <View style={styles.titleRow}>
-            <CardAccentBadge domain="habit" size={32} />
-            <View style={styles.headerText}>
-              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
-            </View>
+            {/* Only the badge + title navigate. The count pill and the ⋮ are siblings, not
+                children — a Badge inside a PressableScale reads as a button that isn't one,
+                and an icon button nested in a larger pressable makes its own tap ambiguous. */}
+            <PressableScale onPress={handleTitlePress} style={styles.headerLeft} scaleTo={0.98}>
+              <CardAccentBadge domain="habit" size={32} />
+              <View style={styles.headerText}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
+              </View>
+            </PressableScale>
             {/* Count pill, not the old grey sentence (DESIGN_COMPARISON/09) — see
                 HomeNotesCard's edit note for why it's a fixed-position row sibling rather than
                 inline after the title. */}
@@ -342,7 +352,9 @@ export default function HomeHabitsCard() {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
+            {cardMenu ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
           </View>
+          {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
           {dueTodayHabits.length > 0 && (
             <ProgressBar
               value={doneCount / dueTodayHabits.length}
@@ -351,7 +363,7 @@ export default function HomeHabitsCard() {
               style={styles.progressBar}
             />
           )}
-        </PressableScale>
+        </View>
 
         {habits.length === 0 ? (
           // No habits AT ALL — one-tap starters, and nothing else (2026-07-30). This block used
@@ -452,6 +464,9 @@ const baseStyles = StyleSheet.create({
   titleRowPressable: { marginBottom: Spacing.lg },
   // Badge is a normal flex child now, so there is no paddingLeft dodging an absolute one.
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // flex:1 + minWidth:0 so a long title yields to the pill and the ⋮ rather than pushing
+  // them off the row — the wrap audit's "clipped controls" case (npm run wraps).
+  headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
