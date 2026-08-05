@@ -111,7 +111,7 @@ export default function InventoryEditScreen() {
 
   return (
     <>
-      <ScreenScaffold title={list ? t.inventoryEditTitle + ' — ' + list.name : t.inventoryEditTitle} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={list ? t.inventoryEditTitle + ' — ' + list.name : t.inventoryEditTitle} tier="sub" screenKey="shopping" onBack={() => router.back()}>
         <View style={styles.content}>
           {/* "+ Add item" collapses to a bar and expands into the full add form IN PLACE
               (no modal) — the multi-field catalog-add counterpart to components/AddRow. */}

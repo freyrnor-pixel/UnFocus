@@ -215,6 +215,7 @@ import NewSinceGlow from '@/components/NewSinceGlow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import { GoalPicker } from '@/components/GoalPicker';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { getCurrentTaskLocation } from '@/lib/location';
@@ -363,7 +364,11 @@ function TaskCard({
   const setFollower = useTaskStore((s) => s.setFollower);
   const followerCycleChain = useTaskStore((s) => s.followerCycleChain);
   const allTasks = useTaskStore((s) => s.tasks);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   // Energy is a real toggle again (2026-07-31) — gates the energy stepper in the editor.
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   // The pin badge's un-pin action (2026-08-02). Read here rather than threaded down as a

@@ -45,10 +45,18 @@ design, not the rule.
 4. **One idea per row.** Never place two unrelated controls on the same
    horizontal line. The row anatomy that implements this is `components/PadRow.tsx`
    (see AGENTS.md "The row rule").
-5. **Whitespace over lines.** Group with spacing and shared containers, not with
-   borders and dividers everywhere. Reach for a divider only when spacing alone
-   genuinely can't separate two things. *(Open conflict #8: the notepad pass draws
-   full-width rules on every list card by design.)*
+5. ~~**Whitespace over lines.**~~ **OVERRULED 2026-08-05 — borders are now the
+   grouping signal.** The maintainer's card-design reset says the opposite of this
+   rule, in as many words: *"Borders around cards, buttons, text-boxes, options and
+   so on for separating them."* Every card, row, field, option cell and button now
+   carries a visible border, graded by importance through the screen's own hue
+   (`computeBorderRamp`/`computeBorderTone`, `constants/theme.ts`). This is a
+   deliberate reversal, not drift — do not "restore" rule 5 by stripping borders.
+   What the reset kept from it: **dividers** are gone (the notepad rules and the
+   quick-add panel's hairlines were both deleted), so the app separates with
+   *boundaries*, never with *lines between things*. Spacing still does the work
+   between sections; borders do it between peers. *(This resolves former open
+   conflict #8's first half — see the conflicts table.)*
 
 ## 2. Placement & order
 
@@ -174,10 +182,10 @@ one of these in passing.
 | 2 | Rule 1 — "no arbitrary values" | ~46% of component files carry 1–6px optical nudges (`2`×40, `4`×29, `6`×19). These are sub-token corrections, not a rival scale — but they are literals. | `PlanTaskCard.tsx` (13), `TaskCard.tsx` (11) |
 | 3 | Rule 14 — max 3 type sizes | Three coexisting systems: `FontSize` (7 steps), the `Type` role map (8 roles), and `HEADER_TITLE_BASE_SIZE`. The `FontSize`→`Type` migration is deliberate and unfinished. | `constants/theme.ts` |
 | 4 | Rule 16 — max 2 font weights | 5 weights defined, 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×). | `constants/theme.ts` `Fonts` |
-| 5 | Rule 12 — one accent | 1 `accent` + 4 live `card*` domain hues (`lib/domainColor.ts`). Nine `feat*` tokens also exist in `constants/colors.ts` but are dormant — `lib/screenColor.ts`, the module that used to route them to screens, was retired 2026-07-31 (addendum A.5, zero consumers); DESIGN_COMPARISON/06 (2026-08-04) reaffirmed keeping it retired rather than reviving it for card colour. | `constants/colors.ts` |
+| 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
 | 6 | Rule 17 — every target ≥ 44px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36. `PAD_ROW_MIN_HEIGHT` stays 44 for the type line. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
-| 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | The 2026-07-30 notepad pass draws **full-width rules** on every list card on purpose ("look like notepads"). First-visit ⓘ hints auto-expand, and `NewSinceGlow` paints after load — both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
+| 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **Half resolved 2026-08-05.** The rule-5 half is settled: the notepad rules are DELETED and rule 5 itself is overruled — every row is its own bordered box now (see rule 5's own entry above). The rule-9 half stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
 
 ---
 

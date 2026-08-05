@@ -328,6 +328,7 @@ import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppThem
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { useEnergyPause } from '@/lib/useEnergyPause';
@@ -1472,7 +1473,7 @@ export default function PlanTaskCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={domainColor.accent}
+      borderColor={getScreenColor(theme, 'plans').base}
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >

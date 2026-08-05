@@ -250,6 +250,7 @@ import { useHabitStore } from '@/store/useHabitStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { usePeopleStore } from '@/store/usePeopleStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useTagStore } from '@/store/useTagStore';
 import { PersonDot } from '@/components/PersonChip';
 import { PERSON_PALETTE, paletteColorAt, personColor } from '@/lib/personColor';
@@ -310,7 +311,12 @@ type FeatureFlagKey =
   | 'showGrowth';
 const FEATURE_ROWS: { key: FeatureFlagKey; copy: (t: ReturnType<typeof useT>) => { label: string; hint: string } }[] = [
   { key: 'featureGoals', copy: (t) => t.config.features.goals },
-  { key: 'featureSharing', copy: (t) => t.config.features.sharing },
+  // Sharing & QR — omitted while the single-user basics are reworked (2026-08-05, see
+  // lib/sharingVisibility.ts). The flag itself is untouched and still defaults off; this is
+  // the row that would let it be turned back ON, so it goes with the surfaces it reveals.
+  ...(SHARING_VISIBLE
+    ? [{ key: 'featureSharing' as const, copy: (t: ReturnType<typeof useT>) => t.config.features.sharing }]
+    : []),
   { key: 'featureAutomations', copy: (t) => t.config.features.automations },
   { key: 'featureMedicine', copy: (t) => t.config.features.medicine },
   { key: 'featureDayLog', copy: (t) => t.config.features.dayLog },
@@ -1623,6 +1629,12 @@ export default function SettingsScreen() {
                 reserve. Do not re-add UI for any of them without the behaviour behind it. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* People/family — hidden while the single-user basics are reworked
+                    (2026-08-05, see lib/sharingVisibility.ts). The `peopleModeEnabled`
+                    setting, the `people` table and store/usePeopleStore are all untouched;
+                    this is the entry point that reveals them, so it's the thing that has to
+                    go. Everything a user already configured is still there when it returns. */}
+                {SHARING_VISIBLE && (
                 <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent} first rounded>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
@@ -1713,6 +1725,7 @@ export default function SettingsScreen() {
                     </>
                   )}
                 </ExpandableCard>
+                )}
 
                 {/* Tags — the household's shared vocabulary. Tags are COINED from a task
                     (components/TagPickerRow.tsx), because that's where you discover you
@@ -1720,7 +1733,7 @@ export default function SettingsScreen() {
                     renaming (which follows every task, since tasks carry the id) and
                     removing. No add field here on purpose — a tag with no task on it is
                     just a word. */}
-                <ExpandableCard title={t.tags.settingsTitle} accentColor={theme.accent} rounded>
+                <ExpandableCard title={t.tags.settingsTitle} accentColor={theme.accent} first={!SHARING_VISIBLE} rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {t.tags.settingsHint}
                   </Text>
@@ -1766,6 +1779,10 @@ export default function SettingsScreen() {
                     app/pair-device.tsx; this is just the entry point. syncAvailable
                     (lib/syncService's isSyncAvailable()) only changes the copy — the link
                     always shows, since the native transport isn't linked outside a build. */}
+                {/* Paired devices — hidden with the rest of sharing (2026-08-05). Live sync
+                    itself is NOT disabled: an already-paired device keeps syncing, it just has
+                    no management screen for the moment. See lib/sharingVisibility.ts. */}
+                {SHARING_VISIBLE && (
                 <ExpandableCard title={t.peers.title} accentColor={theme.accent} rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
@@ -1774,6 +1791,7 @@ export default function SettingsScreen() {
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
                   </PressableScale>
                 </ExpandableCard>
+                )}
               </Surface>
             </View>
 

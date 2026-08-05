@@ -127,6 +127,7 @@ import { useCardState } from '@/lib/useCardState';
 import { prefillRoute } from '@/lib/prefill';
 import { useNotesStore } from '@/store/useNotesStore';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
@@ -223,7 +224,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={domainColor.accent}
+      borderColor={getScreenColor(theme, 'notes').base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>

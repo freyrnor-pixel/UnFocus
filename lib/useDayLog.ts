@@ -50,6 +50,7 @@ import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 
 /** 'H:MM'/'HH:MM' → minutes since midnight, or null. Local copy so lib/dayLog stays pure. */
 function timeToMinutes(hhmm: string): number | null {
@@ -82,7 +83,11 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] | und
   const moments = useMomentsStore((s) => s.moments);
   const enabled = useSettingsStore((s) => s.featureDayLog);
   const language = useSettingsStore((s) => s.language);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   const people = usePeopleStore((s) => s.people);
 
   return useMemo(() => {

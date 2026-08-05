@@ -379,6 +379,7 @@ import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_I
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
@@ -461,7 +462,10 @@ export default function ShoppingScreen() {
   const router = useRouter();
   const { reducedMotion } = useAccessibility();
   const mealDomainColor = getDomainColor(theme, 'meal');
-  const shopDomainColor = getDomainColor(theme, 'shop');
+  // `shopDomainColor` was dropped with the card design reset (2026-08-05): its only consumer
+  // was the Catalogue link card's `borderColor`, and that card now inherits the screen's one
+  // hue like every other. `mealDomainColor` survives because the Food link's BADGE still uses
+  // it — badges keep the domain palette, edges don't.
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
   // Rules are already loaded by app/_layout.tsx's startup bootstrap.
@@ -660,7 +664,9 @@ export default function ShoppingScreen() {
   // off on a fresh install. Scan & receipts and Food & recipes used to be opt-in too
   // (2026-07-25) but are now always on — see store/useSettingsStore.ts's "Inert
   // columns" note — so their call sites below no longer read a flag at all.
-  const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Sharing is hidden wholesale while the single-user basics are reworked (2026-08-05) —
+  // see lib/sharingVisibility.ts. The setting is still read so nothing else changes shape.
+  const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
 
   const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
   const templateLists = useMemo(() => lists.filter((l) => l.isTemplate), [lists]);
@@ -1616,7 +1622,7 @@ export default function ShoppingScreen() {
         accessibilityLabel={t.foodTabLabel}
         scaleTo={0.97}
       >
-        <Surface borderColor={mealDomainColor.accent} style={styles.subScreenLinkCard}>
+        <Surface style={styles.subScreenLinkCard}>
           {/* `restaurant` (crossed fork+knife) read as a ✕ / cancel glyph at 24px inside the
               filled circular badge — next to the word "Food" it looked like a close button
               (2026-07-28 design review). `fast-food` stays legible at badge size. */}
@@ -1631,7 +1637,7 @@ export default function ShoppingScreen() {
         accessibilityLabel={t.catalogueTabLabel}
         scaleTo={0.97}
       >
-        <Surface borderColor={shopDomainColor.accent} style={styles.subScreenLinkCard}>
+        <Surface style={styles.subScreenLinkCard}>
           <CardAccentBadge domain="shop" icon="list" size={24} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.catalogueTabLabel}</Text>
         </Surface>
@@ -1641,7 +1647,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2171,7 +2177,7 @@ export default function ShoppingScreen() {
                 // Neutral edge (theme.border) instead of the default screen-hue edge, so this
                 // empty placeholder reads as a quiet "nothing here yet", not a coded surface
                 // (2026-07-20 unify placeholder cards).
-                <Surface style={styles.weekEmptyCard} borderColor={theme.border}>
+                <Surface style={styles.weekEmptyCard}>
                   <EmptyState
                     icon="cart-outline"
                     title={t.weekEmptyTitle}

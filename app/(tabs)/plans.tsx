@@ -233,6 +233,7 @@ import { tap, success } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import TagChip from '@/components/TagChip';
@@ -401,7 +402,10 @@ function CollapsedSection({
   const theme = useAppTheme();
   const [open, setOpen] = useState(false);
   return (
-    <Surface borderColor={hue} style={styles.collapsedSection}>
+    // No `borderColor` — same reasoning as components/SectionCard.tsx: the card edge is the
+    // screen's one hue now, and `hue` stops at the rail header (2026-08-05). A collapsed section
+    // and an open one have to wear the same border, or folding one would change its colour.
+    <Surface style={styles.collapsedSection}>
       <PressableScale
         onPress={() => { tap(); setOpen((v) => !v); }}
         scaleTo={0.97}
@@ -669,7 +673,11 @@ export default function TasksScreen() {
   // onToggleDone closure every render (which would defeat their React.memo).
   const handleToggleDone = useCallback((task: Task) => toggle(task.id), [toggle]);
 
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   // People registry (2026-07-28) — the self row always exists, so >1 is what actually means
   // "there is somebody else to filter by".
   const people = usePeopleStore((s) => s.people);
@@ -677,7 +685,9 @@ export default function TasksScreen() {
   const allTags = useTagStore((s) => s.tags);
   // Sharing is opt-in (Settings → Advanced → Features), off on a fresh install — it hides
   // the shared-tasks section below. Tasks already shared stay in the store untouched.
-  const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Sharing is hidden wholesale while the single-user basics are reworked (2026-08-05) —
+  // see lib/sharingVisibility.ts. The setting is still read so nothing else changes shape.
+  const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
   // Energy is a real toggle again (2026-07-31) — gates the shared-load card below.
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   // Gates the "Goals" link button below (2026-07-29) — same flag TaskCard's own GoalPicker
@@ -1182,6 +1192,7 @@ export default function TasksScreen() {
     <ScreenScaffold
       title={t.tasksTitle}
       tier="site"
+      screenKey="plans"
       bottomNav={false}
       pagerFloatingNav
       ownBackground={false}

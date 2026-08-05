@@ -15,11 +15,12 @@
  *   Data    → none — presentational
  *
  * Edit notes:
- *   - The colored edge is the section `hue` (a solid domain accent) passed straight to
- *     `<Surface borderColor>` — the same colored-edge-on-neutral-fill language habits.tsx's
- *     domain cards already use (Decision: dropped whole-card tint, 2026-07-14). Because the
- *     box itself now carries the hue, rows inside it no longer need their own per-card
- *     `railColor` left edge — drop it at the call site to avoid double-coding.
+ *   - **The card edge is the SCREEN's hue, not the section's (card design reset, 2026-08-05).**
+ *     This used to pass `hue` straight to `<Surface borderColor>`, which is now an override of
+ *     the one-colour-per-screen border and shipped a maroon "Recurring" card next to a blue
+ *     "Whenever" one on the To-do tab. `hue` now stops at the SectionRail header — badge,
+ *     label, divider — and the card inherits like everything else. Rows inside still don't
+ *     need a per-card `railColor` left edge; that part of the 2026-07-17 note stands.
  *   - Header is the shared `<SectionRail>` (gradient badge or dot + ALL-CAPS title + hairline
  *     rule) so the label + count stay consistent with the rest of the app; pass `right` through
  *     for a header-side control (e.g. a toggle). Top padding is tightened (Spacing.sm) so the
@@ -48,7 +49,18 @@ import { Radius, Spacing } from '@/constants/theme';
 import { Domain } from '@/lib/domainColor';
 
 type Props = {
-  /** Solid domain accent (getDomainColor(theme, domain).accent) — colors the header + card edge. */
+  /**
+   * Solid domain accent (getDomainColor(theme, domain).accent) — colours the header rail's
+   * badge, label and divider.
+   *
+   * **It no longer colours the card EDGE (card design reset, 2026-08-05).** The border is one
+   * colour per screen now (lib/screenColor.ts), so a section passing its own hue to
+   * `Surface borderColor` would override that and put a different-coloured card on the screen —
+   * which is exactly what it did: the To-do tab drew a blue "Whenever" card next to a maroon
+   * "Recurring" one, because `repeatingHue` borrows the health token for its badge. The badge
+   * keeps that borrowed colour (it's a glyph plate, and lib/domainColor.ts is still the system
+   * for those); the card around it now inherits its screen's hue like every other card.
+   */
   hue: string;
   /** Section's domain identity, if any — see the Edit notes above. */
   domain?: Domain;
@@ -67,8 +79,10 @@ type Props = {
 };
 
 export default function SectionCard({ hue, domain, icon, label, count, right, style, contentStyle, children }: Props) {
+  // No `borderColor` — the card inherits the SCREEN's hue (see the `hue` prop's doc). `hue`
+  // still reaches the rail below, which is where a section's own identity lives now.
   return (
-    <Surface borderColor={hue} style={[styles.card, style]}>
+    <Surface style={[styles.card, style]}>
       <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
     </Surface>

@@ -138,6 +138,7 @@ export default function GoalsScreen() {
     <ScreenScaffold
       title={t.goals.title}
       tier="site"
+      screenKey="goals"
       infoActive={hintOpen}
       onInfoToggle={() => setHintOpen((v) => !v)}
     >

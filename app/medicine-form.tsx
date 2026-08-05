@@ -56,6 +56,7 @@ import { showAppModal } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
@@ -81,7 +82,11 @@ export default function MedicineFormScreen() {
   const updateMedicine = useMedicineStore((s) => s.update);
   const removeMedicine = useMedicineStore((s) => s.remove);
   const healthLogs = useHealthStore((s) => s.logs);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   const people = usePeopleStore((s) => s.people);
 
   const t = useT();
@@ -169,6 +174,7 @@ export default function MedicineFormScreen() {
       <ScreenScaffold
         title={isEdit ? t.medicine.formTitleEdit : t.medicine.formTitleNew}
         tier="sub"
+        screenKey="health"
         onBack={() => router.back()}
       >
         <View style={styles.content}>

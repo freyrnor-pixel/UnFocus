@@ -1,165 +1,115 @@
 /**
- * Surface.tsx — material-aware card surface.
+ * Surface.tsx — the one card shape: a flat opaque page with a single hue-ramped border.
  *
- * Wraps children in a two-layer pattern (outer view carries border +
- * shadow, inner overflow:hidden mask carries the frost+wash fill) so any card uses
- * the glass surface finish — frosted glass over the ambient ScreenBackground.
- * Drop-in replacement for `<View style={[styles.card, {backgroundColor:
- * theme.surface}]}>` — pass the same `style` (radius/margin/padding all still
- * work; padding is automatically moved to the inner content so the fill
- * still spans the full card).
+ * **Card design reset, 2026-08-05 (maintainer brief, "one simple design for all cards").**
+ * Every card in the app is now the same object: an opaque fill — pure white in light mode,
+ * the flat navy `theme.surface` in dark — with ONE simple border carrying the screen's own
+ * colour, ramped deep→light down the edge. Nothing is drawn on the face. There is no frost,
+ * no colour wash, no translucency, no face-lift gradient, and no beveled rim.
+ *
+ * What that replaced, so nobody re-adds it by halves: a glass system built between 2026-07-18
+ * and 2026-08-05 — a BlurView for overlay contexts, a per-context translucent wash
+ * (`GLASS_WASH_ALPHA`), a 10%-white face lift fading out by 42% with a 4% bottom shade
+ * (`getMaterialStyle`'s `scrim`), a 2.5px beveled `computeRimGradient` ring, and an
+ * `innerLine` second edge. All of it is gone from this component. `components/GlassFill.tsx`
+ * is no longer mounted here at all.
  *
  * Connections:
- *   Imports → constants/theme (darken, getElevation, getLayeredShadow, getMaterialStyle,
- *             computeRimGradient), constants/motion (Travel), lib/useAppTheme (useAppTheme,
- *             useIsDark, useAccessibility), store/useSettingsStore (glassSurfaces),
- *             components/GlassFill, components/PressableScale, expo-linear-gradient
- *             (2026-07-31 A.5: lib/screenColor's useScreenColor is NO LONGER imported — see the
- *             `edgeHue` comment; the per-screen hue no longer reaches any pixel)
- *   Used by → app screens that render a "card" surface (see grep for `<Surface`). Callers that
- *             pass `onPress` (the key-press path, 2026-08-04) — these FIVE, verified rather
- *             than assumed: components/OpenEpisodeCard, components/SubScreenLinkButton,
- *             app/health-log, app/health-detail, app/scan (the idle option cards).
- *             Shopping's Food/Catalogue links go through SubScreenLinkButton, so they inherit
- *             it rather than being their own call site.
- *   Data    → reads `glassSurfaces` from the settings store, `reducedMotion` via useAccessibility()
+ *   Imports → constants/theme (BORDER_WIDTH, computeBorderRamp, darken,
+ *             getLayeredShadow, Radius), constants/motion (Travel), lib/useAppTheme
+ *             (useAppTheme, useIsDark, useAccessibility), lib/screenColor (useScreenColor),
+ *             components/PressableScale, expo-linear-gradient
+ *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
+ *             (the key-press path): components/OpenEpisodeCard, components/SubScreenLinkButton,
+ *             app/health-log, app/health-detail, app/scan. Shopping's Food/Catalogue links
+ *             inherit it through SubScreenLinkButton.
+ *   Data    → reads `reducedMotion` via useAccessibility(); the ambient screen hue via
+ *             useScreenColor() (provided by components/ScreenScaffold.tsx)
  *
  * Edit notes:
- *   - The glass finish (frost + wash + face lift) lives in the shared
- *     components/GlassFill.tsx; Surface owns the outer view (layered shadow + layout), the
- *     beveled EDGE (a translucent gradient ring, ~2.5px thick — widened 2026-07-26, see the
- *     EDGE_WIDTH comment below), the overflow:hidden mask, and the
- *     style-splitting contract. The `surfaceContext` prop (`'ambient'` default | `'overlay'`)
- *     selects GlassFill's blur intensity AND wash alpha — ambient cards get NO BlurView
- *     (wash-only, cheapest path); overlay surfaces (sheets/modals/nav) get a real frost. What
- *     sits *behind* the card (ScreenBackground colour field for ambient, live scrolling content
- *     for overlay) is decided by where the caller mounts the Surface, not here.
- *   - **Colour-architecture inversion (2026-07-18, retuned; ambient fill went opaque 2026-08-05)**:
- *     one uniform neutral FILL on every card of a screen, with the card's identity COLOUR living
- *     ONLY in the thin beveled EDGE. Ambient cards used to let the ScreenBackground FIELD show
- *     through that fill at 15%, which is where "uniform frosted hue" came from; on a device that
- *     read as a grey cast rather than as frost, so the fill is now opaque and the edge plus the
- *     face lift carry the material alone (see GLASS_WASH_ALPHA below). The
- *     edge is a translucent gradient ring (not an opaque full-rect gradient behind the fill) —
- *     that's what stops each card bleeding its own edge colour through the fill (the earlier
- *     thick opaque-ring version tinted every card's whole face, reading as a multi-hue screen).
- *     (2026-07-21: the ring moved from a single View's per-side-coloured border to a
- *     `LinearGradient` fill — see the EDGE_WIDTH comment below for why.)
- *   - Glass-off path: `settings.glassSurfaces` false renders a plain opaque card
- *     (mat.contrastBase fill, themed border, legacy single shadow) — the demo's non-glass
- *     fallback, exposed to users as a reduce-transparency toggle. GlassFill isn't mounted
- *     at all in that mode.
- *   - Depth: glass-on uses getLayeredShadow(theme.shadow) — a three-pass
- *     `boxShadow` (RN New-Arch) — and must NOT also set the shadow/elevation keys on the
- *     same view (they'd double up). Glass-off keeps the legacy single shadow. `elevated`
- *     deepens either to the `floating` tier.
- *   - `style` is split three ways: padding keys AND content-layout keys
- *     (alignItems/justifyContent/flexDirection/gap...) move to the inner content
- *     view; everything else non-owned (margin, width, flex, minHeight, borderRadius...)
- *     stays on the outer shadow-casting view; the mask `alignSelf:'stretch'`es to full
- *     width AND `flexGrow:1`s to full height. Routing content-layout inward (not onto the
- *     outer view) is what stops the fill from shrink-wrapping its children and floating as
- *     a narrower "box inside the box" (width case); `flexGrow:1` is the height counterpart —
- *     without it, a card whose outer view is taller than its content (e.g. a collapsed Home
- *     preview card with `minHeight`) leaves a bare transparent band inside the border below
- *     the content, since the fill (absoluteFill inside the mask) only covered the content
- *     height. Any backgroundColor, border colors/width, or
- *     shadow/elevation in `style` is intentionally dropped — owned by the material.
- *   - Glass-off card edge is `theme.border` (opaque) so a plain card keeps a visible calm
- *     edge (2026-07-12 redesign), uniformly on all sides in both light and dark mode (2026-07-21:
- *     dropped the light-mode-only `borderTopColor` highlight override — same per-side-colour +
- *     borderRadius corner-rendering risk as the glass-on edge, not worth it for a subtle
- *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a
- *     beveled edge (~2.5px, `computeRimGradient()`) in the edge hue (the card's own
- *     `borderColor`/`tint`, else neutral) — thick enough that a domain/screen colour reads as a
- *     real accent again (2026-07-26, see EDGE_WIDTH below — the 2026-07-18→07-24 thin-edge era
- *     had squeezed this down to ~1.5px). **Flat as of 2026-08-05** (see `computeRimGradient`'s
- *     own header in constants/theme.ts) — ONE hue-tinted tone the whole way round, not a
- *     lit-top/dark-bottom ramp; the hue identity stays, only the light-gradient shape is gone.
- *   - shadowColor comes from the active theme's `shadow` token (not a fixed
- *     black), so depth itself shifts hue with the colour theme.
- *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
- *     states, or an accent colour for a coloured card) — material shading is
- *     computed from this base. For a domain-coded card, prefer `borderColor`
- *     (colored edge, neutral fill) over `tint` (whole-card colour wash) — see its
- *     own doc comment on the Props type (2026-07-14).
- *   - **Purposeful Depth System (2026-07-14)**: `elevated` swaps the outer view's
- *     shadow keys from the material's own (`mat.shadowOpacity/Radius/elevation`, ≈
- *     `raised`) to `getElevation('floating', theme.shadow)` — same themed shadowColor,
- *     just deeper. This is the focus-pop path for Surface-based (glass) cards; see
- *     PlanTaskCard.tsx for the caller.
- *   - **A tappable card is a KEY (task 16, 2026-08-04)**: pass `onPress` and Surface renders
- *     itself as a cap on a base — a stationary `darken(fill, 0.22)` slab behind the card,
- *     revealed as a `Travel.md` sliver by the wrapper's `paddingBottom`, with
- *     components/PressableScale's `travel` sinking the cap onto it. Before this the seven
- *     tappable cards in the app wrapped Surface in their own `<PressableScale scaleTo={0.97}>`,
- *     so a card SHRANK on press instead of sinking — the one thing AGENTS.md's "press = sink,
- *     not shrink" rule exists to prevent, and the clearest remaining case of "doesn't feel
- *     pressable". **`style` splits again on this path**: layout keys that must size the whole
- *     key (margin*, width, flex, alignSelf, position/inset, zIndex — `WRAPPER_KEYS` below) move
- *     to the wrapper, or the base sticks out past the cap; everything else (radius, minHeight)
- *     stays on the card. Don't pass `depth` through to PressableScale here — Surface already
- *     owns its shadow (getLayeredShadow) and the two would fight.
- *   - **Reduced motion gets a static pressed COLOUR, not a sink**: travel is motion, and
- *     `useAccessibility()` ORs in the OS flag. With it set, `travel` is withheld and the card's
- *     fill drops to `theme.surfaceMuted` while held instead. The base slab is still drawn in
- *     both modes — it's a static moulded edge, not an animation, so the layout is identical
- *     either way and the edge keeps doing the work when the motion can't.
- *   - **Per-corner radius (2026-07-24)**: pass standard RN `borderTopLeftRadius` /
- *     `borderTopRightRadius` / `borderBottomLeftRadius` / `borderBottomRightRadius` in `style`
- *     (alongside or instead of `borderRadius`) to square off individual corners — e.g.
- *     BottomNav squares its top-left/top-right so the floating gap above it reads as a flat
- *     edge instead of a rounded notch exposing the ambient backdrop. The outer view already
- *     honours these (passthrough), but the ring/mask/GlassFill needed their own per-corner
- *     math (`topLeftRadius`/etc. below) since they only look at the single `radius` otherwise.
+ *   - **Colour lives ONLY in the border, and the border's hue comes from the SCREEN.** The
+ *     resolution order is `borderColor` (an explicit override — Home's preview cards pass
+ *     their source screen's hue this way) → `tint` → the ambient screen hue from
+ *     lib/screenColor.ts → the neutral `theme.border`. Home and Settings provide no hue on
+ *     purpose, so their cards land on that neutral and are grey. See lib/screenColor.ts's
+ *     header for why the per-screen layer came back after being retired on 2026-07-31.
+ *   - **The ramp is a gradient again, and that is not a revert.** `constants/theme.ts`'s
+ *     `computeRimGradient` was flattened one day earlier because a border should not simulate
+ *     a light source. `computeBorderRamp` is not a light source: it stays inside the screen's
+ *     own hue with no white and no black in it. Read that function's own doc before changing
+ *     either of them.
+ *   - `surfaceContext` ('ambient' | 'overlay' | 'nav') is kept in the API but **no longer
+ *     changes a pixel** — every context is now the same opaque fill. It survives so the ~40
+ *     call sites that pass it don't all need touching in this pass, and so a future
+ *     "sheets should differ from cards" decision has somewhere to land. Don't wire new
+ *     behaviour to it without asking; today it is documentation, not a switch.
+ *   - **`settings.glassSurfaces` is inert for this component now.** It was the
+ *     reduce-transparency a11y toggle, and the thing it reduced no longer exists — every
+ *     surface is fully opaque unconditionally, which is the state that toggle was asking for.
+ *     The setting and its DB column stay (this repo never drops columns) and other consumers
+ *     still read it; Surface simply has nothing left to vary.
+ *   - Depth is still `getLayeredShadow(theme.shadow)` — a three-pass `boxShadow` — and this
+ *     view must NOT also set the `shadow*`/`elevation` keys (they would double up).
+ *     `elevated` deepens it to the `floating` tier. Shadow was not part of the reset brief:
+ *     a flat white card on a light backdrop needs *something* to sit on, and a shadow is the
+ *     one depth cue that costs no colour.
+ *   - `style` is split three ways: padding keys AND content-layout keys (alignItems,
+ *     justifyContent, flexDirection, gap…) move to the inner content view; everything else
+ *     non-owned (margin, width, flex, minHeight, borderRadius…) stays on the outer
+ *     shadow-casting view; the mask `alignSelf:'stretch'`es to full width AND `flexGrow:1`s to
+ *     full height. Routing content-layout inward is what stops the fill shrink-wrapping its
+ *     children and floating as a narrower "box inside the box"; `flexGrow:1` is the height
+ *     counterpart. Any backgroundColor, border or shadow key in `style` is intentionally
+ *     dropped — those are owned here.
+ *   - **A tappable card is a KEY**: pass `onPress` and Surface renders itself as a cap on a
+ *     base — a stationary `darken(fill, 0.22)` slab behind the card, revealed as a `Travel.md`
+ *     sliver by the wrapper's `paddingBottom`, with PressableScale's `travel` sinking the cap
+ *     onto it. This is point 7 of the reset brief ("button states stay as designed") applied
+ *     to cards, and is unchanged by it. `style` splits again on this path: whole-key sizing
+ *     keys (`WRAPPER_KEYS`) move to the wrapper, or the base sticks out past the cap. Don't
+ *     pass `depth` through to PressableScale — Surface owns its shadow and the two would fight.
+ *   - **Reduced motion gets a static pressed COLOUR, not a sink.** With the flag set, `travel`
+ *     is withheld and the fill drops to `theme.surfaceMuted` while held. The base slab is drawn
+ *     in both modes — it's a static moulded edge, not an animation, so layout is identical.
+ *   - **Per-corner radius**: pass standard RN `borderTopLeftRadius` etc. in `style` to square
+ *     off individual corners (BottomNav squares its top corners). The outer view honours these
+ *     already; the ring and mask need their own math, which is what `topLeftRadius` & co. below
+ *     are for.
  */
 import React from 'react';
 import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { computeRimGradient, darken, getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderRamp, darken, getLayeredShadow, Radius } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import GlassFill from '@/components/GlassFill';
+import { useScreenColor } from '@/lib/screenColor';
 import PressableScale from '@/components/PressableScale';
 
 /**
- * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
- * over the calm ScreenBackground backdrop and uses a lighter blur; 'overlay' sits
- * over live scrolling content (sticky headers, sheets) and blurs harder so
- * the moving content behind stays unreadable-but-present. 'nav' (2026-07-27) is for
- * the persistent BottomNav specifically: unlike a sheet/header, it sits over scrolled
- * list content for the ENTIRE time a tab is open, not just transiently — user report,
- * screenshot: scrolled cards/text were still visibly (if blurred/dimmed) legible
- * through it. Wash alpha is pushed near-opaque so only a flat tinted panel reads
- * through, never individual card shapes, and blur is skipped since it buys nothing
- * once the wash is that dense.
+ * Which backdrop this surface sits over. **Presentational no-op since the 2026-08-05 card
+ * reset** — all three render identically (opaque fill, one border). Kept for the call sites
+ * and as a place for a future sheets-differ-from-cards decision; see the Edit notes.
  */
 export type SurfaceContext = 'ambient' | 'overlay' | 'nav';
 
 type Props = {
   surfaceContext?: SurfaceContext;
+  /** Non-default FILL base (e.g. theme.offWhite for an empty state). Opaque. */
   tint?: string;
   /**
-   * Overrides the card edge color on all four sides (including the light-mode glass
-   * top highlight) — e.g. a domain accent for a colored-border/neutral-fill card
-   * (2026-07-14: replaces the old whole-card `tint` wash pattern). Omit for the
-   * default calm `theme.border` edge.
+   * Overrides the border hue, winning over the ambient screen hue. The one legitimate use is
+   * a card that belongs to a DIFFERENT screen than the one it is drawn on — Home's preview
+   * cards, which wear their source screen's colour so Home reads as an index of the others.
+   * A card on its own screen should pass nothing and inherit.
    */
   borderColor?: string;
-  /**
-   * Purposeful Depth System (2026-07-14): boosts this card's shadow to the `floating`
-   * tier (getElevation('floating', theme.shadow)) on top of the material's own themed
-   * shadowColor — the focus/active pop for material (glass) cards. Omit for the
-   * default material shadow (≈ `raised`).
-   */
+  /** Boosts this card's shadow to the `floating` tier — the focus/active pop. */
   elevated?: boolean;
   /**
-   * Makes the whole card a key (task 16, 2026-08-04): Surface draws a base behind itself and
-   * sinks onto it on press, instead of the caller wrapping it in its own scale-bouncing
-   * PressableScale. Prefer this over `<PressableScale><Surface/></PressableScale>` — a card
-   * that shrinks reads as a sticker, one that sinks reads as a key. See the Edit notes for the
-   * `style` split this turns on.
+   * Makes the whole card a key: Surface draws a base behind itself and sinks onto it on press,
+   * rather than the caller wrapping it in its own scale-bouncing PressableScale. Prefer this
+   * over `<PressableScale><Surface/></PressableScale>` — a card that shrinks reads as a
+   * sticker, one that sinks reads as a key.
    */
   onPress?: () => void;
   /** Only meaningful with `onPress`. */
@@ -174,98 +124,33 @@ type Props = {
   children: React.ReactNode;
 };
 
-// Blur strength per context (2026-07-18 simplification: frost is reserved for floating
-// chrome). Ambient cards get NO BlurView at all — ambient-context callers pass
-// blurIntensity 0 into GlassFill, which skips mounting it entirely. Overlay surfaces
-// (sheets/modals/nav) sit over live scrolling content, so they get a real frost.
-const GLASS_BLUR_INTENSITY: Record<SurfaceContext, number> = {
-  ambient: 0,
-  overlay: 64,
-  // No BlurView: the wash alone (near-opaque, see GLASS_WASH_ALPHA below) already fully
-  // hides scrolled content, so a blur pass would only cost a frame with no visible payoff.
-  nav: 0,
-};
+const EDGE_WIDTH = BORDER_WIDTH.card;
 
-// The glass colour wash sits on top of the (optional) BlurView, carrying the theme hue.
-// AMBIENT cards have no BlurView, so the wash alone is the entire finish — a translucent
-// tint over the calm ScreenBackground backdrop reads as frosted without per-frame blur.
-// OVERLAY surfaces sit over live scrolling content where legible text/shapes must NOT read
-// through, so they stay denser. GlassFill additionally floors the wash on Android, where
-// the backdrop blur is unavailable and opacity is the only contrast lever.
-const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
-  // **Ambient is OPAQUE (2026-08-05).** It was 0.85 — deliberately, to let "a gentle wash of the
-  // colorful ScreenBackground field show through the neutral fill" so a card read as a
-  // translucent frosted pane rather than a flat tile. On a device it read as dirt: 15% of a
-  // blue-grey field under every card face is a grey cast, worst on Home where the hero glow
-  // sits behind the topmost card, and the maintainer's report was that the cards looked
-  // tinted and dirty rather than frosted.
-  //
-  // Translucency was the wrong lever for "this is a material". The other two are untouched and
-  // now carry it alone: the beveled EDGE (GLASS_EDGE_WIDTH, the card's identity hue) and the
-  // face lift (mat.scrim — a 10% white top that's gone by 42%, a 4% shade at the bottom), which
-  // is explicitly kept so a card still reads as moulded rather than printed on the page.
-  //
-  // Nothing is lost structurally: the fill base is the card's own colour
-  // (lighten(theme.surface, 0.10)), so alpha 1 just stops the field behind it from mixing in.
-  // Overlay and nav below are NOT part of this — they sit over live scrolling content, where
-  // translucency is doing a job nobody reported a problem with.
-  ambient: 1,
-  overlay: 0.8,
-  // Near-opaque (2026-07-27): unlike overlay's "blurred but present" sheets/headers, the
-  // bottom nav sits over live scrolled content for as long as a tab stays open, so any
-  // translucency reads as scrolled cards/text bleeding through it. 0.97 leaves just enough
-  // give for the material's scrim/specular highlight layers to still read, without any
-  // card shape showing through — effectively a flat tinted panel, not glass.
-  nav: 0.97,
-};
-
-// Beveled edge: a flat, single-tone fill (computeRimGradient, keyed on the card's own identity
-// edge hue, not the neutral fill — flat as of 2026-08-05, was a lit-top/dark-bottom ramp) drawn
-// as a `LinearGradient` (still, for the corner-rendering reason below) clipped by `borderRadius`,
-// rather than a single `View`'s border with three different per-side colours (top/side/bottom).
-// RN's native border renderer doesn't reliably curve/blend different border colours around a
-// rounded corner (worse on Android) — the corner can render as a flat cut even though the card's
-// fill looks properly rounded. A gradient FILL clipped by borderRadius has no such issue on any
-// platform, since there's no per-side border colour blending involved at all. Same technique
-// Button.tsx already uses for its rim (see getMaterialStyle's `rim`/computeRimGradient in
-// constants/theme.ts) — Surface just needed its own hue input (`edgeHue`, not the fill's `base`)
-// since its edge and fill colours are deliberately different (see the colour-architecture
-// inversion note above).
-// 2026-07-26 "bring the colour back": widened from 1.5 to 2.5 — the thin-edge era (2026-07-18
-// "make borders thinner" through the 07-24 badge flatten) had reduced a domain-coded card's whole
-// colour identity to a near-hairline, which read as colourless next to the bolder 1.4.0-era cards.
-// Still the same bug-free gradient-fill technique, just thick enough for the domain hue to read
-// as a real accent again rather than needing to squint.
-// Exported (2026-07-27) so anything that paints INSIDE the mask and needs to reach the card's
-// true inner corner — components/CardAccent.tsx's header wash is the one case — can compute the
-// same inner radius Surface gives the mask (`radius - GLASS_EDGE_WIDTH`) instead of guessing the
-// card's own outer radius and leaving an unpainted crescent in the top corners.
-// 2026-08-04 (DESIGN_COMPARISON/07, decision in DESIGN_RULES_AUDIT.md item 8): a design-project
-// comparison proposed flattening this to a single-colour hairline. Declined — this is the same
-// "domain ramp" AGENTS.md already records the maintainer choosing to keep over a flat edge
-// (#390/#393/#410), and the SAME flatten was already tried and reverted once, in the very pass
-// that set EDGE_WIDTH to 2.5 (see CardAccent.tsx's "re-gradiented" note, same day). Don't
-// re-flatten this edge without new information beyond "a reference file draws it flat."
-export const GLASS_EDGE_WIDTH = 2.5;
-const EDGE_WIDTH = GLASS_EDGE_WIDTH;
+/**
+ * Exported for anything painting INSIDE the mask that needs the card's true inner corner —
+ * components/CardAccent.tsx's badge plate is the one case — so it can compute the same inner
+ * radius the mask gets (`radius - GLASS_EDGE_WIDTH`) instead of guessing the outer radius and
+ * leaving an unpainted crescent in the corners. Name kept (rather than renamed to
+ * BORDER_WIDTH.card) purely so that import doesn't churn; it is the same number.
+ */
+export const GLASS_EDGE_WIDTH = EDGE_WIDTH;
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
   'paddingTop', 'paddingBottom', 'paddingLeft', 'paddingRight', 'paddingStart', 'paddingEnd',
 ]);
 
-// How the caller wants its *children* laid out — belongs on the inner content view,
-// not the outer shadow/border view. Putting these on the outer view made the inner
-// mask shrink-wrap its content and float as a narrower "box inside the box".
+// How the caller wants its *children* laid out — belongs on the inner content view, not the
+// outer shadow/border view. Putting these on the outer view made the inner mask shrink-wrap its
+// content and float as a narrower "box inside the box".
 const CONTENT_LAYOUT_KEYS = new Set([
   'alignItems', 'justifyContent', 'flexDirection', 'gap', 'rowGap', 'columnGap', 'flexWrap',
 ]);
 
 // Key-press path only (`onPress`): keys that must size/place the WHOLE key — cap plus base —
-// rather than just the cap. Leaving a margin or a `flex: 1` on the cap lets the base (which is
-// absolutely positioned to the wrapper) stick out past the card on one or more sides, which is
-// the "cap with no base"/"base with no cap" failure in a different costume. Radius, minHeight
-// and the content keys deliberately stay on the card itself.
+// rather than just the cap. Leaving a margin or a `flex: 1` on the cap lets the base (absolutely
+// positioned to the wrapper) stick out past the card. Radius, minHeight and the content keys
+// deliberately stay on the card itself.
 const WRAPPER_KEYS = new Set([
   'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
   'marginHorizontal', 'marginVertical', 'marginStart', 'marginEnd',
@@ -274,7 +159,7 @@ const WRAPPER_KEYS = new Set([
   'position', 'top', 'bottom', 'left', 'right', 'zIndex',
 ]);
 
-// Owned by the material, not the caller — silently dropped from any passed-in style.
+// Owned here, not by the caller — silently dropped from any passed-in style.
 const OWNED_KEYS = new Set([
   'backgroundColor', 'borderWidth', 'borderColor', 'borderTopColor', 'borderBottomColor',
   'borderLeftColor', 'borderRightColor', 'borderStyle',
@@ -296,35 +181,23 @@ export default function Surface({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const mode = isDark ? 'dark' : 'light';
-  const glass = useSettingsStore((s) => s.glassSurfaces);
+  const screenHue = useScreenColor();
   const { reducedMotion } = useAccessibility();
   const isKey = !!onPress;
   // Reduced motion gets a static pressed COLOUR instead of a sink — travel is motion, and
-  // useAccessibility() already ORs in the OS flag. Only tracked when it's actually needed, so
-  // the normal path never re-renders on press.
+  // useAccessibility() already ORs in the OS flag. Only tracked when actually needed, so the
+  // normal path never re-renders on press.
   const [heldFlat, setHeldFlat] = React.useState(false);
   const staticPressed = isKey && reducedMotion && heldFlat && !disabled;
-  // Colour-architecture (2026-07-18, retuned): one uniform neutral FILL on every card of a screen
-  // (base = theme.surface, near-white/near-navy) — opaque for ambient cards since 2026-08-05, see
-  // GLASS_WASH_ALPHA. Card COLOUR lives ONLY in the thin beveled EDGE, and only
-  // when the card carries its own identity hue. An explicit `tint` overrides the fill base;
-  // `borderColor` overrides the edge hue.
-  const base = staticPressed ? theme.surfaceMuted : (tint ?? theme.surface);
-  const mat = getMaterialStyle(base, 'card', mode);
-  // Edge colour source, in priority order: an explicit `borderColor` (an identity-coded card — so
-  // the edge matches that card's own icon/badge), then `tint`, then a calm neutral edge.
-  // Whatever wins becomes the thin beveled ring's hue (computeRimGradient).
-  // 2026-07-31 (A.5, retire the screen hues): the per-SCREEN hue term is gone from this chain. It
-  // used to sit between `tint` and `theme.border`, so EVERY un-coded ambient card on a tab drew
-  // that tab's feat* colour on its edge — which collided with the identity-hue system that is the
-  // one meant to stay. An un-coded card now falls through to the neutral `theme.border`; cards that
-  // pass their own `borderColor` are unaffected, since that term still wins the chain.
-  const edgeHue = borderColor ?? tint ?? theme.border;
-  // Glass-off (reduce-transparency) path uses the legacy single shadow; glass-on uses the
-  // three-pass layered shadow. Both deepen to the `floating` tier when `elevated`.
+
+  // The page. Opaque, flat, no wash and nothing drawn on top of it — white (#FFFFFF) in light
+  // mode, the flat navy `surface` in dark. This single line is most of the 2026-08-05 reset.
+  const fill = staticPressed ? theme.surfaceMuted : (tint ?? theme.surface);
+  // Border hue: explicit override → tint → the ambient screen hue → neutral grey. See the
+  // Edit notes; Home and Settings deliberately land on the neutral.
+  const edgeHue = borderColor ?? tint ?? screenHue ?? theme.border;
+  const ramp = computeBorderRamp(edgeHue, isDark, 'card');
   const shadowLevel = elevated ? 'floating' : 'raised';
-  const elevation = elevated ? getElevation('floating', theme.shadow) : null;
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};
@@ -340,25 +213,16 @@ export default function Surface({
     else outer[key] = flat[key];
   }
   const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
-  // Per-corner overrides (e.g. BottomNav squares off its top-left/top-right so its floating
-  // gap above reads as a flat edge instead of a rounded notch exposing the ambient backdrop —
-  // 2026-07-24). Caller passes standard RN corner keys in `style`; they already land on `outer`
-  // untouched (not in PADDING_KEYS/CONTENT_LAYOUT_KEYS/OWNED_KEYS above), but the ring/mask below
-  // only know the single `radius` unless read here too.
   const topLeftRadius = (flat.borderTopLeftRadius as number | undefined) ?? radius;
   const topRightRadius = (flat.borderTopRightRadius as number | undefined) ?? radius;
   const bottomLeftRadius = (flat.borderBottomLeftRadius as number | undefined) ?? radius;
   const bottomRightRadius = (flat.borderBottomRightRadius as number | undefined) ?? radius;
-  // The mask's flexGrow:1 (below) only exists to let the fill reach the floor of an outer
-  // view the CALLER has explicitly forced taller than its content (minHeight/height/flex —
-  // e.g. Home's cardCollapsed minHeight, or ScreenScaffold's headerFill flex:1). For a
-  // hug-content card (no such key — e.g. a small alignSelf:'center' pill/chip), the outer
-  // view has no definite main-axis size of its own to distribute, and on Android this can
-  // resolve the "available space" as the ScrollView's effectively-unbounded measure spec
-  // instead of the CSS-spec content-hug behavior web/iOS give it — growing the chip into a
-  // full-height bar (2026-07-20 bug: the Habits "X / Y goals met today" summary chip).
-  // Gating flexGrow on an explicit forced-height key keeps the legitimate stretch cases
-  // working while stopping hug-content chips from growing unbounded.
+  // The mask's flexGrow:1 only exists to let the fill reach the floor of an outer view the
+  // CALLER has explicitly forced taller than its content (minHeight/height/flex). For a
+  // hug-content card (no such key — a small alignSelf:'center' pill), the outer view has no
+  // definite main-axis size to distribute, and on Android that can resolve as the ScrollView's
+  // unbounded measure spec instead of the content-hug behaviour web/iOS give it, growing the
+  // chip into a full-height bar (2026-07-20 bug: the Habits "X / Y goals met today" chip).
   const growsToFillOuter = 'minHeight' in flat || 'height' in flat || 'flex' in flat || 'flexGrow' in flat;
   const maskGrowStyle = { flexGrow: growsToFillOuter ? 1 : 0 };
   // A caller's `flex`/`flexGrow` moved to the key wrapper (WRAPPER_KEYS), so the cap has to be
@@ -366,14 +230,11 @@ export default function Surface({
   const capStretches = isKey && ('flex' in flat || 'flexGrow' in flat);
   if (capStretches) outer.flexGrow = 1;
 
-  // ── Key-press housing (task 16, 2026-08-04) ────────────────────────────────────────────────
-  // A tappable card is a CAP ON A BASE, exactly as Button.tsx/IconButton.tsx already are: a
-  // stationary `darken(fill, 0.22)` slab behind the card, revealed as a `Travel.md` sliver by
-  // the wrapper's paddingBottom, with PressableScale's `travel` sinking the cap onto it on
-  // press. `darken(fill)` (not the edge hue) is deliberate — the base is the card's own
-  // material moulded darker, not a second accent. Note this is not `depth`: Surface already
-  // owns its shadow via getLayeredShadow, and passing PressableScale a `depth` here would give
-  // the same view two competing shadow sources.
+  // ── Key-press housing ────────────────────────────────────────────────────────────────────
+  // A tappable card is a CAP ON A BASE, exactly as Button/IconButton are: a stationary
+  // `darken(fill, 0.22)` slab behind the card, revealed as a `Travel.md` sliver by the
+  // wrapper's paddingBottom. `darken(fill)` (not the border hue) is deliberate — the base is
+  // the card's own paper moulded darker, not a second accent.
   const keyBaseColor = darken(tint ?? theme.surface, 0.22);
   const asKey = (card: React.ReactElement) =>
     isKey ? (
@@ -397,9 +258,8 @@ export default function Surface({
           disabled={disabled}
           accessibilityRole={accessibilityRole}
           accessibilityLabel={accessibilityLabel}
-          // Reduced motion: no travel at all. PressableScale's non-key path already skips its
-          // scale bounce under the same flag, so nothing moves — the static pressed fill below
-          // (`staticPressed` → theme.surfaceMuted) and the base's own edge carry the feedback.
+          // Reduced motion: no travel at all. The static pressed fill above and the base's own
+          // edge carry the feedback instead.
           travel={reducedMotion ? undefined : Travel.md}
           onPressIn={reducedMotion ? () => setHeldFlat(true) : undefined}
           onPressOut={reducedMotion ? () => setHeldFlat(false) : undefined}
@@ -412,83 +272,17 @@ export default function Surface({
       card
     );
 
-  // Glass-on: the layered box-shadow OWNS depth on the outer view (don't also set the single
-  // shadow*/elevation keys — they'd double up). Glass-off: keep the legacy single shadow.
-  const shadowStyle = glass
-    ? { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }
-    : {
-        shadowColor: theme.shadow,
-        shadowOffset: elevation ? elevation.shadowOffset : { width: 0, height: 2 },
-        shadowOpacity: elevation ? elevation.shadowOpacity : mat.shadowOpacity,
-        shadowRadius: elevation ? elevation.shadowRadius : mat.shadowRadius,
-        elevation: elevation ? elevation.elevation : mat.elevation,
-      };
-
-  // Glass-off (reduce-transparency): plain opaque card — flat themed border, single shadow,
-  // mat.contrastBase fill, and NONE of the rim/face-lift layers mounted.
-  if (!glass) {
-    return (
-      <View
-        style={[
-          outer,
-          {
-            borderTopLeftRadius: topLeftRadius,
-            borderTopRightRadius: topRightRadius,
-            borderBottomLeftRadius: bottomLeftRadius,
-            borderBottomRightRadius: bottomRightRadius,
-            borderWidth: mat.borderWidth,
-            // Opaque themed edge (2026-07-12 redesign): the material's default border is a
-            // translucent white (rgba('#FFFFFF',0.5)) that vanishes on light-mode cards,
-            // leaving them edgeless. Use theme.border so every card has a visible, calm edge.
-            // Uniform on every side (2026-07-21: dropped the light-mode-only borderTopColor
-            // highlight — a different top color than the sides/bottom hits the same
-            // borderRadius-corner-blend risk as the glass-on edge; see the EDGE_WIDTH comment).
-            borderColor: borderColor ?? theme.border,
-            borderTopColor: borderColor ?? theme.border,
-            borderBottomColor: borderColor ?? theme.border,
-          },
-          shadowStyle,
-        ]}
-      >
-        <View
-          style={[
-            styles.mask,
-            maskGrowStyle,
-            {
-              borderTopLeftRadius: topLeftRadius,
-              borderTopRightRadius: topRightRadius,
-              borderBottomLeftRadius: bottomLeftRadius,
-              borderBottomRightRadius: bottomRightRadius,
-              backgroundColor: mat.contrastBase,
-            },
-          ]}
-        >
-          <View style={[content, padding]}>{children}</View>
-        </View>
-      </View>
-    );
-  }
-
-  // Glass-on: a THIN beveled edge (top-light → bottom-shadow), drawn as a TRANSLUCENT
-  // `LinearGradient` fill clipped by `borderRadius` — not a single View's border with three
-  // different per-side colours (the old approach): RN's native border renderer doesn't reliably
-  // curve/blend different border colours around a rounded corner (worse on Android), which could
-  // render the corner as a flat cut even though the fill looks properly rounded. A gradient FILL
-  // respecting borderRadius has no such issue on any platform. Because the gradient's colours are
-  // themselves translucent (computeRimGradient's alphas), the fill still frosts the SCREEN FIELD
-  // showing through the ring itself — so every card on a screen shares one uniform frosted hue and
-  // the colour lives only in this thin edge (2026-07-18: thinner borders + fix the per-card
-  // multi-hue frost bleed; 2026-07-21: fix the corner-rendering bug).
-  const rim = computeRimGradient(edgeHue, isDark);
-  const innerRadius = Math.max(0, radius - EDGE_WIDTH);
   const innerTopLeftRadius = Math.max(0, topLeftRadius - EDGE_WIDTH);
   const innerTopRightRadius = Math.max(0, topRightRadius - EDGE_WIDTH);
   const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
   const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
-  // `asKey` is the last wrapper applied: on the non-key path it returns the card untouched, so
-  // every existing caller renders byte-identically; with `onPress` it puts the card in its
-  // cap-on-base housing. It has to wrap the FINISHED element rather than being spread into it,
-  // because the base is a sibling of the card, not a style on it.
+
+  // The border is drawn as a `LinearGradient` padding-ring rather than as a View's own
+  // `borderColor`, for one specific reason worth keeping: RN's native border renderer doesn't
+  // reliably blend two colours around a rounded corner (worse on Android), so a two-stop edge
+  // set via border props can render the corner as a flat cut even when the fill looks properly
+  // rounded. A gradient FILL clipped by borderRadius has no such problem on any platform. The
+  // mask inside it carries the opaque page.
   return asKey(
     <View
       style={[
@@ -499,12 +293,12 @@ export default function Surface({
           borderBottomLeftRadius: bottomLeftRadius,
           borderBottomRightRadius: bottomRightRadius,
         },
-        shadowStyle,
+        { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) },
       ]}
     >
       <LinearGradient
-        colors={rim.colors}
-        locations={rim.locations}
+        colors={ramp.colors}
+        locations={ramp.locations}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[
@@ -528,16 +322,10 @@ export default function Surface({
               borderTopRightRadius: innerTopRightRadius,
               borderBottomLeftRadius: innerBottomLeftRadius,
               borderBottomRightRadius: innerBottomRightRadius,
+              backgroundColor: fill,
             },
           ]}
         >
-          <GlassFill
-            mat={mat}
-            radius={innerRadius}
-            blurIntensity={GLASS_BLUR_INTENSITY[surfaceContext]}
-            washAlpha={GLASS_WASH_ALPHA[surfaceContext]}
-            tint={isDark ? 'dark' : 'light'}
-          />
           <View style={[content, padding]}>{children}</View>
         </View>
       </LinearGradient>
@@ -546,31 +334,27 @@ export default function Surface({
 }
 
 const styles = StyleSheet.create({
-  // Glass-on only: the gradient ring (the LinearGradient in the render above) sits between the
-  // outer shadow-casting view and the mask, `padding: EDGE_WIDTH` revealing itself as a thin ring
-  // around the mask. alignSelf:'stretch' so it spans the full card width; the HEIGHT counterpart
-  // (flexGrow) is applied conditionally via `maskGrowStyle`, same as `mask` below.
+  // The gradient ring sits between the outer shadow-casting view and the mask, `padding:
+  // EDGE_WIDTH` revealing itself as the border around it. alignSelf:'stretch' spans the full
+  // card width; the HEIGHT counterpart (flexGrow) is conditional via `maskGrowStyle`.
   ring: { alignSelf: 'stretch' },
-  // ── Key-press housing (task 16, 2026-08-04) ─────────────────────────────────────────────
-  // Same two-part shape components/Button.tsx already uses (`keyWrap`/`keyBase` there), so a
-  // pressed card and a pressed button are the same object in two sizes rather than two
-  // techniques. `relative` is what the absolutely-positioned base anchors to; the wrapper's
-  // own `paddingBottom: Travel.md` (applied at the call site, since it depends on the travel
-  // distance) is what leaves the base visible as a sliver under the resting cap.
+  // ── Key-press housing ───────────────────────────────────────────────────────────────────
+  // The same two-part shape components/Button.tsx uses, so a pressed card and a pressed button
+  // are the same object in two sizes rather than two techniques. `relative` is what the
+  // absolutely-positioned base anchors to; the wrapper's own `paddingBottom: Travel.md`
+  // (applied at the call site, since it depends on the travel distance) is what leaves the base
+  // visible as a sliver under the resting cap.
   keyWrap: { position: 'relative' },
   // Fills the whole wrapper INCLUDING that padding, so the sliver shows along the bottom edge
-  // and the base is flush with the cap on the other three — a moulded edge, not a drop shadow.
-  // It keeps its full height while the cap sinks, which is what makes the travel read as the
-  // cap moving rather than the whole card shrinking.
+  // and the base is flush on the other three — a moulded edge, not a drop shadow. It keeps its
+  // full height while the cap sinks, which is what makes the travel read as the cap moving
+  // rather than the whole card shrinking.
   keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   // A caller's `flex`/`flexGrow` moved to the wrapper (WRAPPER_KEYS), so the cap needs telling
-  // to fill the housing — without this the card hugs its content inside a stretched wrapper
-  // and the base shows through as a gap below it.
+  // to fill the housing — without this the card hugs its content inside a stretched wrapper.
   capStretch: { flexGrow: 1, alignSelf: 'stretch' },
   // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
-  // style centers content on the outer view (otherwise the mask shrink-wraps its children
-  // and floats as a narrower box inside the bordered card). The HEIGHT counterpart
-  // (flexGrow) is applied conditionally via `maskGrowStyle` above, not baked in here — see
-  // that comment for why.
+  // style centres content on the outer view. The HEIGHT counterpart (flexGrow) is conditional
+  // via `maskGrowStyle` above — see that comment for why it isn't baked in here.
   mask: { overflow: 'hidden', alignSelf: 'stretch' },
 });

@@ -262,6 +262,7 @@ export default function HealthScreen() {
       <ScreenScaffold
         title={t.healthTitle}
         tier="site"
+        screenKey="health"
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
@@ -341,7 +342,11 @@ export default function HealthScreen() {
               of which unfold once the name is non-empty. */}
           <TourTarget id="tour.health.log">
             <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
-              <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+              {/* No `borderColor` (card design reset, 2026-08-05): a card on its own screen inherits
+                that screen's one hue. The domain colour it used to pass is the BADGE palette
+                (lib/domainColor.ts), which still drives the badge inside — the edge is the
+                screen's, the badge is the domain's, and they no longer compete. */}
+              <Surface style={styles.overviewCardRow}>
                 <View style={styles.overviewCardContent}>
                   <View style={styles.sectionLabelRow}>
                     {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
@@ -480,7 +485,7 @@ export default function HealthScreen() {
 
           {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
           <DebugNoteAnchor id="health.overview" label="Health — This week">
-            <Surface borderColor={healthDomainColor.accent} style={styles.overviewCardRow}>
+            <Surface style={styles.overviewCardRow}>
               <View style={styles.overviewCardContent}>
                 <View style={styles.sectionLabelRow}>
                   {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}

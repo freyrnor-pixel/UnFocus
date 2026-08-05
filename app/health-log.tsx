@@ -108,7 +108,7 @@ export default function HealthLogScreen() {
   }
 
   return (
-    <ScreenScaffold title={t.healthLogTitle} tier="sub" onBack={() => router.back()}>
+    <ScreenScaffold title={t.healthLogTitle} tier="sub" screenKey="health" onBack={() => router.back()}>
       <View style={styles.content}>
         <HintCard text={t.hints.health.text} />
 
@@ -116,7 +116,7 @@ export default function HealthLogScreen() {
             add-a-row shape used across Plans/Shopping/Habits. A symptom log is multi-field
             (symptom, severity, date, notes), so confirming here opens the full form prefilled
             with the typed name rather than creating a bare inline entry. */}
-        <Surface borderColor={domainColor.accent} style={styles.addRowCard}>
+        <Surface style={styles.addRowCard}>
           <AddRow
             placeholder={t.logSymptomTrigger}
             value={draft}
@@ -130,7 +130,7 @@ export default function HealthLogScreen() {
         </Surface>
 
         {sections.length === 0 ? (
-          <Surface style={styles.emptyCard} borderColor={theme.border}>
+          <Surface style={styles.emptyCard}>
             <EmptyState title={t.noLogsGentle} />
           </Surface>
         ) : (

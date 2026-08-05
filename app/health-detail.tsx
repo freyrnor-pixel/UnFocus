@@ -114,7 +114,7 @@ export default function HealthDetailScreen() {
   }, [target.symptomId, target.ailment, logs, logsForSymptom]);
 
   return (
-    <ScreenScaffold title={t.symptomHistoryTitle(target.name)} tier="sub" onBack={() => router.back()}>
+    <ScreenScaffold title={t.symptomHistoryTitle(target.name)} tier="sub" screenKey="health" onBack={() => router.back()}>
       <View style={styles.content}>
         <Text style={[styles.detailSub, { color: theme.textMuted }]}>{t.symptomEntriesCount(data.entries.length)}</Text>
 

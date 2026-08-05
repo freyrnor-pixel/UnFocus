@@ -92,6 +92,8 @@ import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 import {
+  BORDER_WIDTH,
+  computeBorderTone,
   FontSize,
   Fonts,
   MIN_TAP_TARGET,
@@ -104,7 +106,8 @@ import {
 } from '@/constants/theme';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useScreenColor } from '@/lib/screenColor';
 
 type Props = {
   /** The grey prompt, worded for this card: "Type note" / "Type task" / … */
@@ -145,6 +148,10 @@ export default function PadTypeRow({
   style,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  // The screen's own hue for the resting field border; neutral grey outside a screen that
+  // provides one (Home, Settings), which is the same fallback every other bordered thing uses.
+  const fieldHue = useScreenColor() ?? theme.border;
   const t = useT();
   const [focused, setFocused] = useState(false);
 
@@ -238,10 +245,13 @@ export default function PadTypeRow({
           {
             color: theme.text,
             backgroundColor: theme.surfaceMuted,
-            // A field boundary is a control boundary, so it takes `theme.border` (the ≥3:1
-            // token) at rest and the surface's own accent while focused — never `theme.rule`,
-            // which is the deliberately sub-3:1 notepad divider.
-            borderColor: focused ? accent : theme.border,
+            // At rest the field wears the screen's own hue at the FIELD rung — the same border
+            // components/PadSheet.tsx gives a row and QuickAddOptionRow gives a cell, so the
+            // composer belongs to the screen it sits on rather than being a fixed grey
+            // (card design reset, 2026-08-05, brief point 9). Focus still overrides it with the
+            // surface's accent, because a focus state has to WIN over the resting border to be
+            // a focus state at all — DESIGN_RULES.md rule 18.
+            borderColor: focused ? accent : computeBorderTone(fieldHue, isDark, 'field'),
           },
         ]}
         value={value}
@@ -366,7 +376,9 @@ const styles = StyleSheet.create({
     // flex:1 alone doesn't beat, which pushes the trailing controls off the card.
     minWidth: 0,
     minHeight: MIN_TAP_TARGET,
-    borderWidth: 1,
+    // Same weight as every other field-rung border in the app (rows, option cells), so the
+    // composer, the rows under it and the option grid beside it read as one system.
+    borderWidth: BORDER_WIDTH.field,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.md,

@@ -114,7 +114,7 @@ export default function DayLogScreen() {
   }, [date, today]);
 
   return (
-    <ScreenScaffold title={t.dayLog.earlierDays} tier="site" onBack={() => router.back()}>
+    <ScreenScaffold title={t.dayLog.earlierDays} tier="site" screenKey="plans" onBack={() => router.back()}>
       <View style={styles.content}>
         {/* Date stepper. Deliberately a plain back/forward pair rather than a calendar
             picker or a week strip — a grid of days invites comparing them, and this

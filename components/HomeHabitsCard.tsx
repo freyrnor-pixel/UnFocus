@@ -148,6 +148,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { HABIT_STARTERS } from '@/lib/habitStarters';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { padVisibleRows } from '@/lib/padState';
 import { useCardState } from '@/lib/useCardState';
 
@@ -340,7 +341,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={domainColor.accent}
+      borderColor={getScreenColor(theme, 'habits').base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       {/* Corner leaf accent (DESIGN_COMPARISON/04) — painted first so the header row's badge

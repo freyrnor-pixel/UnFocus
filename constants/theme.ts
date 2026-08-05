@@ -560,6 +560,86 @@ export function computeRimGradient(base: string, isDark: boolean): RimGradient {
     : { colors: [rgba(darken(base, 0.16), 0.48), rgba(darken(base, 0.16), 0.48)], locations: [0, 1] };
 }
 
+// ─── The border ramp (card design reset, 2026-08-05) ─────────────────────────
+
+/**
+ * How prominent the bordered element is. Mirrors `HueWeight` in lib/screenColor.ts — that
+ * module picks WHICH hue a screen uses, this one decides how heavily a given element wears it.
+ * Kept as a separate local type so constants/ doesn't import from lib/ (the token layer has no
+ * dependencies by design).
+ */
+export type BorderWeight = 'card' | 'field' | 'button';
+
+/**
+ * Border thickness per weight. "Simple border" means one thickness per rung and no per-side
+ * variation — not a hairline. `card` stays at the material's 1.5 so a card edge still reads at
+ * arm's length; the smaller rungs step down so a card containing five bordered options doesn't
+ * turn into a grid of equal-weight lines.
+ */
+export const BORDER_WIDTH: Record<BorderWeight, number> = {
+  card: 1.5,
+  field: 1.25,
+  button: 1.25,
+};
+
+/**
+ * Per-weight tuning of the ramp: how far the two stops sit either side of the screen hue, and
+ * how opaque the whole edge is. Lower alpha at the smaller rungs is what makes the family read
+ * as "green → light green" going inward, without needing three separate colour tokens.
+ */
+const RAMP: Record<BorderWeight, { deep: number; light: number; alpha: number }> = {
+  card: { deep: 0.14, light: 0.20, alpha: 0.92 },
+  field: { deep: 0.06, light: 0.26, alpha: 0.62 },
+  button: { deep: 0.04, light: 0.30, alpha: 0.5 },
+};
+
+/**
+ * The card-design-reset border: ONE hue, ramped deep→light down the edge, at the strength its
+ * `weight` earns (2026-08-05, maintainer-specified — "it goes from green to light green", and
+ * confirmed as BOTH a ramp inside one border AND a family stepping across elements).
+ *
+ * **This deliberately re-introduces a gradient edge that was flattened the day before** (see
+ * `computeRimGradient` above, 2026-08-05 "flat pass", whose stated reason was that a border
+ * should not be affected by light). Both are true and they are not in conflict: that pass
+ * removed a *lighting* ramp — a white lit lip fading to a hue-dark bottom, which simulated a
+ * light source and made the edge read as a bevel. This ramp is entirely within the screen's own
+ * hue, has no white and no black in it, and is decorative rather than physical. Nothing here
+ * claims the card is moulded. If a future pass wants the edge flat again, that is a real design
+ * change to ask about, not a revert to `computeRimGradient` — that function still exists only
+ * for the back-compat consumers listed at its own call sites.
+ *
+ * Dark mode ramps the other way round the neutral point (lightening the deep stop rather than
+ * darkening it) for the same reason every other token here does: a darkened hue on a near-black
+ * surface is an invisible edge, not a subtle one.
+ *
+ * Returns a `RimGradient` so it drops straight into the `LinearGradient` ring Surface and
+ * Button already render — no new plumbing at any call site.
+ */
+export function computeBorderRamp(hue: string, isDark: boolean, weight: BorderWeight = 'card'): RimGradient {
+  const { deep, light, alpha } = RAMP[weight];
+  // Light mode: deep at the top, lighter toward the bottom. Dark mode keeps the same
+  // top-is-stronger direction, but both stops move UP in lightness off the near-black surface.
+  const top = isDark ? lighten(hue, deep + 0.22) : darken(hue, deep);
+  const bottom = isDark ? lighten(hue, light + 0.30) : lighten(hue, light);
+  return {
+    colors: [rgba(top, alpha), rgba(bottom, alpha)],
+    locations: [0, 1],
+  };
+}
+
+/**
+ * The flat single-tone equivalent, for the places that can't render a gradient — a plain
+ * `borderColor` on a View (FormControls' Input, a chip, the glass-off fallback). Same hue
+ * family and the same per-weight strength as `computeBorderRamp`, sampled at the ramp's
+ * midpoint so a bordered field sitting next to a bordered card looks like it belongs to the
+ * same system rather than to a different one.
+ */
+export function computeBorderTone(hue: string, isDark: boolean, weight: BorderWeight = 'card'): string {
+  const { deep, light, alpha } = RAMP[weight];
+  const mid = (deep + light) / 2;
+  return rgba(isDark ? lighten(hue, mid + 0.26) : mix(darken(hue, deep), lighten(hue, light), 0.5), alpha);
+}
+
 /**
  * Computes the matte surface-finish tokens from a single base colour.
  * Spread the border/shadow keys onto the outer (shadow-casting) view and

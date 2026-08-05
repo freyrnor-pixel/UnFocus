@@ -62,6 +62,7 @@ import StarterCard from '@/components/StarterCard';
 import { Input, Switch } from '@/components/FormControls';
 import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
@@ -115,7 +116,11 @@ export default function MedicineTrayCard() {
   const trayTimes = useSettingsStore((s) => s.medicineTrayTimes);
   const remindersEnabled = useSettingsStore((s) => s.medicineRemindersEnabled);
   const quietHoursEnabled = useSettingsStore((s) => s.quietHoursEnabled);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   const people = usePeopleStore((s) => s.people);
   const updateSettings = useSettingsStore((s) => s.update);
 
@@ -202,8 +207,12 @@ export default function MedicineTrayCard() {
 
   const status = statusLine();
 
+  // No `borderColor` (card design reset, 2026-08-05): a card on its own screen inherits that
+  // screen's one hue. The domain colour it used to pass is the BADGE palette
+  // (lib/domainColor.ts), which still drives the badge inside — the edge is the screen's, the
+  // badge is the domain's, and they no longer compete.
   return (
-    <Surface borderColor={healthColor.accent} style={styles.card}>
+    <Surface style={styles.card}>
       <View style={styles.cardContent}>
         <View style={styles.headerRow}>
           {/* `medkit`, not the domain default heart (2026-07-28 design review) — Health's three

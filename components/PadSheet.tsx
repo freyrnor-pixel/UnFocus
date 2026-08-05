@@ -1,20 +1,36 @@
 /**
- * PadSheet.tsx — the ruled sheet: rows sitting on notepad lines, plus spare lines to write on.
+ * PadSheet.tsx — the shared body of every list-bearing card: one bordered box per row.
  *
- * The shared body of every list-bearing card (2026-07-30, user report: "look like notepads",
- * "related cards/things in other screens should look practically the same", "the feel of 1,
- * 2, 3, everything inside a card is connected and in orderly fashion feels like it's not
- * there"). One child per row; this component owns the hairline under each one, so no card
- * hand-rolls dividers any more and every list in the app is ruled identically.
+ * **Boxed rows, 2026-08-05 (card design reset, maintainer brief points 3 + 9: "no lines, just
+ * rows for user to type in", "borders around cards, buttons, text-boxes, options and so on for
+ * separating them").** Each row is its own bordered rectangle in the screen's hue family,
+ * stacked with a hairline-thin gap so two adjacent borders never double into a fat line. There
+ * are no ruled notepad lines and no blank spare lines.
  *
- * Rules span the pad's full writing area. They used to be inset 30px (ShoppingRow's old
- * `ROW_DIVIDER_INSET`) to clear a leading check column — the check moved to the right margin
- * in the same pass, so there is nothing left on the left to inset past, and a rule that
- * crosses the whole line is what actually reads as paper.
+ * **This deliberately reverses two earlier decisions, and both were re-put to the maintainer
+ * before it was written** — don't revert either by citing its original file:
+ *   - `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` + `DESIGN_RULES_AUDIT.md` item 12
+ *     (2026-08-04) rejected boxed rows as "cards inside a card". The counter-argument then was
+ *     PR #483, which had moved Habits the other way a day earlier. What changed is that a card
+ *     is no longer a glass pane with a beveled rim — it is a flat white page with one thin
+ *     border (see components/Surface.tsx), so a bordered row inside it no longer reads as a
+ *     second card competing with the first. The "cards inside a card" objection was about the
+ *     old material, and the old material is gone.
+ *   - The 2026-07-30 notepad pass drew full-width rules on every list card, which is
+ *     `DESIGN_RULES.md`'s open conflict #8. That conflict is now **resolved in favour of rule
+ *     5** ("whitespace over lines") rather than against it: the rules are gone. The notepad
+ *     feel the maintainer asked for is carried by the card's own shape and white page, not by
+ *     printed lines.
+ *
+ * Spare lines are gone with them. They existed so a short list still read as a page rather than
+ * as a card that ran out; a page of empty *boxes* reads as broken UI rather than as blank paper,
+ * so the mechanism doesn't survive the change of shape. `padSpareLines` is still exported from
+ * lib/padState for its tests, but this component no longer calls it.
  *
  * Connections:
- *   Imports → constants/theme (PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT), components/Collapsible,
- *             lib/padState (PadState, padSpareLines), lib/useAppTheme
+ *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, PAD_ROW_HEIGHT,
+ *             PAD_ROW_MIN_HEIGHT, Radius, Spacing), components/Collapsible, lib/padState
+ *             (PadState), lib/screenColor (useScreenColor), lib/useAppTheme
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
  *   Data    → none (presentational; the caller slices rows via lib/padState's padVisibleRows)
@@ -22,71 +38,50 @@
  * Edit notes:
  *   - **The caller slices, this draws.** Pass only the rows the current state actually shows
  *     (`padVisibleRows(rows, state)`); this component does not filter. That keeps the "what is
- *     visible" answer in one place — the same value a caller hands to lib/viewSnapshot for
- *     the what-was-hidden glow.
- *   - `typeRow` is pinned above the rows and drawn in EVERY state, including closed — it is
- *     the pad's first line, and losing it when you fold a card away would cost the fastest
- *     capture path in the app.
- *   - Rows animate open/shut through components/Collapsible (measured-height clip, no fade)
- *     so folding a card reads as "still there, just folded", matching the done zones. Do not
- *     swap in an opacity fade — see Collapsible's header for why.
- *   - Spare lines are inert — tapping empty paper does nothing, the type line is the way in.
- *     They exist so a short list still reads as a page rather than as a card that ran out.
- *     They used to each carry their own faint ghost-check ring (2026-07-30) — moved to a
- *     single occurrence on the type line instead (2026-07-31, user report: several identical
- *     ghost circles in a row read as noise; there's only one "next thing to check" and it
- *     belongs on the row actually being typed into). See `components/PadTypeRow.tsx`.
- *   - This draws the rules as child views INSIDE the card, never as border styles on a
- *     Surface's `style` — Surface silently drops every border/background key you pass it
- *     (see Surface.tsx's style-splitting contract).
- *   - **Boxed rows declined, 2026-08-04** (DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md,
- *     DESIGN_RULES_AUDIT.md item 12): the design project's "every row its own bordered box"
- *     was reviewed and rejected — boxed rows are cards inside a card, which is exactly what
- *     PR #483 ("Habits: ruled rows on one sheet, not cards inside a card") moved away from a
- *     day earlier, and re-adopting it here would also mean converting `ShoppingRow` /
- *     `MonthlyTableRow` and `TaskCard` the *other* direction mid-conversion. Don't re-propose
- *     boxing without re-reading that file first.
- *     **The COMPOSER is boxed (2026-08-05) and that is not this decision.** `PadTypeRow`'s
- *     input is now a bordered, filled field with a focus border — but it is one CONTROL, the
- *     one you type into, not a row. Rows on this sheet are still flush and gap-free with
- *     nothing but a rule between them. The `typeLine` wrapper below is unchanged; the field's
- *     own vertical padding lives in PadTypeRow so this component never has to know that one
- *     of its lines hosts a bordered control.
- *   - **Rule colour fixed in the same review**: this component's own divider was drawing with
- *     `theme.border` (the ≥3:1 control-boundary token) since the day it was written — before
- *     `theme.rule` (a token built specifically for "decorative row divider, deliberately BELOW
- *     3:1", see constants/colors.ts) existed. `app/(tabs)/habits.tsx`'s hand-rolled divider
- *     already used `theme.rule` correctly (PR #483); this file was the one straggler still on
- *     `theme.border`, which is why the notepad rule under every Home card read closer to a
- *     hairline border than to faint ruled paper. Now uses `theme.rule` — no value changed, no
- *     new token, just wiring the shared component to the token that was already built for it.
+ *     visible" answer in one place — the same value a caller hands to lib/viewSnapshot for the
+ *     what-was-hidden glow.
+ *   - `typeRow` is pinned above the rows and drawn in EVERY state, including closed — it is the
+ *     pad's first line, and losing it when you fold a card away would cost the fastest capture
+ *     path in the app. It gets NO box of its own: `components/PadTypeRow.tsx` already draws a
+ *     bordered field, and wrapping a bordered field in a bordered box is the doubled-border
+ *     mistake this whole pass exists to avoid.
+ *   - Rows animate open/shut through components/Collapsible (measured-height clip, no fade) so
+ *     folding a card reads as "still there, just folded". Do not swap in an opacity fade — see
+ *     Collapsible's header for why.
+ *   - The row border is `computeBorderTone(hue, isDark, 'field')` — the screen's hue at the
+ *     FIELD rung, one step lighter than the card's own edge. That gradation is the whole reason
+ *     a card full of boxes doesn't read as a grid: the card's border is the strong line, the
+ *     rows are quieter lines inside it. Don't reach for `theme.border` here; it's a fixed grey
+ *     that would ignore the screen it's on.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Collapsible from '@/components/Collapsible';
-import { PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT } from '@/constants/theme';
-import { PadState, padSpareLines } from '@/lib/padState';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { BORDER_WIDTH, computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { PadState } from '@/lib/padState';
+import { useScreenColor } from '@/lib/screenColor';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
-  /** Which of the three sizes to draw. Drives the rows' reveal and the spare-line count. */
+  /** Which of the three sizes to draw. Drives the rows' reveal. */
   state: PadState;
   /**
    * The pad's first line — the always-open "Type note"/"Type task" field. Shown in every
-   * state, including closed.
+   * state, including closed. Drawn unboxed; it brings its own border.
    */
   typeRow?: React.ReactNode;
-  /**
-   * One child per row, already sliced to what `state` shows (see padVisibleRows). A rule is
-   * drawn under each.
-   */
+  /** One child per row, already sliced to what `state` shows (see padVisibleRows). */
   children?: React.ReactNode;
   /**
-   * Content below the rows and spare lines, inside the sheet but un-ruled — the done/checked
-   * zone, a total, a pace line. Only drawn when `state === 'open'`.
+   * Content below the rows, inside the sheet but unboxed — the done/checked zone, a total, a
+   * pace line. Only drawn when `state === 'open'`.
    */
   footer?: React.ReactNode;
-  /** Override the spare-line count (0 suppresses them). Defaults to padSpareLines(state). */
+  /**
+   * Retained for call-site compatibility and ignored. Spare lines were removed in the
+   * 2026-08-05 boxed-rows pass — see the header. Callers still passing it are harmless; the
+   * prop is kept rather than removed so this pass didn't have to touch every one of them.
+   */
   spareLines?: number;
   style?: StyleProp<ViewStyle>;
 };
@@ -96,39 +91,31 @@ export default function PadSheet({
   typeRow,
   children,
   footer,
-  spareLines,
   style,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const hue = useScreenColor() ?? theme.border;
   const rows = React.Children.toArray(children).filter(Boolean);
-  const spare = spareLines ?? padSpareLines(state);
-  // theme.rule, not theme.border — see the 2026-08-04 header note. theme.border is the ≥3:1
-  // control-boundary token; a notepad line is decorative and belongs on theme.rule instead.
-  const rule = { backgroundColor: theme.rule };
+  // One step lighter than the card's own edge — see the Edit notes for why that gradation is
+  // load-bearing rather than decorative.
+  const box = {
+    borderWidth: BORDER_WIDTH.field,
+    borderColor: computeBorderTone(hue, isDark, 'field'),
+    borderRadius: Radius.sm,
+  };
 
   return (
     <View style={[styles.sheet, style]}>
-      {typeRow ? (
-        <>
-          <View style={styles.typeLine}>{typeRow}</View>
-          <View style={[styles.rule, rule]} />
-        </>
-      ) : null}
+      {typeRow ? <View style={styles.typeLine}>{typeRow}</View> : null}
 
-      {/* Clip-reveal rather than a mount/unmount pop, so folding a card away reads as the
-          rows being covered edge-by-edge — the same motion as the done zones. */}
+      {/* Clip-reveal rather than a mount/unmount pop, so folding a card away reads as the rows
+          being covered edge-by-edge — the same motion as the done zones. */}
       <Collapsible open={state !== 'closed'}>
         {rows.map((row, i) => (
-          <React.Fragment key={i}>
-            <View style={styles.line}>{row}</View>
-            <View style={[styles.rule, rule]} />
-          </React.Fragment>
-        ))}
-        {Array.from({ length: spare }, (_, i) => (
-          <React.Fragment key={`spare-${i}`}>
-            <View style={styles.spare} />
-            <View style={[styles.rule, rule]} />
-          </React.Fragment>
+          <View key={i} style={[styles.line, box, i > 0 && styles.stacked]}>
+            {row}
+          </View>
         ))}
       </Collapsible>
 
@@ -138,21 +125,22 @@ export default function PadSheet({
 }
 
 const styles = StyleSheet.create({
-  // No padding of its own: the card's own PAD_GUTTER already insets the sheet, and the rules
-  // are meant to reach both edges of that gutter.
+  // No padding of its own: the card's own PAD_GUTTER already insets the sheet.
   sheet: { width: '100%' },
-  // The always-open type line keeps the fuller rhythm (its own 44px minHeight, PadTypeRow) —
-  // this wrapper just needs to not clip it short.
+  // The always-open type line keeps the fuller rhythm (its own 44px minHeight, from
+  // PadTypeRow) — this wrapper just needs to not clip it short. It is deliberately unboxed.
   typeLine: { minHeight: PAD_ROW_MIN_HEIGHT, justifyContent: 'center' },
-  // Real rows and the blank lines after them share the shorter, compressed rhythm
-  // (2026-07-30, user report — see PAD_ROW_HEIGHT's own comment in constants/theme.ts).
-  line: { minHeight: PAD_ROW_HEIGHT, justifyContent: 'center' },
-  // Blank paper. Inert on purpose (see the header) — the type line is the way to add a row.
-  // No ghost check here any more (2026-07-31) — that preview lives on the type line now, once,
-  // instead of repeating identically on every spare line below it (see PadTypeRow.tsx).
-  spare: { height: PAD_ROW_HEIGHT },
-  // Spans the pad's whole writing area (gutter edge to gutter edge) but deliberately does NOT
-  // bleed to the card's outer edge: the accent rim is the binding, and a rule running into it
-  // is exactly the "text/lines too close to a border" complaint this pass is fixing.
-  rule: { height: StyleSheet.hairlineWidth },
+  // A row box. `justifyContent:'center'` keeps a short row vertically centred in its box the
+  // way it used to be centred on its ruled line, so converting to boxes didn't shift any
+  // row's content up. The horizontal padding is what stops a row's first glyph sitting on its
+  // own border — the complaint the 2026-07-30 gutter pass was originally fixing.
+  line: {
+    minHeight: PAD_ROW_HEIGHT,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  // Boxes stack with a 4px gap rather than flush. Flush would put two 1.25px borders against
+  // each other and paint a 2.5px line between every pair of rows — heavier than the CARD's own
+  // border, which inverts the hierarchy the tone ramp is there to establish.
+  stacked: { marginTop: Spacing.xs },
 });
