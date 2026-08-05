@@ -120,7 +120,7 @@ export default function BudgetScreen() {
 
   if (!list) {
     return (
-      <ScreenScaffold title={t.budget.title} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={t.budget.title} tier="sub" screenKey="shopping" onBack={() => router.back()}>
         <View style={styles.content}>
           <Surface style={styles.card}>
             <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.monthlyListsEmpty}</Text>
@@ -132,7 +132,7 @@ export default function BudgetScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.budget.titleForList(list.name)} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={t.budget.titleForList(list.name)} tier="sub" screenKey="shopping" onBack={() => router.back()}>
         <View style={styles.content}>
           {/* Month selector */}
           {months.length > 1 && (

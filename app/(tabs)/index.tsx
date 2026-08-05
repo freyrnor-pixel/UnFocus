@@ -175,6 +175,7 @@ import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
@@ -280,7 +281,9 @@ export default function HomeScreen() {
   // than with the other settings selectors below because hasIncomingShared needs it.
   // Scan & receipts used to gate the spend-vs-budget pace line the same way, but is now
   // always on (2026-07-25 defaults revision) — see the `pace` prop further down.
-  const featureSharing = useSettingsStore((s) => s.featureSharing);
+  // Sharing is hidden wholesale while the single-user basics are reworked (2026-08-05) —
+  // see lib/sharingVisibility.ts. The setting is still read so nothing else changes shape.
+  const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
   // Energy is a real toggle again (2026-07-31) — gates the meter below.
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
 

@@ -46,7 +46,7 @@ export default function CatalogueScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.catalogueTabLabel} tier="sub" onBack={() => router.back()} scrollable={false}>
+      <ScreenScaffold title={t.catalogueTabLabel} tier="sub" screenKey="shopping" onBack={() => router.back()} scrollable={false}>
         <ErrorBoundary>
           <CatalogueTab onNotify={setConfirmMessage} />
         </ErrorBoundary>

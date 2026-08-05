@@ -208,6 +208,7 @@ export default function HealthFormScreen() {
     <ScreenScaffold
       title={existing ? t.editHealthEntryTitle : t.newHealthEntryTitle}
       tier="sub"
+      screenKey="health"
       onBack={() => router.back()}
       headerRight={
         <PressableScale onPress={save} hitSlop={HitSlop.base} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>

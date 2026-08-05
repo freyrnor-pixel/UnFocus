@@ -55,8 +55,9 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
-import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { computeBorderTone, FontSize, Fonts, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { Duration, Ease } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
@@ -219,8 +220,17 @@ type InputProps = TextInputProps & {
 
 export function Input({ label, error, optional, style, onFocus, onBlur, ...rest }: InputProps) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const fieldHue = useScreenColor() ?? theme.border;
   const [focused, setFocused] = useState(false);
-  const borderColor = error ? theme.bad : focused ? theme.borderStrong : theme.border;
+  // Resting border is the screen's own hue at the FIELD rung (card design reset, 2026-08-05),
+  // so an editor's fields belong to the screen that pushed them. Error and focus still WIN over
+  // it — a state the user needs to see must beat the decorative hue, DESIGN_RULES.md rule 18.
+  const borderColor = error
+    ? theme.bad
+    : focused
+      ? theme.borderStrong
+      : computeBorderTone(fieldHue, isDark, 'field');
 
   return (
     <View>

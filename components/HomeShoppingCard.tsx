@@ -118,6 +118,7 @@ import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { listProgress } from '@/lib/shoppingGroups';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { SpendPace } from '@/lib/budget';
 
@@ -356,7 +357,7 @@ export default function HomeShoppingCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={domainColor.accent}
+      borderColor={getScreenColor(theme, 'shopping').base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>

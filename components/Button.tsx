@@ -5,11 +5,11 @@
  * fill/text colours from the active theme (Decision 006 tokens). Minimum touch target is 44px tall.
  *
  * Connections:
- *   Imports → constants/theme (getMaterialStyle), lib/useAppTheme, store/useSettingsStore
- *             (glassSurfaces), components/PressableScale, components/GlassFill,
- *             components/GlowPulse (optional `emphasis` breathing CTA halo)
+ *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, getMaterialStyle),
+ *             lib/useAppTheme, lib/screenColor (useScreenColor — the `ghost` border hue),
+ *             components/PressableScale, components/GlowPulse (optional `emphasis` CTA halo)
  *   Used by → all screens for standard action buttons
- *   Data    → reads `glassSurfaces` from the settings store
+ *   Data    → the ambient screen hue via useScreenColor(); no store reads
  *
  * Edit notes:
  *   - Size sm=36, md=44-48, lg=56. All meet 44px minimum touch target (md,lg exceed it; sm is inset slightly for small/secondary uses).
@@ -20,9 +20,6 @@
  *     px `lineHeight` on `styles.label` as the "fix" either: Android re-scales a style
  *     lineHeight by the OS font scale when allowFontScaling is on, double-scaling the line box
  *     (constants/theme.ts's getHeaderMetrics block documents that trap in full).
- *     **This is also why `styles.ring`/`styles.pillMask` can't use `flexGrow` any more** — see
- *     their own comment below — swapping `height` for `minHeight` here removed the definite
- *     main-axis size that made `flexGrow` safe.
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
@@ -35,39 +32,34 @@
  *     width/margin has to size the whole key, or the base sticks out past the cap), and
  *     `ghost` opts out entirely — it's text with no fill, so it has no cap to sink and keeps
  *     the historical scale-bounce.
- *   - Glass: primary/secondary render components/GlassFill (frost + flat wash) inside a
- *     "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient padding-ring (fix 1,
- *     at Radius.full) PLUS a crisp 1px hue-tinted inner line (mat.innerLine) on the pill mask —
- *     over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with
- *     the near-opaque `'button'` material for CTA contrast. `ghost` (no fill) is never glass.
- *     Off when settings.glassSurfaces is false — back to the solid `colors.bg` pill, no rim.
- *     PressableScale owns the press depth in both.
- *   - **Flat face (2026-08-05)**: neither variant paints anything ON the face any more — no
- *     top-lit fill gradient, no face-lift scrim (getMaterialStyle's `scrim` is a no-op for the
- *     `'button'` material variant). The face is a flat, evenly-tinted wash in every state
- *     (rest/press/disabled); "raised" is read entirely from the rim edge, the keyBase sliver,
- *     and the cast shadow (depth="raised", below) — none of which touch the face itself. Used
- *     to swap primary's fill for the top-lit `mat.fillGradient` (lighten→base→darken); that
- *     made the face read as domed under press, which is exactly what this removes. `mat.fillGradient`
- *     itself still exists in constants/theme.ts (pinned by `__tests__/glassMaterial.test.ts`) —
- *     this file just no longer consumes it.
- *   - **`danger` stays flat (2026-07-21)** — never glass, regardless of `settings.glassSurfaces`:
- *     a destructive action shouldn't be the shiniest, most skeuomorphic thing on screen. It's a
- *     solid `colors.bg` fill with a single calm `mat.innerLine` border (no rim/fill
- *     gradient) — matching the flat, bordered chip-pill convention used elsewhere (habit-form/
- *     task-form chips, FormControls' SegmentedControl) rather than the full glass CTA treatment.
- *   - **Every variant has a border now (task 16, 2026-08-04)**: glass-off primary/secondary used
- *     to be a bare solid pill (danger was the only bordered flat variant); they now get the same
- *     `mat.innerLine` edge danger always had. `ghost` (no fill, so no `mat` to tint) gets
- *     `theme.border` instead. Glass-on primary/secondary keep their existing rim+innerLine ring
- *     unchanged — this only fixes the flat/glass-off path. Not a return of the removed specular
- *     highlight (`__tests__/glassMaterial.test.ts`) — a flat border, not a shine.
+ *   - **There is no glass path any more (card design reset, 2026-08-05, brief point 6: "white
+ *     fill, full opacity for all cards and buttons").** Every variant is a solid, fully opaque
+ *     fill with a border and the cap-on-base sink. Deleted with it: the transparent pressable,
+ *     the `LinearGradient` rim ring, the `overflow:'hidden'` pill mask, the `GlassFill` frost +
+ *     wash, and the `settings.glassSurfaces` read that chose between them. The same pass
+ *     removed the equivalent layers from components/Surface.tsx, so a button and a card are
+ *     once again made of the same material — which is now no material at all.
+ *   - **Point 7 of that brief is "button states stay as designed now", and they did.** The
+ *     variant fills, the per-variant `scaleTo`, the travel by size, the `depth="raised"`, the
+ *     0.45 disabled opacity and the flat face are all exactly as they were. Translucency was
+ *     the only thing removed. Don't read the reset as licence to restyle the states.
+ *   - **Every variant has a border.** A FILLED variant's edge is `mat.innerLine`, derived from
+ *     its own fill — a green screen-hue edge on a blue primary would read as a mistake.
+ *     `ghost` has no fill to derive from, so it takes the screen's hue at the BUTTON rung
+ *     (`computeBorderTone(hue, isDark, 'button')`), the lightest step of the card → field →
+ *     button family. It falls back to the neutral `theme.border` on Home and Settings, which
+ *     provide no hue.
+ *   - **Flat face (2026-08-05)**: nothing is painted ON the face — no top-lit fill gradient, no
+ *     face-lift scrim (`getMaterialStyle`'s `scrim` is a no-op for the `'button'` variant).
+ *     "Raised" is read from the border, the keyBase sliver and the cast shadow, none of which
+ *     touch the face. `mat.fillGradient` still exists in constants/theme.ts (pinned by
+ *     `__tests__/glassMaterial.test.ts`); this file just doesn't consume it.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
  *   - **`emphasis` (2026-07-22, reserve-only)**: opt-in breathing `GlowPulse` halo behind the
  *     PRIMARY variant to draw the eye to the single main action on a screen (reduces "which
- *     button" load). Wrapped in a non-clipping relative View (glass path sets overflow:hidden).
+ *     button" load). Wrapped in a relative View so the halo isn't clipped by the pill.
  *     Ignored on non-primary/disabled. Use on at most one button per screen.
  */
 import React from 'react';
@@ -75,13 +67,11 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { useScreenColor } from '@/lib/screenColor';
 import PressableScale from '@/components/PressableScale';
-import GlassFill from '@/components/GlassFill';
 import GlowPulse from '@/components/GlowPulse';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -121,7 +111,7 @@ export default function Button({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const glass = useSettingsStore((s) => s.glassSurfaces);
+  const buttonHue = useScreenColor() ?? theme.border;
   const [vertPad, horizPad] = SIZE_PADDING[size];
 
   const variantColors = {
@@ -131,17 +121,17 @@ export default function Button({
     ghost: { bg: 'transparent', text: theme.accent },
   };
   const colors = variantColors[variant];
-  // Ghost is text-only (no fill) → never glass. Others render the take-two glass fill when
-  // enabled: the near-opaque `'button'` material keeps the CTA's ink contrast (see
-  // getMaterialStyle) while adding the rim (static; matte — no specular, no drifting sheen). When glass
-  // is on the PressableScale's own backgroundColor drops to transparent so the frost blurs the
-  // screen (not a solid fill sitting under it); the glass wash provides the colour.
-  // **danger stays flat (2026-07-21)**: a destructive action shouldn't be the shiniest, most
-  // skeuomorphic thing on screen — it now renders as a solid fill + a single calm hue-tinted
-  // border (mat.innerLine), matching the flat/bordered chip-pill convention used elsewhere
-  // (habit-form/task-form chips, FormControls' SegmentedControl) instead of the full glass
-  // rim/top-lit-gradient treatment primary/secondary still get.
-  const useGlass = glass && variant !== 'ghost' && variant !== 'danger';
+  // **Never glass (card design reset, 2026-08-05, brief point 6: "white fill, full opacity for
+  // all cards and buttons").** Every variant now takes the solid path: an opaque fill in its own
+  // colour, a border, and the cap-on-base sink. The frosted path — a transparent pressable with
+  // a rim ring and a translucent GlassFill wash inside an overflow:hidden mask — is gone, in the
+  // same pass that removed it from components/Surface.tsx, so a button and a card are made of
+  // the same (absence of) material again.
+  //
+  // Point 7 of the same brief is "button states stay as designed now", and they do: the fills
+  // (`variantColors` above), the per-variant scale, the travel, the disabled opacity and the
+  // `depth` are all untouched. Only the translucency went. This is also why `glassSurfaces` is
+  // no longer read here — see components/Surface.tsx's note on that setting going inert.
   const mat = getMaterialStyle(colors.bg, 'button', isDark ? 'dark' : 'light');
 
   const inner = loading ? (
@@ -179,54 +169,28 @@ export default function Button({
           // getHeaderMetrics() exists to solve for the screen header band. As a minimum, every
           // size keeps its resting height and a label that needs more room grows the pill.
           minHeight: SIZE_HEIGHT[size],
-          backgroundColor: useGlass ? 'transparent' : colors.bg,
-          overflow: useGlass ? 'hidden' : undefined,
+          backgroundColor: colors.bg,
           opacity: disabled ? 0.45 : 1,
         },
-        // Glass moves the label padding onto the inner mask (the rim ring + mask fill the pill);
-        // the solid path keeps it on the pressable itself, as before.
-        useGlass ? null : { paddingVertical: vertPad, paddingHorizontal: horizPad },
-        // Task 16 (2026-08-04, "buttons... still lack a border"): every flat (non-glass) fill
-        // gets a calm hue-tinted edge, not just danger — glass-off primary/secondary used to be
-        // a bare solid pill with no boundary at all. `mat.innerLine` is derived from the
-        // variant's own fill colour, matching the glass path's inner ring so toggling
-        // glassSurfaces doesn't change the edge hue, only whether there's a rim behind it too.
-        !useGlass && variant !== 'ghost' ? { borderWidth: 1.5, borderColor: mat.innerLine } : null,
-        // Ghost has no fill for `mat` to tint (colors.bg is 'transparent'), so it borrows the
-        // app's standard control-boundary token instead — same fix, same task, different source
-        // colour. Without this a ghost button was a glyph-less label floating on the background.
-        variant === 'ghost' ? { borderWidth: 1.5, borderColor: theme.border } : null,
+        { paddingVertical: vertPad, paddingHorizontal: horizPad },
+        // A filled button's border is derived from its OWN fill (`mat.innerLine`), not from the
+        // screen hue: a green edge on a blue primary would read as a mistake, and point 7 keeps
+        // the variants' colours as they are. The screen's hue reaches buttons through `ghost`
+        // below — the one variant with no fill of its own to derive from.
+        variant !== 'ghost' ? { borderWidth: BORDER_WIDTH.button, borderColor: mat.innerLine } : null,
+        // Ghost has no fill, so it wears the screen's hue at the BUTTON rung — the lightest step
+        // of the family (card → field → button), which is the "green to light green" gradation
+        // across elements the maintainer specified. Falls back to the neutral `theme.border`
+        // on Home and Settings, which provide no hue.
+        variant === 'ghost'
+          ? { borderWidth: BORDER_WIDTH.button, borderColor: computeBorderTone(buttonHue, isDark, 'button') }
+          : null,
         // With travel, `style` goes on the cap+base wrapper instead — a caller's margin/width
         // must size the whole key, not just the cap, or the base would stick out past it.
         travel ? null : style,
       ]}
     >
-      {useGlass ? (
-        // Raised-keycap edge scaled to the pill (2026-07-18 retune): a VERTICAL hue-tinted rim
-        // padding-ring at Radius.full (top→bottom, matching Surface — was a 135° diagonal) PLUS a
-        // crisp 1px hue-tinted inner line (mat.innerLine) on the mask = the "double keycap". The
-        // frost + flat wash are masked inside — the face itself stays flat (2026-08-05, see the
-        // header's "Flat face" note); the rim above is the only light cue on this whole element.
-        <LinearGradient
-          colors={mat.rim.colors}
-          locations={mat.rim.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[styles.ring, { borderRadius: Radius.full, padding: mat.borderWidth }]}
-        >
-          <View style={[styles.pillMask, { borderRadius: Radius.full, borderWidth: 1, borderColor: mat.innerLine, paddingVertical: vertPad, paddingHorizontal: horizPad }]}>
-            <GlassFill
-              mat={mat}
-              radius={Radius.full}
-              blurIntensity={20}
-              tint={isDark ? 'dark' : 'light'}
-            />
-            {inner}
-          </View>
-        </LinearGradient>
-      ) : (
-        inner
-      )}
+      {inner}
     </PressableScale>
   );
 
@@ -274,22 +238,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Glass-on only: the rim gradient ring fills the pressable, and the mask inside it clips the
-  // glass fill + centres the label. `alignSelf:'stretch'` fills the WIDTH (the pressable's cross
-  // axis); height is deliberately left to hug its own content (padding + label), NOT `flexGrow`.
-  // **`flexGrow` here was a real bug (2026-08-05, user report + screenshot)**: the pressable is
-  // sized by `minHeight` alone (never a hard `height` — see the file header's 2026-08-05 note on
-  // why), which doesn't give Yoga a truly definite main-axis size to distribute. On Android inside
-  // a ScrollView this can resolve to the scroll container's effectively-unbounded measure spec
-  // instead of content-hug sizing — the exact class of bug Surface.tsx already hit and fixed
-  // (2026-07-20, `growsToFillOuter`, the Habits summary chip) — and it turned a small secondary
-  // button into a pill that filled most of the screen. `pillMask`'s own `paddingVertical`/
-  // `paddingHorizontal` (set at the call site, tuned to match `SIZE_HEIGHT`) already gets it
-  // within a px or two of the intended height without needing to force-grow into whatever
-  // "available" height Android reports.
   emphasisWrap: { position: 'relative', borderRadius: Radius.full },
-  ring: { alignSelf: 'stretch' },
-  pillMask: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   content: {
     flexDirection: 'row',
     alignItems: 'center',

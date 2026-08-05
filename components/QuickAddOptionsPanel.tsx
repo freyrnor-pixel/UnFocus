@@ -1,39 +1,42 @@
 /**
- * QuickAddOptionsPanel.tsx — the stacked-rows container for a quick-add's options
- * (components/QuickAddOptionRow.tsx children), drawn under the pad line's input.
+ * QuickAddOptionsPanel.tsx — the dense grid holding a quick-add's option cells.
  *
- * Just a divider-drawing wrapper: a hairline `theme.border` line between each row, none
- * after the last, matching the approved dropdown-panel design (icon+word left, value right,
- * one row per option) that replaced the old horizontal icon-chip row.
+ * **Grid, 2026-08-05 (card design reset, maintainer brief point 5: options "have to be compact…
+ * related options next to each other, and no open space").** This used to be a vertical stack
+ * with a hairline divider between each full-width row — four options made a tall panel whose
+ * right half was empty. It is now a wrapping grid: cells pair two-per-line, `flexGrow` so an
+ * odd last cell fills its line instead of leaving a hole, and each cell brings its own border
+ * (components/QuickAddOptionRow.tsx) rather than sharing a drawn divider.
+ *
+ * **Adjacency is the caller's to control.** Flexbox pairs cells in the order it is given them,
+ * so "related options next to each other" is satisfied by the order the caller passes children
+ * in — this component deliberately has no grouping API. If a pairing looks wrong, reorder the
+ * children at the call site; don't add a `group` prop here.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme
+ *   Imports → constants/theme (Spacing), react-native
  *   Used by → components/PadTypeRow.tsx, components/AddRow.tsx (the `panel` prop both render)
  *   Data    → none — presentational
+ *
+ * Edit notes:
+ *   - No theme dependency any more: the cells own their borders, so this is pure layout. Keep
+ *     it that way — a background or border here would box the grid inside the card's own box.
+ *   - The gap is `Spacing.xs` in both axes and matches the row gap components/PadSheet.tsx uses
+ *     between its boxes, so a card's rows and its option cells sit on the same rhythm.
  */
-import React, { Children } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { Spacing } from '@/constants/theme';
 
 export default function QuickAddOptionsPanel({ children }: { children: React.ReactNode }) {
-  const theme = useAppTheme();
-  const rows = Children.toArray(children);
-
-  return (
-    <View style={styles.panel}>
-      {rows.map((row, i) => (
-        <View
-          key={i}
-          style={i > 0 && [styles.divider, { borderTopColor: theme.border }]}
-        >
-          {row}
-        </View>
-      ))}
-    </View>
-  );
+  return <View style={styles.grid}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
-  panel: { width: '100%' },
-  divider: { borderTopWidth: StyleSheet.hairlineWidth },
+  grid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
 });

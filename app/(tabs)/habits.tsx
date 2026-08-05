@@ -113,6 +113,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { useSettingsStore, type HabitViewTab as SettingsHabitViewTab } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
@@ -155,9 +156,10 @@ import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
-import { FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
+import { useScreenColor } from '@/lib/screenColor';
 import { getDomainColor } from '@/lib/domainColor';
 import { success, selection, tap } from '@/lib/haptics';
 
@@ -255,6 +257,8 @@ function HabitCard({
   first?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const isDark = useIsDark();
+  const screenHue = useScreenColor() ?? theme.border;
   const logs = useHabitStore((s) => s.logs);
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
@@ -277,6 +281,14 @@ function HabitCard({
   const hasMetaLine = !!linkedGoal || isWeeklyFlexible || habit.energyEnabled;
 
   const accent = habitColor(habit.kind, theme);
+  // Boxed row (card design reset, 2026-08-05) — the same border this screen's rows get inside
+  // components/PadSheet.tsx: the screen hue at the FIELD rung, one step lighter than the card's
+  // own edge, so a card full of rows reads as a hierarchy rather than as a grid.
+  const rowBox = {
+    borderWidth: BORDER_WIDTH.field,
+    borderColor: computeBorderTone(screenHue, isDark, 'field'),
+    borderRadius: Radius.sm,
+  };
 
   const prevDone = useRef(isDone);
   useEffect(() => {
@@ -306,7 +318,11 @@ function HabitCard({
   return (
       <View style={styles.habitGlowWrap}>
       <GlowPulse active={isDone} color={accent} mode="static" radius={0} />
-      <View style={[styles.habitCard, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule }]}>
+      {/* Boxed row (card design reset, 2026-08-05): this used to be a hairline `theme.rule`
+          divider between flush rows. It is now its own bordered box in the screen's hue at the
+          FIELD rung, matching components/PadSheet.tsx exactly — this screen's rows and the
+          Home habits card's rows are the same object, which is the point of the reset. */}
+      <View style={[styles.habitCard, rowBox, !first && styles.habitCardStacked]}>
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
         <View style={styles.habitCardContent}>
 
@@ -470,7 +486,7 @@ function WeekView({
 
   if (visibleHabits.length === 0) {
     return (
-      <Surface style={styles.habitsEmptyCard} borderColor={theme.border}>
+      <Surface style={styles.habitsEmptyCard}>
         <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
@@ -556,7 +572,7 @@ function MonthView({
 
   if (visibleHabits.length === 0) {
     return (
-      <Surface style={styles.habitsEmptyCard} borderColor={theme.border}>
+      <Surface style={styles.habitsEmptyCard}>
         <EmptyState title={t.noHabitsYet} />
       </Surface>
     );
@@ -636,7 +652,11 @@ export default function HabitsScreen() {
 
   const lang = useSettingsStore((s) => s.language);
   const people = usePeopleStore((s) => s.people);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   // Gates the "Edit Goals" link at the bottom of the screen (2026-07-29) — same flag
   // HabitCard's own goal glow dot already reads, so turning Goals off hides both at once.
   const featureGoals = useSettingsStore((s) => s.featureGoals);
@@ -813,6 +833,7 @@ export default function HabitsScreen() {
       <ScreenScaffold
         title={t.habitsTitle}
         tier="site"
+        screenKey="habits"
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
@@ -837,7 +858,13 @@ export default function HabitsScreen() {
               not the inner habit cards/add row. */}
           <TourTarget id="tour.habits.list">
             <DebugNoteAnchor id="habits.section" label="Habits">
-            <Surface borderColor={habitDomainColor.accent} style={styles.habitsCard}>
+            {/* No `borderColor` (card design reset, 2026-08-05): this card sits ON the Habits
+                screen, so it inherits that screen's one hue like every other card. It used to
+                pass the habit DOMAIN colour (#218432, a dark green), which is the badge
+                palette — that put a green card on a sky-blue screen and made the Habits tab
+                the only screen whose main card disagreed with its own header and its own
+                Home preview. `habitDomainColor` still drives the badge and the accents below. */}
+            <Surface style={styles.habitsCard}>
               {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
               <Collapsible open={showHabitProfiles}>
                 <ScrollView
@@ -933,7 +960,7 @@ export default function HabitsScreen() {
                     ) : (
                       // Neutral edge to match the Week/Month empty placeholders (theme.border,
                       // not the habit domain hue) — quiet "nothing here yet", not a coded surface.
-                      <Surface borderColor={theme.border} style={styles.sectionCard}>
+                      <Surface style={styles.sectionCard}>
                         <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
                       </Surface>
                     )
@@ -1161,6 +1188,9 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     overflow: 'hidden',
   },
+  // 4px gap between boxes, not flush — two adjacent 1.25px borders would paint a line heavier
+  // than the CARD's own edge and invert the hierarchy. Same rule as components/PadSheet.tsx.
+  habitCardStacked: { marginTop: Spacing.xs },
   habitAccent: { width: 4, alignSelf: 'stretch' },
   habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   // The row shell itself — leading icon, title, the ONE meta line, the ONE right-hand value,

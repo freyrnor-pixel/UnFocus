@@ -20,7 +20,7 @@ export default function ScanScreenWeb() {
   const router = useRouter();
   const t = useT();
   return (
-    <ScreenScaffold title={t.shopping.scan} tier="sub" onBack={() => router.back()}>
+    <ScreenScaffold title={t.shopping.scan} tier="sub" screenKey="scan" onBack={() => router.back()}>
       <Text style={styles.text}>{t.webPreview.notAvailable}</Text>
     </ScreenScaffold>
   );

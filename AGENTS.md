@@ -206,22 +206,79 @@ file owns which token.)
     is EDITED in `components/ShoppingItemSheet.tsx` (a row-body tap). That sheet is also the
     only editor for a weekly item's unit/price/category. `onIncrement`/`onDecrement` on
     `ShoppingRow` are gone — `onOpenDetail` replaced them.
-  - **Matte finish**: there is no specular highlight any more (removed — it read as gloss;
-    `__tests__/glassMaterial.test.ts` asserts the token is GONE, not merely dimmed). The face
-    lift (cards; buttons dropped it entirely, 2026-08-05) is 10% white gone by 42% plus a 4%
-    bottom shade. Don't raise it back — that is exactly the "too glossy, too rounded towards
-    the user" state the maintainer rejected. **The rim went further, 2026-08-05**: it was a
-    lit-top/dark-bottom gradient (white .22 stopping at 12%, fading to a hue-dark bottom) —
-    now it's ONE flat, hue-tinted tone the whole way round (`computeRimGradient()` in
-    `constants/theme.ts`), a deliberate override of `DESIGN_RULES_AUDIT.md` item 8's "keep the
-    gradient" call from one day earlier — "borders should not be affected by light," only a
-    surface's own content should be. Domain-hue identity on the edge is unchanged; only the
-    light-gradient shape is gone.
+  - ~~**Matte finish**~~ — **superseded by the card design reset (2026-08-05). There is no
+    material any more.** See "One card design" below; the matte/rim/face-lift tuning this
+    bullet described was deleted rather than adjusted. `__tests__/glassMaterial.test.ts` still
+    asserts the specular token is gone, and that is still the rule — but the layers it was a
+    highlight ON no longer exist either.
   - **Press = sink, not shrink**: `PressableScale`'s `travel` (px, from `Travel.*` in
     `constants/motion.ts`) translates a cap down into a base; `sunk` is the stays-pressed
     "on" state (active tab, active IconButton). A caller passing `travel` must also draw a
     base — see `Button.tsx`'s `keyBase` — or the cap sinks into nothing. Note `style` moves
     to the wrapper on that path.
+- **One card design — the 2026-08-05 reset** (`components/Surface.tsx` + `lib/screenColor.ts` +
+  `computeBorderRamp`/`computeBorderTone`/`BORDER_WIDTH` in `constants/theme.ts`). The
+  maintainer's brief was "I've been messing around too much with the visuals. One simple design
+  for all cards." Ten numbered points; this is what they became. **Read this before proposing
+  any card/border/material change — most of what the older bullets above describe is gone.**
+  - **A card is a flat opaque page with ONE border.** White (`#FFFFFF`) in light mode, the flat
+    navy `theme.surface` in dark. No frost, no `BlurView`, no translucent wash, no face-lift
+    scrim, no beveled rim, no inner line. `components/GlassFill.tsx` is no longer mounted by
+    `Surface` OR by `Button` — both took the solid path in the same pass. `settings.glassSurfaces`
+    (the reduce-transparency toggle) is now **inert for Surface and Button**: everything is
+    opaque unconditionally, which is what that toggle was asking for. Column and setting stay.
+  - **Colour lives ONLY in the border, and the border's hue comes from the SCREEN.**
+    `lib/screenColor.ts` is **revived** (it was retired 2026-07-31 in addendum A.5 — read its
+    header before "re-retiring" it). Mapping: To-do blue · Habits sky · Health teal · Shopping
+    green · Notes yellow · Food orange · Scan violet · Goals indigo · **Home and Settings
+    neutral grey**. A domain sub-screen wears its parent's hue, so pushing into it doesn't
+    change colour. Pinned by `lib/__tests__/screenColor.test.ts`.
+  - **Home is the index of the other screens.** It has no hue of its own; each preview card
+    passes `borderColor={getScreenColor(theme, '<source screen>').base}`, so Home's habits card
+    is sky and its notes card is yellow. That explicit `borderColor` override is the ONLY
+    legitimate use of the prop — a card on its own screen passes nothing and inherits.
+  - **The hue is graded by weight: card → field → button**, deeper/thicker to lighter/thinner
+    (`BORDER_WIDTH` + the `RAMP` table). This is what stops a card full of bordered rows
+    reading as a grid, and `lib/__tests__/borderRamp.test.ts` pins the ordering in both
+    thickness and strength. Each individual border ALSO ramps deep→light down its own edge
+    ("green to light green"). **That gradient is not a revert of the 2026-08-05 flat-rim pass**
+    — that pass removed a *lighting* ramp (white lip → dark bottom); this one stays inside the
+    screen's own hue with no white and no black in it. Both functions still exist; read
+    `computeBorderRamp`'s doc before touching either.
+  - **`lib/domainColor.ts` is NOT dead and is not a rival any more.** The two colour systems
+    were split by CHANNEL: the screen hue owns every EDGE, the domain hue owns the gradient
+    BADGE and its ink. That is what resolved the collision that killed screenColor in A.5.
+    Don't derive a card edge from `getDomainColor` — several call sites did, and each one put a
+    differently-coloured card on a single-colour screen (the To-do tab's maroon "Recurring"
+    card next to its blue "Whenever" one was the visible symptom).
+  - **Rows are bordered boxes; there are no ruled lines and no spare lines.**
+    `components/PadSheet.tsx` draws one box per row at the FIELD rung with a `Spacing.xs` gap
+    (flush would double two 1.25px borders into a line heavier than the card's own, inverting
+    the hierarchy). This **reverses `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`** — that
+    rejection was about boxed rows inside a *glass* card ("cards inside a card"), and the glass
+    is gone. It also resolves the rule-5 half of `DESIGN_RULES.md` open conflict #8, and
+    **overrules rule 5 itself** ("whitespace over lines") — borders are the grouping signal now,
+    by explicit instruction. Dividers are still out: separate with boundaries, not with lines
+    between things.
+  - **Quick-add options are a dense grid, all visible while typing.**
+    `components/QuickAddOptionsPanel.tsx` wraps; `QuickAddOptionRow` is a bordered CELL (label
+    over value) that pairs two-per-line and `flexGrow`s so an odd last cell fills its line
+    instead of leaving a hole. Pass `wide` for a live control or a long value. **Adjacency is
+    the caller's job** — flexbox pairs in the order it's given, so reorder children at the call
+    site; there is deliberately no grouping API.
+  - **Button fills and states are untouched.** Point 7 of the brief was "button states stay as
+    designed now", and the maintainer separately confirmed primary keeps its accent fill so a
+    screen still has one obvious action. Only translucency went. A filled variant's border
+    derives from its own fill (`mat.innerLine`); `ghost`, having no fill, wears the screen hue
+    at the BUTTON rung.
+  - **The backdrop got quieter, not removed** — `ScreenBackground`'s `branchOpacity` 0.5→0.28
+    light / 0.7→0.42 dark. Point 10 was "decorate with less opaque leaves and branches in edges,
+    not to disturb, only to decorate". Cards themselves stay clean; nothing is drawn on a card.
+  - **Deliberate exceptions that are NOT drift**: `components/StarterCard.tsx` and
+    `components/OpenEpisodeCard.tsx` still pass an explicit neutral `theme.border` on a hued
+    screen. Both are documented choices that predate this pass (StarterCard must not twin with
+    HintCard; an open episode is deliberately the one flat, neutral card on the Health tab).
+    Leave them unless the maintainer rules otherwise.
 - **Ongoing symptom episodes** (2026-08-01, `lib/episodes.ts` + `components/OpenEpisodeCard.tsx`
   + `components/EpisodeCloseSheet.tsx`, over `health_logs`' new `episode_state` / `relief_note` /
   `relief_medicine_id` columns). A symptom entry that is STILL HAPPENING, as opposed to one
@@ -564,6 +621,17 @@ file owns which token.)
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
   - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and the habit quick-add's energy row (`HomeHabitsCard` + the Habits tab — a signed `− 0 +` `Stepper` since 2026-08-05, a tap-cycle before that). This line used to say "`PlanTaskCard`'s quick-add chip", which has not existed since 2026-08-01 — energy stayed a Habits-only quick-add setting; a task's energy is set in its editor. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
+  - **Hidden outright, above the flags** (2026-08-05): every sharing-with-other-people surface
+    is gated on `SHARING_VISIBLE` in `lib/sharingVisibility.ts`, currently `false` on maintainer
+    instruction while the single-user basics are reworked ("I'll get back to it later when the
+    basics works for a single user"). It hides the People/family card and the paired-devices
+    card in Settings, the `featureSharing` row in `FEATURE_ROWS`, the header share icons, the
+    shared sections on Plans/Shopping/Home, the shared-load `EnergyBalanceCard`, the person
+    chips in every editor, and Scan's QR-import option. **Nothing was deleted**: no table,
+    column, store or setting changed, live sync still runs for an already-paired device, and
+    `peopleModeEnabled`/`featureSharing` keep their stored values — so one line brings it all
+    back intact. Read that file's header before touching sharing; when it returns it should
+    come back AS the `featureSharing` flag, not as a permanent third switch.
   - **Off by default, still opt-in** (Settings → Advanced → Features — **and nowhere else since 2026-07-31, B1-1**): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). The onboarding feature picker (`app/onboarding/features.tsx`) is **deleted** — don't look for it, and don't add a new flag to it. Onboarding no longer offers ANY feature opt-in: a new install now gets the defaults and nothing to choose, which is the point. `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, and was offered on `app/onboarding/energy.tsx` until B1-2 removed the Quiet growth half of that screen; it is now Settings-only as well.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
@@ -863,7 +931,7 @@ children with no minWidth, the way `components/TaskCard.tsx`'s `weekdayChip` alw
 - `backlogTasks(today)` only returns non-recurring tasks; recurring tasks reappear by date schedule
 - **Notifications**: `lib/notifications.ts` only takes already-localised content. Medicine tray reminders live in `lib/medicineNotifications.ts` (one daily reminder per tray, re-synced from `store/useMedicineStore.ts` on every mutation; quiet hours SKIP a tray like habits, never shift it) — and note its "decide first, then cancel only what isn't being rescheduled" rule: a blanket cancel-then-schedule races with `scheduleDailyReminder`'s own internal cancel and can silently un-schedule what it just armed. Per-task reminders live in `useTaskStore` and cover both kinds — one-off tasks fire once (skipped if done/past), weekly-recurring tasks fire on every selected weekday (via `scheduleWeeklyTaskNotifications`); time-box tasks also get an "end" reminder. Habit daily reminders in `useHabitStore`; weekly/monthly reminders in `lib/reminders.ts` (`syncReminders`). `settings.tsx` re-syncs on relevant changes; `_layout.tsx` and onboarding step 6 sync on startup/finish.
 - **Retention**: `pruneOldData()` in `lib/db.ts` trims dated history to the last `RETENTION_DAYS` (365) on startup; config tables are left untouched.
-- **Materials (frost + wash + glow, 2026-07-18)**: `getMaterialStyle()` in `constants/theme.ts` computes the glass surface finish from a single base colour — a translucent tinted `backgroundColor` wash plus a calm border, consumed by `components/GlassFill.tsx` (≤2 render layers: an optional `BlurView` frost for overlay/chrome contexts, then the colour wash; ambient content cards get no `BlurView` at all). Rendered via a two-layer view (outer = border + `getLayeredShadow`, inner `overflow:'hidden'` mask = the fill) so shadows aren't clipped. There is no `bubbleMaterial` metal/rock/paper/stone finish system — that never existed in code, only in earlier prose; `settings.glassSurfaces` (reduce-transparency a11y toggle) is the only material-related setting. Purposeful active/focus glow is a separate, sparingly-applied halo — `getGlow(color, level)` — not part of the material itself.
+- **Materials — MOSTLY HISTORY as of the 2026-08-05 card reset** (see "One card design" above: `Surface` and `Button` no longer mount `GlassFill` at all, and `settings.glassSurfaces` is inert for both). What survives: `getMaterialStyle()` is still called for `mat.innerLine` (a filled button's border) and by the handful of back-compat consumers listed in its own doc, and `getGlow`/`getLayeredShadow` are untouched. The description that follows is kept because those consumers still exist — but **do not build anything new on it**. `getMaterialStyle()` in `constants/theme.ts` computes the glass surface finish from a single base colour — a translucent tinted `backgroundColor` wash plus a calm border, consumed by `components/GlassFill.tsx` (≤2 render layers: an optional `BlurView` frost for overlay/chrome contexts, then the colour wash; ambient content cards get no `BlurView` at all). Rendered via a two-layer view (outer = border + `getLayeredShadow`, inner `overflow:'hidden'` mask = the fill) so shadows aren't clipped. There is no `bubbleMaterial` metal/rock/paper/stone finish system — that never existed in code, only in earlier prose; `settings.glassSurfaces` (reduce-transparency a11y toggle) is the only material-related setting. Purposeful active/focus glow is a separate, sparingly-applied halo — `getGlow(color, level)` — not part of the material itself.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
 - **Biometric authentication**: `expo-local-authentication` is already in `package.json` and `app.json`'s `plugins` array (Decision 040, reserve-only — module ships in the build, no feature code uses it yet). Once the maintainer cuts the build with this dependency, the lock/unlock UI can ship as a normal OTA change — no further native work needed for that feature. See `REBUILD_DECISIONS.md` Decision 040 and `REBUILD_PLAN.md` §1 for the rest of the reserve-only native surface (`expo-location`, `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition`) that's ready the same way.
 - **Debug notes (2026-07-13)**: `settings.debugModeEnabled` turns on long-press-to-annotate — `components/DebugNoteAnchor.tsx` wraps a card/header; holding it opens a text note, saved notes show a small bubble badge (tap to edit, clear the text to delete). Currently wired onto every screen's header title (`components/ScreenHeader.tsx`) and Home's cards (`app/(tabs)/index.tsx`); wrap more screens' cards the same way as needed. `store/useFeedbackStore.ts` owns the data (table `feedback_notes`); export (Share sheet, top header icon) and "Reset all notes" (Settings → Data, same card as the toggle) both read/clear that store. Replaced the old flat DebugOverlay panel (deleted).

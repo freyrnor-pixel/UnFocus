@@ -245,7 +245,13 @@ const LIGHT: Palette = {
   base: ['#f7faff', '#eef3fc', '#e4ecfb'],
   topGlow: 'rgb(150,190,255)', topGlowOpacity: 0.28,
   botGlow: 'rgb(120,165,255)', botGlowOpacity: 0.22,
-  branch: '#6f9aff', leaf: '#a9c4ff', branchOpacity: 0.5,
+  // 0.5 → 0.28 (card design reset, 2026-08-05, brief point 10: "decorate with less opaque
+  // leaves and branches in edges, not to disturb, only to decorate"). The cards in front of
+  // this got flatter and whiter in the same pass, which removed the frosted wash that used to
+  // sit between the art and the content — so art tuned against a translucent card reads as
+  // competing with an opaque one. Lowered rather than removed: the edge decoration is the
+  // point, only its volume was wrong.
+  branch: '#6f9aff', leaf: '#a9c4ff', branchOpacity: 0.28,
   growthBranch: '#3f9e7a', growthLeaf: '#8ed3b4',
 };
 
@@ -253,7 +259,9 @@ const DARK: Palette = {
   base: ['#0b1020', '#0a1330', '#071026'],
   topGlow: 'rgb(90,150,255)', topGlowOpacity: 0.55,
   botGlow: 'rgb(60,120,255)', botGlowOpacity: 0.4,
-  branch: '#3f74ff', leaf: '#7fa8ff', branchOpacity: 0.7,
+  // 0.7 → 0.42, the same proportional step as LIGHT above. Dark mode keeps the higher of the
+  // two because a mid-blue branch on near-black has less contrast to spend than on near-white.
+  branch: '#3f74ff', leaf: '#7fa8ff', branchOpacity: 0.42,
   growthBranch: '#2f9b74', growthLeaf: '#63c49c',
 };
 

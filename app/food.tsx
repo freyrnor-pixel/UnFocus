@@ -36,7 +36,7 @@ export default function FoodScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.foodTabLabel} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={t.foodTabLabel} tier="sub" screenKey="food" onBack={() => router.back()}>
         <View style={styles.content}>
           <FoodTab onNotify={setConfirmMessage} />
         </View>

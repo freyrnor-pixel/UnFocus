@@ -1,47 +1,67 @@
 /**
- * QuickAddOptionRow.tsx — one full-width, readable row in a quick-add options panel.
+ * QuickAddOptionRow.tsx — one bordered cell in a quick-add's dense options grid.
  *
- * Replaces the icon-only chips that used to sit beside a quick-add field (a bare `--:--`
- * time box, a repeat glyph abbreviated to a single letter, a plain clock icon for task/
- * moment, a plain icon-only energy toggle) — user report: "I cannot understand small,
- * barely visible icons... use a bit of text/words and [be] easily readable." A row reads
- * icon + word on the left, the current value on the right (muted when unset, accent-tinted
- * once set), same shape as PadRow's label/value convention. `onPress` is optional so the
- * Time row can carry an interactive `TimeBoxInput` as its `value` instead of a static string
- * and a press handler (tapping IS the control there).
+ * **Grid cell, 2026-08-05 (card design reset, maintainer brief point 5: options "have to be
+ * compact… related options next to each other, and no open space", plus point 9's borders).**
+ * This was a full-width row: icon + word on the left, value on the right, and the whole right
+ * half of every row empty. Four options meant four 44px rows and a tall panel of mostly
+ * nothing. It is now a compact bordered cell that pairs up two-per-line, stacking its label
+ * over its value so a half-width cell still reads at a glance.
+ *
+ * The name is now a small lie — it is a cell, not a row — and is kept only because renaming it
+ * would churn six call sites for no behavioural gain. If you are touching all of them anyway,
+ * rename it then.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, @expo/vector-icons, components/PressableScale
- *   Used by → components/PlanTaskCard.tsx, components/HomeHabitsCard.tsx,
- *             app/(tabs)/habits.tsx, app/(tabs)/plans.tsx (quick-add options panels)
- *   Data    → none — presentational; caller owns the value and the press handler
+ *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, FontSize, Fonts,
+ *             MIN_TAP_TARGET, Radius, Spacing), lib/useAppTheme, lib/screenColor,
+ *             @expo/vector-icons, components/PressableScale
+ *   Used by → components/QuickAddOptionsPanel.tsx (the grid), and through it
+ *             components/PadTypeRow.tsx + components/AddRow.tsx, hence
+ *             components/PlanTaskCard.tsx, components/HomeHabitsCard.tsx,
+ *             app/(tabs)/habits.tsx, app/(tabs)/plans.tsx
+ *   Data    → none — presentational; the caller owns the value and the press handler
  *
  * Edit notes:
- *   - Rows are meant to be stacked directly (no gap) with `QuickAddOptionsPanel` drawing the
- *     hairline divider between them — don't add spacing here or dividers double up.
- *   - `MIN_TAP_TARGET` height even though the row also reads as text — DESIGN_RULES.md rule 17.
+ *   - **Cells no longer stack flush and the panel no longer draws dividers.** Each cell brings
+ *     its own border at the FIELD rung of the screen's hue — the same border
+ *     components/PadSheet.tsx gives a row — and QuickAddOptionsPanel spaces them. Don't re-add
+ *     a divider here or between them; a bordered cell with a divider beside it reads as two
+ *     separate lines.
+ *   - **`wide` is for a cell whose value is a live control or a long string** (the Time row's
+ *     `TimeBoxInput`, a destination list name). A half-width cell truncates those, so they take
+ *     the whole line instead. Use it sparingly — every `wide` cell is a line that can't be
+ *     paired, which is how open space creeps back in.
+ *   - **"No open space" is the grid's job, not the cell's**: cells `flexGrow`, so an odd last
+ *     cell stretches to fill its line rather than leaving a hole. That's why the basis below is
+ *     a percentage under 50 and not a fixed width.
+ *   - `MIN_TAP_TARGET` height even though a cell also reads as text — DESIGN_RULES.md rule 17.
+ *   - `onPress` is optional: the Time cell carries an interactive `TimeBoxInput` as its `value`
+ *     instead of a press handler, because tapping the control IS the interaction there.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { useScreenColor } from '@/lib/screenColor';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   /** Current value text (e.g. "Weekly", "Task"), or a live control (TimeBoxInput). */
   value: string | React.ReactNode;
-  /** Muted/unset styling for the value — used when value is a plain string and nothing's
-   *  been chosen yet (e.g. "Off", "--:--"). Ignored when value is a React node. */
+  /** Muted/unset styling for the value — used when value is a plain string and nothing's been
+   *  chosen yet (e.g. "Off", "--:--"). Ignored when value is a React node. */
   isSet?: boolean;
   accent: string;
   onPress?: () => void;
-  /** Draws a trailing "›" — the row opens a picker rather than changing something in place.
-   *  Without it a pressable row looks identical to one whose `value` is a live control, which
-   *  is how the old tap-cycle rows managed to hide that they were cycling. Only meaningful
-   *  alongside `onPress`. */
+  /** Takes the full line instead of pairing up — for a live control or a long value. */
+  wide?: boolean;
+  /** Draws a trailing "›" — the cell opens a picker rather than changing something in place.
+   *  Without it a pressable cell looks identical to one whose `value` is a live control, which
+   *  is how the old tap-cycle rows managed to hide that they were cycling. */
   showsMore?: boolean;
   accessibilityLabel?: string;
 };
@@ -53,32 +73,42 @@ export default function QuickAddOptionRow({
   isSet,
   accent,
   onPress,
+  wide,
   showsMore,
   accessibilityLabel,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const hue = useScreenColor() ?? theme.border;
   const valueIsText = typeof value === 'string';
 
   const content = (
-    <View style={styles.row}>
-      <View style={styles.left}>
-        <Ionicons name={icon} size={16} color={theme.textMuted} />
-        <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
+    <View
+      style={[
+        styles.cell,
+        wide ? styles.wide : styles.half,
+        {
+          borderWidth: BORDER_WIDTH.field,
+          borderColor: computeBorderTone(hue, isDark, 'field'),
+          borderRadius: Radius.sm,
+        },
+      ]}
+    >
+      <View style={styles.labelLine}>
+        <Ionicons name={icon} size={14} color={theme.textMuted} />
+        <Text style={[styles.label, { color: theme.textMuted }]} numberOfLines={1}>
+          {label}
+        </Text>
       </View>
-      <View style={styles.right}>
+      <View style={styles.valueLine}>
         {valueIsText ? (
-          <Text
-            style={[styles.value, { color: isSet ? accent : theme.textMuted }]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.value, { color: isSet ? accent : theme.textMuted }]} numberOfLines={1}>
             {value}
           </Text>
         ) : (
           value
         )}
-        {showsMore ? (
-          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-        ) : null}
+        {showsMore ? <Ionicons name="chevron-forward" size={13} color={theme.textMuted} /> : null}
       </View>
     </View>
   );
@@ -91,6 +121,10 @@ export default function QuickAddOptionRow({
       scaleTo={0.98}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      // The growth keys live on the PRESSABLE when there is one, not on the cell inside it:
+      // a Pressable that hugs its content would leave the cell at its natural width and the
+      // grid would go ragged, which is the open space point 5 is about.
+      style={wide ? styles.wide : styles.half}
     >
       {content}
     </PressableScale>
@@ -98,17 +132,19 @@ export default function QuickAddOptionRow({
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  cell: {
     minHeight: MIN_TAP_TARGET,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
+    gap: 2,
   },
-  left: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // Holds the value and the optional "›" together, so a row that grows a chevron doesn't
-  // push its value away from the right edge (space-between would put the gap in between).
-  right: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, minWidth: 0 },
-  label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  value: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  // Under half, so two cells plus the grid's gap fit one line; `flexGrow` then expands them to
+  // fill it exactly, and an odd last cell stretches the whole way rather than leaving a hole.
+  half: { flexGrow: 1, flexShrink: 1, flexBasis: '46%', minWidth: 0 },
+  wide: { flexGrow: 1, flexShrink: 1, flexBasis: '100%', minWidth: 0 },
+  labelLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  valueLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minWidth: 0 },
+  label: { fontSize: FontSize.xs, fontFamily: Fonts.medium, flexShrink: 1 },
+  value: { fontSize: FontSize.sm, fontFamily: Fonts.bold, flexShrink: 1 },
 });

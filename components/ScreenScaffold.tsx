@@ -152,6 +152,7 @@ import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP, NAV_PEEK } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
+import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
 
 /** A host component (View) ref that can be measured in window coordinates. */
 type Measurable = {
@@ -255,6 +256,18 @@ type Props = {
    * tab (a ~286-row list that must virtualise). See Edit notes.
    */
   scrollable?: boolean;
+  /**
+   * This screen's key in lib/screenColor.ts — the hue every card inside it wears on its
+   * border (card design reset, 2026-08-05). Tab screens pass their react-navigation route
+   * name ('plans', 'habits', 'health', 'shopping'); sub-tier screens pass their own key
+   * ('notes', 'food', 'scan', 'goals'). Omit it — as Home and Settings deliberately do — and
+   * the body provides no hue, so its cards fall through to the neutral `theme.border`.
+   *
+   * This only sets a DEFAULT for the body. A card that belongs to a different screen than the
+   * one it is drawn on (Home's preview cards) still passes its own `borderColor` to Surface,
+   * which wins over this.
+   */
+  screenKey?: ScreenKey;
 };
 
 export default function ScreenScaffold({
@@ -278,9 +291,17 @@ export default function ScreenScaffold({
   stickyGapColor,
   onScroll,
   scrollable = true,
+  screenKey,
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
+  // The screen's own hue, handed to every Surface in the body via context (card design reset,
+  // 2026-08-05). `null` when the screen names no key — Home and Settings, which are neutral on
+  // purpose — so an un-coded card lands on the neutral `theme.border` rather than on a colour.
+  const screenHue = React.useMemo(
+    () => (screenKey ? getScreenColor(theme, screenKey).base : null),
+    [theme, screenKey],
+  );
   // Flat backdrop colour for plainBackground screens (Settings): true white/black, no tint.
   const bgColor = plainBackground ? (isDark ? '#000000' : '#FFFFFF') : theme.bg;
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
@@ -453,6 +474,12 @@ export default function ScreenScaffold({
   );
 
   const scaffold = (
+    // The screen hue wraps the WHOLE scaffold, not just the scroll body, so the floating
+    // header card wears the same border colour as the cards under it — one colour per screen,
+    // chrome included. BottomNav is outside this tree (app/(tabs)/_layout.tsx renders it once
+    // for the whole pager), so it stays neutral by construction, which is correct: it belongs
+    // to no single screen.
+    <ScreenColorContext.Provider value={screenHue}>
     <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
@@ -537,6 +564,7 @@ export default function ScreenScaffold({
           debugModeEnabled, so every screen gets it for free via this one mount point. */}
       <DebugGeneralNoteButton bottomOffset={(reserveBottomNav ? bottomNavClearance : bottomInset) + Spacing.md} />
     </SafeAreaView>
+    </ScreenColorContext.Provider>
   );
 
   return scaffold;

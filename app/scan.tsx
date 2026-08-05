@@ -91,6 +91,7 @@ import { goToSite } from '@/lib/siteNav';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { persistPhoto } from '@/lib/photoStorage';
 import { Fonts, FontSize, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
@@ -578,7 +579,7 @@ export default function ScanScreen() {
   if (mode === 'idle') {
     return (
       <>
-        <ScreenScaffold title={t.scanReceipt} tier="sub" onBack={() => router.back()}>
+        <ScreenScaffold title={t.scanReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
             {/* Tip — subtle bordered card with an info glyph, not a flat colour block.
                 Edge tinted to the inner accent (theme.good) so border matches content
@@ -614,7 +615,14 @@ export default function ScanScreen() {
                 // label are what tell the three options apart.
                 { icon: 'images-outline' as const, color: theme.border, label: t.chooseFromLibrary, onPress: pickImage },
                 { icon: 'pencil-outline' as const, color: theme.border, label: t.addManually, onPress: () => setMode('manual') },
-                { icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner },
+                // QR import receives a list from ANOTHER device, so it goes with the rest of
+                // sharing while the single-user basics are reworked (2026-08-05, see
+                // lib/sharingVisibility.ts). Receipt OCR, the library picker and manual entry
+                // are all single-user and stay — this screen is not a sharing screen, it just
+                // hosted one sharing entry point.
+                ...(SHARING_VISIBLE
+                  ? [{ icon: 'qr-code-outline' as const, color: theme.good, label: t.scanQrCode, onPress: openQrScanner }]
+                  : []),
               // Surface's own key path (task 16) — each option sinks onto a base, doesn't shrink.
               ].map((opt) => (
                   <Surface
@@ -662,7 +670,7 @@ export default function ScanScreen() {
   if (mode === 'result' && parsedItems.length > 0) {
     return (
       <>
-        <ScreenScaffold title={t.foundOnReceipt} tier="sub" onBack={() => router.back()}>
+        <ScreenScaffold title={t.foundOnReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
             <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
             {renderMonthlyListSelector()}
@@ -759,7 +767,7 @@ export default function ScanScreen() {
   if (mode === 'manual') {
     return (
       <>
-        <ScreenScaffold title={t.manualEntryTitle} tier="sub" onBack={() => router.back()}>
+        <ScreenScaffold title={t.manualEntryTitle} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
             <HintCard text={t.manualEntryHint} example="" />
 

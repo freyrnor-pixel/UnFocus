@@ -61,10 +61,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useScreenColor } from '@/lib/screenColor';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 
@@ -106,6 +107,8 @@ export default function AddRow({
   style,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  const fieldHue = useScreenColor() ?? theme.border;
   const t = useT();
   const active = value.trim().length > 0 && !disabled;
   const fill = accent ?? theme.good;
@@ -190,7 +193,10 @@ export default function AddRow({
           backgroundColor: theme.surfaceMuted,
           // Same field shape and same colour rule as components/PadTypeRow.tsx — see its
           // header. `theme.border` is the ≥3:1 control-boundary token; the accent marks focus.
-          borderColor: focused ? fill : theme.border,
+          // Screen hue at the FIELD rung at rest, the surface's own fill while focused — the same
+          // shape components/PadTypeRow.tsx uses, so the app's two composers are one control
+          // (card design reset, 2026-08-05).
+          borderColor: focused ? fill : computeBorderTone(fieldHue, isDark, 'field'),
         },
       ]}
       value={value}
@@ -342,7 +348,9 @@ const styles = StyleSheet.create({
     // floating on the card. Same class of bug as the "+ New task" bar being bare text before
     // its 2026-07-25 pill, and the same fix. Colours are applied inline (they need the theme).
     minHeight: MIN_TAP_TARGET,
-    borderWidth: 1,
+    // Same weight as every other field-rung border (PadTypeRow's composer, PadSheet's row
+    // boxes, QuickAddOptionRow's cells) — card design reset, 2026-08-05.
+    borderWidth: BORDER_WIDTH.field,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.sm,

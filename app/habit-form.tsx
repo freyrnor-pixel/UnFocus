@@ -125,6 +125,7 @@ import {
   HabitReminderMode,
 } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
@@ -213,7 +214,11 @@ export default function HabitForm() {
   const updateHabit = useHabitStore((s) => s.update);
   const removeHabit = useHabitStore((s) => s.remove);
   const people = usePeopleStore((s) => s.people);
-  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled);
+  // People/family is part of the sharing surface that's hidden while the single-user basics
+  // are reworked (2026-08-05) — see lib/sharingVisibility.ts. The setting keeps its stored
+  // value and every person row stays in the DB, so an existing multi-person setup returns
+  // intact when the switch flips back; only the UI stands down.
+  const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   // Energy is a real toggle again (2026-07-31) — gates the energy stepper below. The stored
   // energyValue is left alone while off, so turning it back on restores it.
@@ -371,6 +376,7 @@ export default function HabitForm() {
     <ScreenScaffold
       title={isEdit ? t.habitFormEdit : t.habitFormTitle}
       tier="sub"
+      screenKey="habits"
       onBack={() => router.back()}
       headerRight={
         // Icon + text, not a bare ✓ (2026-07-26): a lone checkmark in a header doesn't say

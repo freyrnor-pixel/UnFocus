@@ -164,7 +164,7 @@ export default function NotesScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.notes.title} tier="sub" onBack={() => router.back()}>
+      <ScreenScaffold title={t.notes.title} tier="sub" screenKey="notes" onBack={() => router.back()}>
         <View style={styles.content}>
           <HintCard text={t.hints.notes.text} example={t.hints.notes.example} />
 
