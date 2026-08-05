@@ -807,6 +807,23 @@ children with no minWidth, the way `components/TaskCard.tsx`'s `weekdayChip` alw
   + an explicit stop). A command that "won't finish" after its real work is visibly done is
   almost always an orphaned child still holding a pipe/fd open, not a genuine infinite loop —
   check `ps aux` for a stray `node`/server process before assuming the tool itself hung.
+- **⚠️ Metro's cache lives in `/tmp`, is keyed by project root, and `node_modules` is often a
+  SYMLINK — so a preview build can silently bundle a stale copy of a file you just edited
+  (root-caused 2026-08-04).** Symptom: you change a component, `npx tsc --noEmit` is clean,
+  `npm run preview` succeeds with 0 page/console errors — and the screenshot shows the OLD
+  behaviour, with no error anywhere to explain it. `dist/` is even newer than your edit, so
+  timestamps look fine. This ate a long debugging session; the tell is that it is *selective* —
+  other files in the same change bundle correctly, so the app looks half-updated rather than
+  obviously stale.
+  **How to confirm it in one step, before you debug the component**: put a unique literal in the
+  code (`label: 'zzMarker1234'`), rebuild, and `grep -o zzMarker1234 dist/_expo/static/js/web/entry-*.js`.
+  Zero hits means the bundle is stale and the component is fine. Do this FIRST — reasoning about
+  the DOM while the bundle is stale produces a chain of wrong conclusions.
+  **The fix:** `rm -rf /tmp/metro-* /tmp/haste-* .expo dist` and rebuild. `rm -rf node_modules/.cache`
+  is NOT enough, and in an agent worktree it is actively misleading — `node_modules` is symlinked
+  to the main checkout, so you are clearing a different tree's cache.
+  This bites hardest in `.claude/worktrees/<agent>/`, where several checkouts of the same repo
+  share one `node_modules` and one `/tmp`.
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays
 - `useT()` depends on `useSettingsStore`, so it re-renders when language changes — this is intentional. Outside components (stores, schedulers) use `getTranslations(lang?)` instead — it reads the current language from the store when no arg is given.
 - The scan uses on-device OCR via `@react-native-ml-kit/text-recognition` (`parseReceiptText` in `app/scan.tsx`). Confirmed items are added to the shopping list, logged to `purchase_log`, and upserted into the `store_items` catalog (powers shopping autocomplete).

@@ -15,7 +15,16 @@ module.exports = {
   // suite jumps from ~71 files to ~213 — every test triples, and a worktree sitting on an
   // older commit reports failures for code that is no longer on this branch. CI never sees
   // it (a fresh clone has no worktrees), so it only ever misleads a local run.
-  testPathIgnorePatterns: ['/node_modules/', '/\\.claude/worktrees/'],
+  //
+  // **`<rootDir>` is load-bearing, do not shorten this to a bare '/\\.claude/worktrees/'.**
+  // These patterns match the ABSOLUTE path, and a worktree's own files live under
+  // `…/UnFocus/.claude/worktrees/agent-x/…` — so an unanchored pattern excludes every test
+  // in the worktree you are currently standing in. `npx jest` then exits "No tests found"
+  // instead of running the suite, which reads as a broken config rather than a silent
+  // no-op. Anchoring to `<rootDir>` scopes it to worktrees BELOW the tree being tested:
+  // from the main checkout it still skips them, and from inside a worktree it matches
+  // nothing, because that worktree is itself the rootDir.
+  testPathIgnorePatterns: ['/node_modules/', '<rootDir>/\\.claude/worktrees/'],
   // Coverage is collected over the testable logic layer only: the pure helpers in
   // lib/ and the Zustand stores. Excluded — static seed data, the `.web` platform
   // siblings (native path is the source of truth), and pure-native wrappers/hooks
