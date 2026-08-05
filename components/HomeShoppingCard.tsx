@@ -25,6 +25,7 @@
  *             components/PadFooterToggle (the ruled sheet, the type line, the three-size
  *             footer), components/Surface, components/IconButton (the week arrows),
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
+ *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             components/ProgressBar, components/Stepper (quick-add quantity),
  *             components/ShoppingItemSheet (this card mounts its own item detail sheet —
  *             AnimatedBottomSheet renders into a Modal, so depth in the tree doesn't matter),
@@ -41,6 +42,10 @@
  *             Card size persists to settings.cardStates via the `padState` props.
  *
  * Edit notes:
+ *   - **The header "⋮" (2026-08-04, workstream A)**: `cardMenu` is optional and BUILT BY HOME
+ *     (app/(tabs)/index.tsx), not here — its rows write `settings.homeCardOrder` and flip Home's
+ *     reorder mode, neither of which this card can reach. No prop, no ⋮ (the To-do tab's own
+ *     mount passes none). See components/CardMenuSheet.tsx's header before moving it.
  *   - **Quantity READS here and is EDITED in the sheet** (row rule, 2026-07-28) — it is the
  *     row's one right-hand value, and `components/ShoppingItemSheet.tsx` is still the only
  *     editor for a weekly item's quantity/unit/price/category. Don't add a stepper to a row.
@@ -79,6 +84,7 @@ import PadFooterToggle from '@/components/PadFooterToggle';
 import CardHintNote from '@/components/CardHintNote';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
+import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import Stepper from '@/components/Stepper';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import type { FlightRect } from '@/components/FlightOverlay';
@@ -115,6 +121,8 @@ export type ShoppingWeek = {
 };
 
 type Props = {
+  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
+  cardMenu?: CardMenu;
   /** The four cycle weeks, in order. Built by app/(tabs)/index.tsx — see its `shoppingWeeks`. */
   weeks: ShoppingWeek[];
   /** Which week to open on — the one containing today. */
@@ -140,6 +148,7 @@ type Props = {
 };
 
 export default function HomeShoppingCard({
+  cardMenu,
   weeks,
   initialWeek,
   onToggle,
@@ -330,6 +339,7 @@ export default function HomeShoppingCard({
               </Text>
             </View>
           )}
+          {cardMenu ? <CardMenuButton cardTitle={t.shoppingTitle} {...cardMenu} /> : null}
         </View>
 
         {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}

@@ -110,6 +110,7 @@
  *             (CardAccentBadge — the read-only Home header), components/Badge (the header's
  *             count pill, DESIGN_COMPARISON/09), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
+ *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
  *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
  *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
@@ -126,6 +127,10 @@
  *             stores" since 2026-08-02: `useEnergyPause()` (see the pin edit note below).
  *
  * Edit notes:
+ *   - **The header "⋮" (2026-08-04, workstream A)**: `cardMenu` is optional and BUILT BY HOME
+ *     (app/(tabs)/index.tsx), not here — its rows write `settings.homeCardOrder` and flip Home's
+ *     reorder mode, neither of which this card can reach. No prop, no ⋮ (the To-do tab's own
+ *     mount passes none). See components/CardMenuSheet.tsx's header before moving it.
  *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** The old grey
  *     "{left}/{total} left" header line is gone; a `components/Badge` pill (`domainColor.soft`
  *     fill, plain `theme.textMuted` ink — never `domainColor.accent` as text, per
@@ -297,6 +302,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
+import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import DayGridLines from '@/components/DayGridLines';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -331,6 +337,8 @@ import { DayEntry, formatEntryTime } from '@/lib/dayLog';
 import type { DeviceCalendarEvent } from '@/lib/deviceCalendar';
 
 type Props = {
+  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
+  cardMenu?: CardMenu;
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
@@ -521,6 +529,7 @@ const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = 
 };
 
 export default function PlanTaskCard({
+  cardMenu,
   tasks,
   allTasks,
   readOnly = false,
@@ -1459,6 +1468,7 @@ export default function PlanTaskCard({
                   accessibilityLabel={t.pad.summary(pendingCount, countableTasks.length)}
                 />
               )}
+              {cardMenu ? <CardMenuButton cardTitle={t.home.todaysPlans} {...cardMenu} /> : null}
             </View>
             <ProgressBar
               value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}

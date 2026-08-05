@@ -1083,6 +1083,17 @@ const en = {
       remove: (label: string) => `Remove ${label}`,
       kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals' },
     },
+    // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
+    // says "this card" rather than naming a screen — the sheet's title already names it.
+    cardMenu: {
+      open: (card: string) => `Card settings for ${card}`,
+      subtitle: 'Settings for this card',
+      close: 'Done',
+      hide: 'Hide this card',
+      hideHint: 'It stays on its own screen — nothing is removed',
+      hideLastHint: 'Home keeps at least one card',
+      arrangeHint: 'Hold a card to drag it up or down',
+    },
   },
   health: {
     habits: 'Habits',
@@ -3138,6 +3149,15 @@ const no: typeof en = {
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
       kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål' },
+    },
+    cardMenu: {
+      open: (card: string) => `Kortinnstillinger for ${card}`,
+      subtitle: 'Innstillinger for dette kortet',
+      close: 'Ferdig',
+      hide: 'Skjul dette kortet',
+      hideHint: 'Det ligger fortsatt på sin egen skjerm — ingenting fjernes',
+      hideLastHint: 'Hjem beholder minst ett kort',
+      arrangeHint: 'Hold på et kort for å dra det opp eller ned',
     },
   },
   health: {

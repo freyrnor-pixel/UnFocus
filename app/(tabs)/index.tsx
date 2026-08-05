@@ -156,6 +156,7 @@ import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import HomeHabitsCard from '@/components/HomeHabitsCard';
 import HomeCardManager from '@/components/HomeCardManager';
+import type { CardMenu } from '@/components/CardMenuSheet';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -566,6 +567,43 @@ export default function HomeScreen() {
     [router, pathname]
   );
 
+  // The per-card "⋮" menu (components/CardMenuSheet.tsx, workstream A / the design project's
+  // one un-filled component gap). Built HERE and passed down, never built by the card: every
+  // row it carries writes `settings.homeCardOrder` or flips `cardsEditMode`, and a preview
+  // card can reach neither. See CardMenuSheet's "The menu is built by whoever owns the state
+  // it changes" note before moving this into a card.
+  //
+  // Two rows for now, which is the honest size of what a Home card can currently be told to
+  // do — hide, and arrange. Deliberately NOT a "delete": a hidden card keeps its screen, its
+  // rows and its reminders, and calling that delete would be the one line in this sheet that
+  // lies about what it does. Layout ("How lists look") stays on its own header icon rather
+  // than moving in here: it is a *surface* setting shared with the To-do tab
+  // (lib/useSurfaceLayout.ts), not a Home-card setting, so folding it in would put one
+  // control in two places with different scopes.
+  const buildCardMenu = useCallback(
+    (kind: HomeCardKind): CardMenu => {
+      // Home keeps at least one card — hiding the last one leaves a screen with a greeting
+      // and nothing else, and no visible way back (the add-picker lives inside edit mode).
+      const isLast = homeCardOrder.length <= 1;
+      return {
+        options: [
+          {
+            key: 'hide',
+            label: t.home.cardMenu.hide,
+            icon: 'eye-off-outline',
+            hint: isLast ? t.home.cardMenu.hideLastHint : t.home.cardMenu.hideHint,
+            disabled: isLast,
+            onPress: () => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) }),
+          },
+        ],
+        // The hand-off to the drag mode HomeCardManager already owns — not a second
+        // reorder implementation. It only makes sense with something to reorder against.
+        onEditLayout: isLast ? undefined : () => setCardsEditMode(true),
+      };
+    },
+    [homeCardOrder, updateSettings, t]
+  );
+
   // Renders one managed Home card by kind — HomeCardManager owns the reorder/delete/add
   // chrome around this, Home still owns the actual card JSX/props (unchanged from before
   // the hold-to-manage refactor, just split into a per-kind function so it can be driven
@@ -575,7 +613,7 @@ export default function HomeScreen() {
       case 'notes':
         return (
           <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
-            <HomeNotesCard />
+            <HomeNotesCard cardMenu={buildCardMenu('notes')} />
           </DebugNoteAnchor>
         );
       case 'plans':
@@ -583,6 +621,7 @@ export default function HomeScreen() {
           <TourTarget id="tour.home.today">
             <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
               <PlanTaskCard
+                cardMenu={buildCardMenu('plans')}
                 tasks={todayTasks}
                 allTasks={tasks}
                 readOnly
@@ -617,13 +656,14 @@ export default function HomeScreen() {
       case 'habits':
         return (
           <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
-            <HomeHabitsCard />
+            <HomeHabitsCard cardMenu={buildCardMenu('habits')} />
           </DebugNoteAnchor>
         );
       case 'shopping':
         return (
           <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
             <HomeShoppingCard
+              cardMenu={buildCardMenu('shopping')}
               // Four pages, one per cycle week (2026-07-30) — see the `shoppingWeeks` memo.
               weeks={shoppingWeeks}
               initialWeek={currentShoppingWeek}

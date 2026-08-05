@@ -51,6 +51,28 @@ renders are `halo-ring` (TourSpotlight), `trunk-divider` (SectionDivider), `empt
 12 and 13 exist so the two stale-design items are recorded as *decided*, not forgotten.
 Both are expected to close with a doc line and no code.
 
+---
+
+## ⚠️ The list above has a hole in it — `CardMenuSheet` (closed 2026-08-04)
+
+**Sixteen files, and none of them covered the one component the design project itself flags
+as a real gap.** Its readme names `components/surfaces/CardMenuSheet` as
+
+> *"the one component in this project with no direct counterpart in the app. The repo has the
+> shape ad-hoc in a couple of places but no shared component — a real, un-filled gap rather
+> than a stale spec."*
+
+Because it never got a task file, none of PRs #486–#491 built it; `grep CardMenuSheet` across
+the repo returned nothing. It shipped as **workstream A** (2026-08-04): `components/CardMenuSheet.tsx`,
+mounted on all four Home cards, with the menus built in `app/(tabs)/index.tsx` (the rows write
+`settings.homeCardOrder` and flip the reorder mode, which no preview card can reach).
+
+The lesson worth keeping is about *how this list was produced*, not about the component: it was
+derived by diffing the design project against `main`, so it could only ever find things that
+exist on **both** sides in different form. A component present in the design and **absent** from
+the app has no diff to show up in. If this comparison is ever re-run, walk the design project's
+own component manifest as a checklist as well as diffing.
+
 **14–16 come from maintainer notes on 2026-08-04, not from the design project.** They are
 independent of 01–13 and can be pulled forward if they matter more — **15 and 16 probably
 should be.** They are about how the app *feels* rather than how it compares to a reference,
