@@ -85,27 +85,28 @@ describe('getMaterialStyle — take-two static layers', () => {
     expect('specular' in getMaterialStyle(base, 'card', 'light')).toBe(false);
   });
 
-  it('rim is a flat moulded top edge, not a bright domed chamfer', () => {
-    // 2026-07-28 matte pass. The top stop used to be lighten(base, 0.42) at 0.85 alpha — a
-    // near-white band that read as a wet, domed edge curving toward the viewer. v6's
-    // `handoff/BUTTONS.md` puts the whole lift in `inset 0 1px 0 rgba(255,255,255,.22)`.
+  it('rim is ONE flat, hue-tinted tone the whole way round, not a light/dark ramp', () => {
+    // 2026-08-05 flat pass (user report + screenshot: "borders should not be affected by
+    // light" — a deliberate, dated override of DESIGN_RULES_AUDIT.md item 8's "keep the
+    // beveled gradient edge" call from the day before). The old rim faded from a bright top
+    // stop to a darker bottom stop; every stop is now the SAME colour, so the edge reads as
+    // one consistent tone rather than curvature. The hue identity (derived from `base`)
+    // survives — only the light-gradient shape is gone.
     const light = getMaterialStyle(base, 'card', 'light');
-    expect(light.rim.colors[0]).toBe(rgba('#FFFFFF', 0.22));
-    // It STOPS rather than fading — a stop within the first eighth of the height reads as a
-    // chamfer; a long fade reads as curvature.
-    expect(light.rim.locations[1]).toBeLessThanOrEqual(0.15);
-    expect(light.rim.colors[1]).toBe(rgba('#FFFFFF', 0));
-    // The bottom stop stays a soft hue-dark line — that's the moulded base edge under the cap,
-    // which is what makes the press travel legible. It is NOT a shadow and NOT white.
-    expect(light.rim.colors[light.rim.colors.length - 1]).toBe(rgba(darken(base, 0.16), 0.38));
+    expect(light.rim.colors.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(light.rim.colors).size).toBe(1);
+    expect(light.rim.colors[0]).toBe(rgba(darken(base, 0.16), 0.48));
   });
 
-  it('dark mode dims the rim vs light (no harsh streak on near-black)', () => {
+  it('dark mode lightens rather than darkens the rim (a black edge is invisible on near-black)', () => {
+    // Same light-on-dark logic the old top stop used (rgba('#FFFFFF', 0.16)), just held for
+    // the whole flat edge instead of a sliver — and hue-tinted now instead of plain white.
     const light = getMaterialStyle(base, 'card', 'light');
     const dark = getMaterialStyle(base, 'card', 'dark');
-    const lightTopAlpha = Number(light.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
-    const darkTopAlpha = Number(dark.rim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
-    expect(darkTopAlpha).toBeLessThan(lightTopAlpha);
+    expect(new Set(dark.rim.colors).size).toBe(1);
+    expect(dark.rim.colors[0]).toBe(rgba(lighten(base, 0.28), 0.5));
+    expect(dark.rim.colors[0]).not.toBe(light.rim.colors[0]);
+    // Scrim (the card face lift, untouched by the rim/border pass) still dims in dark mode.
     const lightLift = Number(light.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
     const darkLift = Number(dark.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
     expect(darkLift).toBeLessThan(lightLift);

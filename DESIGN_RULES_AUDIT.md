@@ -481,6 +481,20 @@ No screenshots — nothing drew differently, so `npm run preview` has nothing ne
 Verification is `npx tsc --noEmit` (unchanged) plus reading `Surface.tsx`'s existing
 `EDGE_WIDTH`/`edgeHue` chain, which already matches option (a) byte for byte.
 
+**Addendum, 2026-08-05 — superseded by explicit maintainer override.** The maintainer, shown
+this exact history (including the #390/#393/#410 precedent and the 2026-07-24→26 flatten/revert
+cycle) and asked to confirm before proceeding, chose to override it: drop the light-top/dark-
+bottom ramp anyway. This is closer to option (d) above ("keep the hue, drop the ramp") than to
+(b)/(c) — the per-card/per-button identity hue is UNCHANGED, `computeRimGradient()` just returns
+one flat tone instead of three graded stops. The "two material languages" objection to (d)
+(cards flat next to a beveled button rim) doesn't apply here, since Button.tsx's rim uses the
+same `computeRimGradient()` function and went flat in the same change — cards and buttons stay
+in the same material language, it's just flat now instead of graded. Recorded here rather than
+rewriting the entry above, because the original call was reasoned and real; this is a conscious
+change of direction, not a discovery that the 2026-08-04 analysis was wrong. See
+`computeRimGradient()`'s own header in `constants/theme.ts` for the implementation and the
+full reasoning chain.
+
 **9. The 4px left accent stripe** (`DESIGN_COMPARISON/08`, 2026-08-04 — blocked by 06/07).
 Every card in the design project (`ui_kits/unfocus_app/HomeScreen.jsx`'s `CardShell`,
 `components/surfaces/HabitCard.jsx`) draws a 4px full-height colour bar down the card's left

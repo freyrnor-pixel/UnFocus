@@ -70,10 +70,12 @@
  *     dropped the light-mode-only `borderTopColor` highlight override — same per-side-colour +
  *     borderRadius corner-rendering risk as the glass-on edge, not worth it for a subtle
  *     highlight in the already-lower-priority reduce-transparency fallback). Glass-ON is a
- *     beveled edge (~2.5px, `computeRimGradient()`): a vertical gradient ring, lit top → true-hue
- *     mid → darker bottom, in the edge hue (the card's own `borderColor`/`tint`, else neutral) — a
- *     raised key, thick enough that a domain/screen colour reads as a real accent again (2026-07-26,
- *     see EDGE_WIDTH below — the 2026-07-18→07-24 thin-edge era had squeezed this down to ~1.5px).
+ *     beveled edge (~2.5px, `computeRimGradient()`) in the edge hue (the card's own
+ *     `borderColor`/`tint`, else neutral) — thick enough that a domain/screen colour reads as a
+ *     real accent again (2026-07-26, see EDGE_WIDTH below — the 2026-07-18→07-24 thin-edge era
+ *     had squeezed this down to ~1.5px). **Flat as of 2026-08-05** (see `computeRimGradient`'s
+ *     own header in constants/theme.ts) — ONE hue-tinted tone the whole way round, not a
+ *     lit-top/dark-bottom ramp; the hue identity stays, only the light-gradient shape is gone.
  *   - shadowColor comes from the active theme's `shadow` token (not a fixed
  *     black), so depth itself shifts hue with the colour theme.
  *   - Pass `tint` for a non-default base (e.g. theme.offWhite for empty
@@ -217,8 +219,9 @@ const GLASS_WASH_ALPHA: Record<SurfaceContext, number> = {
   nav: 0.97,
 };
 
-// Beveled edge: a translucent vertical gradient (computeRimGradient, keyed on the card's own
-// identity edge hue, not the neutral fill) drawn as a `LinearGradient` fill clipped by `borderRadius`,
+// Beveled edge: a flat, single-tone fill (computeRimGradient, keyed on the card's own identity
+// edge hue, not the neutral fill — flat as of 2026-08-05, was a lit-top/dark-bottom ramp) drawn
+// as a `LinearGradient` (still, for the corner-rendering reason below) clipped by `borderRadius`,
 // rather than a single `View`'s border with three different per-side colours (top/side/bottom).
 // RN's native border renderer doesn't reliably curve/blend different border colours around a
 // rounded corner (worse on Android) — the corner can render as a flat cut even though the card's
