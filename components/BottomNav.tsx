@@ -14,7 +14,7 @@
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
  *             react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming for the
- *             sliding pill), expo-router, constants/theme (incl. getGlow), constants/motion
+ *             sliding pill), expo-router, constants/theme (incl. getGlow, darken), constants/motion
  *             (Duration/Ease), lib/i18n, lib/siteNav, lib/useAppTheme (incl. useAccessibility),
  *             components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
@@ -154,6 +154,15 @@
  *     tab is open, so cards/text were visibly bleeding through it as the user scrolled (user
  *     report, screenshot). `"nav"` (components/Surface.tsx) pushes the wash near-opaque and skips
  *     the BlurView entirely, so only the flat tinted panel shows — never a scrolled card's shape.
+ *   - **Centre FAB keyBase (2026-08-05)**: `renderCentre` now wraps its `PressableScale` in a
+ *     `centreKeyWrap`/`centreKeyBase` pair (same cap+base shape as Button.tsx/IconButton.tsx) so
+ *     its `travel` sinks onto a real base instead of nothing — it has an actual filled circle,
+ *     unlike `NavTabItem` below, which stays unchanged (no fill, so no base to sink onto; its
+ *     "active" cue is the separate sliding pill, not its own depth). `onLayout` for
+ *     `centreTrack` moved to the wrapper — it has to stay relative to the bar (its real parent),
+ *     not to the keyBase box now sitting between it and the pressable. `BOTTOM_NAV_HEIGHT` is
+ *     computed (not a literal) so the wrapper's extra `Travel.md` of footprint propagates to
+ *     every consumer (AddFAB, ScreenScaffold, app/(tabs)/_layout.tsx) automatically.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -163,7 +172,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient, HitSlop } from '@/constants/theme';
+import { darken, Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -171,7 +180,14 @@ import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 
-export const BOTTOM_NAV_HEIGHT = 72;
+// 56 (the centre FAB's diameter) + Spacing.sm*2 (the bar's own vertical padding) + Travel.md
+// (2026-08-05: the FAB grew a keyBase slab under it, same as Button.tsx/IconButton.tsx's cap+base
+// pattern — see renderCentre below — which adds Travel.md of real footprint under the circle).
+// Computed, not hardcoded, so a future Travel.md/Spacing.sm change can't silently drift this
+// constant out of sync with what the bar actually renders — every consumer (AddFAB positioning,
+// ScreenScaffold's clearance reserve, app/(tabs)/_layout.tsx's bar container) reads this export
+// rather than the literal 72, which is the whole reason it's exported in the first place.
+export const BOTTOM_NAV_HEIGHT = 56 + Spacing.sm * 2 + Travel.md;
 // Float gap for the bottom-nav bar: left/right margin AND a matching gap below (on top of the
 // safe-area inset) so the bar's rounded corners read as a floating panel — shared between
 // app/(tabs)/_layout.tsx (which positions the real bar) and ScreenScaffold (which reserves
@@ -358,38 +374,50 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     const active = isActive(item);
     const icon = <Ionicons name={active ? item.activeIcon : item.icon} size={24} color={theme.accentInk} />;
     const centreRim = computeRimGradient(theme.accent, isDark);
+    // Keycap base (2026-08-05, same fix IconButton got at task 16, 2026-08-04): `travel` was
+    // sinking the FAB with nothing under it. A stationary `darken(accent, 0.22)` slab sits
+    // behind the circle, revealed as a `paddingBottom: Travel.md` sliver at rest — see
+    // BOTTOM_NAV_HEIGHT's comment for why that constant is computed rather than a literal 72.
     return (
-      <PressableScale
+      // onLayout lives on THIS wrapper, not the inner PressableScale — centreTrack.x/.w feed
+      // the sliding pill's slot-2 (home) position math, and it needs to stay relative to the
+      // bar (this View's real parent), not to the keyBase box the cap now sits inside.
+      <View
         key={item.key}
-        scaleTo={0.90}
-        travel={Travel.md}
-        accessibilityRole="button"
-        accessibilityLabel={t.nav[item.key]}
-        accessibilityState={{ selected: active }}
-        style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
-        onPress={() => handlePress(item)}
+        style={styles.centreKeyWrap}
         onLayout={(e: LayoutChangeEvent) => {
           const { x, y, width, height } = e.nativeEvent.layout;
           setCentreTrack((prev) =>
             prev.x === x && prev.y === y && prev.w === width && prev.h === height ? prev : { x, y, w: width, h: height }
           );
         }}
-        hitSlop={HitSlop.base}
       >
-        {glass ? (
-          <LinearGradient
-            colors={centreRim.colors}
-            locations={centreRim.locations}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={{ width: '100%', height: '100%', borderRadius: Radius.full, padding: EDGE_WIDTH, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <View style={{ width: '100%', height: '100%', borderRadius: Radius.full - EDGE_WIDTH, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
-              {icon}
-            </View>
-          </LinearGradient>
-        ) : icon}
-      </PressableScale>
+        <View style={[styles.centreKeyBase, { backgroundColor: darken(theme.accent, 0.22) }]} />
+        <PressableScale
+          scaleTo={0.90}
+          travel={Travel.md}
+          accessibilityRole="button"
+          accessibilityLabel={t.nav[item.key]}
+          accessibilityState={{ selected: active }}
+          style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
+          onPress={() => handlePress(item)}
+          hitSlop={HitSlop.base}
+        >
+          {glass ? (
+            <LinearGradient
+              colors={centreRim.colors}
+              locations={centreRim.locations}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={{ width: '100%', height: '100%', borderRadius: Radius.full, padding: EDGE_WIDTH, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <View style={{ width: '100%', height: '100%', borderRadius: Radius.full - EDGE_WIDTH, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
+                {icon}
+              </View>
+            </LinearGradient>
+          ) : icon}
+        </PressableScale>
+      </View>
     );
   };
 
@@ -573,6 +601,20 @@ const baseStyles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  // Keycap base (2026-08-05) — see renderCentre's edit note. paddingBottom reveals the
+  // keyBase sliver at rest; the wrapper otherwise auto-sizes to the 56px circle's width.
+  centreKeyWrap: {
+    position: 'relative',
+    paddingBottom: Travel.md,
+  },
+  centreKeyBase: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: Radius.full,
   },
   centreButton: {
     width: 56,
