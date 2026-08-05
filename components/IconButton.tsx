@@ -36,8 +36,8 @@
  *     GlassFill/scrim/gradient) — this file was already the reference for "flat face, depth from
  *     the edges," it just lacked the shadow half of that.
  *   - **Keycap bevel ring (2026-07-21)**: when `settings.glassSurfaces` is on, the circular fill
- *     is wrapped in the same rim-gradient technique Button.tsx/Surface.tsx already use
- *     (`computeRimGradient`, light-top/dark-bottom, 3 gradient stops) — a `LinearGradient` ring
+ *     is wrapped in the same rim technique Button.tsx/Surface.tsx already use (`computeRimGradient`
+ *     — flat, single-tone as of 2026-08-05, was light-top/dark-bottom) — a `LinearGradient` ring
  *     (`padding: EDGE_WIDTH`) around the existing fill+border `Animated.View`, which becomes the
  *     inner "double keycap" line. Rim hue follows the same base the fill is already crossfading
  *     toward/from (`inactiveBg` → `theme.accent`), snapped instantly on `active` change (not

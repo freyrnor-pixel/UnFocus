@@ -183,9 +183,15 @@ file owns which token.)
     `ShoppingRow` are gone — `onOpenDetail` replaced them.
   - **Matte finish**: there is no specular highlight any more (removed — it read as gloss;
     `__tests__/glassMaterial.test.ts` asserts the token is GONE, not merely dimmed). The face
-    lift is 10% white gone by 42% plus a 4% bottom shade; the rim is a flat white .22 that
-    stops at 12%. Don't raise these back — that is exactly the "too glossy, too rounded
-    towards the user" state the maintainer rejected.
+    lift (cards; buttons dropped it entirely, 2026-08-05) is 10% white gone by 42% plus a 4%
+    bottom shade. Don't raise it back — that is exactly the "too glossy, too rounded towards
+    the user" state the maintainer rejected. **The rim went further, 2026-08-05**: it was a
+    lit-top/dark-bottom gradient (white .22 stopping at 12%, fading to a hue-dark bottom) —
+    now it's ONE flat, hue-tinted tone the whole way round (`computeRimGradient()` in
+    `constants/theme.ts`), a deliberate override of `DESIGN_RULES_AUDIT.md` item 8's "keep the
+    gradient" call from one day earlier — "borders should not be affected by light," only a
+    surface's own content should be. Domain-hue identity on the edge is unchanged; only the
+    light-gradient shape is gone.
   - **Press = sink, not shrink**: `PressableScale`'s `travel` (px, from `Travel.*` in
     `constants/motion.ts`) translates a cap down into a base; `sunk` is the stays-pressed
     "on" state (active tab, active IconButton). A caller passing `travel` must also draw a

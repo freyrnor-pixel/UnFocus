@@ -118,10 +118,12 @@
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
  *     made an earlier pass read as a plain "grey box" instead of a colored selected state.
- *   - **Keycap bevel ring (2026-07-21)**: a flat single-tone border was tried on the tab boxes
- *     and reverted the same day ("Border dropped..." note above) for reading too punchy. This is
- *     a different technique — the same rim-gradient bevel (`computeRimGradient`, light-top/
- *     dark-bottom, 3 stops) Button.tsx/Surface.tsx already use — gated behind
+ *   - **Keycap bevel ring (2026-07-21)**: a flat single-tone BORDER (`borderWidth`/`borderColor`,
+ *     a plain outline) was tried on the tab boxes and reverted the same day ("Border dropped..."
+ *     note above) for reading too punchy. This is a different technique — the same rim bevel
+ *     (`computeRimGradient` — also flat/single-tone as of 2026-08-05, but as a filled edge
+ *     ring, not an outline; was light-top/dark-bottom before that) Button.tsx/Surface.tsx
+ *     already use — gated behind
  *     `settings.glassSurfaces`, off entirely when that setting is off. The fill becomes the inner
  *     "double keycap" line, unchanged otherwise. The pill always carries this now (there's only
  *     ever one), so the ring hue is always `theme.accent` — the `theme.border` (inactive) branch

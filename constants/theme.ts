@@ -528,38 +528,36 @@ const MATERIAL_BORDER_WIDTH = 1.5;
 export type MaterialVariant = 'card' | 'button';
 
 /**
- * The raised-keycap rim gradient recipe, extracted so callers whose edge hue differs from
- * their fill hue (Surface's `edgeHue` — a domain/screen colour — vs. its neutral frosted
- * `base` fill) can compute a rim from that different hue without duplicating the colour math.
- * `getMaterialStyle` calls this with its own `base` for `mat.rim` (Button/AddFAB); Surface.tsx
- * calls it directly with `edgeHue`.
+ * The raised-keycap rim recipe, extracted so callers whose edge hue differs from their fill hue
+ * (Surface's `edgeHue` — a domain/screen colour — vs. its neutral frosted `base` fill) can
+ * compute a rim from that different hue without duplicating the colour math. `getMaterialStyle`
+ * calls this with its own `base` for `mat.rim` (Button/AddFAB); Surface.tsx calls it directly
+ * with `edgeHue`. Still named/shaped as a `RimGradient` (a `LinearGradient`'s `colors`/
+ * `locations`) for every consumer's sake, but as of the flat pass below it is a DEGENERATE
+ * gradient — every stop the same colour — which is what makes it render as one flat, evenly-
+ * weighted edge rather than removing the `LinearGradient` plumbing from five call sites.
+ *
+ * **Flat pass (2026-08-05, user report + screenshot, explicit override of
+ * `DESIGN_RULES_AUDIT.md` item 8's "(a) keep the beveled gradient edge" call from the day
+ * before)**: a border should not be affected by light — only a surface's own content/face
+ * earns that treatment (see Button.tsx/GlassFill's flat-face pass, same day). The light-top/
+ * dark-bottom ramp this used to draw is gone; each edge is now ONE hue-tinted tone, still
+ * derived from `base` so the per-card/per-button identity colour ("domain ramp") survives —
+ * only the light-gradient SHAPE is what's removed, not the hue. `DESIGN_RULES_AUDIT.md` item 8
+ * is left in place as history (the call it records was real and reasoned) with a dated
+ * addendum noting this override, rather than rewritten as if it never happened.
+ *
+ * Alpha bumped versus the old bottom-stop tone (0.38/0.42 → ~0.48/0.5): the prior 2026-07-24
+ * contrast pass found the ring's non-lit portion read as barely-there on its own, so a single
+ * tone carrying the WHOLE edge needs to be at least that visible everywhere, not just at one
+ * end — this is also the direct fix for "borders look weak". Dark mode still lightens rather
+ * than darkens (a black edge is close to invisible against a near-black surface) — same
+ * light-on-dark logic the old top stop used, just held for the full edge instead of a sliver.
  */
 export function computeRimGradient(base: string, isDark: boolean): RimGradient {
-  // 2026-07-24 contrast pass: the mid/bottom stops were low enough (light 0.18/0.34, dark
-  // 0.08/0.34) that most of the ring's height read as no border at all against the pale/near-
-  // black backdrops (measured ~1.3:1, well under WCAG 1.4.11's 3:1 non-text minimum) — only the
-  // top ~20% (the lit highlight) was actually visible. Raised the mid/bottom alphas so the whole
-  // ring reads as a real edge; the top stop (the "lit lip") is untouched since it already worked.
-  //
-  // **Matte pass (2026-07-28, maintainer: "the glossy button look is awful, want it flatter,
-  // it feels too rounded towards the user").** The old light-mode top stop was
-  // lighten(base, 0.42) at 0.85 alpha — a near-white band bright enough to read as a domed,
-  // wet-looking chamfer curving toward the viewer. Design-system v6's `handoff/BUTTONS.md` is
-  // explicit about the target: "matte, not glossy… no specular highlight, no white gloss arc.
-  // The read should be moulded ABS under diffuse light", with the whole lift carried by a
-  // plain `inset 0 1px 0 rgba(255,255,255,.22)` top edge. So the top stop is now a flat white
-  // at that .22, holding for a hair of the height instead of fading over a fifth of it (a
-  // gradient that FADES reads as curvature; one that stops reads as a chamfer), and the
-  // bottom keeps a soft hue-dark line so the moulded base edge survives.
   return isDark
-    ? {
-        colors: [rgba('#FFFFFF', 0.16), rgba('#FFFFFF', 0), rgba('#000000', 0.42)],
-        locations: [0, 0.12, 1],
-      }
-    : {
-        colors: [rgba('#FFFFFF', 0.22), rgba('#FFFFFF', 0), rgba(darken(base, 0.16), 0.38)],
-        locations: [0, 0.12, 1],
-      };
+    ? { colors: [rgba(lighten(base, 0.28), 0.5), rgba(lighten(base, 0.28), 0.5)], locations: [0, 1] }
+    : { colors: [rgba(darken(base, 0.16), 0.48), rgba(darken(base, 0.16), 0.48)], locations: [0, 1] };
 }
 
 /**

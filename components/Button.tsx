@@ -20,6 +20,9 @@
  *     px `lineHeight` on `styles.label` as the "fix" either: Android re-scales a style
  *     lineHeight by the OS font scale when allowFontScaling is on, double-scaling the line box
  *     (constants/theme.ts's getHeaderMetrics block documents that trap in full).
+ *     **This is also why `styles.ring`/`styles.pillMask` can't use `flexGrow` any more** — see
+ *     their own comment below — swapping `height` for `minHeight` here removed the definite
+ *     main-axis size that made `flexGrow` safe.
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
  *   - Secondary is soft-tint fill (accentSoft), NOT border.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
@@ -272,10 +275,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // Glass-on only: the rim gradient ring fills the pressable, and the mask inside it clips the
-  // glass fill + centres the label. flexGrow/alignSelf so both fill the fixed-height pill.
+  // glass fill + centres the label. `alignSelf:'stretch'` fills the WIDTH (the pressable's cross
+  // axis); height is deliberately left to hug its own content (padding + label), NOT `flexGrow`.
+  // **`flexGrow` here was a real bug (2026-08-05, user report + screenshot)**: the pressable is
+  // sized by `minHeight` alone (never a hard `height` — see the file header's 2026-08-05 note on
+  // why), which doesn't give Yoga a truly definite main-axis size to distribute. On Android inside
+  // a ScrollView this can resolve to the scroll container's effectively-unbounded measure spec
+  // instead of content-hug sizing — the exact class of bug Surface.tsx already hit and fixed
+  // (2026-07-20, `growsToFillOuter`, the Habits summary chip) — and it turned a small secondary
+  // button into a pill that filled most of the screen. `pillMask`'s own `paddingVertical`/
+  // `paddingHorizontal` (set at the call site, tuned to match `SIZE_HEIGHT`) already gets it
+  // within a px or two of the intended height without needing to force-grow into whatever
+  // "available" height Android reports.
   emphasisWrap: { position: 'relative', borderRadius: Radius.full },
-  ring: { alignSelf: 'stretch', flexGrow: 1 },
-  pillMask: { overflow: 'hidden', flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
+  ring: { alignSelf: 'stretch' },
+  pillMask: { overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
