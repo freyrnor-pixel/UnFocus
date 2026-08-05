@@ -33,6 +33,13 @@
  *     semantically "text on an accent fill" and equals dark mode's `bg` (#080B12) — the
  *     off-state thumb was disappearing into the dark track/card. Thumb color for "off" is
  *     now theme-invariant white, matching how native switches render regardless of theme.
+ *   - **Switch pill frame (2026-08-05, task 16 3/N — DESIGN_COMPARISON/16-solid-pressable-
+ *     materials.md)**: audited all four controls against that task's "controls get edges"
+ *     rule. Checkbox, SegmentedControl and Input already had a themed border from earlier
+ *     passes; the bare native `RNSwitch` was the one gap, so it's now wrapped in a static
+ *     `theme.border` pill (`switchFrame`) — same non-reactive-border convention as
+ *     `segmentWrap`, since the track/thumb colors already carry on/off state. No specular
+ *     highlight added (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -110,17 +117,22 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
   const theme = useAppTheme();
   return (
     <View style={styles.switchRow}>
-      <RNSwitch
-        value={checked}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
-        // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
-        // in dark mode (it means "text on an accent-colored fill"), which made the off-state
-        // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
-        thumbColor={checked ? theme.accent : '#FFFFFF'}
-      />
+      {/* Themed frame (task 16, 3/N) — the bare native switch was the one FormControls
+          control with no edge at all; matches segmentWrap's static theme.border ring rather
+          than reacting to checked, since the track colors below already carry on/off state. */}
+      <View style={[styles.switchFrame, { borderColor: theme.border }]}>
+        <RNSwitch
+          value={checked}
+          onValueChange={onChange}
+          disabled={disabled}
+          accessibilityLabel={accessibilityLabel}
+          trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
+          // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
+          // in dark mode (it means "text on an accent-colored fill"), which made the off-state
+          // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
+          thumbColor={checked ? theme.accent : '#FFFFFF'}
+        />
+      </View>
     </View>
   );
 }
@@ -285,6 +297,15 @@ const styles = StyleSheet.create({
   switchRow: {
     minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
+  },
+  // Pill ring around the native Switch — alignSelf so it hugs the switch's own size rather
+  // than stretching to switchRow's width (switchRow has no width of its own; it inherits
+  // whatever its row-layout caller gives it).
+  switchFrame: {
+    alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderRadius: Radius.full,
+    padding: 2,
   },
   segmentLabel: {
     fontSize: FontSize.sm,
