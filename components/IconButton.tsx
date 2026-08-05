@@ -29,6 +29,12 @@
  *     to size the whole key or the base sticks out past the cap (same rule Button.tsx follows).
  *     This also grows the component's total footprint by `Travel.md` (a few px) versus before;
  *     a caller relying on the old exact height should re-check its layout.
+ *   - **`depth="raised"` (2026-08-05)**: the inner PressableScale now also carries a real cast
+ *     shadow (getElevation, compresses to 0 at the bottom of the travel) — it was missing before,
+ *     so "popped out" rested on the rim + keyBase sliver alone. Matches Button.tsx's non-ghost
+ *     variants. The face itself was already flat (plain crossfaded `backgroundColor`, no
+ *     GlassFill/scrim/gradient) — this file was already the reference for "flat face, depth from
+ *     the edges," it just lacked the shadow half of that.
  *   - **Keycap bevel ring (2026-07-21)**: when `settings.glassSurfaces` is on, the circular fill
  *     is wrapped in the same rim-gradient technique Button.tsx/Surface.tsx already use
  *     (`computeRimGradient`, light-top/dark-bottom, 3 gradient stops) — a `LinearGradient` ring
@@ -136,6 +142,10 @@ export default function IconButton({
         // and not only by the accentSoft crossfade below.
         travel={Travel.md}
         sunk={active}
+        // Cast shadow (2026-08-05, matching Button.tsx's non-ghost variants): without this the
+        // "popped out" resting state relied on the rim + keyBase sliver alone, no real shadow —
+        // PressableScale compresses it to 0 at the bottom of the travel, same as Button.
+        depth="raised"
         accessibilityLabel={label}
         accessibilityRole="button"
         accessibilityState={{ disabled, selected: active }}

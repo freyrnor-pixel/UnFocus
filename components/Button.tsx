@@ -32,14 +32,22 @@
  *     width/margin has to size the whole key, or the base sticks out past the cap), and
  *     `ghost` opts out entirely — it's text with no fill, so it has no cap to sink and keeps
  *     the historical scale-bounce.
- *   - Glass: primary/secondary render components/GlassFill (frost + wash + face lift)
- *     inside a "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient
- *     padding-ring (fix 1, at Radius.full) PLUS a crisp 1px hue-tinted inner line (mat.innerLine)
- *     on the pill mask — over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with the
- *     near-opaque `'button'` material for CTA contrast. Primary swaps the flat wash for
- *     the top-lit `mat.fillGradient` (lighten→base→darken); secondary keeps the flat wash + rim
- *     edge only. `ghost` (no fill) is never glass. Off when settings.glassSurfaces is false —
- *     back to the solid `colors.bg` pill, no rim. PressableScale owns the press depth in both.
+ *   - Glass: primary/secondary render components/GlassFill (frost + flat wash) inside a
+ *     "raised keycap (double)" edge — a VERTICAL hue-tinted rim gradient padding-ring (fix 1,
+ *     at Radius.full) PLUS a crisp 1px hue-tinted inner line (mat.innerLine) on the pill mask —
+ *     over a transparent PressableScale (so the frost blurs the screen, not a solid fill) with
+ *     the near-opaque `'button'` material for CTA contrast. `ghost` (no fill) is never glass.
+ *     Off when settings.glassSurfaces is false — back to the solid `colors.bg` pill, no rim.
+ *     PressableScale owns the press depth in both.
+ *   - **Flat face (2026-08-05)**: neither variant paints anything ON the face any more — no
+ *     top-lit fill gradient, no face-lift scrim (getMaterialStyle's `scrim` is a no-op for the
+ *     `'button'` material variant). The face is a flat, evenly-tinted wash in every state
+ *     (rest/press/disabled); "raised" is read entirely from the rim edge, the keyBase sliver,
+ *     and the cast shadow (depth="raised", below) — none of which touch the face itself. Used
+ *     to swap primary's fill for the top-lit `mat.fillGradient` (lighten→base→darken); that
+ *     made the face read as domed under press, which is exactly what this removes. `mat.fillGradient`
+ *     itself still exists in constants/theme.ts (pinned by `__tests__/glassMaterial.test.ts`) —
+ *     this file just no longer consumes it.
  *   - **`danger` stays flat (2026-07-21)** — never glass, regardless of `settings.glassSurfaces`:
  *     a destructive action shouldn't be the shiniest, most skeuomorphic thing on screen. It's a
  *     solid `colors.bg` fill with a single calm `mat.innerLine` border (no rim/fill
@@ -132,10 +140,6 @@ export default function Button({
   // rim/top-lit-gradient treatment primary/secondary still get.
   const useGlass = glass && variant !== 'ghost' && variant !== 'danger';
   const mat = getMaterialStyle(colors.bg, 'button', isDark ? 'dark' : 'light');
-  // Only the solid-filled primary CTA gets the top-lit vertical fill gradient (fix, buttons);
-  // secondary keeps its flat accentSoft wash + rim edge only, danger stays fully flat (per the
-  // 2026-07-21 note above).
-  const topLit = variant === 'primary';
 
   const inner = loading ? (
     <ActivityIndicator color={colors.text} />
@@ -198,8 +202,8 @@ export default function Button({
         // Raised-keycap edge scaled to the pill (2026-07-18 retune): a VERTICAL hue-tinted rim
         // padding-ring at Radius.full (top→bottom, matching Surface — was a 135° diagonal) PLUS a
         // crisp 1px hue-tinted inner line (mat.innerLine) on the mask = the "double keycap". The
-        // frost/wash/face-lift are masked inside; primary/danger swap the flat wash for the
-        // top-lit fillGradient.
+        // frost + flat wash are masked inside — the face itself stays flat (2026-08-05, see the
+        // header's "Flat face" note); the rim above is the only light cue on this whole element.
         <LinearGradient
           colors={mat.rim.colors}
           locations={mat.rim.locations}
@@ -213,7 +217,6 @@ export default function Button({
               radius={Radius.full}
               blurIntensity={20}
               tint={isDark ? 'dark' : 'light'}
-              fillGradient={topLit ? mat.fillGradient : undefined}
             />
             {inner}
           </View>

@@ -615,10 +615,19 @@ export function getMaterialStyle(base: string, variant: MaterialVariant = 'card'
   // as a glossy dome. The new one is a tenth-opacity lift that's gone by 42% and a barely-there
   // 4% shade at the bottom: enough to say "this face catches light from above", not enough to
   // say "this face is curved".
-  const scrim: ScrimGradient = {
-    colors: [rgba('#FFFFFF', isDark ? 0.06 : 0.10), rgba('#FFFFFF', 0), rgba('#000000', 0.04)],
-    locations: [0, 0.42, 1],
-  };
+  // **Buttons drop it entirely (2026-08-05 "flat face" pass)**: a button's face is the part a
+  // thumb actually lands on, and press state (travel + shadow compression) needs that face to
+  // read as flat in every state, not just matte — any static light-from-above cue on it reads as
+  // curvature no matter how faint. The light source moves to the edges instead: the rim gradient
+  // (below) and the cast shadow already carry "raised" without touching the face. Cards keep the
+  // lift unchanged — they're not something you press the same way. Same 3-stop shape (fully
+  // transparent) so GlassFill's LinearGradient still gets a valid, just invisible, gradient.
+  const scrim: ScrimGradient = isButton
+    ? { colors: [rgba('#FFFFFF', 0), rgba('#FFFFFF', 0), rgba('#000000', 0)], locations: [0, 0.42, 1] }
+    : {
+        colors: [rgba('#FFFFFF', isDark ? 0.06 : 0.10), rgba('#FFFFFF', 0), rgba('#000000', 0.04)],
+        locations: [0, 0.42, 1],
+      };
 
   // Primary/danger button top-lit vertical fill, pre-alpha'd to the wash so GlassFill can drop
   // it in as a straight replacement for the flat wash layer. **Matte pass (2026-07-28)**:

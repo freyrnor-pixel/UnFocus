@@ -6,12 +6,19 @@
  * carry the border-radius) and is `pointerEvents="none"`. Layers, bottom → top:
  *   1. BlurView frost (expo-blur) — only mounted when `blurIntensity > 0` (overlay/chrome
  *      contexts: sheets, modals, FAB, buttons). Blurs whatever the caller mounted behind.
- *   2. Fill — the material hue at `washAlpha` (a flat wash View), OR the primary/danger
- *      button's top-lit vertical `fillGradient` when the caller passes one. This is the
- *      ENTIRE colour finish for ambient content cards (no BlurView there — a translucent
- *      tint over the calm backdrop reads as frosted without per-frame blur, the power win).
+ *   2. Fill — the material hue at `washAlpha` (a flat wash View), OR a caller-supplied
+ *      `fillGradient` in its place. This is the ENTIRE colour finish for ambient content
+ *      cards (no BlurView there — a translucent tint over the calm backdrop reads as frosted
+ *      without per-frame blur, the power win). No current caller passes `fillGradient`
+ *      (Button.tsx stopped, 2026-08-05 flat-face pass — see its header) but the prop stays
+ *      supported for a future one; `constants/theme.ts`'s `mat.fillGradient` is still computed
+ *      and pinned by test.
  *   3. Face lift (expo-linear-gradient) — the matte cap finish: 10% white at the top, gone by
- *      42%, then a 4% shade at the bottom. Static.
+ *      42%, then a 4% shade at the bottom, from `mat.scrim`. Static. **A no-op (fully
+ *      transparent) for the `'button'` material variant** (2026-08-05) — a button's face is
+ *      what gets pressed, and any static light-from-above cue on it reads as curvature even at
+ *      low alpha. Buttons carry "raised" via the rim edge + cast shadow instead; only ambient
+ *      cards keep this layer's actual lift.
  *
  * **There is no specular highlight** (removed 2026-07-28). A soft white radial blob used to
  * sit on top of layer 3; together they read as a glossy dome curving toward the viewer, which
