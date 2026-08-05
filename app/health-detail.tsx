@@ -145,9 +145,9 @@ export default function HealthDetailScreen() {
           const reliefMedicine = e.reliefMedicineId
             ? medicines.find((m) => m.id === e.reliefMedicineId)
             : undefined;
+          // Surface's own key path (task 16) — the entry sinks onto a base, doesn't shrink.
           return (
-            <PressableScale key={e.id} onPress={() => router.push({ pathname: '/health-form', params: { id: e.id } })} scaleTo={0.97}>
-              <Surface style={styles.detailEntry}>
+              <Surface key={e.id} style={styles.detailEntry} onPress={() => router.push({ pathname: '/health-form', params: { id: e.id } })} accessibilityRole="button">
                 <View style={styles.detailEntryHead}>
                   <Text style={[styles.detailEntryDate, { color: theme.text }]}>{e.date}</Text>
                   <View style={styles.detailEntryHeadRight}>
@@ -188,7 +188,6 @@ export default function HealthDetailScreen() {
                   </PressableScale>
                 )}
               </Surface>
-            </PressableScale>
           );
         })}
         <View style={{ height: 40 }} />

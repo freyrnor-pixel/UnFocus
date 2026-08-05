@@ -12,7 +12,7 @@
  * popup, 2026-07-31).
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, components/CardAccent
+ *   Imports → components/Surface (its `onPress` key path — no PressableScale wrapper), components/CardAccent
  *             (CardAccentBadge), constants/theme, lib/useAppTheme, lib/domainColor (Domain)
  *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx (both an "Edit Goals" link)
  *   Data    → none (presentational; `onPress` is the caller's — a router.push elsewhere,
@@ -22,7 +22,6 @@ import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -40,17 +39,15 @@ export default function SubScreenLinkButton({ domain, icon, label, onPress, acce
   const theme = useAppTheme();
 
   return (
-    <PressableScale
+    <Surface
+      style={styles.card}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      scaleTo={0.97}
     >
-      <Surface style={styles.card}>
-        <CardAccentBadge domain={domain} icon={icon} size={24} />
-        <Text style={[styles.text, { color: theme.text }]} numberOfLines={1}>{label}</Text>
-      </Surface>
-    </PressableScale>
+      <CardAccentBadge domain={domain} icon={icon} size={24} />
+      <Text style={[styles.text, { color: theme.text }]} numberOfLines={1}>{label}</Text>
+    </Surface>
   );
 }
 

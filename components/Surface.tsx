@@ -10,13 +10,19 @@
  * still spans the full card).
  *
  * Connections:
- *   Imports → constants/theme (getElevation, getLayeredShadow, getMaterialStyle,
- *             computeRimGradient), lib/useAppTheme, store/useSettingsStore (glassSurfaces),
- *             components/GlassFill, expo-linear-gradient
+ *   Imports → constants/theme (darken, getElevation, getLayeredShadow, getMaterialStyle,
+ *             computeRimGradient), constants/motion (Travel), lib/useAppTheme (useAppTheme,
+ *             useIsDark, useAccessibility), store/useSettingsStore (glassSurfaces),
+ *             components/GlassFill, components/PressableScale, expo-linear-gradient
  *             (2026-07-31 A.5: lib/screenColor's useScreenColor is NO LONGER imported — see the
  *             `edgeHue` comment; the per-screen hue no longer reaches any pixel)
- *   Used by → app screens that render a "card" surface (see grep for `<Surface`)
- *   Data    → reads `glassSurfaces` from the settings store
+ *   Used by → app screens that render a "card" surface (see grep for `<Surface`). Callers that
+ *             pass `onPress` (the key-press path, 2026-08-04) — these FIVE, verified rather
+ *             than assumed: components/OpenEpisodeCard, components/SubScreenLinkButton,
+ *             app/health-log, app/health-detail, app/scan (the idle option cards).
+ *             Shopping's Food/Catalogue links go through SubScreenLinkButton, so they inherit
+ *             it rather than being their own call site.
+ *   Data    → reads `glassSurfaces` from the settings store, `reducedMotion` via useAccessibility()
  *
  * Edit notes:
  *   - The glass finish (frost + wash + face lift) lives in the shared
@@ -77,6 +83,23 @@
  *     `raised`) to `getElevation('floating', theme.shadow)` — same themed shadowColor,
  *     just deeper. This is the focus-pop path for Surface-based (glass) cards; see
  *     PlanTaskCard.tsx for the caller.
+ *   - **A tappable card is a KEY (task 16, 2026-08-04)**: pass `onPress` and Surface renders
+ *     itself as a cap on a base — a stationary `darken(fill, 0.22)` slab behind the card,
+ *     revealed as a `Travel.md` sliver by the wrapper's `paddingBottom`, with
+ *     components/PressableScale's `travel` sinking the cap onto it. Before this the seven
+ *     tappable cards in the app wrapped Surface in their own `<PressableScale scaleTo={0.97}>`,
+ *     so a card SHRANK on press instead of sinking — the one thing AGENTS.md's "press = sink,
+ *     not shrink" rule exists to prevent, and the clearest remaining case of "doesn't feel
+ *     pressable". **`style` splits again on this path**: layout keys that must size the whole
+ *     key (margin*, width, flex, alignSelf, position/inset, zIndex — `WRAPPER_KEYS` below) move
+ *     to the wrapper, or the base sticks out past the cap; everything else (radius, minHeight)
+ *     stays on the card. Don't pass `depth` through to PressableScale here — Surface already
+ *     owns its shadow (getLayeredShadow) and the two would fight.
+ *   - **Reduced motion gets a static pressed COLOUR, not a sink**: travel is motion, and
+ *     `useAccessibility()` ORs in the OS flag. With it set, `travel` is withheld and the card's
+ *     fill drops to `theme.surfaceMuted` while held instead. The base slab is still drawn in
+ *     both modes — it's a static moulded edge, not an animation, so the layout is identical
+ *     either way and the edge keeps doing the work when the motion can't.
  *   - **Per-corner radius (2026-07-24)**: pass standard RN `borderTopLeftRadius` /
  *     `borderTopRightRadius` / `borderBottomLeftRadius` / `borderBottomRightRadius` in `style`
  *     (alongside or instead of `borderRadius`) to square off individual corners — e.g.
@@ -86,12 +109,14 @@
  *     math (`topLeftRadius`/etc. below) since they only look at the single `radius` otherwise.
  */
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { computeRimGradient, getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
-import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { computeRimGradient, darken, getElevation, getLayeredShadow, getMaterialStyle, Radius } from '@/constants/theme';
+import { Travel } from '@/constants/motion';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import GlassFill from '@/components/GlassFill';
+import PressableScale from '@/components/PressableScale';
 
 /**
  * Which backdrop a glass Surface frosts (Decision 008). 'ambient' (default) sits
@@ -124,6 +149,22 @@ type Props = {
    * default material shadow (≈ `raised`).
    */
   elevated?: boolean;
+  /**
+   * Makes the whole card a key (task 16, 2026-08-04): Surface draws a base behind itself and
+   * sinks onto it on press, instead of the caller wrapping it in its own scale-bouncing
+   * PressableScale. Prefer this over `<PressableScale><Surface/></PressableScale>` — a card
+   * that shrinks reads as a sticker, one that sinks reads as a key. See the Edit notes for the
+   * `style` split this turns on.
+   */
+  onPress?: () => void;
+  /** Only meaningful with `onPress`. */
+  onLongPress?: () => void;
+  /** Only meaningful with `onPress`. Defaults to 'button'. */
+  accessibilityRole?: AccessibilityRole;
+  /** Only meaningful with `onPress`. */
+  accessibilityLabel?: string;
+  /** Only meaningful with `onPress` — greys the key and stops it responding. */
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -205,6 +246,19 @@ const CONTENT_LAYOUT_KEYS = new Set([
   'alignItems', 'justifyContent', 'flexDirection', 'gap', 'rowGap', 'columnGap', 'flexWrap',
 ]);
 
+// Key-press path only (`onPress`): keys that must size/place the WHOLE key — cap plus base —
+// rather than just the cap. Leaving a margin or a `flex: 1` on the cap lets the base (which is
+// absolutely positioned to the wrapper) stick out past the card on one or more sides, which is
+// the "cap with no base"/"base with no cap" failure in a different costume. Radius, minHeight
+// and the content keys deliberately stay on the card itself.
+const WRAPPER_KEYS = new Set([
+  'margin', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight',
+  'marginHorizontal', 'marginVertical', 'marginStart', 'marginEnd',
+  'alignSelf', 'flex', 'flexGrow', 'flexShrink', 'flexBasis',
+  'width', 'minWidth', 'maxWidth',
+  'position', 'top', 'bottom', 'left', 'right', 'zIndex',
+]);
+
 // Owned by the material, not the caller — silently dropped from any passed-in style.
 const OWNED_KEYS = new Set([
   'backgroundColor', 'borderWidth', 'borderColor', 'borderTopColor', 'borderBottomColor',
@@ -212,17 +266,36 @@ const OWNED_KEYS = new Set([
   'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset', 'elevation',
 ]);
 
-export default function Surface({ surfaceContext = 'ambient', tint, borderColor, elevated, style, children }: Props) {
+export default function Surface({
+  surfaceContext = 'ambient',
+  tint,
+  borderColor,
+  elevated,
+  onPress,
+  onLongPress,
+  accessibilityRole = 'button',
+  accessibilityLabel,
+  disabled,
+  style,
+  children,
+}: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const mode = isDark ? 'dark' : 'light';
   const glass = useSettingsStore((s) => s.glassSurfaces);
+  const { reducedMotion } = useAccessibility();
+  const isKey = !!onPress;
+  // Reduced motion gets a static pressed COLOUR instead of a sink — travel is motion, and
+  // useAccessibility() already ORs in the OS flag. Only tracked when it's actually needed, so
+  // the normal path never re-renders on press.
+  const [heldFlat, setHeldFlat] = React.useState(false);
+  const staticPressed = isKey && reducedMotion && heldFlat && !disabled;
   // Colour-architecture (2026-07-18, retuned): the translucent FILL frosts the ScreenBackground
   // FIELD behind the card (base = theme.surface, near-white/near-navy), so cards on one screen all
   // read as a single uniform frosted hue. Card COLOUR lives ONLY in the thin beveled EDGE, and only
   // when the card carries its own identity hue. An explicit `tint` overrides the fill base;
   // `borderColor` overrides the edge hue.
-  const base = tint ?? theme.surface;
+  const base = staticPressed ? theme.surfaceMuted : (tint ?? theme.surface);
   const mat = getMaterialStyle(base, 'card', mode);
   // Edge colour source, in priority order: an explicit `borderColor` (an identity-coded card — so
   // the edge matches that card's own icon/badge), then `tint`, then a calm neutral edge.
@@ -240,12 +313,16 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};
+  const wrapper: Record<string, unknown> = {};
   const padding: Record<string, unknown> = {};
   const content: Record<string, unknown> = {};
   for (const key of Object.keys(flat)) {
     if (PADDING_KEYS.has(key)) padding[key] = flat[key];
     else if (CONTENT_LAYOUT_KEYS.has(key)) content[key] = flat[key];
-    else if (!OWNED_KEYS.has(key)) outer[key] = flat[key];
+    else if (OWNED_KEYS.has(key)) continue;
+    // On the key path only, the whole-key sizing keys move to the cap+base wrapper.
+    else if (isKey && WRAPPER_KEYS.has(key)) wrapper[key] = flat[key];
+    else outer[key] = flat[key];
   }
   const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
   // Per-corner overrides (e.g. BottomNav squares off its top-left/top-right so its floating
@@ -269,6 +346,56 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   // working while stopping hug-content chips from growing unbounded.
   const growsToFillOuter = 'minHeight' in flat || 'height' in flat || 'flex' in flat || 'flexGrow' in flat;
   const maskGrowStyle = { flexGrow: growsToFillOuter ? 1 : 0 };
+  // A caller's `flex`/`flexGrow` moved to the key wrapper (WRAPPER_KEYS), so the cap has to be
+  // told to fill it or the card would hug its content inside a stretched housing.
+  const capStretches = isKey && ('flex' in flat || 'flexGrow' in flat);
+  if (capStretches) outer.flexGrow = 1;
+
+  // ── Key-press housing (task 16, 2026-08-04) ────────────────────────────────────────────────
+  // A tappable card is a CAP ON A BASE, exactly as Button.tsx/IconButton.tsx already are: a
+  // stationary `darken(fill, 0.22)` slab behind the card, revealed as a `Travel.md` sliver by
+  // the wrapper's paddingBottom, with PressableScale's `travel` sinking the cap onto it on
+  // press. `darken(fill)` (not the edge hue) is deliberate — the base is the card's own
+  // material moulded darker, not a second accent. Note this is not `depth`: Surface already
+  // owns its shadow via getLayeredShadow, and passing PressableScale a `depth` here would give
+  // the same view two competing shadow sources.
+  const keyBaseColor = darken(tint ?? theme.surface, 0.22);
+  const asKey = (card: React.ReactElement) =>
+    isKey ? (
+      <View style={[styles.keyWrap, wrapper, { paddingBottom: Travel.md }]}>
+        <View
+          style={[
+            styles.keyBase,
+            {
+              borderTopLeftRadius: topLeftRadius,
+              borderTopRightRadius: topRightRadius,
+              borderBottomLeftRadius: bottomLeftRadius,
+              borderBottomRightRadius: bottomRightRadius,
+              backgroundColor: keyBaseColor,
+              opacity: disabled ? 0.45 : 1,
+            },
+          ]}
+        />
+        <PressableScale
+          onPress={onPress}
+          onLongPress={onLongPress}
+          disabled={disabled}
+          accessibilityRole={accessibilityRole}
+          accessibilityLabel={accessibilityLabel}
+          // Reduced motion: no travel at all. PressableScale's non-key path already skips its
+          // scale bounce under the same flag, so nothing moves — the static pressed fill below
+          // (`staticPressed` → theme.surfaceMuted) and the base's own edge carry the feedback.
+          travel={reducedMotion ? undefined : Travel.md}
+          onPressIn={reducedMotion ? () => setHeldFlat(true) : undefined}
+          onPressOut={reducedMotion ? () => setHeldFlat(false) : undefined}
+          style={[capStretches ? styles.capStretch : null, { opacity: disabled ? 0.45 : 1 }]}
+        >
+          {card}
+        </PressableScale>
+      </View>
+    ) : (
+      card
+    );
 
   // Glass-on: the layered box-shadow OWNS depth on the outer view (don't also set the single
   // shadow*/elevation keys — they'd double up). Glass-off: keep the legacy single shadow.
@@ -343,7 +470,11 @@ export default function Surface({ surfaceContext = 'ambient', tint, borderColor,
   const innerTopRightRadius = Math.max(0, topRightRadius - EDGE_WIDTH);
   const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
   const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
-  return (
+  // `asKey` is the last wrapper applied: on the non-key path it returns the card untouched, so
+  // every existing caller renders byte-identically; with `onPress` it puts the card in its
+  // cap-on-base housing. It has to wrap the FINISHED element rather than being spread into it,
+  // because the base is a sibling of the card, not a style on it.
+  return asKey(
     <View
       style={[
         outer,
@@ -405,6 +536,22 @@ const styles = StyleSheet.create({
   // around the mask. alignSelf:'stretch' so it spans the full card width; the HEIGHT counterpart
   // (flexGrow) is applied conditionally via `maskGrowStyle`, same as `mask` below.
   ring: { alignSelf: 'stretch' },
+  // ── Key-press housing (task 16, 2026-08-04) ─────────────────────────────────────────────
+  // Same two-part shape components/Button.tsx already uses (`keyWrap`/`keyBase` there), so a
+  // pressed card and a pressed button are the same object in two sizes rather than two
+  // techniques. `relative` is what the absolutely-positioned base anchors to; the wrapper's
+  // own `paddingBottom: Travel.md` (applied at the call site, since it depends on the travel
+  // distance) is what leaves the base visible as a sliver under the resting cap.
+  keyWrap: { position: 'relative' },
+  // Fills the whole wrapper INCLUDING that padding, so the sliver shows along the bottom edge
+  // and the base is flush with the cap on the other three — a moulded edge, not a drop shadow.
+  // It keeps its full height while the cap sinks, which is what makes the travel read as the
+  // cap moving rather than the whole card shrinking.
+  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  // A caller's `flex`/`flexGrow` moved to the wrapper (WRAPPER_KEYS), so the cap needs telling
+  // to fill the housing — without this the card hugs its content inside a stretched wrapper
+  // and the base shows through as a gap below it.
+  capStretch: { flexGrow: 1, alignSelf: 'stretch' },
   // alignSelf:'stretch' so the fill always spans the full card WIDTH even when the caller's
   // style centers content on the outer view (otherwise the mask shrink-wraps its children
   // and floats as a narrower box inside the bordered card). The HEIGHT counterpart
