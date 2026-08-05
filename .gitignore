@@ -1,5 +1,8 @@
 node_modules/
 package-lock.json
+# Git worktrees the agent harness checks out inside the repo — transient scratch
+# copies of the tree, never part of a commit. See jest.config.js's matching ignore.
+.claude/worktrees/
 # Generated native projects (managed Expo workflow — prebuild output, never committed)
 /ios/
 /android/

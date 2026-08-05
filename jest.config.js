@@ -10,6 +10,12 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
+  // `.claude/worktrees/` holds git worktrees the agent harness checks out INSIDE the repo,
+  // each a full second copy of the tree. Without this, `npx jest` globs them too and the
+  // suite jumps from ~71 files to ~213 — every test triples, and a worktree sitting on an
+  // older commit reports failures for code that is no longer on this branch. CI never sees
+  // it (a fresh clone has no worktrees), so it only ever misleads a local run.
+  testPathIgnorePatterns: ['/node_modules/', '/\\.claude/worktrees/'],
   // Coverage is collected over the testable logic layer only: the pure helpers in
   // lib/ and the Zustand stores. Excluded — static seed data, the `.web` platform
   // siblings (native path is the source of truth), and pure-native wrappers/hooks
