@@ -65,8 +65,21 @@
  *   - `options[].accessory` is a plain ReactNode the caller builds per-render (e.g. a
  *     count badge or an animated cue) — it doesn't know about `active` state itself, so
  *     the caller must bake `isActive`-dependent styling into the node before passing it.
+ *   - **Pill must SNAP on its first positioning, never animate in (fixed 2026-08-05)**: the
+ *     active label's text colour is `theme.accentInk`, chosen for contrast against the FILLED
+ *     pill, on the assumption the pill is already there. But the pill only exists once the
+ *     segment's `onLayout` has fired, and `withTiming` used to animate its width in from 0 even
+ *     on that very first positioning — so the active tab's high-contrast text sat over the bare
+ *     track, unreadable, for one `Duration.control` on every mount (reported as illegible
+ *     "Ukelister" text on Shopping's default-active Weekly tab, which is the one tab that's
+ *     genuinely on screen at cold launch when it's the configured start screen — the other four
+ *     tabs pre-settle off-screen under the pager's `lazy: false`). `hasPositioned` (a ref, not
+ *     state — this must never trigger a re-render) tracks whether the pill has been placed at
+ *     all; the first placement always snaps instantly regardless of `reducedMotion`, and only
+ *     a later tab CHANGE animates. Same seeded-not-animated-in contract as PressableScale's
+ *     `sunk` prop.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -112,15 +125,26 @@ export default function TabSlider<T extends string | number>({
 
   const tx = useSharedValue(0);
   const pw = useSharedValue(0);
+  // Whether the pill has ever been positioned. The active label's text colour (accentInk)
+  // assumes it's sitting on the filled pill from the first frame it renders — but `active`
+  // only exists after the segment's own onLayout fires, and even then withTiming used to
+  // animate the pill's WIDTH in from 0. That left the active tab's high-contrast text
+  // floating over the bare (unfilled) track for one full Duration.control on every mount —
+  // reliably reproducible, not a rare race, since it happens on every screen open (2026-08-05,
+  // reported as illegible "Ukelister" text on Shopping's default-active Weekly tab). Fixed the
+  // same way PressableScale seeds a mounted-already-sunk control: snap straight to the
+  // measured rect on the FIRST positioning, and only animate a pill move after that.
+  const hasPositioned = useRef(false);
   useEffect(() => {
     if (!active) return;
-    if (reducedMotion) {
+    if (reducedMotion || !hasPositioned.current) {
       tx.value = active.x;
       pw.value = active.width;
     } else {
       tx.value = withTiming(active.x, { duration: Duration.control, easing: Ease.enter });
       pw.value = withTiming(active.width, { duration: Duration.control, easing: Ease.enter });
     }
+    hasPositioned.current = true;
   // Deliberately depends on active's primitives, not `active` itself, since segLayouts
   // recreates the object every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
