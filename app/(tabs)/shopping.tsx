@@ -1502,7 +1502,25 @@ export default function ShoppingScreen() {
     // present. This row is both of those AND the thing being described. It also sits in the
     // sticky block rather than the ScrollView, so it is the one target on any tab that cannot
     // drift when content above it resizes.
-    <TourTarget id="tour.shopping.list">
+    //
+    // **`style={{ height: stickyHeight }}` on TourTarget is load-bearing, not decoration**
+    // (found 2026-08-05 from a real-device report — the pill AND the wrap's own border/
+    // background were invisible, not just the pill, which is what gave this away). Before
+    // this wrap, `<TabSlider style={styles.stickyBar}>` (`flex: 1`) was the DIRECT child of
+    // ScreenScaffold's `stickyBlock`, an absolutely-positioned View with an explicit
+    // `height: stickyBelowHeaderHeight` — so TabSlider's `flex: 1` had a definite parent
+    // height to resolve against and filled it. TourTarget's own View carries no style by
+    // default (correct for its other 4 call sites, which don't need one) and so is now the
+    // one in that position — an unstyled column-flex View with no explicit height, sized by
+    // Yoga to its CONTENT along the main axis, while ITS content (TabSlider) is a `flex: 1`
+    // item wanting to fill an ANCESTOR height that this new layer doesn't provide. That
+    // circular sizing resolved fine in the web preview (a different, more forgiving
+    // flexbox implementation) but collapsed the whole TabSlider box toward zero height on
+    // Android — border, fill AND the sliding accent pill all vanished, while the label
+    // TEXT still painted at roughly its old position since RN doesn't clip overflow by
+    // default. Restoring an explicit height here re-establishes the definite-size parent
+    // `flex: 1` needs, without touching TourTarget itself (whose other callers are fine).
+    <TourTarget id="tour.shopping.list" style={{ height: stickyHeight }}>
       <TabSlider value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
     </TourTarget>
   );
