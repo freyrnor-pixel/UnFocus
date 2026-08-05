@@ -38,6 +38,11 @@ type Props = {
   isSet?: boolean;
   accent: string;
   onPress?: () => void;
+  /** Draws a trailing "›" — the row opens a picker rather than changing something in place.
+   *  Without it a pressable row looks identical to one whose `value` is a live control, which
+   *  is how the old tap-cycle rows managed to hide that they were cycling. Only meaningful
+   *  alongside `onPress`. */
+  showsMore?: boolean;
   accessibilityLabel?: string;
 };
 
@@ -48,6 +53,7 @@ export default function QuickAddOptionRow({
   isSet,
   accent,
   onPress,
+  showsMore,
   accessibilityLabel,
 }: Props) {
   const theme = useAppTheme();
@@ -59,16 +65,21 @@ export default function QuickAddOptionRow({
         <Ionicons name={icon} size={16} color={theme.textMuted} />
         <Text style={[styles.label, { color: theme.text }]}>{label}</Text>
       </View>
-      {valueIsText ? (
-        <Text
-          style={[styles.value, { color: isSet ? accent : theme.textMuted }]}
-          numberOfLines={1}
-        >
-          {value}
-        </Text>
-      ) : (
-        value
-      )}
+      <View style={styles.right}>
+        {valueIsText ? (
+          <Text
+            style={[styles.value, { color: isSet ? accent : theme.textMuted }]}
+            numberOfLines={1}
+          >
+            {value}
+          </Text>
+        ) : (
+          value
+        )}
+        {showsMore ? (
+          <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
+        ) : null}
+      </View>
     </View>
   );
 
@@ -95,6 +106,9 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // Holds the value and the optional "›" together, so a row that grows a chevron doesn't
+  // push its value away from the right edge (space-between would put the gap in between).
+  right: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1, minWidth: 0 },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   value: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
 });

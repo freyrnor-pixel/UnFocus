@@ -46,6 +46,12 @@
  *     day earlier, and re-adopting it here would also mean converting `ShoppingRow` /
  *     `MonthlyTableRow` and `TaskCard` the *other* direction mid-conversion. Don't re-propose
  *     boxing without re-reading that file first.
+ *     **The COMPOSER is boxed (2026-08-05) and that is not this decision.** `PadTypeRow`'s
+ *     input is now a bordered, filled field with a focus border — but it is one CONTROL, the
+ *     one you type into, not a row. Rows on this sheet are still flush and gap-free with
+ *     nothing but a rule between them. The `typeLine` wrapper below is unchanged; the field's
+ *     own vertical padding lives in PadTypeRow so this component never has to know that one
+ *     of its lines hosts a bordered control.
  *   - **Rule colour fixed in the same review**: this component's own divider was drawing with
  *     `theme.border` (the ≥3:1 control-boundary token) since the day it was written — before
  *     `theme.rule` (a token built specifically for "decorative row divider, deliberately BELOW

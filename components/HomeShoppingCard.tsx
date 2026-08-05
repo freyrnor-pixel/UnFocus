@@ -19,6 +19,13 @@
  *     (maintainer's call: only Notes changed to stay-in-place-until-tomorrow), so a ticked item
  *     still moves — it just moves under a plain caption inside the same pad.
  *   - Purchased history isn't on Home at all any more; that's the Shopping screen's job.
+ *   - **The quick-add's options are a labelled panel (2026-08-05).** Quantity and the
+ *     destination list used to be a stepper and a chip crammed onto the same 44px line as the
+ *     input — which is part of why the input had no room to draw as a real field. They are two
+ *     labelled rows below it now, matching Habits and To-do. The destination also stopped
+ *     being a chip that CYCLED forward through the lists on tap: with a monthly list per
+ *     household category that could be five one-way stops, only one of them ever visible. It
+ *     opens a picker (showAppModal). Same defect, same fix as the energy and repeat rows.
  *
  * Connections:
  *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
@@ -27,6 +34,9 @@
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             components/ProgressBar, components/Stepper (quick-add quantity),
+ *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (the quick-add's
+ *             labelled Quantity + Add-to rows), components/AppModal (showAppModal — the
+ *             destination-list picker),
  *             components/ShoppingItemSheet (this card mounts its own item detail sheet —
  *             AnimatedBottomSheet renders into a Modal, so depth in the tree doesn't matter),
  *             constants/theme, constants/motion (Duration/Ease — the week slide),
@@ -73,7 +83,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import IconButton from '@/components/IconButton';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -86,6 +95,9 @@ import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import Stepper from '@/components/Stepper';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import { showAppModal } from '@/components/AppModal';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import type { FlightRect } from '@/components/FlightOverlay';
 import {
@@ -97,7 +109,6 @@ import {
   Spacing,
   TabularNums,
   rgba,
-  HitSlop,
 } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -243,6 +254,34 @@ export default function HomeShoppingCard({
     setPageIndex(next);
   }
 
+  // Which list a quick-added item lands in. `addTargetIndex` 0 is this week's list and i>0
+  // is monthlyLists[i-1] — see its declaration.
+  const addTargetName =
+    addTargetIndex === 0
+      ? t.home.weeklyListChip
+      : monthlyLists[addTargetIndex - 1]?.name ?? t.home.weeklyListChip;
+
+  /**
+   * Pick a destination list, replacing a chip that cycled to the next one on every tap.
+   * A cycle was already opaque with two stops; with a monthly list per household category
+   * it could be five, forward-only, with the current stop the only one ever visible.
+   */
+  function pickAddTarget() {
+    tap();
+    showAppModal(
+      t.home.addToListLabel,
+      undefined,
+      [
+        { text: t.home.weeklyListChip, onPress: () => setAddTargetIndex(0) },
+        ...monthlyLists.map((list, i) => ({
+          text: list.name,
+          onPress: () => setAddTargetIndex(i + 1),
+        })),
+        { text: t.cancel, style: 'cancel' as const },
+      ]
+    );
+  }
+
   function commitAdd() {
     const name = addDraft.trim();
     if (!name || !onAddItem) return;
@@ -275,29 +314,41 @@ export default function HomeShoppingCard({
       onChangeText={setAddDraft}
       onSubmit={commitAdd}
       accent={domainColor.accent}
-      extras={
-        <>
-          <Stepper value={addQty} onChange={setAddQty} min={1} max={99} accessibilityLabel={t.home.quantityLabel} />
-          <PressableScale
-            style={[styles.targetChip, { borderColor: domainColor.accent }]}
-            onPress={() => { tap(); setAddTargetIndex((i) => (i + 1) % (monthlyLists.length + 1)); }}
-            hitSlop={HitSlop.base}
-            scaleTo={0.95}
-            accessibilityRole="button"
-            accessibilityLabel={addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
-          >
-            {/* A.4 rule 1: the hue is the chip's EDGE; the glyph is the action colour and the
-                label is plain text. The Shopping gold is 2.25:1 on white — unreadable as ink. */}
-            <Ionicons
-              name={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
-              size={13}
-              color={theme.accent}
-            />
-            <Text style={[styles.targetChipText, { color: theme.text }]} numberOfLines={1}>
-              {addTargetIndex === 0 ? t.home.weeklyListChip : monthlyLists[addTargetIndex - 1]?.name}
-            </Text>
-          </PressableScale>
-        </>
+      // The labelled panel, not the inline `extras` row (2026-08-05) — same move as
+      // components/HomeNotesCard.tsx, so all four Home cards and their tabs now share one
+      // quick-add anatomy (DESIGN_RULES.md rule 8). It also gives the title input the whole
+      // line above, which it needs now that it draws as a real bordered field.
+      panel={
+        <QuickAddOptionsPanel>
+          <QuickAddOptionRow
+            icon="layers-outline"
+            label={t.home.quantityLabel}
+            value={
+              <Stepper
+                value={addQty}
+                onChange={setAddQty}
+                min={1}
+                max={99}
+                accessibilityLabel={t.home.quantityLabel}
+              />
+            }
+            accent={domainColor.accent}
+          />
+          {/* Was a chip that cycled forward through the lists on tap — the same blind
+              tap-cycle as the energy and repeat rows, and worse here because the number of
+              stops depends on how many monthly lists exist. It opens a picker now, so every
+              destination is one tap away and visible before you commit to it. */}
+          <QuickAddOptionRow
+            icon={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
+            label={t.home.addToListLabel}
+            value={addTargetName}
+            isSet
+            accent={domainColor.accent}
+            onPress={pickAddTarget}
+            showsMore
+            accessibilityLabel={`${t.home.addToListLabel}: ${addTargetName}`}
+          />
+        </QuickAddOptionsPanel>
       }
     />
   ) : null;
@@ -520,15 +571,4 @@ const baseStyles = StyleSheet.create({
     letterSpacing: 0.4,
     paddingTop: Spacing.sm,
   },
-  targetChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    height: 30,
-    maxWidth: 92,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-    paddingHorizontal: Spacing.sm,
-  },
-  targetChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 });

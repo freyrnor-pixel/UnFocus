@@ -22,6 +22,9 @@
  *             exactly what AddRow's header tells callers not to do), components/QuickAddOptionsPanel
  *             + components/QuickAddOptionRow (2026-08-04 — the type line's Energy row, closing
  *             the parity gap with HomeHabitsCard's own quick-add, which already had it),
+ *             components/Stepper + lib/energy (energyFieldsFromStepper — that row's signed
+ *             − 0 + control since 2026-08-05, replacing a tap-cycle; the type line also gained
+ *             the "More options" button Home's copy already had, same date, same reason),
  *             components/AnimatedListItem (habit
  *             add/remove fade), components/DraggableTaskRow (the long-press-drag gesture),
  *             components/GlowPulse (done-state static halo),
@@ -122,6 +125,8 @@ import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import Stepper from '@/components/Stepper';
+import { energyFieldsFromStepper } from '@/lib/energy';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
@@ -391,14 +396,14 @@ function HabitCard({
                 <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
               </PressableScale>
               <PressableScale
-                style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: barColor }]}
+                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
                 onPress={counted}
                 hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.increaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnPlusText, { color: theme.accentInk }]}>+</Text>
+                <Text style={[styles.adjBtnPlusText, { color: theme.text }]}>+</Text>
               </PressableScale>
             </View>
           ) : undefined}
@@ -661,13 +666,10 @@ export default function HabitsScreen() {
   const addHabitQuick = useHabitStore((s) => s.add);
   const [habitDraft, setHabitDraft] = useState('');
   // Quick-add's Energy row (2026-08-04) — closes the gap with HomeHabitsCard's own quick-add,
-  // which already had this; mirrors its cycleEnergy/habitEnergyValue exactly.
+  // which already had this; mirrors its habitEnergyValue and its signed Stepper exactly. It
+  // was a tap-cycle in both places until 2026-08-05; see HomeHabitsCard's mount for why.
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
   const [habitEnergyValue, setHabitEnergyValue] = useState(0);
-  function cycleEnergy() {
-    tap();
-    setHabitEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
-  }
 
   // Arrived from a note's ⋯ → Send it to… → Habits: seed the quick-add with the note's text
   // instead of making the user retype it (lib/prefill.ts).
@@ -776,7 +778,28 @@ export default function HabitsScreen() {
     if (!title) return;
     // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
     // reward/rating, against the app's no-shame framing. Custom icons still pickable.
-    createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
+    const energy = energyFieldsFromStepper(habitEnergyValue);
+    createHabit(title, 'ellipse-outline', 1, energy.energyEnabled, energy.energyValue);
+    setHabitDraft('');
+    setHabitEnergyValue(0);
+  }
+
+  /**
+   * "More options" — parity with HomeHabitsCard's own quick-add (2026-08-05), which had this
+   * button while this screen, showing the identical card, silently did not. Opens the habit
+   * editor with the draft carried over and saves nothing; see HomeHabitsCard's copy of this
+   * function for the full reasoning.
+   */
+  function openHabitFormWithDraft() {
+    tap();
+    router.push({
+      pathname: '/habit-form',
+      params: {
+        title: habitDraft.trim(),
+        energy: String(habitEnergyValue),
+        childName: selectedProfile || '',
+      },
+    });
     setHabitDraft('');
     setHabitEnergyValue(0);
   }
@@ -949,17 +972,25 @@ export default function HabitsScreen() {
                   onChangeText={setHabitDraft}
                   onSubmit={commitHabit}
                   accent={habitDomainColor.accent}
+                  onMore={openHabitFormWithDraft}
                   panel={
                     energySystemEnabled ? (
                       <QuickAddOptionsPanel>
+                        {/* Signed stepper, not a tap-cycle — see the identical mount in
+                            components/HomeHabitsCard.tsx for why it changed. Keep the two
+                            in step; lib/__tests__/energyModes.test.ts checks both. */}
                         <QuickAddOptionRow
                           icon={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
-                          label={t.energyMeter.title}
-                          value={habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}
-                          isSet={habitEnergyValue !== 0}
+                          label={t.energyGiveTakeLabel}
+                          value={
+                            <Stepper
+                              value={habitEnergyValue}
+                              onChange={setHabitEnergyValue}
+                              signed
+                              accessibilityLabel={t.energyGiveTakeLabel}
+                            />
+                          }
                           accent={habitDomainColor.accent}
-                          onPress={cycleEnergy}
-                          accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
                         />
                       </QuickAddOptionsPanel>
                     ) : undefined
@@ -1169,7 +1200,11 @@ const baseStyles = StyleSheet.create({
     ...Shadow.button,
   },
   adjBtnText: { fontSize: FontSize.lg, lineHeight: 30 },
-  adjBtnPlus: {},
+  // Both halves are the same recessed shape (2026-08-05). The "+" carried a solid accent
+  // fill until now — the exact thing components/Stepper.tsx's edit note says not to
+  // reinstate, and for the reason given there: a −/+ pair is ONE control, so filling half
+  // of it in the app's action colour reads as "+ is the important one", which is not true.
+  // On a list of counted habits it also repeated that emphasis once per row.
   adjBtnPlusText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 30 },
 
   // Expanded content

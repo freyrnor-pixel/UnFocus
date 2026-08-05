@@ -24,7 +24,9 @@
  *   Imports → components/ScreenScaffold, components/HintCard, components/SharedTasksSection,
  *             components/SectionRail, components/SectionCard, components/TaskCard, components/AddRow,
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow +
- *             components/TimeBoxInput (2026-08-04 — the Whenever AddRow's Time/Repeat panel),
+ *             components/TimeBoxInput (2026-08-04 — the Whenever AddRow's Time/Repeat panel;
+ *             Repeat became a picker over components/AppModal's showAppModal on 2026-08-05,
+ *             replacing a tap-cycle — see PlanTaskCard's pickRecurring for the reasoning),
  *             components/DraggableTaskRow (the Whenever list's long-press-drag),
  *             components/PressableScale, components/Surface (the local CollapsedSection's card
  *             shell), components/Collapsible + components/AnimatedChevron
@@ -220,6 +222,7 @@ import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
@@ -699,23 +702,33 @@ export default function TasksScreen() {
   const [wheneverTime, setWheneverTime] = useState('');
   const [wheneverRecurring, setWheneverRecurring] = useState<Recurring>('none');
   const [wheneverRecurringDays, setWheneverRecurringDays] = useState<number[]>([]);
-  function cycleWheneverRecurring() {
+  // A picker, not a tap-cycle (2026-08-05) — mirrors components/PlanTaskCard.tsx's
+  // pickRecurring, whose copy of this function carries the full reasoning.
+  function pickWheneverRecurring() {
     tap();
-    setWheneverRecurring((current) => {
-      if (current === 'none') return 'daily';
-      if (current === 'daily') {
-        setWheneverRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
-        return 'weekly';
-      }
-      if (current === 'weekly') return 'monthly';
-      return 'none';
-    });
+    const options: Recurring[] = ['none', 'daily', 'weekly', 'monthly'];
+    showAppModal(
+      t.pad.recurrencePicker,
+      undefined,
+      [
+        ...options.map((mode) => ({
+          text: mode === wheneverRecurring ? `• ${wheneverRecurringLabel(mode)}` : wheneverRecurringLabel(mode),
+          onPress: () => {
+            if (mode === 'weekly') {
+              setWheneverRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
+            }
+            setWheneverRecurring(mode);
+          },
+        })),
+        { text: t.cancel, style: 'cancel' as const },
+      ]
+    );
   }
   function wheneverRecurringLabel(mode: Recurring): string {
     if (mode === 'daily') return t.taskRecurDay;
     if (mode === 'weekly') return t.taskRecurWeek;
     if (mode === 'monthly') return t.taskRecurMonth;
-    return t.off;
+    return t.taskRecurNever;
   }
   // Screen-level StarterCard's example (2026-07-31, user report: it vanished with no feedback
   // the instant its "+" was pressed, since that write flips `tasks.length` off zero). Keeps the
@@ -793,7 +806,8 @@ export default function TasksScreen() {
       title: string,
       extra: { time?: string; recurring: Recurring; recurringDays: number[] }
     ) => {
-      addTask({
+      // Returns the created Task so handleTimelineAddTaskAndEdit below can open it.
+      return addTask({
         title,
         date: today,
         time: extra.time,
@@ -813,6 +827,34 @@ export default function TasksScreen() {
       });
     },
     [addTask, today, personFilter, addAssigneeName]
+  );
+  /**
+   * "More options" on the timeline's quick-add (2026-08-05). This screen mounts the same
+   * `PlanTaskCard` Home does but never passed this, so the identical card showed the button
+   * on Home and silently omitted it here — DESIGN_RULES.md rule 8, "same element, same
+   * position, every screen".
+   *
+   * Creates the task (a task's editor is an expanded TaskCard on a saved row — see
+   * PlanTaskCard's `commitAddAndEdit`) and switches to the All tab, where `expandTaskId`'s
+   * autoExpand lives. An empty line creates nothing and just switches tabs, so the press
+   * always leads somewhere.
+   */
+  const handleTimelineAddTaskAndEdit = useCallback(
+    (
+      title: string,
+      extra: { time?: string; recurring: Recurring; recurringDays: number[] }
+    ) => {
+      // `setParams`, not `push` — Home pushes to /plans because it is somewhere else, but
+      // this screen already IS /plans, and pushing it onto itself would stack a second copy
+      // of a pager tab. Setting the params feeds the same `tab`/`expandTaskId` effect below.
+      if (!title) {
+        router.setParams({ tab: 'all' });
+        return;
+      }
+      const task = handleTimelineAddTask(title, extra);
+      router.setParams({ tab: 'all', expandTaskId: task.id });
+    },
+    [handleTimelineAddTask, router]
   );
   // Both filter rows in one predicate: a task has to pass the person filter AND the tag
   // filter to show. (Within the TAG row, multiple chips are "any of" — see lib/tags.ts's
@@ -1284,7 +1326,8 @@ export default function TasksScreen() {
                         value={wheneverRecurringLabel(wheneverRecurring)}
                         isSet={wheneverRecurring !== 'none'}
                         accent={wheneverHue}
-                        onPress={cycleWheneverRecurring}
+                        onPress={pickWheneverRecurring}
+                        showsMore
                         accessibilityLabel={`${t.taskRecurringToggle}: ${wheneverRecurringLabel(wheneverRecurring)}`}
                       />
                     </QuickAddOptionsPanel>
@@ -1374,6 +1417,7 @@ export default function TasksScreen() {
                     onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
                     onToggleTask={handleToggleDone}
                     onAddTask={handleTimelineAddTask}
+                    onAddTaskAndEdit={handleTimelineAddTaskAndEdit}
                     // Same one-tap "Tidy up" example the screen-level StarterCard offered before
                     // it was suppressed for this layout (see that card's gate above) — without
                     // this, an empty day on the timeline default would lose the quick-add

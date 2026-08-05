@@ -93,7 +93,9 @@
  *             onAddTask callback — Home preview passes it) + components/TimeBoxInput
  *             (quick-add's inline time field), components/QuickAddOptionsPanel +
  *             components/QuickAddOptionRow (2026-08-04 — the type line's labeled Time/Repeat/
- *             "Add as" dropdown panel, replacing icon-only chips), components/FormControls
+ *             "Add as" dropdown panel, replacing icon-only chips),
+ *             components/AppModal (showAppModal — the Repeat picker, 2026-08-05, replacing a
+ *             forward-only tap-cycle; see pickRecurring), components/FormControls
  *             (Switch — the "Add as task/moment" row's control; task 15's boolean-is-always-
  *             a-slider rule, not the accent-tinted-text look the row used before),
  *             components/Collapsible + components/AnimatedChevron
@@ -307,6 +309,7 @@ import DayGridLines from '@/components/DayGridLines';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
+import { showAppModal } from '@/components/AppModal';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -593,24 +596,48 @@ export default function PlanTaskCard({
 
   const gridScrollRef = useRef<ScrollView>(null);
 
-  function cycleRecurring() {
+  function setRecurring(mode: Recurring) {
+    if (mode === 'weekly') {
+      // Weekly with no weekday selected would never occur. Seed today, the way the full
+      // editor does — the user can change it there.
+      setAddRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
+    }
+    setAddRecurring(mode);
+  }
+
+  /**
+   * Pick how often, replacing a row that CYCLED none → daily → weekly → monthly on tap
+   * (2026-08-05).
+   *
+   * Same defect the quick-add's energy row had, and reported the same way: the row showed one
+   * value, gave no sign that tapping it cycled, and had no way back — reaching "none" again
+   * from "daily" meant three more taps past two states you didn't want. It also showed `t.off`
+   * ("av"), the app's generic on/off word, which named neither the control nor the choice.
+   * A list shows all four at once, marks where you are, and is one tap either way.
+   */
+  function pickRecurring() {
     tap();
-    setAddRecurring((current) => {
-      if (current === 'none') return 'daily';
-      if (current === 'daily') {
-        setAddRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
-        return 'weekly';
-      }
-      if (current === 'weekly') return 'monthly';
-      return 'none';
-    });
+    const options: Recurring[] = ['none', 'daily', 'weekly', 'monthly'];
+    showAppModal(
+      t.pad.recurrencePicker,
+      undefined,
+      [
+        ...options.map((mode) => ({
+          // The current choice is marked in the label itself — AppModalButton has no
+          // selected state, and a checkmark glyph would need a button API this doesn't have.
+          text: mode === addRecurring ? `• ${recurringLabel(mode)}` : recurringLabel(mode),
+          onPress: () => setRecurring(mode),
+        })),
+        { text: t.cancel, style: 'cancel' as const },
+      ]
+    );
   }
 
   function recurringLabel(mode: Recurring): string {
     if (mode === 'daily') return t.taskRecurDay;
     if (mode === 'weekly') return t.taskRecurWeek;
     if (mode === 'monthly') return t.taskRecurMonth;
-    return t.off;
+    return t.taskRecurNever;
   }
 
   function draftExtra() {
@@ -654,12 +681,25 @@ export default function PlanTaskCard({
     resetDraft();
   }
 
-  // "…" — commits the same draft as the checkmark, then the caller (Home/plans.tsx) opens the
-  // just-created task's full editor pre-filled. Same saved row either way.
+  /**
+   * "More options" — commits the same draft as the checkmark, then the caller (Home /
+   * plans.tsx) opens the just-created task's full editor pre-filled. Same saved row either
+   * way.
+   *
+   * **An EMPTY line is a valid press** (2026-08-05). It used to `return` on one, and since
+   * `PadTypeRow` shows this button from the moment the line is focused, that meant a button
+   * sitting there doing nothing — the user report this pass came from. It passes an empty
+   * title through now, and the caller opens the To-do screen without creating anything (see
+   * `handleAddTaskAndEdit` in app/(tabs)/index.tsx).
+   *
+   * Note this surface CANNOT do what the habits quick-add does — hand the draft to a
+   * create-mode editor and save nothing. A task's editor is an expanded `TaskCard` on a
+   * SAVED row (app/task-form.tsx was retired 2026-07-23), so there is no unsaved task for it
+   * to render. Commit-then-open stays until something like a create-mode TaskCard exists.
+   */
   function commitAddAndEdit() {
-    const title = addDraft.trim();
-    if (!title || !onAddTaskAndEdit) return;
-    onAddTaskAndEdit(title, draftExtra());
+    if (!onAddTaskAndEdit) return;
+    onAddTaskAndEdit(addDraft.trim(), draftExtra());
     resetDraft();
   }
 
@@ -1419,7 +1459,8 @@ export default function PlanTaskCard({
               value={recurringLabel(addRecurring)}
               isSet={addRecurring !== 'none'}
               accent={domainColor.accent}
-              onPress={cycleRecurring}
+              onPress={pickRecurring}
+              showsMore
               accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
             />
           )}
