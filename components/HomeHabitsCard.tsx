@@ -23,6 +23,8 @@
  *             components/Motif (the `leaf-icon` corner accent, DESIGN_COMPARISON/04 option (b)),
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
  *             the type line's labeled Energy row, replacing an icon-only chip),
+ *             components/Stepper + lib/energy (energyFieldsFromStepper — that row's signed
+ *             − 0 + control since 2026-08-05, replacing a tap-cycle),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -66,14 +68,23 @@
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
  *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled
- *     not icon-only since 2026-08-04; off→+1→−1→off, gated on `energySystemEnabled`, same
- *     cycle as PlanTaskCard's) — plus a "…" that commits the
- *     draft and opens the just-created habit's full editor (`/habit-form?id=`) pre-filled,
- *     for icon/goal/recurrence/reminders. Both the checkmark and "…" paths write the SAME
- *     row (`useHabitStore.add` returns the created Habit), so editing further in the full
- *     form is never a second copy. Always rendered, regardless of which empty state (if any)
- *     is showing — mirrors habits.tsx's own Today tab, where the quick-add row sits below
- *     the section unconditionally.
+ *     not icon-only since 2026-08-04, gated on `energySystemEnabled`) — plus a second button
+ *     beside the confirm check. Both changed on 2026-08-05:
+ *       - **Energy is a signed `− 0 +` Stepper, not a tap-cycle.** It used to cycle
+ *         off→+1→−1→off and print `t.off` ("av") for zero: no sign that tapping cycled, no
+ *         way back, and a word naming neither the control nor the choice (user report: "The
+ *         'av' does not make sense to me"). Both real editors — components/TaskCard.tsx and
+ *         app/habit-form.tsx — already used exactly this Stepper for exactly this number.
+ *       - **"More options" opens `/habit-form` prefilled and saves NOTHING.** It used to
+ *         create the habit and then open the saved row, so an empty line hit an early
+ *         `return` and the button did nothing at all (user report: "The three dots don't do
+ *         anything"). A habit is the one surface here with a real create-mode editor screen,
+ *         so the draft goes over as params (`title`, `energy`) and Save there is the only
+ *         write — backing out leaves no half-made habit behind.
+ *     Always rendered, regardless of which empty state (if any) is showing — mirrors
+ *     habits.tsx's own Today tab, where the quick-add row sits below the section
+ *     unconditionally. Keep this in step with habits.tsx's copy; lib/__tests__/energyModes.test.ts
+ *     pins both.
  *   - Collapsed sizing follows the exact same pattern as HomeShoppingCard/HomeNotesCard/
  *     PlanTaskCard — see any of those files' own edit notes.
  *   - **(2026-07-31, addendum A.4) The header wash is gone.** The identity hue appears as the
@@ -125,6 +136,8 @@ import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import Stepper from '@/components/Stepper';
+import { energyFieldsFromStepper } from '@/lib/energy';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, HitSlop, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -223,31 +236,38 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
     return habit;
   }
 
-  function cycleEnergy() {
-    tap();
-    setHabitEnergyValue((current) => (current === 0 ? 1 : current > 0 ? -1 : 0));
-  }
-
   function commitHabit() {
     const title = habitDraft.trim();
     if (!title) return;
     // Neutral "to-do" marker default, matching habits.tsx's own quick-add — a star reads
     // as a reward/rating, against the app's no-shame framing.
-    createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
+    const energy = energyFieldsFromStepper(habitEnergyValue);
+    createHabit(title, 'ellipse-outline', 1, energy.energyEnabled, energy.energyValue);
     setHabitDraft('');
     setHabitEnergyValue(0);
   }
 
-  // "…" — commits the same draft as the checkmark, then opens the just-created habit's full
-  // editor pre-filled (icon/goal/reminders live there). Same saved row either way, so editing
-  // in the full form updates the one the quick-add already wrote.
-  function commitHabitAndEdit() {
+  /**
+   * "More options" — opens the habit editor with the quick-add's draft carried over, and
+   * **saves nothing** (2026-08-05).
+   *
+   * It used to create the habit first and then open the saved row, which meant an empty line
+   * hit `if (!title) return;` and the button did nothing at all — the user report that started
+   * this pass ("The three dots don't do anything"). A habit is the one surface here with a
+   * real create-mode editor screen, so it can do the honest thing instead: hand the draft to
+   * `/habit-form` as params and let Save there be the only write. Backing out costs nothing
+   * and leaves no half-made habit behind, and an empty line is a perfectly valid press — it
+   * just opens a blank form, which is what "more options" means when you haven't typed yet.
+   */
+  function openHabitFormWithDraft() {
+    tap();
     const title = habitDraft.trim();
-    if (!title) return;
-    const habit = createHabit(title, 'ellipse-outline', 1, habitEnergyValue !== 0, habitEnergyValue || 1);
+    router.push({
+      pathname: '/habit-form',
+      params: { title, energy: String(habitEnergyValue) },
+    });
     setHabitDraft('');
     setHabitEnergyValue(0);
-    router.push({ pathname: '/habit-form', params: { id: habit.id } });
   }
 
   /**
@@ -299,14 +319,14 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                 <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
               </PressableScale>
               <PressableScale
-                style={[styles.adjBtn, styles.adjBtnPlus, { backgroundColor: domainColor.accent }]}
+                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
                 onPress={counted}
                 hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.increaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnText, { color: theme.accentInk }]}>+</Text>
+                <Text style={[styles.adjBtnText, { color: theme.text }]}>+</Text>
               </PressableScale>
             </View>
           ) : undefined
@@ -406,18 +426,34 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
               onChangeText={setHabitDraft}
               onSubmit={commitHabit}
               accent={domainColor.accent}
-              onMore={commitHabitAndEdit}
+              onMore={openHabitFormWithDraft}
               panel={
                 energySystemEnabled ? (
                   <QuickAddOptionsPanel>
+                    {/* A real signed stepper (2026-08-05), not the tap-cycle this used to be.
+                        The row cycled off → +1 → −1 → off, showing the app's generic on/off
+                        word `t.off` ("av") for zero — a value with no way to tell it cycled,
+                        no way back, and no clue it was about energy at all (user report: "The
+                        'av' does not make sense to me. Energy should be more apparent with
+                        - 0 + buttons"). Both real editors — components/TaskCard.tsx and
+                        app/habit-form.tsx — already use exactly this control for exactly this
+                        number, so the quick-add was the odd one out. `QuickAddOptionRow` takes
+                        a live node as its `value` (that is how PlanTaskCard mounts TimeBoxInput
+                        and FormSwitch), so nothing about the row itself had to change.
+                        The label is `energyGiveTakeLabel` for the same reason: it is what the
+                        editors say, and unlike a bare "Energy" it names what the number does. */}
                     <QuickAddOptionRow
                       icon={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
-                      label={t.energyMeter.title}
-                      value={habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}
-                      isSet={habitEnergyValue !== 0}
+                      label={t.energyGiveTakeLabel}
+                      value={
+                        <Stepper
+                          value={habitEnergyValue}
+                          onChange={setHabitEnergyValue}
+                          signed
+                          accessibilityLabel={t.energyGiveTakeLabel}
+                        />
+                      }
                       accent={domainColor.accent}
-                      onPress={cycleEnergy}
-                      accessibilityLabel={`${t.energyConsumeLabel}: ${habitEnergyValue === 0 ? t.off : habitEnergyValue > 0 ? '+1' : '-1'}`}
                     />
                   </QuickAddOptionsPanel>
                 ) : undefined
@@ -510,8 +546,10 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  adjBtnPlus: { borderWidth: 0 },
+  // Both halves are the same recessed shape (2026-08-05) — the "+" used to carry a solid
+  // domain-accent fill and drop its border. See components/Stepper.tsx's edit note: a −/+
+  // pair is ONE control, and filling half of it in the action colour claims an emphasis the
+  // "+" hasn't got. The matching pair on app/(tabs)/habits.tsx changed with it.
   adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
-  adjBtnPlusText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
 
 });

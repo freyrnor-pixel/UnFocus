@@ -14,9 +14,13 @@
  *     type line, and two spare ones follow, so a light card still reads as a page rather than
  *     as a card that ran out of content ("look like notepads").
  *   - **Type line moved to the TOP and is always open.** The old collapsed "+ Add a note" bar
- *     cost two taps (expand, then focus) and sat after the list like chrome. Its prompt clears
- *     on FOCUS, not on the first keystroke — see PadTypeRow's header for why that needs a
- *     custom layer.
+ *     cost two taps (expand, then focus) and sat after the list like chrome.
+ *   - **The type line is a real bordered FIELD, and its options are a labelled panel
+ *     (2026-08-05).** It used to be a bare borderless line sharing one 44px row with a fixed
+ *     76px "Details…" box, a ghost check and two buttons — so focused-and-empty rendered as a
+ *     caret with no field around it and no room to grow one. Details moved down onto its own
+ *     labelled row (`panel`, the same shape Habits and To-do already used), which is also what
+ *     freed the width. See PadTypeRow's header.
  *   - **Check moved to the right margin, ⋯ beside it.** App-wide row-rule change; see
  *     AGENTS.md. It also freed the left edge, which is what lets the rules run the full line.
  *   - **A ticked note stays put.** It strikes through and fades where it is for the rest of
@@ -29,6 +33,8 @@
  *
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/PadTypeRow,
+ *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (the Details row
+ *             on the quick-add's labelled panel),
  *             components/PadFooterToggle, components/SendToSheet, components/Surface,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             components/PressableScale, components/CardAccent (CardAccentBadge), components/Badge,
@@ -93,6 +99,8 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import CardHintNote from '@/components/CardHintNote';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
@@ -179,14 +187,22 @@ export default function HomeNotesCard({ cardMenu }: Props) {
     success();
   }
 
-  // "…" — commits the same draft as the checkmark, then opens the Notes screen: a note's
-  // header and body are both already editable per-row there (NoteRow's inline title-edit +
-  // its body textarea), so there's nothing left to pre-fill — this just takes you to it.
-  function commitNoteDraftAndEdit() {
-    if (!noteDraft.trim()) return;
-    commitNoteDraft();
-    router.push('/notes');
-  }
+  /**
+   * There is deliberately NO "More options" button on this card (2026-08-05).
+   *
+   * There used to be a "…" that committed the draft and pushed /notes. It opened with
+   * `if (!noteDraft.trim()) return;` while `PadTypeRow` shows the button from the moment the
+   * line is FOCUSED — so on an empty line it animated the press and did nothing, which is the
+   * user report that started this pass ("The three dots don't do anything").
+   *
+   * It is not being fixed here, it is being removed, because a note has nothing left to open:
+   * a note IS a header and a body, and both are on this quick-add now (the body via the
+   * Details row in the panel below). Unlike a habit or a task there is no editor screen to
+   * reach — /notes edits its rows in place through NoteRow's `titleInput` — so a "more" button
+   * here would only ever navigate somewhere showing the same two fields. The card's own title
+   * is already a link to /notes for that. See PadTypeRow's `onMore` note: pass no handler
+   * rather than one that can no-op.
+   */
 
   function handleToggle(id: string) {
     tap();
@@ -281,22 +297,41 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               onChangeText={setNoteDraft}
               onSubmit={commitNoteDraft}
               accent={domainColor.accent}
-              onMore={commitNoteDraftAndEdit}
-              extras={
-                <TextInput
-                  ref={extraInfoLift.ref}
-                  style={[
-                    styles.extraInfoInput,
-                    { backgroundColor: theme.surfaceMuted, color: theme.text },
-                  ]}
-                  value={extraInfoDraft}
-                  onChangeText={setExtraInfoDraft}
-                  onFocus={extraInfoLift.onFocus}
-                  onBlur={extraInfoLift.onBlur}
-                  placeholder={t.home.extraInfoPlaceholder}
-                  placeholderTextColor={theme.textMuted}
-                  onSubmitEditing={commitNoteDraft}
-                />
+              // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
+              // be a bare 76px-wide box sharing one 44px line with the title input, the ghost
+              // check and two buttons — which is most of why the title input had no room to
+              // look like a field at all. On its own labelled row it gets the full width, the
+              // title input gets the whole line above it, and this card's quick-add finally
+              // matches Habits' and To-do's. Nothing about a note changed: still a header and
+              // a body, still committed by the same onSubmit.
+              panel={
+                <QuickAddOptionsPanel>
+                  <QuickAddOptionRow
+                    icon="document-text-outline"
+                    label={t.home.extraInfoLabel}
+                    value={
+                      <TextInput
+                        ref={extraInfoLift.ref}
+                        style={[
+                          styles.extraInfoInput,
+                          {
+                            backgroundColor: theme.surfaceMuted,
+                            color: theme.text,
+                            borderColor: theme.border,
+                          },
+                        ]}
+                        value={extraInfoDraft}
+                        onChangeText={setExtraInfoDraft}
+                        onFocus={extraInfoLift.onFocus}
+                        onBlur={extraInfoLift.onBlur}
+                        placeholder={t.home.extraInfoPlaceholder}
+                        placeholderTextColor={theme.textMuted}
+                        onSubmitEditing={commitNoteDraft}
+                      />
+                    }
+                    accent={domainColor.accent}
+                  />
+                </QuickAddOptionsPanel>
               }
             />
           }
@@ -418,13 +453,20 @@ const baseStyles = StyleSheet.create({
   noteBody: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
   // Quick-add extras (2026-07-24, "also add as a task" chip removed 2026-08-01) — the
   // "details" field (→ body).
+  // The Details field, now the `value` of its own labelled panel row (2026-08-05). It was a
+  // fixed `width: 76` because it shared one 44px line with the title input and two buttons;
+  // on its own row it takes the width the row gives it, with a floor so a one-word label
+  // can't squeeze it back to nothing. Bordered like every other field in the app now — see
+  // components/PadTypeRow.tsx's header.
   extraInfoInput: {
-    width: 76,
+    flex: 1,
+    minWidth: 0,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
+    borderWidth: 1,
   },
   doneHeader: {
     flexDirection: 'row',

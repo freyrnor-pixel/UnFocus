@@ -7,16 +7,36 @@
  * expand it, one to focus — and read as chrome appended after the list rather than as the next
  * line of it.
  *
- * **The prompt clears on FOCUS, not on the first keystroke.** React Native's own
- * `placeholder` only disappears once there's text; the ask is that selecting the line empties
- * it, so the prompt is rendered as our own muted Text layer that unmounts on focus. Keep it
- * that way — swapping back to a plain `placeholder` prop silently loses the behaviour.
+ * **The line is a real, bordered FIELD (2026-08-05), and the prompt is a plain `placeholder`
+ * again.** This reverses two things at once, so read why before undoing either:
+ *   - Until now the input carried NO border, background, radius or focus state — the whole
+ *     style was a font and a vertical padding. Its only affordance was the prompt layer below,
+ *     which was gated on `!focused`, and the ghost check beside it, gated on `!showControls`.
+ *     So the two cues BOTH unmounted the instant you tapped, and focused-and-empty rendered as
+ *     a bare blinking caret on blank card (user report: "Not visible where user is typing,
+ *     looks unnatural"). That was also a live `DESIGN_RULES.md` rule 18 violation — "focus is
+ *     never invisible" — which `DESIGN_RULES_AUDIT.md` had open as UNVERIFIED.
+ *   - The clear-on-focus prompt was a deliberate 2026-07-30 ask ("grey text that disappears
+ *     when text box is selected") and this header used to say "keep it that way". It is gone
+ *     because the maintainer reversed it once the field itself was visible: with a box around
+ *     it there is no longer anything to be gained by also emptying the line, and a prompt that
+ *     survives until the first keystroke is what every other app does. `placeholder` is RN's
+ *     own now — no hand-rolled Text layer to keep in sync.
+ * The field shape is deliberately the SAME one `components/FormControls.tsx`'s `Input` uses
+ * (border + radius + muted fill + `MIN_TAP_TARGET`), so the app has one field, not two.
+ * **This is not the boxed-ROWS design that `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`
+ * rejected.** That decision was about giving every LIST row its own border and gap — cards
+ * inside a card. List rows are still flush and ruled on one `PadSheet`. Only the composer —
+ * the one control you type into — is boxed, and a composer that looks like a field is what
+ * made the ruled rows below it legible as content rather than as more chrome.
  *
  * Connections:
  *   Imports → components/PressableScale (not used for the field itself — see edit notes),
+ *             components/Button (the worded "More options" button — see the `onMore` note),
  *             components/ScreenScaffold (ScrollIntoViewContext), constants/theme
- *             (PAD_ROW_MIN_HEIGHT, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn),
- *             lib/haptics (confirm), lib/i18n, lib/useAppTheme, @expo/vector-icons
+ *             (MIN_TAP_TARGET, PAD_ROW_MIN_HEIGHT, FontSize, Fonts, Radius, Shadow, Spacing,
+ *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
+ *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
  *   Data    → none — presentational; fires onSubmit
@@ -44,19 +64,37 @@
  *     on the surfaces that still use AddRow (/plans' Whenever, health-log, automations).
  *   - Commits on submit and on blur-with-text, so a typed line is never silently lost by
  *     tapping elsewhere. Blur with an empty line just restores the prompt.
- *   - **`onMore` (2026-08-01)**: an optional "…" beside the confirm check, same visibility
- *     gate as extras. The caller's handler both commits the draft AND navigates to that same
- *     row's full editor, pre-filled — so further edits made there save to the row the
- *     quick-add already created, not a second copy. See HomeHabitsCard/PlanTaskCard.
+ *   - **`onMore` (2026-08-01, reworked 2026-08-05)**: an optional second button beside the
+ *     confirm check, opening the fuller editor for whatever is being added, carrying the
+ *     typed draft. Two things changed on 2026-08-05, both from a user report ("The three dots
+ *     don't do anything"):
+ *       1. **It is worded, not a glyph** — a `components/Button` labelled `t.pad.moreOptions`,
+ *          not a bare `ellipsis-horizontal`. Same complaint that drove the labelled `panel`
+ *          design a day earlier ("I cannot understand small, barely visible icons"), and the
+ *          bare "…" sat next to a bordered, filled ✓ so it did not even read as a button.
+ *       2. **The caller's handler must work on an EMPTY line.** The button shows as soon as
+ *          the line is focused, but every handler used to open with `if (!draft) return;` —
+ *          so on an empty line it animated the press and did nothing at all, while the ✓
+ *          beside it correctly went `disabled` + recessed. A handler wired here MUST always
+ *          produce something visible; if there is genuinely nothing to open for a surface,
+ *          pass no `onMore` at all rather than a handler that can no-op (that is why
+ *          HomeNotesCard has none — a note is a title and a details line, both already on
+ *          this row, so there is no fuller editor to reach).
+ *     Whether it commits first is the CALLER's call and differs by surface, because the
+ *     surfaces differ: a habit has a real create-mode editor screen (`/habit-form`), so
+ *     nothing is saved until Save there; a task's editor is an expanded `TaskCard` on a
+ *     SAVED row (app/task-form.tsx was retired 2026-07-23), so that one still commits first.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { Keyboard, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
+import { Keyboard, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 import {
   FontSize,
   Fonts,
+  MIN_TAP_TARGET,
   PAD_ROW_MIN_HEIGHT,
   Radius,
   Shadow,
@@ -156,18 +194,18 @@ export default function PadTypeRow({
     },
   };
 
+  // Worded, and live in every state — see the `onMore` edit note. It is deliberately NOT
+  // gated on `active`/`hasText` the way the confirm check is: the caller's handler opens an
+  // editor rather than saving, so an empty line is a valid press, not a disabled one.
   const moreButton =
     showControls && onMore ? (
-      <PressableScale
-        style={styles.more}
+      <Button
+        label={moreLabel ?? t.pad.moreOptions}
         onPress={onMore}
-        hitSlop={HitSlop.base}
-        scaleTo={0.9}
-        accessibilityRole="button"
-        accessibilityLabel={moreLabel ?? t.pad.continueEditing}
-      >
-        <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />
-      </PressableScale>
+        variant="secondary"
+        size="sm"
+        icon="options-outline"
+      />
     ) : null;
 
   const confirmButton = showControls ? (
@@ -195,9 +233,21 @@ export default function PadTypeRow({
   const fieldAndPrompt = (
     <View style={styles.field}>
       <TextInput
-        style={[styles.input, { color: theme.text }]}
+        style={[
+          styles.input,
+          {
+            color: theme.text,
+            backgroundColor: theme.surfaceMuted,
+            // A field boundary is a control boundary, so it takes `theme.border` (the ≥3:1
+            // token) at rest and the surface's own accent while focused — never `theme.rule`,
+            // which is the deliberately sub-3:1 notepad divider.
+            borderColor: focused ? accent : theme.border,
+          },
+        ]}
         value={value}
         onChangeText={onChangeText}
+        placeholder={prompt}
+        placeholderTextColor={theme.textMuted}
         returnKeyType="done"
         onSubmitEditing={commit}
         editable={!disabled}
@@ -223,15 +273,6 @@ export default function PadTypeRow({
           if (hasText) commit();
         }}
       />
-      {/* Our own prompt layer rather than TextInput's `placeholder`, so it clears the
-          moment the line is selected instead of on the first keystroke. */}
-      {!focused && !hasText ? (
-        <View style={styles.prompt} pointerEvents="none">
-          <Text style={[styles.promptText, { color: theme.textMuted }]} numberOfLines={1}>
-            {prompt}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
 
@@ -296,39 +337,41 @@ export default function PadTypeRow({
 }
 
 const styles = StyleSheet.create({
+  // `paddingVertical` (2026-08-05) keeps the field's own border off PadSheet's hairline rule
+  // above and below it. It belongs here rather than in PadSheet, which draws those rules for
+  // every line on the sheet and must not learn that one of them hosts a bordered control.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
     minHeight: PAD_ROW_MIN_HEIGHT,
+    paddingVertical: Spacing.xs,
   },
-  // The prompt is absolutely positioned over the field, so showing/hiding it can't reflow
-  // the row (which would make selecting the line twitch).
   field: { flex: 1, minWidth: 0, justifyContent: 'center' },
   // A transparent wrapper whose only job is the capture-phase responder check above. It
   // must not change the row's layout — the extras used to be direct children of the row, so
   // this inherits the same flex-row alignment and gap and is otherwise invisible.
   extrasSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // Panel layout (`panel` prop): a column instead of the single inline row.
-  column: { gap: Spacing.xs },
+  // Panel layout (`panel` prop): a column instead of the single inline row. Its own `row`
+  // child already carries the padding above, so only the bottom edge needs adding here.
+  column: { gap: Spacing.xs, paddingBottom: Spacing.xs },
   panelSlot: { width: '100%' },
   panelButtonRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.xs },
+  // A real field, the same shape as components/FormControls.tsx's `Input` — see the header
+  // for why this stopped being a bare line, and why boxing the COMPOSER is not the boxed-rows
+  // design that DESIGN_COMPARISON/10 rejected. Colours (fill + focus-driven border) are
+  // applied inline, since they need the theme and the caller's accent.
   input: {
     // See AddRow's note: react-native-web gives a bare <input> an intrinsic min-width that
     // flex:1 alone doesn't beat, which pushes the trailing controls off the card.
     minWidth: 0,
+    minHeight: MIN_TAP_TARGET,
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
     fontSize: FontSize.md,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
-  },
-  prompt: { position: 'absolute', left: 0, right: 0 },
-  promptText: { fontSize: FontSize.md, fontFamily: Fonts.regular },
-  more: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   confirm: {
     width: 32,

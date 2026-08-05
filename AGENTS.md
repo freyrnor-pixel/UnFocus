@@ -177,6 +177,31 @@ file owns which token.)
     `components/PadSheet.tsx` draw the rules rather than drawing your own.
     **NOT taken from that spec**: dropping the accent stripe / category-as-a-dot — the
     gradient badge, keycap edge and domain ramp stay (maintainer's call, #390/#393/#410).
+  - **The quick-add is one shape everywhere, and the composer is a real FIELD (2026-08-05)**,
+    from a user report on Home's Habits and Notes cards: *"Not visible where user is typing,
+    looks unnatural"*, *"The 'av' does not make sense to me"*, *"The three dots don't do
+    anything"*. All three lived in `components/PadTypeRow.tsx`, so all four Home cards, the
+    Habits tab, the To-do timeline and Shopping were affected at once.
+    - **The input is bordered, filled and shows focus** — the same shape as
+      `components/FormControls.tsx`'s `Input`, so the app has ONE field. It had no border,
+      fill, radius or focus state, and its prompt was a hand-rolled layer that unmounted on
+      focus, so tapping the line left a bare caret on blank card. `components/AddRow.tsx`, the
+      other composer, got the same treatment. **This is not the boxed-ROWS design
+      `DESIGN_COMPARISON/10` rejected** — rows are still flush and ruled; only the one control
+      you type into is boxed. Don't cite it as precedent for boxing rows.
+    - **Every surface uses the labelled `panel`, not the inline `extras` row.** Notes' Details
+      field and Shopping's quantity/list controls used to share the input's 44px line; they are
+      labelled `QuickAddOptionRow`s below it now, which is also what gave the input room to
+      look like a field.
+    - **No blind tap-cycles.** A row that cycled forward through its options on tap — energy
+      (`off→+1→−1`), repeat (`none→daily→weekly→monthly`), Shopping's destination list — showed
+      one value, gave no sign it cycled and had no way back. Energy is a signed `Stepper` now;
+      the other two open a picker and carry a `showsMore` chevron. Prefer a stepper for a
+      number and a picker for a choice; a cycle is fine only where every stop is visible.
+    - **A button that can't act doesn't render.** "More options" (was a bare "…") is worded and
+      live in every state, including an empty line — its handlers must never open with an early
+      `return`. Where a surface has nothing more to open, pass no handler at all: that is why
+      Notes has no such button (a note is a title and a body, both already on the quick-add).
   - **Shopping quantity is an input, not a value**: it READS in the row's leading cluster and
     is EDITED in `components/ShoppingItemSheet.tsx` (a row-body tap). That sheet is also the
     only editor for a weekly item's unit/price/category. `onIncrement`/`onDecrement` on
@@ -538,7 +563,7 @@ file owns which token.)
   A seventh row goes to Settings.
 - **Settings** (`app/settings.tsx`): three tabs — **General** (profile, appearance, accessibility, account/backup, version, reset), **Personal** (notifications, shopping cadence, layout, device features), **Advanced** (the Features card, People/family, paired devices, Freyr-mode, debug). Reorganized 2026-07-25 from four tabs; see that file's header for the full before/after.
 - **Feature flags** (2026-07-25, defaults revised same day): three states, not one.
-  - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and `PlanTaskCard`'s quick-add chip. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
+  - **On by default, still a real toggle** (Settings → Advanced → Features): `energySystemEnabled` (Energy system), `featureGoals` (Goals) and `featureMedicine` (Medicine trays, 2026-07-27). Not offered in the onboarding picker — "opt in from nothing" doesn't fit a feature that's already on. Turning `featureMedicine` off must actually CANCEL its four tray reminders, not just hide the card — `app/settings.tsx`'s `applyAndSync` re-syncs them on that key. `energySystemEnabled` is the one flag that has flip-flopped: a toggle → inert/always-on (2026-07-26) → **a real toggle again (2026-07-31)**, gating `EnergyMeter`, `EnergyBalanceCard`, both editors' energy steppers and the habit quick-add's energy row (`HomeHabitsCard` + the Habits tab — a signed `− 0 +` `Stepper` since 2026-08-05, a tap-cycle before that). This line used to say "`PlanTaskCard`'s quick-add chip", which has not existed since 2026-08-01 — energy stayed a Habits-only quick-add setting; a task's energy is set in its editor. It gates SURFACES only — per-task/habit `energyEnabled`/`energyValue` keep their stored values while off, so switching back on restores every number.
   - **Off by default, still opt-in** (Settings → Advanced → Features — **and nowhere else since 2026-07-31, B1-1**): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). The onboarding feature picker (`app/onboarding/features.tsx`) is **deleted** — don't look for it, and don't add a new flag to it. Onboarding no longer offers ANY feature opt-in: a new install now gets the defaults and nothing to choose, which is the point. `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, and was offered on `app/onboarding/energy.tsx` until B1-2 removed the Quiet growth half of that screen; it is now Settings-only as well.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.

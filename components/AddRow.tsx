@@ -112,6 +112,9 @@ export default function AddRow({
 
   // Collapsed by default: a "+ <placeholder>" bar. Tapping it expands into the editing row.
   const [expanded, setExpanded] = useState(false);
+  // Drives the field's focus border (2026-08-05). `isFocusedRef` below can't: a ref change
+  // doesn't re-render, and the border has to repaint the moment focus lands.
+  const [focused, setFocused] = useState(false);
 
   // Scroll THIS row above the keyboard once it opens, but only while THIS row's input is
   // the one focused (a screen may have other, unrelated inputs elsewhere that shouldn't
@@ -180,7 +183,16 @@ export default function AddRow({
   const inputField = (
     <TextInput
       ref={inputRef}
-      style={[styles.input, { color: theme.text }]}
+      style={[
+        styles.input,
+        {
+          color: theme.text,
+          backgroundColor: theme.surfaceMuted,
+          // Same field shape and same colour rule as components/PadTypeRow.tsx — see its
+          // header. `theme.border` is the ≥3:1 control-boundary token; the accent marks focus.
+          borderColor: focused ? fill : theme.border,
+        },
+      ]}
       value={value}
       onChangeText={onChangeText}
       placeholder={placeholder}
@@ -189,6 +201,7 @@ export default function AddRow({
       onSubmitEditing={commit}
       editable={!disabled}
       onFocus={() => {
+        setFocused(true);
         isFocusedRef.current = true;
         // Covers the keyboard-already-open case (switching focus to this input doesn't
         // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
@@ -196,6 +209,7 @@ export default function AddRow({
         scrollIntoView?.(rowRef.current);
       }}
       onBlur={() => {
+        setFocused(false);
         isFocusedRef.current = false;
         // Blurring an empty row backs out of the add — collapse to the "+" bar so we don't
         // strand an open empty input. A row with text stays open (the user is mid-entry).
@@ -322,6 +336,15 @@ const styles = StyleSheet.create({
     // confirm button silently rendered off-card). No effect on native, where 0 is already
     // the default.
     minWidth: 0,
+    // A real bordered field (2026-08-05), matching components/PadTypeRow.tsx and
+    // components/FormControls.tsx's `Input` — one field shape in the app. It used to be a
+    // bare line: no border, no fill, no focus state, so an expanded add row read as a caret
+    // floating on the card. Same class of bug as the "+ New task" bar being bare text before
+    // its 2026-07-25 pill, and the same fix. Colours are applied inline (they need the theme).
+    minHeight: MIN_TAP_TARGET,
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,

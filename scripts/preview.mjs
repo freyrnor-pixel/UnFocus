@@ -274,11 +274,38 @@ async function main() {
     await page.waitForTimeout(1000);
     await shot(page, 'home-again');
 
+    // FOCUSED-BUT-EMPTY (2026-08-05) — the state this walk could never see, because every
+    // step below focuses and fills in the same breath. It is also the state the user
+    // screenshotted: before this pass it rendered as a bare caret on a borderless line with
+    // no prompt, while the options panel and its buttons appeared beside nothing. It should
+    // now show a bordered field with its prompt still in place, the labelled options panel
+    // below it, and a worded "More options" button. If a regression ever un-boxes the
+    // composer, this screenshot is where it shows up.
+    //
+    // It runs HERE, on Home, and clicks rather than focus()es, for two reasons that bit
+    // during the 2026-08-05 pass: all five tab screens are mounted (`lazy: false`), so a bare
+    // .first() on a shared label resolves to Home's card no matter which tab is on screen —
+    // focusing it from the Habits tab silently focused an off-screen input and produced a
+    // screenshot of an idle line. And a programmatic DOM focus() does not reliably drive
+    // react-native-web's onFocus, which is what the panel and buttons hang off.
+    console.log('> Home quick-add, focused and empty');
+    const focusProbe = page.getByLabel('Type habit', { exact: true }).first();
+    await focusProbe.scrollIntoViewIfNeeded();
+    await focusProbe.click({ timeout: 10000 });
+    await page.waitForTimeout(500);
+    // The panel and its button row unfold BELOW the field, so focusing near the bottom of the
+    // scroll leaves "More options" behind the BottomNav. On device ScreenScaffold lifts the
+    // row when the keyboard opens; there is no keyboard here, so scroll it up by hand — the
+    // buttons are half of what this screenshot exists to show.
+    await page.mouse.wheel(0, 260);
+    await page.waitForTimeout(400);
+    await shot(page, 'quick-add-focused-empty');
+
     // Home's pad cards (2026-07-30). Three things worth a regression check, all new surface
     // area: writing on a card's own type line, ticking a note (which must stay IN PLACE,
     // struck through, rather than vanishing into the checked zone until tomorrow), and
-    // stepping the Shopping card's week pager. The type line is an always-open input whose
-    // grey prompt clears on focus — target it by accessible name, not by placeholder.
+    // stepping the Shopping card's week pager. The type line is an always-open input —
+    // target it by accessible name.
     console.log('> Home pad cards (type line, tick-in-place, week pager)');
     const noteTitle = `Preview note ${Date.now()}`;
     const noteInput = page.getByLabel('Type note', { exact: true }).first();
@@ -399,9 +426,9 @@ async function main() {
     await clickText(page, 'Today');
     await page.waitForTimeout(500);
     const logTitle = `Log check ${Date.now()}`;
-    // The type line is an always-open input whose grey prompt is a custom Text layer that
-    // unmounts on focus — target it by accessible name, never by placeholder (same rule the
-    // Home notes step above learned).
+    // The type line is an always-open input — target it by accessible name. (It also carries
+    // a real `placeholder` since 2026-08-05, so getByPlaceholder would work too; the
+    // accessible name is the stable locator either way.)
     const todayTypeLine = page.getByLabel('Type task', { exact: true }).first();
     await todayTypeLine.scrollIntoViewIfNeeded();
     await todayTypeLine.focus();
@@ -472,10 +499,9 @@ async function main() {
     // confirm it round-trips through the in-memory sql.js DB after a tab away-and-back.
     //
     // **This is a text input, not a button** (2026-07-30): the collapsed "+ Add habit" AddRow
-    // bar became components/PadTypeRow.tsx — an always-open line whose grey prompt clears on
-    // focus. There is no bar to tap open any more, and the prompt is our own Text layer rather
-    // than a `placeholder` attribute, so `getByPlaceholder` won't find it either. Target the
-    // input by its accessible name (the prompt string, t.pad.type.habit).
+    // bar became components/PadTypeRow.tsx — an always-open line. There is no bar to tap open
+    // any more. Target the input by its accessible name (the prompt string, t.pad.type.habit),
+    // which is set explicitly and is also the `placeholder` since 2026-08-05.
     console.log('> add a habit (store logic check)');
     await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);

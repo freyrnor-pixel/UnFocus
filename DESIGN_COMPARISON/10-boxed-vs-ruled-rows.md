@@ -149,3 +149,28 @@ every short list terminates. Plan for it rather than discovering it.
 If (a): record the decision so the design project isn't re-proposed later — a line in
 `PadSheet.tsx`'s header noting the 2026-08-04 review and why boxed rows were declined.
 If (b) or (d): update every touched header, both ends. Then commit, PR into `main`, merge.
+
+---
+
+## Outcome — (a), and one thing it does NOT cover (2026-08-05)
+
+**(a) was taken and still stands.** List rows are flush and ruled on one `PadSheet`; there is
+no per-row border, fill or gap anywhere, and `PadSheet.tsx`'s header carries the note.
+
+One later change looks like it crosses this line and does not: **the composer is boxed.**
+`components/PadTypeRow.tsx`'s input — the "Type habit"/"Type note" line — is now a real field
+with a border, a muted fill and an accent focus border, matching `FormControls.tsx`'s `Input`.
+
+That is not this decision, for a reason worth keeping straight: what (b) proposed was giving
+every row its own box so rows would separate *from each other* — cards inside a card, an idea
+about the LIST. The composer box is about ONE control, and it is the control you type into.
+Before it, focusing the line rendered a bare blinking caret on blank card — no border, no fill,
+no focus state, and the prompt layer unmounted on focus too, so there was nothing on screen
+saying "your text goes here" (user report, 2026-08-05: *"Not visible where user is typing,
+looks unnatural"*). That is `DESIGN_RULES.md` rule 18, "focus is never invisible", which the
+audit had open as UNVERIFIED.
+
+If anything it makes (a) read better rather than worse: with the one writable line clearly a
+field, the ruled rows under it are unambiguously *content*, not more chrome. The distinction to
+hold onto is **row vs. control** — a ruled sheet of flush rows, with the composer drawn as the
+input it actually is. Don't cite the composer box as precedent for boxing rows.

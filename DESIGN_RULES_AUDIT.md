@@ -37,7 +37,7 @@ decision — flagged, code deliberately unchanged, needs a maintainer ruling).
 | 15 | One focal point | **OPEN** |
 | 16 | Max 2 font weights | **CONFLICT #4** |
 | 17 | ≥44×44 targets | **FIXED** (+ **CONFLICT #6**) |
-| 18 | Visible focus state | **OPEN** (needs device) |
+| 18 | Visible focus state | **OPEN** (needs device) — one real violation found + fixed 2026-08-05, see below |
 | 19 | Confirm destructive, undo everything else | PASS |
 | 20 | Respect reduce-motion | **FIXED** |
 | 21 | Motion means something, ≤200ms | **FIXED** |
@@ -165,6 +165,24 @@ reduce-motion plus a user setting).
 whether *every* interactive element shows a visible focus state under keyboard/switch
 navigation can't be established headlessly — react-native-web's focus model isn't native's.
 Needs a device pass with TalkBack/VoiceOver or a hardware keyboard.
+
+**One concrete violation was found and fixed since (2026-08-05) — by eye, not by this audit.**
+The app's two composers — `components/PadTypeRow.tsx` (every Home card's type line, the Habits
+tab, the To-do timeline, Shopping) and `components/AddRow.tsx` (/plans' Whenever, health-log,
+automations) — had **no focus state at all**, and no field either: no border, no fill, no
+radius. `PadTypeRow` compounded it by rendering its prompt as a hand-rolled `Text` layer gated
+on `!focused`, so tapping the line *removed* the only mark on it. Focused-and-empty was a bare
+blinking caret on blank card. The user reported it as "Not visible where user is typing, looks
+unnatural"; it went unnoticed here because an audit that reads source and measures static
+layout never puts a surface into its focused state.
+
+Both are now bordered fields with an accent focus border, sharing `FormControls.Input`'s shape.
+`scripts/preview.mjs` and `scripts/measure-wraps.mjs` each gained a step that *focuses* a
+quick-add and captures/measures it, so the state is at least observed from now on.
+
+This does not close the rule: it was one element, found visually. The remaining question —
+whether every interactive element shows focus under keyboard/switch navigation — still needs
+the device pass.
 
 ---
 

@@ -113,6 +113,12 @@ const L = {
     // sheet once anything has an energy value. Three label+stepper rows plus a hint line each,
     // i.e. exactly the "label competing with a fixed-size control" case this audit exists for.
     energyTutorialAction: "Set the day's energy", energyDone: 'Done',
+    // The quick-add's FOCUSED state (2026-08-05). Idle it is one field on one line and there
+    // is nothing to measure; focused it unfolds the labelled options panel — a label
+    // competing with a fixed-width Stepper, exactly the shape that broke the task editor at
+    // 327px — plus a worded "More options" button that has to share a row with the confirm
+    // check. None of that existed on any surface this audit walked, so it went unmeasured.
+    typeHabit: 'Type habit',
     // Pushed sub-screens / popups. Each is reached by tapping, never page.goto() or
     // goBack() — both reload the document, which resets the in-memory sql.js DB and drops
     // you back into onboarding. BottomNav stays mounted over a pushed screen (verified), so
@@ -129,6 +135,7 @@ const L = {
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
+    typeHabit: 'Skriv vane',
     editGoals: 'Mål', goalsClose: 'Ferdig',
     logSymptom: 'Hva plager deg?',
     addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
@@ -403,6 +410,25 @@ async function walkToTabs(page, { scanning }) {
     await page.waitForTimeout(600);
   } catch (e) {
     console.error(`  (energy-config-sheet step skipped: ${e.message.split('\n')[0]})`);
+  }
+
+  // ── The quick-add, focused ──
+  // Click, don't focus(): a programmatic DOM focus doesn't reliably drive react-native-web's
+  // onFocus, and the panel + buttons this step exists to measure hang off the component's own
+  // focused state. Home's habits card is the .first() match for this label whichever tab is
+  // showing (all five are mounted, `lazy: false`), which is why this runs here rather than on
+  // the Habits tab. Blurred again afterwards so the unfolded panel can't overlap a later step.
+  try {
+    const field = page.getByLabel(L.typeHabit, { exact: true }).first();
+    await field.scrollIntoViewIfNeeded();
+    await field.click({ timeout: 8000 });
+    await page.waitForTimeout(600);
+    if (scanning) await scan(page, 'quick-add-focused');
+    await page.keyboard.press('Escape');
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(400);
+  } catch (e) {
+    console.error(`  (quick-add-focused step skipped: ${e.message.split('\n')[0]})`);
   }
 }
 

@@ -192,7 +192,20 @@ function computeReminderTimes(
 
 export default function HabitForm() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; childName?: string }>();
+  /**
+   * `title`/`energy` are CREATE-mode seeds (2026-08-05), handed over by the quick-add's
+   * "More options" button on Home's habits card and on the Habits tab. They only seed the
+   * initial state — nothing is written until Save — so backing out of this screen leaves no
+   * habit behind. That is the whole reason the quick-add stopped creating-then-navigating:
+   * it made the button dead on an empty line. Ignored entirely when `id` is set, since an
+   * existing habit's own values win.
+   */
+  const params = useLocalSearchParams<{
+    id?: string;
+    childName?: string;
+    title?: string;
+    energy?: string;
+  }>();
   const isEdit = !!params.id;
 
   const habits = useHabitStore((s) => s.habits);
@@ -212,7 +225,7 @@ export default function HabitForm() {
 
   const existing = isEdit ? habits.find((h) => h.id === params.id) : undefined;
 
-  const [title, setTitle] = useState(existing?.title ?? '');
+  const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? 'ellipse-outline');
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
   const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
@@ -229,7 +242,14 @@ export default function HabitForm() {
   // the Energy system seeds to 0 regardless of its stored energyValue: that column defaults
   // to a meaningless 1 while energyEnabled is false, and showing it would silently opt every
   // existing habit in on the next save.
-  const [energyValue, setEnergyValue] = useState(energyStepperValue(existing?.energyEnabled ?? false, existing?.energyValue ?? 0));
+  // `params.energy` is the quick-add's own stepper reading, already in this same 0-means-off
+  // signed form — so it is carried across verbatim rather than re-derived. NaN-guarded: a
+  // hand-typed or malformed param falls back to 0 rather than poisoning the stepper.
+  const [energyValue, setEnergyValue] = useState(() => {
+    if (existing) return energyStepperValue(existing.energyEnabled, existing.energyValue);
+    const seeded = Number(params.energy);
+    return Number.isFinite(seeded) ? seeded : 0;
+  });
   const [goalId, setGoalId] = useState<string | null>(existing?.goalId ?? null);
 
   const [notificationEnabled, setNotificationEnabled] = useState(existing?.notificationEnabled ?? false);

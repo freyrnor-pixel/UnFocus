@@ -120,6 +120,10 @@ const en = {
   taskRecurDay: 'Day',
   taskRecurWeek: 'Week',
   taskRecurMonth: 'Month',
+  // The quick-add's Repeat row said `t.off` ("off"/"av") for no recurrence — the app's
+  // generic toggle word, which named neither this control nor this choice. It reads as one
+  // of four options in the picker now, so it needs a word of its own (2026-08-05).
+  taskRecurNever: 'Never',
   taskWeekInterval1: 'Every week',
   taskWeekInterval2: 'Every 2 wks',
   taskWeekInterval3: 'Every 3rd',
@@ -268,9 +272,15 @@ const en = {
       habit: 'Type habit',
       item: 'Type item',
     },
-    // Quick-add's "…" — commits the draft, then opens its full editor pre-filled with
-    // whatever was just typed (same saved row, so editing there saves in place).
-    continueEditing: 'Continue editing',
+    // Quick-add's second button, beside the confirm check (2026-08-05). It was a bare "…"
+    // glyph labelled "Continue editing" — a name that only made sense while the button
+    // required a typed draft. It is a worded, always-live button now: it opens the fuller
+    // editor for what you are adding, carrying whatever you had typed, so it needs a name
+    // that is true on an empty line too.
+    moreOptions: 'More options',
+    // Repeat picker (2026-08-05) — replaced a row that cycled none → daily → weekly →
+    // monthly on tap, forward-only, with no way back and no cue that it cycled.
+    recurrencePicker: 'How often?',
     // The type-line's options panel (2026-08-04) — the "Add as" row that toggles a task vs.
     // a day-log moment (components/PlanTaskCard.tsx's onCaptureMoment).
     captureTarget: {
@@ -1075,7 +1085,13 @@ const en = {
     more: 'More',
     quantityLabel: 'Quantity',
     weeklyListChip: 'This week',
+    // Names the quick-add's destination-list row, and titles its picker (2026-08-05). The
+    // control was an unlabelled chip that cycled forward through the lists on tap.
+    addToListLabel: 'Add to',
     extraInfoPlaceholder: 'Details…',
+    // The row label the Details field sits on since it moved into the notes quick-add's
+    // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
+    extraInfoLabel: 'Details',
     manageCards: {
       edit: 'Edit cards',
       done: 'Done',
@@ -2017,6 +2033,7 @@ const no: typeof en = {
   taskRecurDay: 'Dag',
   taskRecurWeek: 'Uke',
   taskRecurMonth: 'Måned',
+  taskRecurNever: 'Aldri',
   taskWeekInterval1: 'Hver uke',
   taskWeekInterval2: 'Hver 2. uke',
   taskWeekInterval3: 'Hver 3.',
@@ -2107,7 +2124,8 @@ const no: typeof en = {
       habit: 'Skriv vane',
       item: 'Skriv vare',
     },
-    continueEditing: 'Fortsett å redigere',
+    moreOptions: 'Flere valg',
+    recurrencePicker: 'Hvor ofte?',
     captureTarget: {
       label: 'Legg til som',
       task: 'Oppgave',
@@ -3142,7 +3160,9 @@ const no: typeof en = {
     more: 'Mer',
     quantityLabel: 'Antall',
     weeklyListChip: 'Denne uken',
+    addToListLabel: 'Legg i',
     extraInfoPlaceholder: 'Detaljer…',
+    extraInfoLabel: 'Detaljer',
     manageCards: {
       edit: 'Rediger kort',
       done: 'Ferdig',

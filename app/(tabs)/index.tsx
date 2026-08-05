@@ -512,8 +512,17 @@ export default function HomeScreen() {
   // wires for exactly this (built for a note's "Add to plans" flow, previously uncalled).
   // `tab: 'all'` because expandTaskId's autoExpand lives on the Whenever section's TaskCard,
   // not Today's — and an undated (hasStartDate:false) task like this always shows there too.
+  // An EMPTY title is a real case (2026-08-05): "More options" is pressable the moment the
+  // quick-add line is focused, so it must always lead somewhere rather than silently doing
+  // nothing. With nothing typed there is no task worth creating — an untitled row would be
+  // junk the user then has to clean up — so it just opens the To-do screen, which is the
+  // "more options" the press was asking for.
   const handleAddTaskAndEdit = useCallback(
     (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
+      if (!title) {
+        router.push({ pathname: '/plans', params: { tab: 'all' } });
+        return;
+      }
       const task = addTask(buildQuickAddTaskInput(title, extra));
       router.push({ pathname: '/plans', params: { tab: 'all', expandTaskId: task.id } });
     },
