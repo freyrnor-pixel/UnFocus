@@ -187,6 +187,19 @@ export default function TabSlider<T extends string | number>({
       {active && (
         <Animated.View
           pointerEvents="none"
+          // Android only (2026-08-05): a view whose only visual is a Reanimated-driven
+          // backgroundColor/width, and nothing else — no children, no static size — is exactly
+          // what Android's native-view-flattening optimization targets for removal, and once an
+          // ANCESTOR is forced non-flattening (`collapsable={false}`, as components/TourTarget.tsx
+          // now does around Shopping's tab row so it can `measureInWindow`), this pill stopped
+          // painting on-device even though its computed style was correct — reported as an
+          // invisible accent pill behind the active "Ukelister" tab, persisting across tab
+          // switches. Reproduces only on native; the web preview renders it correctly (verified —
+          // the pill's computed backgroundColor/width/position are all right there in the DOM),
+          // which is why this needed a device report to actually pin down. `collapsable={false}`
+          // is the standard fix for "a Reanimated view isn't visually updating on Android" —
+          // forces this exact node to stay a real native view regardless of its ancestors.
+          collapsable={false}
           style={[
             styles.pill,
             { height: pillH, top: TRACK_PAD, borderRadius: pillRadius, backgroundColor: options[activeIndex]?.color ?? theme.accent },
