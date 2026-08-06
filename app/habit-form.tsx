@@ -32,6 +32,13 @@
  *     `t.habitReminderLabel` ("Reminder", since a habit can be weekly/monthly) and the
  *     single-mode time field is `t.habitReminderTimeLabel` ("Time"). The key is kept in
  *     lib/i18n.ts for other callers.
+ *   - **The reminder toggle is a bell icon, not a Switch (2026-08-06)** — quiet grey
+ *     (`notifications-off-outline`) when off, coloured (`notifications`) when on, same
+ *     `notificationEnabled` boolean and same effect as before: on reveals the mode/time
+ *     fields below, off hides them and save() writes an empty `notificationTimes`. This was
+ *     a pure restyle — the maintainer's call was explicitly NOT to split "time" and
+ *     "notification" into two independent concepts, so there is still exactly one switch
+ *     here, just drawn differently.
  *   - Energy is ONE signed stepper (`t.energyGiveTakeLabel`), not a switch plus a value:
  *     0 already meant "no effect" to lib/energy.ts, so `energyEnabled` is derived in save().
  *     It is not gated on a setting either — Energy stopped being a toggle the same day.
@@ -136,7 +143,7 @@ import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, heavy } from '@/lib/haptics';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
-import { Input, SegmentedControl, Switch } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import HintCard from '@/components/HintCard';
 import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
@@ -441,7 +448,27 @@ export default function HabitForm() {
                happens before you decide whether to be nudged about it. ── */}
         <Surface style={styles.notifRow}>
           <Text style={[styles.notifLabel, { color: theme.text }]}>{t.habitReminderLabel}</Text>
-          <Switch checked={notificationEnabled} onChange={setNotificationEnabled} />
+          {/* Bell toggle (2026-08-06, restyled from a plain Switch) — quiet grey when off,
+              coloured when on, same pairing components/MedicineTrayCard.tsx already uses for
+              its own reminder toggle ('notifications-off-outline' / a filled bell). Visual
+              change only: `notificationEnabled` still gates the time/schedule fields below
+              exactly as before (on shows them, off shows nothing), and save() still derives
+              the actual reminder times from those fields alone — there is no separate "time"
+              concept to keep in sync, so a habit with no reminder set never gets notified. */}
+          <PressableScale
+            onPress={() => { tap(); setNotificationEnabled((v) => !v); }}
+            hitSlop={HitSlop.base}
+            scaleTo={0.9}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: notificationEnabled }}
+            accessibilityLabel={t.habitReminderLabel}
+          >
+            <Ionicons
+              name={notificationEnabled ? 'notifications' : 'notifications-off-outline'}
+              size={22}
+              color={notificationEnabled ? theme.accent : theme.textMuted}
+            />
+          </PressableScale>
         </Surface>
         {!notificationEnabled && (
           <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitReminderOffHint}</Text>

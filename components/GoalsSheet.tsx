@@ -120,8 +120,10 @@ export default function GoalsSheet({ visible, onClose }: Props) {
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {goals.length === 0 ? (
             // The fuller of the two sentences, since it is now the only one: it explains the
-            // linking mechanic, not just what a goal is.
-            <StarterCard text={t.hints.goals.text}>
+            // linking mechanic, not just what a goal is. `dismissKey="goals"` (2026-08-06) —
+            // shared with app/goals.tsx's own StarterCard, which explains the same empty
+            // state, so dismissing one dismisses both. See StarterCard's "Universal dismiss".
+            <StarterCard text={t.hints.goals.text} dismissKey="goals">
               <Text style={[styles.tapToAdd, { color: theme.textMuted }]}>{t.starters.goals.tapToAdd}</Text>
               <View style={styles.starterChips}>
                 {GOAL_STARTERS.map((starter) => (
@@ -161,7 +163,10 @@ export default function GoalsSheet({ visible, onClose }: Props) {
                         strengthUpdatedAt={goal.strengthUpdatedAt}
                         size={14}
                       />
-                      <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={2}>
+                      {/* No numberOfLines cap (2026-08-06, "Goals should be expanded in
+                          full") — a goal's title is the whole point of this card and used to
+                          truncate at 2 lines. */}
+                      <Text style={[styles.goalTitle, { color: theme.text }]}>
                         {goal.title}
                       </Text>
                       <PressableScale

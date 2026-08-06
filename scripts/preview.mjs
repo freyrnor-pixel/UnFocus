@@ -526,11 +526,15 @@ async function main() {
     await shot(page, 'habit-persisted-check');
 
     // A habit done today belongs in the day log (2026-08-02) — a habit is a standing
-    // commitment, so doing it is exactly the evidence the log is for. Tick it here, then
+    // commitment, so doing it is exactly the evidence the log is for. Register it here, then
     // check the To-do tab's log. The stamp is habit_logs.first_at, written on the FIRST
     // log of the day, so this must hold for a partly-done counter habit too.
+    //
+    // **No more checkbox (2026-08-06)**: every habit registers through its −/+ pair now, not
+    // a check circle for dailyGoal===1 habits — see app/(tabs)/habits.tsx's HabitCard. Target
+    // the "+" button by its accessible name instead.
     console.log('> day log: a ticked habit appears in it');
-    const habitCheck = page.getByRole('checkbox', { name: habitTitle, exact: true }).first();
+    const habitCheck = page.getByRole('button', { name: `Increase quantity ${habitTitle}`, exact: true }).first();
     await habitCheck.scrollIntoViewIfNeeded();
     await habitCheck.click({ timeout: 10000 });
     await page.waitForTimeout(800);

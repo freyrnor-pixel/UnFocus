@@ -1,8 +1,10 @@
 /**
- * habits.tsx — Habits (today/week/month tracking), its own bottom-nav tab.
+ * habits.tsx — Habits (today's list only, 2026-08-06), its own bottom-nav tab.
  *
- * Today/week/month view tabs, an optional child-profile selector, and per-habit cards
- * (progress dots, week strip, rest-day toggle, quick-add).
+ * An optional child-profile selector and per-habit cards (progress, expandable week strip
+ * + rest-day toggle, quick-add). **The Today/Week/Month browsing tabs are gone** — see the
+ * dated edit note below; a habit is set up once with a recurrence + optional reminder, and
+ * the maintainer's call was that browsing it by day/week/month is what a to-do is for.
  *
  * **Split out of app/(tabs)/health.tsx (2026-07-23, UX audit finding E1)**: Habits used
  * to be embedded inside the Health tab — but Health's tab name/icon promised symptom
@@ -32,29 +34,55 @@
  *             components/HabitLeading, 2026-08-04, which draws the brand leaf when a habit has
  *             no chosen icon), components/StageTree (2026-08-04 — the ambient `full`-stage
  *             corner watermark, suppressed while the StarterCard's own tree is up),
- *             components/EmptyState, components/StarterCard
- *             (first-run explainer at `stage="sprout"` — no example row since 2026-07-30; the
- *             starter chips in its `children` slot are the example), components/SlideSelector,
+ *             components/StarterCard
+ *             (first-run explainer at `stage="sprout"`, `dismissKey="habits"` — no example row
+ *             since 2026-07-30; the starter chips in its `children` slot are the example),
  *             components/PressableScale,
- *             components/GoalGlowDot (goal glow), components/SubScreenLinkButton (2026-07-29,
+ *             components/SubScreenLinkButton (2026-07-29,
  *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
- *             that link opens), components/DebugNoteAnchor, components/GhostRow (2026-08-01,
+ *             that link opens — also where a habit's linked goal shows its living-glow dot as
+ *             of 2026-08-06, not on this screen's own rows any more), components/DebugNoteAnchor,
+ *             components/GhostRow (2026-08-01,
  *             the "just deleted this habit — restore?" row, see below),
- *             constants/theme, lib/date, lib/haptics, lib/habitStarters, lib/i18n,
+ *             constants/theme, constants/motion (Duration, the registration flash), lib/date,
+ *             lib/haptics, lib/habitStarters, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (drag-to-reorder),
  *             lib/useGhostTimeout (2026-08-01, the ghost row's timing),
  *             lib/prefill (usePrefill — a note sent here seeds the quick-add), lib/domainColor,
- *             lib/habitRecurrence, store/useHabitStore, store/useGoalStore, store/useSettingsStore
- *   - Habit Today/Week/Month uses the shared SlideSelector; the person filter row +
- *     habit-form "For" chips are gated on settings.peopleModeEnabled (People/family
- *     mode). Profile add/remove lives in app/settings.tsx, not here.
+ *             lib/habitRecurrence, store/useHabitStore, store/useSettingsStore
+ *   - The person filter row + habit-form "For" chips are gated on settings.peopleModeEnabled
+ *     (People/family mode). Profile add/remove lives in app/settings.tsx, not here.
  *   Used by → Expo Router route "/habits" — one of 5 co-mounted pager tabs under
  *             app/(tabs)/_layout.tsx (BottomNav "Habits" tab)
  *   Data    → useHabitStore (habits + habit_logs) via increment/decrement/markRestDay/add;
- *             colour theme + language + child profiles + featureGoals from useSettingsStore; useGoalStore
- *             (linked goal glow only)
+ *             colour theme + language + child profiles + featureGoals + dismissedStarters
+ *             from useSettingsStore
  *
  * Edit notes:
+ *   - **Habits screen redesign (2026-08-06)**, five changes in one pass, all confirmed with
+ *     the maintainer before landing:
+ *     1. **Today/Week/Month tab-slider removed.** A habit is configured once (recurrence +
+ *        optional reminder time) and Notifications take care of reminding — browsing it by
+ *        day/week/month was judged to be what a to-do is for, not a habit. `WeekView`/
+ *        `MonthView` and the SlideSelector that switched between them are deleted; only the
+ *        Today list remains. The per-HABIT expandable week-strip drawer (tap a row → 7-day
+ *        dots + rest-day toggle) is UNCHANGED — that is a different, smaller thing (one
+ *        habit's own recent history, not cross-habit browsing) and wasn't part of this ask.
+ *        `settings.habitViewTab` is now an inert column (never dropped — see
+ *        store/useSettingsStore.ts's "Inert columns" note).
+ *     2. **Card sub-header**: `t.habits.cardSubtitle` at the top of the Habits Surface — it had
+ *        no label or description of any kind since the 2026-07-30 pass removed its duplicate
+ *        "Habits" title.
+ *     3. **Always −/+ to register, never a check** — see the row-rule comment inside
+ *        `HabitCard` for the full reasoning, and its new `flash` state for the momentary
+ *        colour confirmation on each tap ("so they know it's been registered").
+ *     4. **The goal's living-glow dot left this screen** and shows only on the goal card
+ *        itself (components/GoalsSheet.tsx / app/goals.tsx) — "the reward light indicator
+ *        should be on the Goals, not the habits".
+ *     5. **StarterCard is dismissible** (`dismissKey="habits"`) — a manual "X" on top of the
+ *        existing auto-hide-once-populated behaviour; see components/StarterCard.tsx's
+ *        "Universal dismiss" note for the mechanism, which is generic and available to every
+ *        other StarterCard call site, not just this one.
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
  *   - **Inline "ghost" undo row (2026-08-01)**: deleting a habit (there's no delete affordance
  *     on this screen — only app/habit-form.tsx's Delete button) is now a soft-delete
@@ -85,9 +113,11 @@
  *     goal dot / weekly progress / done state / energy badge moved onto ONE meta line under
  *     the title, with today's count as the single right-hand value. `hasMetaLine` must mirror
  *     that line's JSX gates exactly. **The done state left that line again on 2026-08-01**:
- *     once the row itself strikes through and fades beside a filled check (the PadRow
- *     conversion), a "Done today" word was a third copy of one fact — so the meta line now
- *     holds three things, not four, and `hasMetaLine` dropped `isDone` with it.
+ *     once the row itself strikes through and fades (the PadRow conversion), a "Done today"
+ *     word was a third copy of one fact — so the meta line held three things, not four, and
+ *     `hasMetaLine` dropped `isDone` with it. **The goal dot left the meta line too, on
+ *     2026-08-06** — see the redesign note above; `hasMetaLine` is down to two terms now
+ *     (weekly progress, energy).
  *   - **Drag to reorder (2026-08-01)**: hold a habit card ~400ms and drag it, the same
  *     gesture Home's preview cards and the shopping list have always had, now shared through
  *     lib/useDragReorder.ts. Two things to know before touching it. The Today list is
@@ -96,23 +126,21 @@
  *     couldn't see instead of renumbering the visible ones 0…n-1, so a habit that isn't due
  *     today keeps whichever habits it sat between. And the list must render from
  *     `habitDrag.order` (`draggedHabits`), never from `visibleHabits` directly, or nothing
- *     moves under the finger. Week/Month views are not draggable: they are a calendar, and a
- *     calendar's order is the calendar's.
+ *     moves under the finger. (Week/Month views, which weren't draggable, are gone entirely
+ *     as of 2026-08-06 — see the redesign note above.)
  *   - **Add-habit affordance (2026-07-13 rows pass)**: an inline `AddRow` at the bottom of
  *     the Today habit list is the add-habit trigger — a title-only quick-create with sensible
  *     defaults (icon/goal/recurrence via `commitHabit` → useHabitStore.add), matching Plans'
  *     AddRow → addTask flow; tap a habit card's settings-gear icon (2026-07-21, replaced
  *     long-press) to edit the rest in /habit-form. This
- *     replaced the old header "+" AddFAB (which navigated straight to the form). Week/Month
- *     views show plain, non-interactive empty-state text (they dropped their `onAddHabit` prop).
+ *     replaced the old header "+" AddFAB (which navigated straight to the form).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
-import { useGoalStore } from '@/store/useGoalStore';
-import { useSettingsStore, type HabitViewTab as SettingsHabitViewTab } from '@/store/useSettingsStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
@@ -134,8 +162,6 @@ import Collapsible from '@/components/Collapsible';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
-import { GoalGlowDot } from '@/components/GoalGlowDot';
-import EmptyState from '@/components/EmptyState';
 import StarterCard from '@/components/StarterCard';
 import StageTree from '@/components/StageTree';
 import SubScreenLinkButton from '@/components/SubScreenLinkButton';
@@ -146,18 +172,18 @@ import { useGhostTimeout } from '@/lib/useGhostTimeout';
 
 /** Starter chips the empty Habits list offers. See the row's own comment for the measurement. */
 const HABIT_STARTER_CHIPS = 2;
-import SlideSelector from '@/components/SlideSelector';
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { usePrefill } from '@/lib/prefill';
-import { todayStr, getWeekDates, getMonthDates } from '@/lib/date';
+import { todayStr, getWeekDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
-import { BORDER_WIDTH, computeBorderTone, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, contrastOn, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
+import { Duration } from '@/constants/motion';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useScreenColor, getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
@@ -262,12 +288,6 @@ function HabitCard({
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
   const markRestDay = useHabitStore((s) => s.markRestDay);
-  // Goals — the linked goal (if any), for the living-glow dot next to the title. Hidden
-  // unless settings.featureGoals is on (opt-in, off for fresh installs); the habit's own
-  // goalId is untouched, so turning the feature back on restores the dot.
-  const featureGoals = useSettingsStore((s) => s.featureGoals);
-  const goalForDot = useGoalStore((s) => (habit.goalId ? s.goals.find((g) => g.id === habit.goalId) ?? null : null));
-  const linkedGoal = featureGoals ? goalForDot : null;
   const t = useT();
   const styles = useScaledStyles(baseStyles);
 
@@ -277,7 +297,22 @@ function HabitCard({
   const isWeeklyFlexible = habit.recurrence === 'weekly-flexible';
   // MUST mirror the meta-line JSX gates below exactly (the trap components/TaskCard.tsx
   // documents): if the two drift, a habit with only one meta item silently loses its line.
-  const hasMetaLine = !!linkedGoal || isWeeklyFlexible || habit.energyEnabled;
+  const hasMetaLine = isWeeklyFlexible || habit.energyEnabled;
+
+  // Registration flash (2026-08-06, "so they know it's been registered"): a brief colour
+  // change on whichever of −/+ was just tapped, distinct per direction. Momentary only —
+  // it clears itself, unlike the static per-button fill styles.adjRow's own comment says
+  // NOT to reinstate (a persistent accent fill on "+" reads as "+ is the important half").
+  const [flash, setFlash] = useState<'plus' | 'minus' | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+  }, []);
+  function triggerFlash(which: 'plus' | 'minus') {
+    setFlash(which);
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setFlash(null), Duration.card);
+  }
 
   const accent = habitColor(habit.kind, theme);
   // Boxed row (card design reset, 2026-08-05) — the same border this screen's rows get inside
@@ -303,11 +338,11 @@ function HabitCard({
   const barColor = isDone ? accent : progressColor(ratio, habit.kind, theme);
 
   /**
-   * The "+ one" path, shared by the `+` button (goal > 1) and the check (goal 1).
-   * `success()` is deliberately NOT fired here even though HomeHabitsCard's own `counted`
-   * does: this screen has always fired it from the `isDone` effect above, so firing it here
-   * as well would double the haptic on the exact tap that completes the goal. The lesser taps
-   * get the light one.
+   * The "+ one" path, fired by every habit's `+` button (2026-08-06: no more goal-1 check —
+   * see the row-rule comment below). `success()` is deliberately NOT fired here even though
+   * HomeHabitsCard's own `counted` does: this screen has always fired it from the `isDone`
+   * effect above, so firing it here as well would double the haptic on the exact tap that
+   * completes the goal. The lesser taps get the light one.
    */
   const counted = () => {
     if (count + 1 < goal) selection();
@@ -329,21 +364,32 @@ function HabitCard({
             header used to pack up to NINE elements onto one line — icon, title, goal dot,
             weekly-progress text, a "Done today" pill, the gear, an Energy badge, and the −/+
             pair — which is why a list of them read as noise. Now: icon → title → ONE meta line
-            (goal dot · weekly progress · energy) → ONE right-hand value (the count) → ⋯ →
-            the check or the −/+ control. Nothing was removed; the middle four moved down a line.
+            (weekly progress · energy) → ONE right-hand value (the count) → ⋯ → the −/+ control.
 
             **Drawn by components/PadRow.tsx since 2026-08-01 (B2-3, inverted).** The audit
             behind that task found the shared row primitive was imported by the four HOME cards
             and by no tab screen at all — so Home was the newer code and the tabs were what had
             drifted, and the task's "convert Home to match the tabs" direction ran backwards.
             This screen was converted first. What changed with the shell: the gear became
-            PadRow's ONE ⋯ action (the row rule's "one row-level action button"), a habit whose
-            `dailyGoal` is 1 now gets a real check instead of a −/+ pair it never needed (the
-            −/+ stays for `goal > 1`, where one tap genuinely can't mean "done" — that is the
-            whole reason the pair exists), and `count/goal` is suppressed for those goal-1
-            habits because the check already says it. `done` now strikes and fades the WHOLE
-            row, which is the shared finished-row treatment a ticked note/task/shopping item
-            already had.
+            PadRow's ONE ⋯ action (the row rule's "one row-level action button"). `done` now
+            strikes and fades the WHOLE row, which is the shared finished-row treatment a
+            ticked note/task/shopping item already had.
+
+            **The check is gone entirely (2026-08-06, "remove the tab-slider")**: every habit,
+            not just `dailyGoal > 1` ones, now registers through the −/+ pair — the maintainer's
+            call was that a habit needs exactly one interaction model, and a tap that means
+            "done" for a goal-1 habit but "one more" for anything else was two models wearing
+            one control. `count/goal` is no longer suppressed at goal 1 for the same reason:
+            with no check circle to carry that fact, the count is the only place it lives. The
+            goal-1 "done" story is still told — the LEADING icon still swaps to a checkmark
+            (below) and the row still strikes through — just not by a second, now-removed
+            control on the right.
+
+            The goal's own living-glow dot (components/GoalGlowDot) also left this row
+            (2026-08-06, "the reward light indicator should be on the Goals, not the habits") —
+            it's on the goal card itself now (components/GoalsSheet.tsx / app/goals.tsx), which
+            is the ONE place per goal a user needs to see its momentum, rather than repeated on
+            every habit and task that happens to link to it.
 
             What deliberately did NOT change: the card shell around this row. The 4px progress
             bar, the done-state GlowPulse halo and the expandable week-strip/rest-day drawer
@@ -373,9 +419,6 @@ function HabitCard({
             : <HabitLeading icon={habit.icon} size={22} color={theme.textMuted} />}
           meta={hasMetaLine ? (
             <>
-              {linkedGoal ? (
-                <GoalGlowDot color={linkedGoal.color} strength={linkedGoal.strength} strengthUpdatedAt={linkedGoal.strengthUpdatedAt} size={9} />
-              ) : null}
               {isWeeklyFlexible && (
                 <Text style={[styles.weeklyProgressText, { color: theme.textMuted }]}>
                   {t.habits.weeklyProgress(count, goal)}
@@ -391,39 +434,48 @@ function HabitCard({
               {habit.energyEnabled && <EnergyBadge value={habit.energyValue} theme={theme} />}
             </>
           ) : undefined}
-          // The ONE right-hand value: today's count against the goal. Suppressed when the goal
-          // is 1 — the check to its right already carries that, and "1/1" beside a ticked
-          // circle is the same fact twice (HomeHabitsCard made this call first).
-          rightValue={goal > 1 ? `${count}/${goal}` : undefined}
+          // The ONE right-hand value: today's count against the goal. Always shown now
+          // (2026-08-06) — with the check gone, this is the only place a goal-1 habit's
+          // progress is visible.
+          rightValue={`${count}/${goal}`}
           onPress={() => setExpanded((v) => !v)}
           onAction={() => onEdit(habit.id)}
           actionLabel={t.habits.editButtonLabel}
-          trailing={goal > 1 ? (
+          trailing={
             <View style={styles.adjRow}>
               <PressableScale
-                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={() => { selection(); decrement(habit.id, today); }}
+                style={[
+                  styles.adjBtn,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  // Registration flash — see the `flash` state doc above. Distinct colour
+                  // from "+" (accent, not good/bad): a decrement isn't a penalty, just the
+                  // other direction of the same count.
+                  flash === 'minus' && { backgroundColor: theme.accentSoft, borderColor: theme.accent },
+                ]}
+                onPress={() => { selection(); decrement(habit.id, today); triggerFlash('minus'); }}
                 hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.decreaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnText, { color: theme.textMuted }]}>−</Text>
+                <Text style={[styles.adjBtnText, { color: flash === 'minus' ? theme.accent : theme.textMuted }]}>−</Text>
               </PressableScale>
               <PressableScale
-                style={[styles.adjBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={counted}
+                style={[
+                  styles.adjBtn,
+                  { backgroundColor: theme.surface, borderColor: theme.border },
+                  flash === 'plus' && { backgroundColor: theme.good, borderColor: theme.good },
+                ]}
+                onPress={() => { counted(); triggerFlash('plus'); }}
                 hitSlop={HitSlop.base}
                 scaleTo={0.9}
                 accessibilityRole="button"
                 accessibilityLabel={`${t.increaseQty} ${habit.title}`}
               >
-                <Text style={[styles.adjBtnPlusText, { color: theme.text }]}>+</Text>
+                <Text style={[styles.adjBtnPlusText, { color: flash === 'plus' ? contrastOn(theme.good) : theme.text }]}>+</Text>
               </PressableScale>
             </View>
-          ) : undefined}
-          onToggle={goal > 1 ? undefined : () => (isDone ? decrement(habit.id, today) : counted())}
-          toggleLabel={habit.title}
+          }
         />
 
         {expanded && (
@@ -465,176 +517,6 @@ function HabitCard({
   );
 }
 
-// ─── Week overview ───────────────────────────────────────────────────────────
-
-function WeekView({
-  habits, today, lang, theme,
-}: {
-  habits: Habit[]; today: string; lang: string; theme: ThemePalette;
-}) {
-  const logs = useHabitStore((s) => s.logs);
-  const weekDates = useMemo(() => getWeekDates(today), [today]);
-  const abbr = lang === 'no' ? DAY_ABBR_NO : DAY_ABBR;
-  const t = useT();
-  const styles = useScaledStyles(baseStyles);
-
-  const visibleHabits = useMemo(
-    () => habits.filter((h) => weekDates.some((d) => habitOccursOn(h, d))),
-    [habits, weekDates]
-  );
-
-  if (visibleHabits.length === 0) {
-    return (
-      <Surface style={styles.habitsEmptyCard}>
-        <EmptyState title={t.noHabitsYet} />
-      </Surface>
-    );
-  }
-
-  return (
-    <View style={styles.weekGrid}>
-      <View style={styles.weekGridRow}>
-        <View style={styles.weekGridLabel} />
-        {weekDates.map((date, i) => (
-          <View key={date} style={styles.weekGridCell}>
-            <Text style={[styles.weekGridDayAbbr, { color: theme.textMuted }, date === today && { color: theme.accent, fontFamily: Fonts.bold }]}>
-              {abbr[i]}
-            </Text>
-            <Text style={[styles.weekGridDate, { color: theme.textMuted }, date === today && { fontFamily: Fonts.bold }]}>
-              {date.slice(8)}
-            </Text>
-          </View>
-        ))}
-      </View>
-
-      {visibleHabits.map((habit) => (
-        <View key={habit.id} style={styles.weekGridRow}>
-          <View style={styles.weekGridLabel}>
-            <HabitLeading icon={habit.icon} size={16} color={theme.textMuted} />
-            <Text style={[styles.weekGridTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
-          </View>
-          {weekDates.map((date) => {
-            const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-            const ratio = dotRatio(habit, log?.count ?? 0);
-            const isFuture = date > today;
-            const color = isFuture ? theme.border : progressColor(ratio, habit.kind, theme);
-            const filled = !isFuture && ratio > 0;
-            return (
-              <View key={date} style={styles.weekGridCell}>
-                <View style={[
-                  styles.weekGridDot,
-                  { backgroundColor: filled ? color : 'transparent', borderColor: isFuture ? theme.border : color },
-                ]} />
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// ─── Month overview ───────────────────────────────────────────────────────────
-
-function MonthView({
-  habits, today, theme,
-}: {
-  habits: Habit[]; today: string; theme: ThemePalette;
-}) {
-  const logs = useHabitStore((s) => s.logs);
-  const t = useT();
-  const styles = useScaledStyles(baseStyles);
-  const [offset, setOffset] = useState(0);
-
-  const { label, dates } = useMemo(() => {
-    const base = new Date(today + 'T12:00:00');
-    base.setMonth(base.getMonth() + offset);
-    const y = base.getFullYear();
-    const m = base.getMonth() + 1;
-    return {
-      label: `${String(m).padStart(2, '0')} / ${y}`,
-      dates: getMonthDates(y, m),
-    };
-  }, [today, offset]);
-
-  const minOffset = useMemo(() => {
-    const cutoff = new Date(today + 'T12:00:00');
-    cutoff.setDate(cutoff.getDate() - 35);
-    const base = new Date(today + 'T12:00:00');
-    return (cutoff.getFullYear() - base.getFullYear()) * 12 + (cutoff.getMonth() - base.getMonth());
-  }, [today]);
-
-  const visibleHabits = useMemo(
-    () => habits.filter((h) => dates.some((d) => habitOccursOn(h, d))),
-    [habits, dates]
-  );
-
-  if (visibleHabits.length === 0) {
-    return (
-      <Surface style={styles.habitsEmptyCard}>
-        <EmptyState title={t.noHabitsYet} />
-      </Surface>
-    );
-  }
-
-  return (
-    <View>
-      <View style={styles.monthNav}>
-        <PressableScale
-          onPress={() => setOffset((o) => Math.max(minOffset, o - 1))}
-          style={[styles.monthNavBtn, offset <= minOffset && { opacity: 0.3 }]}
-          disabled={offset <= minOffset}
-          scaleTo={0.9}
-        >
-          <Text style={[styles.monthNavText, { color: theme.accent }]}>‹</Text>
-        </PressableScale>
-        <Text style={[styles.monthLabel, { color: theme.text }]}>{label}</Text>
-        <PressableScale
-          onPress={() => setOffset((o) => Math.min(0, o + 1))}
-          style={[styles.monthNavBtn, offset >= 0 && { opacity: 0.3 }]}
-          disabled={offset >= 0}
-          scaleTo={0.9}
-        >
-          <Text style={[styles.monthNavText, { color: theme.accent }]}>›</Text>
-        </PressableScale>
-      </View>
-
-      {visibleHabits.map((habit) => (
-        <View key={habit.id} style={[styles.monthRow, { borderBottomColor: theme.border }]}>
-          <View style={styles.monthRowLabel}>
-            <HabitLeading icon={habit.icon} size={14} color={theme.textMuted} />
-            <Text style={[styles.monthRowTitle, { color: theme.text }]} numberOfLines={1}>{habit.title}</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.monthDots}>
-              {dates.map((date) => {
-                const log = logs.find((l) => l.habitId === habit.id && l.logDate === date);
-                const ratio = dotRatio(habit, log?.count ?? 0);
-                const isFuture = date > today;
-                const color = isFuture ? theme.border : progressColor(ratio, habit.kind, theme);
-                const filled = !isFuture && ratio > 0;
-                return (
-                  <View key={date} style={styles.monthDotWrap}>
-                    <Text style={[styles.monthDotDate, { color: theme.textMuted }]}>{date.slice(8)}</Text>
-                    <View style={[
-                      styles.monthDot,
-                      { borderColor: color, backgroundColor: filled ? color : 'transparent' },
-                    ]} />
-                  </View>
-                );
-              })}
-            </View>
-          </ScrollView>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-// The type itself now lives in store/useSettingsStore.ts, since the selection is persisted
-// there (2026-07-27) — re-exported shape only, so the local annotations below read the same.
-type HabitViewTab = SettingsHabitViewTab;
-
 export default function HabitsScreen() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
@@ -656,10 +538,15 @@ export default function HabitsScreen() {
   // value and every person row stays in the DB, so an existing multi-person setup returns
   // intact when the switch flips back; only the UI stands down.
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
-  // Gates the "Edit Goals" link at the bottom of the screen (2026-07-29) — same flag
-  // HabitCard's own goal glow dot already reads, so turning Goals off hides both at once.
+  // Gates the "Edit Goals" link at the bottom of the screen (2026-07-29).
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
+  // Has the user dismissed this screen's StarterCard explainer (2026-08-06)? Read here
+  // (not just left to StarterCard's own internal check) so the "no habits at all" branch
+  // can fall back to the quiet one-liner instead of rendering nothing, and so the ambient
+  // foot-of-list tree (which is suppressed exactly while the StarterCard is up) stays in
+  // step with what's actually on screen.
+  const habitsStarterDismissed = useSettingsStore((s) => s.dismissedStarters.includes('habits'));
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); StarterCard + the one-tap starter habits already teach this.
@@ -675,15 +562,6 @@ export default function HabitsScreen() {
   // ScreenScaffold, whose own `useScreenColor()` call at line ~260 is correctly scoped.
   const screenHue = getScreenColor(theme, 'habits').base;
 
-  // Persisted (2026-07-27): this was local state, so a user who lives in Week view got
-  // dropped back to Today on every remount — leaving a tab and coming back, or any
-  // re-render of the tabs stack. Written through settings.update so it survives a relaunch.
-  const habitTab = useSettingsStore((s) => s.habitViewTab);
-  const updateSettings = useSettingsStore((s) => s.update);
-  const setHabitTab = useCallback(
-    (v: HabitViewTab) => updateSettings({ habitViewTab: v }),
-    [updateSettings]
-  );
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
   // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via
@@ -755,11 +633,6 @@ export default function HabitsScreen() {
     router.push({ pathname: '/habit-form', params: { id } });
   }, [router]);
 
-  const habitTabs: { key: HabitViewTab; label: string }[] = [
-    { key: 'today', label: t.habitToday },
-    { key: 'week', label: t.habitWeekView },
-    { key: 'month', label: t.habitMonthView },
-  ];
 
   // Same new-habit shape app/habit-form.tsx writes, minus the fields the quick-add leaves
   // at their defaults (goal/recurrence/notifications) — editable later via the form. Shared
@@ -871,6 +744,13 @@ export default function HabitsScreen() {
                 to `screenHue` too, so nothing on this card disagrees with its own header any
                 more. */}
             <Surface style={styles.habitsCard}>
+              {/* Sub-header (2026-08-06): the card had no label or description of its own —
+                  the "Habits" title was removed 2026-07-30 as a duplicate of the screen title,
+                  which left nothing at all. Distinct wording from hints.habits.text (the
+                  collapsible ⓘ hint just above this card) on purpose — see lib/i18n.ts's
+                  habits.cardSubtitle doc. */}
+              <Text style={[styles.cardSubtitle, { color: theme.textMuted }]}>{t.habits.cardSubtitle}</Text>
+
               {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
               <Collapsible open={showHabitProfiles}>
                 <ScrollView
@@ -894,27 +774,13 @@ export default function HabitsScreen() {
                 </ScrollView>
               </Collapsible>
 
-              {/* View tabs — shared bordered segmented control (SlideSelector). Explicit
-                  radius={Radius.sm}: this is a MAIN-level screen view switcher (same tier as
-                  components/TabSlider.tsx's tab bars, always boxed), not one of SlideSelector's
-                  usual sub-level option pickers (which default to a full pill) — see
-                  SlideSelector's "radius" edit note for the main/sub rule. */}
-              <SlideSelector
-                options={habitTabs.map(({ key, label }) => ({ value: key, label }))}
-                value={habitTab}
-                onChange={(v) => setHabitTab(v as HabitViewTab)}
-                radius={Radius.sm}
-              />
-
-              {/* Kept mounted (hidden via display:none, not unmounted) when another view tab is
-                  active — 2026-07-23 fix: unmounting this block on tab switch made every
-                  AnimatedListItem card play its FadeOutDown exit animation at once, overlapping
-                  visually with the Week/Month view mounting in the same spot (only visible when
-                  there was at least one habit card to exit — see AGENTS.md's "habits animation"
-                  debug note). Staying mounted means AnimatedListItem's enter/exit only fires for
-                  genuine habit add/remove, matching ANIMATION_GUIDELINES.md §6's "never animate
-                  tab switches" rule. */}
-              <View style={habitTab === 'today' ? undefined : styles.hiddenTab}>
+              {/* Today's list — the ONLY view now (2026-08-06, "remove the tab-slider"). A
+                  habit is set up once with a recurrence and an optional reminder time;
+                  browsing it by day/week/month was judged to be what a to-do is for, not a
+                  habit, so the Today/Week/Month SlideSelector and the WeekView/MonthView grids
+                  it switched to are gone — see the file header's dated note and
+                  store/useSettingsStore.ts's "Inert columns" entry for `habitViewTab`. */}
+              <View>
                 {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
                     the shame/reward framing the app deliberately avoids. */}
                 <View style={styles.section}>
@@ -930,13 +796,15 @@ export default function HabitsScreen() {
                     // stacked directly above "Drink 4 glasses of water +". The chips are the
                     // example, and unlike the row they actually do something. Same call, same
                     // reason, as components/HomeHabitsCard.tsx's own empty state.
-                    profileHabits.length === 0 ? (
+                    profileHabits.length === 0 && !habitsStarterDismissed ? (
                       // `stage="sprout"` (2026-08-04, design comparison task 03): this is the
                       // app's largest empty state — a whole screen with one card on it — so the
                       // watermark can carry a fuller drawing than the default seed. It is a
                       // layout call and nothing else; the stage never moves, and it is the same
                       // sprout on day 1 and day 400. See components/StageTree.tsx.
-                      <StarterCard text={t.starters.habits.text} stage="sprout">
+                      // `dismissKey="habits"` (2026-08-06): a manual "X" that hides this card
+                      // for good — see components/StarterCard.tsx's "Universal dismiss" note.
+                      <StarterCard text={t.starters.habits.text} stage="sprout" dismissKey="habits">
                         <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
                         {/* Two chips, not four (2026-07-30) — the same measured call
                             components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
@@ -1030,22 +898,6 @@ export default function HabitsScreen() {
                   }
                 />
               </View>
-
-              {habitTab === 'week' && (
-                <WeekView
-                  habits={profileHabits}
-                  today={today}
-                  lang={lang}
-                  theme={theme}
-                />
-              )}
-              {habitTab === 'month' && (
-                <MonthView
-                  habits={profileHabits}
-                  today={today}
-                  theme={theme}
-                />
-              )}
             </Surface>
             </DebugNoteAnchor>
           </TourTarget>
@@ -1084,9 +936,11 @@ export default function HabitsScreen() {
               bottom spacer, and carries that spacer's height itself.
 
               Suppressed while the StarterCard is up — that card draws a tree of its own, and
-              the art's rule is ONE TREE PER SCREEN. `profileHabits.length === 0` is exactly the
-              StarterCard's own gate above; keep the two in step if either moves. */}
-          {profileHabits.length === 0 ? (
+              the art's rule is ONE TREE PER SCREEN. `profileHabits.length === 0 &&
+              !habitsStarterDismissed` matches the StarterCard's own gate above exactly (once
+              dismissed, no StarterCard tree is up, so the ambient one is free to show); keep
+              the two in step if either moves. */}
+          {profileHabits.length === 0 && !habitsStarterDismissed ? (
             <View style={styles.footSpacer} />
           ) : (
             <View style={styles.footTreeRow}>
@@ -1142,6 +996,7 @@ const baseStyles = StyleSheet.create({
     paddingBottom: PAD_GUTTER,
     gap: Spacing.md,
   },
+  cardSubtitle: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,
@@ -1154,10 +1009,6 @@ const baseStyles = StyleSheet.create({
   },
   profileChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   section: { gap: Spacing.sm },
-  // Hides the Today section without unmounting it when Week/Month is active — see the
-  // 2026-07-23 fix note above the view-tab render block.
-  hiddenTab: { display: 'none' },
-  habitsEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   // Inline habit quick-add row card (mirrors Plans' addRowCard).
 
@@ -1240,7 +1091,10 @@ const baseStyles = StyleSheet.create({
   // fill until now — the exact thing components/Stepper.tsx's edit note says not to
   // reinstate, and for the reason given there: a −/+ pair is ONE control, so filling half
   // of it in the app's action colour reads as "+ is the important one", which is not true.
-  // On a list of counted habits it also repeated that emphasis once per row.
+  // On a list of counted habits it also repeated that emphasis once per row. The MOMENTARY
+  // registration flash (2026-08-06, HabitCard's `flash` state) doesn't contradict this — it
+  // clears itself a beat after the tap, unlike a static default fill, and both directions get
+  // one (not just "+"), so neither half reads as the persistently "important" one.
   adjBtnPlusText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 30 },
 
   // Expanded content
@@ -1269,39 +1123,4 @@ const baseStyles = StyleSheet.create({
     width: 12, height: 12, borderRadius: Radius.full, borderWidth: 1.5,
   },
   weekDotToday: { borderWidth: 2 },
-
-  // Week grid view
-  weekGrid: { gap: 2 },
-  weekGridRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
-  weekGridLabel: {
-    width: 110, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: Spacing.xs,
-  },
-  weekGridTitle: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
-  weekGridCell: { flex: 1, alignItems: 'center', gap: 2 },
-  weekGridDayAbbr: { fontSize: 9 },
-  weekGridDate: { fontSize: 9 },
-  weekGridDot: {
-    width: 14, height: 14, borderRadius: Radius.full, borderWidth: 1.5,
-  },
-
-  // Month view
-  monthNav: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  monthNavBtn: { padding: Spacing.sm },
-  monthNavText: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  monthLabel: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  monthRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: Spacing.xs,
-    borderBottomWidth: 1,
-  },
-  monthRowLabel: { width: 90, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  monthRowTitle: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.medium },
-  monthDots: { flexDirection: 'row', gap: 3, paddingHorizontal: Spacing.xs },
-  monthDotWrap: { alignItems: 'center', gap: 2 },
-  monthDotDate: { fontSize: 7 },
-  monthDot: { width: 8, height: 8, borderRadius: Radius.full, borderWidth: 1 },
 });

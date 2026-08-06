@@ -1,25 +1,32 @@
 /**
- * GoalPicker.tsx — connect a task or habit to a Goal (the ONLY place goals are managed).
+ * GoalPicker.tsx — connect a task or habit to a Goal, from a single dropdown field.
  *
- * A self-contained form field: shows the currently-linked goal (with its living-glow dot)
- * or a muted "not linked" state; opens an inline list of existing goals to pick from, each
- * with a delete affordance; and offers an inline "new goal" input to create one on the spot.
- * There is no dedicated Goals screen — create/select/delete all happen here. Modeled on the
- * "Then" follower picker in components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23).
+ * A self-contained form field: the label ("Goal"/"Mål") is always shown, muted, whether or
+ * not anything is linked. Below it, ONE dropdown box — the linked goal's title (with its
+ * living-glow dot) or a muted "not linked" placeholder, plus a chevron — opens the SAME
+ * column of active goals either way (2026-08-06: switching goals used to mean unlinking
+ * first; now the box always opens the picker). That column also carries a delete affordance
+ * per goal and an inline "new goal" row pinned at its bottom, so create/select/delete all
+ * happen without leaving the field. (Goals can also be created/deleted from
+ * components/GoalsSheet.tsx / app/goals.tsx — this is the per-item picker, not the only
+ * place goals are managed.) Modeled on the "Then" follower picker in components/TaskCard.tsx
+ * (was app/task-form.tsx, retired 2026-07-23).
  *
  * Connections:
- *   Imports → components/Button, components/IconButton, components/PressableScale,
+ *   Imports → components/IconButton, components/PressableScale,
  *             components/GoalGlowDot, components/FormControls (Input), components/OptionalTag,
  *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, lib/useKeyboardLift,
- *             store/useGoalStore, components/AppModal
+ *             store/useGoalStore, components/AppModal, @expo/vector-icons (the chevron)
  *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23, UX audit
  *             B1 — see that file's header), app/habit-form.tsx
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; the selected
  *             goalId is owned by the parent form and flows in via `value`/`onChange`
  *
  * Edit notes:
- *   - One goal per item: `value` is a single goalId | null. Picking replaces; the close
- *     button unlinks (onChange(null)) without deleting the goal itself.
+ *   - One goal per item: `value` is a single goalId | null. Picking replaces; the "X" beside
+ *     the box unlinks (onChange(null)) without deleting the goal itself, and sits as a
+ *     SIBLING of the box's main tap area rather than nested inside it — two independently
+ *     tappable regions, not one Pressable inside another.
  *   - Deleting a goal here removes it everywhere (useGoalStore.remove nulls every linked
  *     task/habit); if the deleted goal was the current selection, we also unlink it locally.
  *   - **Keyboard-avoidance (2026-08-01)**: the inline "new goal" field self-lifts via
@@ -30,7 +37,7 @@
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Button from '@/components/Button';
+import { Ionicons } from '@expo/vector-icons';
 import IconButton from '@/components/IconButton';
 import PressableScale from '@/components/PressableScale';
 import { Input } from '@/components/FormControls';
@@ -105,37 +112,46 @@ export function GoalPicker({ value, onChange }: Props) {
         <OptionalTag />
       </View>
 
-      {selected ? (
-        <View style={[styles.row, { backgroundColor: theme.surfaceMuted }]}>
-          <GoalGlowDot
-            color={selected.color}
-            strength={selected.strength}
-            strengthUpdatedAt={selected.strengthUpdatedAt}
-          />
-          <Text style={[styles.rowText, { color: theme.text }]} numberOfLines={1}>
-            {selected.title}
+      {/* One dropdown box, not "chip when picked / button when not" (2026-08-06) — tapping
+          it ALWAYS opens the same column of active goals, whether or not one is already
+          selected, so switching goals no longer means unlinking first. The "X" (when a goal
+          IS selected) is a separate sibling target next to the box's main tap area rather
+          than nested inside it, so the two touches never fight over the same responder. */}
+      <View style={[styles.box, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+        <PressableScale
+          style={styles.boxMain}
+          onPress={() => { tap(); setOpen((v) => !v); }}
+          scaleTo={0.99}
+          accessibilityRole="button"
+          accessibilityLabel={t.goals.pickerLabel}
+          accessibilityState={{ expanded: open }}
+        >
+          {selected ? (
+            <GoalGlowDot
+              color={selected.color}
+              strength={selected.strength}
+              strengthUpdatedAt={selected.strengthUpdatedAt}
+            />
+          ) : null}
+          <Text
+            style={[styles.rowText, { color: selected ? theme.text : theme.textMuted }]}
+            numberOfLines={1}
+          >
+            {selected ? selected.title : t.goals.none}
           </Text>
-          <IconButton
-            icon="close-circle"
-            label={t.goals.remove}
-            onPress={() => onChange(null)}
-            size={28}
-          />
-        </View>
-      ) : (
-        <>
-          <Text style={[styles.hint, { color: theme.textMuted }]}>{t.goals.none}</Text>
-          <Button
-            label={t.goals.pick}
-            variant="secondary"
-            size="sm"
-            onPress={() => setOpen((v) => !v)}
-            style={styles.pickBtn}
-          />
-        </>
-      )}
+        </PressableScale>
+        {selected ? (
+          <IconButton icon="close-circle" label={t.goals.remove} onPress={() => onChange(null)} size={26} />
+        ) : null}
+        <Ionicons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={theme.textMuted}
+          style={styles.chevron}
+        />
+      </View>
 
-      {open && !selected && (
+      {open && (
         <View style={[styles.list, { backgroundColor: theme.surfaceMuted }]}>
           {goals.length === 0 ? (
             <Text style={[styles.hint, styles.emptyPad, { color: theme.textMuted }]}>
@@ -206,16 +222,21 @@ const baseStyles = StyleSheet.create({
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   hint: { fontSize: FontSize.sm, marginTop: Spacing.xs },
-  row: {
+  // The dropdown box (2026-08-06) — one shape whether or not a goal is selected. `boxMain`
+  // is the tappable label area (opens the column below); the "X" unlink button and the
+  // chevron are its siblings, not nested inside it — see the render-side note.
+  box: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     borderRadius: Radius.md,
+    borderWidth: 1,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
   },
+  boxMain: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  chevron: { marginLeft: 2 },
   rowText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  pickBtn: { alignSelf: 'flex-start' },
   list: { borderRadius: Radius.md, marginTop: Spacing.xs, overflow: 'hidden' },
   emptyPad: { padding: Spacing.md, marginTop: 0 },
   pickRow: { flexDirection: 'row', alignItems: 'center', paddingRight: Spacing.sm },

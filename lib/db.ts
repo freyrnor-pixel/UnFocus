@@ -1172,6 +1172,13 @@ export function initDb() {
     // same as un-ticking a task clears tasks.done_at. NO back-fill, same reason: a habit
     // logged before this column has no honest time and is simply absent.
     "ALTER TABLE habit_logs ADD COLUMN first_at TEXT DEFAULT ''",
+    // Which components/StarterCard.tsx empty-state explainers the user has manually
+    // dismissed (2026-08-06), keyed by the caller's own surface id (e.g. 'habits', 'goals')
+    // — same JSON-array-in-TEXT shape as seen_screen_hints. A dismissed card never
+    // re-renders for that key, even if the surface's own emptiness gate would otherwise
+    // show it again; see StarterCard's header for why this stays a permanent per-key flag
+    // rather than resetting itself.
+    "ALTER TABLE settings ADD COLUMN dismissed_starters TEXT DEFAULT '[]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
