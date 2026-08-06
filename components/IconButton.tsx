@@ -101,6 +101,21 @@ export default function IconButton({
   const iconSize = Math.round(size * 0.5);
   const hitTarget = Math.max(MIN_TAP_TARGET, size + Spacing.sm);
 
+  const inactiveBg = tint ?? theme.surfaceMuted;
+  const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
+
+  // Background + border crossfade between inactive and active as `active` flips (the icon
+  // colour swaps instantly on top, matching the SlideSelector convention). Inactive keeps a
+  // VISIBLE thin edge (theme.border) — matching the cards' thin beveled edge so icon-buttons read
+  // as the same family of raised keys (2026-07-18 "border around icons and buttons") — rather than
+  // the old fully-transparent inactive border that left them edgeless.
+  // Called unconditionally (rules-of-hooks) even in ghost mode below, where its result goes
+  // unused — a hook can never sit after an early return.
+  const animatedStyle = useToggleColor(active, {
+    backgroundColor: [inactiveBg, theme.accentSoft],
+    borderColor: [theme.border, theme.accent],
+  });
+
   if (borderColor) {
     return (
       <PressableScale
@@ -127,19 +142,6 @@ export default function IconButton({
       </PressableScale>
     );
   }
-
-  const inactiveBg = tint ?? theme.surfaceMuted;
-  const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
-
-  // Background + border crossfade between inactive and active as `active` flips (the icon
-  // colour swaps instantly on top, matching the SlideSelector convention). Inactive keeps a
-  // VISIBLE thin edge (theme.border) — matching the cards' thin beveled edge so icon-buttons read
-  // as the same family of raised keys (2026-07-18 "border around icons and buttons") — rather than
-  // the old fully-transparent inactive border that left them edgeless.
-  const animatedStyle = useToggleColor(active, {
-    backgroundColor: [inactiveBg, theme.accentSoft],
-    borderColor: [theme.border, theme.accent],
-  });
 
   // Ring adds EDGE_WIDTH padding around the fill, so the fill shrinks to match when the ring
   // is showing — the overall button footprint (and hit target) stays exactly `size`, no layout
