@@ -29,6 +29,13 @@
  *             useCatalogStore.suggest (ingredient price autocomplete)
  *
  * Edit notes:
+ *   - **Each dish is a bordered box (2026-08-06, user report)**: `dishCard` carries a
+ *     `computeBorderTone(color, isDark, 'card')` border in that dish's meal colour — 'card'
+ *     weight, not the lighter 'field' rung the row-anatomy convention would default to, because
+ *     a lighter tone read as too weak to actually separate one dish from the next. The same View
+ *     wraps both the collapsed name row and (when `isOpen`) the ingredient/edit body below it,
+ *     so the border encloses the whole dish — ingredients, the inline add row, duplicate/delete
+ *     — once expanded, with no separate collapsed/expanded styling needed.
  *   - **Collapsible meal sections (visual-audit, 2026-07-17)**: `openSections` (one bool per
  *     MealType, all false initially) gates each section's body via `Collapsible` — five
  *     always-open sections used to push the actually-useful dish rows far down the screen on
@@ -85,8 +92,8 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { contrastOn, computeBorderTone, BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
 import { Spring } from '@/constants/motion';
@@ -129,6 +136,7 @@ type DraftIngredient = { name: string; amount: string; unit: string; price: numb
 
 export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -393,8 +401,16 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                   const isOpen = !!expanded[dish.id];
                   const total = dishTotalPrice(dish);
                   const draft = inlineIng[dish.id] ?? { name: '', amount: '1', price: '' };
+                  // A strong, dish-coloured border separates one dish from the next (2026-08-06,
+                  // user report). This View already wraps BOTH the collapsed name row AND the
+                  // expanded ingredient/edit body below, so one border on the card is all that's
+                  // needed for it to enclose the whole dish once expanded — no separate
+                  // collapsed/expanded border logic. `computeBorderTone` at 'card' weight (not
+                  // the lighter 'field' rung) is deliberate: a lighter tone read as too weak to
+                  // actually separate adjacent dishes.
+                  const dishBorderColor = computeBorderTone(color, isDark, 'card');
                   return (
-                    <View key={dish.id} style={[styles.dishCard, { backgroundColor: theme.surface }]}>
+                    <View key={dish.id} style={[styles.dishCard, { backgroundColor: theme.surface, borderColor: dishBorderColor }]}>
                       {/* Collapsed row: expand toggle · name · total price · "+" */}
                       <View style={styles.dishRow}>
                         <PressableScale style={styles.dishNameTap} onPress={() => setExpanded((p) => ({ ...p, [dish.id]: !p[dish.id] }))} hitSlop={HitSlop.tight} scaleTo={0.97}>
@@ -744,7 +760,9 @@ const baseStyles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
   },
   addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  dishCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
+  // Bordered box, not a bare row (2026-08-06) — see the inline comment at the map site for why
+  // the border lives on this outer View rather than being conditional on `isOpen`.
+  dishCard: { borderRadius: Radius.md, borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
   dishRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dishNameTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   dishName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
