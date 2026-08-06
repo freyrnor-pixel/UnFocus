@@ -50,7 +50,7 @@
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
  *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
- *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/domainColor,
+ *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor,
  *             lib/haptics, lib/useKeyboardLift (Quick log's start-time/duration fields),
  *             store/useHealthStore,
  *             store/useSettingsStore (featureMedicine gate only)
@@ -107,7 +107,7 @@ import { openEpisodes } from '@/lib/episodes';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
 export default function HealthScreen() {
@@ -145,7 +145,16 @@ export default function HealthScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const healthDomainColor = getDomainColor(theme, 'health');
+  // This screen's own hue (the card edge's source, via Surface's ambient useScreenColor
+  // fallback) — badges and buttons on this screen now match it instead of the (differently
+  // coloured) domain identity hue, per the same fix applied to Home's preview cards.
+  // **Must be `getScreenColor` (the plain function), not `useScreenColor` (the context hook)**:
+  // this component is the one that RENDERS ScreenScaffold below, so it sits ABOVE that
+  // component's ScreenColorContext.Provider in the tree — the hook would read the context at
+  // this component's OWN position (outside the provider) and silently fall back to
+  // `theme.border` grey. A child of ScreenScaffold (e.g. MedicineTrayCard) can safely use the
+  // hook; the screen component that creates the provider cannot read its own provider this way.
+  const screenHue = getScreenColor(theme, 'health').base;
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
 
@@ -343,9 +352,9 @@ export default function HealthScreen() {
           <TourTarget id="tour.health.log">
             <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
               {/* No `borderColor` (card design reset, 2026-08-05): a card on its own screen inherits
-                that screen's one hue. The domain colour it used to pass is the BADGE palette
-                (lib/domainColor.ts), which still drives the badge inside — the edge is the
-                screen's, the badge is the domain's, and they no longer compete. */}
+                that screen's one hue. The badge inside now matches it too (`accentOverride`,
+                2026-08-06) — it used to keep drawing lib/domainColor.ts's identity hue (a
+                different wine-red vs this screen's teal), which read as a mismatched icon. */}
               <Surface style={styles.overviewCardRow}>
                 <View style={styles.overviewCardContent}>
                   <View style={styles.sectionLabelRow}>
@@ -353,7 +362,7 @@ export default function HealthScreen() {
                       Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
                       stacked cards carried the identical badge and it signified nothing. The heart
                       still marks the Health tab itself in BottomNav. */}
-                    <CardAccentBadge domain="health" icon="pulse" size={22} />
+                    <CardAccentBadge domain="health" icon="pulse" size={22} accentOverride={screenHue} />
                     <Text style={[styles.sectionLabel, { color: theme.text }]}>
                       {t.quickLogLabel}
                     </Text>
@@ -363,7 +372,7 @@ export default function HealthScreen() {
                     value={quickDraft}
                     onChangeText={setQuickDraft}
                     onSubmit={handleQuickLog}
-                    accent={healthDomainColor.accent}
+                    accent={screenHue}
                     confirmIcon="checkmark"
                     showDivider={false}
                     accessibilityLabel={t.logSymptomTrigger}
@@ -489,7 +498,7 @@ export default function HealthScreen() {
               <View style={styles.overviewCardContent}>
                 <View style={styles.sectionLabelRow}>
                   {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
-                  <CardAccentBadge domain="health" icon="stats-chart" size={22} />
+                  <CardAccentBadge domain="health" icon="stats-chart" size={22} accentOverride={screenHue} />
                   <Text style={[styles.sectionLabel, { color: theme.text }]}>
                     {t.thisWeekLabel}
                   </Text>

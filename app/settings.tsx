@@ -268,7 +268,6 @@ import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { getDomainColor } from '@/lib/domainColor';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider from '@/components/TabSlider';
@@ -1228,7 +1227,7 @@ export default function SettingsScreen() {
                 settings and did not justify a tab of its own. */}
           <View style={styles.section}>
             <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <ExpandableCard title={t.sectionShopping} accentColor={getDomainColor(theme, 'shop').accent} first>
+              <ExpandableCard title={t.sectionShopping} accentColor={theme.accent} first>
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
                 <View style={styles.dayRow}>
                   {DAY_LABELS.map((label, i) => (

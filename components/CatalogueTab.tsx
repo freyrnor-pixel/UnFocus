@@ -19,7 +19,7 @@
  *
  * Connections:
  *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics (success/heavy/
- *             selection), lib/money (formatKr), lib/domainColor, components/Surface,
+ *             selection), lib/money (formatKr), lib/screenColor, components/Surface,
  *             components/PressableScale, components/AddRow, store/useCatalogStore,
  *             @expo/vector-icons
  *   Used by → app/catalogue.tsx (its own button-launched sub-screen as of 2026-07-23, UX
@@ -64,12 +64,12 @@
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
  *     a seed re-run (seeding is now version-gated, not per-load).
- *   - **No domain border on the ROWS (2026-07-13, updated 2026-07-14)**: unlike WeekListCard,
- *     individual rows don't carry the shop-domain green edge — this list is one long,
- *     continuous card, so a per-row outline would read as a loud frame at this scale.
- *     `domainColor.accent` is still used for the small AddRow confirm-button fill. The
- *     OUTER container itself does get a themed border + shadow (`cardOuter`, 2026-07-24) —
- *     see the "Notepad container" note below; that's a bug fix, not a contradiction of this one.
+ *   - **No per-row border on the ROWS (2026-07-13, updated 2026-07-14)**: unlike WeekListCard,
+ *     individual rows don't carry a screen-hued edge — this list is one long, continuous card,
+ *     so a per-row outline would read as a loud frame at this scale. `screenHue` (was
+ *     `domainColor.accent` until 2026-08-06 — see the inline note) is still used for the small
+ *     AddRow confirm-button fill AND the OUTER container's border + shadow (`cardOuter`,
+ *     2026-07-24) — see the "Notepad container" note below.
  *   - **Grow-to-fill footer (visual-audit, 2026-07-17)**: a short catalogue (most seeded
  *     rows soft-deleted, or a fresh manually-built one) left the FlatList's own flex:1 tail
  *     as plain screen background between the last row and the bottom nav — read as a large
@@ -128,7 +128,7 @@ import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
 import { success, heavy, selection } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
-import { getDomainColor } from '@/lib/domainColor';
+import { useScreenColor } from '@/lib/screenColor';
 
 /** Fixed Norwegian alphabet for the A–Z scrubber (æ/ø/å after z). '#' is appended only when
  *  some item name starts with a non-letter, so digit/symbol rows are still reachable. */
@@ -215,7 +215,10 @@ export default function CatalogueTab({ onNotify, header }: Props) {
 
   const [addName, setAddName] = useState('');
   const [addPrice, setAddPrice] = useState('');
-  const domainColor = getDomainColor(theme, 'shop');
+  // This screen's own green (2026-08-06) — was lib/domainColor's 'shop' identity, which the
+  // 2026-07-31 hue collapse turned to gold; the outer container border was separately hardcoded
+  // neutral (`theme.border`) rather than this screen's green. Both now draw the same hue.
+  const screenHue = useScreenColor() ?? theme.border;
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -469,7 +472,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
           value={addName}
           onChangeText={setAddName}
           onSubmit={handleAdd}
-          accent={domainColor.accent}
+          accent={screenHue}
           showDivider={false}
           accessibilityLabel={t.catalogueAddNewBtn}
           extras={
@@ -508,7 +511,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
           card ended up with neither. overflow:hidden still rounds the bottom edge for a long,
           virtualized list (mid-scroll rows clip against the rounded corner rather than a hard
           cut against the nav). */}
-      <View style={[styles.cardOuter, getElevation('raised', theme.shadow), { borderColor: theme.border }]}>
+      <View style={[styles.cardOuter, getElevation('raised', theme.shadow), { borderColor: screenHue }]}>
       <View style={styles.card}>
       <View style={styles.cardInner}>
       <FlatList

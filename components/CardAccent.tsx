@@ -55,9 +55,9 @@ import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius } from '@/constants/theme';
+import { Radius, contrastOn, mix } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { Domain, getDomainColor } from '@/lib/domainColor';
+import { Domain, getDomainColor, CARD_BADGE_DEEP } from '@/lib/domainColor';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -88,18 +88,34 @@ type BadgeProps = {
   /** Badge edge length (default 44, matching the DS card). */
   size?: number;
   style?: ViewStyle;
+  /**
+   * Override the domain's identity hue for this badge's gradient + ink (2026-08-06). Home's
+   * preview cards pass their card's own screenColor here — with the border, buttons and every
+   * other accent on the card already pulled from screenColor, a badge still drawing the
+   * (different) domain hue read as the one piece that didn't get the memo ("upper left icons
+   * still wrong color"). Domain identity survives as the GLYPH silhouette (DOMAIN_ICON) even
+   * when its colour is overridden, so same-hue domains (e.g. shop/meal/budget on the Shopping
+   * hue) are still told apart. Omit to keep the default domain-hue badge (health.tsx,
+   * shopping.tsx, MedicineTrayCard, SectionRail, SubScreenLinkButton).
+   */
+  accentOverride?: string;
 };
 
 /**
- * The icon badge — a round two-stop gradient fill (the domain's `badgeGradient`) with the palette's
- * declared ink for the glyph and a light translucent rim, so the badge itself carries the domain
- * colour rather than just tinting a neutral circle. This is the ONE place an identity hue appears as
- * a fill on a card (the card's low-alpha edge is the other channel); it is never text or icon colour
- * anywhere else — see addendum A.4 rule 1.
+ * The icon badge — a round two-stop gradient fill (the domain's `badgeGradient`, or
+ * `accentOverride`'s when given) with a legible ink for the glyph and a light translucent rim,
+ * so the badge itself carries colour rather than just tinting a neutral circle. This is the ONE
+ * place an identity/screen hue appears as a fill on a card (the card's low-alpha edge is the
+ * other channel); it is never text or icon colour anywhere else — see addendum A.4 rule 1.
  */
-export function CardAccentBadge({ domain, icon, size = 44, style }: BadgeProps) {
+export function CardAccentBadge({ domain, icon, size = 44, style, accentOverride }: BadgeProps) {
   const theme = useAppTheme();
-  const { badgeGradient, ink } = getDomainColor(theme, domain);
+  const domainColor = getDomainColor(theme, domain);
+  const accent = accentOverride ?? domainColor.accent;
+  const badgeGradient = accentOverride
+    ? ([accent, mix(accent, CARD_BADGE_DEEP, 0.35)] as const)
+    : domainColor.badgeGradient;
+  const ink = accentOverride ? contrastOn(accent) : domainColor.ink;
   const glyph = icon ?? DOMAIN_ICON[domain];
   return (
     <LinearGradient

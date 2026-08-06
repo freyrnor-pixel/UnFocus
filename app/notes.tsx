@@ -77,7 +77,7 @@ import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import GhostRow from '@/components/GhostRow';
 import { useT } from '@/lib/i18n';
 import { prefillRoute } from '@/lib/prefill';
-import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { useGhostTimeout } from '@/lib/useGhostTimeout';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
@@ -113,7 +113,14 @@ export default function NotesScreen() {
     hasMounted.current = true;
   }, []);
 
-  const accent = getDomainColor(theme, 'note').accent;
+  // This screen's own yellow (2026-08-06) — was lib/domainColor's 'note' identity, which is
+  // IDENTITY_NEUTRAL grey (Notes has no domain badge hue), so every row check/field on this
+  // screen drew grey against the screen's own yellow card edges. See HomeNotesCard's matching
+  // fix for the Home preview version of the same bug.
+  // `getScreenColor` (plain function), not `useScreenColor` (context hook): this component
+  // renders ScreenScaffold below and so sits ABOVE its ScreenColorContext.Provider — the
+  // hook would silently read the default (null → `theme.border`) at this position.
+  const accent = getScreenColor(theme, 'notes').base;
   const activeNotes = notes.filter((n) => !n.checked);
   const checkedNotes = notes.filter((n) => n.checked);
 

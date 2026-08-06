@@ -20,7 +20,7 @@
  *             components/PressableScale, components/IconButton, components/Collapsible,
  *             components/StarterCard (compact first-run explainer), components/FormControls
  *             (Input/Switch), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
- *             lib/domainColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
+ *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
  *             store/useSettingsStore
@@ -69,7 +69,7 @@ import { personColor } from '@/lib/personColor';
 import { useT } from '@/lib/i18n';
 import { todayStr, parseTimeToMinutes } from '@/lib/date';
 import { success, tap } from '@/lib/haptics';
-import { getDomainColor } from '@/lib/domainColor';
+import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
@@ -104,7 +104,9 @@ export default function MedicineTrayCard() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const healthColor = getDomainColor(theme, 'health');
+  // This screen's own hue (the card edge's source) — badge and buttons now match it instead
+  // of lib/domainColor's 'health' identity (a different wine-red vs this screen's teal).
+  const screenHue = useScreenColor() ?? theme.border;
 
   const medicines = useMedicineStore((s) => s.medicines);
   const doses = useMedicineStore((s) => s.doses);
@@ -208,9 +210,8 @@ export default function MedicineTrayCard() {
   const status = statusLine();
 
   // No `borderColor` (card design reset, 2026-08-05): a card on its own screen inherits that
-  // screen's one hue. The domain colour it used to pass is the BADGE palette
-  // (lib/domainColor.ts), which still drives the badge inside — the edge is the screen's, the
-  // badge is the domain's, and they no longer compete.
+  // screen's one hue. The badge inside matches it too (`accentOverride`, 2026-08-06) — see
+  // app/(tabs)/health.tsx's matching note.
   return (
     <Surface style={styles.card}>
       <View style={styles.cardContent}>
@@ -218,7 +219,7 @@ export default function MedicineTrayCard() {
           {/* `medkit`, not the domain default heart (2026-07-28 design review) — Health's three
               cards (Medicine, Quick log, This week) all fell back to DOMAIN_ICON.health and read
               as the same badge repeated three times. See app/(tabs)/health.tsx's matching note. */}
-          <CardAccentBadge domain="health" icon="medkit" size={22} />
+          <CardAccentBadge domain="health" icon="medkit" size={22} accentOverride={screenHue} />
           <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.medicine.title}</Text>
           <IconButton
             icon={remindersEnabled ? 'alarm-outline' : 'notifications-off-outline'}
@@ -443,7 +444,7 @@ export default function MedicineTrayCard() {
                     <View
                       style={[
                         styles.doseCircle,
-                        { borderColor: state.canTake ? healthColor.accent : theme.border },
+                        { borderColor: state.canTake ? screenHue : theme.border },
                         !state.canTake && { opacity: 0.5 },
                       ]}
                     >
@@ -500,7 +501,7 @@ export default function MedicineTrayCard() {
           value={draft}
           onChangeText={setDraft}
           onSubmit={commitAdd}
-          accent={healthColor.accent}
+          accent={screenHue}
           showDivider={medicines.length > 0}
           accessibilityLabel={t.medicine.addPlaceholder}
         />

@@ -66,12 +66,13 @@
  * Edit notes:
  *   - **Food/Catalogue link icons upgraded to CardAccentBadge (2026-07-26, user feedback: the
  *     two buttons read as too plain/undefined)**: `foodCatalogueLinks`'s bare `Ionicons` glyphs
- *     (just accent-colored, on the Surface's neutral fill) swapped for `CardAccentBadge` (the
- *     same domain-colored gradient badge used by HomeShoppingCard/HomeNotesCard/PlanTaskCard) at
- *     a small size=24 — gives each button a filled, colored circle instead of a thin outline
- *     icon so "Mat"/"Katalog" catch the eye without reintroducing the 2026-07-14 "muddy
- *     whole-card tint" the Surface `borderColor`-only convention was chosen to avoid (see
- *     Surface.tsx / lib/domainColor.ts). The card's own `borderColor` edge is unchanged.
+ *     (just accent-colored, on the Surface's neutral fill) swapped for `CardAccentBadge` at a
+ *     small size=24 — gives each button a filled, colored circle instead of a thin outline icon
+ *     so "Mat"/"Katalog" catch the eye without reintroducing the 2026-07-14 "muddy whole-card
+ *     tint" the Surface `borderColor`-only convention was chosen to avoid (see Surface.tsx).
+ *     **Badge colour switched from the domain palette to this screen's own hue (2026-08-06,
+ *     `accentOverride`)** — both cards' edges were already the ambient shopping green (neither
+ *     sets its own `borderColor`), so a gold/amber badge on top read as a mismatched icon.
  *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
  *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
  *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
@@ -321,7 +322,7 @@
  *     (line ~245) already pushed `/scan` directly and are unaffected by this move.
  *   - **Still dropped**: SiteSwipeView's swipe-between-screens wrapper (Phase 3e, not
  *     ported, not required by A2-1/A2-4).
- *   - `ConfirmationBanner` renders as a sibling of `<ScreenScaffold>`, not inside its
+ *   - `ConfirmationBanner` renders as a sibling of ScreenScaffold, not inside its
  *     children — ScreenScaffold's children render inside its internal ScrollView, and
  *     ConfirmationBanner is a plain absolutely-positioned overlay (not a `<Modal>` like
  *     the sheets below it), so nesting it in scrollable content would make it scroll
@@ -356,7 +357,7 @@
  *     reusing the same window-space `measureInWindow` idiom as the drag-to-merge code
  *     above. `cartHeaderNodes` (keyed by listId) is the destination registry, populated by
  *     WeekListCard's `registerCartHeaderNode`; `flights` is screen-owned state rendered by
- *     a single `<FlightOverlay>` mounted as a sibling of `<ScreenScaffold>` (NOT inside
+ *     a single `<FlightOverlay>` mounted as a sibling of ScreenScaffold (NOT inside
  *     it — ScreenScaffold's children scroll inside its internal ScrollView, same reasoning
  *     as `ConfirmationBanner`'s placement below). `handleScreenScroll` clears in-flight
  *     flights on scroll since window-space coords go stale. See
@@ -431,6 +432,7 @@ import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { Duration } from '@/constants/motion';
 
 type Tab = 'weekly' | 'monthly';
@@ -461,11 +463,14 @@ export default function ShoppingScreen() {
   const t = useT();
   const router = useRouter();
   const { reducedMotion } = useAccessibility();
+  // Kept for the Unallocated section's meal-origin accent bar (Decision 043) only — the Food/
+  // Catalogue link badges below used to draw this too and read as gold/amber icons on the
+  // screen's green cards (2026-08-06, user report: "upper left icons still wrong color");
+  // those now take the screen's own hue instead (`accentOverride`).
   const mealDomainColor = getDomainColor(theme, 'meal');
-  // `shopDomainColor` was dropped with the card design reset (2026-08-05): its only consumer
-  // was the Catalogue link card's `borderColor`, and that card now inherits the screen's one
-  // hue like every other. `mealDomainColor` survives because the Food link's BADGE still uses
-  // it — badges keep the domain palette, edges don't.
+  // `getScreenColor` (plain function), not `useScreenColor` (context hook) — this component
+  // renders ScreenScaffold below, so it sits above that provider; see health.tsx's note.
+  const screenHue = getScreenColor(theme, 'shopping').base;
 
   // Fire the 'shopping_opened' automation trigger once per screen visit (mount).
   // Rules are already loaded by app/_layout.tsx's startup bootstrap.
@@ -1626,7 +1631,7 @@ export default function ShoppingScreen() {
           {/* `restaurant` (crossed fork+knife) read as a ✕ / cancel glyph at 24px inside the
               filled circular badge — next to the word "Food" it looked like a close button
               (2026-07-28 design review). `fast-food` stays legible at badge size. */}
-          <CardAccentBadge domain="meal" icon="fast-food" size={24} />
+          <CardAccentBadge domain="meal" icon="fast-food" size={24} accentOverride={screenHue} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.foodTabLabel}</Text>
         </Surface>
       </PressableScale>
@@ -1638,7 +1643,7 @@ export default function ShoppingScreen() {
         scaleTo={0.97}
       >
         <Surface style={styles.subScreenLinkCard}>
-          <CardAccentBadge domain="shop" icon="list" size={24} />
+          <CardAccentBadge domain="shop" icon="list" size={24} accentOverride={screenHue} />
           <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.catalogueTabLabel}</Text>
         </Surface>
       </PressableScale>

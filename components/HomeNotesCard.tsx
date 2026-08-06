@@ -238,7 +238,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
             style={styles.headerLeft}
             scaleTo={0.98}
           >
-            <CardAccentBadge domain="note" size={32} />
+            <CardAccentBadge domain="note" size={32} accentOverride={screenColor.base} />
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                 {t.notes.title}

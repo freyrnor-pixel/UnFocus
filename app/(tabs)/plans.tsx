@@ -247,6 +247,7 @@ import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
 import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 
 type Tab = 'all' | 'today' | 'week';
 
@@ -646,7 +647,11 @@ export default function TasksScreen() {
   // badge glyph otherwise comes from the domain and would draw a heart on Recurring tasks.
   // Don't drop the icon override, and don't "fix" it by switching the domain alone — that
   // would desync the badge colour from the label/divider, which both follow `hue`.
-  const wheneverHue = getDomainColor(theme, 'task').accent;
+  // This screen's own blue (2026-08-06) — was lib/domainColor's 'task' identity, a close but
+  // not identical blue to the screen's own (featTask), which is what the card edge already
+  // draws everywhere on this tab. `repeatingHue` stays on the domain palette below: it's a
+  // deliberate borrowed colour to set Recurring apart from Whenever (see the note there).
+  const wheneverHue = getScreenColor(theme, 'plans').base;
   const repeatingHue = getDomainColor(theme, 'health').accent;
 
   const tasks = useTaskStore((s) => s.tasks);

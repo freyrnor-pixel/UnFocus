@@ -1486,7 +1486,7 @@ export default function PlanTaskCard({
         {readOnly && (
           <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.98}>
             <View style={styles.headerTopRow}>
-              <CardAccentBadge domain="plan" size={32} />
+              <CardAccentBadge domain="plan" size={32} accentOverride={screenColor.base} />
               <View style={styles.headerText}>
                 <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
                   {t.home.todaysPlans}
