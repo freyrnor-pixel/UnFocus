@@ -44,6 +44,15 @@
  *     animated — LinearGradient colors aren't cheaply tweenable; only the inner fill/border keep
  *     crossfading via useToggleColor). Glass-off renders exactly the pre-2026-07-21 flat circle,
  *     unchanged.
+ *   - **`borderColor` → ghost mode (2026-08-06)**: a flat, transparent-fill circle with a thin
+ *     border in the given colour instead of a solid tint fill — the same "no fill, hue on the
+ *     border only" move Button.tsx's `ghost` variant makes, for a spot (e.g. a pager arrow) that
+ *     needs a screen-hued control without reading as a heavy solid-colour blob. Skips the
+ *     keyWrap/keyBase cap-on-base and the glass rim entirely (matching Button's ghost, which
+ *     opts out of both for the same reason: no fill means no cap to sink and nothing for a rim
+ *     to wrap). `tint`/`active` are ignored in this mode; `color` overrides the default icon tint
+ *     (`theme.accent`, matching Button ghost's text colour — never the border hue itself as an
+ *     icon colour, per lib/domainColor.ts's A.4 rule 1).
  */
 import React from 'react';
 import { StyleSheet, StyleProp, View, ViewStyle } from 'react-native';
@@ -69,6 +78,9 @@ type Props = {
   active?: boolean;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Ghost mode — see the header note. A thin border in this colour, transparent fill, no
+   *  cap-on-base. Ignores `tint`/`active` when set. */
+  borderColor?: string;
 };
 
 export default function IconButton({
@@ -81,12 +93,40 @@ export default function IconButton({
   active = false,
   disabled,
   style,
+  borderColor,
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const glass = useSettingsStore((s) => s.glassSurfaces);
   const iconSize = Math.round(size * 0.5);
   const hitTarget = Math.max(MIN_TAP_TARGET, size + Spacing.sm);
+
+  if (borderColor) {
+    return (
+      <PressableScale
+        onPress={onPress}
+        disabled={disabled}
+        scaleTo={0.9}
+        accessibilityLabel={label}
+        accessibilityRole="button"
+        accessibilityState={{ disabled }}
+        style={[
+          styles.hit,
+          styles.ghost,
+          {
+            width: hitTarget,
+            height: hitTarget,
+            borderRadius: Radius.full,
+            borderColor,
+            opacity: disabled ? 0.45 : 1,
+          },
+          style,
+        ]}
+      >
+        <Ionicons name={icon} size={iconSize} color={color ?? theme.accent} />
+      </PressableScale>
+    );
+  }
 
   const inactiveBg = tint ?? theme.surfaceMuted;
   const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
@@ -176,6 +216,10 @@ const styles = StyleSheet.create({
   hit: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ghost: {
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
   },
   base: {
     borderRadius: Radius.full,

@@ -28,7 +28,7 @@
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
- *             lib/domainColor, lib/habitRecurrence (habitOccursOn, habitProgress),
+ *             lib/screenColor, lib/habitRecurrence (habitOccursOn, habitProgress),
  *             lib/habitStarters (HABIT_STARTERS — one-tap starter chips), store/useHabitStore,
  *             store/useSettingsStore (energySystemEnabled, gates the quick-add energy chip)
  *   Used by → app/(tabs)/index.tsx (Home habits preview, placed directly under the To-do/
@@ -147,7 +147,6 @@ import { useHabitStore, Habit } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { HABIT_STARTERS } from '@/lib/habitStarters';
-import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 import { padVisibleRows } from '@/lib/padState';
 import { useCardState } from '@/lib/useCardState';
@@ -173,7 +172,10 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const domainColor = getDomainColor(theme, 'habit');
+  // The card's one hue (border + every content accent). This used to be lib/domainColor's
+  // 'habit' identity, a different value from the screen border below — content now pulls
+  // from the same screenColor the border does, so the whole card is one colour family.
+  const screenColor = getScreenColor(theme, 'habits');
   const today = todayStr();
 
   const habits = useHabitStore((s) => s.habits);
@@ -289,7 +291,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
       <PadRow
         key={habit.id}
         title={habit.title}
-        accent={domainColor.accent}
+        accent={screenColor.base}
         done={isDone}
         leading={
           // A.4: done is a STATUS, so it takes the status token as ink (`good`); the habit's
@@ -341,7 +343,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={getScreenColor(theme, 'habits').base}
+      borderColor={screenColor.base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       {/* Corner leaf accent (DESIGN_COMPARISON/04) — painted first so the header row's badge
@@ -366,9 +368,9 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
             {dueTodayHabits.length > 0 && (
               <Badge
                 label={`${pendingCount}/${dueTodayHabits.length}`}
-                bg={domainColor.soft}
+                bg={screenColor.soft}
                 fg={theme.textMuted}
-                borderColor={rgba(domainColor.accent, 0.3)}
+                borderColor={rgba(screenColor.base, 0.3)}
                 tabularNums
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
@@ -379,7 +381,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           {dueTodayHabits.length > 0 && (
             <ProgressBar
               value={doneCount / dueTodayHabits.length}
-              color={domainColor.accent}
+              color={screenColor.base}
               height={4}
               style={styles.progressBar}
             />
@@ -403,7 +405,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                   scaleTo={0.96}
                   accessibilityRole="button"
                   accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                  style={[styles.starterChip, { borderColor: domainColor.accent, backgroundColor: theme.surfaceMuted }]}
+                  style={[styles.starterChip, { borderColor: screenColor.base, backgroundColor: theme.surfaceMuted }]}
                 >
                   <HabitIcon icon={s.icon} size={13} color={theme.textMuted} />
                   <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
@@ -426,7 +428,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
               value={habitDraft}
               onChangeText={setHabitDraft}
               onSubmit={commitHabit}
-              accent={domainColor.accent}
+              accent={screenColor.base}
               onMore={openHabitFormWithDraft}
               panel={
                 energySystemEnabled ? (
@@ -454,7 +456,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                           accessibilityLabel={t.energyGiveTakeLabel}
                         />
                       }
-                      accent={domainColor.accent}
+                      accent={screenColor.base}
                     />
                   </QuickAddOptionsPanel>
                 ) : undefined
