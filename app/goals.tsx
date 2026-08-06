@@ -42,6 +42,11 @@
  *             nothing.
  *
  * Edit notes:
+ *   - **StarterCard's `collapsible` (2026-08-06 v3)**: the empty-state card now collapses to
+ *     a normal-looking trigger row instead of being permanently dismissed — replaces the old
+ *     `dismissKey="goals"` "X" (see components/StarterCard.tsx's own Edit note). The
+ *     `t.starters.goals.tapToAdd` line that used to repeat inside the card as its first
+ *     child now lives only on the trigger row (`exampleHeaderLabel`), so it isn't said twice.
  *   - `settings.featureGoals` gates the Habits/Plans "Edit Goals" link (and GoalsSheet.tsx,
  *     the popup it opens), not this screen — this route stays reachable directly so an
  *     existing deep link never dead-ends even with the feature off.
@@ -146,10 +151,15 @@ export default function GoalsScreen() {
         {hintOpen && <HintCard text={t.hints.goals.text} example={t.hints.goals.example} />}
 
         {goals.length === 0 ? (
-          // `dismissKey="goals"` (2026-08-06) — shared with components/GoalsSheet.tsx's own
-          // StarterCard for the same empty state; see StarterCard's "Universal dismiss" note.
-          <StarterCard text={t.starters.goals.text} dismissKey="goals">
-            <Text style={[styles.tapToAdd, { color: theme.textMuted }]}>{t.starters.goals.tapToAdd}</Text>
+          // `collapsible` (2026-08-06 v3) — replaces the old permanent `dismissKey="goals"`
+          // "X" with the same reversible collapse-to-row Habits/Plans/Health now share; see
+          // StarterCard's "collapsible" Edit note. An install that had already dismissed the
+          // old card will see this once more, collapsed or expanded — same transition Habits
+          // already shipped.
+          <StarterCard text={t.starters.goals.text} collapsible exampleHeaderLabel={t.starters.goals.tapToAdd}>
+            {/* `tapToAdd` moved onto StarterCard's `collapsible` trigger row above (2026-08-06
+                v3) — it used to repeat here as the first line inside the card, which would now
+                say the same thing twice (once as the trigger label, once as this line). */}
             <View style={styles.starterChips}>
               {GOAL_STARTERS.map((starter) => (
                 <PressableScale
@@ -236,7 +246,6 @@ const styles = StyleSheet.create({
   goalTitle: { flex: 1, minWidth: 0, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   goalStatus: { fontSize: FontSize.sm, fontFamily: Type.label.fontFamily },
   goalMeta: { fontSize: FontSize.xs },
-  tapToAdd: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
   // `flexWrap` with no minWidth on the chips — a goal title is long enough that a fixed
   // minimum would break the row at 360px (see AGENTS.md's wrap-audit lessons).
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },

@@ -15,7 +15,10 @@
  * only its symptom-tracking content.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/Surface,
+ *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
+ *             (2026-08-06 v3 — back on this screen, now carrying its own `collapsible`
+ *             drop-down for the suggested-habits chips; see the v3 Edit note below),
+ *             components/Surface,
  *             components/PadRow (2026-08-01 — the shared row shell each habit's header line is
  *             drawn through; see HabitCard's own PadRow mount for what that changed and for why
  *             PadSheet was NOT adopted with it), components/PadTypeRow (the always-open
@@ -35,10 +38,11 @@
  *             no chosen icon), components/StageTree (2026-08-04 — the ambient `full`-stage
  *             corner watermark at the foot of the list; no longer shares a "one tree per
  *             screen" rule with anything since 2026-08-06 v2 — see below),
- *             components/PressableScale (also draws the "Edit Goals" row and the suggested-
- *             habits card's collapse/expand controls directly, as of
- *             2026-08-06 — see below; components/SubScreenLinkButton is no longer used on this
- *             screen), components/GoalsSheet (2026-07-31, the popup that link opens — also
+ *             components/PressableScale (also draws the "Edit Goals" row directly, as of
+ *             2026-08-06 — see below; the suggested-habits collapse/expand control lives in
+ *             components/StarterCard now, not here; components/SubScreenLinkButton is no
+ *             longer used on this screen), components/GoalsSheet (2026-07-31, the popup that
+ *             link opens — also
  *             where a habit's linked goal shows its living-glow dot as of 2026-08-06, not on
  *             this screen's own rows any more), components/DebugNoteAnchor,
  *             components/GhostRow (2026-08-01,
@@ -102,7 +106,21 @@
  *        true — every one of the shown starter suggestions already exists as a habit,
  *        independent of `profileHabits.length` or the collapse state. `dismissKey`/
  *        `dismissedStarters` stay in use elsewhere (Goals) for the "hide for good" case; this
- *        screen no longer uses either.
+ *        screen no longer uses either. **Superseded 2026-08-06 v3 — see below.**
+ *   - **Habits screen redesign v3 (2026-08-06)**: the v2 pass's hand-rolled pill/card toggle
+ *     is GONE — components/StarterCard.tsx is BACK on this screen, now carrying the
+ *     collapsible behavior itself (its new `collapsible`/`exampleHeaderLabel` props), so
+ *     Habits, Goals, Plans and Health all share one identical collapse mechanism instead of
+ *     five near-copies (the "cleaner suggestion that works for all cards" the maintainer
+ *     asked for after seeing the v2 pass). `examplesCollapsed`/`toggleExamples()` and the
+ *     hand-rolled `examplesCard`/`examplesPill` styles are deleted from this file along with
+ *     the now-unused `LayoutAnimation`/`useAccessibility` imports — see StarterCard's own
+ *     `collapsible` edit note for what replaced them. Two things carry over unchanged: the
+ *     plain "tips" line stays exactly as v2 left it (permanent, un-boxed, under the
+ *     sub-header — passed to StarterCard as nothing, since `text` is optional now and this
+ *     screen already renders its own copy elsewhere, see StarterCard's Edit notes on why);
+ *     and `!allStartersAdded` still gates whether the card mounts at all — StarterCard's
+ *     `collapsible` only owns the collapse SHAPE while it's mounted, never that gate.
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
  *   - **Inline "ghost" undo row (2026-08-01)**: deleting a habit (there's no delete affordance
  *     on this screen — only app/habit-form.tsx's Delete button) is now a soft-delete
@@ -162,7 +180,7 @@
  *     replaced the old header "+" AddFAB (which navigated straight to the form).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHabitStore, Habit, HabitKind } from '@/store/useHabitStore';
@@ -173,6 +191,7 @@ import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
@@ -208,7 +227,7 @@ import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { BORDER_WIDTH, computeBorderTone, contrastOn, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
-import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useScreenColor, getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
@@ -565,12 +584,6 @@ export default function HabitsScreen() {
   // Gates the "Edit Goals" link at the bottom of the screen (2026-07-29).
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
-  // Suggested-habits card (2026-08-06 v2, user feedback on the first redesign pass): a
-  // manual collapse to a small pill, NOT the permanent dismiss components/StarterCard.tsx
-  // offers elsewhere (Goals keeps that one) — this reverses on tap, so it's plain local
-  // state rather than anything persisted to settings. Defaults open on every mount.
-  const [examplesCollapsed, setExamplesCollapsed] = useState(false);
-  const { reducedMotion } = useAccessibility();
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); the card's own tips line + suggested-habits card already teach
@@ -750,14 +763,6 @@ export default function HabitsScreen() {
     createHabit(t.starters.habits.suggestions[starter.key], starter.icon, starter.dailyGoal);
   }
 
-  /** Collapse ⟷ expand the suggested-habits card, animated (same LayoutAnimation pattern as
-   *  components/HintCard.tsx's own pill toggle — gated on reducedMotion the same way). */
-  function toggleExamples() {
-    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    tap();
-    setExamplesCollapsed((v) => !v);
-  }
-
   return (
     <>
       <ScreenScaffold
@@ -812,70 +817,45 @@ export default function HabitsScreen() {
                 <Text style={[styles.tipsText, { color: theme.textMuted }]}>{t.starters.habits.text}</Text>
               </View>
 
-              {/* Suggested habits — its own card, separate from the tips line above
-                  (2026-08-06 v2, replacing the combined StarterCard the first redesign pass
-                  used). Two things distinguish this from every other empty-state explainer in
-                  the app:
-                    1. It COLLAPSES to a small pill on tap, rather than being permanently
-                       dismissed — reversible, with a LayoutAnimation showing the transition
-                       (toggleExamples above), not components/StarterCard.tsx's `dismissKey`
-                       "X" (that stays in use elsewhere — Goals — where a one-way hide is what
-                       was asked for).
+              {/* Suggested habits (2026-08-06 v3) — components/StarterCard's shared
+                  `collapsible` drop-down, replacing this screen's own hand-rolled
+                  pill/card toggle from the v2 pass. No `text` prop: the tips line above
+                  already carries the explanation, permanently, so this card is examples
+                  only. Two things distinguish it from every other empty-state explainer:
+                    1. It collapses to a normal-looking trigger row on tap, not a floating
+                       pill — reversible, unlike StarterCard's `dismissKey` "X" (unused here).
                     2. It disappears ENTIRELY only once `allStartersAdded` — independent of
                        `profileHabits.length`, so it stays useful even for someone who already
-                       has a pile of their own custom habits but hasn't tried the shortcuts. */}
+                       has a pile of their own custom habits but hasn't tried the shortcuts.
+                       That gating is this screen's own job — StarterCard's `collapsible` only
+                       owns the collapse SHAPE, never whether the card mounts at all. */}
               {!allStartersAdded && (
-                examplesCollapsed ? (
-                  <PressableScale
-                    onPress={toggleExamples}
-                    style={[styles.examplesPill, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.starters.habits.expandLabel}
-                    accessibilityState={{ expanded: false }}
-                  >
-                    <Ionicons name="bulb-outline" size={14} color={screenHue} />
-                    <Ionicons name="chevron-down" size={14} color={theme.textMuted} />
-                  </PressableScale>
-                ) : (
-                  <View style={[styles.examplesCard, { borderColor: theme.border }]}>
-                    <View style={styles.examplesHeaderRow}>
-                      <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
+                <StarterCard collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
+                  {/* Two chips, not four (2026-07-30) — the same measured call
+                      components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
+                      had this row wrapping at every width tested: 4 chips on 2 lines at
+                      393px and 4 lines at 360px (560px of chips into 254px of row). A row
+                      with a hard minimum width can't be fixed by shortening copy, so the
+                      fix is fewer chips; the rest are one tap away on the type line below. */}
+                  <View style={styles.starterChips}>
+                    {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
                       <PressableScale
-                        onPress={toggleExamples}
-                        hitSlop={HitSlop.base}
+                        key={s.key}
+                        onPress={() => addStarterHabit(s)}
+                        scaleTo={0.96}
                         accessibilityRole="button"
-                        accessibilityLabel={t.starters.habits.collapseLabel}
-                        accessibilityState={{ expanded: true }}
+                        accessibilityLabel={t.starters.habits.suggestions[s.key]}
+                        style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
                       >
-                        <Ionicons name="chevron-up" size={16} color={theme.textMuted} />
+                        {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
+                            the action colour (mirrors HomeHabitsCard's starter chips). */}
+                        <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
+                        <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
+                        <Ionicons name="add" size={14} color={theme.accent} />
                       </PressableScale>
-                    </View>
-                    {/* Two chips, not four (2026-07-30) — the same measured call
-                        components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
-                        had this row wrapping at every width tested: 4 chips on 2 lines at
-                        393px and 4 lines at 360px (560px of chips into 254px of row). A row
-                        with a hard minimum width can't be fixed by shortening copy, so the
-                        fix is fewer chips; the rest are one tap away on the type line below. */}
-                    <View style={styles.starterChips}>
-                      {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
-                        <PressableScale
-                          key={s.key}
-                          onPress={() => addStarterHabit(s)}
-                          scaleTo={0.96}
-                          accessibilityRole="button"
-                          accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                          style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
-                        >
-                          {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
-                              the action colour (mirrors HomeHabitsCard's starter chips). */}
-                          <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
-                          <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                          <Ionicons name="add" size={14} color={theme.accent} />
-                        </PressableScale>
-                      ))}
-                    </View>
+                    ))}
                   </View>
-                )
+                </StarterCard>
               )}
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
@@ -1122,26 +1102,9 @@ const baseStyles = StyleSheet.create({
   tipsIcon: { marginTop: 2 },
   tipsText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
 
-  // Suggested-habits card (2026-08-06 v2) — its own bordered box, separate from the tips
-  // line, collapsible to `examplesPill`. See the render-side "Suggested habits" note.
-  examplesCard: {
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: Spacing.xs,
-  },
-  examplesHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  examplesPill: {
-    flexDirection: 'row',
-    alignSelf: 'flex-start',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // Suggested-habits chips (2026-08-06 v3) — rendered inside components/StarterCard's
+  // `collapsible` drop-down now; the card/pill shell itself moved there, shared by every
+  // screen that uses it. See the render-side "Suggested habits" note.
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   starterChip: {
     flexDirection: 'row',

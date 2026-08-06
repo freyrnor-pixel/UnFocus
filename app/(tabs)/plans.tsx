@@ -32,7 +32,9 @@
  *             shell), components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal, and the collapsed Whenever drawer),
  *             components/TabSlider,
- *             components/StarterCard (first-run explainer, shown while there are no tasks at all),
+ *             components/StarterCard (first-run explainer, shown while there are no tasks at
+ *             all; `collapsible` as of 2026-08-06 v3 — its example row collapses to a
+ *             trigger row rather than always showing),
  *             components/StarterExampleRow (its "Tidy up"/"Rydde" example row — a real daily,
  *             time-boxed, 5-step task its "+" button writes via useTaskStore), lib/taskStarters
  *             (that example's structural data — time box + step order), constants/theme,
@@ -1229,10 +1231,16 @@ export default function TasksScreen() {
             **Stays mounted through `planStarterAdded` (2026-07-31)**: pressing the example's
             "+" writes a real task, which flips `tasks.length` off zero in the same tick — without
             the OR below the card would unmount itself the instant it was used, reading as the
-            example just disappearing. See components/StarterExampleRow's `added` Edit note. */}
+            example just disappearing. See components/StarterExampleRow's `added` Edit note.
+            **`collapsible` (2026-08-06 v3)**: the example row now sits behind StarterCard's
+            shared collapse-to-row drop-down (open by default) instead of always being drawn —
+            same mechanism Habits/Goals/Health now use. This screen's own mount condition above
+            is unchanged; `collapsible` only changes the card's shape while it's mounted. */}
         {(tasks.length === 0 || planStarterAdded) && !(tab === 'today' && layoutSpec.timeline) && (
           <StarterCard
             text={t.starters.plans.text}
+            collapsible
+            exampleHeaderLabel={t.starters.plans.tapToAdd}
             example={
               <StarterExampleRow
                 icon="ellipse-outline"

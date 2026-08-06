@@ -21,6 +21,10 @@
  *             nothing.
  *
  * Edit notes:
+ *   - **StarterCard's `collapsible` (2026-08-06 v3)**: the empty-state card collapses to a
+ *     normal-looking trigger row instead of being permanently dismissed — replaces the old
+ *     `dismissKey="goals"` "X" (see components/StarterCard.tsx's own Edit note and
+ *     app/goals.tsx's matching change).
  *   - Deleting a goal unlinks every task and habit pointing at it (useGoalStore.remove does
  *     that in one transaction) — same confirm copy as app/goals.tsx, keep them in sync.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value — see
@@ -120,11 +124,12 @@ export default function GoalsSheet({ visible, onClose }: Props) {
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {goals.length === 0 ? (
             // The fuller of the two sentences, since it is now the only one: it explains the
-            // linking mechanic, not just what a goal is. `dismissKey="goals"` (2026-08-06) —
-            // shared with app/goals.tsx's own StarterCard, which explains the same empty
-            // state, so dismissing one dismisses both. See StarterCard's "Universal dismiss".
-            <StarterCard text={t.hints.goals.text} dismissKey="goals">
-              <Text style={[styles.tapToAdd, { color: theme.textMuted }]}>{t.starters.goals.tapToAdd}</Text>
+            // linking mechanic, not just what a goal is. `collapsible` (2026-08-06 v3)
+            // replaces the old permanent `dismissKey="goals"` "X" with the same reversible
+            // collapse-to-row app/goals.tsx's own StarterCard now uses too — see
+            // StarterCard's "collapsible" Edit note. `tapToAdd` moved onto the trigger row
+            // (`exampleHeaderLabel`) so it isn't said twice.
+            <StarterCard text={t.hints.goals.text} collapsible exampleHeaderLabel={t.starters.goals.tapToAdd}>
               <View style={styles.starterChips}>
                 {GOAL_STARTERS.map((starter) => (
                   <PressableScale
@@ -234,7 +239,6 @@ const styles = StyleSheet.create({
   goalTitle: { flex: 1, minWidth: 0, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   goalStatus: { fontSize: FontSize.sm, fontFamily: Type.label.fontFamily },
   goalMeta: { fontSize: FontSize.xs },
-  tapToAdd: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   starterChip: {
     flexDirection: 'row',

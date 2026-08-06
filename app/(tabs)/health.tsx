@@ -45,7 +45,9 @@
  * Connections:
  *   Imports → components/MedicineTrayCard (the medicine-tray dose card — see below),
  *             components/ScreenScaffold, components/HintCard, components/StarterCard
- *             (first-run explainer, shown while nothing has ever been logged),
+ *             (first-run explainer, shown while nothing has ever been logged; `collapsible`
+ *             as of 2026-08-06 v3 — its example row collapses to a trigger row rather than
+ *             always showing),
  *             components/StarterExampleRow (its preview row), components/Surface,
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
@@ -294,10 +296,15 @@ export default function HealthScreen() {
               example's "+" writes a real log, which flips `logs.length` off zero in the same
               tick — without the OR below the card would unmount itself the instant it was
               used, reading as the example just disappearing. See
-              components/StarterExampleRow's `added` Edit note. */}
+              components/StarterExampleRow's `added` Edit note.
+              **`collapsible` (2026-08-06 v3)**: the example row now sits behind StarterCard's
+              shared collapse-to-row drop-down (open by default), same mechanism Habits/Goals/
+              Plans use — this screen's own mount condition above is unchanged. */}
           {(logs.length === 0 || healthStarterAdded) && (
             <StarterCard
               text={t.starters.health.text}
+              collapsible
+              exampleHeaderLabel={t.starters.health.tapToAdd}
               example={
                 <StarterExampleRow
                   icon="medical-outline"
