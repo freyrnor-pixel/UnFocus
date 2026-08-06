@@ -18,7 +18,9 @@
  * Connections:
  *   Imports → components/PressableScale, constants/theme (PAD_ROW_HEIGHT,
  *             DONE_ROW_OPACITY, FontSize, Fonts, Radius, Spacing, TabularNums, contrastOn),
- *             lib/i18n, lib/useAppTheme, @expo/vector-icons
+ *             lib/i18n, lib/useAppTheme, lib/useDesignLab (useLabControl/useLabShape/useLabSlot
+ *             — the design lab's check shape and slot gates, see the last Edit note),
+ *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx
  *             (the four HOME cards), and app/(tabs)/habits.tsx (2026-08-01).
  *             **This line used to also claim app/(tabs)/{plans,shopping}.tsx and it was never
@@ -75,6 +77,15 @@
  *     entirely, and on gold it was the same 2.249:1 failure moved from the ring to the
  *     checkmark. `contrastOn(accent)` is how `lib/domainColor.ts` derives its own `ink`, so
  *     the glyph now matches the badge's contract and `colors.test.ts`'s ≥3:1 assertion.
+ *   - **The design lab (2026-08-06) reaches the check's SHAPE and the slots' VISIBILITY.**
+ *     `check` picks circle · square · tick · none; `none` removes the control entirely, which
+ *     is why `wantsCheck` and not `onToggle` gates both the cluster and the render (drift there
+ *     is the same silent-empty-wrapper bug the `hasMetaLine` note warns about, one position
+ *     over). The row slots can only SUBTRACT here — a position set to 'none' is hidden, but
+ *     assigning content to one is only live on the lab's own bench, because this component is
+ *     handed finished nodes and has no way to build a person chip it was never given. The
+ *     export records the assignment regardless; acting on it is an agent's job, not this
+ *     component's. Fallbacks are what the row ships with, so all of it is inert unused.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -93,6 +104,7 @@ import {
 } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useLabControl, useLabShape, useLabSlot } from '@/lib/useDesignLab';
 
 type Props = {
   title: string;
@@ -155,12 +167,29 @@ export default function PadRow({
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
+  // Design lab (lib/designLab.ts). Two knobs reach a real row: the CHECK's shape, and whether
+  // a slot position is drawn at all.
+  //
+  // **On a real row the slots can only SUBTRACT, and that is deliberate.** Assigning content
+  // ("put the person chip in the right-hand value") needs data this component does not have —
+  // the caller passes finished nodes. Full assignment is live on the lab's own bench, where the
+  // lab supplies the data; here a slot set to 'none' hides that position so the maintainer can
+  // see a row without it on the screens they actually use. The export still records the
+  // assignment either way, which is what an agent acts on.
+  const shape = useLabShape();
+  const checkShape = useLabControl('check');
+  const showLeading = useLabSlot('row.leading') !== 'none';
+  const showMeta = useLabSlot('row.meta') !== 'none';
+  const showRight = useLabSlot('row.right') !== 'none';
+  const showAction = useLabSlot('row.action') !== 'none';
 
   // Mirrors the JSX gate below exactly — see the edit note.
-  const hasMetaLine = meta !== undefined && meta !== null && meta !== false;
+  const hasMetaLine = showMeta && meta !== undefined && meta !== null && meta !== false;
+  const wantsCheck = !!onToggle && checkShape !== 'none';
+  const wantsAction = !!onAction && showAction;
   // Same discipline for the cluster: an empty wrapper would still draw the row's own gap,
   // padding the right edge of every row that has neither an action nor a check.
-  const hasTrailingCluster = !!onAction || !!trailing || !!onToggle;
+  const hasTrailingCluster = wantsAction || !!trailing || wantsCheck;
 
   const body = (
     <View style={styles.body}>
@@ -181,8 +210,8 @@ export default function PadRow({
   );
 
   return (
-    <View style={[styles.row, done && styles.rowDone, style]}>
-      {leading ? <View style={styles.leading}>{leading}</View> : null}
+    <View style={[styles.row, { minHeight: shape.rowHeight }, done && styles.rowDone, style]}>
+      {leading && showLeading ? <View style={styles.leading}>{leading}</View> : null}
 
       {onPress ? (
         <PressableScale style={styles.bodyPressable} onPress={onPress} scaleTo={0.99}>
@@ -192,7 +221,7 @@ export default function PadRow({
         body
       )}
 
-      {rightValue ? (
+      {rightValue && showRight ? (
         <Text style={[styles.rightValue, { color: theme.textMuted }]} numberOfLines={1}>
           {rightValue}
         </Text>
@@ -200,7 +229,7 @@ export default function PadRow({
 
       {hasTrailingCluster ? (
         <View style={styles.trailingCluster}>
-          {onAction ? (
+          {wantsAction ? (
             <PressableScale
               style={styles.action}
               onPress={onAction}
@@ -214,7 +243,7 @@ export default function PadRow({
           ) : null}
 
           {trailing ??
-            (onToggle ? (
+            (wantsCheck ? (
               <PressableScale
                 style={[
                   styles.check,
@@ -222,6 +251,10 @@ export default function PadRow({
                   // ring is a control boundary and belongs on the contrast-tuned token.
                   { borderColor: done ? accent : theme.border },
                   done && { backgroundColor: accent },
+                  // Design lab: 'square' rounds the ring off into a box; 'tick' drops the ring
+                  // and the fill entirely, leaving a bare glyph that is only there once ticked.
+                  checkShape === 'square' && { borderRadius: Radius.sm / 2 },
+                  checkShape === 'tick' && { borderWidth: 0, backgroundColor: 'transparent' },
                 ]}
                 onPress={onToggle}
                 hitSlop={RowTrailing.checkSlop}
@@ -230,7 +263,13 @@ export default function PadRow({
                 accessibilityState={{ checked: !!done }}
                 accessibilityLabel={toggleLabel ?? title}
               >
-                {done ? <Ionicons name="checkmark" size={12} color={contrastOn(accent)} /> : null}
+                {done ? (
+                  <Ionicons
+                    name="checkmark"
+                    size={checkShape === 'tick' ? 16 : 12}
+                    color={checkShape === 'tick' ? accent : contrastOn(accent)}
+                  />
+                ) : null}
               </PressableScale>
             ) : null)}
         </View>

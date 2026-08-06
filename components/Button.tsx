@@ -5,7 +5,9 @@
  * fill/text colours from the active theme (Decision 006 tokens). Minimum touch target is 44px tall.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, getMaterialStyle),
+ *   Imports → constants/theme (computeBorderTone, getMaterialStyle),
+ *             lib/useDesignLab (useLabControl/useLabShape — the design lab's `button` shape
+ *             knob: key (shipped) · filled · ghost · outline, plus the edge width),
  *             lib/useAppTheme, lib/screenColor (useScreenColor — the `ghost` border hue),
  *             components/PressableScale, components/GlowPulse (optional `emphasis` CTA halo)
  *   Used by → all screens for standard action buttons
@@ -67,10 +69,11 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { BORDER_WIDTH, computeBorderTone, darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { computeBorderTone, darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
+import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import PressableScale from '@/components/PressableScale';
 import GlowPulse from '@/components/GlowPulse';
 
@@ -120,7 +123,19 @@ export default function Button({
     danger: { bg: theme.bad, text: theme.textInverse },
     ghost: { bg: 'transparent', text: theme.accent },
   };
-  const colors = variantColors[variant];
+  // Design lab (lib/designLab.ts): what a button IS. 'key' is what the app ships — a filled
+  // cap sunk onto a darker base — and is the fallback, so the three alternatives below are
+  // unreachable until the lab says otherwise. 'filled' keeps the fill but drops the sink;
+  // 'ghost' and 'outline' drop the fill entirely and move the variant's colour to the label
+  // (and, for outline, to the edge), which is how the shipped `ghost` variant already works.
+  const buttonShape = useLabControl('button');
+  const labShape = useLabShape();
+  const unfilled = buttonShape === 'ghost' || buttonShape === 'outline';
+  const filledColors = variantColors[variant];
+  const colors = unfilled
+    ? { bg: 'transparent', text: variant === 'secondary' ? theme.text : filledColors.bg }
+    : filledColors;
+  const edgeWidth = labShape.borderButtonWidth * labShape.borderScale;
   // **Never glass (card design reset, 2026-08-05, brief point 6: "white fill, full opacity for
   // all cards and buttons").** Every variant now takes the solid path: an opaque fill in its own
   // colour, a border, and the cap-on-base sink. The frosted path — a transparent pressable with
@@ -146,7 +161,8 @@ export default function Button({
 
   // Key-press travel (2026-07-28). `ghost` is text-only — it has no cap and no base, so it
   // keeps the historical scale-bounce; everything with a fill sinks.
-  const travel = variant === 'ghost' ? undefined : SIZE_TRAVEL[size];
+  // The lab's 'key' is the shipped behaviour; every other shape is flat, so nothing sinks.
+  const travel = variant === 'ghost' || buttonShape !== 'key' ? undefined : SIZE_TRAVEL[size];
 
   const pressable = (
     <PressableScale
@@ -168,6 +184,12 @@ export default function Button({
           // and "Last ned AI-oppsettsguide" shipped with their descenders sliced off. Same bug
           // getHeaderMetrics() exists to solve for the screen header band. As a minimum, every
           // size keeps its resting height and a label that needs more room grows the pill.
+          // Left exactly as `SIZE_HEIGHT[size]` — the design lab's `minTapTarget` knob does NOT
+          // reach here. `lib/__tests__/designTokens.test.ts` source-scans this very line to keep
+          // it a minHeight rather than a height (a fixed height clipped descenders on shipped
+          // buttons), and a knob is not worth weakening that guard for: a button is already at
+          // or above the floor at every size, and the knob still moves fields, rows and the
+          // checkbox, which is where a too-small target actually bites.
           minHeight: SIZE_HEIGHT[size],
           backgroundColor: colors.bg,
           opacity: disabled ? 0.45 : 1,
@@ -177,13 +199,22 @@ export default function Button({
         // screen hue: a green edge on a blue primary would read as a mistake, and point 7 keeps
         // the variants' colours as they are. The screen's hue reaches buttons through `ghost`
         // below — the one variant with no fill of its own to derive from.
-        variant !== 'ghost' ? { borderWidth: BORDER_WIDTH.button, borderColor: mat.innerLine } : null,
+        variant !== 'ghost' && !unfilled ? { borderWidth: edgeWidth, borderColor: mat.innerLine } : null,
+        // Lab 'outline': no fill, and the edge carries the variant's own colour at full strength
+        // rather than the screen's hue — the point of the shape is that the button's identity
+        // moves from its face to its edge.
+        unfilled
+          ? {
+              borderWidth: buttonShape === 'outline' ? edgeWidth * 1.5 : edgeWidth,
+              borderColor: buttonShape === 'outline' ? colors.text : computeBorderTone(buttonHue, isDark, 'button', labShape.borderRampStrength),
+            }
+          : null,
         // Ghost has no fill, so it wears the screen's hue at the BUTTON rung — the lightest step
         // of the family (card → field → button), which is the "green to light green" gradation
         // across elements the maintainer specified. Falls back to the neutral `theme.border`
         // on Home and Settings, which provide no hue.
-        variant === 'ghost'
-          ? { borderWidth: BORDER_WIDTH.button, borderColor: computeBorderTone(buttonHue, isDark, 'button') }
+        variant === 'ghost' && !unfilled
+          ? { borderWidth: edgeWidth, borderColor: computeBorderTone(buttonHue, isDark, 'button', labShape.borderRampStrength) }
           : null,
         // With travel, `style` goes on the cap+base wrapper instead — a caller's margin/width
         // must size the whole key, not just the cap, or the base would stick out past it.

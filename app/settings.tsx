@@ -1849,6 +1849,42 @@ export default function SettingsScreen() {
                 */}
               </Surface>
             </View>
+
+            {/* DESIGN LAB (2026-08-06, lib/designLab.ts) — its own card beside Debug mode,
+                because the two are the same kind of thing: tooling for reporting back to the
+                developer, not features. Deliberately NOT in FEATURE_ROWS — that card is the
+                list of things a user chooses between, and this is a workbench. Off by default
+                and never back-filled, so nobody meets it by upgrading. The entry point is
+                revealed under its own switch, the same shape as Automations above. */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchTextCol}>
+                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.designLab.title}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.designLab.toggleHint}</Text>
+                  </View>
+                  <FormSwitch
+                    checked={settings.featureDesignLab}
+                    // Named, unlike its neighbours: a bare switch in a row announces only its
+                    // state, so a screen-reader user hears "off" with nothing to say what is.
+                    accessibilityLabel={t.designLab.title}
+                    onChange={(v) => { selection(); settings.update({ featureDesignLab: v }); }}
+                  />
+                </View>
+                {settings.featureDesignLab && (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <PressableScale style={styles.switchRow} onPress={() => router.push('/design-lab')} scaleTo={0.97}>
+                      <View style={styles.switchTextCol}>
+                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.designLab.linkLabel}</Text>
+                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.designLab.intro}</Text>
+                      </View>
+                      <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
+                    </PressableScale>
+                  </>
+                )}
+              </Surface>
+            </View>
           </>
         )}
 
