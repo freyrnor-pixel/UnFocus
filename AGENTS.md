@@ -206,6 +206,18 @@ file owns which token.)
     is EDITED in `components/ShoppingItemSheet.tsx` (a row-body tap). That sheet is also the
     only editor for a weekly item's unit/price/category. `onIncrement`/`onDecrement` on
     `ShoppingRow` are gone — `onOpenDetail` replaced them.
+  - **An "add new row" trigger lives at the bottom of the list it appends to, never crowded
+    next to a card's expand/collapse toggle** (2026-08-06, user report on `FoodTab.tsx`: the
+    per-meal-section "Add dish" button was a small "+" wedged into the header right beside the
+    chevron — close enough that the two read as one crowded control and were easy to mis-tap).
+    Same idiom already established by `components/NewMonthlyListRow.tsx`'s labelled "+ New
+    list" trigger and `InlineAddItem`'s bottom-of-list placement — a "+" that creates a whole
+    new row belongs where that row will land, ideally visible only once the list it adds to is
+    itself visible (so it's naturally absent while a section is collapsed, not doubled up with
+    the toggle). This does **not** apply to a per-row action button — `FoodTab`'s per-dish "+"
+    that opens the add-to-list popup, or a save/checkmark/X on a row currently being edited —
+    those stay wherever the row rule already puts them (right-hand action cluster); only
+    "creates a brand-new row" triggers follow this bottom-of-list placement.
   - ~~**Matte finish**~~ — **superseded by the card design reset (2026-08-05). There is no
     material any more.** See "One card design" below; the matte/rim/face-lift tuning this
     bullet described was deleted rather than adjusted. `__tests__/glassMaterial.test.ts` still
