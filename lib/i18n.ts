@@ -1794,6 +1794,9 @@ const en = {
         posture: 'Posture check',
         breakfast: 'Eat breakfast',
       },
+      /** Collapse/expand labels for the suggested-habits pill (2026-08-06). */
+      collapseLabel: 'Hide suggested habits',
+      expandLabel: 'Show suggested habits',
     },
     plans: {
       text: 'Break it into smaller pieces.',
@@ -3422,6 +3425,8 @@ const no: typeof en = {
         posture: 'Sjekk holdningen',
         breakfast: 'Spis frokost',
       },
+      collapseLabel: 'Skjul foreslåtte vaner',
+      expandLabel: 'Vis foreslåtte vaner',
     },
     plans: {
       text: 'Del opp i mindre biter.',

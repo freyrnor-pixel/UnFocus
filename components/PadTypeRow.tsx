@@ -86,6 +86,10 @@
  *     surfaces differ: a habit has a real create-mode editor screen (`/habit-form`), so
  *     nothing is saved until Save there; a task's editor is an expanded `TaskCard` on a
  *     SAVED row (app/task-form.tsx was retired 2026-07-23), so that one still commits first.
+ *   - **`noGhostCheck` (2026-08-06)**: app/(tabs)/habits.tsx passes this — its rows never end
+ *     in a check any more (always a −/+ pair, see HabitCard), so the idle-state ghost ring
+ *     used to preview a control the row could never actually show. Every other caller keeps
+ *     the ring; only opt out where it would be misleading.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
@@ -133,6 +137,14 @@ type Props = {
   onMore?: () => void;
   moreLabel?: string;
   disabled?: boolean;
+  /**
+   * Suppress the idle-state ghost check ring (2026-08-06) — pass on a pad whose rows never
+   * end in a check at all, so the ring doesn't preview a control that can't appear (Habits,
+   * whose rows always end in a −/+ pair since the same date). The field is already `flex: 1`
+   * in the row, so omitting the ring's fixed width + gap widens it automatically — no extra
+   * layout work needed here.
+   */
+  noGhostCheck?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -147,6 +159,7 @@ export default function PadTypeRow({
   onMore,
   moreLabel,
   disabled,
+  noGhostCheck,
   style,
 }: Props) {
   const theme = useAppTheme();
@@ -297,7 +310,7 @@ export default function PadTypeRow({
   // on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
   // ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
   // preview of where a check WILL go once this line becomes a real row, not a control.
-  const ghostCheck = !showControls ? (
+  const ghostCheck = !showControls && !noGhostCheck ? (
     <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
   ) : null;
 
