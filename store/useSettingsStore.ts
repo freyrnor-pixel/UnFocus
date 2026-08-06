@@ -87,6 +87,12 @@
  *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/(tabs)/habits.tsx dropped
+ *     its Today/Week/Month switcher entirely (a habit is set up once with a recurrence and
+ *     an optional reminder time; the maintainer's call was that browsing by day/week/month
+ *     is what a to-do is for, not a habit). The column, type (`HabitViewTab`) and field stay
+ *     for the same reason as the rest of this list — never dropped, and free to revive if a
+ *     browsing view comes back.
  *   - **`show_points` LEFT the inert list on 2026-07-31** — exactly the "build the behaviour
  *     it implies" case the note above anticipates. Its TS field is now `showGrowth` (see its
  *     own field doc, near `lifetimeCompletedTasks`/`lifetimeGrowth`) — a real off-by-default
@@ -438,6 +444,13 @@ export type Settings = {
   tourProgress: string;
   /** Habits' Today/Week/Month selector, persisted so it survives a remount. */
   habitViewTab: HabitViewTab;
+  /**
+   * Surface ids whose components/StarterCard.tsx empty-state explainer the user has
+   * manually dismissed (2026-08-06) via the card's own "X" — e.g. 'habits', 'goals'. A key
+   * present here never renders again for that surface, independent of whatever emptiness
+   * gate the caller uses to decide whether it WOULD show one. See StarterCard's header.
+   */
+  dismissedStarters: string[];
 };
 
 type SettingsStore = Settings & {
@@ -449,6 +462,8 @@ type SettingsStore = Settings & {
   setWorkModeSessionOverride: (v: boolean) => void;
   /** Record that a screen's first-run ⓘ hint has auto-expanded, so it won't again. */
   markScreenHintSeen: (key: string) => void;
+  /** Record that a components/StarterCard.tsx instance has been manually dismissed. */
+  dismissStarter: (key: string) => void;
 };
 
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
@@ -509,6 +524,7 @@ function rowToSettings(row: Row): Settings {
     freyrSeedIds: readStr(row, 'freyr_seed_ids'),
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
+    dismissedStarters: readJson<string[]>(row, 'dismissed_starters', []),
     homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'habits', 'notes', 'shopping']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
@@ -599,6 +615,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   freyrSeedIds: { col: 'freyr_seed_ids' },
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
   seenScreenHints: { col: 'seen_screen_hints', to: (v) => JSON.stringify(v) },
+  dismissedStarters: { col: 'dismissed_starters', to: (v) => JSON.stringify(v) },
   homeCardOrder: { col: 'home_card_order', to: (v) => JSON.stringify(v) },
   energySystemEnabled: { col: 'energy_system_enabled', to: bool },
   energyDailyCapacity: { col: 'energy_daily_capacity' },
@@ -686,6 +703,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   freyrSeedIds: '',
   planTimelineHorizontal: false,
   seenScreenHints: [],
+  dismissedStarters: [],
   homeCardOrder: ['plans', 'habits', 'notes', 'shopping'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
@@ -769,6 +787,19 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         logDbError(`useSettingsStore.markScreenHintSeen(${key})`, e);
       }
       return { ...s, seenScreenHints };
+    });
+  },
+
+  dismissStarter(key) {
+    set((s) => {
+      if (s.dismissedStarters.includes(key)) return s;
+      const dismissedStarters = [...s.dismissedStarters, key];
+      try {
+        updateRow('settings', rowValues({ dismissedStarters }, SETTINGS_COLUMNS), 'id = 1');
+      } catch (e) {
+        logDbError(`useSettingsStore.dismissStarter(${key})`, e);
+      }
+      return { ...s, dismissedStarters };
     });
   },
 }));

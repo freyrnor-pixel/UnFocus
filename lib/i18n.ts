@@ -1222,6 +1222,10 @@ const en = {
   // Habits — shame-free labels (Proposal 5)
   habits: {
     notYetToday: 'Not yet today',
+    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording
+     *  from hints.habits.text (the collapsible ⓘ hint just above it) on purpose, so the
+     *  two don't say the same sentence twice on screen at once. */
+    cardSubtitle: 'Simple check-ins — no streaks, no scores.',
     // --- W-D additions ---
     moreOptions: 'More options',
     fewerOptions: 'Fewer options',
@@ -1777,6 +1781,8 @@ const en = {
     exampleLabel: 'Example',
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
+    /** Accessibility label for a StarterCard's dismiss "X" (2026-08-06). */
+    dismiss: 'Dismiss',
     habits: {
       text: 'All wins matter, big and small.',
       tapToAdd: 'Tap one to start:',
@@ -2608,6 +2614,7 @@ const no: typeof en = {
   // Habits
   habits: {
     notYetToday: 'Ikke ennå i dag',
+    cardSubtitle: 'Enkle avkrysninger — ingen rekker, ingen poeng.',
     // --- W-D additions ---
     moreOptions: 'Flere valg',
     fewerOptions: 'Færre valg',
@@ -3401,6 +3408,7 @@ const no: typeof en = {
   starters: {
     exampleLabel: 'Eksempel',
     addExample: 'Legg til',
+    dismiss: 'Lukk',
     habits: {
       text: 'Alle seire teller, små som store.',
       tapToAdd: 'Trykk på én for å komme i gang:',

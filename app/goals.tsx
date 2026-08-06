@@ -146,7 +146,9 @@ export default function GoalsScreen() {
         {hintOpen && <HintCard text={t.hints.goals.text} example={t.hints.goals.example} />}
 
         {goals.length === 0 ? (
-          <StarterCard text={t.starters.goals.text}>
+          // `dismissKey="goals"` (2026-08-06) — shared with components/GoalsSheet.tsx's own
+          // StarterCard for the same empty state; see StarterCard's "Universal dismiss" note.
+          <StarterCard text={t.starters.goals.text} dismissKey="goals">
             <Text style={[styles.tapToAdd, { color: theme.textMuted }]}>{t.starters.goals.tapToAdd}</Text>
             <View style={styles.starterChips}>
               {GOAL_STARTERS.map((starter) => (
@@ -188,7 +190,9 @@ export default function GoalsScreen() {
                       strengthUpdatedAt={goal.strengthUpdatedAt}
                       size={14}
                     />
-                    <Text style={[styles.goalTitle, { color: theme.text }]} numberOfLines={2}>
+                    {/* No numberOfLines cap (2026-08-06, "Goals should be expanded in
+                        full") — mirrors the same fix in components/GoalsSheet.tsx. */}
+                    <Text style={[styles.goalTitle, { color: theme.text }]}>
                       {goal.title}
                     </Text>
                     <PressableScale

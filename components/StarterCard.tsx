@@ -26,19 +26,39 @@
  *
  * Connections:
  *   Imports → components/Surface, components/StageTree (the growth-stage watermark),
- *             components/Badge (via StarterExampleRow), constants/theme,
- *             lib/useAppTheme, @expo/vector-icons
+ *             components/PressableScale (the dismiss "X"), components/Badge (via
+ *             StarterExampleRow), constants/theme, lib/useAppTheme, lib/haptics, lib/i18n
+ *             (only for the dismiss button's accessibility label — see below),
+ *             store/useSettingsStore (dismissedStarters + dismissStarter, only when a
+ *             caller passes `dismissKey`), @expo/vector-icons
  *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`, and
  *             `stage="sprout"`), app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx, app/goals.tsx, components/GoalsSheet.tsx,
  *             components/MedicineTrayCard.tsx (compact — no watermark),
  *             components/EnergyMeter.tsx (`stage="sapling"`) — most also use
  *             components/StarterExampleRow.tsx to build the `example` node
- *   Data    → none — pure presentation; callers pass already-localized strings
+ *   Data    → reads/writes settings.dismissedStarters ONLY when a caller passes
+ *             `dismissKey`; otherwise unchanged (pure presentation, callers pass
+ *             already-localized strings)
  *
  * Edit notes:
  *   - `text` arrives already-localized (same contract as HintCard); this file never calls
- *     useT(). The copy lives under `starters.*` in lib/i18n.ts.
+ *     useT() for `text`/`example`/`children` — those stay the caller's job. The copy lives
+ *     under `starters.*` in lib/i18n.ts.
+ *   - **Universal dismiss (2026-08-06)**: pass `dismissKey` (a stable per-surface id, e.g.
+ *     `'habits'`) to get a small "X" next to the explanation text. Tapping it writes the key
+ *     into `settings.dismissedStarters` (store/useSettingsStore.ts, mirrors
+ *     `seenScreenHints`'s shape) and this component renders NOTHING for that key from then
+ *     on — checked before any other prop, so it overrides whatever emptiness gate the
+ *     caller used to decide it should render (including the sticky `|| xStarterAdded` OR
+ *     terms a few callers carry — see the header comment above). This is deliberately a
+ *     ONE-WAY, permanent-per-key flag, not something that resets when the surface next goes
+ *     empty: a user who dismissed the teaching card for a surface already knows what it
+ *     said, so re-emptying that surface later (e.g. deleting everything) shouldn't teach it
+ *     again either. Omit `dismissKey` and nothing changes — this is fully opt-in per call
+ *     site. Same-key `dismissKey` across two different call sites (app/goals.tsx and
+ *     components/GoalsSheet.tsx both use `'goals'`) is intentional: they explain the same
+ *     empty state, so dismissing one dismisses both.
  *   - `text` gets a small leading bulb glyph + italic styling so it visually reads as "here's
  *     the idea" rather than generic body copy (2026-07-27 — was indistinguishable from a
  *     regular paragraph).
@@ -86,9 +106,13 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import StageTree, { type TreeStage } from '@/components/StageTree';
-import { Fonts, FontSize, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
+import { tap } from '@/lib/haptics';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
   /** The short explanation — one sentence, already localized. */
@@ -111,11 +135,28 @@ type Props = {
    * Edit notes and components/StageTree.tsx.
    */
   stage?: TreeStage;
+  /**
+   * Stable per-surface id (e.g. `'habits'`) that makes this card dismissible. See the
+   * "Universal dismiss" edit note above. Omit to keep the card non-dismissible (unchanged
+   * behavior for every existing call site until it opts in).
+   */
+  dismissKey?: string;
 };
 
-export default function StarterCard({ text, example, children, compact, stage }: Props) {
+export default function StarterCard({ text, example, children, compact, stage, dismissKey }: Props) {
   const theme = useAppTheme();
+  const t = useT();
   const styles = useScaledStyles(baseStyles);
+  // Hooks run unconditionally regardless of whether `dismissKey` was passed — only the
+  // derived boolean is conditional. `false` when no key was given, so a call site that
+  // never opts in can never be affected by another surface's dismissal.
+  const dismissed = useSettingsStore((s) => (dismissKey ? s.dismissedStarters.includes(dismissKey) : false));
+  const dismissStarter = useSettingsStore((s) => s.dismissStarter);
+
+  // Checked before anything else below: a dismissed card renders nothing, overriding
+  // whatever emptiness gate the caller used to decide it should show one.
+  if (dismissed) return null;
+
   return (
     <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
       {/* The growth tree — the empty-state member of the motif family. It says "nothing has
@@ -128,6 +169,16 @@ export default function StarterCard({ text, example, children, compact, stage }:
       <View style={styles.textRow}>
         <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
         <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
+        {dismissKey ? (
+          <PressableScale
+            onPress={() => { tap(); dismissStarter(dismissKey); }}
+            hitSlop={HitSlop.base}
+            accessibilityRole="button"
+            accessibilityLabel={t.starters.dismiss}
+          >
+            <Ionicons name="close" size={compact ? 14 : 16} color={theme.textMuted} />
+          </PressableScale>
+        ) : null}
       </View>
       {example ? (
         <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
