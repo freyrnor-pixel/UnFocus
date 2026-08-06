@@ -79,7 +79,8 @@ import { Badge } from '@/components/Badge';
 import SlideSelector from '@/components/SlideSelector';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import { useMealStore, MealType, Difficulty, Dish, dishTotalPrice } from '@/store/useMealStore';
+import Stepper from '@/components/Stepper';
+import { useMealStore, MealType, Difficulty, Dish, Ingredient, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
@@ -141,6 +142,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const removeDish = useMealStore((s) => s.removeDish);
   const duplicateDish = useMealStore((s) => s.duplicateDish);
   const addIngredient = useMealStore((s) => s.addIngredient);
+  const updateIngredient = useMealStore((s) => s.updateIngredient);
   const removeIngredient = useMealStore((s) => s.removeIngredient);
   const suggest = useCatalogStore((s) => s.suggest);
   const shoppingAdd = useShoppingStore((s) => s.add);
@@ -190,6 +192,27 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
 
   // Inline "add ingredient to existing dish" state (keyed by dish id)
   const [inlineIng, setInlineIng] = useState<Record<string, { name: string; amount: string; price: string }>>({});
+
+  // Tap-to-edit an EXISTING ingredient's quantity/price (2026-08-06) — only one open at a
+  // time, ids are globally unique so a bare id is enough (no per-dish keying needed). The
+  // price field needs its own text-buffer state (a Stepper commits live on each tap, but a
+  // free-typed number needs somewhere to live mid-edit before it's parsed and committed).
+  const [editingIngId, setEditingIngId] = useState<string | null>(null);
+  const [editPriceDraft, setEditPriceDraft] = useState('');
+
+  function toggleIngredientEdit(ing: Ingredient) {
+    if (editingIngId === ing.id) {
+      setEditingIngId(null);
+      return;
+    }
+    setEditingIngId(ing.id);
+    setEditPriceDraft(ing.priceNok > 0 ? String(ing.priceNok) : '');
+  }
+
+  function commitIngredientPrice(id: string) {
+    const parsed = parseFloat(editPriceDraft.replace(',', '.'));
+    updateIngredient(id, { priceNok: isNaN(parsed) ? 0 : parsed });
+  }
 
   useEffect(() => {
     loadDishes();
@@ -400,20 +423,67 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                       {/* Expanded: ingredient rows (name · amount · line price) + inline add + delete dish */}
                       {isOpen && (
                         <View style={styles.ingBody}>
-                          {dish.ingredients.map((ing) => (
-                            <View key={ing.id} style={[styles.ingRow, { borderTopColor: theme.border }]}>
-                              <Text style={[styles.ingName, { color: theme.text }]} numberOfLines={1}>{ing.name}</Text>
-                              <Text style={[styles.ingAmount, { color: theme.textMuted }]} numberOfLines={1}>
-                                {ing.amount}{ing.unit ? ` ${ing.unit}` : ''}
-                              </Text>
-                              {ing.priceNok > 0 && (
-                                <Text style={[styles.ingPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
-                              )}
-                              <PressableScale onPress={() => removeIngredient(ing.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.9}>
-                                <Ionicons name="remove-circle-outline" size={18} color={theme.textMuted} />
-                              </PressableScale>
-                            </View>
-                          ))}
+                          {dish.ingredients.map((ing) => {
+                            const ingEditing = editingIngId === ing.id;
+                            return (
+                              <View key={ing.id} style={[styles.ingRow, { borderTopColor: theme.border }]}>
+                                {/* Viewing state: one clean line — tap to open the quantity/price
+                                    editor below it. No per-row delete visible here (2026-08-06) —
+                                    it moved into the edit line so a merely-viewed row stays quiet
+                                    and uses its full width for name/amount/price. */}
+                                <PressableScale
+                                  style={styles.ingViewRow}
+                                  onPress={() => toggleIngredientEdit(ing)}
+                                  scaleTo={0.98}
+                                  accessibilityRole="button"
+                                  accessibilityLabel={t.editIngredientLabel(ing.name)}
+                                  accessibilityState={{ expanded: ingEditing }}
+                                >
+                                  <Text style={[styles.ingName, { color: theme.text }]} numberOfLines={1}>{ing.name}</Text>
+                                  <Text style={[styles.ingAmount, { color: theme.textMuted }]} numberOfLines={1}>
+                                    {ing.amount}{ing.unit ? ` ${ing.unit}` : ''}
+                                  </Text>
+                                  {ing.priceNok > 0 && (
+                                    <Text style={[styles.ingPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(ing.priceNok, 0)}</Text>
+                                  )}
+                                  <Ionicons name={ingEditing ? 'chevron-up' : 'chevron-down'} size={14} color={theme.textMuted} />
+                                </PressableScale>
+                                {/* Editing state: revealed one line under the row it belongs to —
+                                    quantity stepper, a numbers-only price field, and the "X" that
+                                    removes this ingredient (was always-visible; now lives here so
+                                    it can't be mis-tapped while just scanning the list). */}
+                                {ingEditing && (
+                                  <View style={styles.ingEditRow}>
+                                    <Stepper
+                                      value={parseInt(ing.amount, 10) || 1}
+                                      onChange={(next) => updateIngredient(ing.id, { amount: String(next) })}
+                                      min={1}
+                                      suffix={ing.unit || undefined}
+                                      accessibilityLabel={t.ingredientQuantityLabel}
+                                    />
+                                    <TextInput
+                                      style={[styles.ingEditPrice, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                      value={editPriceDraft}
+                                      onChangeText={(v) => setEditPriceDraft(v.replace(/[^0-9.,]/g, ''))}
+                                      placeholder={t.catalogueItemPricePlaceholder}
+                                      placeholderTextColor={theme.textMuted}
+                                      keyboardType="decimal-pad"
+                                      onBlur={() => commitIngredientPrice(ing.id)}
+                                      onSubmitEditing={() => commitIngredientPrice(ing.id)}
+                                    />
+                                    <PressableScale
+                                      onPress={() => { removeIngredient(ing.id); setEditingIngId(null); }}
+                                      hitSlop={HitSlop.base}
+                                      accessibilityLabel={t.removeItemLabel}
+                                      scaleTo={0.9}
+                                    >
+                                      <Ionicons name="close-circle-outline" size={20} color={theme.bad} />
+                                    </PressableScale>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })}
 
                           {/* Inline add-ingredient row — shared AddRow (name input + amount/price extras). */}
                           <AddRow
@@ -681,10 +751,21 @@ const baseStyles = StyleSheet.create({
   dishPrice: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   dishAddBtn: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   ingBody: { paddingBottom: Spacing.xs },
-  ingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
+  // Column now (2026-08-06): a row is the tap-to-edit view line, plus an optional edit line
+  // revealed under it — was a single flat row with an always-visible delete button.
+  ingRow: { paddingVertical: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
+  ingViewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   ingName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
   ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right' },
   ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right' },
+  // Edit line (2026-08-06): quantity stepper + numbers-only price field + "X" to remove —
+  // revealed by tapping the view row above; this is where the per-ingredient delete now lives.
+  ingEditRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.xs, paddingLeft: Spacing.md },
+  // minWidth: 0 alongside flex: 1 (2026-08-06) — flex: 1 alone does not let a TextInput
+  // shrink (same gotcha as TaskCard's titleInput/addStepInput, see AGENTS.md's wrap-audit
+  // notes): without it this field refused to shrink below its content width and pushed the
+  // trailing "X" remove button clean off the right edge of the card, clipped invisible.
+  ingEditPrice: { flex: 1, minWidth: 0, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
   ingAddQty: { width: 40, borderRadius: Radius.sm, paddingHorizontal: 4, paddingVertical: 6, fontSize: FontSize.sm, textAlign: 'center' },
   ingAddPrice: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
   dishFooterActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.xs },

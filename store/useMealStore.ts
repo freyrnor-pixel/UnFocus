@@ -27,6 +27,9 @@
  *     to re-run; mirrors useHealthStore.seedSymptoms(). Renaming a seed entry orphans old rows.
  *   - duplicateDish() copies a dish + its ingredients under a new id, suffixing the name via
  *     getTranslations().dishCopySuffix (stores can't call useT(), see lib/i18n.ts header).
+ *   - updateIngredient() (2026-08-06) patches amount/unit/priceNok on an existing ingredient in
+ *     place — previously the only way to change a line was remove + re-add. Backs FoodTab's
+ *     tap-to-edit ingredient row (quantity stepper + price field).
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -71,6 +74,7 @@ type MealStore = {
   removeDish: (id: string) => void;
   duplicateDish: (id: string) => Dish | undefined;
   addIngredient: (i: Omit<Ingredient, 'id'>) => void;
+  updateIngredient: (id: string, patch: { amount?: string; unit?: string; priceNok?: number }) => void;
   removeIngredient: (id: string) => void;
   randomDish: (mealType?: MealType) => Dish | undefined;
 };
@@ -209,6 +213,21 @@ export const useMealStore = create<MealStore>((set, get) => ({
           ? { ...d, ingredients: [...d.ingredients, ingredient] }
           : d
       ),
+    }));
+  },
+
+  updateIngredient(id, patch) {
+    const values: Record<string, SQLValue> = {};
+    if (patch.amount !== undefined) values.amount = patch.amount;
+    if (patch.unit !== undefined) values.unit = patch.unit;
+    if (patch.priceNok !== undefined) values.price_nok = patch.priceNok;
+    if (Object.keys(values).length === 0) return;
+    updateRow('ingredients', values, 'id = ?', [id]);
+    set((s) => ({
+      dishes: s.dishes.map((d) => ({
+        ...d,
+        ingredients: d.ingredients.map((i) => (i.id === id ? { ...i, ...patch } : i)),
+      })),
     }));
   },
 
