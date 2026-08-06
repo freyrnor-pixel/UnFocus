@@ -182,6 +182,7 @@ import { DEFAULT_TRAY_TIMES, normalizeTrayTimes, TrayTimes } from '@/lib/medicin
 import { AspectRatioKey } from '@/constants/theme';
 import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/cardLayout';
 import { sanitizeCardStates } from '@/lib/padState';
+import { EMPTY_OVERRIDES, sanitizeLabOverrides, type LabOverrides } from '@/lib/designLab';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
@@ -398,6 +399,14 @@ export type Settings = {
    */
   featureDayLog: boolean;
   /**
+   * Design lab (2026-08-06): the workbench in Settings → Advanced where the maintainer can
+   * turn the app's colour/geometry/control knobs live and export the result as a document an
+   * agent can act on. Off by default and deliberately NOT taught anywhere — it is a tool for
+   * deciding what the app should look like, not a feature a user is meant to find. See
+   * lib/designLab.ts.
+   */
+  featureDesignLab: boolean;
+  /**
    * Which device calendars the timeline may draw (lib/deviceCalendar.ts). An EMPTY array
    * means ALL of them, which is the default — a picker that started empty would show
    * nothing and read as broken. Read-only use: nothing in this feature writes an event.
@@ -440,6 +449,25 @@ export type Settings = {
   // still counts in the card's own "8/10 left" summary. Nothing in the reminder, widget,
   // sync or automation paths may read this field.
   cardStates: Record<string, string>;
+  // ---- Design lab (2026-08-06) ----
+  // The override bag the lab writes: colour tokens (per light/dark), geometry scales, control
+  // variants and row-slot assignments, plus the maintainer's own note. Same JSON-blob-in-TEXT
+  // shape as cardLayouts/cardStates above, and the same defence — validated on read through
+  // lib/designLab.ts's sanitizeLabOverrides, which DROPS an unknown key, a malformed hex or an
+  // out-of-range number rather than propagating it. That matters more here than anywhere else
+  // in this type: this bag can set the colour of text on its own background.
+  //
+  // Presentation ONLY, and device-local. Nothing in the reminder, widget, sync or automation
+  // paths may read either field, `design_lab` is not in lib/aiSetupApply.ts's
+  // SETTINGS_WHITELIST (an AI-authored file must not be able to restyle the app), and neither
+  // belongs in syncService's SyncTable.
+  designLab: LabOverrides;
+  /**
+   * Whether the lab's overrides apply to the WHOLE app or only to the lab's own specimen
+   * bench. Defaults false, and the lab opens in that state every time: a half-finished
+   * experiment must not be able to leave the app unreadable on the way back out.
+   */
+  designLabApply: boolean;
   /** Guided-tour progress: comma-separated step ids from lib/tourSteps.ts. Device-local. */
   tourProgress: string;
   /** Habits' Today/Week/Month selector, persisted so it survives a remount. */
@@ -546,12 +574,15 @@ function rowToSettings(row: Row): Settings {
     featureAutomations: readBool(row, 'feature_automations'),
     featureMedicine: readBool(row, 'feature_medicine'),
     featureDayLog: readBool(row, 'feature_day_log'),
+    featureDesignLab: readBool(row, 'feature_design_lab'),
     dayLogCalendarIds: readJson<string[]>(row, 'day_log_calendar_ids', []),
     medicineTrayTimes: normalizeTrayTimes(readJson<unknown>(row, 'medicine_tray_times', DEFAULT_TRAY_TIMES)),
     medicineRemindersEnabled: readBool(row, 'medicine_reminders_enabled'),
     layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
     cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
     cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
+    designLab: sanitizeLabOverrides(readJson<unknown>(row, 'design_lab', {})),
+    designLabApply: readBool(row, 'design_lab_apply'),
     tourProgress: readStr(row, 'tour_progress', ''),
     habitViewTab: readEnum<HabitViewTab>(row, 'habit_view_tab', ['today', 'week', 'month'], 'today'),
   };
@@ -632,12 +663,15 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   featureAutomations: { col: 'feature_automations', to: bool },
   featureMedicine: { col: 'feature_medicine', to: bool },
   featureDayLog: { col: 'feature_day_log', to: bool },
+  featureDesignLab: { col: 'feature_design_lab', to: bool },
   dayLogCalendarIds: { col: 'day_log_calendar_ids', to: (v) => JSON.stringify(v ?? []) },
   medicineTrayTimes: { col: 'medicine_tray_times', to: (v) => JSON.stringify(v) },
   medicineRemindersEnabled: { col: 'medicine_reminders_enabled', to: bool },
   layoutDetail: { col: 'layout_detail' },
   cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
   cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
+  designLab: { col: 'design_lab', to: (v) => JSON.stringify(v) },
+  designLabApply: { col: 'design_lab_apply', to: bool },
   tourProgress: { col: 'tour_progress' },
   habitViewTab: { col: 'habit_view_tab' },
 };
@@ -726,6 +760,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureAutomations: false,
   featureMedicine: true,
   featureDayLog: true,
+  featureDesignLab: false,
   dayLogCalendarIds: [],
   medicineTrayTimes: DEFAULT_TRAY_TIMES,
   medicineRemindersEnabled: true,
@@ -736,6 +771,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Empty = every surface follows 'preview' (lib/padState's DEFAULT_PAD_STATE), which is
   // roughly the card an upgrading user already has.
   cardStates: {},
+  // The lab starts empty and preview-only every time — see the field docs above.
+  designLab: EMPTY_OVERRIDES,
+  designLabApply: false,
   tourProgress: '',
   habitViewTab: 'today' as HabitViewTab,
   loaded: false,

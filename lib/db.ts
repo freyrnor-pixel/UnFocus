@@ -1179,6 +1179,22 @@ export function initDb() {
     // show it again; see StarterCard's header for why this stays a permanent per-key flag
     // rather than resetting itself.
     "ALTER TABLE settings ADD COLUMN dismissed_starters TEXT DEFAULT '[]'",
+    // ---- Design lab (2026-08-06) — see lib/designLab.ts ----
+    // The workbench where the app's own colour/geometry/control tokens can be turned live and
+    // exported as a document an agent acts on. Three columns, all device-local:
+    //
+    //   feature_design_lab  the flag. DEFAULT 0 — off-by-default opt-in, and deliberately not
+    //                       back-filled for existing installs the way a user-facing feature
+    //                       flag is. Nobody should meet this by upgrading; it is a tool, not
+    //                       a feature.
+    //   design_lab          the override bag, same JSON-in-TEXT shape as card_layouts. Always
+    //                       read through sanitizeLabOverrides, never trusted.
+    //   design_lab_apply    whether the bag reaches the whole app or only the lab's own bench.
+    //                       DEFAULT 0 so an experiment can never follow the maintainer out of
+    //                       the screen it was made on.
+    'ALTER TABLE settings ADD COLUMN feature_design_lab INTEGER DEFAULT 0',
+    "ALTER TABLE settings ADD COLUMN design_lab TEXT DEFAULT '{}'",
+    'ALTER TABLE settings ADD COLUMN design_lab_apply INTEGER DEFAULT 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

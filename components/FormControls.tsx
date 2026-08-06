@@ -7,7 +7,10 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
- *             components/PressableScale, components/OptionalTag, react-native-reanimated
+ *             lib/i18n (useT — the boolean variants' Yes/No labels),
+ *             lib/useDesignLab (useLabControl, useLabShape — see the design-lab note below),
+ *             components/PressableScale, components/OptionalTag, components/AnimatedBottomSheet,
+ *             react-native-reanimated
  *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input. Switch
  *             callers include components/PlanTaskCard.tsx (2026-08-04 — the quick-add
  *             "add as task/moment" row, task 15's boolean-is-a-slider rule)
@@ -40,6 +43,18 @@
  *     `theme.border` pill (`switchFrame`) — same non-reactive-border convention as
  *     `segmentWrap`, since the track/thumb colors already carry on/off state. No specular
  *     highlight added (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
+ *   - **The design lab can reshape two of these controls (2026-08-06, lib/designLab.ts).**
+ *     `Switch` dispatches on the `boolean` slot (switch · segmented · checkbox · pill) and
+ *     `SegmentedControl` on the `choice` slot (segmented · pills · dropdown · sheet); the
+ *     shipped shape is the fallback in both, so the branches are unreachable until the lab
+ *     says otherwise. The variants are REAL controls, not mock-ups, and they live in this file
+ *     on purpose — a variant kept somewhere else drifts from the thing it is meant to replace.
+ *     `SegmentedControl` is now a three-line dispatcher; the shipped implementation moved
+ *     down into `SegmentedTrack` and is otherwise unchanged.
+ *     Border widths and `minHeight` also read the lab's geometry directly here, because these
+ *     four controls draw from a module-level `StyleSheet.create()` that this file deliberately
+ *     does NOT run through `useScaledStyles` — doing so would start scaling their label text
+ *     with the user's Size setting, which is a real behaviour change nobody asked for.
  */
 import React, { useEffect, useState } from 'react';
 import {
@@ -61,8 +76,11 @@ import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { Duration, Ease } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
+import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import PressableScale from '@/components/PressableScale';
 import OptionalTag from '@/components/OptionalTag';
+import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 
 // ── Checkbox ─────────────────────────────────────────────────────────────────
 
@@ -76,6 +94,7 @@ type CheckboxProps = {
 export function Checkbox({ checked, onChange, label, disabled }: CheckboxProps) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
+  const shape = useLabShape();
   // Box fill + border crossfade as checked flips; the checkmark pops in/out on top.
   const boxStyle = useToggleColor(checked, {
     backgroundColor: [rgba(theme.accent, 0), theme.accent],
@@ -88,9 +107,9 @@ export function Checkbox({ checked, onChange, label, disabled }: CheckboxProps) 
       scaleTo={0.97}
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
-      style={[styles.checkboxRow, { opacity: disabled ? 0.5 : 1 }]}
+      style={[styles.checkboxRow, { opacity: disabled ? 0.5 : 1, minHeight: shape.minTapTarget }]}
     >
-      <Animated.View style={[styles.checkboxBox, boxStyle]}>
+      <Animated.View style={[styles.checkboxBox, { borderRadius: (Radius.sm / 2) * shape.radiusScale }, boxStyle]}>
         {checked ? (
           <Animated.View
             entering={reducedMotion ? undefined : ZoomIn.duration(Duration.micro)}
@@ -116,12 +135,72 @@ type SwitchProps = {
 
 export function Switch({ checked, onChange, disabled, accessibilityLabel }: SwitchProps) {
   const theme = useAppTheme();
+  const t = useT();
+  // Design lab (lib/designLab.ts): which SHAPE answers a yes/no question. Resolves to
+  // 'switch' — what the app ships — unless the lab says otherwise, so this dispatch is inert
+  // for a normal user. The point of switching it here rather than in a mock is that every
+  // boolean row in Settings and every editor changes at once, which is the only way to judge
+  // whether a shape actually works.
+  const variant = useLabControl('boolean');
+  const shape = useLabShape();
+
+  if (variant === 'checkbox') {
+    return (
+      <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
+        <Checkbox checked={checked} onChange={onChange} disabled={disabled} />
+      </View>
+    );
+  }
+
+  if (variant === 'segmented') {
+    return (
+      <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
+        <SegmentedControl
+          style={styles.booleanSegments}
+          value={checked ? 'yes' : 'no'}
+          onChange={(next) => onChange(next === 'yes')}
+          options={[
+            { value: 'no', label: t.no },
+            { value: 'yes', label: t.yes },
+          ]}
+        />
+      </View>
+    );
+  }
+
+  if (variant === 'pill') {
+    return (
+      <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
+        <PressableScale
+          onPress={() => { selection(); onChange(!checked); }}
+          disabled={disabled}
+          scaleTo={0.97}
+          accessibilityRole="switch"
+          accessibilityState={{ checked }}
+          accessibilityLabel={accessibilityLabel}
+          style={[
+            styles.booleanPill,
+            {
+              backgroundColor: checked ? theme.accent : 'transparent',
+              borderColor: checked ? theme.accent : theme.border,
+              opacity: disabled ? 0.5 : 1,
+            },
+          ]}
+        >
+          <Text style={[styles.booleanPillLabel, { color: checked ? theme.accentInk : theme.textMuted }]}>
+            {checked ? t.yes : t.no}
+          </Text>
+        </PressableScale>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.switchRow}>
+    <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
       {/* Themed frame (task 16, 3/N) — the bare native switch was the one FormControls
           control with no edge at all; matches segmentWrap's static theme.border ring rather
           than reacting to checked, since the track colors below already carry on/off state. */}
-      <View style={[styles.switchFrame, { borderColor: theme.border }]}>
+      <View style={[styles.switchFrame, { borderColor: theme.border, borderWidth: shape.borderFieldWidth * shape.borderScale }]}>
         <RNSwitch
           value={checked}
           onValueChange={onChange}
@@ -152,8 +231,22 @@ type SegmentedControlProps = {
 const SEG_PAD = 4;
 
 export function SegmentedControl({ options, value, onChange, style }: SegmentedControlProps) {
+  // Design lab: which SHAPE answers a pick-one question. 'segmented' is what the app ships,
+  // so the three branches below are unreachable until the lab says otherwise. They are real
+  // controls rather than mock-ups because the question being asked ("does a picker read better
+  // than a row of segments at 360px in Norwegian?") can only be answered on the real screens.
+  const variant = useLabControl('choice');
+  if (variant === 'pills') return <PillChoice options={options} value={value} onChange={onChange} style={style} />;
+  if (variant === 'dropdown') return <ListChoice options={options} value={value} onChange={onChange} style={style} mode="inline" />;
+  if (variant === 'sheet') return <ListChoice options={options} value={value} onChange={onChange} style={style} mode="sheet" />;
+  return <SegmentedTrack options={options} value={value} onChange={onChange} style={style} />;
+}
+
+/** The shipped shape: a sliding pill over a bordered track. */
+function SegmentedTrack({ options, value, onChange, style }: SegmentedControlProps) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
+  const shape = useLabShape();
   const [track, setTrack] = useState({ w: 0, h: 0 });
 
   const n = options.length;
@@ -175,7 +268,20 @@ export function SegmentedControl({ options, value, onChange, style }: SegmentedC
   };
 
   return (
-    <View style={[styles.segmentWrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }, style]} onLayout={onLayout}>
+    <View
+      style={[
+        styles.segmentWrap,
+        {
+          backgroundColor: theme.surfaceMuted,
+          borderColor: theme.border,
+          borderWidth: shape.borderFieldWidth * shape.borderScale,
+          borderRadius: Radius.sm * shape.radiusScale,
+          minHeight: shape.minTapTarget,
+        },
+        style,
+      ]}
+      onLayout={onLayout}
+    >
       {/* Sliding raised-surface indicator — rendered first so it paints beneath the labels. */}
       {segW > 0 && (
         <Animated.View
@@ -209,6 +315,132 @@ export function SegmentedControl({ options, value, onChange, style }: SegmentedC
   );
 }
 
+/**
+ * Design-lab variant: every option visible as its own pill, wrapping onto a second line rather
+ * than being squeezed. Trades the segmented track's tidy single line for legibility when the
+ * labels are long — which in this app means Norwegian.
+ */
+function PillChoice({ options, value, onChange, style }: SegmentedControlProps) {
+  const theme = useAppTheme();
+  const shape = useLabShape();
+  return (
+    <View style={[styles.pillRow, style]}>
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <PressableScale
+            key={opt.value}
+            onPress={() => {
+              if (opt.value !== value) selection();
+              onChange(opt.value);
+            }}
+            scaleTo={0.97}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            style={[
+              styles.choicePill,
+              {
+                minHeight: shape.minTapTarget,
+                backgroundColor: active ? theme.accent : 'transparent',
+                borderColor: active ? theme.accent : theme.border,
+                borderWidth: shape.borderButtonWidth * shape.borderScale,
+              },
+            ]}
+          >
+            <Text style={[styles.segmentLabel, { color: active ? theme.accentInk : theme.textMuted }]}>
+              {opt.label}
+            </Text>
+          </PressableScale>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * Design-lab variant: a single row showing the CURRENT value, which opens the full list.
+ *
+ * `mode` is the only difference between the lab's 'dropdown' and 'sheet' variants — inline
+ * expands the list under the trigger, sheet lifts it into a bottom sheet. Both collapse the
+ * control to one line at rest, which is the property being evaluated.
+ */
+function ListChoice({
+  options,
+  value,
+  onChange,
+  style,
+  mode,
+}: SegmentedControlProps & { mode: 'inline' | 'sheet' }) {
+  const theme = useAppTheme();
+  const isDark = useIsDark();
+  const fieldHue = useScreenColor() ?? theme.border;
+  const shape = useLabShape();
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+
+  const pick = (next: string) => {
+    if (next !== value) selection();
+    onChange(next);
+    setOpen(false);
+  };
+
+  const list = (
+    <View style={styles.choiceList}>
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <PressableScale
+            key={opt.value}
+            onPress={() => pick(opt.value)}
+            scaleTo={0.98}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
+            style={[styles.choiceListRow, { minHeight: shape.minTapTarget }]}
+          >
+            <Text style={[styles.choiceListLabel, { color: active ? theme.text : theme.textMuted }]}>
+              {opt.label}
+            </Text>
+            {active ? <Ionicons name="checkmark" size={18} color={theme.accent} /> : null}
+          </PressableScale>
+        );
+      })}
+    </View>
+  );
+
+  return (
+    <View style={style}>
+      <PressableScale
+        onPress={() => setOpen((v) => !v)}
+        scaleTo={0.98}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        style={[
+          styles.choiceTrigger,
+          {
+            minHeight: shape.minTapTarget,
+            borderColor: computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength),
+            borderWidth: shape.borderFieldWidth * shape.borderScale,
+            borderRadius: Radius.sm * shape.radiusScale,
+            backgroundColor: theme.surface,
+          },
+        ]}
+      >
+        <Text style={[styles.choiceListLabel, { color: theme.text }]} numberOfLines={1}>
+          {current?.label ?? ''}
+        </Text>
+        <Ionicons name={open && mode === 'inline' ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+      </PressableScale>
+
+      {mode === 'inline' && open ? list : null}
+      {mode === 'sheet' ? (
+        <AnimatedBottomSheet visible={open} onClose={() => setOpen(false)}>
+          {list}
+        </AnimatedBottomSheet>
+      ) : null}
+    </View>
+  );
+}
+
 // ── Input ────────────────────────────────────────────────────────────────────
 
 type InputProps = TextInputProps & {
@@ -222,6 +454,7 @@ export function Input({ label, error, optional, style, onFocus, onBlur, ...rest 
   const theme = useAppTheme();
   const isDark = useIsDark();
   const fieldHue = useScreenColor() ?? theme.border;
+  const shape = useLabShape();
   const [focused, setFocused] = useState(false);
   // Resting border is the screen's own hue at the FIELD rung (card design reset, 2026-08-05),
   // so an editor's fields belong to the screen that pushed them. Error and focus still WIN over
@@ -230,7 +463,7 @@ export function Input({ label, error, optional, style, onFocus, onBlur, ...rest 
     ? theme.bad
     : focused
       ? theme.borderStrong
-      : computeBorderTone(fieldHue, isDark, 'field');
+      : computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength);
 
   return (
     <View>
@@ -253,7 +486,14 @@ export function Input({ label, error, optional, style, onFocus, onBlur, ...rest 
         }}
         style={[
           styles.input,
-          { color: theme.text, borderColor, backgroundColor: theme.surface },
+          {
+            color: theme.text,
+            borderColor,
+            backgroundColor: theme.surface,
+            borderWidth: shape.borderFieldWidth * shape.borderScale,
+            borderRadius: Radius.sm * shape.radiusScale,
+            minHeight: shape.minTapTarget,
+          },
           style,
         ]}
       />
@@ -342,5 +582,57 @@ const styles = StyleSheet.create({
   inputError: {
     fontSize: FontSize.xs,
     marginTop: 4,
+  },
+  // ── Design-lab control variants (lib/designLab.ts) ──────────────────────────
+  // Only reachable while the lab has reassigned a control slot. They are ordinary styles
+  // rather than a separate stylesheet so the variants stay inside the component that owns the
+  // real one — a variant living somewhere else is a variant that drifts from what it replaces.
+  booleanSegments: { minWidth: 132 },
+  booleanPill: {
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+  },
+  booleanPillLabel: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.semibold,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  choicePill: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.md,
+  },
+  choiceTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.xs,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  choiceList: {
+    marginTop: Spacing.xs,
+  },
+  choiceListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+  },
+  choiceListLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.semibold,
   },
 });

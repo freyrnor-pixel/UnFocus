@@ -28,9 +28,10 @@
  * lib/padState for its tests, but this component no longer calls it.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, PAD_ROW_HEIGHT,
+ *   Imports → constants/theme (computeBorderTone, PAD_ROW_HEIGHT,
  *             PAD_ROW_MIN_HEIGHT, Radius, Spacing), components/Collapsible, lib/padState
- *             (PadState), lib/screenColor (useScreenColor), lib/useAppTheme
+ *             (PadState), lib/screenColor (useScreenColor), lib/useAppTheme,
+ *             lib/useDesignLab (useLabControl, useLabShape — the `rowShape` knob below)
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
  *   Data    → none (presentational; the caller slices rows via lib/padState's padVisibleRows)
@@ -53,11 +54,18 @@
  *     a card full of boxes doesn't read as a grid: the card's border is the strong line, the
  *     rows are quieter lines inside it. Don't reach for `theme.border` here; it's a fixed grey
  *     that would ignore the screen it's on.
+ *   - **The design lab's `rowShape` knob (2026-08-06) can put the rules back**, and that is the
+ *     point of it: boxed · ruled · flush are the three answers this one question has been given
+ *     across three passes, and each was argued in prose. `boxed` is the shipped fallback, so
+ *     nothing changes until the lab says otherwise — but if a future pass wants to move off
+ *     boxes, the way to decide is to flip this on the real screens rather than to re-argue it.
+ *     Row height and the field border's width/strength come from the lab too.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Collapsible from '@/components/Collapsible';
-import { BORDER_WIDTH, computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import { PadState } from '@/lib/padState';
 import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -97,13 +105,31 @@ export default function PadSheet({
   const isDark = useIsDark();
   const hue = useScreenColor() ?? theme.border;
   const rows = React.Children.toArray(children).filter(Boolean);
-  // One step lighter than the card's own edge — see the Edit notes for why that gradation is
-  // load-bearing rather than decorative.
-  const box = {
-    borderWidth: BORDER_WIDTH.field,
-    borderColor: computeBorderTone(hue, isDark, 'field'),
-    borderRadius: Radius.sm,
-  };
+  // Design lab (lib/designLab.ts). `rowShape` is the one knob that re-answers the question the
+  // 2026-08-05 pass answered with boxes — and that DESIGN_COMPARISON/10 had answered with rules
+  // before it. Both answers were right for the card they were asked about, which is exactly why
+  // it is worth being able to flip between them on the real screens rather than in prose.
+  const shape = useLabShape();
+  const rowShape = useLabControl('rowShape');
+  const fieldWidth = shape.borderFieldWidth * shape.borderScale;
+  const tone = computeBorderTone(hue, isDark, 'field', shape.borderRampStrength);
+  // 'ruled' is the pre-reset notepad: one hairline under each row, no box. 'flush' is neither —
+  // rows separated by whitespace alone, which is what DESIGN_RULES.md rule 5 asks for and the
+  // reset explicitly overruled.
+  const box =
+    rowShape === 'ruled'
+      ? { borderBottomWidth: fieldWidth, borderColor: theme.rule }
+      : rowShape === 'flush'
+        ? null
+        : {
+            borderWidth: fieldWidth,
+            borderColor: tone,
+            borderRadius: Radius.sm * shape.radiusScale,
+          };
+  // This file's `styles` are NOT run through useScaledStyles, so it owns its own geometry
+  // outright — no double-application risk, unlike a caller-supplied radius (see Surface).
+  const gutter = { paddingHorizontal: Spacing.sm * shape.spacingScale };
+  const stackGap = { marginTop: Spacing.xs * shape.spacingScale };
 
   return (
     <View style={[styles.sheet, style]}>
@@ -113,7 +139,7 @@ export default function PadSheet({
           being covered edge-by-edge — the same motion as the done zones. */}
       <Collapsible open={state !== 'closed'}>
         {rows.map((row, i) => (
-          <View key={i} style={[styles.line, box, i > 0 && styles.stacked]}>
+          <View key={i} style={[styles.line, gutter, { minHeight: shape.rowHeight }, box, i > 0 && stackGap]}>
             {row}
           </View>
         ))}

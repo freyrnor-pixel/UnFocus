@@ -18,6 +18,7 @@
  *   Imports → constants/theme (BORDER_WIDTH, computeBorderRamp, darken,
  *             getLayeredShadow, Radius), constants/motion (Travel), lib/useAppTheme
  *             (useAppTheme, useIsDark, useAccessibility), lib/screenColor (useScreenColor),
+ *             lib/useDesignLab (useLabShape — the design lab's geometry, see Edit notes),
  *             components/PressableScale, expo-linear-gradient
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, components/SubScreenLinkButton,
@@ -71,6 +72,13 @@
  *   - **Reduced motion gets a static pressed COLOUR, not a sink.** With the flag set, `travel`
  *     is withheld and the fill drops to `theme.surfaceMuted` while held. The base slab is drawn
  *     in both modes — it's a static moulded edge, not an animation, so layout is identical.
+ *   - **The design lab reaches three things here directly** (2026-08-06, lib/designLab.ts):
+ *     the card's edge WIDTH, its ramp STRENGTH and its shadow DEPTH. All three are owned by
+ *     this component — a caller's style can't set them (`OWNED_KEYS` drops them) and none comes
+ *     from a `StyleSheet.create()` object, so `useScaledStyles`' geometry pass cannot reach
+ *     them the way it reaches radius/padding everywhere else. `cardElevation` at its default
+ *     resolves to `undefined` so the per-card `elevated` prop still decides — one global knob
+ *     should not be able to flatten a deliberately-floating card. Inert until the lab is used.
  *   - **Per-corner radius**: pass standard RN `borderTopLeftRadius` etc. in `style` to square
  *     off individual corners (BottomNav squares its top corners). The outer view honours these
  *     already; the ring and mask need their own math, which is what `topLeftRadius` & co. below
@@ -80,6 +88,7 @@ import React from 'react';
 import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BORDER_WIDTH, computeBorderRamp, darken, getLayeredShadow, Radius } from '@/constants/theme';
+import { useLabShape } from '@/lib/useDesignLab';
 import { Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
@@ -134,6 +143,19 @@ const EDGE_WIDTH = BORDER_WIDTH.card;
  * BORDER_WIDTH.card) purely so that import doesn't churn; it is the same number.
  */
 export const GLASS_EDGE_WIDTH = EDGE_WIDTH;
+
+/**
+ * The design lab's `cardElevation` knob → an `ElevationLevel`. Index 2 is the DEFAULT and maps
+ * to `undefined` on purpose: it means "as shipped", i.e. fall through to the `elevated` prop's
+ * own floating/raised decision, which is per-card and not something one global knob should
+ * flatten. 0/1/3 override every card at once.
+ */
+const LAB_ELEVATION: Record<number, 'flat' | 'raised' | 'floating' | undefined> = {
+  0: 'flat',
+  1: 'raised',
+  2: undefined,
+  3: 'floating',
+};
 
 const PADDING_KEYS = new Set([
   'padding', 'paddingHorizontal', 'paddingVertical',
@@ -196,8 +218,15 @@ export default function Surface({
   // Border hue: explicit override → tint → the ambient screen hue → neutral grey. See the
   // Edit notes; Home and Settings deliberately land on the neutral.
   const edgeHue = borderColor ?? tint ?? screenHue ?? theme.border;
-  const ramp = computeBorderRamp(edgeHue, isDark, 'card');
-  const shadowLevel = elevated ? 'floating' : 'raised';
+  // Design lab (lib/designLab.ts). Card thickness, ramp strength and shadow depth are OWNED by
+  // this component — a caller's style can't set them (see OWNED_KEYS) and they don't come from
+  // a StyleSheet, so `useScaledStyles`' geometry pass can't reach them. This is one of the four
+  // components that therefore reads the shape override directly. All three knobs default to
+  // exactly what the card shipped with, so this is inert until the lab is used.
+  const shape = useLabShape();
+  const edgeWidth = shape.borderCardWidth * shape.borderScale;
+  const ramp = computeBorderRamp(edgeHue, isDark, 'card', shape.borderRampStrength);
+  const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
   const outer: Record<string, unknown> = {};
@@ -212,7 +241,13 @@ export default function Surface({
     else if (isKey && WRAPPER_KEYS.has(key)) wrapper[key] = flat[key];
     else outer[key] = flat[key];
   }
-  const radius = (flat.borderRadius as number | undefined) ?? Radius.md;
+  // The design lab's `radiusScale` is applied to the DEFAULT only, never to a radius the
+  // caller passed in. **One owner per property** — a caller that runs its styles through
+  // `useScaledStyles` has already had its `borderRadius` scaled by that same knob, so scaling
+  // it again here would square the factor and round a card's corners twice as fast as a chip's.
+  // A caller that does NOT use that hook keeps whatever radius it hard-coded; that is a known,
+  // documented partial rather than a bug to "fix" by scaling here as well.
+  const radius = (flat.borderRadius as number | undefined) ?? Radius.md * shape.radiusScale;
   const topLeftRadius = (flat.borderTopLeftRadius as number | undefined) ?? radius;
   const topRightRadius = (flat.borderTopRightRadius as number | undefined) ?? radius;
   const bottomLeftRadius = (flat.borderBottomLeftRadius as number | undefined) ?? radius;
@@ -272,10 +307,10 @@ export default function Surface({
       card
     );
 
-  const innerTopLeftRadius = Math.max(0, topLeftRadius - EDGE_WIDTH);
-  const innerTopRightRadius = Math.max(0, topRightRadius - EDGE_WIDTH);
-  const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - EDGE_WIDTH);
-  const innerBottomRightRadius = Math.max(0, bottomRightRadius - EDGE_WIDTH);
+  const innerTopLeftRadius = Math.max(0, topLeftRadius - edgeWidth);
+  const innerTopRightRadius = Math.max(0, topRightRadius - edgeWidth);
+  const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - edgeWidth);
+  const innerBottomRightRadius = Math.max(0, bottomRightRadius - edgeWidth);
 
   // The border is drawn as a `LinearGradient` padding-ring rather than as a View's own
   // `borderColor`, for one specific reason worth keeping: RN's native border renderer doesn't
@@ -293,7 +328,10 @@ export default function Surface({
           borderBottomLeftRadius: bottomLeftRadius,
           borderBottomRightRadius: bottomRightRadius,
         },
-        { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) },
+        // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no
+        // flat tier in getLayeredShadow (it starts at 'raised'), so the pass is skipped rather
+        // than asked for a zero-strength one.
+        shadowLevel === 'flat' ? null : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) },
       ]}
     >
       <LinearGradient
@@ -309,7 +347,7 @@ export default function Surface({
             borderTopRightRadius: topRightRadius,
             borderBottomLeftRadius: bottomLeftRadius,
             borderBottomRightRadius: bottomRightRadius,
-            padding: EDGE_WIDTH,
+            padding: edgeWidth,
           },
         ]}
       >

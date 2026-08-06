@@ -615,8 +615,22 @@ const RAMP: Record<BorderWeight, { deep: number; light: number; alpha: number }>
  * Returns a `RimGradient` so it drops straight into the `LinearGradient` ring Surface and
  * Button already render — no new plumbing at any call site.
  */
-export function computeBorderRamp(hue: string, isDark: boolean, weight: BorderWeight = 'card'): RimGradient {
-  const { deep, light, alpha } = RAMP[weight];
+export function computeBorderRamp(
+  hue: string,
+  isDark: boolean,
+  weight: BorderWeight = 'card',
+  strength: number = 1,
+): RimGradient {
+  const base = RAMP[weight];
+  // `strength` is the design lab's borderRampStrength knob (lib/designLab.ts) and defaults to
+  // 1, so every existing caller and every pinned test gets byte-identical output. It scales
+  // only how far the two stops sit either side of the hue: at 0 both collapse onto the hue
+  // itself and the edge is flat, which is the "is the gradient doing anything for me?"
+  // question the maintainer has asked of this border twice. Alpha is deliberately NOT scaled —
+  // that would fade the border away rather than flatten it, answering a different question.
+  const deep = base.deep * strength;
+  const light = base.light * strength;
+  const alpha = base.alpha;
   // Light mode: deep at the top, lighter toward the bottom. Dark mode keeps the same
   // top-is-stronger direction, but both stops move UP in lightness off the near-black surface.
   const top = isDark ? lighten(hue, deep + 0.22) : darken(hue, deep);
@@ -634,8 +648,16 @@ export function computeBorderRamp(hue: string, isDark: boolean, weight: BorderWe
  * midpoint so a bordered field sitting next to a bordered card looks like it belongs to the
  * same system rather than to a different one.
  */
-export function computeBorderTone(hue: string, isDark: boolean, weight: BorderWeight = 'card'): string {
-  const { deep, light, alpha } = RAMP[weight];
+export function computeBorderTone(
+  hue: string,
+  isDark: boolean,
+  weight: BorderWeight = 'card',
+  strength: number = 1,
+): string {
+  const base = RAMP[weight];
+  const deep = base.deep * strength;
+  const light = base.light * strength;
+  const alpha = base.alpha;
   const mid = (deep + light) / 2;
   return rgba(isDark ? lighten(hue, mid + 0.26) : mix(darken(hue, deep), lighten(hue, light), 0.5), alpha);
 }

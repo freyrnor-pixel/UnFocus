@@ -127,6 +127,12 @@ const L = {
     editGoals: 'Goals', goalsClose: 'Done',
     logSymptom: "What's bothering you?",
     addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
+    // The design lab (2026-08-06). Off by default, so the walk has to switch it on before the
+    // link row exists. Its knob rows are "long label + fixed-width Stepper" thirty times over,
+    // plus a colour row that puts a swatch, two nudges and a hex field on ONE line — the
+    // densest horizontal case added to the app since the task editor, and the same shape that
+    // broke that editor at 327px.
+    advancedTab: 'Advanced', designLab: 'Design lab',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -138,6 +144,7 @@ const L = {
     typeHabit: 'Skriv vane',
     editGoals: 'Mål', goalsClose: 'Ferdig',
     logSymptom: 'Hva plager deg?',
+    advancedTab: 'Avansert', designLab: 'Designlab',
     addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
 }[LANG];
@@ -517,6 +524,23 @@ async function main() {
     await page.getByRole('button', { name: L.settings, exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
     await scan(page, 'settings');
+
+    // ── The design lab ──
+    // Pushed FROM settings, and a dead end itself, so it can only go here — after the scan
+    // that ends this pass. Off by default, so the switch has to be thrown first; the card
+    // title and the revealed link row share the same words, hence `.last()`.
+    // Best-effort like the editors: a failure must not lose the findings already collected.
+    try {
+      await clickText(page, L.advancedTab);
+      await page.waitForTimeout(900);
+      await page.getByRole('switch', { name: L.designLab, exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await page.getByText(L.designLab, { exact: true }).last().click({ timeout: 10000 });
+      await page.waitForTimeout(1400);
+      await scan(page, 'design-lab');
+    } catch (e) {
+      console.error(`  (design-lab step skipped: ${e.message.split('\n')[0]})`);
+    }
 
     // ── Pass 2: the medicine editor ──
     // The other dead end (full-screen, no BottomNav), so it gets a pass of its own rather

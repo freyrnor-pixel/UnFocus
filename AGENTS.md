@@ -647,6 +647,47 @@ file owns which token.)
   - **Off by default, still opt-in** (Settings → Advanced → Features — **and nowhere else since 2026-07-31, B1-1**): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). The onboarding feature picker (`app/onboarding/features.tsx`) is **deleted** — don't look for it, and don't add a new flag to it. Onboarding no longer offers ANY feature opt-in: a new install now gets the defaults and nothing to choose, which is the point. `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, and was offered on `app/onboarding/energy.tsx` until B1-2 removed the Quiet growth half of that screen; it is now Settings-only as well.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
+- **The design lab** (2026-08-06, `lib/designLab.ts` + `lib/designLabExport.ts` +
+  `lib/useDesignLab.ts` + `app/design-lab.tsx` + `components/DesignLabBench.tsx`): a workbench
+  where the app's own colour, geometry, control-shape and row-slot knobs can be turned live on
+  real components, and the result exported as a document an agent applies to the real tokens.
+  It exists because this repo's visual history is a list of taste questions argued in prose —
+  the material system tuned repeatedly and then deleted ("I've been messing around too much
+  with the visuals"), the row check moved left→right, boxed-vs-ruled rows rejected and then
+  re-adopted, `HomeGoalsCard` and the Bonsai card each shipped and removed within a day.
+  - **It is a question, not a setting.** Off by default behind `featureDesignLab` (Settings →
+    Advanced, its own card beside Debug mode — deliberately NOT in `FEATURE_ROWS`, which is the
+    list of things a *user* chooses between), never back-filled, resettable in one tap. The
+    "use these everywhere" switch (`designLabApply`) stores OFF, so an experiment can't follow
+    the maintainer out of the screen it was made on. The real output is the exported `.txt`.
+  - **Two hook points carry the whole thing, and that is the design.** `useAppTheme()`
+    (137 of 140 files) applies the colour overrides — which reaches the per-screen border hues
+    and the domain badges for free, since `lib/screenColor.ts` and `lib/domainColor.ts` both
+    derive from the palette. `scaleStyles()`/`useScaledStyles()` (63 of 140) got a geometry pass
+    alongside its existing font pass. **No component gained a prop and there is no second
+    rendering path.** Both are inert — same object references, same early returns — for anyone
+    who never opens it.
+  - **One owner per property.** A caller-supplied `borderRadius` is scaled by `scaleStyles` and
+    must NOT be scaled again by `Surface` (it scales only its own `Radius.md` default), or the
+    factor squares. `Surface`, `PadSheet`, `FormControls` and `PadRow` own geometry that no
+    StyleSheet carries (edge width, ramp strength, elevation, row shape, check shape) and read
+    the override directly; `PadSheet`/`FormControls` also own their radii outright because
+    neither runs through `useScaledStyles`.
+  - **On a real row the slot knobs can only SUBTRACT.** `PadRow` is handed finished nodes, so
+    it can hide a position but cannot build a person chip it was never given; full assignment is
+    live only on the bench, which owns its own sample data. The export records the assignment
+    either way — acting on it is an agent's job.
+  - **A knob's `usedBy`/`source` is export metadata, not UI copy** — English by design, because
+    its reader is an agent. Rendering it on screen put English hints under Norwegian labels and
+    the first wrap audit of the screen caught it. Token names (`accent`) and variant ids
+    (`segmented`) DO render raw, deliberately: they are the vocabulary the exported document
+    uses, and translating them would make the screen and the report disagree.
+  - `lib/designLab.ts` is dependency-free like `lib/cardLayout.ts` and
+    `lib/__tests__/designLab.test.ts` asserts it can't reach a store, the DB or the notification
+    layer — it is evaluated in render paths on every screen. Everything is sanitized on read;
+    `minTapTarget` has a hard 44px floor so the lab can't produce an app you can't tap out of.
+    `design_lab` is **not** in `aiSetupApply`'s `SETTINGS_WHITELIST` (an AI-authored file must
+    not be able to restyle the app) and none of its columns belong in `SyncTable`.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 - **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on the guided tour's closing card) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules), health-log data, or medicines/doses (too risky to validate / too sensitive — see that file's "out of scope" edit note before adding a medicine domain). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
 
@@ -828,6 +869,8 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
 
 **Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, the
+**design lab** (2026-08-06 — pushed from Settings → Advanced, and scanned last because both it
+and Settings are dead ends; the walk has to throw its off-by-default switch first), the
 **Energy config sheet** (2026-08-03 — opened from the strip's tutorial-state button on Home
 and closed again before the tab loop, since a bottom sheet's scrim swallows every click
 under it), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
@@ -852,11 +895,17 @@ Three things constrain how steps can be ordered, all verified rather than assume
   an OCR "not available" placeholder, so measuring it would report on a screen that doesn't
   exist on device. Like the rest of the native-only surface, it needs a real device.
 
-Known-benign finding, don't "fix" it: the **goals sheet** reports 1 wrapped control row at
-every width. That's `starterChips` — a `flexWrap` cloud of four sentence-length goal
-suggestions, which is *supposed* to wrap. The detector can't be taught to ignore it without
-also blinding it to the weekday-chip row, which uses `flexWrap` too but has a hard minimum
-width and IS a bug when it wraps. One documented false positive beats a blind spot.
+Known-benign findings, don't "fix" them:
+- The **goals sheet** reports 1 wrapped control row at every width. That's `starterChips` — a
+  `flexWrap` cloud of four sentence-length goal suggestions, which is *supposed* to wrap. The
+  detector can't be taught to ignore it without also blinding it to the weekday-chip row, which
+  uses `flexWrap` too but has a hard minimum width and IS a bug when it wraps. One documented
+  false positive beats a blind spot.
+- The **design lab** reports 3 (2026-08-06). Two are its slot option clouds — ten and eleven
+  short id pills each, `flexWrap` by design, same shape as `starterChips`. The third is its
+  three-button action row (Send · Save · Reset), which is the audit's own "cannot be fixed by
+  shortening copy" case and already carries the `flexWrap` + `rowGap` fix the task editor got:
+  the labels are words the maintainer needs to read, so the row wraps rather than truncating.
 
 The task editor's own `--width=327` findings (Energy stepper, add-step button,
 Delete·Discard·Save) were **fixed** the same day; the audit is clean at 327/360/393/430 in
