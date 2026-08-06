@@ -37,11 +37,11 @@
  *             components/StarterCard
  *             (first-run explainer at `stage="sprout"`, `dismissKey="habits"` — no example row
  *             since 2026-07-30; the starter chips in its `children` slot are the example),
- *             components/PressableScale,
- *             components/SubScreenLinkButton (2026-07-29,
- *             the "Edit Goals" link — see below), components/GoalsSheet (2026-07-31, the popup
- *             that link opens — also where a habit's linked goal shows its living-glow dot as
- *             of 2026-08-06, not on this screen's own rows any more), components/DebugNoteAnchor,
+ *             components/PressableScale (also draws the "Edit Goals" row directly, as of
+ *             2026-08-06 — see below; components/SubScreenLinkButton is no longer used on this
+ *             screen), components/GoalsSheet (2026-07-31, the popup that link opens — also
+ *             where a habit's linked goal shows its living-glow dot as of 2026-08-06, not on
+ *             this screen's own rows any more), components/DebugNoteAnchor,
  *             components/GhostRow (2026-08-01,
  *             the "just deleted this habit — restore?" row, see below),
  *             constants/theme, constants/motion (Duration, the registration flash), lib/date,
@@ -92,14 +92,20 @@
  *     shows even when deleting was the habit that made the list empty. habit-form.tsx's old
  *     confirm-before-delete dialog is gone with it — same "undo, not confirm" call already
  *     made for tasks.
- *   - **Edit Goals link (2026-07-29, moved + renamed + popup 2026-07-31)**: a
- *     SubScreenLinkButton sits at the BOTTOM of the screen, below the habit list — moved off
- *     its original spot right under HintCard so it stops outranking the day's habits on every
- *     visit. Gated on `featureGoals` — one of Goals' two entry points now that it no longer
- *     has its own Home card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as
- *     a popup (was `router.push('/goals')`) so editing goals doesn't leave this tab; the
- *     `/goals` route itself is unchanged and still reachable directly (deep links, notes'
- *     "Send it to…"). Mirrors app/(tabs)/plans.tsx's identical link.
+ *   - **Edit Goals row (2026-07-29, moved + renamed + popup 2026-07-31; INLINED 2026-08-06)**:
+ *     sits at the BOTTOM of the Habits card's own content, below the habit list and quick-add
+ *     — moved off its original spot right under HintCard so it stops outranking the day's
+ *     habits on every visit. **It is a plain row now, not components/SubScreenLinkButton** —
+ *     that component draws its own bordered `<Surface>`, so it always read as a second small
+ *     card floating below the Habits card no matter where its JSX sat; a user report ("still
+ *     looks the same" after this file's first redesign pass moved the JSX but not the
+ *     component) is what caught that the fix had to be the shape, not the position. Gated on
+ *     `featureGoals` — one of Goals' two entry points now that it no longer has its own Home
+ *     card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as a popup (was
+ *     `router.push('/goals')`) so editing goals doesn't leave this tab; the `/goals` route
+ *     itself is unchanged and still reachable directly (deep links, notes' "Send it to…").
+ *     app/(tabs)/plans.tsx's identical link is UNCHANGED (still SubScreenLinkButton) — this
+ *     inlining was scoped to Habits only; if Plans gets the same feedback, mirror it there too.
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
@@ -164,7 +170,6 @@ import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import StarterCard from '@/components/StarterCard';
 import StageTree from '@/components/StageTree';
-import SubScreenLinkButton from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
 import GhostRow from '@/components/GhostRow';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
@@ -744,12 +749,13 @@ export default function HabitsScreen() {
                 to `screenHue` too, so nothing on this card disagrees with its own header any
                 more. */}
             <Surface style={styles.habitsCard}>
-              {/* Sub-header (2026-08-06): the card had no label or description of its own —
-                  the "Habits" title was removed 2026-07-30 as a duplicate of the screen title,
-                  which left nothing at all. Distinct wording from hints.habits.text (the
-                  collapsible ⓘ hint just above this card) on purpose — see lib/i18n.ts's
-                  habits.cardSubtitle doc. */}
-              <Text style={[styles.cardSubtitle, { color: theme.textMuted }]}>{t.habits.cardSubtitle}</Text>
+              {/* Sub-header (2026-08-06, restyled after user feedback that the first pass —
+                  small muted italic-adjacent text — read as just another line of body copy,
+                  not a header). Bold, full-contrast, and its own row with real breathing room
+                  under it, so it reads as a heading FOR the card rather than a caption INSIDE
+                  it. Distinct wording from hints.habits.text (the collapsible ⓘ hint just
+                  above this card) on purpose — see lib/i18n.ts's habits.cardSubtitle doc. */}
+              <Text style={[styles.cardSubtitle, { color: theme.text }]}>{t.habits.cardSubtitle}</Text>
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
               <Collapsible open={showHabitProfiles}>
@@ -897,27 +903,34 @@ export default function HabitsScreen() {
                     ) : undefined
                   }
                 />
+
+                {/* Edit Goals row (2026-08-06, moved INSIDE the Habits card after user
+                    feedback) — this used to be components/SubScreenLinkButton, which draws
+                    its OWN bordered Surface, so it read as a second small card floating below
+                    the Habits card no matter where its JSX sat — moving it here for the first
+                    redesign pass didn't fix that, because the component itself is a card. It's
+                    a plain row now (icon + label + chevron, no border/shadow of its own), so it
+                    reads as part of THIS card, the way the maintainer asked for ("in the habits
+                    card... saves us from yet another card"). Same popup, same gate
+                    (featureGoals — turning the feature off removes the row, not just the sheet
+                    it opens), same "occasional edit action" reasoning for sitting at the
+                    bottom of the card rather than competing with the day's habits at the top. */}
+                {featureGoals && (
+                  <PressableScale
+                    onPress={() => { tap(); setGoalsSheetOpen(true); }}
+                    style={styles.goalsLinkRow}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.goals.editLink}
+                  >
+                    <Ionicons name="flag" size={16} color={screenHue} />
+                    <Text style={[styles.goalsLinkText, { color: theme.text }]}>{t.goals.editLink}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                  </PressableScale>
+                )}
               </View>
             </Surface>
             </DebugNoteAnchor>
           </TourTarget>
-
-          {/* Edit Goals link (2026-07-29, moved to the bottom + renamed + popup 2026-07-31)
-              — Goals dropped its own Home card (too many lists on Home); this is now one of
-              its two entry points, alongside Plans. Sits below the habit list rather than
-              above it (under HintCard, its original spot) since it's an occasional edit
-              action, not something that should outrank the day's habits on every visit.
-              Opens GoalsSheet as a popup instead of pushing to /goals, so editing goals
-              doesn't leave this tab. Gated on featureGoals so turning the feature off
-              removes the link, not just the sheet it opens. */}
-          {featureGoals && (
-            <SubScreenLinkButton
-              domain="habit"
-              icon="flag"
-              label={t.goals.editLink}
-              onPress={() => setGoalsSheetOpen(true)}
-            />
-          )}
 
           {/* Ambient stage tree (2026-08-04, design comparison task 03) — the `full` stage,
               standing on the backdrop at the foot of the column where the content ends. It is
@@ -996,7 +1009,17 @@ const baseStyles = StyleSheet.create({
     paddingBottom: PAD_GUTTER,
     gap: Spacing.md,
   },
-  cardSubtitle: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
+  cardSubtitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, marginBottom: Spacing.xs },
+  // Edit Goals row (2026-08-06) — a plain row, deliberately with NO border/background/shadow
+  // of its own, so it reads as part of the Habits card rather than a nested card. See the
+  // header's "Edit Goals row" edit note for why this replaced components/SubScreenLinkButton.
+  goalsLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  goalsLinkText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,
