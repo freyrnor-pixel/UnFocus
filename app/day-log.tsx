@@ -58,7 +58,7 @@ import { dateStr, formatDisplayDate, parseDateStr, todayStr } from '@/lib/date';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -79,7 +79,11 @@ export default function DayLogScreen() {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
-  const domainColor = getDomainColor(theme, 'plan');
+  // This screen's own blue (2026-08-06) — was lib/domainColor's 'plan' identity, a close but
+  // not identical blue to the screen's own (this is a `plans`-keyed sub-screen).
+  // `getScreenColor` (plain function), not `useScreenColor` (context hook) — this component
+  // renders ScreenScaffold below, so it sits above that provider; see health.tsx's note.
+  const screenColor = getScreenColor(theme, 'plans').base;
   const removeMoment = useMomentsStore((s) => s.remove);
   // formatDisplayDate renders DD.MM.YYYY in Norwegian and keeps ISO in English.
   const language = useSettingsStore((s) => s.language);
@@ -163,7 +167,7 @@ export default function DayLogScreen() {
               <PadRow
                 key={entry.id}
                 title={entry.label}
-                accent={domainColor.accent}
+                accent={screenColor}
                 leading={
                   <Ionicons name={DAY_LOG_ICONS[entry.kind]} size={14} color={theme.textMuted} />
                 }

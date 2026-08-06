@@ -159,8 +159,7 @@ import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { BORDER_WIDTH, computeBorderTone, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
-import { getDomainColor } from '@/lib/domainColor';
+import { useScreenColor, getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
 // Habits are no longer split into build/break — a single calm "met" colour (good),
@@ -668,7 +667,13 @@ export default function HabitsScreen() {
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const habitDomainColor = getDomainColor(theme, 'habit');
+  // This screen's own hue — used below for the starter chips + quick-add accent, which used
+  // to draw lib/domainColor's 'habit' identity (dark green) against this (sky-blue) screen.
+  // `getScreenColor` (plain function), not `useScreenColor` (context hook): this component
+  // renders ScreenScaffold below, so it sits above that provider and the hook would read
+  // the default (null → `theme.border`) here — unlike `HabitCard` below, a true descendant of
+  // ScreenScaffold, whose own `useScreenColor()` call at line ~260 is correctly scoped.
+  const screenHue = getScreenColor(theme, 'habits').base;
 
   // Persisted (2026-07-27): this was local state, so a user who lives in Week view got
   // dropped back to Today on every remount — leaving a tab and coming back, or any
@@ -860,10 +865,11 @@ export default function HabitsScreen() {
             <DebugNoteAnchor id="habits.section" label="Habits">
             {/* No `borderColor` (card design reset, 2026-08-05): this card sits ON the Habits
                 screen, so it inherits that screen's one hue like every other card. It used to
-                pass the habit DOMAIN colour (#218432, a dark green), which is the badge
-                palette — that put a green card on a sky-blue screen and made the Habits tab
-                the only screen whose main card disagreed with its own header and its own
-                Home preview. `habitDomainColor` still drives the badge and the accents below. */}
+                pass the habit DOMAIN colour (#218432, a dark green), which put a green card on
+                a sky-blue screen. The starter chips + quick-add accent below used to keep
+                drawing that same dark green after the card edge was fixed — updated 2026-08-06
+                to `screenHue` too, so nothing on this card disagrees with its own header any
+                more. */}
             <Surface style={styles.habitsCard}>
               {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
               <Collapsible open={showHabitProfiles}>
@@ -946,7 +952,7 @@ export default function HabitsScreen() {
                               scaleTo={0.96}
                               accessibilityRole="button"
                               accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                              style={[styles.starterChip, { borderColor: habitDomainColor.accent, backgroundColor: theme.surfaceMuted }]}
+                              style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
                             >
                               {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
                                   the action colour (mirrors HomeHabitsCard's starter chips). */}
@@ -998,7 +1004,7 @@ export default function HabitsScreen() {
                   value={habitDraft}
                   onChangeText={setHabitDraft}
                   onSubmit={commitHabit}
-                  accent={habitDomainColor.accent}
+                  accent={screenHue}
                   onMore={openHabitFormWithDraft}
                   panel={
                     energySystemEnabled ? (
@@ -1017,7 +1023,7 @@ export default function HabitsScreen() {
                               accessibilityLabel={t.energyGiveTakeLabel}
                             />
                           }
-                          accent={habitDomainColor.accent}
+                          accent={screenHue}
                         />
                       </QuickAddOptionsPanel>
                     ) : undefined

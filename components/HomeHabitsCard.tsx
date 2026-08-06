@@ -20,7 +20,6 @@
  *             components/HabitIcon (starter chips only), components/HabitLeading (2026-08-04 —
  *             the row's leading mark: the habit's icon, or the brand leaf when it has none,
  *             DESIGN_COMPARISON/04 option (a)), components/PressableScale, components/ProgressBar,
- *             components/Motif (the `leaf-icon` corner accent, DESIGN_COMPARISON/04 option (b)),
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (2026-08-04 —
  *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/Stepper + lib/energy (energyFieldsFromStepper — that row's signed
@@ -103,18 +102,10 @@
  *     only the badge + title (`headerLeft`), so the count pill and the ⋮ are its siblings rather
  *     than nested pressables inside it. The progress bar stopped being part of the tap target in
  *     the same change — it is a readout, not a button, and the title above it still navigates.
- *   - **`leaf-icon` corner accent (2026-08-04, DESIGN_COMPARISON/04).** A single small leaf
- *     motif tucked top-right, behind the header row (painted first, so it sits BEHIND the
- *     badge/count pill rather than competing with them — it simply disappears where they're
- *     opaque). Deliberately **not** tinted `domainColor.accent`: DESIGN_RULES_AUDIT.md's
- *     item 10 already counts FOUR identity-hue fill-derivatives on this card (badge, card
- *     edge, progress-bar fill, count pill) — a leaf carrying the same hue would be a fifth
- *     expression of "this is Habits" with no new information, the exact thing A.4 rule 3
- *     removed the whole-header wash for. `theme.textMuted` instead (same neutral token
- *     SectionDivider's `trunk-divider` motif uses), at low opacity — texture, not a colour
- *     statement. `leaf-icon` (not `leaf-sprig`): the sprig is an ILLUSTRATION with its own
- *     baked blue palette that `color` can't override, and blue reads as a foreign object on
- *     this card's green edge — see Motif.tsx's header and `constants/motifs.ts`'s `pal` field.
+ *   - **`leaf-icon` corner accent — REMOVED (2026-08-06, user report: "weird leaf in the
+ *     upper right corner").** Was a small leaf motif tucked top-right behind the header row
+ *     (2026-08-04, DESIGN_COMPARISON/04); read as an unexplained stray mark rather than
+ *     texture. Don't re-add it without a direct ask.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -125,7 +116,6 @@ import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
-import Motif from '@/components/Motif';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import CardHintNote from '@/components/CardHintNote';
@@ -346,9 +336,6 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
       borderColor={screenColor.base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
-      {/* Corner leaf accent (DESIGN_COMPARISON/04) — painted first so the header row's badge
-          and count pill, drawn after, stack on top and hide it wherever they're opaque. */}
-      <Motif id="leaf-icon" color={theme.textMuted} opacity={0.45} fit="meet" style={styles.leafAccent} />
       <View style={styles.cardContent}>
         {/* Badge is a normal flex child — one left edge for the whole card. */}
         <View style={styles.titleRowPressable}>
@@ -357,7 +344,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                 children — a Badge inside a PressableScale reads as a button that isn't one,
                 and an icon button nested in a larger pressable makes its own tap ambiguous. */}
             <PressableScale onPress={handleTitlePress} style={styles.headerLeft} scaleTo={0.98}>
-              <CardAccentBadge domain="habit" size={32} />
+              <CardAccentBadge domain="habit" size={32} accentOverride={screenColor.base} />
               <View style={styles.headerText}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
               </View>
@@ -483,11 +470,6 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
 
 const baseStyles = StyleSheet.create({
   card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
-  // Corner leaf accent (DESIGN_COMPARISON/04). Positioned against the Surface's own content
-  // view (zero padding there — cardContent applies its own inset), so top/right sit close to
-  // the card's true edge, mostly in the strip above the title row; Surface's internal
-  // overflow:'hidden' mask clips it to the rounded corner for free, no extra style needed here.
-  leafAccent: { position: 'absolute', top: Spacing.xs, right: Spacing.xs, width: 28, height: 28 },
   // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
   // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
   // to grow to whatever its content needs. Same constant, and the same "only while not fully

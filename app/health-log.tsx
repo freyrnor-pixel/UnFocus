@@ -48,7 +48,7 @@ import { useT } from '@/lib/i18n';
 import { severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 
 export default function HealthLogScreen() {
   const router = useRouter();
@@ -58,7 +58,11 @@ export default function HealthLogScreen() {
   const styles = useScaledStyles(baseStyles);
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
-  const domainColor = getDomainColor(theme, 'health');
+  // This screen's own teal (2026-08-06) — was lib/domainColor's 'health' identity, a wine-red
+  // that mismatched this (health-keyed) screen's own card edges.
+  // `getScreenColor` (plain function), not `useScreenColor` (context hook) — this component
+  // renders ScreenScaffold below, so it sits above that provider; see health.tsx's note.
+  const screenHue = getScreenColor(theme, 'health').base;
   // Quick-add row: a symptom log is multi-field (severity/date/notes), so typing a name here
   // opens the full form prefilled with it rather than creating a bare entry inline.
   const [draft, setDraft] = React.useState('');
@@ -122,7 +126,7 @@ export default function HealthLogScreen() {
             value={draft}
             onChangeText={setDraft}
             onSubmit={startLog}
-            accent={domainColor.accent}
+            accent={screenHue}
             confirmIcon="arrow-forward"
             showDivider={false}
             accessibilityLabel={t.logSymptomTrigger}

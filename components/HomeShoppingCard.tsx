@@ -379,7 +379,7 @@ export default function HomeShoppingCard({
             chips in one header would be more chrome than the sentence it replaced, not less. */}
         <View style={styles.header}>
           <PressableScale onPress={onNavigateToShopping} style={styles.headerLeft} scaleTo={0.98}>
-            <CardAccentBadge domain="shop" size={32} />
+            <CardAccentBadge domain="shop" size={32} accentOverride={screenColor.base} />
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                 {t.shoppingTitle}

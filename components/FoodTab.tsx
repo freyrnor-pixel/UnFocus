@@ -14,7 +14,7 @@
  *
  * Connections:
  *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
- *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/domainColor,
+ *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/screenColor,
  *             components/Surface, components/PressableScale, components/AddRow,
  *             components/Badge (difficulty pill), components/SlideSelector (difficulty picker),
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
@@ -77,7 +77,7 @@ import { useMountedTransition } from '@/lib/useMountedTransition';
 import { Spring } from '@/constants/motion';
 import { success, heavy } from '@/lib/haptics';
 import { formatKr } from '@/lib/money';
-import { getDomainColor } from '@/lib/domainColor';
+import { useScreenColor } from '@/lib/screenColor';
 
 type Props = {
   /** Show a transient confirmation banner in the parent screen. */
@@ -117,7 +117,9 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
-  const domainColor = getDomainColor(theme, 'meal');
+  // This screen's own orange (2026-08-06) — was lib/domainColor's 'meal' identity, which the
+  // 2026-07-31 hue collapse turned to gold (the shopping hue), mismatching the Food screen.
+  const screenHue = useScreenColor() ?? theme.border;
 
   const dishes = useMealStore((s) => s.dishes);
   const loadDishes = useMealStore((s) => s.load);
@@ -566,7 +568,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 value={ingName}
                 onChangeText={onIngNameChange}
                 onSubmit={addDraftIngredient}
-                accent={domainColor.accent}
+                accent={screenHue}
                 showDivider={false}
                 accessibilityLabel={t.ingredientPlaceholder}
                 extras={

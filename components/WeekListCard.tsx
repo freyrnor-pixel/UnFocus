@@ -25,7 +25,7 @@
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets,
  *             categoryLabel — the "In the store" aisle headers),
  *             lib/shoppingGroups (listProgress, listTotal, groupByCategory), lib/useAppTheme, lib/haptics,
- *             lib/domainColor, store/useShoppingListStore (ShoppingList type),
+ *             lib/screenColor, store/useShoppingListStore (ShoppingList type),
  *             store/useShoppingStore (ShoppingItem type), store/useMonthlyListStore (MonthlyList type)
  *   Used by → app/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
@@ -112,8 +112,9 @@
  *     Dish-grouped unchecked items render as plain ShoppingRow (no drag wrapper).
  *   - listProgress() is still called here for the compact progress line on non-focused lists
  *     and the "Shopping done!" disabled state — same helper, same data.
- *   - Outer card border is `getDomainColor(theme,'shop').accent` (Surface's `borderColor` prop,
- *     2026-07-14), matching Home's preview-card treatment so the card reads as the same
+ *   - Outer card border is `getScreenColor(theme,'shopping').base` (Surface's `borderColor`
+ *     prop, 2026-07-14, source switched from lib/domainColor 2026-08-06 — see the inline note
+ *     by `edgeColor`), matching Home's preview-card treatment so the card reads as the same
  *     object when tapping through from Home into full Shopping.
  *   - **Decision 044b (2026-07-09):** entrance/highlight animation for just-added rows is
  *     handled by ShoppingRow reading recentlyAddedIds directly from useShoppingStore — no
@@ -151,7 +152,7 @@ import AddFromMonthlyModal from '@/components/AddFromMonthlyModal';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
-import { getDomainColor } from '@/lib/domainColor';
+import { getScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -290,7 +291,11 @@ export default function WeekListCard({
 }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const domainColor = getDomainColor(theme, 'shop');
+  // This screen's own green (2026-08-06) — was lib/domainColor's 'shop' identity, which the
+  // 2026-07-31 hue collapse silently turned to gold (IDENTITY_HUES.shopping.hue), even though
+  // the comment below still called it "green". screenColor is what every other undecorated
+  // card on this tab actually renders in, so this brings the list card back in line with them.
+  const screenColor = getScreenColor(theme, 'shopping');
   const t = useT();
   // Tap-to-edit name field (2026-07-22): a non-custom-named list shows a muted "Shopping
   // list" preview instead of the auto date-range text; tapping it swaps the preview Text
@@ -399,10 +404,10 @@ export default function WeekListCard({
   const totalInCart = allChecked.length;
   const showInListSection = totalInList > 0 || !list.locked;
 
-  // Card edge is always the shopping-green domain accent now (2026-07-22) — the old
-  // amber-while-unlocked/green-while-locked coding read as "not appealing" and was
-  // dropped; lock state is carried entirely by the lock icon + Save/Discard buttons below.
-  const edgeColor = domainColor.accent;
+  // Card edge is always shopping green now (2026-07-22) — the old amber-while-unlocked/
+  // green-while-locked coding read as "not appealing" and was dropped; lock state is carried
+  // entirely by the lock icon + Save/Discard buttons below.
+  const edgeColor = screenColor.base;
 
   return (
     <Surface borderColor={edgeColor} style={styles.cardRow}>
@@ -417,7 +422,7 @@ export default function WeekListCard({
             {/* Shop-domain gradient badge (2026-07-26, "bring the card colour back") — leads the
                 header so the card carries the same identity-colour badge Home's preview cards
                 do, without disturbing the lock/name/repeat row it sits in front of. */}
-            <CardAccentBadge domain="shop" size={22} style={styles.domainBadge} />
+            <CardAccentBadge domain="shop" size={22} style={styles.domainBadge} accentOverride={screenColor.base} />
             {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
                 list's edit state, so it reads naturally next to the title instead of
                 competing with Save/Discard/kebab/expand in the action row. */}
