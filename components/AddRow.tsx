@@ -190,7 +190,10 @@ export default function AddRow({
         styles.input,
         {
           color: theme.text,
-          backgroundColor: theme.surfaceMuted,
+          // White/plain surface fill (2026-08-06, user report: "text-boxes are too grey" —
+          // matches components/FormControls.tsx's Input and what a text field looks like in
+          // most web/native apps), not the sunken `surfaceMuted` well a disabled control uses.
+          backgroundColor: theme.surface,
           // Same field shape and same colour rule as components/PadTypeRow.tsx — see its
           // header. `theme.border` is the ≥3:1 control-boundary token; the accent marks focus.
           // Screen hue at the FIELD rung at rest, the surface's own fill while focused — the same

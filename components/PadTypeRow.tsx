@@ -23,7 +23,9 @@
  *     survives until the first keystroke is what every other app does. `placeholder` is RN's
  *     own now — no hand-rolled Text layer to keep in sync.
  * The field shape is deliberately the SAME one `components/FormControls.tsx`'s `Input` uses
- * (border + radius + muted fill + `MIN_TAP_TARGET`), so the app has one field, not two.
+ * (border + radius + plain white/`theme.surface` fill + `MIN_TAP_TARGET`, 2026-08-06 — was a
+ * sunken `surfaceMuted` fill, "text-boxes are too grey" — see the inline note by the style),
+ * so the app has one field, not two.
  * **This is not the boxed-ROWS design that `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`
  * rejected.** That decision was about giving every LIST row its own border and gap — cards
  * inside a card. List rows are still flush and ruled on one `PadSheet`. Only the composer —
@@ -244,7 +246,10 @@ export default function PadTypeRow({
           styles.input,
           {
             color: theme.text,
-            backgroundColor: theme.surfaceMuted,
+            // White/plain surface fill (2026-08-06, user report: "text-boxes are too grey" —
+            // matches components/FormControls.tsx's Input and what a text field looks like in
+            // most web/native apps), not the sunken `surfaceMuted` well a disabled control uses.
+            backgroundColor: theme.surface,
             // At rest the field wears the screen's own hue at the FIELD rung — the same border
             // components/PadSheet.tsx gives a row and QuickAddOptionRow gives a cell, so the
             // composer belongs to the screen it sits on rather than being a fixed grey

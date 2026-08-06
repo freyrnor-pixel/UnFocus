@@ -108,16 +108,16 @@ import {
   Radius,
   Spacing,
   TabularNums,
+  computeBorderTone,
   rgba,
 } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
-import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { listProgress } from '@/lib/shoppingGroups';
-import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { SpendPace } from '@/lib/budget';
@@ -177,9 +177,19 @@ export default function HomeShoppingCard({
 }: Props) {
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
-  const domainColor = getDomainColor(theme, 'shop');
+  // The card's one hue (border + every content accent) — this used to be lib/domainColor's
+  // 'shop' identity (gold), which is a DIFFERENT hue from the screen border below (green) and
+  // read as a mismatch: a green-edged card with gold arrows/progress/checks. Content now pulls
+  // from the same screenColor the border does, so the whole card is one colour family.
+  const screenColor = getScreenColor(theme, 'shopping');
+  // Week-arrow buttons are ghost-style (transparent fill, thin border) rather than the old
+  // solid-filled circle — a heavy solid-colour blob for a plain prev/next control read as
+  // over-designed (user report). Border sits at the lightest "button" rung of the screen hue,
+  // same grading Button.tsx's ghost variant uses.
+  const pagerButtonBorder = computeBorderTone(screenColor.base, isDark, 'button');
 
   const [localPadState, setLocalPadState] = useState<PadState>('preview');
   const state = padState ?? localPadState;
@@ -314,7 +324,7 @@ export default function HomeShoppingCard({
       value={addDraft}
       onChangeText={setAddDraft}
       onSubmit={commitAdd}
-      accent={domainColor.accent}
+      accent={screenColor.base}
       // The labelled panel, not the inline `extras` row (2026-08-05) — same move as
       // components/HomeNotesCard.tsx, so all four Home cards and their tabs now share one
       // quick-add anatomy (DESIGN_RULES.md rule 8). It also gives the title input the whole
@@ -333,7 +343,7 @@ export default function HomeShoppingCard({
                 accessibilityLabel={t.home.quantityLabel}
               />
             }
-            accent={domainColor.accent}
+            accent={screenColor.base}
           />
           {/* Was a chip that cycled forward through the lists on tap — the same blind
               tap-cycle as the energy and repeat rows, and worse here because the number of
@@ -344,7 +354,7 @@ export default function HomeShoppingCard({
             label={t.home.addToListLabel}
             value={addTargetName}
             isSet
-            accent={domainColor.accent}
+            accent={screenColor.base}
             onPress={pickAddTarget}
             showsMore
             accessibilityLabel={`${t.home.addToListLabel}: ${addTargetName}`}
@@ -357,7 +367,7 @@ export default function HomeShoppingCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={getScreenColor(theme, 'shopping').base}
+      borderColor={screenColor.base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
@@ -379,7 +389,7 @@ export default function HomeShoppingCard({
           {totalCount > 0 && (
             <View
               ref={badgeRef}
-              style={[styles.badge, { backgroundColor: domainColor.soft, borderColor: rgba(domainColor.accent, 0.4) }]}
+              style={[styles.badge, { backgroundColor: screenColor.soft, borderColor: rgba(screenColor.base, 0.4) }]}
               accessibilityLabel={t.pad.summary(progress.remaining, progress.total)}
             >
               {/* Count badge: hue as the plate + edge (a fill), the figure in plain ink. Shows
@@ -401,7 +411,7 @@ export default function HomeShoppingCard({
             label={t.shoppingWeekPrev}
             onPress={() => step(-1)}
             size={32}
-            tint={domainColor.accent}
+            borderColor={pagerButtonBorder}
           />
           <View style={styles.weekLabelWrap}>
             <Text style={[styles.weekLabel, { color: theme.text }]} numberOfLines={1}>
@@ -416,12 +426,12 @@ export default function HomeShoppingCard({
             label={t.shoppingWeekNext}
             onPress={() => step(1)}
             size={32}
-            tint={domainColor.accent}
+            borderColor={pagerButtonBorder}
           />
         </View>
 
         {totalCount > 0 && (
-          <ProgressBar value={progress.pct} color={domainColor.accent} height={4} style={styles.progressBar} />
+          <ProgressBar value={progress.pct} color={screenColor.base} height={4} style={styles.progressBar} />
         )}
 
         {pace && (
@@ -452,7 +462,7 @@ export default function HomeShoppingCard({
                     <PadRow
                       key={item.id}
                       title={item.name}
-                      accent={domainColor.accent}
+                      accent={screenColor.base}
                       done
                       rightValue={item.amount ? `${item.amount}${item.unit ? ` ${item.unit}` : ''}` : undefined}
                       onPress={() => setDetailItem(item)}
@@ -476,7 +486,7 @@ export default function HomeShoppingCard({
               >
                 <PadRow
                   title={item.name}
-                  accent={domainColor.accent}
+                  accent={screenColor.base}
                   // A dish is the row's ONE meta line now — not an ExpandableCard around it.
                   meta={
                     dishName ? (

@@ -108,7 +108,7 @@
  *             lib/useEnergyPause (2026-08-02 — which card "I'll decide" pinned, and the
  *             un-pin action behind its badge; see the edit note below for why this one hook
  *             is read here instead of being threaded in as a prop),
- *             lib/useAppTheme (incl. useAccessibility), lib/domainColor, components/CardAccent
+ *             lib/useAppTheme (incl. useAccessibility), lib/screenColor, components/CardAccent
  *             (CardAccentBadge — the read-only Home header), components/Badge (the header's
  *             count pill, DESIGN_COMPARISON/09), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
@@ -134,9 +134,9 @@
  *     reorder mode, neither of which this card can reach. No prop, no ⋮ (the To-do tab's own
  *     mount passes none). See components/CardMenuSheet.tsx's header before moving it.
  *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** The old grey
- *     "{left}/{total} left" header line is gone; a `components/Badge` pill (`domainColor.soft`
- *     fill, plain `theme.textMuted` ink — never `domainColor.accent` as text, per
- *     lib/domainColor.ts's A.4 rule 1) sits beside the title instead, gated the same as the
+ *     "{left}/{total} left" header line is gone; a `components/Badge` pill (the card's
+ *     screenColor `soft` fill, plain `theme.textMuted` ink — never the hue itself as text)
+ *     sits beside the title instead, gated the same as the
  *     other three Home cards on `countableTasks.length > 0`. Safe to gate (rather than keep
  *     always-mounted like the progress bar below) because the pill shares the title's LINE —
  *     `headerTopRow`'s `minHeight: 32` already covers both, so the row's height doesn't move
@@ -188,10 +188,10 @@
  *     deliberately, because `deletedTasks` + `onRestoreTask` render a "Recently deleted" drawer
  *     shaped exactly like the done zone, so the undo is right there. Gated on the callbacks,
  *     not on `readOnly`, same rule as the done-toggle and `onAddTask`.
- *   - **Decision 014 (revised 2026-07-14)**: the card face is a `<Surface>` with a
- *     domain-colored border (`borderColor={getDomainColor(theme,'plan').accent}`) on a plain
- *     `theme.surface` fill, so the section reads as belonging to Plans without washing the
- *     whole card in a tint (2026-07-13's whole-card blend read as muddy — see domainColor.ts).
+ *   - **Decision 014 (revised 2026-07-14, border source updated 2026-08-06)**: the card face is
+ *     a `<Surface>` with a screen-colored border (`borderColor={getScreenColor(theme,'plans').base}`)
+ *     on a plain `theme.surface` fill, so the section reads as belonging to Plans without washing
+ *     the whole card in a tint (2026-07-13's whole-card blend read as muddy).
  *     Still don't set Surface's fill/sheen directly — pass `borderColor`/`tint` and let the
  *     material compute the finish (Surface owns border/sheen/blur since Decision 008).
  *   - **Decision 020 follower surfacing (surfacing-only, NOT notifying)**: when a
@@ -327,7 +327,6 @@ import { Duration, Ease, Spring } from '@/constants/motion';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
@@ -562,7 +561,10 @@ export default function PlanTaskCard({
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
-  const domainColor = getDomainColor(theme, 'plan');
+  // The card's one hue (border + every content accent) — this used to be lib/domainColor's
+  // 'plan' identity, a slightly different blue from the screen border below (featTask), which
+  // read as an off mismatch. Content now pulls from the same screenColor the border does.
+  const screenColor = getScreenColor(theme, 'plans');
   const liveNow = useNowMinutes();
   const now = nowOverride ?? liveNow;
   // Energy's "I'll decide" (2026-08-02). Read here rather than passed in as a prop: both
@@ -1065,7 +1067,7 @@ export default function PlanTaskCard({
             </View>
           ) : null}
           {surfaced && !task.done ? (
-            <View style={[styles.followerBadge, { backgroundColor: domainColor.soft }]}>
+            <View style={[styles.followerBadge, { backgroundColor: screenColor.soft }]}>
               {/* A.4 rule 1: hue on the plate, plain ink on the word. */}
               <Text style={[styles.followerBadgeText, { color: theme.text }]}>{t.dayViewFollowerBadge}</Text>
             </View>
@@ -1105,7 +1107,7 @@ export default function PlanTaskCard({
           <PadRow
             key={entry.id}
             title={entry.label}
-            accent={domainColor.accent}
+            accent={screenColor.base}
             leading={
               <Ionicons
                 name={DAY_LOG_ICONS[entry.kind]}
@@ -1172,7 +1174,7 @@ export default function PlanTaskCard({
             style={[
               styles.rowCard,
               { backgroundColor: rgba(theme.accent, 0.05) },
-              { borderColor: rgba(domainColor.accent, 0.2) },
+              { borderColor: rgba(screenColor.base, 0.2) },
             ]}
           >
             {taskCardContent(task, { timed, dimmed, showHint, surfaced, showAnytimeBadge: !timed && !task.done })}
@@ -1281,12 +1283,12 @@ export default function PlanTaskCard({
                 // — still clearly set apart from plain-surface cards, but warmer. The
                 // happening-now card keeps the stronger tint + glow so hierarchy is preserved.
                 { backgroundColor: isHappeningNow ? rgba(theme.accent, 0.1) : rgba(theme.accent, 0.05) },
-                { borderColor: rgba(domainColor.accent, isHappeningNow ? 0.5 : 0.2) },
+                { borderColor: rgba(screenColor.base, isHappeningNow ? 0.5 : 0.2) },
                 // "Selects" the happening-now task (2026-07-26, user report) — see file header.
                 isHappeningNow && { borderWidth: 2, transform: [{ scale: 1.03 }] },
               ]}
             >
-              <GlowPulse active={isHappeningNow} color={domainColor.accent} mode="breathe" radius={Radius.sm} />
+              <GlowPulse active={isHappeningNow} color={screenColor.base} mode="breathe" radius={Radius.sm} />
               {taskCardContent(task, { dimmed: isPast, showHint, surfaced, showAnytimeBadge: false })}
             </View>
           </PressableScale>
@@ -1419,7 +1421,7 @@ export default function PlanTaskCard({
       value={addDraft}
       onChangeText={setAddDraft}
       onSubmit={captureAsMoment ? commitMoment : commitAdd}
-      accent={domainColor.accent}
+      accent={screenColor.base}
       // A moment has no editor to continue into — it IS the record. Only a task offers "…".
       onMore={!captureAsMoment && onAddTaskAndEdit ? commitAddAndEdit : undefined}
       panel={
@@ -1442,7 +1444,7 @@ export default function PlanTaskCard({
                   accessibilityLabel={t.dayLog.capturePrompt}
                 />
               }
-              accent={domainColor.accent}
+              accent={screenColor.base}
             />
           ) : null}
           {captureAsMoment ? null : (
@@ -1450,7 +1452,7 @@ export default function PlanTaskCard({
               icon="time-outline"
               label={t.timeLabel}
               value={<TimeBoxInput value={addTime} onChange={setAddTime} />}
-              accent={domainColor.accent}
+              accent={screenColor.base}
             />
           )}
           {captureAsMoment ? null : (
@@ -1459,7 +1461,7 @@ export default function PlanTaskCard({
               label={t.taskRecurringToggle}
               value={recurringLabel(addRecurring)}
               isSet={addRecurring !== 'none'}
-              accent={domainColor.accent}
+              accent={screenColor.base}
               onPress={pickRecurring}
               showsMore
               accessibilityLabel={`${t.taskRecurringToggle}: ${recurringLabel(addRecurring)}`}
@@ -1473,7 +1475,7 @@ export default function PlanTaskCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={getScreenColor(theme, 'plans').base}
+      borderColor={screenColor.base}
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
@@ -1503,9 +1505,9 @@ export default function PlanTaskCard({
               {countableTasks.length > 0 && (
                 <Badge
                   label={`${pendingCount}/${countableTasks.length}`}
-                  bg={domainColor.soft}
+                  bg={screenColor.soft}
                   fg={theme.textMuted}
-                  borderColor={rgba(domainColor.accent, 0.3)}
+                  borderColor={rgba(screenColor.base, 0.3)}
                   tabularNums
                   accessibilityLabel={t.pad.summary(pendingCount, countableTasks.length)}
                 />
@@ -1514,7 +1516,7 @@ export default function PlanTaskCard({
             </View>
             <ProgressBar
               value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}
-              color={domainColor.accent}
+              color={screenColor.base}
               height={4}
               style={styles.progressBar}
             />
@@ -1551,7 +1553,7 @@ export default function PlanTaskCard({
                 title={t.starters.plans.exampleTitle}
                 tag={t.starters.exampleLabel}
                 meta="17:00–17:20"
-                accent={domainColor.accent}
+                accent={screenColor.base}
                 onAdd={onAddExample}
                 addLabel={t.starters.addExample}
               />
@@ -1601,7 +1603,7 @@ export default function PlanTaskCard({
               <PadRow
                 key={task.id}
                 title={task.title}
-                accent={domainColor.accent}
+                accent={screenColor.base}
                 done={task.done}
                 // The pin goes in PadRow's `leading` slot — "an icon or a quantity, never a
                 // second check" — and every other row drops to secondary weight. Nothing is

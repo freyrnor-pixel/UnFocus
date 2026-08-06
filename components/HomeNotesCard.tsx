@@ -40,7 +40,7 @@
  *             components/PressableScale, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
- *             lib/domainColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
+ *             lib/screenColor, lib/padState, lib/useCardState, lib/prefill (prefillRoute),
  *             lib/useVoiceCapture, lib/useKeyboardLift, store/useNotesStore
  *   Used by → app/(tabs)/index.tsx (the Notes preview slot)
  *   Data    → reads/writes useNotesStore (notes table): toggleChecked, add, update. Card size
@@ -49,9 +49,9 @@
  * Edit notes:
  *   - **Count pill, not a summary sentence (2026-08-04, DESIGN_COMPARISON/09).** The old
  *     grey "{left}/{total} left" second line under the title is gone; a `components/Badge`
- *     pill (`domainColor.soft` fill, plain `theme.textMuted` ink — never `domainColor.accent`
- *     as text, per lib/domainColor.ts's A.4 rule 1) sits at the header's fixed right slot
- *     instead, holding just the digits. It's a header-row sibling, not inline after the title
+ *     pill (the card's screenColor `soft` fill, plain `theme.textMuted` ink — never the hue
+ *     itself as text, same rule lib/domainColor.ts's A.4 used to state) sits at the header's
+ *     fixed right slot instead, holding just the digits. It's a header-row sibling, not inline after the title
  *     text, specifically so it stays at the same x regardless of title length/language and
  *     keeps lining up with the other three Home cards' pills — an inline placement would drift
  *     with a long Norwegian title and lose that.
@@ -126,7 +126,6 @@ import { isDoneRowStillInPlace, padVisibleRows } from '@/lib/padState';
 import { useCardState } from '@/lib/useCardState';
 import { prefillRoute } from '@/lib/prefill';
 import { useNotesStore } from '@/store/useNotesStore';
-import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
@@ -141,7 +140,11 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  const domainColor = getDomainColor(theme, 'note');
+  // The card's one hue (border + every content accent). This used to be lib/domainColor's
+  // 'note' identity — IDENTITY_NEUTRAL grey, since Notes carries no badge identity hue — while
+  // the card's border (below) is the screen's own yellow, so the badge pill/mic button/row
+  // checks all drew grey against a yellow edge. Content now pulls from the same screenColor.
+  const screenColor = getScreenColor(theme, 'notes');
   const today = todayStr();
 
   const notes = useNotesStore((s) => s.notes);
@@ -224,7 +227,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={getScreenColor(theme, 'notes').base}
+      borderColor={screenColor.base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
@@ -252,9 +255,9 @@ export default function HomeNotesCard({ cardMenu }: Props) {
           {notes.length > 0 ? (
             <Badge
               label={`${leftCount}/${notes.length}`}
-              bg={domainColor.soft}
+              bg={screenColor.soft}
               fg={theme.textMuted}
-              borderColor={rgba(domainColor.accent, 0.3)}
+              borderColor={rgba(screenColor.base, 0.3)}
               tabularNums
               accessibilityLabel={t.pad.summary(leftCount, notes.length)}
             />
@@ -270,8 +273,8 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               style={[
                 styles.micButton,
                 {
-                  backgroundColor: listening ? theme.badSoft : domainColor.soft,
-                  borderColor: rgba(listening ? theme.bad : domainColor.accent, 0.4),
+                  backgroundColor: listening ? theme.badSoft : screenColor.soft,
+                  borderColor: rgba(listening ? theme.bad : screenColor.base, 0.4),
                 },
               ]}
             >
@@ -297,7 +300,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               value={noteDraft}
               onChangeText={setNoteDraft}
               onSubmit={commitNoteDraft}
-              accent={domainColor.accent}
+              accent={screenColor.base}
               // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
               // be a bare 76px-wide box sharing one 44px line with the title input, the ghost
               // check and two buttons — which is most of why the title input had no room to
@@ -316,7 +319,10 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                         style={[
                           styles.extraInfoInput,
                           {
-                            backgroundColor: theme.surfaceMuted,
+                            // Plain surface fill, matching PadTypeRow's field above it
+                            // (2026-08-06, "text-boxes are too grey") — a grey well here would
+                            // look like a different, disabled-looking control right under it.
+                            backgroundColor: theme.surface,
                             color: theme.text,
                             borderColor: theme.border,
                           },
@@ -330,7 +336,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                         onSubmitEditing={commitNoteDraft}
                       />
                     }
-                    accent={domainColor.accent}
+                    accent={screenColor.base}
                   />
                 </QuickAddOptionsPanel>
               }
@@ -358,7 +364,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                     <PadRow
                       key={note.id}
                       title={note.header || t.notes.headerPlaceholder}
-                      accent={domainColor.accent}
+                      accent={screenColor.base}
                       done
                       onToggle={() => handleToggle(note.id)}
                     />
@@ -372,7 +378,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
             <PadRow
               key={note.id}
               title={note.header || t.notes.headerPlaceholder}
-              accent={domainColor.accent}
+              accent={screenColor.base}
               done={note.checked}
               meta={
                 note.body ? (
