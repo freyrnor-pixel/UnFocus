@@ -9,8 +9,10 @@
  * the weekly Unallocated bucket, listId UNALLOCATED_LIST_ID) and "Add to monthly list"
  * (ingredients become status='catalog' rows) — plus an X. Expanding a dish reveals its
  * ingredient rows (name · amount · line price), the same shape as task steps, with an inline
- * add-ingredient row and per-dish delete. Dish creation lives here (per-section "add dish"
- * modal) — this replaces the old standalone /meals screen and the "Create grouping" screen.
+ * add-ingredient row and per-dish delete. Dish creation lives here — a labelled "Add dish" row
+ * at the BOTTOM of each expanded meal section (2026-08-06 — see Edit notes), the same
+ * "+ makes a new row" idiom as `components/NewMonthlyListRow.tsx` — replaces the old
+ * standalone /meals screen and the "Create grouping" screen.
  *
  * Connections:
  *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
@@ -30,13 +32,25 @@
  *   - **Collapsible meal sections (visual-audit, 2026-07-17)**: `openSections` (one bool per
  *     MealType, all false initially) gates each section's body via `Collapsible` — five
  *     always-open sections used to push the actually-useful dish rows far down the screen on
- *     first open. The header row (icon + title + chevron) is now a `PressableScale` that
- *     toggles the section; the "add dish" button inside it is a nested `PressableScale` with
- *     `e.stopPropagation()` (same pattern ExpandableCard.tsx uses for its leading/right
- *     actions) so tapping "+" opens the new-dish modal without also toggling the section.
- *     `AnimatedChevron` mirrors the per-dish row's chevron for a consistent expand affordance.
- *     No persistence — every section re-collapses on next mount, matching the per-dish
- *     `expanded` state below.
+ *     first open. The header row (icon + title + chevron) is a plain `PressableScale` that
+ *     only toggles the section — it carries no other action. `AnimatedChevron` mirrors the
+ *     per-dish row's chevron for a consistent expand affordance. No persistence — every
+ *     section re-collapses on next mount, matching the per-dish `expanded` state below.
+ *   - **"Add dish" moved to the bottom of the expanded body (2026-08-06, user report)**: it used
+ *     to be a small circular "+" wedged into the header next to the chevron — close enough to
+ *     the expand toggle that the two read as one crowded control and were easy to mis-tap. It's
+ *     now a labelled bordered row (`addDishRow`, icon + "Add dish") at the end of the
+ *     `Collapsible` body, below the dish list (or below the empty hint on a dish-less section)
+ *     — same shape as `components/NewMonthlyListRow.tsx`'s "+ New list" trigger and
+ *     `InlineAddItem`'s bottom-of-list placement elsewhere in the app: a "+" that creates a new
+ *     row lives where the new row would land, not beside an unrelated expand/collapse control.
+ *     Only visible while the section is open, since the list it appends to isn't visible while
+ *     closed. **This is the general rule for this app, not a one-off**: an "add new row" trigger
+ *     belongs at the bottom of the (expanded) list it adds to, never crowded next to a card's
+ *     expand/collapse toggle. It does NOT apply to a per-row action button (e.g. this file's
+ *     per-dish "+" that opens the add-to-list popup, or a save/checkmark on a row being edited)
+ *     — those stay wherever the row rule already puts them; only "creates a whole new row"
+ *     triggers follow this placement.
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen's scaffold
  *     ScrollView. The new-dish + "add to list" popups are RN <Modal>s (own layers).
  *   - Both ingredient composers (the per-dish inline add row and the new-dish modal's
@@ -344,19 +358,10 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
               <Ionicons name={icon} size={20} color={color} />
               <Text style={[styles.sectionTitle, { color }]}>{t.mealTypes[mealType]}</Text>
               <AnimatedChevron open={sectionOpen} color={color} size={18} />
-              <PressableScale
-                style={[styles.addDishBtn, { borderColor: color }]}
-                onPress={(e) => { e.stopPropagation(); openNewDishModal(mealType); }}
-                accessibilityRole="button"
-                accessibilityLabel={t.addDishToMealBtn}
-                hitSlop={HitSlop.snug}
-                scaleTo={0.9}
-              >
-                <Ionicons name="add" size={18} color={color} />
-              </PressableScale>
             </PressableScale>
 
             <Collapsible open={sectionOpen}>
+            <View style={styles.sectionBody}>
             {mealDishes.length === 0 ? (
               <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.foodEmptyHint}</Text>
             ) : (
@@ -463,6 +468,22 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
                 })}
               </View>
             )}
+            {/* "Add dish" — moved out of the header (2026-08-06, user report: it sat too
+                close to the expand chevron there) to a labelled row at the bottom of the
+                expanded body, same "+ makes a new row" idiom as NewMonthlyListRow's
+                "+ New list" trigger. Only reachable while the section is open, since the
+                list it appends to isn't visible while closed. */}
+            <PressableScale
+              style={[styles.addDishRow, { borderColor: color }]}
+              onPress={() => openNewDishModal(mealType)}
+              accessibilityRole="button"
+              accessibilityLabel={t.addDishToMealBtn}
+              scaleTo={0.97}
+            >
+              <Ionicons name="add" size={18} color={color} />
+              <Text style={[styles.addDishRowText, { color }]}>{t.addDishToMealBtn}</Text>
+            </PressableScale>
+            </View>
             </Collapsible>
           </Surface>
         );
@@ -635,9 +656,24 @@ const baseStyles = StyleSheet.create({
   section: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold },
-  addDishBtn: { width: 30, height: 30, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  sectionBody: { gap: Spacing.sm },
   sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs },
   dishList: { gap: Spacing.xs },
+  // "Add dish" trigger, bottom of the expanded section body (2026-08-06) — labelled bordered
+  // row, same idiom as NewMonthlyListRow's "+ New list" pill. Was a small circular "+" in the
+  // header next to the chevron; moved here so it reads as "add a new row to this list" rather
+  // than crowding the expand/collapse control.
+  addDishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderWidth: 1.5,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+    minHeight: MIN_TAP_TARGET,
+  },
+  addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   dishCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
   dishRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dishNameTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
