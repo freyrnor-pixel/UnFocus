@@ -26,25 +26,29 @@
  *
  * Connections:
  *   Imports → components/Surface, components/StageTree (the growth-stage watermark),
- *             components/PressableScale (the dismiss "X"), components/Badge (via
- *             StarterExampleRow), constants/theme, lib/useAppTheme, lib/haptics, lib/i18n
- *             (only for the dismiss button's accessibility label — see below),
+ *             components/PressableScale (the dismiss "X" and the `collapsible` trigger row),
+ *             components/Badge (via StarterExampleRow), constants/theme, constants/motion is
+ *             NOT used here (LayoutAnimation comes straight from react-native), lib/useAppTheme
+ *             (useAccessibility for `reducedMotion`), lib/haptics, lib/i18n (only for the
+ *             dismiss button's and the collapse trigger's accessibility labels — see below),
  *             store/useSettingsStore (dismissedStarters + dismissStarter, only when a
  *             caller passes `dismissKey`), @expo/vector-icons
- *   Used by → app/(tabs)/habits.tsx (with one-tap starter chips in `children`, and
- *             `stage="sprout"`), app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
- *             app/(tabs)/health.tsx, app/goals.tsx, components/GoalsSheet.tsx,
- *             components/MedicineTrayCard.tsx (compact — no watermark),
- *             components/EnergyMeter.tsx (`stage="sapling"`) — most also use
- *             components/StarterExampleRow.tsx to build the `example` node
+ *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
+ *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
+ *             app/(tabs)/health.tsx (`collapsible`), app/goals.tsx (`collapsible`),
+ *             components/GoalsSheet.tsx (`collapsible`), components/MedicineTrayCard.tsx
+ *             (compact — no watermark), components/EnergyMeter.tsx (`stage="sapling"`, NOT
+ *             `collapsible` — its `children` is a config Button, not suggestions) — most also
+ *             use components/StarterExampleRow.tsx to build the `example` node
  *   Data    → reads/writes settings.dismissedStarters ONLY when a caller passes
  *             `dismissKey`; otherwise unchanged (pure presentation, callers pass
  *             already-localized strings)
  *
  * Edit notes:
  *   - `text` arrives already-localized (same contract as HintCard); this file never calls
- *     useT() for `text`/`example`/`children` — those stay the caller's job. The copy lives
- *     under `starters.*` in lib/i18n.ts.
+ *     useT() for `text`/`example`/`children`/`exampleHeaderLabel` — those stay the caller's
+ *     job (it only calls useT() for the `collapsible` trigger's and the dismiss "X"'s own
+ *     generic accessibility labels). The copy lives under `starters.*` in lib/i18n.ts.
  *   - **Universal dismiss (2026-08-06)**: pass `dismissKey` (a stable per-surface id, e.g.
  *     `'habits'`) to get a small "X" next to the explanation text. Tapping it writes the key
  *     into `settings.dismissedStarters` (store/useSettingsStore.ts, mirrors
@@ -53,12 +57,32 @@
  *     caller used to decide it should render (including the sticky `|| xStarterAdded` OR
  *     terms a few callers carry — see the header comment above). This is deliberately a
  *     ONE-WAY, permanent-per-key flag, not something that resets when the surface next goes
- *     empty: a user who dismissed the teaching card for a surface already knows what it
- *     said, so re-emptying that surface later (e.g. deleting everything) shouldn't teach it
- *     again either. Omit `dismissKey` and nothing changes — this is fully opt-in per call
- *     site. Same-key `dismissKey` across two different call sites (app/goals.tsx and
- *     components/GoalsSheet.tsx both use `'goals'`) is intentional: they explain the same
- *     empty state, so dismissing one dismisses both.
+ *     empty. **As of 2026-08-06 v3, no caller actually passes `dismissKey` any more** — Goals
+ *     (its last user) switched to `collapsible` instead, reversible rather than one-way (see
+ *     below). The mechanism is left in place rather than deleted: it's cheap to keep, and a
+ *     future surface that genuinely wants a permanent one-way hide (rather than a reversible
+ *     collapse) still has it available.
+ *   - **`collapsible` (2026-08-06 v3)** — turns `example`/`children` into a drop-down: shown
+ *     open by default, with a bordered trigger row (`exampleHeaderLabel` + a chevron) that
+ *     toggles them closed to just that one row, animated with `LayoutAnimation` (gated on
+ *     `useAccessibility().reducedMotion`, same pattern components/HintCard.tsx's own pill
+ *     uses). This is the mechanism app/(tabs)/habits.tsx hand-rolled locally in its
+ *     2026-08-06 v2 pass (`examplesCollapsed`/`toggleExamples`, a floating bulb+chevron pill
+ *     when closed) — moved here and reshaped (closed state is now a normal-looking row, not a
+ *     pill) so every caller with real suggestion content shares one identical implementation
+ *     instead of five near-copies. **Explicit opt-in, not inferred from `example`/`children`
+ *     being present**: components/EnergyMeter.tsx already passes `children` (a single config
+ *     Button) that must NOT become collapsible — it isn't a suggestions list, and wrapping a
+ *     lone action button in a "tap to reveal" trigger would just add a step to reach it.
+ *     `exampleHeaderLabel` is required whenever `collapsible` is true (no default copy — every
+ *     caller's suggestions read differently, e.g. Habits/Goals' "Tap one to start:" vs.
+ *     Plans/Health's "See an example:"). The collapse/expand accessibility labels
+ *     (`t.starters.expandExamples`/`collapseExamples`) are generic and shared by every caller
+ *     — unlike Habits' first pass, there is no per-screen label pair to keep in sync.
+ *     The **"disappears once everything's added" gating stays the caller's job**, exactly as
+ *     it always has (Habits: `!allStartersAdded`; Plans/Health: `length === 0 || …Added`) —
+ *     `collapsible` only changes the SHAPE of the card while it's mounted, never whether it's
+ *     mounted at all.
  *   - `text` gets a small leading bulb glyph + italic styling so it visually reads as "here's
  *     the idea" rather than generic body copy (2026-07-27 — was indistinguishable from a
  *     regular paragraph).
@@ -68,15 +92,18 @@
  *     (2026-07-27 — the old italic sentence read as more prose, not a concrete example).
  *   - **The `exampleLabel` caption is gone (2026-07-30)**: the uppercase "EXAMPLE TASKS" line
  *     above the rows became a small `tag` chip on the row itself (see StarterExampleRow's own
- *     Edit notes) — same disambiguation, one fewer full-width line of teaching.
- *   - `children` is the optional action slot (Habits puts its starter chips there). Keep it
- *     to lightweight chips — this is an explainer, not a form.
+ *     Edit notes) — same disambiguation, one fewer full-width line of teaching. Not to be
+ *     confused with `exampleHeaderLabel` (2026-08-06 v3) above, which is the `collapsible`
+ *     trigger row's own label — a different, newer thing with a similar name.
+ *   - `children` is the optional action slot (Habits/Goals put their starter chips there).
+ *     Keep it to lightweight chips — this is an explainer, not a form.
  *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
  *     "EXAMPLE" caption. Its only caller (components/MedicineTrayCard) passes `text` alone,
  *     which is the intended use — a compact card annotating one small surface shouldn't be
  *     carrying example rows in the first place. Energy's compact card, the other original
  *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
- *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size.
+ *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size. `compact`
+ *     and `collapsible` have never been combined by a caller — untested together.
  *   - **The watermark is a growth-stage tree as of 2026-08-04** (design comparison task 01).
  *     It was `empty-branch` tinted in `theme.border` — a bare, leafless line, which was the
  *     one place the app's art read as absence rather than potential. The design system's rule
@@ -102,21 +129,28 @@
  *     not here — don't add a second transform on `styles.branch`.
  *   - The watermark is also the reason `card` sets `overflow: 'hidden'`.
  */
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StageTree, { type TreeStage } from '@/components/StageTree';
-import { Fonts, FontSize, HitSlop, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, HitSlop, Radius, Spacing } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
-  /** The short explanation — one sentence, already localized. */
-  text: string;
+  /**
+   * The short explanation — one sentence, already localized. Optional as of 2026-08-06 v3:
+   * a caller that already renders its own PERMANENT explanation line elsewhere (Habits'
+   * `tipsRow`, which sits under its card's sub-header and must outlive this card's own
+   * disappear-when-all-added lifecycle) omits this to avoid saying the same sentence twice,
+   * with one copy tied to a shorter lifespan than the other. Every other caller keeps
+   * passing it as before — the card's own explanation, gone when the card is.
+   */
+  text?: string;
   /** Optional concrete example — one or more StarterExampleRow nodes, not plain text. */
   example?: React.ReactNode;
   /** Optional action slot — e.g. the Habits one-tap starter chips. */
@@ -141,21 +175,56 @@ type Props = {
    * behavior for every existing call site until it opts in).
    */
   dismissKey?: string;
+  /**
+   * Turns `example`/`children` into a drop-down: shown open by default, collapsible to a
+   * single normal-looking trigger row. See the "`collapsible` (2026-08-06 v3)" edit note
+   * above. Requires `exampleHeaderLabel`. Default `false` — unchanged behavior for every
+   * existing call site until it opts in.
+   */
+  collapsible?: boolean;
+  /**
+   * The `collapsible` trigger row's always-visible label (already-localized, same contract
+   * as `text`). Required when `collapsible` is true — there is no generic default because
+   * each caller's suggestions read differently (e.g. "Tap one to start:" vs "See an
+   * example:").
+   */
+  exampleHeaderLabel?: string;
 };
 
-export default function StarterCard({ text, example, children, compact, stage, dismissKey }: Props) {
+export default function StarterCard({
+  text,
+  example,
+  children,
+  compact,
+  stage,
+  dismissKey,
+  collapsible,
+  exampleHeaderLabel,
+}: Props) {
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
+  const { reducedMotion } = useAccessibility();
   // Hooks run unconditionally regardless of whether `dismissKey` was passed — only the
   // derived boolean is conditional. `false` when no key was given, so a call site that
   // never opts in can never be affected by another surface's dismissal.
   const dismissed = useSettingsStore((s) => (dismissKey ? s.dismissedStarters.includes(dismissKey) : false));
   const dismissStarter = useSettingsStore((s) => s.dismissStarter);
+  // Shown open by default ("examples are shown by default in a drop-down"). Local, not
+  // persisted — same as habits.tsx's first-pass `examplesCollapsed`, which this replaces.
+  const [collapsed, setCollapsed] = useState(false);
 
   // Checked before anything else below: a dismissed card renders nothing, overriding
   // whatever emptiness gate the caller used to decide it should show one.
   if (dismissed) return null;
+
+  const hasExampleContent = Boolean(example || children);
+
+  function toggleCollapsed() {
+    if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    tap();
+    setCollapsed((v) => !v);
+  }
 
   return (
     <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
@@ -166,26 +235,62 @@ export default function StarterCard({ text, example, children, compact, stage, d
       {compact ? null : (
         <StageTree stage={stage} opacity={0.34} style={styles.branch} />
       )}
-      <View style={styles.textRow}>
-        <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
-        <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
-        {dismissKey ? (
-          <PressableScale
-            onPress={() => { tap(); dismissStarter(dismissKey); }}
-            hitSlop={HitSlop.base}
-            accessibilityRole="button"
-            accessibilityLabel={t.starters.dismiss}
-          >
-            <Ionicons name="close" size={compact ? 14 : 16} color={theme.textMuted} />
-          </PressableScale>
-        ) : null}
-      </View>
-      {example ? (
-        <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
-          <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
+      {text ? (
+        <View style={styles.textRow}>
+          <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
+          <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
+          {dismissKey ? (
+            <PressableScale
+              onPress={() => { tap(); dismissStarter(dismissKey); }}
+              hitSlop={HitSlop.base}
+              accessibilityRole="button"
+              accessibilityLabel={t.starters.dismiss}
+            >
+              <Ionicons name="close" size={compact ? 14 : 16} color={theme.textMuted} />
+            </PressableScale>
+          ) : null}
         </View>
       ) : null}
-      {children ? <View style={styles.actions}>{children}</View> : null}
+      {collapsible && hasExampleContent ? (
+        <>
+          {/* The `collapsible` trigger row (2026-08-06 v3) — a bordered row at the same
+              rung as StarterExampleRow's own rows, but with no accent wash: it's a summary
+              control, not a suggestion item, so it has to read as quieter than the rows it
+              opens onto while still looking like a row rather than a floating pill. Always
+              visible; toggling it is the only way to reach the collapsed/expanded states. */}
+          <PressableScale
+            onPress={toggleCollapsed}
+            style={[styles.triggerRow, { borderColor: theme.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={collapsed ? t.starters.expandExamples : t.starters.collapseExamples}
+            accessibilityState={{ expanded: !collapsed }}
+          >
+            <Text style={[styles.triggerLabel, { color: theme.text }]} numberOfLines={1}>
+              {exampleHeaderLabel}
+            </Text>
+            <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={16} color={theme.textMuted} />
+          </PressableScale>
+          {collapsed ? null : (
+            <>
+              {example ? (
+                <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
+                  <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
+                </View>
+              ) : null}
+              {children ? <View style={styles.actions}>{children}</View> : null}
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          {example ? (
+            <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
+              <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
+            </View>
+          ) : null}
+          {children ? <View style={styles.actions}>{children}</View> : null}
+        </>
+      )}
     </Surface>
   );
 }
@@ -229,6 +334,26 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
     gap: Spacing.xs,
+  },
+  // `collapsible` trigger row (2026-08-06 v3) — same geometry rung as StarterExampleRow's
+  // own rows (border + Radius.sm + matching padding), but no accent wash: this is a summary
+  // control, not a suggestion item. One row's height when collapsed, which is the whole
+  // point — "can't be disruptive or take up too much space when closed."
+  triggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  triggerLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
   },
   textRow: {
     flexDirection: 'row',

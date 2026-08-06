@@ -1785,6 +1785,11 @@ const en = {
     addExample: 'Add',
     /** Accessibility label for a StarterCard's dismiss "X" (2026-08-06). */
     dismiss: 'Dismiss',
+    /** Generic collapse/expand a11y labels for StarterCard's `collapsible` trigger row
+     *  (2026-08-06 v3) — shared across every caller, replacing the per-screen pairs a
+     *  first pass (Habits) hand-rolled. */
+    expandExamples: 'Show suggestions',
+    collapseExamples: 'Hide suggestions',
     habits: {
       text: 'All wins matter, big and small.',
       tapToAdd: 'Tap one to start:',
@@ -1794,12 +1799,11 @@ const en = {
         posture: 'Posture check',
         breakfast: 'Eat breakfast',
       },
-      /** Collapse/expand labels for the suggested-habits pill (2026-08-06). */
-      collapseLabel: 'Hide suggested habits',
-      expandLabel: 'Show suggested habits',
     },
     plans: {
       text: 'Break it into smaller pieces.',
+      /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
+      tapToAdd: 'See an example:',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1823,6 +1827,8 @@ const en = {
     },
     health: {
       text: 'Log what bothers you. And what helps.',
+      /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
+      tapToAdd: 'See an example:',
       exampleTitle: 'Headache',
     },
     // Medicine card's empty state — compact (no example row): the card's own add field
@@ -3416,6 +3422,8 @@ const no: typeof en = {
     exampleLabel: 'Eksempel',
     addExample: 'Legg til',
     dismiss: 'Lukk',
+    expandExamples: 'Vis forslag',
+    collapseExamples: 'Skjul forslag',
     habits: {
       text: 'Alle seire teller, små som store.',
       tapToAdd: 'Trykk på én for å komme i gang:',
@@ -3425,11 +3433,10 @@ const no: typeof en = {
         posture: 'Sjekk holdningen',
         breakfast: 'Spis frokost',
       },
-      collapseLabel: 'Skjul foreslåtte vaner',
-      expandLabel: 'Vis foreslåtte vaner',
     },
     plans: {
       text: 'Del opp i mindre biter.',
+      tapToAdd: 'Se et eksempel:',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -3446,6 +3453,7 @@ const no: typeof en = {
     },
     health: {
       text: 'Logg plagene dine. Og hva som hjelper.',
+      tapToAdd: 'Se et eksempel:',
       exampleTitle: 'Hodepine',
     },
     medicine: {
