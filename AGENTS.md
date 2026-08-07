@@ -692,6 +692,24 @@ file owns which token.)
     its own card** and reports the height up (clamped 88–320) — a fixed tall value left a plain
     card floating in 200px of nothing — and carries an **opaque** background, because it is
     positioned chrome and the scroll body passes underneath it.
+  - **The preview is editable, behind a switch** (2026-08-07). Edit on: every part on the card
+    is tap-to-select (ring on the card, controls in a panel directly under it — a sheet would
+    cover the thing being judged) and hold-to-drag onto another position, with a palette of the
+    21 kinds under the card to tap or drag from. Edit off: the card behaves exactly as it will
+    on the real screen — tick it, type in it, drag its slider. **Both halves are the point**;
+    a card you can only look at can't be checked for feel, and one you can only use can't be
+    changed.
+    - **Selection reaches into the REAL row through `PadRow`'s `slotWrapper`** — one optional,
+      identity-by-default, layout-neutral render-prop — not through a lookalike row drawn in
+      the lab. Two row implementations to keep in step is the exact drift `PadRow` exists to
+      end, and needing a hit region is not a good enough reason to reintroduce it.
+    - **Drop targets are measured at drag START, not only at layout.** The card scrolls inside
+      the pinned preview and a scroll fires no `onLayout`, so mount-time boxes describe where
+      the card used to be. Same measure-at-drag-start rule `lib/useDragReorder.ts` follows.
+    - The hit-test is `slotAtPoint()` in `lib/designLab.ts` — pure, unit-tested, and the reason
+      any of the drag is verifiable at all (see the gesture note under the web preview below).
+      Illegal slots are not candidates, so a drop that can't render answers `null` rather than
+      silently landing somewhere else; the smallest containing box wins, because positions nest.
   - **`components/Slider.tsx` is the app's first slider** and a general component, not a lab
     one. Every number in the app was a −/+ `Stepper`, which is right for a small count and
     wrong for a range you are *searching* (`radiusScale` is sixty taps end to end). It also
@@ -849,7 +867,16 @@ device or EAS build.
   setup (Settings, the medicine editor, the design lab).
   - `npm run preview:build` / `npm run preview:serve` run the two steps standalone.
   - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
-- **What the preview genuinely CANNOT reach** (learned the hard way 2026-07-28 — check here
+- **⚠️ The preview cannot drive a hold-and-drag gesture AT ALL** (measured 2026-08-07, not
+  assumed). Playwright's mouse-down → wait → move → up does not activate
+  `react-native-gesture-handler`'s `Gesture.Pan().activateAfterLongPress(400)` in the web
+  build. Confirmed by a control test against the app's OWN shipped drag — dragging a row in a
+  `DraggableTaskRow` list, code that predates the test and works on device, moves nothing
+  either. So a drag that "doesn't work" in the preview is telling you nothing about your code.
+  Don't spend a session debugging one. Split the arithmetic out into a pure function and test
+  that instead (`slotAtPoint()` in `lib/designLab.ts` is the worked example); the gesture needs
+  a real device, like the rest of the native-only surface.
+- **What else the preview genuinely CANNOT reach** (learned the hard way 2026-07-28 — check here
   before writing a driver script):
   - ~~**Anything behind `Alert.alert`.**~~ **Stale as of 2026-08-01 — the weekly shopping list
     IS reachable.** This entry claimed "Create a new list" opened a native Alert that

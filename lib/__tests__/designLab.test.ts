@@ -46,6 +46,7 @@ import {
   orderedParts,
   resolveCardSpec,
   sanitizeCards,
+  slotAtPoint,
   type CardId,
   type CardPart,
   type LabOverrides,
@@ -548,5 +549,62 @@ describe('describeCards', () => {
     const order = describeCards({ ...EMPTY_OVERRIDES, cards }).map((c) => c.id);
     const registryOrder = CARD_KNOBS.map((k) => k.id).filter((id) => order.includes(id));
     expect(order).toEqual(registryOrder);
+  });
+});
+
+describe('slotAtPoint — where a dragged part lands', () => {
+  // A card's positions, laid out the way the real one is: the row's title and meta sit inside
+  // the row, and body/footer are the card's own space below it.
+  const boxes = {
+    leading: { x: 10, y: 100, width: 30, height: 40 },
+    title: { x: 50, y: 100, width: 200, height: 20 },
+    meta: { x: 50, y: 122, width: 200, height: 18 },
+    right: { x: 260, y: 100, width: 40, height: 40 },
+    body: { x: 10, y: 150, width: 290, height: 60 },
+    footer: { x: 10, y: 215, width: 290, height: 40 },
+  };
+
+  it('finds the slot the point is inside', () => {
+    expect(slotAtPoint('text', boxes, 60, 110)).toBe('title');
+    expect(slotAtPoint('text', boxes, 60, 130)).toBe('meta');
+    expect(slotAtPoint('text', boxes, 20, 120)).toBe('leading');
+    expect(slotAtPoint('slider', boxes, 100, 180)).toBe('body');
+    expect(slotAtPoint('slider', boxes, 100, 230)).toBe('footer');
+  });
+
+  // The whole point of SLOTS_FOR_KIND: a slider dropped on the title must NOT quietly land
+  // in the body instead — a drop that goes somewhere else is how you get a card you didn't ask
+  // for. It answers nothing, and the caller leaves the part where it was.
+  it('answers nothing over a slot this kind may not take', () => {
+    expect(slotAtPoint('slider', boxes, 60, 110)).toBeNull();   // slider over the title
+    expect(slotAtPoint('slider', boxes, 20, 120)).toBeNull();   // slider over the leading
+    expect(slotAtPoint('divider', boxes, 60, 130)).toBeNull();  // divider over the meta line
+  });
+
+  it('answers nothing when the point is off every box', () => {
+    expect(slotAtPoint('text', boxes, 5, 5)).toBeNull();
+    expect(slotAtPoint('text', boxes, 1000, 1000)).toBeNull();
+  });
+
+  // Positions nest — the title and the meta line are inside the row's body box. A point in
+  // two boxes belongs to the more specific one, or every drop near the top of a card would
+  // land in whatever encloses it.
+  it('prefers the smallest containing box when they overlap', () => {
+    const nested = {
+      body: { x: 0, y: 0, width: 300, height: 300 },
+      title: { x: 50, y: 50, width: 100, height: 20 },
+    };
+    expect(slotAtPoint('text', nested, 60, 55)).toBe('title');
+    expect(slotAtPoint('text', nested, 250, 250)).toBe('body');
+  });
+
+  it('ignores a slot that has not been measured, or measured as nothing', () => {
+    expect(slotAtPoint('text', { title: { x: 0, y: 0, width: 0, height: 0 } }, 0, 0)).toBeNull();
+    expect(slotAtPoint('text', {}, 10, 10)).toBeNull();
+  });
+
+  it('counts the edges as inside, so a drop on a boundary still lands', () => {
+    expect(slotAtPoint('text', boxes, 50, 100)).toBe('title');
+    expect(slotAtPoint('text', boxes, 250, 120)).toBe('title');
   });
 });

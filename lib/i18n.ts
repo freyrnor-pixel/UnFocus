@@ -2037,7 +2037,18 @@ const en = {
     // can sit — the vocabulary the exported report describes a composition in.
     tabs: { card: 'Card', color: 'Colour', shape: 'Shape', controls: 'Controls' },
     whichCard: 'Which card',
-    preview: { collapse: 'Show less of the card', light: 'Show it light', dark: 'Show it dark' },
+    preview: {
+      collapse: 'Show less of the card',
+      light: 'Show it light',
+      dark: 'Show it dark',
+      edit: 'Change the card',
+    },
+    /** The inline panel's heading, so it is obvious which part the controls belong to. */
+    editingPart: (name: string) => `Changing: ${name}`,
+    selectHint: 'Tap something on the card to change it. Hold and drag to move it, or drag one in from above.',
+    /** The palette chip's spoken name. The chip SHOWS the kind; a screen reader needs the verb,
+     *  and without it the chip, the card's part and the list row are three identical names. */
+    addNamed: (name: string) => `Add ${name.toLowerCase()}`,
     cardEmpty: 'This card has nothing in it. Add a part below.',
     cardNoteLabel: 'What do you want from this card?',
     cardNotePlaceholder: 'In your own words.',
@@ -3829,7 +3840,15 @@ const no: typeof en = {
     changedTag: 'Endret',
     tabs: { card: 'Kort', color: 'Farge', shape: 'Form', controls: 'Kontroller' },
     whichCard: 'Hvilket kort',
-    preview: { collapse: 'Vis mindre av kortet', light: 'Vis det lyst', dark: 'Vis det mørkt' },
+    preview: {
+      collapse: 'Vis mindre av kortet',
+      light: 'Vis det lyst',
+      dark: 'Vis det mørkt',
+      edit: 'Endre kortet',
+    },
+    editingPart: (name: string) => `Endrer: ${name}`,
+    selectHint: 'Trykk på noe på kortet for å endre det. Hold og dra for å flytte det, eller dra inn en ny ovenfra.',
+    addNamed: (name: string) => `Legg til ${name.toLowerCase()}`,
     cardEmpty: 'Dette kortet er tomt. Legg til en del under.',
     cardNoteLabel: 'Hva vil du ha ut av dette kortet?',
     cardNotePlaceholder: 'Med dine egne ord.',

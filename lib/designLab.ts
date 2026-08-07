@@ -904,6 +904,43 @@ export function resolveCardSpec(id: CardId, o: LabOverrides): CardSpec {
   return { parts: (knob?.defaultParts ?? []).map((p) => ({ ...p })), note: '' };
 }
 
+/** A measured position on screen, in whatever coordinate space the caller measured in. */
+export type SlotBox = { x: number; y: number; width: number; height: number };
+
+/**
+ * Which slot a finger at (x, y) is over, for a part of this kind — or `null`.
+ *
+ * Split out of the card editor so the half of drag-and-drop that CAN be checked headlessly is
+ * checked: the gesture itself needs a device (the web preview cannot drive
+ * react-native-gesture-handler's hold-then-move at all — verified against the app's own
+ * shipped drag, not assumed), but "given these boxes and this finger, where does it land" is
+ * arithmetic.
+ *
+ * Two rules, and both matter:
+ *   - **Illegal slots are not candidates at all.** A drop that quietly lands on the nearest
+ *     legal position instead is how you get a card you didn't ask for; `SLOTS_FOR_KIND` says
+ *     where a kind may go, and a finger anywhere else answers `null`.
+ *   - **The SMALLEST containing box wins.** Positions nest — the title and the meta line sit
+ *     inside the row's body — so a point inside two boxes belongs to the more specific one.
+ */
+export function slotAtPoint(
+  kind: PartKind,
+  boxes: Partial<Record<PartSlot, SlotBox>>,
+  x: number,
+  y: number,
+): PartSlot | null {
+  let best: PartSlot | null = null;
+  let bestArea = Infinity;
+  for (const slot of SLOTS_FOR_KIND[kind] ?? []) {
+    const b = boxes[slot];
+    if (!b || b.width <= 0 || b.height <= 0) continue;
+    if (x < b.x || x > b.x + b.width || y < b.y || y > b.y + b.height) continue;
+    const area = b.width * b.height;
+    if (area < bestArea) { best = slot; bestArea = area; }
+  }
+  return best;
+}
+
 /** A card's parts in draw order — slot order first, then the maintainer's own order within it. */
 export function orderedParts(spec: CardSpec): CardPart[] {
   return spec.parts

@@ -654,13 +654,12 @@ async function main() {
       await page.waitForTimeout(1500);
       await shot(page, 'design-lab');
 
-      await page.getByText('Add something', { exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(800);
-      await page.getByText('A slider', { exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      await shot(page, 'design-lab-part-editor');
-      await page.getByText('Done', { exact: true }).last().click({ timeout: 10000 });
-      await page.waitForTimeout(1000);
+      // Add via the PALETTE (the row of kinds under the card in edit mode), not the parts
+      // list's "Add something" — the palette sits directly under the pinned card and is
+      // reachable without scrolling, which the list button stopped being once the palette and
+      // the inline panel went above it.
+      await page.getByRole('button', { name: 'Add a slider', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(1200);
       await shot(page, 'design-lab-composed');
 
       // The part has to be in the LIST (the composition was written) and the pinned preview
@@ -671,6 +670,22 @@ async function main() {
       console.log(`  part added to the list: ${inList}; sliders on screen: ${sliders}`);
       if (!inList) pageErrors.push('Design lab: the added part never reached the card’s parts list');
       if (sliders === 0) pageErrors.push('Design lab: the composed card drew no slider for the added part');
+
+      // Tap a part ON THE CARD and check the inline panel opens for it. The card sits in the
+      // sticky block, which renders AFTER the scroll body — hence `.last()`, or this matches
+      // the palette chip or the parts-list row, which carry the same words.
+      //
+      // Only the TAP half of edit mode is checked here. The hold-and-drag cannot be driven at
+      // all in this environment — Playwright's mouse-down/move does not activate
+      // react-native-gesture-handler on web, confirmed against the app's own shipped drag, so
+      // a failure here would be the harness rather than the app (see AGENTS.md). Its
+      // arithmetic is covered by `slotAtPoint` in lib/__tests__/designLab.test.ts instead.
+      await page.getByRole('button', { name: 'A time', exact: true }).last().click({ timeout: 8000 });
+      await page.waitForTimeout(900);
+      await shot(page, 'design-lab-part-selected');
+      const panel = await page.getByText(/^Changing:/).first().isVisible().catch(() => false);
+      console.log(`  tapping a part on the card opened its panel: ${panel}`);
+      if (!panel) pageErrors.push('Design lab: tapping a part on the card did not open the inline editor');
     } catch (e) {
       console.log(`  (design-lab step skipped: ${e.message.split('\n')[0]})`);
     }
