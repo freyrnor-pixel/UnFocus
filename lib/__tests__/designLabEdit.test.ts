@@ -17,6 +17,7 @@ import {
   MAX_CARDS_PER_SCREEN,
   MAX_PARTS_PER_CARD,
   MAX_SCREENS,
+  PART_KINDS,
   cardKnob,
   type LabOverrides,
 } from '@/lib/designLab';
@@ -194,6 +195,18 @@ describe('parts', () => {
     const { next, partId } = addPart(bag, at, 'slider');
     expect(partId).toBe('slider-1');
     expect(findCard(next, at)!.parts[0].slot).toBe('body');
+  });
+
+  // `SLOTS_FOR_KIND.button` starts at `trailing`, so taking the registry's first legal slot
+  // made "add a button" grow a ROW on a blank card and hang the button off the end of it.
+  // The card's own space is what "put a thing on this card" means — and as it happens every
+  // kind can take it, so nothing tapped off the shelf ever lands somewhere surprising.
+  it('lands every kind in the card’s own space', () => {
+    const { bag, at } = oneCard();
+    for (const kind of PART_KINDS) {
+      const { next } = addPart(bag, at, kind);
+      expect(findCard(next, at)!.parts[0].slot).toBe('body');
+    }
   });
 
   it('honours a slot the kind allows and ignores one it does not', () => {

@@ -241,6 +241,21 @@ export function updateCard(
 // ── Parts ────────────────────────────────────────────────────────────────────
 
 /**
+ * Where a part lands when nobody said where.
+ *
+ * **The card's own space wins whenever the kind can take it**, and the kind's own first legal
+ * slot only otherwise. That is the opposite of what the registry order gives you and it is
+ * deliberate: `SLOTS_FOR_KIND.button` starts at `trailing`, so tapping "a button" on a blank
+ * card used to grow a ROW and hang the button off the end of it — which is not what anybody
+ * means by adding a button to a card. The row's positions are for parts you deliberately put
+ * there; the body is where "put a thing on this card" goes.
+ */
+function defaultSlotFor(kind: PartKind): PartSlot | undefined {
+  const legal = SLOTS_FOR_KIND[kind];
+  return legal.includes('body') ? 'body' : legal[0];
+}
+
+/**
  * A new part on the card, at `slot` if it is legal for that kind and its default slot if not.
  *
  * Returns the minted id so the screen can select what it just made — adding something you
@@ -257,7 +272,7 @@ export function addPart(
   if (!card || card.parts.length >= MAX_PARTS_PER_CARD) return { next: bag, partId: null };
 
   const legal = SLOTS_FOR_KIND[kind];
-  const target = slot && legal.includes(slot) ? slot : legal[0];
+  const target = slot && legal.includes(slot) ? slot : defaultSlotFor(kind);
   if (!target) return { next: bag, partId: null };
 
   const id = mintPartId(card.parts, kind);
