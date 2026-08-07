@@ -19,7 +19,13 @@ import {
   parseDesignLabReport,
   type ReportMeta,
 } from '@/lib/designLabExport';
-import { EMPTY_OVERRIDES, type LabOverrides } from '@/lib/designLab';
+import {
+  DESIGN_LAB_VERSION,
+  EMPTY_OVERRIDES,
+  cardKnob,
+  resolveCardSpec,
+  type LabOverrides,
+} from '@/lib/designLab';
 import { getThemePalette } from '@/constants/colors';
 
 const palette = getThemePalette('default', false);
@@ -39,6 +45,7 @@ const bag: LabOverrides = {
   shape: { radiusScale: 1.35, borderCardWidth: 2 },
   controls: { boolean: 'segmented' },
   slots: { 'row.right': 'energy' },
+  cards: {},
   note: 'The habit rows still feel busier than the notes rows.',
 };
 
@@ -160,5 +167,91 @@ describe('the machine block', () => {
       status: 'invalid',
       reason: 'no-markers',
     });
+  });
+});
+
+// ── The CARDS section (2026-08-07) ───────────────────────────────────────────
+
+/** The habits card with a slider added, its meta badge removed and its count moved. */
+function cardBag(note = 'the count should be draggable'): LabOverrides {
+  const spec = resolveCardSpec('habit', EMPTY_OVERRIDES);
+  const parts = spec.parts
+    .filter((p) => p.id !== 'energy')
+    .map((p) => (p.id === 'count' ? { ...p, slot: 'meta' as const } : p));
+  parts.push({
+    id: 'slider-1', kind: 'slider', slot: 'body',
+    label: 'How much', color: 'accent', size: 'md', weight: 'regular',
+  });
+  return { ...EMPTY_OVERRIDES, cards: { habit: { parts, note } } };
+}
+
+describe('the CARDS section', () => {
+  const text = humanHalf(formatDesignLabReport(cardBag(), palette, meta));
+
+  it('names the card and the file that owns it', () => {
+    expect(text).toContain('CARDS');
+    expect(text).toContain('habit');
+    expect(text).toContain(cardKnob('habit')!.source);
+    expect(text).toContain(`used by: ${cardKnob('habit')!.usedBy}`);
+  });
+
+  // The marks are the whole reason a card's changes are scannable rather than readable, so
+  // the file has to say what they mean without the reader knowing this codebase.
+  it('spells out what its own marks mean', () => {
+    expect(text).toContain('+ added');
+    expect(text).toContain('− taken out');
+    expect(text).toContain('↕ moved');
+    expect(text).toContain('~ restyled');
+  });
+
+  it('marks each part with what happened to it, and says what differs', () => {
+    expect(text).toMatch(/\+ slider\s+slider-1\s+body/);
+    expect(text).toMatch(/− badge\s+energy/);
+    expect(text).toMatch(/↕ count\s+count\s+right → meta/);
+  });
+
+  it('carries the card’s own note beside its rows', () => {
+    expect(text).toContain('note: the count should be draggable');
+  });
+
+  it('reports a card whose only change is its note, rather than dropping it', () => {
+    const spec = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    const only = { ...EMPTY_OVERRIDES, cards: { todo: { ...spec, note: 'too busy' } } };
+    const out = humanHalf(formatDesignLabReport(only, palette, meta));
+    expect(out).toContain('CARDS');
+    expect(out).toContain('nothing moved');
+    expect(out).toContain('note: too busy');
+  });
+
+  it('omits the heading entirely when no card was touched', () => {
+    expect(humanHalf(formatDesignLabReport(bag, palette, meta))).not.toContain('CARDS');
+  });
+
+  // A card composition alone is a real session. Before cards existed the "nothing changed"
+  // branch keyed off the token list only, which would have swallowed this whole feature.
+  it('does not report "nothing changed" for a session that only edited a card', () => {
+    const out = formatDesignLabReport(cardBag(''), palette, meta);
+    expect(out).not.toContain('Nothing was changed');
+    expect(hasSomethingToExport(cardBag(''))).toBe(true);
+  });
+
+  it('puts cards above the token groups — the composition is the bigger request', () => {
+    const both = { ...cardBag(), ...bag, cards: cardBag().cards };
+    const out = humanHalf(formatDesignLabReport(both, palette, meta));
+    expect(out.indexOf('CARDS')).toBeLessThan(out.indexOf('COLOUR'));
+  });
+
+  it('round-trips the composition through the machine block', () => {
+    const source = cardBag();
+    const parsed = parseDesignLabReport(formatDesignLabReport(source, palette, meta));
+    expect(parsed.status).toBe('ok');
+    if (parsed.status === 'ok') expect(parsed.overrides.cards).toEqual(source.cards);
+  });
+
+  it('stamps the block at version 2, so a reader can tell "no cards" from "predates cards"', () => {
+    const out = formatDesignLabReport(cardBag(), palette, meta);
+    const json = out.slice(out.indexOf(DESIGN_LAB_BEGIN) + DESIGN_LAB_BEGIN.length, out.indexOf(DESIGN_LAB_END));
+    expect(JSON.parse(json).v).toBe(DESIGN_LAB_VERSION);
+    expect(DESIGN_LAB_VERSION).toBe(2);
   });
 });

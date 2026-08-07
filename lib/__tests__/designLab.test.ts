@@ -33,6 +33,21 @@ import {
   resolveShape,
   resolveSlot,
   sanitizeLabOverrides,
+  CARD_KNOBS,
+  DESIGN_LAB_VERSION,
+  MAX_CARD_NOTE,
+  MAX_PARTS_PER_CARD,
+  MAX_PART_LABEL,
+  PART_KINDS,
+  PART_SLOT_ORDER,
+  SLOTS_FOR_KIND,
+  cardKnob,
+  describeCards,
+  orderedParts,
+  resolveCardSpec,
+  sanitizeCards,
+  type CardId,
+  type CardPart,
   type LabOverrides,
 } from '@/lib/designLab';
 import { getThemePalette } from '@/constants/colors';
@@ -46,6 +61,7 @@ function fullBag(): LabOverrides {
     shape: { radiusScale: 2 },
     controls: { boolean: 'segmented' },
     slots: { 'row.right': 'price' },
+    cards: {},
     note: 'because the edges are too loud',
   };
 }
@@ -114,10 +130,19 @@ describe('sanitizeLabOverrides', () => {
   it('drops control and slot values that are not declared variants', () => {
     const out = sanitizeLabOverrides({
       controls: { boolean: 'hologram', notASlot: 'switch' },
-      slots: { 'row.right': 'nonsense', 'bench.a': 'button' },
+      slots: { 'row.right': 'nonsense', 'row.leading': 'badge' },
     });
     expect(out.controls).toEqual({});
-    expect(out.slots).toEqual({ 'bench.a': 'button' });
+    expect(out.slots).toEqual({ 'row.leading': 'badge' });
+  });
+
+  // The three bench slots were retired on 2026-08-07 (the card editor replaced them). A bag
+  // stored before that still names them, and must load as though it never had.
+  it('drops the retired bench slots from an older stored bag', () => {
+    const out = sanitizeLabOverrides({
+      slots: { 'bench.a': 'button', 'bench.b': 'slider', 'row.meta': 'tags' },
+    });
+    expect(out.slots).toEqual({ 'row.meta': 'tags' });
   });
 
   it('caps the free-text note rather than storing an unbounded string', () => {
@@ -239,5 +264,289 @@ describe('import graph', () => {
       expect(spec).not.toMatch(/lib\/reminders/);
       expect(spec).not.toMatch(/lib\/liveSync|lib\/syncService/);
     }
+  });
+});
+
+// ── Cards (2026-08-07) ───────────────────────────────────────────────────────
+
+/** The habits card with a slider bolted on and its title made loud. */
+function editedHabitCard(): LabOverrides {
+  const spec = resolveCardSpec('habit', EMPTY_OVERRIDES);
+  const parts: CardPart[] = spec.parts.map((p) =>
+    p.id === 'title' ? { ...p, size: 'lg', weight: 'bold', label: 'How much' } : p,
+  );
+  parts.push({ id: 'slider-1', kind: 'slider', slot: 'body', label: 'Today', color: 'accent', size: 'md', weight: 'regular' });
+  return { ...EMPTY_OVERRIDES, cards: { habit: { parts, note: 'the count should be draggable' } } };
+}
+
+describe('the card registry', () => {
+  it('gives every card a source and a description an agent can act on', () => {
+    for (const knob of CARD_KNOBS) {
+      expect(knob.source.trim().length).toBeGreaterThan(0);
+      expect(knob.usedBy.trim().length).toBeGreaterThan(0);
+      expect(knob.domain.trim().length).toBeGreaterThan(0);
+      expect(knob.screen.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('has no duplicate card ids', () => {
+    const ids = CARD_KNOBS.map((k) => k.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  // A default part in an illegal slot would be dropped by the sanitizer the moment the card
+  // was opened and saved — the card would silently lose a piece of itself on first touch.
+  it('places every shipped part in a slot its own kind allows', () => {
+    for (const knob of CARD_KNOBS) {
+      for (const part of knob.defaultParts) {
+        expect(PART_KINDS).toContain(part.kind);
+        expect(SLOTS_FOR_KIND[part.kind]).toContain(part.slot);
+      }
+    }
+  });
+
+  it('keeps part ids unique within a card, since the id is what tracks a move', () => {
+    for (const knob of CARD_KNOBS) {
+      const ids = knob.defaultParts.map((p) => p.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+
+  it('ships every card with at least one part, and never more than the cap', () => {
+    for (const knob of CARD_KNOBS) {
+      expect(knob.defaultParts.length).toBeGreaterThan(0);
+      expect(knob.defaultParts.length).toBeLessThanOrEqual(MAX_PARTS_PER_CARD);
+    }
+  });
+
+  it('draws every declared slot from the one ordering list', () => {
+    for (const slots of Object.values(SLOTS_FOR_KIND)) {
+      for (const slot of slots) expect(PART_SLOT_ORDER).toContain(slot);
+    }
+  });
+
+  it('offers a slot for every kind, so no kind is unaddable', () => {
+    for (const kind of PART_KINDS) {
+      expect(SLOTS_FOR_KIND[kind].length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('sanitizeCards', () => {
+  it('drops an unknown card id', () => {
+    expect(sanitizeCards({ notACard: { parts: [{ id: 'a', kind: 'text', slot: 'title' }] } })).toEqual({});
+  });
+
+  it('drops an unknown kind, an unknown slot, and an illegal kind/slot pair', () => {
+    const raw = {
+      todo: {
+        parts: [
+          { id: 'ok', kind: 'text', slot: 'title' },
+          { id: 'badKind', kind: 'hologram', slot: 'title' },
+          { id: 'badSlot', kind: 'text', slot: 'nowhere' },
+          // A slider genuinely cannot go in the right-hand string column.
+          { id: 'badPair', kind: 'slider', slot: 'right' },
+        ],
+      },
+    };
+    expect(sanitizeCards(raw).todo?.parts.map((p) => p.id)).toEqual(['ok']);
+  });
+
+  it('drops a duplicate part id rather than letting two parts share one identity', () => {
+    const raw = { todo: { parts: [
+      { id: 'title', kind: 'text', slot: 'title' },
+      { id: 'title', kind: 'text', slot: 'meta' },
+    ] } };
+    expect(sanitizeCards(raw).todo?.parts).toHaveLength(1);
+  });
+
+  it('accepts a palette token or a hex as a colour, and nothing else', () => {
+    const raw = { todo: { parts: [
+      { id: 'a', kind: 'text', slot: 'title', color: 'accent' },
+      { id: 'b', kind: 'text', slot: 'meta', color: '#ABC' },
+      { id: 'c', kind: 'text', slot: 'body', color: 'rebeccapurple' },
+      { id: 'd', kind: 'text', slot: 'footer', color: 'accentInk' },
+    ] } };
+    const parts = sanitizeCards(raw).todo?.parts ?? [];
+    expect(parts.map((p) => p.color)).toEqual(['accent', '#aabbcc', '', '']);
+  });
+
+  it('falls back rather than dropping when only size or weight is junk', () => {
+    const raw = { todo: { parts: [{ id: 'a', kind: 'text', slot: 'title', size: 'enormous', weight: 7 }] } };
+    expect(sanitizeCards(raw).todo?.parts[0]).toMatchObject({ size: 'sm', weight: 'regular' });
+  });
+
+  it('caps parts, labels and the per-card note', () => {
+    const parts = Array.from({ length: MAX_PARTS_PER_CARD + 5 }, (_, i) => ({
+      id: `p${i}`, kind: 'text', slot: 'body', label: 'x'.repeat(MAX_PART_LABEL + 40),
+    }));
+    const out = sanitizeCards({ todo: { parts, note: 'n'.repeat(MAX_CARD_NOTE + 100) } }).todo!;
+    expect(out.parts).toHaveLength(MAX_PARTS_PER_CARD);
+    expect(out.parts[0].label).toHaveLength(MAX_PART_LABEL);
+    expect(out.note).toHaveLength(MAX_CARD_NOTE);
+  });
+
+  // An empty composition is indistinguishable from "I deleted everything", and silently
+  // proposing a blank card is the one thing this must never do by accident.
+  it('drops a card left with no usable parts instead of storing a blank one', () => {
+    expect(sanitizeCards({ todo: { parts: [] } })).toEqual({});
+    expect(sanitizeCards({ todo: { parts: [{ id: 'x', kind: 'nope', slot: 'title' }] } })).toEqual({});
+  });
+
+  it('survives every shape of junk without throwing', () => {
+    [null, undefined, 7, 'cards', [], { todo: 5 }, { todo: { parts: 'lots' } }].forEach((raw) => {
+      expect(() => sanitizeCards(raw)).not.toThrow();
+    });
+  });
+});
+
+describe('card back-compatibility', () => {
+  // The stored bag is one JSON column. A v1 bag predates `cards` entirely and must keep
+  // loading unchanged — a widening, not a break, which is why the version bump is only a
+  // signal to whoever reads the exported file.
+  it('loads a v1 bag (no `cards` field) with everything else intact', () => {
+    const v1 = {
+      colors: { light: { accent: '#112233' }, dark: {} },
+      shape: { radiusScale: 2 },
+      controls: { boolean: 'segmented' },
+      slots: { 'row.right': 'price' },
+      note: 'from before cards existed',
+    };
+    const out = sanitizeLabOverrides(v1);
+    expect(out.cards).toEqual({});
+    expect(out.colors.light.accent).toBe('#112233');
+    expect(out.shape.radiusScale).toBe(2);
+    expect(out.note).toBe('from before cards existed');
+  });
+
+  it('is at version 2, so a reader can tell "no cards" from "predates cards"', () => {
+    expect(DESIGN_LAB_VERSION).toBe(2);
+  });
+
+  it('round-trips a bag carrying a card through the sanitizer unchanged', () => {
+    const bag = editedHabitCard();
+    expect(sanitizeLabOverrides(bag)).toEqual(bag);
+  });
+});
+
+describe('resolveCardSpec', () => {
+  it('opens an untouched card as the one the app ships', () => {
+    for (const knob of CARD_KNOBS) {
+      expect(resolveCardSpec(knob.id, EMPTY_OVERRIDES).parts).toEqual(knob.defaultParts);
+    }
+  });
+
+  // The registry's arrays are readonly, but a shared reference is still one `.push` from
+  // rewriting the shipped card for the rest of the session.
+  it('hands back a fresh array and fresh parts, not the registry’s own', () => {
+    const a = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    a.parts[0].label = 'mutated';
+    expect(resolveCardSpec('todo', EMPTY_OVERRIDES).parts[0].label).toBe('');
+  });
+
+  it('prefers the stored composition once a card has been touched', () => {
+    const bag = editedHabitCard();
+    expect(resolveCardSpec('habit', bag).parts.some((p) => p.id === 'slider-1')).toBe(true);
+    expect(resolveCardSpec('habit', bag).note).toBe('the count should be draggable');
+  });
+
+  it('returns an empty spec for an id that is not a card', () => {
+    expect(resolveCardSpec('nope' as CardId, EMPTY_OVERRIDES).parts).toEqual([]);
+  });
+
+  it('exposes the registry entry by id', () => {
+    expect(cardKnob('habit')?.source).toContain('habits.tsx');
+    expect(cardKnob('nope' as CardId)).toBeUndefined();
+  });
+});
+
+describe('orderedParts', () => {
+  it('sorts by slot, keeping the maintainer’s own order inside a slot', () => {
+    const spec = {
+      note: '',
+      parts: [
+        { id: 'z', kind: 'text', slot: 'footer', label: '', color: '', size: 'sm', weight: 'regular' },
+        { id: 'm2', kind: 'text', slot: 'meta', label: 'second', color: '', size: 'sm', weight: 'regular' },
+        { id: 'h', kind: 'text', slot: 'header', label: '', color: '', size: 'sm', weight: 'regular' },
+        { id: 'm1', kind: 'text', slot: 'meta', label: 'first', color: '', size: 'sm', weight: 'regular' },
+      ] as CardPart[],
+    };
+    expect(orderedParts(spec).map((p) => p.id)).toEqual(['h', 'm2', 'm1', 'z']);
+  });
+});
+
+describe('describeCards', () => {
+  it('says nothing about a card that was never opened', () => {
+    expect(describeCards(EMPTY_OVERRIDES)).toEqual([]);
+  });
+
+  // Same rule describeOverrides follows for a knob set back to its default: a report that
+  // lists everything says nothing about what the maintainer cares about.
+  it('says nothing about a card opened and left alone', () => {
+    const untouched = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    expect(describeCards({ ...EMPTY_OVERRIDES, cards: { todo: untouched } })).toEqual([]);
+  });
+
+  it('reports a card whose only change is a note', () => {
+    const spec = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    const out = describeCards({ ...EMPTY_OVERRIDES, cards: { todo: { ...spec, note: 'too busy' } } });
+    expect(out).toHaveLength(1);
+    expect(out[0].changes).toEqual([]);
+    expect(out[0].note).toBe('too busy');
+  });
+
+  it('carries the card’s provenance, so the report names the file to edit', () => {
+    const [card] = describeCards(editedHabitCard());
+    expect(card.id).toBe('habit');
+    expect(card.source).toBe(cardKnob('habit')!.source);
+    expect(card.usedBy).toBe(cardKnob('habit')!.usedBy);
+  });
+
+  it('tells added, removed, moved and restyled apart', () => {
+    const spec = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    const parts = spec.parts
+      .filter((p) => p.id !== 'tags')                                   // removed
+      .map((p) => (p.id === 'goalDot' ? { ...p, slot: 'leading' as const } : p))  // moved
+      .map((p) => (p.id === 'title' ? { ...p, size: 'lg' as const } : p));        // restyled
+    parts.push({ id: 'btn-1', kind: 'button', slot: 'footer', label: 'Do it', color: '', size: 'sm', weight: 'semibold' });
+
+    const [card] = describeCards({ ...EMPTY_OVERRIDES, cards: { todo: { parts, note: '' } } });
+    const byKind = (kind: string) => card.changes.filter((c) => c.kind === kind).map((c) => c.part.id);
+    expect(byKind('added')).toEqual(['btn-1']);
+    expect(byKind('removed')).toEqual(['tags']);
+    expect(byKind('moved')).toEqual(['goalDot']);
+    expect(byKind('restyled')).toEqual(['title']);
+  });
+
+  it('spells out what actually differs, so the report needs no second lookup', () => {
+    const [card] = describeCards(editedHabitCard());
+    const title = card.changes.find((c) => c.part.id === 'title')!;
+    expect(title.kind).toBe('restyled');
+    expect(title.detail).toContain('size md → lg');
+    expect(title.detail).toContain('weight semibold → bold');
+    expect(title.detail).toContain('"How much"');
+
+    const slider = card.changes.find((c) => c.part.id === 'slider-1')!;
+    expect(slider.kind).toBe('added');
+    expect(slider.detail).toContain('body');
+    expect(slider.detail).toContain('accent');
+  });
+
+  it('reports a moved part once, not as a removal plus an addition', () => {
+    const spec = resolveCardSpec('todo', EMPTY_OVERRIDES);
+    const parts = spec.parts.map((p) => (p.id === 'time' ? { ...p, slot: 'meta' as const } : p));
+    const [card] = describeCards({ ...EMPTY_OVERRIDES, cards: { todo: { parts, note: '' } } });
+    expect(card.changes).toHaveLength(1);
+    expect(card.changes[0]).toMatchObject({ kind: 'moved', detail: 'right → meta' });
+  });
+
+  it('walks the cards in registry order, whatever order they were stored in', () => {
+    const cards = {
+      note: { parts: [{ id: 'x', kind: 'text', slot: 'body', label: '', color: '', size: 'sm', weight: 'regular' }] as CardPart[], note: '' },
+      todo: { parts: [{ id: 'y', kind: 'text', slot: 'body', label: '', color: '', size: 'sm', weight: 'regular' }] as CardPart[], note: '' },
+    };
+    const order = describeCards({ ...EMPTY_OVERRIDES, cards }).map((c) => c.id);
+    const registryOrder = CARD_KNOBS.map((k) => k.id).filter((id) => order.includes(id));
+    expect(order).toEqual(registryOrder);
   });
 });

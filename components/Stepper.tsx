@@ -8,7 +8,9 @@
  * capacity, the Home meter's per-period override) can share one control.
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/haptics, components/PressableScale
+ *   Imports → constants/theme, lib/useAppTheme, lib/useDesignLab (useLabControl — the
+ *             design lab's `number` job, see the last Edit note), lib/haptics,
+ *             components/PressableScale, components/Slider
  *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23),
  *             components/EnergyMeter.tsx, components/HomeShoppingCard.tsx,
  *             components/ShoppingItemSheet.tsx, app/settings.tsx, app/habit-form.tsx,
@@ -33,13 +35,21 @@
  *     fixed the same bug in habits.tsx's own local adjuster button but not this shared
  *     component. Both call sites now pass `theme.border` (the "+" needs it too, now that it
  *     no longer has an accent fill to define its own edge).
+ *   - **This component owns the design lab's `number` job (2026-08-07)**, and is the reason
+ *     that knob is no longer inert: choosing `slider` swaps the ±  pair for
+ *     components/Slider.tsx with the value beside it. It falls back to the stepper whenever
+ *     `min`/`max` aren't both given — a slider with no range has no track to draw, and a
+ *     silently broken control is worse than an unchanged one. Every OTHER variant of that
+ *     knob (`segments`, `text`) is still unbuilt and still resolves to the stepper.
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, HitSlop, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useLabControl } from '@/lib/useDesignLab';
 import { tap } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
+import Slider from '@/components/Slider';
 
 type Props = {
   value: number;
@@ -56,6 +66,30 @@ type Props = {
 
 export default function Stepper({ value, onChange, min, max, step = 1, suffix, signed, accessibilityLabel }: Props) {
   const theme = useAppTheme();
+  // The design lab's `number` job. Until 2026-08-07 nothing read it, so choosing `slider`
+  // there changed nothing anywhere — this is the consumer that makes the knob true.
+  const variant = useLabControl('number');
+
+  // A slider needs both ends of a range to draw a track. Most call sites pass them; the ones
+  // that don't (an open-ended count) keep the stepper rather than getting a broken slider.
+  if (variant === 'slider' && min != null && max != null && max > min) {
+    return (
+      <View style={styles.sliderRow}>
+        <Slider
+          value={value}
+          onChange={onChange}
+          min={min}
+          max={max}
+          step={step}
+          accessibilityLabel={accessibilityLabel}
+          style={styles.sliderTrack}
+        />
+        <Text style={[styles.value, styles.sliderValue, { color: theme.text }]}>
+          {signed && value > 0 ? `+${value}` : value}{suffix ? ` ${suffix}` : ''}
+        </Text>
+      </View>
+    );
+  }
 
   const clamp = (n: number) => {
     let v = n;
@@ -109,4 +143,10 @@ const styles = StyleSheet.create({
   btnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   value: { minWidth: 36, textAlign: 'center', fontSize: FontSize.md, fontFamily: Fonts.semibold },
   disabled: { opacity: 0.4 },
+  // The slider variant. `flex: 1` + `minWidth: 0` on the track so the readout keeps its width
+  // and the track gives — the wrap-audit rule for a label competing with a fixed-size control,
+  // applied the other way round here because the readout is the one that can't shrink.
+  sliderRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  sliderTrack: { flex: 1, minWidth: 0 },
+  sliderValue: { ...TabularNums },
 });

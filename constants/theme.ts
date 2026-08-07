@@ -93,6 +93,56 @@ export function mix(base: string, overlay: string, t: number): string {
   return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
 }
 
+/**
+ * `#rrggbb` → `{ h: 0-360, s: 0-100, l: 0-100 }`.
+ *
+ * Added 2026-08-07 for the design lab's colour picker. `lighten`/`darken` above walk a colour
+ * toward white or black in RGB, which is fine for a tint but useless for "make this the same
+ * colour, more saturated" or "the same brightness, a different hue" — the two questions a
+ * picker is actually asked. Those need the polar axes, hence this pair.
+ */
+export function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const [r255, g255, b255] = hexToRgb(hex);
+  const r = r255 / 255;
+  const g = g255 / 255;
+  const b = b255 / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l: Math.round(l * 100) };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  let h: number;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h *= 60;
+  if (h < 0) h += 360;
+  return { h: Math.round(h), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+/** The inverse of `hexToHsl`. Out-of-range inputs are wrapped (hue) or clamped (s/l). */
+export function hslToHex(h: number, s: number, l: number): string {
+  const hue = ((h % 360) + 360) % 360;
+  const sat = Math.min(100, Math.max(0, s)) / 100;
+  const lum = Math.min(100, Math.max(0, l)) / 100;
+  const c = (1 - Math.abs(2 * lum - 1)) * sat;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = lum - c / 2;
+  const sector = Math.floor(hue / 60) % 6;
+  const [r, g, b] = (
+    [
+      [c, x, 0],
+      [x, c, 0],
+      [0, c, x],
+      [0, x, c],
+      [x, 0, c],
+      [c, 0, x],
+    ] as const
+  )[sector];
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+
 function relLuminance(hex: string): number {
   const lin = (c: number) => {
     const v = c / 255;

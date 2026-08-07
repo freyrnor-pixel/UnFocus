@@ -8,6 +8,14 @@
  * override bag those knobs write into. `app/design-lab.tsx` renders it, `lib/designLabExport.ts`
  * turns a bag into a report an agent can act on.
  *
+ * **Five registries, and the fifth is a different shape from the other four.** `COLOR_KNOBS`,
+ * `SHAPE_KNOBS`, `CONTROL_KNOBS` and `SLOT_KNOBS` are all "one token, one new value" — they
+ * answer "is the accent too dark", "are the corners too round". `CARD_KNOBS` (2026-08-07)
+ * answers the question those cannot, which is the one the maintainer actually keeps asking:
+ * *I want this card to look like this.* A card is a LIST of parts that can be added to, taken
+ * from, moved and restyled, so it is stored as a composition rather than as a value, and the
+ * report describes it as a diff rather than as a before→after pair.
+ *
  * **The overrides are a question, not an answer.** Nothing here is a permanent user setting —
  * it is a scratchpad that can be left in any state, reset in one tap, and is off by default
  * behind `settings.featureDesignLab`. Its real output is the exported text file.
@@ -43,12 +51,30 @@
  *     (for a shape knob) to `ShapeOverrides` + `DEFAULT_SHAPE`. The screen and the export both
  *     enumerate from here, so nothing else needs to change. Provenance is not decoration — it
  *     is what the exported report tells the agent to go and edit.
+ *   - **`CARD_KNOBS.defaultParts` must stay faithful to the real components.** It is doing two
+ *     jobs at once: it is what the bench OPENS at (so the maintainer sees their card, not an
+ *     empty box) and it is what `describeCards` measures against (so the report can say
+ *     "added a slider", not merely "here is a list of parts"). A card that gains or loses a
+ *     part in the real app has to gain or lose it here too, or the very next export lies.
+ *   - **A part's `id` is stable and load-bearing.** It is the only thing that tells `moved`
+ *     apart from `removed` + `added`. Renaming one in `defaultParts` silently turns every
+ *     stored composition's edit to that part into a delete-and-recreate in the report.
+ *   - The kind→slot table (`SLOTS_FOR_KIND`) is the ONLY compatibility rule, and it is
+ *     deliberately not per card: there is no card that couldn't sensibly gain a button, but
+ *     there is no card where a slider fits on the one-line meta row either.
  */
 import { BORDER_WIDTH, MIN_TAP_TARGET, PAD_ROW_HEIGHT } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 
-/** Bump when the shape of a stored bag changes incompatibly. Written into the export block. */
-export const DESIGN_LAB_VERSION = 1;
+/**
+ * Bump when the shape of a stored bag changes incompatibly. Written into the export block.
+ *
+ * 2 (2026-08-07) added `cards`. A v1 bag stays valid and loads unchanged — the field is simply
+ * absent and sanitizes to `{}` — so this is a widening, not a break. It is still a bump because
+ * an agent reading the exported JSON has to know whether a missing `cards` means "no card was
+ * touched" or "this file predates cards".
+ */
+export const DESIGN_LAB_VERSION = 2;
 
 /** The lowest `minTapTarget` the lab will accept — WCAG's floor, and the app's own token. */
 export const MIN_TAP_TARGET_FLOOR = 44;
@@ -269,17 +295,22 @@ export const CONTROL_KNOBS: readonly ControlKnob[] = [
  *     [leading?]  title            [right value] [⋯ action] [○ check]
  *                 ⟨one meta line⟩
  *
- * Plus three free bench slots, which are the "empty fields I can assign options to" — a
- * position with nothing in it yet, where any control kind can be dropped to see how it sits.
+ * These are APP-WIDE: they describe the shared row every list draws through, not one card.
+ * Per-card composition is `CARD_KNOBS` and lives on the Card tab.
+ *
+ * **`bench.a`/`bench.b`/`bench.c` were retired on 2026-08-07.** They were three empty
+ * positions any control kind could be dropped into — a stand-in for "let me add something",
+ * built because there was no way to add a part to anything. The card editor does that
+ * properly now, on a real card rather than in a nameless slot, so keeping them would leave
+ * two ways to answer the same question and one of them attached to nothing. A stored bag
+ * naming them is simply dropped by the sanitizer, which is what it already does with any
+ * unknown key.
  */
 export type SlotId =
   | 'row.leading'
   | 'row.meta'
   | 'row.right'
-  | 'row.action'
-  | 'bench.a'
-  | 'bench.b'
-  | 'bench.c';
+  | 'row.action';
 
 export type SlotKnob = {
   id: SlotId;
@@ -292,17 +323,339 @@ export type SlotKnob = {
 /** What a row position can carry. `none` is always available and always means "draw nothing". */
 const ROW_CONTENT = ['none', 'badge', 'personChip', 'goalDot', 'tags', 'time', 'count', 'price', 'energy', 'repeat'] as const;
 
-/** What an empty bench slot can be filled with — one of each control kind the app owns. */
-const BENCH_CONTENT = ['none', 'button', 'toggle', 'tabs', 'pills', 'stepper', 'slider', 'time', 'textbox', 'chips', 'checkbox'] as const;
-
 export const SLOT_KNOBS: readonly SlotKnob[] = [
   { id: 'row.leading', options: ROW_CONTENT, fallback: 'none', source: 'components/PadRow.tsx leading', usedBy: "the space before a row's title" },
   { id: 'row.meta', options: ROW_CONTENT, fallback: 'tags', source: 'components/PadRow.tsx meta line', usedBy: "the one line under a row's title" },
   { id: 'row.right', options: ROW_CONTENT, fallback: 'time', source: 'components/PadRow.tsx rightValue', usedBy: "a row's single right-hand value" },
   { id: 'row.action', options: ['none', 'more', 'delete', 'send'], fallback: 'more', source: 'components/PadRow.tsx action', usedBy: "a row's one action button" },
-  { id: 'bench.a', options: BENCH_CONTENT, fallback: 'none', source: '(empty slot)', usedBy: 'nothing yet — an empty field to try a control in' },
-  { id: 'bench.b', options: BENCH_CONTENT, fallback: 'none', source: '(empty slot)', usedBy: 'nothing yet — an empty field to try a control in' },
-  { id: 'bench.c', options: BENCH_CONTENT, fallback: 'none', source: '(empty slot)', usedBy: 'nothing yet — an empty field to try a control in' },
+] as const;
+
+// ── Card knobs: the parts a card is made of ──────────────────────────────────
+
+/**
+ * The cards the lab can open and edit.
+ *
+ * Deliberately the cards a person points at ("the Habits card"), not the components they are
+ * built from — the maintainer's question is about a thing on a screen, and answering it in
+ * terms of `PadRow` would already be an implementation answer to a design question.
+ */
+export type CardId =
+  | 'generic'
+  | 'todo'
+  | 'habit'
+  | 'shopping'
+  | 'medicine'
+  | 'note'
+  | 'dish'
+  | 'homeToDo'
+  | 'homeHabits'
+  | 'homeShopping'
+  | 'homeNotes';
+
+/**
+ * Where a part sits. The middle eight mirror components/PadRow.tsx's real anatomy —
+ *
+ *     [leading?]  title            [right value] [⋯ action] [○ check]
+ *                 ⟨one meta line⟩
+ *
+ * — with `trailing` being PadRow's own "replace the check with my control" slot. `header` is
+ * the card's own heading above its rows, and `body`/`footer` are the rest of the card, which
+ * is where anything that isn't part of a row goes.
+ */
+export type PartSlot =
+  | 'header'
+  | 'leading'
+  | 'title'
+  | 'meta'
+  | 'right'
+  | 'action'
+  | 'check'
+  | 'trailing'
+  | 'body'
+  | 'footer';
+
+/** Draw order. The lab sorts a card's parts by this, so a reorder within a slot is the only
+ *  thing the maintainer's own ordering decides. */
+export const PART_SLOT_ORDER: readonly PartSlot[] = [
+  'header', 'leading', 'title', 'meta', 'right', 'action', 'check', 'trailing', 'body', 'footer',
+];
+
+/** What a part IS. One of these three families, and the families decide where it may sit. */
+export type PartKind =
+  // Text-ish — something to read.
+  | 'text' | 'value' | 'count' | 'price' | 'time'
+  // Controls — something to use.
+  | 'button' | 'slider' | 'toggle' | 'checkbox' | 'stepper' | 'segmented' | 'chips'
+  | 'field' | 'timeField'
+  // Ornament — something that marks or measures.
+  | 'icon' | 'badge' | 'chip' | 'personChip' | 'dot' | 'progress' | 'divider';
+
+export const PART_KINDS: readonly PartKind[] = [
+  'text', 'value', 'count', 'price', 'time',
+  'button', 'slider', 'toggle', 'checkbox', 'stepper', 'segmented', 'chips', 'field', 'timeField',
+  'icon', 'badge', 'chip', 'personChip', 'dot', 'progress', 'divider',
+];
+
+/**
+ * Which slots each kind may occupy.
+ *
+ * **This is the only compatibility rule, and it is per KIND, not per card.** An earlier cut of
+ * this model gave every card its own allow-list of kinds, which turned out to encode nothing
+ * real — there is no card that couldn't sensibly gain a button. What IS real is that a slider
+ * cannot go on a one-line meta row and a divider cannot be a right-hand value, and that holds
+ * on every card at once.
+ */
+export const SLOTS_FOR_KIND: Record<PartKind, readonly PartSlot[]> = {
+  // Text reads anywhere text can go. `right` is a string column (PadRow's `rightValue`), so
+  // only these kinds may take it.
+  text: ['header', 'leading', 'title', 'meta', 'right', 'body', 'footer'],
+  value: ['leading', 'meta', 'right', 'body', 'footer'],
+  count: ['leading', 'meta', 'right', 'body', 'footer'],
+  price: ['leading', 'meta', 'right', 'body', 'footer'],
+  time: ['leading', 'meta', 'right', 'body', 'footer'],
+  // A control needs room, so it takes the trailing cluster or the card's own space — never
+  // the title line or the single meta line.
+  button: ['trailing', 'body', 'footer'],
+  slider: ['body', 'footer'],
+  toggle: ['trailing', 'body', 'footer'],
+  checkbox: ['leading', 'check', 'trailing', 'body', 'footer'],
+  stepper: ['trailing', 'body', 'footer'],
+  segmented: ['body', 'footer'],
+  chips: ['meta', 'body', 'footer'],
+  field: ['title', 'body', 'footer'],
+  timeField: ['right', 'body', 'footer'],
+  // Ornament fits almost anywhere, being small.
+  icon: ['leading', 'meta', 'action', 'trailing', 'body', 'footer'],
+  badge: ['leading', 'meta', 'trailing', 'body', 'footer'],
+  chip: ['meta', 'body', 'footer'],
+  personChip: ['leading', 'meta', 'body', 'footer'],
+  dot: ['leading', 'meta', 'body', 'footer'],
+  progress: ['body', 'footer'],
+  divider: ['body', 'footer'],
+};
+
+export const PART_SIZES = ['xs', 'sm', 'md', 'lg'] as const;
+export type PartSize = (typeof PART_SIZES)[number];
+
+export const PART_WEIGHTS = ['regular', 'semibold', 'bold'] as const;
+export type PartWeight = (typeof PART_WEIGHTS)[number];
+
+export type CardPart = {
+  /** Unique within its card, and STABLE — it is what tells "moved" apart from "removed+added". */
+  id: string;
+  kind: PartKind;
+  slot: PartSlot;
+  /** The maintainer's own words. `''` means "use the bench's sample text for this kind". */
+  label: string;
+  /** A `ThemePalette` token id, a hex, or `''` for "whatever it inherits". */
+  color: string;
+  size: PartSize;
+  weight: PartWeight;
+};
+
+/** One card's whole composition. Seeded from the registry the first time it is touched. */
+export type CardSpec = {
+  /**
+   * The card AS THE MAINTAINER WANTS IT — authoritative, not a diff.
+   *
+   * A diff-plus-removals shape was the alternative and is worse: the maintainer drags ONE
+   * list, so one list is what should be stored, and the export computes the difference against
+   * the registry instead (`describeCards`). A card missing from `cards` has never been opened.
+   */
+  parts: CardPart[];
+  /** What they were after on this specific card. Carried into the report beside its rows. */
+  note: string;
+};
+
+/** Nothing here may grow without bound — a stored bag is JSON in one settings column. */
+export const MAX_PARTS_PER_CARD = 24;
+export const MAX_PART_LABEL = 60;
+export const MAX_CARD_NOTE = 500;
+
+export type CardKnob = {
+  id: CardId;
+  /** The real file(s) that own this card — what the report tells an agent to go and edit. */
+  source: string;
+  /** What the maintainer would recognise it as. Written into the report's "used by" line. */
+  usedBy: string;
+  /** A lib/domainColor `Domain`, for the specimen's badge hue. A plain string so this module
+   *  keeps importing nothing but constants/theme. */
+  domain: string;
+  /** A lib/screenColor `ScreenKey`, for the specimen's border hue. Same reasoning. */
+  screen: string;
+  /** The card as it is SHIPPED — what the bench opens at, and what the export diffs against. */
+  defaultParts: readonly CardPart[];
+};
+
+/** Shorthand for the registry below; every default part is unlabelled and uncoloured. */
+function part(id: string, kind: PartKind, slot: PartSlot, size: PartSize = 'sm', weight: PartWeight = 'regular'): CardPart {
+  return { id, kind, slot, label: '', color: '', size, weight };
+}
+
+/**
+ * Every card the lab can open, described by the parts it actually draws today.
+ *
+ * These lists are hand-written from the real components, and being faithful is the whole job:
+ * they are what the bench opens at (so it shows the maintainer's card, not an empty box) AND
+ * what `describeCards` measures a change against (so the report can say "added", not just
+ * "here is a list"). If a card gains or loses a part in the real app, this is the second place
+ * to change.
+ */
+export const CARD_KNOBS: readonly CardKnob[] = [
+  {
+    id: 'generic',
+    source: 'components/{Surface,PadSheet,PadRow}.tsx',
+    usedBy: 'the shared list card every surface is built from',
+    domain: 'task', screen: 'plans',
+    defaultParts: [
+      part('header', 'text', 'header', 'md', 'semibold'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('meta', 'text', 'meta', 'xs'),
+      part('right', 'time', 'right', 'sm'),
+      part('action', 'icon', 'action'),
+      part('check', 'checkbox', 'check'),
+    ],
+  },
+  {
+    id: 'todo',
+    source: 'components/TaskCard.tsx, components/PlanTaskCard.tsx',
+    usedBy: 'every task on the To-do tab and in the day timeline',
+    domain: 'plan', screen: 'plans',
+    defaultParts: [
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('person', 'personChip', 'meta'),
+      part('tags', 'text', 'meta', 'xs'),
+      part('goalDot', 'dot', 'meta'),
+      part('time', 'time', 'right', 'sm'),
+      part('action', 'icon', 'action'),
+      part('check', 'checkbox', 'check'),
+    ],
+  },
+  {
+    id: 'habit',
+    source: 'app/(tabs)/habits.tsx HabitCard',
+    usedBy: 'every row on the Habits tab',
+    domain: 'habit', screen: 'habits',
+    defaultParts: [
+      part('icon', 'icon', 'leading'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('energy', 'badge', 'meta'),
+      part('count', 'count', 'right', 'sm'),
+      part('action', 'icon', 'action'),
+      // The −/+ pair, which replaces the check outright: a habit with a goal above 1 can't be
+      // answered by one tap.
+      part('adjust', 'stepper', 'trailing'),
+    ],
+  },
+  {
+    id: 'shopping',
+    source: 'components/ShoppingRow.tsx, components/MonthlyTableRow.tsx',
+    usedBy: 'every row of the weekly and monthly shopping lists',
+    domain: 'shop', screen: 'shopping',
+    defaultParts: [
+      // Shopping is the one row still not converted to PadRow, so its check genuinely still
+      // LEADS. Recorded as it is, not as the row rule says it should be.
+      part('check', 'checkbox', 'leading'),
+      part('quantity', 'value', 'leading', 'sm', 'semibold'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('stock', 'text', 'meta', 'xs'),
+      part('price', 'price', 'right', 'sm'),
+      part('remove', 'icon', 'action'),
+    ],
+  },
+  {
+    id: 'medicine',
+    source: 'components/MedicineTrayCard.tsx',
+    usedBy: "the Health tab's medicine trays and their dose rows",
+    domain: 'health', screen: 'health',
+    defaultParts: [
+      part('status', 'text', 'header', 'sm', 'semibold'),
+      // Tapping the circle logs the dose; tapping the name opens the editor.
+      part('dose', 'checkbox', 'leading'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('amount', 'value', 'right', 'sm'),
+      part('add', 'field', 'footer'),
+    ],
+  },
+  {
+    id: 'note',
+    source: 'components/NoteRow.tsx',
+    usedBy: 'every note on the Notes screen',
+    domain: 'note', screen: 'notes',
+    defaultParts: [
+      // The title IS a field here — the row edits itself in place, which is what that screen
+      // is for (PadRow's `titleInput`).
+      part('title', 'field', 'title', 'md', 'semibold'),
+      part('action', 'icon', 'action'),
+      part('check', 'checkbox', 'check'),
+      part('body', 'field', 'body', 'sm'),
+    ],
+  },
+  {
+    id: 'dish',
+    source: 'components/FoodTab.tsx',
+    usedBy: 'every dish in the Food screen',
+    domain: 'meal', screen: 'food',
+    defaultParts: [
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('difficulty', 'text', 'meta', 'xs'),
+      part('add', 'icon', 'action'),
+    ],
+  },
+  {
+    id: 'homeToDo',
+    source: 'components/PlanTaskCard.tsx (read-only on Home)',
+    usedBy: "Home's day-view card",
+    domain: 'plan', screen: 'index',
+    defaultParts: [
+      part('header', 'text', 'header', 'md', 'semibold'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('time', 'time', 'right', 'sm'),
+      part('check', 'checkbox', 'check'),
+      part('add', 'field', 'footer'),
+    ],
+  },
+  {
+    id: 'homeHabits',
+    source: 'components/HomeHabitsCard.tsx',
+    usedBy: "Home's habits card",
+    domain: 'habit', screen: 'index',
+    defaultParts: [
+      part('header', 'text', 'header', 'md', 'semibold'),
+      part('icon', 'icon', 'leading'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('count', 'count', 'right', 'sm'),
+      part('adjust', 'stepper', 'trailing'),
+      part('add', 'field', 'footer'),
+    ],
+  },
+  {
+    id: 'homeShopping',
+    source: 'components/HomeShoppingCard.tsx',
+    usedBy: "Home's shopping card",
+    domain: 'shop', screen: 'index',
+    defaultParts: [
+      part('header', 'text', 'header', 'md', 'semibold'),
+      part('quantity', 'value', 'leading', 'sm', 'semibold'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('price', 'price', 'right', 'sm'),
+      part('check', 'checkbox', 'check'),
+      part('add', 'field', 'footer'),
+    ],
+  },
+  {
+    id: 'homeNotes',
+    source: 'components/HomeNotesCard.tsx',
+    usedBy: "Home's notes card",
+    domain: 'note', screen: 'index',
+    defaultParts: [
+      part('header', 'text', 'header', 'md', 'semibold'),
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('action', 'icon', 'action'),
+      part('check', 'checkbox', 'check'),
+      part('add', 'field', 'footer'),
+    ],
+  },
 ] as const;
 
 // ── The override bag ─────────────────────────────────────────────────────────
@@ -315,6 +668,8 @@ export type LabOverrides = {
   shape: Partial<ShapeOverrides>;
   controls: Partial<Record<ControlSlot, string>>;
   slots: Partial<Record<SlotId, string>>;
+  /** Per-card compositions. A card absent from here has never been opened. */
+  cards: Partial<Record<CardId, CardSpec>>;
   /** The maintainer's own words about what they were trying to fix. Carried into the export. */
   note: string;
 };
@@ -324,6 +679,7 @@ export const EMPTY_OVERRIDES: LabOverrides = {
   shape: {},
   controls: {},
   slots: {},
+  cards: {},
   note: '',
 };
 
@@ -333,6 +689,8 @@ const COLOR_IDS = new Set<string>(COLOR_KNOBS.map((k) => k.id as string));
 const SHAPE_BY_ID = new Map(SHAPE_KNOBS.map((k) => [k.id as string, k]));
 const CONTROL_BY_ID = new Map(CONTROL_KNOBS.map((k) => [k.id as string, k]));
 const SLOT_BY_ID = new Map(SLOT_KNOBS.map((k) => [k.id as string, k]));
+const CARD_BY_ID = new Map(CARD_KNOBS.map((k) => [k.id as string, k]));
+const PART_KIND_SET = new Set<string>(PART_KINDS);
 
 /** `#rgb` and `#rrggbb`, the two forms the palette and a hand-typed value both use. */
 const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
@@ -416,8 +774,74 @@ export function sanitizeLabOverrides(raw: unknown): LabOverrides {
     shape,
     controls,
     slots,
+    cards: sanitizeCards(r.cards),
     note: typeof r.note === 'string' ? r.note.slice(0, 2000) : '',
   };
+}
+
+/** True for a colour a part may carry: a palette token id, or a hex the app can paint. */
+function isPartColor(value: unknown): value is string {
+  return typeof value === 'string' && (COLOR_IDS.has(value) || isValidHex(value));
+}
+
+/**
+ * One part, or `null` if it is unusable.
+ *
+ * Illegal here means the pair, not just the pieces: a `slider` in the `right` column would
+ * render nothing and then sit in the exported document as an instruction nobody can carry out.
+ */
+function sanitizePart(raw: unknown, usedIds: Set<string>): CardPart | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const p = raw as Record<string, unknown>;
+  const id = typeof p.id === 'string' ? p.id.trim().slice(0, MAX_PART_LABEL) : '';
+  if (!id || usedIds.has(id)) return null;
+  const kind = typeof p.kind === 'string' && PART_KIND_SET.has(p.kind) ? (p.kind as PartKind) : null;
+  if (!kind) return null;
+  const slot = typeof p.slot === 'string' ? (p.slot as PartSlot) : null;
+  if (!slot || !SLOTS_FOR_KIND[kind].includes(slot)) return null;
+  usedIds.add(id);
+  return {
+    id,
+    kind,
+    slot,
+    label: typeof p.label === 'string' ? p.label.slice(0, MAX_PART_LABEL) : '',
+    color: isPartColor(p.color) ? (COLOR_IDS.has(p.color) ? p.color : normalizeHex(p.color)) : '',
+    size: PART_SIZES.includes(p.size as PartSize) ? (p.size as PartSize) : 'sm',
+    weight: PART_WEIGHTS.includes(p.weight as PartWeight) ? (p.weight as PartWeight) : 'regular',
+  };
+}
+
+/**
+ * The stored per-card compositions, with everything unrecognisable dropped.
+ *
+ * A card that survives sanitizing with NO parts is dropped whole rather than kept as an empty
+ * composition: an empty card is indistinguishable from "delete every part", and silently
+ * proposing a blank card is the one thing this feature must not do by accident. Emptying a
+ * card on purpose is still possible — it just resolves back to the shipped one, which is also
+ * the honest reading of "I removed everything".
+ */
+export function sanitizeCards(raw: unknown): Partial<Record<CardId, CardSpec>> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Partial<Record<CardId, CardSpec>> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!CARD_BY_ID.has(key)) continue;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    const spec = value as Record<string, unknown>;
+    const rawParts = Array.isArray(spec.parts) ? spec.parts : [];
+    const usedIds = new Set<string>();
+    const parts: CardPart[] = [];
+    for (const rawPart of rawParts) {
+      if (parts.length >= MAX_PARTS_PER_CARD) break;
+      const part = sanitizePart(rawPart, usedIds);
+      if (part) parts.push(part);
+    }
+    if (parts.length === 0) continue;
+    out[key as CardId] = {
+      parts,
+      note: typeof spec.note === 'string' ? spec.note.slice(0, MAX_CARD_NOTE) : '',
+    };
+  }
+  return out;
 }
 
 // ── Resolving ────────────────────────────────────────────────────────────────
@@ -429,7 +853,8 @@ export function isEmptyOverrides(o: LabOverrides): boolean {
     Object.keys(o.colors.dark).length === 0 &&
     Object.keys(o.shape).length === 0 &&
     Object.keys(o.controls).length === 0 &&
-    Object.keys(o.slots).length === 0
+    Object.keys(o.slots).length === 0 &&
+    Object.keys(o.cards).length === 0
   );
 }
 
@@ -458,6 +883,36 @@ export function resolveControl(slot: ControlSlot, o: LabOverrides): string {
 /** What a slot position resolves to, falling back to what the app ships with. */
 export function resolveSlot(slot: SlotId, o: LabOverrides): string {
   return o.slots[slot] ?? SLOT_BY_ID.get(slot)?.fallback ?? 'none';
+}
+
+/** The registry entry for a card, or `undefined` for an id that isn't one. */
+export function cardKnob(id: CardId): CardKnob | undefined {
+  return CARD_BY_ID.get(id as string);
+}
+
+/**
+ * A card's composition: the maintainer's if they have opened it, the shipped one otherwise.
+ *
+ * Always returns a fresh `parts` array so a caller can splice it without reaching back into
+ * the registry — the defaults are `readonly` for exactly that reason, but a shared array is
+ * still a footgun one `.push` away.
+ */
+export function resolveCardSpec(id: CardId, o: LabOverrides): CardSpec {
+  const stored = o.cards[id];
+  if (stored) return { parts: stored.parts.map((p) => ({ ...p })), note: stored.note };
+  const knob = CARD_BY_ID.get(id as string);
+  return { parts: (knob?.defaultParts ?? []).map((p) => ({ ...p })), note: '' };
+}
+
+/** A card's parts in draw order — slot order first, then the maintainer's own order within it. */
+export function orderedParts(spec: CardSpec): CardPart[] {
+  return spec.parts
+    .map((part, index) => ({ part, index }))
+    .sort((a, b) => {
+      const bySlot = PART_SLOT_ORDER.indexOf(a.part.slot) - PART_SLOT_ORDER.indexOf(b.part.slot);
+      return bySlot !== 0 ? bySlot : a.index - b.index;
+    })
+    .map((entry) => entry.part);
 }
 
 // ── Describing (the export's data half) ──────────────────────────────────────
@@ -509,6 +964,111 @@ export function describeOverrides(o: LabOverrides, palette: ThemePalette, isDark
     const after = o.slots[knob.id];
     if (!after || after === knob.fallback) continue;
     out.push({ group: 'SLOTS', id: knob.id as string, before: knob.fallback, after, source: knob.source, usedBy: knob.usedBy });
+  }
+
+  return out;
+}
+
+// ── Describing the cards ─────────────────────────────────────────────────────
+
+/** What happened to one part of one card. */
+export type CardPartChange = {
+  /**
+   * `added` — a part the shipped card doesn't have.
+   * `removed` — a shipped part the maintainer took out.
+   * `moved` — the same part, in a different slot.
+   * `restyled` — the same part in the same slot, with different words, colour, size or weight.
+   */
+  kind: 'added' | 'removed' | 'moved' | 'restyled';
+  part: CardPart;
+  /** The shipped part this is a change TO. Absent for `added`. */
+  before?: CardPart;
+  /** Human-readable "what actually differs", already assembled for the report. */
+  detail: string;
+};
+
+/** One card the maintainer touched, with its provenance and everything that moved. */
+export type CardChange = {
+  id: CardId;
+  source: string;
+  usedBy: string;
+  note: string;
+  changes: CardPartChange[];
+};
+
+/** The style fields worth reporting, as `name: before → after` fragments. */
+function styleDelta(before: CardPart, after: CardPart): string[] {
+  const out: string[] = [];
+  if (before.label !== after.label) out.push(`text ${quoted(before.label)} → ${quoted(after.label)}`);
+  if (before.color !== after.color) out.push(`colour ${before.color || 'inherited'} → ${after.color || 'inherited'}`);
+  if (before.size !== after.size) out.push(`size ${before.size} → ${after.size}`);
+  if (before.weight !== after.weight) out.push(`weight ${before.weight} → ${after.weight}`);
+  return out;
+}
+
+function quoted(text: string): string {
+  return text ? `"${text}"` : '(the sample)';
+}
+
+/** A part's own description, for the `added` and `removed` rows that have nothing to diff. */
+function describePart(part: CardPart): string {
+  const bits: string[] = [part.slot];
+  if (part.label) bits.push(quoted(part.label));
+  if (part.color) bits.push(part.color);
+  bits.push(part.size, part.weight);
+  return bits.join(', ');
+}
+
+/**
+ * Every card that differs from what the app ships, and how.
+ *
+ * A card the maintainer opened and left alone produces NOTHING — the same rule
+ * `describeOverrides` follows for a knob set back to its own default. A report that lists
+ * every card says nothing about which one the maintainer cares about.
+ */
+export function describeCards(o: LabOverrides): CardChange[] {
+  const out: CardChange[] = [];
+
+  for (const knob of CARD_KNOBS) {
+    const stored = o.cards[knob.id];
+    if (!stored) continue;
+
+    const shipped = new Map(knob.defaultParts.map((p) => [p.id, p]));
+    const changes: CardPartChange[] = [];
+
+    for (const part of orderedParts(stored)) {
+      const before = shipped.get(part.id);
+      if (!before) {
+        changes.push({ kind: 'added', part, detail: describePart(part) });
+        continue;
+      }
+      if (before.slot !== part.slot) {
+        const style = styleDelta(before, part);
+        changes.push({
+          kind: 'moved',
+          part,
+          before,
+          detail: [`${before.slot} → ${part.slot}`, ...style].join(', '),
+        });
+        continue;
+      }
+      const style = styleDelta(before, part);
+      if (style.length) changes.push({ kind: 'restyled', part, before, detail: style.join(', ') });
+    }
+
+    const kept = new Set(stored.parts.map((p) => p.id));
+    for (const part of knob.defaultParts) {
+      if (!kept.has(part.id)) changes.push({ kind: 'removed', part, detail: describePart(part) });
+    }
+
+    if (changes.length === 0 && !stored.note.trim()) continue;
+    out.push({
+      id: knob.id,
+      source: knob.source,
+      usedBy: knob.usedBy,
+      note: stored.note,
+      changes,
+    });
   }
 
   return out;
