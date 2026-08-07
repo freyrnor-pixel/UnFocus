@@ -34,7 +34,13 @@
  *     `design_lab` is not in aiSetupApply's SETTINGS_WHITELIST. An AI-authored file must not
  *     be able to restyle the app.
  *   - An empty bag produces a short "nothing changed" document rather than a wall of unchanged
- *     rows. A report that lists everything says nothing.
+ *     rows. A report that lists everything says nothing. **That branch must consider CARDS as
+ *     well as the token groups** — a session that only composed a card is a real session, and
+ *     keying the check off the token list alone would swallow the whole feature.
+ *   - **CARDS is a DIFF, and is shaped differently from the four groups above it on purpose.**
+ *     Those are one value moving from A to B; a card is a composition, so what an agent needs
+ *     is what was added, taken out, moved or restyled against the card as it ships. The marks
+ *     (`+ − ↕ ~`) are explained in the section's own preamble so the file stands alone.
  */
 import { Platform } from 'react-native';
 import {
@@ -47,9 +53,12 @@ import {
 import * as Sharing from 'expo-sharing';
 import {
   DESIGN_LAB_VERSION,
+  describeCards,
   describeOverrides,
   isEmptyOverrides,
   sanitizeLabOverrides,
+  type CardChange,
+  type CardPartChange,
   type LabOverrides,
   type OverrideChange,
 } from '@/lib/designLab';
@@ -95,6 +104,60 @@ function formatGroup(title: string, rows: OverrideChange[]): string[] {
 }
 
 /**
+ * The prefix that says what happened to a part.
+ *
+ * Symbols rather than words because a card's changes are a LIST and the list is scanned, not
+ * read — four aligned glyphs down the left margin is what makes "one thing was added, one
+ * moved" legible at a glance. They are spelled out in the section's own preamble, so an agent
+ * (or a maintainer) reading the file cold never has to guess.
+ */
+const CHANGE_MARK: Record<CardPartChange['kind'], string> = {
+  added: '+',
+  removed: '−',
+  moved: '↕',
+  restyled: '~',
+};
+
+/**
+ * The CARDS section: what the maintainer wants each card to be made of.
+ *
+ * Structurally unlike the four token groups above it and deliberately so — those are
+ * before→after pairs on one value, while a card is a composition, so this reports a DIFF: what
+ * was added, taken out, moved or restyled, against the card as the app ships it. The provenance
+ * lines carry the same job they do everywhere else in this file: name the file to edit.
+ */
+function formatCards(cards: CardChange[]): string[] {
+  if (cards.length === 0) return [];
+  const out: string[] = [
+    'CARDS',
+    '  + added   − taken out   ↕ moved   ~ restyled. Everything else is as it ships.',
+    '',
+  ];
+  for (const card of cards) {
+    out.push(`  ${card.id}`);
+    out.push(`      ${card.source}`);
+    out.push(`      used by: ${card.usedBy}`);
+    if (card.changes.length === 0) {
+      out.push('      (nothing moved — the note below is the whole request)');
+    } else {
+      const kindWidth = Math.max(...card.changes.map((c) => c.part.kind.length));
+      const idWidth = Math.max(...card.changes.map((c) => c.part.id.length));
+      for (const change of card.changes) {
+        out.push(
+          `    ${CHANGE_MARK[change.kind]} ${pad(change.part.kind, kindWidth)}  ` +
+          `${pad(change.part.id, idWidth)}  ${change.detail}`,
+        );
+      }
+    }
+    if (card.note.trim()) {
+      for (const line of card.note.trim().split('\n')) out.push(`      note: ${line}`);
+    }
+    out.push('');
+  }
+  return out;
+}
+
+/**
  * The whole document — human half, then the machine block.
  *
  * Pure. Everything time- or device-dependent arrives through `meta`, so the test can assert a
@@ -106,6 +169,7 @@ export function formatDesignLabReport(
   meta: ReportMeta,
 ): string {
   const changes = describeOverrides(overrides, palette, meta.isDark);
+  const cards = describeCards(overrides);
   const mode = meta.isDark ? 'dark mode' : 'light mode';
   const from = meta.fromScreen ? ` · from: ${meta.fromScreen}` : '';
 
@@ -114,10 +178,13 @@ export function formatDesignLabReport(
     '',
   ];
 
-  if (changes.length === 0) {
+  if (changes.length === 0 && cards.length === 0) {
     lines.push('Nothing was changed in this session.');
     lines.push('');
   } else {
+    // Cards first: a composition is a bigger request than a token nudge, and when both are
+    // present the tokens are usually in service of the card.
+    lines.push(...formatCards(cards));
     lines.push(...formatGroup('COLOUR', changes.filter((c) => c.group === 'COLOUR')));
     lines.push(...formatGroup('SHAPE', changes.filter((c) => c.group === 'SHAPE')));
     lines.push(...formatGroup('CONTROLS', changes.filter((c) => c.group === 'CONTROLS')));
