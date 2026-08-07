@@ -39,6 +39,7 @@ const bag: LabOverrides = {
   shape: { radiusScale: 1.35, borderCardWidth: 2 },
   controls: { boolean: 'segmented' },
   slots: { 'row.right': 'energy' },
+  cards: {},
   note: 'The habit rows still feel busier than the notes rows.',
 };
 
