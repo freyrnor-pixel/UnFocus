@@ -117,15 +117,20 @@ const COLOR_GROUP_ORDER: ColorGroup[] = [
 ];
 
 /**
- * The pinned block's two heights, declared rather than measured.
+ * The pinned preview's height bounds.
  *
- * `ScreenScaffold` positions the scroll body from `stickyBelowHeaderHeight`, so this has to be
- * a number the screen knows before it draws. Tall enough for a composed card, short enough to
- * leave a small phone room to work in — and the chevron is the way out of the trade.
+ * `ScreenScaffold` positions the scroll body from `stickyBelowHeaderHeight`, so the number has
+ * to be one the screen knows rather than one the layout works out — which is why the preview
+ * measures its own card and reports it up, clamped to these. A fixed tall value left a plain
+ * three-part card floating in 200px of nothing; a fixed short one cut a composed card in half.
+ * `PREVIEW_SHORT` is the collapsed peek, and the chevron is the way to it.
  */
-const PREVIEW_TALL = 300;
-const PREVIEW_SHORT = 96;
+const PREVIEW_MAX = 320;
+const PREVIEW_MIN = 88;
+const PREVIEW_SHORT = 88;
 const CHROME_HEIGHT = 100; // the picker row + the tab bar, both always drawn
+
+const clampPreview = (n: number) => Math.min(PREVIEW_MAX, Math.max(PREVIEW_MIN, Math.ceil(n)));
 
 export default function DesignLabScreen() {
   const router = useRouter();
@@ -138,6 +143,7 @@ export default function DesignLabScreen() {
   const [cardId, setCardId] = useState<CardId>('todo');
   const [pickingCard, setPickingCard] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [cardHeight, setCardHeight] = useState(PREVIEW_MIN);
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
   const [addingPart, setAddingPart] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -264,15 +270,18 @@ export default function DesignLabScreen() {
     }
   };
 
-  const previewHeight = expanded ? PREVIEW_TALL : PREVIEW_SHORT;
+  const previewHeight = expanded ? clampPreview(cardHeight) : PREVIEW_SHORT;
 
   /**
    * The pinned block: which card, the card itself, and the tabs.
    *
    * The preview is the ONLY thing here inside the provider — see the Edit notes.
+   *
+   * It carries an OPAQUE background on purpose. It is positioned chrome, so the scroll body
+   * passes underneath it; without a fill, list rows slide visibly through the specimen.
    */
   const pinned = (
-    <View style={[styles.pinned, { height: previewHeight + CHROME_HEIGHT }]}>
+    <View style={[styles.pinned, { height: previewHeight + CHROME_HEIGHT, backgroundColor: theme.bg }]}>
       <View style={styles.pickerRow}>
         <PressableScale
           onPress={() => { selection(); setPickingCard(true); }}
@@ -310,9 +319,13 @@ export default function DesignLabScreen() {
 
       <View style={{ height: previewHeight }}>
         <ScrollView contentContainerStyle={styles.previewBody} showsVerticalScrollIndicator={false}>
-          <DesignLabContext.Provider value={draft}>
-            <DesignLabCard id={cardId} spec={spec} focusedPartId={editingPartId ?? undefined} />
-          </DesignLabContext.Provider>
+          {/* Measured, not guessed — see the note on PREVIEW_MAX. The card still scrolls
+              inside its box once it outgrows the cap. */}
+          <View onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
+            <DesignLabContext.Provider value={draft}>
+              <DesignLabCard id={cardId} spec={spec} focusedPartId={editingPartId ?? undefined} />
+            </DesignLabContext.Provider>
+          </View>
         </ScrollView>
       </View>
 

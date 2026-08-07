@@ -133,6 +133,11 @@ const L = {
     // densest horizontal case added to the app since the task editor, and the same shape that
     // broke that editor at 327px.
     advancedTab: 'Advanced', designLab: 'Design lab',
+    // Its four tabs, plus the part editor's own way in and out. One scan covered the whole
+    // screen while it was one long list; since 2026-08-07 a tab this walk doesn't switch to
+    // is a tab it doesn't measure.
+    labTabColor: 'Colour', labTabShape: 'Shape', labTabControls: 'Controls',
+    labPartSlotTitle: 'The title', labDone: 'Done',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -145,6 +150,8 @@ const L = {
     editGoals: 'Mål', goalsClose: 'Ferdig',
     logSymptom: 'Hva plager deg?',
     advancedTab: 'Avansert', designLab: 'Designlab',
+    labTabColor: 'Farge', labTabShape: 'Form', labTabControls: 'Kontroller',
+    labPartSlotTitle: 'Tittelen', labDone: 'Ferdig',
     addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
 }[LANG];
@@ -529,6 +536,12 @@ async function main() {
     // Pushed FROM settings, and a dead end itself, so it can only go here — after the scan
     // that ends this pass. Off by default, so the switch has to be thrown first; the card
     // title and the revealed link row share the same words, hence `.last()`.
+    //
+    // **Each of its four tabs is scanned separately** (2026-08-07). One scan used to cover the
+    // whole screen because it was one long list; it is now Card / Colour / Shape / Controls,
+    // and a tab this walk doesn't switch to is a tab it doesn't measure. Card is the default,
+    // so it is what the first scan lands on. The part editor is scanned too — it is a sheet of
+    // label-plus-pill-cloud rows, the shape this audit exists to catch.
     // Best-effort like the editors: a failure must not lose the findings already collected.
     try {
       await clickText(page, L.advancedTab);
@@ -537,7 +550,29 @@ async function main() {
       await page.waitForTimeout(700);
       await page.getByText(L.designLab, { exact: true }).last().click({ timeout: 10000 });
       await page.waitForTimeout(1400);
-      await scan(page, 'design-lab');
+      await scan(page, 'design-lab-card');
+
+      // The part editor, opened from the first part in the list. Closed again before the tab
+      // loop — a sheet's scrim swallows every click under it.
+      try {
+        await page.getByText(L.labPartSlotTitle, { exact: true }).first().click({ timeout: 8000 });
+        await page.waitForTimeout(900);
+        await scan(page, 'design-lab-part-editor');
+        await clickText(page, L.labDone);
+        await page.waitForTimeout(700);
+      } catch (e) {
+        console.error(`  (design-lab-part-editor step skipped: ${e.message.split('\n')[0]})`);
+      }
+
+      for (const [label, name] of [
+        [L.labTabColor, 'design-lab-colour'],
+        [L.labTabShape, 'design-lab-shape'],
+        [L.labTabControls, 'design-lab-controls'],
+      ]) {
+        await clickText(page, label);
+        await page.waitForTimeout(900);
+        await scan(page, name);
+      }
     } catch (e) {
       console.error(`  (design-lab step skipped: ${e.message.split('\n')[0]})`);
     }

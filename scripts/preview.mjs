@@ -638,6 +638,42 @@ async function main() {
     const settingsTitle = await measureTitle('Settings');
     console.log(`  Settings (sub) header title: ${JSON.stringify(settingsTitle)}`);
     if (!settingsTitle.visible) pageErrors.push('Settings sub-tier header title is NOT visible on web (matches the on-device "no header" report)');
+
+    // The design lab's card editor (2026-08-07). A real write path like the three above: add
+    // a part and check the pinned preview actually grows one, rather than only screenshotting
+    // the screen. Best-effort — a failure here must not fail the whole preview run, which has
+    // already proved the app's own store→DB paths by this point.
+    try {
+      console.log('> Settings -> design lab (add a part to a card)');
+      await page.getByText('Advanced', { exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await page.getByRole('switch', { name: 'Design lab', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      // The card title and the revealed link row share the same words, hence `.last()`.
+      await page.getByText('Design lab', { exact: true }).last().click({ timeout: 10000 });
+      await page.waitForTimeout(1500);
+      await shot(page, 'design-lab');
+
+      await page.getByText('Add something', { exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(800);
+      await page.getByText('A slider', { exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(1000);
+      await shot(page, 'design-lab-part-editor');
+      await page.getByText('Done', { exact: true }).last().click({ timeout: 10000 });
+      await page.waitForTimeout(1000);
+      await shot(page, 'design-lab-composed');
+
+      // The part has to be in the LIST (the composition was written) and the pinned preview
+      // has to have drawn a slider for it — the whole point of the feature is that those two
+      // agree, so checking only one of them would miss the interesting failure.
+      const inList = await page.getByText('In the card', { exact: true }).first().isVisible().catch(() => false);
+      const sliders = await page.getByRole('slider').count();
+      console.log(`  part added to the list: ${inList}; sliders on screen: ${sliders}`);
+      if (!inList) pageErrors.push('Design lab: the added part never reached the card’s parts list');
+      if (sliders === 0) pageErrors.push('Design lab: the composed card drew no slider for the added part');
+    } catch (e) {
+      console.log(`  (design-lab step skipped: ${e.message.split('\n')[0]})`);
+    }
   }
 
   console.log(`\n> page errors: ${pageErrors.length}`);
