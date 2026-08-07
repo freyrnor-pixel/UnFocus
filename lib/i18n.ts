@@ -2038,6 +2038,21 @@ const en = {
     },
     slotsNote: 'On the real screens these can only hide a position. Filling one in is live here on the bench, and the note you send says which.',
     idNote: 'The short words on the buttons below are the names used in the file you send, so they stay as they are.',
+    /** Marks a colour row that carries an override, so 34 tokens can be scanned at a glance. */
+    changedTag: 'Changed',
+    // The colour picker (components/ColorPickerSheet.tsx, 2026-08-07). Replaced a hex field
+    // and a lighten/darken pair, which could only answer "a bit darker".
+    color: {
+      pick: 'Pick a colour',
+      tune: 'Adjust it',
+      hue: 'Colour',
+      saturation: 'How strong',
+      lightness: 'How light',
+      hex: 'Colour code',
+      putBack: 'Put this one back',
+      close: 'Done',
+      was: (hex: string) => `Was ${hex}`,
+    },
     sample: {
       cardTitle: 'A card',
       rowOne: 'Something to do',
@@ -3734,6 +3749,18 @@ const no: typeof en = {
     },
     slotsNote: 'P\u00e5 de ekte skjermene kan disse bare skjule en plass. \u00c5 fylle en er levende her p\u00e5 benken, og beskjeden du sender sier hvilken.',
     idNote: 'De korte ordene p\u00e5 knappene under er navnene som brukes i filen du sender, s\u00e5 de st\u00e5r som de er.',
+    changedTag: 'Endret',
+    color: {
+      pick: 'Velg en farge',
+      tune: 'Juster den',
+      hue: 'Farge',
+      saturation: 'Hvor sterk',
+      lightness: 'Hvor lys',
+      hex: 'Fargekode',
+      putBack: 'Sett denne tilbake',
+      close: 'Ferdig',
+      was: (hex: string) => `Var ${hex}`,
+    },
     sample: {
       cardTitle: 'Et kort',
       rowOne: 'Noe \u00e5 gj\u00f8re',

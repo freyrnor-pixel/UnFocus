@@ -12,7 +12,7 @@
  *
  * Connections:
  *   Imports → components/{ScreenScaffold,Surface,Button,ExpandableCard,PressableScale,
- *             DesignLabBench,FormControls,Stepper,AppModal}, constants/theme,
+ *             DesignLabBench,ColorPickerSheet,FormControls,Stepper,AppModal}, constants/theme,
  *             lib/designLab, lib/designLabExport, lib/useDesignLab, lib/useAppTheme,
  *             lib/i18n, lib/haptics, store/useSettingsStore, expo-constants
  *   Used by → app/settings.tsx (Advanced tab, a SubScreenLinkButton gated on featureDesignLab)
@@ -30,6 +30,12 @@
  *   - Colour is edited per MODE. The screen shows whichever the app is currently in and says
  *     so — light and dark keep separate maps, because a value that works on white rarely works
  *     on navy and one shared field would quietly overwrite the other.
+ *   - **A colour row is a door, not an editor (2026-08-07).** It shows the swatch, the raw
+ *     token name and whether it has been changed; everything else — the range to pick from,
+ *     the hue/strength/lightness sliders, the hex field, the per-token reset — lives in
+ *     components/ColorPickerSheet.tsx. Thirty-four rows that each carry their own editor is
+ *     what made this panel unreadable, and the ±8% lighten/darken pair it replaced could only
+ *     ever answer "a bit darker".
  *   - **A knob's `usedBy`/`source` is EXPORT metadata, not UI copy.** It is English by design
  *     (its reader is an agent) and must not be rendered on screen — an English hint under a
  *     Norwegian label is exactly what the first wrap audit of this screen caught. The panels
@@ -52,6 +58,7 @@ import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import DesignLabBench from '@/components/DesignLabBench';
+import ColorPickerSheet from '@/components/ColorPickerSheet';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import {
@@ -62,8 +69,6 @@ import {
   SLOT_KNOBS,
   clampShape,
   describeOverrides,
-  isValidHex,
-  normalizeHex,
   resolveControl,
   resolveShape,
   resolveSlot,
@@ -74,7 +79,7 @@ import {
   type SlotId,
 } from '@/lib/designLab';
 import { exportDesignLab, exportDesignLabToDevice, hasSomethingToExport } from '@/lib/designLabExport';
-import { FontSize, Fonts, Radius, Spacing, darken, lighten } from '@/constants/theme';
+import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -318,12 +323,14 @@ export default function DesignLabScreen() {
 }
 
 /**
- * One colour token: a swatch of what it is now, two nudge buttons, and a hex field.
+ * One colour token: a swatch of what it is now, its raw name, and a way in to change it.
  *
- * The nudges exist because typing hex is a terrible way to answer "is this a bit too dark" —
- * they walk the CURRENT value (override if there is one, the live token otherwise) by a fixed
- * step, so a knob can be dragged toward an answer without ever knowing a hex code. The field
- * stays for the case where a value is already known.
+ * The row itself is now just the door. It used to BE the editor — a hex field plus a ±8%
+ * lighten/darken pair — which could only answer "a bit darker": there was no way to reach a
+ * different hue without already knowing the code. Tapping the row opens
+ * components/ColorPickerSheet.tsx, which has the range and the fine-tuning; what stays here is
+ * the one thing a list of 34 tokens actually needs, which is to show at a glance which ones
+ * have been changed.
  */
 function ColorRow({
   id,
@@ -337,53 +344,40 @@ function ColorRow({
   onChange: (hex: string | undefined) => void;
 }) {
   const theme = useAppTheme();
+  const t = useT();
+  const [open, setOpen] = useState(false);
   const value = override ?? current;
-  // Local, so a half-typed "#2b" doesn't reach the palette one keystroke at a time and repaint
-  // the app in a colour nobody asked for. Committed only once it is a whole valid hex.
-  const [text, setText] = useState<string>(value);
-
-  const nudge = (fn: (hex: string, amount: number) => string) => {
-    if (!isValidHex(value)) return;
-    selection();
-    const next = normalizeHex(fn(normalizeHex(value), 0.08));
-    setText(next);
-    onChange(next);
-  };
 
   return (
-    <View style={styles.colorRow}>
-      <View style={[styles.swatch, { backgroundColor: value, borderColor: theme.border }]} />
-      {/* The token's own name, not a translated label. It is what the exported document
-          names and what the maintainer will quote back — a friendly rendering here would make
-          the screen and the report disagree about what was changed. */}
-      <Text style={[styles.tokenName, { color: theme.text }]} numberOfLines={1}>{id}</Text>
-      <View style={styles.nudgeCol}>
-        <PressableScale onPress={() => nudge(lighten)} scaleTo={0.9} style={[styles.nudge, { borderColor: theme.border }]}>
-          <Text style={[styles.nudgeText, { color: theme.textMuted }]}>+</Text>
-        </PressableScale>
-        <PressableScale onPress={() => nudge(darken)} scaleTo={0.9} style={[styles.nudge, { borderColor: theme.border }]}>
-          <Text style={[styles.nudgeText, { color: theme.textMuted }]}>−</Text>
-        </PressableScale>
-      </View>
-      <Input
-        value={text}
-        onChangeText={setText}
-        onBlur={() => {
-          const typed = text.trim();
-          // An emptied field CLEARS the override rather than storing a blank — the way back to
-          // the shipped colour, with no separate reset button on every row. Checked FIRST so
-          // clearing is never mistaken for an unparseable value and bounced back.
-          if (typed === '') { onChange(undefined); setText(current); }
-          else if (isValidHex(typed)) onChange(normalizeHex(typed));
-          // Anything else is a typo: put back what was there rather than storing junk the
-          // sanitizer would drop on the next load anyway.
-          else setText(value);
-        }}
-        autoCapitalize="none"
-        autoCorrect={false}
-        style={styles.hexInput}
+    <>
+      <PressableScale
+        onPress={() => { selection(); setOpen(true); }}
+        scaleTo={0.98}
+        accessibilityRole="button"
+        accessibilityLabel={id}
+        style={styles.colorRow}
+      >
+        <View style={[styles.swatch, { backgroundColor: value, borderColor: theme.border }]} />
+        {/* The token's own name, not a translated label. It is what the exported document
+            names and what the maintainer will quote back — a friendly rendering here would make
+            the screen and the report disagree about what was changed. */}
+        <Text style={[styles.tokenName, { color: theme.text }]} numberOfLines={1}>{id}</Text>
+        {override ? (
+          <Text style={[styles.changedTag, { color: theme.accent }]}>{t.designLab.changedTag}</Text>
+        ) : null}
+        <Text style={[styles.hexValue, { color: theme.textMuted }]}>{value}</Text>
+      </PressableScale>
+      <ColorPickerSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        tokenName={id}
+        shipped={current}
+        value={value}
+        overridden={override != null}
+        onChange={(hex) => onChange(hex)}
+        onClear={() => onChange(undefined)}
       />
-    </View>
+    </>
   );
 }
 
@@ -402,12 +396,16 @@ const styles = StyleSheet.create({
   stackedRow: { gap: Spacing.xs },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, alignItems: 'center' },
   noteInput: { minHeight: 72, textAlignVertical: 'top', paddingTop: Spacing.xs },
-  colorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs },
+  // minHeight, not a fixed one: the whole row is the tap target now that it opens a sheet.
+  colorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: MIN_TAP_TARGET,
+  },
   swatch: { width: 28, height: 28, borderRadius: Radius.sm, borderWidth: 1 },
-  nudgeCol: { gap: 2 },
-  nudge: { width: 26, height: 20, borderWidth: 1, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center' },
-  nudgeText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  hexInput: { width: 96, minHeight: 34, fontSize: FontSize.xs },
+  hexValue: { fontSize: FontSize.xs, fontFamily: Fonts.regular, ...TabularNums },
+  changedTag: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, textTransform: 'uppercase' },
   tokenName: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   optionCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   optionPill: { borderWidth: 1, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4 },

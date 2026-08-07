@@ -14,7 +14,8 @@
  *   Imports → react, lib/designLab, store/useSettingsStore
  *   Used by → lib/useAppTheme.ts (colour + geometry choke points), components/Surface.tsx,
  *             components/FormControls.tsx, components/PadRow.tsx, components/PadSheet.tsx,
- *             components/DesignLabBench.tsx, app/design-lab.tsx
+ *             components/Stepper.tsx (the `number` job, 2026-08-07 — the knob's first
+ *             consumer), components/DesignLabBench.tsx, app/design-lab.tsx
  *   Data    → reads `designLab` / `designLabApply` from the settings store. Writes nothing.
  *
  * Edit notes:
