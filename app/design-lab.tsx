@@ -37,10 +37,17 @@
  *     control they are dragging. `components/DesignLabCard.tsx` (in the sticky block) and
  *     `components/DesignLabBench.tsx` (the Controls tab's strip) are the only things that
  *     preview the draft, and each wraps itself.
- *   - **The pinned block must declare its own height** (`stickyBelowHeaderHeight`), which is
- *     why the preview has two fixed heights rather than sizing to its content. A card composed
- *     of a dozen parts would otherwise eat a small phone whole; the chevron collapses it to a
- *     peek and the declared height follows.
+ *   - **The pinned block must declare its own height** (`stickyBelowHeaderHeight`), so the
+ *     preview MEASURES its card and reports the number up rather than letting the layout work
+ *     it out — clamped, because a card composed of a dozen parts would otherwise eat a small
+ *     phone whole. The chevron collapses it to a peek and the declared height follows. It also
+ *     carries an opaque fill: it is positioned chrome, and without one the scroll body's rows
+ *     slide visibly through the specimen.
+ *   - **The Card tab lists parts in DRAW order, not storage order**, so the list and the card
+ *     pinned above it agree about what comes first. Slot order dominates (a footer cannot be
+ *     drawn before a header), so a drag reorders within a slot; moving a part to another
+ *     position is the part editor's "where it sits", which is also the only place that knows
+ *     which positions that part's kind is allowed to take.
  *   - Colour is edited per MODE, and the light/dark button flips `settings.darkMode` — the
  *     same switch Settings owns, not a second theming path. Light and dark keep separate maps,
  *     because a value that works on white rarely works on navy.
@@ -86,6 +93,7 @@ import {
   clampShape,
   describeCards,
   describeOverrides,
+  orderedParts,
   resolveCardSpec,
   resolveControl,
   resolveShape,
@@ -559,8 +567,13 @@ function CardTab({
 }) {
   const theme = useAppTheme();
   const t = useT();
-  const drag = useDragReorder(spec.parts.map((p) => p.id), onReorder);
-  const byId = new Map(spec.parts.map((p) => [p.id, p]));
+  // Listed in DRAW order, not storage order, so the list and the card above it agree about
+  // what comes first. Slot order dominates (a footer can't be drawn before a header), so a
+  // drag reorders WITHIN a slot; moving a part to another position is the part editor's
+  // "where it sits", which is also the only place that could offer the legal ones.
+  const parts = orderedParts(spec);
+  const drag = useDragReorder(parts.map((p) => p.id), onReorder);
+  const byId = new Map(parts.map((p) => [p.id, p]));
 
   return (
     <>
