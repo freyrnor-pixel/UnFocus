@@ -63,6 +63,13 @@
  *   - `leading` is for an icon or a quantity — never a second check. StarterExampleRow's own
  *     leading circle is an icon and stays where it is, so an example still reads as a row of
  *     the list it sits in.
+ *   - **`slotWrapper` (2026-08-07) is for the design lab and nothing else.** It wraps each of
+ *     this row's own positions so the lab's card editor can put a hit region and a measurable
+ *     box on one — tap to select it, drag it somewhere else. It defaults to identity, so it is
+ *     inert for every other caller and changes this row's layout not at all. The reason it is
+ *     a prop here rather than a lookalike row inside the lab: two row implementations to keep
+ *     in step is the exact drift this component was created to end. A wrapper must stay
+ *     layout-neutral (see the prop's doc) — padding or a border on it moves the real row.
  *   - **The check ring is NEUTRAL when empty and hued only when ticked** (2026-08-04,
  *     DESIGN_COMPARISON/11, DESIGN_RULES_AUDIT.md item 13). It used to take `accent` in both
  *     states, which put a control boundary on a token never tuned to be one: an empty ring on
@@ -146,8 +153,27 @@ type Props = {
    * where a `dailyGoal > 1` means a single tap can't mean "done".
    */
   trailing?: React.ReactNode;
+  /**
+   * Wraps each of this row's own anatomical positions. Identity by default.
+   *
+   * **This exists for the design lab and for nothing else** (2026-08-07). Its card editor has
+   * to put a hit region and a measurable box on a POSITION — so a part can be tapped to select
+   * it and dropped onto another slot — and every position except the ones the caller passes as
+   * nodes is drawn by this file. The alternatives were both worse: rebuild the row as a
+   * lookalike inside the lab (two row implementations to keep in step, which is the exact
+   * drift this component was created to end), or give the lab a second rendering path.
+   *
+   * It is inert unless passed — `wrap` below defaults to returning the node untouched — so no
+   * other caller is affected, and this component's own layout is unchanged. A wrapper MUST be
+   * layout-neutral: it sits inside the row's flex tree, so padding or a border on it moves the
+   * real row and the lab would be measuring something the app doesn't draw.
+   */
+  slotWrapper?: (slot: PadRowSlot, node: React.ReactNode) => React.ReactNode;
   style?: StyleProp<ViewStyle>;
 };
+
+/** The positions `slotWrapper` is called for, in the order the row draws them. */
+export type PadRowSlot = 'leading' | 'title' | 'meta' | 'right' | 'action' | 'check' | 'trailing';
 
 export default function PadRow({
   title,
@@ -163,6 +189,7 @@ export default function PadRow({
   onToggle,
   toggleLabel,
   trailing,
+  slotWrapper,
   style,
 }: Props) {
   const theme = useAppTheme();
@@ -191,9 +218,12 @@ export default function PadRow({
   // padding the right edge of every row that has neither an action nor a check.
   const hasTrailingCluster = wantsAction || !!trailing || wantsCheck;
 
+  // Identity unless the design lab passed one — see the prop's own doc.
+  const wrap = slotWrapper ?? ((_slot: PadRowSlot, node: React.ReactNode) => node);
+
   const body = (
     <View style={styles.body}>
-      {titleInput ?? (
+      {wrap('title', titleInput ?? (
         <Text
           style={[
             styles.title,
@@ -204,14 +234,14 @@ export default function PadRow({
         >
           {title}
         </Text>
-      )}
-      {hasMetaLine ? <View style={styles.metaLine}>{meta}</View> : null}
+      ))}
+      {hasMetaLine ? <View style={styles.metaLine}>{wrap('meta', meta)}</View> : null}
     </View>
   );
 
   return (
     <View style={[styles.row, { minHeight: shape.rowHeight }, done && styles.rowDone, style]}>
-      {leading && showLeading ? <View style={styles.leading}>{leading}</View> : null}
+      {leading && showLeading ? <View style={styles.leading}>{wrap('leading', leading)}</View> : null}
 
       {onPress ? (
         <PressableScale style={styles.bodyPressable} onPress={onPress} scaleTo={0.99}>
@@ -221,15 +251,15 @@ export default function PadRow({
         body
       )}
 
-      {rightValue && showRight ? (
+      {rightValue && showRight ? wrap('right', (
         <Text style={[styles.rightValue, { color: theme.textMuted }]} numberOfLines={1}>
           {rightValue}
         </Text>
-      ) : null}
+      )) : null}
 
       {hasTrailingCluster ? (
         <View style={styles.trailingCluster}>
-          {wantsAction ? (
+          {wantsAction ? wrap('action', (
             <PressableScale
               style={styles.action}
               onPress={onAction}
@@ -240,10 +270,12 @@ export default function PadRow({
             >
               <Ionicons name="ellipsis-horizontal" size={18} color={theme.textMuted} />
             </PressableScale>
-          ) : null}
+          )) : null}
 
-          {trailing ??
-            (wantsCheck ? (
+          {/* `trailing ?? check` rather than a wrapped `??`: a wrapper around an absent
+              trailing would still be a node, so the check would never draw. */}
+          {trailing ? wrap('trailing', trailing) :
+            (wantsCheck ? wrap('check', (
               <PressableScale
                 style={[
                   styles.check,
@@ -271,7 +303,7 @@ export default function PadRow({
                   />
                 ) : null}
               </PressableScale>
-            ) : null)}
+            )) : null)}
         </View>
       ) : null}
     </View>

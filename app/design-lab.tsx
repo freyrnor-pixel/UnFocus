@@ -61,7 +61,7 @@
  *     enumerates from that registry, so an entry added there shows up already wired; the only
  *     thing this file needs is the i18n pair, which `no: typeof en` will demand at compile time.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -74,10 +74,12 @@ import PressableScale from '@/components/PressableScale';
 import TabSlider from '@/components/TabSlider';
 import Slider from '@/components/Slider';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
-import DesignLabCard from '@/components/DesignLabCard';
+import DesignLabCard, { type SlotRect } from '@/components/DesignLabCard';
 import DesignLabBench from '@/components/DesignLabBench';
 import ColorPickerSheet from '@/components/ColorPickerSheet';
 import PartEditorSheet from '@/components/PartEditorSheet';
+import PartControls from '@/components/PartControls';
+import PartPalette from '@/components/PartPalette';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import {
@@ -98,12 +100,14 @@ import {
   resolveControl,
   resolveShape,
   resolveSlot,
+  slotAtPoint,
   type CardId,
   type CardPart,
   type ColorGroup,
   type ControlSlot,
   type LabOverrides,
   type PartKind,
+  type PartSlot,
   type ShapeOverrides,
   type SlotId,
 } from '@/lib/designLab';
@@ -155,6 +159,10 @@ export default function DesignLabScreen() {
   const [editingPartId, setEditingPartId] = useState<string | null>(null);
   const [addingPart, setAddingPart] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Edit mode: the card becomes something you work ON rather than something you try OUT.
+  const [editing, setEditing] = useState(true);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+
 
   // The live palette WITHOUT the draft applied — the "before" column of the report, and the
   // swatch a knob starts from. `useAppTheme()` here already carries any applied overrides, so
@@ -163,6 +171,24 @@ export default function DesignLabScreen() {
   const cardChanges = useMemo(() => describeCards(draft), [draft]);
   const shape = useMemo(() => resolveShape(draft), [draft]);
   const spec = useMemo(() => resolveCardSpec(cardId, draft), [cardId, draft]);
+
+  // ── The drag, owned here so the card and the palette share one ────────────────
+  // Both drags answer the same question — "which slot is the finger over?" — against the same
+  // measured boxes, so one owner is the whole reason a palette chip can be dropped onto a
+  // position inside a real PadRow.
+  const slotRects = useRef<Partial<Record<PartSlot, SlotRect>>>({});
+  const [drag, setDrag] = useState<{ kind: PartKind; partId?: string } | null>(null);
+  const [dropSlot, setDropSlot] = useState<PartSlot | null>(null);
+  // Gesture callbacks can be held by a handler attached on an earlier render, so what they
+  // read has to come off refs rather than out of a closure — the same rule
+  // lib/useDragReorder.ts documents. A stale `drag` here means every move reads `null` and
+  // the drop silently does nothing.
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  const dropRef = useRef(dropSlot);
+  dropRef.current = dropSlot;
+  const partsRef = useRef<CardPart[]>(spec.parts);
+  partsRef.current = spec.parts;
 
   /** Every write goes through here: local state for the preview, the store for persistence. */
   const commit = (next: LabOverrides) => {
@@ -200,18 +226,65 @@ export default function DesignLabScreen() {
     commit({ ...draft, cards: { ...draft.cards, [cardId]: { parts, note } } });
   };
 
-  const addPart = (kind: PartKind) => {
-    if (spec.parts.length >= MAX_PARTS_PER_CARD) return;
+  /** Adds a part and hands its id back, so a caller can select what it just created. */
+  const addPart = (kind: PartKind, slot?: PartSlot): string | null => {
+    const current = partsRef.current;
+    if (current.length >= MAX_PARTS_PER_CARD) return null;
     // A fresh id that can't collide with a shipped part's, so the report reads it as "added".
     let n = 1;
-    while (spec.parts.some((p) => p.id === `${kind}-${n}`)) n += 1;
+    while (current.some((p) => p.id === `${kind}-${n}`)) n += 1;
     const id = `${kind}-${n}`;
     setParts([
-      ...spec.parts,
-      { id, kind, slot: SLOTS_FOR_KIND[kind][0], label: '', color: '', size: 'sm', weight: 'regular' },
+      ...current,
+      { id, kind, slot: slot ?? SLOTS_FOR_KIND[kind][0], label: '', color: '', size: 'sm', weight: 'regular' },
     ]);
+    return id;
+  };
+
+  /** From the "Add something" list: create it, then open its editor. */
+  const addFromList = (kind: PartKind) => {
+    const id = addPart(kind);
     setAddingPart(false);
-    setEditingPartId(id);
+    if (id) setEditingPartId(id);
+  };
+
+  /** From the palette: create it, then SELECT it, so the panel under the card takes over. */
+  const addFromPalette = (kind: PartKind) => {
+    const id = addPart(kind);
+    if (id) setSelectedPartId(id);
+  };
+
+  const movePart = (partId: string, slot: PartSlot) => {
+    const current = partsRef.current;
+    const part = current.find((p) => p.id === partId);
+    if (!part || part.slot === slot || !SLOTS_FOR_KIND[part.kind].includes(slot)) return;
+    setParts(current.map((p) => (p.id === partId ? { ...p, slot } : p)));
+  };
+
+  // ── Drag plumbing ────────────────────────────────────────────────────────────
+
+  const onDragMove = (x: number, y: number) => {
+    const active = dragRef.current;
+    if (!active) return;
+    // The hit-test itself lives in lib/designLab.ts and is unit-tested — the gesture that
+    // feeds it needs a device, but where a finger lands is arithmetic.
+    const next = slotAtPoint(active.kind, slotRects.current, x, y);
+    setDropSlot((prev) => (prev === next ? prev : next));
+  };
+
+  /** Commit on drop, once — the same rule lib/useDragReorder.ts follows. */
+  const onDragEnd = () => {
+    const active = dragRef.current;
+    const slot = dropRef.current;
+    if (active && slot) {
+      if (active.partId) movePart(active.partId, slot);
+      else {
+        const id = addPart(active.kind, slot);
+        if (id) setSelectedPartId(id);
+      }
+    }
+    setDrag(null);
+    setDropSlot(null);
   };
 
   const updatePart = (next: CardPart) => {
@@ -221,6 +294,7 @@ export default function DesignLabScreen() {
   const removePart = (id: string) => {
     setParts(spec.parts.filter((p) => p.id !== id));
     setEditingPartId(null);
+    setSelectedPartId(null);
   };
 
   /** Back to the card the app ships — by forgetting the composition, not by storing a copy. */
@@ -313,6 +387,31 @@ export default function DesignLabScreen() {
         >
           <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={18} color={theme.textMuted} />
         </PressableScale>
+        {/* Edit on: parts are tap-to-select and hold-to-drag. Off: the card behaves exactly
+            like the real one, so it can be tried rather than only looked at. */}
+        <PressableScale
+          onPress={() => {
+            selection();
+            setEditing((v) => !v);
+            setSelectedPartId(null);
+          }}
+          scaleTo={0.9}
+          hitSlop={HitSlop.base}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: editing }}
+          accessibilityLabel={t.designLab.preview.edit}
+          style={[
+            styles.iconBtn,
+            { borderColor: editing ? theme.accent : theme.border },
+            editing && { backgroundColor: theme.accent },
+          ]}
+        >
+          <Ionicons
+            name="create-outline"
+            size={18}
+            color={editing ? theme.accentInk : theme.textMuted}
+          />
+        </PressableScale>
         <PressableScale
           onPress={() => { selection(); setExpanded((v) => !v); }}
           scaleTo={0.9}
@@ -326,12 +425,32 @@ export default function DesignLabScreen() {
       </View>
 
       <View style={{ height: previewHeight }}>
-        <ScrollView contentContainerStyle={styles.previewBody} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.previewBody}
+          showsVerticalScrollIndicator={false}
+          // A drag must not scroll the card out from under the finger mid-move.
+          scrollEnabled={!drag}
+        >
           {/* Measured, not guessed — see the note on PREVIEW_MAX. The card still scrolls
               inside its box once it outgrows the cap. */}
           <View onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}>
             <DesignLabContext.Provider value={draft}>
-              <DesignLabCard id={cardId} spec={spec} focusedPartId={editingPartId ?? undefined} />
+              <DesignLabCard
+                id={cardId}
+                spec={spec}
+                editing={editing}
+                selectedPartId={selectedPartId ?? editingPartId ?? undefined}
+                onSelect={setSelectedPartId}
+                onSlotRect={(rect) => { slotRects.current[rect.slot] = rect; }}
+                onDragStart={(partId) => {
+                  const part = spec.parts.find((p) => p.id === partId);
+                  if (part) setDrag({ kind: part.kind, partId });
+                }}
+                onDragMove={onDragMove}
+                onDragEnd={onDragEnd}
+                dropSlot={dropSlot}
+                dragging={!!drag}
+              />
             </DesignLabContext.Provider>
           </View>
         </ScrollView>
@@ -352,6 +471,7 @@ export default function DesignLabScreen() {
   );
 
   const editingPart = spec.parts.find((p) => p.id === editingPartId) ?? null;
+  const selectedPart = spec.parts.find((p) => p.id === selectedPartId) ?? null;
 
   return (
     <ScreenScaffold
@@ -363,6 +483,48 @@ export default function DesignLabScreen() {
       stickyBelowHeaderHeight={previewHeight + CHROME_HEIGHT}
     >
       <View style={styles.page}>
+        {/* The palette and the selected part's controls sit at the TOP of the scroll body,
+            which puts them directly under the pinned card — the whole point of the panel is
+            that the card stays visible while it is being changed. */}
+        {tab === 'card' && editing && (
+          <>
+            <PartPalette
+              onAdd={addFromPalette}
+              onDragStart={(kind) => setDrag({ kind })}
+              onDragMove={onDragMove}
+              onDragEnd={onDragEnd}
+              draggingKind={drag && !drag.partId ? drag.kind : null}
+            />
+            {selectedPart ? (
+              <Surface style={styles.card}>
+                <View style={styles.switchRow}>
+                  <Text style={[styles.switchLabel, { color: theme.text }]} numberOfLines={1}>
+                    {t.designLab.editingPart(selectedPart.label || t.designLab.parts[selectedPart.kind])}
+                  </Text>
+                  <PressableScale
+                    onPress={() => { selection(); setSelectedPartId(null); }}
+                    scaleTo={0.9}
+                    hitSlop={HitSlop.base}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.designLab.color.close}
+                  >
+                    <Ionicons name="close" size={18} color={theme.textMuted} />
+                  </PressableScale>
+                </View>
+                <PartControls part={selectedPart} onChange={updatePart} />
+                <Button
+                  label={t.designLab.removePart}
+                  onPress={() => removePart(selectedPart.id)}
+                  variant="ghost"
+                  size="sm"
+                />
+              </Surface>
+            ) : (
+              <Text style={[styles.hint, { color: theme.textMuted }]}>{t.designLab.selectHint}</Text>
+            )}
+          </>
+        )}
+
         {tab === 'card' && (
           <CardTab
             spec={spec}
@@ -526,7 +688,7 @@ export default function DesignLabScreen() {
           title={t.designLab.addPart}
           onClose={() => setAddingPart(false)}
           options={PART_KINDS.map((kind) => ({ value: kind, label: t.designLab.parts[kind] }))}
-          onPick={(v) => addPart(v as PartKind)}
+          onPick={(v) => addFromList(v as PartKind)}
         />
       ) : null}
 
