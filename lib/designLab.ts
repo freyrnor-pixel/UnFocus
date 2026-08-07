@@ -1323,9 +1323,14 @@ function quoted(text: string): string {
   return text ? `"${text}"` : '(the sample)';
 }
 
-/** A part's own description, for the `added` and `removed` rows that have nothing to diff. */
-function describePart(part: CardPart): string {
-  const bits: string[] = [part.slot];
+/**
+ * A part's own description, for the `added` and `removed` rows that have nothing to diff.
+ *
+ * `withSlot` is off for the playground, where the line already carries the band and the grid
+ * cell in their own columns — repeating the slot there would print `body … body`.
+ */
+function describePart(part: CardPart, withSlot = true): string {
+  const bits: string[] = withSlot ? [part.slot] : [];
   if (part.label) bits.push(quoted(part.label));
   if (part.color) bits.push(part.color);
   bits.push(part.size, part.weight);
@@ -1478,7 +1483,7 @@ export function describePlayground(o: LabOverrides): PlaygroundScreenDescription
           part,
           band: bandOf(part.slot),
           where: whereOf(part),
-          detail: describePart(part),
+          detail: describePart(part, false),
         })),
         diff: knob ? diffParts(knob.defaultParts, card.parts) : undefined,
         note: card.note,
