@@ -19,6 +19,7 @@ import {
   CONTROL_KNOBS,
   DEFAULT_SHAPE,
   EMPTY_OVERRIDES,
+  EMPTY_PLAYGROUND,
   MIN_TAP_TARGET_FLOOR,
   SHAPE_KNOBS,
   SLOT_KNOBS,
@@ -47,6 +48,20 @@ import {
   resolveCardSpec,
   sanitizeCards,
   slotAtPoint,
+  // v3 — the playground
+  BODY_COLS,
+  CARD_SKELETONS,
+  MAX_CARDS_PER_SCREEN,
+  MAX_SCREENS,
+  MAX_SCREEN_TITLE,
+  PART_GROUPS,
+  PART_GROUP_OF,
+  clampPlace,
+  describePlayground,
+  diffParts,
+  isPlaceableSlot,
+  partsInGroup,
+  sanitizePlayground,
   type CardId,
   type CardPart,
   type LabOverrides,
@@ -63,6 +78,7 @@ function fullBag(): LabOverrides {
     controls: { boolean: 'segmented' },
     slots: { 'row.right': 'price' },
     cards: {},
+    playground: EMPTY_PLAYGROUND,
     note: 'because the edges are too loud',
   };
 }
@@ -255,17 +271,23 @@ describe('import graph', () => {
   // Mirrors lib/__tests__/cardLayout.test.ts. This module is evaluated inside render paths on
   // every screen; a store/DB/notification import here would drag that machinery into them, and
   // would also make a presentation-only bag able to schedule or cancel something.
-  it('cannot reach a store, the DB, or the notification layer', () => {
-    const source = fs.readFileSync(path.join(__dirname, '..', 'designLab.ts'), 'utf8');
-    const imports = [...source.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
-    for (const spec of imports) {
-      expect(spec).not.toMatch(/store\//);
-      expect(spec).not.toMatch(/lib\/db/);
-      expect(spec).not.toMatch(/lib\/notifications/);
-      expect(spec).not.toMatch(/lib\/reminders/);
-      expect(spec).not.toMatch(/lib\/liveSync|lib\/syncService/);
-    }
-  });
+  // The two v3 modules join the scan: designLabPlace is called from the same render paths, and
+  // designLabEdit is the only thing that writes a bag — a store import there would give it two
+  // ways to persist, one of them bypassing the screen's debounce.
+  it.each(['designLab.ts', 'designLabPlace.ts', 'designLabEdit.ts'])(
+    '%s cannot reach a store, the DB, or the notification layer',
+    (file) => {
+      const source = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+      const imports = [...source.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
+      for (const spec of imports) {
+        expect(spec).not.toMatch(/store\//);
+        expect(spec).not.toMatch(/lib\/db/);
+        expect(spec).not.toMatch(/lib\/notifications/);
+        expect(spec).not.toMatch(/lib\/reminders/);
+        expect(spec).not.toMatch(/lib\/liveSync|lib\/syncService/);
+      }
+    },
+  );
 });
 
 // ── Cards (2026-08-07) ───────────────────────────────────────────────────────
@@ -387,11 +409,21 @@ describe('sanitizeCards', () => {
     expect(out.note).toHaveLength(MAX_CARD_NOTE);
   });
 
-  // An empty composition is indistinguishable from "I deleted everything", and silently
-  // proposing a blank card is the one thing this must never do by accident.
-  it('drops a card left with no usable parts instead of storing a blank one', () => {
-    expect(sanitizeCards({ todo: { parts: [] } })).toEqual({});
-    expect(sanitizeCards({ todo: { parts: [{ id: 'x', kind: 'nope', slot: 'title' }] } })).toEqual({});
+  // v3 split the old blanket "drop an empty card" rule in two. Emptying a card is a real
+  // answer — a blank card is where building starts — so it is kept and read back empty.
+  it('keeps a card the maintainer emptied on purpose', () => {
+    expect(sanitizeCards({ todo: { parts: [] } })).toEqual({ todo: { parts: [], note: '' } });
+    expect(sanitizeCards({ todo: { parts: [{ id: 'x', kind: 'nope', slot: 'title' }] } }))
+      .toEqual({ todo: { parts: [], note: '' } });
+  });
+
+  // …but the original safety argument survives intact: a row with no `parts` ARRAY is
+  // malformed, not a decision, and defaulting it in would let a hand-edited backup blank a
+  // card by omission.
+  it('still drops a card row with no parts array at all', () => {
+    expect(sanitizeCards({ todo: {} })).toEqual({});
+    expect(sanitizeCards({ todo: { parts: 'lots' } })).toEqual({});
+    expect(sanitizeCards({ todo: { note: 'words but no parts' } })).toEqual({});
   });
 
   it('survives every shape of junk without throwing', () => {
@@ -420,8 +452,24 @@ describe('card back-compatibility', () => {
     expect(out.note).toBe('from before cards existed');
   });
 
-  it('is at version 2, so a reader can tell "no cards" from "predates cards"', () => {
-    expect(DESIGN_LAB_VERSION).toBe(2);
+  // v2 added `cards`; v3 added `playground` AND stopped writing `cards`. Both bumps exist so
+  // a reader can tell "nothing was built" from "this file predates the field".
+  it('loads a v2 bag (no `playground` field) with everything else intact', () => {
+    const v2 = {
+      colors: { light: { accent: '#112233' }, dark: {} },
+      shape: { radiusScale: 2 },
+      cards: { habit: { parts: [{ id: 'title', kind: 'text', slot: 'title', label: '', color: '', size: 'md', weight: 'semibold' }], note: '' } },
+      note: 'from before screens existed',
+    };
+    const out = sanitizeLabOverrides(v2);
+    expect(out.playground).toEqual(EMPTY_PLAYGROUND);
+    expect(out.cards.habit?.parts).toHaveLength(1);
+    expect(out.colors.light.accent).toBe('#112233');
+    expect(out.note).toBe('from before screens existed');
+  });
+
+  it('is at version 3, so a reader can tell "nothing built" from "predates screens"', () => {
+    expect(DESIGN_LAB_VERSION).toBe(3);
   });
 
   it('round-trips a bag carrying a card through the sanitizer unchanged', () => {
@@ -606,5 +654,301 @@ describe('slotAtPoint — where a dragged part lands', () => {
   it('counts the edges as inside, so a drop on a boundary still lands', () => {
     expect(slotAtPoint('text', boxes, 50, 100)).toBe('title');
     expect(slotAtPoint('text', boxes, 250, 120)).toBe('title');
+  });
+});
+
+// ── v3: the playground ───────────────────────────────────────────────────────
+
+/** One built screen with one blank-origin card on it. */
+function builtBag(): LabOverrides {
+  return {
+    ...EMPTY_OVERRIDES,
+    playground: {
+      screens: [
+        {
+          id: 'screen-1',
+          screen: 'habits',
+          title: 'Morning',
+          note: 'this is the screen I actually open first',
+          cards: [
+            {
+              id: 'card-1',
+              origin: 'blank',
+              title: 'Today',
+              note: 'the slider should be the thing you reach for',
+              parts: [
+                { id: 'title-1', kind: 'text', slot: 'title', label: 'What now', color: '', size: 'md', weight: 'semibold' },
+                { id: 'slider-1', kind: 'slider', slot: 'body', label: 'How much', color: 'accent', size: 'md', weight: 'regular', place: { row: 0, col: 0, span: 4 } },
+                { id: 'button-1', kind: 'button', slot: 'body', label: 'Do it', color: '', size: 'sm', weight: 'regular', place: { row: 1, col: 0, span: 2 } },
+              ],
+            },
+          ],
+        },
+      ],
+      note: '',
+    },
+  };
+}
+
+describe('part placement', () => {
+  it('keeps a place on the card’s own space and drops it anywhere else', () => {
+    const place = { row: 1, col: 1, span: 2 };
+    const body = sanitizeCards({ todo: { parts: [{ id: 'b', kind: 'slider', slot: 'body', place }] } }).todo!;
+    expect(body.parts[0].place).toEqual(place);
+
+    // A row slot's position IS its slot, so a place there would be a second, disagreeing answer.
+    const row = sanitizeCards({ todo: { parts: [{ id: 't', kind: 'text', slot: 'title', place }] } }).todo!;
+    expect(row.parts[0].place).toBeUndefined();
+  });
+
+  it('clamps a place into the grid rather than rejecting the part', () => {
+    expect(clampPlace({ row: -3, col: -1, span: 0 })).toEqual({ row: 0, col: 0, span: 1 });
+    expect(clampPlace({ row: 2.7, col: 9, span: 99 })).toEqual({ row: 2, col: BODY_COLS - 1, span: 1 });
+    expect(clampPlace({ row: 1, col: 2, span: 4 })).toEqual({ row: 1, col: 2, span: 2 });
+  });
+
+  // A part whose place is junk keeps everything else about itself. Losing the whole part over
+  // a stale co-ordinate would delete something the maintainer built.
+  it('drops a malformed place but keeps the part', () => {
+    const out = sanitizeCards({
+      todo: { parts: [{ id: 'b', kind: 'slider', slot: 'body', label: 'keep me', place: { row: 'x' } }] },
+    }).todo!;
+    expect(out.parts).toHaveLength(1);
+    expect(out.parts[0].label).toBe('keep me');
+    expect(out.parts[0].place).toBeUndefined();
+  });
+
+  it('knows which slots take a place at all', () => {
+    expect(isPlaceableSlot('body')).toBe(true);
+    expect(isPlaceableSlot('footer')).toBe(true);
+    for (const slot of ['header', 'leading', 'title', 'meta', 'right', 'action', 'check', 'trailing'] as const) {
+      expect(isPlaceableSlot(slot)).toBe(false);
+    }
+  });
+});
+
+describe('the skeletons', () => {
+  it('offers a blank card and nothing hidden behind it', () => {
+    expect(CARD_SKELETONS.map((s) => s.origin)).toEqual(['blank', 'row', 'heading']);
+    expect(CARD_SKELETONS[0].parts).toHaveLength(0);
+  });
+
+  // The same invariant CARD_KNOBS already carries: a shipped part in an illegal slot would
+  // render nothing and then sit in the exported document as an instruction nobody can follow.
+  it('puts every skeleton part in a slot its kind allows', () => {
+    for (const skeleton of CARD_SKELETONS) {
+      for (const part of skeleton.parts) {
+        expect(SLOTS_FOR_KIND[part.kind]).toContain(part.slot);
+      }
+    }
+  });
+
+  it('gives every skeleton part a unique id, so a move can be told from a replacement', () => {
+    for (const skeleton of CARD_SKELETONS) {
+      const ids = skeleton.parts.map((p) => p.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});
+
+describe('PART_GROUP_OF', () => {
+  it('files every kind in exactly one group, so a new kind cannot go missing from the shelf', () => {
+    for (const kind of PART_KINDS) {
+      expect(PART_GROUPS).toContain(PART_GROUP_OF[kind]);
+    }
+    const filed = PART_GROUPS.flatMap((g) => partsInGroup(g));
+    expect(filed.slice().sort()).toEqual(PART_KINDS.slice().sort());
+    expect(filed).toHaveLength(PART_KINDS.length);
+  });
+
+  it('leaves no group empty', () => {
+    for (const group of PART_GROUPS) expect(partsInGroup(group).length).toBeGreaterThan(0);
+  });
+
+  it('keeps a group in PART_KINDS order, so the shelf does not reshuffle between renders', () => {
+    const words = partsInGroup('words');
+    expect(words).toEqual(PART_KINDS.filter((k) => PART_GROUP_OF[k] === 'words'));
+  });
+});
+
+describe('diffParts', () => {
+  const shipped: CardPart[] = [
+    { id: 'title', kind: 'text', slot: 'title', label: '', color: '', size: 'md', weight: 'semibold' },
+    { id: 'check', kind: 'checkbox', slot: 'check', label: '', color: '', size: 'sm', weight: 'regular' },
+  ];
+
+  it('says nothing when nothing differs', () => {
+    expect(diffParts(shipped, shipped.map((p) => ({ ...p })))).toEqual([]);
+  });
+
+  it('tells the four verdicts apart', () => {
+    const proposed: CardPart[] = [
+      { ...shipped[0], size: 'lg' },                                   // restyled
+      { ...shipped[1], slot: 'leading' },                              // moved
+      { id: 'slider-1', kind: 'slider', slot: 'body', label: '', color: '', size: 'sm', weight: 'regular' },
+    ];
+    const kinds = diffParts(shipped, proposed).map((c) => c.kind);
+    expect(kinds).toContain('restyled');
+    expect(kinds).toContain('moved');
+    expect(kinds).toContain('added');
+    expect(diffParts(shipped, [shipped[0]]).map((c) => c.kind)).toEqual(['removed']);
+  });
+
+  // A part is matched by id and nothing else — that is what keeps a move ONE line rather than
+  // a removal plus an addition, which would read as two decisions instead of one.
+  it('reports a moved part once', () => {
+    const moved = diffParts(shipped, [shipped[0], { ...shipped[1], slot: 'leading' }]);
+    expect(moved).toHaveLength(1);
+    expect(moved[0].kind).toBe('moved');
+    expect(moved[0].detail).toContain('check → leading');
+  });
+});
+
+describe('sanitizePlayground', () => {
+  it('reads back a built playground unchanged', () => {
+    const bag = builtBag();
+    expect(sanitizeLabOverrides(bag)).toEqual(bag);
+  });
+
+  it('is empty for anything that is not a playground', () => {
+    for (const raw of [null, undefined, 7, 'screens', [], { screens: 'lots' }]) {
+      expect(sanitizePlayground(raw)).toEqual(EMPTY_PLAYGROUND);
+    }
+  });
+
+  // You make a screen before you put anything on it. Dropping an empty one would delete the
+  // screen out from under the person filling it.
+  it('keeps a screen with no cards on it yet', () => {
+    const out = sanitizePlayground({ screens: [{ id: 's1', screen: 'plans', title: '', cards: [], note: '' }] });
+    expect(out.screens).toHaveLength(1);
+    expect(out.screens[0].cards).toEqual([]);
+  });
+
+  it('drops a screen with no id or no cards array — malformed, not empty', () => {
+    expect(sanitizePlayground({ screens: [{ screen: 'plans', cards: [] }] }).screens).toEqual([]);
+    expect(sanitizePlayground({ screens: [{ id: 's1', screen: 'plans' }] }).screens).toEqual([]);
+  });
+
+  it('drops duplicate screen and card ids, which would break move tracking', () => {
+    const dupScreens = sanitizePlayground({
+      screens: [{ id: 's1', cards: [] }, { id: 's1', cards: [] }],
+    });
+    expect(dupScreens.screens).toHaveLength(1);
+
+    const dupCards = sanitizePlayground({
+      screens: [{ id: 's1', cards: [{ id: 'c1', parts: [] }, { id: 'c1', parts: [] }] }],
+    });
+    expect(dupCards.screens[0].cards).toHaveLength(1);
+  });
+
+  it('falls back to blank for an unknown origin rather than dropping the card', () => {
+    const out = sanitizePlayground({ screens: [{ id: 's1', cards: [{ id: 'c1', origin: 'nope', parts: [] }] }] });
+    expect(out.screens[0].cards[0].origin).toBe('blank');
+  });
+
+  it('keeps a real card id as the origin, since that is what the diff is measured against', () => {
+    const out = sanitizePlayground({ screens: [{ id: 's1', cards: [{ id: 'c1', origin: 'todo', parts: [] }] }] });
+    expect(out.screens[0].cards[0].origin).toBe('todo');
+  });
+
+  it('caps screens, cards and titles', () => {
+    const screens = Array.from({ length: MAX_SCREENS + 4 }, (_, i) => ({
+      id: `s${i}`,
+      title: 't'.repeat(MAX_SCREEN_TITLE + 20),
+      cards: Array.from({ length: MAX_CARDS_PER_SCREEN + 4 }, (_, j) => ({ id: `c${j}`, parts: [] })),
+    }));
+    const out = sanitizePlayground({ screens });
+    expect(out.screens).toHaveLength(MAX_SCREENS);
+    expect(out.screens[0].title).toHaveLength(MAX_SCREEN_TITLE);
+    expect(out.screens[0].cards).toHaveLength(MAX_CARDS_PER_SCREEN);
+  });
+
+  it('survives every shape of junk without throwing', () => {
+    const junk = [
+      { screens: [null, 5, [], { id: 's1', cards: [null, 7, { id: 'c', parts: [null, 'x'] }] }] },
+      { screens: [{ id: 's1', screen: 5, title: [], cards: [], note: {} }] },
+    ];
+    junk.forEach((raw) => expect(() => sanitizePlayground(raw)).not.toThrow());
+  });
+
+  it('counts as a change, so an untouched app is still the fast path', () => {
+    expect(isEmptyOverrides(EMPTY_OVERRIDES)).toBe(true);
+    expect(isEmptyOverrides(builtBag())).toBe(false);
+  });
+});
+
+describe('describePlayground', () => {
+  it('says nothing about an empty playground', () => {
+    expect(describePlayground(EMPTY_OVERRIDES)).toEqual([]);
+  });
+
+  it('says nothing about a screen with no cards and nothing to say', () => {
+    const bag = { ...EMPTY_OVERRIDES, playground: { screens: [{ id: 's1', screen: 'plans', title: '', cards: [], note: '' }], note: '' } };
+    expect(describePlayground(bag)).toEqual([]);
+  });
+
+  it('reports an empty screen that carries a note — the note is the whole request', () => {
+    const bag = { ...EMPTY_OVERRIDES, playground: { screens: [{ id: 's1', screen: 'plans', title: '', cards: [], note: 'nothing belongs here' }], note: '' } };
+    expect(describePlayground(bag)).toHaveLength(1);
+  });
+
+  // A card built from blank has nothing to be measured against, so the only honest report is
+  // the whole composition.
+  it('exports a blank-origin card in full, with no diff', () => {
+    const [screen] = describePlayground(builtBag());
+    const [card] = screen.cards;
+    expect(card.diff).toBeUndefined();
+    expect(card.composition).toHaveLength(3);
+    expect(card.composition.map((l) => l.part.id)).toEqual(['title-1', 'slider-1', 'button-1']);
+  });
+
+  it('states where a placed part sits, and leaves a flowing one blank', () => {
+    const [screen] = describePlayground(builtBag());
+    const lines = screen.cards[0].composition;
+    expect(lines.find((l) => l.part.id === 'slider-1')!.where).toBe('r0 c0 w4');
+    expect(lines.find((l) => l.part.id === 'button-1')!.where).toBe('r1 c0 w2');
+    expect(lines.find((l) => l.part.id === 'title-1')!.where).toBe('');
+  });
+
+  it('bands each part the way the card reads', () => {
+    const [screen] = describePlayground(builtBag());
+    const byId = new Map(screen.cards[0].composition.map((l) => [l.part.id, l.band]));
+    expect(byId.get('title-1')).toBe('row');
+    expect(byId.get('slider-1')).toBe('body');
+  });
+
+  // The lab's original question — "the to-do card, but with the tick moved" — has to survive
+  // inside the playground, which is what `origin` is for.
+  it('gives an origin card BOTH its full composition and its diff against the real one', () => {
+    const shipped = cardKnob('todo')!;
+    const parts = shipped.defaultParts.map((p) => (p.id === 'check' ? { ...p, slot: 'leading' as const } : { ...p }));
+    const bag: LabOverrides = {
+      ...EMPTY_OVERRIDES,
+      playground: { screens: [{ id: 's1', screen: 'plans', title: '', note: '', cards: [{ id: 'c1', origin: 'todo', title: '', note: '', parts }] }], note: '' },
+    };
+    const card = describePlayground(bag)[0].cards[0];
+    expect(card.originSource).toBe(shipped.source);
+    expect(card.composition.length).toBe(parts.length);
+    expect(card.diff!.map((c) => c.kind)).toEqual(['moved']);
+  });
+
+  it('carries the screen’s and the card’s own words', () => {
+    const [screen] = describePlayground(builtBag());
+    expect(screen.note).toBe('this is the screen I actually open first');
+    expect(screen.cards[0].note).toBe('the slider should be the thing you reach for');
+  });
+
+  it('walks screens in the order they were built, not in registry order', () => {
+    const bag: LabOverrides = {
+      ...EMPTY_OVERRIDES,
+      playground: {
+        screens: [
+          { id: 'b', screen: 'health', title: '', note: 'second built', cards: [] },
+          { id: 'a', screen: 'plans', title: '', note: 'first built', cards: [] },
+        ],
+        note: '',
+      },
+    };
+    expect(describePlayground(bag).map((s) => s.id)).toEqual(['b', 'a']);
   });
 });

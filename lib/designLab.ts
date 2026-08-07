@@ -16,6 +16,19 @@
  * from, moved and restyled, so it is stored as a composition rather than as a value, and the
  * report describes it as a diff rather than as a before→after pair.
  *
+ * **The playground (v3, 2026-08-07) is the sixth thing, and it starts from nothing.** The five
+ * registries above all begin at something the app already ships; the maintainer's next ask was
+ * the opposite — *a blank card, on a blank screen, that I place things into and build freely.*
+ * `PlaygroundSpec` is that: screens, each holding cards, each holding the same `CardPart`s the
+ * registry cards are made of. Two consequences worth knowing before editing:
+ *   - **A playground card exports IN FULL, not as a diff** — there is no shipped version to
+ *     measure it against. A card that names an `origin` gets both: the full composition AND
+ *     the diff against that real card, which is how the lab's original question survives here.
+ *   - **`cards` is READ/EXPORT-ONLY from v3. Nothing writes it any more.** It stays because a
+ *     v2 bag must still load and still export. Once the playground's origin-diff has been used
+ *     in anger, `cards` + `describeCards` can go in a change of their own — `diffParts` is the
+ *     part worth keeping, and it is already shared by both.
+ *
  * **The overrides are a question, not an answer.** Nothing here is a permanent user setting —
  * it is a scratchpad that can be left in any state, reset in one tap, and is off by default
  * behind `settings.featureDesignLab`. Its real output is the exported text file.
@@ -51,6 +64,9 @@
  *     (for a shape knob) to `ShapeOverrides` + `DEFAULT_SHAPE`. The screen and the export both
  *     enumerate from here, so nothing else needs to change. Provenance is not decoration — it
  *     is what the exported report tells the agent to go and edit.
+ *   - **The playground is NOT part of `designLabApply`.** That switch was only ever about
+ *     tokens (colours / shape / controls / slots); an arrangement of invented cards cannot be
+ *     "applied" to real screens, so `useLabOverrides`'s consumers never look at `playground`.
  *   - **`CARD_KNOBS.defaultParts` must stay faithful to the real components.** It is doing two
  *     jobs at once: it is what the bench OPENS at (so the maintainer sees their card, not an
  *     empty box) and it is what `describeCards` measures against (so the report can say
@@ -73,8 +89,15 @@ import type { ThemePalette } from '@/constants/colors';
  * absent and sanitizes to `{}` — so this is a widening, not a break. It is still a bump because
  * an agent reading the exported JSON has to know whether a missing `cards` means "no card was
  * touched" or "this file predates cards".
+ *
+ * 3 (2026-08-07) added `playground` — screens and cards built from nothing — and `place` on a
+ * part. A v1 or v2 bag still loads unchanged (`playground` absent → `EMPTY_PLAYGROUND`, `place`
+ * absent → the part flows full-width), so this is another widening. It is a bump for the same
+ * reason as before (a missing `playground` has to be tellable from "predates screens") and for
+ * one more: **`cards` stopped being written in v3**, so a v3 file carrying `cards` is reporting
+ * a composition made under an older build.
  */
-export const DESIGN_LAB_VERSION = 2;
+export const DESIGN_LAB_VERSION = 3;
 
 /** The lowest `minTapTarget` the lab will accept — WCAG's floor, and the app's own token. */
 export const MIN_TAP_TARGET_FLOOR = 44;
@@ -440,6 +463,34 @@ export type PartSize = (typeof PART_SIZES)[number];
 export const PART_WEIGHTS = ['regular', 'semibold', 'bold'] as const;
 export type PartWeight = (typeof PART_WEIGHTS)[number];
 
+/**
+ * The card body's grid. FOUR columns is the smallest number that expresses full / half /
+ * third / quarter, which is every division a phone card actually uses.
+ *
+ * **Why a grid at all, when the ask was "place things freely".** The lab's output is a
+ * document an agent builds from, and nothing in this app is absolutely positioned — a part at
+ * `x: 0.37, y: 0.62` is not an instruction anybody can carry out, while "row 1, left half" is
+ * a flex row with two children. A grid also survives what a coordinate cannot: `fontScale`,
+ * the user's text-size setting and the four widths `npm run wraps` audits all reflow text, so
+ * a part pinned partway down a card is somewhere else on every one of them. At four columns
+ * on a phone the snap is invisible, and the thing actually being asked for — two things side
+ * by side, which a plain vertical flow cannot express at all — works.
+ */
+export const BODY_COLS = 4;
+
+/**
+ * Where a part sits in the card's own space. Absent means "its own row, full width", which is
+ * what every pre-v3 part and every freshly-dropped one is until it is moved.
+ */
+export type PartPlace = {
+  /** 0-based row down the body. Renumbered on write — see `normalizePlacements`. */
+  row: number;
+  /** 0-based column, `0 … BODY_COLS - 1`. */
+  col: number;
+  /** How many columns wide, `1 … BODY_COLS - col`. */
+  span: number;
+};
+
 export type CardPart = {
   /** Unique within its card, and STABLE — it is what tells "moved" apart from "removed+added". */
   id: string;
@@ -451,7 +502,52 @@ export type CardPart = {
   color: string;
   size: PartSize;
   weight: PartWeight;
+  /**
+   * Grid position, honoured for `body` and `footer` only — the card's own space, which is the
+   * half of a card that has no anatomy of its own. A row slot's position IS its slot, so a
+   * `place` there would be a second, disagreeing answer; the sanitizer drops it.
+   */
+  place?: PartPlace;
 };
+
+/** `col`/`span` forced into the grid, and `row` made a non-negative integer. */
+export function clampPlace(place: PartPlace): PartPlace {
+  const row = Number.isFinite(place.row) ? Math.max(0, Math.floor(place.row)) : 0;
+  const col = Number.isFinite(place.col) ? Math.min(BODY_COLS - 1, Math.max(0, Math.floor(place.col))) : 0;
+  const rawSpan = Number.isFinite(place.span) ? Math.floor(place.span) : BODY_COLS;
+  const span = Math.min(BODY_COLS - col, Math.max(1, rawSpan));
+  return { row, col, span };
+}
+
+/** True for a slot whose parts live on the body grid rather than in the row's anatomy. */
+export function isPlaceableSlot(slot: PartSlot): boolean {
+  return slot === 'body' || slot === 'footer';
+}
+
+/**
+ * The three families a part belongs to, for a palette that can be scanned.
+ *
+ * `PartKind`'s own declaration already groups them in comments; this makes that grouping data
+ * so the shelf enumerates rather than hard-codes it. Three, not four: `progress` and `divider`
+ * go in with the marks rather than forming a two-member group nobody would scan past.
+ */
+export type PartGroup = 'words' | 'controls' | 'marks';
+export const PART_GROUPS: readonly PartGroup[] = ['words', 'controls', 'marks'];
+
+/** Every kind is in exactly one group — asserted by test, so a new kind cannot go unfiled. */
+export const PART_GROUP_OF: Record<PartKind, PartGroup> = {
+  text: 'words', value: 'words', count: 'words', price: 'words', time: 'words',
+  button: 'controls', slider: 'controls', toggle: 'controls', checkbox: 'controls',
+  stepper: 'controls', segmented: 'controls', chips: 'controls', field: 'controls',
+  timeField: 'controls',
+  icon: 'marks', badge: 'marks', chip: 'marks', personChip: 'marks', dot: 'marks',
+  progress: 'marks', divider: 'marks',
+};
+
+/** The kinds in one group, in `PART_KINDS` order so the shelf is stable between renders. */
+export function partsInGroup(group: PartGroup): PartKind[] {
+  return PART_KINDS.filter((kind) => PART_GROUP_OF[kind] === group);
+}
 
 /** One card's whole composition. Seeded from the registry the first time it is touched. */
 export type CardSpec = {
@@ -467,10 +563,20 @@ export type CardSpec = {
   note: string;
 };
 
-/** Nothing here may grow without bound — a stored bag is JSON in one settings column. */
+/**
+ * Nothing here may grow without bound — a stored bag is JSON in one settings column.
+ *
+ * The playground multiplies these: 6 × 8 × 24 parts is ~140 KB of JSON, which is already
+ * uncomfortable for a column rewritten on every edit (which is why `app/design-lab` debounces
+ * its store write). Do not raise any of them without doing that arithmetic again.
+ */
 export const MAX_PARTS_PER_CARD = 24;
 export const MAX_PART_LABEL = 60;
 export const MAX_CARD_NOTE = 500;
+export const MAX_SCREENS = 6;
+export const MAX_CARDS_PER_SCREEN = 8;
+export const MAX_SCREEN_TITLE = 40;
+export const MAX_CARD_TITLE = 40;
 
 export type CardKnob = {
   id: CardId;
@@ -658,6 +764,75 @@ export const CARD_KNOBS: readonly CardKnob[] = [
   },
 ] as const;
 
+// ── The playground ───────────────────────────────────────────────────────────
+
+/**
+ * Where a playground card started life.
+ *
+ * `'blank'` and the two skeletons are the starting menu. A `CardId` here is load-bearing and
+ * is the whole reason the 11 registry cards survive the playground: it is what lets the export
+ * still say *"the to-do card, but with the tick moved"* rather than describing a stranger.
+ */
+export type CardOrigin = 'blank' | 'row' | 'heading' | CardId;
+
+export type CardSkeleton = {
+  origin: Exclude<CardOrigin, CardId>;
+  parts: readonly CardPart[];
+};
+
+/**
+ * What "add a card" offers before it offers anything else.
+ *
+ * Three shapes, not eleven: a blank one, a row with a tick, and a card with a heading. The 11
+ * faithful copies of the app's real cards are still reachable — they sit BELOW these, under
+ * their own heading — but they are no longer the thing you have to start from.
+ */
+export const CARD_SKELETONS: readonly CardSkeleton[] = [
+  { origin: 'blank', parts: [] },
+  {
+    origin: 'row',
+    parts: [
+      part('title', 'text', 'title', 'md', 'semibold'),
+      part('check', 'checkbox', 'check'),
+    ],
+  },
+  {
+    origin: 'heading',
+    parts: [part('header', 'text', 'header', 'md', 'semibold')],
+  },
+];
+
+/** Lab-minted, stable, and unique within its parent — stability is what tracks a move. */
+export type ScreenId = string;
+export type PlaygroundCardId = string;
+
+export type PlaygroundCard = {
+  id: PlaygroundCardId;
+  origin: CardOrigin;
+  /** The maintainer's own name for it. `''` means "the lab's default name for this origin". */
+  title: string;
+  parts: CardPart[];
+  note: string;
+};
+
+export type ScreenSpec = {
+  id: ScreenId;
+  /**
+   * The real screen this one stands in for — it decides the border hue and the default name.
+   * A plain string rather than a `ScreenKey`, for the same reason `CardKnob.screen` is one:
+   * this module imports nothing but `constants/theme`, and it is going to stay that way.
+   */
+  screen: string;
+  title: string;
+  cards: PlaygroundCard[];
+  note: string;
+};
+
+/** Screens are reorderable, so an ordered array beats a map plus a separate order field. */
+export type PlaygroundSpec = { screens: ScreenSpec[]; note: string };
+
+export const EMPTY_PLAYGROUND: PlaygroundSpec = { screens: [], note: '' };
+
 // ── The override bag ─────────────────────────────────────────────────────────
 
 /** Per-mode colour overrides. Light and dark are edited separately — one palette each. */
@@ -668,8 +843,14 @@ export type LabOverrides = {
   shape: Partial<ShapeOverrides>;
   controls: Partial<Record<ControlSlot, string>>;
   slots: Partial<Record<SlotId, string>>;
-  /** Per-card compositions. A card absent from here has never been opened. */
+  /**
+   * Per-card compositions of the 11 registry cards. A card absent from here has never been
+   * opened. **READ/EXPORT-ONLY from v3** — the playground replaced the surface that wrote it,
+   * and this stays so a v2 bag still loads and still exports. See the header.
+   */
   cards: Partial<Record<CardId, CardSpec>>;
+  /** Screens and cards built from nothing. New in v3; absent in a v1 or v2 bag. */
+  playground: PlaygroundSpec;
   /** The maintainer's own words about what they were trying to fix. Carried into the export. */
   note: string;
 };
@@ -680,6 +861,7 @@ export const EMPTY_OVERRIDES: LabOverrides = {
   controls: {},
   slots: {},
   cards: {},
+  playground: EMPTY_PLAYGROUND,
   note: '',
 };
 
@@ -775,6 +957,7 @@ export function sanitizeLabOverrides(raw: unknown): LabOverrides {
     controls,
     slots,
     cards: sanitizeCards(r.cards),
+    playground: sanitizePlayground(r.playground),
     note: typeof r.note === 'string' ? r.note.slice(0, 2000) : '',
   };
 }
@@ -800,7 +983,7 @@ function sanitizePart(raw: unknown, usedIds: Set<string>): CardPart | null {
   const slot = typeof p.slot === 'string' ? (p.slot as PartSlot) : null;
   if (!slot || !SLOTS_FOR_KIND[kind].includes(slot)) return null;
   usedIds.add(id);
-  return {
+  const out: CardPart = {
     id,
     kind,
     slot,
@@ -809,16 +992,42 @@ function sanitizePart(raw: unknown, usedIds: Set<string>): CardPart | null {
     size: PART_SIZES.includes(p.size as PartSize) ? (p.size as PartSize) : 'sm',
     weight: PART_WEIGHTS.includes(p.weight as PartWeight) ? (p.weight as PartWeight) : 'regular',
   };
+  // A place is dropped rather than rejecting the part: an out-of-place `place` is a stale
+  // field on an otherwise good row (a part moved from the body into the title, say), and
+  // losing the whole part over it would delete something the maintainer built.
+  const place = p.place;
+  if (isPlaceableSlot(slot) && place && typeof place === 'object' && !Array.isArray(place)) {
+    const raw = place as Record<string, unknown>;
+    if (typeof raw.row === 'number' && typeof raw.col === 'number' && typeof raw.span === 'number') {
+      out.place = clampPlace({ row: raw.row, col: raw.col, span: raw.span });
+    }
+  }
+  return out;
+}
+
+/** Every usable part of one raw `parts` array, capped and de-duplicated. */
+function sanitizePartList(rawParts: unknown[]): CardPart[] {
+  const usedIds = new Set<string>();
+  const parts: CardPart[] = [];
+  for (const rawPart of rawParts) {
+    if (parts.length >= MAX_PARTS_PER_CARD) break;
+    const part = sanitizePart(rawPart, usedIds);
+    if (part) parts.push(part);
+  }
+  return parts;
 }
 
 /**
- * The stored per-card compositions, with everything unrecognisable dropped.
+ * The stored per-card compositions of the 11 registry cards, with everything unrecognisable
+ * dropped. **Read-only from v3** — nothing writes `cards` any more; this exists so a v2 bag
+ * still loads and still exports.
  *
- * A card that survives sanitizing with NO parts is dropped whole rather than kept as an empty
- * composition: an empty card is indistinguishable from "delete every part", and silently
- * proposing a blank card is the one thing this feature must not do by accident. Emptying a
- * card on purpose is still possible — it just resolves back to the shipped one, which is also
- * the honest reading of "I removed everything".
+ * **A card that sanitizes to zero parts is KEPT** (changed 2026-08-07, v3). Emptying a card
+ * is a real answer — it is where "a blank card" starts — and `resolveCardSpec` prefers a
+ * stored composition, so an emptied card reads back empty rather than snapping to the shipped
+ * one. What is still dropped is a card row with no `parts` ARRAY at all: that is malformed,
+ * not a decision, and defaulting it in would let a hand-edited backup blank a card by
+ * omission. That was the whole point of the original rule and it survives intact.
  */
 export function sanitizeCards(raw: unknown): Partial<Record<CardId, CardSpec>> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -827,26 +1036,92 @@ export function sanitizeCards(raw: unknown): Partial<Record<CardId, CardSpec>> {
     if (!CARD_BY_ID.has(key)) continue;
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
     const spec = value as Record<string, unknown>;
-    const rawParts = Array.isArray(spec.parts) ? spec.parts : [];
-    const usedIds = new Set<string>();
-    const parts: CardPart[] = [];
-    for (const rawPart of rawParts) {
-      if (parts.length >= MAX_PARTS_PER_CARD) break;
-      const part = sanitizePart(rawPart, usedIds);
-      if (part) parts.push(part);
-    }
-    if (parts.length === 0) continue;
+    if (!Array.isArray(spec.parts)) continue;
     out[key as CardId] = {
-      parts,
+      parts: sanitizePartList(spec.parts),
       note: typeof spec.note === 'string' ? spec.note.slice(0, MAX_CARD_NOTE) : '',
     };
   }
   return out;
 }
 
+/** One playground card, or `null` if it is unusable. */
+function sanitizePlaygroundCard(raw: unknown, usedIds: Set<string>): PlaygroundCard | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  const id = typeof c.id === 'string' ? c.id.trim().slice(0, MAX_CARD_TITLE) : '';
+  if (!id || usedIds.has(id)) return null;
+  if (!Array.isArray(c.parts)) return null;
+  usedIds.add(id);
+  const origin = typeof c.origin === 'string'
+    && (c.origin === 'blank' || c.origin === 'row' || c.origin === 'heading' || CARD_BY_ID.has(c.origin))
+    ? (c.origin as CardOrigin)
+    : 'blank';
+  return {
+    id,
+    origin,
+    title: typeof c.title === 'string' ? c.title.slice(0, MAX_CARD_TITLE) : '',
+    // An empty card is the STARTING state here, never a malformed one — see sanitizeCards.
+    parts: sanitizePartList(c.parts),
+    note: typeof c.note === 'string' ? c.note.slice(0, MAX_CARD_NOTE) : '',
+  };
+}
+
+/**
+ * The playground, with everything unrecognisable dropped.
+ *
+ * A screen with no cards is KEPT — you make a screen before you put anything on it, and
+ * dropping it would delete the screen out from under the person filling it. What is dropped
+ * is a screen with no id or no `cards` array, which is malformed rather than empty.
+ */
+export function sanitizePlayground(raw: unknown): PlaygroundSpec {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return EMPTY_PLAYGROUND;
+  const p = raw as Record<string, unknown>;
+  const rawScreens = Array.isArray(p.screens) ? p.screens : [];
+  const usedScreenIds = new Set<string>();
+  const screens: ScreenSpec[] = [];
+
+  for (const rawScreen of rawScreens) {
+    if (screens.length >= MAX_SCREENS) break;
+    if (!rawScreen || typeof rawScreen !== 'object' || Array.isArray(rawScreen)) continue;
+    const s = rawScreen as Record<string, unknown>;
+    const id = typeof s.id === 'string' ? s.id.trim().slice(0, MAX_SCREEN_TITLE) : '';
+    if (!id || usedScreenIds.has(id)) continue;
+    if (!Array.isArray(s.cards)) continue;
+    usedScreenIds.add(id);
+
+    const usedCardIds = new Set<string>();
+    const cards: PlaygroundCard[] = [];
+    for (const rawCard of s.cards) {
+      if (cards.length >= MAX_CARDS_PER_SCREEN) break;
+      const card = sanitizePlaygroundCard(rawCard, usedCardIds);
+      if (card) cards.push(card);
+    }
+
+    screens.push({
+      id,
+      // Unvalidated on purpose: `screen` is a lib/screenColor key, which this module cannot
+      // import without taking on a dependency it is tested for not having. An unknown key
+      // resolves to the neutral hue there, which is a safe answer rather than a broken one.
+      screen: typeof s.screen === 'string' ? s.screen.slice(0, MAX_SCREEN_TITLE) : '',
+      title: typeof s.title === 'string' ? s.title.slice(0, MAX_SCREEN_TITLE) : '',
+      cards,
+      note: typeof s.note === 'string' ? s.note.slice(0, MAX_CARD_NOTE) : '',
+    });
+  }
+
+  return { screens, note: typeof p.note === 'string' ? p.note.slice(0, MAX_CARD_NOTE) : '' };
+}
+
 // ── Resolving ────────────────────────────────────────────────────────────────
 
-/** True when nothing has been changed — the fast path every render check uses. */
+/**
+ * True when nothing has been changed — the fast path every render check uses.
+ *
+ * Every clause here must stay O(1). This runs inside `useLabOverrides`, which 137 files call
+ * on every render; walking a playground's cards here would put that walk on the hot path of
+ * the whole app for the sake of a screen almost nobody opens.
+ */
 export function isEmptyOverrides(o: LabOverrides): boolean {
   return (
     Object.keys(o.colors.light).length === 0 &&
@@ -854,7 +1129,8 @@ export function isEmptyOverrides(o: LabOverrides): boolean {
     Object.keys(o.shape).length === 0 &&
     Object.keys(o.controls).length === 0 &&
     Object.keys(o.slots).length === 0 &&
-    Object.keys(o.cards).length === 0
+    Object.keys(o.cards).length === 0 &&
+    o.playground.screens.length === 0
   );
 }
 
@@ -1057,11 +1333,54 @@ function describePart(part: CardPart): string {
 }
 
 /**
- * Every card that differs from what the app ships, and how.
+ * What changed between a shipped composition and a proposed one.
+ *
+ * **The one diff engine, deliberately.** It was the inner loop of `describeCards` until the
+ * playground needed the same answer for a card that names an `origin` — and two copies of
+ * "added vs moved vs restyled" would drift into two different reports for the same edit. A
+ * part is matched by `id` and nothing else; that is what makes a move report as one line
+ * rather than as a removal plus an addition.
+ */
+export function diffParts(shipped: readonly CardPart[], proposed: CardPart[]): CardPartChange[] {
+  const before = new Map(shipped.map((p) => [p.id, p]));
+  const changes: CardPartChange[] = [];
+
+  for (const part of orderedParts({ parts: proposed, note: '' })) {
+    const was = before.get(part.id);
+    if (!was) {
+      changes.push({ kind: 'added', part, detail: describePart(part) });
+      continue;
+    }
+    const style = styleDelta(was, part);
+    if (was.slot !== part.slot) {
+      changes.push({
+        kind: 'moved',
+        part,
+        before: was,
+        detail: [`${was.slot} → ${part.slot}`, ...style].join(', '),
+      });
+      continue;
+    }
+    if (style.length) changes.push({ kind: 'restyled', part, before: was, detail: style.join(', ') });
+  }
+
+  const kept = new Set(proposed.map((p) => p.id));
+  for (const part of shipped) {
+    if (!kept.has(part.id)) changes.push({ kind: 'removed', part, detail: describePart(part) });
+  }
+
+  return changes;
+}
+
+/**
+ * Every registry card that differs from what the app ships, and how.
  *
  * A card the maintainer opened and left alone produces NOTHING — the same rule
  * `describeOverrides` follows for a knob set back to its own default. A report that lists
  * every card says nothing about which one the maintainer cares about.
+ *
+ * **v3: this only ever sees a bag written by an older build.** Nothing writes `cards` any
+ * more; the playground is where compositions are made. It stays so an old bag still exports.
  */
 export function describeCards(o: LabOverrides): CardChange[] {
   const out: CardChange[] = [];
@@ -1070,34 +1389,7 @@ export function describeCards(o: LabOverrides): CardChange[] {
     const stored = o.cards[knob.id];
     if (!stored) continue;
 
-    const shipped = new Map(knob.defaultParts.map((p) => [p.id, p]));
-    const changes: CardPartChange[] = [];
-
-    for (const part of orderedParts(stored)) {
-      const before = shipped.get(part.id);
-      if (!before) {
-        changes.push({ kind: 'added', part, detail: describePart(part) });
-        continue;
-      }
-      if (before.slot !== part.slot) {
-        const style = styleDelta(before, part);
-        changes.push({
-          kind: 'moved',
-          part,
-          before,
-          detail: [`${before.slot} → ${part.slot}`, ...style].join(', '),
-        });
-        continue;
-      }
-      const style = styleDelta(before, part);
-      if (style.length) changes.push({ kind: 'restyled', part, before, detail: style.join(', ') });
-    }
-
-    const kept = new Set(stored.parts.map((p) => p.id));
-    for (const part of knob.defaultParts) {
-      if (!kept.has(part.id)) changes.push({ kind: 'removed', part, detail: describePart(part) });
-    }
-
+    const changes = diffParts(knob.defaultParts, stored.parts);
     if (changes.length === 0 && !stored.note.trim()) continue;
     out.push({
       id: knob.id,
@@ -1106,6 +1398,94 @@ export function describeCards(o: LabOverrides): CardChange[] {
       note: stored.note,
       changes,
     });
+  }
+
+  return out;
+}
+
+// ── Describing the playground ────────────────────────────────────────────────
+
+/** One part of a playground card, ready for the report. */
+export type PlaygroundPartLine = {
+  part: CardPart;
+  /** The band it is drawn in, so the report reads in the order the card looks. */
+  band: 'header' | 'row' | 'body';
+  /** `r1 c0 w2` for a placed part, `''` for anything that flows. */
+  where: string;
+  detail: string;
+};
+
+export type PlaygroundCardDescription = {
+  id: PlaygroundCardId;
+  title: string;
+  origin: CardOrigin;
+  /** For a `CardId` origin: that card's `source` line, so the report still names a file. */
+  originSource: string;
+  /** ALWAYS present — a built card has no shipped version, so it exports whole. */
+  composition: PlaygroundPartLine[];
+  /** Only for a `CardId` origin — the same diff `describeCards` produces. */
+  diff?: CardPartChange[];
+  note: string;
+};
+
+export type PlaygroundScreenDescription = {
+  id: ScreenId;
+  title: string;
+  screen: string;
+  cards: PlaygroundCardDescription[];
+  note: string;
+};
+
+/** Which band a slot is drawn in. `header` is the card's heading, `body`/`footer` its own
+ *  space, everything else the row's anatomy. */
+function bandOf(slot: PartSlot): PlaygroundPartLine['band'] {
+  if (slot === 'header') return 'header';
+  return isPlaceableSlot(slot) ? 'body' : 'row';
+}
+
+/** `r1 c0 w2`, or `''` when the part simply flows. */
+function whereOf(part: CardPart): string {
+  if (!part.place) return '';
+  return `r${part.place.row} c${part.place.col} w${part.place.span}`;
+}
+
+/**
+ * Every screen the maintainer built, with each card described in full.
+ *
+ * **In full, not as a diff** — a card built from blank has nothing to be measured against, so
+ * the only honest report is the whole composition. A card that names an `origin` gets both:
+ * the composition (what to build) and the diff (what changed about the real card), because
+ * those answer two different questions and the maintainer may have meant either.
+ *
+ * Silent for an empty playground, and for a screen with no cards and no note — the same "say
+ * nothing when nothing was said" rule `describeOverrides` and `describeCards` follow.
+ */
+export function describePlayground(o: LabOverrides): PlaygroundScreenDescription[] {
+  const out: PlaygroundScreenDescription[] = [];
+
+  for (const screen of o.playground.screens) {
+    if (screen.cards.length === 0 && !screen.note.trim()) continue;
+
+    const cards: PlaygroundCardDescription[] = screen.cards.map((card) => {
+      const knob = CARD_BY_ID.get(card.origin as string);
+      const parts = orderedParts({ parts: card.parts, note: '' });
+      return {
+        id: card.id,
+        title: card.title,
+        origin: card.origin,
+        originSource: knob ? knob.source : '',
+        composition: parts.map((part) => ({
+          part,
+          band: bandOf(part.slot),
+          where: whereOf(part),
+          detail: describePart(part),
+        })),
+        diff: knob ? diffParts(knob.defaultParts, card.parts) : undefined,
+        note: card.note,
+      };
+    });
+
+    out.push({ id: screen.id, title: screen.title, screen: screen.screen, cards, note: screen.note });
   }
 
   return out;

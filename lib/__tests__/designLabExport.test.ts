@@ -22,6 +22,7 @@ import {
 import {
   DESIGN_LAB_VERSION,
   EMPTY_OVERRIDES,
+  EMPTY_PLAYGROUND,
   cardKnob,
   resolveCardSpec,
   type LabOverrides,
@@ -46,6 +47,7 @@ const bag: LabOverrides = {
   controls: { boolean: 'segmented' },
   slots: { 'row.right': 'energy' },
   cards: {},
+  playground: EMPTY_PLAYGROUND,
   note: 'The habit rows still feel busier than the notes rows.',
 };
 
@@ -248,10 +250,10 @@ describe('the CARDS section', () => {
     if (parsed.status === 'ok') expect(parsed.overrides.cards).toEqual(source.cards);
   });
 
-  it('stamps the block at version 2, so a reader can tell "no cards" from "predates cards"', () => {
+  it('stamps the block at the current version, so a reader can date the file', () => {
     const out = formatDesignLabReport(cardBag(), palette, meta);
     const json = out.slice(out.indexOf(DESIGN_LAB_BEGIN) + DESIGN_LAB_BEGIN.length, out.indexOf(DESIGN_LAB_END));
     expect(JSON.parse(json).v).toBe(DESIGN_LAB_VERSION);
-    expect(DESIGN_LAB_VERSION).toBe(2);
+    expect(DESIGN_LAB_VERSION).toBe(3);
   });
 });
