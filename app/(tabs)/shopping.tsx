@@ -429,7 +429,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, SCREEN_GAP, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -2339,7 +2339,11 @@ export default function ShoppingScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { padding: Spacing.md, gap: SCREEN_GAP },
   // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
   hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },

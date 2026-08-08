@@ -88,8 +88,9 @@ export default function OpenEpisodeCard({ symptom, onStillGoing, onItsOver, onOp
 }
 
 const baseStyles = StyleSheet.create({
-  // Decision 043 rule 2: Spacing.xl above every section.
-  card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginTop: Spacing.xl },
+  // No vertical margin (2026-08-08): the screen's content container owns the gap between
+  // stacked cards (`SCREEN_GAP`, constants/theme.ts). Was `marginTop: Spacing.xl`.
+  card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   prompt: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   actions: { flexDirection: 'row', gap: Spacing.sm },
   action: { flex: 1 },

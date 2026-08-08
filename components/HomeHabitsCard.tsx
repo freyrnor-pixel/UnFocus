@@ -469,7 +469,9 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
 }
 
 const baseStyles = StyleSheet.create({
-  card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // No vertical margin (2026-08-08): the list that stacks these owns the gap
+  // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
+  card: { borderRadius: Radius.md },
   // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
   // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
   // to grow to whatever its content needs. Same constant, and the same "only while not fully

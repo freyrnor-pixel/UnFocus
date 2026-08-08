@@ -31,8 +31,10 @@
  *     2.25:1 glyph on the row's muted fill. The badge keeps the distinction and fixes the
  *     contrast, since the badge picks its own ink.
  *   - Goals has no `Domain` entry of its own: A.3 gives goals the To-do hue, so it rides
- *     `domain="task"` with the flag glyph components/SubScreenLinkButton.tsx already uses for
- *     it. Note "todo" here means the Plans/day view (`domain="plan"`) — same hue either way.
+ *     `domain="task"` with the same flag glyph components/SubScreenLinkButton.tsx uses for it
+ *     (that file dropped its own `domain` prop on 2026-08-08 and draws the flag as a bare
+ *     glyph in the screen hue — the GLYPH is what is shared here, not the badge).
+ *     Note "todo" here means the Plans/day view (`domain="plan"`) — same hue either way.
  *   - Closes itself on pick (the caller is about to navigate); no confirm step, because the
  *     created row lands focused and editable, which IS the confirm.
  *   - **The optional delete row is not a fifth target** (2026-08-01, app/notes.tsx). It sits

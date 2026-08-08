@@ -58,9 +58,11 @@
  *             the timeline; the hook owns the ONE contextual permission prompt — take
  *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
  *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
- *             components/SubScreenLinkButton
- *             (2026-07-29, the "Edit Goals" link at the bottom of the screen — Goals dropped
- *             its own Home card; see app/goals.tsx's header), components/GoalsSheet (2026-07-31,
+ *             components/SubScreenLinkButton (its default `SubScreenLinkCard` export — ONE card
+ *             holding the "Edit Goals" (2026-07-29, Goals dropped its own Home card; see
+ *             app/goals.tsx's header) and "Earlier days" rows. Two separate badge-and-no-chevron
+ *             link CARDS until 2026-08-08, which stacked flush under the Whenever drawer and
+ *             read as two more sections of this screen), components/GoalsSheet (2026-07-31,
  *             the popup that link opens)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
@@ -223,7 +225,7 @@ import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider from '@/components/TabSlider';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import SubScreenLinkButton from '@/components/SubScreenLinkButton';
+import SubScreenLinkCard from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
 import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
@@ -249,7 +251,7 @@ import { useTagStore } from '@/store/useTagStore';
 import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
-import { FontSize, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
+import { FontSize, Radius, SCREEN_GAP, Spacing, TabularNums, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
@@ -413,7 +415,7 @@ function CollapsedSection({
     // No `borderColor` — same reasoning as components/SectionCard.tsx: the card edge is the
     // screen's one hue now, and `hue` stops at the rail header (2026-08-05). A collapsed section
     // and an open one have to wear the same border, or folding one would change its colour.
-    <Surface style={styles.collapsedSection}>
+    <Surface style={[styles.collapsedSection, open ? styles.collapsedSectionOpen : styles.collapsedSectionClosed]}>
       <PressableScale
         onPress={() => { tap(); setOpen((v) => !v); }}
         scaleTo={0.97}
@@ -432,7 +434,9 @@ function CollapsedSection({
       </PressableScale>
       {/* No gap between the header and the clip — SectionRail carries its own marginBottom, and
           a gap would leave a phantom blank strip while collapsed (same reason styles.doneZone
-          has none). */}
+          has none). The card's own bottom padding is switched on `open` for the same reason:
+          collapsed, the body clips to 0 and a full Spacing.md under the header rule reads as an
+          empty card rather than a folded one. */}
       <Collapsible open={open}>
         <View style={styles.cardStack}>{children}</View>
       </Collapsible>
@@ -1267,6 +1271,14 @@ export default function TasksScreen() {
           />
         )}
 
+        {/* The two filter rows + the shared-load card, as ONE slot in the screen's stack
+            (2026-08-08). Each `Collapsible` stays mounted at zero height when closed, so as
+            direct children of a `gap`-ed container they each booked a full SCREEN_GAP for
+            nothing — on the common case (no People mode, no tags) that was 32px of blank
+            backdrop between the day card and the Whenever drawer. Wrapping them means at most
+            one slot, and only while at least one filter actually exists. */}
+        {(showPeople || allTags.length > 0) && (
+        <View>
         {/* Person filter (People/family mode) — Everyone + one chip per person, each in
             that person's own colour so the row doubles as a legend for the list below. */}
         <Collapsible open={showPeople}>
@@ -1289,10 +1301,6 @@ export default function TasksScreen() {
           </View>
         </Collapsible>
 
-        {/* Shared load (2026-07-28) — only once there's somebody to compare against, and
-            only on the day/week tabs it actually reports on ("All" spans no period). */}
-        {energySystemEnabled && showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
-
         {/* Tag filter — only worth a row once tags exist, so it stays out of the way on a
             list that doesn't use them. Multi-select ("any of"), unlike the person row. */}
         <Collapsible open={allTags.length > 0}>
@@ -1312,6 +1320,16 @@ export default function TasksScreen() {
             ))}
           </View>
         </Collapsible>
+        </View>
+        )}
+
+        {/* Shared load (2026-07-28) — only once there's somebody to compare against, and
+            only on the day/week tabs it actually reports on ("All" spans no period). Sits
+            BELOW both filter rows since 2026-08-08 (it was between them): it is a card, not
+            a control, so it belongs in the card stack where the screen's own gap spaces it —
+            inside the filter wrapper it would have sat flush against the tag row, having
+            given up its `marginBottom` in the same pass. */}
+        {energySystemEnabled && showPeople && tab !== 'all' && <EnergyBalanceCard date={today} />}
 
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
@@ -1564,36 +1582,32 @@ export default function TasksScreen() {
           </>
         )}
 
-        {/* Edit Goals link (2026-07-29, moved to the bottom + renamed + popup 2026-07-31) —
-            Goals dropped its own Home card (too many lists on Home); this is now one of its
-            two entry points, alongside Habits. Sits below the task list rather than above it
-            (under HintCard, its original spot) since it's an occasional edit action, not
-            something that should outrank the day's tasks on every visit. Opens GoalsSheet as
-            a popup instead of pushing to /goals, so editing goals doesn't leave this tab.
-            Gated on featureGoals so turning the feature off removes the link, not just the
-            sheet it opens. */}
-        {featureGoals && (
-          <SubScreenLinkButton
-            domain="task"
-            icon="flag"
-            label={t.goals.editLink}
-            onPress={() => setGoalsSheetOpen(true)}
-          />
-        )}
+        {/* Where else this screen goes — ONE card, two rows (2026-08-08). These were two
+            separate full-width `SubScreenLinkButton` cards with gradient badges and no
+            chevrons, stacked flush under the Whenever drawer with nothing between them: three
+            same-sized white cards in a row, of which the first was a section of this screen
+            and the other two were doors out of it, with nothing saying which was which.
+            Grouping them into one card is what says "these are the same kind of thing", and
+            the chevron on each row is what says they navigate.
 
-        {/* Earlier days (2026-08-02). The day log lives in the card above — this is only the
-            way back through previous days, which a card about TODAY has no room for. Same
-            button-launched-sub-screen pattern as Goals and Shopping's Food/Catalogue links,
-            and gated on the same flag as the log itself so turning the feature off removes
-            the link rather than leaving a door to an empty room. */}
-        {featureDayLog && (
-          <SubScreenLinkButton
-            domain="task"
-            icon="time-outline"
-            label={t.dayLog.earlierDays}
-            onPress={() => router.push('/day-log')}
-          />
-        )}
+            Edit Goals (2026-07-29, moved to the bottom + renamed + popup 2026-07-31) — Goals
+            dropped its own Home card (too many lists on Home); this is one of its two entry
+            points, alongside Habits, and it opens GoalsSheet as a popup rather than pushing to
+            /goals so editing goals doesn't leave this tab. Earlier days (2026-08-02) — the day
+            log itself lives in the card above; this is only the way back through previous days.
+            Each is gated on its own feature flag, so turning one off removes its row rather
+            than leaving a door to an empty room — and turning BOTH off removes the card
+            (SubScreenLinkCard renders null on an empty list). */}
+        <SubScreenLinkCard
+          links={[
+            ...(featureGoals
+              ? [{ icon: 'flag' as const, label: t.goals.editLink, onPress: () => setGoalsSheetOpen(true) }]
+              : []),
+            ...(featureDayLog
+              ? [{ icon: 'time-outline' as const, label: t.dayLog.earlierDays, onPress: () => router.push('/day-log') }]
+              : []),
+          ]}
+        />
       </View>
       <LayoutPickerSheet
         visible={layoutPickerOpen}
@@ -1606,7 +1620,11 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { padding: Spacing.md, gap: SCREEN_GAP },
   // ── "One thing at a time" (focusFirst) ──────────────────────────────────────
   // No SectionCard around any of it, deliberately: the whole point of this layout is that the
   // day stops looking like a stack of boxes. The hero, the Later chips and the Then list sit
@@ -1661,16 +1679,23 @@ const styles = StyleSheet.create({
   // outer clip wrapper stays mounted at 0 height). Collapsible's own reveal already resizes
   // this View smoothly — no extra layout-animation needed here.
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
-  // CollapsedSection's shell — deliberately the same box SectionCard draws (Decision 043 rule 2:
-  // Spacing.xl above every section, padding routed inward by Surface), so a drawer section sits
-  // in the same rhythm as the expanded sections above it and only the chevron marks it apart.
+  // CollapsedSection's shell — deliberately the same box SectionCard draws (padding routed
+  // inward by Surface), so a drawer section sits in the same rhythm as the expanded sections
+  // above it and only the chevron marks it apart. No vertical margin: the screen's content
+  // container owns the gap (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`,
+  // which stacked on top of PlanTaskCard's own `marginBottom: Spacing.sm` for a 40px gap
+  // directly above two link cards separated by nothing at all.
   collapsedSection: {
-    marginTop: Spacing.xl,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
     paddingTop: Spacing.sm,
   },
+  // Bottom padding is CLOSED-state-dependent (2026-08-08). Collapsed, the body clips to 0 and
+  // the card's own `paddingBottom: Spacing.md` plus SectionRail's `marginBottom: Spacing.sm`
+  // left ~24px of blank card under the header rule — an empty white void that read as a
+  // section that had failed to load rather than one that was folded shut.
+  collapsedSectionOpen: { paddingBottom: Spacing.md },
+  collapsedSectionClosed: { paddingBottom: Spacing.xs },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },

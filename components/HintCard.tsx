@@ -135,9 +135,11 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
 }
 
 const baseStyles = StyleSheet.create({
-  wrap: {
-    marginBottom: Spacing.sm,
-  },
+  // No vertical margin (2026-08-08): the screen's content container owns the gap between
+  // stacked cards (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`, which
+  // made the hint the one card on a screen that sat 8px from its neighbour while everything
+  // else sat 32 or 0.
+  wrap: {},
   toggle: {
     flexDirection: 'row',
     alignItems: 'center',

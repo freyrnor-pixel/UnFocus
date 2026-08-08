@@ -260,6 +260,41 @@ file owns which token.)
     "on" state (active tab, active IconButton). A caller passing `travel` must also draw a
     base — see `Button.tsx`'s `keyBase` — or the cap sinks into nothing. Note `style` moves
     to the wrapper on that path.
+- **One rhythm — the 2026-08-08 spacing pass** (`SCREEN_GAP` in `constants/theme.ts`, pinned by
+  `lib/__tests__/screenRhythm.test.ts`). From a user report on the To-do and Habits tabs:
+  *"the spacing between different elements, and the structure — it's not clear how things are
+  related, how to use, and the spacing varies."* All of it traced to one cause.
+  - **Spacing was a property of the CHILD, and half the children forgot.** Every card declared
+    its own `marginTop`/`marginBottom`, so the gap between two cards was whatever the pair
+    happened to add up to. Measured down one column on To-do: **8 → 40 → 0 → 0 px** —
+    `PlanTaskCard` said `marginBottom: Spacing.sm`, `SectionCard`/`CollapsedSection` said
+    `marginTop: Spacing.xl` (Decision 043 rule 2), and `SubScreenLinkButton` said nothing, so
+    the only thing separating two link cards was the 8px key-base sliver `Surface` draws under
+    a tappable card. Home ran its whole stack at 8 while the list screens ran at 32. Habits had
+    the same split *inside* one card: `Spacing.md` above the list, **0** between the list, the
+    composer and the Goals row.
+  - **The screen owns the gap now.** `gap: SCREEN_GAP` on each screen's scroll-content
+    container; no card carries a vertical margin. The test asserts both halves — don't "fix" a
+    tight card by giving it a margin, fix the container.
+  - **A closed `Collapsible` still books a gap slot** (it stays mounted at zero height), so an
+    always-mounted-sometimes-empty child must be grouped or conditionally rendered. To-do's two
+    filter rows share one wrapper; Habits' person filter is now gated on `showHabitProfiles`.
+    This is the one trap the `gap` approach introduces, and it is invisible on a screen where
+    the filter happens to be showing.
+  - **With every gap equal, grouping is what carries relatedness** — see `DESIGN_RULES.md`
+    rule 3a. `components/SubScreenLinkButton.tsx` is the worked example: it exported one
+    badge-and-no-chevron CARD per destination, so To-do ended with three same-sized white
+    cards in a row of which the first was a section of the screen and the other two were doors
+    out of it. It is now `SubScreenLinkRow` (icon + label + **chevron**, no border of its own)
+    plus a `SubScreenLinkCard` that groups several. Habits had hand-rolled that exact row in
+    2026-08-06; it mounts the shared one now, so the two screens draw one control instead of
+    two lookalikes that had drifted apart. `domain`/`CardAccentBadge` are gone from it — both
+    To-do links were `domain="task"`, so the badge drew the identical plate twice.
+  - Two smaller things in the same pass, both visible in the report's screenshots: a collapsed
+    `CollapsedSection` had ~24px of blank card under its header rule (its `paddingBottom` is
+    open-state-dependent now), and Habits' "No habits yet" line was a full `<Surface>` inside
+    the Habits card — a card-in-card at the same rung — and is now the quiet inset line
+    `app/(tabs)/plans.tsx` has always used for an empty section.
 - **One card design — the 2026-08-05 reset** (`components/Surface.tsx` + `lib/screenColor.ts` +
   `computeBorderRamp`/`computeBorderTone`/`BORDER_WIDTH` in `constants/theme.ts`). The
   maintainer's brief was "I've been messing around too much with the visuals. One simple design

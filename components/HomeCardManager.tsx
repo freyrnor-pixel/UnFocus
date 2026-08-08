@@ -62,7 +62,7 @@ import { LayoutAnimation, Modal, Pressable, StyleSheet, Text, View } from 'react
 import { Ionicons } from '@expo/vector-icons';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Shadow, Spacing, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, Radius, SCREEN_GAP, Shadow, Spacing, HitSlop } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -110,6 +110,13 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
 
   return (
     <View>
+      {/* The card list owns the gap between Home's preview cards (2026-08-08). Each card used
+          to carry its own `marginBottom: Spacing.sm`, which is how Home ended up at an 8px
+          rhythm while the list screens ran at 32 — see SCREEN_GAP in constants/theme.ts. The
+          gapped View is deliberately INSIDE the outer one rather than replacing it: a `gap`
+          on the outer View would also apply to the `<Modal>` below, which is a portal and
+          should not occupy a slot in the flow. */}
+      <View style={styles.cardList}>
       {drag.order.map((kind) => (
         <DraggableTaskRow key={kind} isOpen={false} {...drag.rowProps(kind)}>
           <View>
@@ -149,6 +156,7 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
           <Text style={[styles.addTileText, { color: theme.accent }]}>{t.home.manageCards.add}</Text>
         </PressableScale>
       )}
+      </View>
 
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPickerOpen(false)} />
@@ -168,6 +176,8 @@ export default function HomeCardManager({ order, labels, editMode, onReorder, on
 }
 
 const baseStyles = StyleSheet.create({
+  // The one rhythm between Home's preview cards — see the render-side note.
+  cardList: { gap: SCREEN_GAP },
   removeBadge: {
     position: 'absolute',
     top: -6,
@@ -191,7 +201,6 @@ const baseStyles = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
-    marginTop: Spacing.sm,
   },
   addTileText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },

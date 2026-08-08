@@ -1,74 +1,110 @@
 /**
- * SubScreenLinkButton.tsx — a single button-launched sub-screen link (badge + label,
- * pushed onto a Surface card), for screens that reach a related screen without giving
- * it a permanent Home card or in-place tab.
+ * SubScreenLinkButton.tsx — the app's ONE "this takes you somewhere else" control: a row of
+ * icon + label + chevron, and a card that groups several of them.
  *
- * Mirrors app/(tabs)/shopping.tsx's inline Food/Catalogue link row (UX audit F1,
- * 2026-07-23) — that pattern predates this component and stays as-is there; this is
- * the shared version for the two NEW callers (Habits, Plans/To-do) that needed the
- * same shape for their "Edit Goals" entry point (2026-07-29, Goals dropped from Home —
- * see app/goals.tsx's header; renamed + moved to the bottom of each screen + `onPress`
- * switched from a `router.push('/goals')` to opening components/GoalsSheet.tsx as a
- * popup, 2026-07-31).
+ * For screens that reach a related screen without giving it a permanent Home card or in-place
+ * tab (Goals, Earlier days). Mirrors app/(tabs)/shopping.tsx's inline Food/Catalogue link row
+ * (UX audit F1, 2026-07-23) — that pattern predates this component and stays as-is there,
+ * because two short side-by-side tiles are a different shape from a full-width row.
+ *
+ * **Two exports, one row (2026-08-08 spacing/structure pass).** Before this, the same "go to
+ * Goals" destination was drawn two entirely different ways: a full-width bordered card with a
+ * gradient badge and no chevron on To-do, and a bare icon + label + chevron row inside the
+ * Habits card. The card version was the worse of the two — nothing on it said it navigated,
+ * and stacked under a real content section it read as one more section of the screen. Both
+ * screens now draw the same `SubScreenLinkRow`; To-do wraps its two in one `SubScreenLinkCard`
+ * so they read as a single "elsewhere" group rather than two more floating sections.
  *
  * Connections:
- *   Imports → components/Surface (its `onPress` key path — no PressableScale wrapper), components/CardAccent
- *             (CardAccentBadge), constants/theme, lib/useAppTheme, lib/screenColor, lib/domainColor (Domain)
- *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx (both an "Edit Goals" link)
- *   Data    → none (presentational; `onPress` is the caller's — a router.push elsewhere,
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/useAppTheme,
+ *             lib/screenColor, lib/haptics
+ *   Used by → app/(tabs)/plans.tsx (SubScreenLinkCard — Goals + Earlier days),
+ *             app/(tabs)/habits.tsx (SubScreenLinkRow — Goals, inside the Habits card)
+ *   Data    → none (presentational; `onPress` is the caller's — a router.push elsewhere, or
  *             opening a popup for the Habits/Plans Goals link)
  *
  * Edit notes:
- *   - **Badge colour is the ambient screen hue, not the domain's (2026-08-06)** — the card's
- *     `<Surface>` has no `borderColor` of its own, so it always draws in whatever screen it
- *     sits on (habits' sky, plans' blue). The badge used to draw `domain`'s identity hue
- *     instead — a visibly different colour on Habits (habit=dark green vs the screen's sky) —
- *     which is the "wrong colour icon" bug also fixed on Home's cards. `domain` still decides
- *     the glyph silhouette (DOMAIN_ICON) via CardAccentBadge; only its colour is overridden.
+ *   - **The icon is a bare glyph in the screen's hue, not a CardAccentBadge.** The gradient
+ *     badge was dropped in the 2026-08-08 pass for two reasons: on To-do both links are
+ *     `domain="task"`, so the badge drew the identical plate twice and carried no
+ *     information; and a filled 24px plate is card-weight chrome, which is exactly what made
+ *     the Habits version look like "yet another card" when it was tried there. `domain` is
+ *     gone from the API with it — the glyph is now the caller's own `icon`.
+ *   - **`SubScreenLinkCard` draws ONE Surface, `SubScreenLinkRow` draws none.** A row mounted
+ *     inside a caller's own card (Habits) must not bring a border with it, or it reads as a
+ *     card inside a card. If you need a standalone single link, use the card with one entry.
+ *   - No vertical margin on the card — the screen's content container owns the gap between
+ *     stacked cards (`SCREEN_GAP`, constants/theme.ts).
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
-import { CardAccentBadge } from '@/components/CardAccent';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import PressableScale from '@/components/PressableScale';
+import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
-import { Domain } from '@/lib/domainColor';
+import { tap } from '@/lib/haptics';
 
-type Props = {
-  domain: Domain;
+export type SubScreenLink = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
   accessibilityLabel?: string;
 };
 
-export default function SubScreenLinkButton({ domain, icon, label, onPress, accessibilityLabel }: Props) {
+/**
+ * One navigation row — icon + label + chevron, no border or fill of its own. Mount it inside
+ * a card the caller already owns (see Habits' Goals row), or let `SubScreenLinkCard` supply one.
+ */
+export function SubScreenLinkRow({ icon, label, onPress, accessibilityLabel }: SubScreenLink) {
   const theme = useAppTheme();
   const screenHue = useScreenColor() ?? theme.border;
 
   return (
-    <Surface
-      style={styles.card}
-      onPress={onPress}
+    <PressableScale
+      onPress={() => { tap(); onPress(); }}
+      style={styles.row}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
     >
-      <CardAccentBadge domain={domain} icon={icon} size={24} accentOverride={screenHue} />
+      <Ionicons name={icon} size={16} color={screenHue} />
       <Text style={[styles.text, { color: theme.text }]} numberOfLines={1}>{label}</Text>
+      {/* The chevron is the whole point: without it a link is indistinguishable from a
+          section header, which is what the To-do tab's two links looked like. */}
+      <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+    </PressableScale>
+  );
+}
+
+/**
+ * A group of navigation rows in one card. Several destinations that all lead off this screen
+ * are ONE thing, not N sections — grouping is what says so, which is why this takes an array
+ * rather than being mounted once per link.
+ */
+export default function SubScreenLinkCard({ links }: { links: SubScreenLink[] }) {
+  if (links.length === 0) return null;
+  return (
+    <Surface style={styles.card}>
+      {links.map((link) => (
+        <SubScreenLinkRow key={link.label} {...link} />
+      ))}
     </Surface>
   );
 }
 
 const styles = StyleSheet.create({
+  // No vertical margin — the screen's content container owns the gap (SCREEN_GAP).
   card: {
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    minHeight: MIN_TAP_TARGET,
   },
-  text: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  text: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });

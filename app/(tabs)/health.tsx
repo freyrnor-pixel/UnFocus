@@ -107,7 +107,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
 import { openEpisodes } from '@/lib/episodes';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
-import { FontSize, Fonts, Radius, Spacing, Type } from '@/constants/theme';
+import { FontSize, Fonts, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
@@ -609,9 +609,15 @@ export default function HealthScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { padding: Spacing.md, gap: SCREEN_GAP },
   // Decision 043 rule 2: Spacing.xl above every section.
-  overviewCardRow: { borderRadius: Radius.md, marginTop: Spacing.xl },
+  // No vertical margin: the screen's content container owns the gap between stacked cards
+  // (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
+  overviewCardRow: { borderRadius: Radius.md },
   overviewCardContent: { flex: 1, padding: Spacing.md },
   // Row wrapper (2026-07-26, "bring the card colour back"): holds the health-domain gradient
   // badge + the label together, carrying the label's old marginBottom so its spacing to the

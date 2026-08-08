@@ -3,7 +3,8 @@
 **Status:** Invariants. Treat these as build criteria, not suggestions.
 **Adopted:** 2026-07-30. **Audit:** `DESIGN_RULES_AUDIT.md` (rule-by-rule pass/fix/conflict).
 **Enforced by:** `lib/__tests__/designTokens.test.ts`, `lib/__tests__/copyTone.test.ts`,
-`lib/__tests__/colors.test.ts` — these run in CI on every PR into `main`.
+`lib/__tests__/colors.test.ts`, `lib/__tests__/screenRhythm.test.ts` — these run in CI on
+every PR into `main`.
 
 These exist to fix recurring visual problems — spacing, placement, color, order,
 hierarchy — by removing the per-decision guesswork. When a rule gives a number,
@@ -39,9 +40,28 @@ design, not the rule.
 2. **Minimum 16px padding inside any card** (`Spacing.md`). Content never touches a
    card edge. Inside a pad/notepad card the one horizontal inset is `PAD_GUTTER` —
    don't add a second one.
-3. **Minimum 12px gap between sibling cards; minimum 24px between distinct
-   sections** (`Spacing.lg`). Related things sit closer; unrelated things sit further
-   apart — proximity is the primary grouping signal.
+3. **One gap between top-level cards on a screen, and the SCREEN owns it.** The token is
+   `SCREEN_GAP` (`constants/theme.ts`), declared as `gap` on the screen's scroll-content
+   container; **a card must not carry a vertical margin of its own.** Pinned by
+   `lib/__tests__/screenRhythm.test.ts`.
+   *(Rewritten 2026-08-08. It read "minimum 12px between sibling cards; minimum 24px between
+   distinct sections", which is unenforceable as stated — it makes spacing a property of the
+   child, and every card then declares its own. Measured before the pass, one column on the
+   To-do tab ran 8 → 40 → 0 → 0 px: `PlanTaskCard` said `marginBottom: Spacing.sm`,
+   `SectionCard`/`CollapsedSection` said `marginTop: Spacing.xl`, and `SubScreenLinkButton`
+   said nothing at all, so the only thing separating two link cards was the 8px key-base
+   sliver `Surface` draws under a tappable card. Home ran the whole screen at 8. The
+   minimums were being met and the screen still read as arbitrary, because a rule with a
+   floor and no ceiling does not produce a rhythm.)*
+3a. **Proximity is still the grouping signal — express it by GROUPING, not by spacing.**
+   Things that belong together go in one card as rows; things that don't get their own card.
+   With every gap equal, a difference in spacing carries no information, so the card boundary
+   has to carry it instead. Worked example: the To-do tab's "Goals" and "Earlier days" were
+   two separate full-width cards indistinguishable from the content section above them, and
+   are now two rows in one card (`components/SubScreenLinkButton.tsx`).
+   **A closed `Collapsible` still books a gap slot** — it stays mounted at zero height — so
+   an always-mounted, sometimes-empty child must be grouped or conditionally rendered, or it
+   pays for a gap it does not use.
 4. **One idea per row.** Never place two unrelated controls on the same
    horizontal line. The row anatomy that implements this is `components/PadRow.tsx`
    (see AGENTS.md "The row rule").
@@ -213,6 +233,7 @@ one of these in passing.
 ## Quick self-check before shipping a screen
 
 - [ ] Every gap comes from `Spacing`; every radius from `Radius`.
+- [ ] Cards stack on the screen's `gap: SCREEN_GAP` — no card declares a vertical margin.
 - [ ] Exactly one primary action, in the standard position.
 - [ ] Back / ⓘ / primary button are where they are on every other screen.
 - [ ] All text passes AA contrast in light and dark (new tokens added to `colors.test.ts`).

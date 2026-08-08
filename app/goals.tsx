@@ -68,7 +68,7 @@ import { GoalGlowDot } from '@/components/GoalGlowDot';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import { showAppModal } from '@/components/AppModal';
-import { FontSize, Radius, Spacing, TabularNums, Type, HitSlop } from '@/constants/theme';
+import { FontSize, Radius, SCREEN_GAP, Spacing, TabularNums, Type, HitSlop } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
@@ -239,7 +239,11 @@ export default function GoalsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { padding: Spacing.md, gap: SCREEN_GAP },
   list: { gap: Spacing.sm },
   goalCard: { borderRadius: Radius.md, padding: Spacing.md, gap: 4 },
   goalHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
