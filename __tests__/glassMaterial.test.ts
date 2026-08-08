@@ -1,12 +1,22 @@
 /**
- * glassMaterial.test.ts — the glass model's pure token logic (frost + wash + glow + the
- * "Glass, take two" static rim/scrim/specular/fillGradient, 2026-07-18): getMaterialStyle's
- * MaterialStyle + card-vs-button + light-vs-dark tuning, getLayeredShadow's three-pass depth,
- * getGlow's colored halo, and the glassSurfaces setting default. Native/visual rendering
- * (GlassFill's blur/gradient/svg layers) is out of scope here — that needs a device or the web
- * preview.
+ * glassMaterial.test.ts — what is LEFT of the glass model, and the promises that outlived it.
+ *
+ * The frosted-glass system this file was written for is gone: `Surface` and `Button` dropped it
+ * in the 2026-08-05 card reset, `AddFAB` (the last `GlassFill` mount) was flattened on
+ * 2026-08-08, and `getMaterialStyle` + `components/GlassFill.tsx` were deleted with it. What
+ * survives here is the part anything still calls — `filledEdge`, `getGlow`, `getLayeredShadow`
+ * — plus a SOURCE SCAN standing in for the assertions that used to guard the deleted recipe.
+ *
+ * That scan is the point of keeping this file. `DESIGN_COMPARISON/16-solid-pressable-materials.md`
+ * §2 says, in as many words, "do not re-add the specular highlight — glassMaterial.test.ts will
+ * fail, and correctly". It used to fail via `expect('specular' in getMaterialStyle(...))`, which
+ * is vacuous once the function is gone, so the promise is enforced against the source instead.
+ * "Hard and solid" was never the same request as "glossy".
  */
-import { getMaterialStyle, getLayeredShadow, getGlow, rgba, lighten, darken, MaterialVariant } from '@/constants/theme';
+import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { filledEdge, getLayeredShadow, getGlow, rgba, lighten } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
@@ -21,119 +31,56 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-describe('getMaterialStyle', () => {
+const ROOT = join(__dirname, '..');
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
+
+describe('filledEdge — the one surviving piece of the material recipe', () => {
   const base = '#3366CC';
 
-  it.each<MaterialVariant>(['card', 'button'])('%s variant returns the trimmed MaterialStyle with sane values', (variant) => {
-    const mat = getMaterialStyle(base, variant);
-    expect(mat.backgroundColor).toMatch(/^rgba\(/);
-    expect(mat.borderWidth).toBeGreaterThan(0);
-    expect(mat.borderColor).toMatch(/^rgba\(/);
-    expect(mat.borderTopColor).toMatch(/^rgba\(/);
-    expect(mat.borderBottomColor).toMatch(/^rgba\(/);
-    expect(mat.shadowOpacity).toBeGreaterThan(0);
-    expect(mat.shadowRadius).toBeGreaterThan(0);
-    expect(mat.elevation).toBeGreaterThan(0);
-    // Back-compat: contrastBase is the opaque hex equivalent — FoodTab's direct consumer
-    // (and contrastOn() callers generally) need a parsable hex, not the translucent fill.
-    expect(mat.contrastBase).toMatch(/^#/);
-    expect(mat.washAlpha).toBeGreaterThan(0);
-    expect(mat.washAlpha).toBeLessThanOrEqual(1);
+  it('returns a translucent, lightened version of the fill it is given', () => {
+    const edge = filledEdge(base, false);
+    expect(edge).toMatch(/^rgba\(/);
+    expect(edge).toBe(rgba(lighten(base, 0.06), 0.65));
   });
 
-  it('button variant is denser (higher wash) than card for CTA contrast', () => {
-    const card = getMaterialStyle(base, 'card');
-    const btn = getMaterialStyle(base, 'button');
-    expect(btn.washAlpha).toBeGreaterThan(card.washAlpha);
-  });
-
-  it('ambient card wash sits at the bumped 0.66 base (Glass, take two)', () => {
-    expect(getMaterialStyle(base, 'card').washAlpha).toBeCloseTo(0.66);
-  });
-});
-
-describe('getMaterialStyle — take-two static layers', () => {
-  const base = '#3366CC';
-
-  it('rim/scrim gradients have matching-length colour + location stops (expo-linear-gradient contract)', () => {
-    const mat = getMaterialStyle(base, 'card', 'light');
-    expect(mat.rim.colors.length).toBeGreaterThanOrEqual(2);
-    expect(mat.rim.colors.length).toBe(mat.rim.locations.length);
-    expect(mat.scrim.colors.length).toBe(mat.scrim.locations.length);
-    // The face lift passes through fully transparent so text under it isn't washed out.
-    expect(mat.scrim.colors[1]).toBe(rgba('#FFFFFF', 0));
-  });
-
-  it('keeps the cap MATTE — a faint lift, gone by 42%, and a barely-there bottom shade', () => {
-    // Guards the 2026-07-28 matte pass. design-system v6 `handoff/BUTTONS.md`: "matte, not
-    // glossy… no specular highlight, no white gloss arc." The old finish was white at 0.22
-    // fading across HALF the height, which read as a glossy dome; if these numbers creep back
-    // up, the gloss is back.
-    const light = getMaterialStyle(base, 'card', 'light');
-    const topAlpha = Number(light.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
-    expect(topAlpha).toBeLessThanOrEqual(0.1);
-    // Gone by 42% of the height — a lift that stops reads as a flat lit face; one that fades
-    // across the whole surface reads as curvature.
-    expect(light.scrim.locations[1]).toBeLessThanOrEqual(0.42);
-    // Bottom shade is a 4% black, not another white stop.
-    expect(light.scrim.colors[light.scrim.colors.length - 1]).toBe(rgba('#000000', 0.04));
-  });
-
-  it('has no specular highlight at all', () => {
-    // Removed 2026-07-28 — the soft white radial blob on top of the face lift was the gloss.
-    // This asserts the token is GONE, not merely dimmed, so it can't be quietly reintroduced.
-    expect('specular' in getMaterialStyle(base, 'card', 'light')).toBe(false);
-  });
-
-  it('rim is ONE flat, hue-tinted tone the whole way round, not a light/dark ramp', () => {
-    // 2026-08-05 flat pass (user report + screenshot: "borders should not be affected by
-    // light" — a deliberate, dated override of DESIGN_RULES_AUDIT.md item 8's "keep the
-    // beveled gradient edge" call from the day before). The old rim faded from a bright top
-    // stop to a darker bottom stop; every stop is now the SAME colour, so the edge reads as
-    // one consistent tone rather than curvature. The hue identity (derived from `base`)
-    // survives — only the light-gradient shape is gone.
-    const light = getMaterialStyle(base, 'card', 'light');
-    expect(light.rim.colors.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(light.rim.colors).size).toBe(1);
-    expect(light.rim.colors[0]).toBe(rgba(darken(base, 0.16), 0.48));
-  });
-
-  it('dark mode lightens rather than darkens the rim (a black edge is invisible on near-black)', () => {
-    // Same light-on-dark logic the old top stop used (rgba('#FFFFFF', 0.16)), just held for
-    // the whole flat edge instead of a sliver — and hue-tinted now instead of plain white.
-    const light = getMaterialStyle(base, 'card', 'light');
-    const dark = getMaterialStyle(base, 'card', 'dark');
-    expect(new Set(dark.rim.colors).size).toBe(1);
-    expect(dark.rim.colors[0]).toBe(rgba(lighten(base, 0.28), 0.5));
-    expect(dark.rim.colors[0]).not.toBe(light.rim.colors[0]);
-    // Scrim (the card face lift, untouched by the rim/border pass) still dims in dark mode.
-    const lightLift = Number(light.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
-    const darkLift = Number(dark.scrim.colors[0].match(/,\s*([\d.]+)\)$/)![1]);
-    expect(darkLift).toBeLessThan(lightLift);
-  });
-
-  it('exposes a hue-tinted innerLine (the "double keycap" second edge), brighter in light mode', () => {
-    const light = getMaterialStyle(base, 'card', 'light');
-    const dark = getMaterialStyle(base, 'card', 'dark');
-    // Present, and a parsable rgba() (Surface/Button/AddFAB draw it as the inner mask border).
-    expect(light.innerLine).toMatch(/^rgba\(/);
-    expect(dark.innerLine).toMatch(/^rgba\(/);
-    // Hue-tinted, not neutral grey/white — derived from the base.
-    // (0.65, not 0.5 — bumped by the 2026-07-24 contrast pass, #338.)
-    expect(light.innerLine).toBe(rgba(lighten(base, 0.06), 0.65));
-    // Light mode reads more present than dark (higher alpha) so the edge stays calm on near-black.
-    const lightAlpha = Number(light.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
-    const darkAlpha = Number(dark.innerLine.match(/,\s*([\d.]+)\)$/)![1]);
+  it('reads more present in light mode than dark, so the edge stays calm on near-black', () => {
+    const lightAlpha = Number(filledEdge(base, false).match(/,\s*([\d.]+)\)$/)![1]);
+    const darkAlpha = Number(filledEdge(base, true).match(/,\s*([\d.]+)\)$/)![1]);
     expect(lightAlpha).toBeGreaterThan(darkAlpha);
   });
 
-  it('button fillGradient runs light→base→dark, pre-alpha`d to the button wash', () => {
-    const mat = getMaterialStyle('#3366CC', 'button', 'light');
-    expect(mat.fillGradient).toHaveLength(3);
-    // Every stop carries the button wash alpha (0.9) so it drops in for the flat wash.
-    mat.fillGradient.forEach((c) => expect(c).toContain(', 0.9)'));
-    // Middle stop is the base hue itself.
-    expect(mat.fillGradient[1]).toBe(rgba('#3366CC', 0.9));
+  it('derives from the fill, so two different fills get two different edges', () => {
+    // This is the whole reason a filled control cannot just wear the screen hue: an
+    // accent-filled button on a green screen would otherwise grow a green rim.
+    expect(filledEdge('#3366CC', false)).not.toBe(filledEdge('#CC3333', false));
+  });
+});
+
+describe('the material system stays deleted, and stays matte', () => {
+  // DESIGN_COMPARISON/16 §2: "do not re-add the specular highlight… Get solidity from borders,
+  // bases and travel instead. If you conclude the highlight is genuinely required, that is a
+  // maintainer conversation and a separate PR — not a quiet test edit." Same for the frost.
+  it('no specular / gloss token anywhere in the theme or the components', () => {
+    const files = ['constants/theme.ts', 'components/Surface.tsx', 'components/Button.tsx', 'components/AddFAB.tsx'];
+    const offenders = files.filter((f) => /\bspecular\b\s*[:=]/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  // Matches real USAGE — an import or a mounted element — never a mention. These files
+  // legitimately explain in prose that they used to draw a GlassFill and no longer do, and a
+  // scan that trips on the explanation makes deleting the explanation the cheapest way to
+  // green. Exactly the trap lib/__tests__/designTokens.test.ts's readCode() documents.
+  it('GlassFill is gone and nothing imports or mounts it', () => {
+    expect(existsSync(join(ROOT, 'components/GlassFill.tsx'))).toBe(false);
+    const files = ['components/Surface.tsx', 'components/Button.tsx', 'components/AddFAB.tsx'];
+    const offenders = files.filter((f) => /(from '@\/components\/GlassFill'|<GlassFill)/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  it('the three flat surfaces mount no BlurView', () => {
+    const files = ['components/Surface.tsx', 'components/Button.tsx', 'components/AddFAB.tsx'];
+    const offenders = files.filter((f) => /<BlurView/.test(read(f)));
+    expect(offenders).toEqual([]);
   });
 });
 
@@ -174,10 +121,12 @@ describe('getLayeredShadow', () => {
 });
 
 describe('glass settings', () => {
-  it('glassSurfaces defaults on so a fresh install shows glass', () => {
-    // glassBlur (the Android backdrop-blur toggle) was removed in the 2026-07-18
-    // simplification along with the BlurTarget system it gated — glassSurfaces (the
-    // reduce-transparency a11y toggle) is the only glass setting left.
+  it('glassSurfaces still defaults on, and is now inert everywhere', () => {
+    // It was the reduce-transparency a11y toggle. Every surface it could reduce is already
+    // opaque unconditionally — Surface and Button since 2026-08-05, AddFAB (the last holdout)
+    // since 2026-08-08 — so the app now behaves as if it were permanently ON, which is what
+    // that toggle was asking for. The setting and its DB column stay: this repo never drops
+    // columns, and the default is pinned here so a migration can't quietly flip it.
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
   });
 });

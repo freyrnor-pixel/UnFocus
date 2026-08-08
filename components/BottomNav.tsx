@@ -150,12 +150,14 @@
  *     own hit box and the other (inactive) tabs are untouched. Corner radius bumped `Radius.md` →
  *     `Radius.lg` to match the outer floating bar's own corner radius (see `baseStyles.bar`) so
  *     the selected box's shape echoes its container instead of a smaller, tighter curve.
- *   - **Bar uses `surfaceContext="nav"`, not `"overlay"` (2026-07-27)**: `overlay` (still used by
- *     sheets/modals/ScreenHeader) blurs live content with real translucency — fine for something
- *     that's on screen briefly, but the bar sits over scrolled list content for the whole time a
- *     tab is open, so cards/text were visibly bleeding through it as the user scrolled (user
- *     report, screenshot). `"nav"` (components/Surface.tsx) pushes the wash near-opaque and skips
- *     the BlurView entirely, so only the flat tinted panel shows — never a scrolled card's shape.
+ *   - **Bar uses `surfaceContext="nav"`, not `"overlay"` (2026-07-27) — but the distinction is
+ *     now historical (corrected 2026-08-08).** The original reason was real: `overlay` blurred
+ *     live content with true translucency, which was fine for something on screen briefly but
+ *     meant cards and text visibly bled through this bar as the user scrolled (user report,
+ *     screenshot), so `"nav"` pushed the wash near-opaque and skipped the BlurView. **None of
+ *     that machinery exists after the 2026-08-05 card reset** — every Surface is flat and opaque
+ *     in every context, so all three values render identically and nothing can bleed through.
+ *     The value is kept because it still records what this surface IS; it is not doing work.
  *   - **Centre FAB has no keyBase, unlike Button.tsx/IconButton.tsx (tried 2026-08-05, reverted
  *     same day)**: a `keyBase` slab was added behind it briefly, but a permanently-visible
  *     darker ring under a circle reads as "already sitting in a socket," not "raised" — the

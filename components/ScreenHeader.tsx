@@ -6,10 +6,15 @@
  * controls upper-right (gear outermost). Left-handed mirrors the whole row — controls
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
- * right slot for the screen-specific action (not mirrored). Wrapped in a translucent
- * Surface using surfaceContext="overlay" (stronger blur) since this header floats over
- * live scrolling content, not the calm ScreenBackground backdrop — the ambient default
- * let scrolled text read through it.
+ * right slot for the screen-specific action (not mirrored). Wrapped in a Surface with
+ * surfaceContext="overlay".
+ *
+ * **That prop no longer changes a pixel (corrected 2026-08-08).** This line used to say
+ * "translucent… stronger blur… the ambient default let scrolled text read through it", which
+ * was true until the 2026-08-05 card reset made every Surface a flat opaque page with one
+ * border. There is no translucency left to tune, so nothing reads through this header either
+ * way. `surfaceContext` survives as documentation and as somewhere a future
+ * "sheets should differ from cards" decision can land — see Surface.tsx's own note.
  *
  * Also owns the self-contained debug-mode controls (2026-07-13, expanded 2026-07-19): every
  * screen's title is long-press-annotatable via DebugNoteAnchor (the title anchor is keyed
