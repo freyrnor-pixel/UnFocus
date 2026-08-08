@@ -100,7 +100,16 @@ import type { ThemePalette } from '@/constants/colors';
  */
 export const DESIGN_LAB_VERSION = 3;
 
-/** The lowest `minTapTarget` the lab will accept — WCAG's floor, and the app's own token. */
+/**
+ * The lowest `minTapTarget` the lab will accept — WCAG 2.2's AAA target size.
+ *
+ * **This deliberately diverged from `MIN_TAP_TARGET` on 2026-08-08**, when the app's own token
+ * rose to Material Design 3's 48. It stays 44 because the two answer different questions: this
+ * is the accessibility floor below which a lab session must not be able to take the app, while
+ * the token is what the app actually ships. A session may tune down to 44 and still be
+ * compliant. Don't "resync" them — that would make the floor and the default the same number
+ * and quietly remove the lab's room to move.
+ */
 export const MIN_TAP_TARGET_FLOOR = 44;
 
 // ── Colour knobs ─────────────────────────────────────────────────────────────

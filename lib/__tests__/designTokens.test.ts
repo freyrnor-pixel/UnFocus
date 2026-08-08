@@ -22,7 +22,16 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 import { Duration } from '@/constants/motion';
-import { HitSlop, MIN_TAP_TARGET, Radius, RowTrailing, Spacing, hitSlopFor } from '@/constants/theme';
+import {
+  HitSlop,
+  MIN_TAP_TARGET,
+  PAD_ROW_HEIGHT,
+  PAD_ROW_MIN_HEIGHT,
+  Radius,
+  RowTrailing,
+  Spacing,
+  hitSlopFor,
+} from '@/constants/theme';
 
 // constants/motion.ts imports reanimated's `Easing` to build the `Ease` presets, and
 // reanimated's native worklets half throws on require in the node env. Only `Duration`
@@ -57,8 +66,21 @@ describe('DESIGN_RULES.md rule 1 — spacing & radius scales', () => {
 });
 
 describe('DESIGN_RULES.md rule 17 — tap targets', () => {
-  test('MIN_TAP_TARGET is the WCAG 2.2 minimum of 44', () => {
-    expect(MIN_TAP_TARGET).toBe(44);
+  // 48 = Material Design 3's touch target, adopted 2026-08-08 on the maintainer's instruction
+  // and clearing WCAG 2.2's 44 with margin. Pinned as an exact value rather than a `>= 44` so
+  // a drift back to 44 fails here loudly instead of passing as "still accessible".
+  test('MIN_TAP_TARGET is Material Design 3\'s 48, above WCAG 2.2\'s 44', () => {
+    expect(MIN_TAP_TARGET).toBe(48);
+    expect(MIN_TAP_TARGET).toBeGreaterThanOrEqual(44);
+  });
+
+  // The pad composer line is a text FIELD, so it takes the control floor; the list row below
+  // it deliberately does not (open conflict #6). constants/theme.ts has to spell 48 as a
+  // literal there — MIN_TAP_TARGET is declared later in that file and `const` has no hoisting
+  // — so nothing but this test keeps the two in step.
+  test('PAD_ROW_MIN_HEIGHT tracks MIN_TAP_TARGET; PAD_ROW_HEIGHT stays the compressed row', () => {
+    expect(PAD_ROW_MIN_HEIGHT).toBe(MIN_TAP_TARGET);
+    expect(PAD_ROW_HEIGHT).toBe(38);
   });
 
   test('every HitSlop token is symmetric and positive', () => {
@@ -195,7 +217,10 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     expect(SCANNED.length).toBeGreaterThan(50);
   });
 
-  test('no hardcoded 44 tap target — use MIN_TAP_TARGET', () => {
+  // Both the CURRENT target (48) and the OLD one (44) are banned as literals. 48 for the
+  // obvious reason; 44 because it is what every pre-2026-08-08 call site would have written,
+  // so leaving it unscanned would let a stale copy-paste sit at the old size looking correct.
+  test('no hardcoded tap-target size — use MIN_TAP_TARGET', () => {
     // Coincidental 44s that are NOT tap targets: display boxes and text columns whose width
     // just happens to be 44. Shrinking this list means proving the 44 is a real target.
     const ALLOW = new Set([
@@ -206,7 +231,7 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
       // deleted in the two-screen onboarding cut, so the exemption went with it.
     ]);
     const offenders = SCANNED.filter(
-      (f) => !ALLOW.has(rel(f)) && /\b(minHeight|minWidth|height|width): 44\b/.test(readCode(f)),
+      (f) => !ALLOW.has(rel(f)) && /\b(minHeight|minWidth|height|width): (44|48)\b/.test(readCode(f)),
     ).map(rel);
     expect(offenders).toEqual([]);
   });
