@@ -202,6 +202,38 @@ file owns which token.)
       live in every state, including an empty line — its handlers must never open with an early
       `return`. Where a surface has nothing more to open, pass no handler at all: that is why
       Notes has no such button (a note is a title and a body, both already on the quick-add).
+  - **The hierarchy of settings when making a row — THREE TIERS (written down 2026-08-08).**
+    The rule was already obeyed in code and nowhere stated, so each new surface re-derived it.
+    Every composer sorts its settings into exactly these, and nothing else:
+    - **Tier 1 — the line.** The name, and nothing else. **Committing at tier 1 must always
+      produce a valid row.** This is what makes capture cost one gesture; if a surface needs a
+      second field before a row is legal, that is a bug in the row's defaults, not a reason to
+      grow the line.
+    - **Tier 2 — the options.** The 2–4 settings that change *what the row is* on this surface,
+      visible while typing, never before. Two slots exist and a caller passes **one or the
+      other, never both**: `panel` (a `QuickAddOptionsPanel` of labelled `QuickAddOptionRow`
+      cells — **the preferred shape**, from the 2026-08-04 report *"I cannot understand small,
+      barely visible icons"*) or `extras` (inline chips on the input's own line — the older
+      shape, kept only for surfaces that haven't moved). No blind tap-cycles here: stepper for
+      a number, picker for a choice, per the bullet above.
+    - **Tier 3 — the editor.** Everything else, behind the worded "More options" (`onMore`),
+      which must be live in every state including an empty line, or absent entirely.
+    **Three composers implement this, and they are more converged than they look.** All three
+    already draw the same bordered, focus-showing field — `AddRow` and `InlineAddItem` both got
+    it in the 2026-08-05/06 passes, `InlineAddItem` by using `FormControls`' `Input` outright —
+    so "converge the field" is **done**; don't re-propose it. What still differs is the TIERING:
+    | Composer | Tier 1 | Tier 2 | Tier 3 | Used by |
+    |---|---|---|---|---|
+    | `PadTypeRow` | always-open line | `panel` + `extras` | `onMore` ✓ | the 4 Home cards, Habits tab, To-do timeline |
+    | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsSheet, Food, Catalogue, Medicine |
+    | `InlineAddItem` | collapsed `+` bar → **whole panel** | **not separated** — name, catalog autocomplete, price, category, qty and Temporary all at once | n/a | Shopping, inventory |
+    Two known gaps, stated so they are decisions rather than drift: **`AddRow` has no tier 3**,
+    so a surface on it cannot offer a fuller editor from the composer; and **`InlineAddItem`
+    does not separate tiers at all** — it is one flat panel, which is why it is the only
+    composer that feels like a form. Its tier 2 is genuinely richer than the others (a catalog
+    lookup is the point of that surface), so folding it in is a real design question, not a
+    tidy-up. **Do not add a fourth composer**, and do not "fix" `InlineAddItem` by flattening
+    the others toward it.
   - **Shopping quantity is an input, not a value**: it READS in the row's leading cluster and
     is EDITED in `components/ShoppingItemSheet.tsx` (a row-body tap). That sheet is also the
     only editor for a weekly item's unit/price/category. `onIncrement`/`onDecrement` on

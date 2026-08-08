@@ -25,7 +25,11 @@
  * The field shape is deliberately the SAME one `components/FormControls.tsx`'s `Input` uses
  * (border + radius + plain white/`theme.surface` fill + `MIN_TAP_TARGET`, 2026-08-06 — was a
  * sunken `surfaceMuted` fill, "text-boxes are too grey" — see the inline note by the style),
- * so the app has one field, not two.
+ * so the app has one field, not two. **All three composers now draw it** — this one,
+ * `components/AddRow.tsx` and `components/InlineAddItem.tsx` (the last by using `Input`
+ * outright) — so "converge the composers' fields" is finished; what still differs between them
+ * is the TIERING of their settings. See AGENTS.md "The hierarchy of settings when making a
+ * row" for the three-tier contract and the table of who implements which tier.
  * **This is not the boxed-ROWS design that `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`
  * rejected.** That decision was about giving every LIST row its own border and gap — cards
  * inside a card. List rows are still flush and ruled on one `PadSheet`. Only the composer —
@@ -40,7 +44,10 @@
  *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
  *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
- *             app/(tabs)/{plans,habits,shopping}.tsx
+ *             app/(tabs)/habits.tsx
+ *             (re-measured 2026-08-08 — this line also named plans.tsx and shopping.tsx,
+ *             neither of which imports this file: plans reaches it indirectly through
+ *             PlanTaskCard's timeline, and shopping composes with InlineAddItem instead)
  *   Data    → none — presentational; fires onSubmit
  *
  * Edit notes:

@@ -23,13 +23,27 @@
  *             constants/theme, lib/i18n, lib/money, lib/useAppTheme, lib/haptics,
  *             lib/useKeyboardLift, store/useCatalogStore, @expo/vector-icons
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab catalog add),
- *             components/WeekListCard.tsx (Weekly tab's "In list" add row)
+ *             components/WeekListCard.tsx (Weekly tab's "In list" add row),
+ *             app/inventory-edit.tsx (the staples add — this line omitted it until 2026-08-08)
  *   Data    → none directly — creation flows out via onAdd (payload now optionally carries
  *             `category`); the parent calls useShoppingStore.add()/update(). Reads
  *             useCatalogStore.suggest() (read-only) for the name-field autocomplete, including
  *             each suggestion's own `category` for one-tap auto-fill.
  *
  * Edit notes:
+ *   - **This is the third of the app's three row composers, and the one that does NOT tier its
+ *     settings** (noted 2026-08-08). `PadTypeRow` and `AddRow` split theirs into tier 1 (the
+ *     line — committing there always makes a valid row), tier 2 (a `panel`/`extras` slot shown
+ *     while typing) and, for `PadTypeRow`, tier 3 (`onMore` → a fuller editor). This panel puts
+ *     name, catalog autocomplete, price, category, quantity and Temporary on screen at once,
+ *     which is why it is the only composer that reads as a form. That is a real design question
+ *     rather than drift — a catalog lookup genuinely IS the point of this surface, and the
+ *     tier-2 content here is richer than anywhere else — so it is recorded, not "fixed". See
+ *     AGENTS.md "The hierarchy of settings when making a row". **Don't flatten the other two
+ *     toward this shape**, and don't add a fourth composer.
+ *   - Its FIELD is already the shared one: it uses `FormControls`' `Input`, the same bordered,
+ *     focus-showing shape `PadTypeRow` and `AddRow` draw. Converging fields is done; only the
+ *     tiering differs.
  *   - Mount it attached to the list it feeds (like AddRow) — it sizes itself; don't wrap it
  *     in its own modal/overlay.
  *   - Unlike AddRow (whose collapsed/expanded states share one ~44px row height, so no reflow

@@ -14,11 +14,18 @@
  *     inventory only.
  *   - **this file** — collapsed `+ label` pill → input + Save/Delete, plus an `extras` slot
  *     and a `panel` slot. Plans, Health, Goals, Food, Catalogue, Medicine.
- * The good news is that the convergence point already exists: `panel` below takes the same
- * `QuickAddOptionsPanel` node, with the same one-of-`extras`/`panel` contract, as
- * `PadTypeRow`'s prop of the same name. What differs is the FIELD — `PadTypeRow`'s is drawn
- * as a real bordered input, this one's is still hand-rolled. Converging them is tracked work,
- * not done. Don't cite this file as the settled shape, and don't add a fourth composer.
+ * **The fields are ALREADY converged** — all three draw the same bordered, focus-showing field
+ * (this one got it on 2026-08-05; `InlineAddItem` by using `FormControls`' `Input` outright),
+ * and `panel` below takes the same `QuickAddOptionsPanel` node under the same
+ * one-of-`extras`/`panel` contract as `PadTypeRow`'s prop of the same name. So "converge the
+ * composers" is not the open work and shouldn't be re-proposed.
+ *
+ * What differs is the TIERING of settings, and this file's gap is specific: **it has no tier 3.**
+ * `PadTypeRow` carries an `onMore` button opening a fuller editor; there is no equivalent here,
+ * so a surface built on this composer cannot offer one from the line. That is a known gap, not
+ * an oversight — see AGENTS.md "The hierarchy of settings when making a row" for the contract
+ * and the who-implements-what table. Don't cite this file as the settled shape, and don't add
+ * a fourth composer.
  *
  * A two-state add control mounted at the bottom of (or within) whatever list/section it
  * feeds — so the add control stays visually connected to the thing it adds to (criterion 1).
