@@ -2464,7 +2464,7 @@ const styles = StyleSheet.create({
   dialogMessage: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   dialogBody: { fontSize: FontSize.sm, textAlign: 'center', marginTop: -Spacing.sm },
   dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
-  dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
+  dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
   dialogBtnNo: { backgroundColor: '#1E3A5F' },
   dialogBtnYes: { backgroundColor: '#4A90D9' },
   dialogBtnText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: FontSize.sm, textAlign: 'center' },

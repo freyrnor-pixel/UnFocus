@@ -107,7 +107,12 @@ There was no minimum-target constant anywhere. `44` was hardcoded in 19 files an
 carried **eight different bare numbers** (8×51, 6×24, 13×7, 4×4, 12×4, 16×2, 10, 2).
 
 Added to `constants/theme.ts`:
-- `MIN_TAP_TARGET = 44`
+- `MIN_TAP_TARGET = 44` — **now 48** (2026-08-08, Material Design 3, on the maintainer's
+  instruction; it clears WCAG 2.2's 44 with margin). Every `HitSlop` value rose by 2px with it
+  so each token still lifts exactly the control size its label promises, and
+  `RowTrailing.actionSlop`'s vertical went 8→10 because 28 + 16 was exactly 44. The rest of
+  this section is the original 2026-07-31 pass and reads 44 throughout — treat those as the
+  history, not the current number.
 - `hitSlopFor(visualSize)` — computes the slop needed to *reach* 44. This is the one that
   matters: a guessed `hitSlop={6}` on a 22px check yields 34px, which passes review by
   looking like a token and still fails WCAG.

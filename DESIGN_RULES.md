@@ -107,13 +107,21 @@ design, not the rule.
 
 ## 5. Interaction & targets
 
-17. **Every tappable target ≥ 44×44px** (WCAG 2.2) with ≥ 8px of dead space
+17. **Every tappable target ≥ 48×48px** with ≥ 8px of dead space
     around it, so nothing is hit by accident. The token is `MIN_TAP_TARGET`
     (`constants/theme.ts`); when the visual control is smaller than that, expand the
     hit area with a `HitSlop` token rather than growing the art — that's what
     `components/IconButton.tsx` does (`Math.max(MIN_TAP_TARGET, size + Spacing.sm)`).
-    Never hardcode `44` or a bare `hitSlop` number. *(Open conflict #6: three
-    deliberate sub-44 row/control heights.)*
+    Never hardcode `48` — or `44` — or a bare `hitSlop` number. *(Open conflict #6: three
+    deliberate sub-target row/control heights.)*
+    **48, not 44, since 2026-08-08** — Material Design 3's touch target, adopted on the
+    maintainer's instruction and clearing WCAG 2.2's 44 with margin. It is the ONE thing
+    taken from MD3: adopting MD3 as a *look* would fight decisions already made on purpose
+    here (`Radius.md` was reduced 18→16 for a calmer corner; colour is confined to the
+    border). Don't "restore" 44 by citing WCAG. `PAD_ROW_MIN_HEIGHT` — the pad composer
+    line, a real text field — tracks the token; `PAD_ROW_HEIGHT` (38) deliberately does not.
+    Note `MIN_TAP_TARGET_FLOOR` in `lib/designLab.ts` stays 44 and has now diverged on
+    purpose: that is the accessibility floor the lab may tune down to, not the app's default.
 18. **Visible keyboard/focus state on every interactive element.** Focus is
     never invisible.
 19. **Destructive or irreversible actions require a confirm step; everything
@@ -183,7 +191,7 @@ one of these in passing.
 | 3 | Rule 14 — max 3 type sizes | Three coexisting systems: `FontSize` (7 steps), the `Type` role map (8 roles), and `HEADER_TITLE_BASE_SIZE`. The `FontSize`→`Type` migration is deliberate and unfinished. | `constants/theme.ts` |
 | 4 | Rule 16 — max 2 font weights | 5 weights defined, 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×). | `constants/theme.ts` `Fonts` |
 | 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
-| 6 | Rule 17 — every target ≥ 44px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36. `PAD_ROW_MIN_HEIGHT` stays 44 for the type line. | `constants/theme.ts`, `components/Button.tsx` |
+| 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
 | 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **Half resolved 2026-08-05.** The rule-5 half is settled: the notepad rules are DELETED and rule 5 itself is overruled — every row is its own bordered box now (see rule 5's own entry above). The rule-9 half stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
 

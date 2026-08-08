@@ -1957,7 +1957,7 @@ const baseStyles = StyleSheet.create({
   peopleAddRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   peopleAddInput: { flex: 1 },
   peopleAddBtn: {
-    width: 48, height: 48, borderRadius: Radius.md, borderWidth: 1,
+    width: MIN_TAP_TARGET, height: MIN_TAP_TARGET, borderRadius: Radius.md, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
   langRow: { flexDirection: 'row', gap: Spacing.md },

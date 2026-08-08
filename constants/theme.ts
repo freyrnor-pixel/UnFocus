@@ -228,7 +228,9 @@ export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;
  * footer. Don't add a second one.
  *
  * `PAD_ROW_MIN_HEIGHT` is the always-open TYPE line's own rhythm (PadTypeRow) — it needs the
- * fuller height for its 32px commit button + comfortable typing target, so it stays 44.
+ * fuller height for its 32px commit button + comfortable typing target. It tracks
+ * MIN_TAP_TARGET and rose 44→48 with it (2026-08-08): this line is a real text FIELD, i.e. a
+ * control, so it takes the control floor. `PAD_ROW_HEIGHT` below deliberately does not.
  * `PAD_ROW_HEIGHT` (2026-07-30, user report: "lines can be compressed for all except the
  * empty one with the Type text-box") is the shorter rhythm for actual list rows (PadRow) and
  * the blank spare lines after them — a real row's 22px check + hitSlop don't need 44px of
@@ -236,7 +238,11 @@ export const HOME_PREVIEW_CARD_MIN_HEIGHT = 140;
  * Rules are drawn by components/PadSheet.tsx and run the full card width (there is no
  * leading check column to inset past any more — see the row rule in AGENTS.md).
  */
-export const PAD_ROW_MIN_HEIGHT = 44;
+// Literal, not `MIN_TAP_TARGET`: that const is declared further down this file, and `const`
+// is not hoisted — referencing it here is a TDZ ReferenceError at module eval, not a type
+// error, so tsc would not catch it. Keep the two in step by hand; the pad-token doc above
+// and designTokens.test.ts both record that they are meant to match.
+export const PAD_ROW_MIN_HEIGHT = 48;
 export const PAD_ROW_HEIGHT = 38;
 export const PAD_GUTTER = Spacing.md;
 /** Blank ruled lines drawn after the last real row — the "keep writing" invitation. */
@@ -253,8 +259,20 @@ export const PAD_PREVIEW_ROWS = 3;
 export const DONE_ROW_OPACITY = 0.55;
 
 /**
- * Minimum tappable target, in px — WCAG 2.2 target size (DESIGN_RULES.md rule 17).
- * A hard floor, not a preference: never write a bare `44` at a call site.
+ * Minimum tappable target, in px (DESIGN_RULES.md rule 17).
+ * A hard floor, not a preference: never write a bare `48` — or `44` — at a call site.
+ *
+ * **48, not 44, since 2026-08-08 — a deliberate call, not drift.** This was 44 (WCAG 2.2's
+ * AAA target size) and is now Material Design 3's 48dp, on the maintainer's instruction. It
+ * is the one thing taken from MD3: adopting MD3 as a *look* would fight decisions this app
+ * has already made on purpose (`Radius.md` was REDUCED 18→16 for a calmer corner; colour is
+ * confined to the border by `lib/screenColor.ts`), but a bigger touch target is a measurable
+ * ergonomic win for an app built for ADHD/anxiety users and costs only vertical room. Don't
+ * "restore" 44 by citing WCAG — 48 clears it with margin.
+ *
+ * Note `MIN_TAP_TARGET_FLOOR` in lib/designLab.ts stays **44** and has now diverged from this
+ * on purpose: that is the accessibility floor the lab refuses to go below, while this is the
+ * app's shipped default. A lab session may tune down to 44 and still be compliant.
  *
  * When the *visual* control is deliberately smaller than this (an icon button's 36px
  * cap, a chip), don't grow the art — expand the touch area instead, either with a
@@ -264,9 +282,11 @@ export const DONE_ROW_OPACITY = 0.55;
  * Three shipped heights sit deliberately below this — `PAD_ROW_HEIGHT` (38, the
  * compressed notepad row the user asked for on 2026-07-30), `Button`'s `sm` (36) and
  * FormControls' 40px rows. They're open conflict #6 in DESIGN_RULES.md and are NOT to
- * be "fixed" in passing; `sm` buttons carry a HitSlop to reach 44 of touch area instead.
+ * be "fixed" in passing; `sm` buttons carry a HitSlop to reach target touch area instead.
+ * Raising this token widens that gap rather than closing it — that is known and accepted,
+ * and closing it is its own change with its own layout cost.
  */
-export const MIN_TAP_TARGET = 44;
+export const MIN_TAP_TARGET = 48;
 
 /**
  * The slop needed to lift a `visualSize`-px control up to MIN_TAP_TARGET of touch area.
@@ -294,19 +314,25 @@ export function hitSlopFor(visualSize: number) {
  * DESIGN_RULES.md rule 17 also asks for ≥8px of dead space *around* a target, so don't put
  * `loose` on two controls sitting 8px apart — their touch areas would overlap and the wrong
  * one wins.
+ *
+ * Every value here rose by 2px when MIN_TAP_TARGET went 44→48 (2026-08-08), so each token
+ * still lifts exactly the control size its label promises — the alternative was relabelling
+ * them upward, which would have silently un-complied every existing call site on a smaller
+ * control. `check` is the exception: it was already sized for 48.
  */
 export const HitSlop = {
-  /** 4px — lifts a ≥36px control (an IconButton cap) to target. */
-  tight: { top: 4, bottom: 4, left: 4, right: 4 },
-  /** 6px — lifts a ≥32px control to target. */
-  snug: { top: 6, bottom: 6, left: 6, right: 6 },
-  /** 8px — lifts a ≥28px control (most header/row icons) to target. */
-  base: { top: 8, bottom: 8, left: 8, right: 8 },
-  /** 13px — the row check: 22px + 26 = 48px of target. Deliberately above the minimum;
+  /** 6px — lifts a ≥36px control (an IconButton cap) to target. */
+  tight: { top: 6, bottom: 6, left: 6, right: 6 },
+  /** 8px — lifts a ≥32px control to target. */
+  snug: { top: 8, bottom: 8, left: 8, right: 8 },
+  /** 10px — lifts a ≥28px control (most header/row icons) to target. */
+  base: { top: 10, bottom: 10, left: 10, right: 10 },
+  /** 13px — the row check: 22px + 26 = 48px of target. Was deliberately above the old 44
+   *  minimum and is now exactly at target, so it is the one token that did NOT move;
    *  components/PadRow.tsx's header warns not to shrink it to tidy up the trailing cluster. */
   check: { top: 13, bottom: 13, left: 13, right: 13 },
-  /** 16px — lifts a ≥12px glyph/dot to target. */
-  loose: { top: 16, bottom: 16, left: 16, right: 16 },
+  /** 18px — lifts a ≥12px glyph/dot to target. */
+  loose: { top: 18, bottom: 18, left: 18, right: 18 },
 } as const;
 
 /**
@@ -325,15 +351,20 @@ export const HitSlop = {
  * on the side it shares with its neighbour, and `gap` is sized so that after both clips there
  * is still dead space between the two touch areas:
  *
- *   action  28 + 8 + 4 = 40 wide,  28 + 16 = 44 tall
+ *   action  28 + 8 + 4 = 40 wide,  28 + 20 = 48 tall
  *   check   22 + 4 + 13 = 39 wide, 22 + 26 = 48 tall
  *   between them  16 − 4 − 4 = 8px belonging to neither
  *
- * The two land at 39–40px wide rather than 44. That is a knowing trade, not an oversight:
- * two fully-compliant 44px targets with 8px between them need 96px of row, and a shopping
+ * The two land at 39–40px wide rather than 48. That is a knowing trade, not an oversight:
+ * two fully-compliant targets with 8px between them need over 100px of row, and a shopping
  * row at 360px in Norwegian does not have it to give. The axis a thumb actually misses on in
- * a scrolling list is the vertical one, and both controls keep ≥44 there. If the row budget
+ * a scrolling list is the vertical one, and both controls keep ≥48 there. If the row budget
  * ever grows, widen the *boxes* — growing the slop back is what reintroduces the overlap.
+ *
+ * `actionSlop`'s vertical went 8→10 when MIN_TAP_TARGET rose 44→48 (2026-08-08): 28 + 16 was
+ * exactly 44 and would otherwise have fallen under the new floor. Only the vertical moved —
+ * the horizontal 8/4 asymmetry is what keeps the two touch areas apart, and widening it is
+ * precisely the "tidy-up" that reintroduced the overlap this whole block exists to prevent.
  */
 export const RowTrailing = {
   /** The ⋯ / × box. */
@@ -343,7 +374,7 @@ export const RowTrailing = {
   /** Between the action and the check. Sized to leave 8px dead after both slops. */
   gap: 16,
   /** ⋯ / × — clipped on the right, where the check is. */
-  actionSlop: { top: 8, bottom: 8, left: 8, right: 4 },
+  actionSlop: { top: 10, bottom: 10, left: 8, right: 4 },
   /** ○ check — clipped on the left, where the action is; spreads right into card padding. */
   checkSlop: { top: 13, bottom: 13, left: 4, right: 13 },
 } as const;
