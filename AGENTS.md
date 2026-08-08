@@ -1106,6 +1106,28 @@ children with no minWidth, the way `components/TaskCard.tsx`'s `weekdayChip` alw
   to the main checkout, so you are clearing a different tree's cache.
   This bites hardest in `.claude/worktrees/<agent>/`, where several checkouts of the same repo
   share one `node_modules` and one `/tmp`.
+- **⚠️ Reanimated AUTO-workletizes far more callbacks than the ones you write `'worklet'` on,
+  and calling a normal function from one crashes the app on device while looking perfect on web
+  (root-caused 2026-08-08, from a user report that the design lab crashed on the first tap of a
+  part).** `react-native-worklets`' Babel plugin workletizes, with no directive in the source to
+  tell you: every `Gesture.*` builder method (`onBegin`/`onStart`/`onUpdate`/`onEnd`/
+  `onFinalize`/`onChange`/`onTouches*`), the Reanimated hooks (`useAnimatedStyle`,
+  `useDerivedValue`, `useAnimatedReaction`, `useAnimatedProps`, `useAnimatedScrollHandler`,
+  `useFrameCallback`), the **animation COMPLETION callbacks** (`withTiming`/`withSpring`/
+  `withDecay`/`withRepeat` — the easiest one to miss, since the surrounding code is plainly on
+  the JS thread) and `runOnUI`. Those bodies run on the UI thread; a plain JS function called
+  from one throws "tried to synchronously call a non-worklet function on the UI thread" and
+  takes the app down. **Hop with `runOnJS(fn)(args)`**, the way `components/DraggableTaskRow.tsx`
+  and `components/Slider.tsx` already do; prefer capturing primitives (`part.id`, not `part`).
+  Two things make this bite harder than it sounds: **`onFinalize` fires on a plain TAP**, since
+  a pan that never activates still finalizes when the finger lifts — so the crash is not
+  confined to the drag nobody can test headlessly — and **the web preview cannot see any of
+  it**, because worklets run on the JS thread there, so `npm run preview` renders the broken
+  screen with zero page and zero console errors. `__tests__/workletSafety.test.ts` is the guard:
+  it source-scans every workletized body in `app/`, `components/`, `lib/` and `store/` and fails
+  on a bare call that isn't `runOnJS`, a Reanimated worklet-safe API, a `'worklet'`-marked
+  function or a local declared in that body. Its `WORKLETIZED_ARGS` table mirrors the plugin's
+  own — re-check it when Reanimated is upgraded.
 - **`StyleSheet.absoluteFill`** (not `.absoluteFillObject`) for full-screen overlays
 - `useT()` depends on `useSettingsStore`, so it re-renders when language changes — this is intentional. Outside components (stores, schedulers) use `getTranslations(lang?)` instead — it reads the current language from the store when no arg is given.
 - The scan uses on-device OCR via `@react-native-ml-kit/text-recognition` (`parseReceiptText` in `app/scan.tsx`). Confirmed items are added to the shopping list, logged to `purchase_log`, and upserted into the `store_items` catalog (powers shopping autocomplete).
