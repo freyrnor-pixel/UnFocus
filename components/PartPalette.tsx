@@ -23,13 +23,25 @@
  * Connections:
  *   Imports → components/{PressableScale,FormControls}, constants/theme, lib/designLab
  *             (PART_GROUPS, PART_GROUP_OF, partsInGroup), lib/haptics, lib/i18n,
- *             lib/useAppTheme, react-native-gesture-handler, @expo/vector-icons
+ *             lib/useAppTheme, react-native-gesture-handler, react-native-reanimated
+ *             (runOnJS), @expo/vector-icons
  *   Used by → app/design-lab/index.tsx (under the selected card, in Build mode)
  *   Data    → none. The screen owns the drag and the write.
  *
  * Edit notes:
  *   - **Hold to drag, the same 400ms as everywhere else** (lib/useDragReorder.ts,
  *     components/DraggableTaskRow.tsx). It is the gesture the maintainer already knows.
+ *   - **Every gesture callback is a WORKLET, so nothing may be called from one directly**
+ *     (fixed 2026-08-08; it crashed the app on the first tap of a shelf chip). The Babel
+ *     plugin auto-workletizes `onStart`/`onUpdate`/`onFinalize` on a `Gesture.*` builder, so
+ *     those bodies run on the UI thread, and a plain JS function called from there throws
+ *     "tried to synchronously call a non-worklet function". Hop with `runOnJS`, exactly as
+ *     components/{DraggableTaskRow,Slider}.tsx already do. **This is invisible on web** —
+ *     worklets run on the JS thread there, so `npm run preview` renders it perfectly — which
+ *     is why `__tests__/gestureWorklets.test.ts` scans the source instead.
+ *   - **`onFinalize` fires on a TAP, not only on a drag.** A pan that never activates still
+ *     finalizes when the finger lifts, so a bad call in there is reached by the one gesture
+ *     every user makes here first.
  *   - **A tap is not a lesser drag — it is the fast path**, and the only one any automated
  *     check in this repo can reach (Playwright cannot activate a long-press drag in the web
  *     build at all). Keep both, and keep the tap complete: it adds AND selects, so the panel
@@ -41,9 +53,10 @@
  *     labelled by `t.designLab.parts`. It does need a glyph in `KIND_ICON`, and the exhaustive
  *     `Record` makes that a compile error rather than a blank chip.
  */
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
 import { SegmentedControl } from '@/components/FormControls';
@@ -138,11 +151,19 @@ function Chip({
   const theme = useAppTheme();
   const t = useT();
 
+  // A gesture callback is a WORKLET (the Babel plugin workletizes them automatically), so every
+  // one of these has to hop back to the JS thread — see the Edit notes.
+  const beginDrag = useCallback(() => { tap(); onDragStart(kind); }, [kind, onDragStart]);
+  const moveDrag = useCallback((x: number, y: number) => onDragMove(x, y), [onDragMove]);
+  const endDrag = useCallback(() => onDragEnd(), [onDragEnd]);
+
   const pan = Gesture.Pan()
     .activateAfterLongPress(400)
-    .onStart(() => { tap(); onDragStart(kind); })
-    .onUpdate((e) => onDragMove(e.absoluteX, e.absoluteY))
-    .onFinalize(() => onDragEnd());
+    .onStart(() => { runOnJS(beginDrag)(); })
+    .onUpdate((e) => { runOnJS(moveDrag)(e.absoluteX, e.absoluteY); })
+    // Fires on a plain TAP as well: a pan that never activates still finalizes. That is why a
+    // direct call in here crashed on the very interaction the shelf exists for.
+    .onFinalize(() => { runOnJS(endDrag)(); });
 
   return (
     <GestureDetector gesture={pan}>

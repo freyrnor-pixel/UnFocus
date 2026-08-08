@@ -25,7 +25,8 @@
  *             FormControls,PressableScale,Badge,TagChip,PersonChip}, constants/theme,
  *             lib/designLab (the spec + part model), lib/designLabPlace (the body grid),
  *             lib/domainColor, lib/screenColor, lib/haptics, lib/i18n, lib/useAppTheme,
- *             react-native-gesture-handler, @expo/vector-icons
+ *             react-native-gesture-handler, react-native-reanimated (runOnJS),
+ *             @expo/vector-icons
  *   Used by → app/design-lab/index.tsx (every card on a playground screen)
  *   Data    → none. Every value is local sample state; nothing here writes to a store, and
  *             the sample rows are not real tasks, habits or medicines.
@@ -59,10 +60,18 @@
  *   - `PadRow`'s `rightValue` takes a STRING, not a node — that is what keeps a column of
  *     values in tabular figures. A part in the `right` slot therefore renders as text however
  *     it is styled, which is why `SLOTS_FOR_KIND` only lets text-ish kinds go there.
+ *   - **`PartHandle`'s gesture callbacks are WORKLETS, so they hop with `runOnJS`** (fixed
+ *     2026-08-08). The Babel plugin auto-workletizes `onStart`/`onUpdate`/`onFinalize` on a
+ *     `Gesture.*` builder; calling a plain JS function from one throws on the UI thread and
+ *     takes the app down. `onFinalize` fires on a plain tap as well as on a drag, so the bad
+ *     path was the ordinary one. Web cannot see this (worklets run on the JS thread there) —
+ *     `__tests__/gestureWorklets.test.ts` is the guard. Same rule
+ *     components/{DraggableTaskRow,Slider}.tsx already follow.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PadSheet from '@/components/PadSheet';
@@ -645,14 +654,28 @@ function PartHandle({
     if (dragging) measure();
   }, [dragging, measure]);
 
+  // A gesture callback is a WORKLET (the Babel plugin workletizes them automatically), so
+  // everything it does has to hop back to the JS thread — see the Edit notes. `partId` is
+  // pulled out so the closures capture a string rather than the whole part.
+  const partId = part?.id;
+  const beginDrag = React.useCallback(() => {
+    if (!partId) return;
+    tapHaptic();
+    onDragStart?.(partId);
+  }, [partId, onDragStart]);
+  const moveDrag = React.useCallback((x: number, y: number) => { onDragMove?.(x, y); }, [onDragMove]);
+  const endDrag = React.useCallback(() => { onDragEnd?.(); }, [onDragEnd]);
+
   const pan = Gesture.Pan()
     // The app's universal drag gesture (lib/useDragReorder.ts, components/DraggableTaskRow.tsx):
     // hold, then move. A drag that activated instantly would eat the preview's own scroll.
     .activateAfterLongPress(400)
     .enabled(!!part)
-    .onStart(() => { if (part) { tapHaptic(); onDragStart?.(part.id); } })
-    .onUpdate((e) => onDragMove?.(e.absoluteX, e.absoluteY))
-    .onFinalize(() => onDragEnd?.());
+    .onStart(() => { runOnJS(beginDrag)(); })
+    .onUpdate((e) => { runOnJS(moveDrag)(e.absoluteX, e.absoluteY); })
+    // Fires on a plain TAP too — a pan that never activates still finalizes — which is why a
+    // non-worklet call in here crashed the moment a part was touched, not only when dragged.
+    .onFinalize(() => { runOnJS(endDrag)(); });
 
   return (
     <GestureDetector gesture={pan}>
