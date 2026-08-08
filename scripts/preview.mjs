@@ -639,53 +639,68 @@ async function main() {
     console.log(`  Settings (sub) header title: ${JSON.stringify(settingsTitle)}`);
     if (!settingsTitle.visible) pageErrors.push('Settings sub-tier header title is NOT visible on web (matches the on-device "no header" report)');
 
-    // The design lab's card editor (2026-08-07). A real write path like the three above: add
-    // a part and check the pinned preview actually grows one, rather than only screenshotting
-    // the screen. Best-effort — a failure here must not fail the whole preview run, which has
-    // already proved the app's own store→DB paths by this point.
+    // The design lab's playground (2026-08-07). A real write path like the three above: build
+    // a card out of nothing and check that both ends agree — the composition was stored AND
+    // the card actually drew it. Best-effort: a failure here must not fail the whole preview
+    // run, which has already proved the app's own store→DB paths by this point.
     try {
-      console.log('> Settings -> design lab (add a part to a card)');
+      console.log('> Settings -> design lab (build a card from blank)');
       await page.getByText('Advanced', { exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       await page.getByRole('switch', { name: 'Design lab', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
       // The card title and the revealed link row share the same words, hence `.last()`.
       await page.getByText('Design lab', { exact: true }).last().click({ timeout: 10000 });
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(1600);
       await shot(page, 'design-lab');
 
-      // Add via the PALETTE (the row of kinds under the card in edit mode), not the parts
-      // list's "Add something" — the palette sits directly under the pinned card and is
-      // reachable without scrolling, which the list button stopped being once the palette and
-      // the inline panel went above it.
+      // A blank card, which is the whole premise: before this the lab could only open one of
+      // eleven pre-filled cards, and an empty one could not even be stored.
+      await clickText(page, 'Add a card');
+      await page.waitForTimeout(900);
+      await shot(page, 'design-lab-starters');
+      await clickText(page, 'A blank card');
+      await page.waitForTimeout(1100);
+
+      // Add from the SHELF under the card — a tap, not a drag. The hold-and-drag cannot be
+      // driven at all in this environment: Playwright's mouse-down/move does not activate
+      // react-native-gesture-handler on web, confirmed against the app's own shipped drag, so
+      // a failure there would be the harness rather than the app (see AGENTS.md). Its
+      // arithmetic is covered by `slotAtPoint` and `bodyCellAtPoint` in the unit suites
+      // instead, and every drag here has this tap route as its equivalent.
+      await page.getByRole('radio', { name: 'Controls', exact: true }).first().click({ timeout: 8000 });
+      await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'Add a slider', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1200);
       await shot(page, 'design-lab-composed');
 
-      // The part has to be in the LIST (the composition was written) and the pinned preview
-      // has to have drawn a slider for it — the whole point of the feature is that those two
-      // agree, so checking only one of them would miss the interesting failure.
-      const inList = await page.getByText('In the card', { exact: true }).first().isVisible().catch(() => false);
+      // Both ends have to agree: the panel opened for the part that was just added (so the
+      // composition was written and selected) AND the card drew a real slider for it.
+      const panel = await page.getByText(/^Changing:/).first().isVisible().catch(() => false);
       const sliders = await page.getByRole('slider').count();
-      console.log(`  part added to the list: ${inList}; sliders on screen: ${sliders}`);
-      if (!inList) pageErrors.push('Design lab: the added part never reached the card’s parts list');
+      console.log(`  panel opened for the new part: ${panel}; sliders on screen: ${sliders}`);
+      if (!panel) pageErrors.push('Design lab: adding a part did not open its panel');
       if (sliders === 0) pageErrors.push('Design lab: the composed card drew no slider for the added part');
 
-      // Tap a part ON THE CARD and check the inline panel opens for it. The card sits in the
-      // sticky block, which renders AFTER the scroll body — hence `.last()`, or this matches
-      // the palette chip or the parts-list row, which carry the same words.
-      //
-      // Only the TAP half of edit mode is checked here. The hold-and-drag cannot be driven at
-      // all in this environment — Playwright's mouse-down/move does not activate
-      // react-native-gesture-handler on web, confirmed against the app's own shipped drag, so
-      // a failure here would be the harness rather than the app (see AGENTS.md). Its
-      // arithmetic is covered by `slotAtPoint` in lib/__tests__/designLab.test.ts instead.
-      await page.getByRole('button', { name: 'A time', exact: true }).last().click({ timeout: 8000 });
+      // Switching screens and back is the only automated proof that per-screen storage works:
+      // the card belongs to Home, so Habits must be empty and Home must have it again.
+      await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 8000 });
       await page.waitForTimeout(900);
-      await shot(page, 'design-lab-part-selected');
-      const panel = await page.getByText(/^Changing:/).first().isVisible().catch(() => false);
-      console.log(`  tapping a part on the card opened its panel: ${panel}`);
-      if (!panel) pageErrors.push('Design lab: tapping a part on the card did not open the inline editor');
+      const awayCount = await page.getByRole('slider').count();
+      await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 8000 });
+      await page.waitForTimeout(900);
+      const backCount = await page.getByRole('slider').count();
+      console.log(`  sliders on the other screen: ${awayCount}; back on this one: ${backCount}`);
+      if (awayCount !== 0) pageErrors.push('Design lab: a card built on one screen showed up on another');
+      if (backCount === 0) pageErrors.push('Design lab: a card did not survive switching screens and back');
+      await shot(page, 'design-lab-screens');
+
+      // The token knobs, now their own pushed screen.
+      await page.getByRole('button', { name: 'Colours and shapes', exact: true }).first().click({ timeout: 8000 });
+      await page.waitForTimeout(1200);
+      await shot(page, 'design-lab-tokens');
+      const tokens = await page.getByText('Colour', { exact: true }).first().isVisible().catch(() => false);
+      if (!tokens) pageErrors.push('Design lab: the token knobs screen did not render');
     } catch (e) {
       console.log(`  (design-lab step skipped: ${e.message.split('\n')[0]})`);
     }

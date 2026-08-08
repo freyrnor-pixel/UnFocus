@@ -490,8 +490,17 @@ function CardList({
   inspector?: React.ReactNode;
 }) {
   const theme = useAppTheme();
+  const t = useT();
   const drag = useDragReorder(cards.map((c) => c.id), onReorder);
   const byId = new Map(cards.map((c) => [c.id, c]));
+
+  /** What to call a card out loud. Its own name, else what it was started from — never the
+   *  raw origin id, which is storage vocabulary and was reaching the screen reader as "blank". */
+  const cardName = (card: PlaygroundCard) => {
+    if (card.title.trim()) return card.title;
+    const starter = t.designLab.playground.starters[card.origin as keyof typeof t.designLab.playground.starters];
+    return starter ?? t.designLab.cards[card.origin as keyof typeof t.designLab.cards] ?? card.id;
+  };
 
   return (
     <>
@@ -510,7 +519,7 @@ function CardList({
                 haptic={false}
                 disabled={!editing}
                 accessibilityRole="button"
-                accessibilityLabel={card.title || card.origin}
+                accessibilityLabel={cardName(card)}
               >
                 <DesignLabCard
                   origin={card.origin}

@@ -2119,6 +2119,9 @@ const en = {
       progress: 'How far',
       divider: 'Line',
     },
+    // The shelf's three groups. Named by what the things DO, not by the code's families —
+    // "controls" is what you use, "marks" is what marks or measures something.
+    partGroups: { words: 'Words', controls: 'Controls', marks: 'Marks' },
     partSlots: {
       header: "The card's heading",
       leading: 'Before the title',
@@ -3952,6 +3955,7 @@ const no: typeof en = {
       progress: 'Hvor langt',
       divider: 'Linje',
     },
+    partGroups: { words: 'Ord', controls: 'Kontroller', marks: 'Merker' },
     partSlots: {
       header: 'Overskriften på kortet',
       leading: 'Før tittelen',

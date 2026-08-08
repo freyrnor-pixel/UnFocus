@@ -647,87 +647,104 @@ file owns which token.)
   - **Off by default, still opt-in** (Settings → Advanced → Features — **and nowhere else since 2026-07-31, B1-1**): `featureSharing` (Sharing & QR) and `featureAutomations` (Automations). The onboarding feature picker (`app/onboarding/features.tsx`) is **deleted** — don't look for it, and don't add a new flag to it. Onboarding no longer offers ANY feature opt-in: a new install now gets the defaults and nothing to choose, which is the point. `showGrowth` (Quiet growth — the ambient reward; the DB column is still `show_points` from the Bonsai/points system it replaced within a day) is off by default too, and was offered on `app/onboarding/energy.tsx` until B1-2 removed the Quiet growth half of that screen; it is now Settings-only as well.
   - **Permanently on, no longer a toggle at all**: `featureScan` (Scan & receipts) and `featureFood` (Food & recipes) — removed from both Settings and the onboarding picker; the DB columns and Settings-type fields survive (this repo never drops columns) but nothing reads them for gating any more — see `store/useSettingsStore.ts`'s "Inert columns" note.
   - All defaults are set via migrations in `lib/db.ts` (append-only — corrections are new `UPDATE` statements, never edits to an already-merged line). Only gate something ADDITIVE this way — data pruning, widget/overview sync, foreground store reload, catalog/dish/symptom seeding, the automation store's boot load and the monthly reminder re-arm are load-bearing and stay unconditional.
-- **The design lab** (2026-08-06, expanded into a card editor 2026-08-07: `lib/designLab.ts` +
-  `lib/designLabExport.ts` + `lib/useDesignLab.ts` + `app/design-lab.tsx` +
-  `components/{DesignLabCard,DesignLabBench,ColorPickerSheet,PartEditorSheet,Slider}.tsx` +
-  `lib/{colorPalette,slider}.ts`): a workbench where a real card can be composed part by part,
-  and where the app's own colour, geometry, control-shape and row-slot knobs can be turned live,
-  the result exported as a document an agent applies to the real files. It exists because this
-  repo's visual history is a list of taste questions argued in prose —
-  the material system tuned repeatedly and then deleted ("I've been messing around too much
-  with the visuals"), the row check moved left→right, boxed-vs-ruled rows rejected and then
-  re-adopted, `HomeGoalsCard` and the Bonsai card each shipped and removed within a day.
-  - **Five registries, and the fifth is a different SHAPE from the other four.** `COLOR_KNOBS`
-    (34 palette tokens), `SHAPE_KNOBS` (11 geometry numbers), `CONTROL_KNOBS` (7 control jobs)
-    and `SLOT_KNOBS` (4 `PadRow` positions) are all "one token, one new value". `CARD_KNOBS` is
-    a LIST of parts, because the maintainer's actual question was never "is the accent too
-    dark" but *"I want this card to look like this"* — so a card is stored as a composition and
-    reported as a DIFF (added / taken out / moved / restyled) rather than as a before→after pair.
-  - **`CARD_KNOBS.defaultParts` does two jobs and must stay faithful to the real components.**
-    It is what the bench OPENS at (so the maintainer sees their card, not an empty box) and what
-    `describeCards` measures against (so the report can say "added a slider", not merely "here
-    is a list of parts"). Eleven cards are covered: to-do, habit, shopping, medicine, note,
-    dish, the four Home preview cards, and the shared list card. A card that gains or loses a
-    part in the real app has to gain or lose it here too, or the very next export lies. A
-    part's `id` is equally load-bearing: it is the only thing that tells `moved` apart from
-    `removed` + `added`.
-  - **`SLOTS_FOR_KIND` is the only compatibility rule, and it is per KIND, not per card.** An
-    earlier cut gave each card its own allow-list of kinds and encoded nothing real — there is
-    no card that couldn't sensibly gain a button. What IS real is that a slider can't sit on the
-    one-line meta row and a divider can't be a right-hand value, and that holds everywhere.
-  - **`components/DesignLabCard.tsx` restates the bench's honesty line rather than dropping
-    it.** `DesignLabBench` promised "the real thing, never a lookalike"; a spec-driven renderer
-    is by definition arranging things itself. The line now falls here: **every PART is the app's
-    real component, the ARRANGEMENT is the lab's.** Row slots go through the real `PadRow`, so a
-    composition that doesn't fit the row is a true report about the row rather than a gap in the
-    mock. Don't let that file grow a hand-drawn stand-in for a component the app already has.
-  - **`DESIGN_LAB_VERSION` is 2**, and a v1 bag still loads unchanged (`cards` simply absent).
-    The bump is a signal to whoever reads the exported JSON, so "no card was touched" can be
-    told from "this file predates cards". The three `bench.a/b/c` slot knobs are **retired** —
-    they were a stand-in for adding a control, attached to no card; the sanitizer drops them
-    from an older stored bag the way it drops any unknown key.
-  - **The screen is a pinned preview over four tabs** (Card · Colour · Shape · Controls), using
-    `ScreenScaffold`'s existing `stickyBelowHeader`. It was one long scroll, so by the time you
-    reached a knob the thing it changed had scrolled off the top. The pinned block **measures
-    its own card** and reports the height up (clamped 88–320) — a fixed tall value left a plain
-    card floating in 200px of nothing — and carries an **opaque** background, because it is
-    positioned chrome and the scroll body passes underneath it.
-  - **The preview is editable, behind a switch** (2026-08-07). Edit on: every part on the card
-    is tap-to-select (ring on the card, controls in a panel directly under it — a sheet would
-    cover the thing being judged) and hold-to-drag onto another position, with a palette of the
-    21 kinds under the card to tap or drag from. Edit off: the card behaves exactly as it will
-    on the real screen — tick it, type in it, drag its slider. **Both halves are the point**;
-    a card you can only look at can't be checked for feel, and one you can only use can't be
-    changed.
-    - **Selection reaches into the REAL row through `PadRow`'s `slotWrapper`** — one optional,
-      identity-by-default, layout-neutral render-prop — not through a lookalike row drawn in
-      the lab. Two row implementations to keep in step is the exact drift `PadRow` exists to
-      end, and needing a hit region is not a good enough reason to reintroduce it.
-    - **Drop targets are measured at drag START, not only at layout.** The card scrolls inside
-      the pinned preview and a scroll fires no `onLayout`, so mount-time boxes describe where
-      the card used to be. Same measure-at-drag-start rule `lib/useDragReorder.ts` follows.
-    - The hit-test is `slotAtPoint()` in `lib/designLab.ts` — pure, unit-tested, and the reason
-      any of the drag is verifiable at all (see the gesture note under the web preview below).
-      Illegal slots are not candidates, so a drop that can't render answers `null` rather than
-      silently landing somewhere else; the smallest containing box wins, because positions nest.
-  - **`components/Slider.tsx` is the app's first slider** and a general component, not a lab
-    one. Every number in the app was a −/+ `Stepper`, which is right for a small count and
-    wrong for a range you are *searching* (`radiusScale` is sixty taps end to end). It also
-    makes the lab's own `number → slider` variant true for the first time — `Stepper` reads
-    `useLabControl('number')` now, and falls back to the stepper when `min`/`max` aren't both
-    given rather than drawing a track it can't size. The finger↔number mapping lives in
-    `lib/slider.ts` so it is testable headlessly.
-  - **Colour is picked from a generated range** (`lib/colorPalette.ts`: one row per hue, six
-    shades across, plus neutrals) and fine-tuned with hue/strength/lightness sliders, in
-    `components/ColorPickerSheet.tsx`. The hex field stays for a known value. `hexToHsl`/
-    `hslToHex` in `constants/theme.ts` both round to whole degrees and percents, so **opening
-    the picker deliberately writes nothing** — only a swatch, a slider or a committed hex does,
-    or merely looking at a token would nudge it.
+- **The design lab** (2026-08-06; rebuilt into a playground 2026-08-07: `lib/designLab.ts` +
+  `lib/{designLabPlace,designLabEdit,designLabExport,useDesignLab}.ts` +
+  `app/design-lab/{index,tokens}.tsx` +
+  `components/{DesignLabCard,DesignLabBench,PartPalette,PartControls,CardStarterSheet,ColorPickerSheet,Slider}.tsx`
+  + `lib/{colorPalette,slider}.ts`): a workbench with **empty screens and empty cards** that
+  you build on, plus the app's own colour, geometry, control-shape and row-slot knobs — the
+  result exported as a document an agent applies to the real files. It exists because this
+  repo's visual history is a list of taste questions argued in prose: the material system
+  tuned repeatedly and then deleted ("I've been messing around too much with the visuals"),
+  the row check moved left→right, boxed-vs-ruled rows rejected and then re-adopted,
+  `HomeGoalsCard` and the Bonsai card each shipped and removed within a day.
+  - **It is TWO screens, and `/design-lab` is the playground.** `app/design-lab/index.tsx` is
+    where cards get built; `app/design-lab/tokens.tsx` (pushed from its header) is the 34
+    palette tokens, the 11 geometry numbers, the 7 control jobs, the 4 row positions and the
+    export. They were one screen — a card pinned in a 320px box above four tabs of knobs —
+    until the playground needed the whole viewport. Tuning a token is a go-and-come-back
+    errand, not something interleaved with dragging. The Settings link is unchanged: a
+    directory index still answers to `/design-lab`.
+  - **The first cut could not express a blank card, and that was the problem.** It opened one
+    of eleven pre-filled cards from a dropdown, and `sanitizeCards` deleted any card that
+    sanitized to zero parts. The rule is now split: **a card emptied on purpose is KEPT**, a
+    card row with no `parts` ARRAY is still dropped (that was the real point — a hand-edited
+    backup must not blank a card by omission). "Add a card" offers **blank first**, then two
+    skeletons (`CARD_SKELETONS`), and only then, under its own heading, the eleven real cards.
+  - **`CARD_KNOBS` is demoted, not deleted, and `cards` is WRITE-DEAD from v3.** The eleven
+    stay because a card that names an `origin` exports as *"the to-do card, but with the tick
+    moved"* — a diff against something real, which is the lab's original question. The old
+    `cards` map is read/export-only so a v2 bag still loads and still exports; nothing writes
+    it. Once the origin-diff has been used in anger, `cards` + `describeCards` can go in a
+    change of their own — **`diffParts` is the keeper**, and it is already the single engine
+    both containers share.
+  - **Six registries now.** `COLOR_KNOBS` / `SHAPE_KNOBS` / `CONTROL_KNOBS` / `SLOT_KNOBS` are
+    "one token, one new value"; `CARD_KNOBS` is a list of parts; `CARD_SKELETONS` is the
+    starting menu. `PART_GROUP_OF` files all 21 kinds under **Words · Controls · Marks** for
+    the shelf — every kind in exactly one group, asserted by test.
+  - **Placement is free in the card's own space and snapped in the row.** The seven row slots
+    still go through the real `PadRow` via its `slotWrapper`; the body is a **four-column
+    grid** (`BODY_COLS`, `PartPlace {row, col, span}`), drawn as one flex row per grid row with
+    cells at `flex: span`. **Do not "improve" this into absolute positioning.** The lab's
+    output is a document an agent builds from, and `x: 0.37` is not buildable anywhere in this
+    codebase, while "row 1, left half" is a flex row with two children — and a coordinate does
+    not survive `fontScale`, the user's text-size setting, or the four widths `npm run wraps`
+    checks, so what was approved would not be what ships. Side-by-side, the one thing a
+    vertical flow genuinely cannot express, works. `col` is an ORDER, not a coordinate:
+    `normalizePlacements` re-derives it from the running total of the spans before it, which
+    is why nothing does collision detection.
+  - **The honesty line, as it now stands: every PART is the app's real component, the
+    ARRANGEMENT is the lab's.** The header, backdrop, per-screen hue and bottom nav are real
+    too — `BottomNav` is the shipped component driven by a synthetic `{state, navigation}`
+    pair, the same shape `app/(tabs)/_layout.tsx`'s `PagerFloatingNav` uses, so no new prop and
+    no lookalike. Two parts had quietly broken this and were fixed in the same pass:
+    `chip`/`personChip`/`badge` were hand-drawn `View`+`Text` (they use `Badge`/`TagChip`/
+    `PersonChip` now) and **`checkbox` drew a `Switch`**, so the checkmark-circle turned into a
+    toggle the moment it left a row. The ONE sanctioned stand-in is the shelf chip's icon: a
+    real `Slider` shrunk into a 36px chip is a smear, and a smear is a worse answer than a
+    symbol.
+  - **Every drag has a tap equivalent, and that is not a nicety.** Playwright cannot activate
+    `Gesture.Pan().activateAfterLongPress(400)` in the web build **at all** (confirmed against
+    the app's own shipped drag), so a drag-only capability is one no automated check in this
+    repo can reach. Adding is a shelf tap; moving between row positions is the panel's slot
+    pills; moving on the grid is its row/width pills. The arithmetic lives in pure, unit-tested
+    functions — `slotAtPoint` (`lib/designLab.ts`), `bodyCellAtPoint`/`placePart`/
+    `normalizePlacements`/`layoutBodyParts` (`lib/designLabPlace.ts`) — which is the only
+    reason any of it is verifiable. **Drop targets are measured at drag START, not at layout**:
+    the card scrolls inside a scrolling screen and a scroll fires no `onLayout`.
+  - **`lib/designLabEdit.ts` is every write, as a pure `(bag, …args) => bag`**, and each one
+    returns the **same bag reference** on a no-op (unknown id, cap reached, illegal kind/slot).
+    That makes "the button did nothing" a testable assertion and keeps the screen free of guard
+    clauses. Two subtleties worth keeping: `duplicateCard` mints fresh PART ids (sharing them
+    would make the export read the copy as an EDIT of the original), and `addPart` lands every
+    kind in the **body**, not at `SLOTS_FOR_KIND[kind][0]` — that list starts at `trailing` for
+    a button, so the old default grew a ROW on a blank card and hung the button off the end.
+  - **The bag lives in the store and the column write is debounced** (`useLabDraft`). Two
+    routes with a `useState` copy each means the one you come back from is stale; and a full
+    playground is a six-figure JSON string, so committing per keystroke would `JSON.stringify`
+    and write SQLite once per character typed into a label. `setDesignLabDraft` is the
+    memory-only setter — **nothing else should call it** — and `flush()` runs on blur, on drop,
+    on export and on leaving. Caps exist for the same reason: `MAX_SCREENS` 6 ×
+    `MAX_CARDS_PER_SCREEN` 8 × `MAX_PARTS_PER_CARD` 24 ≈ 140 KB. Don't raise one without
+    redoing that arithmetic.
+  - **The export is three shapes, biggest request first.** `PLAYGROUND` is a **composition** (a
+    built card has no shipped version to diff against, so the whole thing IS the instruction; a
+    card with an origin gets both halves), then `CARDS` as a **diff**, then the token groups as
+    before→after pairs. The `r/c/w` legend sits in the section's own preamble the way the
+    `+ − ↕ ~` marks do — an exported file is read cold by someone who has never seen the
+    screen. `hasSomethingToExport` and the "nothing was changed" branch must consider the
+    playground: a session spent building a screen and touching no token is a real session.
+  - **Colour is per-part AND app-wide, and the per-part half is meant to be obvious.** The
+    panel under a selected card carries a strip of real swatches inline (`''` = inherit, first),
+    with the full `ColorPickerSheet` behind "More…". The token screen still changes a value
+    everywhere at once. Both write through the same picker, so a part and a palette token are
+    coloured by one control.
   - **It is a question, not a setting.** Off by default behind `featureDesignLab` (Settings →
     Advanced, its own card beside Debug mode — deliberately NOT in `FEATURE_ROWS`, which is the
     list of things a *user* chooses between), never back-filled, resettable in one tap. The
-    "use these everywhere" switch (`designLabApply`) stores OFF, so an experiment can't follow
-    the maintainer out of the screen it was made on. The real output is the exported `.txt`.
+    "use these everywhere" switch (`designLabApply`) stores OFF, and it **ignores `playground`
+    entirely** — that switch was only ever about tokens; an arrangement of invented cards
+    cannot be applied to real screens. The real output is the exported `.txt`.
   - **Two hook points carry the whole thing, and that is the design.** `useAppTheme()`
     (137 of 140 files) applies the colour overrides — which reaches the per-screen border hues
     and the domain badges for free, since `lib/screenColor.ts` and `lib/domainColor.ts` both
@@ -741,23 +758,25 @@ file owns which token.)
     StyleSheet carries (edge width, ramp strength, elevation, row shape, check shape) and read
     the override directly; `PadSheet`/`FormControls` also own their radii outright because
     neither runs through `useScaledStyles`.
-  - **On a real row the slot knobs can only SUBTRACT, and the same is true of a composed
-    card.** `PadRow` is handed finished nodes, so it can hide a position but cannot build a
-    person chip it was never given; a composition is live only on the lab's own card, which
-    owns its sample data. That is not a shortfall — it is the division of labour the maintainer
-    asked for ("send it to you to wire up the technical part"): the lab decides, the export
-    says what was decided and which file owns it, and an agent wires it up for real.
+  - **On a real row the slot knobs can only SUBTRACT.** `PadRow` is handed finished nodes, so it
+    can hide a position but cannot build a person chip it was never given; a composition is
+    live only on the lab's own cards, which own their sample data. That is not a shortfall — it
+    is the division of labour the maintainer asked for ("send it to you to wire up the
+    technical part"): the lab decides, the export says what was decided and which file owns it,
+    and an agent wires it up for real.
   - **A knob's `usedBy`/`source` is export metadata, not UI copy** — English by design, because
     its reader is an agent. Rendering it on screen put English hints under Norwegian labels and
     the first wrap audit of the screen caught it. Token names (`accent`) and variant ids
     (`segmented`) DO render raw, deliberately: they are the vocabulary the exported document
     uses, and translating them would make the screen and the report disagree.
-  - `lib/designLab.ts` is dependency-free like `lib/cardLayout.ts` and
-    `lib/__tests__/designLab.test.ts` asserts it can't reach a store, the DB or the notification
-    layer — it is evaluated in render paths on every screen. Everything is sanitized on read;
-    `minTapTarget` has a hard 44px floor so the lab can't produce an app you can't tap out of.
-    `design_lab` is **not** in `aiSetupApply`'s `SETTINGS_WHITELIST` (an AI-authored file must
-    not be able to restyle the app) and none of its columns belong in `SyncTable`.
+  - `lib/designLab.ts`, `lib/designLabPlace.ts` and `lib/designLabEdit.ts` are all
+    dependency-free like `lib/cardLayout.ts`, and `lib/__tests__/designLab.test.ts` source-scans
+    all three for a store, the DB, the notification layer or the sync layer — the first two are
+    evaluated in render paths on every screen, and the third is the only thing that writes a
+    bag. Everything is sanitized on read; `minTapTarget` has a hard 44px floor so the lab can't
+    produce an app you can't tap out of. `design_lab` is **not** in `aiSetupApply`'s
+    `SETTINGS_WHITELIST` (an AI-authored file must not be able to restyle the app) and none of
+    its columns belong in `SyncTable`.
 - **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
 - **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on the guided tour's closing card) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules), health-log data, or medicines/doses (too risky to validate / too sensitive — see that file's "out of scope" edit note before adding a medicine domain). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
 
@@ -859,12 +878,14 @@ device or EAS build.
   sql.js fallback), serves `dist/` with COOP/COEP headers, and walks onboarding + all 5
   tabs with Playwright, screenshotting to `preview-shots/` (gitignored). Also exercises four
   real write paths — add a task (To-do), add a habit (Habits), add a medicine + log a dose
-  (Health), and (2026-08-07) add a part to a card in the **design lab** — the first three
+  (Health), and (2026-08-07) **build a card from blank in the design lab** — the first three
   confirmed to survive a tab round-trip, proving the store→DB path actually works rather than
-  just static render, and the fourth checked at BOTH ends (the part reaches the card's parts
-  list AND the pinned preview draws a slider for it, since the whole point of that feature is
-  that those two agree). Plus a render pass over the pushed sub-screens reachable without data
-  setup (Settings, the medicine editor, the design lab).
+  just static render, and the fourth checked at BOTH ends (the part's panel opens AND the card
+  draws a real slider for it, since the whole point of that feature is that those two agree).
+  The lab step also switches playground screens and back, asserting the card is absent on the
+  other screen and present again on its own — **the only automated proof per-screen storage
+  works** — and follows the header link to the token knobs. Plus a render pass over the pushed
+  sub-screens reachable without data setup (Settings, the medicine editor, the design lab).
   - `npm run preview:build` / `npm run preview:serve` run the two steps standalone.
   - `node scripts/preview.mjs --route=/some/path` for a focused single-screen recheck.
 - **⚠️ The preview cannot drive a hold-and-drag gesture AT ALL** (measured 2026-08-07, not
@@ -952,9 +973,12 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 
 **Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, the
 **design lab** (2026-08-06 — pushed from Settings → Advanced, and scanned last because both it
-and Settings are dead ends; the walk has to throw its off-by-default switch first. **Since
-2026-08-07 that is FIVE scans, not one**: the lab became four tabs plus a part-editor sheet,
-and a tab this walk doesn't switch to is a tab it doesn't measure), the
+and Settings are dead ends; the walk has to throw its off-by-default switch first. **Since the
+playground rebuild that is SIX scans**: the playground empty, with a card on it, and with a
+part's panel open — three genuinely different surfaces — then the token screen's three tabs.
+A tab this walk doesn't switch to is a tab it doesn't measure, and the part panel in
+particular is the densest label-plus-pill-cloud thing in the app now that it carries colour
+swatches, sizes, weights, positions, lines and widths), the
 **Energy config sheet** (2026-08-03 — opened from the strip's tutorial-state button on Home
 and closed again before the tab loop, since a bottom sheet's scrim swallows every click
 under it), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
@@ -985,18 +1009,25 @@ Known-benign findings, don't "fix" them:
   detector can't be taught to ignore it without also blinding it to the weekday-chip row, which
   uses `flexWrap` too but has a hard minimum width and IS a bug when it wraps. One documented
   false positive beats a blind spot.
-- The **design lab** reports 3 wrapped rows (re-measured 2026-08-07 after the card-editor
-  rebuild — the count is the same, the membership isn't). Two are `flexWrap` clouds of the
-  `starterChips` family: the Controls tab's ten raw slot-option pills, and the part editor's
-  seven "where it sits" pills. The third is its three-button action row (Send · Save · Reset),
-  the audit's own "cannot be fixed by shortening copy" case, already carrying the `flexWrap` +
-  `rowGap` fix the task editor got — the labels are words the maintainer needs to read, so the
-  row wraps rather than truncating.
-- The **design lab's four tab labels** are reported as TRUNCATED by 1–4px at `--width=327`,
-  Norwegian only. `components/TabSlider.tsx` sets `adjustsFontSizeToFit` + `minimumFontScale`
-  0.85, which react-native-web implements neither of — the exact artifact this audit's own
-  TRUNCATED warning describes. 4px against a 15% shrink floor is comfortable; don't shorten
-  the words for it.
+- The **design lab** reports 4 wrapped rows at `--lang=no --width=327` (re-measured after the
+  playground rebuild — the count went 3 → 4 and the membership changed again). All four are
+  `flexWrap` clouds of the `starterChips` family or the documented three-button case, and none
+  is a bug:
+  - `design-lab-part-panel` — the four width pills (`En firedel … Hele linja`), 26px short.
+  - `design-lab-part-panel` — the colour swatch strip plus its `More…` chip. The swatches
+    carry no text, which is why that row prints as `|||||||Flere…` in the report.
+  - `design-lab-colour` — Send · Save · Put everything back. The same three-button action row
+    as before, **now on the token screen**, still carrying the `flexWrap` + `rowGap` fix the
+    task editor got: the labels are words the maintainer needs to read, so the row wraps
+    rather than truncating.
+  - `design-lab-controls` — the ten raw slot-option pills, unchanged.
+  One near-miss is worth knowing rather than fixing: `design-lab-card`'s empty-card line misses
+  one line by **8px** at 327 in Norwegian.
+- The **token screen's three tab labels** may be reported as TRUNCATED by a few px at
+  `--width=327`, Norwegian only. `components/TabSlider.tsx` sets `adjustsFontSizeToFit` +
+  `minimumFontScale` 0.85, which react-native-web implements neither of — the exact artifact
+  this audit's own TRUNCATED warning describes. A few px against a 15% shrink floor is
+  comfortable; don't shorten the words for it.
 
 The task editor's own `--width=327` findings (Energy stepper, add-step button,
 Delete·Discard·Save) were **fixed** the same day; the audit is clean at 327/360/393/430 in

@@ -14,7 +14,7 @@
  *             lib/useAppTheme (useAppTheme, useAccessibility, useScaledStyles), lib/haptics,
  *             react-native-gesture-handler, react-native-reanimated
  *   Used by → components/Stepper.tsx (the design lab's `number → slider` variant),
- *             app/design-lab.tsx (every shape knob),
+ *             app/design-lab/tokens.tsx (every shape knob),
  *             components/ColorPickerSheet.tsx (hue / saturation / lightness)
  *   Data    → none (controlled — the parent owns the value)
  *

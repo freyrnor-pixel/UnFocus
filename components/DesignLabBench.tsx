@@ -16,7 +16,7 @@
  *   Imports → components/{Surface,Button,Slider,Stepper,FormControls}, constants/theme,
  *             lib/designLab (LabOverrides type), lib/useDesignLab (DesignLabContext),
  *             lib/i18n, lib/useAppTheme
- *   Used by → app/design-lab.tsx (the Controls tab)
+ *   Used by → app/design-lab/tokens.tsx (the Controls tab)
  *   Data    → none. Every value shown is local sample state; nothing here writes to a store.
  *
  * Edit notes:

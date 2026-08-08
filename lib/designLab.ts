@@ -5,7 +5,7 @@
  * waiting for an agent to guess at it, and then looking at the result an OTA later. This
  * module is the data half of the surface that closes that loop: a declared set of knobs over
  * the colour palette, the geometry tokens, the control kinds and the row anatomy, plus the
- * override bag those knobs write into. `app/design-lab.tsx` renders it, `lib/designLabExport.ts`
+ * override bag those knobs write into. `app/design-lab/` renders it, `lib/designLabExport.ts`
  * turns a bag into a report an agent can act on.
  *
  * **Five registries, and the fifth is a different shape from the other four.** `COLOR_KNOBS`,
@@ -40,7 +40,8 @@
  * Connections:
  *   Imports → constants/theme (the geometry defaults these knobs start from — pure constants,
  *             no store/DB/notification reachability), constants/colors (TYPE ONLY)
- *   Used by → lib/designLabExport.ts, lib/useAppTheme.ts, app/design-lab.tsx,
+ *   Used by → lib/designLabExport.ts, lib/useAppTheme.ts, lib/designLabPlace.ts,
+ *             lib/designLabEdit.ts, app/design-lab/{index,tokens}.tsx,
  *             components/DesignLabBench.tsx, store/useSettingsStore.ts (sanitize on read),
  *             components/Surface.tsx, components/FormControls.tsx, components/PadRow.tsx,
  *             lib/__tests__/designLab.test.ts

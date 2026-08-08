@@ -18,7 +18,7 @@
  * Connections:
  *   Imports → expo-file-system/legacy, expo-sharing, react-native (Platform), lib/designLab,
  *             lib/backup (TYPE ONLY — SaveToDeviceResult), constants/colors (TYPE ONLY)
- *   Used by → app/design-lab.tsx, lib/__tests__/designLabExport.test.ts
+ *   Used by → app/design-lab/tokens.tsx, lib/__tests__/designLabExport.test.ts
  *   Data    → none of its own. Reads nothing; the caller passes the bag and the live palette.
  *             Writes one file to the cache/Documents dir on export.
  *

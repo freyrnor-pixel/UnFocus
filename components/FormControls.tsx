@@ -303,6 +303,12 @@ function SegmentedTrack({ options, value, onChange, style }: SegmentedControlPro
               onChange(opt.value);
             }}
             scaleTo={0.97}
+            // The SHIPPED variant announced nothing at all — no role, no selected state — while
+            // `PillChoice` below (a design-lab variant almost nobody runs) had both. So every
+            // segmented control in the app, including Settings' own tabs, was a set of unlabelled
+            // taps to a screen reader. Same pair as PillChoice, deliberately.
+            accessibilityRole="radio"
+            accessibilityState={{ selected: active }}
             style={styles.segment}
           >
             <Text style={[styles.segmentLabel, { color: active ? theme.text : theme.textMuted }]}>

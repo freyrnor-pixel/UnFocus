@@ -22,7 +22,7 @@
  *     minimum unreachable.
  *   - `snapToStep` rounds the result to the step's own decimal places. Without it a 0.05 step
  *     accumulates float noise and the exported design-lab document reads
- *     `1.0500000000000003` — the same bug app/design-lab.tsx already works around by hand.
+ *     `1.0500000000000003` — the same bug app/design-lab/tokens.tsx already works around by hand.
  */
 
 /**
