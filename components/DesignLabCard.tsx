@@ -65,7 +65,7 @@
  *     `Gesture.*` builder; calling a plain JS function from one throws on the UI thread and
  *     takes the app down. `onFinalize` fires on a plain tap as well as on a drag, so the bad
  *     path was the ordinary one. Web cannot see this (worklets run on the JS thread there) —
- *     `__tests__/gestureWorklets.test.ts` is the guard. Same rule
+ *     `__tests__/workletSafety.test.ts` is the guard. Same rule
  *     components/{DraggableTaskRow,Slider}.tsx already follow.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';

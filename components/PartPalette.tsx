@@ -38,7 +38,7 @@
  *     "tried to synchronously call a non-worklet function". Hop with `runOnJS`, exactly as
  *     components/{DraggableTaskRow,Slider}.tsx already do. **This is invisible on web** —
  *     worklets run on the JS thread there, so `npm run preview` renders it perfectly — which
- *     is why `__tests__/gestureWorklets.test.ts` scans the source instead.
+ *     is why `__tests__/workletSafety.test.ts` scans the source instead.
  *   - **`onFinalize` fires on a TAP, not only on a drag.** A pan that never activates still
  *     finalizes when the finger lifts, so a bad call in there is reached by the one gesture
  *     every user makes here first.
