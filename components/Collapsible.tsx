@@ -10,8 +10,11 @@
  *   Imports → react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming/runOnJS),
  *             constants/motion (Duration, Ease), lib/useAppTheme (useAccessibility)
  *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/ExpandableCard.tsx,
- *             app/(tabs)/plans.tsx, app/health-form.tsx, app/habit-form.tsx,
- *             app/automations.tsx, app/(tabs)/habits.tsx (person-filter reveal)
+ *             components/PadSheet.tsx, app/(tabs)/plans.tsx, app/health-form.tsx,
+ *             app/habit-form.tsx, app/automations.tsx,
+ *             app/(tabs)/habits.tsx (person-filter reveal AND, since 2026-08-08, HabitCard's
+ *             own WeekStrip/rest-day body), app/(tabs)/shopping.tsx (the Monthly tab's
+ *             purchased-this-month trip groups, 2026-08-08)
  *   Data    → none (controlled via the `open` prop)
  *
  * Edit notes:

@@ -521,7 +521,13 @@ function HabitCard({
           }
         />
 
-        {expanded && (
+        {/* Clip-revealed, not a bare `{expanded && …}` (2026-08-08). This was the last habit
+            surface that popped its body in with no transition while the rest of the app —
+            TaskCard, ExpandableCard, WeekListCard, habit-form, and this very file's own
+            person-filter reveal — all glide through `Collapsible`. It clips a measured height
+            with NO opacity fade, deliberately: a folded row should read "still there, just
+            folded". Don't swap in a fade; Collapsible's header says why. */}
+        <Collapsible open={expanded}>
           <View style={styles.expanded}>
             <View style={[styles.weekStripWrap, { borderTopColor: theme.border }]}>
               <WeekStrip
@@ -553,7 +559,7 @@ function HabitCard({
               <Text style={[styles.restDayHint, { color: theme.textMuted }]}>{t.habits.restDayHint}</Text>
             )}
           </View>
-        )}
+        </Collapsible>
         </View>
       </View>
       </View>

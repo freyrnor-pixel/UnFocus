@@ -28,7 +28,9 @@
  *             rows any more), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
- *             components/ExpandableCard, components/FlightOverlay (FlightPill, Flight, FlightRect),
+ *             components/ExpandableCard, components/Collapsible + components/AnimatedChevron
+ *             (the purchased-this-month trip groups — see that block's own note),
+ *             components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
  *             components/ListSettingsSheet, components/MonthlyResetSummaryModal,
  *             components/MonthlyResetReviewSheet,
@@ -402,6 +404,8 @@ import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
+import Collapsible from '@/components/Collapsible';
+import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import WeekListCard from '@/components/WeekListCard';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
@@ -1903,14 +1907,20 @@ export default function ShoppingScreen() {
                               const expanded = purchasedExpanded === trip.id;
                               return (
                                 <View key={trip.id}>
+                                  {/* One expand affordance, one reveal (2026-08-08). This header
+                                      drew its own ▲/▼ as a bold text glyph and hard-swapped it,
+                                      and popped the rows in with no transition — the only place
+                                      in the app still doing either. `AnimatedChevron` rotates the
+                                      shared Ionicon and `Collapsible` clip-reveals the body, the
+                                      same pair every other expander here uses. */}
                                   <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
                                     <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
-                                    <Text style={[styles.disclosureChevron, { color: theme.textMuted }]}>{expanded ? '▲' : '▼'}</Text>
+                                    <AnimatedChevron open={expanded} color={theme.textMuted} size={16} />
                                   </PressableScale>
-                                  {expanded && (
-                                    // Decision 043 rule 1: this already sits inside the list's own
-                                    // outer Surface (catalogCard) — plain View + theme.surface fill,
-                                    // matching every sibling rowsCard, instead of a second glass layer.
+                                  <Collapsible open={expanded}>
+                                    {/* Decision 043 rule 1: this already sits inside the list's own
+                                        outer Surface (catalogCard) — plain View + theme.surface fill,
+                                        matching every sibling rowsCard, instead of a second glass layer. */}
                                     <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                                       {tripItems.map((item, idx) => (
                                         <View key={item.id}>
@@ -1919,7 +1929,7 @@ export default function ShoppingScreen() {
                                         </View>
                                       ))}
                                     </View>
-                                  )}
+                                  </Collapsible>
                                 </View>
                               );
                             })}
@@ -2519,7 +2529,6 @@ const styles = StyleSheet.create({
   // against the particle background.
   sectionTitleCard: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, borderRadius: Radius.sm, marginBottom: Spacing.sm },
 
-  disclosureChevron: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   weekEmptyCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
