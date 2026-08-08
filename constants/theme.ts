@@ -3,8 +3,9 @@
  *
  * `getFontSize(base, scale)` applies the user's fontSize preference to a base pt.
  * `contrastOn(hexBg)` picks near-black or white text for the best WCAG contrast.
- * `getMaterialStyle(base, variant?)` computes the simplified glass surface-finish tokens
- * (frost + wash, 2026-07-18) from a single base colour, consumed by components/GlassFill.tsx.
+ * `filledEdge(base, isDark)` is the border of a FILLED control, derived from its own fill —
+ * all that survives of `getMaterialStyle()`, which computed a whole frosted-glass recipe and
+ * was deleted 2026-08-08 with components/GlassFill.tsx (see its tombstone comment below).
  * `getLayeredShadow(shadowColor?, level?)` returns the three-pass `boxShadow` depth.
  * `getGlow(color, level?)` (2026-07-18) returns a two-pass colored `boxShadow` halo —
  * the purposeful active/focus indicator; apply sparingly (see its own doc comment).
@@ -21,14 +22,15 @@
  * `TabularNums` (2026-07-28 row-rule pass) is the fixed-width-figures style for values that
  * sit in a list row's right-hand column, so the column edge lines up row to row.
  * `MIN_TAP_TARGET` + `HitSlop` + `hitSlopFor()` (2026-07-30, DESIGN_RULES.md rule 17) are the
- * WCAG 2.2 target-size tokens — never write a bare `44` or `hitSlop={8}` at a call site.
+ * target-size tokens — 48 since 2026-08-08 (Material Design 3, above WCAG 2.2's 44). Never
+ * write a bare `48`, `44` or `hitSlop={8}` at a call site.
  * `PAD_*` + `DONE_ROW_OPACITY` (2026-07-30 notepad pass) are the ruled-sheet geometry every
  * list-bearing surface shares — one gutter, one row height, two spare rules, one done fade.
  * See their own doc comment; components/PadSheet.tsx draws from them.
  *
  * Connections:
  *   Imports → —
- *   Used by → components/GlassFill.tsx, components/Surface.tsx, components/Button.tsx,
+ *   Used by → components/Surface.tsx, components/Button.tsx,
  *             components/AddFAB.tsx, components/PhotoFrame.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
  *   Data    → none (pure constants)
  *
@@ -36,13 +38,13 @@
  *   - Glass surface (simplified 2026-07-18): BlurView frost (overlay/chrome only) + colour
  *     wash (see Surface.tsx) so text on cards keeps the same contrast guarantees regardless
  *     of what's blurred behind.
- *   - **Matte finish (2026-07-28)**: `MaterialStyle` carries `rim` (the gradient border ring),
- *     `scrim` (the cap's face lift) and `fillGradient` (primary/danger button fill). All
- *     mode-aware via getMaterialStyle's `mode` arg, all STATIC. Rim is drawn by Surface/Button;
- *     scrim/fillGradient by GlassFill. Two things are deliberately NOT here and must not come
- *     back: the `specular` highlight blob (removed — it read as gloss; see each token's own
- *     comment below) and the drifting "sheen" (never implemented — it was the app's
- *     persistent-sluggishness driver; see GlassFill's header).
+ *   - **There is no material any more (2026-08-08).** The matte/frost/scrim/fillGradient system
+ *     is deleted; a card is a flat opaque page with one border (components/Surface.tsx) and a
+ *     filled button wears `filledEdge`. `computeRimGradient` survives for BottomNav/IconButton.
+ *     Two things must not come back: the `specular` highlight blob (it read as gloss) and the
+ *     drifting "sheen" (never implemented — it was the app's persistent-sluggishness driver).
+ *     __tests__/glassMaterial.test.ts source-scans for both, so the promise survives the
+ *     deletion of the machinery it used to be asserted against.
  *   - Purposeful Depth System (2026-07-14): `getElevation('flat'|'raised'|'floating')`
  *     is the go-forward depth token — flat=read-only, raised=tappable at rest,
  *     floating=the one focused/active surface. Used by PressableScale's `depth` prop,
@@ -85,7 +87,7 @@ export function darken(hex: string, amount: number): string {
 /**
  * Blend `t` (0..1) of `overlay` into `base` and return an opaque hex. Used to derive a
  * soft solid card tint from a domain accent (e.g. mix(theme.surface, accent, 0.15)) — a
- * solid hex is required because getMaterialStyle()/Surface's tint can't parse an rgba().
+ * solid hex is required because Surface's `tint` can't parse an rgba().
  */
 export function mix(base: string, overlay: string, t: number): string {
   const [r1, g1, b1] = hexToRgb(base);
@@ -547,66 +549,28 @@ export const Shadow = {
   },
 };
 
-// ─── Materials: glass surface finish ─────────────────────────────────────────
-
-/** Light vs dark tuning for the glass recipe (rim/scrim alphas). */
-export type MaterialMode = 'light' | 'dark';
+// ─── Materials: what is left of the glass surface finish ─────────────────────
+//
+// `MaterialStyle`, `MaterialMode`, `MaterialVariant`, `ScrimGradient` and
+// `MATERIAL_BORDER_WIDTH` lived here until 2026-08-08 and are deleted along with
+// `getMaterialStyle()` (see its tombstone further down) and `components/GlassFill.tsx`. They
+// described a translucent, frosted, top-lit surface; nothing in the app draws one any more.
+// What survives is the RIM — a flat, single-tone hue-tinted edge — because `computeRimGradient`
+// has three live consumers of its own (BottomNav ×2, IconButton) that never went through the
+// material recipe.
 
 /** expo-linear-gradient requires ≥2 colour/location stops — a tuple, not a plain array. */
 type GradientColors = readonly [string, string, ...string[]];
 type GradientStops = readonly [number, number, ...number[]];
 
-/** Raised-keycap border (fix 1) — a vertical (top-light → bottom-dark) hue-tinted gradient padding-ring. */
+/**
+ * The keycap border ring — a vertical hue-tinted gradient padding-ring.
+ *
+ * Named for the raised-keycap chamfer it originally drew (top-light → bottom-dark). Since the
+ * 2026-08-05 flat-rim pass every stop is the SAME colour, so it renders as one evenly-weighted
+ * edge; the shape is kept so the five `LinearGradient` call sites don't all need rewriting.
+ */
 export type RimGradient = { colors: GradientColors; locations: GradientStops };
-/** The matte cap finish — a vertical gradient: a 10% white lift, gone by 42%, then a 4% shade. */
-export type ScrimGradient = { colors: GradientColors; locations: GradientStops };
-
-export type MaterialStyle = {
-  backgroundColor: string;
-  borderWidth: number;
-  borderColor: string;
-  borderTopColor: string;
-  borderBottomColor: string;
-  shadowOpacity: number;
-  shadowRadius: number;
-  /** Android shadow depth. */
-  elevation: number;
-  /**
-   * Opaque hex equivalent of `backgroundColor` — pass this to contrastOn(),
-   * never `backgroundColor` itself, since glass's backgroundColor is a
-   * translucent rgba() string that contrastOn() can't parse.
-   */
-  contrastBase: string;
-  /**
-   * Alpha the colour wash renders at inside GlassFill. Card glass leans translucent
-   * (the Surface caller overrides this per surfaceContext); the `'button'` variant
-   * returns a near-opaque value so a CTA's ink keeps its contrast over busy backdrops.
-   */
-  washAlpha: number;
-  /**
-   * Take-two static glass layers (2026-07-18 "Glass, take two", re-added after the
-   * simplification): all mode-aware, all static (no per-frame/looping effect — the drifting
-   * "sheen", fix 4, is deliberately NOT here; see GlassFill's header). `rim` is the gradient
-   * border ring (Surface/Button render it, not GlassFill); `scrim` is rendered by GlassFill as
-   * a fill overlay; `fillGradient` is the primary/danger button's top-lit vertical fill,
-   * pre-alpha'd to `washAlpha`. There is deliberately no specular blob — see GlassFill's header.
-   */
-  rim: RimGradient;
-  /**
-   * The "raised keycap (double)" second edge — a crisp, cool, hue-tinted line drawn on the
-   * inner `overflow:hidden` mask (Surface/Button/AddFAB) INSIDE the outer `rim` chamfer, so a
-   * surface reads as a physically raised key rather than a single soft bevel. Derived from the
-   * base hue (not neutral), so it auto-tints to whatever surface it sits on.
-   */
-  innerLine: string;
-  scrim: ScrimGradient;
-  fillGradient: GradientColors;
-};
-
-const MATERIAL_BORDER_WIDTH = 1.5;
-
-/** Card vs. button tuning for the glass recipe (buttons lean denser/opaquer for CTA contrast). */
-export type MaterialVariant = 'card' | 'button';
 
 /**
  * The raised-keycap rim recipe, extracted so callers whose edge hue differs from their fill hue
@@ -744,104 +708,50 @@ export function computeBorderTone(
 }
 
 /**
- * Computes the matte surface-finish tokens from a single base colour.
- * Spread the border/shadow keys onto the outer (shadow-casting) view and
- * `backgroundColor` + the take-two layer colours onto components/GlassFill.tsx.
- * `variant` tunes fill density: `'card'` (default) stays glassy-translucent; `'button'`
- * returns a near-opaque wash so action labels stay WCAG-legible. `mode` ('light'|'dark')
- * tunes the rim/scrim alphas — a full-strength white edge reads as a harsh line on near-black,
- * so dark mode dims both. Callers that render these layers (Surface, Button, AddFAB via
- * GlassFill) MUST pass their current mode; FoodTab and
- * the other back-compat consumers only read backgroundColor/border/contrastBase and can omit it.
+ * The edge of a FILLED control, derived from its own fill.
+ *
+ * A filled button/FAB can't wear the screen hue the way a `ghost` button or a card does — its
+ * border has to come from the colour it is filled with, or an accent-filled button on a green
+ * screen grows a green rim. This is a lightened, semi-transparent version of the fill: present
+ * enough to read as an edge, restrained enough not to look like an outline drawn round a shape.
+ *
+ * **This is `getMaterialStyle().innerLine`, extracted (2026-08-08).** That function computed a
+ * whole glass recipe — wash, scrim, fill gradient, rim, shadows, elevation — and both of its
+ * remaining callers (`Button`, `AddFAB`) used this one field and discarded the rest, so ~90
+ * lines of colour maths ran on every button render to produce one string. The recipe went with
+ * the frosted surfaces it was for; this is the only part anything still asks for.
+ *
+ * The two alphas are the 2026-07-24 contrast pass's values, unchanged: 0.26/0.5 read as
+ * barely-there on a neutral edge hue, so they were bumped until the edge is dependably visible
+ * and not only on hues far from the backdrop.
  */
-export function getMaterialStyle(base: string, variant: MaterialVariant = 'card', mode: MaterialMode = 'light'): MaterialStyle {
-  const isButton = variant === 'button';
-  const isDark = mode === 'dark';
-  // Frosted-pane look from the base colour's own hue (lightened, not blended toward
-  // an unrelated icy-blue) — every feature colour keeps its identity. Buttons lighten far
-  // less so a CTA's accent stays close to its true hue and keeps `accentInk`'s contrast.
-  // (2026-07-18 "colored glass": cards lighten only 0.10, not 0.16 — the translucency now
-  // comes from the low ambient wash alpha (Surface's GLASS_WASH_ALPHA), not from washing the
-  // hue toward milky white, so a screen-tinted card reads as real frosted glass, not pastel.)
-  const tinted = lighten(base, isButton ? 0.06 : 0.10);
-  // Ambient content cards ride translucent (~0.66-0.8, set by the Surface caller per
-  // surfaceContext) — a tinted wash alone reads as frosted without per-frame blur, the
-  // simplified glass finish's power win. Buttons lean denser for CTA ink contrast. (The card
-  // ambient value bumped 0.62 → 0.66 in "Glass, take two" for a denser adaptive scrim base.)
-  const washAlpha = isButton ? 0.9 : 0.66;
-
-  // Rim = raised-keycap chamfer (2026-07-18 "typewriter glass", retuned): a VERTICAL gradient
-  // border, HUE-TINTED (derived from the surface's own base, not pure white), with the bright
-  // band pushed hard to the TOP edge (locations 0 → 0.22) so it reads CRISP — a sharp lit lip,
-  // not the old soft half-height fade — then a faint mid and a soft dark hue-shadow at the
-  // bottom edge. Paired with `innerLine` below, this is the "double keycap": a bright outer lip
-  // + a cool inner line, so cards/buttons read as physically raised keys. Rendered top→bottom
-  // (start {0,0} → end {0,1}) by Button and Surface (2026-07-21: Surface switched to this same
-  // gradient-ring recipe — see computeRimGradient below and its call site in Surface.tsx).
-  const rim: RimGradient = computeRimGradient(base, isDark);
-
-  // Inner line (the "double" of the double keycap): a crisp, cool, hue-tinted 1px line the
-  // callers draw on the inner mask, just inside the rim chamfer. Restrained (calm) but present
-  // enough to read as a second edge — this is what turns the previously-invisible neutral
-  // hairline (old `theme.border`) into the keycap's inner wall.
-  // 2026-07-24 contrast pass: 0.26/0.5 read as barely-there on a neutral (grey) edge hue —
-  // bumped so the inner wall is dependably visible, not just on hues far from the backdrop.
-  const innerLine = isDark ? rgba(lighten(base, 0.16), 0.4) : rgba(lighten(base, 0.06), 0.65);
-
-  // The face lift (was "adaptive scrim"). **Matte pass (2026-07-28)**: design-system v6's
-  // `handoff/BUTTONS.md` gives one recipe for the whole cap finish —
-  // `linear-gradient(rgba(255,255,255,.10), transparent 42%, rgba(0,0,0,.04))`. That is what
-  // this now is. The old version was white at 0.22 fading over HALF the height, which put a
-  // visible sheen across the middle of every surface; combined with the specular blob it read
-  // as a glossy dome. The new one is a tenth-opacity lift that's gone by 42% and a barely-there
-  // 4% shade at the bottom: enough to say "this face catches light from above", not enough to
-  // say "this face is curved".
-  // **Buttons drop it entirely (2026-08-05 "flat face" pass)**: a button's face is the part a
-  // thumb actually lands on, and press state (travel + shadow compression) needs that face to
-  // read as flat in every state, not just matte — any static light-from-above cue on it reads as
-  // curvature no matter how faint. The light source moves to the edges instead: the rim gradient
-  // (below) and the cast shadow already carry "raised" without touching the face. Cards keep the
-  // lift unchanged — they're not something you press the same way. Same 3-stop shape (fully
-  // transparent) so GlassFill's LinearGradient still gets a valid, just invisible, gradient.
-  const scrim: ScrimGradient = isButton
-    ? { colors: [rgba('#FFFFFF', 0), rgba('#FFFFFF', 0), rgba('#000000', 0)], locations: [0, 0.42, 1] }
-    : {
-        colors: [rgba('#FFFFFF', isDark ? 0.06 : 0.10), rgba('#FFFFFF', 0), rgba('#000000', 0.04)],
-        locations: [0, 0.42, 1],
-      };
-
-  // Primary/danger button top-lit vertical fill, pre-alpha'd to the wash so GlassFill can drop
-  // it in as a straight replacement for the flat wash layer. **Matte pass (2026-07-28)**:
-  // lighten/darken halved (0.12/0.10 → 0.05/0.04) and the base held to the same 42% the face
-  // lift uses. At the old spread the fill itself had a top-to-bottom shading ramp strong enough
-  // to read as a cylinder; the cap is meant to be a flat moulded face whose only shading is the
-  // lift above and the base edge below.
-  const fillGradient: GradientColors = [
-    rgba(lighten(base, 0.05), washAlpha),
-    rgba(base, washAlpha),
-    rgba(darken(base, 0.04), washAlpha),
-  ];
-
-  return {
-    backgroundColor: rgba(tinted, 0.84),
-    borderWidth: MATERIAL_BORDER_WIDTH,
-    // Flat keycap edge tokens, now hue-tinted to match the rim/innerLine (was plastic white/black):
-    // a bright lit top, a cool mid, a soft hue-dark bottom. Read by the glass-OFF fallback and by
-    // back-compat direct consumers (e.g. FoodTab) that don't render the rim gradient themselves.
-    borderColor: innerLine,
-    borderTopColor: isDark ? rgba(lighten(base, 0.28), 0.5) : rgba(lighten(base, 0.42), 0.7),
-    borderBottomColor: isDark ? rgba('#000000', 0.3) : rgba(darken(base, 0.14), 0.34),
-    shadowOpacity: 0.16,
-    shadowRadius: 16,
-    elevation: 6,
-    contrastBase: tinted,
-    washAlpha,
-    rim,
-    innerLine,
-    scrim,
-    fillGradient,
-  };
+export function filledEdge(base: string, isDark: boolean): string {
+  return isDark ? rgba(lighten(base, 0.16), 0.4) : rgba(lighten(base, 0.06), 0.65);
 }
+
+/**
+ * `getMaterialStyle()` lived here until 2026-08-08 and is DELETED.
+ *
+ * It computed the whole frosted-glass recipe from one base colour — translucent wash, adaptive
+ * scrim, fill gradient, keycap rim, shadow, elevation — for `Surface`, `Button`, `AddFAB` and
+ * `GlassFill`. The 2026-08-05 card reset took `Surface` and `Button` off it ("a card is a flat
+ * opaque page with ONE border"), which left two callers reading exactly one field, `innerLine`,
+ * and discarding every other thing it computed. Flattening `AddFAB` (the last `GlassFill`
+ * mount) finished that, so the recipe had no reader at all.
+ *
+ * Where its parts went:
+ *   - `innerLine` → `filledEdge()` above, unchanged formula. This is the only live part.
+ *   - `rim` → `computeRimGradient()` below already exists separately and still has three
+ *     consumers (BottomNav ×2, IconButton). Untouched.
+ *   - wash / scrim / fillGradient / washAlpha / contrastBase → gone with `components/GlassFill.tsx`,
+ *     which is deleted in the same change. Nothing rendered them any more.
+ *
+ * **The no-gloss promise outlived the function.** `__tests__/glassMaterial.test.ts` used to
+ * assert `'specular' in getMaterialStyle(...) === false`, which is now vacuous; it asserts over
+ * the SOURCE instead, so "don't re-add the specular highlight"
+ * (DESIGN_COMPARISON/16-solid-pressable-materials.md §2) is still enforced with the thing it
+ * was guarding gone. Re-introducing gloss now means writing a new system, not flipping a token.
+ */
 
 /**
  * Soft colored halo — PURPOSEFUL indicator ONLY (primary action + the single active/focused

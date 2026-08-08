@@ -251,10 +251,10 @@
  *     brief once it turned out the file, WeekListCard, and three Phase-3e components
  *     didn't exist yet).
  *   - **A2-1 sticky bar**: uses ScreenScaffold's new `stickyBelowHeader` slot (added this
- *     session). Surface `surfaceContext="overlay"` per Surface.tsx's own docstring, which
- *     names "sticky headers... nav bar" as the overlay use case — `ScreenHeader`/`BottomNav`
- *     also use `overlay` (the earlier doc-vs-source inconsistency flagged here has since
- *     been fixed in both files).
+ *     session). Surface `surfaceContext="overlay"`, which named "sticky headers... nav bar" as
+ *     its use case. **That prop has been a no-op since the 2026-08-05 card reset** (corrected
+ *     2026-08-08): every context renders the same flat opaque fill, so it documents intent
+ *     rather than selecting a finish. See Surface.tsx's own note on it.
  *     Reserved sticky height is always `STICKY_HEIGHT_TABS` (tab row only) — the Weekly
  *     summary row under the tabs was removed (debug-note 2026-07-21).
  *   - **A2-1 focused list**: `focusedListId` still picks which non-template list is the

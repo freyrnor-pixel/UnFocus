@@ -5,7 +5,7 @@
  * fill/text colours from the active theme (Decision 006 tokens). Minimum touch target is 44px tall.
  *
  * Connections:
- *   Imports → constants/theme (computeBorderTone, getMaterialStyle),
+ *   Imports → constants/theme (computeBorderTone, filledEdge),
  *             lib/useDesignLab (useLabControl/useLabShape — the design lab's `button` shape
  *             knob: key (shipped) · filled · ghost · outline, plus the edge width),
  *             lib/useAppTheme, lib/screenColor (useScreenColor — the `ghost` border hue),
@@ -45,17 +45,17 @@
  *     variant fills, the per-variant `scaleTo`, the travel by size, the `depth="raised"`, the
  *     0.45 disabled opacity and the flat face are all exactly as they were. Translucency was
  *     the only thing removed. Don't read the reset as licence to restyle the states.
- *   - **Every variant has a border.** A FILLED variant's edge is `mat.innerLine`, derived from
+ *   - **Every variant has a border.** A FILLED variant's edge is `filledEdge`, derived from
  *     its own fill — a green screen-hue edge on a blue primary would read as a mistake.
  *     `ghost` has no fill to derive from, so it takes the screen's hue at the BUTTON rung
  *     (`computeBorderTone(hue, isDark, 'button')`), the lightest step of the card → field →
  *     button family. It falls back to the neutral `theme.border` on Home and Settings, which
  *     provide no hue.
  *   - **Flat face (2026-08-05)**: nothing is painted ON the face — no top-lit fill gradient, no
- *     face-lift scrim (`getMaterialStyle`'s `scrim` is a no-op for the `'button'` variant).
- *     "Raised" is read from the border, the keyBase sliver and the cast shadow, none of which
- *     touch the face. `mat.fillGradient` still exists in constants/theme.ts (pinned by
- *     `__tests__/glassMaterial.test.ts`); this file just doesn't consume it.
+ *     face-lift scrim. "Raised" is read from the border, the keyBase sliver and the cast shadow,
+ *     none of which touch the face. This used to call `getMaterialStyle` for the whole glass
+ *     recipe and consume exactly one field of it; since 2026-08-08 it calls `filledEdge`, which
+ *     IS that field, and the rest of the recipe is deleted.
  *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
  *     flat/unset since it has no fill to cast a shadow from.
@@ -69,7 +69,7 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { computeBorderTone, darken, FontSize, Fonts, getMaterialStyle, Radius, Spacing } from '@/constants/theme';
+import { computeBorderTone, darken, filledEdge, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
@@ -147,7 +147,7 @@ export default function Button({
   // (`variantColors` above), the per-variant scale, the travel, the disabled opacity and the
   // `depth` are all untouched. Only the translucency went. This is also why `glassSurfaces` is
   // no longer read here — see components/Surface.tsx's note on that setting going inert.
-  const mat = getMaterialStyle(colors.bg, 'button', isDark ? 'dark' : 'light');
+  const filledBorder = filledEdge(colors.bg, isDark);
 
   const inner = loading ? (
     <ActivityIndicator color={colors.text} />
@@ -195,11 +195,11 @@ export default function Button({
           opacity: disabled ? 0.45 : 1,
         },
         { paddingVertical: vertPad, paddingHorizontal: horizPad },
-        // A filled button's border is derived from its OWN fill (`mat.innerLine`), not from the
+        // A filled button's border is derived from its OWN fill (`filledEdge`), not from the
         // screen hue: a green edge on a blue primary would read as a mistake, and point 7 keeps
         // the variants' colours as they are. The screen's hue reaches buttons through `ghost`
         // below — the one variant with no fill of its own to derive from.
-        variant !== 'ghost' && !unfilled ? { borderWidth: edgeWidth, borderColor: mat.innerLine } : null,
+        variant !== 'ghost' && !unfilled ? { borderWidth: edgeWidth, borderColor: filledBorder } : null,
         // Lab 'outline': no fill, and the edge carries the variant's own colour at full strength
         // rather than the screen's hue — the point of the shape is that the button's identity
         // moves from its face to its edge.
