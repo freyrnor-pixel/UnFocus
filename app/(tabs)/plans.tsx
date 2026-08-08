@@ -174,6 +174,11 @@
  *     recurring setting puts it in) so that ONE card's editor opens automatically. Distinct
  *     from `isNew`: the task is already a real store row by the time it arrives, just handed
  *     a "start open" cue.
+ *     **It is now also how you OPEN an existing task's editor from elsewhere (2026-08-08)** —
+ *     the day-log rows here and on Home, and the timeline's `onPressTask`, all pushed
+ *     `/task-form` until then, a route retired 2026-07-23, so all three simply went nowhere.
+ *     From within this screen use `router.setParams`, not `push`: pushing /plans onto itself
+ *     stacks a second copy of a pager tab.
  *   - Section selectors: Whenever = recurring 'none' & !sharedOut (All tab includes dated
  *     one-offs); Recurring = recurring !== 'none' & !sharedOut; Shared = sharedOut (sent) +
  *     useSharedStore 'in' rows (received). In Today / This week the "Whenever" section is
@@ -795,10 +800,16 @@ export default function TasksScreen() {
   // A log row opens the record it came from. Only tasks have an in-app editor to open;
   // doses and health entries live on the Health tab, and a moment IS its own record, so
   // those simply aren't pressable rather than pretending to navigate somewhere.
+  //
+  // A task's editor is an expanded TaskCard on a saved row, not a route — app/task-form.tsx
+  // was retired 2026-07-23 (UX audit B1). This pushed that dead route until 2026-08-08 and
+  // simply went nowhere. `setParams`, not `push`, for the same reason
+  // handleTimelineAddTaskAndEdit gives below: this screen already IS /plans, and pushing it
+  // onto itself stacks a second copy of a pager tab.
   const handlePressLogEntry = useCallback(
     (entry: DayEntry) => {
       if (entry.kind !== 'task' || !entry.sourceId) return;
-      router.push({ pathname: '/task-form', params: { id: entry.sourceId } });
+      router.setParams({ tab: 'all', expandTaskId: entry.sourceId });
     },
     [router]
   );
@@ -1438,7 +1449,10 @@ export default function TasksScreen() {
                     padState={todayCardState}
                     onPadStateChange={setTodayCardState}
                     horizontal={planTimelineHorizontal}
-                    onPressTask={(task: Task) => router.push({ pathname: '/task-form', params: { id: task.id } })}
+                    /* The All tab's expanded TaskCard IS the editor — see handlePressLogEntry
+                       above for why this is setParams to /plans rather than a push to the
+                       retired /task-form route. */
+                    onPressTask={(task: Task) => router.setParams({ tab: 'all', expandTaskId: task.id })}
                     onToggleTask={handleToggleDone}
                     onAddTask={handleTimelineAddTask}
                     onAddTaskAndEdit={handleTimelineAddTaskAndEdit}

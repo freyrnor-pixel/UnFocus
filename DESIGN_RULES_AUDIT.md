@@ -379,11 +379,19 @@ The fourth growth stage (`tree-natural-full-*`) is still missing and is **not** 
 anything now that no binding consumes it — see that README for why it cannot be fetched from
 a remote session, and why authoring a substitute is the wrong move.
 
-**6. Boxed rows** (`DESIGN_COMPARISON/10`). The design boxes every row (border + fill + gap);
+**6. Boxed rows** (`DESIGN_COMPARISON/10`). ~~The design boxes every row (border + fill + gap);
 the app rules them flush on one sheet. Declined — boxed rows are cards inside a card, which is
 the exact complaint PR #483 fixed one day earlier, and `PadSheet`/`PadRow` exist because of a
 direct user report ("look like notepads", "related cards/things in other screens should look
-practically the same"). Recorded in `components/PadSheet.tsx`'s header.
+practically the same"). Recorded in `components/PadSheet.tsx`'s header.~~
+
+**⛔ REVERSED — the decline did not survive the day (noted 2026-08-08).** The maintainer's
+card-design reset later on 2026-08-05 adopted boxing after all: the notepad rules are deleted
+and `components/PadSheet.tsx:113-128` draws one 1.25px, `Radius.sm` bordered box per row in the
+screen's own hue at the FIELD rung, separated by a `Spacing.xs` gap. `DESIGN_RULES.md` rule 5
+("whitespace over lines") was overruled in the same pass. **See item 12 below, which carries
+the same reversal.** The `theme.border → theme.rule` divider fix item 12 records was real and
+shipped, but the divider it fixed no longer exists.
 
 **7. Which colour system colours a card** (`DESIGN_COMPARISON/06`, 2026-08-04 — gates tasks
 07/08/09/11). The design's `HomeScreen.jsx` colours every card from the 9-hue `--c-feat-*` set;
@@ -673,7 +681,18 @@ data change), so `scripts/test-changed.sh` and `npm run wraps` were not required
 file for this option; `npm run preview` was run per the task's own "needs preview" flag and
 confirms the placement in `preview-shots/11-home.png`.
 
-**12. Boxed rows, confirmed and closed** (`DESIGN_COMPARISON/10`, 2026-08-04). Item 6 above
+**12. Boxed rows, confirmed and closed** (`DESIGN_COMPARISON/10`, 2026-08-04).
+
+> **⛔ "Closed" lasted one day (noted 2026-08-08).** The card-design reset later on 2026-08-05
+> adopted boxing — rows are bordered boxes now and the notepad rules are gone. See item 6's
+> reversal note. Everything below is preserved as the reasoning of the day, and two parts of it
+> are still live: the **`ShoppingRow`/`MonthlyTableRow` conversion cost** is still unpaid (they
+> remain the largest un-migrated rows), and the **`PAD_ROW_HEIGHT` 38 decline** still stands —
+> 38 is below `MIN_TAP_TARGET` and hit-slop-compensated on purpose, at the user's own request.
+> The `theme.border → theme.rule` divider fix shipped and was correct; the divider it fixed has
+> since been deleted, so it is now history rather than current behaviour.
+
+Item 6 above
 already recorded the verdict — **option (a), keep ruled, decline boxing** — as part of an
 earlier session's broad pass over the comparison folder. This entry is the dedicated task-10
 session that actually re-verified that call and shipped the one concrete fix it turned up.

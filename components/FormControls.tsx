@@ -456,7 +456,17 @@ type InputProps = TextInputProps & {
   optional?: boolean;
 };
 
-export function Input({ label, error, optional, style, onFocus, onBlur, ...rest }: InputProps) {
+/**
+ * `forwardRef` so a caller that needs the underlying `TextInput` — `useKeyboardLift`, an
+ * imperative `.focus()` — can use THIS field instead of hand-rolling a bordered one beside
+ * it. `components/ShoppingFilterBar.tsx` had done exactly that and drifted: its search box
+ * kept no border at all through the 2026-08-05 reset, sitting next to its own bordered
+ * category button. Nothing passed a ref before 2026-08-08, so this is purely additive.
+ */
+export const Input = React.forwardRef<TextInput, InputProps>(function Input(
+  { label, error, optional, style, onFocus, onBlur, ...rest },
+  ref
+) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const fieldHue = useScreenColor() ?? theme.border;
@@ -481,6 +491,7 @@ export function Input({ label, error, optional, style, onFocus, onBlur, ...rest 
       ) : null}
       <TextInput
         {...rest}
+        ref={ref}
         placeholderTextColor={theme.textMuted}
         onFocus={(e) => {
           setFocused(true);
@@ -506,7 +517,7 @@ export function Input({ label, error, optional, style, onFocus, onBlur, ...rest 
       {error ? <Text style={[styles.inputError, { color: theme.bad }]}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   checkboxRow: {
