@@ -1,10 +1,27 @@
 /**
- * AddRow.tsx — the ONE "add a row" affordance (design criteria 2, 3, 4).
+ * AddRow.tsx — ONE of the app's three "add a row" composers (design criteria 2, 3, 4).
+ *
+ * ⚠️ **This header used to open "the ONE add-a-row affordance". That is not true and has not
+ * been for some time** (corrected 2026-08-08). It replaced the *older* mix — the floating
+ * AddFAB, the AddDivider line+dot, dashed "new" cards — but two other composers grew up
+ * beside it, each with its own idea of which settings matter while you type:
+ *   - **`components/PadTypeRow.tsx` + `QuickAddOptionsPanel`** — a bordered field, always
+ *     open, over a wrapping grid of labelled option cells. Home's four cards, the Habits tab,
+ *     the To-do timeline. This is the newest of the three and the one with a real settings
+ *     hierarchy.
+ *   - **`components/InlineAddItem.tsx`** — collapsed bar → a whole panel (name + catalog
+ *     autocomplete + price + category chips + qty stepper + temporary toggle). Shopping and
+ *     inventory only.
+ *   - **this file** — collapsed `+ label` pill → input + Save/Delete, plus an `extras` slot
+ *     and a `panel` slot. Plans, Health, Goals, Food, Catalogue, Medicine.
+ * The good news is that the convergence point already exists: `panel` below takes the same
+ * `QuickAddOptionsPanel` node, with the same one-of-`extras`/`panel` contract, as
+ * `PadTypeRow`'s prop of the same name. What differs is the FIELD — `PadTypeRow`'s is drawn
+ * as a real bordered input, this one's is still hand-rolled. Converging them is tracked work,
+ * not done. Don't cite this file as the settled shape, and don't add a fourth composer.
  *
  * A two-state add control mounted at the bottom of (or within) whatever list/section it
- * feeds — so the add control stays visually connected to the thing it adds to (criterion 1)
- * and the app has a single add-a-row shape everywhere instead of the old mix (floating
- * AddFAB, AddDivider line+dot, dashed "new" cards).
+ * feeds — so the add control stays visually connected to the thing it adds to (criterion 1).
  *
  * Two states (2026-07-19, "make + intuitive"): it now COLLAPSES to a labelled "+ <placeholder>"
  * bar by default instead of sitting as a permanent empty input (which read as clutter / an
@@ -26,12 +43,16 @@
  * buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, components/PressableScale,
+ *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, …), lib/useAppTheme,
+ *             lib/screenColor, lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx, app/(tabs)/habits.tsx,
- *             app/automations.tsx, app/health-log.tsx,
- *             components/CatalogueTab.tsx
- *             (replaces AddDivider + the floating/inline AddFAB + dashed new-cards)
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx, app/goals.tsx,
+ *             components/GoalsSheet.tsx, components/CatalogueTab.tsx, components/FoodTab.tsx,
+ *             components/MedicineTrayCard.tsx
+ *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
+ *             and automations.tsx, none of which import this file: shopping uses
+ *             InlineAddItem, habits uses PadTypeRow, and app/automations.tsx still exists
+ *             but no longer draws an AddRow)
  *   Data    → none — presentational; fires onSubmit
  *
  * Edit notes:

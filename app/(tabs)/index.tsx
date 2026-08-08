@@ -355,10 +355,16 @@ export default function HomeScreen() {
   // Only a task has an in-app editor to open. Doses and health entries live on the Health
   // tab and a moment IS its own record, so those rows aren't pressable rather than
   // navigating somewhere that isn't about them.
+  //
+  // A task's editor is an expanded TaskCard on a saved row, not a route — app/task-form.tsx
+  // was retired 2026-07-23 (UX audit B1, one canonical task editor). This pushed the dead
+  // route until 2026-08-08 and simply went nowhere. It now uses the same
+  // `?tab=all&expandTaskId=…` handoff as handleAddTaskAndEdit below, which the All tab's
+  // `autoExpand={tk.id === expandTaskId}` consumes.
   const handlePressLogEntry = useCallback(
     (entry: DayEntry) => {
       if (entry.kind !== 'task' || !entry.sourceId) return;
-      router.push({ pathname: '/task-form', params: { id: entry.sourceId } });
+      router.push({ pathname: '/plans', params: { tab: 'all', expandTaskId: entry.sourceId } });
     },
     [router]
   );

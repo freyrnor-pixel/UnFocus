@@ -1,5 +1,30 @@
 # 10 — Boxed rows vs ruled rows
 
+> ## ⛔ SUPERSEDED — read this box before anything below it (2026-08-08)
+>
+> **The outcome recorded at the bottom of this file — "(a) was taken and still stands", rows
+> flush and ruled with no per-row border, fill or gap — is no longer what the app does.** The
+> maintainer's card-design reset later on 2026-08-05 went to **(b)**: the notepad rules were
+> deleted and every row became its own bordered box.
+>
+> What the code actually draws, `components/PadSheet.tsx:113-128`:
+>
+> ```ts
+> box = { borderWidth: 1.25, borderColor: computeBorderTone(hue, isDark, 'field'), borderRadius: 12 }
+> ```
+>
+> …one box per row in the screen's own hue at the FIELD rung, with a `Spacing.xs` (4px) gap
+> between rows — flush would butt two 1.25px borders into a 2.5px line heavier than the card's
+> own 1.5px edge, inverting the hierarchy. `PAD_SPARE_LINES` still exists but `spareLines` is
+> accepted and ignored; the spare ruled lines are gone.
+>
+> `DESIGN_RULES.md` rule 5 was **overrruled** in the same pass — borders are the grouping
+> signal now, dividers are not. Its open-conflict #8 records the rule-5 half as resolved.
+>
+> The §"If you pick (b) — what it really costs" section below is still worth reading as a map
+> of the blast radius, and its landmines all still apply. But do not read this file as a live
+> decision, and **do not "restore" ruled rows on its authority.**
+
 **Size:** L · **Blocked by:** nothing · **⚠️ The biggest fork in this folder**
 
 Read `00-INDEX.md` first if you haven't. **Read this whole file before writing code** — the two
@@ -153,6 +178,12 @@ If (b) or (d): update every touched header, both ends. Then commit, PR into `mai
 ---
 
 ## Outcome — (a), and one thing it does NOT cover (2026-08-05)
+
+> **⛔ This section is history, not current state.** It was overtaken by the card-design reset
+> later the same day, which went to (b). See the superseded box at the top of this file. Kept
+> verbatim because its closing paragraph — the **row vs. control** distinction — is still the
+> right way to think about the composer, and because the reasoning that made (a) look correct
+> for one day is worth not re-deriving.
 
 **(a) was taken and still stands.** List rows are flush and ruled on one `PadSheet`; there is
 no per-row border, fill or gap anywhere, and `PadSheet.tsx`'s header carries the note.
