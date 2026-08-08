@@ -133,11 +133,13 @@ const L = {
     // densest horizontal case added to the app since the task editor, and the same shape that
     // broke that editor at 327px.
     advancedTab: 'Advanced', designLab: 'Design lab',
-    // Its four tabs, plus the part editor's own way in and out. One scan covered the whole
-    // screen while it was one long list; since 2026-08-07 a tab this walk doesn't switch to
-    // is a tab it doesn't measure.
+    // The playground (empty, then with a card on it, then with a part's panel open), and the
+    // token knobs on their own pushed screen. A tab this walk doesn't switch to is a tab it
+    // doesn't measure — the same rule that made this five scans in the first place.
+    labAddCard: 'Add a card', labBlankCard: 'A blank card',
+    labShelfGroup: 'Controls', labAddSlider: 'Add a slider',
+    labTokensLink: 'Colours and shapes',
     labTabColor: 'Colour', labTabShape: 'Shape', labTabControls: 'Controls',
-    labPartSlotTitle: 'The title', labDone: 'Done',
   },
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
@@ -150,8 +152,10 @@ const L = {
     editGoals: 'Mål', goalsClose: 'Ferdig',
     logSymptom: 'Hva plager deg?',
     advancedTab: 'Avansert', designLab: 'Designlab',
+    labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
+    labShelfGroup: 'Kontroller', labAddSlider: 'Legg til en skyvebryter',
+    labTokensLink: 'Farger og former',
     labTabColor: 'Farge', labTabShape: 'Form', labTabControls: 'Kontroller',
-    labPartSlotTitle: 'Tittelen', labDone: 'Ferdig',
     addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
 }[LANG];
@@ -537,11 +541,13 @@ async function main() {
     // that ends this pass. Off by default, so the switch has to be thrown first; the card
     // title and the revealed link row share the same words, hence `.last()`.
     //
-    // **Each of its four tabs is scanned separately** (2026-08-07). One scan used to cover the
-    // whole screen because it was one long list; it is now Card / Colour / Shape / Controls,
-    // and a tab this walk doesn't switch to is a tab it doesn't measure. Card is the default,
-    // so it is what the first scan lands on. The part editor is scanned too — it is a sheet of
-    // label-plus-pill-cloud rows, the shape this audit exists to catch.
+    // **SIX scans** (2026-08-07, was five). The lab is two screens now: a playground you build
+    // on and the token knobs pushed off it. The playground is scanned three times — empty,
+    // with a card on it, and with a part's panel open — because those are three different
+    // surfaces, and the panel in particular is the densest label-plus-pill-cloud thing in the
+    // app now that it carries colour swatches, sizes, weights, positions, lines and widths.
+    // The knobs screen keeps its three tabs; a tab this walk doesn't switch to is a tab it
+    // doesn't measure.
     // Best-effort like the editors: a failure must not lose the findings already collected.
     try {
       await clickText(page, L.advancedTab);
@@ -549,23 +555,34 @@ async function main() {
       await page.getByRole('switch', { name: L.designLab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await page.getByText(L.designLab, { exact: true }).last().click({ timeout: 10000 });
-      await page.waitForTimeout(1400);
+      await page.waitForTimeout(1500);
+      await scan(page, 'design-lab-empty');
+
+      // An empty state's copy is its longest copy, so the empty screen is worth its own scan
+      // before anything is put on it.
+      await clickText(page, L.labAddCard);
+      await page.waitForTimeout(800);
+      await clickText(page, L.labBlankCard);
+      await page.waitForTimeout(1100);
       await scan(page, 'design-lab-card');
 
-      // The part editor, opened from the first part in the list. Closed again before the tab
-      // loop — a sheet's scrim swallows every click under it.
+      // The part panel, opened by adding a part from the shelf — a tap, since the drag cannot
+      // be driven here at all.
       try {
-        await page.getByText(L.labPartSlotTitle, { exact: true }).first().click({ timeout: 8000 });
-        await page.waitForTimeout(900);
-        await scan(page, 'design-lab-part-editor');
-        await clickText(page, L.labDone);
-        await page.waitForTimeout(700);
+        await page.getByRole('radio', { name: L.labShelfGroup, exact: true }).first().click({ timeout: 8000 });
+        await page.waitForTimeout(500);
+        await page.getByRole('button', { name: L.labAddSlider, exact: true }).first().click({ timeout: 8000 });
+        await page.waitForTimeout(1000);
+        await scan(page, 'design-lab-part-panel');
       } catch (e) {
-        console.error(`  (design-lab-part-editor step skipped: ${e.message.split('\n')[0]})`);
+        console.error(`  (design-lab-part-panel step skipped: ${e.message.split('\n')[0]})`);
       }
 
+      // The knobs, on their own screen. A push, so this is where the pass ends.
+      await page.getByRole('button', { name: L.labTokensLink, exact: true }).first().click({ timeout: 8000 });
+      await page.waitForTimeout(1300);
+      await scan(page, 'design-lab-colour');
       for (const [label, name] of [
-        [L.labTabColor, 'design-lab-colour'],
         [L.labTabShape, 'design-lab-shape'],
         [L.labTabControls, 'design-lab-controls'],
       ]) {

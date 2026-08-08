@@ -58,7 +58,7 @@ describe('snapToStep', () => {
     expect(snapToStep(0.38, 0, 3, 0.05)).toBe(0.4);
   });
 
-  // The reason this function exists at all: app/design-lab.tsx was rounding by hand because
+  // The reason this function exists at all: the design lab was rounding by hand because
   // 0.05 steps accumulate into `1.0500000000000003` and that lands in the exported document.
   test('carries no float noise into the result', () => {
     for (let i = 0; i <= 60; i++) {

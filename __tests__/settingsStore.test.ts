@@ -9,6 +9,7 @@
  */
 import db from '@/lib/db';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { EMPTY_OVERRIDES, EMPTY_PLAYGROUND, MIN_TAP_TARGET_FLOOR } from '@/lib/designLab';
 
 jest.mock('@/lib/db', () => ({
   __esModule: true,
@@ -106,5 +107,49 @@ describe('feature opt-ins', () => {
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain(column);
     expect(params).toContain(1);
+  });
+});
+
+/**
+ * The design lab's bag (2026-08-07).
+ *
+ * `setDesignLabDraft` exists because a full playground is a six-figure JSON string and the lab
+ * commits on every change: writing the column per keystroke would put a `JSON.stringify` and a
+ * SQLite write behind every character typed into a card's label. It updates memory only, and
+ * `lib/useDesignLab.ts`'s `useLabDraft` debounces a real `update()` behind it. Both halves of
+ * that split are asserted here, because a memory-only write that never gets flushed is a
+ * setting silently lost on restart.
+ */
+describe('the design lab bag', () => {
+  it('setDesignLabDraft updates memory and writes NOTHING to the column', () => {
+    (db.runSync as jest.Mock).mockClear();
+    const bag = { ...EMPTY_OVERRIDES, note: 'the edges are too loud' };
+    useSettingsStore.getState().setDesignLabDraft(bag);
+    expect(useSettingsStore.getState().designLab).toBe(bag);
+    expect((db.runSync as jest.Mock).mock.calls).toHaveLength(0);
+  });
+
+  it('update() is what actually reaches design_lab, as JSON', () => {
+    (db.runSync as jest.Mock).mockClear();
+    const bag = { ...EMPTY_OVERRIDES, shape: { radiusScale: 2 } };
+    useSettingsStore.getState().update({ designLab: bag });
+    expect(useSettingsStore.getState().designLab).toEqual(bag);
+    const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
+    expect(sql).toContain('design_lab');
+    expect(params).toContain(JSON.stringify(bag));
+  });
+
+  // The column is device-local and arrives from JSON a backup or a hand edit can mangle, so
+  // it goes through the sanitizer on the way in like every other stored bag.
+  it('sanitizes on load, so a mangled column cannot reach a render path', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({
+      id: 1,
+      design_lab: JSON.stringify({ shape: { minTapTarget: 2 }, colors: { light: { accent: 'not-a-hex' } } }),
+    });
+    useSettingsStore.getState().load();
+    const loaded = useSettingsStore.getState().designLab;
+    expect(loaded.shape.minTapTarget).toBe(MIN_TAP_TARGET_FLOOR);
+    expect(loaded.colors.light.accent).toBeUndefined();
+    expect(loaded.playground).toEqual(EMPTY_PLAYGROUND);
   });
 });

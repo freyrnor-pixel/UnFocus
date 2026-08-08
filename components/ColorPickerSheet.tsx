@@ -12,7 +12,8 @@
  *             constants/theme (hexToHsl/hslToHex + tokens), lib/colorPalette (the range),
  *             lib/designLab (isValidHex/normalizeHex — one definition of a usable colour),
  *             lib/haptics, lib/i18n, lib/useAppTheme
- *   Used by → app/design-lab.tsx (every colour row opens this)
+ *   Used by → app/design-lab/tokens.tsx (every colour row opens this),
+ *             components/PartControls.tsx (a part's own colour, behind "More…")
  *   Data    → none. Controlled: the caller owns the override and the write.
  *
  * Edit notes:

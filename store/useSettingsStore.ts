@@ -487,6 +487,17 @@ type SettingsStore = Settings & {
   workModeSessionOverride: boolean;
   load: () => void;
   update: (patch: Partial<Settings>) => void;
+  /**
+   * The design-lab bag, in MEMORY only — no SQLite write.
+   *
+   * `update()` writes the column on every call, and a full playground is a six-figure JSON
+   * string; committing it per keystroke would put that write behind every character typed
+   * into a card's label. The lab screen calls this on every change and debounces a real
+   * `update({ designLab })` behind it, so the preview is instant and the disk is not.
+   * **Nothing else should call this** — a value that only lives in memory is a value lost on
+   * restart, which is only acceptable because the lab flushes within the second.
+   */
+  setDesignLabDraft: (bag: LabOverrides) => void;
   setWorkModeSessionOverride: (v: boolean) => void;
   /** Record that a screen's first-run ⓘ hint has auto-expanded, so it won't again. */
   markScreenHintSeen: (key: string) => void;
@@ -813,6 +824,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
 
   setWorkModeSessionOverride(v) {
     set({ workModeSessionOverride: v });
+  },
+
+  setDesignLabDraft(bag) {
+    set({ designLab: bag });
   },
 
   markScreenHintSeen(key) {
