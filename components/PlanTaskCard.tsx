@@ -1781,7 +1781,9 @@ export default function PlanTaskCard({
 }
 
 const baseStyles = StyleSheet.create({
-  card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // No vertical margin (2026-08-08): the list that stacks these owns the gap
+  // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
+  card: { borderRadius: Radius.md },
   // Minimum height while NOT fully open — i.e. for both the closed and preview states, never
   // for open (maintainer's call, 2026-07-30). `expanded` is `state === 'open'`, so this is the
   // same gate the pre-pad card used, against the new three-state value. The two spare ruled

@@ -511,8 +511,9 @@ export default function MedicineTrayCard() {
 }
 
 const baseStyles = StyleSheet.create({
-  // Decision 043 rule 2: Spacing.xl above every section (matches health.tsx's cards).
-  card: { borderRadius: Radius.md, marginTop: Spacing.xl },
+  // No vertical margin (2026-08-08): the screen's content container owns the gap between
+  // stacked cards (`SCREEN_GAP`, constants/theme.ts). Was `marginTop: Spacing.xl`.
+  card: { borderRadius: Radius.md },
   cardContent: { flex: 1, padding: Spacing.md },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionLabel: { flex: 1, fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },

@@ -168,7 +168,7 @@ import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
@@ -853,7 +853,11 @@ export default function HomeScreen() {
 
 const baseStyles = StyleSheet.create({
   blank: { flex: 1 },
-  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md, gap: SCREEN_GAP },
   // Embedded first-run settings inside the ⓘ hint (notification opt-in).
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
   hintSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
@@ -870,7 +874,9 @@ const baseStyles = StyleSheet.create({
   // now Type.title for the refreshed hierarchy).
   greeting: { fontFamily: Type.title.fontFamily, fontSize: Type.title.size, lineHeight: Math.round(Type.title.size * Type.title.line) },
   dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
-  section: { marginTop: Spacing.xl },
+  // A plain grouping wrapper now — the screen's content container owns the gap between
+  // stacked cards (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
+  section: {},
   // The Energy strip is chrome, not a card, so it gets a card-gap's worth of space BELOW it
   // (the next section's own Spacing.xl) but only a hair above — the greeting's own
   // marginBottom (Spacing.sm) is already the separation it needs.

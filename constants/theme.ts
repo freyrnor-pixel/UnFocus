@@ -182,6 +182,28 @@ export const Spacing = {
   xxl: 48,
 };
 
+/**
+ * The ONE vertical gap between top-level cards on a screen (2026-08-08).
+ *
+ * **The screen's scroll content owns this gap; a card must not carry a vertical margin of
+ * its own.** That is the whole point of the token, and the reason it exists as a token
+ * rather than a `Spacing.md` at each call site.
+ *
+ * Before this, spacing between stacked cards was a property of the CHILD, and roughly half
+ * the children forgot to declare one. The measured result on the To-do tab was five
+ * different gaps down one column: 40px between the day card and the Whenever drawer
+ * (`PlanTaskCard`'s `marginBottom: Spacing.sm` plus `SectionCard`/`CollapsedSection`'s
+ * `marginTop: Spacing.xl`), then **0** between Whenever and each sub-screen link — the
+ * only visible separation there was the 8px key-base sliver `Surface` draws under a
+ * tappable card. Habits had the same split inside one card: `Spacing.md` between the
+ * heading, tips and suggestions, then 0 between the list, the composer and the Goals row.
+ *
+ * A card that needs to sit apart from its neighbours says so by being in a different
+ * GROUP (its own Surface with rows inside), never by growing a margin — see
+ * components/SubScreenLinkButton.tsx, which folded two floating link cards into one.
+ */
+export const SCREEN_GAP = Spacing.md;
+
 export const Radius = {
   sm: 12,
   // md nudged 18 → 16 (2026-07-18 "colored glass"): a calmer, less bubbly card corner so

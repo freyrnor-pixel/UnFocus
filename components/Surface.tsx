@@ -21,9 +21,11 @@
  *             lib/useDesignLab (useLabShape — the design lab's geometry, see Edit notes),
  *             components/PressableScale, expo-linear-gradient
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
- *             (the key-press path): components/OpenEpisodeCard, components/SubScreenLinkButton,
- *             app/health-log, app/health-detail, app/scan. Shopping's Food/Catalogue links
- *             inherit it through SubScreenLinkButton.
+ *             (the key-press path): components/OpenEpisodeCard, app/health-log,
+ *             app/health-detail, app/scan. **components/SubScreenLinkButton left this list on
+ *             2026-08-08**: it is a card of tappable ROWS now, not one tappable card, so the
+ *             press lives on each row's PressableScale. Shopping's Food/Catalogue links draw
+ *             their own `<Surface>` inside a PressableScale and never used this path either.
  *   Data    → reads `reducedMotion` via useAccessibility(); the ambient screen hue via
  *             useScreenColor() (provided by components/ScreenScaffold.tsx)
  *

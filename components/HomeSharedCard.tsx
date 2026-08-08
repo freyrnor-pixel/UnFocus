@@ -127,7 +127,9 @@ export default function HomeSharedCard() {
 }
 
 const baseStyles = StyleSheet.create({
-  card: { borderRadius: Radius.md, marginBottom: Spacing.sm },
+  // No vertical margin (2026-08-08): the list that stacks these owns the gap
+  // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
+  card: { borderRadius: Radius.md },
   cardRow: { flexDirection: 'row' },
   accent: { width: 4, alignSelf: 'stretch', borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   // Tighter top padding (Spacing.sm) so the header sits high on the card, matching the other

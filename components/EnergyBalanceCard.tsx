@@ -145,7 +145,9 @@ export default function EnergyBalanceCard({ date }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.sm },
+  // No vertical margin (2026-08-08): the screen's content container owns the gap between
+  // stacked cards (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
+  card: { padding: Spacing.md, gap: Spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexShrink: 1 },
   title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },

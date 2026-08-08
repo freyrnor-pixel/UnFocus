@@ -38,10 +38,13 @@
  *             no chosen icon), components/StageTree (2026-08-04 — the ambient `full`-stage
  *             corner watermark at the foot of the list; no longer shares a "one tree per
  *             screen" rule with anything since 2026-08-06 v2 — see below),
- *             components/PressableScale (also draws the "Edit Goals" row directly, as of
- *             2026-08-06 — see below; the suggested-habits collapse/expand control lives in
- *             components/StarterCard now, not here; components/SubScreenLinkButton is no
- *             longer used on this screen), components/GoalsSheet (2026-07-31, the popup that
+ *             components/PressableScale (the suggested-habits collapse/expand control lives in
+ *             components/StarterCard now, not here),
+ *             components/SubScreenLinkButton (its named `SubScreenLinkRow` export — the "Edit
+ *             Goals" row; this screen hand-rolled that row until 2026-08-08, when the row was
+ *             promoted into the shared component so To-do's identical link could stop being a
+ *             card and become the same control — see that file's header),
+ *             components/GoalsSheet (2026-07-31, the popup that
  *             link opens — also
  *             where a habit's linked goal shows its living-glow dot as of 2026-08-06, not on
  *             this screen's own rows any more), components/DebugNoteAnchor,
@@ -89,10 +92,12 @@
  *     1. **Sub-header now actually reads as one.** It was small, muted, medium-weight text —
  *        visually identical to any other line of body copy. Now bold + full-contrast
  *        (`theme.text`) with its own breathing room.
- *     2. **"Edit Goals" is a plain row inside this card, not components/SubScreenLinkButton.**
- *        That component draws its own bordered `<Surface>`, so moving its JSX around in the
- *        first pass never stopped it looking like a second small card below the Habits card —
- *        the fix had to be the SHAPE, not the position. See the "Edit Goals row" note below.
+ *     2. **"Edit Goals" is a plain row inside this card, not a bordered card of its own.**
+ *        components/SubScreenLinkButton drew its own `<Surface>` back then, so moving its JSX
+ *        around in the first pass never stopped it looking like a second small card below the
+ *        Habits card — the fix had to be the SHAPE, not the position. (2026-08-08: that shape
+ *        IS the component now — `SubScreenLinkRow` — and this screen mounts it rather than
+ *        keeping a private copy.) See the "Edit Goals row" note below.
  *     3. **The idle "Type habit" line no longer shows a ghost check ring** (`noGhostCheck` on
  *        PadTypeRow) — every habit row ends in a −/+ pair, never a check, so the ring used to
  *        preview a control that could never appear. The field widens into the freed space for
@@ -133,17 +138,23 @@
  *   - **Edit Goals row (2026-07-29, moved + renamed + popup 2026-07-31; INLINED 2026-08-06)**:
  *     sits at the BOTTOM of the Habits card's own content, below the habit list and quick-add
  *     — moved off its original spot right under HintCard so it stops outranking the day's
- *     habits on every visit. **It is a plain row now, not components/SubScreenLinkButton** —
- *     that component draws its own bordered `<Surface>`, so it always read as a second small
+ *     habits on every visit. **It is a plain row, not a card** — components/SubScreenLinkButton
+ *     drew its own bordered `<Surface>` in 2026-08-06, so it always read as a second small
  *     card floating below the Habits card no matter where its JSX sat; a user report ("still
  *     looks the same" after this file's first redesign pass moved the JSX but not the
- *     component) is what caught that the fix had to be the shape, not the position. Gated on
+ *     component) is what caught that the fix had to be the shape, not the position. **Since
+ *     2026-08-08 the row is that component's `SubScreenLinkRow` export rather than a copy of
+ *     it here** — the same pass gave To-do's version the same shape, so the two screens now
+ *     draw one control instead of two lookalikes that had drifted apart (To-do's had a
+ *     gradient badge and no chevron). Gated on
  *     `featureGoals` — one of Goals' two entry points now that it no longer has its own Home
  *     card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as a popup (was
  *     `router.push('/goals')`) so editing goals doesn't leave this tab; the `/goals` route
  *     itself is unchanged and still reachable directly (deep links, notes' "Send it to…").
- *     app/(tabs)/plans.tsx's identical link is UNCHANGED (still SubScreenLinkButton) — this
- *     inlining was scoped to Habits only; if Plans gets the same feedback, mirror it there too.
+ *     app/(tabs)/plans.tsx's identical link WAS left as a card by this pass ("scoped to Habits
+ *     only; if Plans gets the same feedback, mirror it there too") — and it got exactly that
+ *     feedback, so 2026-08-08 mirrored it: Plans wraps two `SubScreenLinkRow`s in one
+ *     `SubScreenLinkCard` instead of two floating link cards.
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
@@ -192,6 +203,7 @@ import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
+import { SubScreenLinkRow } from '@/components/SubScreenLinkButton';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
@@ -224,7 +236,7 @@ import { todayStr, getWeekDates } from '@/lib/date';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
-import { BORDER_WIDTH, computeBorderTone, contrastOn, FontSize, PAD_GUTTER, Radius, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
@@ -864,7 +876,12 @@ export default function HabitsScreen() {
                 </StarterCard>
               )}
 
-              {/* Person filter (People/family mode) — Me + each profile. Management is in Settings. */}
+              {/* Person filter (People/family mode) — Me + each profile. Management is in
+                  Settings. Mounted only when there IS somebody to filter by (2026-08-08): a
+                  closed `Collapsible` stays mounted at zero height, so as a child of this
+                  card's `gap: Spacing.md` it booked 16px of blank card on every install that
+                  isn't in People mode — i.e. almost all of them. */}
+              {showHabitProfiles && (
               <Collapsible open={showHabitProfiles}>
                 <ScrollView
                   horizontal
@@ -886,6 +903,7 @@ export default function HabitsScreen() {
                   })}
                 </ScrollView>
               </Collapsible>
+              )}
 
               {/* Today's list — the ONLY view now (2026-08-06, "remove the tab-slider"). A
                   habit is set up once with a recurrence and an optional reminder time;
@@ -893,7 +911,12 @@ export default function HabitsScreen() {
                   habit, so the Today/Week/Month SlideSelector and the WeekView/MonthView grids
                   it switched to are gone — see the file header's dated note and
                   store/useSettingsStore.ts's "Inert columns" entry for `habitViewTab`. */}
-              <View>
+              {/* The bottom half of the card — list, composer, Goals row. It had NO gap at
+                  all (2026-08-08), while the card's own children above it stacked at
+                  Spacing.md, so the same card breathed at the top and was flush at the
+                  bottom: the empty-state box, the "Write habit" line and the Goals row all
+                  touched. It matches the card's rhythm now. */}
+              <View style={styles.habitsCardBody}>
                 {/* "X / Y done" tally removed (debug-note 2026-07-21): a score reintroduces
                     the shame/reward framing the app deliberately avoids. */}
                 <View style={styles.section}>
@@ -903,9 +926,14 @@ export default function HabitsScreen() {
                     // — this is just the quiet one-liner now, for BOTH "no habits at all" and
                     // "habits exist but none occur today". Neutral edge (theme.border, not the
                     // habit domain hue) — "nothing here yet", not a coded surface.
-                    <Surface style={styles.sectionCard}>
-                      <Text style={[styles.dashedAddText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
-                    </Surface>
+                    // A quiet inset line, not a <Surface> (2026-08-08). This drew a full card
+                    // inside the Habits card — same white fill, same border rung, same radius —
+                    // so one sentence of muted text occupied a box that read as heavy as the
+                    // list it stood in for. This is the shape app/(tabs)/plans.tsx has used for
+                    // an empty section all along (`sectionEmpty`).
+                    <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                      {t.noHabitsYet}
+                    </Text>
                   ) : (
                     draggedHabits.map((h, hi) => (
                       <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
@@ -983,16 +1011,11 @@ export default function HabitsScreen() {
                     it opens), same "occasional edit action" reasoning for sitting at the
                     bottom of the card rather than competing with the day's habits at the top. */}
                 {featureGoals && (
-                  <PressableScale
-                    onPress={() => { tap(); setGoalsSheetOpen(true); }}
-                    style={styles.goalsLinkRow}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.goals.editLink}
-                  >
-                    <Ionicons name="flag" size={16} color={screenHue} />
-                    <Text style={[styles.goalsLinkText, { color: theme.text }]}>{t.goals.editLink}</Text>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                  </PressableScale>
+                  <SubScreenLinkRow
+                    icon="flag"
+                    label={t.goals.editLink}
+                    onPress={() => setGoalsSheetOpen(true)}
+                  />
                 )}
               </View>
             </Surface>
@@ -1034,7 +1057,11 @@ export default function HabitsScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md },
+  // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
+  // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
+  // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
+  // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
+  content: { padding: Spacing.md, gap: SCREEN_GAP },
 
   // The bottom spacer this screen has always ended on, kept as its own style so the ambient
   // tree below can be swapped in for it without the two disagreeing about how much room the
@@ -1075,17 +1102,10 @@ const baseStyles = StyleSheet.create({
     paddingBottom: PAD_GUTTER,
     gap: Spacing.md,
   },
-  cardSubtitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, marginBottom: Spacing.xs },
-  // Edit Goals row (2026-08-06) — a plain row, deliberately with NO border/background/shadow
-  // of its own, so it reads as part of the Habits card rather than a nested card. See the
-  // header's "Edit Goals row" edit note for why this replaced components/SubScreenLinkButton.
-  goalsLinkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
-  },
-  goalsLinkText: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // No `marginBottom` (2026-08-08): the card's own `gap: Spacing.md` already separates this
+  // from the tips line, and the extra Spacing.xs made the heading→tips gap 20px on a card
+  // where every other gap was 16.
+  cardSubtitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,
@@ -1098,10 +1118,20 @@ const baseStyles = StyleSheet.create({
   },
   profileChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   section: { gap: Spacing.sm },
-  sectionCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
-  // Inline habit quick-add row card (mirrors Plans' addRowCard).
-
-  dashedAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  // The card's bottom half stacks at the card's own rhythm — see the render-side note.
+  habitsCardBody: { gap: Spacing.md },
+  // Empty section line — the same quiet treatment app/(tabs)/plans.tsx uses (`sectionEmpty`),
+  // deliberately NOT a Surface. Border defaults to transparent and is overridden at the call
+  // site, matching Plans exactly so an empty list looks the same on both screens.
+  sectionEmpty: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.medium,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
 
   // Tips line (2026-08-06 v2) — plain text under the sub-header, not boxed.
   tipsRow: { flexDirection: 'row', gap: Spacing.xs },

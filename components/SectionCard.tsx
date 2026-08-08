@@ -90,10 +90,13 @@ export default function SectionCard({ hue, domain, icon, label, count, right, st
 }
 
 const styles = StyleSheet.create({
-  // Decision 043 rule 2: Spacing.xl above every section. Padding is routed to the inner
-  // content view by Surface, so the header pill + rows sit inset from the card edge.
+  // **No vertical margin (2026-08-08).** This carried `marginTop: Spacing.xl` (Decision 043
+  // rule 2) until the spacing pass — the screen's content container owns the gap between
+  // stacked cards now (`SCREEN_GAP`, constants/theme.ts). A card declaring its own margin is
+  // what produced five different gaps down one column: a card that remembered got 32px, the
+  // ones that forgot (the sub-screen links) got 0. Padding is routed to the inner content
+  // view by Surface, so the header pill + rows sit inset from the card edge.
   card: {
-    marginTop: Spacing.xl,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.md,
