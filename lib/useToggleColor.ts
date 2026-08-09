@@ -5,7 +5,7 @@
  *
  * Returns a Reanimated animated style you spread onto an Animated.View. Only colours that
  * don't affect layout are animated (backgroundColor / borderColor); the icon or text colour
- * is left to swap instantly on top of the fading fill — the same convention SlideSelector
+ * is left to swap instantly on top of the fading fill — the same convention SegmentedControl
  * uses (the eye tracks the moving/fading surface, not the label). No animated icon needed.
  *
  * Connections:

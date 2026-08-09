@@ -18,7 +18,7 @@
  *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/screenColor,
  *             components/Surface, components/PressableScale, components/AddRow,
- *             components/Badge (difficulty pill), components/SlideSelector (difficulty picker),
+ *             components/Badge (difficulty pill), components/FormControls (SegmentedControl — difficulty picker),
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
  *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
@@ -70,7 +70,7 @@
  *     can play the new-row entrance/highlight on the Weekly tab's Unallocated card and
  *     pulse the Weekly tab label — the push itself never navigates the user there.
  *   - Difficulty (easy/normal): shown as a `Badge` on the collapsed dish row, set via a
- *     compact `SlideSelector` in the new-dish modal (defaults to 'normal'). Duplicating a
+ *     compact `SegmentedControl` in the new-dish modal (defaults to 'normal'). Duplicating a
  *     dish (copy button in the expanded body, next to delete) calls useMealStore's
  *     duplicateDish — the copy keeps the same difficulty/ingredients and gets a localized
  *     "(copy)" name suffix so users can create edited variants without losing the original.
@@ -83,10 +83,10 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { Badge } from '@/components/Badge';
-import SlideSelector from '@/components/SlideSelector';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import Stepper from '@/components/Stepper';
+import { SegmentedControl } from '@/components/FormControls';
 import { useMealStore, MealType, Difficulty, Dish, Ingredient, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -647,7 +647,7 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
 
               <View style={styles.difficultyPicker}>
                 <Text style={[styles.difficultyLabel, { color: theme.textMuted }]}>{t.dishDifficultyPickerLabel}</Text>
-                <SlideSelector
+                <SegmentedControl
                   compact
                   options={[
                     { value: 'easy' as Difficulty, label: t.mealDifficulty.easy },

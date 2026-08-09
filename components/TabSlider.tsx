@@ -1,11 +1,30 @@
 /**
- * TabSlider.tsx — in-screen tab bar styled like the Day/Week/Month slider
- * (`components/SlideSelector.tsx`): a single accent pill SLIDES to sit behind
+ * TabSlider.tsx — in-screen tab bar: a single accent pill SLIDES to sit behind
  * whichever tab is active, instead of each tab carrying its own independent
  * highlight box (the old `components/TabBoxHighlight.tsx` pattern, retired
  * 2026-07-23 in favour of this).
  *
- * Unlike SlideSelector (fixed N equal-width options, a pure value picker),
+ * **THE TWO-TIER RULE FOR PICK-ONE CONTROLS (2026-08-09) — read before adding a third.**
+ * The app has exactly two, and the tier is carried by the ACTIVE TREATMENT, not by the
+ * corner radius:
+ *
+ *   - **Screen tier — this file.** An accent-FILLED sliding pill (`theme.accent` +
+ *     `theme.accentInk`). At most one per screen: Today/This week/All tasks, Weekly/Monthly,
+ *     Settings' three category tabs. It switches what the whole screen is showing.
+ *   - **Form tier — `FormControls`' `SegmentedControl`.** A raised white sliding pill
+ *     (`theme.surface` + `theme.text`). Everything nested inside a card, form or editor —
+ *     a property of the thing being edited, not of the screen.
+ *
+ * There used to be a third, `components/SlideSelector.tsx`, deleted in this pass. It was a
+ * form-tier control wearing the screen tier's accent fill, so "how often does this repeat"
+ * rendered two different ways depending on whether you asked a habit (SegmentedControl) or a
+ * task (SlideSelector). Its own header encoded the tier in the RADIUS instead (main → boxed,
+ * sub → pill), which is a weaker signal than the fill and had already been flipped once. The
+ * reason the fill is the right channel: accent is meant to be scarce (DESIGN_RULES.md rule
+ * 15, one focal point per screen) — a task editor was rendering up to five saturated accent
+ * pills competing with the screen's one primary action.
+ *
+ * Unlike `SegmentedControl` (equal-width segments, a pure value picker),
  * this is meant for navigation tab bars: options can carry a per-tab accent
  * colour and an arbitrary `accessory` node (a count badge, a cue dot). Every
  * segment sizes itself to its own label (flexGrow/flexShrink, no fixed/equal
@@ -41,17 +60,13 @@
  *     automatically to any label/language change, with nothing per-caller to keep in sync.
  *   - `radius`: defaults to Radius.sm (boxed chip look, every caller — Plans/Shopping
  *     included). Settings passes Radius.md instead — purely a visual choice per caller,
- *     doesn't change layout/sizing. This component is ALWAYS a MAIN-level screen view
- *     switcher (that's its whole purpose — see the class doc above), so it always defaults
- *     boxed. `components/SlideSelector.tsx` has the identical `radius` prop but its own
- *     default is the OPPOSITE (Radius.full/pill) because most of its callers are SUB-level
- *     option pickers nested in a form (TaskCard, FoodTab) — see that file's "radius" edit
- *     note for the main/sub rule and why its one MAIN-tier caller (Habits' Today/Week/Month)
- *     explicitly overrides back to boxed instead. The StyleSheet's `wrap`/`pill`/`segment`
+ *     doesn't change layout/sizing. **Radius no longer encodes tier** — the fill does (see
+ *     the two-tier rule above). Don't reintroduce a pill/boxed convention on top of it.
+ *     The StyleSheet's `wrap`/`pill`/`segment`
  *     carry no `borderRadius` of their own because the inline `radius` prop always overrides
  *     it — adding one there is a no-op.
  *   - The pill is the FIRST child of the row so it paints below the segment labels (paint
- *     order = document order) — same convention as SlideSelector.
+ *     order = document order) — same convention as `FormControls`' `SegmentedControl`.
  *   - **Pill vertical inset (fixed 2026-07-24)**: `onLayout` measures the INNER `row`, NOT
  *     the outer `wrap`. `wrap` has `borderWidth: 1`, so measuring it made trackH include
  *     the 2px border; pillH = trackH - TRACK_PAD*2 then left the pill ~3px from the top but
@@ -60,7 +75,7 @@
  *     pillH = rowHeight - TRACK_PAD*2 with `top: TRACK_PAD` yields EQUAL TRACK_PAD gaps top
  *     and bottom. Horizontal is unaffected — segments are still measured relative to `row`
  *     (their own `onLayout`), and the pill's `left`/translateX use those same row-relative x.
- *   - Same haptic contract as SlideSelector: PressableScale's own `tap()` fires on every
+ *   - Same haptic contract as `SegmentedControl`: PressableScale's own `tap()` fires on every
  *     press, plus an extra `selection()` when the value actually changes.
  *   - `options[].accessory` is a plain ReactNode the caller builds per-render (e.g. a
  *     count badge or an animated cue) — it doesn't know about `active` state itself, so

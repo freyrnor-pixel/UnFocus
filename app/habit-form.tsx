@@ -46,8 +46,10 @@
  *     making a habit and making a task end identically. The header keeps a save button but
  *     it reads "✓ Save" — a bare checkmark didn't say what it did.
  *
- * **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates every
- * field block (matching app/settings.tsx's in-card divider convention), and For/Energy/Goal/
+ * **Field dividers are GONE (2026-08-09); Opt tags stay.** Hairline `FieldDivider`s used to
+ * separate every field block; the component is deleted app-wide and `styles.content`'s
+ * `gap: Spacing.lg` does the separating, per the 2026-08-05 card reset's "separate with
+ * boundaries, not with lines between things". For/Energy/Goal/
  * the whole "More options" disclosure (How often, Daily goal, Icon, Category — all four
  * already sensible-default fields per the field-order note above) carry
  * `OptionalTag`/`Input`'s `optional` prop — only Title actually blocks save().
@@ -61,7 +63,7 @@
  *             components/Collapsible (animated "More options" disclosure),
  *             components/HintCard, components/HabitIcon,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
- *             settings.featureGoals), components/FieldDivider, components/OptionalTag,
+ *             settings.featureGoals), components/OptionalTag,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
  *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
  *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
@@ -150,7 +152,6 @@ import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
-import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
 import { AspectRatio, FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
@@ -417,7 +418,6 @@ export default function HabitForm() {
             in store/usePeopleStore.ts. */}
         {peopleModeEnabled && people.length > 1 && (
           <>
-          <FieldDivider />
           <View style={styles.field}>
             <View style={styles.labelRow}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.habitForLabel}</Text>
@@ -442,7 +442,6 @@ export default function HabitForm() {
           </>
         )}
 
-        <FieldDivider />
 
         {/* ── Reminder (moved below the schedule, 2026-07-26): you decide WHEN the habit
                happens before you decide whether to be nudged about it. ── */}
@@ -560,7 +559,6 @@ export default function HabitForm() {
           </View>
         )}
 
-        <FieldDivider />
 
         {/* Energy give / take — one signed stepper (2026-07-26): the old "Affects energy"
             switch + separate value stepper were two controls for one number, and 0 already
@@ -583,12 +581,10 @@ export default function HabitForm() {
             Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
         {featureGoals && (
           <>
-            <FieldDivider />
             <GoalPicker value={goalId} onChange={setGoalId} />
           </>
         )}
 
-        <FieldDivider />
 
         {/* More options disclosure — icon/category only now; both are cosmetic/organizational,
             not load-bearing, so they stay tucked away by default. The schedule (How often/
@@ -669,7 +665,6 @@ export default function HabitForm() {
           )}
         </View>
 
-        <FieldDivider />
 
         {/* Daily/weekly goal stepper — shown by default alongside Recurrence, same reasoning.
             Reuses the same `dailyGoal` field as a per-week target when recurrence is
@@ -681,7 +676,6 @@ export default function HabitForm() {
           <Stepper value={dailyGoal} onChange={setDailyGoal} min={1} max={20} accessibilityLabel={t.habitDailyGoal} />
         </View>
 
-        <FieldDivider />
 
             {/* Icon picker */}
             <View style={styles.field}>
@@ -712,7 +706,6 @@ export default function HabitForm() {
               </ScrollView>
             </View>
 
-            <FieldDivider />
 
             {/* Category */}
             <View style={styles.field}>

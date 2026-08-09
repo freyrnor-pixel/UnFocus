@@ -110,8 +110,7 @@
  *     date, shared by every list).
  *   - **Tab bar (updated 2026-07-25, never scrollable)**: the 3-tab bar is
  *     `components/TabSlider.tsx` — a single accent pill SLIDES to sit behind whichever
- *     category tab is active (same motion as the Day/Week/Month `SlideSelector`), replacing
- *     the old per-tab `TabBoxHighlight` boxes. TabSlider has no scroll mode at all (by design
+ *     category tab is active, replacing the old per-tab `TabBoxHighlight` boxes. TabSlider has no scroll mode at all (by design
  *     — see its own header), so all three tabs must fit in one row: keep `config.tabs.*`
  *     labels to single short words in BOTH languages ("Personal"/"Personlig",
  *     "Advanced"/"Avansert") so they never need to scroll. Each segment always sizes to its own label
@@ -195,11 +194,13 @@
  *     whitelist. Only the framing changed — Rewards mode is a real choice ("finishing
  *     something fills its check, and that is the whole of it"), NOT "Energy turned off", so
  *     it must never be drawn as the un-set side of a switch. `SegmentedControl` from
- *     components/FormControls.tsx is the right tier here (INTERACTION_HANDOFF §1's "which
- *     segmented control": form field → FormControls, inline picker inside a card →
- *     SlideSelector, screen-level view switcher → TabSlider). app/onboarding/energy.tsx
- *     (deleted 2026-08-03) used to render the same two modes one tier down;
- *     offers the same two modes one tier down, as a SlideSelector inside its card.
+ *     components/FormControls.tsx is the right tier here. **The tier rule is now TWO rungs,
+ *     not three (2026-08-09)**: anything inside a card/form/editor → `SegmentedControl`
+ *     (raised pill); a screen-level view switcher → `TabSlider` (accent pill). The third
+ *     rung, `SlideSelector`, is deleted — it was a second form-tier control wearing the
+ *     screen tier's accent fill. (This bullet also used to claim app/onboarding/energy.tsx
+ *     rendered the same two modes as a SlideSelector "one tier down". It never did, and that
+ *     screen stopped offering the choice at all in B1-2 — see app/onboarding/energy.tsx.)
  *   - **Feature toggles live in ONE place (2026-07-25)**: `FEATURE_ROWS` below is the whole
  *     list of plain on/off switches — currently Goals, Sharing & QR, Automations, Medicine,
  *     and Growth (showGrowth over the `show_points` column — see lib/growth.ts).

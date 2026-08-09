@@ -26,6 +26,12 @@
  *             useMonthlyListStore.add()
  *
  * Edit notes:
+ *   - **Secondary weight, accent-tinted (2026-08-09)**: the collapsed trigger was the only
+ *     neutral-white add on the Shopping tab while "Add item" and "Add dish" were both
+ *     accent-tinted, which read as a difference in kind rather than in what gets created. It
+ *     now matches them. The screen's single primary is `InlineAddItem`'s solid bar — see
+ *     app/(tabs)/shopping.tsx's "One primary, everything else secondary" header note, and
+ *     keep this file and that file's `newListTrigger` identical; they are twins on purpose.
  *   - The collapsed "+" tile and the expanded name-entry panel are very different heights, so
  *     every expand/collapse wraps the state change in `LayoutAnimation.configureNext` (gated on
  *     `!reducedMotion`, same idiom as InlineAddItem.tsx/HomeCardManager/MonthlyResetReviewSheet)
@@ -86,7 +92,12 @@ export default function NewMonthlyListRow({ onCreate }: Props) {
     // changed — it just reads now.
     return (
       <PressableScale
-        style={[styles.addBar, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        // SECONDARY — accent-tinted, matching "Add dish" and (before 2026-08-09) the item
+        // composer. It used to be the one neutral-white trigger on a screen whose other two
+        // adds were accent-tinted, which read as a difference in KIND when it is only a
+        // difference in what gets created. The screen's single primary is InlineAddItem's
+        // solid bar; everything else on it is this weight.
+        style={[styles.addBar, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
         onPress={() => {
           if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           setExpanded(true);

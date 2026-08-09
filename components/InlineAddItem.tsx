@@ -31,6 +31,15 @@
  *             each suggestion's own `category` for one-tap auto-fill.
  *
  * Edit notes:
+ *   - **The collapsed bar is a PRIMARY action (2026-08-09)** — a solid `fill` with
+ *     `contrastOn(fill)` ink and a `filledEdge` border, not the `accentSoft` tint it wore
+ *     before. It is the one dominant action on every screen that mounts it (Shopping's two
+ *     tabs, inventory), which is `DESIGN_RULES.md` rule 6; Shopping in particular had four
+ *     equally-weighted outlined adds and no primary at all. Geometry is deliberately
+ *     unchanged rather than swapped for `components/Button.tsx` — Button is `Radius.full`,
+ *     and a full-width stadium beside the rounded-rect composer panel would add a third
+ *     shape to fix a weight problem. The ink is derived, not hardcoded, because
+ *     `components/WeekListCard.tsx` passes `accent={theme.good}`.
  *   - **This is the third of the app's three row composers, and the one that does NOT tier its
  *     settings** (noted 2026-08-08). `PadTypeRow` and `AddRow` split theirs into tier 1 (the
  *     line — committing there always makes a valid row), tier 2 (a `panel`/`extras` slot shown
@@ -76,6 +85,7 @@ import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import {
   contrastOn,
+  filledEdge,
   Fonts,
   FontSize,
   Radius,
@@ -84,7 +94,7 @@ import {
   MIN_TAP_TARGET,
   HitSlop,
 } from '@/constants/theme';
-import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { confirm as hapticConfirm } from '@/lib/haptics';
@@ -132,6 +142,7 @@ export default function InlineAddItem({
   prefill,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -205,7 +216,20 @@ export default function InlineAddItem({
   if (!expanded) {
     return (
       <PressableScale
-        style={[styles.addBar, { borderColor: fill, backgroundColor: theme.accentSoft }, style]}
+        // PRIMARY, and the only one on its screen (2026-08-09). This bar used to be
+        // `accentSoft` + an accent outline — the same treatment as "Add dish" beside it and
+        // near enough to "New list" below it that the Shopping tab had three or four
+        // equally-weighted outlined controls and no obviously-dominant action at all
+        // (DESIGN_RULES.md rule 6). Adding an item is what that screen is FOR, so it takes
+        // the solid accent fill and everything else stays the tinted secondary. Geometry is
+        // unchanged on purpose: `components/Button.tsx` is `Radius.full`, and a full-width
+        // stadium next to the rounded-rect composer would introduce a third shape to fix a
+        // weight problem. `filledEdge` is the same helper Button's filled variants use, so a
+        // primary edge is derived one way app-wide. The ink goes through `contrastOn(fill)`
+        // rather than `theme.accentInk`, because `fill` is the caller's `accent` prop and
+        // WeekListCard passes `theme.good` (green) — a hardcoded white ink would be a
+        // contrast bug on exactly one screen, found later and by eye.
+        style={[styles.addBar, { borderColor: filledEdge(fill, isDark), backgroundColor: fill }, style]}
         onPress={() => {
           if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
           setExpanded(true);
@@ -214,8 +238,8 @@ export default function InlineAddItem({
         accessibilityLabel={label}
         scaleTo={0.97}
       >
-        <Ionicons name="add-circle-outline" size={18} color={fill} />
-        <Text style={[styles.addBarLabel, { color: fill }]} numberOfLines={1}>
+        <Ionicons name="add-circle-outline" size={18} color={contrastOn(fill)} />
+        <Text style={[styles.addBarLabel, { color: contrastOn(fill) }]} numberOfLines={1}>
           {label}
         </Text>
       </PressableScale>

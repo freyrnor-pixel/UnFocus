@@ -13,7 +13,10 @@
  *             react-native-reanimated
  *   Used by → any screen wanting a themed checkbox/switch/segmented-control/input. Switch
  *             callers include components/PlanTaskCard.tsx (2026-08-04 — the quick-add
- *             "add as task/moment" row, task 15's boolean-is-a-slider rule)
+ *             "add as task/moment" row, task 15's boolean-is-a-slider rule). SegmentedControl
+ *             callers gained components/TaskCard.tsx (×6 — card type, task repeat, day picker,
+ *             week interval, monthly mode, ordinal) and components/FoodTab.tsx (difficulty)
+ *             on 2026-08-09, when SlideSelector was folded into this one.
  *   Data    → none (purely presentational, controlled components)
  *
  * Edit notes:
@@ -23,12 +26,23 @@
  *     see app/health-form.tsx/app/medicine-form.tsx for callers. Only meaningful when `label`
  *     is also set.
  *   - SegmentedControl options/labels must already be localized by the caller.
+ *   - **SegmentedControl is the app's ONE form-tier pick-one control (2026-08-09).**
+ *     `components/SlideSelector.tsx` was a second one wearing the SCREEN tier's accent fill,
+ *     so "how often does this repeat" rendered two different ways depending on whether you
+ *     asked a habit (here) or a task (there). It's deleted; the full two-tier rule — form tier
+ *     = this raised pill, screen tier = TabSlider's accent pill — lives in TabSlider's header.
+ *     Three things came across with its 7 call sites: **generics** (`<T extends string |
+ *     number>`, so a caller can pick over numbers), **`compact`** (32px segments for a picker
+ *     nested inside another field group) and **`disabled`**. Deliberately NOT ported: its
+ *     `radius` prop and its inter-segment gap. Radius no longer encodes tier, and the pill
+ *     maths here (`segW = (trackW - SEG_PAD*2)/n`) has no gap term — adding one means
+ *     re-deriving it, not adding a style key.
  *   - Input border is `border` normally, `borderStrong` while focused (or `bad` on error,
  *     regardless of focus); active segment background is `surface` — a raised surface,
  *     not on-colour text. That raised surface is a single sliding pill (Reanimated
  *     translateX, ~150ms ease-out; snaps under reducedMotion) that moves between segments
  *     rather than a per-segment background hard-swap, and fires a `selection()` haptic on
- *     change (same motion contract as components/SlideSelector.tsx).
+ *     change (the app's one form-tier pick-one control since 2026-08-09 — see TabSlider's two-tier rule).
  *   - **Bordered track (2026-07-21)**: `segmentWrap` got a `theme.border` outline to match
  *     the "raised keycap" border convention IconButton/chips use elsewhere — it previously
  *     had no border at all, reading as visually flatter/plainer than the rest of the app.
@@ -219,31 +233,60 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
 
 // ── SegmentedControl ─────────────────────────────────────────────────────────
 
-type SegmentedOption = { value: string; label: string };
+export type SegmentedOption<T extends string | number = string> = { value: T; label: string };
 
-type SegmentedControlProps = {
-  options: SegmentedOption[];
-  value: string;
-  onChange: (next: string) => void;
+type SegmentedControlProps<T extends string | number = string> = {
+  options: SegmentedOption<T>[];
+  value: T;
+  onChange: (next: T) => void;
   style?: StyleProp<ViewStyle>;
+  /** Greys the track out and swallows presses. */
+  disabled?: boolean;
+  /**
+   * Shorter segments and a smaller label, for a picker nested inside another field group —
+   * TaskCard's week-interval / monthly-mode / ordinal rows, FoodTab's difficulty. Ported
+   * verbatim from the deleted `SlideSelector` (2026-08-09) along with those call sites, so
+   * the sub-`MIN_TAP_TARGET` height it produces is not a NEW instance of DESIGN_RULES.md
+   * open conflict #6 — it is the same one, relocated.
+   */
+  compact?: boolean;
 };
 
 const SEG_PAD = 4;
+/** Compact segment height — the value `SlideSelector` used at these call sites before it was
+ *  deleted (2026-08-09). Its track is that plus `SEG_PAD` top and bottom. */
+const COMPACT_SEGMENT_HEIGHT = 32;
+const COMPACT_TRACK_HEIGHT = COMPACT_SEGMENT_HEIGHT + SEG_PAD * 2;
 
-export function SegmentedControl({ options, value, onChange, style }: SegmentedControlProps) {
+export function SegmentedControl<T extends string | number = string>({
+  options,
+  value,
+  onChange,
+  style,
+  disabled,
+  compact,
+}: SegmentedControlProps<T>) {
   // Design lab: which SHAPE answers a pick-one question. 'segmented' is what the app ships,
   // so the three branches below are unreachable until the lab says otherwise. They are real
   // controls rather than mock-ups because the question being asked ("does a picker read better
   // than a row of segments at 360px in Norwegian?") can only be answered on the real screens.
   const variant = useLabControl('choice');
-  if (variant === 'pills') return <PillChoice options={options} value={value} onChange={onChange} style={style} />;
-  if (variant === 'dropdown') return <ListChoice options={options} value={value} onChange={onChange} style={style} mode="inline" />;
-  if (variant === 'sheet') return <ListChoice options={options} value={value} onChange={onChange} style={style} mode="sheet" />;
-  return <SegmentedTrack options={options} value={value} onChange={onChange} style={style} />;
+  const shared = { options, value, onChange, style, disabled, compact };
+  if (variant === 'pills') return <PillChoice {...shared} />;
+  if (variant === 'dropdown') return <ListChoice {...shared} mode="inline" />;
+  if (variant === 'sheet') return <ListChoice {...shared} mode="sheet" />;
+  return <SegmentedTrack {...shared} />;
 }
 
 /** The shipped shape: a sliding pill over a bordered track. */
-function SegmentedTrack({ options, value, onChange, style }: SegmentedControlProps) {
+function SegmentedTrack<T extends string | number>({
+  options,
+  value,
+  onChange,
+  style,
+  disabled,
+  compact,
+}: SegmentedControlProps<T>) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const shape = useLabShape();
@@ -276,7 +319,12 @@ function SegmentedTrack({ options, value, onChange, style }: SegmentedControlPro
           borderColor: theme.border,
           borderWidth: shape.borderFieldWidth * shape.borderScale,
           borderRadius: Radius.sm * shape.radiusScale,
-          minHeight: shape.minTapTarget,
+          // A compact track must NOT carry the full tap-target floor, or the shorter segments
+          // inside it are centred in a box that never shrank and the row costs the same height.
+          // Stated explicitly rather than omitted: `segmentWrap` sets `minHeight` statically,
+          // so leaving the key out here leaves the 48px floor in place.
+          minHeight: compact ? COMPACT_TRACK_HEIGHT : shape.minTapTarget,
+          opacity: disabled ? 0.5 : 1,
         },
         style,
       ]}
@@ -297,21 +345,38 @@ function SegmentedTrack({ options, value, onChange, style }: SegmentedControlPro
         const active = opt.value === value;
         return (
           <PressableScale
-            key={opt.value}
+            key={String(opt.value)}
             onPress={() => {
+              if (disabled) return;
               if (opt.value !== value) selection();
               onChange(opt.value);
             }}
+            disabled={disabled}
             scaleTo={0.97}
             // The SHIPPED variant announced nothing at all — no role, no selected state — while
             // `PillChoice` below (a design-lab variant almost nobody runs) had both. So every
             // segmented control in the app, including Settings' own tabs, was a set of unlabelled
             // taps to a screen reader. Same pair as PillChoice, deliberately.
             accessibilityRole="radio"
-            accessibilityState={{ selected: active }}
-            style={styles.segment}
+            accessibilityState={{ selected: active, disabled }}
+            style={[styles.segment, compact && styles.segmentCompact]}
           >
-            <Text style={[styles.segmentLabel, { color: active ? theme.text : theme.textMuted }]}>
+            {/* `numberOfLines={1}` came across with SlideSelector's call sites, and on its own
+                it made the 15 PRE-EXISTING callers truncate where they used to wrap onto a
+                second line (measured: `npm run wraps --lang=no --width=327` went 4 truncated
+                → 9). Shrink-to-fit is the better degradation and is already what
+                components/TabSlider.tsx does, so the two controls now handle a long label the
+                same way. react-native-web implements neither prop, so the wrap audit still
+                REPORTS these — that is the documented web-only artifact, not a real defect. */}
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+              style={[
+                compact ? styles.segmentLabelCompact : styles.segmentLabel,
+                { color: active ? theme.text : theme.textMuted },
+              ]}
+            >
               {opt.label}
             </Text>
           </PressableScale>
@@ -326,34 +391,48 @@ function SegmentedTrack({ options, value, onChange, style }: SegmentedControlPro
  * than being squeezed. Trades the segmented track's tidy single line for legibility when the
  * labels are long — which in this app means Norwegian.
  */
-function PillChoice({ options, value, onChange, style }: SegmentedControlProps) {
+function PillChoice<T extends string | number>({
+  options,
+  value,
+  onChange,
+  style,
+  disabled,
+  compact,
+}: SegmentedControlProps<T>) {
   const theme = useAppTheme();
   const shape = useLabShape();
   return (
-    <View style={[styles.pillRow, style]}>
+    <View style={[styles.pillRow, style, disabled ? { opacity: 0.5 } : null]}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
           <PressableScale
-            key={opt.value}
+            key={String(opt.value)}
             onPress={() => {
+              if (disabled) return;
               if (opt.value !== value) selection();
               onChange(opt.value);
             }}
+            disabled={disabled}
             scaleTo={0.97}
             accessibilityRole="radio"
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, disabled }}
             style={[
               styles.choicePill,
               {
-                minHeight: shape.minTapTarget,
+                minHeight: compact ? COMPACT_SEGMENT_HEIGHT : shape.minTapTarget,
                 backgroundColor: active ? theme.accent : 'transparent',
                 borderColor: active ? theme.accent : theme.border,
                 borderWidth: shape.borderButtonWidth * shape.borderScale,
               },
             ]}
           >
-            <Text style={[styles.segmentLabel, { color: active ? theme.accentInk : theme.textMuted }]}>
+            <Text
+              style={[
+                compact ? styles.segmentLabelCompact : styles.segmentLabel,
+                { color: active ? theme.accentInk : theme.textMuted },
+              ]}
+            >
               {opt.label}
             </Text>
           </PressableScale>
@@ -370,13 +449,14 @@ function PillChoice({ options, value, onChange, style }: SegmentedControlProps) 
  * expands the list under the trigger, sheet lifts it into a bottom sheet. Both collapse the
  * control to one line at rest, which is the property being evaluated.
  */
-function ListChoice({
+function ListChoice<T extends string | number>({
   options,
   value,
   onChange,
   style,
+  disabled,
   mode,
-}: SegmentedControlProps & { mode: 'inline' | 'sheet' }) {
+}: SegmentedControlProps<T> & { mode: 'inline' | 'sheet' }) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const fieldHue = useScreenColor() ?? theme.border;
@@ -384,7 +464,7 @@ function ListChoice({
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
 
-  const pick = (next: string) => {
+  const pick = (next: T) => {
     if (next !== value) selection();
     onChange(next);
     setOpen(false);
@@ -396,7 +476,7 @@ function ListChoice({
         const active = opt.value === value;
         return (
           <PressableScale
-            key={opt.value}
+            key={String(opt.value)}
             onPress={() => pick(opt.value)}
             scaleTo={0.98}
             accessibilityRole="radio"
@@ -454,6 +534,14 @@ type InputProps = TextInputProps & {
   error?: string;
   /** Renders a small "Opt" tag beside the label — this field isn't required to save. */
   optional?: boolean;
+  /**
+   * Style for the wrapping `View`, not the field. `style` lands on the `TextInput` itself,
+   * which is the wrong element for anything positional: a caller putting this field in a ROW
+   * (TaskCard's title + voice mic, its add-step + button) needs `flex: 1` + `minWidth: 0` on
+   * the WRAPPER, or the wrapper keeps its intrinsic width and pushes its neighbour out
+   * through the card's overflow mask. Added 2026-08-09 with those two call sites.
+   */
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -464,7 +552,7 @@ type InputProps = TextInputProps & {
  * category button. Nothing passed a ref before 2026-08-08, so this is purely additive.
  */
 export const Input = React.forwardRef<TextInput, InputProps>(function Input(
-  { label, error, optional, style, onFocus, onBlur, ...rest },
+  { label, error, optional, style, containerStyle, onFocus, onBlur, ...rest },
   ref
 ) {
   const theme = useAppTheme();
@@ -482,7 +570,7 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
       : computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength);
 
   return (
-    <View>
+    <View style={containerStyle}>
       {label ? (
         <View style={styles.labelRow}>
           <Text style={[styles.inputLabel, { color: theme.textMuted }]}>{label}</Text>
@@ -551,6 +639,15 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm - 2,
     alignItems: 'center',
     justifyContent: 'center',
+    // Four one-word options ("Full · Simple · Note · Steps") share one track at 327px in
+    // Norwegian, so a segment must be allowed to give up its intrinsic width. Without this
+    // the row overflows instead of the labels shrinking — the same `flex` + `minWidth: 0`
+    // pair TaskCard's title input documents at length.
+    minWidth: 0,
+    paddingHorizontal: Spacing.xs,
+  },
+  segmentCompact: {
+    minHeight: COMPACT_SEGMENT_HEIGHT,
   },
   // Sliding active indicator (raised surface). Carries the shadow the active segment used to.
   segmentPill: {
@@ -574,9 +671,20 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     padding: 2,
   },
+  // includeFontPadding/textAlignVertical: without these, Android adds font-metric padding
+  // below the glyph baseline that alignItems:'center' doesn't account for, so the label
+  // optically sits low inside the segment (carried over from SlideSelector and TabSlider).
   segmentLabel: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  segmentLabelCompact: {
+    fontSize: FontSize.xs,
+    fontFamily: Fonts.semibold,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   labelRow: {
     flexDirection: 'row',

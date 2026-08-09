@@ -69,7 +69,7 @@
  *     1. **Today/Week/Month tab-slider removed.** A habit is configured once (recurrence +
  *        optional reminder time) and Notifications take care of reminding — browsing it by
  *        day/week/month was judged to be what a to-do is for, not a habit. `WeekView`/
- *        `MonthView` and the SlideSelector that switched between them are deleted; only the
+ *        `MonthView` and the segmented selector that switched between them are deleted; only the
  *        Today list remains. The per-HABIT expandable week-strip drawer (tap a row → 7-day
  *        dots + rest-day toggle) is UNCHANGED — that is a different, smaller thing (one
  *        habit's own recent history, not cross-habit browsing) and wasn't part of this ask.
@@ -908,7 +908,7 @@ export default function HabitsScreen() {
               {/* Today's list — the ONLY view now (2026-08-06, "remove the tab-slider"). A
                   habit is set up once with a recurrence and an optional reminder time;
                   browsing it by day/week/month was judged to be what a to-do is for, not a
-                  habit, so the Today/Week/Month SlideSelector and the WeekView/MonthView grids
+                  habit, so the Today/Week/Month selector and the WeekView/MonthView grids
                   it switched to are gone — see the file header's dated note and
                   store/useSettingsStore.ts's "Inert columns" entry for `habitViewTab`. */}
               {/* The bottom half of the card — list, composer, Goals row. It had NO gap at

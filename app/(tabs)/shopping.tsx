@@ -75,6 +75,19 @@
  *     **Badge colour switched from the domain palette to this screen's own hue (2026-08-06,
  *     `accentOverride`)** — both cards' edges were already the ambient shopping green (neither
  *     sets its own `borderColor`), so a gold/amber badge on top read as a mismatched icon.
+ *   - **One primary, everything else secondary (2026-08-09)**: this screen had FOUR
+ *     equally-weighted outlined controls — "Add new item", "Add dish", both "New list"
+ *     triggers — and no dominant action at all, which is `DESIGN_RULES.md` rule 6 ("exactly
+ *     one primary action per screen, visually dominant"). Adding an item is what the screen
+ *     is for, so `components/InlineAddItem.tsx`'s collapsed bar took the solid accent fill
+ *     and is now the ONE primary here; `addTrigger` ("Add dish") was already the right
+ *     weight and is unchanged; both "New list" triggers moved off neutral white onto the
+ *     same accent tint, since being the only white control read as a difference in KIND
+ *     when it is only a difference in what gets created. **Borders were not removed from
+ *     anything** — the 2026-08-05 card reset makes them the grouping signal, so the fix
+ *     here is weight, not edges. The Food/Catalogue tiles are navigation, not actions, and
+ *     stay out of this hierarchy (see components/SubScreenLinkButton.tsx's header for why
+ *     this screen keeps its own inline row).
  *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
  *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
  *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
@@ -82,7 +95,9 @@
  *     this file's own Weekly "+ New list" trigger (`newListTrigger`) are both now a
  *     big-ish plain white/surface button with just a "+" glyph (icon-only,
  *     accessibilityLabel carries the name) instead of a smaller accent-tinted labeled
- *     pill. (3) The lock icon on both WeekListCard and each Monthly list card moved out of
+ *     pill. **Both halves of (2) have since been reversed**: the labels came back (a bare
+ *     glyph is worst on the empty tab, where the trigger matters most) and the white/surface
+ *     fill went back to accent-tinted on 2026-08-09 — see the CTA-weight note below. (3) The lock icon on both WeekListCard and each Monthly list card moved out of
  *     the crowded right-side action row and now sits beside the list name on the left —
  *     same `onToggleLock`/locked-gating behavior, just relocated; it still fully works,
  *     nothing was removed. (4) Monthly list cards gained a kebab (⋮) menu
@@ -195,10 +210,10 @@
  *     `add()`.
  *   - **Tab bar (2026-07-23, shared component)**: the Weekly/Monthly switcher is
  *     `components/TabSlider.tsx` — a single accent pill SLIDES between the two content-sized
- *     segments (same motion as the Day/Week/Month `SlideSelector`), replacing the old
- *     per-tab `TabBoxHighlight` boxes. Same shared component as app/(tabs)/plans.tsx and
- *     app/settings.tsx's tab bars. Every tab's `accent` in `TAB_META` is the neutral brand
- *     `theme.accent` (blue), so the pill's hue matches Plans, Health's SlideSelector, and the
+ *     segments, replacing the old per-tab `TabBoxHighlight` boxes. Same shared component as
+ *     app/(tabs)/plans.tsx and app/settings.tsx's tab bars. Every tab's `accent` in
+ *     `TAB_META` is the neutral brand
+ *     `theme.accent` (blue), so the pill's hue matches Plans and the
  *     bottom nav — one consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's
  *     old green `theme.good` + Food's meal-domain accent read as a competing selection colour
  *     against the blue nav on the same screen).
@@ -1449,7 +1464,7 @@ export default function ShoppingScreen() {
   }
 
   // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
-  // so this in-app tab bar's "selected" hue matches Plans, Health's SlideSelector, AND the
+  // so this in-app tab bar's "selected" hue matches Plans AND the
   // bottom nav (visual-audit 2026-07-20: Weekly's old green `theme.good` + Food's meal-domain
   // accent read as a second, competing "selected" colour on the same screen as the blue nav).
   // The Weekly cross-tab tick cue below stays `theme.good` — that's a status confirmation,
@@ -2214,7 +2229,10 @@ export default function ShoppingScreen() {
                   trigger's hardest moment is an empty tab where there is nothing to declutter
                   and everything to explain). */}
               <PressableScale
-                style={[styles.newListTrigger, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
+                // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
+                // the two triggers are deliberately kept identical.
+                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
                 onPress={() =>
                   showAppModal(t.newWeeklyListTitle, '', [
                     { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },

@@ -37,7 +37,7 @@
  *      deliberately never shown twice.
  *   2. The switch was labelled "Set time" (`t.taskStartSpecificDate`) but set a DATE, and
  *      the actual calendar hid behind an unlabelled 📅 IconButton. Both gone — the day
- *      picker is a two-option SlideSelector plus a labelled "Pick a day: <date>" button.
+ *      picker is a two-option SegmentedControl plus a labelled "Pick a day: <date>" button.
  *   3. Start/Finish used to appear whenever `hasStartDate || isRecurring` — switching
  *      Repeat on produced two empty time boxes nobody asked for. Time of day is now its own
  *      opt-in (`timeOpen`), seeded from whether the task actually has a time, and switching
@@ -60,7 +60,7 @@
  *                  and a "back a step" undo. The visible step is DERIVED (first not-done),
  *                  never stored, so it survives a remount for free and can't drift from the
  *                  done flags. Ticking it advances; unticking the one behind steps back.
- * The type is picked from a labelled four-option SlideSelector in the editor (visible words,
+ * The type is picked from a labelled four-option SegmentedControl in the editor (visible words,
  * not icons), buffered on the draft like every other field so Discard reverts it. It is
  * deliberately never asked for at creation time. Switching is lossless in both directions —
  * nothing is cleared, so switching back restores the card exactly, steps and done flags and all.
@@ -83,9 +83,9 @@
  *             lib/cardType (the four per-ITEM card types — see the block below),
  *             react-native-reanimated (FadeIn/FadeOut/LinearTransition — the stepped card's
  *             step-to-step transition, the same pair components/PlanTaskCard.tsx uses),
- *             components/SlideSelector, components/TimeBoxInput, components/DatePickerCalendar,
+ *             components/TimeBoxInput, components/DatePickerCalendar,
  *             components/IconButton, components/Stepper, components/Button, components/GoalPicker,
- *             components/FormControls (Switch), components/AppModal, components/FieldDivider,
+ *             components/FormControls (Switch + SegmentedControl + Input), components/AppModal,
  *             components/OptionalTag,
  *             components/PressableScale, components/Collapsible + components/AnimatedChevron (animated
  *             steps/editor/advanced reveal + rotating chevrons), components/GlowPulse (breathing editing halo),
@@ -112,6 +112,16 @@
  *             onCommitNew fires.
  *
  * Edit notes:
+ *   - **The editor's four fields are `FormControls`' `Input` now (2026-08-09)**: title,
+ *     add-step, month-day and hint were hand-rolled `TextInput`s — `surfaceMuted`-filled with
+ *     NO border, no focus state, and three of them below the tap-target floor at 40px. They
+ *     were the last unbordered controls in an editor where `TimeBoxInput`, `SegmentedControl`
+ *     and the weekday chips all carry edges, so a field read as a hole rather than as the one
+ *     thing you type into (`DESIGN_RULES.md` rule 18). `Input` gained `containerStyle` in the
+ *     same pass — its `style` lands on the inner `TextInput`, so the `flex: 1` + `minWidth: 0`
+ *     pair that keeps the voice mic inside the card had to move to the WRAPPER
+ *     (`styles.titleFieldGrow`). Don't put positional style on `style`; it will silently do
+ *     nothing to the row.
  *   - **Weekday chips got a border (task 16, 2026-08-04)**: `styles.weekdayChip` (the recurring-
  *     days row and the monthly weekday picker) had no border at all — a solid fill only, unlike
  *     every other chip in the app (PersonChip/TagChip/OptionalTag already had one). Now
@@ -122,10 +132,15 @@
  *     layout marks exactly which values just appeared, not just that the row did. Callers
  *     pass the same `{ meta, price, extras }` object `useNewSinceSeen` returns; `price` is
  *     accepted for type parity with `ShoppingRow` but never true here (a task has no price).
- *   - **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates every
- *     field group in the expanded editor (Title/For+Rotation/Tags/Steps/Repeat/When/Time of
- *     day/Energy/Advanced), matching app/settings.tsx's long-standing in-card divider
- *     convention. For/Rotation/Tags/When/Start-from/Hint/Contact/Location/Then all carry
+ *   - **Field dividers are GONE (2026-08-09); Opt tags stay.** 14 hairline `FieldDivider`s
+ *     used to separate every field group in the expanded editor, and `components/FieldDivider.tsx`
+ *     is deleted along with its other three callers (habit/medicine/health forms). Two of them
+ *     sat directly under a text field, which is what made an unbordered input read as floating
+ *     over a ruled line; the rest were re-stating a boundary the 2026-08-05 card reset had
+ *     already assigned to borders — "separate with boundaries, not with lines between things".
+ *     `styles.editor`'s `gap: Spacing.md` does the separating now, so **don't reintroduce a
+ *     rule to fix a tight-looking field — check the container's gap instead.**
+ *     For/Rotation/Tags/When/Start-from/Hint/Contact/Location/Then all carry
  *     `OptionalTag` (Goal's lives inside components/GoalPicker.tsx, Tags' inside
  *     components/TagPickerRow.tsx, since both are shared with app/habit-form.tsx) — only
  *     Title actually blocks save. Toggle rows (Repeat, Time of day, Shared-out) are left
@@ -184,7 +199,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
-import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, HitSlop } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -219,19 +234,17 @@ import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { getCurrentTaskLocation } from '@/lib/location';
-import SlideSelector from '@/components/SlideSelector';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import DatePickerCalendar from '@/components/DatePickerCalendar';
 import IconButton from '@/components/IconButton';
 import Stepper from '@/components/Stepper';
 import Button from '@/components/Button';
-import { Switch } from '@/components/FormControls';
+import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import GlowPulse from '@/components/GlowPulse';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 
@@ -549,7 +562,7 @@ function TaskCard({
           <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{label}</Text>
           <OptionalTag />
         </View>
-        <SlideSelector
+        <SegmentedControl
           compact
           options={[
             { value: 'off', label: offLabel },
@@ -1085,15 +1098,15 @@ function TaskCard({
                 bordered-chip style as components/HomeNotesCard.tsx's mic (UX audit D2). */}
             <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskNameLabel}</Text>
             <View style={styles.titleFieldRow}>
-              <TextInput
+              <Input
                 ref={titleLift.ref}
-                style={[styles.titleInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                containerStyle={styles.titleFieldGrow}
+                style={styles.titleInput}
                 value={draft.title}
                 onChangeText={(v) => patch({ title: v })}
                 onFocus={titleLift.onFocus}
                 onBlur={titleLift.onBlur}
                 placeholder={t.taskTitlePlaceholder}
-                placeholderTextColor={theme.textMuted}
                 returnKeyType="done"
               />
               {voiceNotesEnabled && (
@@ -1119,7 +1132,6 @@ function TaskCard({
               )}
             </View>
 
-            <FieldDivider />
 
             {/* For — person/profile assignment (People/family mode). Mirrors habit-form. */}
             {showPeople && (
@@ -1145,7 +1157,6 @@ function TaskCard({
                 </View>
               </View>
 
-              <FieldDivider />
 
               {/* Take turns — a chore that rotates instead of belonging to one person. Only
                   offered when there IS somebody to rotate with. Turning it on captures
@@ -1207,7 +1218,6 @@ function TaskCard({
               </>
             )}
 
-            <FieldDivider />
 
             {/* Card — how THIS one draws itself (2026-08-01). A labelled row of four
                 options with visible words, never icons: the difference between them is
@@ -1219,11 +1229,8 @@ function TaskCard({
                 the item turned out to be. Switching is lossless in both directions: steps,
                 energy, time and tags all stay stored whatever type is picked, so switching
                 back restores the card exactly, done flags included. */}
-            <View style={styles.labelRow}>
-              <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.cardTypes.label}</Text>
-              <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.cardTypes.hint}</Text>
-            </View>
-            <SlideSelector
+            <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.cardTypes.label}</Text>
+            <SegmentedControl
               options={CARD_TYPES.map((value) => ({ value, label: t.cardTypes[value] }))}
               value={draft.cardType}
               onChange={(value: CardType) => patch({ cardType: value })}
@@ -1232,7 +1239,6 @@ function TaskCard({
               {t.cardTypes[`${draft.cardType}Desc`]}
             </Text>
 
-            <FieldDivider />
 
             {/* Tags — what kind of thing this is, the counterpart to "For" above. Always
                 offered: a tag is useful on a solo list too, unlike an assignee. */}
@@ -1241,7 +1247,6 @@ function TaskCard({
               onChange={(tagIds) => patch({ tagIds })}
             />
 
-            <FieldDivider />
 
             {/* Steps — persist immediately for existing tasks; buffered on the local draft
                 for a new (isNew) card until Save creates the real task row. */}
@@ -1278,22 +1283,21 @@ function TaskCard({
               </View>
             )}
             <View style={styles.addStepRow}>
-              <TextInput
+              <Input
                 ref={addStepLift.ref}
-                style={[styles.addStepInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                containerStyle={styles.titleFieldGrow}
+                style={styles.addStepInput}
                 value={newStep}
                 onChangeText={setNewStep}
                 onFocus={addStepLift.onFocus}
                 onBlur={addStepLift.onBlur}
                 placeholder={t.stepPlaceholder}
-                placeholderTextColor={theme.textMuted}
                 returnKeyType="done"
                 onSubmitEditing={handleAddStep}
               />
               <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
             </View>
 
-            <FieldDivider />
 
             {/* Repeat */}
             <View style={styles.toggleRow}>
@@ -1305,7 +1309,7 @@ function TaskCard({
             {isRecurring && (
               <View style={styles.recurWrap}>
                 <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHowOftenLabel}</Text>
-                <SlideSelector
+                <SegmentedControl
                   options={[
                     { value: 'daily', label: t.taskRecurDay },
                     { value: 'weekly', label: t.taskRecurWeek },
@@ -1336,7 +1340,7 @@ function TaskCard({
                 )}
 
                 {recurring === 'weekly' && (
-                  <SlideSelector
+                  <SegmentedControl
                     compact
                     options={[
                       { value: '1', label: t.taskWeekInterval1 },
@@ -1350,7 +1354,7 @@ function TaskCard({
 
                 {recurring === 'monthly' && (
                   <View style={styles.monthWrap}>
-                    <SlideSelector
+                    <SegmentedControl
                       compact
                       options={[
                         { value: 'day', label: t.taskMonthlyByDay },
@@ -1362,9 +1366,9 @@ function TaskCard({
                     {draft.monthlyMode === 'day' ? (
                       <View style={styles.monthDayRow}>
                         <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskMonthDayLabel}</Text>
-                        <TextInput
+                        <Input
                           ref={monthDayLift.ref}
-                          style={[styles.monthDayInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                          style={styles.monthDayInput}
                           value={String(draft.monthDay)}
                           onChangeText={(txt) => {
                             const n = Math.min(31, Math.max(1, parseInt(txt.replace(/\D/g, ''), 10) || 1));
@@ -1378,7 +1382,7 @@ function TaskCard({
                       </View>
                     ) : (
                       <>
-                        <SlideSelector
+                        <SegmentedControl
                           compact
                           options={[
                             { value: 'first', label: t.taskOrdFirst },
@@ -1419,7 +1423,6 @@ function TaskCard({
                 different entirely (a start boundary), so that lives in Advanced options. */}
             {!isRecurring && renderDayPicker(t.taskWhenLabel, t.taskWhenWhenever)}
 
-            <FieldDivider />
 
             {/* Time of day — opt-in. Independent of the day: "sometime Tuesday" and
                 "17:00, whenever" are both real, so neither implies the other. */}
@@ -1440,7 +1443,6 @@ function TaskCard({
               </View>
             )}
 
-            {energySystemEnabled && <FieldDivider />}
 
             {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
                 whether the task shows up as affordable on the Home meter, which is a main-flow
@@ -1499,7 +1501,6 @@ function TaskCard({
                 {isRecurring && (
                   <>
                     {renderDayPicker(t.taskStartFromLabel, t.taskStartFromNone)}
-                    <FieldDivider />
                   </>
                 )}
 
@@ -1509,15 +1510,14 @@ function TaskCard({
                     <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskHintLabel}</Text>
                     <OptionalTag />
                   </View>
-                  <TextInput
+                  <Input
                     ref={hintLift.ref}
-                    style={[styles.hintInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                    style={styles.hintInput}
                     value={draft.hint}
                     onChangeText={(v) => patch({ hint: v })}
                     onFocus={hintLift.onFocus}
                     onBlur={hintLift.onBlur}
                     placeholder={t.taskHintPlaceholder}
-                    placeholderTextColor={theme.textMuted}
                     multiline
                   />
                 </View>
@@ -1525,7 +1525,6 @@ function TaskCard({
                 {/* Contact — reserve-only, attach a name+phone snapshot, tap-to-call */}
                 {contactsEnabled && (
                   <>
-                  <FieldDivider />
                   <View style={styles.field}>
                     <View style={styles.labelRow}>
                       <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskContactLabel}</Text>
@@ -1554,7 +1553,6 @@ function TaskCard({
                 {/* Location — reserve-only, foreground "tag my current location", no reverse geocoding */}
                 {locationEnabled && (
                   <>
-                  <FieldDivider />
                   <View style={styles.field}>
                     <View style={styles.labelRow}>
                       <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskLocationLabel}</Text>
@@ -1589,7 +1587,6 @@ function TaskCard({
                     Opt-in via settings.featureGoals (Settings → Advanced → Features). */}
                 {featureGoals && (
                   <>
-                  <FieldDivider />
                   <View style={styles.field}>
                     <GoalPicker value={draft.goalId} onChange={(id) => patch({ goalId: id })} />
                   </View>
@@ -1600,7 +1597,6 @@ function TaskCard({
                     pickFollower/removeFollower above) — gated on an existing task, same as Steps. */}
                 {!isNew && (
                   <>
-                  <FieldDivider />
                   <View style={styles.field}>
                     <View style={styles.labelRow}>
                       <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.thenTaskLabel}</Text>
@@ -1655,7 +1651,6 @@ function TaskCard({
                 {/* Shared out toggle (persists immediately — emits an outgoing shared row) */}
                 {showShareOut && !isNew && (
                   <>
-                  <FieldDivider />
                   <View style={styles.toggleRow}>
                     <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskSharedOut}</Text>
                     <Switch checked={task.sharedOut} onChange={(on) => setSharedOut(task.id, on)} />
@@ -1801,23 +1796,26 @@ const styles = StyleSheet.create({
   dirChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   chevronBtn: { padding: 2 },
   editor: { gap: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.xs },
+  // `flex: 1` + `minWidth: 0` — and BOTH are load-bearing. `titleFieldRow` is a row, and
+  // without these the field keeps its intrinsic 237px instead of taking what's left, which
+  // pushes the voice mic past the card's edge to be sliced in half by its overflow mask.
+  // Measured at 360px (small Android): input 51.5→288.5, +8 gap, +28 mic = 324.5 against a
+  // card whose content box ends at 308.5 — 16px over. Invisible at 393/430px, which is how
+  // it survived this long.
+  //
+  // `minWidth: 0` is the half that isn't obvious: `flex: 1` alone measured as
+  // `flex-grow/shrink/basis = 1/1/0%` and STILL rendered 237px, because a flex item's
+  // default `min-width: auto` floors it at its automatic minimum size — and for a replaced
+  // element like RN-web's <input>, that floor is its intrinsic width. flex-shrink can't go
+  // below it. Don't drop either line; each on its own leaves the row overflowing.
+  //
+  // This pair moved to the WRAPPER when the field became FormControls' `Input` (2026-08-09) —
+  // `Input`'s `style` lands on the inner TextInput, which is no longer the row's flex child.
+  titleFieldGrow: { flex: 1, minWidth: 0 },
   titleInput: {
-    // `flex: 1` + `minWidth: 0` — and BOTH are load-bearing. `titleFieldRow` is a row, and
-    // without these the input keeps its intrinsic 237px instead of taking what's left, which
-    // pushes the voice mic past the card's edge to be sliced in half by its overflow mask.
-    // Measured at 360px (small Android): input 51.5→288.5, +8 gap, +28 mic = 324.5 against a
-    // card whose content box ends at 308.5 — 16px over. Invisible at 393/430px, which is how
-    // it survived this long.
-    //
-    // `minWidth: 0` is the half that isn't obvious: `flex: 1` alone measured as
-    // `flex-grow/shrink/basis = 1/1/0%` and STILL rendered 237px, because a flex item's
-    // default `min-width: auto` floors it at its automatic minimum size — and for a replaced
-    // element like RN-web's <input>, that floor is its intrinsic width. flex-shrink can't go
-    // below it. Don't drop either line; each on its own leaves the row overflowing.
-    flex: 1,
+    // The inner field still needs its own `minWidth: 0` for the same RN-web reason — the
+    // wrapper can only shrink as far as its content lets it.
     minWidth: 0,
-    minHeight: MIN_TAP_TARGET,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.md,
     fontFamily: Type.bodyStrong.fontFamily,
     fontSize: Type.bodyStrong.size,
@@ -1845,11 +1843,9 @@ const styles = StyleSheet.create({
     // `minWidth: 0` for the same reason as `titleInput` above — and it is the same bug,
     // found by the same audit one width further down (327px, the `large` font proxy). `flex: 1`
     // alone cannot shrink an <input> below its automatic minimum size, so the add-step
-    // button beside it was pushed 21px out through the card's overflow mask.
-    flex: 1,
+    // button beside it was pushed 21px out through the card's overflow mask. The `flex: 1`
+    // half lives on `titleFieldGrow` (the wrapper) since 2026-08-09; see the note there.
     minWidth: 0,
-    minHeight: 40,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.sm,
   },
@@ -1875,8 +1871,6 @@ const styles = StyleSheet.create({
   monthDayRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   monthDayInput: {
     minWidth: 56,
-    minHeight: 40,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.md,
     fontFamily: Fonts.bold,
@@ -1888,8 +1882,6 @@ const styles = StyleSheet.create({
   advancedWrap: { gap: Spacing.md },
   field: { gap: Spacing.xs },
   hintInput: {
-    minHeight: 40,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     fontSize: FontSize.sm,
