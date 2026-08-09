@@ -127,8 +127,13 @@ file owns which token.)
     stranded. Both non-guided branches MUST go through `finishSetup()` — two hand-written
     completions drift, and `__tests__/onboardingFlow.test.ts` pins the single write site.
     Three cards is the cap here; a fourth option or a sub-step is not in scope.
-  - The backdrop is one continuous `onboarding-triptych` motif (seed → sprout → tree) slid
-    across the steps, which doubles as the progress indicator — deliberately not a filling bar.
+  - **The `onboarding-triptych` tree backdrop is basics-only as of 2026-08-09.** It used to
+    slide across all three onboarding screens as a seed→sprout→tree progress indicator; the
+    full-tree panel read badly behind privacy's and restore's real controls (a trunk line
+    running through the Start button), so those two now render the app's ordinary
+    `components/ScreenBackground` instead, same as every other screen. `basics.tsx` keeps the
+    triptych's branch panel, faded well back behind that screen's own real app-icon hero (see
+    its header) — the icon carries the brand identity now, not the generated line art.
   - Old setup steps (work mode / shopping days / notifications) are still taught in context via
     each tab's ⓘ hint (`lib/useFirstVisitHint.ts` + `settings.seenScreenHints`).
 - **Guided tour** (2026-07-31, `lib/tourSteps.ts` + `components/TourSpotlight.tsx` +
