@@ -87,6 +87,25 @@ async function clickText(page, text, opts = {}) {
   throw new Error(`clickText: no visible match for "${text}"`);
 }
 
+/**
+ * Click a text node that is genuinely on screen. `isVisible()` is not enough here: the pager
+ * keeps all five tab screens mounted and moves them by transform, so a label that also exists
+ * on another tab (every card has a "Show all") reports visible from off-screen and the click
+ * lands on the wrong card.
+ */
+async function clickOnScreenText(page, text) {
+  for (const el of await page.getByText(text, { exact: true }).all()) {
+    if (!(await el.isVisible().catch(() => false))) continue;
+    const box = await el.boundingBox().catch(() => null);
+    if (box && box.x > -20 && box.x < 430) {
+      await el.click({ timeout: 8000 });
+      await page.waitForTimeout(700);
+      return true;
+    }
+  }
+  return false;
+}
+
 async function tryText(page, text, timeout = 2500) {
   try {
     await clickText(page, text, { timeout });
@@ -662,6 +681,13 @@ async function main() {
     if (await check.count()) {
       await check.click({ timeout: 10000 });
       await page.waitForTimeout(1000);
+      // Two things stand between the tick and the shot the caption describes. The card
+      // collapses its log behind "Show all" on this tab; and the To-do tab's copy of the card
+      // does not draw the newly-logged row until it REMOUNTS — Home's copy of the same card
+      // updates live, which is why the gap is easy to miss. Round-trip the tab, then expand.
+      await tab(page, 'Home');
+      await tab(page, 'To-do');
+      await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-after-tick', {
         title: 'To-do — a ticked task crosses the now-line into the day log',
         screen: 'lib/dayLog.ts, drawn by components/PlanTaskCard.tsx',
@@ -687,6 +713,9 @@ async function main() {
       });
       await page.getByLabel('What just happened?', { exact: true }).first().press('Enter');
       await page.waitForTimeout(900);
+      await tab(page, 'Home');
+      await tab(page, 'To-do');
+      await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-with-moment', {
         title: 'The day log with a captured moment in it',
         screen: 'lib/dayLog.ts',
