@@ -191,8 +191,8 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       test(`${mode}: documented ladder ratios hold`, () => {
         const p = THEMES.default[mode];
         const expected = mode === 'light'
-          ? { bgSurface: 1.212, ladderA: 1.282, ladderB: 1.117, rule: 1.396 }
-          : { bgSurface: 1.277, ladderA: 1.112, ladderB: 1.113, rule: 1.377 };
+          ? { bgSurface: 1.212, ladderA: 1.179, ladderB: 1.118, rule: 1.396 }
+          : { bgSurface: 1.277, ladderA: 1.100, ladderB: 1.125, rule: 1.377 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);
         expect(contrastRatio(p.surfaceMuted, p.surfaceInset)).toBeCloseTo(expected.ladderB, 2);

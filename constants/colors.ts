@@ -77,10 +77,10 @@ export interface ThemePalette {
    * control is?" — yes → `border`, no → `rule`.
    *
    * Also known and deliberate: in LIGHT mode `rule` (#D3DBE6) and `surfaceInset`
-   * (#CDD9E7) sit within 1.025:1 of each other. That is harmless because they never
-   * co-occur — an inset well draws its own recessed fill and never carries row rules —
-   * so do NOT "fix" it by pushing `rule` darker; that would drag it toward the ≥3:1
-   * border band it is defined to stay out of.
+   * (#D8E1EE, nudged 2026-08-09 — was #CDD9E7) sit within ~1.06:1 of each other. That is
+   * harmless because they never co-occur — an inset well draws its own recessed fill and
+   * never carries row rules — so do NOT "fix" it by pushing `rule` darker; that would drag
+   * it toward the ≥3:1 border band it is defined to stay out of.
    */
   rule: string;
 
@@ -324,16 +324,27 @@ const defaultLight: ThemePalette = {
   // ── Surface ladder OPENED 2026-07-31 (addendum A.2) ──────────────────────────────────
   // The old ladder was flat to the point of invisibility: bg #EEF3F9 vs surface #FCFDFF was
   // 1.078:1, so a card had no edge of its own and every surface needed a border to exist at
-  // all. Target: bg↔surface ≥ 1.20:1, and a legible step at each rung below it. Now:
+  // all. Target: bg↔surface ≥ 1.20:1, and a legible step at each rung below it. Was:
   //   bg ↔ surface           1.212  (a card is visible without a border)
   //   surface ↔ surfaceMuted 1.282
   //   surfaceMuted ↔ inset   1.117
   //   rule ↔ surface         1.396  (see the `rule` doc comment — decorative, NOT a boundary)
+  // ── Muted/inset lightened 2026-08-09 (user report: "boxes filled with grey are too dark") ──
+  // surfaceMuted/surfaceInset back a `IconButton`/`Input`/chip fill in dozens of places
+  // (quick-add option cells, disabled buttons, the medicine reminder panel, etc.) and read
+  // heavier/greyer than intended. Both nudged toward `surface` (still ≥1.1 apart — the "visible
+  // step" floor a few lines below this) rather than only softening `surfaceMuted` alone, which
+  // would have flattened the surfaceMuted↔inset step instead of relieving it. `bg`/`surface`
+  // themselves are untouched — this is the fill ladder only. Now:
+  //   bg ↔ surface           1.212  (unchanged)
+  //   surface ↔ surfaceMuted 1.179
+  //   surfaceMuted ↔ inset   1.118
+  //   rule ↔ surface         1.396  (unchanged)
   // Verified in lib/__tests__/colors.test.ts; those exact ratios are asserted there.
   bg: '#E2EAF5',
   surface: '#FFFFFF',      // at the ceiling on purpose — see the semantic-trio note below
-  surfaceMuted: '#DCE4EF',
-  surfaceInset: '#CDD9E7',
+  surfaceMuted: '#E6EDF6',
+  surfaceInset: '#D8E1EE',
   rule: '#D3DBE6',         // decorative row divider ONLY — never a control boundary
   text: '#1B2432',
   textMuted: '#5F6978',    // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg
@@ -479,9 +490,17 @@ const defaultDark: ThemePalette = {
   //   surface ↔ surfaceMuted 1.112
   //   surfaceMuted ↔ inset   1.113
   //   rule ↔ surface         1.377  (decorative row divider ONLY — see the `rule` doc comment)
+  // ── surfaceMuted nudged lighter 2026-08-09 (same report as the light block above) ──────
+  // Dark mode has almost no headroom here: surface↔surfaceMuted was already 1.112, a hair
+  // above the 1.1 "visible step" floor a few lines below, so this is the lightest surfaceMuted
+  // can go without that step vanishing (a few RGB units — expect this to read as a small, not
+  // dramatic, change versus the light-mode fix). Getting materially further would mean moving
+  // `surface`/`bg` themselves, which this pass deliberately does not do. Now:
+  //   surface ↔ surfaceMuted 1.100
+  //   surfaceMuted ↔ inset   1.125
   bg: '#080A11',
   surface: '#1B2438',
-  surfaceMuted: '#151B28',
+  surfaceMuted: '#161C29',
   surfaceInset: '#0B0F18',
   rule: '#303B50',
   // 2026-07-31: was #E9EDF5, which measured 12.5:1 on `surface` — over the halation cap. Pure
