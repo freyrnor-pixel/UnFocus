@@ -62,7 +62,7 @@
  *   - **The pager animates, and the animation is the feedback.** `translateX` + fade over
  *     `Duration.tabSwitch`, direction taken from the arrow pressed, snapped instantly under
  *     `reducedMotion` (gate at the trigger, per ANIMATION_GUIDELINES §7). A `selection()`
- *     haptic per arrow, matching components/SlideSelector.
+ *     haptic per arrow, matching components/FormControls' SegmentedControl.
  *   - **Week index is local state, deliberately not persisted.** It resets to the week
  *     containing today on every mount, which is nearly always the week you want; a remembered
  *     week would silently show a stale list days later.

@@ -17,7 +17,7 @@
  *             this file 2026-08-01 so components/EpisodeCloseSheet.tsx could share it),
  *             components/HintCard, components/ConfirmationBanner,
  *             components/Button, components/AppModal, components/PressableScale,
- *             components/FieldDivider, components/OptionalTag,
+ *             components/OptionalTag,
  *             lib/date, lib/episodes (backdatedStart), lib/haptics, lib/i18n, lib/severity,
  *             lib/useAppTheme, store/useHealthStore,
  *             store/useMedicineStore (the "Possibly from" chip row — read-only)
@@ -28,8 +28,9 @@
  *             reads useMedicineStore.medicines to offer the optional `medicineId` attribution
  *
  * Edit notes:
- *   - **Field dividers + Opt tags (2026-07-30)**: a hairline `FieldDivider` now separates each
- *     field block (matching app/settings.tsx's long-standing in-card divider convention), and
+ *   - **Field dividers are GONE (2026-08-09); Opt tags stay.** A hairline `FieldDivider` used to
+ *     separate each field block; the component is deleted app-wide and `styles.content`'s
+ *     `gap: Spacing.lg` does the separating, per the 2026-08-05 card reset.
  *     Note + "Possibly from" carry `OptionalTag`/`Input`'s `optional` prop since neither is
  *     required to save — only Issue actually blocks save(). `notesLabel`'s old inline
  *     "(optional)" text was dropped from lib/i18n.ts in favour of the tag.
@@ -83,7 +84,6 @@ import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DateChipRow from '@/components/DateChipRow';
-import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -257,7 +257,6 @@ export default function HealthFormScreen() {
           )}
         </View>
 
-        <FieldDivider />
 
         {/* Severity */}
         <View style={styles.field}>
@@ -286,7 +285,6 @@ export default function HealthFormScreen() {
           </View>
         </View>
 
-        <FieldDivider />
 
         {/* When started — the backdate shortcuts fill the fields below rather than replacing
             them, so a preset is a head start and everything stays editable. People log after
@@ -327,7 +325,6 @@ export default function HealthFormScreen() {
           />
         </View>
 
-        <FieldDivider />
 
         {/* When finished — Still going / It's over, defaulting to It's over. "Still going"
             hides the end fields entirely: an end and an open episode contradict. */}
@@ -388,7 +385,6 @@ export default function HealthFormScreen() {
             "Not sure" (medicineId '') is always available and is the default. */}
         {medicines.length > 0 && (
           <>
-          <FieldDivider />
           <View style={styles.field}>
             <View style={styles.labelRow}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.attributionLabel}</Text>
@@ -424,7 +420,6 @@ export default function HealthFormScreen() {
           </>
         )}
 
-        <FieldDivider />
 
         {/* Note */}
         <View style={styles.field}>

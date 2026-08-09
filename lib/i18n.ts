@@ -142,8 +142,12 @@ const en = {
   // of a Plans LAYOUT (lib/cardLayout.ts's focusFirst), and two different things sharing a
   // name is how a setting gets changed by mistake.
   cardTypes: {
-    label: 'Card',
-    hint: 'Just for this one.',
+    // "Card style", not "Card" + a "Just for this one." sub-label (2026-08-09). The old pair
+    // was a bare noun explaining its own SCOPE, which the control's placement inside one
+    // item's own editor already says — every other setting on that screen is per-item too, and
+    // none of them announces it. `label` now names what the control changes, per
+    // DESIGN_RULES.md rule 22.
+    label: 'Card style',
     // ONE word each. Four options share a single row, and a four-word row truncates at
     // 430px in English before Norwegian is even considered (measured with `npm run wraps`
     // — the repo's own audit for exactly this). The situational meaning that names would
@@ -2312,8 +2316,7 @@ const no: typeof en = {
   taskOrdLast: 'Siste',
   taskSharedOut: 'Delt ut',
   cardTypes: {
-    label: 'Kort',
-    hint: 'Gjelder bare denne.',
+    label: 'Kortstil',
     standard: 'Fullt',
     simple: 'Enkelt',
     note: 'Notat',

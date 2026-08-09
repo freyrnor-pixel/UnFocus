@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls
  *             (Input/Switch), components/Stepper, components/PressableScale,
- *             components/HintCard, components/FieldDivider, components/OptionalTag,
+ *             components/HintCard, components/OptionalTag,
  *             components/AppModal (delete confirm), constants/theme,
  *             lib/date (todayStr/getWeekDates), lib/haptics, lib/i18n, lib/severity
  *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
@@ -27,8 +27,10 @@
  *             7-day count and useHealthStore.logs for entries whose medicineId matches
  *
  * Edit notes:
- *   - **Field dividers + Opt tags (2026-07-30)**: `FieldDivider` hairlines separate each field
- *     block, and Dose/For/Notes/the as-needed gap+cap fields carry `OptionalTag`/`optional` —
+ *   - **Field dividers are GONE (2026-08-09); Opt tags stay.** `FieldDivider` hairlines used to
+ *     separate each field block; the component is deleted app-wide and `styles.content`'s
+ *     `gap: Spacing.lg` does the separating, per the 2026-08-05 card reset.
+ *     Dose/For/Notes/the as-needed gap+cap fields carry `OptionalTag`/`optional` —
  *     only Name (and, unless "as needed" is on, the tray picker) actually block save().
  *   - **A medicine must be in at least one tray OR be as-needed** — save is blocked with an
  *     inline error otherwise, because a scheduled medicine in no tray would be invisible on
@@ -50,7 +52,6 @@ import { Input, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
-import FieldDivider from '@/components/FieldDivider';
 import OptionalTag from '@/components/OptionalTag';
 import { showAppModal } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
@@ -200,7 +201,6 @@ export default function MedicineFormScreen() {
             />
           </View>
 
-          <FieldDivider />
 
           {/* As needed — flips the whole scheduling model, so it sits above the tray picker. */}
           <Surface style={styles.switchRow}>
@@ -214,7 +214,6 @@ export default function MedicineFormScreen() {
             />
           </Surface>
 
-          <FieldDivider />
 
           {asNeeded ? (
             <>
@@ -300,7 +299,6 @@ export default function MedicineFormScreen() {
               no second device that could disagree about who "Sam" is. */}
           {peopleModeEnabled && people.length > 1 && (
             <>
-            <FieldDivider />
             <View style={styles.field}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.personLabel}</Text>
@@ -325,7 +323,6 @@ export default function MedicineFormScreen() {
             </>
           )}
 
-          <FieldDivider />
 
           <View style={styles.field}>
             <Input
@@ -339,7 +336,6 @@ export default function MedicineFormScreen() {
             />
           </View>
 
-          <FieldDivider />
 
           <Surface style={styles.switchRow}>
             <Text style={[styles.switchLabel, { color: theme.text }]}>{t.medicine.activeLabel}</Text>
@@ -349,7 +345,6 @@ export default function MedicineFormScreen() {
 
           {isEdit && existing && (
             <>
-              <FieldDivider />
               <Text style={[styles.hint, { color: theme.textMuted }]}>
                 {takenDays > 0 ? t.medicine.takenRecently(takenDays) : t.medicine.takenNeverRecently}
               </Text>

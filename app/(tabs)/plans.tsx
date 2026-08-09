@@ -119,9 +119,11 @@
  *     texting a plain-text checklist of upcoming tasks, not just QR-to-QR device sharing.
  *   - **Tab bar (2026-07-23, shared component)**: the sticky Today/This week/All tasks
  *     switcher is `components/TabSlider.tsx` — a single accent pill SLIDES between the
- *     three equal-width segments (Reanimated, same motion as the Day/Week/Month
- *     `SlideSelector`), replacing the old per-tab `TabBoxHighlight` boxes. Same shared
- *     component as app/(tabs)/shopping.tsx and app/settings.tsx's tab bars.
+ *     three equal-width segments (Reanimated), replacing the old per-tab `TabBoxHighlight`
+ *     boxes. Same shared component as app/(tabs)/shopping.tsx and app/settings.tsx's tab
+ *     bars. **TabSlider is the SCREEN tier and owns the accent pill** — a picker nested
+ *     inside a card/form is the FORM tier and uses `FormControls`' `SegmentedControl`
+ *     (raised pill) instead; see TabSlider's header for the two-tier rule (2026-08-09).
  *   - **Tab order (2026-07-14)**: Today → This week → All tasks (was All → Today → Week).
  *   - **Unfinished/finished split (2026-07-14)**: the local `<DoneSplitList>` component
  *     (defined just above `TasksScreen`) filters a section's tasks into unfinished (always

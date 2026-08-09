@@ -11,7 +11,7 @@
  *             components/BottomNav (tabSwitch), components/AppModal, AnimatedBottomSheet,
  *             AddDishSheet, AddFromMonthlyModal, ConfirmationBanner, DraggableTaskRow,
  *             EnergyMeter, FlightOverlay, FormControls, GlowPulse, PressableScale,
- *             ProgressBar, ShoppingRow, SlideSelector, TabSlider, lib/useMountedTransition,
+ *             ProgressBar, ShoppingRow, TabSlider, lib/useMountedTransition,
  *             app/scan.tsx, app/(tabs)/shopping.tsx — i.e. every animated surface
  *   Data    → none (pure constants)
  *
