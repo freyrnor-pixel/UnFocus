@@ -17,7 +17,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/AddRow,
- *             components/PressableScale, components/IconButton, components/Collapsible,
+ *             components/PressableScale, components/Collapsible,
  *             components/StarterCard (compact first-run explainer), components/FormControls
  *             (Input/Switch), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
@@ -47,6 +47,13 @@
  *     down the card, and `Input` doesn't forward a ref, so each field's wrapping View is what
  *     gets measured/lifted (see lib/useKeyboardLift.ts's doc on wrapping vs. direct refs).
  *     The trailing AddRow already lifts itself internally — nothing to add there.
+ *   - **Reminder toggle is a plain bell, no chip background (2026-08-09)**: was an `IconButton`
+ *     (circular `theme.surfaceMuted` fill) showing `alarm-outline`/`notifications-off-outline`.
+ *     Restyled to match app/habit-form.tsx's bell exactly — a bare `PressableScale` + `Ionicons`,
+ *     quiet grey (`notifications-off-outline`) when reminders are off, coloured filled
+ *     (`notifications`) when on, no circular fill at all. The button still just opens/closes the
+ *     panel below (`remindersOpen`); the icon/colour reflect `remindersEnabled`, not the panel's
+ *     open state — the expanded panel itself is the "it's open" affordance.
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -56,7 +63,6 @@ import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
-import IconButton from '@/components/IconButton';
 import Collapsible from '@/components/Collapsible';
 import StarterCard from '@/components/StarterCard';
 import { Input, Switch } from '@/components/FormControls';
@@ -218,19 +224,32 @@ export default function MedicineTrayCard() {
         <View style={styles.headerRow}>
           {/* `medkit`, not the domain default heart (2026-07-28 design review) — Health's three
               cards (Medicine, Quick log, This week) all fell back to DOMAIN_ICON.health and read
-              as the same badge repeated three times. See app/(tabs)/health.tsx's matching note. */}
-          <CardAccentBadge domain="health" icon="medkit" size={22} accentOverride={screenHue} />
+              as the same badge repeated three times. See app/(tabs)/health.tsx's matching note.
+              Size 32 (2026-08-09, was 22) — this is the Health tab's lead card, so it takes the
+              same badge size Home's preview cards use, not the smaller sub-card size health.tsx's
+              Quick log/This week headers use. */}
+          <CardAccentBadge domain="health" icon="medkit" size={32} accentOverride={screenHue} />
           <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.medicine.title}</Text>
-          <IconButton
-            icon={remindersEnabled ? 'alarm-outline' : 'notifications-off-outline'}
-            label={t.medicine.editReminders}
+          {/* Plain bell, no chip background (2026-08-09) — matches app/habit-form.tsx's reminder
+              bell: quiet grey when reminders are off, coloured/filled when on. Tapping just
+              opens/closes the panel below; the expanded panel is the "it's open" affordance. */}
+          <PressableScale
             onPress={() => {
               tap();
               setRemindersOpen((v) => !v);
             }}
-            active={remindersOpen}
-            size={30}
-          />
+            hitSlop={HitSlop.base}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={t.medicine.editReminders}
+            accessibilityState={{ expanded: remindersOpen }}
+          >
+            <Ionicons
+              name={remindersEnabled ? 'notifications' : 'notifications-off-outline'}
+              size={26}
+              color={remindersEnabled ? theme.accent : theme.textMuted}
+            />
+          </PressableScale>
         </View>
 
         <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>
