@@ -62,9 +62,15 @@
  *     lib/__tests__/copyTone.test.ts).
  *   - Options pills use `flex: 1` with no minWidth — see AGENTS.md's "horizontal chrome
  *     stacks" note. A row of three Norwegian labels is the tightest case in the app.
+ *   - **The real app icon (assets/icon.png), fresh-install only (2026-08-09).** This screen
+ *     used to open on nothing but text and pills, with the onboarding backdrop's abstract
+ *     line-art tree as the only visual — never the app's actual designed icon. It's the FIRST
+ *     screen a new install shows, so it is now the one place in onboarding that leads with the
+ *     real icon rather than generated decoration. Gated on `!showAllRows`: the Settings
+ *     "Run setup again" re-entry doesn't need re-introducing to an app the user is already in.
  */
 import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,7 +90,7 @@ import {
   settingsPatchFromPicks,
 } from '@/lib/firstRunOptions';
 import { buildTheme, resolveIsDark, scaleStyles, useSystemReducedMotion } from '@/lib/useAppTheme';
-import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Shadow, Spacing } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
 
 /** One tappable option in a row. */
@@ -166,15 +172,26 @@ export default function OnboardingBasics() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.top}>
+        <View style={[styles.top, !showAllRows && styles.topHero]}>
+          {/* The app's real icon, not a generated backdrop motif — this is the first thing a
+              new install ever shows, so it is the one place onboarding should look like the
+              app rather than like abstract decoration. Fresh-install only: a re-run from
+              Settings is already inside the app and doesn't need re-introducing. */}
+          {!showAllRows ? (
+            <View style={styles.appIconShadow}>
+              <View style={styles.appIconClip}>
+                <Image source={require('../../assets/icon.png')} style={styles.appIcon} resizeMode="cover" />
+              </View>
+            </View>
+          ) : null}
           {/* Two headings for two jobs. On a fresh install this screen has to answer "what is
               this app?" before it asks for anything — nothing else in onboarding or the tour
               ever did. The re-run from Settings keeps the original wording, where the only
               open question really is what you are picking. */}
-          <Text style={[styles.heading, { color: theme.text }]}>
+          <Text style={[styles.heading, !showAllRows && styles.headingCenter, { color: theme.text }]}>
             {showAllRows ? t.basics.title : t.basics.welcomeTitle}
           </Text>
-          <Text style={[styles.sub, { color: theme.textMuted }]}>
+          <Text style={[styles.sub, !showAllRows && styles.subCenter, { color: theme.textMuted }]}>
             {showAllRows ? t.basics.sub : t.basics.welcomeSub}
           </Text>
         </View>
@@ -349,8 +366,20 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.lg,
   },
   top: { gap: Spacing.xs },
+  // Fresh-install only (see the JSX above) — centres the real app icon + headline as a proper
+  // intro hero, instead of the abstract backdrop motif carrying the "this is UnFocus" job alone.
+  topHero: { alignItems: 'center' },
+  // icon.png is a flat opaque square (no alpha) — round it here so it reads as an app-icon
+  // tile rather than a hard-edged sticker against the screen's own colour. Shadow lives on the
+  // outer view (a shadow and `overflow:hidden` fight on the same node); the inner view does
+  // the actual rounding + clip, and the image just fills it.
+  appIconShadow: { width: 96, height: 96, marginBottom: Spacing.xs, ...Shadow.card },
+  appIconClip: { flex: 1, borderRadius: Radius.lg, overflow: 'hidden' },
+  appIcon: { width: '100%', height: '100%' },
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
+  headingCenter: { textAlign: 'center' },
   sub: { fontSize: FontSize.md, lineHeight: 22 },
+  subCenter: { textAlign: 'center' },
   row: { gap: Spacing.xs },
   rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   pills: { flexDirection: 'row', gap: Spacing.xs },
