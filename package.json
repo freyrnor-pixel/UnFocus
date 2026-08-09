@@ -94,7 +94,8 @@
     "preview:build": "node scripts/build-web.mjs",
     "preview:serve": "node scripts/serve-web.mjs",
     "preview": "bash scripts/run-preview.sh",
-    "wraps": "bash scripts/run-wraps.sh"
+    "wraps": "bash scripts/run-wraps.sh",
+    "review-bundle": "bash scripts/run-review-bundle.sh"
   },
   "private": true
 }
