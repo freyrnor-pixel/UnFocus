@@ -77,9 +77,11 @@
  *     (via app/health-detail.tsx or app/health-log.tsx's own AddRow).
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only closes the hint on blur.
- *   - **(2026-07-26)** Quick log / This week headers each lead with a small `CardAccentBadge`
+ *   - **(2026-07-26)** Quick log / This week headers each lead with a `CardAccentBadge`
  *     (domain="health") next to their label — part of a broader "bring the card colour back"
  *     pass restoring domain-colour presence across tabs, mirroring Home's preview-card badges.
+ *     **Size bumped 22→32 (2026-08-09, user report: "icon in upper left is too small")** —
+ *     now actually matches the Home badge size it was already meant to mirror.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -369,7 +371,7 @@ export default function HealthScreen() {
                       Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
                       stacked cards carried the identical badge and it signified nothing. The heart
                       still marks the Health tab itself in BottomNav. */}
-                    <CardAccentBadge domain="health" icon="pulse" size={22} accentOverride={screenHue} />
+                    <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
                     <Text style={[styles.sectionLabel, { color: theme.text }]}>
                       {t.quickLogLabel}
                     </Text>
@@ -505,7 +507,7 @@ export default function HealthScreen() {
               <View style={styles.overviewCardContent}>
                 <View style={styles.sectionLabelRow}>
                   {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
-                  <CardAccentBadge domain="health" icon="stats-chart" size={22} accentOverride={screenHue} />
+                  <CardAccentBadge domain="health" icon="stats-chart" size={32} accentOverride={screenHue} />
                   <Text style={[styles.sectionLabel, { color: theme.text }]}>
                     {t.thisWeekLabel}
                   </Text>
