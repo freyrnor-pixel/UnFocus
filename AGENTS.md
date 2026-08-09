@@ -1128,6 +1128,53 @@ children with no minWidth, the way `components/TaskCard.tsx`'s `weekdayChip` alw
   Reanimated timing. Use this for "does the flow/logic work," not final visual sign-off —
   that still goes through a device/EAS build.
 
+### Design-review package — `npm run review-bundle` (2026-08-09)
+Builds the thing you hand to someone — a person or another AI — who has never seen this
+codebase and is being asked to critique its **layout and visuals**. One command, four steps
+(`scripts/run-review-bundle.sh`): build the web bundle, screenshot every screen in every
+state, collect every component's source, derive the connection map, zip it. Output is
+`review-bundle/` + `review-bundle.zip`, both **gitignored** — 14 MB of PNGs per run would sit
+in git history forever, and the whole thing regenerates in ~15 minutes.
+
+- `review-bundle/screens/` — 80 shots with `INDEX.md` captioning each one: 56 light
+  (`scripts/screenshot-states.mjs`) plus 24 dark (`--theme=dark --only=core`). **Every caption
+  names the STATE**, because half the value is the empty ones — this app puts real teaching
+  content where a blank list would be, so "Home, empty" is a designed screen, not an absence.
+- `review-bundle/source/` — every `components/*.tsx`, every `app/**/*.tsx` and the
+  colour/spacing/type/motion token files, full source with headers, chunked into ~220 KB
+  Markdown files so any one of them fits in a context window whole.
+- `review-bundle/CONNECTIONS.md` — the screen tree, what each screen mounts, a per-component
+  table of who imports it and which screens can reach it, the 20 most-shared components
+  (highest-leverage to change) and any component nothing imports. **Derived from the real
+  `@/` imports**, not from the `Connections:` header prose — so it is a cross-check ON those
+  headers, not a copy of them. The `INVENTORY.csv` beside it is the same data, machine-readable.
+- `review-bundle/README.md` — the orientation note, including the ground rules a reviewer
+  needs *before* suggesting things (one flat border per card, hue from the screen, the row
+  anatomy, the three composer tiers, no-guilt copy, EN/NO length). Suggestions that break
+  those have usually already been considered and rejected; the useful ones work within them.
+
+`scripts/screenshot-states.mjs` is a different job from `scripts/preview.mjs` — preview proves
+write→read paths still work, this one documents what the app looks like — and its phase order
+is not cosmetic. **The web DB is in-memory sql.js and there is no in-app back button on web**
+(ScreenHeader draws one on iOS only), so reaching any pushed sub-screen costs a `goBack()`,
+which reloads the document and wipes every seeded row. Hence: onboarding → empty tabs → sheets
+(they close in place) → pushed sub-screens as independent throwaway excursions → seed for real
+and shoot the populated surfaces with **no navigation at all** → one last data-bearing push.
+`ensureTabs()` is the recovery hatch: after any excursion it re-runs onboarding from scratch
+if the bottom nav is gone, so a mis-landed `goBack` costs a minute rather than the run.
+
+Two things there are worth knowing before editing it:
+- **Dark mode is set under the app, not through it** (`forceDarkMode()`). Appearance lives in
+  Settings, Settings is a pushed dead end, and leaving it reloads the document — which wipes
+  the setting along with the DB. So an `addInitScript` intercepts the assignment of
+  `window.__unfocusSqlJsDb__` and re-asserts `dark_mode='on'` before every read of the
+  settings table, which also survives onboarding writing its own appearance pick over it.
+- **Scroll position decides the framing.** The app scrolls inside a fixed-height ScrollView,
+  not the document, so `fullPage: true` captures the viewport, not the whole screen. Every
+  non-overlay shot wheels back to the top first — and the wheel has to be preceded by a
+  `mouse.move()` into the content, because the cursor starts at (0,0) where the wheel is a
+  no-op on several screens.
+
 ## Known gotchas
 
 - **⚠️ Background HTTP servers that inherit stdout hang the whole shell/tool call — this is why "the task just keeps running" (root-caused 2026-07-27).**
