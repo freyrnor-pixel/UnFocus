@@ -421,8 +421,11 @@ export default function WeekListCard({
           <View style={styles.nameWrap}>
             {/* Shop-domain gradient badge (2026-07-26, "bring the card colour back") — leads the
                 header so the card carries the same identity-colour badge Home's preview cards
-                do, without disturbing the lock/name/repeat row it sits in front of. */}
-            <CardAccentBadge domain="shop" size={22} style={styles.domainBadge} accentOverride={screenColor.base} />
+                do, without disturbing the lock/name/repeat row it sits in front of. Size bumped
+                22→32 (2026-08-09, user report: "icon in upper left is too small") — it was
+                claiming to match Home's badge size without actually doing so; the name text
+                below already truncates at one line, so the row absorbs the extra width fine. */}
+            <CardAccentBadge domain="shop" size={32} style={styles.domainBadge} accentOverride={screenColor.base} />
             {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
                 list's edit state, so it reads naturally next to the title instead of
                 competing with Save/Discard/kebab/expand in the action row. */}
