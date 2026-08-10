@@ -180,12 +180,16 @@
  *   - **Card spacing (2026-07-21)**: `baseStyles.content`'s gap dropped from `Spacing.xl` (32,
  *     Decision 043 rule 2) to `Spacing.lg` (24) — it read as too much dead air between cards
  *     vs. every other screen's `Spacing.md`/`lg` content gap, per direct feedback.
- *   - **Contrast fixes inside `rounded` panels (2026-07-25)**: `langChip` (Profil language
- *     picker) and `dayChip` (the weekly-reset-day picker) filled their
- *     inactive state with `theme.surfaceMuted` and no border — invisible once the row's parent
- *     `ExpandableCard` itself went `rounded` (also `theme.surfaceMuted`-backed), since chip and
- *     container became the same colour. Both now carry a `theme.border` (or `theme.accent` when
- *     active) outline, matching the border `peopleChip`/`peopleAddBtn` already had.
+ *   - ~~**Contrast fixes inside `rounded` panels (2026-07-25)**~~ — **moot as of 2026-08-10:
+ *     both chips are gone.** `langChip` (the Profil language picker) and `dayChip` (the
+ *     weekly-reset-day picker) are `SegmentedControl`s now, so the problem that note described
+ *     — an inactive chip filled `theme.surfaceMuted` with no border, invisible inside a
+ *     `rounded` `ExpandableCard` that is also `surfaceMuted` — cannot recur: the track draws
+ *     its own bordered surface. Kept in the log because it is the reason `peopleChip`/
+ *     `peopleAddBtn` carry the borders they do, and those are still hand-rolled.
+ *     Both were also exclusive pickers wearing the multi-select chip shape, and the day row
+ *     wrapped to two lines on every phone (7 × `minWidth: MIN_TAP_TARGET` + gaps > any card's
+ *     inner width) — see the call-site notes.
  *   - **Energy is two peer modes, not a flag (2026-08-02)**: `energySystemEnabled` left
  *     `FEATURE_ROWS` and is drawn at the TOP of the Features card as its own two-option
  *     `SegmentedControl` — **Energy mode** (true) and **Rewards mode** (false), copy under
@@ -240,6 +244,7 @@ import {
   FontSizePref,
   DarkMode,
   EnergyMode,
+  Language,
   StartScreen,
 } from '@/store/useSettingsStore';
 import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
@@ -817,29 +822,19 @@ export default function SettingsScreen() {
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
-                  <View style={styles.langRow}>
-                    {(['no', 'en'] as const).map((lang) => (
-                      <PressableScale
-                        key={lang}
-                        style={[
-                          styles.langChip,
-                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                          settings.language === lang && { backgroundColor: theme.accent, borderColor: theme.accent },
-                        ]}
-                        onPress={() => applyAndSync({ language: lang })}
-                        scaleTo={0.97}
-                      >
-                        <Text style={styles.langFlag}>{lang === 'no' ? '🇳🇴' : '🇬🇧'}</Text>
-                        <Text style={[
-                          styles.langText,
-                          { color: theme.text },
-                          settings.language === lang && { color: theme.accentInk },
-                        ]}>
-                          {lang === 'no' ? t.norwegian : t.english}
-                        </Text>
-                      </PressableScale>
-                    ))}
-                  </View>
+                  {/* 2026-08-10: was a hand-rolled two-pill `langChip` row — an exclusive
+                      picker sitting three lines above the darkMode SegmentedControl in this
+                      same card, drawn as accent-filled pills instead of a sliding track. The
+                      flags move into the labels rather than being dropped; they are how a
+                      language row is recognised before you can read either option. */}
+                  <SegmentedControl
+                    value={settings.language}
+                    onChange={(v) => applyAndSync({ language: v as Language })}
+                    options={[
+                      { value: 'no', label: `🇳🇴 ${t.norwegian}` },
+                      { value: 'en', label: `🇬🇧 ${t.english}` },
+                    ]}
+                  />
                   <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
                 </ExpandableCard>
 
@@ -1233,28 +1228,23 @@ export default function SettingsScreen() {
             <Surface style={[styles.card, { borderColor: theme.border }]}>
               <ExpandableCard title={t.sectionShopping} accentColor={theme.accent} first>
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
-                <View style={styles.dayRow}>
-                  {DAY_LABELS.map((label, i) => (
-                    <PressableScale
-                      key={i}
-                      style={[
-                        styles.dayChip,
-                        { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                        settings.weeklyResetDay === i && { backgroundColor: theme.accent, borderColor: theme.accent },
-                      ]}
-                      onPress={() => applyAndSync({ weeklyResetDay: i })}
-                      scaleTo={0.97}
-                    >
-                      <Text style={[
-                        styles.dayText,
-                        { color: theme.text },
-                        settings.weeklyResetDay === i && { color: theme.accentInk },
-                      ]}>
-                        {label.slice(0, 3)}
-                      </Text>
-                    </PressableScale>
-                  ))}
-                </View>
+                {/* 2026-08-10: was a `flexWrap` row of seven `dayChip`s. Two things were wrong
+                    with it and the conversion fixes both. It is an EXCLUSIVE picker (one reset
+                    day) drawn in the multi-select chip shape, which is the thing 19a's
+                    exemption is not for — and it carried `minWidth: MIN_TAP_TARGET`, so seven
+                    chips needed 7×48 + 6×4 = 360px inside a card whose inner width is ~329px
+                    even on a 393px screen, i.e. it wrapped to a second line on every phone.
+                    That last part is ARITHMETIC, not a measurement: `npm run wraps` never
+                    reached this row, because its Settings scan does not expand the Shopping
+                    card it lives in — worth knowing before trusting a clean audit here.
+                    `SegmentedControl` divides its track into seven equal flex segments with no
+                    minWidth and shrinks the label to fit, which is precisely the shape
+                    AGENTS.md's wrap-audit note prescribes for a weekday row. */}
+                <SegmentedControl
+                  value={settings.weeklyResetDay}
+                  onChange={(v) => applyAndSync({ weeklyResetDay: v as number })}
+                  options={DAY_LABELS.map((label, i) => ({ value: i, label: label.slice(0, 3) }))}
+                />
 
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -1932,18 +1922,9 @@ const baseStyles = StyleSheet.create({
   divider: { height: 1, marginVertical: Spacing.md },
   workHoursRow: { flexDirection: 'row', gap: Spacing.md },
   workHoursCol: { flex: 1 },
-  dayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  dayChip: {
-    minWidth: MIN_TAP_TARGET,
-    minHeight: MIN_TAP_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  dayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // `dayRow`/`dayChip`/`dayText` deleted 2026-08-10 — the weekly-reset-day picker is a
+  // `SegmentedControl` now. See the note at its call site for why the old `minWidth`-based
+  // chip row could not fit seven options on any phone.
   paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchTextCol: { flex: 1, marginRight: Spacing.md },
@@ -1964,14 +1945,8 @@ const baseStyles = StyleSheet.create({
     width: MIN_TAP_TARGET, height: MIN_TAP_TARGET, borderRadius: Radius.md, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  langRow: { flexDirection: 'row', gap: Spacing.md },
-  langChip: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderRadius: Radius.md, justifyContent: 'center',
-    borderWidth: 1,
-  },
-  langFlag: { fontSize: 24 },
-  langText: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
+  // `langRow`/`langChip`/`langFlag`/`langText` deleted 2026-08-10 — the language picker is a
+  // `SegmentedControl` now, like the darkMode row three lines above it in the same card.
   // Styles TabSlider directly (no wrapping card, see the 2026-07-24 tabBar edit note) —
   // side margins match ScreenHeader's own floated card (headerFloatH, Spacing.sm as of the
   // header/bottom-nav width-alignment pass) so the two read as one consistent floating-chrome

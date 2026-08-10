@@ -114,7 +114,25 @@ type Props = {
    *  components/PadTypeRow.tsx's `panel` prop for the full rationale. Pass one of `extras`/
    *  `panel`, not both. */
   panel?: React.ReactNode;
-  /** Hairline top divider so the row reads as appended to the list above (default true). */
+  /** Hairline top divider so the row reads as appended to the list above (default true).
+   *
+   * **Reviewed and KEPT in the 2026-08-10 pass — read this before deleting it.** It looks
+   * like the last survivor of the 2026-08-09 `FieldDivider` cull, and it is not the same
+   * thing. Those 14 lines were deleted because two sat directly UNDER a text field (making an
+   * unbordered input read as floating over a rule) and the rest re-stated a card boundary the
+   * 2026-08-05 reset had already given to borders. This one sits ABOVE a composer that draws
+   * its own border, and it is already opt-IN in practice: of ten call sites, six pass
+   * `false`, and the two that keep it pass a CONDITION — `app/(tabs)/plans.tsx`'s `!wrapped`
+   * and `MedicineTrayCard`'s `medicines.length > 0` — i.e. it is drawn exactly when there is
+   * a list above for the composer to be appended to, and suppressed when there isn't. That is
+   * a working separator, not decoration, and neither of those two containers carries a `gap`
+   * to fall back on.
+   *
+   * What DID change: it draws `theme.rule` now, not `theme.border`. `border` is the
+   * 3:1-contrast token that marks where a CONTROL is (`constants/colors.ts`); a decorative
+   * hairline between a list and the thing below it is precisely what `rule` was split out
+   * for, and this was the app's last consumer still confusing the two outside `PadSheet`.
+   */
   showDivider?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -165,7 +183,7 @@ export default function AddRow({
 
   const containerStyle = [
     styles.row,
-    showDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+    showDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule },
     disabled && styles.gated,
     style,
   ];

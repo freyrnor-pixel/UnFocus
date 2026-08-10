@@ -7,6 +7,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
+ *             components/TabSlider (the shopping/tasks switcher — screen tier),
  *             constants/theme, lib/date, lib/db, lib/i18n, lib/useAppTheme,
  *             store/useSettingsStore, store/useSharedStore, store/useShoppingStore,
  *             store/useTaskStore
@@ -20,7 +21,10 @@
  *   - Checking a shared shopping item removes its source item; checking a shared task toggles its source task only when not already done.
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome). The tab switcher renders
  *     as the first (non-sticky) row of the scroll content — the old fixed-tab bar is inlined,
- *     since ScreenScaffold owns the header/nav chrome.
+ *     since ScreenScaffold owns the header/nav chrome. It is `components/TabSlider` as of
+ *     2026-08-10 (screen tier, per TabSlider's two-tier rule); it was hand-rolled before that
+ *     and was the last such bar in the app. No `attachedTop` — it is scroll content here, not
+ *     a sticky row welded to the header.
  *   - Decision 006 tokens only; reads useAppTheme() internally.
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen has no
  *     per-screen focus-load.
@@ -36,7 +40,8 @@ import { formatDisplayDate } from '@/lib/date';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { Fonts, FontSize, Radius, Shadow, Spacing } from '@/constants/theme';
+import TabSlider from '@/components/TabSlider';
+import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 type Tab = 'tasks' | 'shopping';
@@ -81,20 +86,14 @@ export default function SharedScreen() {
   return (
     <ScreenScaffold title={t.sharedTitle} tier="site">
       <View style={styles.content}>
-        <View style={[styles.tabs, { backgroundColor: theme.surfaceMuted }]}>
-          {(['shopping', 'tasks'] as Tab[]).map((tabOpt) => (
-            <PressableScale
-              key={tabOpt}
-              style={[styles.tab, tab === tabOpt && { backgroundColor: theme.surface, ...Shadow.card }]}
-              onPress={() => setTab(tabOpt)}
-              scaleTo={0.97}
-            >
-              <Text style={[styles.tabText, { color: theme.textMuted }, tab === tabOpt && { color: theme.text }]}>
-                {tabOpt === 'shopping' ? t.sharedShoppingTab : t.sharedTasksTab}
-              </Text>
-            </PressableScale>
-          ))}
-        </View>
+        <TabSlider
+          options={[
+            { value: 'shopping' as Tab, label: t.sharedShoppingTab },
+            { value: 'tasks' as Tab, label: t.sharedTasksTab },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         {tab === 'shopping' ? (
           sharedShopping.length === 0 ? (
@@ -251,14 +250,10 @@ function SharedTaskRow({
 
 const baseStyles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
-  tabs: {
-    flexDirection: 'row',
-    borderRadius: Radius.md,
-    padding: 3,
-    gap: 3,
-  },
-  tab: { flex: 1, paddingVertical: Spacing.sm, borderRadius: Radius.sm, alignItems: 'center' },
-  tabText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // `tabs`/`tab`/`tabText` deleted 2026-08-10 — this screen's switcher is `TabSlider` now.
+  // It was the app's last hand-rolled tab bar, and it predated TabSlider: same raised-white
+  // active treatment, but hard-swapped instead of slid, with no track border, no haptic and
+  // no accessibilityRole="radio". See TabSlider's header for the two-tier rule.
   emptyCard: { borderRadius: Radius.md, padding: Spacing.lg, alignItems: 'center' },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', lineHeight: 20 },
   section: { gap: Spacing.xs },

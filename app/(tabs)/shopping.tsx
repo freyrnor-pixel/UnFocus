@@ -430,6 +430,7 @@ import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
+import Button from '@/components/Button';
 import WeekListCard from '@/components/WeekListCard';
 import ShoppingFilterBar from '@/components/ShoppingFilterBar';
 import FlightOverlay, { FlightRow, Flight, FlightRect } from '@/components/FlightOverlay';
@@ -455,7 +456,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, Radius, SCREEN_GAP, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -1925,16 +1926,21 @@ export default function ShoppingScreen() {
                                   InlineAddItem's "Add item" bar above (2026-07-23) — same shape,
                                   background, and text treatment, so the two add actions read as one
                                   consistent affordance instead of two different-looking buttons. */}
-                              <PressableScale
-                                style={[styles.addTrigger, styles.addItemSpacing, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                              {/* `Button variant="secondary"` since 2026-08-10 — the accentSoft
+                                  fill the 2026-08-09 pass deliberately left it at, now drawn by
+                                  the shared component instead of hand-rolled. Note this is a
+                                  RUNG ABOVE FoodTab's "Add dish", which is ghost: there it is
+                                  one of five repeated per-meal-section triggers, here it is the
+                                  screen's single secondary action under InlineAddItem's solid
+                                  primary. Same label, different weight, because weight is
+                                  relative to the screen it sits on. */}
+                              <Button
+                                label={t.addDishBtn}
+                                icon="restaurant-outline"
+                                variant="secondary"
                                 onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
-                                accessibilityRole="button"
-                                accessibilityLabel={t.addDishBtn}
-                                scaleTo={0.97}
-                              >
-                                <Ionicons name="restaurant-outline" size={18} color={theme.accent} />
-                                <Text style={[styles.addTriggerText, { color: theme.accent }]}>{t.addDishBtn}</Text>
-                              </PressableScale>
+                                style={styles.addItemSpacing}
+                              />
                             </>
                           )}
                         </View>
@@ -2352,12 +2358,8 @@ export default function ShoppingScreen() {
           <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetAllMonthlyListsConfirmTitle}</Text>
           <Text style={[styles.dialogBody, { color: theme.textMuted }]}>{t.resetAllMonthlyListsConfirmBody}</Text>
           <View style={styles.dialogBtns}>
-            <PressableScale style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetConfirmVisible(false)} scaleTo={0.97}>
-              <Text style={styles.dialogBtnText}>{t.no}</Text>
-            </PressableScale>
-            <PressableScale style={[styles.dialogBtn, styles.dialogBtnYes]} onPress={handleConfirmReset} scaleTo={0.93}>
-              <Text style={styles.dialogBtnText}>{t.yes}</Text>
-            </PressableScale>
+            <Button label={t.no} variant="ghost" onPress={() => setResetConfirmVisible(false)} style={styles.dialogBtn} />
+            <Button label={t.yes} variant="danger" onPress={handleConfirmReset} style={styles.dialogBtn} />
           </View>
         </View>
       </View>
@@ -2371,16 +2373,13 @@ export default function ShoppingScreen() {
           <Text style={[styles.dialogMessage, { color: theme.text }]}>{t.resetMonthlyListConfirmTitle}</Text>
           <Text style={[styles.dialogBody, { color: theme.textMuted }]}>{t.resetMonthlyListConfirmBody}</Text>
           <View style={styles.dialogBtns}>
-            <PressableScale style={[styles.dialogBtn, styles.dialogBtnNo]} onPress={() => setResetListConfirmId(null)} scaleTo={0.97}>
-              <Text style={styles.dialogBtnText}>{t.no}</Text>
-            </PressableScale>
-            <PressableScale
-              style={[styles.dialogBtn, styles.dialogBtnYes]}
+            <Button label={t.no} variant="ghost" onPress={() => setResetListConfirmId(null)} style={styles.dialogBtn} />
+            <Button
+              label={t.yes}
+              variant="danger"
               onPress={() => { if (resetListConfirmId) handleResetOneList(resetListConfirmId); }}
-              scaleTo={0.93}
-            >
-              <Text style={styles.dialogBtnText}>{t.yes}</Text>
-            </PressableScale>
+              style={styles.dialogBtn}
+            />
           </View>
         </View>
       </View>
@@ -2461,9 +2460,13 @@ const styles = StyleSheet.create({
   // Budget entry point (moved here from app/(tabs)/scan.tsx, 2026-07-19 — Budget is only
   // reachable via Shopping now; relocated again 2026-07-22 from the shared shoppingIntro
   // chrome, where it repeated on all 4 tabs, into the Monthly tab's own header row —
-  // Budget is a monthly-spend concept, so it now shows only there). Bordered pill, same
-  // family as addTrigger below, inline with the reset/lock icons (no alignSelf needed —
-  // sits in a row, not standalone).
+  // Budget is a monthly-spend concept, so it now shows only there). Bordered pill, inline
+  // with the reset/lock icons (no alignSelf needed — sits in a row, not standalone).
+  // **Deliberately NOT converted to `Button` in the 2026-08-10 CTA pass**, unlike the four
+  // add triggers: this is NAVIGATION (it pushes /budget), not an action on this screen, so
+  // it is outside the one-primary hierarchy for the same reason the Food/Catalogue links
+  // are — see this file's "One primary, everything else secondary" note. It is also a small
+  // pill in an icon row, not a full-width CTA, so `Button`'s geometry would be wrong for it.
   budgetPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2477,22 +2480,10 @@ const styles = StyleSheet.create({
   // Spend-vs-budget pace line (Decision 026) — sits under the header row, above the
   // Monthly list sections. Same figure/copy as app/budget.tsx's own pace row.
   spendPaceText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
-  // Bordered trigger pill — matches WeekListCard's monthlyTrigger shape, the one shared
-  // "tap to open a fuller add flow" affordance (design-consistency pass). Matched to
-  // InlineAddItem's collapsed "addBar" shape (2026-07-23) so "Add item" and "Add dish"
-  // read as the same affordance — same padding/minHeight/background/text style.
-  addTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    minHeight: MIN_TAP_TARGET,
-  },
-  addTriggerText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // `addTrigger`/`addTriggerText` deleted 2026-08-10 — Monthly's "Add dish" is
+  // `Button variant="secondary"` now, which draws that exact shape (accentSoft fill, own
+  // edge, MIN_TAP_TARGET, centred icon + label) without a fourth hand-rolled copy of it.
+  // Only the spacing above it is this file's to decide.
   addItemSpacing: { marginTop: Spacing.sm },
 
   // Shopping — Monthly redesign (2026-07-22): tap-to-edit Monthly list name, mirroring
@@ -2519,10 +2510,13 @@ const styles = StyleSheet.create({
   dialogMessage: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   dialogBody: { fontSize: FontSize.sm, textAlign: 'center', marginTop: -Spacing.sm },
   dialogBtns: { flexDirection: 'row', gap: Spacing.sm },
-  dialogBtn: { flex: 1, borderRadius: Radius.md, minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.sm },
-  dialogBtnNo: { backgroundColor: '#1E3A5F' },
-  dialogBtnYes: { backgroundColor: '#4A90D9' },
-  dialogBtnText: { color: '#FFFFFF', fontFamily: Fonts.bold, fontSize: FontSize.sm, textAlign: 'center' },
+  // 2026-08-10: both reset confirms are `components/Button` now — ghost for No, danger for
+  // Yes. They were hand-rolled PressableScales filled `#1E3A5F` and `#4A90D9` with `#FFFFFF`
+  // ink: three hardcoded hexes that followed neither palette, so the dialog stayed navy in
+  // light mode, and — worse — the button that erases a month of lists was drawn as the
+  // *lighter blue* of two blues, with no danger signal and no hierarchy at all. All this
+  // style carries now is the flex that splits the row.
+  dialogBtn: { flex: 1 },
   // Visual-audit 2026-07-11: background/border colour applied inline (theme) at each
   // call site — was bare muted text floating on the particle background.
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
@@ -2558,6 +2552,13 @@ const styles = StyleSheet.create({
   allocateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, minHeight: 28 },
   allocateBtnText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 
+  // **No left rail here, unlike `WeekListCard`'s identically-named style — checked
+  // 2026-08-10 and deliberately left different.** Weekly's 3px rail is a STATUS signal:
+  // `theme.good` on the in-list/aisle blocks, `theme.accent` on the in-cart one, i.e. it
+  // separates "still to buy" from "already picked up". Monthly's blocks have no such
+  // distinction — they are ungrouped items and dish groups, all the same kind of thing — so
+  // adding a rail here would be decoration wearing a signal's clothing, and removing it from
+  // Weekly would drop a real one. Don't "unify" these two into one shape.
   rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   // Inset past the check so the column of checks reads as one line down the card
   // Full-width now (2026-07-30): the check moved to the right margin, so there is no leading

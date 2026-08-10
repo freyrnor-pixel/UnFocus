@@ -17,7 +17,8 @@
  * Connections:
  *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/screenColor,
- *             components/Surface, components/PressableScale, components/AddRow,
+ *             components/Surface, components/PressableScale, components/Button (the per-meal
+ *             "Add dish" trigger — ghost), components/AddRow,
  *             components/Badge (difficulty pill), components/FormControls (SegmentedControl — difficulty picker),
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
@@ -94,6 +95,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import Button from '@/components/Button';
 import AddRow from '@/components/AddRow';
 import { Badge } from '@/components/Badge';
 import Collapsible from '@/components/Collapsible';
@@ -145,6 +147,24 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
  * lunch was `#10B981` (collided with `good`/done) and dinner `#EF4444` (collided with `bad`/
  * delete), which read as status signals on a food card. The new set keeps a warm→cool meal
  * progression without ever landing on a pure success-green or error-red.
+ *
+ * **Deliberately OUTSIDE `ThemePalette`, and mode-invariant** — reviewed in the 2026-08-10
+ * hardcoded-colour sweep and kept, on the same grounds as `IDENTITY_HUES`, `lib/severity.ts`
+ * and `lib/personColor.ts`: this is a fixed identity set separating one axis of meaning, not a
+ * theme decision. Promoting five hues × two modes into the palette would put ten tokens and
+ * ten contrast assertions into `colors.test.ts` for one component's section headers.
+ *
+ * ⚠️ **Two known deviations, measured rather than assumed. Neither is drift, both are open.**
+ *  1. As TEXT (`sectionTitle`, and the icon/chevron beside it) these fail AA in LIGHT mode on
+ *     `surface` #FFFFFF: breakfast 2.12:1, lunch 2.52:1, dinner 2.88:1, snack 3.08:1,
+ *     kveldsmat 3.57:1. Dark is comfortable and got *better* with the true-black palette
+ *     (4.67–7.87:1 on the new `surface`, up from 4.34–7.31:1). Fixing light means a per-mode
+ *     meal set, i.e. exactly the palette promotion this comment declines — a real trade, not
+ *     an oversight. Raised, not resolved.
+ *  2. Line ~617 passes one of these to `<Surface borderColor>`, which the 2026-08-05 card
+ *     reset reserves for the SCREEN's hue: the Food screen is orange, and this draws five
+ *     differently-edged cards on it. See AGENTS.md, "Don't derive a card edge from
+ *     getDomainColor". Left alone here because changing it redesigns the screen.
  */
 const MEAL_COLORS: Record<MealType, string> = {
   breakfast: '#E0A85A', // soft morning amber
@@ -581,16 +601,22 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                 expanded body, same "+ makes a new row" idiom as NewMonthlyListRow's
                 "+ New list" trigger. Only reachable while the section is open, since the
                 list it appends to isn't visible while closed. */}
-            <PressableScale
-              style={[styles.addDishRow, { borderColor: color }]}
+            {/* `Button variant="ghost"` since 2026-08-10 — this was one of four hand-rolled
+                spellings of exactly that (transparent fill, 1.5px hued edge, accent label),
+                alongside WeekListCard's `addOptionBtn` and shopping.tsx's `budgetPill` /
+                `addTrigger`. Consequence worth knowing: ghost takes its edge from the SCREEN
+                hue and its label from `theme.accent`, so this no longer wears the per-meal
+                colour. That is the intent — five differently-coloured buttons on one screen is
+                the same deviation as five differently-coloured card edges (see MEAL_COLORS'
+                note), and the meal identity is still carried by the section's icon, title and
+                chevron right above it. */}
+            <Button
+              label={t.addDishToMealBtn}
+              icon="add"
+              variant="ghost"
               onPress={() => openNewDishModal(mealType)}
-              accessibilityRole="button"
-              accessibilityLabel={t.addDishToMealBtn}
-              scaleTo={0.97}
-            >
-              <Ionicons name="add" size={18} color={color} />
-              <Text style={[styles.addDishRowText, { color }]}>{t.addDishToMealBtn}</Text>
-            </PressableScale>
+              style={styles.addDishRow}
+            />
             </View>
             </Collapsible>
           </>
@@ -800,17 +826,11 @@ const baseStyles = StyleSheet.create({
   // row, same idiom as NewMonthlyListRow's "+ New list" pill. Was a small circular "+" in the
   // header next to the chevron; moved here so it reads as "add a new row to this list" rather
   // than crowding the expand/collapse control.
-  addDishRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    minHeight: MIN_TAP_TARGET,
-  },
-  addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
+  // All the geometry moved into `Button` (2026-08-10) — it already draws a full-width ghost
+  // at `MIN_TAP_TARGET` with its own radius, edge and centred icon+label. What is left is the
+  // one thing Button does not decide: that this trigger spans the section.
+  // `addDishRowText` is deleted with it.
+  addDishRow: { alignSelf: 'stretch' },
   // Bordered box, not a bare row (2026-08-06) — see the inline comment at the map site for why
   // the border lives on this outer View rather than being conditional on `isOpen`.
   dishCard: { borderRadius: Radius.md, borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },

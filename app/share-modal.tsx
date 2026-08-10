@@ -223,6 +223,11 @@ export default function ShareModal() {
               )}
             </Surface>
 
+            {/* One fill, not two (2026-08-10). Sharing the selection is this screen's
+                primary and keeps the accent fill; "Send as text" was `secondary`, whose
+                `accentSoft` is still a FILL, so the two stacked as two filled blocks and the
+                hierarchy between them read as a shade difference. Ghost makes it an outline —
+                an alternative route to the same result, which is what it is. */}
             {selected.size > 0 && qrPayload ? (
               <View style={styles.actions}>
                 <Button
@@ -231,7 +236,7 @@ export default function ShareModal() {
                 />
                 <Button
                   label={t.shareSendText}
-                  variant="secondary"
+                  variant="ghost"
                   onPress={sendAsText}
                 />
               </View>

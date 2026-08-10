@@ -51,7 +51,7 @@
  *             components/StarterExampleRow (its preview row), components/Surface,
  *             components/CardAccent (CardAccentBadge), components/PressableScale,
  *             components/DebugNoteAnchor, components/AddRow,
- *             components/FormControls (Input), constants/theme, lib/date, lib/i18n,
+ *             components/FormControls (Input, SegmentedControl), constants/theme, lib/date, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor,
  *             lib/haptics, lib/useKeyboardLift (Quick log's start-time/duration fields),
  *             store/useHealthStore,
@@ -102,7 +102,7 @@ import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
-import { Input } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
 import { success } from '@/lib/haptics';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
@@ -390,41 +390,19 @@ export default function HealthScreen() {
                     <>
                       {/* Still going / It's over — defaults to It's over (D5). Picking "Still
                         going" hides Duration and writes an open episode with no end pair. */}
-                      <View style={styles.quickStateRow}>
-                        {[
-                          { open: true, label: t.episodes.stillGoing },
-                          { open: false, label: t.episodes.itsOver },
-                        ].map((option) => {
-                          const active = quickOngoing === option.open;
-                          return (
-                            <PressableScale
-                              key={option.label}
-                              style={[
-                                styles.quickStateChip,
-                                { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                                active && {
-                                  backgroundColor: theme.accent,
-                                  borderColor: theme.accent,
-                                },
-                              ]}
-                              onPress={() => setQuickOngoing(option.open)}
-                              accessibilityRole="button"
-                              accessibilityState={{ selected: active }}
-                              scaleTo={0.97}
-                            >
-                              <Text
-                                style={[
-                                  styles.quickStateChipText,
-                                  { color: theme.text },
-                                  active && { color: theme.accentInk },
-                                ]}
-                              >
-                                {option.label}
-                              </Text>
-                            </PressableScale>
-                          );
-                        })}
-                      </View>
+                      {/* One shape with app/health-form.tsx's copy of this same binary since
+                          2026-08-10 — both are `SegmentedControl` (form tier). `compact`
+                          because this sits inside a quick-capture row, not a full editor. */}
+                      <SegmentedControl
+                        compact
+                        style={styles.quickStateRow}
+                        options={[
+                          { value: 'ongoing', label: t.episodes.stillGoing },
+                          { value: 'over', label: t.episodes.itsOver },
+                        ]}
+                        value={quickOngoing ? 'ongoing' : 'over'}
+                        onChange={(v) => setQuickOngoing(v === 'ongoing')}
+                      />
                       <View style={styles.quickTimeRow}>
                         <View style={styles.quickTimeField} ref={quickStartTimeLift.ref}>
                           <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
@@ -634,14 +612,12 @@ const baseStyles = StyleSheet.create({
   // "See all" past the three-card prompt cap — a plain link, no card, no count.
   moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
   moreEpisodesText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  quickStateRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
-  quickStateChip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1.5,
-  },
-  quickStateChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // Was a row of two accent-filled `Radius.full` pills + their text style; it is a
+  // `SegmentedControl` as of 2026-08-10, matching app/health-form.tsx's copy of the same
+  // binary. All that survives is the top margin — `overviewCardContent` has no `gap`, so
+  // every child in this stack carries its own, and `quickTimeRow`/`quickSeverityRow` below
+  // use the identical value.
+  quickStateRow: { marginTop: Spacing.sm },
   quickTimeRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
   quickTimeField: { flex: 1, gap: Spacing.xs },
   quickTimeInput: { paddingVertical: Spacing.xs },

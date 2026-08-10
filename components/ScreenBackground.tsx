@@ -35,6 +35,12 @@
  * visible and `app/(tabs)/habits.tsx` draws an ambient one (task 03), so "one tree per screen"
  * already spends that budget elsewhere.
  *
+ * **Dark mode is FLAT TRUE BLACK as of 2026-08-10** — no base gradient, no glows, branch art
+ * only. Read the ⚠️ block above the `DARK` palette below before touching it: this component
+ * paints over `theme.bg` on every non-`plainBackground` screen, so it, not the palette, is
+ * what dark mode actually looks like. Light is unchanged and still the blue field described
+ * next.
+ *
  * As of 2026-07-19 this is the "abstract branch" background (maintainer handoff
  * `HANDOFF_ABSTRACT_TREE_BACKGROUND.md`): a soft blue gradient — a vertical base plus two
  * radial glows (upper-centre focal glow + a broad bottom glow) — with tapered branch-and-leaf
@@ -255,12 +261,34 @@ const LIGHT: Palette = {
   growthBranch: '#3f9e7a', growthLeaf: '#8ed3b4',
 };
 
+// ⚠️ TRUE BLACK, 2026-08-10 — and this block is the reason `theme.bg` alone was never enough.
+// This gradient is painted over the page background on every screen that isn't
+// `plainBackground`, so whatever it says IS dark mode, regardless of the palette. It used to
+// be `['#0b1020','#0a1330','#071026']` plus two blue radial glows at 0.55/0.40 — a lit navy
+// field. Against `constants/colors.ts`'s new `bg: '#000000'` that meant the black existed in
+// the token and nowhere on screen.
+//
+// So: all three base stops are #000000, and both glows are off. The glows are not merely
+// dimmed — a radial lift on a pure-black field is precisely what destroys the OLED benefit
+// (an unlit pixel draws no power and gives infinite local contrast; a 0.05 blue wash lights
+// every one of them), and a faint one reads as screen-uniformity haze rather than as
+// decoration. Keeping the tokens rather than deleting the `Palette` fields is deliberate:
+// LIGHT still uses them, and a future "dim, not black" variant would want them back.
+//
+// The branch art stays and is still the point — DESIGN brief point 10, "decorate with less
+// opaque leaves and branches in edges, not to disturb, only to decorate". `branchOpacity` is
+// unchanged at 0.42, and that was checked rather than assumed: composited, the branch stroke
+// measures 1.693:1 against pure black vs 1.787:1 against the old navy field, so it is very
+// slightly QUIETER by contrast than it was, not louder.
+// It nonetheless READS as more present in a screenshot, and the reason is worth knowing before
+// anyone "fixes" it: against navy the blue branch shared a hue family with the field and sat in
+// it as texture; against black it is the only chromatic thing in a large empty area. That is
+// hue isolation, not contrast, and whether it is too much is a taste call on a real OLED panel
+// — which is where it should be made. Don't lower this on the strength of a screenshot.
 const DARK: Palette = {
-  base: ['#0b1020', '#0a1330', '#071026'],
-  topGlow: 'rgb(90,150,255)', topGlowOpacity: 0.55,
-  botGlow: 'rgb(60,120,255)', botGlowOpacity: 0.4,
-  // 0.7 → 0.42, the same proportional step as LIGHT above. Dark mode keeps the higher of the
-  // two because a mid-blue branch on near-black has less contrast to spend than on near-white.
+  base: ['#000000', '#000000', '#000000'],
+  topGlow: 'rgb(90,150,255)', topGlowOpacity: 0,
+  botGlow: 'rgb(60,120,255)', botGlowOpacity: 0,
   branch: '#3f74ff', leaf: '#7fa8ff', branchOpacity: 0.42,
   growthBranch: '#2f9b74', growthLeaf: '#63c49c',
 };

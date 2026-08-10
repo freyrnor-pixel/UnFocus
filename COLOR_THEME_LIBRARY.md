@@ -13,11 +13,51 @@ those ever disagree again, trust the code.
 ## Theme Overview
 
 UnFocus has **one theme** (`ThemeName = 'default'`), with a light palette ("Soft
-daylight") and a dark palette ("Midnight glass", 2026-07-18 visual refresh).
+daylight") and a dark palette ("True black", 2026-08-10 — replacing the 2026-07-18
+"Midnight glass" deep-navy set).
 There is no Tech/Gothic/Nature/Fluffy theme and no user-facing custom-theme
 builder — `darkMode` (off/on/system) is the only palette choice a user makes.
 
 ---
+
+## Dark mode is TRUE BLACK as of 2026-08-10
+
+The dark palette was replaced wholesale from an outside design review, on the maintainer's
+instruction. Pure black leverages OLED hardware (an unlit pixel draws no power and gives
+infinite local contrast), and the neutral greys that come with it drop the navy cast the old
+set carried everywhere. **The light palette was deliberately NOT changed** — the review's
+light values put the control-edge border at 1.18:1 and `bg`↔card at 1.05:1, which would have
+erased the border-as-grouping-signal system the 2026-08-05 card reset is built on.
+
+| Token | Dark now | Dark before |
+|---|---|---|
+| `bg` | `#000000` | `#080A11` |
+| `surface` | `#1E1E1E` | `#1B2438` |
+| `surfaceMuted` | `#121212` | `#161C29` |
+| `surfaceInset` | `#0A0A0A` | `#0B0F18` |
+| `rule` | `#27272A` | `#303B50` |
+| `border` | `#787882` | `#5F7090` |
+| `text` | `#F3F4F6` | `#C7CBD1` |
+| `textMuted` | `#9CA3AF` | `#8B95A7` |
+| `accent` | `#3B82F6` | `#6EA8FF` |
+| `good` / `bad` / `warn` | `#10B981` / `#EF4444` / `#F59E0B` | `#34D399` / `#FB7185` / `#F0B24A` |
+
+Three things about it that are not obvious and are load-bearing:
+
+- **`surface` takes the review's "elevated" value, not its "card" value.** It supplied three
+  surface hexes for a ladder that has four rungs. `#1E1E1E` is the only assignment where a
+  card still reads as raised off a pure-black page (1.26:1 vs `#121212`'s 1.12:1, against a
+  ≥1.20 floor), which is the entire point of the background being black.
+- **The review's `border.subtle` `#27272A` is `rule`, not `border`.** At 1.12:1 on `surface`
+  it is a divider weight; using it as a control edge would put every card, field and button
+  boundary far under WCAG 1.4.11's 3:1. `border` is a separately derived `#787882`.
+- **`components/ScreenBackground.tsx` had to change too, and it is the one that actually
+  matters visually.** It paints its own private gradient over `theme.bg` on every screen, so
+  until its `DARK.base` went to `#000000` and its two blue glows to opacity 0, the black
+  existed in the token and nowhere on screen.
+
+Five dark-mode assertions in `lib/__tests__/colors.test.ts` were relaxed to admit this —
+see `DESIGN_RULES.md` rule 10a for the table and the one that has a real cost.
 
 ## Core Palette
 

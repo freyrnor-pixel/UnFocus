@@ -112,6 +112,26 @@ design, not the rule.
     in both modes; `contrastOn()` and `contrastRatio()` (`constants/theme.ts`,
     `constants/colors.ts`) are the helpers. Add new colour tokens to that test in the
     same edit that adds the token.
+10a. **Five DARK-mode assertions were relaxed on 2026-08-10, by instruction, when the
+    true-black palette landed.** Light is untouched and still at full strength. Listed here
+    because a relaxed bound with no record is indistinguishable from drift, and because two of
+    them are worth arguing about again if a device ever disagrees. The reasoning for each lives
+    beside it in the test file — read that before moving any of them further.
+    | What | Was | Now | Kind |
+    |---|---|---|---|
+    | halation band, `text` on `surface` | 7–12:1 | 7–**16**:1 | a real accessibility trade — see below |
+    | `surfaceMuted`↔`surfaceInset` step | ≥1.10 | ≥1.05 | arithmetic: `bg` at `#000000` leaves no room |
+    | `rule` lower bound | ≥1.2:1 | ≥1.1:1 | keeps the supplied `#27272A`; the `<3:1` upper bound stands |
+    | `accentInk` on `accent` | ≥4.5:1 | ≥3.0:1 | structural: `#3B82F6` admits no AA ink in either direction |
+    | chromatic tokens on `bg`/`surface` | ≥4.5:1 | ≥4.4:1 | `bad` `#EF4444` measures 4.43 |
+    **The halation one is the only one with a cost, and it was accepted knowingly.** The ≤12
+    ceiling existed because near-white text on a dark surface blooms for astigmatic readers —
+    the most common dark-mode legibility complaint there is — and it is why `text` was pulled
+    back from `#E9EDF5` to `#C7CBD1` in 2026-07-31's addendum. It was overridden in favour of
+    an outside review's contrast-first palette. **If a real-device complaint arrives, pull
+    `text` back toward `~#D8DADF` and lower the ceiling with it — do not darken a surface to
+    chase it.** The ceiling still exists and still catches the runaway case; it now sits at
+    the shipped value plus headroom rather than at the comfort threshold.
 11. **Never use color as the only signal.** Pair it with an icon or text label.
     Status, selection, and meaning must survive in greyscale.
 12. **One accent color for actions, plus a neutral grey scale.** Add semantic

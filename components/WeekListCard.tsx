@@ -19,7 +19,8 @@
  *   Imports → components/AddFromMonthlyModal, components/AppModal (showAppModal),
  *             components/Collapsible, components/ExpandableCard,
  *             components/FlightOverlay (FlightRect type only),
- *             components/IconButton, components/InlineAddItem, components/ShoppingFilterBar,
+ *             components/IconButton, components/Button (the two ghost secondary add paths),
+ *             components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/CardAccent (CardAccentBadge),
  *             components/ShoppingRow (CHECKED_OPACITY), constants/theme, lib/cardLayout (LayoutSpec),
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets,
@@ -142,6 +143,7 @@ import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
+import Button from '@/components/Button';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
@@ -154,7 +156,6 @@ import { showAppModal } from '@/components/AppModal';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { getScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { Ionicons } from '@expo/vector-icons';
 
 type Props = {
   list: ShoppingList;
@@ -667,28 +668,30 @@ export default function WeekListCard({
                 hidden "more ways to add…" link that opened an action sheet felt unnatural, so
                 "From monthly" / "From a dish" now sit in plain sight below the primary add bar,
                 styled as quiet secondary buttons so the inline add stays the visual primary. */}
+            {/* Both are `Button variant="ghost"` since 2026-08-10 — a third and fourth
+                spelling of the same shape FoodTab's "Add dish" and shopping.tsx's triggers
+                were hand-rolling. Ghost is exactly right for them: they are the SECONDARY
+                paths, and InlineAddItem's solid accent bar above stays the screen's one
+                filled primary (DESIGN_RULES.md rule 6). `size="sm"` keeps them visibly
+                quieter than that bar. */}
             {!list.locked && (
               <View style={styles.addOptionsRow}>
-                <PressableScale
-                  style={[styles.addOptionBtn, { borderColor: theme.border }]}
+                <Button
+                  label={t.addFromMonthlyOption}
+                  icon="repeat-outline"
+                  variant="ghost"
+                  size="sm"
                   onPress={() => setMonthlyPreviewOpen(true)}
-                  scaleTo={0.97}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.addFromMonthlyOption}
-                >
-                  <Ionicons name="repeat-outline" size={15} color={theme.good} />
-                  <Text style={[styles.addOptionText, { color: theme.text }]} numberOfLines={1}>{t.addFromMonthlyOption}</Text>
-                </PressableScale>
-                <PressableScale
-                  style={[styles.addOptionBtn, { borderColor: theme.border }]}
+                  style={styles.addOptionBtn}
+                />
+                <Button
+                  label={t.addFromDishOption}
+                  icon="restaurant-outline"
+                  variant="ghost"
+                  size="sm"
                   onPress={onOpenDishSheet}
-                  scaleTo={0.97}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.addFromDishOption}
-                >
-                  <Ionicons name="restaurant-outline" size={15} color={theme.good} />
-                  <Text style={[styles.addOptionText, { color: theme.text }]} numberOfLines={1}>{t.addFromDishOption}</Text>
-                </PressableScale>
+                  style={styles.addOptionBtn}
+                />
               </View>
             )}
 
@@ -874,21 +877,12 @@ const baseStyles = StyleSheet.create({
   // Transparent by default (idle state matches the pre-2026-07-06 flat-row look exactly) —
   // only gains a fill/border while it's the live drag-to-merge target (Decision 022).
   dishGroup: { borderRadius: Radius.sm, borderWidth: 1, borderColor: 'transparent' },
-  // Two visible secondary add buttons ("From monthly" / "From a dish") — quiet bordered
-  // pills that sit below InlineAddItem's primary "+" bar without competing with it.
+  // Two visible secondary add buttons ("From monthly" / "From a dish") — quiet ghost buttons
+  // that sit below InlineAddItem's primary "+" bar without competing with it. They are
+  // `components/Button` as of 2026-08-10, so all the shape lives there; `addOptionText` is
+  // deleted and this style carries only the flex that splits the row.
   addOptionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
-  addOptionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-  },
-  addOptionText: { fontFamily: Type.label.fontFamily, fontSize: FontSize.sm },
+  addOptionBtn: { flex: 1, minWidth: 0 },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: MIN_TAP_TARGET },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

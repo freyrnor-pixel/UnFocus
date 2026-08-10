@@ -389,6 +389,36 @@ file owns which token.)
     indicator drawn behind a tab has nothing to be raised off — the accent glow stays), and
     `Shadow.fab` **while Home is active** (a 16px black blur smeared straight across the few-px
     ring; an active tab also rests sunk, and a key at the bottom of its travel shouldn't float).
+- **Two shapes for a pick-one question, and only two** (`components/TabSlider.tsx` +
+  `FormControls`' `SegmentedControl`; the rule is written down in TabSlider's header,
+  the tail was converted 2026-08-10). **Screen tier** = TabSlider, an accent-FILLED sliding
+  pill, at most one per screen. **Form tier** = SegmentedControl, a raised white sliding pill.
+  Tier is carried by the ACTIVE TREATMENT, never by the corner radius. A third control
+  (`components/SlideSelector.tsx`) was deleted on 2026-08-09 — don't reintroduce one.
+  - **The 2026-08-09 pass consolidated the three named toggles; 2026-08-10 did the tail.**
+    Seven hand-rolled exclusive pickers went over: `app/shared.tsx`'s tab bar (the app's LAST
+    hand-rolled tab bar) → TabSlider; `app/automations.tsx`'s two When/Then rows;
+    `app/health-form.tsx` **and** `app/(tabs)/health.tsx`'s copies of "Still going / It's over"
+    (one question that had two appearances depending on which screen you asked it from);
+    Settings' language picker and weekly-reset-day row; `app/medicine-form.tsx`'s min-gap
+    options; and `TaskCard`'s monthly weekday picker.
+  - **The test is EXCLUSIVE vs MEMBERSHIP, not "is it a row of pills".** `DESIGN_RULES.md` 19a
+    exempts multi-select — tags, people, weekdays-you-repeat-on, active weeks — and those keep
+    their chip rows. `TaskCard` is the worked example: its weekly-repeat row is multi-select and
+    still `weekdayChip`, while the monthly "second TUESDAY" picker below it is exclusive and is
+    now a SegmentedControl. They shared one style, which is precisely why they read alike.
+  - **Three documented refusals — don't "finish the job" on these.** (a)
+    `app/onboarding/basics.tsx`'s six pill rows CANNOT convert: that screen previews an
+    uncommitted theme from local state, so it can't mount anything that reads the store, and
+    SegmentedControl does. (b) A picker whose option count is data-driven and unbounded stays a
+    wrapping chip cloud — SegmentedControl splits its track into n equal segments, so eight
+    medicines would be eight slivers (`health-form`'s medicine attribution, `medicine-form`'s
+    person row). (c) A row of shortcut ACTIONS with no selected state was never a picker
+    (`health-form`'s backdate presets).
+  - Bonus from the Settings conversion: the weekly-reset-day row carried
+    `minWidth: MIN_TAP_TARGET` on seven chips, needing 7 × 48 + 6 × 4 = 360px inside a card
+    that never has it — so it wrapped to two lines on every phone. SegmentedControl's equal
+    flex segments with no minWidth are the shape the wrap-audit note prescribes.
 - **One card for every sub-screen link** (`components/CollapsedSection.tsx`, 2026-08-10).
   Maintainer: *"Goals and Previous days should be like the 'Whenever' card with expandability,
   and pressing the name gives you a pop-up. This is to stay consistent across app."*
@@ -439,6 +469,24 @@ file owns which token.)
     which was itself a reaction to a link CARD. What was wrong with that card was that it spent
     a card on a row's worth of information and could only be *followed*; a drawer earns its card
     by showing what is behind it. Read `app/(tabs)/habits.tsx`'s note before moving it back in.
+- **Dark mode is TRUE BLACK (2026-08-10)** — `bg` `#000000`, `surface` `#1E1E1E`,
+  `surfaceMuted` `#121212`, `text` `#F3F4F6`, `accent` `#3B82F6`. Adopted wholesale from an
+  outside design review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight
+  glass" deep navy. **The LIGHT palette was deliberately not touched** — the review's light
+  values put the control-edge border at 1.18:1, which would erase the border-as-grouping-signal
+  system the card reset below is built on. Three things to know before editing any of it:
+  - **`components/ScreenBackground.tsx` is what dark mode actually looks like, not the
+    palette.** It paints its own private gradient over `theme.bg` on every non-`plainBackground`
+    screen, so its `DARK.base` is three `#000000` stops now and both blue radial glows are at
+    opacity 0 (a radial lift on pure black is exactly what destroys the OLED benefit). Change
+    the token without changing that file and nothing moves on screen.
+  - **The review's `border.subtle` `#27272A` is `rule`, not `border`.** At 1.12:1 on `surface`
+    it is a divider weight; `border` is a separately derived `#787882` that clears WCAG
+    1.4.11's 3:1 on every rung.
+  - **Five dark assertions in `lib/__tests__/colors.test.ts` were relaxed to admit it** — see
+    `DESIGN_RULES.md` rule 10a for the table. Four are arithmetic or structural; the halation
+    ceiling (7–12:1 → 7–16:1) is a real accessibility trade that was accepted knowingly, and
+    that entry says what to pull back first if a device disagrees.
 - **One card design — the 2026-08-05 reset** (`components/Surface.tsx` + `lib/screenColor.ts` +
   `computeBorderRamp`/`computeBorderTone`/`BORDER_WIDTH` in `constants/theme.ts`). The
   maintainer's brief was "I've been messing around too much with the visuals. One simple design
