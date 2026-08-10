@@ -128,10 +128,14 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
 // ── 3. Nothing above the header, nothing under the nav ───────────────────────
 
 describe('chrome edges — content is clipped, not merely padded', () => {
-  it('has no NAV_PEEK left to shave the bottom reserve', () => {
+  it('has no NAV_PEEK constant left, even though the peek itself is back', () => {
     // 2026-07-26 shaved Radius.lg off the clearance so a card edge showed in the bar's corner
     // notches. Reversed 2026-08-10: "Nothing should be visible ... above the header, or under
-    // the bottom nav." Reintroducing a peek constant would be reintroducing the report.
+    // the bottom nav." Reversed BACK, partially, the same day: the peek was wanted after all —
+    // "should be visible in the bottom nav's cut corners at the top ... same for the header but
+    // the opposite" — but the fixed-px-shave MECHANISM isn't what came back. The viewport's own
+    // square corners produce the same peek for free (see ScreenScaffold's square-corner test
+    // above), so there's still no `NAV_PEEK` name anywhere to reintroduce.
     expect(code('components/BottomNav.tsx')).not.toMatch(/NAV_PEEK/);
     expect(code('components/ScreenScaffold.tsx')).not.toMatch(/NAV_PEEK/);
   });
@@ -221,15 +225,19 @@ describe('BottomNav — the pill never disappears', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins and rounds the corners that face a chrome card', () => {
+  it('takes the chrome\'s side margins but stays square-cornered itself', () => {
     // A full-bleed rectangle cut content with a straight edge spanning the whole screen, 8px
     // clear of a header whose own corners are rounded and side-inset — and left content free
-    // to sit in the two gutters beside the chrome, where nothing covers it.
+    // to sit in the two gutters beside the chrome, where nothing covers it. The margin alone
+    // closes that; it never needed a matching corner radius on the viewport.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
-    // Bottom pair only where a bar is actually reserved — on a sub-tier screen that edge is
-    // just the safe area, and a curve there answers to nothing.
-    expect(source).toMatch(/floatChrome && reserveBottomNav/);
+    // A second follow-up (still 2026-08-10) reversed the matching radius: rounding the
+    // viewport's own corners closed the notch beside each chrome card's rounded corner, where a
+    // scrolled card is supposed to be visible — "should be visible in the bottom nav's cut
+    // corners at the top ... same for the header but the opposite". The viewport's corners are
+    // never rounded now; only its margins (top, bottom, horizontal) are load-bearing.
+    expect(source).not.toMatch(/borderTopLeftRadius: Radius\.lg/);
+    expect(source).not.toMatch(/borderBottomLeftRadius: Radius\.lg/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {

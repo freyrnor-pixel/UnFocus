@@ -33,10 +33,12 @@
  *     (below), purely for layout (flex:1 track + equal segment division) — it reports its
  *     measured track (x/width/height) upward via `onTrack` and renders plain `NavTabItem`s
  *     (icon + label only, no per-item box, no pill of its own — see the single-pill bullet below).
- *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays. NAV_FLOAT_GAP/
- *     NAV_PEEK (2026-07-26) are also exported — app/(tabs)/_layout.tsx (bar positioning) and
- *     ScreenScaffold (`pagerFloatingNav` content-clearance reserve) both need the exact same
- *     numbers or the floating bar and the scroll clearance reserved for it drift apart.
+ *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays. NAV_FLOAT_GAP is
+ *     also exported — app/(tabs)/_layout.tsx (bar positioning) and ScreenScaffold
+ *     (`pagerFloatingNav` content-clearance reserve) both need the exact same number or the
+ *     floating bar and the scroll clearance reserved for it drift apart. (`NAV_PEEK` was a third
+ *     export here 2026-07-26 through 2026-08-10 — deleted, then reasoned about again without
+ *     being restored; see this file's own `NAV_PEEK` history note below for why.)
  *   - Active-tab detection: tab-bar mode reads `state.routes[state.index].name` and
  *     matches it against SITE_ITEMS via lib/siteNav.ts's TAB_ROUTE_NAME; standalone mode
  *     falls back to `usePathname() === item.route`.
@@ -228,13 +230,18 @@ export const NAV_FLOAT_GAP = Spacing.sm;
 // clearance so the last card's edge rose into the transparent notch inside the bar's rounded
 // top corners — added 2026-07-26 on the request "make the blank area around the bar
 // transparent, and let a scrolled card show through the corners".
-//   **That was reversed** by the opposite request: "Nothing should be visible (cards, text,
-// buttons and so on) above the header, or under the bottom nav." The whole class of bleed is
-// gone now, and not by a bigger reserve: components/ScreenScaffold.tsx clips the scroll
-// viewport to the band between the header's bottom edge and this bar's top edge, so no number
-// here can let content reach a corner, a side margin or the float gap. Don't reintroduce a
-// peek constant — the clip would swallow it anyway, and the reserve is now exactly the bar's
-// painted footprint.
+//   **That was reversed the same day** by the opposite request: "Nothing should be visible
+// (cards, text, buttons and so on) above the header, or under the bottom nav." — and then
+// reversed BACK, partially, the same day again: "when cards slide behind the bottom nav, they
+// should be visible in the bottom nav's cut corners at the top, not the two bottom ones — same
+// for the header but the opposite." The peek is real and wanted; `NAV_PEEK` the CONSTANT isn't
+// coming back, because a fixed px shave was never the right mechanism — it only ever worked at
+// one font scale and one specific bar height. components/ScreenScaffold.tsx's clip viewport now
+// gets it for free: its own corners are square (never rounded to match this bar's or the
+// header's), so a scrolled card is clipped by a plain rectangle and is free to fill the wedge
+// beside THIS bar's rounded top-left/top-right corners — and, by the same mechanism, the
+// header's rounded bottom-left/bottom-right corners. The side margins and top/bottom bands are
+// still fully closed (that was never what the radius was doing — see that file's own note).
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
 // The smallest gap the pill keeps from the bar's own painted edge (2026-08-10 follow-up, user
