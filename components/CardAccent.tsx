@@ -50,6 +50,20 @@
  *     `store/useSettingsStore` with it. `getDomainColor().washTop` still exists in lib/domainColor.ts
  *     with no consumers because an existing CI test pins it — do NOT wire it back to anything.
  *   - Also removed (2026-07-26) the unused default `CardAccent` export — it had zero importers.
+ *   - **(2026-08-10) The two-tone badge was proposed AGAIN and declined again — maintainer's
+ *     call.** The proposal: a 10–15% opacity hue fill with the glyph in the 100% solid hue. That
+ *     is the 2026-07-24 design in the note above, near enough verbatim — `domainColor.soft` IS
+ *     `rgba(accent, 0.14)` — and it was reverted two days later as "too colourless". Read that
+ *     note before proposing it a fourth time.
+ *     There is now a second, independent reason on the record: **a fixed opacity cannot hold
+ *     across eight hues and two modes.** Measured at a 12% fill, the glyph clears 3:1 on three
+ *     of five sample hues and fails on the rest — amber 2.81:1 in light, sapphire 2.68:1 in
+ *     dark. Deriving the ink with `contrastOn()` against the actual fill, which is what this
+ *     file already does, is not a stylistic preference over the two-tone recipe; it is the part
+ *     that makes the badge legible at all. Any future two-tone attempt must derive its fill
+ *     opacity per hue AND per mode, and must add itself to `lib/__tests__/colors.test.ts`.
+ *     (The same 2026-08-10 ruling DID adopt the proposal's palette direction — the eight `feat*`
+ *     screen hues went a step deeper. That is a border change and does not reach this file.)
  */
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';

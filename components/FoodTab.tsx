@@ -1,8 +1,10 @@
 /**
  * FoodTab.tsx — dish library + push-to-list list UI.
  *
- * Renders one glass Surface section per meal type (breakfast/lunch/dinner/snack/kveldsmat),
- * each tinted with that meal's colour ("a touch of colour by type"). Each meal-type section
+ * Renders one Surface section per meal type (breakfast/lunch/dinner/snack/kveldsmat). "A touch
+ * of colour by type" survives as a soft hue PLATE under each section's glyph — the section card
+ * itself wears the screen hue like every other card, and the title and chevron are plain ink
+ * (2026-08-10; see MEAL_COLORS' note for the 2.12:1 title that prompted it). Each meal-type section
  * is itself a collapsible container (header row toggles it, collapsed by default — see Edit
  * notes) holding that meal's dishes. A dish shows as a collapsed row (name · total price ·
  * "+"); the "+" opens a small popup with two choices — "Add to week list" (ingredients go to
@@ -107,7 +109,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, computeBorderTone, BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { contrastOn, computeBorderTone, rgba, BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -142,36 +144,50 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
 ];
 
 /**
- * "A touch of colour based on the type of meal" — the frosted glass tint per meal section.
+ * "A touch of colour based on the type of meal" — one hue per meal section.
  * (2026-07-18) Retuned to a calm, low-saturation set that steers CLEAR of semantic red/green:
  * lunch was `#10B981` (collided with `good`/done) and dinner `#EF4444` (collided with `bad`/
  * delete), which read as status signals on a food card. The new set keeps a warm→cool meal
- * progression without ever landing on a pure success-green or error-red.
+ * progression without ever landing on a pure success-green or error-red — **still true below,
+ * keep it true.**
  *
- * **Deliberately OUTSIDE `ThemePalette`, and mode-invariant** — reviewed in the 2026-08-10
- * hardcoded-colour sweep and kept, on the same grounds as `IDENTITY_HUES`, `lib/severity.ts`
- * and `lib/personColor.ts`: this is a fixed identity set separating one axis of meaning, not a
- * theme decision. Promoting five hues × two modes into the palette would put ten tokens and
- * ten contrast assertions into `colors.test.ts` for one component's section headers.
+ * **Deliberately OUTSIDE `ThemePalette`** — reviewed in the 2026-08-10 hardcoded-colour sweep
+ * and kept, on the same grounds as `IDENTITY_HUES`, `lib/severity.ts` and `lib/personColor.ts`:
+ * this is a fixed identity set separating one axis of meaning, not a theme decision. Promoting
+ * ten hues into the palette would put ten tokens into `colors.test.ts` for one component's
+ * section headers. (It is no longer mode-INVARIANT — see below — but it stays out of the
+ * palette; the test reaches in for the values instead, which is the cheaper half of the trade.)
  *
- * ⚠️ **Two known deviations, measured rather than assumed. Neither is drift, both are open.**
- *  1. As TEXT (`sectionTitle`, and the icon/chevron beside it) these fail AA in LIGHT mode on
- *     `surface` #FFFFFF: breakfast 2.12:1, lunch 2.52:1, dinner 2.88:1, snack 3.08:1,
- *     kveldsmat 3.57:1. Dark is comfortable and got *better* with the true-black palette
- *     (4.67–7.87:1 on the new `surface`, up from 4.34–7.31:1). Fixing light means a per-mode
- *     meal set, i.e. exactly the palette promotion this comment declines — a real trade, not
- *     an oversight. Raised, not resolved.
- *  2. Line ~617 passes one of these to `<Surface borderColor>`, which the 2026-08-05 card
- *     reset reserves for the SCREEN's hue: the Food screen is orange, and this draws five
- *     differently-edged cards on it. See AGENTS.md, "Don't derive a card edge from
- *     getDomainColor". Left alone here because changing it redesigns the screen.
+ * ✅ **(2026-08-10, later the same day) The two deviations the sweep raised are RESOLVED.**
+ * That sweep measured both, called them "raised, not resolved", and declined the fix on the
+ * grounds that it needed a per-mode meal set. It needed exactly that, and this is it:
+ *  1. **Mode-aware pairs.** The old set was one hex serving both themes, tuned for the dark
+ *     surface, painted straight onto the section TITLE — which on white failed the 4.5:1
+ *     body-text floor on all five (breakfast #E0A85A at **2.12:1**, lunch 2.52, dinner 2.88,
+ *     snack 3.07, kveldsmat 3.57). DESIGN_RULES rule 10 calls that a hard floor.
+ *  2. **The hue is a FILL now, and no longer an edge.** It was passed to `<Surface borderColor>`,
+ *     putting a non-screen hue on a card EDGE — the pattern the 2026-08-05 reset names as the
+ *     bug it fixed, and visible from 2026-08-10 when this component started mounting inside
+ *     Shopping's Food drawer: five differently-hued cards inside a green Shopping card.
+ * Both land where addendum A.4 rule 1 already pointed — **an identity hue is a FILL, never text
+ * and never an icon colour.** The hue survives as the round plate behind the meal glyph
+ * (`mealPlate`); the title is `theme.text`, the chevron `theme.textMuted`, and the section card
+ * inherits the screen hue like every other card. Same device as CardAccentBadge and the header
+ * count pill, so this adds no new vocabulary — and it is why "redesigns the screen" turned out
+ * to be a smaller cost than it looked.
+ *
+ * Values are Tailwind 700-family in light and lifted mirrors in dark. They clear 4.5:1 as TEXT
+ * in their own mode even though nothing draws them as text any more — that headroom is what
+ * makes them safe on a `soft` plate, and `lib/__tests__/colors.test.ts` pins it against the
+ * live `surface` token, so a palette change (like the true-black pass) re-checks them for free.
+ * Re-measure before changing one.
  */
-const MEAL_COLORS: Record<MealType, string> = {
-  breakfast: '#E0A85A', // soft morning amber
-  lunch: '#4FB3A6',     // muted teal (was collision-green)
-  dinner: '#D9825A',    // warm terracotta (was collision-red)
-  snack: '#9B87D6',     // soft lavender
-  kveldsmat: '#7A80D6', // calm indigo
+const MEAL_COLORS: Record<MealType, { light: string; dark: string }> = {
+  breakfast: { light: '#B45309', dark: '#D49B70' }, // morning amber
+  lunch:     { light: '#0F766E', dark: '#79B2AE' }, // teal (was collision-green)
+  dinner:    { light: '#9A3412', dark: '#C8917F' }, // terracotta (was collision-red)
+  snack:     { light: '#7E22CE', dark: '#B27AE2' }, // purple
+  kveldsmat: { light: '#4338CA', dark: '#8E88DF' }, // night indigo
 };
 
 type DraftIngredient = { name: string; amount: string; unit: string; price: number };
@@ -414,7 +430,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
   return (
     <View style={styles.root}>
       {MEAL_ORDER.map(({ value: mealType, icon }) => {
-        const color = MEAL_COLORS[mealType];
+        const color = MEAL_COLORS[mealType][isDark ? 'dark' : 'light'];
         const mealDishes = byMeal.get(mealType) ?? [];
         const sectionOpen = openSections[mealType];
         const sectionInner = (
@@ -428,9 +444,14 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
               scaleTo={0.99}
               releaseSpring={Spring.calm}
             >
-              <Ionicons name={icon} size={20} color={color} />
-              <Text style={[styles.sectionTitle, { color }]}>{t.mealTypes[mealType]}</Text>
-              <AnimatedChevron open={sectionOpen} color={color} size={18} />
+              {/* A.4 rule 1: the meal hue is a FILL. It plates the glyph and stops there — the
+                  word and the chevron are plain ink. See MEAL_COLORS' note for what this
+                  replaced (a title painted at 2.12:1 on white). */}
+              <View style={[styles.mealPlate, { backgroundColor: rgba(color, 0.16) }]}>
+                <Ionicons name={icon} size={18} color={theme.text} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.mealTypes[mealType]}</Text>
+              <AnimatedChevron open={sectionOpen} color={theme.textMuted} size={18} />
             </PressableScale>
 
             <Collapsible open={sectionOpen}>
@@ -623,24 +644,28 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
         );
         // Embedded (Shopping's Food drawer): a meal section is a bordered View, not a Surface.
         // The drawer is itself a Surface, and a Surface inside a Surface reads as a nested
-        // panel — the trap components/StarterCard.tsx is warned off. The View keeps the meal
-        // colour, the radius and the 'card'-rung weight (the same weight the dishCard boxes one
-        // level in already use, exactly as on the real screen) and loses only the ramp gradient
-        // and the shadow, which are what make it read as a second card. The pushed /food screen
-        // is untouched.
+        // panel — the trap components/StarterCard.tsx is warned off. The View keeps the radius
+        // and the 'card'-rung weight (the same weight the dishCard boxes one level in already
+        // use, exactly as on the real screen) and loses only the ramp gradient and the shadow,
+        // which are what make it read as a second card. The pushed /food screen is untouched.
+        //
+        // (2026-08-10) Both edges take the SCREEN hue, not the meal hue. Per the card reset,
+        // the screen owns every edge — and this component now mounts in two places, so a meal
+        // hue here drew five differently-coloured cards inside Shopping's green drawer. The
+        // Surface below passes no borderColor at all and simply inherits.
         return embedded ? (
           <View
             key={mealType}
             style={[
               styles.section,
               styles.sectionEmbedded,
-              { backgroundColor: theme.surface, borderColor: computeBorderTone(color, isDark, 'card') },
+              { backgroundColor: theme.surface, borderColor: computeBorderTone(screenHue, isDark, 'card') },
             ]}
           >
             {sectionInner}
           </View>
         ) : (
-          <Surface key={mealType} borderColor={color} style={styles.section}>
+          <Surface key={mealType} style={styles.section}>
             {sectionInner}
           </Surface>
         );
@@ -818,6 +843,9 @@ const baseStyles = StyleSheet.create({
   // Spacing.sm here buys back half of that; the drawer's own padding supplies the rest.
   sectionEmbedded: { borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // The meal hue's only expression — a round soft plate under the glyph (A.4 rule 1). Sized to
+  // match CardAccentBadge's small form so a meal section and a card header read as one family.
+  mealPlate: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold, ...OpticalCenter },
   sectionBody: { gap: Spacing.sm },
   sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs },

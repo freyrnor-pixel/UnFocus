@@ -533,6 +533,18 @@ edge as a flex-row first child, sibling to the content. The app has no equivalen
 
 **Decision: (c) — no stripe. Badge stays the sole identity carrier. No code changed.**
 
+> **Addendum, 2026-08-10 — re-ruled by the MAINTAINER, and the premise below has been replaced.**
+> The decision stands at (c), but it no longer rests on the reasoning in the next paragraph. That
+> reasoning is "07 landed (a), so a stripe would be a third hue expression" — and 07's outcome was
+> overturned by the card-design reset **the following day** (2026-08-05): the edge went flat, then
+> re-ramped inside a single *screen* hue, and the domain hue was evicted from every edge. Between
+> then and now, item 9 was a live decision resting on a dead premise, and nothing in the repo had
+> re-derived it. The maintainer ruled on it directly on 2026-08-10 under the architecture that
+> actually ships — see `DESIGN_COMPARISON/08-accent-stripe.md`'s outcome block for the reasoning
+> that survives, and for the two-tone badge declined in the same pass. **What the ruling did adopt
+> from that proposal is the palette direction**: the eight `feat*` hues were retuned a step deeper
+> (`constants/colors.ts`, same date). Colour still lives only in the border.
+
 Independently re-derived, not rubber-stamped from item 8's hand-off note — the task file's own
 interaction table is unambiguous once 07's outcome is known: *"(a) identity gradient edge kept
 → Stripe is a third hue expression — likely too much. Lean (c)."* 07 landed (a) (item 7 above),

@@ -29,7 +29,11 @@ function alphaOf(rgba: string): number {
   return nums[3];
 }
 
-const HUE = '#3DAF6F'; // featShop green — the maintainer's own "green to light green" example.
+// featShop green — the maintainer's own "green to light green" example. Kept in step with the
+// real token (2026-08-10 cinematic retune, was #3DAF6F); this is a fixture, not an assertion
+// about the palette, so the tests below pass either way. Keeping it true just means the worked
+// example in this file matches what the app actually draws.
+const HUE = '#15803D';
 
 describe('computeBorderRamp', () => {
   it('ramps: the two stops are different colours', () => {
