@@ -336,6 +336,17 @@ file owns which token.)
     the status-bar strip, and `NAV_PEEK`. **Put the clearance on the wrapper's margin, never
     back on the content's padding** — both at once double-counts it and every screen grows a
     blank band.
+  - **The window is the chrome's SHAPE, not just its band (same-day follow-up, user report:
+    "edges do not work like previously described, same with header").** The first cut clipped to
+    a full-bleed rectangle: content was guillotined by a straight edge spanning the whole screen
+    while the header and bar above and below it are side-inset cards with `Radius.lg` corners,
+    and content could still sit in the two 8px gutters beside them where no chrome covers it.
+    `viewportInset` now carries the chrome's own `headerFloatH` side margins and rounds the
+    corners that face a chrome card — the bottom pair only when a bar is actually reserved,
+    since on a sub-tier screen that edge is just the safe area. **`viewportBleed` is the inner
+    scroll box's mirror-image negative margin and is load-bearing**: the 8px is clipped off
+    empty backdrop (every screen's content container already pads by `Spacing.md`), so nothing
+    moves. Add the inset without it and every card in the app gets 16px narrower.
   - **`NAV_PEEK` is deleted.** It shaved `Radius.lg` off the bottom reserve so a scrolled card
     peeked into the bar's rounded corners — added 2026-07-26 on the *opposite* request ("let a
     scrolled card show through the corners"). This is a reversal, not drift. Don't reintroduce
@@ -364,6 +375,20 @@ file owns which token.)
     rounded rect frames a side tab. No opacity, no mount/unmount. The centre button also gained
     `sunk={active}` (it took `travel` but never rested down), and the pill is offset by
     `Travel.*` because it only ever sits under a tab that is itself sunk.
+  - **...and the pill has to FIT IN THE BAR (same-day follow-up, user report + screenshots:
+    "visual bug where bottom nav blue is").** The bar is a `Surface`, which clips its children
+    to its own rounded mask, so a pill bigger than the bar is drawn **sliced**, not
+    overflowing — and both slots were: Home's ring was `56 + PILL_GROW_X * 2` = 72 inside a
+    72px-tall bar and came out a flattened grey squircle, while a side pill's bottom corner ran
+    into the bar's own `Radius.lg` corner arc on the outermost tab. `PILL_INSET` + `clampTop()`
+    keep both inside and the grows shrink to fit. **Clamp against the MEASURED bar height**
+    (`Surface` gained an `onLayout` passthrough for it), never `BOTTOM_NAV_HEIGHT` — this bar
+    runs through `useScaledStyles`, so the constant is only true at font scale 1.0. Two shadows
+    went in the same pass and should not come back: the pill's `getLayeredShadow(…, 'raised')`
+    (a hue-less grey blur under a pale `accentSoft` plate reads as a dirty donut, and an
+    indicator drawn behind a tab has nothing to be raised off — the accent glow stays), and
+    `Shadow.fab` **while Home is active** (a 16px black blur smeared straight across the few-px
+    ring; an active tab also rests sunk, and a key at the bottom of its travel shouldn't float).
 - **One card for every sub-screen link** (`components/CollapsedSection.tsx`, 2026-08-10).
   Maintainer: *"Goals and Previous days should be like the 'Whenever' card with expandability,
   and pressing the name gives you a pop-up. This is to stay consistent across app."*
@@ -425,6 +450,16 @@ file owns which token.)
     Don't derive a card edge from `getDomainColor` — several call sites did, and each one put a
     differently-coloured card on a single-colour screen (the To-do tab's maroon "Recurring"
     card next to its blue "Whenever" one was the visible symptom).
+    **The badge takes the screen hue wherever the card isn't domain-coded** —
+    `CardAccentBadge`'s `accentOverride`, added 2026-08-06 for the Home preview cards,
+    `WeekListCard` and `MedicineTrayCard`. `components/CollapsedSection.tsx` was the missed call
+    site (2026-08-10, user report "wrong coloring"): every sub-screen drawer already passes the
+    SCREEN's hue as `SectionRail`'s `hue`, so the rail disagreed with its own badge — the Goals
+    drawer on Habits drew a `#218432` green flag inside a `#22A7E0` sky card above a sky-tinted
+    divider, while the identical Goals drawer on To-do drew it indigo, i.e. one destination with
+    two colours depending on where you opened it. `SectionRail` takes a `badgeHue` flag for
+    this; `domain` still chooses the GLYPH. Leave it off where a badge genuinely marks a domain
+    (a section of mixed-domain rows).
   - **Rows are bordered boxes; there are no ruled lines and no spare lines.**
     `components/PadSheet.tsx` draws one box per row at the FIELD rung with a `Spacing.xs` gap
     (flush would double two 1.25px borders into a line heavier than the card's own, inverting

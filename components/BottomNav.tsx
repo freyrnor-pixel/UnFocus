@@ -79,6 +79,23 @@
  *     `translateY`, because Home and a side tab sit at different heights — animating `top`
  *     would be a layout write per frame, and mixing a static `top` with an animated one was
  *     what made the two slots impossible to tween in the first place.
+ *   - **The pill has to FIT IN THE BAR, and is clamped to it (2026-08-10 follow-up).** The bar
+ *     is a `Surface`, which clips its children to its own rounded mask, so a pill bigger than
+ *     the bar renders SLICED rather than overflowing. Both slots were: Home's ring was
+ *     `56 + PILL_GROW_X * 2` = 72 in a 72px-tall bar (a flattened squircle, reported as the
+ *     "visual bug where bottom nav blue is"), and a side pill's bottom corner ran into the
+ *     bar's own `Radius.lg` corner arc on the outermost tab and came out cut diagonally.
+ *     `PILL_INSET` + `clampTop()` keep both inside; `homeSize`/`pillHeight` shrink to fit
+ *     rather than the grow constants being fixed. **Clamp against the MEASURED `barH`
+ *     (`Surface`'s new `onLayout`), never `BOTTOM_NAV_HEIGHT`** — this bar runs through
+ *     `useScaledStyles`, so the constant is only true at font scale 1.0.
+ *   - **The pill carries the accent glow and NO layered shadow (2026-08-10 follow-up).** It
+ *     used to concatenate `getLayeredShadow(theme.shadow, 'raised')` under the glow (see the
+ *     2026-07-18 "Purposeful glow" note below, which this supersedes). A card drop-shadow is a
+ *     grey hue-less blur; under a pale `accentSoft` plate it read as a dirty grey donut, and on
+ *     Home it stacked with the FAB's own `Shadow.fab` so the blue button wore two smudges. An
+ *     indicator drawn BEHIND a tab, inside a bar that already casts a shadow for both, has
+ *     nothing to be raised off — don't re-add depth here.
  *   - **The pill sits under a SUNK item, so it is offset by `Travel.*`.** An active tab rests
  *     at the bottom of its key travel (`sunk={active}`), but the tracks are measured unsunk —
  *     without `+ Travel.sm` (side) / `+ Travel.md` (Home) the pill frames the icon with ~6px
@@ -179,6 +196,11 @@
  *     opposite of the intended cue. The FAB keeps its plain `Shadow.fab` drop-shadow only, which
  *     is what reads as popped-out/floating here. `NavTabItem` below never had a keyBase either
  *     (no fill to build one from — see its own note).
+ *   - **...and that drop shadow is dropped while Home is ACTIVE (2026-08-10 follow-up).**
+ *     `Shadow.fab` is a 16px black blur; the pill's ring around this button is a few px wide,
+ *     so the blur smeared across it and turned the `accentSoft` ring into a grey donut. An
+ *     active tab also rests sunk, and a key at the bottom of its travel shouldn't float. See
+ *     the call site's own note before restoring it unconditionally.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -188,7 +210,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, getLayeredShadow, computeRimGradient, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, computeRimGradient, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -215,6 +237,21 @@ export const NAV_FLOAT_GAP = Spacing.sm;
 // painted footprint.
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
+// The smallest gap the pill keeps from the bar's own painted edge (2026-08-10 follow-up, user
+// report + screenshots: "visual bug where bottom nav blue is").
+//
+// The bar is `Surface`, and a Surface CLIPS its children to its rounded mask — so a pill that
+// doesn't fit inside it isn't drawn overflowing, it is drawn SLICED. Both slots were doing
+// exactly that: Home's ring was `56 + PILL_GROW_X * 2` = 72 tall inside a bar whose painted
+// height is also 72, so the circle came out flattened top and bottom into a squircle with a
+// grey rim; and a side pill (56 + PILL_GROW_Y = 62, pushed down again by `Travel.sm`) landed
+// 2px off the bottom, which put the OUTERMOST tab's pill corner inside the bar's own
+// `Radius.lg` corner arc and cut it off diagonally.
+//
+// Clamping is done against the bar's MEASURED height rather than `BOTTOM_NAV_HEIGHT`, because
+// `useScaledStyles` scales this bar's padding with the OS text-size setting — the constant is
+// only true at 1.0x, and at 1.4x the arithmetic that "just fits" here would be wrong again.
+const PILL_INSET = 4;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
 // centred on the same spot) so the active tab reads as a roomier card instead of shrink-wrapping
 // the icon+label — the icon/label stay put (centred in their own tight flex box), so this extra
@@ -269,6 +306,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const [leftTrack, setLeftTrack] = useState<Track>(EMPTY_TRACK);
   const [rightTrack, setRightTrack] = useState<Track>(EMPTY_TRACK);
   const [centreTrack, setCentreTrack] = useState<Track>(EMPTY_TRACK);
+  // The bar's own painted height — the box the pill has to stay inside of. See PILL_INSET.
+  const [barH, setBarH] = useState(0);
 
   const setTrack = (setter: React.Dispatch<React.SetStateAction<Track>>) => (next: Track) => {
     setter((prev) => (prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h ? prev : next));
@@ -284,7 +323,13 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // Both sides measure equal (the bar is `justify-content: space-between` with flex:1 on both
   // groups around a fixed-width centre button) — fall back to whichever side is ready first.
   const segW = leftSegW || rightSegW;
-  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0;
+  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0 && barH > 0;
+
+  // The tallest a pill may be, and where it may sit, so it never reaches the bar's mask. Both
+  // slots go through these — see PILL_INSET for what was being sliced before.
+  const maxPillH = Math.max(0, barH - PILL_INSET * 2);
+  const clampTop = (top: number, h: number) =>
+    Math.min(Math.max(top, PILL_INSET), Math.max(PILL_INSET, barH - PILL_INSET - h));
 
   // Maps a SITE_ITEMS index to the pill's target x (relative to the bar's content box).
   // Offset left by half of PILL_GROW_X so the (wider) pill stays centred on the item's own box
@@ -308,17 +353,23 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // rests sunk (`sunk={active}`, see NavTabItem), so a pill positioned from the unsunk
   // measured track framed the icon with ~6px above and ~0 below. Same class of bug as the
   // 2026-07-24 one, on the content side instead of the pill side.
-  const pillHeight = (leftTrack.h || rightTrack.h) + PILL_GROW_Y;
-  const sideTop = (leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2 + Travel.sm;
+  //   Both dimensions are then clamped into the bar (2026-08-10 follow-up) — the grown pill
+  // was taller than the space between the bar's padding edges, so the mask cut its bottom off
+  // and, on the outermost tab, its bottom corner as well.
+  const pillHeight = Math.min((leftTrack.h || rightTrack.h) + PILL_GROW_Y, maxPillH);
+  const sideTop = clampTop((leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2 + Travel.sm, pillHeight);
   // Home's slot (2026-08-10). Home used to have NO pill: the pill slid to the centre button's
   // x, faded to 0 and unmounted, so selecting Home read as the indicator "just disappearing"
   // (maintainer report). It is a real slot now — a circle grown PILL_GROW_X beyond the 56px
   // FAB on every side, so an accentSoft ring shows around the Home button exactly the way the
   // pill shows around a side tab's icon+label. The indicator therefore always exists and
   // always travels to the selected tab; there is no enter/exit, no opacity and no unmount.
-  const homeSize = centreTrack.w + PILL_GROW_X * 2;
-  const homeTop = centreTrack.y - PILL_GROW_X + Travel.md;
-  const homeX = centreTrack.x - PILL_GROW_X;
+  // The ring is centred on the FAB and clamped to the bar, so it is a whole circle rather than
+  // the flattened squircle a 72px ring became inside a 72px bar (see PILL_INSET). The grow is
+  // therefore what FITS, not a fixed 8 on every side.
+  const homeSize = Math.min(centreTrack.w + PILL_GROW_X * 2, maxPillH);
+  const homeTop = clampTop(centreTrack.y - (homeSize - centreTrack.h) / 2 + Travel.md, homeSize);
+  const homeX = centreTrack.x - (homeSize - centreTrack.w) / 2;
 
   // Every dimension the pill morphs between. Width/height/radius animate alongside x/y, so a
   // side tab -> Home move is one continuous shape change rather than a fade-out.
@@ -365,7 +416,14 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
   const rim = computeRimGradient(theme.accent, isDark);
-  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
+  // Accent glow only — **no `getLayeredShadow`** (2026-08-10 follow-up, same user report as
+  // PILL_INSET). A card's drop shadow is a grey, hue-less blur, and stacking one under a pale
+  // `accentSoft` plate rendered it as a dirty grey donut around the fill rather than as depth
+  // — worst on Home, where it also sat on top of the FAB's own `Shadow.fab`, so the blue
+  // button ended up ringed by two overlapping smudges. The pill is an INDICATOR drawn behind a
+  // tab, inside a bar that already casts the shadow for both of them; it has nothing to be
+  // raised off. The soft accent glow is hue-tinted, so it reads as light rather than as grime.
+  const pillShadow = getGlow(theme.accent, 'soft').boxShadow;
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
@@ -384,7 +442,15 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
-        style={[styles.centreButton, Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
+        // No drop shadow while Home is ACTIVE (2026-08-10 follow-up). `Shadow.fab` is a 16px
+        // black blur at 22%, and the pill's ring around this button is only a few px wide —
+        // the blur smeared straight across it, so the pale `accentSoft` ring came out as a
+        // grey donut and the blue button looked smudged rather than selected. It is also the
+        // right call semantically: an active tab rests SUNK (`sunk={active}` below), and a key
+        // sitting at the bottom of its travel has no business casting a floating shadow. The
+        // ring is the depth cue in that state; the shadow comes back the moment Home is not
+        // the selected tab.
+        style={[styles.centreButton, active ? null : Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
         onPress={() => handlePress(item)}
         onLayout={(e: LayoutChangeEvent) => {
           const { x, y, width, height } = e.nativeEvent.layout;
@@ -412,7 +478,17 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   };
 
   return (
-    <Surface surfaceContext="nav" style={styles.bar}>
+    <Surface
+      surfaceContext="nav"
+      style={styles.bar}
+      // The pill is clamped inside this box, so the box has to be measured — `useScaledStyles`
+      // scales the bar's padding with the OS text size, which makes BOTTOM_NAV_HEIGHT true only
+      // at 1.0x. See PILL_INSET.
+      onLayout={(e: LayoutChangeEvent) => {
+        const { height } = e.nativeEvent.layout;
+        setBarH((prev) => (prev === height ? prev : height));
+      }}
+    >
       {ready && (
         <Animated.View pointerEvents="none" style={[styles.pill, pillStyle]}>
           {glass ? (

@@ -88,7 +88,7 @@
  *     are for.
  */
 import React from 'react';
-import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { AccessibilityRole, LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BORDER_WIDTH, computeBorderRamp, darken, getLayeredShadow, Radius } from '@/constants/theme';
 import { useLabShape } from '@/lib/useDesignLab';
@@ -132,6 +132,13 @@ type Props = {
   accessibilityLabel?: string;
   /** Only meaningful with `onPress` — greys the key and stops it responding. */
   disabled?: boolean;
+  /**
+   * Forwarded to the outer (shadow/border) view, so a caller can measure the card's real
+   * painted box. Added for components/BottomNav.tsx, which sizes its indicator pill to fit
+   * INSIDE the bar — the bar's height is `useScaledStyles`d, so it can't be assumed from
+   * BOTTOM_NAV_HEIGHT. Purely additive; omit it and nothing changes.
+   */
+  onLayout?: (event: LayoutChangeEvent) => void;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -201,6 +208,7 @@ export default function Surface({
   accessibilityRole = 'button',
   accessibilityLabel,
   disabled,
+  onLayout,
   style,
   children,
 }: Props) {
@@ -326,6 +334,7 @@ export default function Surface({
   // mask inside it carries the opaque page.
   return asKey(
     <View
+      onLayout={onLayout}
       style={[
         outer,
         {

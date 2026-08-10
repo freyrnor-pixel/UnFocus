@@ -44,6 +44,10 @@
  *     both — it is unmistakably a door (chevron + a name that goes somewhere) AND it can show
  *     what's behind it. `app/(tabs)/shopping.tsx`'s hand-rolled two-tile Food/Catalogue row was
  *     a THIRD shape for the same job; it is gone too. One shape now — keep it that way.
+ *   - **The badge wears `hue`, not `domain`'s identity colour (2026-08-10, `badgeHue`).** Every
+ *     caller passes the SCREEN's hue, so the rail used to disagree with its own badge: Goals on
+ *     Habits was a green flag in a sky card over a sky divider, and the same drawer on To-do
+ *     was indigo. Card, rule and badge are one colour here; `domain` still picks the glyph.
  *   - `count` is optional and should be omitted where a tally reads as a score rather than a
  *     size (see the app's standing no-scoreboard rule) — Earlier days passes none.
  *   - `Spring.calm` on the header press is inherited from the original: a repeatedly-tapped
@@ -104,6 +108,16 @@ export default function CollapsedSection({
     <SectionRail
       hue={hue}
       domain={domain}
+      // The badge wears `hue` — which every caller sets to the SCREEN's hue — not the domain's
+      // own identity colour (2026-08-10, user report "wrong coloring" against the Goals drawer
+      // on Habits). It was drawing a `#218432` green flag inside a `#22A7E0` sky card, above a
+      // sky-tinted divider; the identical Goals drawer on To-do drew the same flag indigo, so
+      // one destination had two colours depending on where you opened it from. This is a
+      // drawer onto another surface, not a domain-coded row, so the card, its rule and its
+      // badge are one colour — the same call the 2026-08-06 `accentOverride` pass already made
+      // for the Home preview cards, WeekListCard and the Medicine card. `domain` is still what
+      // chooses the default GLYPH.
+      badgeHue
       icon={icon}
       label={label}
       count={count}

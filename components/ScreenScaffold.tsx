@@ -46,6 +46,17 @@
  *     `paddingTop`/`paddingBottom` approach and deletes `NAV_PEEK` with it (see BottomNav.tsx).
  *     Put the clearance on the wrapper's MARGIN, never back on the content's padding — both at
  *     once double-counts it and every screen grows a blank band.
+ *   - **That window is the chrome's SHAPE, not just its band (2026-08-10 follow-up, user
+ *     report: "edges do not work like previously described, same with header").** The first cut
+ *     clipped to a full-bleed rectangle, so content was cut by a straight edge spanning the
+ *     whole screen while the header and bar above and below it are side-inset cards with
+ *     `Radius.lg` corners — and content could still sit in the two 8px gutters beside them,
+ *     where no chrome covers it. `viewportInset` now carries `headerFloatH` side margins and
+ *     rounds the corners that face a chrome card (bottom pair only when a bar is reserved).
+ *     `viewportBleed` is the inner scroll box's mirror-image negative margin and is what keeps
+ *     every card at the exact x it had before — the inset clips 8px of empty backdrop, since
+ *     every screen's content container already pads by `Spacing.md`. Change one of the two and
+ *     you resize every card in the app.
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
  *     content draws behind the status + nav bars):
  *       • The outer SafeAreaView pads the viewport into the safe area — but 'top' is applied by
@@ -508,10 +519,31 @@ export default function ScreenScaffold({
   // NOT as padding on the content, or the clearance is counted twice and every screen gains a
   // blank band. `scrollIndicatorInsets` goes to 0 for the same reason — the indicator now
   // belongs to a box that already ends where the bar begins.
+  //   **The window is the same SHAPE as the chrome, not just the same band (2026-08-10
+  // follow-up).** The first cut clipped to a full-bleed rectangle, so a card scrolling out was
+  // guillotined by a straight edge running the whole screen width, 8px clear of a header whose
+  // own corners are rounded and side-inset — and content could still occupy the two 8px
+  // gutters beside the chrome, where nothing covers it. The window now takes the chrome's own
+  // margins (`headerFloatH`, the same `Spacing.sm` NAV_FLOAT_GAP uses) and `Radius.lg` on the
+  // corners that actually face a chrome card, so content slips behind a curve that lines up
+  // with the header above it and the bar below it. Bottom corners only when there IS a bar —
+  // on a sub-tier screen the window's bottom edge is just the safe area, and a curve there
+  // would be a shape answering to nothing.
+  //   **The inset must not move content.** The ScrollView inside takes the mirror-image
+  // negative margin (`viewportBleed`), so every card keeps the exact x it had when the window
+  // was full-bleed; the 8px this clips off each side is empty backdrop, since every screen's
+  // content container already pads by `Spacing.md`. Widen the inset without that and every
+  // card on every screen gets narrower.
   const viewportInset = {
     marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    marginHorizontal: headerFloatH,
+    ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
+    ...(floatChrome && reserveBottomNav
+      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
+      : null),
     ...(reserveBottomNav ? { marginBottom: bottomNavClearance } : null),
   };
+  const viewportBleed = { marginHorizontal: -headerFloatH };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
   // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one
@@ -521,7 +553,7 @@ export default function ScreenScaffold({
       {scrollable ? (
         <ScrollView
           ref={scrollRef}
-          style={styles.scrollView}
+          style={[styles.scrollView, viewportBleed]}
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}
@@ -532,7 +564,7 @@ export default function ScreenScaffold({
       ) : (
         // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
         // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
-        <View style={styles.scrollView}>
+        <View style={[styles.scrollView, viewportBleed]}>
           <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
         </View>
       )}
