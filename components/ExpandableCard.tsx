@@ -45,6 +45,15 @@
  *     useState).
  *   - `rightAction` is wrapped in its own Pressable that calls `e.stopPropagation()` so taps on
  *     a checkbox/save-pill passed as rightAction don't also toggle the header.
+ *   - **No own vertical margin (2026-08-10).** This card used to declare `marginBottom:
+ *     Spacing.sm` on itself (plus an extra `marginTop: Spacing.xs` in `rounded` mode) — the
+ *     same child-owned-spacing shape the 2026-08-08 screen-rhythm pass fixed one level up.
+ *     Every caller mounts a Surface-backed region around one or more of these, so the last
+ *     card's own trailing margin stacked with the Surface's bottom padding into a dead strip
+ *     nothing else needed. A caller with 2+ sibling cards now owns the gap itself, via `gap`
+ *     on the wrapping Surface's `style` (Surface forwards it to its inner content view) — see
+ *     app/settings.tsx's merged-panel Surfaces for the pattern. A lone card in a Surface needs
+ *     no gap at all now that there's no margin left to create the strip.
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -75,11 +84,13 @@ type Props = {
   first?: boolean;
   /**
    * Settings-only variant (app/settings.tsx, 2026-07-23): each row gets its own rounded,
-   * sunken (theme.surfaceMuted) background and a small gap instead of a flush hairline
-   * divider — reads as a stack of individually rounded rows rather than one flat merged
-   * block. Default false preserves the original flush-divider look for every other caller
-   * (WeekListCard, shopping.tsx) — this does NOT nest another Surface (still respects
-   * Decision 043 rule 1's no-Surface-in-Surface rule above), it's a plain tinted background.
+   * sunken (theme.surfaceMuted) background — reads as a stack of individually rounded rows
+   * rather than one flat merged block. Default false preserves the original flush-divider
+   * look for every other caller (WeekListCard, shopping.tsx) — this does NOT nest another
+   * Surface (still respects Decision 043 rule 1's no-Surface-in-Surface rule above), it's a
+   * plain tinted background. **The gap between rounded rows is the caller's `gap` on the
+   * Surface wrapping them (2026-08-10) — this component no longer carries its own
+   * marginBottom.** See the Edit notes below for why.
    */
   rounded?: boolean;
 };
@@ -116,10 +127,9 @@ export default function ExpandableCard({
   return (
     <View
       style={[
-        styles.card,
         styles.cardRow,
         rounded
-          ? [styles.cardRounded, { backgroundColor: theme.surfaceMuted }, !first && styles.cardRoundedGap]
+          ? [styles.cardRounded, { backgroundColor: theme.surfaceMuted }]
           : !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
       ]}
     >
@@ -154,9 +164,6 @@ export default function ExpandableCard({
 }
 
 const baseStyles = StyleSheet.create({
-  card: {
-    marginBottom: Spacing.sm,
-  },
   cardRow: {
     flexDirection: 'row',
   },
@@ -165,9 +172,6 @@ const baseStyles = StyleSheet.create({
   cardRounded: {
     borderRadius: Radius.md,
     overflow: 'hidden',
-  },
-  cardRoundedGap: {
-    marginTop: Spacing.xs,
   },
   accent: {
     width: 4,

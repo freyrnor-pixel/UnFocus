@@ -802,7 +802,7 @@ export default function SettingsScreen() {
                 walkthrough read it. */}
             <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.you}</Text>
             <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+              <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>
                   <Input
                     label={t.yourName}
@@ -971,7 +971,7 @@ export default function SettingsScreen() {
                 Decision 039: device-only, user-held profile. No server, no credentials;
                 the account rides along in the local backup file below. */}
             <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+              <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.account.title} accentColor={theme.accent} first rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {settings.accountCreated ? t.account.descActive : t.account.descNone}
@@ -1137,7 +1137,7 @@ export default function SettingsScreen() {
             {/* UKENTLIG / GENERELLE — one panel (2026-07-13 layering pass: these two used
                 to each float in their own Surface card). */}
             <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+              <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first rounded>
                   <View style={styles.switchRow}>
                     <View style={styles.switchTextCol}>
@@ -1631,7 +1631,7 @@ export default function SettingsScreen() {
                 built later without a migration dance. lib/childLock.ts is likewise kept as
                 reserve. Do not re-add UI for any of them without the behaviour behind it. */}
             <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
+              <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 {/* People/family — hidden while the single-user basics are reworked
                     (2026-08-05, see lib/sharingVisibility.ts). The `peopleModeEnabled`
                     setting, the `people` table and store/usePeopleStore are all untouched;
