@@ -1335,6 +1335,32 @@ Two things there are worth knowing before editing it:
 
 ## Known gotchas
 
+- **⚠️ A header comment that ASSERTS a safety property is not evidence the property holds — verify it against the actual whitelist/schema/predicate it claims to satisfy (2026-08-10, from a stress-testing pass on PR #540).**
+  `store/useShoppingStore.ts`'s header said `doneShopping`/`monthlyReset`/`resetMonthlyList`
+  were "deliberately left untouched" by the live-sync stamp because they "don't write
+  whitelisted columns anyway". That claim was false and had been for as long as the sync
+  whitelist existed: all three set `checked = 0`, and the two resets also set `list_id =
+  NULL`, and BOTH columns are in `lib/liveSync.ts`'s `shopping_items` whitelist. Nobody had
+  to introduce a bug — the header was wrong the day it was written and nothing ever checked
+  it against `TABLE_COLUMNS`. The consequence was silent and cyclical: an unstamped bulk
+  write never moves `updated_at`, so a paired phone's untouched copy wins the LWW tiebreak
+  outright, and because `buildDelta` ships a FULL-ROW snapshot, one edit to any unrelated
+  field on that phone carries the stale value back — the monthly reset reverted itself,
+  every month, on every household that had ever paired a device.
+  **Why the existing test suite didn't catch it**: the tests for these functions asserted
+  the in-memory `set()` transition was correct, which it was — nobody wrote a test asking
+  "does this touch a synced column without announcing it", because the header had already
+  answered that question (wrongly) and nothing prompted re-asking it. A false safety claim
+  in a comment doesn't just fail to help — it actively suppresses the test that would have
+  caught the bug, because both the code and the test were written against the same belief.
+  **The general lesson**: when a header/comment says a code path "doesn't touch X" or "is
+  safe because Y", that is a claim to verify, not a fact to trust — especially for any code
+  that bypasses a store's normal write path (raw SQL, a bulk transition, a migration) where
+  the normal path's safety net doesn't apply. Cross-check it against the actual list/schema/
+  invariant it's claiming to respect (here: grep the columns the SQL sets against
+  `TABLE_COLUMNS` in `lib/liveSync.ts`) rather than the prose. This is also why a stress-
+  testing pass is worth doing periodically even with a green test suite: the suite proves
+  the code matches its own tests, not that either matches reality.
 - **⚠️ Background HTTP servers that inherit stdout hang the whole shell/tool call — this is why "the task just keeps running" (root-caused 2026-07-27).**
   `npm run preview` used to be `npm run preview:build && (npm run preview:serve &) && sleep 1 && node scripts/preview.mjs`.
   `(cmd &)` backgrounds `serve-web.mjs` — a static HTTP server that runs forever — but does
