@@ -40,23 +40,23 @@
  *     bar), bottom by the nav's full footprint — and the ScrollView lives inside it. So the top and
  *     bottom blocks still FLOAT (rounded, side-inset, drawn over the backdrop), but nothing can
  *     render outside the band between them: not in the 8px side margins, not in the header seam,
- *     not in any of the eight corner notches, not in the status-bar strip and not in the float gap
- *     below the bar. Maintainer's rule: "Nothing should be visible (cards, text, buttons and so
- *     on) above the header, or under the bottom nav." This REPLACES the old contentContainer
- *     `paddingTop`/`paddingBottom` approach and deletes `NAV_PEEK` with it (see BottomNav.tsx).
+ *     not in the status-bar strip and not in the float gap below the bar. Maintainer's rule:
+ *     "Nothing should be visible (cards, text, buttons and so on) above the header, or under the
+ *     bottom nav." This REPLACES the old contentContainer `paddingTop`/`paddingBottom` approach.
  *     Put the clearance on the wrapper's MARGIN, never back on the content's padding — both at
  *     once double-counts it and every screen grows a blank band.
- *   - **That window is the chrome's SHAPE, not just its band (2026-08-10 follow-up, user
- *     report: "edges do not work like previously described, same with header").** The first cut
- *     clipped to a full-bleed rectangle, so content was cut by a straight edge spanning the
- *     whole screen while the header and bar above and below it are side-inset cards with
- *     `Radius.lg` corners — and content could still sit in the two 8px gutters beside them,
- *     where no chrome covers it. `viewportInset` now carries `headerFloatH` side margins and
- *     rounds the corners that face a chrome card (bottom pair only when a bar is reserved).
- *     `viewportBleed` is the inner scroll box's mirror-image negative margin and is what keeps
- *     every card at the exact x it had before — the inset clips 8px of empty backdrop, since
- *     every screen's content container already pads by `Spacing.md`. Change one of the two and
- *     you resize every card in the app.
+ *   - **That window is the chrome's BAND, not its shape (2026-08-10, twice-amended — see
+ *     `viewportInset`'s own comment for the full history).** A first cut clipped to a full-bleed
+ *     rectangle and leaked content into the 8px gutters beside the header/bar. A second cut then
+ *     rounded the viewport's own corners to match, which over-corrected: it also closed the
+ *     notch beside each chrome card's OWN rounded corner, where a scrolled card is supposed to
+ *     be visible peeking through (the same idea `NAV_PEEK` used to encode — see BottomNav.tsx's
+ *     own history note). The viewport's corners are square again; only the margins (top, bottom,
+ *     horizontal) are load-bearing now, which is what actually closes the gutters — the corner
+ *     radius never did that on its own. `viewportBleed` is the inner scroll box's mirror-image
+ *     negative margin and is what keeps every card at the exact x it had before full-bleed — the
+ *     inset clips 8px of empty backdrop, since every screen's content container already pads by
+ *     `Spacing.md`. Change one of the two and you resize every card in the app.
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
  *     content draws behind the status + nav bars):
  *       • The outer SafeAreaView pads the viewport into the safe area — but 'top' is applied by
@@ -523,12 +523,24 @@ export default function ScreenScaffold({
   // follow-up).** The first cut clipped to a full-bleed rectangle, so a card scrolling out was
   // guillotined by a straight edge running the whole screen width, 8px clear of a header whose
   // own corners are rounded and side-inset — and content could still occupy the two 8px
-  // gutters beside the chrome, where nothing covers it. The window now takes the chrome's own
-  // margins (`headerFloatH`, the same `Spacing.sm` NAV_FLOAT_GAP uses) and `Radius.lg` on the
-  // corners that actually face a chrome card, so content slips behind a curve that lines up
-  // with the header above it and the bar below it. Bottom corners only when there IS a bar —
-  // on a sub-tier screen the window's bottom edge is just the safe area, and a curve there
-  // would be a shape answering to nothing.
+  // gutters beside the chrome, where nothing covers it. `marginHorizontal` (`headerFloatH`, the
+  // same `Spacing.sm` NAV_FLOAT_GAP uses) closes that on its own — content simply cannot render
+  // past x < headerFloatH or x > screenWidth - headerFloatH, independent of any corner radius.
+  //   **The viewport itself stays SQUARE-CORNERED — it does not also round to match the chrome
+  // (2026-08-10, second follow-up, user report against the shots above: "when cards slide
+  // behind the bottom nav, they should be visible in the bottom nav's cut corners at the top,
+  // not the two bottom ones — same for the header but the opposite").** The first cut of this
+  // fix rounded the viewport's own corners with `Radius.lg` to "line up" with the chrome — bottom
+  // corners here mirror the BAR's TOP corners; top corners here mirror the HEADER's BOTTOM
+  // corners — but a matching round on the viewport CLOSES exactly the notch a scrolled card is
+  // supposed to peek through: the small wedge beside a rounded chrome corner where that card
+  // isn't chrome, but isn't a gutter either. This is the same idea `NAV_PEEK` used to encode
+  // (`components/BottomNav.tsx`, deleted the same day this bug was first "fixed") — a scrolled
+  // card is meant to show through the bar's top-corner notches, and by the mirrored logic, the
+  // header's bottom-corner notches too. The viewport's OWN corners are never rounded now; only
+  // the margin insets (top/bottom/horizontal) still apply, so a card is clipped by a plain
+  // rectangle and is free to fill every corner of it, right up against — and briefly inside —
+  // the curve of whichever chrome card sits over that corner.
   //   **The inset must not move content.** The ScrollView inside takes the mirror-image
   // negative margin (`viewportBleed`), so every card keeps the exact x it had when the window
   // was full-bleed; the 8px this clips off each side is empty backdrop, since every screen's
@@ -537,10 +549,6 @@ export default function ScreenScaffold({
   const viewportInset = {
     marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
     marginHorizontal: headerFloatH,
-    ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
-    ...(floatChrome && reserveBottomNav
-      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
-      : null),
     ...(reserveBottomNav ? { marginBottom: bottomNavClearance } : null),
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
