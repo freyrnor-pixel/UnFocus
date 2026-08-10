@@ -178,7 +178,7 @@ describe('BottomNav — the pill never disappears', () => {
   it('gives Home a real slot instead of fading out and unmounting', () => {
     expect(source).not.toMatch(/pillOpacity/);
     expect(source).not.toMatch(/setPillMounted/);
-    expect(source).toMatch(/const homeSize = centreTrack\.w \+ PILL_GROW_X \* 2/);
+    expect(source).toMatch(/const homeSize = Math\.min\(centreTrack\.w \+ PILL_GROW_X \* 2/);
   });
 
   it('rests every tab sunk while selected, Home included', () => {
@@ -187,7 +187,56 @@ describe('BottomNav — the pill never disappears', () => {
   });
 
   it('offsets the pill by the travel, since it only ever sits under a sunk item', () => {
-    expect(source).toMatch(/\+ Travel\.sm;/);
-    expect(source).toMatch(/\+ Travel\.md;/);
+    expect(source).toMatch(/\+ Travel\.sm,/);
+    expect(source).toMatch(/\+ Travel\.md,/);
+  });
+
+  // The bar is a Surface, and a Surface clips its children to its rounded mask — so a pill
+  // that doesn't fit is drawn SLICED, not overflowing. Home's ring was 72px in a 72px bar (a
+  // flattened squircle) and a side pill's bottom corner ran into the bar's own Radius.lg arc.
+  it('clamps the pill inside the bar rather than letting the mask slice it', () => {
+    // Both slots shrink to fit...
+    expect(source).toMatch(/const maxPillH = Math\.max\(0, barH - PILL_INSET \* 2\)/);
+    expect(source).toMatch(/const pillHeight = Math\.min\(/);
+    expect(source).toMatch(/const homeSize = Math\.min\(/);
+    // ...and both positions go through the clamp, not straight from the measured track.
+    expect(source).toMatch(/const sideTop = clampTop\(/);
+    expect(source).toMatch(/const homeTop = clampTop\(/);
+    // Against the MEASURED bar, never the constant — this bar's padding is useScaledStyles'd,
+    // so BOTTOM_NAV_HEIGHT is only true at font scale 1.0.
+    expect(source).toMatch(/setBarH/);
+    expect(source).not.toMatch(/barH = BOTTOM_NAV_HEIGHT/);
+  });
+
+  it('keeps grey depth off the pill and off an active Home button', () => {
+    // A card drop-shadow is a hue-less grey blur. Under the pale accentSoft plate it read as a
+    // dirty donut, and Shadow.fab's 16px blur smeared straight across the ring around Home.
+    expect(source).not.toMatch(/getLayeredShadow/);
+    expect(source).toMatch(/active \? null : Shadow\.fab/);
+  });
+});
+
+// ── 4. The clip window is the chrome's shape ─────────────────────────────────
+
+describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
+  const source = code('components/ScreenScaffold.tsx');
+
+  it('takes the chrome\'s side margins and rounds the corners that face a chrome card', () => {
+    // A full-bleed rectangle cut content with a straight edge spanning the whole screen, 8px
+    // clear of a header whose own corners are rounded and side-inset — and left content free
+    // to sit in the two gutters beside the chrome, where nothing covers it.
+    expect(source).toMatch(/marginHorizontal: headerFloatH/);
+    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
+    // Bottom pair only where a bar is actually reserved — on a sub-tier screen that edge is
+    // just the safe area, and a curve there answers to nothing.
+    expect(source).toMatch(/floatChrome && reserveBottomNav/);
+  });
+
+  it('bleeds the scroll box back out so no card is resized by the inset', () => {
+    // The 8px this clips off each side is empty backdrop (every screen's content container
+    // already pads by Spacing.md). Drop the mirror-image negative margin and every card in
+    // the app gets narrower.
+    expect(source).toMatch(/const viewportBleed = \{ marginHorizontal: -headerFloatH \}/);
+    expect(source.match(/viewportBleed/g)?.length).toBeGreaterThanOrEqual(3);
   });
 });

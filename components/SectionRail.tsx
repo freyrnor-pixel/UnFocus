@@ -36,6 +36,10 @@
  *     10px dot for a small `CardAccentBadge` gradient badge — part of the same "bring the card
  *     colour back" pass that widened Surface's edge and restored Home's badge gradient. `hue`
  *     is still required (drives the label/divider tint) even when `domain` is set.
+ *   - **(2026-08-10) `badgeHue`** paints the badge in `hue` instead of the domain's identity
+ *     colour, via `CardAccentBadge`'s existing `accentOverride`. For a rail whose `hue` IS the
+ *     screen hue — every `components/CollapsedSection.tsx` drawer — the badge otherwise
+ *     disagreed with the divider it sits on and the card edge around it. See that prop's doc.
  *   - The header is always full-width (`container` alignSelf:'stretch') so the rule spans the
  *     header width; the right-slot control's `marginLeft:'auto'` still pushes it to the edge.
  *   - `count` is optional; omit it for sections where a tally adds noise (e.g. weekday groups).
@@ -65,6 +69,18 @@ type Props = {
   /** Optional control rendered flush-right (e.g. a toggle). */
   right?: React.ReactNode;
   /**
+   * Paint the badge in `hue` instead of `domain`'s own identity colour (2026-08-10).
+   *
+   * The two colour systems split by CHANNEL — the screen hue owns every edge, the domain hue
+   * owns the badge — but a rail whose `hue` IS the screen hue then disagreed with its own
+   * badge: the Goals drawer on Habits drew a `#218432` green flag inside a `#22A7E0` sky card,
+   * over a sky-tinted divider, and the identical drawer on To-do drew it indigo. Set this and
+   * the badge, the divider and the card's edge are one colour, which is what the 2026-08-06
+   * `accentOverride` pass already did for the Home preview cards and the Medicine card. Leave
+   * it off wherever the badge is genuinely marking a domain (a section of mixed-domain rows).
+   */
+  badgeHue?: boolean;
+  /**
    * Make the badge + label + count its own tap target (2026-08-10). Used by
    * components/CollapsedSection.tsx when a section both EXPANDS (the chevron in `right`) and
    * LEADS SOMEWHERE (pressing its name opens the surface it summarises). Two targets on one
@@ -78,7 +94,7 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, onLabelPress, labelPressHint, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, style }: Props) {
   const theme = useAppTheme();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
@@ -87,7 +103,7 @@ export default function SectionRail({ hue, domain, icon, label, count, right, on
   const naming = (
     <>
       {domain ? (
-        <CardAccentBadge domain={domain} icon={icon} size={24} />
+        <CardAccentBadge domain={domain} icon={icon} size={24} accentOverride={badgeHue ? hue : undefined} />
       ) : (
         <View style={[styles.dot, { backgroundColor: hue }]} />
       )}
