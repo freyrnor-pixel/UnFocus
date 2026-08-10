@@ -345,7 +345,11 @@ export default function ScreenScaffold({
     [theme, screenKey],
   );
   // Flat backdrop colour for plainBackground screens (Settings): true white/black, no tint.
-  const bgColor = plainBackground ? (isDark ? '#000000' : '#FFFFFF') : theme.bg;
+  // Dark reads `theme.bg`, which IS #000000 since the 2026-08-10 true-black palette — the
+  // hardcoded literal here predates it and would now just restate the token. Light keeps its
+  // literal: `theme.bg` is #E2EAF5 there, and the point of this branch is a flat white page
+  // with no tint at all, which no surface token spells.
+  const bgColor = plainBackground ? (isDark ? theme.bg : '#FFFFFF') : theme.bg;
   // Android edge-to-edge (RN 0.85 / Expo 56) draws content behind the status and
   // navigation bars. The header/bottom blocks are position:absolute, and absolute
   // children do NOT inherit the SafeAreaView's padding in current Yoga, so top:0 /

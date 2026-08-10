@@ -34,6 +34,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
+import { SegmentedControl } from '@/components/FormControls';
 import Collapsible from '@/components/Collapsible';
 import { useT } from '@/lib/i18n';
 import { warning, heavy } from '@/lib/haptics';
@@ -118,44 +119,24 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
   return (
     <Surface style={styles.formCard}>
       <Text style={[styles.formLabel, { color: theme.textMuted }]}>{t.automations.whenLabel}</Text>
-      <View style={styles.chipRow}>
-        {(['task_completed', 'shopping_opened'] as TriggerType[]).map((type) => (
-          <PressableScale
-            key={type}
-            style={[
-              styles.chip,
-              { borderColor: theme.border },
-              triggerType === type && { backgroundColor: theme.accent, borderColor: theme.accent },
-            ]}
-            onPress={() => setTriggerType(type)}
-            scaleTo={0.97}
-          >
-            <Text style={[styles.chipText, { color: triggerType === type ? theme.accentInk : theme.text }]}>
-              {triggerLabel(t, type)}
-            </Text>
-          </PressableScale>
-        ))}
-      </View>
+      <SegmentedControl
+        options={(['task_completed', 'shopping_opened'] as TriggerType[]).map((type) => ({
+          value: type,
+          label: triggerLabel(t, type),
+        }))}
+        value={triggerType}
+        onChange={setTriggerType}
+      />
 
       <Text style={[styles.formLabel, { color: theme.textMuted }]}>{t.automations.thenLabel}</Text>
-      <View style={styles.chipRow}>
-        {(['show_message', 'add_shopping_item'] as ActionType[]).map((type) => (
-          <PressableScale
-            key={type}
-            style={[
-              styles.chip,
-              { borderColor: theme.border },
-              actionType === type && { backgroundColor: theme.accent, borderColor: theme.accent },
-            ]}
-            onPress={() => setActionType(type)}
-            scaleTo={0.97}
-          >
-            <Text style={[styles.chipText, { color: actionType === type ? theme.accentInk : theme.text }]}>
-              {actionLabel(t, type)}
-            </Text>
-          </PressableScale>
-        ))}
-      </View>
+      <SegmentedControl
+        options={(['show_message', 'add_shopping_item'] as ActionType[]).map((type) => ({
+          value: type,
+          label: actionLabel(t, type),
+        }))}
+        value={actionType}
+        onChange={setActionType}
+      />
 
       {actionType === 'show_message' ? (
         <TextInput
@@ -287,14 +268,10 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   formLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: {
-    borderWidth: 1.5,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-  },
-  chipText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  // `chipRow`/`chip`/`chipText` deleted 2026-08-10 — both "When" and "Then" are
+  // `SegmentedControl` now (form tier). They were 2-option EXCLUSIVE pickers drawn as two
+  // independent accent-filled `Radius.full` pills, which is the membership shape
+  // (DESIGN_RULES.md 19a's multi-select exemption) applied to a pick-one question.
   input: {
     borderWidth: 1.5,
     borderRadius: Radius.md,

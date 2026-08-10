@@ -240,7 +240,7 @@ import StarterCard from '@/components/StarterCard';
 import CardHintNote from '@/components/CardHintNote';
 import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
-import { Fonts, FontSize, Radius, RowTrailing, Spacing, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
+import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
@@ -586,7 +586,11 @@ export default function EnergyMeter() {
                   </RadialGradient>
                   {/* Gloss highlight — keep this bold (high center opacity), not subtle.
                       It's the one detail that reads as "glossy token" rather than "flat
-                      circle"; see the file header's "Energy-token pip" note. */}
+                      circle"; see the file header's "Energy-token pip" note.
+                      The two #FFFFFF here are NOT theme colours and were deliberately left
+                      out of the 2026-08-10 hardcoded-colour sweep: a specular highlight is
+                      white by definition in both modes — tinting it to a palette token is
+                      what would make it read as a coloured smear instead of a shine. */}
                   <RadialGradient id={glossId} cx="38%" cy="24%" rx="42%" ry="26%">
                     <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
                     <Stop offset="85%" stopColor="#FFFFFF" stopOpacity={0} />
@@ -595,7 +599,13 @@ export default function EnergyMeter() {
                 <Circle cx="50%" cy="50%" r="46%" fill={`url(#${fillId})`} stroke={darken(theme.accent, 0.5)} strokeWidth={2} />
                 <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${glossId})`} />
               </Svg>
-              <Ionicons name="flash" size={PIP_ICON_SIZE} color="#FFFFFF" />
+              {/* The glyph sits on the pip's OUTER stop, not on `theme.accent` — the fill is a
+                  radial ramp and the icon covers its darkest ring — so the ink is picked
+                  against that, not against the token. Resolves to white for every accent the
+                  app has shipped (5.6:1 on the current one); was a hardcoded #FFFFFF until
+                  2026-08-10, which happened to be right and would have stayed right silently
+                  even if a later accent made it wrong. */}
+              <Ionicons name="flash" size={PIP_ICON_SIZE} color={contrastOn(darken(theme.accent, 0.22))} />
             </View>
           );
         })}
