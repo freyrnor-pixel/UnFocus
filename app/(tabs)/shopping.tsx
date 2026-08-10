@@ -8,8 +8,12 @@
  * `foodCatalogueLinks`, two `components/CollapsedSection.tsx` drawers (pushing `/food` and
  * `/catalogue`; a small two-button row until 2026-08-10) shown at the foot of the screen
  * on both remaining tabs, rather than their own tab-bar slots.
- * `components/FoodTab`/`components/CatalogueTab` themselves are unchanged — only where
- * they're mounted moved (see app/food.tsx / app/catalogue.tsx).
+ * **Since 2026-08-10 those drawers MOUNT `components/FoodTab`/`components/CatalogueTab`
+ * (in `embedded` mode) as their expanded body**, so the whole Food surface and a searchable,
+ * addable, editable slice of the Catalogue are usable without leaving this screen; the name
+ * press still pushes the full screen, which is where Catalogue's complete virtualised list and
+ * A–Z scrubber live. Both components are otherwise unchanged — `embedded` only unwraps the
+ * chrome that assumes a screen backdrop (see each file's own edit note).
  *
  * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
  * ingredients pushed to the week from the Food screen, sentinel listId UNALLOCATED_LIST_ID)
@@ -62,9 +66,9 @@
  *             one global payday-boundary date, shared by every Monthly list) + useReceiptStore
  *             (receipts, each list's own pace line filters by monthlyListId).
  *             WeekListCard reads useCatalogStore internally (loaded at startup by
- *             app/_layout.tsx); app/food.tsx/app/catalogue.tsx's FoodTab/CatalogueTab do too
- *             (FoodTab additionally drives useMealStore) — this screen no longer mounts
- *             either directly (UX audit F1, 2026-07-23).
+ *             app/_layout.tsx); FoodTab/CatalogueTab do too (FoodTab additionally drives
+ *             useMealStore). This screen mounts both again as of 2026-08-10 — inside the
+ *             Food/Catalogue drawers — and reads each store only for the drawer's own count.
  *
  * Edit notes:
  *   - **Food/Catalogue link icons upgraded to CardAccentBadge (2026-07-26, user feedback: the
@@ -89,7 +93,8 @@
  *     here is weight, not edges. The Food/Catalogue links are navigation, not actions, and
  *     stay out of this hierarchy. They were an inline two-tile row of this screen's own
  *     making until 2026-08-10, when they became components/CollapsedSection.tsx drawers like
- *     every other sub-screen link in the app.
+ *     every other sub-screen link in the app — and, later the same day, drawers whose body is
+ *     the destination component itself rather than a preview of it (see `foodCatalogueLinks`).
  *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
  *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
  *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
@@ -440,7 +445,8 @@ import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import CollapsedSection from '@/components/CollapsedSection';
-import SubScreenPreviewList from '@/components/SubScreenPreviewList';
+import FoodTab from '@/components/FoodTab';
+import CatalogueTab from '@/components/CatalogueTab';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
@@ -623,12 +629,12 @@ export default function ShoppingScreen() {
   // pick its default target, so both entry points agree on which list "the shopping list" is.
   const prefill = usePrefill();
   const prefillListId = useShoppingListStore((s) => s.currentList(todayStr()))?.id;
-  // Names only, for the Food/Catalogue drawers' previews (2026-08-10). This screen does not
-  // otherwise mount either surface — FoodTab/CatalogueTab live on their own screens — so
-  // these are the one read each, and they're names rather than rows on purpose: a preview
-  // that carried prices or ingredients would be a second copy of the screen it links to.
-  const dishNames = useMealStore((s) => s.dishes).map((d) => d.name);
-  const catalogNames = useCatalogStore((s) => s.items).map((i) => i.name);
+  // Sizes for the Food/Catalogue drawer rails. A library's size is a size, not a score, so
+  // unlike Goals and Earlier days these two do carry a count. (Until 2026-08-10 these were
+  // `dishNames`/`catalogNames` arrays feeding a names-only preview; the drawers mount the real
+  // FoodTab/CatalogueTab now, and each reads its own store.)
+  const dishCount = useMealStore((s) => s.dishes).length;
+  const catalogCount = useCatalogStore((s) => s.items).length;
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
   // watermark, so switching layout keeps the same rows marked and the user can find them
   // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
@@ -1649,11 +1655,20 @@ export default function ShoppingScreen() {
   // One drawer each (2026-08-10) — the same components/CollapsedSection.tsx the To-do and
   // Habits tabs use, replacing a hand-rolled two-tile row that was a THIRD shape for "a surface
   // this screen leads to" (alongside SubScreenLinkCard and SubScreenLinkRow, both now deleted).
-  // Expanding previews what's in there; pressing the name pushes the screen.
-  //   Food and Catalogue keep PUSHING rather than opening a pop-up, unlike Goals and Earlier
-  // days. They are whole library screens with their own adding, editing and filtering — a
-  // pop-up copy would be a second implementation of each to keep in step, which is the exact
-  // duplication this pass exists to remove. The shared part is the card and the preview.
+  // Pressing the name pushes the screen; the chevron opens it in place.
+  //   **The body IS the destination, mounted (2026-08-10, later the same day.)** It was a
+  // components/SubScreenPreviewList.tsx — the first five item NAMES in boxes, every row just
+  // re-opening the pushed screen. Maintainer: *"Shows no extra information or has the 'Add'
+  // button … I would rather just the expanded state be like the screens."* So Food expands to
+  // the real `FoodTab` and Catalogue to the real `CatalogueTab`, each in `embedded` mode
+  // (presentation only — it unwraps the `Surface`s that assume a screen backdrop, so the
+  // drawer's card isn't wrapping more cards). That file is deleted, and with it its "names
+  // only, and no per-row action — two copies of a list drift" rule: mounting the component is
+  // a stronger answer to drift than describing it was, and it is what makes the per-dish "+"
+  // ask week-or-monthly here exactly as it does on /food.
+  //   The push STAYS, as the way to the whole library: Catalogue's 280-odd rows need the
+  // virtualised list and the A–Z scrubber, neither of which can live inside this screen's
+  // ScrollView. Embedded, the drawer shows a capped run and its search narrows to the rest.
   //   `fast-food`, not `restaurant`: the crossed fork+knife read as a ✕ / cancel glyph at badge
   // size, and next to the word "Food" it looked like a close button (2026-07-28 design review).
   const foodCatalogueLinks = (
@@ -1663,28 +1678,20 @@ export default function ShoppingScreen() {
         domain="meal"
         icon="fast-food"
         label={t.foodTabLabel}
+        count={dishCount}
         onTitlePress={() => router.push('/food')}
       >
-        <SubScreenPreviewList
-          accent={screenHue}
-          names={dishNames}
-          emptyText={t.foodEmptyHint}
-          onOpen={() => router.push('/food')}
-        />
+        <FoodTab embedded onNotify={setConfirm} />
       </CollapsedSection>
       <CollapsedSection
         hue={screenHue}
         domain="shop"
         icon="list"
         label={t.catalogueTabLabel}
+        count={catalogCount}
         onTitlePress={() => router.push('/catalogue')}
       >
-        <SubScreenPreviewList
-          accent={screenHue}
-          names={catalogNames}
-          emptyText={t.catalogueEmpty}
-          onOpen={() => router.push('/catalogue')}
-        />
+        <CatalogueTab embedded onNotify={setConfirm} onOpenFull={() => router.push('/catalogue')} />
       </CollapsedSection>
     </>
   );

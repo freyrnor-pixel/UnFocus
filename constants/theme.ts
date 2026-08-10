@@ -21,6 +21,9 @@
  * (see AGENTS.md's type-migration follow-up list).
  * `TabularNums` (2026-07-28 row-rule pass) is the fixed-width-figures style for values that
  * sit in a list row's right-hand column, so the column edge lines up row to row.
+ * `OpticalCenter` (2026-08-10) is its vertical counterpart: the `includeFontPadding: false` +
+ * `textAlignVertical: 'center'` pair that stops Android's font-metric padding making text ride
+ * high inside a centred box. Spread it on any Text whose box height isn't set by the text.
  * `MIN_TAP_TARGET` + `HitSlop` + `hitSlopFor()` (2026-07-30, DESIGN_RULES.md rule 17) are the
  * target-size tokens — 48 since 2026-08-08 (Material Design 3, above WCAG 2.2's 44). Never
  * write a bare `48`, `44` or `hitSlop={8}` at a call site.
@@ -514,6 +517,32 @@ export const Type = {
    `readonly [...]` tuple won't assign to it. This file stays import-free (see the header),
    so the element type is written out rather than pulled from react-native's `TextStyle`. */
 export const TabularNums: { fontVariant: 'tabular-nums'[] } = { fontVariant: ['tabular-nums'] };
+
+/**
+ * `OpticalCenter` (2026-08-10) — the two properties that make a line of text actually sit in
+ * the middle of a vertically-centred box **on Android**.
+ *
+ * Android defaults `includeFontPadding` to true, adding the font's own ascent/descent metric
+ * padding around the glyphs. That padding is not symmetric, so a `justifyContent: 'center'`
+ * box centres the padded LINE BOX while the visible glyphs ride high inside it — the box
+ * looks correctly sized and the text looks wrong. `textAlignVertical: 'center'` then centres
+ * the glyph within whatever line box is left (which also reserves room for descenders j/g/p/y
+ * and Norwegian top accents å/ø). iOS and react-native-web have no equivalent property and
+ * are unaffected either way, which is exactly why this is invisible in `npm run preview` and
+ * has to be caught by eye or on a device.
+ *
+ * Found the same way seven separate times before this token existed — ScreenHeader (#198),
+ * FormControls, TabSlider, PersonChip and three Home cards each carry a hand-written copy
+ * with the same reasoning. Spread this instead of writing the pair out again, and reach for
+ * it whenever a Text sits inside a box whose height it does not itself determine.
+ */
+/* Not `as const`: React Native types `textAlignVertical` as a mutable union, and this file
+   stays import-free (see the header), so the union is written out rather than pulled from
+   react-native's `TextStyle`. */
+export const OpticalCenter: { includeFontPadding: boolean; textAlignVertical: 'center' } = {
+  includeFontPadding: false,
+  textAlignVertical: 'center',
+};
 
 export type ElevationLevel = 'flat' | 'raised' | 'floating';
 

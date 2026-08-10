@@ -406,11 +406,35 @@ file owns which token.)
     `GoalsSheet`; Earlier days opens the new `components/DayPickerSheet.tsx` (a list of recent
     days → `/day-log?date=…`). Food and Catalogue keep PUSHING: they are whole library screens
     with their own adding/editing/filtering, and a pop-up copy would be a second implementation
-    of each to keep in step. The shared part is the card and the preview.
-  - Preview bodies are `components/GoalsPreviewList.tsx` and
-    `components/SubScreenPreviewList.tsx` (first N names + an "and N more" row). Both are
-    read-only and carry **no counts** on the drawer header: a tally of goals reads as a score
-    and a tally of past days is meaningless.
+    of each to keep in step.
+  - **The body of a drawer onto a whole screen is that screen's own component, mounted**
+    (2026-08-10, later the same day — this REPLACES the "the shared part is the card and the
+    preview" answer above, and the preview body it named). Maintainer, against the first cut:
+    *"Shows no extra information or has the 'Add' button … I would rather just the expanded
+    state be like the screens."* So Shopping's Food drawer mounts `components/FoodTab.tsx` and
+    its Catalogue drawer mounts `components/CatalogueTab.tsx`, each with a new `embedded` prop;
+    `components/SubScreenPreviewList.tsx` (first N names + an "and N more" row) is **deleted**,
+    and with it its "names only, and no per-row action — two copies of a list drift" rule.
+    Mounting the component is a stronger answer to drift than describing it was: it is what
+    makes the per-dish "+" ask week-or-monthly in the drawer exactly as it does on `/food`.
+    - **`embedded` is presentation only, and must stay that way.** It unwraps the chrome that
+      assumes a screen backdrop — the meal sections' `Surface`, Catalogue's search/add
+      `Surface`s, its notepad container, its grow-to-fill footer, its rows' third stacked
+      horizontal inset — and, for Catalogue, swaps the FlatList for a capped `.map()` and drops
+      the A–Z rail, neither of which can live inside Shopping's ScrollView. **No behaviour goes
+      behind the flag.** A caller mounting a real surface in a drawer owes it two things: no
+      scroll of its own, and no `Surface` of its own (a Surface inside the drawer's Surface
+      reads as a nested panel).
+    - **The push is not redundant** — it is the way to the whole library. Catalogue's 280-odd
+      rows need the virtualised list and the scrubber; the drawer shows a capped run and its
+      search narrows to the rest.
+    - Mount cost is nothing while a drawer is shut: `components/Collapsible.tsx` lazy-mounts.
+  - Goals' and Earlier days' bodies are still read-only previews —
+    `components/GoalsPreviewList.tsx` and `RecentDaysList` — because their destinations are
+    pop-ups, i.e. the same rows in a different container, with nothing extra to mount.
+  - **Counts on the rail: a size yes, a score no.** Goals and Earlier days pass none (a tally of
+    goals reads as a score; a tally of past days is meaningless). Food and Catalogue do: how
+    many dishes or known items a library holds is a size.
   - **This reversed the 2026-08-06 "Goals is a plain row inside the Habits card" decision**,
     which was itself a reaction to a link CARD. What was wrong with that card was that it spent
     a card on a row's worth of information and could only be *followed*; a drawer earns its card
@@ -1178,7 +1202,11 @@ particular is the densest label-plus-pill-cloud thing in the app now that it car
 swatches, sizes, weights, positions, lines and widths), the
 **Energy config sheet** (2026-08-03 — opened from the strip's tutorial-state button on Home
 and closed again before the tab loop, since a bottom sheet's scrim swallows every click
-under it), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
+under it), **Shopping's Food and Catalogue drawers** (2026-08-10, one scan each — their
+expanded body is the real `FoodTab`/`CatalogueTab` now, so the Catalogue one puts a search
+field, an add composer and name·price·trash rows inside a card that is itself inside the
+screen's padding: three stacked horizontal insets, the shape that produced the task editor's
+findings), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
 form** and the **medicine editor**. Before that pass it had never opened an editor or pushed
 sub-screen *at all*, so the app's densest forms were the one place it couldn't see, which is
 exactly where the mic bug lived. **`--lang=en` was also broken outright** until the same
