@@ -67,10 +67,22 @@
  *     `load()` filters `deleted_at IS NULL`. Only the columns in lib/liveSync's
  *     shopping_items whitelist (name/amount/unit/list_type/checked/store/price/
  *     created_at/list_id) actually cross the wire — `status` and the rest of the
- *     catalog/purchase-trip state machine are NOT synced fields, so doneShopping/
- *     monthlyReset's raw-SQL bulk transitions are deliberately left untouched (they
- *     bypass update() and don't write whitelisted columns anyway).
- *     mergeDuplicateItems' one-time self-heal DELETE is also left as a hard delete —
+ *     catalog/purchase-trip state machine are NOT synced fields.
+ *   - **The raw-SQL BULK transitions DO announce themselves (fixed 2026-08-10).** This
+ *     note used to say doneShopping/monthlyReset were "deliberately left untouched…
+ *     they don't write whitelisted columns anyway". That was **false**, and it cost the
+ *     monthly reset its durability: all three bulk paths set `checked = 0`, and the two
+ *     resets also set `list_id = NULL` — both whitelisted. An unstamped bulk write never
+ *     moves `updated_at`, so a paired phone's untouched copy wins the LWW tiebreak, and
+ *     because `buildDelta` ships a FULL-ROW snapshot, one edit to any unrelated field on
+ *     that phone carries the stale `checked`/`list_id` back and silently un-does the
+ *     reset. doneShopping/monthlyReset/resetMonthlyList now collect the affected ids
+ *     BEFORE running their UPDATEs (the UPDATE is what stops the predicate matching) and
+ *     pass them to `syncItemRows`. The temporary-item purge tombstones via
+ *     `softDeleteItemRows` rather than hard-deleting, since `applyDelta` upserts on `id`
+ *     and a hard delete just invites the peer to re-insert the row.
+ *     Pinned by __tests__/shoppingResetSync.test.ts.
+ *     mergeDuplicateItems' one-time self-heal DELETE is still a hard delete —
  *     it repairs pre-existing accidental dupes, not a user delete action.
  *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
  *     existing row's targetQuantity (catalog) or amount (weekly) instead of
@@ -388,6 +400,41 @@ function syncItemRow(id: string): void {
   broadcastRow('shopping_items', id);
 }
 
+/**
+ * Stamp + broadcast a set of rows changed by one of the raw-SQL BULK transitions
+ * (doneShopping/monthlyReset/resetMonthlyList).
+ *
+ * These three bypass `update()`, and until 2026-08-10 they were left unstamped on the
+ * reasoning that they "don't write whitelisted columns anyway". That was wrong: all three
+ * set `checked = 0` and the two resets also set `list_id = NULL`, and BOTH columns are in
+ * lib/liveSync's `shopping_items` whitelist. An unstamped bulk write is invisible to a
+ * paired phone AND loses to it: `updated_at` never moves, so the peer's untouched copy
+ * either wins outright on `incomingWins`' origin-device tiebreak, or wins the moment that
+ * peer edits the item at all — `buildDelta` ships a FULL-ROW snapshot, so a single edit to
+ * an unrelated field carries the stale `checked`/`list_id` back and un-does the reset.
+ * See __tests__/shoppingResetSync.test.ts.
+ */
+function syncItemRows(ids: string[]): void {
+  const deviceId = useSettingsStore.getState().deviceId;
+  for (const id of ids) {
+    touchRow('shopping_items', id, deviceId);
+    broadcastRow('shopping_items', id);
+  }
+}
+
+/**
+ * Tombstone rows a bulk transition removes, so the removal propagates instead of being
+ * resurrected. `applyDelta` upserts on `id`, so a hard DELETE here leaves the peer free to
+ * re-insert the row from its own copy. Same soft-delete path `remove()` already uses.
+ */
+function softDeleteItemRows(ids: string[]): void {
+  const deviceId = useSettingsStore.getState().deviceId;
+  for (const id of ids) {
+    softDelete('shopping_items', id, deviceId);
+    broadcastRow('shopping_items', id);
+  }
+}
+
 export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   loaded: false,
   items: [],
@@ -659,10 +706,16 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
       month_reset_date: monthResetDate,
       list_id: listId,
     });
+    // `checked` is a SYNCED column, so the rows this unchecks have to be announced —
+    // see syncItemRows' doc.
+    const purchasedIds = get()
+      .items.filter((i) => i.status === 'inWeeklyList' && i.listId === listId)
+      .map((i) => i.id);
     db.runSync(
       "UPDATE shopping_items SET status = 'purchased', purchased_at = ?, shopping_trip_id = ?, checked = 0, collected = 0 WHERE status = 'inWeeklyList' AND list_id = ?",
       [now, tripId, listId]
     );
+    syncItemRows(purchasedIds);
     const trip: ShoppingTrip = { id: tripId, completedAt: now, label, monthResetDate, listId };
     set((s) => ({
       trips: [trip, ...s.trips],
@@ -689,13 +742,22 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     // own invariant ("Items never carry listId once status='catalog'", see the
     // listId/orderIndex edit note above), a catalog-status row must not keep
     // pointing at a shopping_lists row that monthly reset just orphaned.
+    // Which rows this touches in SYNCED columns (`checked`, `list_id`) — collected before
+    // the SQL runs, since the UPDATEs below are what make the predicates stop matching.
+    // Temporary rows are excluded: they are tombstoned instead. See syncItemRows' doc.
+    const resetIds = get()
+      .items.filter((i) => !i.isTemporary && (i.shoppingTripId || i.status === 'inWeeklyList'))
+      .map((i) => i.id);
+    const purgedIds = get().items.filter((i) => i.isTemporary).map((i) => i.id);
+
     db.runSync(
       "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0, list_id = NULL WHERE shopping_trip_id IS NOT NULL"
     );
     db.runSync('DELETE FROM shopping_trips');
-    db.runSync('DELETE FROM shopping_items WHERE is_temporary = 1');
+    softDeleteItemRows(purgedIds);
     db.runSync('UPDATE shopping_items SET pending_restock = 0');
     db.runSync("UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0, list_id = NULL WHERE status = 'inWeeklyList'");
+    syncItemRows(resetIds);
 
     set((s) => ({
       trips: [],
@@ -712,16 +774,24 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   },
 
   resetMonthlyList(listId) {
+    // Same synced-column announcement as monthlyReset(), scoped to this Monthly list.
+    const scoped = get().items.filter((i) => i.monthlyListId === listId);
+    const resetIds = scoped
+      .filter((i) => !i.isTemporary && (i.shoppingTripId || i.status === 'inWeeklyList'))
+      .map((i) => i.id);
+    const purgedIds = scoped.filter((i) => i.isTemporary).map((i) => i.id);
+
     db.runSync(
       "UPDATE shopping_items SET status = 'catalog', shopping_trip_id = NULL, purchased_at = NULL, checked = 0, collected = 0, list_id = NULL WHERE shopping_trip_id IS NOT NULL AND monthly_list_id = ?",
       [listId]
     );
-    db.runSync('DELETE FROM shopping_items WHERE is_temporary = 1 AND monthly_list_id = ?', [listId]);
+    softDeleteItemRows(purgedIds);
     db.runSync('UPDATE shopping_items SET pending_restock = 0 WHERE monthly_list_id = ?', [listId]);
     db.runSync(
       "UPDATE shopping_items SET status = 'catalog', checked = 0, collected = 0, list_id = NULL WHERE status = 'inWeeklyList' AND monthly_list_id = ?",
       [listId]
     );
+    syncItemRows(resetIds);
 
     set((s) => ({
       items: s.items

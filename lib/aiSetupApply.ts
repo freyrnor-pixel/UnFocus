@@ -114,7 +114,40 @@ function isEnum<T extends string>(v: unknown, allowed: readonly T[]): v is T {
 }
 
 function isNumArray(v: unknown): v is number[] {
-  return Array.isArray(v) && v.every((n) => typeof n === 'number');
+  return Array.isArray(v) && v.every((n) => typeof n === 'number' && Number.isFinite(n));
+}
+
+/**
+ * A finite number from an untrusted field, or null.
+ *
+ * **`typeof v === 'number'` is not enough on a parsed JSON file.** `1e999` is perfectly
+ * valid JSON and `JSON.parse` turns it into `Infinity` — which then satisfies every
+ * open-ended bound check in this module (`>= 0`, `>= 1`), survives `Math.floor`, and
+ * lands in the store as a value nothing downstream can ever satisfy. A habit imported
+ * with `dailyGoal: Infinity` can never be met at any count, draws a permanently empty
+ * progress bar, and renders its goal chip as the literal text "Infinityx"; the
+ * confirm-before-apply preview reports it as a clean creation, because preview and apply
+ * share this one validation pass. NaN is rejected here too for symmetry — JSON has no
+ * literal for it, but a hand-edited or generated payload is untrusted input either way.
+ *
+ * Bounded checks (`>= 1 && <= 4`) already excluded Infinity by accident; routing every
+ * numeric field through this makes that a property of the validator rather than of which
+ * bound a given field happens to have.
+ */
+function finiteNum(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/** A finite, non-negative number from an untrusted field, or 0. */
+function numAtLeastZero(v: unknown): number {
+  const n = finiteNum(v);
+  return n !== null && n >= 0 ? n : 0;
+}
+
+/** A finite integer from an untrusted field, inside [min, max], or undefined. */
+function intInRange(v: unknown, min: number, max: number): number | undefined {
+  const n = finiteNum(v);
+  return n !== null && n >= min && n <= max ? Math.floor(n) : undefined;
 }
 
 function addDaysStr(base: string, days: number): string {
@@ -170,7 +203,7 @@ function processTasks(drafts: AiTaskDraft[] | undefined, dryRun: boolean): Domai
         recurringDays: isNumArray(d.recurringDays) ? d.recurringDays.filter((n) => n >= 0 && n <= 6) : [],
         monthlyMode: d.monthlyMode as 'day' | 'ordinal' | undefined,
         monthOrdinal: d.monthOrdinal as typeof MONTH_ORDINALS[number] | undefined,
-        monthWeekday: typeof d.monthWeekday === 'number' ? d.monthWeekday : undefined,
+        monthWeekday: intInRange(d.monthWeekday, 0, 6),
         time: d.time as string | undefined,
         finishTime: d.finishTime as string | undefined,
         hint,
@@ -202,7 +235,8 @@ function processHabits(drafts: AiHabitDraft[] | undefined, dryRun: boolean): Dom
     if (!isEnum(d.kind, HABIT_KINDS)) return skip(result, index, 'invalid-enum');
     if (!isEnum(d.recurrence, HABIT_RECURRENCE)) return skip(result, index, 'invalid-enum');
     if (!isEnum(d.category, HABIT_CATEGORY)) return skip(result, index, 'invalid-enum');
-    const dailyGoal = typeof d.dailyGoal === 'number' && d.dailyGoal >= 1 ? Math.floor(d.dailyGoal) : null;
+    const dailyGoalRaw = finiteNum(d.dailyGoal);
+    const dailyGoal = dailyGoalRaw !== null && dailyGoalRaw >= 1 ? Math.floor(dailyGoalRaw) : null;
     if (dailyGoal === null) return skip(result, index, 'invalid-type');
     const recurrenceDays = isNumArray(d.recurrenceDays) ? d.recurrenceDays.filter((n) => n >= 0 && n <= 6) : [];
     if ((d.recurrence === 'weekly' || d.recurrence === 'weekly-flexible') && recurrenceDays.length === 0) {
@@ -296,10 +330,7 @@ function processShoppingLists(
     const startDate = isDateStr(d.startDate) ? (d.startDate as string) : todayStr();
     const endDate = isDateStr(d.endDate) ? (d.endDate as string) : addDaysStr(startDate, 7);
     const isRecurring = typeof d.isRecurring === 'boolean' ? d.isRecurring : undefined;
-    const recurrenceIntervalWeeks =
-      typeof d.recurrenceIntervalWeeks === 'number' && d.recurrenceIntervalWeeks >= 1 && d.recurrenceIntervalWeeks <= 4
-        ? Math.floor(d.recurrenceIntervalWeeks)
-        : undefined;
+    const recurrenceIntervalWeeks = intInRange(d.recurrenceIntervalWeeks, 1, 4);
 
     const id = dryRun ? `preview:${index}` : add({ name, startDate, endDate, isRecurring, recurrenceIntervalWeeks });
     if (name) idByName.set(name.trim().toLowerCase(), id);
@@ -347,10 +378,12 @@ function processInventoryItems(drafts: AiInventoryItemDraft[] | undefined, dryRu
     if (!name) return skip(result, index, 'invalid-type');
     const amount = optStr(d.amount, 20) ?? '1';
     const unit = optStr(d.unit, 20) ?? '';
-    const price = typeof d.price === 'number' && d.price >= 0 ? d.price : 0;
+    const priceRaw = finiteNum(d.price);
+    const price = priceRaw !== null && priceRaw >= 0 ? priceRaw : 0;
     const category = optStr(d.category, 40) ?? 'other';
+    const targetQuantityRaw = finiteNum(d.targetQuantity);
     const targetQuantity =
-      typeof d.targetQuantity === 'number' && d.targetQuantity >= 0 ? Math.floor(d.targetQuantity) : 1;
+      targetQuantityRaw !== null && targetQuantityRaw >= 0 ? Math.floor(targetQuantityRaw) : 1;
 
     if (!dryRun) {
       add({ name, amount, unit, listType: 'monthly', store: '', price, inventoryQty: 0, status: 'catalog', category, targetQuantity });
@@ -371,7 +404,8 @@ function processCatalogueItems(drafts: AiCatalogueItemDraft[] | undefined, dryRu
     const d = asRecord(raw);
     const name = str(d.name);
     if (!name) return skip(result, index, 'invalid-type');
-    const price = typeof d.price === 'number' && d.price >= 0 ? d.price : undefined;
+    const priceRaw = finiteNum(d.price);
+    const price = priceRaw !== null && priceRaw >= 0 ? priceRaw : undefined;
     const category = optStr(d.category, 40);
     const store = optStr(d.store, 60);
 
@@ -408,7 +442,7 @@ function processMeals(drafts: AiMealDraft[] | undefined, dryRun: boolean): Domai
           name: iName,
           amount: optStr(i.amount, 30) ?? '',
           unit: optStr(i.unit, 20) ?? '',
-          priceNok: typeof i.priceNok === 'number' && i.priceNok >= 0 ? i.priceNok : 0,
+          priceNok: numAtLeastZero(i.priceNok),
         };
       })
       .filter((i): i is { name: string; amount: string; unit: string; priceNok: number } => i !== null);
@@ -432,7 +466,8 @@ function processMonthlyLists(drafts: AiMonthlyListDraft[] | undefined, dryRun: b
   drafts.forEach((raw, index) => {
     const d = asRecord(raw);
     const name = optStr(d.name);
-    const budgetNok = typeof d.budgetNok === 'number' && d.budgetNok >= 0 ? d.budgetNok : undefined;
+    const budgetRaw = finiteNum(d.budgetNok);
+    const budgetNok = budgetRaw !== null && budgetRaw >= 0 ? budgetRaw : undefined;
 
     if (!dryRun) {
       const id = add({ name });
@@ -479,10 +514,13 @@ function validateSettingValue(key: string, value: unknown): unknown {
   if (key === 'fontSize') return isEnum(value, FONT_SIZES) ? value : undefined;
   if (key === 'energyMode') return isEnum(value, ENERGY_MODES) ? value : undefined;
   if (key === 'photoAspectRatio') return isEnum(value, ASPECT_RATIOS) ? value : undefined;
-  if (key === 'weeklyResetDay') return typeof value === 'number' && value >= 0 && value <= 6 ? Math.floor(value) : undefined;
-  if (key === 'monthlyResetDate') return typeof value === 'number' && value >= 1 && value <= 31 ? Math.floor(value) : undefined;
+  const n = finiteNum(value);
+  if (key === 'weeklyResetDay') return n !== null && n >= 0 && n <= 6 ? Math.floor(n) : undefined;
+  if (key === 'monthlyResetDate') return n !== null && n >= 1 && n <= 31 ? Math.floor(n) : undefined;
   if (key === 'energyDailyCapacity' || key === 'energyWeeklyCapacity') {
-    return typeof value === 'number' && value >= 0 ? value : undefined;
+    // Open-ended on purpose (a capacity is whatever the person says it is), which is
+    // exactly why it needs finiteNum — see that helper's doc on `1e999`.
+    return n !== null && n >= 0 ? n : undefined;
   }
   return undefined;
 }
