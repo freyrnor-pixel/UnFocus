@@ -171,6 +171,10 @@ const en = {
   },
   shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
+  /** Last row of a components/SubScreenPreviewList — a drawer shows the first few
+   *  names, this says how many it didn't. Distinct from `home.andMore`, which is
+   *  about TODAY specifically and can't be reused for a library screen. */
+  andMoreItems: (n: number) => `and ${n} more`,
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
   // "One thing at a time" layout (lib/cardLayout.ts's focusFirst, design-system v6's
@@ -1264,8 +1268,8 @@ const en = {
     // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
     // moved off the top of those screens; see those files' Edit notes). Deliberately
     // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
-    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which this button's own
-       component header says it mirrors (components/SubScreenLinkButton.tsx). It read
+    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which it now shares a
+       component with (components/CollapsedSection.tsx). It read
        "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
        a sheet you can look at as well as edit) and that reads as a list row rather than a
        way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
@@ -1891,7 +1895,6 @@ const en = {
     stillDue: (tray: string) => `Still due: ${tray}`,
     nextUp: (tray: string, time: string) => `Next: ${tray} at ${time}`,
     allTaken: 'Everything taken today',
-    nothingScheduled: 'Nothing scheduled today',
     takenAt: (time: string) => `Taken ${time}`,
     markTaken: (name: string) => `Mark ${name} as taken`,
     undoTaken: (name: string) => `Undo ${name}`,
@@ -1906,7 +1909,6 @@ const en = {
     remindersToggle: 'Remind me for each tray',
     remindersOffHint: 'The card still works — you just won’t be nudged.',
     remindersQuietHint: 'A tray inside quiet hours is skipped, not moved.',
-    editReminders: 'Reminder times',
     forMe: 'Me',
     // ── app/medicine-form.tsx ──
     formTitleNew: 'New medicine',
@@ -2332,6 +2334,7 @@ const no: typeof en = {
   },
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
+  andMoreItems: (n: number) => `og ${n} til`,
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
   focusFirst: {
@@ -3741,7 +3744,6 @@ const no: typeof en = {
     stillDue: (tray: string) => `Gjenstår: ${tray}`,
     nextUp: (tray: string, time: string) => `Neste: ${tray} kl. ${time}`,
     allTaken: 'Alt tatt i dag',
-    nothingScheduled: 'Ingenting satt opp i dag',
     takenAt: (time: string) => `Tatt ${time}`,
     markTaken: (name: string) => `Merk ${name} som tatt`,
     undoTaken: (name: string) => `Angre ${name}`,
@@ -3756,7 +3758,6 @@ const no: typeof en = {
     remindersToggle: 'Påminn meg for hver runde',
     remindersOffHint: 'Kortet virker fortsatt — du blir bare ikke minnet på det.',
     remindersQuietHint: 'En runde inne i stilletiden hoppes over, den flyttes ikke.',
-    editReminders: 'Påminnelsestider',
     forMe: 'Meg',
     formTitleNew: 'Ny medisin',
     formTitleEdit: 'Medisin',

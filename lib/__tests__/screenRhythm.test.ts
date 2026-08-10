@@ -44,7 +44,7 @@ const STACKED_CARDS: { file: string; style: string }[] = [
   { file: 'components/HomeShoppingCard.tsx', style: 'card' },
   { file: 'components/HomeSharedCard.tsx', style: 'card' },
   { file: 'components/PlanTaskCard.tsx', style: 'card' },
-  { file: 'components/SubScreenLinkButton.tsx', style: 'card' },
+  { file: 'components/CollapsedSection.tsx', style: 'section' },
 ];
 
 /**

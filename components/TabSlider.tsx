@@ -117,17 +117,41 @@ type Props<T extends string | number> = {
   /** Track/pill corner radius. Default Radius.sm (boxed chip look — matches the old
    *  TabBoxHighlight). Pass a different value (e.g. Radius.md) to tweak the squareness. */
   radius?: number;
+  /**
+   * Square the TOP corners (2026-08-10). Set when the slider is mounted as a screen's
+   * `stickyBelowHeader` and therefore sits flush against the header card, which squares its own
+   * bottom corners to match — the two then read as one floating card rather than two stacked
+   * ones. See components/ScreenScaffold.tsx's `headerAttachedBelow`.
+   */
+  attachedTop?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 const TRACK_PAD = 3;
 const TRACK_GAP = 3;
+/** Segment height. 34 since 2026-08-10 (was 38) — the maintainer asked for the sticky tab row
+ *  to be "slightly vertically slimmer". Deliberately under MIN_TAP_TARGET, which widens
+ *  DESIGN_RULES.md open conflict #6 rather than introducing a new exception: `PAD_ROW_HEIGHT`
+ *  (38) and Button size `sm` (36) already live there. */
+const SEGMENT_HEIGHT = 34;
+/**
+ * The slider's natural content height — `borderWidth 1 × 2 + TRACK_PAD × 2 + SEGMENT_HEIGHT`.
+ *
+ * Exported because a caller mounting this as `stickyBelowHeader` must hand ScreenScaffold a
+ * `stickyBelowHeaderHeight`, and every surplus px becomes leftover space that the caller's
+ * `justifyContent: 'center'` splits top/bottom — making the pill's vertical inset bigger than
+ * its horizontal one (the 2026-07-24 bug, when Plans said 56 and Shopping said 60 against a
+ * real 46). Five call sites each restated that number by hand; they import this instead now.
+ * **Change SEGMENT_HEIGHT and this follows automatically — never hardcode either at a caller.**
+ */
+export const TAB_SLIDER_HEIGHT = 2 + TRACK_PAD * 2 + SEGMENT_HEIGHT;
 
 export default function TabSlider<T extends string | number>({
   options,
   value,
   onChange,
   radius = Radius.sm,
+  attachedTop = false,
   style,
 }: Props<T>) {
   const theme = useAppTheme();
@@ -262,7 +286,17 @@ export default function TabSlider<T extends string | number>({
 
   return (
     <View
-      style={[styles.wrap, { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius }, style]}
+      style={[
+        styles.wrap,
+        { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius },
+        // Attached to the header above: square the top corners and drop the top border, so the
+        // seam between the two is a single line rather than two stacked edges of different
+        // colours. `paddingTop` gives the px back, keeping the rendered height exactly
+        // TAB_SLIDER_HEIGHT — the caller reserves that number, and a surplus/deficit is what
+        // knocks the pill's vertical inset out of true (see that constant's doc).
+        attachedTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0, paddingTop: 1 },
+        style,
+      ]}
     >
       <View style={styles.row} onLayout={onTrackLayout}>{content}</View>
     </View>
@@ -291,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexGrow: 1,
     flexShrink: 1,
-    minHeight: 38,
+    minHeight: SEGMENT_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,

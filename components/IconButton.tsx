@@ -23,6 +23,9 @@
  *   - Default (inactive, enabled) icon colour is `text`; disabled icon colour is `textMuted`.
  *   - **Keycap base (task 16, 2026-08-04)**: `travel` was sinking the cap with nothing under it
  *     — every call site had the "cap with no base" bug AGENTS.md warns about. Now wrapped in a
+ *     (Amended 2026-08-10: the base is sized to the CAP, not to the hit target — it used to
+ *     stretch to all four edges of the 48px `keyWrap` behind a 36px circle and read as a dark
+ *     ring rather than a bottom sliver. See the `capInset` comment.)
  *     `keyWrap`/`keyBase` pair (same shape as Button.tsx): a stationary `darken(fill, 0.22)`
  *     slab, revealed as a sliver by `paddingBottom: Travel.md` on the wrapper. **`style` now
  *     applies to the wrapper, not the inner `PressableScale`** — a caller's margin/position has
@@ -81,6 +84,13 @@ type Props = {
   /** Ghost mode — see the header note. A thin border in this colour, transparent fill, no
    *  cap-on-base. Ignores `tint`/`active` when set. */
   borderColor?: string;
+  /**
+   * Announce as something other than a button — currently only `'switch'`, for an icon that IS
+   * the on/off control rather than an action (components/ReminderBell.tsx). When set, `active`
+   * is reported as `checked` instead of `selected`, which is what a screen reader needs to say
+   * "on"/"off" rather than "selected". Default `'button'`.
+   */
+  role?: 'button' | 'switch';
 };
 
 export default function IconButton({
@@ -94,6 +104,7 @@ export default function IconButton({
   disabled,
   style,
   borderColor,
+  role = 'button',
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
@@ -121,6 +132,10 @@ export default function IconButton({
       <PressableScale
         onPress={onPress}
         disabled={disabled}
+        // Explicit opt-out (2026-08-10): key mode is PressableScale's default now, and this
+        // path deliberately skips the keyWrap/keyBase cap-on-base — there is no fill to build
+        // a base from, so it keeps the scale-bounce, matching Button's `ghost`.
+        press="scale"
         scaleTo={0.9}
         accessibilityLabel={label}
         accessibilityRole="button"
@@ -166,13 +181,30 @@ export default function IconButton({
   // cap sinks on press. `style` moves here (the wrapper), not the PressableScale, for the same
   // reason Button's does — a caller's width/margin has to size the whole key, not just the cap.
   const keyBaseColor = darken(active ? theme.accent : inactiveBg, 0.22);
+  // The base is the size of the CAP, not of the hit target (fixed 2026-08-10). `keyBase` used
+  // to stretch to all four edges of `keyWrap`, which is `hitTarget` wide (48, the tap floor)
+  // while the visible circle is only `size` (36 by default) — so a `darken(fill, 0.22)` slab
+  // showed 6px proud on every side and read as a heavy dark RING around the button, not as the
+  // "sliver revealed by paddingBottom" this block's own comment describes. Invisible while
+  // every IconButton was a quiet grey; obvious the moment one went `active` in a card header
+  // (components/ReminderBell.tsx). The cap is centred in the pressable, so the base sits at the
+  // same inset, shifted down by exactly the travel it is there to catch.
+  const capInset = (hitTarget - size) / 2;
 
   return (
     <View style={[styles.keyWrap, { width: hitTarget, paddingBottom: Travel.md }, style]}>
       <View
         style={[
           styles.keyBase,
-          { borderRadius: Radius.full, backgroundColor: keyBaseColor, opacity: disabled ? 0.45 : 1 },
+          {
+            top: capInset + Travel.md,
+            left: capInset,
+            width: size,
+            height: size,
+            borderRadius: Radius.full,
+            backgroundColor: keyBaseColor,
+            opacity: disabled ? 0.45 : 1,
+          },
         ]}
       />
       <PressableScale
@@ -189,8 +221,8 @@ export default function IconButton({
         // PressableScale compresses it to 0 at the bottom of the travel, same as Button.
         depth="raised"
         accessibilityLabel={label}
-        accessibilityRole="button"
-        accessibilityState={{ disabled, selected: active }}
+        accessibilityRole={role}
+        accessibilityState={role === 'switch' ? { disabled, checked: active } : { disabled, selected: active }}
         style={[
           styles.hit,
           { width: hitTarget, height: hitTarget, opacity: disabled ? 0.45 : 1 },
@@ -214,7 +246,8 @@ export default function IconButton({
 
 const styles = StyleSheet.create({
   keyWrap: { position: 'relative' },
-  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
+  // Geometry is inline — it derives from `size`/`hitTarget`, which are props. See `capInset`.
+  keyBase: { position: 'absolute' },
   hit: {
     alignItems: 'center',
     justifyContent: 'center',

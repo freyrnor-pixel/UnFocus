@@ -18,8 +18,8 @@
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/AddRow,
  *             components/PressableScale, components/Collapsible,
- *             components/StarterCard (compact first-run explainer), components/FormControls
- *             (Input/Switch), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
+ *             components/StarterCard (compact first-run explainer), components/ReminderBell,
+ *             components/FormControls (Input), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
@@ -47,13 +47,22 @@
  *     down the card, and `Input` doesn't forward a ref, so each field's wrapping View is what
  *     gets measured/lifted (see lib/useKeyboardLift.ts's doc on wrapping vs. direct refs).
  *     The trailing AddRow already lifts itself internally — nothing to add there.
- *   - **Reminder toggle is a plain bell, no chip background (2026-08-09)**: was an `IconButton`
- *     (circular `theme.surfaceMuted` fill) showing `alarm-outline`/`notifications-off-outline`.
- *     Restyled to match app/habit-form.tsx's bell exactly — a bare `PressableScale` + `Ionicons`,
- *     quiet grey (`notifications-off-outline`) when reminders are off, coloured filled
- *     (`notifications`) when on, no circular fill at all. The button still just opens/closes the
- *     panel below (`remindersOpen`); the icon/colour reflect `remindersEnabled`, not the panel's
- *     open state — the expanded panel itself is the "it's open" affordance.
+ *   - **The bell IS the reminders switch (2026-08-10)** — components/ReminderBell.tsx, shared
+ *     with app/habit-form.tsx. Read that file's header for the full story; the part specific to
+ *     this card is that the bell used to open/close the times panel (`remindersOpen`) while
+ *     drawing `settings.medicineRemindersEnabled`, a DIFFERENT value flipped by a `Switch`
+ *     inside that panel. Pressing it changed nothing about it — reported as "Reminder bell
+ *     button looks the same in both states". Now: bell toggles the setting, `Collapsible` opens
+ *     on that same boolean, the duplicate `Switch` is deleted, and `remindersOpen` is gone. One
+ *     setting, one control. (Before 2026-08-09 it was an `IconButton`; it is one again, via
+ *     ReminderBell — the 2026-08-09 "plain bell, no chip background" pass is what removed the
+ *     plate that made "on" legible, so this restores it deliberately rather than by accident.)
+ *   - **There is no "nothing scheduled" status line (2026-08-10)**: `statusLine()` returns null
+ *     for that case and the `<Text>` is skipped. It sat immediately above the starter card
+ *     saying less than the card did, and read as unrelated to it. Note the second case it also
+ *     covered: medicines that are ALL as-needed leave `hasScheduled` false while
+ *     `medicines.length !== 0`, so no starter card renders either — the as-needed section
+ *     speaks for itself there. Don't reintroduce the line to "fill" that gap.
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -65,7 +74,8 @@ import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import StarterCard from '@/components/StarterCard';
-import { Input, Switch } from '@/components/FormControls';
+import ReminderBell from '@/components/ReminderBell';
+import { Input } from '@/components/FormControls';
 import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
@@ -133,7 +143,6 @@ export default function MedicineTrayCard() {
   const updateSettings = useSettingsStore((s) => s.update);
 
   const [draft, setDraft] = useState('');
-  const [remindersOpen, setRemindersOpen] = useState(false);
   const [timeDrafts, setTimeDrafts] = useState<Partial<Record<TrayId, string>>>({});
   const [selectedPerson, setSelectedPerson] = useState('');
 
@@ -167,8 +176,18 @@ export default function MedicineTrayCard() {
   const upcoming = nextTray(trayTimes, now);
   const hasScheduled = activeTrays.length > 0;
 
-  /** "Still due: Morning" → "Next: Midday at 12:00" → "Everything taken today". */
-  function statusLine(): { text: string; color: string } {
+  /**
+   * "Still due: Morning" → "Next: Midday at 12:00" → "Everything taken today", or NOTHING.
+   *
+   * Returns null when there is nothing scheduled (2026-08-10, user report: the line
+   * "Ingenting satt opp i dag" "is placed weirdly in relation to the box under, and it is not
+   * needed"). It was a caption with no relationship to the bordered box directly beneath it,
+   * saying less than that box already said — the starter card when there are no medicines at
+   * all, and the as-needed section when every medicine is PRN. A status line about a schedule
+   * that doesn't exist is an absence dressed up as a status; showing nothing is the honest
+   * shape. `t.medicine.nothingScheduled` was deleted from both languages with it.
+   */
+  function statusLine(): { text: string; color: string } | null {
     if (due.length > 0) {
       return { text: t.medicine.stillDue(t.medicine.trays[due[0]]), color: theme.warn };
     }
@@ -181,7 +200,7 @@ export default function MedicineTrayCard() {
         color: theme.textMuted,
       };
     }
-    if (!hasScheduled) return { text: t.medicine.nothingScheduled, color: theme.textMuted };
+    if (!hasScheduled) return null;
     return { text: t.medicine.allTaken, color: theme.good };
   }
 
@@ -230,29 +249,26 @@ export default function MedicineTrayCard() {
               Quick log/This week headers use. */}
           <CardAccentBadge domain="health" icon="medkit" size={32} accentOverride={screenHue} />
           <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.medicine.title}</Text>
-          {/* Plain bell, no chip background (2026-08-09) — matches app/habit-form.tsx's reminder
-              bell: quiet grey when reminders are off, coloured/filled when on. Tapping just
-              opens/closes the panel below; the expanded panel is the "it's open" affordance. */}
-          <PressableScale
-            onPress={() => {
+          {/* The bell IS the switch (2026-08-10, user report: "Reminder bell button looks the
+              same in both states"). It used to open/close the times panel while its icon showed
+              `medicineRemindersEnabled` — a different value, flipped by a Switch inside that
+              panel — so pressing it genuinely changed nothing about it. Now it toggles reminders
+              directly, the panel below follows that same boolean (so opening/closing IS the
+              confirmation, and the duplicate Switch is gone), and the shared
+              components/ReminderBell.tsx carries the four-channel on/off the report was
+              missing. */}
+          <ReminderBell
+            enabled={remindersEnabled}
+            onToggle={() => {
               tap();
-              setRemindersOpen((v) => !v);
+              updateSettings({ medicineRemindersEnabled: !remindersEnabled });
+              syncReminders();
             }}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="button"
-            accessibilityLabel={t.medicine.editReminders}
-            accessibilityState={{ expanded: remindersOpen }}
-          >
-            <Ionicons
-              name={remindersEnabled ? 'notifications' : 'notifications-off-outline'}
-              size={26}
-              color={remindersEnabled ? theme.accent : theme.textMuted}
-            />
-          </PressableScale>
+            label={t.medicine.remindersToggle}
+          />
         </View>
 
-        <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>
+        {status && <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>}
 
         {medicines.length === 0 && <StarterCard text={t.starters.medicine.text} compact />}
 
@@ -278,60 +294,50 @@ export default function MedicineTrayCard() {
           </View>
         </Collapsible>
 
-        {/* Reminder times — one per tray, shared by its medicines. */}
-        <Collapsible open={remindersOpen}>
+        {/* Reminder times — one per tray, shared by its medicines. Open state IS
+            `remindersEnabled` (2026-08-10): the bell in the header owns the boolean, so the
+            panel appearing is what confirms the press, and there is no second control in here
+            saying the same thing. The old `remindersOpen` state and the duplicate `Switch` are
+            both gone — one setting, one control. */}
+        <Collapsible open={remindersEnabled}>
           <View style={[styles.reminderPanel, { borderColor: theme.border }]}>
-            <View style={styles.reminderToggleRow}>
-              <Text style={[styles.reminderLabel, { color: theme.text }]}>
-                {t.medicine.remindersToggle}
-              </Text>
-              <Switch
-                checked={remindersEnabled}
-                onChange={(v) => {
-                  updateSettings({ medicineRemindersEnabled: v });
-                  syncReminders();
-                }}
-              />
-            </View>
-            {!remindersEnabled && (
-              <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
-                {t.medicine.remindersOffHint}
-              </Text>
-            )}
-            {remindersEnabled && (
-              <>
-                <View style={styles.timeGrid}>
-                  {TRAY_IDS.map((tray) => (
-                    <View key={tray} style={styles.timeField}>
-                      <Text style={[styles.timeFieldLabel, { color: theme.textMuted }]}>
-                        {t.medicine.trays[tray]}
-                      </Text>
-                      <View ref={trayLifts[tray].ref}>
-                        <Input
-                          value={timeDrafts[tray] ?? trayTimes[tray]}
-                          onChangeText={(v) => setTimeDrafts((prev) => ({ ...prev, [tray]: v }))}
-                          onFocus={trayLifts[tray].onFocus}
-                          onBlur={() => {
-                            commitTrayTime(tray);
-                            trayLifts[tray].onBlur();
-                          }}
-                          placeholder={t.timeInputPlaceholder}
-                          keyboardType="numbers-and-punctuation"
-                          style={styles.timeInput}
-                        />
-                      </View>
-                    </View>
-                  ))}
-                </View>
-                {quietHoursEnabled && (
-                  <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
-                    {t.medicine.remindersQuietHint}
+            <View style={styles.timeGrid}>
+              {TRAY_IDS.map((tray) => (
+                <View key={tray} style={styles.timeField}>
+                  <Text style={[styles.timeFieldLabel, { color: theme.textMuted }]}>
+                    {t.medicine.trays[tray]}
                   </Text>
-                )}
-              </>
+                  <View ref={trayLifts[tray].ref}>
+                    <Input
+                      value={timeDrafts[tray] ?? trayTimes[tray]}
+                      onChangeText={(v) => setTimeDrafts((prev) => ({ ...prev, [tray]: v }))}
+                      onFocus={trayLifts[tray].onFocus}
+                      onBlur={() => {
+                        commitTrayTime(tray);
+                        trayLifts[tray].onBlur();
+                      }}
+                      placeholder={t.timeInputPlaceholder}
+                      keyboardType="numbers-and-punctuation"
+                      style={styles.timeInput}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+            {quietHoursEnabled && (
+              <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
+                {t.medicine.remindersQuietHint}
+              </Text>
             )}
           </View>
         </Collapsible>
+        {/* The "reminders are off" line lives outside the panel — the panel only exists while
+            they're on, so this is the one thing that has to say so when they aren't. */}
+        {!remindersEnabled && (
+          <Text style={[styles.reminderHint, { color: theme.textMuted }]}>
+            {t.medicine.remindersOffHint}
+          </Text>
+        )}
 
         {/* One section per tray in use, in time order. */}
         {activeTrays.map((tray) => {

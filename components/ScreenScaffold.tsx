@@ -35,16 +35,32 @@
  *     mid-list rows alike. AddRow calls this from its input's onFocus/keyboardDidShow. `null`
  *     outside a scrollable ScreenScaffold — the non-scrollable/FlatList branch self-manages.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
- *   - Top and bottom blocks float above content with translucency — content scrolls behind them
+ *   - **Content lives in a CLIPPED VIEWPORT, not behind the chrome (2026-08-10).** `styles.viewport`
+ *     is an `overflow: 'hidden'` box inset by `viewportInset` — top by the header (plus any sticky
+ *     bar), bottom by the nav's full footprint — and the ScrollView lives inside it. So the top and
+ *     bottom blocks still FLOAT (rounded, side-inset, drawn over the backdrop), but nothing can
+ *     render outside the band between them: not in the 8px side margins, not in the header seam,
+ *     not in any of the eight corner notches, not in the status-bar strip and not in the float gap
+ *     below the bar. Maintainer's rule: "Nothing should be visible (cards, text, buttons and so
+ *     on) above the header, or under the bottom nav." This REPLACES the old contentContainer
+ *     `paddingTop`/`paddingBottom` approach and deletes `NAV_PEEK` with it (see BottomNav.tsx).
+ *     Put the clearance on the wrapper's MARGIN, never back on the content's padding — both at
+ *     once double-counts it and every screen grows a blank band.
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
  *     content draws behind the status + nav bars):
- *       • The outer SafeAreaView pads the in-flow ScrollView into the safe area — this confines
- *         scrolling so content can't slide up behind the status bar.
+ *       • The outer SafeAreaView pads the viewport into the safe area — but 'top' is applied by
+ *         hand as `paddingTop: topInset` rather than listed in `edges`, because SafeAreaView uses
+ *         the RAW `insets.top` and the header block floors the same inset with
+ *         StatusBar.currentHeight. Under the clip those two MUST agree, or the viewport's top edge
+ *         sits above the header's bottom edge and content shows in the difference.
  *       • The header/bottom blocks are position:absolute and DON'T inherit that padding (absolute
  *         children ignore a parent's padding in current Yoga), so they apply the insets themselves:
  *         header height/paddingTop += topInset, bottom-nav height/paddingBottom += bottomInset.
  *     topInset floors insets.top with StatusBar.currentHeight on Android as a safety net for the
  *     brief window where safe-area-context can report 0 before the first insets dispatch.
+ *   - **The absolute blocks are `pointerEvents="box-none"`.** They are full-width zIndex 99/100
+ *     views with transparent margins; without it those strips swallow taps meant for the content
+ *     under them (a dead gutter down both sides of every screen).
  *   - Background: ScreenBackground (the shared blue field + corner branches) is the base on
  *     every screen when ownBackground is true; isHome=true additionally layers HomeHeroBackground
  *     (an additive focal glow) on top of it (see below)
@@ -94,6 +110,11 @@
  *     (plainBackground) path. As of the floated-header pass the block is `transparent` when
  *     `floatChrome` so the ScreenBackground shows in the side/top gaps around the glass —
  *     the stretched glass still covers content under the header itself.
+ *   - **Header + sticky bar are ONE card (2026-08-10)**: when `stickyBelowHeader` is passed,
+ *     `headerFloatBottom` goes to 0 and `headerAttachedBelow` squares the header's bottom
+ *     corners; the sticky bar (components/TabSlider.tsx's `attachedTop`) squares its top ones.
+ *     Maintainer: "Tab slider should be under the header without dividing space." Screens with
+ *     no sticky bar keep the 8px gap — there's nothing under them to attach to.
  *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25)**:
  *     `floatChrome` (= !plainBackground) insets the header with `headerFloatBottom` (gap before
  *     content) and `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style
@@ -121,8 +142,10 @@
  *     whose ~286-row list can't virtualise inside a same-axis ScrollView (nested
  *     VirtualizedList). ScrollToEndContext is a no-op in this mode — a self-scrolling FlatList
  *     manages keeping its own AddRow above the keyboard.
- *   - **contentPadding's bottom reservation is gated on `bottomNav`, not just `tier`
- *     (bug fix, 2026-07-17)**: previously `paddingBottom: BOTTOM_NAV_HEIGHT` applied whenever
+ *   - **The bottom reservation is gated on `bottomNav`, not just `tier`
+ *     (bug fix, 2026-07-17; the reserve is `viewportInset.marginBottom` since 2026-08-10, but
+ *     the gating rule is unchanged and the failure below is still what it protects against)**:
+ *     previously `paddingBottom: BOTTOM_NAV_HEIGHT` applied whenever
  *     `tier === 'site'`, full stop. But the 5 pager tab screens (app/(tabs)/*) all pass
  *     `bottomNav={false}` — app/(tabs)/_layout.tsx's pager already renders the real BottomNav
  *     as a SIBLING tab-bar container, and react-navigation sizes each page to stop exactly
@@ -133,8 +156,9 @@
  *     Catalogue screen's non-scrollable FlatList box (`scrollable={false}`, see above), the same
  *     padding shrinks a real flex-bounded viewport, so the list hard-clipped ~72dp above where
  *     the nav actually sits, leaving a bare gap even on a long, fully-populated list — reported
- *     as a "cut off" bug. Fixed by keying both `contentPadding.paddingBottom` and the
- *     ScrollView's `scrollIndicatorInsets.bottom` on `tier === 'site' && bottomNav` instead.
+ *     as a "cut off" bug. Fixed by keying the reserve on `tier === 'site' && bottomNav` instead.
+ *     (Both branches share one clipping wrapper now, so the Catalogue screen and a ScrollView
+ *     screen can no longer end up with different bottom edges in the first place.)
  *   - **stickyGap (2026-07-20)**: `stickyBelowHeader` (Plans/Shopping/Settings' in-screen tab
  *     bars) used to sit flush against the header's bottom edge with zero gap, reading as
  *     cramped. A `Spacing.sm` filler strip (painted `bgColor`, same treatment as headerBlock's
@@ -150,7 +174,7 @@ import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
-import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP, NAV_PEEK } from '@/components/BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
 
@@ -346,7 +370,15 @@ export default function ScreenScaffold({
   // notification line" instead of hovering with a visible strip of backdrop above it. The
   // bottom gap (between the header and content) is unchanged.
   const headerFloatTop = 0;
-  const headerFloatBottom = floatChrome ? Spacing.sm : 0;
+  // ...and the bottom gap is 0 too whenever the screen owns a sticky bar (2026-08-10, user
+  // report: "Tab slider should be under the header without dividing space"). That 8px band was
+  // transparent — `stickyGap` has been 0 since 2026-07-24, so the only thing between the header
+  // card and the TabSlider was this padding, and scrolled content showed through the seam.
+  // Header and slider are drawn as ONE floating card instead: `attachedBelow` squares the
+  // header's bottom corners and the slider squares its top ones. Screens with no sticky bar
+  // keep the gap — there is nothing under them for the header to attach to.
+  const headerAttachedBelow = floatChrome && !!stickyBelowHeader;
+  const headerFloatBottom = floatChrome && !headerAttachedBelow ? Spacing.sm : 0;
   // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
   // header and bottom-nav floating cards should read as the same width (2026-07-24).
   const headerFloatH = floatChrome ? Spacing.sm : 0;
@@ -417,8 +449,11 @@ export default function ScreenScaffold({
   //   bar as an absolute overlay instead (hides react-navigation's own tab-bar slot via
   //   `tabBar={() => null}`, which gives the pager the full remaining height), so the scene CAN
   //   render behind it again — this scaffold's own `pagerFloatingNav` prop is what reserves that
-  //   screen's clearance now (see its doc), shaved by NAV_PEEK so the last card's edge can reach
-  //   into the corner notch instead of stopping dead at the bar's edge.
+  //   screen's clearance now (see its doc).
+  //   **2026-08-10**: that reserve used to be shaved by `NAV_PEEK` so the last card's edge could
+  //   reach into the bar's corner notch. `NAV_PEEK` is deleted and the reserve is the bar's full
+  //   painted footprint again — see the `viewportInset` block below for the reversal, and note
+  //   the clip means no reserve value can produce a peek any more even if one came back.
   //   `pagerTabScene` = these tab scenes, still true whenever `bottomNav` is false (independent of
   //   `pagerFloatingNav`). The outer SafeAreaView still omits its bottom edge for them (see
   //   `safeAreaEdges` below) because `bottomNavClearance` above already folds in `bottomInset`
@@ -433,11 +468,15 @@ export default function ScreenScaffold({
   // without this scaffold rendering a second bar of its own — independent of `bottomNav`.
   const reserveBottomNav = tier === 'site' && scrollable && (bottomNav || pagerFloatingNav);
   const bottomNavClearance = pagerFloatingNav
-    ? BOTTOM_NAV_HEIGHT + bottomInset + NAV_FLOAT_GAP - NAV_PEEK
+    ? BOTTOM_NAV_HEIGHT + bottomInset + NAV_FLOAT_GAP
     : BOTTOM_NAV_HEIGHT + bottomInset;
-  const safeAreaEdges: Edge[] = pagerTabScene
-    ? ['top', 'left', 'right']
-    : ['top', 'right', 'bottom', 'left'];
+  // 'top' is applied by hand below rather than listed here (2026-08-10). SafeAreaView pads a
+  // listed edge with the RAW `insets.top`, while the header block floors the same inset with
+  // StatusBar.currentHeight — and the two disagree on Android until the first insets dispatch.
+  // The clipped viewport measures down from this box's top, so a smaller value here put the
+  // viewport's top edge ABOVE the header's bottom edge and let content render in the
+  // difference. Both now use `topInset`, so the clip lines up with the chrome by construction.
+  const safeAreaEdges: Edge[] = pagerTabScene ? ['left', 'right'] : ['right', 'bottom', 'left'];
   // Gap between the header band and a screen-owned stickyBelowHeader strip (Plans/
   // Shopping/Settings' tab bars). A 2026-07-20 pass added Spacing.sm here for breathing
   // room, but that extra strip painted `stickyGapColor="transparent"` — a window onto
@@ -446,30 +485,57 @@ export default function ScreenScaffold({
   // `headerFloatBottom` gap already gives the tab bar breathing room, so this doesn't
   // read as flush/cramped, and there's no separate transparent strip left to leak through.
   const stickyGap = 0;
-  const contentPadding = {
-    paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
-    ...(reserveBottomNav ? { paddingBottom: bottomNavClearance } : null),
+  // **Chrome clearance is a CLIPPED VIEWPORT, not content padding (2026-08-10).** Maintainer:
+  // "Nothing should be visible (cards, text, buttons and so on) above the header, or under the
+  // bottom nav" — and, separately, fix the strips above the header and below the bar the same
+  // way as the bar's corners.
+  //   It used to be `contentContainerStyle` padding on a full-bleed ScrollView, so content
+  // merely STARTED below the header and then scrolled up behind it. Everything the chrome
+  // didn't physically cover leaked: the 8px side margins beside the header and the bar, the
+  // seam under the header, all eight Radius.lg corner notches, and — via NAV_PEEK — the bar's
+  // own top corners on purpose. Six separate numbers, each able to drift on its own.
+  //   Now the scroll box itself is inset by the chrome and clipped (`overflow: 'hidden'`), so
+  // content physically cannot exist outside the band between the header's bottom edge and the
+  // bar's top edge. That covers the two strips the padding approach never even addressed:
+  //   • ABOVE the header — the status-bar band was kept clear only by the SafeAreaView's raw
+  //     `insets.top`, while the header block floors the same inset with StatusBar.currentHeight
+  //     (see `topInset`). On Android those disagree until the first insets dispatch, and content
+  //     rendered in the difference. The viewport now starts at the header block's real bottom
+  //     edge, so whichever value wins the race, that band is outside the clip.
+  //   • BELOW the bar — the `bottomInset + NAV_FLOAT_GAP` band was reserved by nothing at all
+  //     (`pagerTabScene` drops the 'bottom' safe-area edge, and NAV_PEEK shaved the rest).
+  //   Keep the two halves consistent: the inset is applied as margin on the clipping wrapper,
+  // NOT as padding on the content, or the clearance is counted twice and every screen gains a
+  // blank band. `scrollIndicatorInsets` goes to 0 for the same reason — the indicator now
+  // belongs to a box that already ends where the bar begins.
+  const viewportInset = {
+    marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    ...(reserveBottomNav ? { marginBottom: bottomNavClearance } : null),
   };
 
-  const scrollContent = scrollable ? (
-    <ScrollView
-      ref={scrollRef}
-      style={styles.scrollView}
-      contentContainerStyle={[styles.contentContainer, contentPadding]}
-      scrollIndicatorInsets={{
-        bottom: reserveBottomNav ? bottomNavClearance : 0,
-      }}
-      keyboardShouldPersistTaps="handled"
-      onScroll={handleScroll}
-      scrollEventThrottle={16}
-    >
-      <ScrollIntoViewContext.Provider value={scrollIntoView}>{children}</ScrollIntoViewContext.Provider>
-    </ScrollView>
-  ) : (
-    // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
-    // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
-    <View style={[styles.scrollView, contentPadding]}>
-      <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
+  // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
+  // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one
+  // place with its own bottom-gap arithmetic, and this is what stops that from drifting again.
+  const scrollContent = (
+    <View style={[styles.viewport, viewportInset]}>
+      {scrollable ? (
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+        >
+          <ScrollIntoViewContext.Provider value={scrollIntoView}>{children}</ScrollIntoViewContext.Provider>
+        </ScrollView>
+      ) : (
+        // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
+        // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
+        <View style={styles.scrollView}>
+          <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
+        </View>
+      )}
     </View>
   );
 
@@ -480,7 +546,7 @@ export default function ScreenScaffold({
     // for the whole pager), so it stays neutral by construction, which is correct: it belongs
     // to no single screen.
     <ScreenColorContext.Provider value={screenHue}>
-    <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, ownBackground && { backgroundColor: bgColor }]}>
+    <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, { paddingTop: topInset }, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
           plainBackground asks for a flat white/black fill with no accent blob.
@@ -507,7 +573,13 @@ export default function ScreenScaffold({
 
       {/* L4: Top block (ScreenHeader) — extended up behind the status bar and
           padded down by the top inset so the bar content clears it. */}
-      <View style={[
+      <View
+        // box-none (2026-08-10): this block is a full-width zIndex:100 view whose side margins
+        // and (on non-sticky screens) bottom gap are transparent. Without this it swallowed
+        // every touch aimed at whatever sits under those strips — a ~8px dead gutter down each
+        // side of the screen. PagerFloatingNav has always done this; these two never did.
+        pointerEvents="box-none"
+        style={[
         styles.headerBlock,
         {
           height: headerBlockHeight,
@@ -521,9 +593,14 @@ export default function ScreenScaffold({
         plainBackground && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
       ]}>
         <ScreenHeader
-          // Round the glass only when floating (there's now a gap below it, so the old
-          // "rounded corner collides with the first content row" problem doesn't apply).
-          style={[styles.headerFill, floatChrome && { borderRadius: Radius.lg }]}
+          // Round the glass only when floating. When a sticky bar is attached directly below
+          // (Plans/Shopping/Settings' tab rows) the bottom corners go square so the two read as
+          // one card rather than two stacked ones — the slider squares its top corners to match.
+          style={[
+            styles.headerFill,
+            floatChrome && { borderRadius: Radius.lg },
+            headerAttachedBelow && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+          ]}
           title={title}
           tier={tier}
           isHome={isHome}
@@ -543,8 +620,10 @@ export default function ScreenScaffold({
           room here again; today the block sits directly below the header. */}
       {stickyBelowHeader && (
         <>
-          <View style={[styles.stickyGapFiller, { top: headerBlockHeight, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
-          <View style={[styles.stickyBlock, { top: headerBlockHeight + stickyGap, height: stickyBelowHeaderHeight }]}>
+          <View pointerEvents="none" style={[styles.stickyGapFiller, { top: headerBlockHeight, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
+          {/* box-none for the same reason as the header block above — its own side margins are
+              transparent and were eating taps. */}
+          <View pointerEvents="box-none" style={[styles.stickyBlock, { top: headerBlockHeight + stickyGap, height: stickyBelowHeaderHeight }]}>
             {stickyBelowHeader}
           </View>
         </>
@@ -573,6 +652,13 @@ export default function ScreenScaffold({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  // The clipped band between the header's bottom edge and the bottom nav's top edge — the one
+  // place content is allowed to exist. `overflow: 'hidden'` is the whole mechanism (2026-08-10);
+  // without it this is just a differently-spelled padding and every strip leaks again.
+  viewport: {
+    flex: 1,
+    overflow: 'hidden',
   },
   scrollView: {
     flex: 1,

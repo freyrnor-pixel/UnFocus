@@ -1541,8 +1541,11 @@ export default function PlanTaskCard({
           <View style={styles.emptyWrap}>
             {/* One concrete suggestion, in the card, where the content would be (2026-07-27,
                 user report). This replaced an empty hour ruler that filled the space without
-                saying anything — the suggestion row IS a real row, and its "+" writes a real
-                task. The explainer that used to lead this block is now a one-line
+                saying anything. Its "+" writes a real task — but the row itself is drawn as a
+                dashed, unfilled sketch since 2026-08-10, deliberately NOT as a real row (see
+                components/StarterExampleRow.tsx's reversal note); it sits directly above the
+                dashed ghost add-row below and now shares its finish, which is the point.
+                The explainer that used to lead this block is now a one-line
                 CardHintNote at the FOOT of the card (2026-07-30) — see that mount below, and
                 its component header for why teaching moved out from between the title and the
                 content. The "EXAMPLE TASKS" caption line went with it: the marker is the

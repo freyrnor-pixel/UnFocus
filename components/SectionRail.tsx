@@ -42,8 +42,9 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, rgba, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { Domain } from '@/lib/domainColor';
 
@@ -63,26 +64,60 @@ type Props = {
   count?: number;
   /** Optional control rendered flush-right (e.g. a toggle). */
   right?: React.ReactNode;
+  /**
+   * Make the badge + label + count its own tap target (2026-08-10). Used by
+   * components/CollapsedSection.tsx when a section both EXPANDS (the chevron in `right`) and
+   * LEADS SOMEWHERE (pressing its name opens the surface it summarises). Two targets on one
+   * row is a deliberate exception to DESIGN_RULES rule 4 — see that component's header.
+   * Omit it and the rail is inert, exactly as before, so a caller that wraps the whole header
+   * in its own pressable is unaffected.
+   */
+  onLabelPress?: () => void;
+  /** a11y label for `onLabelPress`. Defaults to `label`. */
+  labelPressHint?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, onLabelPress, labelPressHint, style }: Props) {
   const theme = useAppTheme();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
   // at every hue, including the light Shopping gold. See the header note.
   const labelColor = theme.text;
+  const naming = (
+    <>
+      {domain ? (
+        <CardAccentBadge domain={domain} icon={icon} size={24} />
+      ) : (
+        <View style={[styles.dot, { backgroundColor: hue }]} />
+      )}
+      {/* No `numberOfLines` — a section's own NAME is the one thing on the row that must not be
+          clipped, so it wraps instead. `naming`'s `flexShrink: 1` + `minWidth: 0` is what keeps
+          it from pushing the right-hand control off the row, which is the job a 1-line cap
+          would otherwise be doing. (It was briefly capped at 1 line when `onLabelPress` landed
+          on 2026-08-10 — an unforced change, reverted the same day.) */}
+      <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
+      {count != null && (
+        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
+      )}
+    </>
+  );
   return (
     <View style={[styles.container, style]}>
       <View style={styles.row}>
-        {domain ? (
-          <CardAccentBadge domain={domain} icon={icon} size={24} />
+        {onLabelPress ? (
+          // `flexShrink` so the naming cluster yields to the right-hand control rather than
+          // pushing it off the row — the chevron/toggle has a fixed width and none to give.
+          <PressableScale
+            onPress={onLabelPress}
+            style={styles.naming}
+            accessibilityRole="button"
+            accessibilityLabel={labelPressHint ?? label}
+          >
+            {naming}
+          </PressableScale>
         ) : (
-          <View style={[styles.dot, { backgroundColor: hue }]} />
-        )}
-        <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
-        {count != null && (
-          <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
+          naming
         )}
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
@@ -96,6 +131,17 @@ const styles = StyleSheet.create({
   // close to the card stack it labels instead of floating detached above it.
   container: { alignSelf: 'stretch', marginBottom: Spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  // The badge+label+count cluster when it is its own tap target (`onLabelPress`). minWidth:0
+  // is what actually lets the label truncate instead of shoving the chevron off the row —
+  // flexShrink alone doesn't (AGENTS.md's wrap-audit note).
+  naming: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flexShrink: 1,
+    minWidth: 0,
+    minHeight: MIN_TAP_TARGET,
+  },
   dot: { width: 10, height: 10, borderRadius: 5 },
   // Unified card/section header title (2026-07-19): ALL-CAPS, tracked, bold — reads
   // unmistakably as a header, one step below the screen-level title (extrabold 28).

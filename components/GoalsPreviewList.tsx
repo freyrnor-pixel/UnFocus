@@ -1,0 +1,100 @@
+/**
+ * GoalsPreviewList.tsx — the read-only goal list shown inside a "Goals" drawer.
+ *
+ * One row per goal: its glow dot, its title, and which of the three fine-to-be-in strength
+ * bands it is in. Nothing here edits anything — adding, renaming and deleting all live in
+ * components/GoalsSheet.tsx, which the drawer's title opens.
+ *
+ * Connections:
+ *   Imports → components/PadSheet, components/PadRow, components/GoalGlowDot,
+ *             lib/goalStrength (decayedStrength), lib/i18n, lib/useAppTheme,
+ *             store/useGoalStore
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx — both inside a
+ *             components/CollapsedSection.tsx "Goals" drawer
+ *   Data    → reads useGoalStore only. Schedules nothing, writes nothing.
+ *
+ * Edit notes:
+ *   - **Strength is always `decayedStrength(...)`, never the raw stored value** — same rule
+ *     GoalsSheet and app/goals.tsx follow. See lib/goalStrength.ts.
+ *   - **Three bands, and there is deliberately no fourth, worse one.** A goal's strength floors
+ *     at neutral and can never read as failing (AGENTS.md's goals note). Don't add a "needs
+ *     attention" state here because a preview feels like it wants urgency — that is exactly the
+ *     shape this app refuses.
+ *   - Tapping a row opens the same sheet the title does, rather than a per-goal editor: there
+ *     isn't one, and inventing a second entry point for editing would put the same list behind
+ *     two different doors.
+ *   - **The empty state is the quiet inset line, not a StarterCard** — the same shape
+ *     app/(tabs)/plans.tsx uses for an empty section. Teaching copy inside a drawer nobody has
+ *     opened yet is teaching nobody. It lives HERE rather than at each call site so the two
+ *     Goals drawers (To-do and Habits) can't drift apart, which is the whole reason this
+ *     component exists instead of two inline lists.
+ */
+import React from 'react';
+import { StyleSheet, Text } from 'react-native';
+import PadSheet from '@/components/PadSheet';
+import PadRow from '@/components/PadRow';
+import { GoalGlowDot } from '@/components/GoalGlowDot';
+import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { decayedStrength } from '@/lib/goalStrength';
+import { useT } from '@/lib/i18n';
+import { useAppTheme } from '@/lib/useAppTheme';
+import { useGoalStore } from '@/store/useGoalStore';
+
+export default function GoalsPreviewList({ accent, onOpen }: { accent: string; onOpen: () => void }) {
+  const t = useT();
+  const theme = useAppTheme();
+  const goals = useGoalStore((s) => s.goals);
+
+  if (goals.length === 0) {
+    return (
+      <Text
+        style={[
+          styles.empty,
+          { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+        ]}
+      >
+        {t.goals.emptyList}
+      </Text>
+    );
+  }
+
+  return (
+    <PadSheet state="open">
+      {goals.map((goal) => {
+        const level = decayedStrength(goal.strength, goal.strengthUpdatedAt, Date.now());
+        const band =
+          level >= 0.6 ? t.goals.strengthStrong : level >= 0.2 ? t.goals.strengthWarm : t.goals.strengthNeutral;
+        return (
+          <PadRow
+            key={goal.id}
+            title={goal.title}
+            accent={accent}
+            rightValue={band}
+            onPress={onOpen}
+            leading={
+              <GoalGlowDot
+                color={goal.color}
+                strength={goal.strength}
+                strengthUpdatedAt={goal.strengthUpdatedAt}
+                size={14}
+              />
+            }
+          />
+        );
+      })}
+    </PadSheet>
+  );
+}
+
+const styles = StyleSheet.create({
+  // The same quiet inset line app/(tabs)/plans.tsx draws for an empty section (`sectionEmpty`)
+  // — muted text on a soft plate, so it has footing on the card without becoming a card itself.
+  empty: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+  },
+});

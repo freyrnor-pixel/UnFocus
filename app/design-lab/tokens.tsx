@@ -51,7 +51,7 @@ import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import ExpandableCard from '@/components/ExpandableCard';
 import PressableScale from '@/components/PressableScale';
-import TabSlider from '@/components/TabSlider';
+import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import Slider from '@/components/Slider';
 import DesignLabBench from '@/components/DesignLabBench';
 import ColorPickerSheet from '@/components/ColorPickerSheet';
@@ -91,7 +91,9 @@ const COLOR_GROUP_ORDER: ColorGroup[] = [
   'accent', 'surfaces', 'text', 'borders', 'screens', 'semantic', 'hint', 'identity',
 ];
 
-const TAB_BAR_HEIGHT = 56;
+// From TabSlider itself since 2026-08-10 — this was 56 against a real 46, the biggest of the
+// four hand-copied surpluses. See TAB_SLIDER_HEIGHT's doc.
+const TAB_BAR_HEIGHT = TAB_SLIDER_HEIGHT;
 
 export default function DesignLabTokensScreen() {
   const router = useRouter();
@@ -189,6 +191,7 @@ export default function DesignLabTokensScreen() {
   const tabBar = (
     <View style={[styles.tabWrap, { backgroundColor: theme.bg }]}>
       <TabSlider
+        attachedTop
         value={tab}
         onChange={setTab}
         options={[

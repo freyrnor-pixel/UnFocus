@@ -271,10 +271,12 @@ import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, warning, heavy } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
-import TabSlider from '@/components/TabSlider';
+import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
 type SettingsTab = 'general' | 'personal' | 'advanced';
-const TAB_BAR_HEIGHT = 48;
+// From TabSlider itself since 2026-08-10 — this was 48 against a real 46, a 2px surplus that
+// `tabsGlass`'s justifyContent:'center' split around the pill. See TAB_SLIDER_HEIGHT's doc.
+const TAB_BAR_HEIGHT = TAB_SLIDER_HEIGHT;
 
 /**
  * The plain on/off feature toggles rendered by Advanced → Features. Each `key` is a
@@ -761,6 +763,7 @@ export default function SettingsScreen() {
     // card + TabSlider's own box + the sliding pill) that read as nested boxes. TabSlider
     // now floats directly, styled with the same side margins as ScreenHeader's own card.
     <TabSlider
+      attachedTop
       value={tab}
       onChange={setTab}
       options={TABS.map((tb) => ({ value: tb.key, label: tb.label }))}

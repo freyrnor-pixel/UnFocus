@@ -162,7 +162,10 @@ export default function Button({
   // Key-press travel (2026-07-28). `ghost` is text-only — it has no cap and no base, so it
   // keeps the historical scale-bounce; everything with a fill sinks.
   // The lab's 'key' is the shipped behaviour; every other shape is flat, so nothing sinks.
-  const travel = variant === 'ghost' || buttonShape !== 'key' ? undefined : SIZE_TRAVEL[size];
+  // Since 2026-08-10 key mode is PressableScale's default, so opting out has to be explicit
+  // (`press="scale"`) — leaving `travel` undefined would now give these two the key anyway.
+  const isKeyShape = variant !== 'ghost' && buttonShape === 'key';
+  const travel = isKeyShape ? SIZE_TRAVEL[size] : undefined;
 
   const pressable = (
     <PressableScale
@@ -171,6 +174,7 @@ export default function Button({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
+      press={isKeyShape ? 'key' : 'scale'}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
       travel={travel}
       depth={variant === 'ghost' ? undefined : 'raised'}
