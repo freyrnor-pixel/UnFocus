@@ -102,6 +102,7 @@ import {
   DONE_ROW_OPACITY,
   FontSize,
   Fonts,
+  OpticalCenter,
   PAD_ROW_HEIGHT,
   Radius,
   RowTrailing,
@@ -324,11 +325,18 @@ const styles = StyleSheet.create({
   // card — react-native-web gives a flex child an intrinsic minimum without it.
   bodyPressable: { flex: 1, minWidth: 0 },
   body: { flex: 1, minWidth: 0, gap: 1 },
-  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  // OpticalCenter: PadSheet centres each row box with `justifyContent: 'center'`, but on
+  // Android the font's own metric padding sits inside the line box and is not symmetric, so
+  // the glyphs rode high in an otherwise correctly-centred box (2026-08-10, maintainer report
+  // against Shopping's Food drawer: "the text inside the boxes"). Same fix ScreenHeader (#198)
+  // and six other call sites already carried by hand; it is now one token.
+  title: { fontSize: FontSize.md, fontFamily: Fonts.semibold, ...OpticalCenter },
   titleDone: { textDecorationLine: 'line-through' },
   // Never wraps: one line, and whatever doesn't fit is the surface's problem to trim.
   metaLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  rightValue: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...TabularNums },
+  // TabularNums lines the column up across rows; OpticalCenter lines it up against the title
+  // within its own row. The two are counterparts — see their doc comments in constants/theme.
+  rightValue: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...TabularNums, ...OpticalCenter },
   // The action and the check are the app's only side-by-side pair of independent targets,
   // so they get their own gap rather than the row's — see RowTrailing in constants/theme.ts.
   trailingCluster: { flexDirection: 'row', alignItems: 'center', gap: RowTrailing.gap },

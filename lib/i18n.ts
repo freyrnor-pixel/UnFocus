@@ -171,9 +171,11 @@ const en = {
   },
   shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
-  /** Last row of a components/SubScreenPreviewList — a drawer shows the first few
-   *  names, this says how many it didn't. Distinct from `home.andMore`, which is
-   *  about TODAY specifically and can't be reused for a library screen. */
+  /** Tail row of Shopping's Catalogue drawer (components/CatalogueTab.tsx in `embedded`
+   *  mode) — the drawer shows a capped run of rows, this says how many it didn't and
+   *  opens the full screen. Distinct from `home.andMore`, which is about TODAY
+   *  specifically and can't be reused for a library screen. (Was SubScreenPreviewList's
+   *  last row until that component was deleted, 2026-08-10.) */
   andMoreItems: (n: number) => `and ${n} more`,
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,

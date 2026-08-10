@@ -48,8 +48,17 @@
  *     caller passes the SCREEN's hue, so the rail used to disagree with its own badge: Goals on
  *     Habits was a green flag in a sky card over a sky divider, and the same drawer on To-do
  *     was indigo. Card, rule and badge are one colour here; `domain` still picks the glyph.
+ *   - **The body can be the destination itself, not a summary of it (2026-08-10).** Shopping's
+ *     two drawers mount the real `components/FoodTab.tsx` / `components/CatalogueTab.tsx` in
+ *     their `embedded` mode; `components/SubScreenPreviewList.tsx`, which drew names-only rows
+ *     for both, is deleted. That is a change to what callers PASS, not to this component — the
+ *     card, the rail, the chevron and the two tap targets are untouched, and "one shape now"
+ *     still holds. Two things a caller owes the drawer if it mounts a real surface: the body
+ *     must not bring its own scroll (this sits inside the screen's), and it should unwrap any
+ *     `Surface` of its own, since a Surface inside this one reads as a nested panel.
  *   - `count` is optional and should be omitted where a tally reads as a score rather than a
- *     size (see the app's standing no-scoreboard rule) — Earlier days passes none.
+ *     size (see the app's standing no-scoreboard rule) — Earlier days passes none. Food and
+ *     Catalogue do pass one: how many dishes or known items a library holds is a size.
  *   - `Spring.calm` on the header press is inherited from the original: a repeatedly-tapped
  *     accordion header wants the least energetic release available. It is inert while
  *     PressableScale is in key mode, kept so a caller switching to `press="scale"` still gets it.

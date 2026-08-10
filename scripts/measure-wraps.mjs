@@ -125,6 +125,13 @@ const L = {
     // a tab tap is the way back out — except `settings` and `medicine-form`, which render no
     // BottomNav at all and so end whichever pass reaches them (see main()).
     editGoals: 'Goals', goalsClose: 'Done',
+    // Shopping's Food and Catalogue drawers (2026-08-10). Their expanded body is no longer a
+    // names-only preview — it is the real FoodTab / CatalogueTab, so the drawer now holds a
+    // search field, an add composer and name·price·trash rows inside a card that is itself
+    // inside the screen's padding. Three stacked horizontal insets is the exact shape that
+    // produced the task editor's findings, and neither drawer was measured before this.
+    // The chevron, not the name: the name pushes the screen.
+    expandList: 'Expand list',
     logSymptom: "What's bothering you?",
     addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
     // The design lab (2026-08-06). Off by default, so the walk has to switch it on before the
@@ -150,6 +157,7 @@ const L = {
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
     typeHabit: 'Skriv vane',
     editGoals: 'Mål', goalsClose: 'Ferdig',
+    expandList: 'Vis liste',
     logSymptom: 'Hva plager deg?',
     advancedTab: 'Avansert', designLab: 'Designlab',
     labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
@@ -466,6 +474,35 @@ async function main() {
       await dismissModalIfPresent(page);
       await scan(page, tab);
     }
+    // ── Shopping's Food + Catalogue drawers ──
+    // Best-effort, like every step below: a failure must not lose the tab findings already
+    // collected. `components/WeekListCard.tsx` shares the expand label, so this takes the LAST
+    // two matches — the drawers sit at the foot of the scroll content, after everything else.
+    // Both are scanned separately: Food expands to five meal sections, Catalogue to a search
+    // field + add composer + capped rows, and they have nothing horizontal in common.
+    try {
+      await page.getByRole('button', { name: L.tabs[0], exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await dismissModalIfPresent(page);
+      // Re-query between the two: an opened drawer's chevron relabels to "collapse", so it
+      // drops out of this locator and every index shifts. Food is second-to-last while both
+      // are shut; once it is open, Catalogue is simply the last one left.
+      const chevrons = () => page.getByRole('button', { name: L.expandList, exact: true });
+      const shut = await chevrons().count();
+      for (const [pick, name] of [
+        [() => chevrons().nth(shut - 2), 'shopping-food-drawer'],
+        [() => chevrons().last(), 'shopping-catalogue-drawer'],
+      ]) {
+        const chevron = pick();
+        await chevron.scrollIntoViewIfNeeded({ timeout: 5000 });
+        await chevron.click({ timeout: 10000 });
+        await page.waitForTimeout(900);
+        await scan(page, name);
+      }
+    } catch (e) {
+      console.error(`  (shopping-drawers step skipped: ${e.message.split('\n')[0]})`);
+    }
+
     // ── The task editor ──
     // The densest form in the app, and invisible to this audit until 2026-08-01: it is only
     // reachable by opening a task, and a fresh profile has none, so one is created here

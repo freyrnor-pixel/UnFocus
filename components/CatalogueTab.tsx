@@ -24,10 +24,29 @@
  *             @expo/vector-icons
  *   Used by → app/catalogue.tsx (its own button-launched sub-screen as of 2026-07-23, UX
  *             audit F1 — was app/(tabs)/shopping.tsx's in-place "Catalogue" tab before that),
- *             with ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling
+ *             with ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling;
+ *             app/(tabs)/shopping.tsx (the Catalogue drawer, `embedded` — 2026-08-10)
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
+ *   - **`embedded` (2026-08-10) — mounted inside Shopping's Catalogue drawer, not only on
+ *     /catalogue.** Maintainer, against the drawer's old names-only preview: *"I would rather
+ *     just the expanded state be like the screens."* So the drawer mounts THIS, and
+ *     `components/SubScreenPreviewList.tsx` is deleted. Search, the AddRow composer, the rows
+ *     and tap-to-edit-in-place are the SAME code and the same state in both modes — what the
+ *     drawer cannot host is the SHELL, and that is all the flag removes:
+ *       · the FlatList → a `.map()` capped at `EMBEDDED_ROWS`, because a FlatList inside
+ *         Shopping's ScrollView is a nested same-axis VirtualizedList;
+ *       · the A–Z scrubber → gone, it needs a full column of screen height to drag down;
+ *       · the notepad container + grow-to-fill footer → the drawer's card IS the container,
+ *         and there is no leftover viewport inside a drawer to soak up;
+ *       · the search/add `Surface` wrappers → a Surface inside the drawer's Surface reads as a
+ *         nested panel, and both controls carry their own border and fill already;
+ *       · the rows' `paddingHorizontal` and rounded first row → the drawer already pads by
+ *         Spacing.md, and a third stacked inset is what wraps a long Norwegian item name.
+ *     `onOpenFull` is the tail row out to the whole list. Rows deliberately keep this screen's
+ *     divider-separated continuous run rather than becoming boxed PadRows — matching the
+ *     destination is the entire reason the component is mounted here instead of summarised.
  *   - **Virtualised (perf, 2026-07-15)**: renders a real FlatList, so only ~10 rows mount
  *     at a time instead of all ~286 at once. The old version was a `.map()` inside the
  *     Shopping scaffold's shared ScrollView (a FlatList there would be a nested same-axis
@@ -116,13 +135,13 @@
  *     keyboard on Android's `windowSoftInputMode=resize`.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, PanResponder, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, PanResponder, Pressable, StyleProp, StyleSheet, Text, TextInput, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, getElevation, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -140,7 +159,23 @@ type Props = {
   onNotify: (msg: string) => void;
   /** Screen-owned chrome (hint card + shared requests) rendered above the add row. */
   header?: React.ReactNode;
+  /**
+   * Drawn inside a card rather than as the screen — Shopping's Catalogue drawer
+   * (components/CollapsedSection.tsx). The search field, the add composer, the rows and the
+   * tap-to-edit-in-place row are the SAME code and the same state; what the drawer cannot
+   * host is the shell. A FlatList inside Shopping's ScrollView is a nested same-axis
+   * VirtualizedList, and an A–Z scrubber needs a full column to drag down — so embedded
+   * renders a capped, plain-mapped list with neither, and `onOpenFull` carries the rest.
+   */
+  embedded?: boolean;
+  /** Embedded only: open the full /catalogue screen, from the "and N more" tail row. */
+  onOpenFull?: () => void;
 };
+
+/** Embedded rows before the "and N more" tail. Small on purpose — the drawer is inside the
+ *  Shopping screen's own scroll, so a long list here just buries what's below it. Search
+ *  narrows to what you're after; the tail row is how you get the whole 280-odd. */
+const EMBEDDED_ROWS = 8;
 
 type Styles = ReturnType<typeof useScaledStyles<typeof baseStyles>>;
 
@@ -152,6 +187,7 @@ type Styles = ReturnType<typeof useScaledStyles<typeof baseStyles>>;
 const CatalogueRow = React.memo(function CatalogueRow({
   item,
   isFirst,
+  embedded,
   onStartEdit,
   onRemove,
   theme,
@@ -160,6 +196,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
 }: {
   item: StoreItem;
   isFirst: boolean;
+  embedded: boolean;
   onStartEdit: (item: StoreItem) => void;
   onRemove: (id: string) => void;
   theme: ThemePalette;
@@ -172,6 +209,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
         styles.itemRow,
         { backgroundColor: theme.surface },
         isFirst && styles.rowFirst,
+        embedded && styles.rowEmbedded,
       ]}
     >
       <Text
@@ -203,7 +241,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
   );
 });
 
-export default function CatalogueTab({ onNotify, header }: Props) {
+export default function CatalogueTab({ onNotify, header, embedded = false, onOpenFull }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -377,7 +415,11 @@ export default function CatalogueTab({ onNotify, header }: Props) {
   }
 
   const renderItem = ({ item, index }: { item: StoreItem; index: number }) => {
-    const isFirst = index === 0;
+    // No rounded top row embedded: `rowFirst` rounds into the notepad container's corner, and
+    // there is no container here. The horizontal inset goes too — the drawer's card already
+    // pads by Spacing.md, and stacking a third one is what squeezes a long Norwegian item
+    // name into a wrap (see AGENTS.md's note on horizontal chrome stacking).
+    const isFirst = !embedded && index === 0;
     if (editingId === item.id) {
       return (
         <View
@@ -385,6 +427,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
             styles.editRow,
             { backgroundColor: theme.surface },
             isFirst && styles.rowFirst,
+            embedded && styles.rowEmbedded,
           ]}
         >
           <TextInput
@@ -423,6 +466,7 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       <CatalogueRow
         item={item}
         isFirst={isFirst}
+        embedded={embedded}
         onStartEdit={startEdit}
         onRemove={handleRemove}
         theme={theme}
@@ -432,13 +476,20 @@ export default function CatalogueTab({ onNotify, header }: Props) {
     );
   };
 
+  // Search and add are wrapped in their own `Surface` on the real screen, where they sit on
+  // the screen backdrop. Embedded they are already inside the drawer's card, and a Surface in
+  // a Surface reads as a nested panel — so the wrapper is what `embedded` drops. Both controls
+  // carry their own field-level border and fill, so neither needs the card to be legible.
+  const shell = (node: React.ReactNode, style: StyleProp<ViewStyle>) =>
+    embedded ? <View style={style}>{node}</View> : <Surface style={style}>{node}</Surface>;
+
   const listHeader = (
-    <View style={styles.listHeader}>
+    <View style={[styles.listHeader, embedded && styles.listHeaderEmbedded]}>
       {header}
       {/* ── Search ── filters the catalogue by name (case-insensitive substring). Sits above
           the add row; hides the A–Z scrubber while a query is active (the filtered list is
           short and no longer in a scannable A→Å run). */}
-      <Surface style={styles.searchCard}>
+      {shell(
         <View style={[styles.searchRow, { backgroundColor: theme.surfaceMuted }]}>
           <Ionicons name="search" size={16} color={theme.textMuted} />
           <TextInput
@@ -462,11 +513,12 @@ export default function CatalogueTab({ onNotify, header }: Props) {
               <Ionicons name="close-circle" size={18} color={theme.textMuted} />
             </PressableScale>
           )}
-        </View>
-      </Surface>
+        </View>,
+        styles.searchCard
+      )}
       {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
           visible at the top of this long, alphabetized reference list. */}
-      <Surface style={styles.addRowCard}>
+      {shell(
         <AddRow
           placeholder={t.catalogueItemNamePlaceholder}
           value={addName}
@@ -486,8 +538,9 @@ export default function CatalogueTab({ onNotify, header }: Props) {
               onSubmitEditing={handleAdd}
             />
           }
-        />
-      </Surface>
+        />,
+        styles.addRowCard
+      )}
       {items.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
       )}
@@ -496,6 +549,48 @@ export default function CatalogueTab({ onNotify, header }: Props) {
       )}
     </View>
   );
+
+  // ── Embedded (Shopping's Catalogue drawer) ───────────────────────────────────────────
+  // Same header, same rows, same edit row — a capped `.map()` instead of the FlatList, and
+  // none of the screen shell: no notepad container (the drawer's card IS the container), no
+  // grow-to-fill footer (there is no leftover viewport to soak up inside a drawer), no A–Z
+  // rail. Rows keep the real screen's divider-separated continuous run rather than becoming
+  // boxed PadRows: matching the destination is the entire point of mounting this here.
+  if (embedded) {
+    const shown = displayItems.slice(0, EMBEDDED_ROWS);
+    const rest = displayItems.length - shown.length;
+    return (
+      <View style={styles.embeddedRoot}>
+        {listHeader}
+        {/* The rows are their OWN container with no gap: they are a continuous divider-ruled
+            run, exactly as on the real screen, and `embeddedRoot`'s gap would push every row
+            8px off its own divider and turn the list into a ladder. */}
+        <View>
+        {shown.map((item, index) => (
+          <React.Fragment key={item.id}>
+            {index > 0 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+            {renderItem({ item, index })}
+          </React.Fragment>
+        ))}
+        {rest > 0 && (
+          <Pressable
+            onPress={onOpenFull}
+            style={({ pressed }) => [
+              styles.moreRow,
+              { borderTopColor: theme.border },
+              pressed ? { opacity: 0.5 } : null,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t.catalogueTabLabel}
+          >
+            <Text style={[styles.moreText, { color: theme.textMuted }]}>{t.andMoreItems(rest)}</Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+          </Pressable>
+        )}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -622,6 +717,21 @@ const baseStyles = StyleSheet.create({
   // overflow:hidden bounds and that shadow gets clipped clean off — the "shadow abnormality
   // above the list" bug report. This gives the shadow room to render before hitting the clip.
   listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: Spacing.md },
+  // Embedded: the margins exist on the real screen so the two Surfaces' shadows clear the
+  // FlatList's clip. There are no Surfaces and no clip inside the drawer.
+  listHeaderEmbedded: { marginTop: 0, marginHorizontal: 0 },
+  embeddedRoot: { gap: Spacing.sm },
+  // Tail row — "and N more", opens the full screen. Muted and chevron'd so it reads as a door
+  // rather than as another item; deliberately NOT styled as a row you could edit or delete.
+  moreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+    minHeight: MIN_TAP_TARGET,
+    borderTopWidth: 1,
+  },
+  moreText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
   searchCard: { paddingHorizontal: Spacing.md },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
@@ -636,13 +746,14 @@ const baseStyles = StyleSheet.create({
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
+  rowEmbedded: { paddingHorizontal: 0 },
   // listFiller: grows to soak up any leftover FlatList viewport height below the real rows
   // (see the ListFooterComponent note above) — the rounded bottom now lives here instead of
   // on whichever row happens to be last, so the card's bottom edge stays put near the nav
   // regardless of item count.
   listFiller: { flexGrow: 1, borderBottomLeftRadius: Radius.md, borderBottomRightRadius: Radius.md },
-  itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  itemPrice: { fontSize: FontSize.sm },
+  itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
+  itemPrice: { fontSize: FontSize.sm, ...OpticalCenter },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
   editNameInput: { flex: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
   editPriceInput: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },

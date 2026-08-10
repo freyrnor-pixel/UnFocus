@@ -24,7 +24,8 @@
  *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
  *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
  *   Used by → app/food.tsx (its own button-launched sub-screen as of 2026-07-23, UX audit
- *             F1 — was app/(tabs)/shopping.tsx's in-place "Food" tab before that)
+ *             F1 — was app/(tabs)/shopping.tsx's in-place "Food" tab before that),
+ *             app/(tabs)/shopping.tsx (the Food drawer, `embedded` — 2026-08-10)
  *   Data    → useMealStore (dishes/ingredients), useShoppingStore.add (weekly/monthly pushes),
  *             useCatalogStore.suggest (ingredient price autocomplete)
  *
@@ -60,6 +61,18 @@
  *     triggers follow this placement.
  *   - Renders no ScrollView of its own — it lives inside the Shopping screen's scaffold
  *     ScrollView. The new-dish + "add to list" popups are RN <Modal>s (own layers).
+ *   - **`embedded` (2026-08-10) — mounted inside Shopping's Food drawer, not only on /food.**
+ *     Maintainer, against the drawer's old names-only preview: *"Shows no extra information or
+ *     has the 'Add' button … I would rather just the expanded state be like the screens."* So
+ *     the drawer mounts THIS, and `components/SubScreenPreviewList.tsx` is deleted. The prop is
+ *     presentation only and changes exactly one thing: a meal section draws as a bordered
+ *     `View` instead of a `Surface`, because the drawer is itself a Surface and a Surface in a
+ *     Surface reads as a nested panel. Same colour, radius and 'card'-rung weight; no ramp
+ *     gradient, no shadow. **Every behaviour is shared** — the per-dish "+" week-or-monthly
+ *     popup, "Add dish", the ingredient editor — which is the point: a second implementation
+ *     is what would drift, not a second mount. Don't add behaviour behind this flag.
+ *     Mount cost is nothing while the drawer is shut: `components/Collapsible.tsx` lazy-mounts,
+ *     and an open drawer builds five collapsed section headers, not every dish.
  *   - Both ingredient composers (the per-dish inline add row and the new-dish modal's
  *     ingredient row) use the shared AddRow, accented with domainColor('meal') — amount/
  *     unit/price stay as AddRow `extras` inputs, matching CatalogueTab's pattern.
@@ -92,7 +105,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, computeBorderTone, BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { contrastOn, computeBorderTone, BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -107,6 +120,15 @@ type Props = {
   /** Decision 044b — reports the ids just pushed to the weekly Unallocated bucket, so the
    *  parent can play their entrance/highlight animation and pulse the Weekly tab. */
   onAddedToWeek?: (ids: string[]) => void;
+  /**
+   * Drawn inside a card rather than on a screen — Shopping's Food drawer
+   * (components/CollapsedSection.tsx). Presentation only: it swaps each meal section's
+   * `Surface` for a bordered `View` so the drawer's own card isn't wrapping five more cards.
+   * Every behaviour — the per-dish "+" popup, "Add dish", the ingredient editor — is the same
+   * code either way, which is the whole point of mounting this component instead of
+   * summarising it.
+   */
+  embedded?: boolean;
 };
 
 const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = [
@@ -134,7 +156,7 @@ const MEAL_COLORS: Record<MealType, string> = {
 
 type DraftIngredient = { name: string; amount: string; unit: string; price: number };
 
-export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
+export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
@@ -375,8 +397,8 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
         const color = MEAL_COLORS[mealType];
         const mealDishes = byMeal.get(mealType) ?? [];
         const sectionOpen = openSections[mealType];
-        return (
-          <Surface key={mealType} borderColor={color} style={styles.section}>
+        const sectionInner = (
+          <>
             <PressableScale
               style={styles.sectionHeader}
               onPress={() => toggleSection(mealType)}
@@ -571,6 +593,29 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
             </PressableScale>
             </View>
             </Collapsible>
+          </>
+        );
+        // Embedded (Shopping's Food drawer): a meal section is a bordered View, not a Surface.
+        // The drawer is itself a Surface, and a Surface inside a Surface reads as a nested
+        // panel — the trap components/StarterCard.tsx is warned off. The View keeps the meal
+        // colour, the radius and the 'card'-rung weight (the same weight the dishCard boxes one
+        // level in already use, exactly as on the real screen) and loses only the ramp gradient
+        // and the shadow, which are what make it read as a second card. The pushed /food screen
+        // is untouched.
+        return embedded ? (
+          <View
+            key={mealType}
+            style={[
+              styles.section,
+              styles.sectionEmbedded,
+              { backgroundColor: theme.surface, borderColor: computeBorderTone(color, isDark, 'card') },
+            ]}
+          >
+            {sectionInner}
+          </View>
+        ) : (
+          <Surface key={mealType} borderColor={color} style={styles.section}>
+            {sectionInner}
           </Surface>
         );
       })}
@@ -740,8 +785,14 @@ export default function FoodTab({ onNotify, onAddedToWeek }: Props) {
 const baseStyles = StyleSheet.create({
   root: { gap: Spacing.md },
   section: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
+  // Only the edge Surface would have drawn — see the embedded branch at the map site — plus a
+  // tighter gutter. Horizontal chrome stacks: on /food a dish name is inset by the screen's
+  // padding + the section's + the dish card's, and the drawer adds its own Spacing.md pair on
+  // top, which measurably chopped names ("Alt-i-ett-form med laks…" → "Alt-i-ett-form …").
+  // Spacing.sm here buys back half of that; the drawer's own padding supplies the rest.
+  sectionEmbedded: { borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold, ...OpticalCenter },
   sectionBody: { gap: Spacing.sm },
   sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs },
   dishList: { gap: Spacing.xs },
@@ -759,23 +810,23 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     minHeight: MIN_TAP_TARGET,
   },
-  addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
   // Bordered box, not a bare row (2026-08-06) — see the inline comment at the map site for why
   // the border lives on this outer View rather than being conditional on `isOpen`.
   dishCard: { borderRadius: Radius.md, borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
   dishRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
   dishNameTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  dishName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  dishPrice: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  dishName: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold, ...OpticalCenter },
+  dishPrice: { fontSize: FontSize.sm, fontFamily: Fonts.bold, ...OpticalCenter },
   dishAddBtn: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   ingBody: { paddingBottom: Spacing.xs },
   // Column now (2026-08-06): a row is the tap-to-edit view line, plus an optional edit line
   // revealed under it — was a single flat row with an always-visible delete button.
   ingRow: { paddingVertical: Spacing.xs, borderTopWidth: StyleSheet.hairlineWidth },
   ingViewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
-  ingName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium },
-  ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right' },
-  ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right' },
+  ingName: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
+  ingAmount: { fontSize: FontSize.xs, minWidth: 40, textAlign: 'right', ...OpticalCenter },
+  ingPrice: { fontSize: FontSize.xs, minWidth: 48, textAlign: 'right', ...OpticalCenter },
   // Edit line (2026-08-06): quantity stepper + numbers-only price field + "X" to remove —
   // revealed by tapping the view row above; this is where the per-ingredient delete now lives.
   ingEditRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.xs, paddingLeft: Spacing.md },
