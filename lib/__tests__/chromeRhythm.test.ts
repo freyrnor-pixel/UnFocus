@@ -233,6 +233,16 @@ describe('BottomNav — the pill never disappears', () => {
     expect(source).not.toMatch(/barH = BOTTOM_NAV_HEIGHT/);
   });
 
+  it('clamps the pill horizontally too, not just vertically', () => {
+    // The first clamp pass (above) only closed the vertical axis; the outermost tabs (Shop,
+    // Health) sit close enough to the bar's own rounded corners that a pill could still catch
+    // the diagonal corner arc horizontally — same failure mode, other axis.
+    expect(source).toMatch(/const clampLeft = \(/);
+    expect(source).toMatch(/setBarW/);
+    expect(source).toMatch(/return clampLeft\(leftTrack\.x/);
+    expect(source).toMatch(/return clampLeft\(rightTrack\.x/);
+  });
+
   it('keeps grey depth off the pill and off an active Home button', () => {
     // A card drop-shadow is a hue-less grey blur. Under the pale accentSoft plate it read as a
     // dirty donut, and Shadow.fab's 16px blur smeared straight across the ring around Home.
