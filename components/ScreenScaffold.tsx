@@ -35,27 +35,34 @@
  *     mid-list rows alike. AddRow calls this from its input's onFocus/keyboardDidShow. `null`
  *     outside a scrollable ScreenScaffold — the non-scrollable/FlatList branch self-manages.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
- *   - **Content lives in a CLIPPED VIEWPORT, not behind the chrome (2026-08-10).** `styles.viewport`
- *     is an `overflow: 'hidden'` box inset by `viewportInset` — top by the header (plus any sticky
- *     bar), bottom by the nav's full footprint — and the ScrollView lives inside it. So the top and
- *     bottom blocks still FLOAT (rounded, side-inset, drawn over the backdrop), but nothing can
- *     render outside the band between them: not in the 8px side margins, not in the header seam,
- *     not in the status-bar strip and not in the float gap below the bar. Maintainer's rule:
- *     "Nothing should be visible (cards, text, buttons and so on) above the header, or under the
- *     bottom nav." This REPLACES the old contentContainer `paddingTop`/`paddingBottom` approach.
- *     Put the clearance on the wrapper's MARGIN, never back on the content's padding — both at
- *     once double-counts it and every screen grows a blank band.
- *   - **That window is the chrome's BAND, not its shape (2026-08-10, twice-amended — see
- *     `viewportInset`'s own comment for the full history).** A first cut clipped to a full-bleed
- *     rectangle and leaked content into the 8px gutters beside the header/bar. A second cut then
- *     rounded the viewport's own corners to match, which over-corrected: it also closed the
- *     notch beside each chrome card's OWN rounded corner, where a scrolled card is supposed to
- *     be visible peeking through (the same idea `NAV_PEEK` used to encode — see BottomNav.tsx's
- *     own history note). The viewport's corners are square again; only the margins (top, bottom,
- *     horizontal) are load-bearing now, which is what actually closes the gutters — the corner
- *     radius never did that on its own. `viewportBleed` is the inner scroll box's mirror-image
- *     negative margin and is what keeps every card at the exact x it had before full-bleed — the
- *     inset clips 8px of empty backdrop, since every screen's content container already pads by
+ *   - **Content lives in a CLIPPED VIEWPORT that runs the chrome's FULL height (2026-08-11).**
+ *     `styles.viewport` is an `overflow: 'hidden'` box whose edges sit on the chrome cards' OUTER
+ *     edges — the header card's top, the nav card's bottom, and the 8px side margins both of them
+ *     use — with `Radius.lg` on the two corner pairs that meet a chrome card's outer corner. So
+ *     content scrolls all the way under the header and the nav and is hidden BY them (both are
+ *     opaque cards), while nothing can render above the header, below the bar, or in the gutters.
+ *     Maintainer's rule: "Nothing should be visible (cards, text, buttons and so on) above the
+ *     header, or under the bottom nav." The resting gap is `contentPad` on the content. **One
+ *     clearance each: clip on the wrapper's margin, resting gap on the content's padding.** Both
+ *     on the same side double-counts and the screen grows a blank band; neither, and the first
+ *     card renders under the header at rest.
+ *   - **A clip edge has to LAND ON something opaque — that is the whole lesson of this file**
+ *     (see `viewportInset`'s own comment for the three attempts and why each failed). An edge in
+ *     open air IS a card sliced across a blank strip: `marginTop: contentTopClear` put the top
+ *     edge 8px below the header card (that constant folds in `headerFloatBottom`), and
+ *     `marginBottom: bottomNavClearance` put the bottom edge on the bar's NEAR edge (that total is
+ *     the whole nav overlay block). The second one also made the corner peek unreachable at any
+ *     radius — the notch is *inside* the bar's rectangle — which is why the pass that un-rounded
+ *     the viewport's corners to restore the peek changed nothing on screen. Don't reintroduce
+ *     either number here.
+ *   - **The peek is a mid-viewport artefact, not an edge treatment.** A scrolled card shows in the
+ *     bar's TOP corner notches and the header's BOTTOM ones because those sit in the middle of
+ *     this box; the viewport's own rounded corners cover the header's top pair and the bar's
+ *     bottom pair, where nothing should show. Maintainer: "visible in the bottom nav's cut corners
+ *     at the top, not the two bottom ones — same for the header but the opposite."
+ *   - **`viewportBleed` is the inner scroll box's mirror-image negative margin and is
+ *     load-bearing**: it keeps every card at the exact x it had before the inset — the 8px is
+ *     clipped off empty backdrop, since every screen's content container already pads by
  *     `Spacing.md`. Change one of the two and you resize every card in the app.
  *   - Safe-area handling is SPLIT (Android edge-to-edge is always on in RN 0.85 / Expo 56, so
  *     content draws behind the status + nav bars):
@@ -248,12 +255,12 @@ type Props = {
    * see app/(tabs)/_layout.tsx's header for why: it's what lets the bar's rounded top
    * corners show a scrolled card peeking through their notch instead of always showing the
    * plain field). That overlay isn't part of this scaffold's own layout, so this screen's
-   * scroll content needs its OWN clearance reserved for it — pass true to reserve
-   * `BOTTOM_NAV_HEIGHT + bottomInset + NAV_FLOAT_GAP - NAV_PEEK` as paddingBottom (the
-   * `NAV_PEEK` shave is deliberate: it's what lets the last card's edge reach into the
-   * corner notch — see NAV_PEEK's own doc in BottomNav.tsx). Independent of `bottomNav`
-   * (which controls whether THIS scaffold renders its own bar) — a pager tab screen wants
-   * the clearance but NOT a second bar.
+   * scroll content needs its OWN clearance reserved for it — and, since 2026-08-11, that
+   * clearance is SPLIT (see `viewportInset`): the band below the nav card
+   * (`bottomInset + NAV_FLOAT_GAP`) is the viewport's bottom margin, and the card's own
+   * `BOTTOM_NAV_HEIGHT` is the content's bottom padding, so content scrolls behind the bar
+   * instead of stopping at it. Independent of `bottomNav` (which controls whether THIS
+   * scaffold renders its own bar) — a pager tab screen wants the clearance but NOT a second bar.
    */
   pagerFloatingNav?: boolean;
   /**
@@ -463,8 +470,13 @@ export default function ScreenScaffold({
   //   screen's clearance now (see its doc).
   //   **2026-08-10**: that reserve used to be shaved by `NAV_PEEK` so the last card's edge could
   //   reach into the bar's corner notch. `NAV_PEEK` is deleted and the reserve is the bar's full
-  //   painted footprint again — see the `viewportInset` block below for the reversal, and note
-  //   the clip means no reserve value can produce a peek any more even if one came back.
+  //   painted footprint again — see the `viewportInset` block below for the reversal.
+  //   **2026-08-11**: `bottomNavClearance` is no longer that reserve — it survives only as the
+  //   `DebugGeneralNoteButton`'s bottom offset (a float measured from the screen edge, which is
+  //   genuinely the bar's whole footprint). The scroll clearance is now split in two — the band
+  //   below the card is the viewport's margin, the card's own height is the content's padding —
+  //   so content passes behind the bar and the peek comes back as a consequence of the geometry
+  //   rather than as a shaved constant. See `viewportInset`.
   //   `pagerTabScene` = these tab scenes, still true whenever `bottomNav` is false (independent of
   //   `pagerFloatingNav`). The outer SafeAreaView still omits its bottom edge for them (see
   //   `safeAreaEdges` below) because `bottomNavClearance` above already folds in `bottomInset`
@@ -496,62 +508,75 @@ export default function ScreenScaffold({
   // `headerFloatBottom` gap already gives the tab bar breathing room, so this doesn't
   // read as flush/cramped, and there's no separate transparent strip left to leak through.
   const stickyGap = 0;
-  // **Chrome clearance is a CLIPPED VIEWPORT, not content padding (2026-08-10).** Maintainer:
-  // "Nothing should be visible (cards, text, buttons and so on) above the header, or under the
-  // bottom nav" — and, separately, fix the strips above the header and below the bar the same
-  // way as the bar's corners.
-  //   It used to be `contentContainerStyle` padding on a full-bleed ScrollView, so content
-  // merely STARTED below the header and then scrolled up behind it. Everything the chrome
-  // didn't physically cover leaked: the 8px side margins beside the header and the bar, the
-  // seam under the header, all eight Radius.lg corner notches, and — via NAV_PEEK — the bar's
-  // own top corners on purpose. Six separate numbers, each able to drift on its own.
-  //   Now the scroll box itself is inset by the chrome and clipped (`overflow: 'hidden'`), so
-  // content physically cannot exist outside the band between the header's bottom edge and the
-  // bar's top edge. That covers the two strips the padding approach never even addressed:
-  //   • ABOVE the header — the status-bar band was kept clear only by the SafeAreaView's raw
-  //     `insets.top`, while the header block floors the same inset with StatusBar.currentHeight
-  //     (see `topInset`). On Android those disagree until the first insets dispatch, and content
-  //     rendered in the difference. The viewport now starts at the header block's real bottom
-  //     edge, so whichever value wins the race, that band is outside the clip.
-  //   • BELOW the bar — the `bottomInset + NAV_FLOAT_GAP` band was reserved by nothing at all
-  //     (`pagerTabScene` drops the 'bottom' safe-area edge, and NAV_PEEK shaved the rest).
-  //   Keep the two halves consistent: the inset is applied as margin on the clipping wrapper,
-  // NOT as padding on the content, or the clearance is counted twice and every screen gains a
-  // blank band. `scrollIndicatorInsets` goes to 0 for the same reason — the indicator now
-  // belongs to a box that already ends where the bar begins.
-  //   **The window is the same SHAPE as the chrome, not just the same band (2026-08-10
-  // follow-up).** The first cut clipped to a full-bleed rectangle, so a card scrolling out was
-  // guillotined by a straight edge running the whole screen width, 8px clear of a header whose
-  // own corners are rounded and side-inset — and content could still occupy the two 8px
-  // gutters beside the chrome, where nothing covers it. `marginHorizontal` (`headerFloatH`, the
-  // same `Spacing.sm` NAV_FLOAT_GAP uses) closes that on its own — content simply cannot render
-  // past x < headerFloatH or x > screenWidth - headerFloatH, independent of any corner radius.
-  //   **The viewport itself stays SQUARE-CORNERED — it does not also round to match the chrome
-  // (2026-08-10, second follow-up, user report against the shots above: "when cards slide
-  // behind the bottom nav, they should be visible in the bottom nav's cut corners at the top,
-  // not the two bottom ones — same for the header but the opposite").** The first cut of this
-  // fix rounded the viewport's own corners with `Radius.lg` to "line up" with the chrome — bottom
-  // corners here mirror the BAR's TOP corners; top corners here mirror the HEADER's BOTTOM
-  // corners — but a matching round on the viewport CLOSES exactly the notch a scrolled card is
-  // supposed to peek through: the small wedge beside a rounded chrome corner where that card
-  // isn't chrome, but isn't a gutter either. This is the same idea `NAV_PEEK` used to encode
-  // (`components/BottomNav.tsx`, deleted the same day this bug was first "fixed") — a scrolled
-  // card is meant to show through the bar's top-corner notches, and by the mirrored logic, the
-  // header's bottom-corner notches too. The viewport's OWN corners are never rounded now; only
-  // the margin insets (top/bottom/horizontal) still apply, so a card is clipped by a plain
-  // rectangle and is free to fill every corner of it, right up against — and briefly inside —
-  // the curve of whichever chrome card sits over that corner.
-  //   **The inset must not move content.** The ScrollView inside takes the mirror-image
-  // negative margin (`viewportBleed`), so every card keeps the exact x it had when the window
-  // was full-bleed; the 8px this clips off each side is empty backdrop, since every screen's
-  // content container already pads by `Spacing.md`. Widen the inset without that and every
-  // card on every screen gets narrower.
+  // **The clip is the chrome's OUTER edge; the resting gap is content padding (2026-08-11).**
+  // Two rules that have to hold at once, and every earlier cut of this satisfied one by breaking
+  // the other:
+  //   1. "Nothing should be visible (cards, text, buttons and so on) above the header, or under
+  //      the bottom nav" — and nothing in the 8px gutters beside either.
+  //   2. "When cards slide behind the bottom nav, they should be visible in the bottom nav's cut
+  //      corners at the top, not the two bottom ones — same for the header but the opposite."
+  //   The governing fact is simple and was the thing being missed: **a clip edge is invisible
+  // only where it coincides with the outer edge of something opaque.** Put it anywhere else and
+  // the cut happens in open air, which is what a card sliced across the middle of a blank strip
+  // actually is.
+  //   So the window is the chrome's OUTER footprint — from the header card's TOP edge to the nav
+  // card's BOTTOM edge, inset by the same `Spacing.sm` the two cards are, with `Radius.lg`
+  // corners that sit exactly on the header's top corners and the bar's bottom corners. Content
+  // scrolls all the way under the (opaque) header and nav cards and is hidden BY them, and the
+  // only places it stays visible near the chrome are the two notches rule 2 asks for: beside the
+  // header's BOTTOM corners and the bar's TOP corners, both of which are mid-viewport, nowhere
+  // near a clip edge. The header's top corners and the bar's bottom corners are covered by the
+  // viewport's own matching radius, so nothing peeks there.
+  //   What this replaced, and why each attempt couldn't work:
+  //   • Padding on a full-bleed ScrollView (until 2026-08-10) — content started below the header
+  //     but then scrolled into the status-bar strip, the side gutters and the band under the bar,
+  //     none of which any number in here covered. Rule 1 broken.
+  //   • `marginTop: contentTopClear` (2026-08-10) — `contentTopClear` includes `headerFloatBottom`,
+  //     so the top clip edge sat 8px BELOW the header card, in transparent backdrop. Text was
+  //     guillotined mid-glyph with nothing over the cut. Rule 1 kept, at the cost of the bug this
+  //     replaced.
+  //   • `marginBottom: bottomNavClearance` (2026-08-10) — that total equals the whole nav overlay
+  //     block (`app/(tabs)/_layout.tsx`), so the bottom clip edge landed on the bar's NEAR edge.
+  //     The notch rule 2 wants a card in is *inside* the bar's rectangle, beside its top-corner
+  //     arc — i.e. below that edge. Content could never reach it, whatever the viewport's own
+  //     corner radius did, which is why un-rounding those corners (the pass right before this
+  //     one) changed nothing on screen.
+  //   Keep the two halves consistent: the CLIP is margin on the wrapper, the RESTING gap is
+  // padding on the content (`contentPad`). One each. Both on the same side double-counts and
+  // every screen grows a blank band; neither, and content starts underneath the header.
+  //   **The inset must not move content.** The ScrollView inside takes the mirror-image negative
+  // margin (`viewportBleed`), so every card keeps the exact x it had when the window was
+  // full-bleed; the 8px this clips off each side is empty backdrop, since every screen's content
+  // container already pads by `Spacing.md`. Widen the inset without that and every card on every
+  // screen gets narrower.
   const viewportInset = {
-    marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    // No marginTop: the box already starts at `topInset` (the SafeAreaView's hand-applied
+    // padding), which is exactly where the header card's top edge is — `headerFloatTop` is 0.
     marginHorizontal: headerFloatH,
-    ...(reserveBottomNav ? { marginBottom: bottomNavClearance } : null),
+    // The band BELOW the nav card, which is all that has to stay clear down there. On the pager
+    // tab scenes the safe-area 'bottom' edge is dropped, so this covers it by hand; on every
+    // other screen SafeAreaView has already ended the box at the safe-area edge, which is where
+    // a standalone bottom block's card ends too.
+    marginBottom: pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0,
+    // Match the chrome's own corners at the two edges where the viewport meets a chrome card's
+    // OUTER corner — the header's top pair, the bar's bottom pair. These are the corners nothing
+    // should peek through. The bar's top pair and the header's bottom pair are deliberately NOT
+    // here: they sit in the middle of this box, so a card fills them for free.
+    ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
+    ...(floatChrome && reserveBottomNav
+      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
+      : null),
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
+  // The resting clearance — how far the first/last card sits from the chrome before any
+  // scrolling. This is the other half of the pair above: the viewport now runs the chrome's full
+  // height, so without this the first card would render underneath the header at rest.
+  // paddingBottom is the bar's card height alone (`bottomNavClearance` minus the band already
+  // taken as margin), so the resting position of the last card is unchanged from before.
+  const contentPad = {
+    paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    paddingBottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0,
+  };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
   // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one
@@ -562,7 +587,10 @@ export default function ScreenScaffold({
         <ScrollView
           ref={scrollRef}
           style={[styles.scrollView, viewportBleed]}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[styles.contentContainer, contentPad]}
+          // iOS only, and purely cosmetic: the scroll box now runs the chrome's full height, so
+          // without this the indicator would draw behind the header and the bar.
+          scrollIndicatorInsets={{ top: contentPad.paddingTop, bottom: contentPad.paddingBottom }}
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}
           scrollEventThrottle={16}
@@ -572,7 +600,11 @@ export default function ScreenScaffold({
       ) : (
         // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
         // no-op here — a self-scrolling FlatList handles keeping its own AddRow above the keyboard.
-        <View style={[styles.scrollView, viewportBleed]}>
+        // The clearance is padding on this box rather than contentContainer padding, so the
+        // child's list is BOUNDED by the chrome instead of scrolling under it — a FlatList owns
+        // its own content insets and this scaffold can't reach them. Same resting layout as a
+        // ScrollView screen; it just doesn't get the peek.
+        <View style={[styles.scrollView, viewportBleed, contentPad]}>
           <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
         </View>
       )}

@@ -140,21 +140,42 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(code('components/ScreenScaffold.tsx')).not.toMatch(/NAV_PEEK/);
   });
 
-  it('reserves the bar\'s full painted footprint', () => {
-    expect(code('components/ScreenScaffold.tsx')).toMatch(
-      /BOTTOM_NAV_HEIGHT \+ bottomInset \+ NAV_FLOAT_GAP\s*$/m
-    );
+  it('splits the bar\'s footprint: the band below it clips, the card itself pads', () => {
+    // 2026-08-11. The whole footprint as ONE margin (`marginBottom: bottomNavClearance`) put the
+    // clip edge on the bar's NEAR edge: content was cut where the bar starts instead of passing
+    // behind it, and the corner notch it is supposed to peek through — a wedge *inside* the bar's
+    // rectangle, beside its top-corner arc — sat below that edge, unreachable at any radius.
+    // Split in two, each half landing where something opaque actually is.
+    const source = code('components/ScreenScaffold.tsx');
+    expect(source).toMatch(/marginBottom: pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0/);
+    expect(source).toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0/);
+    // Neither half may be spelled as the whole clearance again — that constant is now only the
+    // DebugGeneralNoteButton's offset from the screen edge.
+    expect(source).not.toMatch(/(margin|padding)Bottom: bottomNavClearance/);
   });
 
-  it('clips the scroll viewport instead of padding the content', () => {
+  it('starts the clip at the header card\'s own top edge, not below it', () => {
+    // `contentTopClear` folds in `headerFloatBottom`, so using it as the viewport's margin put
+    // the top clip edge 8px BELOW the header card, in transparent backdrop — a card scrolling
+    // past was guillotined mid-glyph with nothing over the cut (the reported bug). The box starts
+    // at `topInset` (= the header card's top, since headerFloatTop is 0) and `contentTopClear`
+    // is the content's RESTING padding instead.
     const source = code('components/ScreenScaffold.tsx');
-    // The margin is the clearance and `overflow: hidden` is the mechanism. Without the second,
-    // this is just a differently-spelled padding and every strip leaks again.
+    expect(source).not.toMatch(/marginTop: contentTopClear/);
+    expect(source).toMatch(/paddingTop: contentTopClear/);
+  });
+
+  it('clips the scroll viewport AND pads the content — one clearance each', () => {
+    const source = code('components/ScreenScaffold.tsx');
+    // `overflow: hidden` is the mechanism; without it the margins are just a differently-spelled
+    // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
-    expect(source).toMatch(/marginBottom: bottomNavClearance/);
-    // And the old spelling is gone — both at once would double-count the clearance.
-    expect(source).not.toMatch(/paddingBottom: bottomNavClearance/);
+    // The resting gap is the content's padding, and it reaches BOTH branches — the ScrollView's
+    // contentContainer and the non-scrollable (FlatList) wrapper.
+    expect(source).toMatch(/const contentPad = \{/);
+    expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
+    expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
   });
 
   it('applies the floored top inset itself rather than letting SafeAreaView use the raw one', () => {
@@ -225,19 +246,23 @@ describe('BottomNav — the pill never disappears', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins but stays square-cornered itself', () => {
-    // A full-bleed rectangle cut content with a straight edge spanning the whole screen, 8px
-    // clear of a header whose own corners are rounded and side-inset — and left content free
-    // to sit in the two gutters beside the chrome, where nothing covers it. The margin alone
-    // closes that; it never needed a matching corner radius on the viewport.
+  it('takes the chrome\'s side margins, and rounds only the OUTER corner pairs', () => {
+    // The margins close the 8px gutters beside the header/bar, where no chrome covers content.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    // A second follow-up (still 2026-08-10) reversed the matching radius: rounding the
-    // viewport's own corners closed the notch beside each chrome card's rounded corner, where a
-    // scrolled card is supposed to be visible — "should be visible in the bottom nav's cut
-    // corners at the top ... same for the header but the opposite". The viewport's corners are
-    // never rounded now; only its margins (top, bottom, horizontal) are load-bearing.
-    expect(source).not.toMatch(/borderTopLeftRadius: Radius\.lg/);
-    expect(source).not.toMatch(/borderBottomLeftRadius: Radius\.lg/);
+    // The corner radius is back (2026-08-11) — but it means something different now, which is
+    // why this assertion flipped twice. The viewport spans the chrome's OUTER footprint, so its
+    // own corners land on the header's TOP pair and the bar's BOTTOM pair: the two pairs where
+    // nothing should show. The pairs the maintainer wants a scrolled card in — the bar's top,
+    // the header's bottom — are in the MIDDLE of this box and need no treatment at all: "visible
+    // in the bottom nav's cut corners at the top, not the two bottom ones — same for the header
+    // but the opposite". The 2026-08-10 cut had the box spanning the band BETWEEN the cards
+    // instead, so the same radius closed the wanted notches and un-rounding it (the pass after)
+    // couldn't open them either — they were outside the box entirely.
+    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
+    expect(source).toMatch(/borderBottomLeftRadius: Radius\.lg/);
+    // The bottom pair only where a bar is actually reserved — on a sub-tier screen that edge is
+    // just the safe area, with no chrome card for a corner to line up with.
+    expect(source).toMatch(/floatChrome && reserveBottomNav/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {
