@@ -258,6 +258,17 @@ const ITEMS_PER_SIDE = 2;
 // Clamping is done against the bar's MEASURED height rather than `BOTTOM_NAV_HEIGHT`, because
 // `useScaledStyles` scales this bar's padding with the OS text-size setting — the constant is
 // only true at 1.0x, and at 1.4x the arithmetic that "just fits" here would be wrong again.
+//
+// **That first pass only clamped the vertical axis (2026-08-10, same-day follow-up, user
+// report: "should always be a rounded box, not the clipped thing you see — it only happens
+// sometimes").** The diagnosis above already named the real shape of the bug — an outermost
+// tab's pill corner sitting inside the bar's own Radius.lg corner ARC, a two-axis problem — but
+// the fix only added `clampTop`/`maxPillH`. Shop and Health's pills sit close enough
+// horizontally to the bar's rounded left/right edges that a font-scale- or measurement-
+// dependent few px could still push a corner into that arc; the more central tabs never come
+// close, which is why it read as intermittent rather than every time. `clampLeft` (mirrors
+// `clampTop`, uses the bar's MEASURED width — `barW`, same reasoning as `barH`) closes the
+// other axis the same way.
 const PILL_INSET = 4;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
 // centred on the same spot) so the active tab reads as a roomier card instead of shrink-wrapping
@@ -313,8 +324,11 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const [leftTrack, setLeftTrack] = useState<Track>(EMPTY_TRACK);
   const [rightTrack, setRightTrack] = useState<Track>(EMPTY_TRACK);
   const [centreTrack, setCentreTrack] = useState<Track>(EMPTY_TRACK);
-  // The bar's own painted height — the box the pill has to stay inside of. See PILL_INSET.
+  // The bar's own painted box — what the pill has to stay inside of. See PILL_INSET. Both
+  // dimensions are measured (not read off BOTTOM_NAV_HEIGHT/a fixed width) because this bar
+  // runs through useScaledStyles, so its painted size shifts with the OS text-size setting.
   const [barH, setBarH] = useState(0);
+  const [barW, setBarW] = useState(0);
 
   const setTrack = (setter: React.Dispatch<React.SetStateAction<Track>>) => (next: Track) => {
     setter((prev) => (prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h ? prev : next));
@@ -330,20 +344,32 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // Both sides measure equal (the bar is `justify-content: space-between` with flex:1 on both
   // groups around a fixed-width centre button) — fall back to whichever side is ready first.
   const segW = leftSegW || rightSegW;
-  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0 && barH > 0;
+  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0 && barH > 0 && barW > 0;
 
-  // The tallest a pill may be, and where it may sit, so it never reaches the bar's mask. Both
-  // slots go through these — see PILL_INSET for what was being sliced before.
+  // The tallest/widest a pill may be, and where it may sit, so it never reaches the bar's
+  // mask. Both slots go through these — see PILL_INSET for what was being sliced before.
   const maxPillH = Math.max(0, barH - PILL_INSET * 2);
   const clampTop = (top: number, h: number) =>
     Math.min(Math.max(top, PILL_INSET), Math.max(PILL_INSET, barH - PILL_INSET - h));
+  // Horizontal counterpart of clampTop (2026-08-10 follow-up, user report: "should always be
+  // a rounded box, not the clipped thing you see — it only happens sometimes"). Only the
+  // OUTERMOST side tabs (Shop, Health) sit close enough to the bar's own rounded corners for
+  // this to matter — a pill that grows PILL_GROW_X past its item's own box can push its
+  // rounded-rect corner into the diagonal cut the bar's Surface mask carves out of ITS corner,
+  // same failure mode PILL_INSET already fixed on the vertical axis. Margin-dependent, so it
+  // doesn't reproduce reliably at every font scale/measurement — "sometimes" — which is why it
+  // survived the vertical-only fix.
+  const clampLeft = (left: number, w: number) =>
+    Math.min(Math.max(left, PILL_INSET), Math.max(PILL_INSET, barW - PILL_INSET - w));
 
   // Maps a SITE_ITEMS index to the pill's target x (relative to the bar's content box).
   // Offset left by half of PILL_GROW_X so the (wider) pill stays centred on the item's own box
-  // instead of the extra width only ever growing rightward.
+  // instead of the extra width only ever growing rightward, then clamped into the bar exactly
+  // like the vertical position/height are (see clampLeft above).
   function slotX(index: number): number {
-    if (index === 0 || index === 1) return leftTrack.x + index * (segW + gap) - PILL_GROW_X / 2;
-    if (index === 3 || index === 4) return rightTrack.x + (index - 3) * (segW + gap) - PILL_GROW_X / 2;
+    const w = segW + PILL_GROW_X;
+    if (index === 0 || index === 1) return clampLeft(leftTrack.x + index * (segW + gap) - PILL_GROW_X / 2, w);
+    if (index === 3 || index === 4) return clampLeft(rightTrack.x + (index - 3) * (segW + gap) - PILL_GROW_X / 2, w);
     // index === 2 (Home) — no pill ever sits here; this is only the entry/exit anchor.
     return centreTrack.x + (centreTrack.w - segW) / 2 - PILL_GROW_X / 2;
   }
@@ -407,7 +433,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     pr.value = to(target.r);
   }, [
     ready, activeIndex, isHomeActive, segW, pillHeight, sideTop,
-    homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x,
+    homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x, barW,
     reducedMotion, tx, ty, pw, ph, pr,
   ]);
 
@@ -492,8 +518,9 @@ export default function BottomNav({ state, navigation }: Props = {}) {
       // scales the bar's padding with the OS text size, which makes BOTTOM_NAV_HEIGHT true only
       // at 1.0x. See PILL_INSET.
       onLayout={(e: LayoutChangeEvent) => {
-        const { height } = e.nativeEvent.layout;
+        const { width, height } = e.nativeEvent.layout;
         setBarH((prev) => (prev === height ? prev : height));
+        setBarW((prev) => (prev === width ? prev : width));
       }}
     >
       {ready && (
