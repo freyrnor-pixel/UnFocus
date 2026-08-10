@@ -122,10 +122,15 @@
  *     pair that keeps the voice mic inside the card had to move to the WRAPPER
  *     (`styles.titleFieldGrow`). Don't put positional style on `style`; it will silently do
  *     nothing to the row.
- *   - **Weekday chips got a border (task 16, 2026-08-04)**: `styles.weekdayChip` (the recurring-
- *     days row and the monthly weekday picker) had no border at all — a solid fill only, unlike
- *     every other chip in the app (PersonChip/TagChip/OptionalTag already had one). Now
- *     `theme.accent` when active, `theme.border` when not, matching that convention.
+ *   - **Weekday chips got a border (task 16, 2026-08-04)**: `styles.weekdayChip` had no border
+ *     at all — a solid fill only, unlike every other chip in the app (PersonChip/TagChip/
+ *     OptionalTag already had one). Now `theme.accent` when active, `theme.border` when not,
+ *     matching that convention.
+ *     **Only ONE of its two callers is left (2026-08-10): the recurring-days row, which is
+ *     MULTI-select.** The monthly weekday picker ("the second Tuesday") is a
+ *     `SegmentedControl` now — it was always exclusive, and sharing a style with a
+ *     multi-select row is what made a pick-one question look like a membership one. Don't
+ *     re-point a new exclusive picker at `weekdayChip` to save a component.
  *   - **Field-level glow (2026-08-01, STALE_CODE_AUDIT.md)**: `newFields` drives `tight`
  *     `NewSinceGlow` wraps on the time label, the assignee cue, each tag pill, and the goal
  *     dot — mirroring `ShoppingRow`'s meta/price field glow so switching Plans into a richer
@@ -1394,23 +1399,19 @@ function TaskCard({
                           value={draft.monthOrdinal}
                           onChange={(v) => patch({ monthOrdinal: v as Task['monthOrdinal'] })}
                         />
-                        <View style={styles.weekdayRow}>
-                          {t.dayLabels.map((label, i) => {
-                            const active = draft.monthWeekday === i;
-                            return (
-                              <PressableScale
-                                key={i}
-                                style={[styles.weekdayChip, { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border }]}
-                                onPress={() => patch({ monthWeekday: i })}
-                                scaleTo={0.97}
-                              >
-                                <Text style={[styles.weekdayText, { color: active ? theme.accentInk : theme.textMuted }]}>
-                                  {label.slice(0, 2)}
-                                </Text>
-                              </PressableScale>
-                            );
-                          })}
-                        </View>
+                        {/* 2026-08-10: this one is EXCLUSIVE — "the second TUESDAY of the
+                            month" picks exactly one weekday — so it is a `SegmentedControl`
+                            now, directly under the ordinal one above it. It used to share
+                            `weekdayChip` with the weekly-repeat row a few blocks up, which is
+                            genuinely MULTI-select and correctly keeps those chips
+                            (DESIGN_RULES.md 19a). One style, two different questions, was the
+                            whole reason the two read alike. */}
+                        <SegmentedControl
+                          compact
+                          options={t.dayLabels.map((label, i) => ({ value: i, label: label.slice(0, 2) }))}
+                          value={draft.monthWeekday}
+                          onChange={(v) => patch({ monthWeekday: v as number })}
+                        />
                       </>
                     )}
                   </View>

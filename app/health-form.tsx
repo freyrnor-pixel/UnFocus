@@ -79,7 +79,7 @@ import { backdatedStart, type BackdatePreset } from '@/lib/episodes';
 import { tap, warning } from '@/lib/haptics';
 import { severities, severityInk } from '@/lib/severity';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { Input } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
@@ -332,35 +332,18 @@ export default function HealthFormScreen() {
           <View style={styles.switchRow}>
             <Text style={[styles.switchLabel, { color: theme.textMuted }]}>{t.whenFinishedLabel}</Text>
           </View>
-          <View style={styles.chipRow}>
-            {[
-              { open: true, label: t.episodes.stillGoing },
-              { open: false, label: t.episodes.itsOver },
-            ].map((option) => {
-              const active = ongoing === option.open;
-              return (
-                <PressableScale
-                  key={option.label}
-                  style={[
-                    styles.chip,
-                    { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                    active && { backgroundColor: theme.accent, borderColor: theme.accent },
-                  ]}
-                  onPress={() => {
-                    tap();
-                    setOngoing(option.open);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.chipText, { color: theme.text }, active && { color: theme.accentInk }]}>
-                    {option.label}
-                  </Text>
-                </PressableScale>
-              );
-            })}
-          </View>
+          {/* Same binary as the Health tab's quick row (app/(tabs)/health.tsx), and drawn the
+              same way since 2026-08-10 — it was two accent-filled pills here and a different
+              pill shape there, i.e. one question with two appearances depending on which
+              screen you asked it from. SegmentedControl already fires its own tap haptic. */}
+          <SegmentedControl
+            options={[
+              { value: 'ongoing', label: t.episodes.stillGoing },
+              { value: 'over', label: t.episodes.itsOver },
+            ]}
+            value={ongoing ? 'ongoing' : 'over'}
+            onChange={(v) => setOngoing(v === 'ongoing')}
+          />
           {!ongoing && (
             <>
               <DateChipRow
@@ -390,6 +373,12 @@ export default function HealthFormScreen() {
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.attributionLabel}</Text>
               <OptionalTag />
             </View>
+            {/* Stays a wrapping chip cloud, deliberately — reviewed 2026-08-10 alongside the
+                episode binary above and NOT converted. It is exclusive, but its option count
+                is data-driven and unbounded (every active medicine, plus "Not sure");
+                SegmentedControl splits its track into n equal segments, so eight medicines
+                would be eight unreadable slivers. Same reasoning as the goals sheet's
+                starter chips. */}
             <View style={styles.chipRow}>
               {[{ id: '', name: t.medicine.attributionNone }, ...medicines.filter((m) => m.active)].map((m) => {
                 const active = medicineId === m.id;

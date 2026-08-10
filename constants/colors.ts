@@ -12,8 +12,10 @@
  *   Semantic state: good, goodSoft, bad, badSoft, warn, warnSoft
  *   Depth: shadow, overlay
  *   Hint card: hintBg, hintBorder, hintAccent
- *   Feature accents (former screen hues — lib/screenColor.ts, RETIRED 2026-07-31 addendum A.5,
- *     zero production consumers, kept dormant/contrast-tested only): featTask, featPlan,
+ *   Feature accents (per-screen hues — lib/screenColor.ts, REVIVED and live since the
+ *     2026-08-05 card reset; they are the ONLY thing that colours a card/field/button EDGE.
+ *     This line said "RETIRED 2026-07-31 addendum A.5, zero production consumers" until
+ *     2026-08-10 — it had been stale for five days): featTask, featPlan,
  *     featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
  *   Card identity hues (lib/domainColor.ts, drives card badge+wash+edge — COLLAPSED from
  *     nine hues to FOUR on 2026-07-31, addendum A.3; the nine token names all still exist
@@ -502,56 +504,77 @@ const defaultLight: ThemePalette = {
 };
 
 const defaultDark: ThemePalette = {
-  // 2026-07-18 "Midnight glass" palette (Visual Refresh Phase 01). Deep-navy, low-glare
-  // night mood pairing with Soft daylight above. Every token name is preserved; only
-  // values change. shadow stays a themed translucent ink (not black) so depth shifts hue
-  // with the theme.
-  // ── Surface ladder OPENED 2026-07-31 (addendum A.2), mirroring the light block ────────
-  //   bg ↔ surface           1.277
-  //   surface ↔ surfaceMuted 1.112
-  //   surfaceMuted ↔ inset   1.113
-  //   rule ↔ surface         1.377  (decorative row divider ONLY — see the `rule` doc comment)
-  // ── surfaceMuted nudged lighter 2026-08-09 (same report as the light block above) ──────
-  // Dark mode has almost no headroom here: surface↔surfaceMuted was already 1.112, a hair
-  // above the 1.1 "visible step" floor a few lines below, so this is the lightest surfaceMuted
-  // can go without that step vanishing (a few RGB units — expect this to read as a small, not
-  // dramatic, change versus the light-mode fix). Getting materially further would mean moving
-  // `surface`/`bg` themselves, which this pass deliberately does not do. Now:
-  //   surface ↔ surfaceMuted 1.100
-  //   surfaceMuted ↔ inset   1.125
-  bg: '#080A11',
-  surface: '#1B2438',
-  surfaceMuted: '#161C29',
-  surfaceInset: '#0B0F18',
-  rule: '#303B50',
-  // 2026-07-31: was #E9EDF5, which measured 12.5:1 on `surface` — over the halation cap. Pure
-  // near-white body text on a dark surface blooms/smears for a lot of readers (astigmatism
-  // especially), and it is the single most common dark-mode legibility complaint. Now 9.507:1
-  // on surface, inside the 7–12 band lib/__tests__/colors.test.ts asserts. The upper bound
-  // there is a REAL requirement, not a leftover — don't "improve" this back toward white.
-  text: '#C7CBD1',
-  textMuted: '#8B95A7',
-  textInverse: '#080B12',
-  // 2026-07-24 contrast pass: bumped from #2A3346 (1.56:1 on bg — invisible) and #3C4B66
-  // (2.24:1 — still under WCAG 1.4.11's 3:1 non-text minimum) to lighter slate-blues that
-  // clear 3:1 against both bg and surface, mirroring the light-theme border bump above.
-  // 2026-07-31 (A.2): nudged #5B6C8A → #5F7090 to hold ≥3:1 against the lightened `surface`
-  // (3.102:1 on surface, 3.962:1 on bg).
-  border: '#5F7090',
-  borderStrong: '#7891B6',
-  accent: '#6EA8FF',
-  accentSoft: '#1B2C49',
-  accentInk: '#080B12',
-  good: '#34D399',
-  goodSoft: '#123227',
-  bad: '#FB7185',
-  badSoft: '#3A1620',
-  warn: '#F0B24A',
-  warnSoft: '#33240F',
-  shadow: 'rgba(0,2,10,0.65)',
-  overlay: 'rgba(0,0,0,0.62)',
-  hintBg: '#141E30',
-  hintBorder: '#28405F',
+  // ── "True black" palette, 2026-08-10 ────────────────────────────────────────────────────
+  // Replaces the 2026-07-18 "Midnight glass" deep-navy set, on the maintainer's instruction
+  // after an outside design review: pure black leverages OLED hardware (an unlit pixel draws
+  // no power and gives infinite local contrast), and the neutral greys that go with it drop
+  // the navy cast the whole dark mode used to carry. Every token NAME is preserved; only
+  // values change, and only in this block — the light palette is untouched, deliberately.
+  //
+  // The review supplied three surface values (background #000000, card #121212, elevated
+  // #1E1E1E) for a ladder that has four rungs here. They map as below, with only the deepest
+  // well invented. `surface` takes the ELEVATED value rather than the card one because it is
+  // the only assignment where a card still reads as raised off a pure-black page
+  // (bg↔surface 1.260 vs 1.121 — the ≥1.20 floor in colors.test.ts) and it spends both
+  // supplied hexes instead of discarding one.
+  //
+  // ── Surface ladder, and where it had to give ────────────────────────────────────────────
+  //   bg ↔ surface           1.260   (floor ≥1.20 — holds)
+  //   surface ↔ surfaceMuted 1.124   (floor ≥1.10 — holds)
+  //   surfaceMuted ↔ inset   1.057   (floor RELAXED to ≥1.05 — see below)
+  //   rule ↔ surface         1.119   (band RELAXED to ≥1.10 — see below)
+  // ⚠️ The bottom of the ladder is arithmetic, not taste. A pure-black `bg` leaves ~0.006 of
+  // relative luminance for two rungs beneath `surface`; there is no pair of hexes that keeps
+  // a 1.10 step at both. If you want the 1.10 floor back, `bg` has to leave black — that is
+  // the trade, and it is the one thing this palette exists to avoid.
+  bg: '#000000',
+  surface: '#1E1E1E',
+  surfaceMuted: '#121212',
+  surfaceInset: '#0A0A0A',
+  // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
+  // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
+  // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as
+  // a card/input/chip edge would erase the border-as-grouping-signal system the 2026-08-05
+  // card reset is built on. See `border` below for the value that does that job.
+  rule: '#27272A',
+  // ⚠️ 17.0:1 on `surface` — OUTSIDE the old 7–12 halation band, by instruction (2026-08-10).
+  // The band existed because near-white text on a dark surface blooms for astigmatic readers,
+  // and that reasoning has not been shown to be wrong — it was overridden on the maintainer's
+  // call in favour of the review's contrast-first palette. colors.test.ts's ceiling was raised
+  // to 16 in the same pass with the history kept beside it. If a legibility complaint ever
+  // comes back from a real device, THIS is the token to pull back first (toward ~#D8DADF),
+  // before touching any surface value.
+  text: '#F3F4F6',
+  textMuted: '#9CA3AF',
+  textInverse: '#0A0A0A',
+  // NOT the supplied #27272A (1.41:1 on bg, 1.26:1 on surface — an invisible control edge).
+  // Derived instead to clear WCAG 1.4.11's 3:1 on every rung it is ever drawn against:
+  // 4.808:1 on bg, 3.817:1 on surface, 4.289:1 on surfaceMuted. Neutral rather than the old
+  // slate-blue #5F7090, to match the greyed-out surfaces above.
+  border: '#787882',
+  borderStrong: '#9A9AA5',
+  // Supplied brand.primary, dark mode only — light keeps #235EE0, which clears 4.5:1 on its
+  // own background where this does not (3.52:1). Note #3B82F6 is a mid-tone: it admits NO
+  // AA-contrast ink at all (white 3.678:1, dark 3.977:1), which is why the accentInk floor in
+  // colors.test.ts is 3:1. contrastOn() picks the dark ink, the same as the #6EA8FF it
+  // replaces, so nothing that sits on an accent fill flips colour.
+  accent: '#3B82F6',
+  accentSoft: '#12233D',
+  accentInk: '#0A0A0A',
+  good: '#10B981',
+  goodSoft: '#0B2A20',
+  // 4.430:1 on `surface` — 0.07 under AA, which is why the dark chromatic floor is 4.4 rather
+  // than 4.5. Kept at the supplied hex on instruction; two points lighter would clear it.
+  bad: '#EF4444',
+  badSoft: '#2E1215',
+  warn: '#F59E0B',
+  warnSoft: '#2D2109',
+  // Neutral now, not navy-tinted — a blue-black shadow over a true-black page reads as a
+  // colour cast on the one surface that is supposed to have none.
+  shadow: 'rgba(0,0,0,0.72)',
+  overlay: 'rgba(0,0,0,0.68)',
+  hintBg: '#101826',
+  hintBorder: '#22304A',
   hintAccent: '#6EA8FF',
   // Dark mirrors the light "Vivid & clean" arc (2026-07-14): same hue families, brighter
   // tints for the dark surface. Order plan → task → habit → health → meal → shop → budget →

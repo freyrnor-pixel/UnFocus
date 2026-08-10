@@ -48,7 +48,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
-import { Input, Switch } from '@/components/FormControls';
+import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
@@ -223,32 +223,18 @@ export default function MedicineFormScreen() {
                   <Text style={[styles.label, { color: theme.textMuted }]}>{t.medicine.minIntervalLabel}</Text>
                   <OptionalTag />
                 </View>
-                <View style={styles.chipRow}>
-                  {GAP_OPTIONS.map((min) => {
-                    const isActive = minIntervalMin === min;
-                    return (
-                      <PressableScale
-                        key={min}
-                        style={[
-                          styles.chip,
-                          { backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                          isActive && { backgroundColor: theme.accent, borderColor: theme.accent },
-                        ]}
-                        onPress={() => {
-                          tap();
-                          setMinIntervalMin(min);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: isActive }}
-                        scaleTo={0.97}
-                      >
-                        <Text style={[styles.chipText, { color: theme.text }, isActive && { color: theme.accentInk }]}>
-                          {min === 0 ? t.medicine.minIntervalNone : t.medicine.gapHours(min / 60)}
-                        </Text>
-                      </PressableScale>
-                    );
-                  })}
-                </View>
+                {/* 2026-08-10: was five accent-filled pills. A fixed five-option exclusive
+                    picker with short labels is what SegmentedControl is for; `compact`
+                    because it sits inside a form field, not at screen tier. */}
+                <SegmentedControl
+                  compact
+                  value={minIntervalMin}
+                  onChange={setMinIntervalMin}
+                  options={GAP_OPTIONS.map((min) => ({
+                    value: min,
+                    label: min === 0 ? t.medicine.minIntervalNone : t.medicine.gapHours(min / 60),
+                  }))}
+                />
               </View>
               <View style={[styles.field, styles.stepperRow]}>
                 <View style={styles.labelRow}>
@@ -467,9 +453,10 @@ const baseStyles = StyleSheet.create({
     padding: Spacing.md,
   },
   switchLabel: { flex: 1, fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  // `chipRow` still wraps the person picker (unbounded option count → a real chip cloud, and
+  // it draws shared `PersonChip`s). `chip`/`chipText` deleted 2026-08-10 with the min-gap
+  // picker, which is a `SegmentedControl` now.
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  chip: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1.5 },
-  chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   trayRow: { flexDirection: 'row', gap: Spacing.xs },
   trayChip: {
     flex: 1,

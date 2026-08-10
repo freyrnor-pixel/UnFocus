@@ -19,7 +19,8 @@
  * Connections:
  *   Imports → constants/theme (contrastOn, tokens), constants/motion (Spring),
  *             lib/useAppTheme, lib/i18n, lib/haptics, lib/money (formatKr), lib/screenColor,
- *             components/Surface, components/PressableScale, components/AddRow,
+ *             components/Surface, components/PressableScale, components/Button (the per-meal
+ *             "Add dish" trigger — ghost), components/AddRow,
  *             components/Badge (difficulty pill), components/FormControls (SegmentedControl — difficulty picker),
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
@@ -96,6 +97,7 @@ import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
+import Button from '@/components/Button';
 import AddRow from '@/components/AddRow';
 import { Badge } from '@/components/Badge';
 import Collapsible from '@/components/Collapsible';
@@ -149,25 +151,36 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
  * progression without ever landing on a pure success-green or error-red — **still true below,
  * keep it true.**
  *
- * (2026-08-10) **Mode-aware pairs, and the hue is a FILL only.** Two things were wrong:
- *   1. The old set was MODE-INVARIANT — one hex serving both themes, tuned for the dark surface —
- *      and it was painted straight onto the section TITLE. On white that failed the 4.5:1
- *      body-text floor on all five: breakfast #E0A85A measured **2.12:1**, lunch 2.52, dinner
- *      2.88, snack 3.07, kveldsmat 3.57. DESIGN_RULES rule 10 calls that a hard floor.
- *   2. It was also passed as `<Surface borderColor>`, putting a non-screen hue on a card EDGE —
- *      the exact pattern the 2026-08-05 card reset names as the bug it fixed. That got visible
- *      on 2026-08-10 when this component started mounting inside Shopping's Food drawer: five
- *      differently-hued cards inside a green Shopping card.
- * Both are now settled the way addendum A.4 rule 1 already required — **an identity hue is a
- * FILL, never text and never an icon colour.** The hue survives as the round plate behind the
- * meal glyph (`mealPlate`); the title is `theme.text` and the chevron `theme.textMuted`, and the
- * section card inherits the screen hue like every other card. Same device as CardAccentBadge and
- * the header count pill, so this adds no new vocabulary.
+ * **Deliberately OUTSIDE `ThemePalette`** — reviewed in the 2026-08-10 hardcoded-colour sweep
+ * and kept, on the same grounds as `IDENTITY_HUES`, `lib/severity.ts` and `lib/personColor.ts`:
+ * this is a fixed identity set separating one axis of meaning, not a theme decision. Promoting
+ * ten hues into the palette would put ten tokens into `colors.test.ts` for one component's
+ * section headers. (It is no longer mode-INVARIANT — see below — but it stays out of the
+ * palette; the test reaches in for the values instead, which is the cheaper half of the trade.)
+ *
+ * ✅ **(2026-08-10, later the same day) The two deviations the sweep raised are RESOLVED.**
+ * That sweep measured both, called them "raised, not resolved", and declined the fix on the
+ * grounds that it needed a per-mode meal set. It needed exactly that, and this is it:
+ *  1. **Mode-aware pairs.** The old set was one hex serving both themes, tuned for the dark
+ *     surface, painted straight onto the section TITLE — which on white failed the 4.5:1
+ *     body-text floor on all five (breakfast #E0A85A at **2.12:1**, lunch 2.52, dinner 2.88,
+ *     snack 3.07, kveldsmat 3.57). DESIGN_RULES rule 10 calls that a hard floor.
+ *  2. **The hue is a FILL now, and no longer an edge.** It was passed to `<Surface borderColor>`,
+ *     putting a non-screen hue on a card EDGE — the pattern the 2026-08-05 reset names as the
+ *     bug it fixed, and visible from 2026-08-10 when this component started mounting inside
+ *     Shopping's Food drawer: five differently-hued cards inside a green Shopping card.
+ * Both land where addendum A.4 rule 1 already pointed — **an identity hue is a FILL, never text
+ * and never an icon colour.** The hue survives as the round plate behind the meal glyph
+ * (`mealPlate`); the title is `theme.text`, the chevron `theme.textMuted`, and the section card
+ * inherits the screen hue like every other card. Same device as CardAccentBadge and the header
+ * count pill, so this adds no new vocabulary — and it is why "redesigns the screen" turned out
+ * to be a smaller cost than it looked.
  *
  * Values are Tailwind 700-family in light and lifted mirrors in dark. They clear 4.5:1 as TEXT
  * in their own mode even though nothing draws them as text any more — that headroom is what
- * makes them safe on a `soft` plate, and `lib/__tests__/colors.test.ts` pins it. Re-measure
- * before changing one.
+ * makes them safe on a `soft` plate, and `lib/__tests__/colors.test.ts` pins it against the
+ * live `surface` token, so a palette change (like the true-black pass) re-checks them for free.
+ * Re-measure before changing one.
  */
 const MEAL_COLORS: Record<MealType, { light: string; dark: string }> = {
   breakfast: { light: '#B45309', dark: '#D49B70' }, // morning amber
@@ -609,16 +622,22 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                 expanded body, same "+ makes a new row" idiom as NewMonthlyListRow's
                 "+ New list" trigger. Only reachable while the section is open, since the
                 list it appends to isn't visible while closed. */}
-            <PressableScale
-              style={[styles.addDishRow, { borderColor: color }]}
+            {/* `Button variant="ghost"` since 2026-08-10 — this was one of four hand-rolled
+                spellings of exactly that (transparent fill, 1.5px hued edge, accent label),
+                alongside WeekListCard's `addOptionBtn` and shopping.tsx's `budgetPill` /
+                `addTrigger`. Consequence worth knowing: ghost takes its edge from the SCREEN
+                hue and its label from `theme.accent`, so this no longer wears the per-meal
+                colour. That is the intent — five differently-coloured buttons on one screen is
+                the same deviation as five differently-coloured card edges (see MEAL_COLORS'
+                note), and the meal identity is still carried by the section's icon, title and
+                chevron right above it. */}
+            <Button
+              label={t.addDishToMealBtn}
+              icon="add"
+              variant="ghost"
               onPress={() => openNewDishModal(mealType)}
-              accessibilityRole="button"
-              accessibilityLabel={t.addDishToMealBtn}
-              scaleTo={0.97}
-            >
-              <Ionicons name="add" size={18} color={color} />
-              <Text style={[styles.addDishRowText, { color }]}>{t.addDishToMealBtn}</Text>
-            </PressableScale>
+              style={styles.addDishRow}
+            />
             </View>
             </Collapsible>
           </>
@@ -835,17 +854,11 @@ const baseStyles = StyleSheet.create({
   // row, same idiom as NewMonthlyListRow's "+ New list" pill. Was a small circular "+" in the
   // header next to the chevron; moved here so it reads as "add a new row to this list" rather
   // than crowding the expand/collapse control.
-  addDishRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    minHeight: MIN_TAP_TARGET,
-  },
-  addDishRowText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
+  // All the geometry moved into `Button` (2026-08-10) — it already draws a full-width ghost
+  // at `MIN_TAP_TARGET` with its own radius, edge and centred icon+label. What is left is the
+  // one thing Button does not decide: that this trigger spans the section.
+  // `addDishRowText` is deleted with it.
+  addDishRow: { alignSelf: 'stretch' },
   // Bordered box, not a bare row (2026-08-06) — see the inline comment at the map site for why
   // the border lives on this outer View rather than being conditional on `isOpen`.
   dishCard: { borderRadius: Radius.md, borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
