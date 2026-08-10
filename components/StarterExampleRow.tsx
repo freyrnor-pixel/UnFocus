@@ -128,7 +128,10 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
       <Text style={[styles.title, { color: theme.textMuted }]} numberOfLines={1}>
         {title}
       </Text>
-      {meta ? <Badge label={meta} variant={metaVariant} /> : null}
+      {/* Sized to MARK like the row's other three marks — Badge's own pill is a couple of px
+          taller, which put four different heights on one short line. `style` only, so no other
+          Badge in the app moves. */}
+      {meta ? <Badge label={meta} variant={metaVariant} style={styles.metaMark} /> : null}
       {added ? (
         <View style={[styles.addBtn, { borderColor: theme.textMuted }]}>
           <Ionicons name="checkmark" size={14} color={theme.textMuted} />
@@ -148,6 +151,14 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
     </View>
   );
 }
+
+/**
+ * One height for every small mark on the row — the icon ring, the "Example" chip, the meta pill
+ * and the "+" (2026-08-10, maintainer: make boxes the same size where it makes sense). Measured,
+ * these were 22 / 18 / 26 / 22: four marks doing the same weight of job at three sizes on one
+ * short line. 22 is the ring's existing size, which is the app's row-checkbox sizing.
+ */
+const MARK = 22;
 
 const styles = StyleSheet.create({
   // Geometry + padding still mirror PlanTaskCard's `rowCard` — the example has to be the same
@@ -170,13 +181,16 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   iconWrap: {
-    width: 22,
-    height: 22,
+    width: MARK,
+    height: MARK,
     borderRadius: Radius.full,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // The meta pill at MARK too. Badge keeps its own horizontal padding — only the height is
+  // pinned, so a long value still gets the room it needs.
+  metaMark: { height: MARK, justifyContent: 'center' },
   title: {
     flex: 1,
     // minWidth:0 so the title yields to the tag/meta/add cluster instead of pushing them off
@@ -196,12 +210,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: Radius.full,
     paddingHorizontal: 6,
-    paddingVertical: 1,
+    // MARK rather than a vertical padding, so the marker matches the icon ring, the meta pill
+    // and the "+" instead of being the shortest thing on the line.
+    height: MARK,
+    justifyContent: 'center',
   },
   tagText: { fontSize: 10, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.3 },
   addBtn: {
-    width: 22,
-    height: 22,
+    width: MARK,
+    height: MARK,
     borderRadius: Radius.full,
     borderWidth: 1.5,
     alignItems: 'center',
