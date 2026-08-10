@@ -56,6 +56,23 @@
  *     still holds. Two things a caller owes the drawer if it mounts a real surface: the body
  *     must not bring its own scroll (this sits inside the screen's), and it should unwrap any
  *     `Surface` of its own, since a Surface inside this one reads as a nested panel.
+ *   - **One closed height, and the header centred in it (2026-08-10).** Maintainer: make
+ *     unexpanded cards the same size, and centre the thing inside the thing. Measured on the
+ *     To-do tab, the closed drawers were **50px (Whenever) next to 73px (Goals, Earlier days)**
+ *     — same shape, same screen, two sizes — because `SectionRail`'s naming cluster only claims
+ *     `MIN_TAP_TARGET` when it IS a tap target (`onLabelPress`). The drawer that leads nowhere
+ *     was simply shorter. `rowMinHeight` puts that floor on the rail's row for every drawer, so
+ *     the six read as peers; the tappable ones are unchanged, the inert one grows to match.
+ *     Whenever grows rather than the others shrinking — the tappable name is a real button and
+ *     cannot go under `MIN_TAP_TARGET` (DESIGN_RULES rule 17).
+ *     Two spacing faults fell out of the same measurement, both only in the CLOSED state:
+ *     the card was padded `Spacing.sm` top against `Spacing.xs` bottom, and `SectionRail`'s
+ *     `marginBottom` hung 8px of blank card under the hairline rule with the body clipped to 0.
+ *     Closed, the header is the card's ONLY content, so it is centred: matching vertical padding
+ *     and no trailing margin. **The open state deliberately keeps its asymmetry** — open, this
+ *     is a header above a body and follows `components/SectionCard.tsx`'s documented
+ *     top-hugging convention (`Spacing.sm` above, `Spacing.md` below). Don't "fix" that one to
+ *     match; a header with content under it is not a thing centred in a box.
  *   - `count` is optional and should be omitted where a tally reads as a score rather than a
  *     size (see the app's standing no-scoreboard rule) — Earlier days passes none. Food and
  *     Catalogue do pass one: how many dishes or known items a library holds is a size.
@@ -132,6 +149,12 @@ export default function CollapsedSection({
       count={count}
       onLabelPress={onTitlePress}
       labelPressHint={titlePressHint}
+      // Every drawer's naming row is one height whether or not its name is a tap target, so
+      // the closed cards on a screen are peers. See the "one closed height" edit note.
+      rowMinHeight={MIN_TAP_TARGET}
+      // Closed, the rail is the ONLY thing in the card, so its bottom margin has nothing to
+      // separate it from and becomes a dead strip under the hairline rule. See the same note.
+      style={open ? undefined : styles.railClosed}
       right={
         onTitlePress ? (
           // A real button, not a glyph: with the name taking its own presses, this is the only
@@ -174,9 +197,9 @@ export default function CollapsedSection({
       )}
       {/* No gap between the header and the clip — SectionRail carries its own marginBottom, and
           a gap would leave a phantom blank strip while collapsed (same reason plans.tsx's
-          doneZone has none). The card's own bottom padding is switched on `open` for the same
-          reason: collapsed, the body clips to 0 and a full Spacing.md under the header rule
-          reads as an empty card rather than a folded one. */}
+          doneZone has none). The card's own bottom padding is switched on `open`: open, the
+          header hugs the top and the body sits below it (`SectionCard`'s convention); closed,
+          the header is the only thing in the card and is centred in it. */}
       <Collapsible open={open}>
         <View style={styles.body}>{children}</View>
       </Collapsible>
@@ -186,8 +209,15 @@ export default function CollapsedSection({
 
 const styles = StyleSheet.create({
   section: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  // Open, the card is a header ABOVE a body, so it keeps components/SectionCard.tsx's
+  // deliberate top-hugging asymmetry (tight above, roomy below).
   sectionOpen: { paddingBottom: Spacing.md },
-  sectionClosed: { paddingBottom: Spacing.xs },
+  // Closed, the header is the card's only content — so it is centred rather than hugging an
+  // edge it has nothing to hug against. Matches `paddingTop` exactly.
+  sectionClosed: { paddingBottom: Spacing.sm },
+  // Kills the rail's own bottom margin while collapsed — with the body clipped to 0 there is
+  // nothing below the hairline rule for it to separate, so it renders as blank card.
+  railClosed: { marginBottom: 0 },
   chevronBtn: {
     minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,

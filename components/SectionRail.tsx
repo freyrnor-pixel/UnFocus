@@ -91,10 +91,19 @@ type Props = {
   onLabelPress?: () => void;
   /** a11y label for `onLabelPress`. Defaults to `label`. */
   labelPressHint?: string;
+  /**
+   * Floor for the naming row's height (2026-08-10). Without it the row is only as tall as its
+   * content, which made a rail whose name IS a tap target (`onLabelPress`, so the cluster
+   * carries `MIN_TAP_TARGET`) permanently taller than one whose name is inert — visible as
+   * components/CollapsedSection.tsx drawers sitting at two different closed heights on the same
+   * screen (Whenever 50px next to Goals 73px). A caller that draws several rails as peers passes
+   * one value for all of them; omit it and the row hugs its content exactly as before.
+   */
+  rowMinHeight?: number;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, style }: Props) {
   const theme = useAppTheme();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
@@ -120,7 +129,7 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
   );
   return (
     <View style={[styles.container, style]}>
-      <View style={styles.row}>
+      <View style={[styles.row, rowMinHeight != null && { minHeight: rowMinHeight }]}>
         {onLabelPress ? (
           // `flexShrink` so the naming cluster yields to the right-hand control rather than
           // pushing it off the row — the chevron/toggle has a fixed width and none to give.
