@@ -147,8 +147,21 @@ file owns which token.)
   mean its screen is visible — check it is on screen), and the pager moves pages by transform,
   which fires no `onLayout`, so targets must re-measure on focus or they keep their mount-time
   position.
-- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`app/goals.tsx`) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) deliberately DOES copy the surrounding list's real row styling (accent wash + accent edge), so a suggestion reads as a row of that list rather than a callout about one. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
+- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`app/goals.tsx`) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, without a StarterCard wrapper (a Surface inside a Surface reads as a nested panel). Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) is drawn as a **provisional sketch** — dashed neutral border, no fill, muted italic title, accent only on its "+" and its "Example" chip. **That reversed on 2026-08-10** ("Examples are not visible examples, they look like a part of the card or an active task, not as a temporary thing"); until then it deliberately DID copy the surrounding list's real row styling (accent wash + accent edge) on the opposite 2026-07-27 report, and succeeded so completely that a one-word chip was the only thing left telling the two apart. It keeps the row's GEOMETRY — an example has to be the same shape as the thing it's an example of — and changes only the finish. Read that file's Edit notes before restoring any of it. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
 - **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
+  **The reminder bell is `components/ReminderBell.tsx` (2026-08-10), shared with
+  `app/habit-form.tsx`, and it IS the switch.** It used to open the times panel while drawing
+  `settings.medicineRemindersEnabled` — a *different* value, flipped by a `Switch` inside that
+  panel — so pressing it changed nothing about it ("Reminder bell button looks the same in both
+  states"). It toggles reminders directly now, the panel opens on that same boolean (so the
+  panel IS the confirmation), and the duplicate `Switch` is gone. On/off is carried on four
+  channels — glyph, colour, `accentSoft` plate, and resting sunk — because two wasn't enough to
+  read at a glance. This is the documented exception to `DESIGN_RULES.md` rule 19a ("a boolean
+  is always a slider"): the maintainer restyled the habit reminder off a plain `Switch` on
+  2026-08-06, and this consolidates that rather than reopening it. Don't extend the exception
+  to other settings. The card also has **no "nothing scheduled today" line** any more — it sat
+  above the starter card saying less than the card did (and, when every medicine is as-needed,
+  above nothing at all).
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
   Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
   post-date the rebuild; the rest of it describes the pre-rebuild app and is dead).
@@ -260,11 +273,24 @@ file owns which token.)
     bullet described was deleted rather than adjusted. `__tests__/glassMaterial.test.ts` still
     asserts the specular token is gone, and that is still the rule — but the layers it was a
     highlight ON no longer exist either.
-  - **Press = sink, not shrink**: `PressableScale`'s `travel` (px, from `Travel.*` in
-    `constants/motion.ts`) translates a cap down into a base; `sunk` is the stays-pressed
-    "on" state (active tab, active IconButton). A caller passing `travel` must also draw a
-    base — see `Button.tsx`'s `keyBase` — or the cap sinks into nothing. Note `style` moves
-    to the wrapper on that path.
+  - **Press = sink, not shrink — and it is the DEFAULT now (2026-08-10).** `PressableScale`
+    translates a cap down by `travel` (px, from `Travel.*` in `constants/motion.ts`) and comes
+    straight back: no spring, no overshoot, no opacity dip. `sunk` is the stays-pressed "on"
+    state (active tab, active IconButton, active nav tab including **Home**). Until this pass
+    only `Button`, `IconButton` and a tappable `Surface` opted in and the other ~330
+    `<PressableScale>` call sites still used the old scale-and-dim bounce, which is what the
+    maintainer read as *"too much bob, like something floating instead of a keyboard Key"*.
+    The mode is now `press` (default `'key'`), `travel` defaults to `Travel.sm`, and `scaleTo`
+    only applies when a caller explicitly passes `press="scale"` — **three do, all
+    structural**: `ghost` variants of `Button`/`IconButton` (no fill, so no base to sink onto)
+    and `Surface`'s reduced-motion branch. Don't add a fourth to make something "feel softer".
+    A caller with a real fill should also draw a base (`Button.tsx`'s `keyBase`) so the cap has
+    something to meet; a fill-less row or chip sinks against the surface behind it.
+    Note `style` moves to the wrapper on the keyBase path.
+    **The bob had a second, separate cause**, fixed in the same pass: RN only defers
+    `onPressOut` past `onPress` for taps under 130ms, so on a slower tap the release read a
+    stale `sunk`, animated the cap UP, and the effect animated it back down. The release reads
+    `sunkRef` a tick later now. Pinned by `lib/__tests__/chromeRhythm.test.ts`.
 - **One rhythm — the 2026-08-08 spacing pass** (`SCREEN_GAP` in `constants/theme.ts`, pinned by
   `lib/__tests__/screenRhythm.test.ts`). From a user report on the To-do and Habits tabs:
   *"the spacing between different elements, and the structure — it's not clear how things are
@@ -287,19 +313,83 @@ file owns which token.)
     This is the one trap the `gap` approach introduces, and it is invisible on a screen where
     the filter happens to be showing.
   - **With every gap equal, grouping is what carries relatedness** — see `DESIGN_RULES.md`
-    rule 3a. `components/SubScreenLinkButton.tsx` is the worked example: it exported one
+    rule 3a. The worked example was `SubScreenLinkButton`: it exported one
     badge-and-no-chevron CARD per destination, so To-do ended with three same-sized white
     cards in a row of which the first was a section of the screen and the other two were doors
-    out of it. It is now `SubScreenLinkRow` (icon + label + **chevron**, no border of its own)
-    plus a `SubScreenLinkCard` that groups several. Habits had hand-rolled that exact row in
-    2026-08-06; it mounts the shared one now, so the two screens draw one control instead of
-    two lookalikes that had drifted apart. `domain`/`CardAccentBadge` are gone from it — both
-    To-do links were `domain="task"`, so the badge drew the identical plate twice.
+    out of it. That pass made it a small chevron ROW instead. **Superseded 2026-08-10 — see
+    "One card for every sub-screen link" below; that component is deleted.**
   - Two smaller things in the same pass, both visible in the report's screenshots: a collapsed
     `CollapsedSection` had ~24px of blank card under its header rule (its `paddingBottom` is
     open-state-dependent now), and Habits' "No habits yet" line was a full `<Surface>` inside
     the Habits card — a card-in-card at the same rung — and is now the quiet inset line
     `app/(tabs)/plans.tsx` has always used for an empty section.
+- **One chrome edge — the 2026-08-10 clipping pass** (`components/ScreenScaffold.tsx`, pinned by
+  `lib/__tests__/chromeRhythm.test.ts`). Maintainer: *"Nothing should be visible (cards, text,
+  buttons and so on) above the header, or under the bottom nav"*, and fix the strips above and
+  below the same way as the bar's corners.
+  - **The header and the nav still float; the CONTENT is clipped.** The scroll box is a
+    `styles.viewport` with `overflow: 'hidden'`, inset by the chrome (`viewportInset`) — top by
+    the header plus any sticky bar, bottom by the nav's full painted footprint. It used to be
+    `contentContainerStyle` padding on a full-bleed ScrollView, so content merely STARTED below
+    the header and then scrolled behind it, leaking through six separate transparent gaps: the
+    8px side margins beside both bars, the header seam, all eight `Radius.lg` corner notches,
+    the status-bar strip, and `NAV_PEEK`. **Put the clearance on the wrapper's margin, never
+    back on the content's padding** — both at once double-counts it and every screen grows a
+    blank band.
+  - **`NAV_PEEK` is deleted.** It shaved `Radius.lg` off the bottom reserve so a scrolled card
+    peeked into the bar's rounded corners — added 2026-07-26 on the *opposite* request ("let a
+    scrolled card show through the corners"). This is a reversal, not drift. Don't reintroduce
+    a peek constant; the clip would swallow it anyway.
+  - **`topInset` has to agree with itself.** `SafeAreaView` pads a listed edge with the RAW
+    `insets.top` while the header block floors it with `StatusBar.currentHeight`; on Android
+    those disagree until the first insets dispatch. `'top'` is off `safeAreaEdges` and applied
+    by hand now, or the viewport's top edge sits above the header's bottom edge and content
+    renders in the difference.
+  - Both absolute chrome blocks are `pointerEvents="box-none"` — they are full-width
+    zIndex 99/100 views whose margins are transparent, and without it those strips swallowed
+    every tap aimed at the content under them.
+  - **The header and a sticky tab bar are ONE card.** `headerFloatBottom` goes to 0 when a
+    screen passes `stickyBelowHeader`; the header squares its bottom corners
+    (`headerAttachedBelow`) and `TabSlider`'s `attachedTop` squares its top ones and drops its
+    top border. That 8px seam was transparent, so scrolled content flickered through it.
+    `TAB_SLIDER_HEIGHT` is exported from `components/TabSlider.tsx` and is the ONLY source of
+    that number — it was hand-copied four times (46, 46, 48, 56) against a real 46, and every
+    surplus px becomes leftover space a caller's `justifyContent: 'center'` splits around the
+    pill. The segment is 34 (was 38) for the "slightly slimmer" request; that widens
+    `DESIGN_RULES.md` open conflict #6 rather than adding a new exception.
+  - **The bottom nav's pill has five slots, not four.** Home used to have none: selecting it
+    slid the pill to the centre button's x, faded it out and unmounted it, which read as the
+    indicator "just disappearing". It now morphs `width`/`height`/`borderRadius` into a circle
+    grown `PILL_GROW_X` beyond the 56px FAB, so an `accentSoft` ring frames Home the way the
+    rounded rect frames a side tab. No opacity, no mount/unmount. The centre button also gained
+    `sunk={active}` (it took `travel` but never rested down), and the pill is offset by
+    `Travel.*` because it only ever sits under a tab that is itself sunk.
+- **One card for every sub-screen link** (`components/CollapsedSection.tsx`, 2026-08-10).
+  Maintainer: *"Goals and Previous days should be like the 'Whenever' card with expandability,
+  and pressing the name gives you a pop-up. This is to stay consistent across app."*
+  - **Expanding shows a preview; pressing the NAME opens the destination.** Two tap targets on
+    one section header, both ≥ `MIN_TAP_TARGET` — a deliberate, instructed exception to
+    `DESIGN_RULES.md` rule 4, and a narrow one (the same idea at two depths, not two unrelated
+    controls). `SectionRail`'s `onLabelPress` is what makes the naming cluster its own target.
+  - **It ended THREE shapes for one job.** `SubScreenLinkCard` (To-do's Goals + Earlier days),
+    `SubScreenLinkRow` (Habits' Goals, a bare row inside the Habits card) and a hand-rolled
+    two-tile row on Shopping (Food + Catalogue). `components/SubScreenLinkButton.tsx` is
+    **deleted** — don't look for it. `CollapsedSection` itself was lifted out of
+    `app/(tabs)/plans.tsx`, where it was a local component used only for Whenever; Whenever
+    passes no `onTitlePress` and renders exactly as before.
+  - **A pop-up where one is cheap, a push where it isn't.** Goals opens the existing
+    `GoalsSheet`; Earlier days opens the new `components/DayPickerSheet.tsx` (a list of recent
+    days → `/day-log?date=…`). Food and Catalogue keep PUSHING: they are whole library screens
+    with their own adding/editing/filtering, and a pop-up copy would be a second implementation
+    of each to keep in step. The shared part is the card and the preview.
+  - Preview bodies are `components/GoalsPreviewList.tsx` and
+    `components/SubScreenPreviewList.tsx` (first N names + an "and N more" row). Both are
+    read-only and carry **no counts** on the drawer header: a tally of goals reads as a score
+    and a tally of past days is meaningless.
+  - **This reversed the 2026-08-06 "Goals is a plain row inside the Habits card" decision**,
+    which was itself a reaction to a link CARD. What was wrong with that card was that it spent
+    a card on a row's worth of information and could only be *followed*; a drawer earns its card
+    by showing what is behind it. Read `app/(tabs)/habits.tsx`'s note before moving it back in.
 - **One card design — the 2026-08-05 reset** (`components/Surface.tsx` + `lib/screenColor.ts` +
   `computeBorderRamp`/`computeBorderTone`/`BORDER_WIDTH` in `constants/theme.ts`). The
   maintainer's brief was "I've been messing around too much with the visuals. One simple design
@@ -621,9 +711,9 @@ file owns which token.)
   **The Home card was dropped again one day later (2026-07-29, user report: Home had too
   many lists)** — `components/HomeGoalsCard.tsx` is deleted, `'goals'` came out of
   `HOME_CARD_KINDS`/`homeCardOrder` (`app/(tabs)/index.tsx`, `store/useSettingsStore.ts`),
-  and the screen's two entry points are now a `components/SubScreenLinkButton.tsx` ("Goals",
-  gated on `featureGoals`) on `app/(tabs)/habits.tsx` and `app/(tabs)/plans.tsx` — the same
-  button-launched-sub-screen pattern as Shopping's Food/Catalogue links. The screen itself
+  and the screen's two entry points are now a `components/CollapsedSection.tsx` drawer
+  ("Goals", gated on `featureGoals`) on `app/(tabs)/habits.tsx` and `app/(tabs)/plans.tsx` —
+  the same shape as Shopping's Food/Catalogue links, and as Whenever above them. The screen itself
   (`app/goals.tsx`), the strength mechanic, and the per-item `GoalPicker` in `TaskCard`/
   `habit-form.tsx` are all unchanged — only Home's standing presence went away.
 - **The decorative motif system** (2026-07-31, `constants/motifs.ts` + `components/Motif.tsx`,

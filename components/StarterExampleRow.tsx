@@ -1,8 +1,9 @@
 /**
- * StarterExampleRow.tsx — a single "preview row" shown while a list is empty, styled to read
- * as an actual row from that list — leading icon + title + trailing meta pill — rather than a
- * sentence describing one. Optionally carries a real "+" add button (`onAdd`) so the example
- * is an actual opt-in try-it, not just an illustration.
+ * StarterExampleRow.tsx — a single "preview row" shown while a list is empty: the SHAPE of a row
+ * from that list (leading icon + title + trailing meta pill) drawn as a **provisional sketch**,
+ * so it reads as a suggestion rather than as something already in the list. Optionally carries a
+ * real "+" add button (`onAdd`) so the example is an actual opt-in try-it, not just an
+ * illustration.
  *
  * Connections:
  *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
@@ -20,13 +21,25 @@
  *             real store
  *
  * Edit notes:
- *   - **Styled as a real list row (2026-07-27, user report: the suggested-add row should be
- *     "designed the same as other rows in app")**: the fill is the same `rgba(accent, 0.05)`
- *     wash and the border the same `rgba(accent, 0.2)` that components/PlanTaskCard's
- *     `rowCard` uses for a live task, at the same padding — not the old neutral
- *     `surfaceMuted`/`theme.border` plate, which read as a callout box about a row instead of
- *     a row. `accent` therefore has to be the surrounding list's own domain accent; passing an
- *     arbitrary hue makes the suggestion look like it belongs to a different list.
+ *   - **⚠️ REVERSED 2026-08-10 — this row is deliberately NOT a real row any more.** User
+ *     report: "Examples are not visible examples, they look like a part of the card or an
+ *     active task, not as a temporary thing."
+ *     The previous rule (2026-07-27, from the opposite report — "designed the same as other
+ *     rows in app") made the fill the same `rgba(accent, 0.05)` wash and the border the same
+ *     `rgba(accent, 0.2)` that components/PlanTaskCard's `rowCard` uses for a LIVE task, at the
+ *     same padding, with a full-strength `theme.text` semibold title. That succeeded completely:
+ *     it became indistinguishable from a real row, and the only thing left saying otherwise was
+ *     a 10px "Example" pill competing for width with the title at 360px.
+ *     What it is now — every channel says provisional, and none of them says "content":
+ *       • **dashed** border in neutral `theme.border` (the same `borderStyle: 'dashed'` treatment
+ *         PlanTaskCard's own ghost add-row already uses for "this isn't here yet")
+ *       • **no fill** — transparent, so it never reads as a filled row on the card
+ *       • title in `theme.textMuted`, **italic** — matching StarterCard's own explainer voice
+ *       • icon ring in `theme.border`, not the accent
+ *     `accent` survives for exactly two things: the "+" button (a real action, in the app's one
+ *     action colour) and the tag chip's edge, so the suggestion still points at its own list.
+ *     **Don't "restore" the real-row styling by citing the 2026-07-27 note** — that note is
+ *     kept above precisely so the reversal is legible as a decision, not as drift.
  *   - **(2026-07-31, addendum A.4 rule 1) `accent` is a FILL/EDGE colour here, never ink.** The
  *     leading glyph and the "example" tag word used to be drawn in it; both are `textMuted`
  *     now, and the "+" is `theme.accent` (it is an action, and the app has one action colour).
@@ -98,11 +111,13 @@ type Props = {
 
 export default function StarterExampleRow({ icon, title, tag, meta, metaVariant = 'neutral', accent, onAdd, addLabel, added }: Props) {
   const theme = useAppTheme();
+  // Dashed + unfilled + neutral: a sketch of a row, not a row. See the 2026-08-10 reversal in
+  // the Edit notes before making any of this look "finished" again.
   return (
-    <View style={[styles.row, { backgroundColor: rgba(accent, 0.05), borderColor: rgba(accent, 0.2) }, added && styles.rowAdded]}>
-      {/* A.4 rule 1: the hue is the row's wash + edges (a fill channel). The glyph and the
-          "example" word are neutral ink — see the header note. */}
-      <View style={[styles.iconWrap, { borderColor: accent }]}>
+    <View style={[styles.row, { borderColor: theme.border }, added && styles.rowAdded]}>
+      {/* A.4 rule 1: the glyph and the "example" word are neutral ink. The ring is neutral too
+          now — the accent survives only on the tag's edge and the "+" (a real action). */}
+      <View style={[styles.iconWrap, { borderColor: theme.border }]}>
         <Ionicons name={icon} size={13} color={theme.textMuted} />
       </View>
       {tag ? (
@@ -110,7 +125,7 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
           <Text style={[styles.tagText, { color: theme.textMuted }]} numberOfLines={1}>{tag}</Text>
         </View>
       ) : null}
-      <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+      <Text style={[styles.title, { color: theme.textMuted }]} numberOfLines={1}>
         {title}
       </Text>
       {meta ? <Badge label={meta} variant={metaVariant} /> : null}
@@ -135,12 +150,16 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
 }
 
 const styles = StyleSheet.create({
-  // Geometry + padding deliberately mirror PlanTaskCard's `rowCard` — see the Edit notes.
+  // Geometry + padding still mirror PlanTaskCard's `rowCard` — the example has to be the same
+  // SHAPE as the thing it's an example of, or it stops teaching anything. What changed
+  // 2026-08-10 is the finish: `dashed` and no `backgroundColor`, so the shape reads as an
+  // outline waiting to be filled rather than as a row that already exists.
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     borderWidth: 1,
+    borderStyle: 'dashed',
     borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
@@ -165,6 +184,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
+    // Italic, and drawn in textMuted at the call site — the same voice StarterCard's explainer
+    // text uses, which is what ties the example to the teaching card rather than to the list.
+    fontStyle: 'italic',
   },
   // The "Example" marker (2026-07-30) — a small outlined chip that replaced the full-width
   // uppercase caption line above these rows. flexShrink:0 keeps it whole; the title shrinks

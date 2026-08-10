@@ -58,12 +58,13 @@
  *             the timeline; the hook owns the ONE contextual permission prompt — take
  *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
  *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
- *             components/SubScreenLinkButton (its default `SubScreenLinkCard` export — ONE card
- *             holding the "Edit Goals" (2026-07-29, Goals dropped its own Home card; see
- *             app/goals.tsx's header) and "Earlier days" rows. Two separate badge-and-no-chevron
- *             link CARDS until 2026-08-08, which stacked flush under the Whenever drawer and
- *             read as two more sections of this screen), components/GoalsSheet (2026-07-31,
- *             the popup that link opens)
+ *             components/CollapsedSection (the shared drawer — Whenever, plus "Edit Goals"
+ *             (2026-07-29, Goals dropped its own Home card; see app/goals.tsx's header) and
+ *             "Earlier days", both of which became drawers on 2026-08-10; they were two
+ *             floating link cards, then rows in one `SubScreenLinkButton` card, and that
+ *             component is now deleted), components/GoalsPreviewList + components/GoalsSheet
+ *             (the Goals drawer's body and the popup its title opens),
+ *             components/DayPickerSheet (`RecentDaysList` body + the pop-up its title opens)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
@@ -103,7 +104,7 @@
  *     "order by what's needed first")**: on **Today** and **This week** the undated backlog used
  *     to render FIRST, above the tab's own content — the least time-sensitive section holding the
  *     highest-priority slot on a tab literally called Today. It now renders LAST (before the
- *     Goals link) as a `<CollapsedSection>` drawer, default closed, header + count still visible.
+ *     Goals drawer) as a `<CollapsedSection>` drawer, default closed, header + count still visible.
  *     Three things to keep intact if you touch this: (1) **All tasks is deliberately unchanged** —
  *     Whenever stays expanded at the top there, where it is a real section of the content rather
  *     than an interruption; (2) "One thing at a time" (`focusFirst`) still drops the section from
@@ -221,13 +222,14 @@ import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
-import Surface from '@/components/Surface';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import TabSlider from '@/components/TabSlider';
+import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
+import CollapsedSection from '@/components/CollapsedSection';
+import GoalsPreviewList from '@/components/GoalsPreviewList';
+import DayPickerSheet, { RecentDaysList } from '@/components/DayPickerSheet';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import SubScreenLinkCard from '@/components/SubScreenLinkButton';
 import GoalsSheet from '@/components/GoalsSheet';
 import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
@@ -378,71 +380,6 @@ function DoneSplitList({
         </View>
       )}
     </>
-  );
-}
-
-/**
- * A section drawn as a DRAWER: its `<SectionRail>` header (hue badge + label + count) stays
- * visible and its body collapses behind a chevron, default closed.
- *
- * Mechanism is deliberately the same one `DoneSplitList`'s "Done (n)" zone uses —
- * `PressableScale` + `SectionRail` + `AnimatedChevron` + `components/Collapsible` — so the two
- * read as the same kind of drawer rather than two different ways of folding a list away. The
- * only difference is the shell: this one keeps `Surface`'s hue-edged card (matching the
- * `<SectionCard>` sections it sits among) instead of the Done zone's inner frame, because it is
- * a top-level section of the screen, not a zone inside one.
- *
- * Used for **Whenever** on the Today / This week tabs (2026-08-01, DESIGN_RULES.md rule 7): the
- * undated backlog is by definition the least time-sensitive thing on a tab called "Today", so it
- * moved below the day's own list — and once it is below, a drawer keeps its count in reach
- * without the section spending a screenful on rows nobody came here for. The All-tasks tab keeps
- * Whenever expanded at the top, where it is a real section of the content.
- */
-function CollapsedSection({
-  hue,
-  domain,
-  label,
-  count,
-  children,
-}: {
-  hue: string;
-  domain?: React.ComponentProps<typeof SectionRail>['domain'];
-  label: string;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  const theme = useAppTheme();
-  const [open, setOpen] = useState(false);
-  return (
-    // No `borderColor` — same reasoning as components/SectionCard.tsx: the card edge is the
-    // screen's one hue now, and `hue` stops at the rail header (2026-08-05). A collapsed section
-    // and an open one have to wear the same border, or folding one would change its colour.
-    <Surface style={[styles.collapsedSection, open ? styles.collapsedSectionOpen : styles.collapsedSectionClosed]}>
-      <PressableScale
-        onPress={() => { tap(); setOpen((v) => !v); }}
-        scaleTo={0.97}
-        releaseSpring={Spring.calm}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ expanded: open }}
-      >
-        <SectionRail
-          hue={hue}
-          domain={domain}
-          label={label}
-          count={count}
-          right={<AnimatedChevron open={open} size={16} color={theme.textMuted} />}
-        />
-      </PressableScale>
-      {/* No gap between the header and the clip — SectionRail carries its own marginBottom, and
-          a gap would leave a phantom blank strip while collapsed (same reason styles.doneZone
-          has none). The card's own bottom padding is switched on `open` for the same reason:
-          collapsed, the body clips to 0 and a full Spacing.md under the header rule reads as an
-          empty card rather than a folded one. */}
-      <Collapsible open={open}>
-        <View style={styles.cardStack}>{children}</View>
-      </Collapsible>
-    </Surface>
   );
 }
 
@@ -630,12 +567,13 @@ function FocusFirstToday({
   );
 }
 
-// Must equal TabSlider's own natural content height (border 1×2 + TRACK_PAD 3×2 + segment
-// minHeight 38 = 46) — any surplus here becomes leftover space that `stickyBar`'s
-// justifyContent:'center' splits top/bottom only, making the blue pill's vertical inset
-// bigger than its horizontal inset (visual bug fixed 2026-07-24: was 56, a 10px surplus,
-// giving 9px top/bottom vs 4px left/right around the pill instead of equal insets).
-const STICKY_HEIGHT = 46;
+// The reserved sticky-bar height comes FROM TabSlider now (2026-08-10) — it was a hand-copied
+// 46 here, another in shopping.tsx, and two more (48, 56) in settings.tsx and the design lab.
+// Any surplus becomes leftover space that `stickyBar`'s justifyContent:'center' splits
+// top/bottom only, making the blue pill's vertical inset bigger than its horizontal one
+// (visual bug fixed 2026-07-24: this was 56, a 10px surplus). Four copies of a number that
+// must equal a fifth is how that happens, so there is one number now — don't restate it.
+const STICKY_HEIGHT = TAB_SLIDER_HEIGHT;
 
 export default function TasksScreen() {
   const router = useRouter();
@@ -681,6 +619,7 @@ export default function TasksScreen() {
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
+  const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
@@ -1181,6 +1120,7 @@ export default function TasksScreen() {
     // card + TabSlider's own box + the sliding pill) that read as nested boxes. TabSlider
     // now floats directly, styled with the same side margins as ScreenHeader's own card.
     <TabSlider
+      attachedTop
       value={tab}
       onChange={setTab}
       options={(['today', 'week', 'all'] as Tab[]).map((tabOption) => ({
@@ -1584,32 +1524,52 @@ export default function TasksScreen() {
           </>
         )}
 
-        {/* Where else this screen goes — ONE card, two rows (2026-08-08). These were two
-            separate full-width `SubScreenLinkButton` cards with gradient badges and no
-            chevrons, stacked flush under the Whenever drawer with nothing between them: three
-            same-sized white cards in a row, of which the first was a section of this screen
-            and the other two were doors out of it, with nothing saying which was which.
-            Grouping them into one card is what says "these are the same kind of thing", and
-            the chevron on each row is what says they navigate.
+        {/* Where else this screen goes — one DRAWER each, the same shape as Whenever above
+            (2026-08-10, maintainer: "Goals and Previous days should be like the 'Whenever' card
+            with expandability, and pressing the name gives you a pop-up. This is to stay
+            consistent across app"). Expanding shows what's behind the door; pressing the name
+            opens it. See components/CollapsedSection.tsx for why a section header carries two
+            tap targets here.
+
+            History worth keeping, because this is the second reshaping of the same two links:
+            they were two separate full-width `SubScreenLinkButton` cards with gradient badges
+            and no chevrons, which read as three same-sized white cards of which the first was a
+            section of this screen and the other two were doors out of it. 2026-08-08 grouped
+            them into one card of small chevron ROWS to make them visibly not-sections. That
+            fixed the confusion and introduced the opposite problem — a link that can only be
+            followed, never glanced at. A drawer is both, so `SubScreenLinkButton` is deleted.
 
             Edit Goals (2026-07-29, moved to the bottom + renamed + popup 2026-07-31) — Goals
             dropped its own Home card (too many lists on Home); this is one of its two entry
             points, alongside Habits, and it opens GoalsSheet as a popup rather than pushing to
             /goals so editing goals doesn't leave this tab. Earlier days (2026-08-02) — the day
-            log itself lives in the card above; this is only the way back through previous days.
-            Each is gated on its own feature flag, so turning one off removes its row rather
-            than leaving a door to an empty room — and turning BOTH off removes the card
-            (SubScreenLinkCard renders null on an empty list). */}
-        <SubScreenLinkCard
-          links={[
-            ...(featureGoals
-              ? [{ icon: 'flag' as const, label: t.goals.editLink, onPress: () => setGoalsSheetOpen(true) }]
-              : []),
-            ...(featureDayLog
-              ? [{ icon: 'time-outline' as const, label: t.dayLog.earlierDays, onPress: () => router.push('/day-log') }]
-              : []),
-          ]}
-        />
+            log itself lives in the card above; this is only the way back through previous days,
+            and its pop-up is components/DayPickerSheet.tsx. Each is gated on its own feature
+            flag, so turning one off removes its drawer rather than leaving a door to an empty
+            room. Neither carries a `count`: a tally of goals reads as a score, and a tally of
+            past days is meaningless. */}
+        {featureGoals && (
+          <CollapsedSection
+            hue={wheneverHue}
+            domain="task"
+            icon="flag"
+            label={t.goals.editLink}
+            onTitlePress={() => { tap(); setGoalsSheetOpen(true); }}
+          >
+            <GoalsPreviewList accent={wheneverHue} onOpen={() => setGoalsSheetOpen(true)} />
+          </CollapsedSection>
+        )}
+        {featureDayLog && (
+          <CollapsedSection
+            hue={wheneverHue}
+            domain="task"
+            icon="time-outline"
+            label={t.dayLog.earlierDays}
+            onTitlePress={() => { tap(); setDayPickerOpen(true); }}
+          >
+            <RecentDaysList accent={wheneverHue} />
+          </CollapsedSection>
+        )}
       </View>
       <LayoutPickerSheet
         visible={layoutPickerOpen}
@@ -1617,6 +1577,7 @@ export default function TasksScreen() {
         onClose={() => setLayoutPickerOpen(false)}
       />
       <GoalsSheet visible={goalsSheetOpen} onClose={() => setGoalsSheetOpen(false)} />
+      <DayPickerSheet visible={dayPickerOpen} onClose={() => setDayPickerOpen(false)} accent={wheneverHue} />
     </ScreenScaffold>
   );
 }
@@ -1681,23 +1642,6 @@ const styles = StyleSheet.create({
   // outer clip wrapper stays mounted at 0 height). Collapsible's own reveal already resizes
   // this View smoothly — no extra layout-animation needed here.
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
-  // CollapsedSection's shell — deliberately the same box SectionCard draws (padding routed
-  // inward by Surface), so a drawer section sits in the same rhythm as the expanded sections
-  // above it and only the chevron marks it apart. No vertical margin: the screen's content
-  // container owns the gap (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`,
-  // which stacked on top of PlanTaskCard's own `marginBottom: Spacing.sm` for a 40px gap
-  // directly above two link cards separated by nothing at all.
-  collapsedSection: {
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-  },
-  // Bottom padding is CLOSED-state-dependent (2026-08-08). Collapsed, the body clips to 0 and
-  // the card's own `paddingBottom: Spacing.md` plus SectionRail's `marginBottom: Spacing.sm`
-  // left ~24px of blank card under the header rule — an empty white void that read as a
-  // section that had failed to load rather than one that was folded shut.
-  collapsedSectionOpen: { paddingBottom: Spacing.md },
-  collapsedSectionClosed: { paddingBottom: Spacing.xs },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
   personChip: { borderRadius: Radius.full, borderWidth: 1, paddingVertical: 6, paddingHorizontal: Spacing.md, minHeight: 34, justifyContent: 'center' },
   personChipText: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },

@@ -58,13 +58,22 @@ design, not the rule.
    With every gap equal, a difference in spacing carries no information, so the card boundary
    has to carry it instead. Worked example: the To-do tab's "Goals" and "Earlier days" were
    two separate full-width cards indistinguishable from the content section above them, and
-   are now two rows in one card (`components/SubScreenLinkButton.tsx`).
+   were two rows in one card (`SubScreenLinkButton`), and since 2026-08-10 are one
+   `components/CollapsedSection.tsx` drawer each — the app's single shape for "a surface this
+   screen leads to", shared with Habits' Goals and Shopping's Food/Catalogue. The grouping
+   point stands either way: what says "these are not sections of this screen" is that they are
+   a different KIND of card, not that they sit further apart.
    **A closed `Collapsible` still books a gap slot** — it stays mounted at zero height — so
    an always-mounted, sometimes-empty child must be grouped or conditionally rendered, or it
    pays for a gap it does not use.
 4. **One idea per row.** Never place two unrelated controls on the same
    horizontal line. The row anatomy that implements this is `components/PadRow.tsx`
    (see AGENTS.md "The row rule").
+   *(One instructed exception, 2026-08-10: `components/CollapsedSection.tsx`'s header carries
+   both a name that opens the surface and a chevron that expands a preview of it. They are the
+   same idea at two depths — look at it here / go to it — not two unrelated controls, and both
+   are ≥ `MIN_TAP_TARGET`. Don't generalise it into "section headers can carry a second
+   control".)*
 5. ~~**Whitespace over lines.**~~ **OVERRULED 2026-08-05 — borders are now the
    grouping signal.** The maintainer's card-design reset says the opposite of this
    rule, in as many words: *"Borders around cards, buttons, text-boxes, options and
@@ -194,6 +203,16 @@ design, not the rule.
     interface's voice — never a vague apology. The implementation of this is
     `components/StarterCard.tsx` + `StarterExampleRow.tsx` — an explainer plus one
     concrete example row, gone once the user has their own.
+25a. **An example must not be mistakable for content.** The example row is drawn as a
+    provisional sketch — dashed neutral border, no fill, muted italic title — plus its
+    "Example" chip; only its "+" carries the accent, because that is a real action.
+    *(Reversed 2026-08-10, from the report "Examples are not visible examples, they look
+    like a part of the card or an active task, not as a temporary thing." The previous
+    rule, from the opposite report on 2026-07-27, was that the suggestion should be
+    "designed the same as other rows in app" — it copied a live row's wash, border, padding
+    and full-strength title, and succeeded so completely that a one-word chip was the only
+    thing left distinguishing it. Read `components/StarterExampleRow.tsx`'s Edit notes
+    before restoring any of it.)*
 
 ---
 
@@ -211,7 +230,7 @@ one of these in passing.
 | 3 | Rule 14 — max 3 type sizes | Three coexisting systems: `FontSize` (7 steps), the `Type` role map (8 roles), and `HEADER_TITLE_BASE_SIZE`. The `FontSize`→`Type` migration is deliberate and unfinished. | `constants/theme.ts` |
 | 4 | Rule 16 — max 2 font weights | 5 weights defined, 4 in real use (semibold 168×, bold 140×, medium 42×, regular 21×). | `constants/theme.ts` `Fonts` |
 | 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
-| 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
+| 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. **`TabSlider`'s segment joined them at 34 on 2026-08-10** ("the tab slider should be slightly vertically slimmer"), which is the smallest of the four — the sticky tab row is a full-width 3-segment control, so each target is ~100px wide and the height is the only axis under pressure. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
 | 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **Half resolved 2026-08-05.** The rule-5 half is settled: the notepad rules are DELETED and rule 5 itself is overruled — every row is its own bordered box now (see rule 5's own entry above). The rule-9 half stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
 

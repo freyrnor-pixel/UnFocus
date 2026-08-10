@@ -22,10 +22,11 @@
  *             components/PressableScale, expo-linear-gradient
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, app/health-log,
- *             app/health-detail, app/scan. **components/SubScreenLinkButton left this list on
- *             2026-08-08**: it is a card of tappable ROWS now, not one tappable card, so the
- *             press lives on each row's PressableScale. Shopping's Food/Catalogue links draw
- *             their own `<Surface>` inside a PressableScale and never used this path either.
+ *             app/health-detail, app/scan. **components/CollapsedSection doesn't use this
+ *             path**: it is a card whose HEADER is tappable, not one tappable card, so the
+ *             press lives on the header's own PressableScale. (Its predecessor
+ *             SubScreenLinkButton left this list on 2026-08-08 for the same reason, and was
+ *             deleted on 2026-08-10.)
  *   Data    → reads `reducedMotion` via useAccessibility(); the ambient screen hue via
  *             useScreenColor() (provided by components/ScreenScaffold.tsx)
  *
@@ -296,8 +297,11 @@ export default function Surface({
           accessibilityRole={accessibilityRole}
           accessibilityLabel={accessibilityLabel}
           // Reduced motion: no travel at all. The static pressed fill above and the base's own
-          // edge carry the feedback instead.
-          travel={reducedMotion ? undefined : Travel.md}
+          // edge carry the feedback instead. Since key mode became PressableScale's default
+          // (2026-08-10), withholding `travel` is no longer how you say "don't move" — scale
+          // mode is, and it self-disables under reduced motion.
+          press={reducedMotion ? 'scale' : 'key'}
+          travel={Travel.md}
           onPressIn={reducedMotion ? () => setHeldFlat(true) : undefined}
           onPressOut={reducedMotion ? () => setHeldFlat(false) : undefined}
           style={[capStretches ? styles.capStretch : null, { opacity: disabled ? 0.45 : 1 }]}

@@ -40,10 +40,10 @@
  *             screen" rule with anything since 2026-08-06 v2 — see below),
  *             components/PressableScale (the suggested-habits collapse/expand control lives in
  *             components/StarterCard now, not here),
- *             components/SubScreenLinkButton (its named `SubScreenLinkRow` export — the "Edit
- *             Goals" row; this screen hand-rolled that row until 2026-08-08, when the row was
- *             promoted into the shared component so To-do's identical link could stop being a
- *             card and become the same control — see that file's header),
+ *             components/CollapsedSection + components/GoalsPreviewList (the "Edit Goals"
+ *             drawer — the same shape To-do draws; this link has been a card, then a
+ *             hand-rolled row, then a shared `SubScreenLinkRow`, and is a drawer as of
+ *             2026-08-10, see the note below),
  *             components/GoalsSheet (2026-07-31, the popup that
  *             link opens — also
  *             where a habit's linked goal shows its living-glow dot as of 2026-08-06, not on
@@ -92,12 +92,11 @@
  *     1. **Sub-header now actually reads as one.** It was small, muted, medium-weight text —
  *        visually identical to any other line of body copy. Now bold + full-contrast
  *        (`theme.text`) with its own breathing room.
- *     2. **"Edit Goals" is a plain row inside this card, not a bordered card of its own.**
- *        components/SubScreenLinkButton drew its own `<Surface>` back then, so moving its JSX
- *        around in the first pass never stopped it looking like a second small card below the
- *        Habits card — the fix had to be the SHAPE, not the position. (2026-08-08: that shape
- *        IS the component now — `SubScreenLinkRow` — and this screen mounts it rather than
- *        keeping a private copy.) See the "Edit Goals row" note below.
+ *     2. **(Superseded 2026-08-10.)** "Edit Goals" was moved INSIDE this card as a plain row,
+ *        because components/SubScreenLinkButton drew its own `<Surface>` and so read as a
+ *        second small card below the Habits card wherever its JSX sat — the fix had to be the
+ *        SHAPE, not the position. It is a `<CollapsedSection>` drawer at screen level now; see
+ *        the "Edit Goals" note below for why that is not a return to the thing this rejected.
  *     3. **The idle "Type habit" line no longer shows a ghost check ring** (`noGhostCheck` on
  *        PadTypeRow) — every habit row ends in a −/+ pair, never a check, so the ring used to
  *        preview a control that could never appear. The field widens into the freed space for
@@ -136,25 +135,23 @@
  *     confirm-before-delete dialog is gone with it — same "undo, not confirm" call already
  *     made for tasks.
  *   - **Edit Goals row (2026-07-29, moved + renamed + popup 2026-07-31; INLINED 2026-08-06)**:
- *     sits at the BOTTOM of the Habits card's own content, below the habit list and quick-add
- *     — moved off its original spot right under HintCard so it stops outranking the day's
- *     habits on every visit. **It is a plain row, not a card** — components/SubScreenLinkButton
- *     drew its own bordered `<Surface>` in 2026-08-06, so it always read as a second small
- *     card floating below the Habits card no matter where its JSX sat; a user report ("still
- *     looks the same" after this file's first redesign pass moved the JSX but not the
- *     component) is what caught that the fix had to be the shape, not the position. **Since
- *     2026-08-08 the row is that component's `SubScreenLinkRow` export rather than a copy of
- *     it here** — the same pass gave To-do's version the same shape, so the two screens now
- *     draw one control instead of two lookalikes that had drifted apart (To-do's had a
- *     gradient badge and no chevron). Gated on
- *     `featureGoals` — one of Goals' two entry points now that it no longer has its own Home
- *     card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as a popup (was
- *     `router.push('/goals')`) so editing goals doesn't leave this tab; the `/goals` route
- *     itself is unchanged and still reachable directly (deep links, notes' "Send it to…").
- *     app/(tabs)/plans.tsx's identical link WAS left as a card by this pass ("scoped to Habits
- *     only; if Plans gets the same feedback, mirror it there too") — and it got exactly that
- *     feedback, so 2026-08-08 mirrored it: Plans wraps two `SubScreenLinkRow`s in one
- *     `SubScreenLinkCard` instead of two floating link cards.
+ *     sits BELOW the Habits card, at the foot of the screen — after the habit list and
+ *     quick-add, so it never outranks the day's habits. **It is a `<CollapsedSection>` drawer
+ *     as of 2026-08-10** (components/CollapsedSection.tsx), the app's one shape for "a surface
+ *     this screen leads to", shared with To-do's Goals + Earlier days and Shopping's Food +
+ *     Catalogue. Expanding previews the goals; pressing the name opens the popup.
+ *     **Why this is not a return to the card that was rejected.** The history: a
+ *     `SubScreenLinkButton` card (2026-08-06) → a plain row inside the Habits card, because a
+ *     bordered `<Surface>` whose whole content was one link read as a second small card
+ *     floating below this one → the shared `SubScreenLinkRow` (2026-08-08) → this. What was
+ *     wrong with the card was that it spent a card on a row's worth of information and could
+ *     only ever be *followed*; a drawer shows what is behind it, which is what earns the card.
+ *     A row inside the Habits card would now make this screen the odd one out.
+ *     Gated on `featureGoals` — one of Goals' two entry points now that it no longer has its
+ *     own Home card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as a popup
+ *     (was `router.push('/goals')`) so editing goals doesn't leave this tab; the `/goals`
+ *     route itself is unchanged and still reachable directly (deep links, notes' "Send it
+ *     to…").
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
@@ -203,7 +200,8 @@ import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
-import { SubScreenLinkRow } from '@/components/SubScreenLinkButton';
+import CollapsedSection from '@/components/CollapsedSection';
+import GoalsPreviewList from '@/components/GoalsPreviewList';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
@@ -999,24 +997,6 @@ export default function HabitsScreen() {
                   }
                 />
 
-                {/* Edit Goals row (2026-08-06, moved INSIDE the Habits card after user
-                    feedback) — this used to be components/SubScreenLinkButton, which draws
-                    its OWN bordered Surface, so it read as a second small card floating below
-                    the Habits card no matter where its JSX sat — moving it here for the first
-                    redesign pass didn't fix that, because the component itself is a card. It's
-                    a plain row now (icon + label + chevron, no border/shadow of its own), so it
-                    reads as part of THIS card, the way the maintainer asked for ("in the habits
-                    card... saves us from yet another card"). Same popup, same gate
-                    (featureGoals — turning the feature off removes the row, not just the sheet
-                    it opens), same "occasional edit action" reasoning for sitting at the
-                    bottom of the card rather than competing with the day's habits at the top. */}
-                {featureGoals && (
-                  <SubScreenLinkRow
-                    icon="flag"
-                    label={t.goals.editLink}
-                    onPress={() => setGoalsSheetOpen(true)}
-                  />
-                )}
               </View>
             </Surface>
             </DebugNoteAnchor>
@@ -1042,6 +1022,32 @@ export default function HabitsScreen() {
               watermark from the suggested-habits card, which isn't a StarterCard any more —
               see the header's dated note) — back to the original plain gate: nothing to
               stand on until there's at least one habit. */}
+          {/* Goals — the same drawer the To-do tab draws (2026-08-10). Expanding previews the
+              goals; pressing the name opens GoalsSheet. See components/CollapsedSection.tsx.
+
+              This REVERSES the 2026-08-06 placement, and deliberately. That pass moved Goals
+              from a `SubScreenLinkButton` card into a plain row INSIDE the Habits card, on the
+              maintainer's reasoning: "in the habits card... saves us from yet another card".
+              The objection was to a card that could only be *followed* — a bordered Surface
+              whose entire content was one link, which is a card's worth of space for a row's
+              worth of information. A drawer is not that: it earns its card by showing what is
+              behind it, and it is now the app's one shape for "a surface this screen leads to"
+              (To-do's Goals and Earlier days, Shopping's Food and Catalogue). A row inside the
+              Habits card would be the odd one out again, on the very screen the maintainer
+              asked to make consistent. Same popup, same `featureGoals` gate — turning the
+              feature off removes the drawer, not just the sheet it opens. */}
+          {featureGoals && (
+            <CollapsedSection
+              hue={screenHue}
+              domain="habit"
+              icon="flag"
+              label={t.goals.editLink}
+              onTitlePress={() => setGoalsSheetOpen(true)}
+            >
+              <GoalsPreviewList accent={screenHue} onOpen={() => setGoalsSheetOpen(true)} />
+            </CollapsedSection>
+          )}
+
           {profileHabits.length === 0 ? (
             <View style={styles.footSpacer} />
           ) : (

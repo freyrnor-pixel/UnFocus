@@ -779,3 +779,73 @@ Verification: `npx tsc --noEmit` clean; `lib/__tests__/designTokens.test.ts` +
 `npm run preview` — 0 page errors, 0 console errors, all store round-trip assertions true, and
 `preview-shots/11-home.png` confirms the empty rings now read as neutral. Contrast figures above
 were computed directly from the WCAG relative-luminance formula against the shipped tokens.
+
+---
+
+## Addendum — the 2026-08-10 UI-consistency pass (three reversals, recorded)
+
+Eight maintainer reports, all variations on "the app has several shapes for one job". Most were
+straight fixes. **Three reversed a decision this repo had made deliberately**, so they are
+written down here rather than left to look like drift — the earlier reasoning is still in the
+touched files' headers, next to why it no longer wins.
+
+### 1. Content no longer shows through the chrome (`NAV_PEEK` deleted)
+
+**Reversed:** 2026-07-26, *"make the blank area around the bar transparent, and let a scrolled
+card show through the corners"* — implemented as `NAV_PEEK = Radius.lg`, shaving 24px off the
+bottom scroll clearance so the last card's edge rose into the bar's rounded top corners.
+
+**Now:** *"Nothing should be visible (cards, text, buttons and so on) above the header, or under
+the bottom nav."* The floating look is unchanged; the scroll box is clipped
+(`ScreenScaffold`'s `styles.viewport`, `overflow: 'hidden'`) to the band between the header's
+bottom edge and the bar's top edge.
+
+**Why the reversal is safe to make total.** The old approach was six independent numbers — two
+side margins, the header seam, eight corner notches, the status-bar strip, and the peek — each
+able to leak on its own. Two of those strips were never reserved by anything at all: the
+status-bar band relied on `SafeAreaView`'s raw `insets.top` disagreeing with the header block's
+floored one (an Android first-frame gap), and the float gap under the bar had no reserve
+whatsoever. One clip covers all six, and no future value can reintroduce a peek.
+Pinned by `lib/__tests__/chromeRhythm.test.ts`.
+
+### 2. An example row is a sketch again, not a real row (rule 25a)
+
+**Reversed:** 2026-07-27, *"the suggested-add row should be designed the same as other rows in
+app"* — `StarterExampleRow` took `PlanTaskCard.rowCard`'s exact `rgba(accent, 0.05)` wash,
+`rgba(accent, 0.2)` border, padding and full-strength semibold title.
+
+**Now:** *"Examples are not visible examples, they look like a part of the card or an active
+task, not as a temporary thing."* Dashed neutral border, no fill, muted italic title; accent
+survives only on the "+" (a real action) and the "Example" chip's edge.
+
+**What both reports have in common.** The 2026-07-27 change was right about the *geometry* — an
+example has to be the same shape as the thing it is an example of, or it teaches nothing — and
+that is unchanged. It was the *finish* that carried the ambiguity, and by 2026-07-30 the only
+thing distinguishing the two was a 10px chip competing for width with the title at 360px. This
+is now `DESIGN_RULES.md` rule 25a.
+
+### 3. Goals is a card again on Habits (as a drawer)
+
+**Reversed:** 2026-08-06, *"in the habits card... saves us from yet another card"* — Goals moved
+from a `SubScreenLinkButton` card to a plain row inside the Habits card.
+
+**Now:** a `CollapsedSection` drawer at screen level, matching To-do's Goals + Earlier days and
+Shopping's Food + Catalogue.
+
+**Why this isn't a straight undo.** The 2026-08-06 objection was to a bordered `Surface` whose
+entire content was one link — a card's worth of space for a row's worth of information, and a
+control that could only ever be *followed*. A drawer earns its card by showing what is behind
+it. The alternative was leaving Habits as the one screen drawing a different shape, on the very
+pass whose brief was consistency.
+
+### Not reversals, for the record
+
+- **Press feel** (*"Sinks in, pops out, no bob"*) made `PressableScale`'s existing key mode the
+  default instead of an opt-in ~7 call sites used. It also fixed a real bug: RN defers
+  `onPressOut` past `onPress` only for taps under 130ms, so a slower tap released against a
+  stale `sunk` and produced a literal down-up-down.
+- **Rule 4** gained one instructed exception — `CollapsedSection`'s header carries a name that
+  navigates and a chevron that expands. Same idea at two depths, both ≥ `MIN_TAP_TARGET`.
+- **Open conflict #6 widened**, not closed: `TabSlider`'s segment went 38 → 34 for the
+  "slightly slimmer" request, joining `PAD_ROW_HEIGHT` (38), `Button` `sm` (36) and
+  FormControls' 40px rows under the 48px target. Stated rather than quietly absorbed.

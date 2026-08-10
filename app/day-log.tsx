@@ -46,7 +46,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -89,8 +89,16 @@ export default function DayLogScreen() {
   const language = useSettingsStore((s) => s.language);
 
   const today = todayStr();
+  // Optional `?date=YYYY-MM-DD` (2026-08-10) — components/DayPickerSheet.tsx opens a specific
+  // day rather than making you chevron back to it. Validated rather than trusted: anything
+  // unparseable, or a future date, falls through to the default. Purely an entry point; once
+  // here the chevrons work exactly as before.
+  const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   // Opens on yesterday: today already has a home, and this screen is for what's over.
   const [date, setDate] = useState(() => {
+    if (typeof dateParam === 'string' && !Number.isNaN(parseDateStr(dateParam).getTime()) && dateParam <= today) {
+      return dateParam;
+    }
     const d = parseDateStr(today);
     d.setDate(d.getDate() - 1);
     return dateStr(d);

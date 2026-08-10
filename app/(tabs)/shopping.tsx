@@ -5,8 +5,9 @@
  * **Down from four in-place tabs to two, plus buttons (UX audit F1, 2026-07-23)**: Food
  * and Catalogue used to be full sticky-tab peers of Weekly/Monthly, but they're opened
  * far less often — screen-overload candidate the audit flagged. They're now
- * `foodCatalogueLinks`, a small two-button row (pushing `/food` and `/catalogue`) shown
- * above the list content on both remaining tabs, rather than their own tab-bar slots.
+ * `foodCatalogueLinks`, two `components/CollapsedSection.tsx` drawers (pushing `/food` and
+ * `/catalogue`; a small two-button row until 2026-08-10) shown at the foot of the screen
+ * on both remaining tabs, rather than their own tab-bar slots.
  * `components/FoodTab`/`components/CatalogueTab` themselves are unchanged — only where
  * they're mounted moved (see app/food.tsx / app/catalogue.tsx).
  *
@@ -85,9 +86,10 @@
  *     same accent tint, since being the only white control read as a difference in KIND
  *     when it is only a difference in what gets created. **Borders were not removed from
  *     anything** — the 2026-08-05 card reset makes them the grouping signal, so the fix
- *     here is weight, not edges. The Food/Catalogue tiles are navigation, not actions, and
- *     stay out of this hierarchy (see components/SubScreenLinkButton.tsx's header for why
- *     this screen keeps its own inline row).
+ *     here is weight, not edges. The Food/Catalogue links are navigation, not actions, and
+ *     stay out of this hierarchy. They were an inline two-tile row of this screen's own
+ *     making until 2026-08-10, when they became components/CollapsedSection.tsx drawers like
+ *     every other sub-screen link in the app.
  *   - **Card-header declutter pass (2026-07-23)**: several small UI cleanups across both
  *     tabs' list cards. (1) Monthly's "Add dish" trigger (`addTrigger`) now matches the
  *     "Add new item" bar (`InlineAddItem`)'s shape/background/text style — they used to
@@ -395,6 +397,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
+import { useMealStore } from '@/store/useMealStore';
+import { useCatalogStore } from '@/store/useCatalogStore';
 import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
@@ -416,7 +420,6 @@ import SharedRequestsSection from '@/components/SharedRequestsSection';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
-import { CardAccentBadge } from '@/components/CardAccent';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
@@ -435,7 +438,9 @@ import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
-import TabSlider from '@/components/TabSlider';
+import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
+import CollapsedSection from '@/components/CollapsedSection';
+import SubScreenPreviewList from '@/components/SubScreenPreviewList';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
@@ -457,13 +462,11 @@ import { Duration } from '@/constants/motion';
 type Tab = 'weekly' | 'monthly';
 
 // Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
-// row under the tabs was removed 2026-07-21). Must equal TabSlider's own natural content
-// height (border 1×2 + TRACK_PAD 3×2 + segment minHeight 38 = 46) so `stickyBar`'s
-// justifyContent:'center' has no leftover space to split unevenly (was 60, a 14px surplus
-// that gave the blue pill a bigger vertical inset than horizontal — same bug as Plans'
-// STICKY_HEIGHT, fixed 2026-07-24). Matches Plans' STICKY_HEIGHT so the tab→first-card gap
-// is consistent across the two list screens.
-const STICKY_HEIGHT_TABS = 46;
+// row under the tabs was removed 2026-07-21). Comes FROM TabSlider since 2026-08-10; it used
+// to be a hand-copied 46 (and a 60 before that, a 14px surplus that gave the blue pill a
+// bigger vertical inset than horizontal — same bug as Plans', fixed 2026-07-24). Sharing the
+// constant is also what keeps the tab→first-card gap identical on the two list screens.
+const STICKY_HEIGHT_TABS = TAB_SLIDER_HEIGHT;
 
 type DragState = {
   listId: string;
@@ -620,6 +623,12 @@ export default function ShoppingScreen() {
   // pick its default target, so both entry points agree on which list "the shopping list" is.
   const prefill = usePrefill();
   const prefillListId = useShoppingListStore((s) => s.currentList(todayStr()))?.id;
+  // Names only, for the Food/Catalogue drawers' previews (2026-08-10). This screen does not
+  // otherwise mount either surface — FoodTab/CatalogueTab live on their own screens — so
+  // these are the one read each, and they're names rather than rows on purpose: a preview
+  // that carried prices or ingredients would be a second copy of the screen it links to.
+  const dishNames = useMealStore((s) => s.dishes).map((d) => d.name);
+  const catalogNames = useCatalogStore((s) => s.items).map((i) => i.name);
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
   // watermark, so switching layout keeps the same rows marked and the user can find them
   // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
@@ -1551,7 +1560,7 @@ export default function ShoppingScreen() {
     // default. Restoring an explicit height here re-establishes the definite-size parent
     // `flex: 1` needs, without touching TourTarget itself (whose other callers are fine).
     <TourTarget id="tour.shopping.list" style={{ height: stickyHeight }}>
-      <TabSlider value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
+      <TabSlider attachedTop value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
     </TourTarget>
   );
 
@@ -1637,36 +1646,47 @@ export default function ShoppingScreen() {
   // Always on (2026-07-25 defaults revision) — Food & recipes used to be opt-in via
   // settings.featureFood, but that's now permanently true (see store/useSettingsStore.ts's
   // "Inert columns" note), so this row is unconditional like Weekly/Monthly above it.
+  // One drawer each (2026-08-10) — the same components/CollapsedSection.tsx the To-do and
+  // Habits tabs use, replacing a hand-rolled two-tile row that was a THIRD shape for "a surface
+  // this screen leads to" (alongside SubScreenLinkCard and SubScreenLinkRow, both now deleted).
+  // Expanding previews what's in there; pressing the name pushes the screen.
+  //   Food and Catalogue keep PUSHING rather than opening a pop-up, unlike Goals and Earlier
+  // days. They are whole library screens with their own adding, editing and filtering — a
+  // pop-up copy would be a second implementation of each to keep in step, which is the exact
+  // duplication this pass exists to remove. The shared part is the card and the preview.
+  //   `fast-food`, not `restaurant`: the crossed fork+knife read as a ✕ / cancel glyph at badge
+  // size, and next to the word "Food" it looked like a close button (2026-07-28 design review).
   const foodCatalogueLinks = (
-    <View style={styles.subScreenLinksRow}>
-      <PressableScale
-        style={styles.subScreenLinkBtn}
-        onPress={() => router.push('/food')}
-        accessibilityRole="button"
-        accessibilityLabel={t.foodTabLabel}
-        scaleTo={0.97}
+    <>
+      <CollapsedSection
+        hue={screenHue}
+        domain="meal"
+        icon="fast-food"
+        label={t.foodTabLabel}
+        onTitlePress={() => router.push('/food')}
       >
-        <Surface style={styles.subScreenLinkCard}>
-          {/* `restaurant` (crossed fork+knife) read as a ✕ / cancel glyph at 24px inside the
-              filled circular badge — next to the word "Food" it looked like a close button
-              (2026-07-28 design review). `fast-food` stays legible at badge size. */}
-          <CardAccentBadge domain="meal" icon="fast-food" size={24} accentOverride={screenHue} />
-          <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.foodTabLabel}</Text>
-        </Surface>
-      </PressableScale>
-      <PressableScale
-        style={styles.subScreenLinkBtn}
-        onPress={() => router.push('/catalogue')}
-        accessibilityRole="button"
-        accessibilityLabel={t.catalogueTabLabel}
-        scaleTo={0.97}
+        <SubScreenPreviewList
+          accent={screenHue}
+          names={dishNames}
+          emptyText={t.foodEmptyHint}
+          onOpen={() => router.push('/food')}
+        />
+      </CollapsedSection>
+      <CollapsedSection
+        hue={screenHue}
+        domain="shop"
+        icon="list"
+        label={t.catalogueTabLabel}
+        onTitlePress={() => router.push('/catalogue')}
       >
-        <Surface style={styles.subScreenLinkCard}>
-          <CardAccentBadge domain="shop" icon="list" size={24} accentOverride={screenHue} />
-          <Text style={[styles.subScreenLinkText, { color: theme.text }]}>{t.catalogueTabLabel}</Text>
-        </Surface>
-      </PressableScale>
-    </View>
+        <SubScreenPreviewList
+          accent={screenHue}
+          names={catalogNames}
+          emptyText={t.catalogueEmpty}
+          onOpen={() => router.push('/catalogue')}
+        />
+      </CollapsedSection>
+    </>
   );
 
   return (
@@ -1680,7 +1700,6 @@ export default function ShoppingScreen() {
               `stickyBelowHeader` (2026-08-05) — see the comment there. Note what stays true
               either way: the spotlight must never wrap the `DebugNoteAnchor` region above,
               which is the whole screen — a hole around everything highlights nothing. */}
-          {foodCatalogueLinks}
 
           {tab === 'monthly' && (
             <>
@@ -2251,6 +2270,13 @@ export default function ShoppingScreen() {
               </PressableScale>
             </>
           )}
+
+          {/* Doors out of this screen go at the FOOT of it (2026-08-10). They sat above the
+              lists while they were a compact two-tile row; as full drawers that would put the
+              two least-visited surfaces on the screen ahead of the thing you opened Shopping
+              to do (DESIGN_RULES.md rule 7). Bottom-of-screen is also where To-do and Habits
+              put theirs, so the placement matches the shape. */}
+          {foodCatalogueLinks}
 
         </DebugNoteAnchor>
 

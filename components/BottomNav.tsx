@@ -57,18 +57,33 @@
  *     (`leftTrack`/`rightTrack`/`centreTrack`, each `{x, y, w, h}` from that child's own
  *     `onLayout`, relative to the bar's content box — the same coordinate space a normal flex
  *     child's `onLayout.x`/`.y` already report in). `slotX(index)` maps a SITE_ITEMS index (0/1 →
- *     left track, 3/4 → right track, 2/home → centred under the centre button, used only as
- *     the entry/exit anchor since Home itself never gets a pill) to that x. Home ↔ side moves
- *     still anchor through the centre button's real x (replacing the old "whichever slot sits
- *     nearest Home" approximation) with an opacity fade in/out; genuine side ↔ side moves — same
+ *     left track, 3/4 → right track) to that x. Side ↔ side moves — same
  *     group OR across groups — are a single translateX between two real slot x values, so they
  *     read as one continuous slide no matter how far apart the two tabs are. `Duration.tabSwitch`
  *     (200ms, ANIMATION_GUIDELINES §1 "Tab switch") replaces the old `Duration.control` (150ms,
  *     meant for toggles/segmented controls, not full nav-tab travel) now that a single pill may
- *     need to cover up to the whole bar's width instead of just one group's. `settledRef`/
- *     `firstRunRef` are the same fresh-appearance/cold-launch guards the old per-group code used,
- *     just centralized to one pill instead of duplicated per group.
- *   - **Pill vertically misaligned (fixed, 2026-07-24 follow-up)**: `pill`'s `top` was
+ *     need to cover up to the whole bar's width instead of just one group's. `firstRunRef` is
+ *     the same cold-launch guard the old per-group code used, centralized to one pill.
+ *   - **Home is a real pill slot now (2026-08-10) — supersedes the entry/exit fade.** Home used
+ *     to be index 2 with no pill of its own: selecting it slid the pill to the centre button's
+ *     x, faded `pillOpacity` to 0 and then UNMOUNTED it, which the maintainer reported as
+ *     "weird look when the blue square goes to home as it just disappears". The pill now has a
+ *     fifth target — a circle grown `PILL_GROW_X` beyond the 56px FAB on every side, so an
+ *     `accentSoft` ring frames the Home button the way the rounded rect frames a side tab's
+ *     icon+label. `width`/`height`/`borderRadius` animate alongside `translateX`/`translateY`
+ *     over the same `Duration.tabSwitch`, so the move is one continuous shape change. There is
+ *     no opacity, no mount/unmount and no `settledRef` any more — the pill exists from first
+ *     layout onward and always sits on the selected tab. Adding a sixth slot means adding a
+ *     branch to the one `target` object in that effect, not a second animation path.
+ *   - **Both axes are translate.** `pill`'s `top`/`left` stay 0 and the measured y goes through
+ *     `translateY`, because Home and a side tab sit at different heights — animating `top`
+ *     would be a layout write per frame, and mixing a static `top` with an animated one was
+ *     what made the two slots impossible to tween in the first place.
+ *   - **The pill sits under a SUNK item, so it is offset by `Travel.*`.** An active tab rests
+ *     at the bottom of its key travel (`sunk={active}`), but the tracks are measured unsunk —
+ *     without `+ Travel.sm` (side) / `+ Travel.md` (Home) the pill frames the icon with ~6px
+ *     above and ~0 below. Same class of bug as the 2026-07-24 one below, on the content side.
+ *   - **(Historical) Pill vertically misaligned (fixed, 2026-07-24 follow-up)**: `pill`'s `top` was
  *     hardcoded to 0, ignoring that the pill is `position:absolute` against the bar's own
  *     content box — which has `paddingVertical: Spacing.sm` that the tab items (flow
  *     children) sit shifted down by, but an absolute child does not. Net effect (user
@@ -167,7 +182,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -187,27 +202,17 @@ export const BOTTOM_NAV_HEIGHT = 72;
 // app/(tabs)/_layout.tsx (which positions the real bar) and ScreenScaffold (which reserves
 // scroll-content clearance for it) so the two can never drift apart.
 export const NAV_FLOAT_GAP = Spacing.sm;
-// How many px of the content-clearance reserve is deliberately shaved off (2026-07-26, user
-// report: "make the blank area around the bar transparent, and let a scrolled card show through
-// the corners"). The bar's top-left/top-right corners are rounded (Radius.lg), so the small
-// notch between the curve and the bar's own bounding box is already transparent — nothing ever
-// rendered there because content was reserved exactly the bar's full footprint and could never
-// scroll far enough to reach it. Shaving NAV_PEEK off that reserve lets the last scrolled card's
-// edge rise into the notch (and ONLY the notch — beyond a Radius.lg-deep shave, the corner is
-// past the rounding and back to the bar's flat, fully opaque body, so there's no point shaving
-// any further) instead of stopping dead at the bar's edge.
-//   Set to Radius.lg (24) itself — the maximum depth the notch can ever be transparent —
-// because EVERY tab screen's own top-level content wrapper already reserves its own trailing
-// `padding: Spacing.md` (16px) below the last card (unrelated to bottom-nav clearance — it's
-// just each screen's own bottom margin), which eats into this shave before a single card pixel
-// is reached. Confirmed empirically (web preview, scrolled to the true end of Home): a smaller
-// shave (12) landed the last card's real edge ~4px SHORT of the bar, i.e. invisible — the full
-// Radius.lg shave is what's needed to actually clear that 16px and leave a real ~8px-deep sliver
-// of card visible in the notch, not a bug-prone "close but no reveal" half-measure. This is NOT
-// the "shrink the whole clearance" move that caused the 2026-07-24/25 clipped-content regression
-// (see BottomNav's own edit notes + app/(tabs)/_layout.tsx's) — the bar's own resting position is
-// untouched; this only reaches into space that was previously dead, unreachable padding.
-export const NAV_PEEK = Radius.lg;
+// `NAV_PEEK` lived here until 2026-08-10. It shaved Radius.lg (24px) off the scroll-content
+// clearance so the last card's edge rose into the transparent notch inside the bar's rounded
+// top corners — added 2026-07-26 on the request "make the blank area around the bar
+// transparent, and let a scrolled card show through the corners".
+//   **That was reversed** by the opposite request: "Nothing should be visible (cards, text,
+// buttons and so on) above the header, or under the bottom nav." The whole class of bleed is
+// gone now, and not by a bigger reserve: components/ScreenScaffold.tsx clips the scroll
+// viewport to the band between the header's bottom edge and this bar's top edge, so no number
+// here can let content reach a corner, a side margin or the float gap. Don't reintroduce a
+// peek constant — the clip would swallow it anyway, and the reserve is now exactly the bar's
+// painted footprint.
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
@@ -216,6 +221,10 @@ const ITEMS_PER_SIDE = 2;
 // margin shows up as breathing room between them and the pill's edge, not a layout shift.
 const PILL_GROW_X = 8;
 const PILL_GROW_Y = 6;
+
+// The pill's corner radius animates (rounded rect on a side tab, full circle on Home), and the
+// rim gradient has to take the same corner — so the gradient itself needs an animated style.
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -287,82 +296,76 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     return centreTrack.x + (centreTrack.w - segW) / 2 - PILL_GROW_X / 2;
   }
 
-  const tx = useSharedValue(0);
-  const pillOpacity = useSharedValue(0);
-  const [pillMounted, setPillMounted] = useState(false);
-  // Whether the pill is currently settled on a real (non-Home) slot.
-  const settledRef = useRef(false);
-  // True until the first layout-ready effect run — a cold launch/deep-link straight onto a
-  // side tab initializes there with no entry slide; every later fresh appearance keeps the
-  // Home-anchored slide+fade.
-  const firstRunRef = useRef(true);
-
-  useEffect(() => {
-    if (!ready) return;
-    const firstRun = firstRunRef.current;
-    firstRunRef.current = false;
-
-    if (!isHomeActive) {
-      const to = slotX(activeIndex);
-      const fresh = !settledRef.current;
-      settledRef.current = true;
-      if (fresh && firstRun) {
-        setPillMounted(true);
-        tx.value = to;
-        pillOpacity.value = 1;
-        return;
-      }
-      if (fresh) {
-        // Arriving from Home — start at the centre anchor, then slide+fade to the real target.
-        setPillMounted(true);
-        tx.value = slotX(2);
-        pillOpacity.value = 0;
-      }
-      // Otherwise this is a genuine slot -> slot move (same group OR across groups) — `tx`
-      // animates directly from wherever it currently sits, so a cross-group tap is one
-      // continuous slide instead of an exit + a separate entry.
-      if (reducedMotion) {
-        tx.value = to;
-        pillOpacity.value = 1;
-      } else {
-        tx.value = withTiming(to, { duration: Duration.tabSwitch, easing: Ease.move });
-        pillOpacity.value = withTiming(1, { duration: Duration.tabSwitch, easing: Ease.enter });
-      }
-    } else if (settledRef.current) {
-      // Leaving to Home — slide+fade back to the centre anchor, then unmount.
-      settledRef.current = false;
-      const homeX = slotX(2);
-      if (reducedMotion) {
-        tx.value = homeX;
-        pillOpacity.value = 0;
-        setPillMounted(false);
-      } else {
-        tx.value = withTiming(homeX, { duration: Duration.tabSwitch, easing: Ease.move });
-        pillOpacity.value = withTiming(0, { duration: Duration.tabSwitch, easing: Ease.exit }, (finished) => {
-          if (finished) runOnJS(setPillMounted)(false);
-        });
-      }
-    }
-  }, [ready, activeIndex, isHomeActive, segW, leftTrack.x, rightTrack.x, centreTrack.x, centreTrack.w, reducedMotion, tx, pillOpacity]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }],
-    opacity: pillOpacity.value,
-  }));
-
-  // The pill only ever marks an active SIDE tab, so its rim is always accent-hued.
-  const rim = computeRimGradient(theme.accent, isDark);
-  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
-  const pillHeight = (leftTrack.h || rightTrack.h) + PILL_GROW_Y;
   // The pill is `position:absolute` against the bar's own content box, which ignores that
   // box's `paddingVertical` (2026-07-24 bug: "blue [pill] around the buttons is not
   // centered") — the tab items themselves are flow children, so THEY sit shifted down by
   // that padding, but the pill's old hardcoded `top:0` never accounted for it, leaving the
   // pill's top edge floating above the icon and its bottom edge cutting into the label
   // instead of framing the button. Use the real measured y (same fix pattern as the x-based
-  // translateX above) instead of assuming the pill's container has no padding. Shifted up by
-  // half of PILL_GROW_Y to keep the (taller) pill centred on the item's own box.
-  const pillTop = (leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2;
+  // translateX) instead of assuming the pill's container has no padding. Shifted up by half
+  // of PILL_GROW_Y to keep the (taller) pill centred on the item's own box, then back DOWN by
+  // the item's own `travel` — the pill only ever sits under the ACTIVE tab, and an active tab
+  // rests sunk (`sunk={active}`, see NavTabItem), so a pill positioned from the unsunk
+  // measured track framed the icon with ~6px above and ~0 below. Same class of bug as the
+  // 2026-07-24 one, on the content side instead of the pill side.
+  const pillHeight = (leftTrack.h || rightTrack.h) + PILL_GROW_Y;
+  const sideTop = (leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2 + Travel.sm;
+  // Home's slot (2026-08-10). Home used to have NO pill: the pill slid to the centre button's
+  // x, faded to 0 and unmounted, so selecting Home read as the indicator "just disappearing"
+  // (maintainer report). It is a real slot now — a circle grown PILL_GROW_X beyond the 56px
+  // FAB on every side, so an accentSoft ring shows around the Home button exactly the way the
+  // pill shows around a side tab's icon+label. The indicator therefore always exists and
+  // always travels to the selected tab; there is no enter/exit, no opacity and no unmount.
+  const homeSize = centreTrack.w + PILL_GROW_X * 2;
+  const homeTop = centreTrack.y - PILL_GROW_X + Travel.md;
+  const homeX = centreTrack.x - PILL_GROW_X;
+
+  // Every dimension the pill morphs between. Width/height/radius animate alongside x/y, so a
+  // side tab -> Home move is one continuous shape change rather than a fade-out.
+  const tx = useSharedValue(0);
+  const ty = useSharedValue(0);
+  const pw = useSharedValue(0);
+  const ph = useSharedValue(0);
+  const pr = useSharedValue(Radius.lg);
+  // True until the first layout-ready effect run — a cold launch/deep-link lands on its slot
+  // with no travel; every later change animates.
+  const firstRunRef = useRef(true);
+
+  useEffect(() => {
+    if (!ready) return;
+    const snap = firstRunRef.current || reducedMotion;
+    firstRunRef.current = false;
+
+    const target = isHomeActive
+      ? { x: homeX, y: homeTop, w: homeSize, h: homeSize, r: homeSize / 2 }
+      : { x: slotX(activeIndex), y: sideTop, w: segW + PILL_GROW_X, h: pillHeight, r: Radius.lg };
+
+    const to = (value: number) =>
+      snap ? value : withTiming(value, { duration: Duration.tabSwitch, easing: Ease.move });
+    tx.value = to(target.x);
+    ty.value = to(target.y);
+    pw.value = to(target.w);
+    ph.value = to(target.h);
+    pr.value = to(target.r);
+  }, [
+    ready, activeIndex, isHomeActive, segW, pillHeight, sideTop,
+    homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x,
+    reducedMotion, tx, ty, pw, ph, pr,
+  ]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }],
+    width: pw.value,
+    height: ph.value,
+  }));
+  // The rim gradient and the fill each need the same corner, and both morph — hence two more
+  // animated styles rather than a static Radius.lg.
+  const pillRadiusStyle = useAnimatedStyle(() => ({ borderRadius: pr.value }));
+  const pillInnerRadiusStyle = useAnimatedStyle(() => ({ borderRadius: Math.max(0, pr.value - EDGE_WIDTH) }));
+
+  // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
+  const rim = computeRimGradient(theme.accent, isDark);
+  const pillShadow = [...getLayeredShadow(theme.shadow, 'raised'), ...getGlow(theme.accent, 'soft').boxShadow];
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
@@ -373,6 +376,11 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         key={item.key}
         scaleTo={0.90}
         travel={Travel.md}
+        // "Pressed = on", same as every side tab (2026-08-10). Home took `travel` but never
+        // `sunk`, so it was the one tab with no resting depth cue — it sank on the tap and
+        // came straight back up, which alongside the vanishing pill left Home looking like
+        // the tab that never registers as selected.
+        sunk={active}
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
@@ -405,20 +413,20 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   return (
     <Surface surfaceContext="nav" style={styles.bar}>
-      {segW > 0 && pillMounted && (
-        <Animated.View pointerEvents="none" style={[styles.pill, { width: segW + PILL_GROW_X, height: pillHeight, top: pillTop }, pillStyle]}>
+      {ready && (
+        <Animated.View pointerEvents="none" style={[styles.pill, pillStyle]}>
           {glass ? (
-            <LinearGradient
+            <AnimatedLinearGradient
               colors={rim.colors}
               locations={rim.locations}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={{ flex: 1, borderRadius: Radius.lg, padding: EDGE_WIDTH }}
+              style={[{ flex: 1, padding: EDGE_WIDTH }, pillRadiusStyle]}
             >
-              <View style={{ flex: 1, borderRadius: Radius.lg - EDGE_WIDTH, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
-            </LinearGradient>
+              <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft, boxShadow: pillShadow }, pillInnerRadiusStyle]} />
+            </AnimatedLinearGradient>
           ) : (
-            <View style={{ flex: 1, borderRadius: Radius.lg, backgroundColor: theme.accentSoft, boxShadow: pillShadow }} />
+            <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft, boxShadow: pillShadow }, pillRadiusStyle]} />
           )}
         </Animated.View>
       )}
@@ -580,6 +588,8 @@ const baseStyles = StyleSheet.create({
   // inline per render from the measured tracks (see BottomNav's `pillTop`/`pillHeight`) —
   // `top: 0` here is only a pre-measurement fallback; only translateX/opacity are animated.
   pill: {
+    // Both axes are driven by translate (see the pillTop/homeTop derivation), so the static
+    // origin is the bar's own content box corner and never a measured value.
     position: 'absolute',
     top: 0,
     left: 0,

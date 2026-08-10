@@ -150,6 +150,7 @@ import HintCard from '@/components/HintCard';
 import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
+import ReminderBell from '@/components/ReminderBell';
 import Stepper from '@/components/Stepper';
 import Collapsible from '@/components/Collapsible';
 import OptionalTag from '@/components/OptionalTag';
@@ -447,27 +448,19 @@ export default function HabitForm() {
                happens before you decide whether to be nudged about it. ── */}
         <Surface style={styles.notifRow}>
           <Text style={[styles.notifLabel, { color: theme.text }]}>{t.habitReminderLabel}</Text>
-          {/* Bell toggle (2026-08-06, restyled from a plain Switch) — quiet grey when off,
-              coloured when on, same pairing components/MedicineTrayCard.tsx already uses for
-              its own reminder toggle ('notifications-off-outline' / a filled bell). Visual
-              change only: `notificationEnabled` still gates the time/schedule fields below
-              exactly as before (on shows them, off shows nothing), and save() still derives
-              the actual reminder times from those fields alone — there is no separate "time"
-              concept to keep in sync, so a habit with no reminder set never gets notified. */}
-          <PressableScale
-            onPress={() => { tap(); setNotificationEnabled((v) => !v); }}
-            hitSlop={HitSlop.base}
-            scaleTo={0.9}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: notificationEnabled }}
-            accessibilityLabel={t.habitReminderLabel}
-          >
-            <Ionicons
-              name={notificationEnabled ? 'notifications' : 'notifications-off-outline'}
-              size={22}
-              color={notificationEnabled ? theme.accent : theme.textMuted}
-            />
-          </PressableScale>
+          {/* Bell toggle (2026-08-06, restyled from a plain Switch; became the shared
+              components/ReminderBell.tsx on 2026-08-10). It was a bare glyph that said "on" with
+              colour alone; the shared component adds the plate, the border and the resting sink,
+              and is the same control the Medicine card draws. Behaviour is unchanged:
+              `notificationEnabled` still gates the time/schedule fields below exactly as before
+              (on shows them, off shows nothing), and save() still derives the actual reminder
+              times from those fields alone — there is no separate "time" concept to keep in
+              sync, so a habit with no reminder set never gets notified. */}
+          <ReminderBell
+            enabled={notificationEnabled}
+            onToggle={() => { tap(); setNotificationEnabled((v) => !v); }}
+            label={t.habitReminderLabel}
+          />
         </Surface>
         {!notificationEnabled && (
           <Text style={[styles.reminderPreview, { color: theme.textMuted }]}>{t.habitReminderOffHint}</Text>
@@ -799,9 +792,15 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    // Vertical padding halved (2026-08-10): the bell is a real 48px IconButton now rather than a
+    // 22px glyph, so it brings its own height and Spacing.md on both sides made an 84px row.
+    paddingVertical: Spacing.sm,
   },
-  notifLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  // flex + minWidth:0 so the LABEL yields when the row is tight — the bell is a fixed-size
+  // control with no width to give (AGENTS.md's wrap-audit rule).
+  notifLabel: { flex: 1, minWidth: 0, fontSize: FontSize.md, fontFamily: Fonts.semibold },
   energyStepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   timeFieldWrap: { gap: Spacing.sm, marginTop: Spacing.sm },
   reminderPreview: { fontSize: FontSize.xs, fontStyle: 'italic', marginTop: Spacing.xs },

@@ -200,7 +200,7 @@ export const Spacing = {
  *
  * A card that needs to sit apart from its neighbours says so by being in a different
  * GROUP (its own Surface with rows inside), never by growing a margin — see
- * components/SubScreenLinkButton.tsx, which folded two floating link cards into one.
+ * components/CollapsedSection.tsx, the one card every sub-screen link is drawn as.
  */
 export const SCREEN_GAP = Spacing.md;
 
