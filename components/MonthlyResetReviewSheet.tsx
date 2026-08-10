@@ -249,7 +249,7 @@ const baseStyles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full, marginBottom: Spacing.sm },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   intro: { fontSize: FontSize.sm, marginBottom: Spacing.sm },
-  scroll: { marginBottom: Spacing.sm },
+  scroll: { marginBottom: Spacing.sm, gap: Spacing.sm },
   emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.md },
   hintText: { fontSize: FontSize.xs, marginBottom: Spacing.xs },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
