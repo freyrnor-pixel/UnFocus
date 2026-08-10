@@ -409,19 +409,40 @@ const defaultLight: ThemePalette = {
   // proximity is disambiguated by placement, not hue. Status logic is UNCHANGED: good/bad/warn
   // still drive done/overdue/soon via getStatusColor; a domain accent only shows for `default`
   // rows. See lib/domainColor.ts for the mapping.)
-  featPlan: '#6E74EE',   // 1 · indigo   — plan the day
-  featTask: '#4C8DF0',   // 2 · blue     — do tasks
-  featHabit: '#22A7E0',  // 3 · sky      — keep habits
-  featHealth: '#17BEB0', // 4 · teal     — track health (off red/`bad`)
-  featMeal: '#E88A52',   // 5 · orange   — eat (2026-07-18: muted off neon #F5843A, less candy)
-  featShop: '#3DAF6F',   // 6 · green    — shop (2026-07-18: muted off neon #34C06A, less candy)
-  featBudget: '#D69420', // 7 · amber    — money (2026-07-20: deepened/desaturated off the
+  // (2026-08-10 "cinematic" retune: the octet moved DOWN a step, from Tailwind-500-family to
+  // 600/700-family — richer and less pastel. The 500 set was tuned when these were fills; since
+  // the 2026-08-05 reset they are EDGES on a white card, and a pale edge on white is barely an
+  // edge: featNote #E6BC1C measured 1.81:1 against `surface`, effectively invisible. Worst case
+  // is now 2.94:1 and best 6.29:1. Each screen keeps its hue FAMILY so nothing has to be
+  // relearned — only the depth changed.
+  //
+  // ⚠️ The L* spread below is DELIBERATE and is not a tidiness bug. The proposal this came from
+  // argued for "identical saturation and brightness curves"; that is the one thing the identity
+  // block above forbids, for the reason stated there — equal lightness destroys the only channel
+  // that survives colour blindness and greyscale. Minimum |ΔL*| between any two of the eight is
+  // 10.7 here (light). Do NOT flatten these to a common lightness.
+  //
+  // Two picks are load-bearing and were NOT the obvious choice:
+  //   · featShop is a TRUE green (#15803D), not an emerald (#059669). Emerald landed 0.2 L* from
+  //     featHealth's teal — identical in greyscale, which breaks rule 11. A true green separates
+  //     from teal by hue, not just lightness (ΔE 33.5 light / 21.3 dark).
+  //   · featScan is #A855F7, not #8B5CF6. Against featPlan's indigo, #8B5CF6 gave ΔE 14.0;
+  //     #A855F7 gives 20.8.
+  // Re-measure with CIE Lab before changing any value here; every one clears contrastOn() ≥3:1.)
+  featPlan: '#4F46E5',   // 1 · indigo   — plan the day
+  featTask: '#2563EB',   // 2 · blue     — do tasks
+  featHabit: '#0284C7',  // 3 · sky      — keep habits
+  featHealth: '#0D9488', // 4 · teal     — track health (off red/`bad`)
+  featMeal: '#EA580C',   // 5 · orange   — eat (2026-07-18: muted off neon #F5843A, less candy)
+  featShop: '#15803D',   // 6 · green    — shop (2026-07-18: muted off neon #34C06A, less candy;
+  // 2026-08-10: emerald → true green, see the greyscale note above)
+  featBudget: '#D97706', // 7 · amber    — money (2026-07-20: deepened/desaturated off the
   // brighter #F0A81E — that shade read as too loud/candy next to the tab bar's new neutral
-  // blue selection accent; same hue family, calmer)
-  featNote: '#E6BC1C',   // 8 · yellow   — reflect / note
+  // blue selection accent; same hue family, calmer). Unwired — no screen maps to it.
+  featNote: '#CA8A04',   // 8 · yellow   — reflect / note
   // Scan screen hue — violet, distinct from featPlan indigo. Per-screen color only
   // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
-  featScan: '#9B72E3',
+  featScan: '#A855F7',
 
   // ── Card identity: NINE NAMES, FOUR VALUES (2026-07-31, addendum A.3) ────────────────
   // Superseded the 2026-07-28 nine-hue "widened ramp". That pass fixed the wrong problem: the
@@ -536,17 +557,24 @@ const defaultDark: ThemePalette = {
   // tints for the dark surface. Order plan → task → habit → health → meal → shop → budget →
   // note; health = teal (off red/`bad`). See the light block above for the full rationale
   // (bright Tailwind-family hues, collision-avoidance relaxed) and lib/domainColor.ts.
-  featPlan: '#8A90FF',   // 1 · indigo
-  featTask: '#6BA5FF',   // 2 · blue
-  featHabit: '#4CC3F5',  // 3 · sky
-  featHealth: '#2DD4C4', // 4 · teal
-  featMeal: '#F09763',   // 5 · orange (2026-07-18: muted off neon #FF9A55)
-  featShop: '#50C68C',   // 6 · green  (2026-07-18: muted off neon #45D588)
-  featBudget: '#EAB84C', // 7 · amber (2026-07-20: deepened/desaturated off #FBBF3C, dark mirror
+  // (2026-08-10: dark mirrors of the light "cinematic" retune above — each is its light value
+  // lifted toward white by a per-hue amount, NOT a uniform lift. A uniform lift compressed the
+  // set into L* 60–72 and put featShop 8.5 ΔE from featHealth; the per-hue lifts hold the spread
+  // at L* 55.5–73.1 with the closest pair at ΔE 17.0, matching what the old set managed (17.5).
+  // Every value clears 3:1 against `surface` — worst is featPlan at 4.18:1 — and note
+  // computeBorderRamp lightens these AGAIN at render in dark mode, so they are the floor, not
+  // the drawn colour.)
+  featPlan: '#7D76EC',   // 1 · indigo
+  featTask: '#5988F0',   // 2 · blue
+  featHabit: '#4EA9D8',  // 3 · sky
+  featHealth: '#51B2A9', // 4 · teal
+  featMeal: '#EF8046',   // 5 · orange (2026-07-18: muted off neon #FF9A55)
+  featShop: '#60A97B',   // 6 · green  (2026-07-18: muted off neon #45D588)
+  featBudget: '#E49D4C', // 7 · amber (2026-07-20: deepened/desaturated off #FBBF3C, dark mirror
   // of the light-mode change above — same reasoning, less neon against the blue tab bar)
-  featNote: '#FBD24B',   // 8 · yellow
+  featNote: '#DAAD4F',   // 8 · yellow
   // Scan screen hue — violet (per-screen color only; see lib/screenColor.ts, 2026-07-18).
-  featScan: '#BE9DF7',
+  featScan: '#B977F9',
 
   // Card identity (dark) — IDENTICAL to light as of 2026-07-31 (addendum A.3). The old ramp
   // lightened every stop ~0.20 for the dark surface; the four collapsed hues do NOT, because

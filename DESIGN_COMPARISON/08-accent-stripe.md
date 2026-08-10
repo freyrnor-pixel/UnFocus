@@ -6,6 +6,43 @@ Read `00-INDEX.md` first if you haven't.
 
 ---
 
+## ✅ OUTCOME — (c), no stripe. **Maintainer ruling, 2026-08-10.** Closed.
+
+**The card keeps ONE border and the badge stays the sole identity carrier.** No code changed.
+
+This re-closes a decision that was only ever half-closed. `DESIGN_RULES_AUDIT.md` item 9 recorded
+(c) on 2026-08-04, but that was an **agent** call resting entirely on the interaction table below —
+specifically on "07 landed (a), the gradient edge is kept, so a stripe would be a third hue
+expression." **That premise expired the next day.** The 2026-08-05 card reset flattened the edge,
+then re-ramped it *inside a single screen hue*, and evicted the domain hue from every edge. Nothing
+had re-derived item 9 under the new architecture. It is now ruled on directly, by the maintainer,
+under the architecture that actually ships.
+
+The reasoning that survives the change of premise:
+
+- The reset's own words are "a card is a flat opaque page with **ONE** border." A stripe is a
+  second edge treatment on the one surface that rule is about.
+- **The hard blocker is unchanged and is the thing to re-read before reopening this**: a stripe
+  alone cannot separate Shopping from Food — both are `#D9A441` in the domain set. The badge's
+  per-domain **glyph** is what tells them apart. Any future stripe proposal has to say where the
+  glyph lives before it says anything else.
+- The horizontal budget is still tight (`npm run wraps`), and 4px comes off every card.
+
+**Proposed again and declined in the same ruling:** a two-tone icon badge (10–15% hue fill +
+100% hue glyph). That is the design that shipped on 2026-07-24 and was reverted on 2026-07-26 as
+"too colourless" — see `components/CardAccent.tsx`'s edit notes. It also fails on measurement: at a
+fixed 12% fill, amber is 2.81:1 in light and sapphire 2.68:1 in dark, both under the 3:1 non-text
+floor. A fixed opacity cannot hold across eight hues and two modes, which is what `contrastOn()`
+already solves.
+
+**What the ruling did take** from the same proposal: the *palette direction*. The eight `feat*`
+screen hues were retuned a step deeper (Tailwind 600/700-family) on 2026-08-10 — see
+`constants/colors.ts`. Colour still lives only in the border; there is just more of it to see.
+
+Everything below is the original task file, kept as the record of the argument.
+
+---
+
 ## The decision
 
 Every card in the design project is built the same way. From `ui_kits/unfocus_app/HomeScreen.jsx`'s

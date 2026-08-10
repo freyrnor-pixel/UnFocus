@@ -420,6 +420,56 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       expect(palette.bg).toBe(THEMES.default.light.bg);
     });
   });
+
+  // ── Meal-type palette (components/FoodTab.tsx) ────────────────────────────────────────
+  // The app's sixth categorical palette, and the last one to get a test — which is exactly
+  // why a 2.12:1 section title shipped and survived until 2026-08-10. It was MODE-INVARIANT
+  // (one hex for both themes, tuned for the dark surface) and painted straight onto the
+  // title text; on white all five failed the 4.5:1 body-text floor.
+  //
+  // Nothing draws these as text any more — the hue is a `soft` plate under the meal glyph
+  // (A.4 rule 1) — but the bar stays at 4.5:1 as TEXT deliberately. That headroom is what
+  // makes a value safe if it is ever moved back onto a word or a glyph, and it is the
+  // cheapest guard against the next "warm these up a bit" pass. Mirrors how
+  // lib/__tests__/personColor.test.ts guards its own palette.
+  describe('meal-type palette — contrast as text in its own mode', () => {
+    const MODES = ['light', 'dark'] as const;
+    const MEAL_COLORS: Record<string, { light: string; dark: string }> = {
+      breakfast: { light: '#B45309', dark: '#D49B70' },
+      lunch: { light: '#0F766E', dark: '#79B2AE' },
+      dinner: { light: '#9A3412', dark: '#C8917F' },
+      snack: { light: '#7E22CE', dark: '#B27AE2' },
+      kveldsmat: { light: '#4338CA', dark: '#8E88DF' },
+    };
+
+    MODES.forEach((mode) => {
+      const surface = THEMES.default[mode].surface;
+      Object.entries(MEAL_COLORS).forEach(([meal, pair]) => {
+        test(`${mode}: ${meal} ≥ 4.5:1 on surface`, () => {
+          expect(contrastRatio(pair[mode], surface)).toBeGreaterThanOrEqual(4.5);
+        });
+      });
+    });
+
+    test('every meal hue is distinct within a mode', () => {
+      MODES.forEach((mode) => {
+        const vals = Object.values(MEAL_COLORS).map((p) => p[mode]);
+        expect(new Set(vals).size).toBe(vals.length);
+      });
+    });
+
+    // The 2026-07-18 rule this file's own header states: a meal hue must never be mistaken
+    // for a status colour. `good` and `bad` are what a food card would collide with.
+    test('no meal hue collides with good/bad status', () => {
+      MODES.forEach((mode) => {
+        const p = THEMES.default[mode];
+        Object.entries(MEAL_COLORS).forEach(([meal, pair]) => {
+          expect(`${meal}:${pair[mode].toLowerCase()}`).not.toBe(`${meal}:${p.good.toLowerCase()}`);
+          expect(`${meal}:${pair[mode].toLowerCase()}`).not.toBe(`${meal}:${p.bad.toLowerCase()}`);
+        });
+      });
+    });
+  });
 });
 
 // ── Helper: compute relative luminance from hex colour ────────────────────

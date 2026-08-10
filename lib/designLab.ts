@@ -176,14 +176,18 @@ export const COLOR_KNOBS: readonly ColorKnob[] = [
   { id: 'hintBorder', group: 'hint', source: 'constants/colors.ts hintBorder', usedBy: 'the ⓘ HintCard edge' },
   { id: 'hintAccent', group: 'hint', source: 'constants/colors.ts hintAccent', usedBy: 'the ⓘ HintCard accent bar' },
   // Per-screen hues (lib/screenColor.ts maps a screen to one of these)
-  { id: 'featPlan', group: 'screens', source: 'constants/colors.ts featPlan', usedBy: 'To-do screen border hue (blue)' },
+  // NB: featTask is the TO-DO hue and featPlan is the GOALS hue — the names read backwards.
+  // lib/screenColor.ts is the authority (plans → featTask, goals → featPlan). These two labels
+  // were swapped until 2026-08-10; they are export metadata read by an agent, so a wrong one
+  // actively misleads. Check screenColor.ts before "correcting" either.
+  { id: 'featPlan', group: 'screens', source: 'constants/colors.ts featPlan', usedBy: 'Goals screen border hue (indigo)' },
   { id: 'featHabit', group: 'screens', source: 'constants/colors.ts featHabit', usedBy: 'Habits screen border hue (sky)' },
   { id: 'featHealth', group: 'screens', source: 'constants/colors.ts featHealth', usedBy: 'Health screen border hue (teal)' },
   { id: 'featShop', group: 'screens', source: 'constants/colors.ts featShop', usedBy: 'Shopping screen border hue (green)' },
   { id: 'featNote', group: 'screens', source: 'constants/colors.ts featNote', usedBy: 'Notes screen border hue (yellow)' },
   { id: 'featMeal', group: 'screens', source: 'constants/colors.ts featMeal', usedBy: 'Food screen border hue (orange)' },
   { id: 'featScan', group: 'screens', source: 'constants/colors.ts featScan', usedBy: 'Scan screen border hue (violet)' },
-  { id: 'featTask', group: 'screens', source: 'constants/colors.ts featTask', usedBy: 'Goals screen border hue (indigo)' },
+  { id: 'featTask', group: 'screens', source: 'constants/colors.ts featTask', usedBy: 'To-do screen border hue (blue)' },
   { id: 'featBudget', group: 'screens', source: 'constants/colors.ts featBudget', usedBy: 'budget surfaces' },
   // Card identity hues (lib/domainColor.ts — the gradient badge and its ink)
   { id: 'cardPlan', group: 'identity', source: 'constants/colors.ts cardPlan', usedBy: 'to-do card badge gradient' },
