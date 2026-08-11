@@ -14,7 +14,9 @@
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
  *             react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming for the
- *             sliding pill), expo-router, constants/theme (incl. getGlow), constants/motion
+ *             sliding pill), expo-router, constants/theme (computeRimGradient, HitSlop and the
+ *             spacing/type tokens — no shadow or glow helper: see the 2026-08-11 bullet),
+ *             constants/motion
  *             (Duration/Ease), lib/i18n, lib/siteNav, lib/useAppTheme (incl. useAccessibility),
  *             components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
@@ -70,38 +72,63 @@
  *     to be index 2 with no pill of its own: selecting it slid the pill to the centre button's
  *     x, faded `pillOpacity` to 0 and then UNMOUNTED it, which the maintainer reported as
  *     "weird look when the blue square goes to home as it just disappears". The pill now has a
- *     fifth target — a circle grown `PILL_GROW_X` beyond the 56px FAB on every side, so an
- *     `accentSoft` ring frames the Home button the way the rounded rect frames a side tab's
- *     icon+label. `width`/`height`/`borderRadius` animate alongside `translateX`/`translateY`
+ *     fifth target — a `HOME_RING`-wide `accentSoft` ring around the 56px FAB, so Home is
+ *     framed the way the rounded rect frames a side tab's icon+label.
+ *     `width`/`height`/`borderRadius` animate alongside `translateX`/`translateY`
  *     over the same `Duration.tabSwitch`, so the move is one continuous shape change. There is
  *     no opacity, no mount/unmount and no `settledRef` any more — the pill exists from first
  *     layout onward and always sits on the selected tab. Adding a sixth slot means adding a
  *     branch to the one `target` object in that effect, not a second animation path.
+ *   - **The Home slot is sized from the ring outward, and the FAB does not rest sunk
+ *     (2026-08-11, user report + screenshots: "look at the bottom nav home button").** Three
+ *     things were fighting over 8px of slack — a 56px FAB inside a 72px masked box — and the
+ *     result was a lopsided pale blob with a sliced halo rather than a ring:
+ *     (a) the ring asked for `56 + PILL_GROW_X * 2` = 72, the full height of the bar, so what
+ *     drew was a plate, not a frame, and its accent glow was cut flat top and bottom by the
+ *     mask; (b) `clampTop` then had a legal range of exactly one value and pinned it 1px off
+ *     that mask; (c) `sunk={active}` sat the FAB 4px lower than the ring, leaving 8px of ring
+ *     above the button and 3px below. The fix reverses the order — `HOME_RING` decides the
+ *     width, the ring is centred on the button, and only then is it capped by `homeFit` — and
+ *     drops the resting sink, which is what frees the 4px the bottom half of the ring needs.
+ *     See `HOME_RING` and `renderCentre`'s own notes; don't restore either half alone.
+ *   - **Nothing in this bar carries grey depth any more (2026-08-11).** The pill lost
+ *     `getLayeredShadow` on 2026-08-10, and the centre FAB has now lost `Shadow.fab` in BOTH
+ *     states for the same reason: a hue-less 16px black blur around a 56px circle on a white
+ *     bar reads as a dirty grey collar, not as a floating button (that is what the report's
+ *     inactive-Home screenshot shows). The bar is a Surface and already casts one shadow for
+ *     the whole cluster. The accent glow on the pill is hue-tinted and stays.
  *   - **Both axes are translate.** `pill`'s `top`/`left` stay 0 and the measured y goes through
  *     `translateY`, because Home and a side tab sit at different heights — animating `top`
  *     would be a layout write per frame, and mixing a static `top` with an animated one was
  *     what made the two slots impossible to tween in the first place.
- *   - **The pill has to FIT IN THE BAR, and is clamped to it (2026-08-10 follow-up).** The bar
- *     is a `Surface`, which clips its children to its own rounded mask, so a pill bigger than
- *     the bar renders SLICED rather than overflowing. Both slots were: Home's ring was
- *     `56 + PILL_GROW_X * 2` = 72 in a 72px-tall bar (a flattened squircle, reported as the
- *     "visual bug where bottom nav blue is"), and a side pill's bottom corner ran into the
- *     bar's own `Radius.lg` corner arc on the outermost tab and came out cut diagonally.
- *     `PILL_INSET` + `clampTop()` keep both inside; `homeSize`/`pillHeight` shrink to fit
- *     rather than the grow constants being fixed. **Clamp against the MEASURED `barH`
- *     (`Surface`'s new `onLayout`), never `BOTTOM_NAV_HEIGHT`** — this bar runs through
- *     `useScaledStyles`, so the constant is only true at font scale 1.0.
- *   - **The pill carries the accent glow and NO layered shadow (2026-08-10 follow-up).** It
+ *   - **The pill has to FIT IN THE BAR (2026-08-10 follow-up).** The bar is a `Surface`, which
+ *     clips its children to its own rounded mask, so a pill bigger than the bar renders SLICED
+ *     rather than overflowing. Both slots were: Home's ring was `56 + PILL_GROW_X * 2` = 72 in
+ *     a 72px-tall bar (a flattened squircle, reported as the "visual bug where bottom nav blue
+ *     is"), and a side pill's bottom corner ran into the bar's own `Radius.lg` corner arc on
+ *     the outermost tab and came out cut diagonally. `PILL_INSET` + `clampTop()`/`clampLeft()`
+ *     keep the SIDE pill inside; Home is fitted by construction instead (see the 2026-08-11
+ *     bullet above — a clamp can only shove, and shoving is what put the ring off its button).
+ *     **Measure the box the pill actually lives in, never `BOTTOM_NAV_HEIGHT` and never the
+ *     `Surface`'s own outer box** — this bar runs through `useScaledStyles`, so the constant is
+ *     only true at font scale 1.0, and Surface's outer view is `2 × BORDER_WIDTH.card` bigger
+ *     than the mask that clips. `innerH`/`innerW` come from an `absoluteFill` probe rendered
+ *     as a sibling of the pill, which is the one measurement that cannot disagree with it.
+ *   - **(Superseded 2026-08-11 — the glow went too; see the "no grey depth" bullet above) The
+ *     pill carries the accent glow and NO layered shadow (2026-08-10 follow-up).** It
  *     used to concatenate `getLayeredShadow(theme.shadow, 'raised')` under the glow (see the
  *     2026-07-18 "Purposeful glow" note below, which this supersedes). A card drop-shadow is a
  *     grey hue-less blur; under a pale `accentSoft` plate it read as a dirty grey donut, and on
  *     Home it stacked with the FAB's own `Shadow.fab` so the blue button wore two smudges. An
  *     indicator drawn BEHIND a tab, inside a bar that already casts a shadow for both, has
  *     nothing to be raised off — don't re-add depth here.
- *   - **The pill sits under a SUNK item, so it is offset by `Travel.*`.** An active tab rests
- *     at the bottom of its key travel (`sunk={active}`), but the tracks are measured unsunk —
- *     without `+ Travel.sm` (side) / `+ Travel.md` (Home) the pill frames the icon with ~6px
- *     above and ~0 below. Same class of bug as the 2026-07-24 one below, on the content side.
+ *   - **A side pill sits under a SUNK item, so it is offset by `Travel.sm`.** An active side tab
+ *     rests at the bottom of its key travel (`sunk={active}`), but the tracks are measured
+ *     unsunk — without `+ Travel.sm` the pill frames the icon with ~6px above and ~0 below.
+ *     Same class of bug as the 2026-07-24 one below, on the content side. **Home carries no
+ *     such offset since 2026-08-11**, because its button no longer rests sunk — if you ever
+ *     restore `sunk` there, `homeCentreY` has to gain the `+ Travel.md` back and the ring will
+ *     no longer fit; read the 2026-08-11 bullet above first.
  *   - **(Historical) Pill vertically misaligned (fixed, 2026-07-24 follow-up)**: `pill`'s `top` was
  *     hardcoded to 0, ignoring that the pill is `position:absolute` against the bar's own
  *     content box — which has `paddingVertical: Spacing.sm` that the tab items (flow
@@ -142,12 +169,12 @@
  *     `borderWidth`/`borderColor` entirely. The white `theme.surface` fill and `getLayeredShadow`
  *     depth (both from the two bullets above) are kept, so tabs still read as raised, tappable
  *     cards without the outlined look. Don't re-add a border here without checking this note.
- *   - **Purposeful glow (2026-07-18, optional per design pass)**: the active tab's pill adds
- *     `getGlow(theme.accent, 'soft')` on top of its fill — only while a side tab is active, never
- *     on Home or on every item. Concatenated onto the resting `boxShadow` array (not assigned
- *     over it) since both the depth and the glow are `boxShadow` — setting the key twice would
- *     silently drop the depth layers when active. The centre FAB-style button already reads as
- *     "lit" via its permanent accent fill + `Shadow.fab`, so it's left alone.
+ *   - **(Historical, REMOVED 2026-08-11 — see the "no grey depth" bullet above) Purposeful glow
+ *     (2026-07-18, optional per design pass)**: the active tab's pill added
+ *     `getGlow(theme.accent, 'soft')` on top of its fill. A glow is a 15px and a 27px blur and
+ *     this pill has 4px of clearance to a mask that clips, so it was always drawn cut off flat
+ *     rather than fading out — a second, harder edge a few px outside the real one. Nothing in
+ *     this bar carries a halo now.
  *   - **Active fill uses `theme.accentSoft`** (the app-wide active/selected tint — same token
  *     as IconButton's active state, Button secondary, etc.), NOT `theme.surfaceMuted` —
  *     surfaceMuted is the neutral grey sunken tone; reusing it for active state is what
@@ -195,14 +222,14 @@
  *   - **Centre FAB has no keyBase, unlike Button.tsx/IconButton.tsx (tried 2026-08-05, reverted
  *     same day)**: a `keyBase` slab was added behind it briefly, but a permanently-visible
  *     darker ring under a circle reads as "already sitting in a socket," not "raised" — the
- *     opposite of the intended cue. The FAB keeps its plain `Shadow.fab` drop-shadow only, which
- *     is what reads as popped-out/floating here. `NavTabItem` below never had a keyBase either
- *     (no fill to build one from — see its own note).
- *   - **...and that drop shadow is dropped while Home is ACTIVE (2026-08-10 follow-up).**
- *     `Shadow.fab` is a 16px black blur; the pill's ring around this button is a few px wide,
- *     so the blur smeared across it and turned the `accentSoft` ring into a grey donut. An
- *     active tab also rests sunk, and a key at the bottom of its travel shouldn't float. See
- *     the call site's own note before restoring it unconditionally.
+ *     opposite of the intended cue. `NavTabItem` below never had a keyBase either (no fill to
+ *     build one from — see its own note).
+ *   - **...and the FAB's drop shadow went with it (2026-08-10 while active, 2026-08-11
+ *     entirely).** `Shadow.fab` is a 16px black blur: over the ring it smeared the pale
+ *     `accentSoft` into a grey donut, and with no ring under it (Home not selected) it drew a
+ *     grey collar around the blue circle instead — the second half of the same user report.
+ *     A FAB shadow is for a button floating over CONTENT; this one sits inside a bar that
+ *     casts its own. See the call site's note before restoring it in either state.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
@@ -212,7 +239,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, Shadow, getGlow, computeRimGradient, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, computeRimGradient, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -244,7 +271,7 @@ export const NAV_FLOAT_GAP = Spacing.sm;
 // still fully closed (that was never what the radius was doing — see that file's own note).
 const EDGE_WIDTH = 1.5;
 const ITEMS_PER_SIDE = 2;
-// The smallest gap the pill keeps from the bar's own painted edge (2026-08-10 follow-up, user
+// The smallest gap the pill keeps from the bar's own clipping mask (2026-08-10 follow-up, user
 // report + screenshots: "visual bug where bottom nav blue is").
 //
 // The bar is `Surface`, and a Surface CLIPS its children to its rounded mask — so a pill that
@@ -255,9 +282,18 @@ const ITEMS_PER_SIDE = 2;
 // 2px off the bottom, which put the OUTERMOST tab's pill corner inside the bar's own
 // `Radius.lg` corner arc and cut it off diagonally.
 //
-// Clamping is done against the bar's MEASURED height rather than `BOTTOM_NAV_HEIGHT`, because
+// Clamping is done against the bar's MEASURED box rather than `BOTTOM_NAV_HEIGHT`, because
 // `useScaledStyles` scales this bar's padding with the OS text-size setting — the constant is
 // only true at 1.0x, and at 1.4x the arithmetic that "just fits" here would be wrong again.
+//
+// **...and it has to be the box the PILL lives in, not the one `Surface` paints (2026-08-11,
+// user report + screenshots of the Home button).** The first two passes measured the Surface's
+// OUTER view, which is `2 × BORDER_WIDTH.card` (3px) taller and wider than the masked content
+// box the pill is absolutely positioned inside — so every "keep 4px off the edge" sum was
+// computed in the wrong coordinate space and let Home's ring land 1px off the mask.
+// `innerH`/`innerW` come from an `absoluteFill` probe rendered as a SIBLING of the pill, so
+// whatever the abs-positioning origin turns out to be, it measures EXACTLY the rectangle the
+// pill's own x/y map into.
 //
 // **That first pass only clamped the vertical axis (2026-08-10, same-day follow-up, user
 // report: "should always be a rounded box, not the clipped thing you see — it only happens
@@ -267,19 +303,28 @@ const ITEMS_PER_SIDE = 2;
 // horizontally to the bar's rounded left/right edges that a font-scale- or measurement-
 // dependent few px could still push a corner into that arc; the more central tabs never come
 // close, which is why it read as intermittent rather than every time. `clampLeft` (mirrors
-// `clampTop`, uses the bar's MEASURED width — `barW`, same reasoning as `barH`) closes the
+// `clampTop`, uses the bar's MEASURED width — `innerW`, same reasoning as `innerH`) closes the
 // other axis the same way.
-const PILL_INSET = 4;
+//
+// 4 → 2 on 2026-08-11, and that is not a loosening: 2px is what the side pill has ALWAYS had
+// in reality (62px tall, positioned at y 8 in a 72px masked box), because the old clamp was
+// measuring a box 3px bigger than the real one and so never bound. Stating the real minimum
+// keeps the side pill exactly where it has always sat instead of shoving it 2px off the icon
+// it frames; Home's ring is sized by `HOME_RING` below rather than by whatever this leaves.
+const PILL_INSET = 2;
 // The pill is drawn slightly larger than the tab item's own measured box (grown outward,
 // centred on the same spot) so the active tab reads as a roomier card instead of shrink-wrapping
 // the icon+label — the icon/label stay put (centred in their own tight flex box), so this extra
 // margin shows up as breathing room between them and the pill's edge, not a layout shift.
 const PILL_GROW_X = 8;
 const PILL_GROW_Y = 6;
-
-// The pill's corner radius animates (rounded rect on a side tab, full circle on Home), and the
-// rim gradient has to take the same corner — so the gradient itself needs an animated style.
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+// How wide the accentSoft ring around the Home button is (2026-08-11). Home's ring used to be
+// `PILL_GROW_X * 2` past the 56px FAB — 72px inside a 72px masked box, i.e. the entire height
+// of the bar — capped by whatever the clamp allowed and then pushed off-centre by it. A ring
+// as tall as its container isn't a frame, it's a plate; this is the frame's actual width, and
+// the arithmetic below sizes the ring from it and centres it on the button rather than fitting
+// it to the leftovers. 4 + the FAB's 56 + 4 leaves exactly PILL_INSET × 2 to the mask.
+const HOME_RING = 4;
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -324,11 +369,14 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const [leftTrack, setLeftTrack] = useState<Track>(EMPTY_TRACK);
   const [rightTrack, setRightTrack] = useState<Track>(EMPTY_TRACK);
   const [centreTrack, setCentreTrack] = useState<Track>(EMPTY_TRACK);
-  // The bar's own painted box — what the pill has to stay inside of. See PILL_INSET. Both
+  // The box the pill is positioned inside — what it has to stay within. See PILL_INSET. Both
   // dimensions are measured (not read off BOTTOM_NAV_HEIGHT/a fixed width) because this bar
-  // runs through useScaledStyles, so its painted size shifts with the OS text-size setting.
-  const [barH, setBarH] = useState(0);
-  const [barW, setBarW] = useState(0);
+  // runs through useScaledStyles, so its painted size shifts with the OS text-size setting —
+  // and measured from an absoluteFill PROBE rather than from the Surface, because Surface's
+  // own box is its outer border view, 2 × BORDER_WIDTH.card bigger than the mask that does
+  // the clipping.
+  const [innerH, setInnerH] = useState(0);
+  const [innerW, setInnerW] = useState(0);
 
   const setTrack = (setter: React.Dispatch<React.SetStateAction<Track>>) => (next: Track) => {
     setter((prev) => (prev.x === next.x && prev.y === next.y && prev.w === next.w && prev.h === next.h ? prev : next));
@@ -344,13 +392,13 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // Both sides measure equal (the bar is `justify-content: space-between` with flex:1 on both
   // groups around a fixed-width centre button) — fall back to whichever side is ready first.
   const segW = leftSegW || rightSegW;
-  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0 && barH > 0 && barW > 0;
+  const ready = leftTrack.w > 0 && rightTrack.w > 0 && centreTrack.w > 0 && segW > 0 && innerH > 0 && innerW > 0;
 
   // The tallest/widest a pill may be, and where it may sit, so it never reaches the bar's
   // mask. Both slots go through these — see PILL_INSET for what was being sliced before.
-  const maxPillH = Math.max(0, barH - PILL_INSET * 2);
+  const maxPillH = Math.max(0, innerH - PILL_INSET * 2);
   const clampTop = (top: number, h: number) =>
-    Math.min(Math.max(top, PILL_INSET), Math.max(PILL_INSET, barH - PILL_INSET - h));
+    Math.min(Math.max(top, PILL_INSET), Math.max(PILL_INSET, innerH - PILL_INSET - h));
   // Horizontal counterpart of clampTop (2026-08-10 follow-up, user report: "should always be
   // a rounded box, not the clipped thing you see — it only happens sometimes"). Only the
   // OUTERMOST side tabs (Shop, Health) sit close enough to the bar's own rounded corners for
@@ -360,7 +408,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // doesn't reproduce reliably at every font scale/measurement — "sometimes" — which is why it
   // survived the vertical-only fix.
   const clampLeft = (left: number, w: number) =>
-    Math.min(Math.max(left, PILL_INSET), Math.max(PILL_INSET, barW - PILL_INSET - w));
+    Math.min(Math.max(left, PILL_INSET), Math.max(PILL_INSET, innerW - PILL_INSET - w));
 
   // Maps a SITE_ITEMS index to the pill's target x (relative to the bar's content box).
   // Offset left by half of PILL_GROW_X so the (wider) pill stays centred on the item's own box
@@ -393,16 +441,29 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const sideTop = clampTop((leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2 + Travel.sm, pillHeight);
   // Home's slot (2026-08-10). Home used to have NO pill: the pill slid to the centre button's
   // x, faded to 0 and unmounted, so selecting Home read as the indicator "just disappearing"
-  // (maintainer report). It is a real slot now — a circle grown PILL_GROW_X beyond the 56px
-  // FAB on every side, so an accentSoft ring shows around the Home button exactly the way the
-  // pill shows around a side tab's icon+label. The indicator therefore always exists and
-  // always travels to the selected tab; there is no enter/exit, no opacity and no unmount.
-  // The ring is centred on the FAB and clamped to the bar, so it is a whole circle rather than
-  // the flattened squircle a 72px ring became inside a 72px bar (see PILL_INSET). The grow is
-  // therefore what FITS, not a fixed 8 on every side.
-  const homeSize = Math.min(centreTrack.w + PILL_GROW_X * 2, maxPillH);
-  const homeTop = clampTop(centreTrack.y - (homeSize - centreTrack.h) / 2 + Travel.md, homeSize);
-  const homeX = centreTrack.x - (homeSize - centreTrack.w) / 2;
+  // (maintainer report). It is a real slot now — an accentSoft ring around the 56px FAB, so
+  // Home is marked the way a side tab's icon+label is. The indicator therefore always exists
+  // and always travels to the selected tab; there is no enter/exit, no opacity and no unmount.
+  //
+  // **Sized from HOME_RING and centred on the button, NOT fitted to the leftovers
+  // (2026-08-11, user report + screenshots).** It used to be `centreTrack.w + PILL_GROW_X * 2`
+  // (72) capped by `maxPillH` and positioned through `clampTop`, and all three parts of that
+  // fought each other inside a 72px box: the ring came out 67px — a plate the full height of
+  // the bar, not a frame — the clamp then had a range of exactly one value and pinned it 1px
+  // off the mask, and because the FAB rests 4px lower than the ring's clamped position, the
+  // "ring" was 8px above the button and 3px below it. What the screenshots showed was a
+  // lopsided smudge with its halo sliced flat top and bottom, which is what a circle bigger
+  // than its container always becomes here (a Surface CLIPS — see PILL_INSET).
+  //
+  // The order is reversed now: the ring is HOME_RING wide, centred on the FAB's own centre,
+  // and only THEN capped by what fits. Nothing needs clamping afterwards — a ring centred on
+  // a button that is itself centred in the bar is inside the bar by construction, and
+  // `homeFit` is the arithmetic that says so rather than a guard that hopes so.
+  const homeCentreY = centreTrack.y + centreTrack.h / 2;
+  const homeFit = 2 * Math.max(0, Math.min(homeCentreY - PILL_INSET, innerH - PILL_INSET - homeCentreY));
+  const homeSize = Math.min(centreTrack.w + HOME_RING * 2, homeFit);
+  const homeTop = homeCentreY - homeSize / 2;
+  const homeX = centreTrack.x + centreTrack.w / 2 - homeSize / 2;
 
   // Every dimension the pill morphs between. Width/height/radius animate alongside x/y, so a
   // side tab -> Home move is one continuous shape change rather than a fade-out.
@@ -433,7 +494,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     pr.value = to(target.r);
   }, [
     ready, activeIndex, isHomeActive, segW, pillHeight, sideTop,
-    homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x, barW,
+    homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x, innerW,
     reducedMotion, tx, ty, pw, ph, pr,
   ]);
 
@@ -442,21 +503,33 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     width: pw.value,
     height: ph.value,
   }));
-  // The rim gradient and the fill each need the same corner, and both morph — hence two more
-  // animated styles rather than a static Radius.lg.
+  // The pill's own corner morphs (rounded rect on a side tab, circle on Home), so it needs an
+  // animated style rather than a static Radius.lg — and it has to be applied to the pill's own
+  // `Animated.View`, which then MASKS the rim gradient inside it.
+  //
+  // **Not to the gradient itself (2026-08-11).** It used to be, via an
+  // `Animated.createAnimatedComponent(LinearGradient)`, and that silently didn't work: the
+  // gradient kept `pr`'s initial `Radius.lg` while the fill one layer inside it became a
+  // circle, so Home's ring drew as a 24px-cornered rounded SQUARE of rim colour with a pale
+  // disc sitting inside it — the flat-topped "squircle" in the report's screenshots, measured
+  // on the real DOM as `radius: 24px` on the gradient against `30.5px` on its own child.
+  // Reanimated can't reach a third-party view's style the way it reaches a plain
+  // `Animated.View`. Animate a View you own and let it clip; don't wrap a foreign component.
   const pillRadiusStyle = useAnimatedStyle(() => ({ borderRadius: pr.value }));
   const pillInnerRadiusStyle = useAnimatedStyle(() => ({ borderRadius: Math.max(0, pr.value - EDGE_WIDTH) }));
 
   // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
   const rim = computeRimGradient(theme.accent, isDark);
-  // Accent glow only — **no `getLayeredShadow`** (2026-08-10 follow-up, same user report as
-  // PILL_INSET). A card's drop shadow is a grey, hue-less blur, and stacking one under a pale
-  // `accentSoft` plate rendered it as a dirty grey donut around the fill rather than as depth
-  // — worst on Home, where it also sat on top of the FAB's own `Shadow.fab`, so the blue
-  // button ended up ringed by two overlapping smudges. The pill is an INDICATOR drawn behind a
-  // tab, inside a bar that already casts the shadow for both of them; it has nothing to be
-  // raised off. The soft accent glow is hue-tinted, so it reads as light rather than as grime.
-  const pillShadow = getGlow(theme.accent, 'soft').boxShadow;
+  // **No halo of any kind on the pill.** `getLayeredShadow` went on 2026-08-10 (a grey,
+  // hue-less blur under a pale `accentSoft` plate read as a dirty donut rather than as depth),
+  // and `getGlow(theme.accent, 'soft')` follows it on 2026-08-11 for a reason that is about
+  // this bar rather than about the colour: a glow is a 15px and a 27px blur, and the pill has
+  // 4px of clearance to a mask that CLIPS. So the halo could never fade out — it was cut off
+  // flat, top and bottom, turning the ring around Home into a squircle-shaped haze and giving
+  // the shape its own second, harder edge a few px outside the real one. That is most of what
+  // "the clipped thing you see" was. An indicator drawn behind a tab, inside a bar that
+  // already casts one shadow for the whole cluster, needs no light of its own; the fill and
+  // the rim are the whole object now.
 
   const renderCentre = (item: SiteItem) => {
     const active = isActive(item);
@@ -467,23 +540,31 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         key={item.key}
         scaleTo={0.90}
         travel={Travel.md}
-        // "Pressed = on", same as every side tab (2026-08-10). Home took `travel` but never
-        // `sunk`, so it was the one tab with no resting depth cue — it sank on the tap and
-        // came straight back up, which alongside the vanishing pill left Home looking like
-        // the tab that never registers as selected.
-        sunk={active}
+        // **This button presses, but it does not REST sunk (2026-08-11)** — the one deliberate
+        // exception to "Pressed = on", and it buys the ring above. The FAB is 56px in a 72px
+        // masked box: 8px of slack, 4 above and 4 below. `sunk={active}` spent 4 of those 8 on
+        // a downward offset, which left the ring nothing to be concentric with — the ring
+        // ended up 8px above the button and 3px below it, which is what the report's
+        // screenshots show. It also never read as depth in the first place: a sunk cap needs a
+        // base to meet, and this FAB deliberately has none (see the 2026-08-05 keyBase note
+        // above), so all the offset did was sit the blue circle low in the bar.
+        //   `sunk` was added on 2026-08-10 because Home was then "the tab that never registers
+        // as selected" — with no pill of its own, nothing marked it. That is no longer true:
+        // the ring is Home's selection cue, and it is a stronger one than 4px of travel with
+        // nothing behind it. Keep `travel` — the press itself still sinks, like every key.
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
-        // No drop shadow while Home is ACTIVE (2026-08-10 follow-up). `Shadow.fab` is a 16px
-        // black blur at 22%, and the pill's ring around this button is only a few px wide —
-        // the blur smeared straight across it, so the pale `accentSoft` ring came out as a
-        // grey donut and the blue button looked smudged rather than selected. It is also the
-        // right call semantically: an active tab rests SUNK (`sunk={active}` below), and a key
-        // sitting at the bottom of its travel has no business casting a floating shadow. The
-        // ring is the depth cue in that state; the shadow comes back the moment Home is not
-        // the selected tab.
-        style={[styles.centreButton, active ? null : Shadow.fab, glass ? null : { backgroundColor: theme.accent }]}
+        // **No `Shadow.fab`, in EITHER state (2026-08-11).** The 2026-08-10 pass dropped it
+        // only while Home was active, because the 16px black blur smeared across the ring and
+        // turned it into a grey donut. The user's screenshot of the INACTIVE state shows the
+        // other half of the same problem: a 16px 22%-black blur around a 56px circle, on a
+        // white bar, doesn't read as a floating FAB — it reads as a dirty grey collar drawn
+        // around the button, the same "hue-less grey blur" objection the pill's own shadow was
+        // deleted for. Nothing in this bar should carry grey depth: the bar is a Surface that
+        // already casts one shadow for the whole cluster, and an accent-filled circle on white
+        // needs no help being the most salient thing in it.
+        style={[styles.centreButton, glass ? null : { backgroundColor: theme.accent }]}
         onPress={() => handlePress(item)}
         onLayout={(e: LayoutChangeEvent) => {
           const { x, y, width, height } = e.nativeEvent.layout;
@@ -511,32 +592,42 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   };
 
   return (
-    <Surface
-      surfaceContext="nav"
-      style={styles.bar}
-      // The pill is clamped inside this box, so the box has to be measured — `useScaledStyles`
-      // scales the bar's padding with the OS text size, which makes BOTTOM_NAV_HEIGHT true only
-      // at 1.0x. See PILL_INSET.
-      onLayout={(e: LayoutChangeEvent) => {
-        const { width, height } = e.nativeEvent.layout;
-        setBarH((prev) => (prev === height ? prev : height));
-        setBarW((prev) => (prev === width ? prev : width));
-      }}
-    >
+    <Surface surfaceContext="nav" style={styles.bar}>
+      {/*
+        The pill is sized and placed inside this box, so the box has to be measured —
+        `useScaledStyles` scales the bar's padding with the OS text size, which makes
+        BOTTOM_NAV_HEIGHT true only at 1.0x. It is measured HERE, from an absoluteFill sibling
+        of the pill, rather than from the Surface's own onLayout: Surface's box is its outer
+        border view, which is 2 × BORDER_WIDTH.card taller and wider than the mask that
+        actually clips, and every gap sum computed against it was therefore 3px optimistic.
+        An absoluteFill shares the pill's containing block by definition, so this measures the
+        exact rectangle `translateX`/`translateY` address — no constant to keep in step.
+      */}
+      <View
+        pointerEvents="none"
+        style={StyleSheet.absoluteFill}
+        onLayout={(e: LayoutChangeEvent) => {
+          const { width, height } = e.nativeEvent.layout;
+          setInnerH((prev) => (prev === height ? prev : height));
+          setInnerW((prev) => (prev === width ? prev : width));
+        }}
+      />
       {ready && (
-        <Animated.View pointerEvents="none" style={[styles.pill, pillStyle]}>
+        // The pill owns the morphing corner and masks whatever is inside it — see
+        // `pillRadiusStyle` for why the rim gradient must NOT carry that radius itself.
+        <Animated.View pointerEvents="none" style={[styles.pill, pillStyle, pillRadiusStyle]}>
           {glass ? (
-            <AnimatedLinearGradient
+            <LinearGradient
               colors={rim.colors}
               locations={rim.locations}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
-              style={[{ flex: 1, padding: EDGE_WIDTH }, pillRadiusStyle]}
+              style={{ flex: 1, padding: EDGE_WIDTH }}
             >
-              <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft, boxShadow: pillShadow }, pillInnerRadiusStyle]} />
-            </AnimatedLinearGradient>
+              <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft }, pillInnerRadiusStyle]} />
+            </LinearGradient>
           ) : (
-            <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft, boxShadow: pillShadow }, pillRadiusStyle]} />
+            <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft }, pillInnerRadiusStyle]} />
           )}
         </Animated.View>
       )}
@@ -703,6 +794,9 @@ const baseStyles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+    // This view carries the animated corner, so it is also the mask for the rim gradient
+    // inside it — the gradient can't be given the radius directly (see `pillRadiusStyle`).
+    overflow: 'hidden',
   },
   centreButton: {
     width: 56,

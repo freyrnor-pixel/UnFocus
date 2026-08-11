@@ -371,24 +371,46 @@ file owns which token.)
   - **The bottom nav's pill has five slots, not four.** Home used to have none: selecting it
     slid the pill to the centre button's x, faded it out and unmounted it, which read as the
     indicator "just disappearing". It now morphs `width`/`height`/`borderRadius` into a circle
-    grown `PILL_GROW_X` beyond the 56px FAB, so an `accentSoft` ring frames Home the way the
-    rounded rect frames a side tab. No opacity, no mount/unmount. The centre button also gained
-    `sunk={active}` (it took `travel` but never rested down), and the pill is offset by
-    `Travel.*` because it only ever sits under a tab that is itself sunk.
+    grown beyond the 56px FAB, so an `accentSoft` ring frames Home the way the
+    rounded rect frames a side tab. No opacity, no mount/unmount. The side pill is offset by
+    `Travel.sm` because it only ever sits under a tab that is itself sunk.
   - **...and the pill has to FIT IN THE BAR (same-day follow-up, user report + screenshots:
     "visual bug where bottom nav blue is").** The bar is a `Surface`, which clips its children
     to its own rounded mask, so a pill bigger than the bar is drawn **sliced**, not
     overflowing — and both slots were: Home's ring was `56 + PILL_GROW_X * 2` = 72 inside a
     72px-tall bar and came out a flattened grey squircle, while a side pill's bottom corner ran
     into the bar's own `Radius.lg` corner arc on the outermost tab. `PILL_INSET` + `clampTop()`
-    keep both inside and the grows shrink to fit. **Clamp against the MEASURED bar height**
-    (`Surface` gained an `onLayout` passthrough for it), never `BOTTOM_NAV_HEIGHT` — this bar
-    runs through `useScaledStyles`, so the constant is only true at font scale 1.0. Two shadows
+    keep the side pill inside, and it is measured, never `BOTTOM_NAV_HEIGHT` — this bar runs
+    through `useScaledStyles`, so the constant is only true at font scale 1.0. Two shadows
     went in the same pass and should not come back: the pill's `getLayeredShadow(…, 'raised')`
     (a hue-less grey blur under a pale `accentSoft` plate reads as a dirty donut, and an
-    indicator drawn behind a tab has nothing to be raised off — the accent glow stays), and
-    `Shadow.fab` **while Home is active** (a 16px black blur smeared straight across the few-px
-    ring; an active tab also rests sunk, and a key at the bottom of its travel shouldn't float).
+    indicator drawn behind a tab has nothing to be raised off), and `Shadow.fab` on the Home
+    button.
+  - **The Home ring is sized from the ring outward, and nothing in the bar has a halo
+    (2026-08-11, user report + screenshots: "look at the bottom nav home button").** The two
+    passes above left three things competing for the 8px of slack a 56px FAB has inside a 72px
+    masked box, and the result was a lopsided plate, not a frame: the ring asked for the bar's
+    full height, `clampTop` had a legal range of one value and pinned it 1px off the mask, and
+    `sunk={active}` sat the button 4px below the ring's centre (8px of ring above it, 3px
+    below). Three corrections, and they only work together:
+    - **`HOME_RING` (4px) decides the ring's width**, it is centred on the button, and `homeFit`
+      caps it last. A ring centred on a button that is centred in the bar is inside the bar by
+      construction — no clamp, because a clamp can only shove, and shoving is what moved the
+      ring off its button.
+    - **The Home FAB does not REST sunk** (it still sinks on press). The one deliberate
+      exception to "Pressed = on": the resting 4px was the room the bottom of the ring needed,
+      and a sunk cap with no base under it — this FAB deliberately has none — never read as
+      depth anyway, only as a button sitting low. The ring is the selection cue now.
+    - **The pill's `getGlow` is gone**, after `getLayeredShadow` went the day before. A glow is
+      a 15px and a 27px blur; the pill has 4px of clearance to a mask that clips, so the halo
+      could never fade out — it was cut off flat top and bottom, which is what made the ring
+      read as a squircle-shaped haze. `Shadow.fab` came off the FAB in the inactive state too:
+      a 16px black blur around a 56px circle on a white bar is a grey collar, not a float.
+    - **Measure the box the pill is positioned in, not the one `Surface` paints.** Surface's
+      outer view is `2 × BORDER_WIDTH.card` bigger than its clipping mask, so every gap sum was
+      3px optimistic. `BottomNav` measures an `absoluteFill` probe rendered beside the pill —
+      guaranteed to share its containing block — and `Surface`'s `onLayout` passthrough was
+      deleted with its only caller.
 - **Two shapes for a pick-one question, and only two** (`components/TabSlider.tsx` +
   `FormControls`' `SegmentedControl`; the rule is written down in TabSlider's header,
   the tail was converted 2026-08-10). **Screen tier** = TabSlider, an accent-FILLED sliding
