@@ -698,7 +698,7 @@ const en = {
   skipBtn: 'Skip',
   doneShoppingSuccessText: 'Nice work!',
   weeklyEmptyTitle: 'Nothing on the list yet',
-  weeklyEmptySubtitle: 'Add items below.',
+  weeklyEmptySubtitle: 'Tap to unlock and add items.',
   unsavedShoppingBanner: (n: number) => `Unsaved: ${n} list${n === 1 ? '' : 's'} still unlocked`,
   // Empty containers in shopping screen
   newWeeklyListTitle: 'Create a new list',
@@ -747,6 +747,10 @@ const en = {
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
   monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
+  /** Shown instead of `monthlyListEmpty` when the list is also locked, which hides the add
+   *  composer this text would otherwise be describing — see shopping.tsx's usage. Tapping the
+   *  row unlocks the list, so the copy names that action instead of pointing at "below". */
+  monthlyListEmptyLocked: 'Nothing added yet — tap to unlock and add items.',
   monthlyPreviewSearchPlaceholder: 'Search monthly list…',
   monthlyPreviewEmpty: 'Your monthly list is empty.',
   weekListTotal: (kr: string) => `Total: ${kr}`,
@@ -2784,7 +2788,7 @@ const no: typeof en = {
   skipBtn: 'Hopp over',
   doneShoppingSuccessText: 'Bra jobbet!',
   weeklyEmptyTitle: 'Ingenting på listen ennå',
-  weeklyEmptySubtitle: 'Legg til varer nedenfor.',
+  weeklyEmptySubtitle: 'Trykk for å låse opp og legge til varer.',
   unsavedShoppingBanner: (n: number) => `Ulagret: ${n} liste${n === 1 ? '' : 'r'} fortsatt ulåst`,
   // Tomme beholdere i handlelisten
   newWeeklyListTitle: 'Lag en ny liste',
@@ -2830,6 +2834,7 @@ const no: typeof en = {
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
   monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
+  monthlyListEmptyLocked: 'Ingenting lagt til ennå — trykk for å låse opp og legge til varer.',
   monthlyPreviewSearchPlaceholder: 'Søk i månedslisten…',
   monthlyPreviewEmpty: 'Månedslisten din er tom.',
   weekListTotal: (kr: string) => `Totalt: ${kr}`,
