@@ -460,7 +460,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -1819,7 +1819,23 @@ export default function ShoppingScreen() {
                             shows this list's own name above, and it being a Monthly list is implied
                             by living in the Monthly tab, so the extra label was pure redundancy. */}
                         <View style={styles.section}>
-                          {view.catalogItems.length === 0 ? (
+                          {view.catalogItems.length === 0 && locked ? (
+                            // Locked + empty is the one case InlineAddItem (below, gated on
+                            // `!locked`) never renders — the real fix is unlocking, via the
+                            // padlock icon up in the header, which carries no cue that it's the
+                            // way out. Tapping this row unlocks directly instead (2026-08-11 fix
+                            // — see components/GoalsPreviewList.tsx's header for the matching
+                            // bug in the Goals drawer). Unlocking never confirms (unlike
+                            // locking-while-dirty), so this can call the toggle straight.
+                            <PressableScale
+                              onPress={() => toggleMonthlyListLocked(list.id)}
+                              accessibilityRole="button"
+                              accessibilityLabel={t.monthlyListEmptyLocked}
+                              style={[styles.monthlyEmptyLocked, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                            >
+                              <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
+                            </PressableScale>
+                          ) : view.catalogItems.length === 0 ? (
                             <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
                           ) : view.filteredCatalogItems.length === 0 ? (
                             <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyPreviewEmpty}</Text>
@@ -2529,6 +2545,18 @@ const styles = StyleSheet.create({
   // Visual-audit 2026-07-11: background/border colour applied inline (theme) at each
   // call site — was bare muted text floating on the particle background.
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
+  // The locked+empty monthly-list variant of sectionEmpty — a real tap target now (it unlocks
+  // the list), so it's floored to MIN_TAP_TARGET (DESIGN_RULES rule 17) and split into a
+  // container + text style rather than one combined Text style.
+  monthlyEmptyLocked: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    minHeight: MIN_TAP_TARGET,
+    justifyContent: 'center',
+  },
+  monthlyEmptyLockedText: { fontSize: FontSize.sm },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
   // Compact icon+count indicator (2026-07-22) — replaces an earlier full-sentence banner

@@ -511,11 +511,23 @@ export default function WeekListCard({
 
       <Collapsible open={expanded}>
       <View style={styles.bodyGap}>
+        {/* This state only occurs while LOCKED (the condition below), so the only real fix is
+            unlocking — done via the padlock icon up in the header, which carries no visual cue
+            that it's the way out. The whole block is the tap target now (`onToggleLock`, the
+            same handler the header's own padlock uses; unlocking never confirms, per
+            shopping.tsx's handleToggleLock) instead of copy pointing at an add row that this
+            block never renders (2026-08-11 fix — see components/GoalsPreviewList.tsx's header
+            for the matching bug in the Goals drawer). */}
         {progress.total === 0 && list.locked && (
-          <View style={styles.emptyState}>
+          <PressableScale
+            onPress={onToggleLock}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.weeklyEmptyTitle}. ${t.weeklyEmptySubtitle}`}
+            style={styles.emptyState}
+          >
             <Text style={[styles.emptyTitle, { color: theme.text }]}>{t.weeklyEmptyTitle}</Text>
             <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t.weeklyEmptySubtitle}</Text>
-          </View>
+          </PressableScale>
         )}
 
         {/* ── Items section — labelled "To buy" only while shopping; in planning the
@@ -864,7 +876,9 @@ const baseStyles = StyleSheet.create({
   compactProgressRow: { paddingVertical: Spacing.xs },
   compactProgressText: { fontSize: FontSize.sm },
   bodyGap: { gap: Spacing.md },
-  emptyState: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
+  // `minHeight` floors it to MIN_TAP_TARGET now that it's a real tap target (DESIGN_RULES rule
+  // 17) — the title+subtitle+padding already clear it in practice, this just makes it explicit.
+  emptyState: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md, minHeight: MIN_TAP_TARGET, justifyContent: 'center' },
   emptyTitle: { fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size, textAlign: 'center' },
   emptySubtitle: { fontSize: FontSize.sm, textAlign: 'center' },
   section: { gap: Spacing.xs },
