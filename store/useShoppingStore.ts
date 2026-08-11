@@ -84,6 +84,14 @@
  *     Pinned by __tests__/shoppingResetSync.test.ts.
  *     mergeDuplicateItems' one-time self-heal DELETE is still a hard delete —
  *     it repairs pre-existing accidental dupes, not a user delete action.
+ *   - **`unmarkPurchased()` (2026-08-11)** is the inverse of `markPurchased()`, added for
+ *     store mode's third section so "bought" is not a one-way door. It lands the row back in
+ *     the CART (`status:'inWeeklyList'`, `checked:true`) rather than the list, and clears
+ *     `shoppingTripId` alongside `purchasedAt` — left set, `monthlyReset()`'s
+ *     `WHERE shopping_trip_id IS NOT NULL` would still treat the row as having been through
+ *     a checkout it was pulled back out of. It writes through `update()`, so it inherits the
+ *     live-sync stamp for free (it moves `checked`, which IS whitelisted).
+ *     Pinned by __tests__/shoppingStoreMode.test.ts.
  *   - add() consolidates duplicates: same status+listId+name+dishName bumps the
  *     existing row's targetQuantity (catalog) or amount (weekly) instead of
  *     inserting — never assume add() creates a fresh row.
@@ -250,6 +258,10 @@ type ShoppingStore = {
   /** Mark a single item purchased (status='purchased' + timestamp) without a shopping_trips
    *  row — used by the Shopping widget's list→cart→purchased tap. Full-trip checkout is doneShopping(). */
   markPurchased: (id: string) => void;
+  /** The inverse of markPurchased: a bought row goes back to the cart it came from. Clears
+   *  `shoppingTripId` as well as `purchasedAt`, since a row that is no longer purchased must
+   *  not keep claiming membership in the trip that bought it. */
+  unmarkPurchased: (id: string) => void;
   adjustAmount: (id: string, delta: number) => void;
   putBackToInventory: (id: string) => void;
   remove: (id: string) => void;
@@ -561,6 +573,20 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
     const item = get().items.find((i) => i.id === id);
     if (!item) return;
     get().update(id, { status: 'purchased', purchasedAt: new Date().toISOString() });
+  },
+
+  unmarkPurchased(id) {
+    const item = get().items.find((i) => i.id === id);
+    if (!item) return;
+    // Back to the CART (checked), not to the list: the row was in the cart immediately
+    // before it was bought, so that is where undoing lands it. Both stamps are cleared —
+    // see the declaration's note on why shoppingTripId cannot be left behind.
+    get().update(id, {
+      status: 'inWeeklyList',
+      checked: true,
+      purchasedAt: undefined,
+      shoppingTripId: undefined,
+    });
   },
 
   adjustAmount(id, delta) {

@@ -44,7 +44,10 @@
  *             settings.featureSharing — the only opt-in left on this screen; the
  *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
  *             unconditional as of the 2026-07-25 defaults revision),
- *             components/ShoppingFilterBar, components/ShoppingRow, components/Surface,
+ *             components/ShoppingFilterBar, components/ShoppingRow,
+ *             components/ShoppingStoreMode (the full-screen in-the-store view of one week
+ *             list — opened from each locked WeekListCard, mounted here as a sibling of
+ *             ScreenScaffold alongside the other overlays), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
  *             components/PressableScale, components/TabSlider, components/SectionDivider,
  *             constants/theme,
@@ -438,6 +441,7 @@ import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
+import ShoppingStoreMode from '@/components/ShoppingStoreMode';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
@@ -532,6 +536,7 @@ export default function ShoppingScreen() {
   const [resetReviewVisible, setResetReviewVisible] = useState(false);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
+  const [storeModeListId, setStoreModeListId] = useState<string | null>(null);
   // The row's detail sheet (components/ShoppingItemSheet.tsx). Holds the item itself rather
   // than an id so the sheet still has content to draw while it animates out; it re-reads the
   // live row from the store by id, so a stale object here can't be written back.
@@ -842,16 +847,10 @@ export default function ShoppingScreen() {
     [tab, items, recentlyAddedIds]
   );
 
-  const purchasedByListId = useMemo(() => {
-    const map = new Map<string, ShoppingItem[]>();
-    for (const item of items.filter((i) => i.status === 'purchased')) {
-      const key = item.listId ?? '';
-      const arr = map.get(key) ?? [];
-      arr.push(item);
-      map.set(key, arr);
-    }
-    return map;
-  }, [items]);
+  // The list's purchased rows come from computeListGroups()'s own `purchased` bucket now
+  // (2026-08-11) — this screen used to build a separate listId→purchased map here, which was
+  // a SECOND definition of a section computeListGroups already had every input for. One
+  // definition, so the week card and store mode can't disagree about what "Kjøpt" contains.
 
   // Monthly checkbox (Decision 044a): moves the item straight to the focused weekly
   // list instead of staging it for a separate confirm step. Undoable via the toast.
@@ -2146,11 +2145,12 @@ export default function ShoppingScreen() {
                               dishGroups={groups.dishGroups}
                               ungroupedUnchecked={displayUngrouped}
                               checked={groups.checked}
-                              purchased={purchasedByListId.get(list.id) ?? []}
+                              purchased={groups.purchased}
                               onToggleLock={() => handleToggleLock(list)}
                               onRename={(name) => renameList(list.id, name)}
                               onOpenSavedLists={() => setSavedListsListId(list.id)}
                               onOpenListSettings={() => setListSettingsListId(list.id)}
+                              onOpenStoreMode={() => setStoreModeListId(list.id)}
                               onDelete={() => handleDeleteList(list.id)}
                               onSyncToTemplate={() => handleSyncListToTemplate(list)}
                               onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
@@ -2344,6 +2344,15 @@ export default function ShoppingScreen() {
         onClose={() => setDetailItem(null)}
       />
     </ScreenScaffold>
+    {/* A full-screen Modal, and a sibling of ScreenScaffold like the other overlays. Mounting
+        it here (rather than inside a list row) is what keeps its keep-awake lock tied to one
+        place — see components/ShoppingStoreMode.tsx's header. */}
+    <ShoppingStoreMode
+      visible={storeModeListId !== null}
+      listId={storeModeListId ?? ''}
+      listName={nonTemplateLists.find((l) => l.id === storeModeListId)?.name ?? ''}
+      onClose={() => setStoreModeListId(null)}
+    />
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     <ConfirmationBanner
       message={confirmMessage}

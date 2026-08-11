@@ -9,7 +9,8 @@
  *   Imports → store/useShoppingStore (ShoppingItem type)
  *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked),
  *             components/HomeShoppingCard.tsx (listProgress), app/inventory-edit.tsx
- *             (catalogItemsForList)
+ *             (catalogItemsForList), components/ShoppingStoreMode.tsx (computeListGroups —
+ *             all three sections, including the `purchased` bucket)
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:
@@ -25,6 +26,18 @@
  *   - groupByDish() is also used standalone by the Monthly tab (no listId/status notion
  *     there, just catalog rows), while computeListGroups() is Week-list-specific
  *     (filters by status==='inWeeklyList' and a given listId first).
+ *   - **Three sections, off the existing status pipeline (2026-08-11).** A week list draws as
+ *     I liste → I handlekurv → Kjøpt, which is exactly the store's own documented
+ *     'catalog' → 'inWeeklyList' → 'purchased' machine plus the `checked` flag:
+ *       • I liste      = status 'inWeeklyList', !checked   (`ungroupedUnchecked` + dish rows)
+ *       • I handlekurv = status 'inWeeklyList',  checked   (`checked` + checked dish rows)
+ *       • Kjøpt        = status 'purchased'                (`purchased`)
+ *     No new column, and deliberately NOT the `collected` flag: `collected` is absent from
+ *     lib/liveSync's shopping_items whitelist, so a section keyed on it would silently fail
+ *     to reach a paired phone, while `checked` and `list_id` (which is what actually
+ *     distinguishes these three) both sync. `purchased` is additive — `listProgress()` and
+ *     `listTotal()` read the other three keys by name and are unaffected, so a bought row
+ *     never counts toward the trip's remaining/in-cart progress or its running total.
  *   - computeListGroups() dish grouping deliberately includes BOTH checked and unchecked
  *     items for a dish (2026-07-02, Phase 4 — Decision 011a/R4 wiring). Originally (Session
  *     A2·2) it grouped unchecked items only, which meant a fully-checked dish's items fell
@@ -71,7 +84,8 @@ export function groupByDish(items: ShoppingItem[]): { dishGroups: [string, Shopp
 }
 
 /** Buckets one Week list's inWeeklyList items into dish groups (checked + unchecked members
- *  together, per Decision 011a) / ungrouped (orderIndex-sorted) / checked. */
+ *  together, per Decision 011a) / ungrouped (orderIndex-sorted) / checked, plus the list's
+ *  already-`purchased` rows (the third section — see `purchased`'s own note below). */
 export function computeListGroups(items: ShoppingItem[], listId: string) {
   const listItems = items.filter((i) => i.status === 'inWeeklyList' && i.listId === listId);
   const { dishGroups, ungrouped } = groupByDish(listItems);
@@ -81,7 +95,18 @@ export function computeListGroups(items: ShoppingItem[], listId: string) {
     .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
   const checked = ungrouped.filter((i) => i.checked).sort((a, b) => a.name.localeCompare(b.name));
 
-  return { dishGroups, ungroupedUnchecked, checked };
+  // The third section ("Kjøpt"). doneShopping() PRESERVES list_id when it flips a row to
+  // 'purchased', so a bought row still belongs to the list it was bought from — it simply
+  // fell out of the `status === 'inWeeklyList'` filter above and had nowhere to be drawn.
+  // Newest first: the interesting end of a bought pile is what was just added to it.
+  const purchased = items
+    .filter((i) => i.status === 'purchased' && i.listId === listId)
+    .sort(
+      (a, b) =>
+        (b.purchasedAt ?? '').localeCompare(a.purchasedAt ?? '') || a.name.localeCompare(b.name)
+    );
+
+  return { dishGroups, ungroupedUnchecked, checked, purchased };
 }
 
 /** Decision 011a derived state: a dish group reads as "checked" only when every one of its
