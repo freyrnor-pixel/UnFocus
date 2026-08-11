@@ -1,38 +1,42 @@
 /**
- * health.tsx — health / symptom log (quick-log + this-week overview)
+ * health.tsx — health / symptom log, shaped like the Habits tab (2026-08-11).
  *
- * Shows only the current Mon–Sun week's symptom activity, grouped by catalog
- * symptom (predefined + custom) with a per-day severity strip. Tapping a
- * symptom's row opens its full history (app/health-detail.tsx). A "Health-log"
- * link opens the sectioned overview of every issue ever logged
- * (app/health-log.tsx), for browsing history or adding a multi-field entry
- * (severity/dates/notes) via app/health-form.tsx.
+ * **The Habits/Goals layout, applied here** (maintainer, 2026-08-11: *"In Health screen I want
+ * the same logic as with Goals and habits. Health issues same as Goals, and habits the same as
+ * logging incidents. Not practically the same, but the same layout, and adjusted where
+ * needed."*). Two halves, exactly as app/(tabs)/habits.tsx has them:
  *
- * Card order (2026-08-01, addendum B.2): first-run explainer → **Quick log** → Medicine trays →
- * This week + the full-log link. Quick log leads because writing down what is happening right
- * now is the unplanned reason this tab gets opened, and the only thing here that is lost by not
- * being recorded; the trays are a standing surface a reminder already brings you to. Quick log
- * stays a CARD rather than a one-line strip — it is four fields (name / start time / duration /
- * severity), three of which unfold once the name is non-empty, so a strip would only hide them.
+ *   1. **One card you register on** — where Habits lists today's habits, this lists the issues
+ *      that have actually been going on this week, each with a "+" that logs another incident
+ *      where a habit row has its −/+, the 7-day severity strip as its expandable drawer, and
+ *      a components/PadTypeRow composer pinned at the foot of the list.
+ *   2. **A "Health issues" drawer at the foot** — components/CollapsedSection.tsx, the same
+ *      component and the same two tap targets as the Goals drawer: the chevron previews the
+ *      standing list (components/HealthIssuesPreviewList.tsx), the NAME opens the popup
+ *      (components/HealthIssuesSheet.tsx) where issues are added and untracked.
  *
- * A "Quick log" card above the weekly summary (2026-07-23) lets an occurrence be
- * recorded straight from this tab: type a name, then optionally set start time,
- * duration, and severity — it saves instantly (dated today, no notes) — no
- * navigation. This reinstates an add affordance on this screen (after an earlier
- * same-day decision removed the old FAB in favour of the dedicated form) but keeps
- * it deliberately essentials-only (name/time/duration/severity); the full form
- * stays the place for notes, multi-day ("ongoing") entries, and editing.
- * (2026-07-24: start time + duration were added alongside severity — these three
- * are the fields users actually reach for at log time, per user feedback that
- * hiding them behind the full form made quick-logging feel incomplete.)
+ * **What that replaced, and why it is not a loss.** The screen used to carry two separate
+ * cards — a "Quick log" card and a "This week" card — plus a Health-log link folded into the
+ * foot of the second. Quick log is now the composer at the bottom of the one card (a composer
+ * belongs to the list it appends to, which is the placement rule the Food tab's "Add dish"
+ * button was fixed to in 2026-08-06), and This week is that card's rows. Every field Quick log
+ * had survives: name on the line, then still-going/over, start time, duration and severity as
+ * the composer's labelled option cells, plus a "More options" button into the full form that
+ * the old card had no equivalent of. The Health-log link moved into the drawer's body, which
+ * is where the rest of this screen's ways-out now live.
  *
- * **Medicine trays (2026-07-27)**: components/MedicineTrayCard.tsx — four time-of-day trays
- * (morning/midday/evening/night) with tap-to-take dose logging, one reminder per tray, and
- * as-needed medicines guarded by a minimum gap. It sat ABOVE Quick log until 2026-08-01 and now
- * sits directly below it (see "Card order" above). Symptom entries can optionally be
- * attributed to a medicine (`health_logs.medicine_id`, picked in app/health-form.tsx), which
- * is what makes "this med gives me stomach issues" visible on the medicine's own page.
- * Gated on settings.featureMedicine (on by default, still a real toggle).
+ * **What a "health issue" is.** `symptoms.tracked` (2026-08-11), not the `symptoms` table:
+ * that table is 36 seeded Norwegian names powering the typeahead, so a drawer opening onto all
+ * of them would be a vocabulary list. See store/useHealthStore.ts's `tracked` doc and the
+ * migration in lib/db.ts. Untracking deletes nothing.
+ *
+ * **The no-scoreboard rule is load-bearing on this screen specifically.** A row's right-hand
+ * value is how many times something happened this week, and a count of migraines is not an
+ * achievement in either direction — the user does not control it. So: no streak, no "better
+ * than last week", no total, no colour that escalates with the count, and no congratulation
+ * for a quiet week. The card's own sub-header says so out loud. Same family as the medicine
+ * tray being a window rather than a deadline, and lib/episodes.ts's refusal to interpret
+ * relief data.
  *
  * **Habits moved out (2026-07-23, UX audit finding E1)**: this screen used to also
  * embed a full Habits section (today/week/month views, per-habit cards) below the
@@ -40,48 +44,61 @@
  * and a whole separate habit-building system living inside it was a name-vs-content
  * mismatch a user had to learn by accident. That section is now app/(tabs)/habits.tsx,
  * its own bottom-nav tab (replacing Scan — see lib/siteNav.ts). This file is purely the
- * symptom-tracking half now.
+ * symptom-tracking half now — which is what made the 2026-08-11 pass above possible: the
+ * two screens are finally the same kind of screen.
  *
  * Connections:
  *   Imports → components/MedicineTrayCard (the medicine-tray dose card — see below),
  *             components/ScreenScaffold, components/HintCard, components/StarterCard
  *             (first-run explainer, shown while nothing has ever been logged; `collapsible`
  *             as of 2026-08-06 v3 — its example row collapses to a trigger row rather than
- *             always showing),
- *             components/StarterExampleRow (its preview row), components/Surface,
- *             components/CardAccent (CardAccentBadge), components/PressableScale,
- *             components/DebugNoteAnchor, components/AddRow,
- *             components/FormControls (Input, SegmentedControl), constants/theme, lib/date, lib/i18n,
+ *             always showing. Inside the card since 2026-08-11, where Habits has always kept
+ *             its own), components/StarterExampleRow (its preview row),
+ *             components/OpenEpisodeCard + components/EpisodeCloseSheet (ongoing episodes),
+ *             components/CollapsedSection + components/HealthIssuesPreviewList +
+ *             components/HealthIssuesSheet (2026-08-11 — the "Health issues" drawer and its
+ *             popup, the exact shape app/(tabs)/habits.tsx gives Goals),
+ *             components/Surface, components/CardAccent (CardAccentBadge),
+ *             components/PadRow (2026-08-11 — the shared row shell each issue's header line is
+ *             drawn through, the same conversion HabitCard got on 2026-08-01),
+ *             components/PadTypeRow + components/QuickAddOptionsPanel +
+ *             components/QuickAddOptionRow (the composer and its labelled option cells),
+ *             components/Collapsible (the week-strip drawer),
+ *             components/PressableScale, components/DebugNoteAnchor, components/TourTarget,
+ *             components/FormControls (Input, SegmentedControl), constants/theme,
+ *             constants/motion (Travel), lib/date, lib/episodes, lib/i18n,
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor,
- *             lib/haptics, lib/useKeyboardLift (Quick log's start-time/duration fields),
+ *             lib/haptics, lib/useKeyboardLift (the composer's start-time/duration fields),
  *             store/useHealthStore,
  *             store/useSettingsStore (featureMedicine gate only)
  *   Used by → Expo Router route "/health" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx (BottomNav "Health" tab)
- *   Data    → useHealthStore — reads `logs` for the weekly summary, and calls `add()` +
- *             `ensureSymptom()` directly for the Quick log card (full multi-field edit/delete
- *             still lives in app/health-form.tsx) AND for the StarterExampleRow "+" button
- *             (addHealthStarterLog — same two calls, today's date, severity 3)
+ *   Data    → useHealthStore — reads `logs` for the week's rows and `symptoms` for the drawer's
+ *             count; calls `add()` + `ensureSymptom()` for the composer, for a row's "+" and for
+ *             the StarterExampleRow "+". Full multi-field edit/delete still lives in
+ *             app/health-form.tsx.
  *
  * Edit notes:
  *   - Decision 001 tier='site' scaffold (BottomNav + header chrome).
- *   - "This week" replaces the old "last 30 days" window — grouping/counting/severity-strip
- *     logic is unchanged, just windowed to `getWeekDates(today)` instead of a 30-day cutoff.
  *   - Grouping key is the symptom id when present, else the (lowercased) ailment string for
- *     legacy rows — same convention as health-log.tsx/health-detail.tsx.
- *   - Quick log card: essentials-only (name + start time + duration + severity, dated today,
- *     no notes/"ongoing") instant save via useHealthStore's existing add()/ensureSymptom() — no
- *     new DB columns. Start time reuses the `startTime` free-text field the full form already
- *     writes; duration (minutes) is quick-log-only UI that's converted to `endTime`/`endDate` at
- *     save time (see `handleQuickLog`) — there's no separate duration column. Editing an entry's
- *     notes, "ongoing" state, or the full picker/typeahead still goes through app/health-form.tsx
- *     (via app/health-detail.tsx or app/health-log.tsx's own AddRow).
+ *     legacy rows — same convention as health-log.tsx/health-detail.tsx. Keep it: a row's "+"
+ *     resolves that name back through `ensureSymptom`, so a legacy free-text entry can be
+ *     logged again from its row without first being repaired.
+ *   - **A row's "+" writes at severity 3 and no time**, deliberately. AGENTS.md's composer
+ *     contract says committing at tier 1 must always produce a valid row, and the one-gesture
+ *     capture is exactly tier 1: the middle of the scale is the honest default when nothing
+ *     was asked, and the composer below (or the entry's own page) is where a real severity is
+ *     chosen. Don't carry the last entry's severity forward — that guesses at data.
+ *   - **There is no "−" on a row**, and that is the deliberate divergence from HabitCard's
+ *     −/+ pair. Un-counting a habit is a correction to a tally; un-logging a symptom means
+ *     deleting a dated entry with a severity and possibly a note on it, which belongs in
+ *     app/health-form.tsx via the row's ⋯ → its own page. A one-tap delete of health history
+ *     on a list row is not a gesture this app should offer.
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus
  *     effect only closes the hint on blur.
- *   - **(2026-07-26)** Quick log / This week headers each lead with a `CardAccentBadge`
- *     (domain="health") next to their label — part of a broader "bring the card colour back"
- *     pass restoring domain-colour presence across tabs, mirroring Home's preview-card badges.
- *     **Size bumped 22→32 (2026-08-09, user report: "icon in upper left is too small")** —
- *     now actually matches the Home badge size it was already meant to mirror.
+ *   - `getScreenColor` (the plain function), **not** `useScreenColor` (the context hook), at
+ *     the screen level: this component RENDERS ScreenScaffold, so it sits ABOVE that
+ *     component's ScreenColorContext.Provider and the hook would read the default (grey) here.
+ *     A child of ScreenScaffold — `IssueRow` below, MedicineTrayCard — can safely use the hook.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -96,27 +113,161 @@ import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
+import CollapsedSection from '@/components/CollapsedSection';
+import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
+import HealthIssuesSheet from '@/components/HealthIssuesSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
+import PadRow from '@/components/PadRow';
+import PadTypeRow from '@/components/PadTypeRow';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import Collapsible from '@/components/Collapsible';
 import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
-import AddRow from '@/components/AddRow';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
-import { success } from '@/lib/haptics';
+import { success, tap } from '@/lib/haptics';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
 import { openEpisodes } from '@/lib/episodes';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
-import { FontSize, Fonts, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { getScreenColor } from '@/lib/screenColor';
+import {
+  BORDER_WIDTH,
+  computeBorderTone,
+  FontSize,
+  Fonts,
+  HitSlop,
+  Radius,
+  SCREEN_GAP,
+  Spacing,
+  Type,
+} from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
+import { getScreenColor, useScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
+
+/** The severity a one-gesture capture writes. See the file header's "+" edit note. */
+const DEFAULT_SEVERITY = 3;
+
+/** One issue that has been going on this week — the row that sits where a habit row sits. */
+type WeekIssue = {
+  key: string;
+  name: string;
+  symptomId: string;
+  ailment: string;
+  count: number;
+};
+
+function IssueRow({
+  issue,
+  weekDates,
+  today,
+  severityAt,
+  onOpen,
+  onLogAgain,
+  first,
+}: {
+  issue: WeekIssue;
+  weekDates: string[];
+  today: string;
+  severityAt: (key: string, date: string) => number | null;
+  onOpen: () => void;
+  onLogAgain: () => void;
+  /** First row in the list — see `rowStacked`. */
+  first?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const theme = useAppTheme();
+  const isDark = useIsDark();
+  const t = useT();
+  const styles = useScaledStyles(baseStyles);
+  // Safe here, unlike at screen level: this component is a descendant of ScreenScaffold's
+  // provider. See the file header's last Edit note.
+  const screenHue = useScreenColor() ?? theme.border;
+  const SEVERITIES = severities();
+
+  // Boxed row (card design reset, 2026-08-05) — the screen hue at the FIELD rung, one step
+  // lighter than the card's own edge. Byte-for-byte the same construction HabitCard uses, so
+  // a row on Health and a row on Habits are the same object.
+  const rowBox = {
+    borderWidth: BORDER_WIDTH.field,
+    borderColor: computeBorderTone(screenHue, isDark, 'field'),
+    borderRadius: Radius.sm,
+  };
+
+  return (
+    <View style={[styles.issueRowBox, rowBox, !first && styles.issueRowStacked]}>
+      <PadRow
+        title={issue.name}
+        // The screen's own teal, not lib/domainColor's health identity (a wine-red that
+        // mismatches every edge on this screen) — the same call the 2026-08-06 pass made for
+        // this file's badges.
+        accent={screenHue}
+        // A.4 rule 1: the glyph is neutral; the hue lives on the edge, and severity lives in
+        // the week strip below where it means something.
+        leading={<Ionicons name="medical-outline" size={22} color={theme.textMuted} />}
+        // The ONE right-hand value. A size, never a score — see the header.
+        rightValue={t.healthIssues.timesThisWeek(issue.count)}
+        onPress={() => setExpanded((v) => !v)}
+        // PadRow's one row-level action, exactly where HabitCard puts "edit this habit".
+        onAction={onOpen}
+        actionLabel={t.symptomHistoryTitle(issue.name)}
+        trailing={
+          <PressableScale
+            style={[styles.logAgainBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            onPress={onLogAgain}
+            hitSlop={HitSlop.base}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={t.healthIssues.logAgain(issue.name)}
+          >
+            <Text style={[styles.logAgainText, { color: theme.text }]}>+</Text>
+          </PressableScale>
+        }
+      />
+
+      {/* Clip-revealed, like HabitCard's week strip — no opacity fade, so a folded row reads
+          "still there, just folded". See components/Collapsible.tsx's header. */}
+      <Collapsible open={expanded}>
+        <View style={[styles.weekStripWrap, { borderTopColor: theme.border }]}>
+          <View style={styles.ailmentWeekStrip}>
+            {weekDates.map((d, i) => {
+              const sev = severityAt(issue.key, d);
+              const sevColor = sev
+                ? (SEVERITIES.find((x) => x.value === sev)?.color ?? theme.border)
+                : 'transparent';
+              const isFuture = d > today;
+              return (
+                <View key={d} style={styles.ailmentDotCol}>
+                  <Text style={[styles.ailmentDayAbbr, { color: theme.textMuted }]}>
+                    {t.dayLabels[i][0]}
+                  </Text>
+                  <View
+                    style={[
+                      styles.ailmentDot,
+                      {
+                        backgroundColor: sev ? sevColor : 'transparent',
+                        borderColor: isFuture ? theme.border : sev ? sevColor : theme.border,
+                        opacity: isFuture ? 0.3 : 1,
+                      },
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      </Collapsible>
+    </View>
+  );
+}
 
 export default function HealthScreen() {
   const router = useRouter();
   const logs = useHealthStore((s) => s.logs);
+  const symptoms = useHealthStore((s) => s.symptoms);
   const addLog = useHealthStore((s) => s.add);
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
   const featureMedicine = useSettingsStore((s) => s.featureMedicine);
@@ -125,19 +276,21 @@ export default function HealthScreen() {
   // `autoOpen` arg are gone); StarterCard already teaches this.
   const [hintOpen, setHintOpen] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
-  const [quickSeverity, setQuickSeverity] = useState(3);
+  const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
   const [quickStartTime, setQuickStartTime] = useState('');
   const [quickDuration, setQuickDuration] = useState('');
-  // Both fields sit well down the Quick log card (behind the ⓘ hint/starter/episode prompts),
-  // so each self-lifts above the keyboard on focus — see lib/useKeyboardLift.ts.
+  // Both fields sit well down the card (behind the ⓘ hint/starter/episode prompts), so each
+  // self-lifts above the keyboard on focus — see lib/useKeyboardLift.ts. PadTypeRow's own
+  // scroll-into-view covers its main input; these are separate controls in its panel and are
+  // focused directly, so they still need their own.
   const quickStartTimeLift = useKeyboardLift<View>();
   const quickDurationLift = useKeyboardLift<View>();
   // StarterCard's example (2026-07-31, user report: it vanished with no feedback the instant
   // its "+" was pressed, since that write flips `logs.length` off zero). Keeps the card
   // mounted, dimmed, for the rest of this visit instead — see addHealthStarterLog below.
   const [healthStarterAdded, setHealthStarterAdded] = useState(false);
-  // Quick log's Still going / It's over pair, defaulting to "it's over" (EPISODES.md D5 —
-  // most logging happens afterwards). "Still going" hides the Duration field, because a
+  // The composer's Still going / It's over pair, defaulting to "it's over" (EPISODES.md D5 —
+  // most logging happens afterwards). "Still going" hides the Duration cell, because a
   // duration and an open episode contradict.
   const [quickOngoing, setQuickOngoing] = useState(false);
   // Prompts the user answered "Still going" to. In memory ONLY, deliberately: answering
@@ -146,18 +299,12 @@ export default function HealthScreen() {
   // is correct, because the app genuinely does not know whether it ended.
   const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState<HealthLog | null>(null);
+  const [issuesSheetOpen, setIssuesSheetOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
-  // This screen's own hue (the card edge's source, via Surface's ambient useScreenColor
-  // fallback) — badges and buttons on this screen now match it instead of the (differently
-  // coloured) domain identity hue, per the same fix applied to Home's preview cards.
-  // **Must be `getScreenColor` (the plain function), not `useScreenColor` (the context hook)**:
-  // this component is the one that RENDERS ScreenScaffold below, so it sits ABOVE that
-  // component's ScreenColorContext.Provider in the tree — the hook would read the context at
-  // this component's OWN position (outside the provider) and silently fall back to
-  // `theme.border` grey. A child of ScreenScaffold (e.g. MedicineTrayCard) can safely use the
-  // hook; the screen component that creates the provider cannot read its own provider this way.
+  // This screen's own hue — see the header's last Edit note for why this is the plain
+  // function and not the context hook.
   const screenHue = getScreenColor(theme, 'health').base;
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
@@ -171,21 +318,21 @@ export default function HealthScreen() {
   );
 
   const today = todayStr();
-  const weekDates = getWeekDates(today);
+  const weekDates = useMemo(() => getWeekDates(today), [today]);
 
-  // Symptoms with at least one entry this week + a per-(symptom,date) max-severity index.
-  const { thisWeekSymptoms, severityAt } = useMemo(() => {
+  // Issues with at least one entry this week + a per-(issue,date) max-severity index.
+  // Unchanged from the "This week" card this replaced — the same grouping, the same ordering,
+  // now drawn as rows instead of bars.
+  const { thisWeekIssues, severityAt } = useMemo(() => {
     const weekSet = new Set(weekDates);
-    const counts: Record<
-      string,
-      { name: string; symptomId: string; ailment: string; count: number }
-    > = {};
+    const counts: Record<string, WeekIssue> = {};
     const sevByKey = new Map<string, number>(); // `${groupKey}|${date}` -> max severity
     const groupKeyFor = (l: HealthLog) => l.symptomId || l.ailment.trim().toLowerCase();
     for (const l of logs) {
       const key = groupKeyFor(l);
       if (weekSet.has(l.date)) {
         const entry = counts[key] ?? {
+          key,
           name: l.ailment,
           symptomId: l.symptomId,
           ailment: l.ailment,
@@ -198,13 +345,13 @@ export default function HealthScreen() {
       const prev = sevByKey.get(sk);
       sevByKey.set(sk, prev === undefined ? l.severity : Math.max(prev, l.severity));
     }
-    const top = Object.entries(counts)
-      .sort((a, b) => b[1].count - a[1].count)
-      .map(([key, v]) => ({ key, ...v }));
-    const severityAt = (key: string, d: string): number | null =>
-      sevByKey.get(`${key}|${d}`) ?? null;
-    return { thisWeekSymptoms: top, severityAt };
+    const top = Object.values(counts).sort((a, b) => b.count - a.count);
+    const severityAt = (key: string, d: string): number | null => sevByKey.get(`${key}|${d}`) ?? null;
+    return { thisWeekIssues: top, severityAt };
   }, [logs, weekDates]);
+
+  /** How many issues the standing list holds — the drawer's count. A size, not a score. */
+  const trackedCount = useMemo(() => symptoms.filter((s) => s.tracked).length, [symptoms]);
 
   function openDetail(symptomId: string, ailment: string, name: string) {
     router.push({ pathname: '/health-detail', params: { symptomId, ailment, name } });
@@ -219,25 +366,47 @@ export default function HealthScreen() {
     [logs, dismissedEpisodes]
   );
 
-  // Empty-state example (2026-07-27): logs a real entry (today, now, severity 3) via the
-  // same ensureSymptom+add pair handleQuickLog uses — logs.length flips to 1 right after.
-  function addHealthStarterLog() {
-    const sym = ensureSymptom(t.starters.health.exampleTitle);
+  /**
+   * The one write path for every capture on this screen — the composer, a row's "+", and the
+   * starter example all land here, so a log created by any of them is the same shape. Only the
+   * fields a given caller actually asked about are passed; everything else takes the default
+   * that makes the row valid on its own (see the header's "+" note).
+   */
+  function logIncident(name: string, opts?: {
+    severity?: number;
+    startTime?: string;
+    durationMinutes?: string;
+    ongoing?: boolean;
+  }) {
+    // Also promotes the symptom onto the standing "Health issues" list if it wasn't there.
+    const sym = ensureSymptom(name);
+    const startTime = (opts?.startTime ?? '').trim();
+    const ongoing = opts?.ongoing ?? false;
+    const computedEnd = addDurationToTime(todayStr(), startTime, Number((opts?.durationMinutes ?? '').trim()));
     addLog({
       date: todayStr(),
-      startTime: '',
-      endDate: '',
-      endTime: '',
+      startTime,
+      // An open episode has no end, whatever was typed into Duration before switching.
+      endDate: ongoing ? '' : (computedEnd?.endDate ?? ''),
+      endTime: ongoing ? '' : (computedEnd?.endTime ?? ''),
       ailment: sym.name,
       symptomId: sym.id,
-      severity: 3,
+      severity: opts?.severity ?? DEFAULT_SEVERITY,
       notes: '',
       medicineId: '',
-      // The teaching example must not create an open episode the user then has to close.
-      episodeState: 'point',
+      episodeState: ongoing ? 'ongoing' : 'point',
       reliefNote: '',
       reliefMedicineId: '',
     });
+    return sym;
+  }
+
+  // Empty-state example (2026-07-27): logs a real entry (today, severity 3) through the same
+  // path everything else uses — `logs.length` flips to 1 right after, which is why the card's
+  // mount condition ORs in `healthStarterAdded`.
+  function addHealthStarterLog() {
+    // The teaching example must not create an open episode the user then has to close.
+    logIncident(t.starters.health.exampleTitle);
     setHealthStarterAdded(true);
     success();
   }
@@ -245,30 +414,62 @@ export default function HealthScreen() {
   function handleQuickLog() {
     const name = quickDraft.trim();
     if (!name) return;
-    const sym = ensureSymptom(name);
-    const startTime = quickStartTime.trim();
-    const computedEnd = addDurationToTime(todayStr(), startTime, Number(quickDuration.trim()));
-    addLog({
-      date: todayStr(),
-      startTime,
-      // An open episode has no end, whatever was typed into Duration before switching.
-      endDate: quickOngoing ? '' : (computedEnd?.endDate ?? ''),
-      endTime: quickOngoing ? '' : (computedEnd?.endTime ?? ''),
-      ailment: sym.name,
-      symptomId: sym.id,
+    logIncident(name, {
       severity: quickSeverity,
-      notes: '',
-      medicineId: '',
-      episodeState: quickOngoing ? 'ongoing' : 'point',
-      reliefNote: '',
-      reliefMedicineId: '',
+      startTime: quickStartTime,
+      durationMinutes: quickDuration,
+      ongoing: quickOngoing,
     });
     setQuickDraft('');
-    setQuickSeverity(3);
+    setQuickSeverity(DEFAULT_SEVERITY);
     setQuickStartTime('');
     setQuickDuration('');
     setQuickOngoing(false);
   }
+
+  /**
+   * Tier 3 — "More options" (AGENTS.md's three-tier composer contract). Opens the full form
+   * carrying the typed name and saves nothing, the same call app/(tabs)/habits.tsx makes for
+   * `/habit-form`: health-form is a real create-mode editor, so nothing is written until Save
+   * there. It MUST work on an empty line — PadTypeRow's `onMore` shows as soon as the field is
+   * focused, and a handler that early-returns on an empty draft is the exact bug that button
+   * was reworked to fix on 2026-08-05.
+   */
+  function openFormWithDraft() {
+    tap();
+    const name = quickDraft.trim();
+    router.push({ pathname: '/health-form', params: name ? { name } : {} });
+    setQuickDraft('');
+  }
+
+  /** A row's "+": one gesture, today, no time, middle of the severity scale. */
+  function logAgain(issue: WeekIssue) {
+    logIncident(issue.name);
+    success();
+  }
+
+  const severityChips = (
+    <View style={styles.quickSeverityChips}>
+      {SEVERITIES.map((s) => {
+        const active = quickSeverity === s.value;
+        return (
+          <PressableScale
+            key={s.value}
+            onPress={() => setQuickSeverity(s.value)}
+            style={[
+              styles.quickSevChip,
+              { backgroundColor: s.color },
+              active && { borderColor: theme.text, borderWidth: 2 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={severityLabel(s.value)}
+          >
+            <Text style={[styles.quickSevChipText, { color: severityInk(s.value) }]}>{s.value}</Text>
+          </PressableScale>
+        );
+      })}
+    </View>
+  );
 
   return (
     <>
@@ -290,40 +491,7 @@ export default function HealthScreen() {
             noPill
           />
 
-          {/* First-run explainer (2026-07-26): why to log at the moment it happens rather
-              than from memory, plus what an entry looks like. Gated on the whole log being
-              empty (not just this week's), so a user with history doesn't see it on a quiet
-              week — and it returns if every entry is later deleted.
-              **Stays mounted through `healthStarterAdded` (2026-07-31)**: pressing the
-              example's "+" writes a real log, which flips `logs.length` off zero in the same
-              tick — without the OR below the card would unmount itself the instant it was
-              used, reading as the example just disappearing. See
-              components/StarterExampleRow's `added` Edit note.
-              **`collapsible` (2026-08-06 v3)**: the example row now sits behind StarterCard's
-              shared collapse-to-row drop-down (open by default), same mechanism Habits/Goals/
-              Plans use — this screen's own mount condition above is unchanged. */}
-          {(logs.length === 0 || healthStarterAdded) && (
-            <StarterCard
-              text={t.starters.health.text}
-              collapsible
-              exampleHeaderLabel={t.starters.health.tapToAdd}
-              example={
-                <StarterExampleRow
-                  icon="medical-outline"
-                  title={t.starters.health.exampleTitle}
-                  tag={t.starters.exampleLabel}
-                  meta="3/5"
-                  metaVariant="warning"
-                  accent={SEVERITY_COLORS[2]}
-                  onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
-                  addLabel={t.starters.addExample}
-                  added={healthStarterAdded}
-                />
-              }
-            />
-          )}
-
-          {/* Ongoing-episode prompts (2026-08-01) — above Quick log, because they are about an
+          {/* Ongoing-episode prompts (2026-08-01) — above the card, because they are about an
               episode already in progress rather than a new one. One quiet card per open entry,
               deliberately neutral-bordered and un-animated: see components/OpenEpisodeCard.tsx
               for why it must never escalate with age. "Still going" writes nothing at all. */}
@@ -349,241 +517,244 @@ export default function HealthScreen() {
             </PressableScale>
           )}
 
-          {/* Quick log — essentials-only instant record (name + start time + duration +
-              severity, dated today).
-              **Above the Medicine card as of 2026-08-01** (addendum B.2): logging what is
-              happening right now is the reason this tab gets opened unplanned, and it is the
-              only thing on the screen that can be lost by not being written down — the trays
-              are a standing, all-day surface that a reminder already brings you to. It stays a
-              CARD and was not thinned into a one-line strip: the addendum's strip proposal
-              assumed one field, and this is four (name, start time, duration, severity), three
-              of which unfold once the name is non-empty. */}
+          {/* The one card — rows, then the composer, exactly how the Habits card is built.
+              This replaced the separate "Quick log" and "This week" cards (2026-08-11); see
+              the file header. */}
           <TourTarget id="tour.health.log">
-            <DebugNoteAnchor id="health.quickLog" label="Health — Quick log">
-              {/* No `borderColor` (card design reset, 2026-08-05): a card on its own screen inherits
-                that screen's one hue. The badge inside now matches it too (`accentOverride`,
-                2026-08-06) — it used to keep drawing lib/domainColor.ts's identity hue (a
-                different wine-red vs this screen's teal), which read as a mismatched icon. */}
-              <Surface style={styles.overviewCardRow}>
-                <View style={styles.overviewCardContent}>
-                  <View style={styles.sectionLabelRow}>
-                    {/* Per-card glyph, not the domain default (2026-07-28 design review): Medicine,
-                      Quick log and This week all fell back to DOMAIN_ICON.health (heart), so three
-                      stacked cards carried the identical badge and it signified nothing. The heart
-                      still marks the Health tab itself in BottomNav. */}
-                    <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
-                    <Text style={[styles.sectionLabel, { color: theme.text }]}>
-                      {t.quickLogLabel}
-                    </Text>
+            <DebugNoteAnchor id="health.quickLog" label="Health — This week">
+              {/* No `borderColor` (card design reset, 2026-08-05): a card on its own screen
+                  inherits that screen's one hue. The badge matches it too (`accentOverride`,
+                  2026-08-06) — it used to keep drawing lib/domainColor.ts's identity hue (a
+                  different wine-red vs this screen's teal), which read as a mismatched icon. */}
+              <Surface style={styles.healthCard}>
+                <View style={styles.sectionLabelRow}>
+                  {/* Per-card glyph, not the domain default (2026-07-28 design review) — the
+                      heart still marks the Health tab itself in BottomNav. Size 32 since
+                      2026-08-09 ("icon in upper left is too small"). */}
+                  <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
+                  <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
+                </View>
+
+                {/* Sub-header — the counterpart of the Habits card's, restyled the same way it
+                    was after the 2026-08-06 v2 feedback (bold, full-contrast, its own room), so
+                    it reads as a heading FOR the card rather than a caption inside it. */}
+                <Text style={[styles.cardSubtitle, { color: theme.text }]}>
+                  {t.healthIssues.cardSubtitle}
+                </Text>
+
+                {/* Tips — a plain line under the sub-header, not boxed and not gated on
+                    emptiness, the same permanent explainer Habits keeps. */}
+                <View style={styles.tipsRow}>
+                  <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.tipsIcon} />
+                  <Text style={[styles.tipsText, { color: theme.textMuted }]}>
+                    {t.starters.health.text}
+                  </Text>
+                </View>
+
+                {/* First-run explainer. Gated on the whole log being empty (not just this
+                    week's), so a user with history doesn't see it on a quiet week — and it
+                    returns if every entry is later deleted. **Stays mounted through
+                    `healthStarterAdded`**: pressing the example's "+" writes a real log, which
+                    flips `logs.length` off zero in the same tick — without the OR the card
+                    would unmount itself the instant it was used. It has no `text` of its own
+                    now: the tips line above carries the explanation permanently, which is
+                    exactly how the Habits card splits the same two jobs. */}
+                {(logs.length === 0 || healthStarterAdded) && (
+                  <StarterCard
+                    collapsible
+                    exampleHeaderLabel={t.starters.health.tapToAdd}
+                    example={
+                      <StarterExampleRow
+                        icon="medical-outline"
+                        title={t.starters.health.exampleTitle}
+                        tag={t.starters.exampleLabel}
+                        meta="3/5"
+                        metaVariant="warning"
+                        accent={SEVERITY_COLORS[2]}
+                        onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
+                        addLabel={t.starters.addExample}
+                        added={healthStarterAdded}
+                      />
+                    }
+                  />
+                )}
+
+                {/* The bottom half of the card — list, then composer. Matches the Habits card's
+                    own `habitsCardBody` rhythm; the card breathed at the top and was flush at
+                    the bottom before that was fixed there (2026-08-08). */}
+                <View style={styles.healthCardBody}>
+                  <View style={styles.section}>
+                    {thisWeekIssues.length === 0 ? (
+                      // The quiet inset line app/(tabs)/plans.tsx uses for an empty section,
+                      // and which Habits adopted in the 2026-08-08 pass — NOT a <Surface>,
+                      // which would draw a card inside the card for one sentence. Neutral
+                      // edge: "nothing here", not a coded surface. And deliberately not
+                      // congratulatory — a quiet week is not an achievement here.
+                      <Text
+                        style={[
+                          styles.sectionEmpty,
+                          { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border },
+                        ]}
+                      >
+                        {t.noLogsThisWeek}
+                      </Text>
+                    ) : (
+                      thisWeekIssues.map((issue, i) => (
+                        <IssueRow
+                          key={issue.key}
+                          issue={issue}
+                          weekDates={weekDates}
+                          today={today}
+                          severityAt={severityAt}
+                          onOpen={() => openDetail(issue.symptomId, issue.ailment, issue.name)}
+                          onLogAgain={() => logAgain(issue)}
+                          first={i === 0}
+                        />
+                      ))
+                    )}
                   </View>
-                  <AddRow
-                    placeholder={t.logSymptomTrigger}
+
+                  {/* The pad's type line — always open, at the bottom of the list it appends
+                      to. This IS the old Quick log card: name on the line (tier 1, and it
+                      alone produces a valid entry), the four settings that change what the
+                      entry is as labelled cells (tier 2), and the full form behind "More
+                      options" (tier 3). See AGENTS.md's three-tier composer contract. */}
+                  <PadTypeRow
+                    prompt={t.healthIssues.typePrompt}
                     value={quickDraft}
                     onChangeText={setQuickDraft}
                     onSubmit={handleQuickLog}
                     accent={screenHue}
-                    confirmIcon="checkmark"
-                    showDivider={false}
-                    accessibilityLabel={t.logSymptomTrigger}
-                  />
-                  {quickDraft.trim().length > 0 && (
-                    <>
-                      {/* Still going / It's over — defaults to It's over (D5). Picking "Still
-                        going" hides Duration and writes an open episode with no end pair. */}
-                      {/* One shape with app/health-form.tsx's copy of this same binary since
-                          2026-08-10 — both are `SegmentedControl` (form tier). `compact`
-                          because this sits inside a quick-capture row, not a full editor. */}
-                      <SegmentedControl
-                        compact
-                        style={styles.quickStateRow}
-                        options={[
-                          { value: 'ongoing', label: t.episodes.stillGoing },
-                          { value: 'over', label: t.episodes.itsOver },
-                        ]}
-                        value={quickOngoing ? 'ongoing' : 'over'}
-                        onChange={(v) => setQuickOngoing(v === 'ongoing')}
-                      />
-                      <View style={styles.quickTimeRow}>
+                    onMore={openFormWithDraft}
+                    // No check to preview: an issue row ends in a "+", never a check — the
+                    // same reason app/(tabs)/habits.tsx passes this.
+                    noGhostCheck
+                    panel={
+                      <QuickAddOptionsPanel>
+                        {/* Adjacency is the caller's job (QuickAddOptionsPanel has no grouping
+                            API): the two time fields are passed adjacent so they pair on one
+                            line, with the two live controls `wide` above and below them. */}
+                        <QuickAddOptionRow
+                          icon="pulse-outline"
+                          label={t.whenFinishedLabel}
+                          accent={screenHue}
+                          wide
+                          value={
+                            <SegmentedControl
+                              compact
+                              options={[
+                                { value: 'ongoing', label: t.episodes.stillGoing },
+                                { value: 'over', label: t.episodes.itsOver },
+                              ]}
+                              value={quickOngoing ? 'ongoing' : 'over'}
+                              onChange={(v) => setQuickOngoing(v === 'ongoing')}
+                            />
+                          }
+                        />
                         <View style={styles.quickTimeField} ref={quickStartTimeLift.ref}>
-                          <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
-                            {t.whenStartedLabel}
-                          </Text>
-                          <Input
-                            value={quickStartTime}
-                            onChangeText={setQuickStartTime}
-                            placeholder={t.timeInputPlaceholder}
-                            keyboardType="numbers-and-punctuation"
-                            style={styles.quickTimeInput}
-                            onFocus={quickStartTimeLift.onFocus}
-                            onBlur={quickStartTimeLift.onBlur}
+                          <QuickAddOptionRow
+                            icon="time-outline"
+                            label={t.whenStartedLabel}
+                            accent={screenHue}
+                            value={
+                              <Input
+                                value={quickStartTime}
+                                onChangeText={setQuickStartTime}
+                                placeholder={t.timeInputPlaceholder}
+                                keyboardType="numbers-and-punctuation"
+                                style={styles.quickTimeInput}
+                                onFocus={quickStartTimeLift.onFocus}
+                                onBlur={quickStartTimeLift.onBlur}
+                              />
+                            }
                           />
                         </View>
+                        {/* Hidden while the episode is open: a duration and an open episode
+                            contradict. */}
                         {!quickOngoing && (
                           <View style={styles.quickTimeField} ref={quickDurationLift.ref}>
-                            <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
-                              {t.durationLabel}
-                            </Text>
-                            <Input
-                              value={quickDuration}
-                              onChangeText={setQuickDuration}
-                              placeholder={t.durationPlaceholder}
-                              keyboardType="number-pad"
-                              style={styles.quickTimeInput}
-                              onFocus={quickDurationLift.onFocus}
-                              onBlur={quickDurationLift.onBlur}
+                            <QuickAddOptionRow
+                              icon="hourglass-outline"
+                              label={t.durationLabel}
+                              accent={screenHue}
+                              value={
+                                <Input
+                                  value={quickDuration}
+                                  onChangeText={setQuickDuration}
+                                  placeholder={t.durationPlaceholder}
+                                  keyboardType="number-pad"
+                                  style={styles.quickTimeInput}
+                                  onFocus={quickDurationLift.onFocus}
+                                  onBlur={quickDurationLift.onBlur}
+                                />
+                              }
                             />
                           </View>
                         )}
-                      </View>
-                      <View style={styles.quickSeverityRow}>
-                        <Text style={[styles.quickSeverityLabel, { color: theme.textMuted }]}>
-                          {t.severityLabel}
-                        </Text>
-                        <View style={styles.quickSeverityChips}>
-                          {SEVERITIES.map((s) => {
-                            const active = quickSeverity === s.value;
-                            return (
-                              <PressableScale
-                                key={s.value}
-                                onPress={() => setQuickSeverity(s.value)}
-                                style={[
-                                  styles.quickSevChip,
-                                  { backgroundColor: s.color },
-                                  active && { borderColor: theme.text, borderWidth: 2 },
-                                ]}
-                                accessibilityRole="button"
-                                accessibilityLabel={severityLabel(s.value)}
-                              >
-                                <Text
-                                  style={[styles.quickSevChipText, { color: severityInk(s.value) }]}
-                                >
-                                  {s.value}
-                                </Text>
-                              </PressableScale>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    </>
-                  )}
+                        <QuickAddOptionRow
+                          icon="thermometer-outline"
+                          label={t.severityLabel}
+                          accent={screenHue}
+                          wide
+                          value={severityChips}
+                        />
+                      </QuickAddOptionsPanel>
+                    }
+                  />
                 </View>
               </Surface>
             </DebugNoteAnchor>
           </TourTarget>
 
-          {/* Medicine trays (2026-07-27; moved BELOW Quick log 2026-08-01) — gated on
-              settings.featureMedicine (on by default, Settings → Advanced → Features); the card
-              handles its own empty state, so it isn't gated on having medicines. It sat above
-              Quick log on the reasoning that doses are the time-sensitive, recurring reason to
-              open this tab — but that recurring-ness is exactly what a tray reminder already
-              handles, while an unlogged symptom is gone once the moment passes. */}
+          {/* Medicine trays (2026-07-27) — gated on settings.featureMedicine (on by default,
+              Settings → Advanced → Features); the card handles its own empty state, so it isn't
+              gated on having medicines. It stays BELOW the logging card (2026-08-01): doses are
+              recurring and a tray reminder already brings you to them, while an unlogged symptom
+              is gone once the moment passes. */}
           {featureMedicine && <MedicineTrayCard />}
 
-          {/* This week — debug notes: one anchor per region (the card, not its inner rows). */}
-          <DebugNoteAnchor id="health.overview" label="Health — This week">
-            <Surface style={styles.overviewCardRow}>
-              <View style={styles.overviewCardContent}>
-                <View style={styles.sectionLabelRow}>
-                  {/* Distinct from Medicine/Quick log — see the note at the Quick log badge. */}
-                  <CardAccentBadge domain="health" icon="stats-chart" size={32} accentOverride={screenHue} />
-                  <Text style={[styles.sectionLabel, { color: theme.text }]}>
-                    {t.thisWeekLabel}
-                  </Text>
-                </View>
-                {thisWeekSymptoms.length === 0 && (
-                  <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                    {t.noLogsThisWeek}
-                  </Text>
-                )}
-                {thisWeekSymptoms.map((s) => {
-                  const weekSeverities = weekDates.map((d) => severityAt(s.key, d));
-                  const maxCount = thisWeekSymptoms[0]?.count ?? 1;
-                  return (
-                    <PressableScale
-                      key={s.key}
-                      style={styles.overviewAilment}
-                      onPress={() => openDetail(s.symptomId, s.ailment, s.name)}
-                      accessibilityRole="button"
-                      accessibilityLabel={t.symptomHistoryTitle(s.name)}
-                      scaleTo={0.97}
-                    >
-                      <View style={styles.overviewRow}>
-                        <Text style={[styles.overviewName, { color: theme.text }]}>{s.name}</Text>
-                        <View style={[styles.overviewBar, { backgroundColor: theme.surfaceMuted }]}>
-                          <View
-                            style={[
-                              styles.overviewFill,
-                              {
-                                backgroundColor: SEVERITY_COLORS[2],
-                                width: `${Math.min((s.count / maxCount) * 100, 100)}%`,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text style={[styles.overviewCount, { color: theme.textMuted }]}>
-                          {s.count}×
-                        </Text>
-                        <Ionicons name="chevron-forward" size={14} color={theme.textMuted} />
-                      </View>
-                      <View style={styles.ailmentWeekStrip}>
-                        {weekDates.map((d, i) => {
-                          const sev = weekSeverities[i];
-                          const sevColor = sev
-                            ? (SEVERITIES.find((x) => x.value === sev)?.color ?? theme.border)
-                            : 'transparent';
-                          const isFuture = d > today;
-                          return (
-                            <View key={d} style={styles.ailmentDotCol}>
-                              <Text style={[styles.ailmentDayAbbr, { color: theme.textMuted }]}>
-                                {t.dayLabels[i][0]}
-                              </Text>
-                              <View
-                                style={[
-                                  styles.ailmentDot,
-                                  {
-                                    backgroundColor: sev ? sevColor : 'transparent',
-                                    borderColor: isFuture
-                                      ? theme.border
-                                      : sev
-                                        ? sevColor
-                                        : theme.border,
-                                    opacity: isFuture ? 0.3 : 1,
-                                  },
-                                ]}
-                              />
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </PressableScale>
-                  );
-                })}
-                {/* Open full log — folded into the This week card (debug-note 2026-07-21):
-                  one consolidated card instead of a separate nav card below. Shown even on
-                  an empty week so there's always a clear way into the full log. */}
-                <PressableScale
-                  onPress={() => router.push('/health-log')}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.healthLogTitle}
-                  scaleTo={0.98}
-                  style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
-                >
-                  {/* A.4 rule 1: a link glyph takes the action colour, not the health hue. */}
-                  <Ionicons name="document-text-outline" size={18} color={theme.accent} />
-                  <Text style={[styles.navCardText, { color: theme.text }]}>
-                    {t.healthLogTitle}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-                </PressableScale>
-              </View>
-            </Surface>
-          </DebugNoteAnchor>
+          {/* Health issues — the Goals-shaped drawer at the foot of the screen (2026-08-11).
+              Chevron previews the standing list, the NAME opens the popup; both are ≥
+              MIN_TAP_TARGET, the instructed rule-4 exception CollapsedSection documents. The
+              count is a size (how many things you keep an eye on), which is the same test
+              Shopping's Food/Catalogue drawers pass and Earlier days deliberately fails. */}
+          <CollapsedSection
+            hue={screenHue}
+            domain="health"
+            icon="medical-outline"
+            label={t.healthIssues.title}
+            count={trackedCount}
+            onTitlePress={() => setIssuesSheetOpen(true)}
+            titlePressHint={t.healthIssues.openLabel}
+          >
+            <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
+            {/* The full log, which used to be folded into the foot of the "This week" card.
+                It belongs here now: this drawer is where this screen's ways out live, and a
+                link to every entry ever is a peer of the list of issues, not of the week. */}
+            <PressableScale
+              onPress={() => router.push('/health-log')}
+              accessibilityRole="button"
+              accessibilityLabel={t.healthLogTitle}
+              scaleTo={0.98}
+              style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
+            >
+              {/* A.4 rule 1: a link glyph takes the action colour, not the health hue. */}
+              <Ionicons name="document-text-outline" size={18} color={theme.accent} />
+              <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
+              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+            </PressableScale>
+          </CollapsedSection>
 
           <View style={{ height: Spacing.xl + Spacing.xxl }} />
         </View>
       </ScreenScaffold>
 
       <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
+      <HealthIssuesSheet
+        visible={issuesSheetOpen}
+        onClose={() => setIssuesSheetOpen(false)}
+        accent={screenHue}
+      />
     </>
   );
 }
@@ -594,35 +765,56 @@ const baseStyles = StyleSheet.create({
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
   content: { padding: Spacing.md, gap: SCREEN_GAP },
-  // Decision 043 rule 2: Spacing.xl above every section.
-  // No vertical margin: the screen's content container owns the gap between stacked cards
-  // (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
-  overviewCardRow: { borderRadius: Radius.md },
-  overviewCardContent: { flex: 1, padding: Spacing.md },
-  // Row wrapper (2026-07-26, "bring the card colour back"): holds the health-domain gradient
-  // badge + the label together, carrying the label's old marginBottom so its spacing to the
-  // content below is unchanged.
-  sectionLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
+  // The one card. `gap` rather than per-child margins, matching the Habits card.
+  healthCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
+  // Row wrapper (2026-07-26, "bring the card colour back"): the health badge + the label.
+  // No marginBottom — the card's own `gap` owns the spacing now.
+  sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  // Bold + full contrast, the shape the Habits sub-header was corrected to on 2026-08-06 v2
+  // after a first pass in small muted text read as just another line of body copy.
+  cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  tipsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs },
+  tipsIcon: { marginTop: 2 },
+  tipsText: { flex: 1, minWidth: 0, fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  healthCardBody: { gap: Spacing.md },
+  section: { gap: Spacing.xs },
+  // The quiet inset line, not a card — see the mount comment.
+  sectionEmpty: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+  },
+  // Boxed row at the FIELD rung (card design reset, 2026-08-05) — the same construction
+  // HabitCard uses; the colours are applied inline because they need the screen hue.
+  issueRowBox: { paddingHorizontal: Spacing.sm },
+  issueRowStacked: { marginTop: Spacing.xs },
+  // "+" only — never a "−". See the file header's Edit note for why un-logging is not a row
+  // gesture here. Same 30px key as HabitCard's adjuster buttons.
+  logAgainBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logAgainText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: FontSize.md + 4 },
+  weekStripWrap: { borderTopWidth: 1, paddingTop: Spacing.xs, paddingBottom: Spacing.sm },
   // "See all" past the three-card prompt cap — a plain link, no card, no count.
   moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
   moreEpisodesText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // Was a row of two accent-filled `Radius.full` pills + their text style; it is a
-  // `SegmentedControl` as of 2026-08-10, matching app/health-form.tsx's copy of the same
-  // binary. All that survives is the top margin — `overviewCardContent` has no `gap`, so
-  // every child in this stack carries its own, and `quickTimeRow`/`quickSeverityRow` below
-  // use the identical value.
-  quickStateRow: { marginTop: Spacing.sm },
-  quickTimeRow: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm },
-  quickTimeField: { flex: 1, gap: Spacing.xs },
+  // A wrapper whose only job is holding useKeyboardLift's ref; it must not change the grid's
+  // layout, so it carries QuickAddOptionRow's own `half` growth keys.
+  // **`flexDirection: 'row'` is load-bearing, not tidiness.** The cell inside re-declares
+  // `flexBasis: '46%'`, and a flex basis is measured along the container's MAIN axis — in a
+  // default (column) wrapper that is the cell's HEIGHT, i.e. a percentage of an auto-height
+  // parent. Making the wrapper a row keeps the basis on width, where the grid means it.
+  quickTimeField: { flexDirection: 'row', flexGrow: 1, flexShrink: 1, flexBasis: '46%', minWidth: 0 },
   quickTimeInput: { paddingVertical: Spacing.xs },
-  quickSeverityRow: { marginTop: Spacing.sm, gap: Spacing.xs },
-  quickSeverityLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   quickSeverityChips: { flexDirection: 'row', gap: Spacing.xs },
   quickSevChip: {
     width: 28,
@@ -634,35 +826,19 @@ const baseStyles = StyleSheet.create({
     borderColor: 'transparent',
   },
   quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  overviewAilment: { marginTop: Spacing.sm },
-  overviewRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  ailmentWeekStrip: {
-    flexDirection: 'row',
-    gap: 5,
-    marginTop: 5,
-    paddingLeft: 2,
-  },
+  ailmentWeekStrip: { flexDirection: 'row', gap: 5, paddingLeft: 2 },
   ailmentDotCol: { alignItems: 'center', gap: 2 },
   ailmentDayAbbr: { fontSize: 7, fontFamily: Fonts.semibold },
   ailmentDot: { width: 9, height: 9, borderRadius: Radius.full, borderWidth: 1.5 },
-  overviewName: { fontSize: FontSize.sm, width: 100 },
-  overviewBar: {
-    flex: 1,
-    height: 8,
-    borderRadius: Radius.full,
-    overflow: 'hidden',
-  },
-  overviewFill: { height: 8, borderRadius: Radius.full },
-  overviewCount: { fontSize: FontSize.xs, width: 28, textAlign: 'right' },
-  emptyText: { fontSize: FontSize.sm },
-  // Health-log link, folded into the foot of the This week card (2026-07-21) — a hairline
-  // top border makes it read as a card footer rather than another symptom row.
+  // Health-log link, now the foot of the Health issues drawer (2026-08-11; it was the foot of
+  // the "This week" card from 2026-07-21). The hairline top border still makes it read as a
+  // footer rather than as another issue row.
   overviewLogLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginTop: Spacing.md,
-    paddingTop: Spacing.md,
+    marginTop: Spacing.xs,
+    paddingTop: Spacing.sm,
     borderTopWidth: 1,
   },
   navCardText: { flex: 1, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },

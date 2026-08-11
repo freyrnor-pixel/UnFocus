@@ -1213,6 +1213,48 @@ const en = {
   editHealthEntryTitle: 'Edit entry',
   unnamedIssue: 'Untitled issue',
   noLogsThisWeek: 'Nothing logged this week.',
+  /**
+   * Health issues (2026-08-11) — the standing list at the foot of the Health tab, drawn by the
+   * same components/CollapsedSection.tsx drawer + popup pair that Goals uses on Habits and
+   * To-do (see AGENTS.md's "One card for every sub-screen link").
+   *
+   * Wording rule for this whole group, and it is `goals.*`'s rule pointed the other way. A goal
+   * is never failing; an issue is never a failure either, and — the trap specific to this
+   * domain — a quiet week is never a WIN to be congratulated, because the user does not control
+   * whether they got a migraine. So: no "still open", no "unresolved", no streak of good days,
+   * and no count framed as anything but a size. `untrackLabel` is "Stop tracking", never
+   * "Delete", because it deletes nothing (see store/useHealthStore.ts's `tracked` doc).
+   */
+  healthIssues: {
+    /** The drawer's label and the popup's title. A bare noun, like `goals.editLink`. */
+    title: 'Health issues',
+    /** a11y for the drawer's naming cluster — the half of the header that opens the popup. */
+    openLabel: 'Open health issues',
+    /** One line inside the popup, shown only once there is a list for it to describe. */
+    subtitle: 'The things you keep an eye on.',
+    emptyList: 'Nothing here yet — whatever you log turns up in this list.',
+    newPlaceholder: 'Something to keep an eye on',
+    entryCount: (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
+    lastLogged: (days: number) =>
+      days === 0 ? 'Logged today' : days === 1 ? 'Last logged yesterday' : `Last logged ${days} days ago`,
+    neverLogged: 'Nothing logged yet',
+    untrackLabel: 'Stop tracking',
+    untrackConfirmTitle: (name: string) => `Stop tracking "${name}"?`,
+    untrackConfirmBody: 'It leaves this list. Everything you have logged stays in the health log.',
+    close: 'Done',
+    /**
+     * Sub-header of the Health tab's main card — the counterpart of `habits.cardSubtitle`, and
+     * it carries the same promise for the same reason: this card counts entries, so it has to
+     * say out loud that the count is a size and not a score. A quiet week is not a win here.
+     */
+    cardSubtitle: 'A record of how you have been — no scores, no streaks.',
+    /** The card's composer prompt (the pad type line at the foot of the list). */
+    typePrompt: 'Log something',
+    /** a11y for a card row's "+", where a habit row has its −/+ pair. */
+    logAgain: (name: string) => `Log ${name} again`,
+    /** Right-hand value on a card row: how many entries this week. A size, not a score. */
+    timesThisWeek: (n: number) => `${n}×`,
+  },
   // --- W-D additions (health) ---
   noLogsGentle: 'No entries yet — log how you’re feeling when you’re ready.',
   deleteLogBtn: 'Delete entry',
@@ -3538,6 +3580,25 @@ const no: typeof en = {
   editHealthEntryTitle: 'Rediger oppføring',
   unnamedIssue: 'Uten navn',
   noLogsThisWeek: 'Ingenting logget denne uken.',
+  healthIssues: {
+    title: 'Helseplager',
+    openLabel: 'Åpne helseplager',
+    subtitle: 'Tingene du holder et øye med.',
+    emptyList: 'Ingenting her ennå — det du logger dukker opp i denne listen.',
+    newPlaceholder: 'Noe å holde et øye med',
+    entryCount: (n: number) => `${n} ${n === 1 ? 'oppføring' : 'oppføringer'}`,
+    lastLogged: (days: number) =>
+      days === 0 ? 'Logget i dag' : days === 1 ? 'Sist logget i går' : `Sist logget for ${days} dager siden`,
+    neverLogged: 'Ingenting logget ennå',
+    untrackLabel: 'Slutt å følge',
+    untrackConfirmTitle: (name: string) => `Slutte å følge «${name}»?`,
+    untrackConfirmBody: 'Den forsvinner fra denne listen. Alt du har logget blir liggende i helse-loggen.',
+    close: 'Ferdig',
+    cardSubtitle: 'En oversikt over hvordan du har hatt det — ingen poeng, ingen rekker.',
+    typePrompt: 'Logg noe',
+    logAgain: (name: string) => `Logg ${name} på nytt`,
+    timesThisWeek: (n: number) => `${n}×`,
+  },
   // --- W-D additions (health) ---
   noLogsGentle: 'Ingen oppføringer enda — logg hvordan du føler deg når du er klar.',
   deleteLogBtn: 'Slett oppføring',

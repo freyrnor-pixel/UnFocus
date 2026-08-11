@@ -11,7 +11,9 @@
  *             toEpisodeState — the ongoing-episode state column), lib/widgets/sync (scheduleWidgetSync
  *             — debounced widget/notification refresh on add/update/remove, so live widgets don't
  *             wait for foreground/background)
- *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx
+ *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx,
+ *             components/HealthIssuesPreviewList.tsx + components/HealthIssuesSheet.tsx
+ *             (2026-08-11 — the "Health issues" drawer/popup, the Goals-shaped standing list)
  *   Data    → defines a Zustand store; owns SQLite tables health_logs and symptoms
  *
  * Edit notes:
@@ -36,6 +38,14 @@
  *     back to the ailment string for those.
  *   - seedSymptoms() runs on every load() with stable ids ('sym_<name>') + INSERT OR IGNORE — safe to
  *     re-run; renaming a seed entry orphans old rows (mirrors useCatalogStore.seedCatalog()).
+ *   - **`symptoms.tracked` (2026-08-11) is the standing "Health issues" list, and it is NOT the
+ *     catalog.** The catalog is 36 seeded names that exist to power the typeahead; `tracked` is
+ *     the subset the user has actually logged or added by hand. Read it, not `symptoms.length`,
+ *     for anything a user would call "my issues". `setSymptomTracked(id, false)` is the ONLY
+ *     removal gesture and it touches no `health_logs` row — untracking is a list edit, never a
+ *     data loss, which is why the copy says "Stop tracking". There is deliberately no
+ *     `removeSymptom`: a hard DELETE would be re-seeded on the next load() anyway (INSERT OR
+ *     IGNORE with stable ids), the same trap store/useCatalogStore.ts solved with a tombstone.
  *   - suggest(query) is the health-log typeahead over the catalog (mirrors useCatalogStore.suggest()).
  *   - health_logs is dated history and is pruned past RETENTION_DAYS in lib/db.ts; symptoms is a config
  *     table and is left untouched by pruning.
@@ -102,6 +112,17 @@ export type Symptom = {
   id: string;
   name: string;
   category: string;
+  /**
+   * Is this one of "the things you keep an eye on" (2026-08-11)? The `symptoms` table is
+   * mostly seed vocabulary — 36 names from lib/symptomSeed.ts that exist to power the
+   * typeahead — so it is NOT the list a user would recognise as theirs. This flag is.
+   *
+   * Set on first log (via `ensureSymptom`, which every log path goes through) or by hand in
+   * components/HealthIssuesSheet.tsx. Cleared by untracking there, which **deletes nothing** —
+   * every `health_logs` row survives and stays readable in /health-log and on the symptom's
+   * own page. See the migration in lib/db.ts for why that asymmetry is deliberate.
+   */
+  tracked: boolean;
 };
 
 type HealthStore = {
@@ -114,8 +135,20 @@ type HealthStore = {
   remove: (id: string) => void;
   /** Typeahead over the symptom catalog (name-contains, prefix-ranked). */
   suggest: (query: string, limit?: number) => Symptom[];
-  /** Find or create a catalog symptom by name; returns the row (id reusable for a log). */
-  ensureSymptom: (name: string, category?: string) => Symptom;
+  /**
+   * Find or create a catalog symptom by name; returns the row (id reusable for a log).
+   *
+   * Marks it `tracked` by default — creating or naming a symptom is the act that puts it on
+   * "the things you keep an eye on". Pass `track: false` for a lookup that must not change
+   * the standing list (nothing does today; the parameter exists so a future typeahead-only
+   * caller can't quietly add rows to the drawer just by resolving a name).
+   */
+  ensureSymptom: (name: string, category?: string, track?: boolean) => Symptom;
+  /**
+   * Add/remove a symptom from the standing "Health issues" list. Never touches `health_logs`
+   * — see the `tracked` field's doc and the migration in lib/db.ts.
+   */
+  setSymptomTracked: (id: string, tracked: boolean) => void;
   /** All logs for a symptom (by id when present, else by matching ailment name), newest-first. */
   logsForSymptom: (symptomId: string, ailment: string) => HealthLog[];
   /** add() forced to an open episode — no end pair, whatever the caller passed. */
@@ -155,6 +188,7 @@ function rowToSymptom(row: Row): Symptom {
     id: readStr(row, 'id'),
     name: readStr(row, 'name'),
     category: readStr(row, 'category') || 'other',
+    tracked: readInt(row, 'tracked', 0) === 1,
   };
 }
 
@@ -254,24 +288,47 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     return matches.slice(0, limit);
   },
 
-  ensureSymptom(name, category = 'other') {
+  ensureSymptom(name, category = 'other', track = true) {
     const trimmed = name.trim();
     const existing = get().symptoms.find((s) => s.name.toLowerCase() === trimmed.toLowerCase());
-    if (existing) return existing;
+    if (existing) {
+      // A seeded symptom's first log is what promotes it out of the typeahead vocabulary and
+      // onto the standing list. Only ever set — this never untracks something.
+      if (track && !existing.tracked) get().setSymptomTracked(existing.id, true);
+      return track ? { ...existing, tracked: true } : existing;
+    }
     const id = symptomId(trimmed);
     // Stable id may already exist even if not in memory (seed) — INSERT OR IGNORE, then adopt it.
     try {
-      db.runSync('INSERT OR IGNORE INTO symptoms (id, name, category) VALUES (?, ?, ?)', [id, trimmed, category]);
+      db.runSync('INSERT OR IGNORE INTO symptoms (id, name, category, tracked) VALUES (?, ?, ?, ?)', [
+        id,
+        trimmed,
+        category,
+        track ? 1 : 0,
+      ]);
+      // INSERT OR IGNORE is a no-op when the stable id is already in the table but was not in
+      // memory, which would silently drop the tracking. The UPDATE is what makes this path
+      // idempotent either way.
+      if (track) db.runSync('UPDATE symptoms SET tracked = 1 WHERE id = ?', [id]);
     } catch (err) {
       console.error(`Failed to create symptom ${trimmed}:`, err);
     }
-    const created: Symptom = { id, name: trimmed, category };
+    const created: Symptom = { id, name: trimmed, category, tracked: track };
     set((s) =>
       s.symptoms.some((x) => x.id === id)
         ? s
         : { symptoms: [...s.symptoms, created].sort((a, b) => a.name.localeCompare(b.name, 'no')) }
     );
     return created;
+  },
+
+  setSymptomTracked(id, tracked) {
+    try {
+      db.runSync('UPDATE symptoms SET tracked = ? WHERE id = ?', [tracked ? 1 : 0, id]);
+    } catch (err) {
+      console.error(`Failed to set tracked on symptom ${id}:`, err);
+    }
+    set((s) => ({ symptoms: s.symptoms.map((x) => (x.id === id ? { ...x, tracked } : x)) }));
   },
 
   logsForSymptom(symptomId, ailment) {

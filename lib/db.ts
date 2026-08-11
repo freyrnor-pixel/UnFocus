@@ -1195,6 +1195,29 @@ export function initDb() {
     'ALTER TABLE settings ADD COLUMN feature_design_lab INTEGER DEFAULT 0',
     "ALTER TABLE settings ADD COLUMN design_lab TEXT DEFAULT '{}'",
     'ALTER TABLE settings ADD COLUMN design_lab_apply INTEGER DEFAULT 0',
+    // ---- Health issues as a standing, curated list (2026-08-11) ----
+    // The Health tab was restructured to mirror app/(tabs)/habits.tsx: one card lists the
+    // issues that have actually been going on this week (with a "+" that logs another
+    // incident, where a habit row has its −/+), and a components/CollapsedSection.tsx
+    // "Health issues" drawer at the foot holds the standing list — the same shape, and the
+    // same component, as the Goals drawer on Habits and To-do.
+    //
+    // `tracked` is what makes that a list you CURATE rather than the raw seed catalog. The
+    // `symptoms` table is 36 seeded Norwegian symptom names (lib/symptomSeed.ts) that exist
+    // to power the typeahead; a drawer opening onto all 36 would be a vocabulary list, not
+    // "the things you keep an eye on". A symptom becomes tracked the moment it is logged, or
+    // when it is added by hand in the sheet.
+    //
+    // **Untracking sets this back to 0 and deletes NOTHING.** Health history is the one kind
+    // of row in this app that must never be lost to a list-management gesture, so the entries
+    // stay readable in /health-log and on the symptom's own page — only the standing list
+    // stops naming it. That is also why the copy says "Stop tracking", never "Delete".
+    'ALTER TABLE symptoms ADD COLUMN tracked INTEGER DEFAULT 0',
+    // Back-fill: anything already logged is already being kept an eye on, by definition. The
+    // seeded symptoms nobody has ever logged stay at 0 — they are typeahead vocabulary the
+    // user never chose, and defaulting them on would open every existing install's drawer on
+    // 36 rows it didn't ask for.
+    "UPDATE symptoms SET tracked = 1 WHERE id IN (SELECT DISTINCT symptom_id FROM health_logs WHERE symptom_id IS NOT NULL AND symptom_id != '')",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an
