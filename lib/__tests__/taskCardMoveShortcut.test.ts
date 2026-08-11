@@ -34,9 +34,22 @@ describe('TaskCard — steps-variant move shortcut', () => {
     expect(src).toMatch(/label=\{task\.hasStartDate \? t\.taskMoveToWhenever : t\.taskMoveToToday\}/);
   });
 
-  it('handleMoveSection writes the same {date, hasStartDate} pair every other write path uses', () => {
-    const fn = src.slice(src.indexOf('function handleMoveSection'), src.indexOf('function handleMoveSection') + 300);
-    expect(fn).toMatch(/update\(task\.id, \{ date: todayStr\(\), hasStartDate: !task\.hasStartDate \}\)/);
+  /**
+   * The two directions are deliberately asymmetrical, and this is the assertion that keeps
+   * them that way. Moving TO Whenever must patch `hasStartDate` alone so a task parked from
+   * next Thursday keeps Thursday — the same thing `renderDayPicker` does in the full editor,
+   * which is the whole point of a shortcut for it. Stamping `date: todayStr()` in that
+   * direction (the shape `commitWhenever` uses when CREATING a Whenever task, where there is
+   * no prior date to lose) silently overwrites the day and makes the same action mean two
+   * different things depending on where the user performed it.
+   */
+  it('handleMoveSection stamps the date only when moving TO a dated task, never when parking it', () => {
+    const start = src.indexOf('function handleMoveSection');
+    const fn = src.slice(start, start + 400);
+    expect(fn).toMatch(/toDated \? \{ date: todayStr\(\), hasStartDate: true \} : \{ hasStartDate: false \}/);
+    // The → Whenever branch must not carry a date at all.
+    const parkBranch = fn.slice(fn.indexOf(':', fn.indexOf('toDated ?')));
+    expect(parkBranch).not.toMatch(/date:/);
   });
 
   it('the move control sits inside the expanded body (a Collapsible keyed to `expanded`), not the collapsed row', () => {

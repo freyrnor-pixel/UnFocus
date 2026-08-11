@@ -709,16 +709,28 @@ function TaskCard({
 
   /**
    * The steps-variant "Move to Whenever / Move to today" shortcut (2026-08-11, Wave B —
-   * Blokk 2). Writes the SAME `{ date, hasStartDate }` pair every other write path in this
-   * app uses (see commitWhenever/InlineTaskAdd in app/(tabs)/plans.tsx) — there is still
-   * exactly one way a task's date gets set, this is just a one-tap way to reach it from the
-   * Today/This week card instead of opening the full editor. Bypasses the draft and persists
-   * immediately, the same convention Steps/Shared-out/Then/Delete already follow on an
-   * existing (non-isNew) task — the steps variant never opens a Save/Discard editor at all.
+   * Blokk 2). A one-tap way to reach, from a Today/This week card, the same flip the full
+   * editor's "When" picker makes — so it must land on exactly the state that picker would,
+   * or the same action means two things depending on where you did it.
+   *
+   * **The two directions are NOT symmetrical, and `date: todayStr()` belongs to only one
+   * of them.**
+   *   - → Whenever: patch `hasStartDate` ALONE and leave `date` untouched, which is what
+   *     `renderDayPicker` does. A task parked from next Thursday keeps Thursday, so moving
+   *     it back restores the day instead of silently reading "today". Writing today here
+   *     (the shape `commitWhenever` uses) looks equivalent and is not: that shape is right
+   *     for CREATING a Whenever task, where there is no prior date to lose.
+   *   - → dated: `date` must be stamped, because an undated task's stored `date` is
+   *     whatever day it happened to be created on — often long past. Without it the task
+   *     would land in the past rather than today.
+   * Bypasses the draft and persists immediately, the same convention Steps/Shared-out/
+   * Then/Delete already follow on an existing (non-isNew) task — the steps variant never
+   * opens a Save/Discard editor at all.
    */
   function handleMoveSection() {
     tap();
-    update(task.id, { date: todayStr(), hasStartDate: !task.hasStartDate });
+    const toDated = !task.hasStartDate;
+    update(task.id, toDated ? { date: todayStr(), hasStartDate: true } : { hasStartDate: false });
   }
 
   // Contact (reserve-only) — snapshot only, no live device-contact-id link (UnFocus is
