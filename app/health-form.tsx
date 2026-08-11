@@ -53,7 +53,15 @@
  *     `DateChipPicker` subcomponent here until 2026-08-01; the close sheet needed the same
  *     control, so it moved out verbatim. app/task-form.tsx still has its own inline copy.
  *   - On save a ConfirmationBanner is shown, then navigation is delayed ~900ms so it's visible,
- *     matching task-form.tsx.
+ *     matching task-form.tsx. **It renders as a SIBLING of ScreenScaffold, not inside its
+ *     children** (fixed 2026-08-11) — it was the last child until then, which put it inside
+ *     the ScrollView. That was already wrong (an absolutely-positioned overlay nested in
+ *     scrollable content scrolls away, and its `top: insets.top` is measured from the scroll
+ *     content rather than the screen, double-counting the inset), and the 2026-08-10 chrome
+ *     clipping pass made it visible: `styles.viewport` is `overflow: 'hidden'`, so the toast
+ *     was clipped at the header edge on the one screen whose whole point is a delayed,
+ *     readable confirmation. Every other caller (shopping, food, catalogue, settings) already
+ *     rendered it as a sibling; see app/(tabs)/shopping.tsx's note for the original reasoning.
  *   - **"Possibly from" (2026-07-27)** sets `medicineId` — the symptom↔medicine correlation.
  *     The whole field is hidden when no medicine exists, and "Not sure" ('') is the default,
  *     so this never becomes a question a user has to answer. A `medicineId` route param
@@ -428,8 +436,8 @@ export default function HealthFormScreen() {
         )}
       </View>
 
-      <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
     </ScreenScaffold>
+    <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
     </KeyboardAvoidingView>
   );
 }
