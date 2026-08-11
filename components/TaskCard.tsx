@@ -217,6 +217,14 @@
  *     reminder/notification field to reveal alongside it: lib/taskNotifications.ts derives
  *     every task reminder from `time`/`finishTime`, so opening Time of day IS how a reminder
  *     gets set on this card.
+ *   - **`advancedToggle` and `bottomActionsRow` carry a `layout={LinearTransition}` (2026-08-11,
+ *     user report: "movement of buttons while expanding and closing, and its not smooth").**
+ *     Both sit AFTER a `Collapsible` (`timeOpen`, then `advancedOpen`) inside the already-open
+ *     `editing` Collapsible, so toggling either nested section pushes them down/up — without a
+ *     `layout` transition that push was an instant jump rather than a slide. Same token this
+ *     file already uses for the stepped-card fade; `bottomActionsRow` is now `Animated.View` for
+ *     it (was a plain `View`). See CollapsedSection.tsx's edit notes for the sibling fix and
+ *     PadFooterToggle.tsx for the third.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -1579,6 +1587,10 @@ function TaskCard({
               accessibilityLabel={t.taskAdvancedOptions}
               accessibilityState={{ expanded: advancedOpen }}
               scaleTo={0.98}
+              // Shifts down smoothly when "Time of day" opens above it, instead of jumping —
+              // same LinearTransition token this file already uses for the stepped-card fade
+              // (2026-08-11, user report: buttons moving roughly during expand/collapse).
+              layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
             >
               <View style={styles.labelRow}>
                 <Text style={[styles.toggleLabel, { color: theme.accent }]}>{t.taskAdvancedOptions}</Text>
@@ -1754,7 +1766,15 @@ function TaskCard({
             </Collapsible>
 
             {/* ── Bottom actions: Delete (left) · Discard / Save (right) — small, icon + label ── */}
-            <View style={styles.bottomActionsRow}>
+            {/* layout keeps this row sliding down smoothly as "Time of day"/"Advanced options"
+                open above it, instead of jumping straight to its new position the instant the
+                nested Collapsible's measured height catches up (2026-08-11, user report:
+                "movement of buttons while expanding and closing, and its not smooth"). Same
+                token as advancedToggle above. */}
+            <Animated.View
+              style={styles.bottomActionsRow}
+              layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
+            >
               {showDelete && !isNew ? (
                 <PressableScale style={styles.smallActionBtn} onPress={handleDelete} scaleTo={0.93} accessibilityRole="button" accessibilityLabel={t.deleteTask}>
                   <Ionicons name="trash-outline" size={14} color={theme.bad} />
@@ -1786,7 +1806,7 @@ function TaskCard({
                   <Text style={[styles.smallActionText, { color: canSave ? theme.accentInk : theme.textMuted }]}>{t.taskSave}</Text>
                 </PressableScale>
               </View>
-            </View>
+            </Animated.View>
           </View>
           </Collapsible>
         )}
