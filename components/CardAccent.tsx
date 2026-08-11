@@ -15,7 +15,8 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient, constants/theme (Radius),
- *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor)
+ *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, badgeGradientFor,
+ *             BADGE_ICON_INK)
  *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/HomeHabitsCard,
  *             components/PlanTaskCard, components/WeekListCard, components/MedicineTrayCard,
  *             components/SectionRail, app/(tabs)/health.tsx,
@@ -39,9 +40,10 @@
  *   - **(2026-07-31, addendum A.4) The glyph is `ink`, never a hardcoded `#FFFFFF`.** The badge glyph
  *     used to be literal white regardless of the fill under it. On the Shopping identity hue
  *     (#D9A441) that is **2.25:1** — below even the 3:1 non-text-contrast floor (WCAG 1.4.11) — which
- *     is precisely why `IDENTITY_HUES.shopping` declares DARK ink. `getDomainColor().ink` is
- *     `contrastOn(accent)`, the same value `lib/__tests__/colors.test.ts` asserts at ≥3:1 against
- *     BOTH gradient stops. Never put a literal colour back here.
+ *     is precisely why `IDENTITY_HUES.shopping` declared DARK ink for years. **Superseded
+ *     2026-08-11 — see the addendum below: `ink` is white again, but this time because the FILL
+ *     was changed to support it, not because contrast was ignored again.** Still never put a
+ *     literal colour on the glyph without a `badgeGradientFor()` fill under it.
  *   - **(2026-07-31, addendum A.4 rule 3) `CardAccentWash` is DELETED.** A card was carrying its hue
  *     three times — badge + header wash + edge — for one idea. Badge and edge stay; the wash and its
  *     four call sites (HomeNotesCard, HomeHabitsCard, HomeShoppingCard, PlanTaskCard) are gone, along
@@ -64,14 +66,27 @@
  *     opacity per hue AND per mode, and must add itself to `lib/__tests__/colors.test.ts`.
  *     (The same 2026-08-10 ruling DID adopt the proposal's palette direction — the eight `feat*`
  *     screen hues went a step deeper. That is a border change and does not reach this file.)
+ *   - **(2026-08-11) The glyph is white on EVERY badge, including Shopping's gold.** Maintainer
+ *     report: badges read inconsistent card to card ("some color and black, some color and
+ *     white"). The three prior attempts at an all-white badge (2026-07-31's original bug,
+ *     2026-08-10's decline above) hardcoded white and left the FILL alone, which is exactly the
+ *     defect A.4 fixed. This time the fill moves instead: `lib/domainColor.ts`'s
+ *     `badgeGradientFor()` walks a hue's badge gradient further toward the navy deep-stop until
+ *     white clears the same 3:1 floor A.4 introduced. To-do/Habits/Health/Notes already cleared
+ *     it unmixed, so their gradient is untouched; only Shopping (and its shop/meal/budget/scan
+ *     aliases) actually deepens — the badge on those cards is now a darker gold-to-navy blend
+ *     than it used to be, which is the visible, intentional cost of the fix. `getDomainColor().ink`
+ *     is `BADGE_ICON_INK` (`'#FFFFFF'`) unconditionally; `accentOverride` (Home's preview cards,
+ *     which pass a `feat*` screen hue instead of a `card*` domain hue) routes through the same
+ *     `badgeGradientFor()`, so Notes' yellow and Food's orange get the identical treatment.
  */
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius, contrastOn, mix } from '@/constants/theme';
+import { Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { Domain, getDomainColor, CARD_BADGE_DEEP } from '@/lib/domainColor';
+import { Domain, getDomainColor, badgeGradientFor, BADGE_ICON_INK } from '@/lib/domainColor';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -125,11 +140,7 @@ type BadgeProps = {
 export function CardAccentBadge({ domain, icon, size = 44, style, accentOverride }: BadgeProps) {
   const theme = useAppTheme();
   const domainColor = getDomainColor(theme, domain);
-  const accent = accentOverride ?? domainColor.accent;
-  const badgeGradient = accentOverride
-    ? ([accent, mix(accent, CARD_BADGE_DEEP, 0.35)] as const)
-    : domainColor.badgeGradient;
-  const ink = accentOverride ? contrastOn(accent) : domainColor.ink;
+  const badgeGradient = accentOverride ? badgeGradientFor(accentOverride) : domainColor.badgeGradient;
   const glyph = icon ?? DOMAIN_ICON[domain];
   return (
     <LinearGradient
@@ -146,8 +157,8 @@ export function CardAccentBadge({ domain, icon, size = 44, style, accentOverride
         style,
       ]}
     >
-      {/* `ink` = contrastOn(accent) — never a literal white; see the header's A.4 note. */}
-      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={ink} />
+      {/* Always white (2026-08-11) — badgeGradient is deepened per-hue so this stays legible. */}
+      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={BADGE_ICON_INK} />
     </LinearGradient>
   );
 }

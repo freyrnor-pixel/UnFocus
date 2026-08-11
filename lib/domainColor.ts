@@ -47,11 +47,20 @@
  *     functions, not hooks, so they can be used inside render or memo.
  *   - `soft` is a translucent tint of the accent (works on any surface, both
  *     modes) rather than a second hardcoded token; `ink` is contrast-picked.
- *   - **`ink` is what a glyph ON the badge takes** — `contrastOn(accent)`, which is white for
- *     three hues and DARK for Shopping. components/CardAccent.tsx used to hardcode `#FFFFFF`
- *     there; `lib/__tests__/colors.test.ts` now asserts `ink` at ≥3:1 against BOTH badgeGradient
- *     stops. `ink` is not a licence to draw the hue as text elsewhere — it only ever means "on
- *     top of this fill".
+ *   - **`ink` is ALWAYS white now (2026-08-11)** — a maintainer report that the badge read
+ *     inconsistent ("some color and black, some color and white") across cards. It used to be
+ *     `contrastOn(accent)`, white for three hues and DARK for Shopping (gold, `#D9A441`, is only
+ *     2.25:1 with white). Rather than keep the two-tone split, `badgeGradientFor()` below mixes
+ *     a hue's badge fill further toward the navy deep-stop UNTIL white clears the WCAG 1.4.11
+ *     3:1 floor on the lighter stop — for To-do/Habits/Health/Notes the accent already clears it
+ *     unmixed, so their gradient is byte-identical to before; only Shopping (and its shop/meal/
+ *     budget/scan aliases) actually deepens. `ink` is not a licence to draw the hue as text
+ *     elsewhere — it only ever means "on top of this fill".
+ *   - **This is the fourth time an all-white badge was proposed and the first time it stuck** —
+ *     see components/CardAccent.tsx's history notes for the three prior declines. Those were
+ *     rejected because they hardcoded white and ignored contrast on the fill as it existed;
+ *     this instead changes the fill so white is genuinely legible. Don't revert to a bare
+ *     `color="#FFFFFF"` without `badgeGradientFor` under it, or the old defect comes back.
  *   - **`washTop` HAS NO CONSUMERS as of 2026-07-31 (addendum A.4 rule 3).** The CardAccent
  *     header wash it fed is deleted: a card was carrying its hue three times (badge + wash +
  *     edge) for one idea, so the wash went and badge + edge stayed. It is still computed here
@@ -65,8 +74,8 @@
  *     tint read as muddy/unnatural, so cards pass `borderColor={accent}` to `<Surface>` — a
  *     coloured edge on a plain fill, which is still the arrangement today.
  */
-import { ThemePalette } from '@/constants/colors';
-import { rgba, contrastOn, mix } from '@/constants/theme';
+import { ThemePalette, contrastRatio } from '@/constants/colors';
+import { rgba, mix } from '@/constants/theme';
 
 /**
  * Deep navy the icon-badge gradient mixes toward for its darker second stop (the DS's `--brown`,
@@ -94,8 +103,9 @@ export type DomainTriad = {
   /** Translucent tint of the accent for soft backgrounds/plates. Also a fill. */
   soft: string;
   /**
-   * Legible glyph/text colour to sit ON TOP of `accent` — i.e. only inside the badge or another
-   * accent-filled shape. `contrastOn(accent)`: white for To-do/Habits/Health, DARK for Shopping.
+   * Legible glyph colour to sit ON TOP of `badgeGradient` — i.e. only inside the badge or
+   * another accent-filled shape. **Always `BADGE_ICON_INK` (white) since 2026-08-11** — see
+   * `badgeGradientFor()` below for how the fill guarantees that stays legible.
    */
   ink: string;
   /**
@@ -105,11 +115,54 @@ export type DomainTriad = {
    */
   washTop: string;
   /**
-   * Icon-badge two-stop fill (2026-07-19): `[accent, mix(accent, CARD_BADGE_DEEP, 0.35)]` — a
-   * 135° gradient from the true accent to a navy-shifted darker end (the DS badge recipe).
+   * Icon-badge two-stop fill (2026-07-19, deepened per-hue 2026-08-11 — see
+   * `badgeGradientFor()`): `[lightStop, mix(accent, CARD_BADGE_DEEP, lightT + 0.35)]`, a 135°
+   * gradient from a hue-supporting-white starting point to a navy-shifted darker end. For most
+   * hues `lightStop` IS the raw accent (t=0), same as the original 2026-07-19 recipe.
    */
   badgeGradient: readonly [string, string];
 };
+
+/** The icon-badge glyph colour — always white. See the file header's 2026-08-11 addendum. */
+export const BADGE_ICON_INK = '#FFFFFF';
+
+/** Safety margin over the WCAG 1.4.11 3:1 floor `lib/__tests__/colors.test.ts` enforces. */
+const BADGE_ICON_MIN_CONTRAST = 3.3;
+
+/** How far the two badge-gradient stops sit apart, in mix-toward-navy units (unchanged since 2026-07-19). */
+const BADGE_GRADIENT_SPAN = 0.35;
+
+/**
+ * The two-stop badge gradient for a given accent. Starts at the pure accent (t=0) and walks it
+ * toward `CARD_BADGE_DEEP` in 1% steps until the white glyph clears `BADGE_ICON_MIN_CONTRAST` on
+ * the LIGHTER stop — contrast only rises as the mix deepens toward navy, so the lighter stop is
+ * always the binding constraint; the darker stop (light stop + `BADGE_GRADIENT_SPAN`) is never
+ * checked separately because it's strictly higher-contrast once the light stop clears.
+ *
+ * For To-do/Habits/Health and the Notes neutral, the raw accent already clears the floor, so
+ * this returns byte-identical to the pre-2026-08-11 `[accent, mix(accent, DEEP, 0.35)]` — only
+ * Shopping's gold (`#D9A441`, 2.25:1 with white unmixed) and its shop/meal/budget/scan aliases
+ * actually shift, landing around t≈0.26.
+ */
+function badgeGradientFor(accent: string): readonly [string, string] {
+  let t = 0;
+  while (
+    t < 1 &&
+    contrastRatio(BADGE_ICON_INK, mix(accent, CARD_BADGE_DEEP, t)) < BADGE_ICON_MIN_CONTRAST
+  ) {
+    t += 0.01;
+  }
+  const lightStop = t === 0 ? accent : mix(accent, CARD_BADGE_DEEP, t);
+  return [lightStop, mix(accent, CARD_BADGE_DEEP, Math.min(1, t + BADGE_GRADIENT_SPAN))] as const;
+}
+
+/**
+ * Exposed for components/CardAccent.tsx's `accentOverride` path (Home's preview cards, which
+ * pass their source screen's `feat*` hue instead of a domain's `card*` hue) — same guarantee,
+ * same function, so a screen-hue badge gets the identical white-legibility treatment a
+ * domain-hue badge does.
+ */
+export { badgeGradientFor };
 
 const DOMAIN_TOKEN: Record<Domain, keyof ThemePalette> = {
   task: 'cardTask',
@@ -128,9 +181,9 @@ export function getDomainColor(theme: ThemePalette, domain: Domain): DomainTriad
   return {
     accent,
     soft: rgba(accent, 0.14),
-    ink: contrastOn(accent),
+    ink: BADGE_ICON_INK,
     washTop: mix(theme.surface, accent, 0.22),
-    badgeGradient: [accent, mix(accent, CARD_BADGE_DEEP, 0.35)] as const,
+    badgeGradient: badgeGradientFor(accent),
   };
 }
 

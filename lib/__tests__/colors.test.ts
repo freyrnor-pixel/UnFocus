@@ -355,19 +355,22 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       expect(contrastRatio(contrastOn(IDENTITY_NEUTRAL), IDENTITY_NEUTRAL)).toBeGreaterThanOrEqual(4.5);
     });
 
-    // ── The one genuine badge-contrast defect: CardAccent's hardcoded white icon ─────────
-    // components/CardAccent.tsx:114 draws `color="#FFFFFF"` for the badge ICON on the
-    // two-stop badge gradient, ignoring the ink the palette would pick. An icon needs 3:1
-    // (WCAG 1.4.11), not 4.5. Under the OLD nine-hue ramp 6 of 8 dark-mode badges fell below
-    // 3:1 that way. This asserts the pair the app should draw — the palette-picked ink on
-    // BOTH gradient stops, since the second stop is a navy-shifted darker end that can flip
-    // which ink wins. Shopping is the case that proves the point: white on #D9A441 is
-    // 2.25:1, which is why that hue's declared ink is dark and why the hardcoded #FFFFFF at
-    // CardAccent:114 has to go when consumers are migrated.
+    // ── Badge icon ink: always white, and the FILL is what makes that legible ────────────
+    // Originally (2026-07-31, addendum A.4): components/CardAccent.tsx drew a hardcoded
+    // `color="#FFFFFF"` for the badge ICON regardless of the fill under it — an icon needs
+    // 3:1 (WCAG 1.4.11), not 4.5, and under the old nine-hue ramp 6 of 8 dark-mode badges fell
+    // below that. The fix at the time was to pick ink dynamically per hue (white for three,
+    // dark for Shopping's gold), which is what this block used to assert.
     //
-    // White-on-fill is deliberately NOT asserted in general: the app picks badge ink
-    // dynamically via contrastOn(), so "white text on badge X" is a combination it never
-    // draws, and asserting it would encode a pairing that does not exist.
+    // (2026-08-11) That produced a different complaint — badges reading inconsistent card to
+    // card ("some color and black, some color and white"). The ink is white again everywhere,
+    // but this time `lib/domainColor.ts`'s `badgeGradientFor()` deepens a hue's gradient (moves
+    // it further toward the navy deep-stop) until white clears 3:1 on the LIGHTER of the two
+    // stops — the darker stop only gets more contrasty from there. Shopping is still the case
+    // that proves the point: white on the raw, unmixed #D9A441 is 2.25:1, so its badge gradient
+    // now starts already-mixed rather than at the pure accent (see domainColor.test.ts case (e)
+    // for the exact per-domain assertion). This is deliberately NOT a repeat of the 2026-08-10
+    // decline: that proposal hardcoded white and left the fill alone; this changes the fill.
     const HUE_DOMAIN: Record<(typeof HUE_KEYS)[number], Domain> = {
       todo: 'task',
       habits: 'habit',
@@ -381,6 +384,8 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
           const { accent, ink, badgeGradient } = getDomainColor(theme, HUE_DOMAIN[key]);
           // The alias mapping is asserted transitively: this domain must resolve to this hue.
           expect(accent).toBe(IDENTITY_HUES[key].hue);
+          // Ink is always white now (2026-08-11) — see the comment above this block.
+          expect(ink).toBe('#FFFFFF');
           badgeGradient.forEach((stop) => {
             expect(contrastRatio(ink, stop)).toBeGreaterThanOrEqual(3);
           });
