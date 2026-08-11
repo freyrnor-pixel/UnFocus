@@ -23,7 +23,12 @@
  *     arriving from elsewhere with a specific task to edit (e.g. app/notes.tsx's "Add to
  *     plans", which creates the task then lands here instead of pushing the old task-form).
  *   - variant="steps" (Today / This week): the row expands to show ONLY the steps
- *     checklist — no settings. A task with no steps has a card but no expand arrow.
+ *     checklist plus, since 2026-08-11 (Wave B, Blokk 2), one worded shortcut — "Move to
+ *     Whenever" / "Move to today" — that flips `hasStartDate` without opening the full
+ *     editor. Hidden for a recurring task (its `hasStartDate` means something else
+ *     entirely — see the When/Time split note below). A task now has an expand arrow
+ *     whenever it has steps OR that shortcut applies, even with no steps at all — see
+ *     `canExpand`.
  *
  * **Field order + the When/Time split (2026-07-26 clarity pass, maintainer-specified)**:
  * Name → For → Steps → Repeat → When → Time of day → Energy → Advanced → Delete·Discard·Save.
@@ -197,6 +202,21 @@
  *     Hint each get their own `useKeyboardLift` — the expanded editor is tall, so a field deep
  *     in Advanced options (Hint) or far down a long task list is easily hidden behind the
  *     keyboard on Android's `windowSoftInputMode=resize`. See lib/useKeyboardLift.ts.
+ *   - **The move shortcut + "fields follow the section" (2026-08-11, Wave B — Blokk 2/3)**:
+ *     `handleMoveSection` writes the SAME `{ date: todayStr(), hasStartDate: !task.hasStartDate }`
+ *     pair every other write path here uses (commitWhenever/InlineTaskAdd in
+ *     app/(tabs)/plans.tsx) — one way a task's date gets set, still. It bypasses the draft
+ *     and persists immediately, since the steps variant never opens a Save/Discard editor;
+ *     it reads/writes `task` directly, never `draft` (the steps variant's `draft` is a static
+ *     copy taken at mount and never re-seeded — see `openEditor`). In the FULL editor, the
+ *     main "When" picker now passes `toggleTimeOfDay` as `renderDayPicker`'s `onToggle`, so
+ *     turning a task INTO a dated one auto-opens Time of day and turning it back to Whenever
+ *     auto-closes + clears it — reusing `toggleTimeOfDay`'s existing clearing branch rather
+ *     than a second one. The Start/Finish block is now inside a `Collapsible` (was a bare
+ *     `{timeOpen && …}`) so that open/close animates instead of jumping. There is no separate
+ *     reminder/notification field to reveal alongside it: lib/taskNotifications.ts derives
+ *     every task reminder from `time`/`finishTime`, so opening Time of day IS how a reminder
+ *     gets set on this card.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -506,14 +526,17 @@ function TaskCard({
   const stepNumber = visibleStepNumber(sortedSteps);
   // The step BEHIND the current one — unticking it is how an accidental completion is undone.
   const previousStep = stepped && stepIndex > 0 ? sortedSteps[stepIndex - 1] : null;
-  // Steps variant only expands when there ARE steps (no arrow otherwise); full always can.
-  // A stepped card in the steps variant has no expansion of its own: it already shows its
-  // step inline, and the full checklist behind a chevron would be the second copy of it.
-  const canExpand = stepsOnly ? hasSteps && !stepped : true;
-
-  const editing = !stepsOnly && expanded;
+  // recurring/isRecurring have to be computed ahead of `canExpand` below (2026-08-11, Wave B —
+  // canExpand now reads isRecurring too), so they moved up from just after it.
   const recurring = draft.recurring;
   const isRecurring = recurring !== 'none';
+  // Steps variant only expands when there's something to expand INTO — the checklist, or
+  // (2026-08-11, Wave B) the "Move to Whenever/today" shortcut below. A stepped card has no
+  // checklist reveal of its own (it already shows its step inline — see below), but it can
+  // still expand for the move shortcut if it isn't recurring.
+  const canExpand = stepsOnly ? (hasSteps && !stepped) || !isRecurring : true;
+
+  const editing = !stepsOnly && expanded;
   const modeValue = recurring === 'daily' ? 'daily' : recurring === 'monthly' ? 'monthly' : 'weekly';
   const canSave = draft.title.trim().length > 0;
   // `energyValue` defaults to 1 in the store while `energyEnabled` defaults to false, so the
@@ -559,8 +582,16 @@ function TaskCard({
    *   - non-recurring → false puts the task in the WHENEVER bucket, true pins it to a day
    *   - recurring     → the schedule decides the days; this is only a "don't start before"
    *                     boundary (lib/taskRecurrence.ts), so it lives in Advanced options
+   *
+   * `onToggle` (2026-08-11, Wave B — Blokk 3) fires alongside the SegmentedControl's own
+   * write, for a caller that needs the flip itself, not just the settled value — the only
+   * caller is the main non-recurring "When" picker below, which passes `toggleTimeOfDay`
+   * straight through so turning a task INTO a dated one auto-opens Time of day (and turning
+   * it back to Whenever auto-closes + clears it, reusing that same function's existing
+   * clearing branch rather than a second one). The "Start from" boundary in Advanced options
+   * is a different question for a recurring task, so it's called with no third argument.
    */
-  function renderDayPicker(label: string, offLabel: string) {
+  function renderDayPicker(label: string, offLabel: string, onToggle?: (on: boolean) => void) {
     return (
       <View style={styles.field}>
         <View style={styles.labelRow}>
@@ -578,6 +609,7 @@ function TaskCard({
             const on = v === 'on';
             patch({ hasStartDate: on });
             setShowCalendar(on);
+            onToggle?.(on);
           }}
         />
         {draft.hasStartDate && (
@@ -673,6 +705,20 @@ function TaskCard({
     setExpanded(false);
     setShowCalendar(false);
     setAdvancedOpen(false);
+  }
+
+  /**
+   * The steps-variant "Move to Whenever / Move to today" shortcut (2026-08-11, Wave B —
+   * Blokk 2). Writes the SAME `{ date, hasStartDate }` pair every other write path in this
+   * app uses (see commitWhenever/InlineTaskAdd in app/(tabs)/plans.tsx) — there is still
+   * exactly one way a task's date gets set, this is just a one-tap way to reach it from the
+   * Today/This week card instead of opening the full editor. Bypasses the draft and persists
+   * immediately, the same convention Steps/Shared-out/Then/Delete already follow on an
+   * existing (non-isNew) task — the steps variant never opens a Save/Discard editor at all.
+   */
+  function handleMoveSection() {
+    tap();
+    update(task.id, { date: todayStr(), hasStartDate: !task.hasStartDate });
   }
 
   // Contact (reserve-only) — snapshot only, no live device-contact-id link (UnFocus is
@@ -1094,6 +1140,27 @@ function TaskCard({
           </Collapsible>
         )}
 
+        {/* ── Steps-only "move to Whenever/today" (2026-08-11, Wave B — Blokk 2) ── */}
+        {/* A worded shortcut so a Today/This week card can move itself between the dated and
+            Whenever sections without opening the full editor. Recurring is excluded — its
+            hasStartDate is a "start from" boundary (lib/taskRecurrence.ts), not the task's
+            day, so moving it would silently retime the whole series (see renderDayPicker's
+            header note above). Available on every completable-or-not card type, including
+            'note': a note carries the same date/hasStartDate fields as any other task and can
+            sit in either section — only completion state is what `isCompletable` gates. */}
+        {stepsOnly && !isRecurring && (
+          <Collapsible open={expanded}>
+            <View style={styles.moveWrap}>
+              <Button
+                label={task.hasStartDate ? t.taskMoveToWhenever : t.taskMoveToToday}
+                variant="secondary"
+                size="sm"
+                onPress={handleMoveSection}
+              />
+            </View>
+          </Collapsible>
+        )}
+
         {/* ── Full editor (All tasks) ── */}
         {!stepsOnly && (
           <Collapsible open={editing}>
@@ -1421,17 +1488,30 @@ function TaskCard({
 
             {/* When — which DAY. Only meaningful for a non-recurring task: a recurring one
                 gets its days from the schedule above, and its `hasStartDate` means something
-                different entirely (a start boundary), so that lives in Advanced options. */}
-            {!isRecurring && renderDayPicker(t.taskWhenLabel, t.taskWhenWhenever)}
+                different entirely (a start boundary), so that lives in Advanced options.
+
+                **Fields follow the section (2026-08-11, Wave B — Blokk 3)**: `toggleTimeOfDay`
+                is passed straight through as the day-picker's `onToggle`, so flipping a task
+                INTO a dated one auto-opens Time of day below (the block a scheduled task
+                actually needs to set a reminder — see the Collapsible's own note), and flipping
+                it back to Whenever auto-closes it and clears `time`/`finishTime` — reusing that
+                function's existing off-branch rather than a second clearing path. */}
+            {!isRecurring && renderDayPicker(t.taskWhenLabel, t.taskWhenWhenever, toggleTimeOfDay)}
 
 
             {/* Time of day — opt-in. Independent of the day: "sometime Tuesday" and
-                "17:00, whenever" are both real, so neither implies the other. */}
+                "17:00, whenever" are both real, so neither implies the other.
+
+                This IS the reminder control (2026-08-11 note): the app has no separate
+                notification/reminder field on a task — lib/taskNotifications.ts derives every
+                task reminder from `time`/`finishTime` (a time-box task also gets an "end"
+                reminder). Opening this block is how a reminder gets set here; there is
+                deliberately no second, duplicate toggle for it. */}
             <View style={styles.toggleRow}>
               <Text style={[styles.toggleLabel, { color: theme.textMuted }]}>{t.taskTimeOfDayLabel}</Text>
               <Switch checked={timeOpen} onChange={toggleTimeOfDay} />
             </View>
-            {timeOpen && (
+            <Collapsible open={timeOpen}>
               <View style={styles.timeRow}>
                 <View style={styles.timeCol}>
                   <Text style={[styles.miniLabel, { color: theme.textMuted }]}>{t.taskStartLabel}</Text>
@@ -1442,7 +1522,7 @@ function TaskCard({
                   <TimeBoxInput value={draft.finishTime} onChange={(v) => patch({ finishTime: v || undefined })} />
                 </View>
               </View>
-            )}
+            </Collapsible>
 
 
             {/* Energy give / take — promoted out of Advanced options (2026-07-26): it changes
@@ -1822,6 +1902,10 @@ const styles = StyleSheet.create({
     fontSize: Type.bodyStrong.size,
   },
   stepsWrap: { gap: Spacing.xs, paddingTop: Spacing.sm },
+  // The steps-variant "Move to Whenever/today" shortcut (2026-08-11, Wave B). Same paddingTop
+  // as stepsWrap/steppedWrap so it sits at the same distance below the row whichever of the
+  // three the card is showing; the Button itself sizes to its label, no width/margin needed.
+  moveWrap: { paddingTop: Spacing.sm },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   stepCheckTap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   stepCheck: {

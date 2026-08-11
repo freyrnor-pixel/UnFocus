@@ -111,6 +111,11 @@ const en = {
   taskWhenWhenever: 'Whenever',
   taskWhenOnDay: 'On a day',
   taskWhenPickDay: 'Pick a day',
+  // A worded shortcut in the Today/This week steps card (2026-08-11, Wave B) — moves a task
+  // between the dated and Whenever sections without opening the full editor. Same hasStartDate
+  // meaning as the "When" block above, just a one-tap version of it for the steps-only variant.
+  taskMoveToWhenever: 'Move to Whenever',
+  taskMoveToToday: 'Move to today',
   taskHowOftenLabel: 'How often',
   taskTimeOfDayLabel: 'Time of day',
   taskStartFromLabel: 'Start from',
@@ -2345,6 +2350,8 @@ const no: typeof en = {
   taskWhenWhenever: 'Når som helst',
   taskWhenOnDay: 'På en dag',
   taskWhenPickDay: 'Velg dag',
+  taskMoveToWhenever: 'Flytt til Når som helst',
+  taskMoveToToday: 'Flytt til i dag',
   taskHowOftenLabel: 'Hvor ofte',
   taskTimeOfDayLabel: 'Klokkeslett',
   taskStartFromLabel: 'Starter fra',
