@@ -128,6 +128,74 @@ describe('computeListGroups', () => {
   });
 });
 
+// ── The third section (2026-08-11) ───────────────────────────────────────────
+
+describe('computeListGroups — the Kjøpt bucket', () => {
+  it('collects the list’s purchased rows, which the inWeeklyList filter drops', () => {
+    // doneShopping() preserves list_id, so these rows still belong to L1 — before this
+    // bucket existed they simply had nowhere to be drawn.
+    const items = [
+      item({ id: 'p1', status: 'purchased', listId: 'L1', purchasedAt: '2026-08-10T09:00:00Z' }),
+      item({ id: 'still-here', status: 'inWeeklyList', listId: 'L1' }),
+    ];
+    const { purchased, ungroupedUnchecked } = computeListGroups(items, 'L1');
+    expect(purchased.map((i) => i.id)).toEqual(['p1']);
+    expect(ungroupedUnchecked.map((i) => i.id)).toEqual(['still-here']);
+  });
+
+  it('scopes to the list, so another list’s purchases never leak in', () => {
+    const items = [
+      item({ id: 'mine', status: 'purchased', listId: 'L1' }),
+      item({ id: 'theirs', status: 'purchased', listId: 'L2' }),
+    ];
+    expect(computeListGroups(items, 'L1').purchased.map((i) => i.id)).toEqual(['mine']);
+  });
+
+  it('sorts newest-bought first, falling back to name when the stamp ties', () => {
+    const items = [
+      item({ id: 'old', status: 'purchased', purchasedAt: '2026-08-01T09:00:00Z' }),
+      item({ id: 'new', status: 'purchased', purchasedAt: '2026-08-09T09:00:00Z' }),
+      item({ id: 'tieB', status: 'purchased', purchasedAt: '2026-08-05T09:00:00Z', name: 'B' }),
+      item({ id: 'tieA', status: 'purchased', purchasedAt: '2026-08-05T09:00:00Z', name: 'A' }),
+    ];
+    expect(computeListGroups(items, 'L1').purchased.map((i) => i.id)).toEqual([
+      'new',
+      'tieA',
+      'tieB',
+      'old',
+    ]);
+  });
+
+  it('tolerates a missing purchasedAt instead of throwing', () => {
+    // Rows purchased before the stamp existed sort last rather than crashing the section.
+    const items = [
+      item({ id: 'stamped', status: 'purchased', purchasedAt: '2026-08-09T09:00:00Z' }),
+      item({ id: 'unstamped', status: 'purchased', purchasedAt: undefined }),
+    ];
+    expect(computeListGroups(items, 'L1').purchased.map((i) => i.id)).toEqual([
+      'stamped',
+      'unstamped',
+    ]);
+  });
+
+  it('is INERT for progress and totals — a bought row is not part of the trip', () => {
+    // The whole point of the additive shape: listProgress/listTotal read the other three
+    // keys by name, so adding this bucket must not move either number. If a bought row ever
+    // started counting, a finished list would read as permanently in-progress.
+    const groups = computeListGroups(
+      [
+        item({ id: 'todo', status: 'inWeeklyList', checked: false, price: 10, amount: '1' }),
+        item({ id: 'cart', status: 'inWeeklyList', checked: true, price: 10, amount: '1' }),
+        item({ id: 'bought', status: 'purchased', price: 999, amount: '5' }),
+      ],
+      'L1'
+    );
+    expect(groups.purchased).toHaveLength(1);
+    expect(listProgress(groups)).toMatchObject({ remaining: 1, inCart: 1, total: 2 });
+    expect(listTotal(groups)).toBe(20);
+  });
+});
+
 describe('dishGroupAllChecked', () => {
   it('is false for an empty group', () => {
     expect(dishGroupAllChecked([])).toBe(false);

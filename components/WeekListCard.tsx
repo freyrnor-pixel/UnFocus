@@ -16,7 +16,8 @@
  * per dish to measure/highlight; visually indistinguishable from flat rows until dragged over.
  *
  * Connections:
- *   Imports → components/AddFromMonthlyModal, components/AppModal (showAppModal),
+ *   Imports → @expo/vector-icons (Ionicons — the store-mode button's cart glyph),
+ *             components/AddFromMonthlyModal, components/AppModal (showAppModal),
  *             components/Collapsible, components/ExpandableCard,
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/Button (the two ghost secondary add paths),
@@ -131,6 +132,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
@@ -216,6 +218,9 @@ type Props = {
    *  addToWeeklyFromCatalog and shows a single consolidated toast). */
   onAddMonthlyItemsToWeek: (items: ShoppingItem[]) => void;
   onDoneShopping: () => void;
+  /** Opens components/ShoppingStoreMode.tsx for this list. Optional: a caller that doesn't
+   *  pass it simply gets no store-mode button (the Home preview card has no use for one). */
+  onOpenStoreMode?: () => void;
   /** Opens the shared AddDishSheet targeted at this list (parent sets dishSheetTarget). */
   onOpenDishSheet: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
@@ -280,6 +285,7 @@ export default function WeekListCard({
   monthlyLists,
   onAddMonthlyItemsToWeek,
   onDoneShopping,
+  onOpenStoreMode,
   onOpenDishSheet,
   renderReorderableRow,
   registerCartHeaderNode,
@@ -787,6 +793,23 @@ export default function WeekListCard({
         {/* ── Bottom slot: green "done" CTA while shopping; nothing while planning ──
             (the old "Plan mode active" status bar was removed 2026-07-22 — the
             Save/Discard buttons + lock icon already say everything it did). ── */}
+        {/* Store mode sits ABOVE the green CTA and is deliberately quiet (outlined, not
+            filled): both are "I'm shopping now" actions, but the screen keeps ONE obvious
+            filled action. Same `list.locked` gate — there is nothing to stand in a shop with
+            while the list is still being planned. */}
+        {list.locked && onOpenStoreMode && (
+          <PressableScale
+            style={[styles.storeModeBtn, { borderColor: theme.border }]}
+            onPress={onOpenStoreMode}
+            accessibilityRole="button"
+            accessibilityLabel={t.storeModeBtn}
+            scaleTo={0.95}
+          >
+            <Ionicons name="cart-outline" size={18} color={theme.text} />
+            <Text style={[styles.storeModeText, { color: theme.text }]}>{t.storeModeBtn}</Text>
+          </PressableScale>
+        )}
+
         {list.locked && (
           <PressableScale
             style={[
@@ -883,6 +906,18 @@ const baseStyles = StyleSheet.create({
   // deleted and this style carries only the flex that splits the row.
   addOptionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   addOptionBtn: { flex: 1, minWidth: 0 },
+  storeModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingVertical: Spacing.sm,
+    minHeight: MIN_TAP_TARGET,
+    marginBottom: Spacing.sm,
+  },
+  storeModeText: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: MIN_TAP_TARGET },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });
