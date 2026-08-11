@@ -11,6 +11,7 @@
  * store types.
  */
 import { habitOccursOn, habitWeekCountThrough, habitProgress, habitMetOn } from '@/lib/habitRecurrence';
+import { dateStr } from '@/lib/date';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
 function habit(o: Partial<Habit>): Habit {
@@ -110,6 +111,42 @@ describe('habitOccursOn: recurrenceInterval (2026-08-11 "every N days/weeks")', 
 
     const weeklyGarbled = habit({ recurrence: 'weekly', recurrenceDays: [], recurrenceInterval: 4, createdAt: 'not-a-date' });
     expect(habitOccursOn(weeklyGarbled, WED)).toBe(true);
+  });
+
+  /**
+   * Regression, 2026-08-11. The anchor used to be `createdAt.slice(0, 10)` — a UTC date —
+   * while `date` is a LOCAL one. A habit created at 00:30 local east of Greenwich carries a
+   * UTC stamp dated the day BEFORE, so `daysBetween(anchor, today)` was 1 and an
+   * every-2-days habit was absent from the very day it was made.
+   *
+   * Written against the local-creation-day INVARIANT rather than fixed date literals,
+   * because jest does not pin TZ (nothing in jest.config.js sets it) — so this runs at the
+   * runner's offset, UTC on CI and the maintainer's own zone locally. Where UTC and local
+   * agree the two dates coincide and these assertions are merely true rather than probing;
+   * at any non-zero offset they fail against the old slice().
+   */
+  it('anchors on the LOCAL creation date, so a just-created habit always occurs today', () => {
+    // 00:30 local — the window where the local and UTC dates disagree east of Greenwich.
+    const createdLocal = new Date(2026, 7, 11, 0, 30);
+    const createdAt = createdLocal.toISOString();
+    const localDay = dateStr(createdLocal);
+
+    for (const n of [2, 3, 5]) {
+      const h = habit({ recurrence: 'daily', recurrenceInterval: n, createdAt });
+      expect(habitOccursOn(h, localDay)).toBe(true);
+      // …and the cycle counts from that same local day: n days on, the days between off.
+      const nDaysLater = dateStr(new Date(2026, 7, 11 + n));
+      expect(habitOccursOn(h, nDaysLater)).toBe(true);
+      expect(habitOccursOn(h, dateStr(new Date(2026, 7, 12)))).toBe(false);
+    }
+  });
+
+  it('reads both createdAt stamp shapes as UTC (ISO from the store, datetime() from the column default)', () => {
+    const iso = habit({ recurrence: 'daily', recurrenceInterval: 2, createdAt: '2026-08-11T09:00:00.000Z' });
+    const sqlite = habit({ recurrence: 'daily', recurrenceInterval: 2, createdAt: '2026-08-11 09:00:00' });
+    for (const d of ['2026-08-11', '2026-08-12', '2026-08-13']) {
+      expect(habitOccursOn(iso, d)).toBe(habitOccursOn(sqlite, d));
+    }
   });
 });
 

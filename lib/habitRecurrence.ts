@@ -16,20 +16,28 @@
  * `habit.createdAt` here, on every call, and is never stored — same discipline as
  * lib/taskRotation.ts's rotation anchor and `episode_state`: two devices computing the
  * same thing from the same input can't disagree the way a stored, separately-updated
- * flag could. `createdAt` is SQLite's `datetime('now')`, i.e. a UTC 'YYYY-MM-DD HH:MM:SS'
- * string (a handful of older rows are a full ISO string instead) — only its first 10
- * characters (the date part) are read, and the UTC/local distinction doesn't matter
- * because it is only ever compared against another plain date string, never a clock
- * time. A missing/unparseable `createdAt` fails OPEN (treated as interval 1, i.e. the
- * habit occurs) — this function's job is deciding what shows up today, and hiding a
+ * flag could. A missing/unparseable `createdAt` fails OPEN (treated as interval 1, i.e.
+ * the habit occurs) — this function's job is deciding what shows up today, and hiding a
  * habit because of a bad timestamp is worse than showing it on the "wrong" phase.
+ *
+ * **The anchor is the LOCAL calendar date the habit was created on, and slicing the
+ * stamp is not how you get it.** `createdAt` is UTC either way — `useHabitStore.add()`
+ * writes `toISOString()`, the column's own DEFAULT is SQLite's `datetime('now')` — while
+ * `date` is a local `YYYY-MM-DD` from lib/date's `dateStr`/`todayStr`. Taking the stamp's
+ * first 10 characters mixes the two: a habit created at 00:30 local in UTC+2 carries a
+ * UTC stamp dated the day BEFORE, so `daysBetween(anchor, today)` is 1, and an every-2-days
+ * habit is absent from the very day it was made — reported and fixed 2026-08-11. Both stamp
+ * shapes are normalised to an explicit UTC instant first (the no-designator form would
+ * otherwise be read as local, off by the offset in the opposite direction) and then read
+ * back in local time, exactly as `lib/date.ts`'s `utcStampToLocalMinutes` does for the day
+ * log — that is the app's other UTC/local crossing, and this is the second.
  *
  * Connections:
  *   Imports → lib/date (getWeekDates), store/useHabitStore (Habit/HabitLog types)
  *   Used by → lib/energy.ts, app/(tabs)/habits.tsx, lib/widgets/sync.ts
  *   Data    → none (pure functions)
  */
-import { getWeekDates } from '@/lib/date';
+import { dateStr, getWeekDates } from '@/lib/date';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
 function logCount(habitId: string, logs: HabitLog[], date: string): number {
@@ -37,12 +45,21 @@ function logCount(habitId: string, logs: HabitLog[], date: string): number {
   return log?.count ?? 0;
 }
 
-/** The `YYYY-MM-DD` date part of `habit.createdAt`, or null if missing/unparseable. */
+/**
+ * The LOCAL `YYYY-MM-DD` date `habit.createdAt` falls on, or null if missing/unparseable.
+ *
+ * `createdAt` is UTC in both shapes it comes in — `toISOString()` from the store, or the
+ * column's `datetime('now')` default — so it is normalised to an explicit UTC instant and
+ * then read back in local time. Don't "simplify" this to `raw.slice(0, 10)`: see the
+ * header, that is the bug this replaced.
+ */
 function anchorDate(habit: Habit): string | null {
-  const raw = habit.createdAt;
-  if (!raw || raw.length < 10) return null;
-  const datePart = raw.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
+  const raw = habit.createdAt?.trim();
+  if (!raw) return null;
+  // A stamp with no timezone designator would be parsed as LOCAL; force UTC first.
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? raw.replace(' ', 'T') : `${raw.replace(' ', 'T')}Z`;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : dateStr(d);
 }
 
 /** Whole days from `a` to `b` (both `YYYY-MM-DD`). Noon anchors sidestep DST edges. */
