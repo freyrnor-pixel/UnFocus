@@ -1218,6 +1218,14 @@ export function initDb() {
     // user never chose, and defaulting them on would open every existing install's drawer on
     // 36 rows it didn't ask for.
     "UPDATE symptoms SET tracked = 1 WHERE id IN (SELECT DISTINCT symptom_id FROM health_logs WHERE symptom_id IS NOT NULL AND symptom_id != '')",
+    // Habit "every N days / every N weeks" (2026-08-11) — a MULTIPLIER on the existing
+    // daily/weekly recurrence, not a new recurrence kind: 'daily' + N means every N days,
+    // 'weekly' + N means the picked weekdays every N weeks. monthly/one-time/weekly-flexible
+    // ignore it entirely. Modeled on tasks.recurring_week_interval (see useTaskStore's
+    // weekInterval) — same DEFAULT 1, same "N<=1 is today's behaviour, byte-identical" rule.
+    // The phase anchor is DERIVED from habits.created_at in lib/habitRecurrence.ts, never
+    // stored, so there is no second column to keep in sync.
+    'ALTER TABLE habits ADD COLUMN recurrence_interval INTEGER DEFAULT 1',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

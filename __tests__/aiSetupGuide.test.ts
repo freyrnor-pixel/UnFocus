@@ -149,6 +149,22 @@ describe('applyAiSetupConfig — habits', () => {
     expect(result.habits).toEqual({ created: 0, skipped: [{ index: 0, reason: 'weekly-recurrence-needs-days' }] });
     expect(useHabitStore.getState().habits).toHaveLength(0);
   });
+
+  // recurrenceInterval (2026-08-11) — "every N days/weeks". Clamped, never rejected: an
+  // out-of-range value is still a coherent ask ("every 40 days"), so it's capped rather
+  // than skipping the whole habit; omitted defaults to 1 (today's plain daily behaviour).
+  it.each([
+    [3, 3],
+    [40, 12],
+    [0, 1],
+    [undefined, 1],
+  ])('clamps recurrenceInterval %p to %p', (input, expected) => {
+    applyAiSetupConfig({
+      version: AI_SETUP_SCHEMA_VERSION,
+      habits: [{ title: 'Stretch', kind: 'neutral', recurrence: 'daily', category: 'physical', dailyGoal: 1, recurrenceInterval: input }],
+    });
+    expect(useHabitStore.getState().habits[0]).toMatchObject({ recurrenceInterval: expected });
+  });
 });
 
 describe('applyAiSetupConfig — goals, notes, monthly lists', () => {

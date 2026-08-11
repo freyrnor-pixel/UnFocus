@@ -81,6 +81,14 @@
  *     via Stepper). 'one-time' stays out of the picker — habits.tsx currently treats
  *     it identically to 'daily' with no distinct behaviour, so exposing it would be a
  *     no-op that reads as broken.
+ *   - **`recurrenceInterval` (2026-08-11) — "every N days/weeks"**: a Stepper under How
+ *     often, shown only for Daily/Weekly (Monthly/Flexible ignore it), seeded from
+ *     `existing.recurrenceInterval` in edit mode or `params.recurrenceInterval` in create
+ *     mode (the quick-add's own repeat cell — components/HabitRecurrenceCells.tsx — hands
+ *     this over via lib/useHabitRecurrenceDraft.ts's `toParams()`). `scheduleSummary` grows a
+ *     middle segment once it's >1 ("Mo We Fr · every 2 weeks · 2x"). The actual due-today
+ *     decision is entirely lib/habitRecurrence.ts's job — this screen only collects the
+ *     number.
  *   - **'weekly-flexible' (2026-07-22, "Flexible")**: "N times this week, any day" —
  *     due every day (no weekday chips shown), met once the week's cumulative logged
  *     count reaches the goal. Reuses the `dailyGoal` field as a per-week target in
@@ -157,6 +165,7 @@ import OptionalTag from '@/components/OptionalTag';
 import { AspectRatio, FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
 const INTERVAL_OPTIONS = [30, 60, 90, 120, 180, 240];
+const HABIT_RECURRENCES: HabitRecurrence[] = ['daily', 'weekly', 'monthly', 'one-time', 'weekly-flexible'];
 
 function hhmmToMin(s: string): number {
   const [h, m] = s.split(':').map((n) => parseInt(n, 10));
@@ -203,20 +212,43 @@ function computeReminderTimes(
 export default function HabitForm() {
   const router = useRouter();
   /**
-   * `title`/`energy` are CREATE-mode seeds (2026-08-05), handed over by the quick-add's
-   * "More options" button on Home's habits card and on the Habits tab. They only seed the
-   * initial state — nothing is written until Save — so backing out of this screen leaves no
-   * habit behind. That is the whole reason the quick-add stopped creating-then-navigating:
-   * it made the button dead on an empty line. Ignored entirely when `id` is set, since an
-   * existing habit's own values win.
+   * `title`/`energy`/`recurrence`/`recurrenceInterval`/`recurrenceDays`/`dailyGoal` are
+   * CREATE-mode seeds (2026-08-05; the four recurrence ones added 2026-08-11), handed over
+   * by the quick-add's "More options" button on Home's habits card and on the Habits tab —
+   * see lib/useHabitRecurrenceDraft.ts's `toParams()`. They only seed the initial state —
+   * nothing is written until Save — so backing out of this screen leaves no habit behind.
+   * That is the whole reason the quick-add stopped creating-then-navigating: it made the
+   * button dead on an empty line. Ignored entirely when `id` is set, since an existing
+   * habit's own values win.
    */
   const params = useLocalSearchParams<{
     id?: string;
     childName?: string;
     title?: string;
     energy?: string;
+    recurrence?: string;
+    recurrenceInterval?: string;
+    recurrenceDays?: string;
+    dailyGoal?: string;
   }>();
   const isEdit = !!params.id;
+
+  // Validate/parse the recurrence seeds once, up front — a router param is just a string, and
+  // this screen is also reachable by hand-typed deep link, so nothing here is trusted blindly.
+  const paramRecurrence: HabitRecurrence | undefined =
+    params.recurrence && (HABIT_RECURRENCES as string[]).includes(params.recurrence)
+      ? (params.recurrence as HabitRecurrence)
+      : undefined;
+  const paramRecurrenceDays: number[] = (() => {
+    try {
+      const parsed = JSON.parse(params.recurrenceDays ?? '[]');
+      return Array.isArray(parsed) ? parsed.filter((n: unknown): n is number => typeof n === 'number' && Number.isFinite(n)) : [];
+    } catch {
+      return [];
+    }
+  })();
+  const paramDailyGoal = Number(params.dailyGoal);
+  const paramRecurrenceInterval = Number(params.recurrenceInterval);
 
   const habits = useHabitStore((s) => s.habits);
   const addHabit = useHabitStore((s) => s.add);
@@ -242,13 +274,25 @@ export default function HabitForm() {
   const [title, setTitle] = useState(existing?.title ?? params.title ?? '');
   const [icon, setIcon] = useState(existing?.icon ?? 'ellipse-outline');
   const [category, setCategory] = useState<HabitCategory>(existing?.category ?? 'other');
-  const [dailyGoal, setDailyGoal] = useState(existing?.dailyGoal ?? 1);
-  const [recurrence, setRecurrence] = useState<HabitRecurrence>(existing?.recurrence ?? 'daily');
+  const [dailyGoal, setDailyGoal] = useState(
+    existing?.dailyGoal ?? (Number.isFinite(paramDailyGoal) && paramDailyGoal > 0 ? paramDailyGoal : 1)
+  );
+  const [recurrence, setRecurrence] = useState<HabitRecurrence>(existing?.recurrence ?? paramRecurrence ?? 'daily');
   const [weekDays, setWeekDays] = useState<number[]>(
-    existing?.recurrence === 'weekly' ? existing.recurrenceDays : []
+    existing?.recurrence === 'weekly' ? existing.recurrenceDays
+      : !existing && paramRecurrence === 'weekly' ? paramRecurrenceDays
+      : []
   );
   const [monthDay, setMonthDay] = useState(
-    existing?.recurrence === 'monthly' ? (existing.recurrenceDays[0] ?? 1) : 1
+    existing?.recurrence === 'monthly' ? (existing.recurrenceDays[0] ?? 1)
+      : !existing && paramRecurrence === 'monthly' ? (paramRecurrenceDays[0] ?? 1)
+      : 1
+  );
+  // "Every N days/weeks" (2026-08-11) — a multiplier on daily/weekly, ignored by the other
+  // three recurrences. Seeded from the quick-add's pick the same NaN-guarded way `energyValue`
+  // seeds from `params.energy` just below.
+  const [recurrenceInterval, setRecurrenceInterval] = useState(
+    existing ? existing.recurrenceInterval : (Number.isFinite(paramRecurrenceInterval) && paramRecurrenceInterval > 0 ? paramRecurrenceInterval : 1)
   );
   const [childName, setChildName] = useState(existing?.childName ?? (params.childName ?? ''));
   // One signed stepper (2026-07-26): 0 = no effect, so there is no separate enabled flag in
@@ -312,14 +356,20 @@ export default function HabitForm() {
     setRecurrence(next);
   }
 
-  /** One-line "Every day · 1x per day" summary, so the collapsed disclosure isn't a mystery. */
+  /** One-line "Every day · 1x per day" summary, so the collapsed disclosure isn't a mystery.
+   *  Gains a middle "every N days/weeks" segment once an interval is set (2026-08-11), e.g.
+   *  "Mo We Fr · every 2 weeks · 2x" — filtered out (not just empty) when N<=1, same as the
+   *  weekly-flexible segment below only appearing for that one recurrence. */
   const scheduleSummary = [
     recurrence === 'daily' ? t.habitRecurrenceDaily
       : recurrence === 'weekly' ? weekDays.slice().sort((a, b) => a - b).map((d) => t.dayLabels[d].slice(0, 2)).join(' ')
       : recurrence === 'monthly' ? `${t.taskMonthlyByDay} ${monthDay}`
       : t.habitRecurrenceWeeklyFlexible,
+    (recurrence === 'daily' || recurrence === 'weekly') && recurrenceInterval > 1
+      ? (recurrence === 'daily' ? t.habitEveryNDaysLabel(recurrenceInterval) : t.habitEveryNWeeksLabel(recurrenceInterval)).toLowerCase()
+      : null,
     recurrence === 'weekly-flexible' ? t.habitWeeklyGoal.toLowerCase() : `${dailyGoal}x`,
-  ].join(' · ');
+  ].filter((part): part is string => !!part).join(' · ');
 
   // Advanced fields (icon/category only, see below) start collapsed; open by default in edit
   // mode if either already holds a non-default value.
@@ -343,6 +393,7 @@ export default function HabitForm() {
       dailyGoal,
       recurrence,
       recurrenceDays: recurrence === 'weekly' ? weekDays : recurrence === 'monthly' ? [monthDay] : [],
+      recurrenceInterval,
       notificationEnabled,
       notificationTimes,
       reminderMode: notificationEnabled ? reminderMode : null,
@@ -654,6 +705,24 @@ export default function HabitForm() {
             <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
               <Text style={[styles.label, { color: theme.textMuted }]}>{t.taskMonthlyByDay}</Text>
               <Stepper value={monthDay} onChange={setMonthDay} min={1} max={28} accessibilityLabel={t.taskMonthlyByDay} />
+            </View>
+          )}
+          {/* "Every N days/weeks" (2026-08-11) — a multiplier on daily/weekly, not a fifth
+              recurrence; monthly/one-time/weekly-flexible ignore it (lib/habitRecurrence.ts).
+              Same control the quick-add's own repeat cell uses (components/
+              HabitRecurrenceCells.tsx) — the two must never be able to disagree. */}
+          {(recurrence === 'daily' || recurrence === 'weekly') && (
+            <View style={[styles.energyStepperRow, { marginTop: Spacing.sm }]}>
+              <Text style={[styles.label, { color: theme.textMuted }]}>
+                {recurrence === 'daily' ? t.habitEveryNDaysLabel(recurrenceInterval) : t.habitEveryNWeeksLabel(recurrenceInterval)}
+              </Text>
+              <Stepper
+                value={recurrenceInterval}
+                onChange={setRecurrenceInterval}
+                min={1}
+                max={12}
+                accessibilityLabel={t.habitHowOften}
+              />
             </View>
           )}
         </View>

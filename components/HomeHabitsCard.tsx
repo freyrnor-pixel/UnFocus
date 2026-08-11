@@ -24,6 +24,11 @@
  *             the type line's labeled Energy row, replacing an icon-only chip),
  *             components/Stepper + lib/energy (energyFieldsFromStepper — that row's signed
  *             − 0 + control since 2026-08-05, replacing a tap-cycle),
+ *             components/HabitRecurrenceCells + lib/useHabitRecurrenceDraft (2026-08-11 —
+ *             the "every N days/weeks" repeat picker cells, rendered in the same panel as the
+ *             energy row above; split out because app/(tabs)/habits.tsx mounts an IDENTICAL
+ *             panel and the two are pinned against each other by
+ *             lib/__tests__/energyModes.test.ts),
  *             components/CardHintNote (foot-of-card explainer), components/AddRow,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -126,14 +131,16 @@ import PadTypeRow from '@/components/PadTypeRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import HabitRecurrenceCells from '@/components/HabitRecurrenceCells';
 import Stepper from '@/components/Stepper';
 import { energyFieldsFromStepper } from '@/lib/energy';
+import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
 import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, Spacing, HitSlop, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { useHabitStore, Habit } from '@/store/useHabitStore';
+import { useHabitStore, Habit, HabitRecurrence } from '@/store/useHabitStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { HABIT_STARTERS } from '@/lib/habitStarters';
@@ -180,6 +187,9 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
   // (off→+1→−1→off). Icon/goal/reminders stay full-editor-only; see the "…" button below.
   const [habitEnergyValue, setHabitEnergyValue] = useState(0);
   const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  // "Every N days/weeks" repeat picker (2026-08-11) — always visible, unlike the energy chip
+  // above; see lib/useHabitRecurrenceDraft.ts's header for why the state lives in a shared hook.
+  const habitRecurrenceDraft = useHabitRecurrenceDraft();
 
   const dueTodayHabits = habits.filter((h) => habitOccursOn(h, today));
   const doneCount = dueTodayHabits.filter((h) => habitProgress(h, logs, today).isDone).length;
@@ -196,12 +206,17 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
   // dailyGoal are the only inputs that actually vary between the two callers there). Returns
   // the created Habit (useHabitStore.add does since 2026-08-01) so the "…" quick-add path can
   // navigate straight to it.
+  // recurrence/recurrenceDays/recurrenceInterval default to plain daily (today's behaviour) —
+  // the starter chips and any other caller that doesn't pass them are unaffected.
   function createHabit(
     title: string,
     icon: string,
     dailyGoal: number,
     energyEnabled = false,
-    energyValue = 1
+    energyValue = 1,
+    recurrence: HabitRecurrence = 'daily',
+    recurrenceDays: number[] = [],
+    recurrenceInterval = 1
   ): Habit {
     const habit = addHabit({
       title,
@@ -210,8 +225,9 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
       category: 'other',
       cue: '', craving: '', response: '', reward: '',
       dailyGoal,
-      recurrence: 'daily',
-      recurrenceDays: [],
+      recurrence,
+      recurrenceDays,
+      recurrenceInterval,
       notificationEnabled: false,
       notificationTimes: [],
       reminderMode: null,
@@ -235,9 +251,11 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
     // Neutral "to-do" marker default, matching habits.tsx's own quick-add — a star reads
     // as a reward/rating, against the app's no-shame framing.
     const energy = energyFieldsFromStepper(habitEnergyValue);
-    createHabit(title, 'ellipse-outline', 1, energy.energyEnabled, energy.energyValue);
+    const { recurrence, recurrenceDays, recurrenceInterval, dailyGoal } = habitRecurrenceDraft.toHabitFields();
+    createHabit(title, 'ellipse-outline', dailyGoal, energy.energyEnabled, energy.energyValue, recurrence, recurrenceDays, recurrenceInterval);
     setHabitDraft('');
     setHabitEnergyValue(0);
+    habitRecurrenceDraft.reset();
   }
 
   /**
@@ -257,10 +275,11 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
     const title = habitDraft.trim();
     router.push({
       pathname: '/habit-form',
-      params: { title, energy: String(habitEnergyValue) },
+      params: { title, energy: String(habitEnergyValue), ...habitRecurrenceDraft.toParams() },
     });
     setHabitDraft('');
     setHabitEnergyValue(0);
+    habitRecurrenceDraft.reset();
   }
 
   /**
@@ -418,20 +437,20 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
               accent={screenColor.base}
               onMore={openHabitFormWithDraft}
               panel={
-                energySystemEnabled ? (
-                  <QuickAddOptionsPanel>
-                    {/* A real signed stepper (2026-08-05), not the tap-cycle this used to be.
-                        The row cycled off → +1 → −1 → off, showing the app's generic on/off
-                        word `t.off` ("av") for zero — a value with no way to tell it cycled,
-                        no way back, and no clue it was about energy at all (user report: "The
-                        'av' does not make sense to me. Energy should be more apparent with
-                        - 0 + buttons"). Both real editors — components/TaskCard.tsx and
-                        app/habit-form.tsx — already use exactly this control for exactly this
-                        number, so the quick-add was the odd one out. `QuickAddOptionRow` takes
-                        a live node as its `value` (that is how PlanTaskCard mounts TimeBoxInput
-                        and FormSwitch), so nothing about the row itself had to change.
-                        The label is `energyGiveTakeLabel` for the same reason: it is what the
-                        editors say, and unlike a bare "Energy" it names what the number does. */}
+                <QuickAddOptionsPanel>
+                  {/* A real signed stepper (2026-08-05), not the tap-cycle this used to be.
+                      The row cycled off → +1 → −1 → off, showing the app's generic on/off
+                      word `t.off` ("av") for zero — a value with no way to tell it cycled,
+                      no way back, and no clue it was about energy at all (user report: "The
+                      'av' does not make sense to me. Energy should be more apparent with
+                      - 0 + buttons"). Both real editors — components/TaskCard.tsx and
+                      app/habit-form.tsx — already use exactly this control for exactly this
+                      number, so the quick-add was the odd one out. `QuickAddOptionRow` takes
+                      a live node as its `value` (that is how PlanTaskCard mounts TimeBoxInput
+                      and FormSwitch), so nothing about the row itself had to change.
+                      The label is `energyGiveTakeLabel` for the same reason: it is what the
+                      editors say, and unlike a bare "Energy" it names what the number does. */}
+                  {energySystemEnabled && (
                     <QuickAddOptionRow
                       icon={habitEnergyValue === 0 ? 'flash-outline' : habitEnergyValue > 0 ? 'flash' : 'flash-off'}
                       label={t.energyGiveTakeLabel}
@@ -445,8 +464,11 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                       }
                       accent={screenColor.base}
                     />
-                  </QuickAddOptionsPanel>
-                ) : undefined
+                  )}
+                  {/* "Every N days/weeks" (2026-08-11) — unconditional, unlike the energy
+                      cell above; see components/HabitRecurrenceCells.tsx's header. */}
+                  <HabitRecurrenceCells draft={habitRecurrenceDraft} accent={screenColor.base} />
+                </QuickAddOptionsPanel>
               }
             />
           }

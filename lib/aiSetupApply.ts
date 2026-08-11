@@ -242,6 +242,13 @@ function processHabits(drafts: AiHabitDraft[] | undefined, dryRun: boolean): Dom
     if ((d.recurrence === 'weekly' || d.recurrence === 'weekly-flexible') && recurrenceDays.length === 0) {
       return skip(result, index, 'weekly-recurrence-needs-days');
     }
+    // "Every N days/weeks" (2026-08-11) — a small bounded integer, safe from an untrusted
+    // file. CLAMPED rather than rejected via intInRange (which treats out-of-range as
+    // absent) — an out-of-range value is still a coherent ask ("every 40 days") that the
+    // app can satisfy by capping it, same spirit as dailyGoal's floor. Omitted/invalid
+    // (non-finite) defaults to 1 — today's plain daily/weekly.
+    const rawInterval = finiteNum(d.recurrenceInterval);
+    const recurrenceInterval = rawInterval !== null ? Math.min(12, Math.max(1, Math.floor(rawInterval))) : 1;
 
     if (!dryRun) {
       add({
@@ -256,6 +263,7 @@ function processHabits(drafts: AiHabitDraft[] | undefined, dryRun: boolean): Dom
         dailyGoal,
         recurrence: d.recurrence as HabitRecurrence,
         recurrenceDays,
+        recurrenceInterval,
         notificationEnabled: false,
         notificationTimes: [],
         reminderMode: null,

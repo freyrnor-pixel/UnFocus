@@ -1,12 +1,14 @@
 /**
  * habitRecurrence.test.ts — unit tests for lib/habitRecurrence.ts.
  *
- * Covers habitOccursOn (daily/weekly/monthly/one-time/weekly-flexible), the weekly
- * cumulative count helper, habitProgress (fixed-schedule vs. weekly-flexible count/
- * ratio/isDone), and habitMetOn (per-day vs. once-per-week-on-the-crossing-day for
- * weekly-flexible — this is what makes the Energy system award a habit's value only
- * once per week instead of every day after the goal is reached). Pure functions —
- * no DB, no store; plain objects cast to the store types.
+ * Covers habitOccursOn (daily/weekly/monthly/one-time/weekly-flexible, plus the
+ * 2026-08-11 recurrenceInterval multiplier — every N days/weeks, derived from
+ * createdAt), the weekly cumulative count helper, habitProgress (fixed-schedule vs.
+ * weekly-flexible count/ratio/isDone), and habitMetOn (per-day vs.
+ * once-per-week-on-the-crossing-day for weekly-flexible — this is what makes the
+ * Energy system award a habit's value only once per week instead of every day after
+ * the goal is reached). Pure functions — no DB, no store; plain objects cast to the
+ * store types.
  */
 import { habitOccursOn, habitWeekCountThrough, habitProgress, habitMetOn } from '@/lib/habitRecurrence';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
@@ -15,7 +17,7 @@ function habit(o: Partial<Habit>): Habit {
   return {
     id: 'h', title: 'H', icon: '', kind: 'neutral', category: 'other', cue: '',
     craving: '', response: '', reward: '', dailyGoal: 1, recurrence: 'daily',
-    recurrenceDays: [], notificationEnabled: false, notificationTimes: [],
+    recurrenceDays: [], recurrenceInterval: 1, notificationEnabled: false, notificationTimes: [],
     reminderMode: null, reminderCount: null, reminderIntervalMin: null,
     reminderStart: null, reminderEnd: null, routineOrder: 0, active: true,
     createdAt: '', childName: '', energyEnabled: false, energyValue: 1, ...o,
@@ -55,6 +57,59 @@ describe('habitOccursOn', () => {
     const h = habit({ recurrence: 'monthly', recurrenceDays: [15] });
     expect(habitOccursOn(h, WED)).toBe(true);
     expect(habitOccursOn(h, MON)).toBe(false);
+  });
+});
+
+describe('habitOccursOn: recurrenceInterval (2026-08-11 "every N days/weeks")', () => {
+  it('N <= 1 is byte-identical to plain daily/weekly, regardless of createdAt', () => {
+    const daily1 = habit({ recurrence: 'daily', recurrenceInterval: 1, createdAt: '2026-01-01 00:00:00' });
+    const dailyDefault = habit({ recurrence: 'daily', createdAt: '2026-01-01 00:00:00' });
+    expect(habitOccursOn(daily1, WED)).toBe(true);
+    expect(habitOccursOn(dailyDefault, WED)).toBe(true);
+
+    const weekly1 = habit({ recurrence: 'weekly', recurrenceDays: [2], recurrenceInterval: 1, createdAt: MON + ' 00:00:00' });
+    expect(habitOccursOn(weekly1, WED)).toBe(true); // Wed is the picked day
+    expect(habitOccursOn(weekly1, MON)).toBe(false); // Mon isn't picked — unaffected by interval
+    // A whole month later, still every week (N=1 never gates on the week).
+    expect(habitOccursOn(weekly1, '2026-08-12')).toBe(true); // a later Wednesday
+  });
+
+  it('daily, every 3 days: occurs on the anchor and every 3rd day after, across a month boundary', () => {
+    // SQLite datetime('now') shape: 'YYYY-MM-DD HH:MM:SS'.
+    const h = habit({ recurrence: 'daily', recurrenceInterval: 3, createdAt: '2026-07-30 09:00:00' });
+    expect(habitOccursOn(h, '2026-07-30')).toBe(true); // anchor day itself
+    expect(habitOccursOn(h, '2026-07-31')).toBe(false);
+    expect(habitOccursOn(h, '2026-08-01')).toBe(false);
+    expect(habitOccursOn(h, '2026-08-02')).toBe(true); // +3 days, crosses the month boundary
+    expect(habitOccursOn(h, '2026-08-03')).toBe(false);
+    expect(habitOccursOn(h, '2026-08-05')).toBe(true); // +6 days
+  });
+
+  it('weekly, every 2 weeks: the whole anchor week occurs, the next week does not, then it resumes', () => {
+    // Anchor week is MON..SUN (2026-07-13..2026-07-19); recurrenceDays empty = every day
+    // of an included week (mirrors the plain-weekly "no days picked = every day" rule).
+    const h = habit({ recurrence: 'weekly', recurrenceDays: [], recurrenceInterval: 2, createdAt: MON + ' 00:00:00' });
+    expect(habitOccursOn(h, MON)).toBe(true); // anchor week
+    expect(habitOccursOn(h, WED)).toBe(true); // anchor week
+    expect(habitOccursOn(h, '2026-07-22')).toBe(false); // next week — skipped
+    expect(habitOccursOn(h, '2026-07-29')).toBe(true); // two weeks later — resumes
+  });
+
+  it('weekly, every 2 weeks, with specific weekdays: both gates apply', () => {
+    const h = habit({ recurrence: 'weekly', recurrenceDays: [2], recurrenceInterval: 2, createdAt: MON + ' 00:00:00' }); // Wed
+    expect(habitOccursOn(h, WED)).toBe(true); // anchor week, right weekday
+    expect(habitOccursOn(h, MON)).toBe(false); // anchor week, wrong weekday
+    expect(habitOccursOn(h, '2026-07-22')).toBe(false); // next Wed, but the wrong (skipped) week
+    expect(habitOccursOn(h, '2026-07-29')).toBe(true); // Wed two weeks later
+  });
+
+  it('a missing or blank createdAt fails open (treated as always occurring), never hides the habit', () => {
+    const dailyBlank = habit({ recurrence: 'daily', recurrenceInterval: 5, createdAt: '' });
+    expect(habitOccursOn(dailyBlank, WED)).toBe(true);
+    expect(habitOccursOn(dailyBlank, SUN)).toBe(true);
+
+    const weeklyGarbled = habit({ recurrence: 'weekly', recurrenceDays: [], recurrenceInterval: 4, createdAt: 'not-a-date' });
+    expect(habitOccursOn(weeklyGarbled, WED)).toBe(true);
   });
 });
 

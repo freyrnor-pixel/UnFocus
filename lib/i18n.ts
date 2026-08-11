@@ -871,6 +871,12 @@ const en = {
   habitRecurrenceMonthly: 'Monthly',
   habitRecurrenceWeeklyFlexible: 'Flexible',
   habitRecurrenceWeeklyFlexibleHint: 'Any day counts — shows up daily until you’ve logged it enough times this week.',
+  // "Every N days/weeks" (2026-08-11) — the interval multiplier on daily/weekly recurrence,
+  // shown as the sentence-as-label for the quick-add's Stepper cell (components/
+  // HabitRecurrenceCells.tsx) and repeated on app/habit-form.tsx's own "How often" section.
+  habitEveryNDaysLabel: (n: number) => `Every ${n} days`,
+  habitEveryNWeeksLabel: (n: number) => `Every ${n} weeks`,
+  habitRepeatDaysLabel: 'Which days',
   habitTitleLabel: 'Name',
   habitTitlePlaceholder: 'E.g. Drink water',
   habitIconLabel: 'Icon',
@@ -3282,6 +3288,9 @@ const no: typeof en = {
   habitRecurrenceMonthly: 'Månedlig',
   habitRecurrenceWeeklyFlexible: 'Fleksibel',
   habitRecurrenceWeeklyFlexibleHint: 'Hvilken som helst dag teller — vises daglig helt til du har logget den nok ganger denne uken.',
+  habitEveryNDaysLabel: (n: number) => `Hver ${n}. dag`,
+  habitEveryNWeeksLabel: (n: number) => `Hver ${n}. uke`,
+  habitRepeatDaysLabel: 'Hvilke dager',
   habitTitleLabel: 'Navn',
   habitTitlePlaceholder: 'F.eks. Drikk vann',
   habitIconLabel: 'Ikon',

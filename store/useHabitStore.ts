@@ -61,6 +61,12 @@
  *     app/habit-form.tsx can reopen a habit in the mode that created it; scheduling always
  *     reads `notificationTimes`, never recomputes it from these. If they ever disagree, the
  *     list wins.
+ *   - **`recurrenceInterval` (2026-08-11) — a multiplier on `recurrence`, not a new kind.**
+ *     "Every N days" ('daily') or "every N weeks" ('weekly'); `monthly`/`one-time`/
+ *     `weekly-flexible` ignore it. This store only reads/writes the raw number — the actual
+ *     "is this habit due today" decision (including the phase anchor, derived from
+ *     `createdAt` rather than a stored column) lives entirely in lib/habitRecurrence.ts's
+ *     `habitOccursOn`. Don't duplicate that logic here.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -107,6 +113,13 @@ export type Habit = {
   dailyGoal: number;
   recurrence: HabitRecurrence;
   recurrenceDays: number[];
+  /** "Every N days"/"every N weeks" multiplier on 'daily'/'weekly' recurrence (2026-08-11) —
+   *  NOT a new recurrence kind. `monthly`/`one-time`/`weekly-flexible` ignore it. N<=1 is
+   *  today's plain-daily/weekly behaviour, byte-identical. See lib/habitRecurrence.ts, which
+   *  is the ONLY place this is read for scheduling — derives the phase anchor from
+   *  `createdAt` rather than storing a second column. Modeled on useTaskStore's
+   *  `weekInterval` (`tasks.recurring_week_interval`). */
+  recurrenceInterval: number;
   notificationEnabled: boolean;
   /** All daily reminder times (HH:MM). Empty = no reminders. Sole source of truth for scheduling. */
   notificationTimes: string[];
@@ -172,10 +185,19 @@ type HabitStore = {
   loaded: boolean;
   load: () => void;
   // goalId is optional here (defaults to null) so habit seeders/quick-adds needn't set it.
+  // recurrenceInterval is likewise optional (defaults to 1, same as the column's own
+  // DEFAULT) so every pre-existing caller — freyrModeSeed.ts's ten habits, the quick-adds
+  // before this feature — keeps compiling unchanged; mirrors useTaskStore.add()'s
+  // `weekInterval?: number`.
   // Returns the created Habit (mirrors useTaskStore's add) so a caller can act on its id
   // right away — e.g. HomeHabitsCard's quick-add "…" button, which navigates straight to
   // that same habit's full editor without waiting for a re-render.
-  add: (h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }) => Habit;
+  add: (
+    h: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId' | 'recurrenceInterval'> & {
+      goalId?: string | null;
+      recurrenceInterval?: number;
+    }
+  ) => Habit;
   update: (id: string, patch: Partial<Omit<Habit, 'id'>>) => void;
   /** Soft-deletes (tombstone) — see `lastDeleted`'s doc. habit_logs are left untouched so a
    *  restore brings back full history, not just the habit shell. */
@@ -231,6 +253,7 @@ function rowToHabit(row: Row): Habit {
     dailyGoal: readInt(row, 'daily_goal') || 1,
     recurrence: (readStr(row, 'recurrence') || 'daily') as HabitRecurrence,
     recurrenceDays: readJson<number[]>(row, 'recurrence_days', []),
+    recurrenceInterval: readInt(row, 'recurrence_interval', 1) || 1,
     notificationEnabled: readBool(row, 'notification_enabled'),
     notificationTimes: readJson<string[]>(row, 'notification_times', []),
     reminderMode: (readStr(row, 'reminder_mode') || null) as HabitReminderMode | null,
@@ -273,6 +296,7 @@ const HABIT_COLUMNS: FieldMap<Habit> = {
   dailyGoal: { col: 'daily_goal' },
   recurrence: { col: 'recurrence' },
   recurrenceDays: { col: 'recurrence_days', to: (v) => JSON.stringify(v ?? []) },
+  recurrenceInterval: { col: 'recurrence_interval', to: (v) => v ?? 1 },
   notificationEnabled: { col: 'notification_enabled', to: (v) => (v ? 1 : 0) },
   notificationTimes: { col: 'notification_times', to: (v) => JSON.stringify(v ?? []) },
   reminderMode: { col: 'reminder_mode' },
@@ -310,7 +334,15 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const id = generateId();
     const now = new Date().toISOString();
     const routineOrder = h.routineOrder || Date.now();
-    const habit: Habit = { ...h, id, routineOrder, active: true, createdAt: now, goalId: h.goalId ?? null };
+    const habit: Habit = {
+      ...h,
+      id,
+      routineOrder,
+      active: true,
+      createdAt: now,
+      goalId: h.goalId ?? null,
+      recurrenceInterval: h.recurrenceInterval ?? 1,
+    };
     insertRow('habits', rowValues(habit, HABIT_COLUMNS));
     set((s) => ({ habits: [...s.habits, habit].sort((a, b) => a.routineOrder - b.routineOrder) }));
     syncHabitReminder(habit);
