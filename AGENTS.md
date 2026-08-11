@@ -491,6 +491,54 @@ file owns which token.)
     which was itself a reaction to a link CARD. What was wrong with that card was that it spent
     a card on a row's worth of information and could only be *followed*; a drawer earns its card
     by showing what is behind it. Read `app/(tabs)/habits.tsx`'s note before moving it back in.
+- **The Health tab is built like the Habits tab (2026-08-11)** — `app/(tabs)/health.tsx` +
+  `components/HealthIssuesPreviewList.tsx` + `components/HealthIssuesSheet.tsx`, over the new
+  `symptoms.tracked` column. Maintainer: *"In Health screen I want the same logic as with Goals
+  and habits. Health issues same as Goals, and habits the same as logging incidents. Not
+  practically the same, but the same layout, and adjusted where needed."* So the two halves map
+  straight across: **one card you register on** (where Habits lists today's habits, this lists
+  the issues that have been going on this week, each a `PadRow` with the 7-day severity strip as
+  its `Collapsible` drawer and a `PadTypeRow` composer pinned at the foot of the list), and
+  **a `CollapsedSection` "Health issues" drawer at the foot** — the same component, the same two
+  tap targets, the same preview-list-plus-popup pair as Goals.
+  - **Two cards became one, and nothing was dropped.** The separate "Quick log" and "This week"
+    cards are gone: Quick log is the composer at the bottom of the list it appends to (the
+    placement rule `FoodTab`'s "Add dish" button was fixed to), This week is the rows, and the
+    Health-log link moved into the drawer's body where the rest of this screen's ways out live.
+    Every field Quick log had survives as a labelled `QuickAddOptionRow` cell — still going/over,
+    start time, duration, severity — **plus a tier-3 "More options"** into `/health-form` that
+    the old card had no equivalent of. That makes Health the composer that most fully implements
+    the three-tier contract; don't "simplify" it back toward `AddRow`.
+  - **`symptoms.tracked` is the standing list, and it is NOT the catalog.** `symptoms` is 36
+    seeded Norwegian names (`lib/symptomSeed.ts`) that exist to power the typeahead, so a drawer
+    onto all of them would be a vocabulary list rather than "the things you keep an eye on". A
+    symptom is tracked the moment it is logged (`ensureSymptom` promotes it — every log path
+    goes through it) or when it is added by hand in the sheet. Read `tracked`, never
+    `symptoms.length`, for anything a user would call "my issues".
+  - **Untracking deletes NOTHING**, which is where this deliberately diverges from `GoalsSheet`
+    — whose ✕ genuinely deletes and unlinks. Health entries are the rows in this app that most
+    deserve not to be lost to a tidying gesture, so `setSymptomTracked(id, false)` touches no
+    `health_logs` row and the history stays readable in `/health-log` and on the symptom's own
+    page. The copy says **"Stop tracking"**, never "Delete", and the modal button is not
+    `destructive`. Don't copy GoalsSheet's confirm wording across; the two only look alike.
+    There is also no rename (a symptom's id is derived from its name, so renaming orphans every
+    entry filed under the old one) and no hard delete (a DELETE is re-seeded on the next
+    `load()` — the trap `useCatalogStore` solved with a tombstone).
+  - **A row has a "+" and no "−"**, the one place the habit row's control is not copied whole.
+    Un-counting a habit corrects a tally; un-logging a symptom deletes a dated entry with a
+    severity and maybe a note on it, which belongs in `app/health-form.tsx` via the row's ⋯.
+    The "+" writes at severity 3 with no time, per the tier-1 rule that committing on the line
+    alone must always produce a valid row — **don't carry the last entry's severity forward**,
+    that guesses at data.
+  - **The no-scoreboard rule is load-bearing here specifically.** The card counts entries, and a
+    count of migraines is not an achievement in either direction, because the user does not
+    control it. So: no streak, no "better than last week", no total, no colour that escalates
+    with the count, and — the trap specific to this domain, the mirror image of the one
+    `goals.*` avoids — **no congratulation for a quiet week**. The card's sub-header says so out
+    loud, which is why it exists.
+  - Not in the AI setup guide and **no `AI_SETUP_SCHEMA_VERSION` bump**: health is not an
+    importable domain (`lib/aiSetupGuide.ts` refuses health-log data outright), and `symptoms`
+    is not in `SyncTable` either.
 - **Dark mode is TRUE BLACK (2026-08-10)** — `bg` `#000000`, `surface` `#1E1E1E`,
   `surfaceMuted` `#121212`, `text` `#F3F4F6`, `accent` `#3B82F6`. Adopted wholesale from an
   outside design review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight
