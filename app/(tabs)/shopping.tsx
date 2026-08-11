@@ -1827,12 +1827,21 @@ export default function ShoppingScreen() {
                             // — see components/GoalsPreviewList.tsx's header for the matching
                             // bug in the Goals drawer). Unlocking never confirms (unlike
                             // locking-while-dirty), so this can call the toggle straight.
+                            // ⚠️ Restyled the same day: the first cut copied sectionEmpty's solid
+                            // filled+bordered look, which is also this app's real-Input look —
+                            // reads as a text field, and this is a button. Dashed + unfilled +
+                            // the same lock-open-outline glyph the header's own unlock IconButton
+                            // uses (line ~1746), so the row's icon matches the action it performs
+                            // instead of borrowing the "+" ghost-add glyph for something that
+                            // isn't an add. Maintainer: "buttons should look like buttons and
+                            // text fields like text fields."
                             <PressableScale
                               onPress={() => toggleMonthlyListLocked(list.id)}
                               accessibilityRole="button"
                               accessibilityLabel={t.monthlyListEmptyLocked}
-                              style={[styles.monthlyEmptyLocked, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+                              style={[styles.monthlyEmptyLocked, { borderColor: theme.border }]}
                             >
+                              <Ionicons name="lock-open-outline" size={16} color={theme.accent} />
                               <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
                             </PressableScale>
                           ) : view.catalogItems.length === 0 ? (
@@ -2545,18 +2554,23 @@ const styles = StyleSheet.create({
   // Visual-audit 2026-07-11: background/border colour applied inline (theme) at each
   // call site — was bare muted text floating on the particle background.
   sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
-  // The locked+empty monthly-list variant of sectionEmpty — a real tap target now (it unlocks
-  // the list), so it's floored to MIN_TAP_TARGET (DESIGN_RULES rule 17) and split into a
-  // container + text style rather than one combined Text style.
+  // The locked+empty monthly-list variant of sectionEmpty — a real tap target (it unlocks the
+  // list), so it's floored to MIN_TAP_TARGET (DESIGN_RULES rule 17). Dashed + unfilled rather
+  // than sectionEmpty's solid fill — that filled look is also this app's real-Input look, and
+  // this is a button, not a field (2026-08-11 restyle, see the call site's note).
   monthlyEmptyLocked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
     borderWidth: 1,
+    borderStyle: 'dashed',
     minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
   },
-  monthlyEmptyLockedText: { fontSize: FontSize.sm },
+  monthlyEmptyLockedText: { flex: 1, minWidth: 0, fontSize: FontSize.sm },
   totalLine: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'right', marginTop: 4 },
 
   // Compact icon+count indicator (2026-07-22) — replaces an earlier full-sentence banner
