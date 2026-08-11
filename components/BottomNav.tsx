@@ -91,6 +91,20 @@
  *     width, the ring is centred on the button, and only then is it capped by `homeFit` — and
  *     drops the resting sink, which is what frees the 4px the bottom half of the ring needs.
  *     See `HOME_RING` and `renderCentre`'s own notes; don't restore either half alone.
+ *   - **A sunk side tab now sits in a visible "socket" (2026-08-11, user report + screenshot:
+ *     "does not look like a button pressed down, it just looks like the box and icon has been
+ *     lowered vertically").** The active tab's icon/label (`sunk={active}` on its own
+ *     `PressableScale`) and this pill's fill were both already positioned at the FINAL sunk
+ *     offset with nothing left at the unsunk position to contrast against, so the only visible
+ *     effect was a uniform downward shift — no depth cue. `pillBaseStyle` adds the same
+ *     "cap on a base" idiom `Button.tsx`'s `keyBase` already uses: a static
+ *     `darken(accentSoft, 0.22)` plate fixed `Travel.sm` px above the pill's own top, sharing
+ *     its bottom edge exactly (both end at `ty.value + ph.value`) — so only a `Travel.sm`
+ *     sliver of the darker plate ever shows, above the fill, reading as the wall of a shallow
+ *     notch rather than an unexplained shift. Faded to 0 (via the `bo` shared value, driven by
+ *     the same effect and duration as `tx`/`ty`/etc.) while Home is active, since the FAB
+ *     deliberately doesn't rest sunk (see `renderCentre`'s note two bullets below) and so has
+ *     no socket to show one for.
  *   - **Nothing in this bar carries grey depth any more (2026-08-11).** The pill lost
  *     `getLayeredShadow` on 2026-08-10, and the centre FAB has now lost `Shadow.fab` in BOTH
  *     states for the same reason: a hue-less 16px black blur around a 56px circle on a white
@@ -239,7 +253,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, computeRimGradient, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, computeRimGradient, darken, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -472,6 +486,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pw = useSharedValue(0);
   const ph = useSharedValue(0);
   const pr = useSharedValue(Radius.lg);
+  // Visibility of the static "socket" plate behind a sunk side tab — see `pillBaseStyle` below.
+  // Starts hidden; the very first effect run (cold launch) snaps it straight to the right value
+  // like every other shared value here, so there's no fade-in flash on mount.
+  const bo = useSharedValue(0);
   // True until the first layout-ready effect run — a cold launch/deep-link lands on its slot
   // with no travel; every later change animates.
   const firstRunRef = useRef(true);
@@ -482,8 +500,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     firstRunRef.current = false;
 
     const target = isHomeActive
-      ? { x: homeX, y: homeTop, w: homeSize, h: homeSize, r: homeSize / 2 }
-      : { x: slotX(activeIndex), y: sideTop, w: segW + PILL_GROW_X, h: pillHeight, r: Radius.lg };
+      ? { x: homeX, y: homeTop, w: homeSize, h: homeSize, r: homeSize / 2, baseOpacity: 0 }
+      : { x: slotX(activeIndex), y: sideTop, w: segW + PILL_GROW_X, h: pillHeight, r: Radius.lg, baseOpacity: 1 };
 
     const to = (value: number) =>
       snap ? value : withTiming(value, { duration: Duration.tabSwitch, easing: Ease.move });
@@ -492,16 +510,37 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     pw.value = to(target.w);
     ph.value = to(target.h);
     pr.value = to(target.r);
+    bo.value = to(target.baseOpacity);
   }, [
     ready, activeIndex, isHomeActive, segW, pillHeight, sideTop,
     homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x, innerW,
-    reducedMotion, tx, ty, pw, ph, pr,
+    reducedMotion, tx, ty, pw, ph, pr, bo,
   ]);
 
   const pillStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: tx.value }, { translateY: ty.value }],
     width: pw.value,
     height: ph.value,
+  }));
+  // **The "socket" plate a sunk side tab sits in (2026-08-11, user report + screenshot:
+  // "does not look like a button pressed down, it just looks like the box and icon has been
+  // lowered vertically").** A side tab's whole cluster — icon, label (via NavTabItem's own
+  // `sunk` translate) AND this pill's fill — was already positioned at its FINAL sunk offset
+  // with nothing left at the unsunk position to read as what it sank INTO, so the only visible
+  // effect was uniform downward motion, not depth. This is the same "cap on a base" idiom
+  // Button.tsx's `keyBase` already uses: a plain `darken(fill, 0.22)` plate, fixed at the
+  // UNSUNK top (`ty.value - Travel.sm`) and `Travel.sm` taller than the pill, rendered behind
+  // it. Because the pill's own bottom edge already sits at `ty.value + ph.value` either way,
+  // the two shapes share that same bottom edge exactly — only a `Travel.sm` sliver of the
+  // darker plate peeks out above the accentSoft fill, reading as the wall of a shallow notch
+  // the tab has settled into. Faded out (not measured/positioned) while Home is active — Home's
+  // FAB deliberately doesn't rest sunk (see `renderCentre`'s 2026-08-11 note), so it has no
+  // socket to show one for.
+  const pillBaseStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value - Travel.sm }],
+    width: pw.value,
+    height: ph.value + Travel.sm,
+    opacity: bo.value,
   }));
   // The pill's own corner morphs (rounded rect on a side tab, circle on Home), so it needs an
   // animated style rather than a static Radius.lg — and it has to be applied to the pill's own
@@ -520,6 +559,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
   const rim = computeRimGradient(theme.accent, isDark);
+  // The socket plate's fill — same `darken(fill, 0.22)` recipe as Button.tsx's `keyBase`, off
+  // the pill's own accentSoft fill so the sliver reads as a shaded recess in the same colour
+  // family rather than an unrelated grey.
+  const pillBaseColor = darken(theme.accentSoft, 0.22);
   // **No halo of any kind on the pill.** `getLayeredShadow` went on 2026-08-10 (a grey,
   // hue-less blur under a pale `accentSoft` plate read as a dirty donut rather than as depth),
   // and `getGlow(theme.accent, 'soft')` follows it on 2026-08-11 for a reason that is about
@@ -612,6 +655,14 @@ export default function BottomNav({ state, navigation }: Props = {}) {
           setInnerW((prev) => (prev === width ? prev : width));
         }}
       />
+      {ready && (
+        // The socket plate (see `pillBaseStyle`'s note) — rendered BEHIND the pill so only its
+        // Travel.sm sliver above the fill is ever visible.
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.pill, pillBaseStyle, { backgroundColor: pillBaseColor, borderRadius: Radius.lg }]}
+        />
+      )}
       {ready && (
         // The pill owns the morphing corner and masks whatever is inside it — see
         // `pillRadiusStyle` for why the rim gradient must NOT carry that radius itself.
