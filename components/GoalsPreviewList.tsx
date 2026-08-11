@@ -28,13 +28,23 @@
  *     opened yet is teaching nobody. It lives HERE rather than at each call site so the two
  *     Goals drawers (To-do and Habits) can't drift apart, which is the whole reason this
  *     component exists instead of two inline lists.
+ *   - **The empty line is itself a tap target for `onOpen` (2026-08-11 fix).** Unlike
+ *     HealthIssuesPreviewList's empty state — which stays inert because a symptom gets tracked
+ *     automatically the first time it's logged elsewhere — a goal has no such side door: the
+ *     ONLY way to create one is through GoalsSheet, opened either by the drawer's title or by
+ *     tapping a row. With zero goals there was no row, and the copy told the user to look
+ *     "below" for an add control that didn't exist here — the drawer's title, several lines
+ *     above, was the only real entry point and nothing marked it as tappable. The empty line
+ *     now behaves like every populated row (`onPress={onOpen}`) so the surface the user is
+ *     already looking at is itself the way to add a goal.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
+import PressableScale from '@/components/PressableScale';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { decayedStrength } from '@/lib/goalStrength';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -47,14 +57,14 @@ export default function GoalsPreviewList({ accent, onOpen }: { accent: string; o
 
   if (goals.length === 0) {
     return (
-      <Text
-        style={[
-          styles.empty,
-          { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-        ]}
+      <PressableScale
+        onPress={onOpen}
+        accessibilityRole="button"
+        accessibilityLabel={t.goals.emptyList}
+        style={[styles.empty, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
       >
-        {t.goals.emptyList}
-      </Text>
+        <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.goals.emptyList}</Text>
+      </PressableScale>
     );
   }
 
@@ -89,12 +99,19 @@ export default function GoalsPreviewList({ accent, onOpen }: { accent: string; o
 const styles = StyleSheet.create({
   // The same quiet inset line app/(tabs)/plans.tsx draws for an empty section (`sectionEmpty`)
   // — muted text on a soft plate, so it has footing on the card without becoming a card itself.
+  // `minHeight` floors it to MIN_TAP_TARGET now that it's a real tap target (DESIGN_RULES rule
+  // 17) — it stays visually the same size in practice since the text + padding already clear
+  // it at every font scale except the very smallest.
   empty: {
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.regular,
+    minHeight: MIN_TAP_TARGET,
+    justifyContent: 'center',
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.sm,
     borderWidth: 1,
+  },
+  emptyText: {
+    fontSize: FontSize.sm,
+    fontFamily: Fonts.regular,
   },
 });
