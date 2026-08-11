@@ -30,15 +30,22 @@
  *     no reason — it does the same thing everywhere — and fixed two live contrast failures:
  *     the Shopping gold at 2.25:1 on white, and Notes, whose hue is now IDENTITY_NEUTRAL grey
  *     and made a live control read as disabled.
+ *   - **The pad-state size change is now animated (2026-08-11, user report: "movement of
+ *     buttons while expanding and closing, and its not smooth").** Pressing this button had NO
+ *     transition at all before — the card's grid height, its `cardCollapsed` floor and the
+ *     anytime-list slice all changed in the very next render with nothing animating the jump.
+ *     `onPress` now wraps the state change in the same guarded `LayoutAnimation.configureNext`
+ *     call the app already uses for reflow elsewhere (lib/useDragReorder.ts, habits.tsx,
+ *     shopping.tsx) rather than inventing a bespoke animation for this one control.
  */
 import React from 'react';
-import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { PadState, nextPadState, padHiddenCount } from '@/lib/padState';
 
 type Props = {
@@ -52,6 +59,7 @@ type Props = {
 export default function PadFooterToggle({ state, onChange, total, style }: Props) {
   const t = useT();
   const theme = useAppTheme();
+  const { reducedMotion } = useAccessibility();
 
   if (total === 0) return null;
 
@@ -64,6 +72,12 @@ export default function PadFooterToggle({ state, onChange, total, style }: Props
       style={[styles.footer, style]}
       onPress={() => {
         tap();
+        // The card's own size change (grid height, the cardCollapsed floor, the anytime-list
+        // slice) had NO animation at all before this — a hard cut, not just "not smooth"
+        // (2026-08-11, user report on Home cards' expand/collapse). Same guarded
+        // LayoutAnimation call this app already uses for reflow elsewhere (lib/useDragReorder,
+        // habits.tsx, shopping.tsx) rather than a bespoke animation for this one control.
+        if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         onChange(nextPadState(state));
       }}
       scaleTo={0.97}

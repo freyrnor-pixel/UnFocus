@@ -73,6 +73,20 @@
  *     is a header above a body and follows `components/SectionCard.tsx`'s documented
  *     top-hugging convention (`Spacing.sm` above, `Spacing.md` below). Don't "fix" that one to
  *     match; a header with content under it is not a thing centred in a box.
+ *   - **The closed↔open padding/margin swap from the note above is now ANIMATED, on the same
+ *     clock as the Collapsible body (2026-08-11, user report: "movement of buttons while
+ *     expanding and closing, and its not smooth").** Both `section`'s paddingBottom and the
+ *     rail's marginBottom used to switch instantly the moment `open` flipped — a plain
+ *     `open ? A : B` — while the body took a full Duration.card/cardOut to actually reveal, so
+ *     the header/chevron visibly jumped ahead of the content it's paired with. Fix: `section`'s
+ *     paddingBottom is now a constant (the old closed value); the delta that used to live in
+ *     `sectionOpen` moved onto `body`'s own paddingBottom, so it reveals WITH the content
+ *     because it's inside the same Collapsible; and the rail's marginBottom is driven by a
+ *     locally-owned `railProgress` shared value (`useSharedValue`+`withTiming`, same
+ *     Duration/Ease tokens Collapsible.tsx uses internally) via a wrapping `Animated.View`,
+ *     rather than switching on the `SectionRail`'s own `style` prop. Same bug shape TaskCard's
+ *     Advanced-options toggle/Save-row and PadFooterToggle's pad-state cycle had — see their
+ *     own edit notes.
  *   - `count` is optional and should be omitted where a tally reads as a score rather than a
  *     size (see the app's standing no-scoreboard rule) — Earlier days passes none. Food and
  *     Catalogue do pass one: how many dishes or known items a library holds is a size.
@@ -80,18 +94,19 @@
  *     accordion header wants the least energetic release available. It is inert while
  *     PressableScale is in key mode, kept so a caller switching to `press="scale"` still gets it.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import { HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
-import { Spring } from '@/constants/motion';
+import { Duration, Ease, Spring } from '@/constants/motion';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
   /** Solid hue for the rail's badge/dot and hairline rule. */
@@ -126,8 +141,28 @@ export default function CollapsedSection({
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
+  const { reducedMotion } = useAccessibility();
   const [open, setOpen] = useState(false);
   const toggle = () => { tap(); setOpen((v) => !v); };
+
+  // Drives the rail's own bottom margin on the SAME clock the Collapsible body below it
+  // animates on (2026-08-11, user report: "movement of buttons while expanding and closing,
+  // and its not smooth"). Both used to be independent: this margin snapped to its new value
+  // the instant `open` flipped, while the body took ~Duration.card/cardOut to actually reveal
+  // — so the header/chevron jumped ahead of (or lagged behind) the content it's paired with.
+  // Same Duration/Ease tokens Collapsible.tsx uses internally, so the two tracks move together
+  // even though they're two separate shared values.
+  const railProgress = useSharedValue(open ? 1 : 0);
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    if (reducedMotion) { railProgress.value = open ? 1 : 0; return; }
+    railProgress.value = withTiming(open ? 1 : 0, {
+      duration: open ? Duration.card : Duration.cardOut,
+      easing: open ? Ease.enter : Ease.exit,
+    });
+  }, [open, reducedMotion, railProgress]);
+  const railAnimStyle = useAnimatedStyle(() => ({ marginBottom: railProgress.value * Spacing.sm }));
 
   const chevron = <AnimatedChevron open={open} size={16} color={theme.textMuted} />;
   const header = (
@@ -152,9 +187,11 @@ export default function CollapsedSection({
       // Every drawer's naming row is one height whether or not its name is a tap target, so
       // the closed cards on a screen are peers. See the "one closed height" edit note.
       rowMinHeight={MIN_TAP_TARGET}
-      // Closed, the rail is the ONLY thing in the card, so its bottom margin has nothing to
-      // separate it from and becomes a dead strip under the hairline rule. See the same note.
-      style={open ? undefined : styles.railClosed}
+      // The rail's own bottom margin is always killed now — the wrapping Animated.View below
+      // supplies it instead, animated in step with the Collapsible reveal (see railAnimStyle).
+      // It used to switch here directly (`open ? undefined : styles.railClosed`), which is
+      // exactly the instant-snap-beside-a-smooth-reveal mismatch this pass fixes.
+      style={styles.railClosed}
       right={
         onTitlePress ? (
           // A real button, not a glyph: with the name taking its own presses, this is the only
@@ -180,26 +217,27 @@ export default function CollapsedSection({
     // No `borderColor` — same reasoning as components/SectionCard.tsx: the card edge is the
     // screen's one hue now, and `hue` stops at the rail header (2026-08-05). A collapsed section
     // and an open one have to wear the same border, or folding one would change its colour.
-    <Surface style={[styles.section, open ? styles.sectionOpen : styles.sectionClosed]}>
-      {onTitlePress ? (
-        header
-      ) : (
-        <PressableScale
-          onPress={toggle}
-          scaleTo={0.97}
-          releaseSpring={Spring.calm}
-          accessibilityRole="button"
-          accessibilityLabel={label}
-          accessibilityState={{ expanded: open }}
-        >
-          {header}
-        </PressableScale>
-      )}
-      {/* No gap between the header and the clip — SectionRail carries its own marginBottom, and
-          a gap would leave a phantom blank strip while collapsed (same reason plans.tsx's
-          doneZone has none). The card's own bottom padding is switched on `open`: open, the
-          header hugs the top and the body sits below it (`SectionCard`'s convention); closed,
-          the header is the only thing in the card and is centred in it. */}
+    // paddingBottom is now a CONSTANT Spacing.sm regardless of `open` (was `sectionOpen`/
+    // `sectionClosed`, switching instantly on toggle) — the extra room open needs lives inside
+    // the Collapsible's own body now (see `body`'s paddingBottom), so it reveals with the
+    // content instead of snapping ahead of it.
+    <Surface style={styles.section}>
+      <Animated.View style={railAnimStyle}>
+        {onTitlePress ? (
+          header
+        ) : (
+          <PressableScale
+            onPress={toggle}
+            scaleTo={0.97}
+            releaseSpring={Spring.calm}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            accessibilityState={{ expanded: open }}
+          >
+            {header}
+          </PressableScale>
+        )}
+      </Animated.View>
       <Collapsible open={open}>
         <View style={styles.body}>{children}</View>
       </Collapsible>
@@ -208,15 +246,13 @@ export default function CollapsedSection({
 }
 
 const styles = StyleSheet.create({
-  section: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
-  // Open, the card is a header ABOVE a body, so it keeps components/SectionCard.tsx's
-  // deliberate top-hugging asymmetry (tight above, roomy below).
-  sectionOpen: { paddingBottom: Spacing.md },
-  // Closed, the header is the card's only content — so it is centred rather than hugging an
-  // edge it has nothing to hug against. Matches `paddingTop` exactly.
-  sectionClosed: { paddingBottom: Spacing.sm },
-  // Kills the rail's own bottom margin while collapsed — with the body clipped to 0 there is
-  // nothing below the hairline rule for it to separate, so it renders as blank card.
+  // paddingBottom is the CLOSED value always (Spacing.sm, matching paddingTop so a closed
+  // drawer is centred) — see the return statement's note for why open's extra room moved
+  // inside the Collapsible body instead of switching here.
+  section: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.sm },
+  // Always-on now — the animated wrapper (railAnimStyle) supplies the open-state margin back,
+  // in step with the Collapsible reveal. See the "one closed height" edit note for why this
+  // margin exists at all (a dead strip under the hairline rule with the body clipped to 0).
   railClosed: { marginBottom: 0 },
   chevronBtn: {
     minWidth: MIN_TAP_TARGET,
@@ -224,5 +260,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
-  body: { gap: Spacing.sm },
+  // paddingBottom carries the delta between the old closed (Spacing.sm) and open (Spacing.md)
+  // card padding — Spacing.sm of it lives on `section` unconditionally, this makes up the rest.
+  // Because it's inside the Collapsible, it reveals/hides WITH the content instead of the card
+  // snapping to its full open padding the instant `open` flips (2026-08-11 fix).
+  body: { gap: Spacing.sm, paddingBottom: Spacing.md - Spacing.sm },
 });
