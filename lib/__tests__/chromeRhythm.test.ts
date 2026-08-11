@@ -203,51 +203,84 @@ describe('BottomNav — the pill never disappears', () => {
   it('gives Home a real slot instead of fading out and unmounting', () => {
     expect(source).not.toMatch(/pillOpacity/);
     expect(source).not.toMatch(/setPillMounted/);
-    expect(source).toMatch(/const homeSize = Math\.min\(centreTrack\.w \+ PILL_GROW_X \* 2/);
+    expect(source).toMatch(/const homeSize = Math\.min\(centreTrack\.w \+ HOME_RING \* 2/);
   });
 
-  it('rests every tab sunk while selected, Home included', () => {
-    // Home took `travel` but never `sunk`, so it was the one tab with no resting depth cue.
-    expect(source.match(/sunk=\{active\}/g)?.length).toBe(2);
+  it('sizes Home\'s ring from HOME_RING and centres it on the button', () => {
+    // 2026-08-11, user report + screenshots. The ring used to ask for `PILL_GROW_X * 2` past
+    // the FAB — 72px inside a 72px masked box, i.e. a plate the height of the whole bar — and
+    // was then squeezed by `maxPillH` and shoved by `clampTop`. Sizing from the ring outward
+    // and centring on the button is what makes it a frame; the cap comes last and is
+    // arithmetic (`homeFit`), not a guard.
+    expect(source).toMatch(/const homeCentreY = centreTrack\.y \+ centreTrack\.h \/ 2;/);
+    expect(source).toMatch(/const homeTop = homeCentreY - homeSize \/ 2;/);
+    expect(source).toMatch(/const homeX = centreTrack\.x \+ centreTrack\.w \/ 2 - homeSize \/ 2;/);
+    // ...and NOT through the clamp, which can only shove — see the next test.
+    expect(source).not.toMatch(/homeTop = clampTop\(/);
   });
 
-  it('offsets the pill by the travel, since it only ever sits under a sunk item', () => {
+  it('rests a side tab sunk while selected, but not the Home FAB', () => {
+    // Side tabs: "Pressed = on". Home: the FAB has 8px of slack inside the bar and the ring
+    // needs 4 of it below the button, so a 4px resting sink left the ring 8px above the
+    // button and 3px below (the lopsided blob in the 2026-08-11 report). The ring IS Home's
+    // selection cue now, and a sink with no base under it never read as depth anyway.
+    expect(source.match(/sunk=\{active\}/g)?.length).toBe(1);
+  });
+
+  it('offsets the side pill by the travel, since it sits under a sunk item', () => {
     expect(source).toMatch(/\+ Travel\.sm,/);
-    expect(source).toMatch(/\+ Travel\.md,/);
+    // Home's counterpart is gone with its sink — restoring one without the other puts the
+    // ring back off its button.
+    expect(source).not.toMatch(/\+ Travel\.md,/);
   });
 
   // The bar is a Surface, and a Surface clips its children to its rounded mask — so a pill
   // that doesn't fit is drawn SLICED, not overflowing. Home's ring was 72px in a 72px bar (a
   // flattened squircle) and a side pill's bottom corner ran into the bar's own Radius.lg arc.
-  it('clamps the pill inside the bar rather than letting the mask slice it', () => {
+  it('keeps the pill inside the bar rather than letting the mask slice it', () => {
     // Both slots shrink to fit...
-    expect(source).toMatch(/const maxPillH = Math\.max\(0, barH - PILL_INSET \* 2\)/);
+    expect(source).toMatch(/const maxPillH = Math\.max\(0, innerH - PILL_INSET \* 2\)/);
     expect(source).toMatch(/const pillHeight = Math\.min\(/);
     expect(source).toMatch(/const homeSize = Math\.min\(/);
-    // ...and both positions go through the clamp, not straight from the measured track.
+    // ...the side pill's position goes through the clamp rather than straight from its
+    // measured track (Home is fitted by construction instead — see above).
     expect(source).toMatch(/const sideTop = clampTop\(/);
-    expect(source).toMatch(/const homeTop = clampTop\(/);
-    // Against the MEASURED bar, never the constant — this bar's padding is useScaledStyles'd,
+    // Against the MEASURED box, never the constant — this bar's padding is useScaledStyles'd,
     // so BOTTOM_NAV_HEIGHT is only true at font scale 1.0.
-    expect(source).toMatch(/setBarH/);
-    expect(source).not.toMatch(/barH = BOTTOM_NAV_HEIGHT/);
+    expect(source).toMatch(/setInnerH/);
+    expect(source).not.toMatch(/innerH = BOTTOM_NAV_HEIGHT/);
   });
 
-  it('clamps the pill horizontally too, not just vertically', () => {
+  it('measures the box the pill lives in, not the box the Surface paints', () => {
+    // 2026-08-11. Surface's outer view is 2 × BORDER_WIDTH.card bigger than the mask that
+    // clips its children, so measuring it made every "keep N px off the edge" sum 3px
+    // optimistic — which is how Home's ring ended up 1px off that mask. An absoluteFill probe
+    // rendered beside the pill shares the pill's containing block by definition, so the two
+    // cannot disagree. A `<Surface … onLayout=` here means someone measured the wrong box.
+    expect(source).toMatch(/style=\{StyleSheet\.absoluteFill\}/);
+    // Bounded to the opening tag ([^>], not [\s\S]) — the probe's own onLayout sits further
+    // down the same file and would otherwise match.
+    expect(source).not.toMatch(/<Surface[^>]*onLayout=/);
+    expect(code('components/Surface.tsx')).not.toMatch(/onLayout/);
+  });
+
+  it('clamps the side pill horizontally too, not just vertically', () => {
     // The first clamp pass (above) only closed the vertical axis; the outermost tabs (Shop,
     // Health) sit close enough to the bar's own rounded corners that a pill could still catch
     // the diagonal corner arc horizontally — same failure mode, other axis.
     expect(source).toMatch(/const clampLeft = \(/);
-    expect(source).toMatch(/setBarW/);
+    expect(source).toMatch(/setInnerW/);
     expect(source).toMatch(/return clampLeft\(leftTrack\.x/);
     expect(source).toMatch(/return clampLeft\(rightTrack\.x/);
   });
 
-  it('keeps grey depth off the pill and off an active Home button', () => {
+  it('keeps grey depth off the pill and off the Home button, in either state', () => {
     // A card drop-shadow is a hue-less grey blur. Under the pale accentSoft plate it read as a
-    // dirty donut, and Shadow.fab's 16px blur smeared straight across the ring around Home.
+    // dirty donut; Shadow.fab's 16px blur smeared across the ring when Home was active, and
+    // drew a grey collar around the blue circle when it wasn't (2026-08-11 report). The bar is
+    // a Surface and already casts one shadow for the whole cluster.
     expect(source).not.toMatch(/getLayeredShadow/);
-    expect(source).toMatch(/active \? null : Shadow\.fab/);
+    expect(source).not.toMatch(/Shadow\.fab/);
   });
 });
 

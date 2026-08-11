@@ -88,7 +88,7 @@
  *     are for.
  */
 import React from 'react';
-import { AccessibilityRole, LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BORDER_WIDTH, computeBorderRamp, darken, getLayeredShadow, Radius } from '@/constants/theme';
 import { useLabShape } from '@/lib/useDesignLab';
@@ -132,13 +132,15 @@ type Props = {
   accessibilityLabel?: string;
   /** Only meaningful with `onPress` — greys the key and stops it responding. */
   disabled?: boolean;
-  /**
-   * Forwarded to the outer (shadow/border) view, so a caller can measure the card's real
-   * painted box. Added for components/BottomNav.tsx, which sizes its indicator pill to fit
-   * INSIDE the bar — the bar's height is `useScaledStyles`d, so it can't be assumed from
-   * BOTTOM_NAV_HEIGHT. Purely additive; omit it and nothing changes.
-   */
-  onLayout?: (event: LayoutChangeEvent) => void;
+  // `onLayout` lived here from 2026-08-10 to 2026-08-11, forwarded to the outer
+  // (shadow/border) view for components/BottomNav.tsx, which sizes its indicator pill to fit
+  // inside the bar. It measured the WRONG box for that job — the outer view is
+  // `2 × EDGE_WIDTH` bigger than the mask that clips the children, so the bar's sums came out
+  // 3px optimistic and Home's ring landed 1px off the mask. BottomNav measures an
+  // `absoluteFill` probe rendered beside its pill now (guaranteed to share the pill's own
+  // containing block), and this prop went with its only caller. If a card ever does need its
+  // painted box, add it back — but read that file's note first, because "the Surface's box"
+  // and "the box a child is positioned in" are not the same rectangle.
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode;
 };
@@ -208,7 +210,6 @@ export default function Surface({
   accessibilityRole = 'button',
   accessibilityLabel,
   disabled,
-  onLayout,
   style,
   children,
 }: Props) {
@@ -334,7 +335,6 @@ export default function Surface({
   // mask inside it carries the opaque page.
   return asKey(
     <View
-      onLayout={onLayout}
       style={[
         outer,
         {
