@@ -92,7 +92,14 @@ const MON = 0, TUE = 1, WED = 2, THU = 3, FRI = 4, SAT = 5, SUN = 6;
 const WEEKDAYS = [MON, TUE, WED, THU, FRI];
 const WEEKEND = [SAT, SUN];
 
-function addHabitAndCaptureId(input: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId'> & { goalId?: string | null }): string {
+// recurrenceInterval is optional here too (defaults to 1 in useHabitStore.add()) — none of
+// Freyr's seeded habits use "every N days/weeks", so every call below is unaffected.
+function addHabitAndCaptureId(
+  input: Omit<Habit, 'id' | 'createdAt' | 'active' | 'goalId' | 'recurrenceInterval'> & {
+    goalId?: string | null;
+    recurrenceInterval?: number;
+  }
+): string {
   const before = new Set(useHabitStore.getState().habits.map((h) => h.id));
   useHabitStore.getState().add(input);
   const created = useHabitStore.getState().habits.find((h) => !before.has(h.id));

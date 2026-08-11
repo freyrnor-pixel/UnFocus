@@ -63,13 +63,18 @@ import type { SaveToDeviceResult } from '@/lib/backup';
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
  *
+ * v6 (2026-08-11) — new field: "habits"' optional `recurrenceInterval` (1-12, "every N
+ * days/weeks" — a multiplier on daily/weekly recurrence, see lib/habitRecurrence.ts).
+ * Clamped to [1, 12] on import; omitted defaults to 1, today's plain daily/weekly
+ * behaviour, so a v5 file still applies exactly as before.
+ *
  * v5 (2026-08-02) — content only, no field/validation/whitelist change: energySystemEnabled's
  * description now names the Energy and Rewards modes and states the losslessness guarantee,
  * instead of calling it "the Energy system's master switch". A v4 file still parses and
  * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
  * the document it was generated from has been reworded.
  */
-export const AI_SETUP_SCHEMA_VERSION = 5;
+export const AI_SETUP_SCHEMA_VERSION = 6;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -134,6 +139,10 @@ export type AiHabitDraft = {
   category: 'physical' | 'mental' | 'health' | 'nutrition' | 'sleep' | 'work' | 'wellbeing' | 'other';
   dailyGoal: number;
   recurrenceDays?: number[];
+  /** "Every N days" (daily) / "every N weeks" (weekly) — a MULTIPLIER, not a new recurrence
+   *  kind; ignored for monthly/one-time/weekly-flexible. Clamped to [1, 12] on import;
+   *  omitted defaults to 1 (today's plain daily/weekly behaviour). See lib/habitRecurrence.ts. */
+  recurrenceInterval?: number;
 };
 
 export type AiGoalDraft = { title: string };
@@ -304,6 +313,9 @@ accepted (anything else is ignored):
   dailyGoal (required, integer >= 1)
   recurrenceDays: array of 0-6 (0=Mon) — REQUIRED, non-empty, when recurrence
     is "weekly" or "weekly-flexible"
+  recurrenceInterval: integer 1-12 (optional, default 1) — "every N days" when
+    recurrence is "daily", "every N weeks" when "weekly". Ignored for "monthly",
+    "one-time" and "weekly-flexible".
   Example: { "title": "Drink water", "kind": "neutral", "recurrence": "daily",
              "category": "health", "dailyGoal": 6 }
 
