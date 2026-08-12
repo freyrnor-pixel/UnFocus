@@ -25,7 +25,8 @@
  *   - This is a shared primitive — keep its API a strict superset of Pressable so
  *     it can replace one without churn. Extra props: `haptic` (default true),
  *     `press` (default `'key'`), `travel` (default `Travel.sm`), `sunk`,
- *     `scaleTo` (default 0.94, scale mode only), `depth` (Purposeful Depth System,
+ *     `pressFill` (the cap's rest → pressed fill), `scaleTo` (default 0.94, scale mode only),
+ *     `depth` (Purposeful Depth System,
  *     2026-07-14), `releaseSpring` (scale mode only; default `Spring.snappy`, pass
  *     `Spring.calm` for a less bouncy release on repeatedly-tapped toggles).
  *   - **Don't reach for `press="scale"` to make something feel softer.** Two callers use it
@@ -54,6 +55,18 @@
  *     A caller with a real FILL should also draw a visible base — see components/Button.tsx's
  *     `keyBase` — so the cap has something to meet; a caller with no fill (a row, a chip, a
  *     text link) sinks against the surface behind it, which is the point of the default.
+ *   - **`pressFill` — the cap darkens as it lands (2026-08-12)**: an optional
+ *     `{ rest, pressed }` pair interpolated off the SAME `press` shared value as the sink, so
+ *     the colour change and the travel are one gesture on one curve rather than two effects
+ *     that can disagree. It exists because travel alone reads weakly on a wide button — the
+ *     3–5px is easy to miss — while a fill moving toward its own base's shade says "this has
+ *     moved away from the light". Key mode only (`press.value` never moves in scale mode).
+ *     **A caller passing `pressFill` must NOT also put `backgroundColor` in `style`** — same
+ *     "owned property" contract as `depth` and the shadow keys. Reduce-motion needs no branch:
+ *     `press.value` is assigned instantly there, so the fill snaps with the sink.
+ *     Note the free consequence, in case you want it: a caller that ALSO passes `sunk` rests
+ *     at the pressed fill while it is "on", which is consistent with "Pressed = on". No
+ *     current caller does both — components/Button.tsx passes `pressFill` and never `sunk`.
  *   - **`sunkRef` — why the release reads a ref and not the prop (2026-08-10)**. React Native
  *     only defers `onPressOut` past `onPress` for taps SHORTER than Pressability's
  *     `DEFAULT_MIN_PRESS_DURATION` (130ms). On a slower tap `onPressOut` fires FIRST, so the
@@ -76,6 +89,7 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
+  interpolateColor,
   Extrapolation,
 } from 'react-native-reanimated';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -111,6 +125,13 @@ type Props = PressableProps & {
    * point: it survives colour-blindness, glare, and a screenshot in greyscale.
    */
   sunk?: boolean;
+  /**
+   * Rest → pressed fill, interpolated off the same `press` value as the sink so the darken
+   * lands exactly as the cap meets its base. Key mode only. A caller passing this must NOT
+   * also set `backgroundColor` in `style` — PressableScale owns that property here, the same
+   * way it owns the shadow keys when `depth` is set. See the Edit notes.
+   */
+  pressFill?: { rest: string; pressed: string };
   /** Press-out spring, scale mode only. Default `Spring.snappy`; pass `Spring.calm` for
    *  section/accordion toggle headers where the default bounce reads as too energetic. */
   releaseSpring?: { damping: number; stiffness: number };
@@ -131,6 +152,7 @@ export default function PressableScale({
   scaleTo = 0.94,
   travel = Travel.sm,
   sunk = false,
+  pressFill,
   releaseSpring = Spring.snappy,
   depth,
   disabled,
@@ -183,6 +205,12 @@ export default function PressableScale({
     []
   );
 
+  // Captured as two primitives rather than the object, so the worklet closes over strings
+  // (AGENTS.md's worklet rule: prefer capturing primitives) and a caller re-rendering with a
+  // fresh `{ rest, pressed }` literal doesn't invalidate the style every frame.
+  const fillRest = pressFill?.rest;
+  const fillPressed = pressFill?.pressed;
+
   const animStyle = useAnimatedStyle(() => {
     // Key-press mode: sink, don't shrink. No opacity dip either — a key that dims on press
     // reads as a disabled state, and the travel already carries the feedback.
@@ -194,7 +222,16 @@ export default function PressableScale({
             ? undefined
             : interpolate(scale.value, [scaleTo, 1], [0.85, 1], Extrapolation.CLAMP),
         };
-    if (!rest_) return base;
+    // The face darkens as the cap goes down. This is NOT the opacity dip the note above
+    // rejects — a dim reads as disabled, whereas a fill moving toward its own base's shade
+    // reads as a surface that has moved away from the light. It exists because 3–5px of
+    // travel is easy to miss on a wide button, and it rides the same `press` value as the
+    // sink so the two can never disagree.
+    const fill =
+      isKey && fillRest && fillPressed
+        ? { backgroundColor: interpolateColor(press.value, [0, 1], [fillRest, fillPressed]) }
+        : null;
+    if (!rest_) return { ...base, ...fill };
     // The cap's shadow goes to nothing at the bottom of the travel — that's what says it has
     // met the base, rather than floating lower.
     const compress = isKey
@@ -202,6 +239,7 @@ export default function PressableScale({
       : (from: number) => interpolate(scale.value, [scaleTo, 1], [from * 0.35, from], Extrapolation.CLAMP);
     return {
       ...base,
+      ...fill,
       shadowColor: rest_.shadowColor,
       shadowOpacity: compress(rest_.shadowOpacity),
       shadowRadius: compress(rest_.shadowRadius),
