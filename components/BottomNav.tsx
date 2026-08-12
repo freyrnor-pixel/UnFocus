@@ -91,36 +91,46 @@
  *     width, the ring is centred on the button, and only then is it capped by `homeFit` — and
  *     drops the resting sink, which is what frees the 4px the bottom half of the ring needs.
  *     See `HOME_RING` and `renderCentre`'s own notes; don't restore either half alone.
- *   - **A sunk side tab now sits in a visible "socket" (2026-08-11, user report + screenshot:
- *     "does not look like a button pressed down, it just looks like the box and icon has been
- *     lowered vertically").** The active tab's icon/label (`sunk={active}` on its own
- *     `PressableScale`) and this pill's fill were both already positioned at the FINAL sunk
- *     offset with nothing left at the unsunk position to contrast against, so the only visible
- *     effect was a uniform downward shift — no depth cue. `pillBaseStyle` adds the same
- *     "cap on a base" idiom `Button.tsx`'s `keyBase` already uses: a static
- *     `darken(accentSoft, 0.22)` plate fixed `Travel.sm` px above the pill's own top, sharing
- *     its bottom edge exactly (both end at `ty.value + ph.value`) — so only a `Travel.sm`
- *     sliver of the darker plate ever shows, above the fill, reading as the wall of a shallow
- *     notch rather than an unexplained shift. Faded to 0 (via the `bo` shared value, driven by
- *     the same effect and duration as `tx`/`ty`/etc.) while Home is active — Home gets its own,
- *     differently-shaped recessed cue instead (a concentric halo ring, not a directional
- *     sliver), since its FAB can't sink without shrinking the selection ring itself. See the
- *     next bullet.
- *   - **Home gets a "recessed" cue too, but a ring, not a sink (2026-08-11, same-day follow-up,
- *     user: "should also look pressed down, which none of them do now").** The "does not rest
- *     sunk" bullet two above isn't wrong — `sunk={active}` genuinely can't come back on the FAB
- *     itself: `HOME_RING` already spends every px of slack the masked bar has around the 56px
- *     button (by construction, see `HOME_RING`'s own note), so any resting downward offset
- *     immediately shrinks the ring that reads as Home's selection cue (a `homeCentreY` shift of
- *     N px costs `homeFit` 2N, since the fit is bounded by whichever side of the bar is
- *     tighter) — confirmed by re-doing the arithmetic before ruling motion out again, not just
- *     re-asserted from memory. Instead, Home borrows the SAME `pillBaseColor` idiom the side
- *     tabs' socket plate uses, but applies it RADIALLY instead of vertically: `HOME_HALO_PAD`
- *     draws a second, concentric ring — the same shape as the real one (its radius tracks `pr`,
- *     not a fixed constant, so it stays matched through the whole tab-switch morph), grown
- *     `HOME_HALO_PAD` px outward on every side with no offset — visible only while Home is
- *     active (`ho`, faded the same way `bo` fades the side tabs' socket). No `homeCentreY`/
- *     `homeFit`/`HOME_RING` arithmetic changes at all; this is a purely additive layer.
+ *   - **No "pressed down" resting look anywhere in this bar any more (2026-08-12, maintainer:
+ *     "Instead of the pressed down look, just have the blue move between when going between
+ *     screens").** Supersedes both of the two bullets below in full. `sunk={active}` came off
+ *     `NavTabItem`'s `PressableScale` (the side tab no longer rests translated down), and with
+ *     it the two depth cues that existed only to sell that resting sink: the side tabs' darker
+ *     "socket" plate (`pillBaseStyle`/`bo`) and Home's concentric "pressed" halo ring
+ *     (`homeHaloStyle`/`ho`/`HOME_HALO_PAD`) are both deleted, not just faded off. The sliding
+ *     pill/ring — position, size and accentSoft fill — is now the ONLY selection cue on every
+ *     slot, side tabs and Home alike. The side pill's `sideTop` also dropped the `+ Travel.sm`
+ *     it carried to compensate for the sunk tab's own downward shift — a tab that doesn't move
+ *     needs no such offset. Ordinary tap-press feedback (`travel` sinking on press-in, back up
+ *     on release) is untouched on both the side tabs and the centre FAB — that's momentary
+ *     press feedback, unrelated to the resting "selected" state this removes.
+ *   - **(Historical, REMOVED 2026-08-12 — see the bullet above) A sunk side tab sat in a
+ *     visible "socket" (2026-08-11, user report + screenshot: "does not look like a button
+ *     pressed down, it just looks like the box and icon has been lowered vertically").** The
+ *     active tab's icon/label (`sunk={active}` on its own `PressableScale`) and this pill's
+ *     fill were both already positioned at the FINAL sunk offset with nothing left at the
+ *     unsunk position to contrast against, so the only visible effect was a uniform downward
+ *     shift — no depth cue. `pillBaseStyle` added the same "cap on a base" idiom `Button.tsx`'s
+ *     `keyBase` already uses: a static `darken(accentSoft, 0.22)` plate fixed `Travel.sm` px
+ *     above the pill's own top, sharing its bottom edge exactly (both end at
+ *     `ty.value + ph.value`) — so only a `Travel.sm` sliver of the darker plate ever showed,
+ *     above the fill, reading as the wall of a shallow notch rather than an unexplained shift.
+ *     Faded to 0 (via the `bo` shared value, driven by the same effect and duration as
+ *     `tx`/`ty`/etc.) while Home was active — Home had its own, differently-shaped recessed cue
+ *     instead (a concentric halo ring, not a directional sliver). Kept for history only; the
+ *     resting sink itself is gone, so there is nothing left to socket into.
+ *   - **(Historical, REMOVED 2026-08-12 — see the bullet above) Home got a "recessed" cue too,
+ *     a ring rather than a sink (2026-08-11, same-day follow-up, user: "should also look
+ *     pressed down, which none of them do now").** The FAB couldn't gain a resting sink the
+ *     way a side tab did — `HOME_RING` already spent every px of slack the masked bar has
+ *     around the 56px button (by construction, see `HOME_RING`'s own note), so any resting
+ *     downward offset would have immediately shrunk the ring that reads as Home's selection
+ *     cue. So Home borrowed the SAME `pillBaseColor` idiom the side tabs' socket plate used,
+ *     applied RADIALLY instead of vertically: `HOME_HALO_PAD` drew a second, concentric ring,
+ *     visible only while Home was active (`ho`, faded the same way `bo` faded the side tabs'
+ *     socket). Both the socket and this halo were removed the same day the "pressed down" look
+ *     was dropped entirely — Home's selection cue is just its ring/pill target now, with no
+ *     second, "recessed" layer behind it.
  *   - **Nothing in this bar carries grey depth any more (2026-08-11).** The pill lost
  *     `getLayeredShadow` on 2026-08-10, and the centre FAB has now lost `Shadow.fab` in BOTH
  *     states for the same reason: a hue-less 16px black blur around a 56px circle on a white
@@ -269,7 +279,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, computeRimGradient, darken, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, computeRimGradient, HitSlop } from '@/constants/theme';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -355,18 +365,12 @@ const PILL_GROW_Y = 6;
 // the arithmetic below sizes the ring from it and centres it on the button rather than fitting
 // it to the leftovers. 4 + the FAB's 56 + 4 leaves exactly PILL_INSET × 2 to the mask.
 const HOME_RING = 4;
-// A thin darker rim shown behind Home's ring while Home is the active tab (2026-08-11, same-day
-// follow-up: "should also look pressed down, which none of them do now"). The FAB itself can't
-// gain a resting sink the way a side tab does (`sunk={active}`) — `HOME_RING` above already
-// spends every px of slack the masked bar has around the 56px button (by construction, see its
-// own note), so any resting downward offset would immediately start shrinking the ring that
-// marks Home as selected: a `homeCentreY` shift of N px costs `homeFit` 2N, since the fit is
-// bounded by whichever side of the bar is tighter. Confirmed by the arithmetic before ruling
-// motion out again, not re-asserted from memory. So Home borrows the same `pillBaseColor`
-// "cap on a base" idiom the side tabs' socket plate uses, but applies it RADIALLY instead of
-// vertically: a second ring, the same shape as the real one, `HOME_HALO_PAD` px larger on every
-// side with no offset, visible only while Home is active. See the `ho` shared value below.
-const HOME_HALO_PAD = 3;
+// `HOME_HALO_PAD` (a second, larger concentric ring behind Home's real one, shown only while
+// Home was active) lived here 2026-08-11 through 2026-08-12 as a simulated "pressed down" cue
+// for the FAB, which can't gain a resting sink itself (see `HOME_RING`'s own note on why).
+// Removed 2026-08-12 along with the side tabs' "socket" plate — maintainer: "Instead of the
+// pressed down look, just have the blue move between when going between screens." The sliding
+// pill/ring is the only selection cue now, on every slot including Home.
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -471,16 +475,15 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // pill's top edge floating above the icon and its bottom edge cutting into the label
   // instead of framing the button. Use the real measured y (same fix pattern as the x-based
   // translateX) instead of assuming the pill's container has no padding. Shifted up by half
-  // of PILL_GROW_Y to keep the (taller) pill centred on the item's own box, then back DOWN by
-  // the item's own `travel` — the pill only ever sits under the ACTIVE tab, and an active tab
-  // rests sunk (`sunk={active}`, see NavTabItem), so a pill positioned from the unsunk
-  // measured track framed the icon with ~6px above and ~0 below. Same class of bug as the
-  // 2026-07-24 one, on the content side instead of the pill side.
+  // of PILL_GROW_Y to keep the (taller) pill centred on the item's own box.
+  //   **No `+ Travel.sm` any more (2026-08-12)** — that existed only to compensate for the
+  // active tab resting sunk (`sunk={active}`, since removed from NavTabItem); a tab that
+  // doesn't move needs no such offset, and keeping it would frame the icon a few px low.
   //   Both dimensions are then clamped into the bar (2026-08-10 follow-up) — the grown pill
   // was taller than the space between the bar's padding edges, so the mask cut its bottom off
   // and, on the outermost tab, its bottom corner as well.
   const pillHeight = Math.min((leftTrack.h || rightTrack.h) + PILL_GROW_Y, maxPillH);
-  const sideTop = clampTop((leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2 + Travel.sm, pillHeight);
+  const sideTop = clampTop((leftTrack.y || rightTrack.y) - PILL_GROW_Y / 2, pillHeight);
   // Home's slot (2026-08-10). Home used to have NO pill: the pill slid to the centre button's
   // x, faded to 0 and unmounted, so selecting Home read as the indicator "just disappearing"
   // (maintainer report). It is a real slot now — an accentSoft ring around the 56px FAB, so
@@ -514,13 +517,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pw = useSharedValue(0);
   const ph = useSharedValue(0);
   const pr = useSharedValue(Radius.lg);
-  // Visibility of the static "socket" plate behind a sunk side tab — see `pillBaseStyle` below.
-  // Starts hidden; the very first effect run (cold launch) snaps it straight to the right value
-  // like every other shared value here, so there's no fade-in flash on mount.
-  const bo = useSharedValue(0);
-  // Visibility of Home's concentric halo ring — see `HOME_HALO_PAD`'s note and `homeHaloStyle`
-  // below. Mirrors `bo`'s fade pattern exactly, just for the opposite branch.
-  const ho = useSharedValue(0);
   // True until the first layout-ready effect run — a cold launch/deep-link lands on its slot
   // with no travel; every later change animates.
   const firstRunRef = useRef(true);
@@ -531,8 +527,8 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     firstRunRef.current = false;
 
     const target = isHomeActive
-      ? { x: homeX, y: homeTop, w: homeSize, h: homeSize, r: homeSize / 2, baseOpacity: 0, haloOpacity: 1 }
-      : { x: slotX(activeIndex), y: sideTop, w: segW + PILL_GROW_X, h: pillHeight, r: Radius.lg, baseOpacity: 1, haloOpacity: 0 };
+      ? { x: homeX, y: homeTop, w: homeSize, h: homeSize, r: homeSize / 2 }
+      : { x: slotX(activeIndex), y: sideTop, w: segW + PILL_GROW_X, h: pillHeight, r: Radius.lg };
 
     const to = (value: number) =>
       snap ? value : withTiming(value, { duration: Duration.tabSwitch, easing: Ease.move });
@@ -541,12 +537,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     pw.value = to(target.w);
     ph.value = to(target.h);
     pr.value = to(target.r);
-    bo.value = to(target.baseOpacity);
-    ho.value = to(target.haloOpacity);
   }, [
     ready, activeIndex, isHomeActive, segW, pillHeight, sideTop,
     homeX, homeTop, homeSize, leftTrack.x, rightTrack.x, centreTrack.x, innerW,
-    reducedMotion, tx, ty, pw, ph, pr, bo, ho,
+    reducedMotion, tx, ty, pw, ph, pr,
   ]);
 
   const pillStyle = useAnimatedStyle(() => ({
@@ -554,37 +548,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
     width: pw.value,
     height: ph.value,
   }));
-  // **The "socket" plate a sunk side tab sits in (2026-08-11, user report + screenshot:
-  // "does not look like a button pressed down, it just looks like the box and icon has been
-  // lowered vertically").** A side tab's whole cluster — icon, label (via NavTabItem's own
-  // `sunk` translate) AND this pill's fill — was already positioned at its FINAL sunk offset
-  // with nothing left at the unsunk position to read as what it sank INTO, so the only visible
-  // effect was uniform downward motion, not depth. This is the same "cap on a base" idiom
-  // Button.tsx's `keyBase` already uses: a plain `darken(fill, 0.22)` plate, fixed at the
-  // UNSUNK top (`ty.value - Travel.sm`) and `Travel.sm` taller than the pill, rendered behind
-  // it. Because the pill's own bottom edge already sits at `ty.value + ph.value` either way,
-  // the two shapes share that same bottom edge exactly — only a `Travel.sm` sliver of the
-  // darker plate peeks out above the accentSoft fill, reading as the wall of a shallow notch
-  // the tab has settled into. Faded out (not measured/positioned) while Home is active — Home's
-  // FAB deliberately doesn't rest sunk (see `renderCentre`'s 2026-08-11 note), so it has no
-  // socket to show one for.
-  const pillBaseStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value - Travel.sm }],
-    width: pw.value,
-    height: ph.value + Travel.sm,
-    opacity: bo.value,
-  }));
-  // Home's concentric halo ring (see `HOME_HALO_PAD`'s note) — same centre as the real ring,
-  // grown outward by `HOME_HALO_PAD` on every side rather than offset upward like the side
-  // tabs' socket, since Home's FAB never moves. Radius tracks `pr` (not a fixed constant) so it
-  // stays a matching ring/rounded-rect through the whole tab-switch morph, not just at rest.
-  const homeHaloStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value - HOME_HALO_PAD }, { translateY: ty.value - HOME_HALO_PAD }],
-    width: pw.value + HOME_HALO_PAD * 2,
-    height: ph.value + HOME_HALO_PAD * 2,
-    opacity: ho.value,
-  }));
-  const homeHaloRadiusStyle = useAnimatedStyle(() => ({ borderRadius: pr.value + HOME_HALO_PAD }));
   // The pill's own corner morphs (rounded rect on a side tab, circle on Home), so it needs an
   // animated style rather than a static Radius.lg — and it has to be applied to the pill's own
   // `Animated.View`, which then MASKS the rim gradient inside it.
@@ -602,10 +565,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
   const rim = computeRimGradient(theme.accent, isDark);
-  // The socket plate's fill — same `darken(fill, 0.22)` recipe as Button.tsx's `keyBase`, off
-  // the pill's own accentSoft fill so the sliver reads as a shaded recess in the same colour
-  // family rather than an unrelated grey.
-  const pillBaseColor = darken(theme.accentSoft, 0.22);
   // **No halo of any kind on the pill.** `getLayeredShadow` went on 2026-08-10 (a grey,
   // hue-less blur under a pale `accentSoft` plate read as a dirty donut rather than as depth),
   // and `getGlow(theme.accent, 'soft')` follows it on 2026-08-11 for a reason that is about
@@ -638,9 +597,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
         // as selected" — with no pill of its own, nothing marked it. That is no longer true:
         // the ring is Home's selection cue, and it is a stronger one than 4px of travel with
         // nothing behind it. Keep `travel` — the press itself still sinks, like every key.
-        //   Still true after the 2026-08-11 follow-up asking for a "pressed down" Home too —
-        // see the file header's "Home gets a recessed cue too" bullet: that's a second ring
-        // (`homeHaloStyle`), not motion, precisely so this constraint doesn't get violated.
         accessibilityRole="button"
         accessibilityLabel={t.nav[item.key]}
         accessibilityState={{ selected: active }}
@@ -701,22 +657,6 @@ export default function BottomNav({ state, navigation }: Props = {}) {
           setInnerW((prev) => (prev === width ? prev : width));
         }}
       />
-      {ready && (
-        // Home's recessed halo (see `HOME_HALO_PAD`'s note) — rendered behind everything else,
-        // visible only while Home is active.
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.pill, homeHaloStyle, homeHaloRadiusStyle, { backgroundColor: pillBaseColor }]}
-        />
-      )}
-      {ready && (
-        // The socket plate (see `pillBaseStyle`'s note) — rendered BEHIND the pill so only its
-        // Travel.sm sliver above the fill is ever visible.
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.pill, pillBaseStyle, { backgroundColor: pillBaseColor, borderRadius: Radius.lg }]}
-        />
-      )}
       {ready && (
         // The pill owns the morphing corner and masks whatever is inside it — see
         // `pillRadiusStyle` for why the rim gradient must NOT carry that radius itself.
@@ -814,12 +754,14 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   return (
     <PressableScale
       scaleTo={0.97}
-      // "Pressed = on" (design-system v6, 2026-07-28): the ACTIVE tab rests sunk into the
-      // bar. The sliding pill already marks the current tab by colour and position; the
-      // travel adds the one channel neither of those covers — depth — so the current tab is
-      // still obvious in greyscale and under glare.
+      // **No resting "sunk" state on the active tab any more (2026-08-12, maintainer:
+      // "Instead of the pressed down look, just have the blue move between when going
+      // between screens").** The active tab used to rest translated down by `travel` px
+      // ("Pressed = on", design-system v6, 2026-07-28) — reverted: the sliding pill alone
+      // now marks the current tab, by colour and position. `travel` still governs the
+      // ordinary momentary tap-press feedback (down on press-in, back up on release),
+      // which is unrelated to `sunk` and stays.
       travel={Travel.sm}
-      sunk={active}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
