@@ -12,7 +12,9 @@
  * narrower CatalogSuggestion shape is a structural subset — they keep compiling.
  *
  * Connections:
- *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id, lib/receipt (findFuzzyMatch —
+ *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id, lib/typeahead
+ *             (byPrefixThenName — the suggestion ordering, shared with useHealthStore),
+ *             lib/receipt (findFuzzyMatch —
  *             recordPurchases() dedup, 2026-07-20)
  *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest),
  *             components/CatalogueTab.tsx (the Shopping screen's "Catalogue" tab — addItem/
@@ -49,6 +51,7 @@ import { create } from 'zustand';
 import db from '@/lib/db';
 import { Row, loadAll, insertRow, readStr, readReal, tx } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { byPrefixThenName } from '@/lib/typeahead';
 import { CATALOG_SEED } from '@/lib/catalogSeed';
 import { findFuzzyMatch } from '@/lib/receipt';
 
@@ -173,11 +176,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       seen.add(ln);
       return true;
     });
-    matches.sort((a, b) => {
-      const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
-      const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
-      return ap !== bp ? ap - bp : a.name.localeCompare(b.name, 'no');
-    });
+    matches.sort(byPrefixThenName(q));
     return matches.slice(0, limit);
   },
 

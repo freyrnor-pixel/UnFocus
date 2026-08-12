@@ -158,9 +158,7 @@ export function formatDisplayDate(iso: string, lang: 'en' | 'no'): string {
 
 /** Current local wall-clock time as `HH:MM`. Minute resolution — nothing in the app needs seconds. */
 export function nowHHMM(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return formatMinutesAsTime(localMinutesOf(new Date()));
 }
 
 /**
@@ -185,17 +183,48 @@ export function utcStampToLocalMinutes(stamp: string, localDate: string): number
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
   if (dateStr(d) !== localDate) return null;
-  return d.getHours() * 60 + d.getMinutes();
+  return localMinutesOf(d);
 }
 
-/** Parses a strict `H:MM`/`HH:MM` 24h time string into minutes since midnight, or null if malformed/out of range. */
-export function parseTimeToMinutes(hhmm: string): number | null {
-  const match = hhmm.trim().match(/^(\d{1,2}):(\d{2})$/);
+/**
+ * Parses a strict `H:MM`/`HH:MM` 24h time string into minutes since midnight, or null if
+ * malformed/out of range.
+ *
+ * Accepts null/undefined (returning null) because several callers pass an optional column
+ * straight through. lib/dayLog.ts and lib/useDayLog.ts each held a byte-identical private
+ * copy of this — with exactly that optional-chain as the only difference — until 2026-08-12;
+ * widening the parameter is what let both drop theirs.
+ */
+export function parseTimeToMinutes(hhmm: string | null | undefined): number | null {
+  const match = hhmm?.trim().match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return null;
   const h = Number(match[1]);
   const m = Number(match[2]);
   if (h > 23 || m > 59) return null;
   return h * 60 + m;
+}
+
+/**
+ * Minutes-since-midnight → `'HH:MM'`, wrapping past midnight (1500 → `'01:00'`) and
+ * rounding a fractional input.
+ *
+ * The inverse of `parseTimeToMinutes`, and the single implementation of a `padStart(2,'0')`
+ * pair that used to be written out in three places (lib/medicineSchedule's `formatMinutes`,
+ * lib/dayLog's `formatEntryTime`, and inline in `addDurationToTime` below). The wrap is a
+ * no-op for an in-range value, so it is safe for the callers that never cross midnight.
+ */
+export function formatMinutesAsTime(minutes: number): string {
+  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+}
+
+/**
+ * Minutes since midnight for a Date, in LOCAL time — the scale lib/dayGrid.ts,
+ * lib/medicineSchedule.ts and the timeline all work in. Was re-inlined in three places.
+ */
+export function localMinutesOf(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
 }
 
 /**
@@ -213,8 +242,7 @@ export function addDurationToTime(
   const startMinutes = parseTimeToMinutes(startTime);
   if (startMinutes === null || !Number.isFinite(durationMin) || durationMin <= 0) return null;
   const endTotal = startMinutes + durationMin;
-  const endMinutesOfDay = endTotal % 1440;
-  const endTime = `${String(Math.floor(endMinutesOfDay / 60)).padStart(2, '0')}:${String(endMinutesOfDay % 60).padStart(2, '0')}`;
+  const endTime = formatMinutesAsTime(endTotal);
   const endDateObj = parseDateStr(dateKey);
   endDateObj.setDate(endDateObj.getDate() + Math.floor(endTotal / 1440));
   return { endDate: dateStr(endDateObj), endTime };

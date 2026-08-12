@@ -13,6 +13,7 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/tags, lib/liveSync, lib/syncService,
+ *             lib/syncRow (syncRow — the shared stamp+broadcast pair),
  *             store/useSettingsStore (deviceId), store/useTaskStore (link cleanup on
  *             remove — call-time only, never at module-eval time)
  *   Used by → app/_layout.tsx (load() in the app-wide bootstrap), app/task-form via
@@ -22,9 +23,10 @@
  *             `tasks.tag_ids`
  *
  * Edit notes:
- *   - Every mutation goes through `syncTagRow`/`softDelete`, exactly like
- *     store/usePeopleStore.ts's `syncPersonRow`. A raw `updateRow` here changes local
- *     state without the peer ever hearing about it.
+ *   - Every mutation goes through `syncTagRow`/`softDelete`. A raw `updateRow` here
+ *     changes local state without the peer ever hearing about it. `syncTagRow` is a
+ *     one-line wrapper naming this store's table; the stamp+broadcast body it used to
+ *     hold is shared in lib/syncRow.ts — read that file before changing either half.
  *   - **`ensure()` is the only way the UI should create a tag.** It matches on
  *     `tagNameKey` first, so typing "kitchen" when "Kitchen" exists reuses the existing
  *     row rather than creating a near-duplicate the other phone would show twice.
@@ -51,8 +53,9 @@ import {
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { findTagByName, normalizeTagName, parseTagIds, serializeTagIds } from '@/lib/tags';
-import { touchRow, softDelete } from '@/lib/liveSync';
+import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
+import { syncRow } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
 // Link cleanup only, used inside remove() at call time — never at module-eval time.
 import { useTaskStore } from '@/store/useTaskStore';
@@ -92,10 +95,9 @@ const TAG_COLUMNS: FieldMap<Tag> = {
   createdAt: { col: 'created_at' },
 };
 
-/** Stamp a local edit and push it to every connected peer (mirrors usePeopleStore's syncPersonRow). */
+/** Stamp a local edit and push it to every connected peer. */
 function syncTagRow(id: string): void {
-  touchRow('tags', id, useSettingsStore.getState().deviceId);
-  broadcastRow('tags', id);
+  syncRow('tags', id);
 }
 
 export const useTagStore = create<TagStore>((set, get) => ({

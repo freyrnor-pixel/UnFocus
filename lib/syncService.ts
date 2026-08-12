@@ -14,8 +14,11 @@
  *   Imports → lib/lanTransport, lib/peerAuth, lib/liveSync, store/usePeersStore
  *   Used by → app/_layout.tsx (start/stop on settings.lanSyncEnabled), app/pair-device.tsx
  *             + app/settings.tsx (isSyncAvailable, to gate the sync UI on a real build),
- *             store/useTaskStore.ts, store/useShoppingStore.ts (broadcastRow after
- *             every local touchRow/softDelete)
+ *             lib/syncRow.ts (pairs broadcastRow with liveSync's touchRow — the four stores
+ *             go through THAT, not through broadcastRow directly, on the edit path),
+ *             store/useTaskStore.ts, store/useShoppingStore.ts, store/usePeopleStore.ts,
+ *             store/useTagStore.ts (broadcastRow directly, on the soft-delete paths only,
+ *             where the surrounding transaction differs per store and the pair isn't uniform)
  *   Data    → none directly; drives lib/liveSync's SQLite reads/writes indirectly
  *
  * Edit notes:

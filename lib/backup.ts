@@ -23,8 +23,13 @@
  *
  * Connections:
  *   Imports → lib/db (the shared handle + table set), lib/date (todayStr),
+ *             lib/fileExport (shareTextFile / saveTextToDevice / safDirectoryLabel — the
+ *             two export flows and the SAF label live there now, shared with the AI setup
+ *             guide and the design lab; SaveToDeviceResult is re-exported from here so
+ *             existing importers are unaffected),
  *             store/useSettingsStore (auto-backup target uri + last-run stamp);
- *             expo-file-system/legacy (incl. StorageAccessFramework), expo-sharing,
+ *             expo-file-system/legacy (incl. StorageAccessFramework — still used directly
+ *             by the auto-backup path, which needs the created file's URI back),
  *             expo-document-picker, expo-constants, expo-updates, react-native (Platform)
  *   Used by → app/settings.tsx (Data tab → Local account card's Backup & restore section),
  *             app/onboarding/restore.tsx (first-run "restore my data" step),
@@ -61,10 +66,8 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import {
-  cacheDirectory,
   documentDirectory,
   writeAsStringAsync,
   readAsStringAsync,
@@ -74,6 +77,13 @@ import {
 import type { SQLiteBindValue } from 'expo-sqlite';
 import db from '@/lib/db';
 import { todayStr } from '@/lib/date';
+import {
+  safDirectoryLabel,
+  saveTextToDevice,
+  shareTextFile,
+  type SaveToDeviceResult,
+  type TextFileSpec,
+} from '@/lib/fileExport';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 /** Identifies a file as an UnFocus backup; import refuses anything else. */
@@ -207,40 +217,31 @@ export async function saveAutoBackup(): Promise<void> {
 }
 
 /**
- * Serialise the whole DB to a JSON file in the cache dir and open the OS share
- * sheet so the user can save it wherever they like. Returns 'unavailable' when
- * the platform has no share sheet (the file is still written). Throws on write
- * failure — the caller surfaces that.
+ * Re-exported from lib/fileExport, which owns it now. Kept here because app screens and the
+ * two other exporters already import it from this module.
+ */
+export type { SaveToDeviceResult };
+
+/** The one description of "a backup file", shared by both export flows below. */
+function backupFileSpec(): TextFileSpec {
+  return {
+    basename: `unfocus-backup-${todayStr()}`,
+    extension: 'json',
+    mime: 'application/json',
+    uti: 'public.json',
+    dialogTitle: 'UnFocus backup',
+  };
+}
+
+/**
+ * Serialise the whole DB to a JSON file and open the OS share sheet so the user can save it
+ * wherever they like. Returns 'unavailable' when the platform has no share sheet. Throws on
+ * write failure — the caller surfaces that. The name is REDACTED in this copy; see
+ * exportBackupToDevice.
  */
 export async function exportBackup(): Promise<'shared' | 'unavailable'> {
-  const json = JSON.stringify(buildBackup({ redactName: true }));
-  const uri = `${cacheDirectory}unfocus-backup-${todayStr()}.json`;
-  await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
-
-  if (!(await Sharing.isAvailableAsync())) return 'unavailable';
-  await Sharing.shareAsync(uri, {
-    mimeType: 'application/json',
-    dialogTitle: 'UnFocus backup',
-    UTI: 'public.json',
-  });
-  return 'shared';
+  return shareTextFile(JSON.stringify(buildBackup({ redactName: true })), backupFileSpec());
 }
-
-/** Best-effort human-readable label for a SAF directory URI, e.g. "Download". */
-function safDirectoryLabel(dirUri: string): string {
-  try {
-    const decoded = decodeURIComponent(dirUri);
-    const afterTree = decoded.split('/tree/')[1] ?? decoded;
-    return afterTree.split(':').pop() || decoded;
-  } catch {
-    return dirUri;
-  }
-}
-
-export type SaveToDeviceResult =
-  | { status: 'saved'; location: string }
-  | { status: 'canceled' }
-  | { status: 'unavailable' };
 
 /**
  * Serialise the whole DB and write it as a real file directly to a
@@ -251,40 +252,9 @@ export type SaveToDeviceResult =
  * unexpected write failure — the caller surfaces that.
  */
 export async function exportBackupToDevice(): Promise<SaveToDeviceResult> {
-  const json = JSON.stringify(buildBackup());
-  const filename = `unfocus-backup-${todayStr()}`;
-
-  if (Platform.OS === 'android') {
-    const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!perm.granted) return { status: 'canceled' };
-    const fileUri = await StorageAccessFramework.createFileAsync(
-      perm.directoryUri,
-      filename,
-      'application/json'
-    );
-    await StorageAccessFramework.writeAsStringAsync(fileUri, json, { encoding: EncodingType.UTF8 });
-    return { status: 'saved', location: safDirectoryLabel(perm.directoryUri) };
-  }
-
-  if (Platform.OS === 'ios' && documentDirectory) {
-    try {
-      const uri = `${documentDirectory}${filename}.json`;
-      await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
-      return { status: 'saved', location: 'Files → On My iPhone/iPad → UnFocus' };
-    } catch {
-      // Fall through to the share sheet below.
-    }
-  }
-
-  if (!(await Sharing.isAvailableAsync())) return { status: 'unavailable' };
-  const uri = `${cacheDirectory}${filename}.json`;
-  await writeAsStringAsync(uri, json, { encoding: EncodingType.UTF8 });
-  await Sharing.shareAsync(uri, {
-    mimeType: 'application/json',
-    dialogTitle: 'UnFocus backup',
-    UTI: 'public.json',
-  });
-  return { status: 'saved', location: 'the location you chose' };
+  // NOT redacted, unlike exportBackup above: a file the user is deliberately filing away
+  // on their own device is their own data, where a shared one may not stay theirs.
+  return saveTextToDevice(JSON.stringify(buildBackup()), backupFileSpec());
 }
 
 export type ParsedBackup =

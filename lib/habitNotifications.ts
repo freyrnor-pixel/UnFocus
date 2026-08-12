@@ -13,7 +13,8 @@
  * deliberately not reused here).
  *
  * Connections:
- *   Imports → lib/notifications, lib/i18n (+ Habit/Language types)
+ *   Imports → lib/notifications, lib/time (parseTimeOrDefault), lib/i18n
+ *             (+ Habit/Language types)
  *   Used by → store/useHabitStore.ts
  *   Data    → schedules OS notifications (no SQLite/store access)
  *
@@ -24,9 +25,14 @@
  *     `notificationTimes` is the sole live source of truth (empty ⇒ no reminders).
  */
 import type { Habit } from '@/store/useHabitStore';
-import type { Language } from '@/store/useSettingsStore';
 import { getTranslations } from '@/lib/i18n';
-import { scheduleDailyReminder, cancelDailyReminder, isWithinQuietHours } from '@/lib/notifications';
+import {
+  scheduleDailyReminder,
+  cancelDailyReminder,
+  shouldSkipForQuietHours,
+  type QuietHoursSettings,
+} from '@/lib/notifications';
+import { parseTimeOrDefault } from '@/lib/time';
 
 /** Upper bound on reminders-per-habit we schedule/cancel — keeps the cancel loop finite. */
 const MAX_HABIT_REMINDERS = 24;
@@ -34,11 +40,7 @@ const MAX_HABIT_REMINDERS = 24;
 /** The settings a habit reminder depends on (a structural subset of the settings store). */
 export type HabitNotifSettings = {
   habitNotificationsEnabled: boolean;
-  language: Language;
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-};
+} & QuietHoursSettings;
 
 /** Cancel every reminder occurrence for a habit (indexed keys + the legacy single key). */
 export async function cancelHabitReminders(habitId: string): Promise<void> {
@@ -61,10 +63,8 @@ export function syncHabitReminder(habit: Habit, s: HabitNotifSettings): void {
 
   const t = getTranslations(s.language);
   habit.notificationTimes.slice(0, MAX_HABIT_REMINDERS).forEach((time, i) => {
-    const [h, m] = (time || '08:00').split(':').map((n) => parseInt(n, 10));
-    const hour = Number.isFinite(h) ? h : 8;
-    const minute = Number.isFinite(m) ? m : 0;
-    if (s.quietHoursEnabled && isWithinQuietHours(hour, minute, s.quietHoursStart, s.quietHoursEnd)) return;
+    const [hour, minute] = parseTimeOrDefault(time);
+    if (shouldSkipForQuietHours(hour, minute, s)) return;
     void scheduleDailyReminder(`habit-${habit.id}-${i}`, hour, minute, {
       title: t.notif.habitReminderTitle(habit.title),
       body: t.notif.habitReminderBody,

@@ -35,7 +35,9 @@
  *     wiring is the future shopping-row drag session's Phase-6 concern, not here.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService, store/useSettingsStore,
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService,
+ *             lib/syncRow (syncRow/syncRows — the shared stamp+broadcast pair),
+ *             store/useSettingsStore,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/removeWithSource/restoreDeleted/doneShopping/monthlyReset/
  *             resetMonthlyList, so live widgets don't wait for foreground/background)
@@ -141,8 +143,9 @@ import {
   readBool,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { touchRow, softDelete } from '@/lib/liveSync';
+import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
+import { syncRow, syncRows } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
@@ -408,8 +411,7 @@ function mergeDuplicateItems(items: ShoppingItem[]): ShoppingItem[] {
 
 /** Stamp + broadcast a local mutation (Decision 038b/038 wiring) — call after every write. */
 function syncItemRow(id: string): void {
-  touchRow('shopping_items', id, useSettingsStore.getState().deviceId);
-  broadcastRow('shopping_items', id);
+  syncRow('shopping_items', id);
 }
 
 /**
@@ -427,11 +429,7 @@ function syncItemRow(id: string): void {
  * See __tests__/shoppingResetSync.test.ts.
  */
 function syncItemRows(ids: string[]): void {
-  const deviceId = useSettingsStore.getState().deviceId;
-  for (const id of ids) {
-    touchRow('shopping_items', id, deviceId);
-    broadcastRow('shopping_items', id);
-  }
+  syncRows('shopping_items', ids);
 }
 
 /**

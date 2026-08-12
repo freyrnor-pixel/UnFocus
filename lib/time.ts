@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → lib/taskNotifications.ts, lib/reminders.ts
+ *   Used by → lib/taskNotifications.ts, lib/reminders.ts, lib/habitNotifications.ts
  *   Data    → none (pure functions)
  */
 

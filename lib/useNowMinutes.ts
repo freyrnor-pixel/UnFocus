@@ -21,11 +21,9 @@
  *     minutes-since-midnight scale lib/dayGrid.ts and lib/medicineSchedule.ts use.
  */
 import { useEffect, useState } from 'react';
+import { localMinutesOf } from '@/lib/date';
 
-function currentMinutes(): number {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
-}
+const currentMinutes = () => localMinutesOf(new Date());
 
 export function useNowMinutes(): number {
   const [now, setNow] = useState(currentMinutes);

@@ -43,7 +43,7 @@
  *     on a proportional axis would mean inventing a time for it.
  */
 import { getCalendars, getCalendarPermissions, listEvents, requestCalendarPermissions, EntityTypes } from 'expo-calendar';
-import { dateStr } from '@/lib/date';
+import { dateStr, localMinutesOf } from '@/lib/date';
 
 /** One device-calendar event, narrowed to what a timeline row needs. */
 export type DeviceCalendarEvent = {
@@ -57,10 +57,7 @@ export type DeviceCalendarEvent = {
 /** A device calendar, for the "which of these should show" picker in Settings. */
 export type DeviceCalendarInfo = { id: string; title: string };
 
-/** Minutes since midnight for a Date, in LOCAL time — the timeline's currency. */
-function localMinutes(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
-}
+
 
 /** Coerce the SDK's `Date | string` event bounds into a real Date, or null. */
 function toDate(value: Date | string | undefined): Date | null {
@@ -152,11 +149,11 @@ export async function loadCalendarEvents(
       out.push({
         id: event.id,
         title: event.title ?? '',
-        startMinutes: localMinutes(start),
+        startMinutes: localMinutesOf(start),
         // An event ending on a later day is clamped to the end of this one, so it draws as
         // "runs to the end of today" rather than wrapping to a smaller number than it
         // started at and inverting on the axis.
-        endMinutes: end && dateStr(end) === date ? localMinutes(end) : 24 * 60,
+        endMinutes: end && dateStr(end) === date ? localMinutesOf(end) : 24 * 60,
       });
     }
     return out.sort((a, b) => a.startMinutes - b.startMinutes || a.id.localeCompare(b.id));

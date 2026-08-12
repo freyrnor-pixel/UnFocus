@@ -7,7 +7,9 @@
  * than drifting free text. Log is ordered newest-first.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/episodes (EpisodeState +
+ *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/typeahead
+ *             (byPrefixThenName — the suggestion ordering, shared with useCatalogStore),
+ *             lib/episodes (EpisodeState +
  *             toEpisodeState — the ongoing-episode state column), lib/widgets/sync (scheduleWidgetSync
  *             — debounced widget/notification refresh on add/update/remove, so live widgets don't
  *             wait for foreground/background)
@@ -65,6 +67,7 @@ import { create } from 'zustand';
 import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
+import { byPrefixThenName } from '@/lib/typeahead';
 import { SYMPTOM_SEED } from '@/lib/symptomSeed';
 import { EpisodeState, closePatch, toEpisodeState } from '@/lib/episodes';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
@@ -280,11 +283,7 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     const q = query.trim().toLowerCase();
     if (!q) return [];
     const matches = get().symptoms.filter((s) => s.name.toLowerCase().includes(q));
-    matches.sort((a, b) => {
-      const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
-      const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
-      return ap !== bp ? ap - bp : a.name.localeCompare(b.name, 'no');
-    });
+    matches.sort(byPrefixThenName(q));
     return matches.slice(0, limit);
   },
 

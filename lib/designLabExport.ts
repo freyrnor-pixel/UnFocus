@@ -16,8 +16,9 @@
  * are recognisable as the same kind of thing.
  *
  * Connections:
- *   Imports → expo-file-system/legacy, expo-sharing, react-native (Platform), lib/designLab,
- *             lib/backup (TYPE ONLY — SaveToDeviceResult), constants/colors (TYPE ONLY)
+ *   Imports → lib/designLab, lib/fileExport (shareTextFile / saveTextToDevice /
+ *             SaveToDeviceResult / TextFileSpec — both export flows live there, so this
+ *             module touches no filesystem API of its own), constants/colors (TYPE ONLY)
  *   Used by → app/design-lab/tokens.tsx, lib/__tests__/designLabExport.test.ts
  *   Data    → none of its own. Reads nothing; the caller passes the bag and the live palette.
  *             Writes one file to the cache/Documents dir on export.
@@ -52,15 +53,6 @@
  *     do. An exported file is read cold by someone who has never seen this screen; a
  *     coordinate system nobody explains is a coordinate system nobody trusts.
  */
-import { Platform } from 'react-native';
-import {
-  cacheDirectory,
-  documentDirectory,
-  writeAsStringAsync,
-  EncodingType,
-  StorageAccessFramework,
-} from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import {
   DESIGN_LAB_VERSION,
   describeCards,
@@ -74,7 +66,12 @@ import {
   type OverrideChange,
   type PlaygroundScreenDescription,
 } from '@/lib/designLab';
-import type { SaveToDeviceResult } from '@/lib/backup';
+import {
+  saveTextToDevice,
+  shareTextFile,
+  type SaveToDeviceResult,
+  type TextFileSpec,
+} from '@/lib/fileExport';
 import type { ThemePalette } from '@/constants/colors';
 
 /** Verbatim markers around the machine-readable block. */
@@ -331,72 +328,32 @@ export function hasSomethingToExport(overrides: LabOverrides): boolean {
   return !isEmptyOverrides(overrides) || overrides.note.trim().length > 0;
 }
 
-/** Writes the report to the cache dir and opens the OS share sheet. */
+/** The one description of "the report file", shared by both export flows below. */
+const REPORT_FILE: TextFileSpec = {
+  basename: FILENAME,
+  extension: 'txt',
+  mime: 'text/plain',
+  uti: 'public.plain-text',
+  dialogTitle: 'UnFocus design lab',
+};
+
+/** Writes the report out via the OS share sheet. */
 export async function exportDesignLab(
   overrides: LabOverrides,
   palette: ThemePalette,
   meta: ReportMeta,
 ): Promise<'shared' | 'unavailable'> {
-  const text = formatDesignLabReport(overrides, palette, meta);
-  const uri = `${cacheDirectory}${FILENAME}.txt`;
-  await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-
-  if (!(await Sharing.isAvailableAsync())) return 'unavailable';
-  await Sharing.shareAsync(uri, {
-    mimeType: 'text/plain',
-    dialogTitle: 'UnFocus design lab',
-    UTI: 'public.plain-text',
-  });
-  return 'shared';
-}
-
-/** Best-effort human-readable label for a SAF directory URI, e.g. "Download". */
-function safDirectoryLabel(dirUri: string): string {
-  try {
-    const decoded = decodeURIComponent(dirUri);
-    const afterTree = decoded.split('/tree/')[1] ?? decoded;
-    return afterTree.split(':').pop() || decoded;
-  } catch {
-    return dirUri;
-  }
+  return shareTextFile(formatDesignLabReport(overrides, palette, meta), REPORT_FILE);
 }
 
 /**
  * Writes the report as a real file to a user-visible location instead of routing through the
- * share sheet — the "local save" counterpart, mirroring exportAiSetupGuideToDevice() exactly.
+ * share sheet — the "local save" counterpart to exportDesignLab().
  */
 export async function exportDesignLabToDevice(
   overrides: LabOverrides,
   palette: ThemePalette,
   meta: ReportMeta,
 ): Promise<SaveToDeviceResult> {
-  const text = formatDesignLabReport(overrides, palette, meta);
-
-  if (Platform.OS === 'android') {
-    const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!perm.granted) return { status: 'canceled' };
-    const fileUri = await StorageAccessFramework.createFileAsync(perm.directoryUri, FILENAME, 'text/plain');
-    await StorageAccessFramework.writeAsStringAsync(fileUri, text, { encoding: EncodingType.UTF8 });
-    return { status: 'saved', location: safDirectoryLabel(perm.directoryUri) };
-  }
-
-  if (Platform.OS === 'ios' && documentDirectory) {
-    try {
-      const uri = `${documentDirectory}${FILENAME}.txt`;
-      await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-      return { status: 'saved', location: 'Files → On My iPhone/iPad → UnFocus' };
-    } catch {
-      // Fall through to the share sheet below.
-    }
-  }
-
-  if (!(await Sharing.isAvailableAsync())) return { status: 'unavailable' };
-  const uri = `${cacheDirectory}${FILENAME}.txt`;
-  await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-  await Sharing.shareAsync(uri, {
-    mimeType: 'text/plain',
-    dialogTitle: 'UnFocus design lab',
-    UTI: 'public.plain-text',
-  });
-  return { status: 'saved', location: 'the location you chose' };
+  return saveTextToDevice(formatDesignLabReport(overrides, palette, meta), REPORT_FILE);
 }

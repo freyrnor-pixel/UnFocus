@@ -47,16 +47,13 @@ import {
   pushPastQuietHours,
   scheduleReNudge,
   WeeklyTaskOccurrence,
+  type QuietHoursSettings,
 } from '@/lib/notifications';
 
 /** The settings a task reminder depends on (a structural subset of the settings store). */
 export type TaskNotifSettings = {
   taskNotificationsEnabled: boolean;
-  language: Language;
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-};
+} & QuietHoursSettings;
 
 /** Pushes a notification's fire time past quiet hours, if enabled — the task itself keeps its real time, only the reminder is deferred. */
 function deferPastQuietHours(date: Date, s: TaskNotifSettings): Date {

@@ -40,7 +40,7 @@
  *     appending. As-needed doses carry `tray: ''` and are intentionally repeatable, so
  *     they're counted, never de-duplicated.
  */
-import { parseTimeToMinutes } from '@/lib/date';
+import { formatMinutesAsTime, parseTimeToMinutes } from '@/lib/date';
 
 export const TRAY_IDS = ['morning', 'midday', 'evening', 'night'] as const;
 export type TrayId = (typeof TRAY_IDS)[number];
@@ -246,9 +246,9 @@ export function asNeededState(
   };
 }
 
-/** Minutes-since-midnight → 'HH:MM', wrapping past midnight (1500 → '01:00'). */
-export function formatMinutes(minutes: number): string {
-  const m = ((Math.round(minutes) % 1440) + 1440) % 1440;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-}
+/**
+ * Minutes-since-midnight → 'HH:MM', wrapping past midnight (1500 → '01:00').
+ * Re-exported from lib/date, which is the one implementation (it was written out here,
+ * in lib/dayLog.ts and inline in lib/date.ts itself until 2026-08-12).
+ */
+export const formatMinutes = formatMinutesAsTime;
