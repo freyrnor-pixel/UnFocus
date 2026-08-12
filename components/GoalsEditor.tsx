@@ -12,6 +12,7 @@
  *
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/AddRow,
+ *             components/StarterCard (its `embedded` mode — the empty state),
  *             components/GoalGlowDot, components/PressableScale, components/AppModal
  *             (showAppModal), constants/theme, constants/motion (Travel), lib/goalStarters,
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
@@ -26,9 +27,14 @@
  *   - **No Surface of its own.** This is mounted inside CollapsedSection's own Surface, so
  *     wrapping goal rows (or the empty-state explainer) in another Surface would read as a
  *     nested panel — same rule Shopping's `embedded` FoodTab/CatalogueTab follow. Goal rows
- *     go through PadRow/PadSheet at the field rung; the empty-state explainer + starter
- *     chips render the same copy components/StarterCard.tsx uses, without its Surface/
- *     StageTree wrapper.
+ *     go through PadRow/PadSheet at the field rung; the empty state is
+ *     `<StarterCard embedded>`, i.e. that component's real contents with its Surface,
+ *     padding and StageTree dropped.
+ *     Until 2026-08-12 this file HAND-COPIED that card's bulb row and chip slot, for want of
+ *     a way to mount it without its card — the `embedded` prop is that way, and it is what
+ *     the same pass gave Health and Habits so their examples stop being a card inside a card.
+ *     Don't reintroduce a local copy of the explainer: the whole point is that one component
+ *     owns the wording, spacing and voice of every empty state.
  *   - **Starter chips only show while there are no goals yet** — same "gone once you have
  *     content of your own" rule every other StarterCard-driven surface follows. The manual
  *     add row (AddRow) is always present, empty or not.
@@ -53,6 +59,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
+import StarterCard from '@/components/StarterCard';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { showAppModal } from '@/components/AppModal';
 import { FontSize, Fonts, Radius, Spacing, TabularNums } from '@/constants/theme';
@@ -115,11 +122,11 @@ export default function GoalsEditor({ accent }: { accent: string }) {
   return (
     <View style={styles.wrap}>
       {goals.length === 0 ? (
-        <>
-          <View style={styles.textRow}>
-            <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.bulbIcon} />
-            <Text style={[styles.explainer, { color: theme.text }]}>{t.hints.goals.text}</Text>
-          </View>
+        // The shared empty-state card, without its Surface (2026-08-12). This block used to be
+        // a hand-copy of components/StarterCard.tsx's own bulb row + chip slot, because there
+        // was no way to get that card's contents without the card. `embedded` is that way now,
+        // so the explainer's wording, spacing and voice come from the one component again.
+        <StarterCard embedded text={t.hints.goals.text}>
           <View style={styles.starterChips}>
             {GOAL_STARTERS.map((starter) => (
               <PressableScale
@@ -137,7 +144,7 @@ export default function GoalsEditor({ accent }: { accent: string }) {
               </PressableScale>
             ))}
           </View>
-        </>
+        </StarterCard>
       ) : (
         <PadSheet state="open">
           {goals.map((goal) => {
@@ -193,9 +200,8 @@ export default function GoalsEditor({ accent }: { accent: string }) {
 
 const styles = StyleSheet.create({
   wrap: { gap: Spacing.sm },
-  textRow: { flexDirection: 'row', gap: Spacing.xs },
-  bulbIcon: { marginTop: 2 },
-  explainer: { flex: 1, fontSize: FontSize.sm, lineHeight: 20, fontFamily: Fonts.medium, fontStyle: 'italic' },
+  // The bulb row's own styles are gone with the hand-copy — components/StarterCard.tsx's
+  // `embedded` mode draws it now. Don't reintroduce a local copy.
   meta: { fontSize: FontSize.xs },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   starterChip: {

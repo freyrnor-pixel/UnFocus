@@ -850,47 +850,6 @@ export default function HabitsScreen() {
                 <Text style={[styles.tipsText, { color: theme.textMuted }]}>{t.starters.habits.text}</Text>
               </View>
 
-              {/* Suggested habits (2026-08-06 v3) — components/StarterCard's shared
-                  `collapsible` drop-down, replacing this screen's own hand-rolled
-                  pill/card toggle from the v2 pass. No `text` prop: the tips line above
-                  already carries the explanation, permanently, so this card is examples
-                  only. Two things distinguish it from every other empty-state explainer:
-                    1. It collapses to a normal-looking trigger row on tap, not a floating
-                       pill — reversible, unlike StarterCard's `dismissKey` "X" (unused here).
-                    2. It disappears ENTIRELY only once `allStartersAdded` — independent of
-                       `profileHabits.length`, so it stays useful even for someone who already
-                       has a pile of their own custom habits but hasn't tried the shortcuts.
-                       That gating is this screen's own job — StarterCard's `collapsible` only
-                       owns the collapse SHAPE, never whether the card mounts at all. */}
-              {!allStartersAdded && (
-                <StarterCard collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
-                  {/* Two chips, not four (2026-07-30) — the same measured call
-                      components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
-                      had this row wrapping at every width tested: 4 chips on 2 lines at
-                      393px and 4 lines at 360px (560px of chips into 254px of row). A row
-                      with a hard minimum width can't be fixed by shortening copy, so the
-                      fix is fewer chips; the rest are one tap away on the type line below. */}
-                  <View style={styles.starterChips}>
-                    {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
-                      <PressableScale
-                        key={s.key}
-                        onPress={() => addStarterHabit(s)}
-                        scaleTo={0.96}
-                        accessibilityRole="button"
-                        accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                        style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
-                      >
-                        {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
-                            the action colour (mirrors HomeHabitsCard's starter chips). */}
-                        <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
-                        <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                        <Ionicons name="add" size={14} color={theme.accent} />
-                      </PressableScale>
-                    ))}
-                  </View>
-                </StarterCard>
-              )}
-
               {/* Person filter (People/family mode) — Me + each profile. Management is in
                   Settings. Mounted only when there IS somebody to filter by (2026-08-08): a
                   closed `Collapsible` stays mounted at zero height, so as a child of this
@@ -970,6 +929,54 @@ export default function HabitsScreen() {
                       <GhostRow title={lastDeletedHabit.title} onRestore={restoreLastDeletedHabit} />
                     </AnimatedListItem>
                   ) : null}
+
+                  {/* Suggested habits (2026-08-06 v3) — components/StarterCard's shared
+                      `collapsible` drop-down, replacing this screen's own hand-rolled
+                      pill/card toggle from the v2 pass. No `text` prop: the tips line above
+                      already carries the explanation, permanently, so this is examples only.
+                      Two things distinguish it from every other empty-state explainer:
+                        1. It collapses to a normal-looking trigger row on tap, not a floating
+                           pill — reversible, unlike StarterCard's `dismissKey` "X" (unused here).
+                        2. It disappears ENTIRELY only once `allStartersAdded` — independent of
+                           `profileHabits.length`, so it stays useful even for someone who already
+                           has a pile of their own custom habits but hasn't tried the shortcuts.
+                           That gating is this screen's own job — StarterCard's `collapsible` only
+                           owns the collapse SHAPE, never whether the card mounts at all.
+                      **`embedded`, and inside this section rather than above the card body
+                      (2026-08-12)**: it used to draw its own Surface between the tips line and
+                      the body — a card inside this card, putting the suggestions 51px in from
+                      the screen edge while the To-do day card draws its example bare at 33.5.
+                      Suggestions are rows in the list they are suggestions for now: last in the
+                      list's own slot, above the composer that would create the real thing. See
+                      components/StarterCard.tsx's `embedded` note. */}
+                  {!allStartersAdded && (
+                    <StarterCard embedded collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
+                      {/* Two chips, not four (2026-07-30) — the same measured call
+                          components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
+                          had this row wrapping at every width tested: 4 chips on 2 lines at
+                          393px and 4 lines at 360px (560px of chips into 254px of row). A row
+                          with a hard minimum width can't be fixed by shortening copy, so the
+                          fix is fewer chips; the rest are one tap away on the type line below. */}
+                      <View style={styles.starterChips}>
+                        {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
+                          <PressableScale
+                            key={s.key}
+                            onPress={() => addStarterHabit(s)}
+                            scaleTo={0.96}
+                            accessibilityRole="button"
+                            accessibilityLabel={t.starters.habits.suggestions[s.key]}
+                            style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
+                          >
+                            {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
+                                the action colour (mirrors HomeHabitsCard's starter chips). */}
+                            <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
+                            <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
+                            <Ionicons name="add" size={14} color={theme.accent} />
+                          </PressableScale>
+                        ))}
+                      </View>
+                    </StarterCard>
+                  )}
                 </View>
 
                 {/* The pad's type line — always open, at the bottom of this list where the add

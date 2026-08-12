@@ -551,34 +551,6 @@ export default function HealthScreen() {
                   </Text>
                 </View>
 
-                {/* First-run explainer. Gated on the whole log being empty (not just this
-                    week's), so a user with history doesn't see it on a quiet week — and it
-                    returns if every entry is later deleted. **Stays mounted through
-                    `healthStarterAdded`**: pressing the example's "+" writes a real log, which
-                    flips `logs.length` off zero in the same tick — without the OR the card
-                    would unmount itself the instant it was used. It has no `text` of its own
-                    now: the tips line above carries the explanation permanently, which is
-                    exactly how the Habits card splits the same two jobs. */}
-                {(logs.length === 0 || healthStarterAdded) && (
-                  <StarterCard
-                    collapsible
-                    exampleHeaderLabel={t.starters.health.tapToAdd}
-                    example={
-                      <StarterExampleRow
-                        icon="medical-outline"
-                        title={t.starters.health.exampleTitle}
-                        tag={t.starters.exampleLabel}
-                        meta="3/5"
-                        metaVariant="warning"
-                        accent={SEVERITY_COLORS[2]}
-                        onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
-                        addLabel={t.starters.addExample}
-                        added={healthStarterAdded}
-                      />
-                    }
-                  />
-                )}
-
                 {/* The bottom half of the card — list, then composer. Matches the Habits card's
                     own `habitsCardBody` rhythm; the card breathed at the top and was flush at
                     the bottom before that was fixed there (2026-08-08). */}
@@ -611,6 +583,43 @@ export default function HealthScreen() {
                           first={i === 0}
                         />
                       ))
+                    )}
+
+                    {/* First-run explainer. Gated on the whole log being empty (not just this
+                        week's), so a user with history doesn't see it on a quiet week — and it
+                        returns if every entry is later deleted. **Stays mounted through
+                        `healthStarterAdded`**: pressing the example's "+" writes a real log,
+                        which flips `logs.length` off zero in the same tick — without the OR the
+                        card would unmount itself the instant it was used. It has no `text` of
+                        its own: the tips line above carries the explanation permanently, which
+                        is exactly how the Habits card splits the same two jobs.
+                        **`embedded`, and inside this section rather than above the card body
+                        (2026-08-12)**: it used to be a StarterCard Surface between the tips
+                        line and the body, i.e. a card inside this card, which put the example
+                        51px in from the screen edge while the To-do day card draws its example
+                        bare at 33.5. The example is a row in the list it is an example of now —
+                        last in the list's own slot, directly above the composer that would
+                        create the real thing, at the same width as both. See
+                        components/StarterCard.tsx's `embedded` note. */}
+                    {(logs.length === 0 || healthStarterAdded) && (
+                      <StarterCard
+                        embedded
+                        collapsible
+                        exampleHeaderLabel={t.starters.health.tapToAdd}
+                        example={
+                          <StarterExampleRow
+                            icon="medical-outline"
+                            title={t.starters.health.exampleTitle}
+                            tag={t.starters.exampleLabel}
+                            meta="3/5"
+                            metaVariant="warning"
+                            accent={SEVERITY_COLORS[2]}
+                            onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
+                            addLabel={t.starters.addExample}
+                            added={healthStarterAdded}
+                          />
+                        }
+                      />
                     )}
                   </View>
 

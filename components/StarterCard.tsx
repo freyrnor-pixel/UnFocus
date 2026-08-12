@@ -86,6 +86,24 @@
  *     it always has (Habits: `!allStartersAdded`; Plans/Health: `length === 0 || …Added`) —
  *     `collapsible` only changes the SHAPE of the card while it's mounted, never whether it's
  *     mounted at all.
+ *   - **`embedded` (2026-08-12)** — renders the card's contents as a plain block: no Surface,
+ *     no padding of its own, no watermark. For a caller mounting this INSIDE another card,
+ *     where this component's own Surface would be a panel nested in a panel. Same contract as
+ *     components/FoodTab.tsx's and components/CatalogueTab.tsx's `embedded`: **presentation
+ *     only — no behaviour goes behind the flag.** The trigger row, the example rows and the
+ *     chips are the same nodes in both modes.
+ *     It exists because the empty-state example was three different shapes at three different
+ *     depths (maintainer, 2026-08-12: "examples per card don't look the same, and are not
+ *     placed the same"): Health and Habits nested this card inside their tab's card, putting
+ *     the example 51px in from the screen edge, while the To-do day card renders its example
+ *     bare at 33.5px. The To-do shape won. The rule now is that **an empty-state example is a
+ *     row in the list it is an example of** — un-wrapped, in that list's own slot, at the same
+ *     width as a real row and as the composer that would create one.
+ *     Callers: app/(tabs)/health.tsx, app/(tabs)/habits.tsx, components/GoalsEditor.tsx (which
+ *     hand-rolled this block before the prop existed). components/EnergyMeter.tsx deliberately
+ *     does NOT use it — its card REPLACES the meter rather than annotating a list, so it is
+ *     the content of that slot and keeps its own Surface. Pinned by
+ *     lib/__tests__/exampleRows.test.ts.
  *   - `text` gets a small leading bulb glyph + italic styling so it visually reads as "here's
  *     the idea" rather than generic body copy (2026-07-27 — was indistinguishable from a
  *     regular paragraph).
@@ -192,6 +210,12 @@ type Props = {
    * example:").
    */
   exampleHeaderLabel?: string;
+  /**
+   * Drop the card's own Surface + padding + watermark and render as a plain block, for a
+   * caller mounting this INSIDE another card. Presentation only — see the "`embedded`" edit
+   * note above. Default `false`.
+   */
+  embedded?: boolean;
 };
 
 export default function StarterCard({
@@ -203,6 +227,7 @@ export default function StarterCard({
   dismissKey,
   collapsible,
   exampleHeaderLabel,
+  embedded,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -229,13 +254,15 @@ export default function StarterCard({
     setCollapsed((v) => !v);
   }
 
-  return (
-    <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
+  const body = (
+    <>
       {/* The growth tree — the empty-state member of the motif family. It says "nothing has
           grown here yet" without saying anything is wrong, and it visually anticipates the
           growth backdrop the app fills in later. Skipped on `compact`, which is too small to
-          carry a watermark without crowding its one line of text. */}
-      {compact ? null : (
+          carry a watermark without crowding its one line of text — and on `embedded`, where
+          there is no card of ours for it to be a watermark ON, and the host screen already
+          has its own tree ("one tree per screen"). */}
+      {compact || embedded ? null : (
         <StageTree stage={stage} opacity={0.34} style={styles.branch} />
       )}
       {text ? (
@@ -294,6 +321,17 @@ export default function StarterCard({
           {children ? <View style={styles.actions}>{children}</View> : null}
         </>
       )}
+    </>
+  );
+
+  // `embedded`: a plain block with no Surface and no padding of its own — the host card's own
+  // gutter already insets it. Everything above is untouched, which is the contract (see the
+  // edit note): the trigger row, the example rows and the chips are the same nodes either way.
+  if (embedded) return <View style={styles.embedded}>{body}</View>;
+
+  return (
+    <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
+      {body}
     </Surface>
   );
 }
@@ -332,6 +370,12 @@ const baseStyles = StyleSheet.create({
     // controls on one watermark is how it ends up invisible in one theme and loud in the other.
     // No `transform` here either — the idle sway is StageTree's, and a second transform on the
     // same view would replace it outright rather than compose with it.
+  },
+  // Same internal rhythm as `card`, without the Surface, the padding or the overflow mask —
+  // an embedded card is a block in somebody else's list, so its host owns both the inset and
+  // the gap to its neighbours.
+  embedded: {
+    gap: Spacing.xs,
   },
   cardCompact: {
     paddingHorizontal: Spacing.sm,

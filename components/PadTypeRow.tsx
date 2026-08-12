@@ -97,6 +97,18 @@
  *     in a check any more (always a −/+ pair, see HabitCard), so the idle-state ghost ring
  *     used to preview a control the row could never actually show. Every other caller keeps
  *     the ring; only opt out where it would be misleading.
+ *   - **The ghost ring is INSIDE the field's box (2026-08-12), not beside it.** It used to be a
+ *     sibling of the field in the row, so it cost the field its own width plus the row's
+ *     `gap`: 26px. Two visible consequences, both reported as one complaint ("the example is
+ *     wider than the empty row above"): the composer was 26px narrower than
+ *     components/StarterExampleRow.tsx and than a real components/PadSheet.tsx row — every
+ *     other box on an empty card is the full content width — and the field JUMPED wider the
+ *     moment it was focused, since the ring unmounts as soon as `showControls` is true.
+ *     Inside the box it is also the more faithful preview, which is the point of drawing it at
+ *     all: a real `PadRow` puts its check inside the row's own box in the right-hand cluster.
+ *     The field reserves `Spacing.sm * 2 + GHOST_CHECK` on the right while the ring is up;
+ *     keep those two derived from the one constant or the placeholder runs under the ring.
+ *     Pinned by lib/__tests__/exampleRows.test.ts.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleProp, StyleSheet, TextInput, View, ViewStyle } from 'react-native';
@@ -259,11 +271,24 @@ export default function PadTypeRow({
     </PressableScale>
   ) : null;
 
+  // Ghost check preview — idle state only (2026-07-31, user report: the blank spare
+  // lines below used to each carry their own ghost ring, which read as several
+  // identical previews; there is really only one "next thing to check" and it belongs
+  // on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
+  // ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
+  // preview of where a check WILL go once this line becomes a real row, not a control.
+  // It lives INSIDE the field's box since 2026-08-12 — see the styles below for why.
+  const showGhostCheck = !showControls && !noGhostCheck;
+
   const fieldAndPrompt = (
     <View style={styles.field}>
       <TextInput
         style={[
           styles.input,
+          // Room for the ring, only while the ring is there. An edge-specific padding wins
+          // over `paddingHorizontal` in Yoga regardless of key order, so this is safe to
+          // append rather than having to restate the whole padding.
+          showGhostCheck && styles.inputWithGhost,
           {
             color: theme.text,
             // White/plain surface fill (2026-08-06, user report: "text-boxes are too grey" —
@@ -308,18 +333,13 @@ export default function PadTypeRow({
           if (hasText) commit();
         }}
       />
+      {showGhostCheck ? (
+        <View style={styles.ghostCheckSlot} pointerEvents="none">
+          <View style={[styles.ghostCheck, { borderColor: theme.border }]} />
+        </View>
+      ) : null}
     </View>
   );
-
-  // Ghost check preview — idle state only (2026-07-31, user report: the blank spare
-  // lines below used to each carry their own ghost ring, which read as several
-  // identical previews; there is really only one "next thing to check" and it belongs
-  // on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
-  // ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
-  // preview of where a check WILL go once this line becomes a real row, not a control.
-  const ghostCheck = !showControls && !noGhostCheck ? (
-    <View style={[styles.ghostCheck, { borderColor: theme.border }]} pointerEvents="none" />
-  ) : null;
 
   // Panel design (2026-08-04): input line alone, the labeled options panel on its own line
   // below, then the "…"/confirm buttons right-aligned below that — see the header note on
@@ -331,10 +351,7 @@ export default function PadTypeRow({
         style={[styles.column, disabled && styles.gated, style]}
         pointerEvents={disabled ? 'none' : 'auto'}
       >
-        <View style={styles.row}>
-          {fieldAndPrompt}
-          {ghostCheck}
-        </View>
+        <View style={styles.row}>{fieldAndPrompt}</View>
         {showControls ? (
           <View style={styles.panelSlot} {...controlsResponderProps}>
             {panel}
@@ -357,7 +374,6 @@ export default function PadTypeRow({
       pointerEvents={disabled ? 'none' : 'auto'}
     >
       {fieldAndPrompt}
-      {ghostCheck}
 
       {showControls ? (
         <View style={styles.extrasSlot} {...controlsResponderProps}>
@@ -370,6 +386,13 @@ export default function PadTypeRow({
     </View>
   );
 }
+
+/**
+ * The ghost ring's diameter — PadRow's real check size, which is also the size every small mark
+ * on components/StarterExampleRow.tsx shares. It is named because the field's own right-hand
+ * padding is derived from it; the two must not drift apart or the placeholder runs under the ring.
+ */
+const GHOST_CHECK = 22;
 
 const styles = StyleSheet.create({
   // `paddingVertical` (2026-08-05) keeps the field's own border off PadSheet's hairline rule
@@ -410,6 +433,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
   },
+  // Room for the ghost ring inside the box: the ring's own inset from the border, the ring,
+  // and the field's normal text inset. Applied only while the ring is mounted, so a focused
+  // field gets the whole line back for typing.
+  inputWithGhost: { paddingRight: Spacing.sm * 2 + GHOST_CHECK },
+  // The ring is positioned over the field's trailing edge rather than laid out beside it
+  // (2026-08-12). As a sibling it cost the field 26px (the ring plus the row's gap), so the
+  // composer was 26px narrower than the example row and the real rows below it — which is
+  // what read as "the example is wider than the empty row above" — and it also made the
+  // field JUMP wider on focus, since the ring unmounts as soon as controls show. Inside the
+  // box it is also the truer preview: a real PadRow draws its check inside the row's own
+  // box, in the right-hand cluster, which is exactly where this now sits.
+  ghostCheckSlot: {
+    position: 'absolute',
+    right: Spacing.sm,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
   confirm: {
     width: 32,
     height: 32,
@@ -420,6 +461,6 @@ const styles = StyleSheet.create({
   },
   // Same ring geometry as PadRow's real check (22×22, Radius.full, 2px), but faint — a
   // preview of where a check will land, not a control (see the mount note above).
-  ghostCheck: { width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2, opacity: 0.4 },
+  ghostCheck: { width: GHOST_CHECK, height: GHOST_CHECK, borderRadius: Radius.full, borderWidth: 2, opacity: 0.4 },
   gated: { opacity: 0.45 },
 });
