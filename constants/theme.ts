@@ -33,7 +33,8 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → components/Surface.tsx, components/Button.tsx,
+ *   Used by → constants/colors.ts (relLuminance only — see its doc comment; this file is the
+ *             single home of the WCAG maths both modules need), components/Surface.tsx, components/Button.tsx,
  *             components/AddFAB.tsx, components/PhotoFrame.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
  *   Data    → none (pure constants)
  *
@@ -148,7 +149,15 @@ export function hslToHex(h: number, s: number, l: number): string {
   return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
 }
 
-function relLuminance(hex: string): number {
+/**
+ * WCAG relative luminance of a hex colour.
+ *
+ * Exported for `constants/colors.ts`'s `contrastRatio()` — the two used to hold
+ * byte-identical private copies of this and of `hexToRgb`, which had to stay in lockstep or
+ * the WCAG gate in lib/__tests__/colors.test.ts and the runtime `contrastOn()` below could
+ * silently disagree about the same colour. One implementation now; don't re-copy it.
+ */
+export function relLuminance(hex: string): number {
   const lin = (c: number) => {
     const v = c / 255;
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);

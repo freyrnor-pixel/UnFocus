@@ -33,7 +33,9 @@
  * identity-hue system (DESIGN_COMPARISON/06 declined reviving feat* for card colour).
  *
  * Connections:
- *   Imports → —
+ *   Imports → constants/theme.ts (relLuminance only — the WCAG maths behind contrastRatio;
+ *             this file held a byte-identical private copy of it, plus of hexToRgb, until
+ *             2026-08-12. theme.ts imports nothing, so the edge is one-directional.)
  *   Used by → lib/useAppTheme.ts (which re-derives accentInk via contrastOn),
  *             lib/domainColor.ts (reads the card* tokens), lib/screenColor.ts (feat* tokens),
  *             lib/__tests__/colors.test.ts (the palette-wide contrast + identity-hue gate)
@@ -47,6 +49,7 @@
  *   - Adding a colour token? Add it to the matching list in lib/__tests__/colors.test.ts in
  *     the same edit — a token in no list is a token nothing checks.
  */
+import { relLuminance } from '@/constants/theme';
 
 export type ThemeName = 'default';
 
@@ -171,21 +174,6 @@ export interface ThemeVariant {
 }
 
 // ── Colour manipulation helpers ──────────────────────────────────────────────
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  if (h.length !== 6) return [100, 100, 100];
-  return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
-}
-
-function relLuminance(hex: string): number {
-  const lin = (c: number) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  };
-  const [r, g, b] = hexToRgb(hex);
-  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-}
 
 /**
  * Calculate WCAG contrast ratio between two hex colours.

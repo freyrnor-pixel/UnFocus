@@ -14,7 +14,8 @@
  *
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/id, lib/personColor, lib/liveSync,
- *             lib/syncService, store/useSettingsStore (back-fill source + deviceId),
+ *             lib/syncService, lib/syncRow (syncRow — the shared stamp+broadcast pair),
+ *             store/useSettingsStore (back-fill source + deviceId),
  *             store/useTaskStore (link cleanup on remove — call-time only)
  *   Used by → app/_layout.tsx (load() in the app-wide bootstrap), app/settings.tsx
  *             (the People card), app/(tabs)/plans.tsx + app/(tabs)/habits.tsx (person
@@ -35,9 +36,10 @@
  *   - `settings.childProfiles` is deliberately left in place and untouched. This repo
  *     never drops columns, and keeping it readable means a bad back-fill stays
  *     diagnosable from a backup. Nothing should READ it for person UI any more.
- *   - Every mutation goes through `syncPersonRow`/`softDelete`, exactly like
- *     store/useTaskStore.ts's `syncTaskRow` — a raw `updateRow` here would change local
- *     state without the peer ever hearing about it.
+ *   - Every mutation goes through `syncPersonRow`/`softDelete` — a raw `updateRow` here
+ *     would change local state without the peer ever hearing about it. `syncPersonRow` is
+ *     a one-line wrapper naming this store's table; the stamp+broadcast body it used to
+ *     hold is shared in lib/syncRow.ts — read that file before changing either half.
  *   - **Only edit your OWN capacity.** LWW can't tell "I corrected my number" from "I
  *     overwrote yours", so the guard is at the affordance (the UI only offers the
  *     control on the self row), the same reasoning as lib/liveSync.ts's `directed` note.
@@ -61,6 +63,7 @@ import { generateId } from '@/lib/id';
 import { paletteColorAt } from '@/lib/personColor';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
+import { syncRow } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
 // Link cleanup only, used inside remove() at call time — never at module-eval time.
 import { useTaskStore } from '@/store/useTaskStore';
@@ -134,10 +137,9 @@ const PERSON_COLUMNS: FieldMap<Person> = {
   createdAt: { col: 'created_at' },
 };
 
-/** Stamp a local edit and push it to every connected peer (mirrors useTaskStore's syncTaskRow). */
+/** Stamp a local edit and push it to every connected peer. */
 function syncPersonRow(id: string): void {
-  touchRow('people', id, useSettingsStore.getState().deviceId);
-  broadcastRow('people', id);
+  syncRow('people', id);
 }
 
 function backfillDone(): boolean {

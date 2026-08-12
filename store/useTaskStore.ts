@@ -43,7 +43,8 @@
  *
  * Edit notes:
  *   - **LAN live-sync wiring (Decision 038, app integration) — WIRED.** `add`/`update`
- *     stamp the row via lib/liveSync's touchRow then lib/syncService's broadcastRow;
+ *     stamp the row via lib/liveSync's touchRow then lib/syncService's broadcastRow —
+ *     as one call, lib/syncRow.ts's `syncRow`, which `syncTaskRow` below wraps;
  *     `remove` soft-deletes (tombstone) instead of a hard DELETE so a peer sees the
  *     delete instead of a stale copy reviving it. `load()` filters `deleted_at IS
  *     NULL`. `clearAll()` (bulk local reset) is deliberately NOT broadcast — see its
@@ -168,6 +169,7 @@ import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifica
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
 import { touchRow, softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
+import { syncRow } from '@/lib/syncRow';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type TaskType = 'start-at' | 'time-box';
@@ -416,8 +418,7 @@ function syncTaskNotification(task: Task): void {
 
 /** Stamp + broadcast a local mutation (Decision 038b/038 wiring) — call after every write. */
 function syncTaskRow(id: string): void {
-  touchRow('tasks', id, useSettingsStore.getState().deviceId);
-  broadcastRow('tasks', id);
+  syncRow('tasks', id);
 }
 
 /**
