@@ -404,6 +404,14 @@ export default function HomeShoppingCard({
           {cardMenu ? <CardMenuButton cardTitle={t.shoppingTitle} {...cardMenu} /> : null}
         </View>
 
+        {/* Explainer under the header while the card is EMPTY (2026-08-12). It was a two-line
+            bullet list wedged between the week pager and the type line, then one short line at
+            the foot (2026-07-30); it is that same one line, back above the pager — which is a
+            CONTROL, not a sub-header, so the explanation still leads the card. It returns to
+            the foot as soon as there is content; see components/CardHintNote.tsx's placement
+            note. */}
+        {totalCount === 0 ? <CardHintNote text={t.starters.shopping.text} placement="head" /> : null}
+
         {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}
         <View style={styles.weekRow}>
           <IconButton
@@ -514,11 +522,6 @@ export default function HomeShoppingCard({
           total={listRows.length}
         />
 
-        {/* Explainer at the FOOT (2026-07-30). This was a two-line bullet list ("Weekly list
-            for groceries." / "Monthly list for what the house needs.") wedged between the week
-            pager and the type line — the single biggest block of teaching on Home. It is one
-            short line now, below the content. */}
-        {totalCount === 0 ? <CardHintNote text={t.starters.shopping.text} noBorder /> : null}
       </View>
 
       <ShoppingItemSheet
@@ -567,7 +570,8 @@ const baseStyles = StyleSheet.create({
   progressBar: { marginBottom: Spacing.xs },
   paceText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
   // Still used by the "no list for this week" line; the bulb + two-bullet block it used to
-  // share styles with became a foot-of-card CardHintNote (2026-07-30).
+  // share styles with became a CardHintNote (2026-07-30 at the foot, back under the header
+  // on 2026-08-12 — see that component's placement note).
   emptyExplainer: {
     fontSize: FontSize.sm,
     lineHeight: 20,

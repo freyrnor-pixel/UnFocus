@@ -36,7 +36,9 @@
  *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
  *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx (`collapsible`), app/goals.tsx (`collapsible`),
- *             components/MedicineTrayCard.tsx (compact — no watermark; components/GoalsEditor.tsx
+ *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
+ *             day's example row, and deliberately NO `text`: that card's explainer is its own
+ *             head-mounted components/CardHintNote; components/GoalsEditor.tsx
  *             renders the same empty-state copy + starter chips inline WITHOUT mounting this
  *             component — it's embedded in another card's Surface, and this one always draws
  *             its own, so a second Surface would read as a nested panel; see that file's Edit
@@ -100,7 +102,9 @@
  *     row in the list it is an example of** — un-wrapped, in that list's own slot, at the same
  *     width as a real row and as the composer that would create one.
  *     Callers: app/(tabs)/health.tsx, app/(tabs)/habits.tsx, components/GoalsEditor.tsx (which
- *     hand-rolled this block before the prop existed). components/EnergyMeter.tsx deliberately
+ *     hand-rolled this block before the prop existed), components/PlanTaskCard.tsx (2026-08-12
+ *     — the card the shape was taken FROM, which now wraps its own bare example so it gets the
+ *     collapse trigger every other surface has). components/EnergyMeter.tsx deliberately
  *     does NOT use it — its card REPLACES the meter rather than annotating a list, so it is
  *     the content of that slot and keeps its own Surface. Pinned by
  *     lib/__tests__/exampleRows.test.ts.
@@ -119,12 +123,15 @@
  *   - `children` is the optional action slot (Habits/Goals put their starter chips there).
  *     Keep it to lightweight chips — this is an explainer, not a form.
  *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
- *     "EXAMPLE" caption. Its only caller (components/MedicineTrayCard) passes `text` alone,
- *     which is the intended use — a compact card annotating one small surface shouldn't be
- *     carrying example rows in the first place. Energy's compact card, the other original
- *     caller, became a permanent inline hint in its own card instead (see EnergyMeter's
- *     header). List surfaces (Habits/Plans/Shopping/Health) keep the default size. `compact`
- *     and `collapsible` have never been combined by a caller — untested together.
+ *     "EXAMPLE" caption. **As of 2026-08-12 it is CALLER-LESS** — components/MedicineTrayCard,
+ *     its last user, now mounts components/CardHintNote instead, so that all five empty-state
+ *     explainers are one component in one position (see that component's placement note).
+ *     Energy's compact card, the other original caller, had already become a permanent inline
+ *     hint in its own card (see EnergyMeter's header). Left in place rather than deleted, the
+ *     same treatment `dismissKey` above gets: it costs nothing, and a future surface wanting a
+ *     note-sized card still has it. `compact` and `collapsible` have never been combined by a
+ *     caller — untested together. List surfaces (Habits/Plans/Shopping/Health) keep the
+ *     default size.
  *   - **The watermark is a growth-stage tree as of 2026-08-04** (design comparison task 01).
  *     It was `empty-branch` tinted in `theme.border` — a bare, leafless line, which was the
  *     one place the app's art read as absence rather than potential. The design system's rule
