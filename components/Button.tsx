@@ -34,6 +34,24 @@
  *     width/margin has to size the whole key, or the base sticks out past the cap), and
  *     `ghost` opts out entirely — it's text with no fill, so it has no cap to sink and keeps
  *     the historical scale-bounce.
+ *   - **Three states, and only PRIMARY/DANGER pop out (2026-08-12)**. The brief was "flat,
+ *     popped out, pressed in", and the three now map onto the variants like this:
+ *       · **Popped out** — `primary`/`danger` (`isRaised`): the `keyBase` housing AND the
+ *         `depth="raised"` cast shadow, exactly as before. Nothing about the resting look
+ *         changed; this pass only decided who gets it.
+ *       · **Flat** — `secondary`, as of this change: no housing, no shadow, flush with the
+ *         card. A soft-tint fill that is elevated competes with the one action a screen is
+ *         actually asking for. It keeps its full `travel`, so it is flat, not inert.
+ *       · **Pressed in** — every filled variant sinks by `travel`, its shadow collapses to
+ *         nothing, and now its FACE DARKENS by `PRESS_DARKEN` (PressableScale's `pressFill`,
+ *         driven off the same shared value as the sink so the two can't disagree).
+ *     The darken is the only genuinely new ingredient; the elevation numbers are still the
+ *     app's own tokens (`getElevation('raised')`, `Travel.*`), not per-button literals, so a
+ *     Button, an IconButton and an AddFAB still read as the same material.
+ *   - **`secondary` lost `travel` px of layout height** with its housing (the wrapper's
+ *     `paddingBottom` reserved the base's sliver). Intended — "flush with the UI" — and
+ *     harmless because screens space their cards with `SCREEN_GAP`. Worth knowing if a
+ *     tightly-packed row of secondary buttons ever looks 4px off from a mock.
  *   - **There is no glass path any more (card design reset, 2026-08-05, brief point 6: "white
  *     fill, full opacity for all cards and buttons").** Every variant is a solid, fully opaque
  *     fill with a border and the cap-on-base sink. Deleted with it: the transparent pressable,
@@ -41,10 +59,13 @@
  *     wash, and the `settings.glassSurfaces` read that chose between them. The same pass
  *     removed the equivalent layers from components/Surface.tsx, so a button and a card are
  *     once again made of the same material — which is now no material at all.
- *   - **Point 7 of that brief is "button states stay as designed now", and they did.** The
- *     variant fills, the per-variant `scaleTo`, the travel by size, the `depth="raised"`, the
- *     0.45 disabled opacity and the flat face are all exactly as they were. Translucency was
- *     the only thing removed. Don't read the reset as licence to restyle the states.
+ *   - **Point 7 of that brief was "button states stay as designed now", and it held until
+ *     2026-08-12** — that pass removed only translucency. The tactile-states change above is
+ *     the first deliberate exception, made on instruction, and it is a narrow one: it adds the
+ *     press-darken and moves `secondary` to flat. Everything else point 7 protected is still
+ *     untouched — the variant fills, the per-variant `scaleTo`, the travel by size, the 0.45
+ *     disabled opacity, the flat face, and `depth="raised"` on the variants that keep it.
+ *     Still don't read the card reset as licence to restyle the states generally.
  *   - **Every variant has a border.** A FILLED variant's edge is `filledEdge`, derived from
  *     its own fill — a green screen-hue edge on a blue primary would read as a mistake.
  *     `ghost` has no fill to derive from, so it takes the screen's hue at the BUTTON rung
@@ -56,9 +77,10 @@
  *     none of which touch the face. This used to call `getMaterialStyle` for the whole glass
  *     recipe and consume exactly one field of it; since 2026-08-08 it calls `filledEdge`, which
  *     IS that field, and the rest of the recipe is deleted.
- *   - Purposeful Depth System (2026-07-14): primary/secondary/danger pass PressableScale's
+ *   - Purposeful Depth System (2026-07-14): primary/danger pass PressableScale's
  *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
- *     flat/unset since it has no fill to cast a shadow from.
+ *     flat/unset since it has no fill to cast a shadow from. **`secondary` joined `ghost` on
+ *     the flat side on 2026-08-12** — see the three-states note above.
  *   - **`emphasis` (2026-07-22, reserve-only)**: opt-in breathing `GlowPulse` halo behind the
  *     PRIMARY variant to draw the eye to the single main action on a screen (reduces "which
  *     button" load). Wrapped in a relative View so the halo isn't clipped by the pill.
@@ -99,6 +121,13 @@ const SIZE_FONT: Record<Size, number> = { sm: FontSize.sm, md: FontSize.md, lg: 
 const SIZE_PADDING: Record<Size, [number, number]> = { sm: [8, 16], md: [12, 22], lg: [15, 28] };
 /** Cap travel per size — design-system v6 `handoff/BUTTONS.md`'s "Travel by size" table. */
 const SIZE_TRAVEL: Record<Size, number> = { sm: Travel.sm, md: Travel.md, lg: Travel.lg };
+/**
+ * How far a filled face darkens while it is held down (2026-08-12). Deliberately BETWEEN the
+ * cap and its `keyBase` (`darken(fill, 0.22)`): the face moves toward the shade of the base it
+ * is landing on, and never past it. A value at or above 0.22 would make the pressed cap darker
+ * than the housing it sits in, which reads as a hole rather than a key.
+ */
+const PRESS_DARKEN = 0.1;
 
 export default function Button({
   label,
@@ -167,6 +196,29 @@ export default function Button({
   const isKeyShape = variant !== 'ghost' && buttonShape === 'key';
   const travel = isKeyShape ? SIZE_TRAVEL[size] : undefined;
 
+  // **Which variants POP OUT at rest (2026-08-12).** `primary` and `danger` are the actions a
+  // screen wants you to find, so they keep the whole raised kit: the `keyBase` housing, the
+  // sliver of base showing under the cap, and a real cast shadow. `secondary` is now FLUSH with
+  // the card it sits on — a soft-tint fill that is elevated competes with the one action the
+  // screen is actually asking for — and `ghost` never had either. Flat does not mean inert:
+  // a flat variant still sinks its full `travel` and still darkens, so losing the elevation
+  // costs it none of the feedback. It sinks against the card behind it, which is what
+  // PressableScale prescribes for a caller with no base of its own.
+  const isRaised = !unfilled && (variant === 'primary' || variant === 'danger');
+  // Only a raised variant gets the cap-on-base housing; a flat one is the bare pressable, so
+  // it also stops reserving the `paddingBottom: travel` sliver that the base showed through.
+  const housed = !!travel && isRaised;
+
+  // The face darkens while held (PressableScale's `pressFill`, on the same shared value as the
+  // sink). `ghost` and the lab's unfilled shapes have `bg: 'transparent'` — there is nothing to
+  // darken, and they keep the scale bounce as their own feedback. Gated on `isKeyShape` too,
+  // since PressableScale only interpolates the fill in key mode: without that guard the lab's
+  // `filled` shape would drop its static fill here and get no animated one back.
+  const pressFill =
+    isKeyShape && colors.bg !== 'transparent'
+      ? { rest: colors.bg, pressed: darken(colors.bg, PRESS_DARKEN) }
+      : undefined;
+
   const pressable = (
     <PressableScale
       onPress={onPress}
@@ -177,7 +229,8 @@ export default function Button({
       press={isKeyShape ? 'key' : 'scale'}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
       travel={travel}
-      depth={variant === 'ghost' ? undefined : 'raised'}
+      pressFill={pressFill}
+      depth={isRaised ? 'raised' : undefined}
       style={[
         styles.base,
         {
@@ -195,7 +248,10 @@ export default function Button({
           // or above the floor at every size, and the knob still moves fields, rows and the
           // checkbox, which is where a too-small target actually bites.
           minHeight: SIZE_HEIGHT[size],
-          backgroundColor: colors.bg,
+          // With `pressFill`, PressableScale OWNS backgroundColor — it interpolates the face
+          // from this colour toward its darkened self as the cap sinks — and its contract says
+          // not to set both. Without it (ghost, the lab's non-key shapes) the fill stays here.
+          backgroundColor: pressFill ? undefined : colors.bg,
           opacity: disabled ? 0.45 : 1,
         },
         { paddingVertical: vertPad, paddingHorizontal: horizPad },
@@ -220,9 +276,11 @@ export default function Button({
         variant === 'ghost' && !unfilled
           ? { borderWidth: edgeWidth, borderColor: computeBorderTone(buttonHue, isDark, 'button', labShape.borderRampStrength) }
           : null,
-        // With travel, `style` goes on the cap+base wrapper instead — a caller's margin/width
-        // must size the whole key, not just the cap, or the base would stick out past it.
-        travel ? null : style,
+        // With the housing, `style` goes on the cap+base wrapper instead — a caller's
+        // margin/width must size the whole key, not just the cap, or the base would stick out
+        // past it. A flat variant has no wrapper, so `style` belongs here; keying this off
+        // `travel` rather than `housed` would silently drop a secondary button's width.
+        housed ? null : style,
       ]}
     >
       {inner}
@@ -234,7 +292,8 @@ export default function Button({
   // cap, `travel` px taller, so at rest you see that sliver of base under the button and on
   // press the cap closes the gap and lands on it. A drop shadow can't do this: a shadow says
   // "floating above the page", a base says "this is a key in a housing".
-  const button = travel ? (
+  // Raised variants only since 2026-08-12 — `secondary` is flat and renders the bare cap.
+  const button = housed ? (
     <View style={[styles.keyWrap, { paddingBottom: travel }, style]}>
       <View
         style={[

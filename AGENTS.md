@@ -291,6 +291,36 @@ file owns which token.)
     `onPressOut` past `onPress` for taps under 130ms, so on a slower tap the release read a
     stale `sunk`, animated the cap UP, and the effect animated it back down. The release reads
     `sunkRef` a tick later now. Pinned by `lib/__tests__/chromeRhythm.test.ts`.
+  - **A button has THREE states, and only the top two variants pop out (2026-08-12).** From a
+    brief asking for "flat, popped out, pressed in". Almost all of it was already shipped — the
+    resting elevation (`depth="raised"` + the `keyBase` housing), the sink, and the shadow
+    collapsing to nothing at the bottom of the travel — so this pass added the one missing
+    ingredient and reassigned who wears which state:
+    - **The face darkens while held**, by `PRESS_DARKEN` (0.1) in `components/Button.tsx`, via
+      PressableScale's new `pressFill={{ rest, pressed }}`. It is interpolated off the **same
+      `press` shared value as the sink**, so the colour and the travel are one gesture that
+      cannot disagree, and reduce-motion needs no branch (that value is assigned instantly).
+      The amount is deliberately *between* the cap and its `keyBase` (`darken(fill, 0.22)`):
+      the face moves toward the shade of the base it is landing on, never past it, or the
+      pressed cap reads as a hole rather than a key. **This is not the opacity dip the
+      2026-08-10 pass rejected** — a dim reads as disabled; a darker fill reads as a surface
+      that has moved away from the light. A caller passing `pressFill` must not also set
+      `backgroundColor` in `style`; PressableScale owns it, same contract as `depth`.
+    - **`secondary` is FLAT now** — no `keyBase`, no cast shadow, flush with the card. A
+      soft-tint fill that is elevated competes with the one action a screen is asking for.
+      It keeps its full `travel` and its darken, so flat is not inert. Side effect worth
+      knowing: it lost the wrapper's `paddingBottom: travel`, so a secondary button is 3–5px
+      shorter in layout than it was. `primary`/`danger` keep the whole raised kit unchanged.
+    - **The app's tokens won over the brief's literals.** The brief specified
+      `shadowOffset {0,4}` / opacity 0.15 / radius 4 and a flat `translateY: 2`; the shipped
+      values stay `getElevation('raised')` and `Travel.*`, because both are shared with
+      `Surface`, `IconButton`, `AddFAB` and `BottomNav` and `Travel` is deliberately per-size.
+      Implement the *states*, not the numbers, or a Button stops being the same material as
+      an IconButton beside it.
+    - `ghost` was left alone: no fill to darken, no base to sink onto, so it keeps its
+      documented `press="scale"` opt-out. Don't "finish the job" on it.
+    Pinned by `lib/__tests__/chromeRhythm.test.ts` §4 — a press state is invisible in a
+    screenshot, and the web preview runs worklets on the JS thread, so it cannot see one either.
 - **One rhythm — the 2026-08-08 spacing pass** (`SCREEN_GAP` in `constants/theme.ts`, pinned by
   `lib/__tests__/screenRhythm.test.ts`). From a user report on the To-do and Habits tabs:
   *"the spacing between different elements, and the structure — it's not clear how things are

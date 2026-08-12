@@ -11,6 +11,11 @@
  *      of that number is exactly how the 2026-07-24 pill-inset bug happened.
  *   3. **Nothing peeks past the chrome.** `NAV_PEEK` is gone, the bottom reserve is the bar's
  *      full painted footprint, and ScreenScaffold clips its scroll viewport.
+ *   4. **A Button has three states, and the right variants wear them** (added 2026-08-12).
+ *      Popped out = primary/danger only, flat = secondary, pressed in = sink + shadow to zero
+ *      + a face that darkens toward its own base. Same reason as 1: a press state is invisible
+ *      in a screenshot, and the web preview runs worklets on the JS thread so it can't see one
+ *      either — a scan plus the darken arithmetic is the only guard that actually holds.
  *
  * Precedent for reading source in a test: lib/__tests__/cardLayout.test.ts, and the "(b) Token
  * use" half of lib/__tests__/designTokens.test.ts. Same reasoning as both — the shape tests
@@ -18,6 +23,7 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { darken } from '@/constants/theme';
 
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
@@ -314,5 +320,76 @@ describe('ScreenScaffold — the clipped viewport matches the floating chrome', 
     // the app gets narrower.
     expect(source).toMatch(/const viewportBleed = \{ marginHorizontal: -headerFloatH \}/);
     expect(source.match(/viewportBleed/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ── 4. Three button states ───────────────────────────────────────────────────
+
+describe('Button — flat, popped out, pressed in', () => {
+  const button = code('components/Button.tsx');
+  const pressable = code('components/PressableScale.tsx');
+
+  it('darkens a filled face toward its own base, never past it', () => {
+    // Pure arithmetic, so it can be asserted for real rather than scanned. The pressed face
+    // has to land BETWEEN the resting cap and the keyBase it is sinking onto: darker than the
+    // cap (or the press is invisible), lighter than the housing (or the cap reads as a hole
+    // punched in the button rather than a key that has gone down).
+    const fill = '#235EE0'; // theme.accent, light mode
+    const pressed = darken(fill, 0.1); // PRESS_DARKEN
+    const base = darken(fill, 0.22); // the keyBase slab
+    const lum = (hex: string) =>
+      [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
+    expect(lum(pressed)).toBeLessThan(lum(fill));
+    expect(lum(pressed)).toBeGreaterThan(lum(base));
+  });
+
+  it('keeps PRESS_DARKEN under the keyBase amount', () => {
+    // The relationship above stated as the constant it actually depends on, so raising
+    // PRESS_DARKEN past the housing fails here with the reason attached.
+    const amount = Number(button.match(/const PRESS_DARKEN = ([\d.]+);/)![1]);
+    expect(amount).toBeGreaterThan(0);
+    expect(amount).toBeLessThan(0.22);
+  });
+
+  it('hands the fill to PressableScale rather than styling it statically', () => {
+    // Both halves, because either alone is a broken button: the prop without dropping the
+    // static fill means two owners for backgroundColor, and dropping the static fill without
+    // the prop means a transparent button.
+    expect(button).toMatch(/pressFill=\{pressFill\}/);
+    expect(button).toMatch(/backgroundColor: pressFill \? undefined : colors\.bg/);
+    // …and the guard that keeps the lab's non-key shapes filled: PressableScale only
+    // interpolates in key mode, so a non-key shape must keep the static fill.
+    expect(button).toMatch(/isKeyShape && colors\.bg !== 'transparent'/);
+  });
+
+  it('rides the same shared value as the sink, so colour and travel cannot disagree', () => {
+    expect(pressable).toMatch(/interpolateColor\(press\.value, \[0, 1\], \[fillRest, fillPressed\]\)/);
+    // Key mode only — in scale mode `press.value` never moves, so an interpolation off it
+    // would pin the face at its resting colour and quietly do nothing.
+    expect(pressable).toMatch(/isKey && fillRest && fillPressed/);
+  });
+
+  it('pops out primary and danger only — secondary is flat', () => {
+    // The 2026-08-12 call. A soft-tint fill that is elevated competes with the one action the
+    // screen is asking for, so `secondary` keeps the sink and the darken but loses the shadow
+    // and the housing. Both halves are gated on the same flag so they can't drift apart.
+    expect(button).toMatch(
+      /const isRaised = !unfilled && \(variant === 'primary' \|\| variant === 'danger'\)/
+    );
+    expect(button).toMatch(/depth=\{isRaised \? 'raised' : undefined\}/);
+    expect(button).toMatch(/const housed = !!travel && isRaised/);
+    expect(button).toMatch(/const button = housed \?/);
+  });
+
+  it('still sinks a flat variant its full travel', () => {
+    // Flat is not inert: `travel` follows the shape, not the elevation. If this ever becomes
+    // `isRaised ? SIZE_TRAVEL[size] : undefined`, a secondary button stops moving entirely.
+    expect(button).toMatch(/const travel = isKeyShape \? SIZE_TRAVEL\[size\] : undefined/);
+  });
+
+  it('gives a flat variant back the caller style the housing used to carry', () => {
+    // `style` moves to the wrapper only when there IS a wrapper. Keying this off `travel`
+    // (as it was) would drop every secondary button's caller-supplied width and margin.
+    expect(button).toMatch(/housed \? null : style/);
   });
 });
