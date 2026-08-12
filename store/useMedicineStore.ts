@@ -8,7 +8,9 @@
  * per-tray, not per-medicine, and are re-synced from here on every mutation.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr, dateStr, nowHHMM —
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update — this store
+ *             had no in-memory guard on update() until 2026-08-12, so a stale id re-armed
+ *             every tray reminder for nothing), lib/id, lib/date (todayStr, dateStr, nowHHMM —
  *             the last of these lived here privately until 2026-08-02 and was promoted
  *             to lib/date when the day log needed a second caller; this header always
  *             claimed the import, so it is now simply true),
@@ -50,13 +52,13 @@ import {
   FieldMap,
   loadAll,
   insertRow,
-  updateRow,
   rowValues,
   readStr,
   readInt,
   readBool,
   readJson,
 } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, nowHHMM, todayStr } from '@/lib/date';
 import { TrayId, toTrayIds, isDoseTaken, medicinesForTray } from '@/lib/medicineSchedule';
@@ -222,8 +224,11 @@ export const useMedicineStore = create<MedicineStore>((set, get) => ({
   update(id, patch) {
     // Same invariant as add(): switching a medicine to as-needed clears its trays.
     const effective = patch.asNeeded === true ? { ...patch, trays: [] as TrayId[] } : patch;
-    updateRow('medicines', rowValues(effective, MEDICINE_FIELDS), 'id = ?', [id]);
-    set((s) => ({ medicines: s.medicines.map((m) => (m.id === id ? { ...m, ...effective } : m)) }));
+    const next = updateById('medicines', MEDICINE_FIELDS, get().medicines, id, effective);
+    // No row, no re-sync: syncTrayReminders() cancels and re-arms all four tray
+    // notifications, which is not something to do on behalf of an id we don't hold.
+    if (!next) return;
+    set((s) => ({ medicines: replaceById(s.medicines, next) }));
     get().syncTrayReminders();
     scheduleWidgetSync();
   },

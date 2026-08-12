@@ -7,7 +7,9 @@
  * than drifting free text. Log is ordered newest-first.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/symptomSeed, lib/typeahead
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update/delete —
+ *             this store had no in-memory guard on update() until 2026-08-12), lib/id,
+ *             lib/symptomSeed, lib/typeahead
  *             (byPrefixThenName — the suggestion ordering, shared with useCatalogStore),
  *             lib/episodes (EpisodeState +
  *             toEpisodeState — the ongoing-episode state column), lib/widgets/sync (scheduleWidgetSync
@@ -65,7 +67,8 @@
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
-import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt } from '@/lib/dataAccess';
+import { Row, FieldMap, loadAll, insertRow, readStr, readInt } from '@/lib/dataAccess';
+import { deleteById, replaceById, updateById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { byPrefixThenName } from '@/lib/typeahead';
 import { SYMPTOM_SEED } from '@/lib/symptomSeed';
@@ -268,14 +271,15 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
   },
 
   update(id, patch) {
-    updateRow('health_logs', rowValues(patch, HEALTH_LOG_FIELDS), 'id = ?', [id]);
-    set((s) => ({ logs: s.logs.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+    const next = updateById('health_logs', HEALTH_LOG_FIELDS, get().logs, id, patch);
+    if (!next) return;
+    set((s) => ({ logs: replaceById(s.logs, next) }));
     scheduleWidgetSync();
   },
 
   remove(id) {
-    db.runSync('DELETE FROM health_logs WHERE id = ?', [id]);
-    set((s) => ({ logs: s.logs.filter((l) => l.id !== id) }));
+    if (!deleteById('health_logs', get().logs, id)) return;
+    set((s) => ({ logs: withoutId(s.logs, id) }));
     scheduleWidgetSync();
   },
 

@@ -10,7 +10,8 @@
  * when its triggers fire.
  *
  * Connections:
- *   Imports → components/AppModal, lib/db, lib/dataAccess, lib/i18n, lib/id, store/useSettingsStore, store/useShoppingStore
+ *   Imports → components/AppModal, lib/dataAccess, lib/storeCrud (the guarded by-id delete),
+ *             lib/i18n, lib/id, store/useSettingsStore, store/useShoppingStore
  *   Used by → app/automations.tsx, app/shopping.tsx, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns SQLite table ifttt_rules
  *
@@ -25,8 +26,8 @@
  *     automations.tsx picker UI AND the call site that should fire them.
  */
 import { create } from 'zustand';
-import db from '@/lib/db';
 import { Row, loadAll, insertRow, updateRow, readStr, readInt, readBool, readJson } from '@/lib/dataAccess';
+import { deleteById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { getTranslations } from '@/lib/i18n';
 import { showAppModal } from '@/components/AppModal';
@@ -120,8 +121,8 @@ export const useAutomationStore = create<AutomationStore>((set, get) => ({
   },
 
   remove(id) {
-    db.runSync('DELETE FROM ifttt_rules WHERE id = ?', [id]);
-    set((s) => ({ rules: s.rules.filter((r) => r.id !== id) }));
+    if (!deleteById('ifttt_rules', get().rules, id)) return;
+    set((s) => ({ rules: withoutId(s.rules, id) }));
   },
 
   fireTrigger(type) {

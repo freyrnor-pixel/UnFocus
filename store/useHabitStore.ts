@@ -10,7 +10,8 @@
  * back-compat, but new habits are written with kind='neutral' and empty step fields.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/habitNotifications, store/useSettingsStore,
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *             lib/id, lib/habitNotifications, store/useSettingsStore,
  *             store/useGoalStore (registerProgress on increment when a habit has a goalId),
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/increment/decrement/markRestDay, so live widgets don't wait for
@@ -82,6 +83,7 @@ import {
   readBool,
   readJson,
 } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, nowHHMM } from '@/lib/date';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -351,12 +353,10 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const habit = get().habits.find((h) => h.id === id);
-    if (!habit) return;
-    const next = { ...habit, ...patch };
-    updateRow('habits', rowValues(patch, HABIT_COLUMNS), 'id = ?', [id]);
+    const next = updateById('habits', HABIT_COLUMNS, get().habits, id, patch);
+    if (!next) return;
     set((s) => ({
-      habits: s.habits.map((h) => (h.id === id ? next : h)).sort((a, b) => a.routineOrder - b.routineOrder),
+      habits: replaceById(s.habits, next).sort((a, b) => a.routineOrder - b.routineOrder),
     }));
     syncHabitReminder(next);
     scheduleWidgetSync();

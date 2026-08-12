@@ -6,7 +6,7 @@
  * `direction` and the sender's name. Backs the shared screen and share modal.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/dataAccess, lib/storeCrud (the guarded by-id delete), lib/id
  *   Used by → app/share-modal.tsx, app/shared.tsx, app/(tabs)/index.tsx (Home preview via
  *             components/HomeSharedCard.tsx), components/SharedRequestsSection.tsx,
  *             components/SharedTasksSection.tsx (Tasks screen merged Shared section),
@@ -28,8 +28,8 @@
  *     (which only reads shoppingItems/tasks + the toggle/remove actions) keeps compiling.
  */
 import { create } from 'zustand';
-import db from '@/lib/db';
 import { Row, loadAll, insertRow, updateRow, readStr, readBool, readEnum, logDbError, isConstraintError } from '@/lib/dataAccess';
+import { deleteById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 
 export type SharedDirection = 'in' | 'out';
@@ -173,12 +173,12 @@ export const useSharedStore = create<SharedStore>((set, get) => ({
   },
 
   removeTask(id) {
-    db.runSync('DELETE FROM shared_tasks WHERE id = ?', [id]);
-    set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) }));
+    if (!deleteById('shared_tasks', get().tasks, id)) return;
+    set((s) => ({ tasks: withoutId(s.tasks, id) }));
   },
 
   removeShopping(id) {
-    db.runSync('DELETE FROM shared_shopping_items WHERE id = ?', [id]);
-    set((s) => ({ shoppingItems: s.shoppingItems.filter((i) => i.id !== id) }));
+    if (!deleteById('shared_shopping_items', get().shoppingItems, id)) return;
+    set((s) => ({ shoppingItems: withoutId(s.shoppingItems, id) }));
   },
 }));

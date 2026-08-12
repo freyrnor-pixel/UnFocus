@@ -35,7 +35,8 @@
  *     wiring is the future shopping-row drag session's Phase-6 concern, not here.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/liveSync, lib/syncService,
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *             lib/id, lib/liveSync, lib/syncService,
  *             lib/syncRow (syncRow/syncRows — the shared stamp+broadcast pair),
  *             store/useSettingsStore,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
@@ -142,6 +143,7 @@ import {
   readInt,
   readBool,
 } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
@@ -542,11 +544,9 @@ export const useShoppingStore = create<ShoppingStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const item = get().items.find((i) => i.id === id);
-    if (!item) return;
-    const next = { ...item, ...patch };
-    updateRow('shopping_items', rowValues(patch, ITEM_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ items: s.items.map((i) => (i.id === id ? next : i)) }));
+    const next = updateById('shopping_items', ITEM_COLUMNS, get().items, id, patch);
+    if (!next) return;
+    set((s) => ({ items: replaceById(s.items, next) }));
     syncItemRow(id);
     scheduleWidgetSync();
   },

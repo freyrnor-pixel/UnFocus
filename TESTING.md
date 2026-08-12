@@ -53,10 +53,18 @@ getFirstSync, runSync, execSync, withTransactionSync } }))`. Most store methods
 - **Run only what changed**: `scripts/test-changed.sh` (wraps `jest --findRelatedTests`
   over the git diff). Full suite: `scripts/test-changed.sh --all` or `npm test`.
 - Test files live in `__tests__/` and `lib/__tests__/`.
+- **Assert the no-op, not just the change.** A guard whose failure mode is "an extra write
+  that happens to change nothing" leaves no wrong value for a normal assertion to catch —
+  which is how two stores went their whole lives without the one every other store had (see
+  AGENTS.md's "8 of 10 sites is a habit, not an invariant" gotcha). Pin it from the other
+  side: the collection comes back as the **same array reference** (a new array is a
+  re-render), the mocked `db.runSync` was not called, and the action's side effects
+  (`scheduleWidgetSync`, a notification scheduler) did NOT fire.
+  `__tests__/storeUpdateGuard.test.ts` is the worked example.
 
 ## Where coverage is strong vs. thin
 
-**Covered** — the pure helpers (`date`, `time`, `dataAccess`, `receipt`, `domainColor`,
+**Covered** — the pure helpers (`date`, `time`, `dataAccess`, `storeCrud`, `receipt`, `domainColor`,
 `feedbackMail`, `hmac`, `liveSync`, `share`, `shoppingGroups`), the notification
 schedulers (`reminders`, `taskNotifications`, `habitNotifications`, quiet-hours math),
 the task recurrence resolver (`taskOccursOn`), and the highest-risk store paths

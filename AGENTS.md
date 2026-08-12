@@ -67,6 +67,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations array | Runs once on upgrade; never drop or recreate tables |
 | Stores read/write rows via `lib/dataAccess.ts` (`loadFirst`/`loadAll`/`updateRow` + `FieldMap`) | Used by **all 21** stores — there is no outlier (this line said "13 of 14" until 2026-08-12; both halves were stale). `useSettingsStore` is the odd shape rather than the exception: one row, so `loadFirst` + partial `updateRow` and no `insertRow`/`add`/`remove`. Don't hand-roll row mapping in a new store |
+| **A by-id `update`/`remove` goes through `lib/storeCrud.ts`** (`updateById`/`deleteById` + `replaceById`/`withoutId`) | One rung above dataAccess: the store's own shape, an array of rows with a string id mirrored into SQLite. The guard is why it's shared, not the lines — `update(id, patch)` must be a **complete** no-op for an id the store doesn't hold, and 2 of the 10 hand-rolled copies never checked, so a stale id still re-rendered every subscriber and still ran the action's tail (for medicines, a cancel-and-re-arm of all four tray reminders). Hard deletes only — tombstones and cascading deletes stay explicit. `__tests__/storeUpdateGuard.test.ts` + `lib/__tests__/storeCrud.test.ts` |
 | **Any screen or visual change is checked against `DESIGN_RULES.md`** | 25 numbered invariants (spacing, placement & order, colour, hierarchy, tap targets, motion, copy tone). Three of them are enforced in CI: tap targets/motion tokens (`lib/__tests__/designTokens.test.ts`), palette contrast (`colors.test.ts`), copy tone (`copyTone.test.ts`). **Eight rules have open conflicts with shipped decisions and are NOT binding yet** — read the audit before "fixing" one: `DESIGN_RULES_AUDIT.md`. Tap targets go through `MIN_TAP_TARGET`/`HitSlop`, motion through `Duration.*` — never a bare `48`/`44`/`hitSlop: 8`/`duration: 220`. **`MIN_TAP_TARGET` is 48 as of 2026-08-08** (Material Design 3, up from WCAG's 44 — the one thing taken from MD3; its *look* is deliberately not adopted). `lib/designLab.ts`'s `MIN_TAP_TARGET_FLOOR` stays 44 on purpose — the accessibility floor the lab may tune down to, not the app's default |
 | Copy tone is `DESIGN_RULES.md` §7 (rules 22–25); `VOICE.md` records the ONE deliberate exception | The day log's empty state is the app's only first-person line. `VOICE.md` says why it is allowed, and why there is not a second — read it before "correcting" that string, and before adding any first-person copy of your own |
 | **Every destructive confirm goes through `confirmDestructive()`** (`components/AppModal.tsx`) | A delete/reset/restore dialog is Cancel + one red button, `warning()` on open and `heavy()` on confirm (ANIMATION_GUIDELINES.md §5). It was hand-rolled at 16 sites until 2026-08-12 and the haptics had drifted at 13 of them — invisible to tsc, to a screenshot and to the web preview, which has no haptics at all. Not for a ⋯ menu that happens to contain a red row, and not for a choice whose red button is one of two ways forward (Shopping's Save-or-discard); `lib/__tests__/destructiveConfirm.test.ts` tells them apart by button COUNT and names both exceptions |
@@ -1560,6 +1561,25 @@ Two things there are worth knowing before editing it:
   `TABLE_COLUMNS` in `lib/liveSync.ts`) rather than the prose. This is also why a stress-
   testing pass is worth doing periodically even with a green test suite: the suite proves
   the code matches its own tests, not that either matches reality.
+- **⚠️ A shape repeated at 8 of 10 sites is a HABIT, not an invariant — and the two sites
+  that skip it look identical to the eight that don't (2026-08-12, found while surveying for
+  the de-duplication pass, fixed in phase 3).** Every store's `update(id, patch)` opened by
+  looking the id up in its own array and returning if it wasn't there. `useHealthStore` and
+  `useMedicineStore` never did, from the day each was written. Nothing pointed at it: the SQL
+  is a no-op either way — an `UPDATE … WHERE id = ?` that matches no row changes nothing —
+  so there was no wrong value to notice, no failing test, and no visible difference at the
+  call site. The cost was everything *around* the write: `set()` got a freshly `.map()`ped
+  array, so every subscriber re-rendered for a change that did not happen, and the action's
+  tail ran regardless — `scheduleWidgetSync()` for both, plus `syncTrayReminders()` for
+  medicines, which cancels and re-arms all four tray notifications through the path
+  `lib/medicineNotifications.ts` warns can un-schedule what it just armed. **Two general
+  lessons.** (1) When surveying duplicated code, diff the copies against each other before
+  sharing them — the *odd one out* is the finding, and it is invisible while you are reading
+  any single copy. (2) A guard whose failure mode is "a no-op that costs nothing visible"
+  will not be missed by a test suite; it has to be pinned deliberately, which is why
+  `__tests__/storeUpdateGuard.test.ts` asserts the collection comes back as the same array
+  **reference** and that the mocked side effects did NOT fire. Both now live inside
+  `lib/storeCrud.ts`, where they can't be left out.
 - **⚠️ Background HTTP servers that inherit stdout hang the whole shell/tool call — this is why "the task just keeps running" (root-caused 2026-07-27).**
   `npm run preview` used to be `npm run preview:build && (npm run preview:serve &) && sleep 1 && node scripts/preview.mjs`.
   `(cmd &)` backgrounds `serve-web.mjs` — a static HTTP server that runs forever — but does

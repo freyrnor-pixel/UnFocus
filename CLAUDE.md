@@ -63,7 +63,7 @@ see AGENTS.md.)
 | Date format always `YYYY-MM-DD` | Used as keys throughout stores |
 | SQLite file: `unfocus.db` (in `lib/db.ts`) | Fixed name for device storage |
 | New DB columns: `ALTER TABLE … ADD COLUMN` in migrations | Runs once; never drop/recreate |
-| Stores use `lib/dataAccess.ts` | 13 of 14 stores rely on this pattern |
+| Stores use `lib/dataAccess.ts` for row mapping, and `lib/storeCrud.ts` for a by-id `update`/`remove` | All 21 stores go through dataAccess (the old "13 of 14" was stale on both halves). `updateById`/`deleteById` carry the in-memory guard that two stores had silently been missing — see AGENTS.md's invariant row |
 | No bare `48` (or `44`), `hitSlop: 8`, or `duration: 220` — use `MIN_TAP_TARGET`/`HitSlop` (`constants/theme.ts`) and `Duration.*` (`constants/motion.ts`). **`MIN_TAP_TARGET` is 48 since 2026-08-08** (Material Design 3), up from 44; both literals are banned at call sites | `DESIGN_RULES.md` rules 17 + 21, guarded by `lib/__tests__/designTokens.test.ts` in CI |
 | No guilt/urgency copy in `lib/i18n.ts` — never "missed", "overdue", "forgot", "behind" | `DESIGN_RULES.md` rule 23; `lib/__tests__/copyTone.test.ts` fails the PR. A tray is "still due", never "missed" |
 | ALWAYS open a PR and merge it to `main` | Every change ends with a PR into `main` that you merge yourself — never stop at the branch, never hand the merge off. OTA (`update.yml`) fires only on push to `main` (see the "Publishing" section above + `PUBLISHING.md`) |

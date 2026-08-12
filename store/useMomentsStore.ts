@@ -8,7 +8,8 @@
  * significant at the time.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr, nowHHMM)
+ *   Imports → lib/dataAccess, lib/storeCrud (the guarded by-id delete — the DELETE this
+ *             store used to run through the raw db handle), lib/id, lib/date (todayStr, nowHHMM)
  *   Used by → lib/useDayLog.ts (reads `moments` for the day log), components/PlanTaskCard.tsx
  *             (captures via the pad type-line; deletes via a row long-press),
  *             app/day-log.tsx (earlier days)
@@ -36,8 +37,8 @@
  *     (lib/useDragReorder.ts's "a list gets a manual order only if it has no natural one").
  */
 import { create } from 'zustand';
-import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, rowValues, readStr } from '@/lib/dataAccess';
+import { deleteById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { nowHHMM, todayStr } from '@/lib/date';
 
@@ -104,8 +105,7 @@ export const useMomentsStore = create<MomentsStore>((set, get) => ({
   },
 
   remove(id) {
-    if (!get().moments.some((m) => m.id === id)) return;
-    db.runSync('DELETE FROM moments WHERE id = ?', [id]);
-    set((s) => ({ moments: s.moments.filter((m) => m.id !== id) }));
+    if (!deleteById('moments', get().moments, id)) return;
+    set((s) => ({ moments: withoutId(s.moments, id) }));
   },
 }));
