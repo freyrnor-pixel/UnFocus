@@ -12,9 +12,10 @@
  * export functions' file-system/share calls.
  *
  * Connections:
- *   Imports → lib/date (todayStr), lib/backup (SaveToDeviceResult type),
- *             expo-file-system/legacy, expo-sharing, expo-document-picker,
- *             expo-constants, react-native (Platform)
+ *   Imports → lib/date (todayStr), lib/fileExport (shareTextFile / saveTextToDevice /
+ *             SaveToDeviceResult / TextFileSpec — both export flows live there),
+ *             expo-file-system/legacy (read side only, for the upload path),
+ *             expo-document-picker, expo-constants
  *   Used by → app/settings.tsx (download + upload/preview), app/onboarding/privacy.tsx
  *             (download only — the third way to start), components/TourSpotlight.tsx
  *             (download only — the tour's closing card), lib/aiSetupApply.ts (consumes
@@ -45,20 +46,16 @@
  *     are already installed and already used elsewhere (lib/backup.ts) — these are new
  *     call sites only, not a native-surface change, so no build-gating is needed.
  */
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
-import {
-  cacheDirectory,
-  documentDirectory,
-  writeAsStringAsync,
-  readAsStringAsync,
-  EncodingType,
-  StorageAccessFramework,
-} from 'expo-file-system/legacy';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { todayStr } from '@/lib/date';
-import type { SaveToDeviceResult } from '@/lib/backup';
+import {
+  saveTextToDevice,
+  shareTextFile,
+  type SaveToDeviceResult,
+  type TextFileSpec,
+} from '@/lib/fileExport';
 
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
@@ -443,65 +440,25 @@ export async function pickAndParseAiSetupFile(): Promise<ParsedAiSetup> {
 
 const GUIDE_FILENAME = 'unfocus-ai-setup-guide';
 
-/** Writes the guide to the cache dir and opens the OS share sheet. */
+/** The one description of "the guide file", shared by both export flows below. */
+const GUIDE_FILE: TextFileSpec = {
+  basename: GUIDE_FILENAME,
+  extension: 'txt',
+  mime: 'text/plain',
+  uti: 'public.plain-text',
+  dialogTitle: 'UnFocus AI setup guide',
+};
+
+/** Writes the guide out via the OS share sheet. */
 export async function exportAiSetupGuide(): Promise<'shared' | 'unavailable'> {
-  const text = buildAiSetupGuideText();
-  const uri = `${cacheDirectory}${GUIDE_FILENAME}.txt`;
-  await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-
-  if (!(await Sharing.isAvailableAsync())) return 'unavailable';
-  await Sharing.shareAsync(uri, {
-    mimeType: 'text/plain',
-    dialogTitle: 'UnFocus AI setup guide',
-    UTI: 'public.plain-text',
-  });
-  return 'shared';
-}
-
-/** Best-effort human-readable label for a SAF directory URI, e.g. "Download". */
-function safDirectoryLabel(dirUri: string): string {
-  try {
-    const decoded = decodeURIComponent(dirUri);
-    const afterTree = decoded.split('/tree/')[1] ?? decoded;
-    return afterTree.split(':').pop() || decoded;
-  } catch {
-    return dirUri;
-  }
+  return shareTextFile(buildAiSetupGuideText(), GUIDE_FILE);
 }
 
 /**
  * Writes the guide as a real file directly to a user-visible location, instead of
  * routing through the OS share sheet — the "local save" counterpart to
- * exportAiSetupGuide(), mirroring lib/backup.ts's exportBackupToDevice() exactly.
+ * exportAiSetupGuide().
  */
 export async function exportAiSetupGuideToDevice(): Promise<SaveToDeviceResult> {
-  const text = buildAiSetupGuideText();
-
-  if (Platform.OS === 'android') {
-    const perm = await StorageAccessFramework.requestDirectoryPermissionsAsync();
-    if (!perm.granted) return { status: 'canceled' };
-    const fileUri = await StorageAccessFramework.createFileAsync(perm.directoryUri, GUIDE_FILENAME, 'text/plain');
-    await StorageAccessFramework.writeAsStringAsync(fileUri, text, { encoding: EncodingType.UTF8 });
-    return { status: 'saved', location: safDirectoryLabel(perm.directoryUri) };
-  }
-
-  if (Platform.OS === 'ios' && documentDirectory) {
-    try {
-      const uri = `${documentDirectory}${GUIDE_FILENAME}.txt`;
-      await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-      return { status: 'saved', location: 'Files → On My iPhone/iPad → UnFocus' };
-    } catch {
-      // Fall through to the share sheet below.
-    }
-  }
-
-  if (!(await Sharing.isAvailableAsync())) return { status: 'unavailable' };
-  const uri = `${cacheDirectory}${GUIDE_FILENAME}.txt`;
-  await writeAsStringAsync(uri, text, { encoding: EncodingType.UTF8 });
-  await Sharing.shareAsync(uri, {
-    mimeType: 'text/plain',
-    dialogTitle: 'UnFocus AI setup guide',
-    UTI: 'public.plain-text',
-  });
-  return { status: 'saved', location: 'the location you chose' };
+  return saveTextToDevice(buildAiSetupGuideText(), GUIDE_FILE);
 }

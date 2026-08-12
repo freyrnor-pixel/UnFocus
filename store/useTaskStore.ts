@@ -167,7 +167,7 @@ import { useGoalStore } from '@/store/useGoalStore';
 import { cancelTaskNotification } from '@/lib/notifications';
 import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifications';
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
-import { touchRow, softDelete } from '@/lib/liveSync';
+import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow } from '@/lib/syncRow';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';

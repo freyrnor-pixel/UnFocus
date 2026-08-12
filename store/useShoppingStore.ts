@@ -143,7 +143,7 @@ import {
   readBool,
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
-import { touchRow, softDelete } from '@/lib/liveSync';
+import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow, syncRows } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';

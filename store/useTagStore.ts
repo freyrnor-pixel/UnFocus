@@ -53,7 +53,7 @@ import {
 } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { findTagByName, normalizeTagName, parseTagIds, serializeTagIds } from '@/lib/tags';
-import { touchRow, softDelete } from '@/lib/liveSync';
+import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
