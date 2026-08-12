@@ -73,8 +73,9 @@
  *     row went; the explainer moved to the foot, and came back under the header on
  *     2026-08-12 for the empty state only (see CardHintNote's placement note: the 2026-07-30
  *     complaint was about teaching between a title and content the user already has).
- *     Habits exist but none are due today → the same quiet `t.noHabitsYet` one-liner
- *     habits.tsx's Today tab shows in that case, so the two surfaces never disagree.
+ *     Habits exist but none are due today → nothing renders below the header (2026-08-12
+ *     removal of the quiet `t.noHabitsYet` one-liner; habits.tsx's Today tab dropped the
+ *     same line, so the two surfaces still never disagree).
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
  *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled
@@ -432,10 +433,6 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
               ))}
             </View>
           </View>
-        ) : dueTodayHabits.length === 0 ? (
-          // Habits exist but none occur today — the same quiet one-liner habits.tsx's
-          // Today tab shows in this case.
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.noHabitsYet}</Text>
         ) : null}
 
         <PadSheet
@@ -530,7 +527,6 @@ const baseStyles = StyleSheet.create({
   // back under the header on 2026-08-12) and the read-only example row (a duplicate of
   // chip #1) is gone entirely.
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
-  emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', paddingVertical: Spacing.sm, marginBottom: Spacing.sm },
   starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
   // The cloud's wrap/gap only — the chip is components/StarterSuggestionChip.tsx (2026-08-12).
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },

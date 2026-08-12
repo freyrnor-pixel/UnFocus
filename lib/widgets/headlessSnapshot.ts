@@ -57,8 +57,6 @@ type Strings = {
   noItems: string;
   noTasks: string;
   noNotes: string;
-  noHabits: string;
-  noHealth: string;
   voiceNote: string;
   overviewEmpty: string;
 };
@@ -81,8 +79,6 @@ const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
     noItems: 'List is empty',
     noTasks: 'Nothing planned today',
     noNotes: 'No notes yet',
-    noHabits: 'No habits today',
-    noHealth: 'Nothing logged',
     voiceNote: 'Voice note',
     overviewEmpty: 'No tasks left today',
   },
@@ -102,8 +98,6 @@ const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
     noItems: 'Listen er tom',
     noTasks: 'Ingenting planlagt i dag',
     noNotes: 'Ingen notater ennå',
-    noHabits: 'Ingen vaner i dag',
-    noHealth: 'Ingenting logget',
     voiceNote: 'Taleopptak',
     overviewEmpty: 'Ingen oppgaver igjen i dag',
   },
@@ -304,7 +298,8 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
         subtitle: habitsRemaining > 0 ? s.habitsLeft(habitsRemaining) : '',
         items: habitItems,
         more: habitTotal > PREVIEW ? s.more(habitTotal - PREVIEW) : '',
-        empty: s.noHabits,
+        // No empty-state text (2026-08-12 — matches sync.ts's mirrored removal).
+        empty: '',
         accent: ACCENT.habits,
         hasContent: habitTotal > 0,
       },
@@ -313,7 +308,7 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
         subtitle: ongoingCount > 0 ? s.healthOngoing(ongoingCount) : '',
         items: healthItems,
         more: healthTotal > PREVIEW ? s.more(healthTotal - PREVIEW) : '',
-        empty: s.noHealth,
+        empty: '',
         accent: ACCENT.health,
         hasContent: healthItems.length > 0,
       },

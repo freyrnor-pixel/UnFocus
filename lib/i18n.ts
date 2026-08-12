@@ -920,7 +920,6 @@ const en = {
   habitReminderEveryHours: (h: number) => `Every ${h} h`,
   habitReminderEveryMinutes: (m: number) => `Every ${m} min`,
   habitReminderTimesPreview: (n: number) => `${n} reminder${n !== 1 ? 's' : ''} a day`,
-  noHabitsYet: 'No habits yet — add one below.',
   habitForLabel: 'For',
   habitForMe: 'Me',
   // People / family mode (2026-07-12 redesign) — one settings toggle that shows the
@@ -1102,9 +1101,7 @@ const en = {
     voiceNote: 'Voice note',
     habitsTitle: 'Habits',
     habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
-    noHabits: 'No habits today',
     healthTitle: 'Health',
-    noHealth: 'Nothing logged',
     healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
   },
   // Radial menu labels
@@ -1237,7 +1234,6 @@ const en = {
   newHealthEntryTitle: 'New entry',
   editHealthEntryTitle: 'Edit entry',
   unnamedIssue: 'Untitled issue',
-  noLogsThisWeek: 'Nothing logged this week.',
   /**
    * Health issues (2026-08-11) — the standing list at the foot of the Health tab, drawn by the
    * same components/CollapsedSection.tsx drawer + popup pair that Goals uses on Habits and
@@ -1262,7 +1258,6 @@ const en = {
     entryCount: (n: number) => `${n} ${n === 1 ? 'entry' : 'entries'}`,
     lastLogged: (days: number) =>
       days === 0 ? 'Logged today' : days === 1 ? 'Last logged yesterday' : `Last logged ${days} days ago`,
-    neverLogged: 'Nothing logged yet',
     untrackLabel: 'Stop tracking',
     untrackConfirmTitle: (name: string) => `Stop tracking "${name}"?`,
     untrackConfirmBody: 'It leaves this list. Everything you have logged stays in the health log.',
@@ -3342,7 +3337,6 @@ const no: typeof en = {
   habitReminderEveryHours: (h: number) => `Hver ${h}. time`,
   habitReminderEveryMinutes: (m: number) => `Hvert ${m}. min`,
   habitReminderTimesPreview: (n: number) => `${n} påminnelse${n !== 1 ? 'r' : ''} om dagen`,
-  noHabitsYet: 'Ingen vaner ennå — legg til én nedenfor.',
   habitForLabel: 'For',
   habitForMe: 'Meg',
   peopleMode: {
@@ -3499,9 +3493,7 @@ const no: typeof en = {
     voiceNote: 'Taleopptak',
     habitsTitle: 'Vaner',
     habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
-    noHabits: 'Ingen vaner i dag',
     healthTitle: 'Helse',
-    noHealth: 'Ingenting logget',
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
   },
   nav: {
@@ -3619,7 +3611,6 @@ const no: typeof en = {
   newHealthEntryTitle: 'Ny oppføring',
   editHealthEntryTitle: 'Rediger oppføring',
   unnamedIssue: 'Uten navn',
-  noLogsThisWeek: 'Ingenting logget denne uken.',
   healthIssues: {
     title: 'Helseplager',
     openLabel: 'Åpne helseplager',
@@ -3629,7 +3620,6 @@ const no: typeof en = {
     entryCount: (n: number) => `${n} ${n === 1 ? 'oppføring' : 'oppføringer'}`,
     lastLogged: (days: number) =>
       days === 0 ? 'Logget i dag' : days === 1 ? 'Sist logget i går' : `Sist logget for ${days} dager siden`,
-    neverLogged: 'Ingenting logget ennå',
     untrackLabel: 'Slutt å følge',
     untrackConfirmTitle: (name: string) => `Slutte å følge «${name}»?`,
     untrackConfirmBody: 'Den forsvinner fra denne listen. Alt du har logget blir liggende i helse-loggen.',

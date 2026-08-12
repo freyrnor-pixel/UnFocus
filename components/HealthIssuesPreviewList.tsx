@@ -123,11 +123,6 @@ export default function HealthIssuesPreviewList({
     <PadSheet state="open">
       {tracked.map((symptom) => {
         const stat = stats.get(symptom.id);
-        const meta = stat
-          ? `${t.healthIssues.entryCount(stat.count)} · ${t.healthIssues.lastLogged(
-              daysSince(stat.last, today)
-            )}`
-          : t.healthIssues.neverLogged;
         return (
           <PadRow
             key={symptom.id}
@@ -135,10 +130,17 @@ export default function HealthIssuesPreviewList({
             accent={accent}
             rightValue={stat ? String(stat.count) : undefined}
             onPress={() => onOpenIssue(symptom.id, symptom.name, symptom.name)}
+            // No meta line at all for a symptom with no entries yet (2026-08-12 — dropped the
+            // "Nothing logged yet" filler; the row's title and empty right-hand count already
+            // say that).
             meta={
-              <Text style={[styles.meta, { color: theme.textMuted }]} numberOfLines={1}>
-                {meta}
-              </Text>
+              stat ? (
+                <Text style={[styles.meta, { color: theme.textMuted }]} numberOfLines={1}>
+                  {`${t.healthIssues.entryCount(stat.count)} · ${t.healthIssues.lastLogged(
+                    daysSince(stat.last, today)
+                  )}`}
+                </Text>
+              ) : undefined
             }
           />
         );

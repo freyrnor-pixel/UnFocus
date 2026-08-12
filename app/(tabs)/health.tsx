@@ -557,19 +557,12 @@ export default function HealthScreen() {
                 <View style={styles.healthCardBody}>
                   <View style={styles.section}>
                     {thisWeekIssues.length === 0 ? (
-                      // The quiet inset line app/(tabs)/plans.tsx uses for an empty section,
-                      // and which Habits adopted in the 2026-08-08 pass — NOT a <Surface>,
-                      // which would draw a card inside the card for one sentence. Neutral
-                      // edge: "nothing here", not a coded surface. And deliberately not
-                      // congratulatory — a quiet week is not an achievement here.
-                      <Text
-                        style={[
-                          styles.sectionEmpty,
-                          { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border },
-                        ]}
-                      >
-                        {t.noLogsThisWeek}
-                      </Text>
+                      // 2026-08-12: the "Nothing logged this week." line was removed — the
+                      // first-run explainer below (gated on the whole log being empty) and the
+                      // permanent tips line above it already cover an empty week, and a quiet
+                      // week deliberately gets no line of its own to avoid reading as either a
+                      // gap to fill or an achievement.
+                      null
                     ) : (
                       thisWeekIssues.map((issue, i) => (
                         <IssueRow
@@ -788,15 +781,6 @@ const baseStyles = StyleSheet.create({
   tipsText: { flex: 1, minWidth: 0, fontSize: FontSize.xs, fontFamily: Fonts.regular },
   healthCardBody: { gap: Spacing.md },
   section: { gap: Spacing.xs },
-  // The quiet inset line, not a card — see the mount comment.
-  sectionEmpty: {
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.regular,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-  },
   // Boxed row at the FIELD rung (card design reset, 2026-08-05) — the same construction
   // HabitCard uses; the colours are applied inline because they need the screen hue.
   issueRowBox: { paddingHorizontal: Spacing.sm },
