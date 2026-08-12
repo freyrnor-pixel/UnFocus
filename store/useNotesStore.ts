@@ -7,7 +7,8 @@
  * ordering directly, with no client-side grouping logic.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date (todayStr — stamps checkedAt),
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *             lib/id, lib/date (todayStr — stamps checkedAt),
  *             lib/widgets/sync (scheduleWidgetSync — debounced
  *             widget/notification refresh on add/update (covers toggleChecked)/remove, so live
  *             widgets don't wait for foreground/background)
@@ -44,6 +45,7 @@
 import { create } from 'zustand';
 import db from '@/lib/db';
 import { Row, FieldMap, loadAll, insertRow, updateRow, rowValues, readStr, readInt, readBool } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { todayStr } from '@/lib/date';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
@@ -135,11 +137,9 @@ export const useNotesStore = create<NotesStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const note = get().notes.find((n) => n.id === id);
-    if (!note) return;
-    const next = { ...note, ...patch };
-    updateRow('notes', rowValues(patch, NOTE_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ notes: s.notes.map((n) => (n.id === id ? next : n)) }));
+    const next = updateById('notes', NOTE_COLUMNS, get().notes, id, patch);
+    if (!next) return;
+    set((s) => ({ notes: replaceById(s.notes, next) }));
     scheduleWidgetSync();
   },
 

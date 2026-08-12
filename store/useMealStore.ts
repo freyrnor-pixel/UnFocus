@@ -7,7 +7,10 @@
  * Real Phase 5/6 port replacing the Decision 015 typed-interface stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/dishSeed (DISH_SEED), lib/i18n (getTranslations)
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update/delete — DISHES
+ *             only; an ingredient is nested inside a dish rather than held in its own array,
+ *             so updateIngredient/removeIngredient still map by hand), lib/id,
+ *             lib/dishSeed (DISH_SEED), lib/i18n (getTranslations)
  *   Used by → components/FoodTab.tsx (the Shopping screen's in-place "Food" tab — dish CRUD +
  *             push-to-list), components/AddDishSheet.tsx (Monthly or a specific Weekly list's
  *             dish picker → push-to-list, via its `target` prop), app/(tabs)/shopping.tsx
@@ -33,7 +36,8 @@
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
-import { Row, SQLValue, loadAll, insertRow, updateRow, readStr, readReal, readEnum } from '@/lib/dataAccess';
+import { Row, SQLValue, FieldMap, loadAll, insertRow, updateRow, readStr, readReal, readEnum } from '@/lib/dataAccess';
+import { deleteById, replaceById, updateById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { DISH_SEED } from '@/lib/dishSeed';
 import { getTranslations } from '@/lib/i18n';
@@ -114,6 +118,17 @@ function loadDishes(): Dish[] {
   return dishes.map((d) => ({ ...d, ingredients: byDish.get(d.id) ?? [] }));
 }
 
+/**
+ * `dishes` columns, for updateDish's partial write. `ingredients` is deliberately absent —
+ * it lives in its own table, so a patch naming it is skipped rather than written.
+ */
+const DISH_COLUMNS: FieldMap<Dish> = {
+  name: { col: 'name' },
+  mealType: { col: 'meal_type' },
+  difficulty: { col: 'difficulty' },
+  estimatedPriceNok: { col: 'estimated_price_nok' },
+};
+
 function slug(name: string): string {
   return name.toLowerCase().replace(/\s+/g, '_');
 }
@@ -155,22 +170,15 @@ export const useMealStore = create<MealStore>((set, get) => ({
   },
 
   updateDish(id, patch) {
-    const dish = get().dishes.find((d) => d.id === id);
-    if (!dish) return;
-    const values: Record<string, SQLValue> = {};
-    if (patch.name !== undefined) values.name = patch.name;
-    if (patch.mealType !== undefined) values.meal_type = patch.mealType;
-    if (patch.difficulty !== undefined) values.difficulty = patch.difficulty;
-    if (patch.estimatedPriceNok !== undefined) values.estimated_price_nok = patch.estimatedPriceNok;
-    updateRow('dishes', values, 'id = ?', [id]);
-    set((s) => ({
-      dishes: s.dishes.map((d) => (d.id === id ? { ...d, ...patch } : d)),
-    }));
+    const next = updateById('dishes', DISH_COLUMNS, get().dishes, id, patch);
+    if (!next) return;
+    set((s) => ({ dishes: replaceById(s.dishes, next) }));
   },
 
   removeDish(id) {
-    db.runSync('DELETE FROM dishes WHERE id = ?', [id]);
-    set((s) => ({ dishes: s.dishes.filter((d) => d.id !== id) }));
+    // The ingredients go with it via the table's FK ON DELETE CASCADE — see the header.
+    if (!deleteById('dishes', get().dishes, id)) return;
+    set((s) => ({ dishes: withoutId(s.dishes, id) }));
   },
 
   duplicateDish(id) {

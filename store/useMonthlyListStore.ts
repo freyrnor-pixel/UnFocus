@@ -12,7 +12,7 @@
  * concepts weekly lists need and Monthly lists don't.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update/delete), lib/id
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab), app/budget.tsx (per-list budget editor),
  *             app/scan.tsx (receipt monthly-list tagging picker, type only)
  *   Data    → defines a Zustand store; owns SQLite table monthly_lists
@@ -36,13 +36,13 @@ import {
   FieldMap,
   loadAll,
   insertRow,
-  updateRow,
   rowValues,
   readStr,
   readReal,
   readInt,
   readBool,
 } from '@/lib/dataAccess';
+import { deleteById, replaceById, updateById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 
 export type MonthlyList = {
@@ -121,11 +121,9 @@ export const useMonthlyListStore = create<MonthlyListStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const list = get().lists.find((l) => l.id === id);
-    if (!list) return;
-    const next = { ...list, ...patch };
-    updateRow('monthly_lists', rowValues(patch, LIST_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ lists: s.lists.map((l) => (l.id === id ? next : l)) }));
+    const next = updateById('monthly_lists', LIST_COLUMNS, get().lists, id, patch);
+    if (!next) return;
+    set((s) => ({ lists: replaceById(s.lists, next) }));
   },
 
   rename(id, name) {
@@ -143,8 +141,8 @@ export const useMonthlyListStore = create<MonthlyListStore>((set, get) => ({
   },
 
   remove(id) {
-    db.runSync('DELETE FROM monthly_lists WHERE id = ?', [id]);
-    set((s) => ({ lists: s.lists.filter((l) => l.id !== id) }));
+    if (!deleteById('monthly_lists', get().lists, id)) return;
+    set((s) => ({ lists: withoutId(s.lists, id) }));
   },
 
   stampAllReset(today) {

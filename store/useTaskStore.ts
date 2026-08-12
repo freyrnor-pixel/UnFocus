@@ -11,7 +11,8 @@
  * Decision 015 notImplemented stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/cardType (the per-item card type
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *             lib/id, lib/date, lib/cardType (the per-item card type
  *             + the isCompletable rule a 'note' turns on), lib/notifications, lib/taskNotifications,
  *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
@@ -154,6 +155,7 @@ import {
   logDbError,
   tx,
 } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, nowHHMM } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
@@ -660,18 +662,21 @@ export const useTaskStore = create<TaskStore>((set, get) => {
   },
 
   update(id, patch) {
-    const task = get().tasks.find((t) => t.id === id);
-    if (!task) return;
-    const next = { ...task, ...patch };
-    // Re-derive duration whenever Start or Finish changed, and persist it alongside
-    // the patch so the Home day-view's start–end rendering stays in sync.
-    const writePatch: Partial<Omit<Task, 'id' | 'followsTaskId'>> = { ...patch };
-    if ('time' in patch || 'finishTime' in patch) {
-      next.durationMinutes = deriveDurationMinutes(next.time, next.finishTime) ?? next.durationMinutes;
-      writePatch.durationMinutes = next.durationMinutes;
-    }
-    updateRow('tasks', rowValues(writePatch, TASK_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? next : t)) }));
+    // The patch is a function of the row because Start/Finish decide a THIRD column:
+    // whatever this returns is both written and merged, so the duration in memory and the
+    // duration in SQLite cannot come apart. See lib/storeCrud.ts.
+    const next = updateById('tasks', TASK_COLUMNS, get().tasks, id, (task) => {
+      // Re-derive duration whenever Start or Finish changed, and persist it alongside
+      // the patch so the Home day-view's start–end rendering stays in sync.
+      if (!('time' in patch) && !('finishTime' in patch)) return patch;
+      const merged = { ...task, ...patch };
+      return {
+        ...patch,
+        durationMinutes: deriveDurationMinutes(merged.time, merged.finishTime) ?? merged.durationMinutes,
+      };
+    });
+    if (!next) return;
+    set((s) => ({ tasks: replaceById(s.tasks, next) }));
     syncTaskNotification(next);
     syncTaskRow(id);
     syncTaskCalendar(next);

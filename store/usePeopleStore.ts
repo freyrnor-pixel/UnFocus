@@ -13,7 +13,8 @@
  * balance view mark their figures as hand-kept rather than live.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/personColor, lib/liveSync,
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *             lib/id, lib/personColor, lib/liveSync,
  *             lib/syncService, lib/syncRow (syncRow — the shared stamp+broadcast pair),
  *             store/useSettingsStore (back-fill source + deviceId),
  *             store/useTaskStore (link cleanup on remove — call-time only)
@@ -51,7 +52,6 @@ import {
   FieldMap,
   loadAll,
   insertRow,
-  updateRow,
   rowValues,
   readStr,
   readInt,
@@ -59,6 +59,7 @@ import {
   logDbError,
   tx,
 } from '@/lib/dataAccess';
+import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { paletteColorAt } from '@/lib/personColor';
 import { softDelete } from '@/lib/liveSync';
@@ -286,11 +287,9 @@ export const usePeopleStore = create<PeopleStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const person = get().people.find((p) => p.id === id);
-    if (!person) return;
-    const next = { ...person, ...patch };
-    updateRow('people', rowValues(patch as Partial<Person>, PERSON_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ people: s.people.map((p) => (p.id === id ? next : p)) }));
+    const next = updateById('people', PERSON_COLUMNS, get().people, id, patch as Partial<Person>);
+    if (!next) return;
+    set((s) => ({ people: replaceById(s.people, next) }));
     syncPersonRow(id);
   },
 

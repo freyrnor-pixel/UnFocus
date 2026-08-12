@@ -17,7 +17,8 @@
  * so no consumer churns.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/id, lib/date, lib/i18n, store/useSettingsStore,
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update/delete),
+ *             lib/id, lib/date, lib/i18n, store/useSettingsStore,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update (covers rename/setRecurring/setActiveWeeks/toggleLocked)/remove/
  *             advanceRecurringLists, so live widgets don't wait for foreground/background)
@@ -81,12 +82,12 @@ import {
   FieldMap,
   loadAll,
   insertRow,
-  updateRow,
   rowValues,
   readStr,
   readInt,
   readBool,
 } from '@/lib/dataAccess';
+import { deleteById, replaceById, updateById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, todayStr, getWeekRangeContaining, formatDateRange, weekOfMonthlyCycle } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
@@ -311,17 +312,15 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
   },
 
   update(id, patch) {
-    const list = get().lists.find((l) => l.id === id);
-    if (!list) return;
-    const next = { ...list, ...patch };
-    updateRow('shopping_lists', rowValues(patch, LIST_COLUMNS), 'id = ?', [id]);
-    set((s) => ({ lists: s.lists.map((l) => (l.id === id ? next : l)) }));
+    const next = updateById('shopping_lists', LIST_COLUMNS, get().lists, id, patch);
+    if (!next) return;
+    set((s) => ({ lists: replaceById(s.lists, next) }));
     scheduleWidgetSync();
   },
 
   remove(id) {
-    db.runSync('DELETE FROM shopping_lists WHERE id = ?', [id]);
-    set((s) => ({ lists: s.lists.filter((l) => l.id !== id) }));
+    if (!deleteById('shopping_lists', get().lists, id)) return;
+    set((s) => ({ lists: withoutId(s.lists, id) }));
     scheduleWidgetSync();
   },
 
