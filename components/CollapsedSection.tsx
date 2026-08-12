@@ -99,6 +99,10 @@
  *   - `Spring.calm` on the header press is inherited from the original: a repeatedly-tapped
  *     accordion header wants the least energetic release available. It is inert while
  *     PressableScale is in key mode, kept so a caller switching to `press="scale"` still gets it.
+ *   - **The rail's hairline rule is hidden while closed (2026-08-12).** `SectionRail`'s
+ *     `divider` prop defaults to true and drew unconditionally, so a closed drawer showed a
+ *     rule under its header with nothing below it — the body is 0 height when `!open`. Passed
+ *     as `divider={open}` now, so it reappears with the rest of the reveal.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -193,6 +197,10 @@ export default function CollapsedSection({
       // Every drawer's naming row is one height whether or not its name is a tap target, so
       // the closed cards on a screen are peers. See the "one closed height" edit note.
       rowMinHeight={MIN_TAP_TARGET}
+      // Closed, the drawer's body is 0 height — the hairline rule would sit right above
+      // nothing, reading as a stray line under a header with no card below it. It comes back
+      // the moment the body opens, in step with the rest of the reveal (see railAnimStyle).
+      divider={open}
       // The rail's own bottom margin is always killed now — the wrapping Animated.View below
       // supplies it instead, animated in step with the Collapsible reveal (see railAnimStyle).
       // It used to switch here directly (`open ? undefined : styles.railClosed`), which is

@@ -43,6 +43,10 @@
  *   - The header is always full-width (`container` alignSelf:'stretch') so the rule spans the
  *     header width; the right-slot control's `marginLeft:'auto'` still pushes it to the edge.
  *   - `count` is optional; omit it for sections where a tally adds noise (e.g. weekday groups).
+ *   - **`divider` (2026-08-12), default true.** `components/CollapsedSection.tsx` passes
+ *     `divider={open}` so a closed drawer's hairline rule disappears along with its body —
+ *     the rule ties the header to the content under it, and a closed drawer has none. Every
+ *     other caller (`SectionCard`, always-open sections) leaves it at the default.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -100,10 +104,18 @@ type Props = {
    * one value for all of them; omit it and the row hugs its content exactly as before.
    */
   rowMinHeight?: number;
+  /**
+   * Draw the hairline rule under the naming row (2026-08-12). Defaults to true — every
+   * caller except a closed `components/CollapsedSection.tsx` wants it, since it's what ties
+   * the header to the content it labels. Set false while that content isn't there to be tied
+   * to (a collapsed drawer): the rule was rendering over nothing, right above the drawer's
+   * own closed-state padding, which read as a stray line under a header with no card below it.
+   */
+  divider?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, style }: Props) {
   const theme = useAppTheme();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
@@ -146,7 +158,7 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
         )}
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
-      <View style={[styles.divider, { backgroundColor: rgba(hue, 0.25) }]} />
+      {divider && <View style={[styles.divider, { backgroundColor: rgba(hue, 0.25) }]} />}
     </View>
   );
 }
