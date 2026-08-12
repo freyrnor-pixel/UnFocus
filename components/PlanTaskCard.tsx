@@ -319,7 +319,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -1800,15 +1800,21 @@ const baseStyles = StyleSheet.create({
   // Just the suggestion row + the ghost add row now — the bulb/italic explainer and the
   // "EXAMPLE TASKS" caption that used to lead this block became a foot-of-card CardHintNote
   // and the row's own `tag` chip respectively (2026-07-30).
-  emptyWrap: { gap: Spacing.sm },
+  // Spacing.xs, the gap PadSheet stacks real rows at and StarterCard stacks example rows at
+  // (2026-08-12) — it was Spacing.sm, so the two dashed rows in here sat further apart than
+  // any two rows this card ever draws for real.
+  emptyWrap: { gap: Spacing.xs },
+  // Same box as the StarterExampleRow directly above it (2026-08-12): it was Radius.md and a
+  // literal borderWidth 1 against the example's Radius.sm, so two dashed rows in the same
+  // eight pixels of card had different corners and different weights.
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.md,
-    borderWidth: 1,
+    borderRadius: Radius.sm,
+    borderWidth: BORDER_WIDTH.field,
     borderStyle: 'dashed',
   },
   emptyAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },

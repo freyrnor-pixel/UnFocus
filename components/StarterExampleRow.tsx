@@ -79,7 +79,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
@@ -169,7 +169,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    borderWidth: 1,
+    // The FIELD rung, like every other row-sized box in the app (PadSheet's rows,
+    // QuickAddOptionRow's cells, the composer's own field). This was a literal `1` until
+    // 2026-08-12, which put the example a quarter-pixel lighter than the rows it stands in
+    // for — the finish is what says "provisional" here (dashed, unfilled, neutral, muted
+    // italic), never the weight. Pinned by lib/__tests__/exampleRows.test.ts.
+    borderWidth: BORDER_WIDTH.field,
     borderStyle: 'dashed',
     borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,

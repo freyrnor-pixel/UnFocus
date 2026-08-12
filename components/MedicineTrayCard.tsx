@@ -18,7 +18,8 @@
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/AddRow,
  *             components/PressableScale, components/Collapsible,
- *             components/StarterCard (compact first-run explainer), components/ReminderBell,
+ *             components/StarterCard (compact + embedded first-run explainer — no Surface of
+ *             its own, this card is already one), components/ReminderBell,
  *             components/FormControls (Input), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
@@ -270,7 +271,14 @@ export default function MedicineTrayCard() {
 
         {status && <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>}
 
-        {medicines.length === 0 && <StarterCard text={t.starters.medicine.text} compact />}
+        {/* `embedded` (2026-08-12): this is a line of explanation inside this card, so it must
+            not draw a card of its own — it did, which made it the third place in the app where
+            an empty-state explainer was a Surface nested in a Surface. `compact` still sets the
+            smaller type. It stays HERE rather than moving to the card's foot the way the Home
+            cards' CardHintNote does: the foot of this card is past the person filter and the
+            whole reminder-times panel, which would put the explanation nowhere near the empty
+            list it explains. */}
+        {medicines.length === 0 && <StarterCard text={t.starters.medicine.text} compact embedded />}
 
         {/* Person filter (People/family mode) — one chip per person, same as Habits. */}
         <Collapsible open={showProfiles}>
