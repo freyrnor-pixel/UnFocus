@@ -24,6 +24,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard,
+ *             components/StarterSuggestionChip (2026-08-12 — the shared empty-state
+ *             suggestion chip; this screen's own hand-rolled copy is deleted),
  *             components/Surface, components/GoalGlowDot, components/AddRow,
  *             components/IconButton, components/PressableScale, constants/theme,
  *             lib/goalStarters, lib/goalStrength (decayedStrength), lib/haptics, lib/i18n,
@@ -65,6 +67,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
+import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import Surface from '@/components/Surface';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import AddRow from '@/components/AddRow';
@@ -164,19 +167,13 @@ export default function GoalsScreen() {
                 say the same thing twice (once as the trigger label, once as this line). */}
             <View style={styles.starterChips}>
               {GOAL_STARTERS.map((starter) => (
-                <PressableScale
+                <StarterSuggestionChip
                   key={starter.key}
-                  style={[styles.starterChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                  onPress={() => addStarter(t.starters.goals.suggestions[starter.key])}
-                  travel={Travel.sm}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t.starters.addExample} ${t.starters.goals.suggestions[starter.key]}`}
-                >
-                  <Ionicons name={starter.icon} size={16} color={theme.accent} />
-                  <Text style={[styles.starterChipText, { color: theme.text }]}>
-                    {t.starters.goals.suggestions[starter.key]}
-                  </Text>
-                </PressableScale>
+                  label={t.starters.goals.suggestions[starter.key]}
+                  icon={starter.icon}
+                  onAdd={() => addStarter(t.starters.goals.suggestions[starter.key])}
+                  addLabel={t.starters.addExample}
+                />
               ))}
             </View>
           </StarterCard>
@@ -256,15 +253,4 @@ const styles = StyleSheet.create({
   // `flexWrap` with no minWidth on the chips — a goal title is long enough that a fixed
   // minimum would break the row at 360px (see AGENTS.md's wrap-audit lessons).
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
 });

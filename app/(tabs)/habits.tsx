@@ -16,6 +16,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
+ *             (and components/StarterSuggestionChip, 2026-08-12 — the shared empty-state
+ *             suggestion chip that replaced this screen's hand-rolled `starterChip`)
  *             (2026-08-06 v3 — back on this screen, now carrying its own `collapsible`
  *             drop-down for the suggested-habits chips; see the v3 Edit note below),
  *             components/Surface,
@@ -205,6 +207,7 @@ import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
+import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -957,22 +960,20 @@ export default function HabitsScreen() {
                           393px and 4 lines at 360px (560px of chips into 254px of row). A row
                           with a hard minimum width can't be fixed by shortening copy, so the
                           fix is fewer chips; the rest are one tap away on the type line below. */}
+                      {/* One shared chip since 2026-08-12 (components/StarterSuggestionChip) —
+                          this was one of five hand-rolled copies, and the two habit surfaces'
+                          copy was the hued-and-filled one. `leading` rather than `icon`: a
+                          habit's stored glyph may be a legacy emoji, which only HabitIcon
+                          draws. */}
                       <View style={styles.starterChips}>
                         {HABIT_STARTERS.slice(0, HABIT_STARTER_CHIPS).map((s) => (
-                          <PressableScale
+                          <StarterSuggestionChip
                             key={s.key}
-                            onPress={() => addStarterHabit(s)}
-                            scaleTo={0.96}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                            style={[styles.starterChip, { borderColor: screenHue, backgroundColor: theme.surfaceMuted }]}
-                          >
-                            {/* A.4 rule 1: hue on the chip's edge only — glyph neutral, "+"
-                                the action colour (mirrors HomeHabitsCard's starter chips). */}
-                            <HabitIcon icon={s.icon} size={14} color={theme.textMuted} />
-                            <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                            <Ionicons name="add" size={14} color={theme.accent} />
-                          </PressableScale>
+                            label={t.starters.habits.suggestions[s.key]}
+                            leading={<HabitIcon icon={s.icon} size={14} color={theme.textMuted} />}
+                            onAdd={() => addStarterHabit(s)}
+                            addLabel={t.starters.addExample}
+                          />
                         ))}
                       </View>
                     </StarterCard>
@@ -1174,17 +1175,12 @@ const baseStyles = StyleSheet.create({
   // Suggested-habits chips (2026-08-06 v3) — rendered inside components/StarterCard's
   // `collapsible` drop-down now; the card/pill shell itself moved there, shared by every
   // screen that uses it. See the render-side "Suggested habits" note.
+  // Only the cloud's own wrap/gap lives here now — the chip itself is
+  // components/StarterSuggestionChip.tsx (2026-08-12), shared with HomeHabitsCard, Goals, the
+  // Goals drawer and the health-issues sheet. The local `starterChip`/`starterChipText` styles
+  // are deleted with it; they were the hued, filled, full-contrast copy the maintainer was
+  // pointing at ("the filled buttons").
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
 
   // Wraps the (overflow-clipped) habit card so the done-state GlowPulse halo, whose boxShadow
   // extends beyond the card box, isn't clipped. Position:relative for the absolute-fill halo.

@@ -17,6 +17,8 @@
  *
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
+ *             components/StarterSuggestionChip (2026-08-12 — the shared empty-state
+ *             suggestion chip; this card's own hand-rolled copy is deleted),
  *             components/HabitIcon (starter chips only), components/HabitLeading (2026-08-04 —
  *             the row's leading mark: the habit's icon, or the brand leaf when it has none,
  *             DESIGN_COMPARISON/04 option (a)), components/PressableScale, components/ProgressBar,
@@ -128,6 +130,7 @@ import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import CardHintNote from '@/components/CardHintNote';
+import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -415,20 +418,17 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // tappable; the explainer moved to the card's foot (CardHintNote, below).
           <View style={styles.emptyWrap}>
             <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
+            {/* components/StarterSuggestionChip since 2026-08-12 — see the Habits tab's own
+                mount for why the five hand-rolled copies became one. */}
             <View style={styles.starterChips}>
               {HABIT_STARTERS.slice(0, STARTER_PREVIEW_COUNT).map((s) => (
-                <PressableScale
+                <StarterSuggestionChip
                   key={s.key}
-                  onPress={() => createHabit(t.starters.habits.suggestions[s.key], s.icon, s.dailyGoal)}
-                  scaleTo={0.96}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.starters.habits.suggestions[s.key]}
-                  style={[styles.starterChip, { borderColor: screenColor.base, backgroundColor: theme.surfaceMuted }]}
-                >
-                  <HabitIcon icon={s.icon} size={13} color={theme.textMuted} />
-                  <Text style={[styles.starterChipText, { color: theme.text }]}>{t.starters.habits.suggestions[s.key]}</Text>
-                  <Ionicons name="add" size={13} color={theme.accent} />
-                </PressableScale>
+                  label={t.starters.habits.suggestions[s.key]}
+                  leading={<HabitIcon icon={s.icon} size={14} color={theme.textMuted} />}
+                  onAdd={() => createHabit(t.starters.habits.suggestions[s.key], s.icon, s.dailyGoal)}
+                  addLabel={t.starters.addExample}
+                />
               ))}
             </View>
           </View>
@@ -532,17 +532,8 @@ const baseStyles = StyleSheet.create({
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', paddingVertical: Spacing.sm, marginBottom: Spacing.sm },
   starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
+  // The cloud's wrap/gap only — the chip is components/StarterSuggestionChip.tsx (2026-08-12).
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   rowCard: {

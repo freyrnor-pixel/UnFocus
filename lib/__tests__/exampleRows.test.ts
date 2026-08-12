@@ -105,6 +105,63 @@ describe('StarterExampleRow — the field rung, like every other row-sized box',
   });
 });
 
+describe('StarterSuggestionChip — the same finish as the row, the shape kept different', () => {
+  const chip = code('components/StarterSuggestionChip.tsx');
+  const row = code('components/StarterExampleRow.tsx');
+
+  // 2026-08-12, from "Examples are placed the same througout app, but does not look the same …
+  // the dottet lines instead of full border and the filled buttons. I prefer the visual in the
+  // to-do preview card." The 2026-08-10 provisional reversal had been applied to the ROW only,
+  // so the chips still wore the styling it removed — solid edge, fill, full-contrast label.
+  it('carries all four provisional channels the row does', () => {
+    for (const channel of [/borderStyle: 'dashed'/, /fontStyle: 'italic'/, /borderWidth: BORDER_WIDTH\.field/]) {
+      expect({ channel: String(channel), chip: channel.test(chip), row: channel.test(row) })
+        .toEqual({ channel: String(channel), chip: true, row: true });
+    }
+    // The fourth channel is an ABSENCE, so it is asserted as one: no fill on either box.
+    expect(chip).not.toMatch(/chip: \{[^}]*backgroundColor/);
+    expect(row).not.toMatch(/row: \{[^}]*backgroundColor/);
+  });
+
+  it('spends the accent on the "+" and nothing else', () => {
+    // A.4 rule 1 — the accent marks the ACTION, never the ink. Three of the five call sites
+    // this component replaced drew an accent glyph on the LEFT and had no "+" at all.
+    expect(chip).toMatch(/name="add" size=\{14\} color=\{theme\.accent\}/);
+    expect(chip).toMatch(/color=\{theme\.textMuted\}/);
+    expect(chip).not.toMatch(/label: \{[^}]*theme\.accent/);
+  });
+
+  it('takes no colour prop, so an edge cannot be hued at one call site and not another', () => {
+    // Habits/HomeHabitsCard hued their chip's edge with the screen colour while Goals, the
+    // Goals drawer and the health sheet used theme.border — half of why five copies never
+    // matched. The edge is neutral everywhere now; the hue reaches it through the card.
+    expect(chip).toMatch(/borderColor: theme\.border/);
+    expect(chip).not.toMatch(/accent: string/);
+  });
+
+  it('keeps the pill radius the row does not — the shape is the deliberate difference', () => {
+    expect(chip).toMatch(/borderRadius: Radius\.full/);
+    expect(row).toMatch(/borderRadius: Radius\.sm/);
+  });
+
+  for (const file of [
+    'app/(tabs)/habits.tsx',
+    'components/HomeHabitsCard.tsx',
+    'app/goals.tsx',
+    'components/GoalsEditor.tsx',
+    'components/HealthIssuesSheet.tsx',
+  ] as const) {
+    it(`${file} mounts the shared chip instead of a local copy`, () => {
+      const source = code(file);
+      expect(source).toMatch(/<StarterSuggestionChip\b/);
+      // The five hand-rolled copies are what drifted into three geometries and two colour
+      // schemes; a local `starterChip` style block is how that starts again.
+      expect(source).not.toMatch(/starterChip: \{/);
+      expect(source).not.toMatch(/starterChipText: /);
+    });
+  }
+});
+
 describe('PlanTaskCard — the two dashed rows on an empty day are one box', () => {
   const source = code('components/PlanTaskCard.tsx');
   const exampleRow = code('components/StarterExampleRow.tsx');
