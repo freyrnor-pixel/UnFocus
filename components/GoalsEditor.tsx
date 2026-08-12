@@ -66,11 +66,11 @@ import AddRow from '@/components/AddRow';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import { FontSize, Spacing, TabularNums } from '@/constants/theme';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
-import { tap, success } from '@/lib/haptics';
+import { success } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useGoalStore } from '@/store/useGoalStore';
@@ -124,11 +124,12 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
   }
 
   function confirmDelete(id: string, title: string) {
-    tap();
-    showAppModal(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.goals.deleteLabel, style: 'destructive', onPress: () => removeGoal(id) },
-    ]);
+    confirmDestructive({
+      title: t.goals.deleteConfirmTitle(title),
+      message: t.goals.deleteConfirmBody,
+      confirmLabel: t.goals.deleteLabel,
+      onConfirm: () => removeGoal(id),
+    });
   }
 
   return (

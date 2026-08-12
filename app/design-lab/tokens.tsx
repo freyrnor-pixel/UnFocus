@@ -56,7 +56,7 @@ import Slider from '@/components/Slider';
 import DesignLabBench from '@/components/DesignLabBench';
 import ColorPickerSheet from '@/components/ColorPickerSheet';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import {
   COLOR_KNOBS,
   CONTROL_KNOBS,
@@ -139,18 +139,16 @@ export default function DesignLabTokensScreen() {
   };
 
   const reset = () => {
-    showAppModal(t.designLab.title, t.designLab.reset, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.designLab.resetConfirm,
-        style: 'destructive',
-        onPress: () => {
-          commit(EMPTY_OVERRIDES);
-          flush();
-          settings.update({ designLabApply: false });
-        },
+    confirmDestructive({
+      title: t.designLab.title,
+      message: t.designLab.reset,
+      confirmLabel: t.designLab.resetConfirm,
+      onConfirm: () => {
+        commit(EMPTY_OVERRIDES);
+        flush();
+        settings.update({ designLabApply: false });
       },
-    ]);
+    });
   };
 
   const meta = () => ({

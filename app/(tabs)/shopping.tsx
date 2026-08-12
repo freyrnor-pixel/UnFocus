@@ -426,7 +426,7 @@ import MonthlyResetSummaryModal from '@/components/MonthlyResetSummaryModal';
 import MonthlyResetReviewSheet from '@/components/MonthlyResetReviewSheet';
 import SharedRequestsSection from '@/components/SharedRequestsSection';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
@@ -985,11 +985,12 @@ export default function ShoppingScreen() {
   }
 
   function handleDeleteList(listId: string) {
-    warning();
-    showAppModal(t.deleteListConfirmTitle, t.deleteListConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.deleteList, style: 'destructive', onPress: () => removeList(listId) },
-    ]);
+    confirmDestructive({
+      title: t.deleteListConfirmTitle,
+      message: t.deleteListConfirmBody,
+      confirmLabel: t.deleteList,
+      onConfirm: () => removeList(listId),
+    });
   }
 
   /** "Reset all Monthly lists now" — the full interactive review flow (weekly-list
@@ -1035,11 +1036,12 @@ export default function ShoppingScreen() {
   }
 
   function handleDeleteMonthlyList(listId: string) {
-    warning();
-    showAppModal(t.deleteListConfirmTitle, t.deleteListConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.deleteList, style: 'destructive', onPress: () => removeMonthlyList(listId) },
-    ]);
+    confirmDestructive({
+      title: t.deleteListConfirmTitle,
+      message: t.deleteListConfirmBody,
+      confirmLabel: t.deleteList,
+      onConfirm: () => removeMonthlyList(listId),
+    });
   }
 
   /** Kebab menu (2026-07-23 declutter pass) — Reset and Delete moved off the header's

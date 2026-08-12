@@ -7,14 +7,20 @@
  * ever one popup on screen at a time, matching native Alert semantics.
  *
  * Connections:
- *   Imports → components/Surface, components/PressableScale, constants/theme, lib/i18n,
- *             lib/useAppTheme, react-native-reanimated
+ *   Imports → components/Surface, components/PressableScale, constants/theme, lib/haptics
+ *             (confirmDestructive's two beats), lib/i18n, lib/useAppTheme,
+ *             react-native-reanimated
  *   Used by → <AppModalHost/> mounted in app/_layout.tsx (2026-07-02, Session A2·2);
  *             showAppModal() called from app/shopping.tsx (delete-list confirm,
  *             done-shopping receipt choice, manual monthly-reset confirm, new-list chooser)
+ *             and ~20 other sites; confirmDestructive() by every delete/reset confirm in the
+ *             app (16 call sites across app/ and components/ as of 2026-08-12)
  *   Data    → none — purely presentational; buttons carry their own onPress callbacks
  *
  * Edit notes:
+ *   - **Reach for `confirmDestructive`, not `showAppModal`, for anything that destroys data.**
+ *     See its own doc: it is the same modal with the Cancel/red-button pair and the two
+ *     haptic beats built in, because those beats had drifted across 16 hand-rolled copies.
  *   - showAppModal() is a plain function, not a hook — it has to work from non-component
  *     call sites too (e.g. a Zustand action). It talks to the mounted host through a
  *     single module-level listener ref, not React context.
@@ -44,6 +50,7 @@ import Animated, {
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { heavy, warning } from '@/lib/haptics';
 import { getTranslations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { Duration, Ease } from '@/constants/motion';
@@ -69,6 +76,57 @@ export function showAppModal(title: string, message?: string, buttons?: AppModal
     message,
     buttons: buttons && buttons.length > 0 ? buttons : [{ text: getTranslations().ok }],
   });
+}
+
+type ConfirmDestructiveOptions = {
+  title: string;
+  message?: string;
+  /** The word on the red button — "Delete", "Reset", "Stop tracking". Never a bare "OK". */
+  confirmLabel: string;
+  onConfirm: () => void;
+  /** Only when a screen has a better word than "Cancel" for backing out. */
+  cancelLabel?: string;
+};
+
+/**
+ * "Are you sure?" for something that destroys data: Cancel, plus one red button.
+ *
+ * The app had ~16 hand-rolled copies of this exact two-button array, and they had drifted in
+ * the one respect nothing checks — the haptics. ANIMATION_GUIDELINES.md §5 is unambiguous
+ * (`warning()` before the dialog, `heavy()` the moment it's confirmed) and even marks the
+ * pattern "✅ implemented", but half the call sites fired `tap()` or nothing on open, and
+ * eight never fired `heavy()` at all. That is invisible in a screenshot, invisible to tsc, and
+ * not the kind of thing anyone reports; it just quietly meant a delete felt like a tap on some
+ * screens and like a delete on others. Routing every one through here makes the documented
+ * contract true by construction rather than by 16 people remembering it.
+ *
+ * `cancelLabel` defaults to the current language's "Cancel" — the same `getTranslations()`
+ * read `showAppModal` already uses for its implicit OK, and correct for the same reason: this
+ * is called at press time, not render time.
+ *
+ * NOT for a menu that happens to contain a destructive row (Shopping's ⋮ list options,
+ * WeekListCard's), and not for a two-way choice with no cancel (Save / Discard) — this is the
+ * confirm dialog specifically.
+ */
+export function confirmDestructive({
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  cancelLabel,
+}: ConfirmDestructiveOptions) {
+  warning();
+  showAppModal(title, message, [
+    { text: cancelLabel ?? getTranslations().cancel, style: 'cancel' },
+    {
+      text: confirmLabel,
+      style: 'destructive',
+      onPress: () => {
+        heavy();
+        onConfirm();
+      },
+    },
+  ]);
 }
 
 export default function AppModalHost() {

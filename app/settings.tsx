@@ -234,7 +234,7 @@ import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import ExpandableCard from '@/components/ExpandableCard';
 import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
@@ -274,7 +274,7 @@ import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { selection, warning, heavy } from '@/lib/haptics';
+import { selection, heavy } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
@@ -414,26 +414,22 @@ export default function SettingsScreen() {
     setNewChildName('');
   }
   function removeProfile(id: string, name: string) {
-    warning();
-    showAppModal(t.peopleMode.removeTitle(name), t.peopleMode.removeBody, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.resetConfirmBtn, style: 'destructive',
-        onPress: () => { heavy(); removePerson(id); },
-      },
-    ]);
+    confirmDestructive({
+      title: t.peopleMode.removeTitle(name),
+      message: t.peopleMode.removeBody,
+      confirmLabel: t.resetConfirmBtn,
+      onConfirm: () => removePerson(id),
+    });
   }
   /** Remove a tag. Its tasks keep everything else — useTagStore.remove() rewrites their
    *  `tag_ids` in the same transaction as the tombstone. */
   function removeTagWithConfirm(id: string, name: string) {
-    warning();
-    showAppModal(t.tags.removeTitle(name), t.tags.removeBody, [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.resetConfirmBtn, style: 'destructive',
-        onPress: () => { heavy(); removeTag(id); },
-      },
-    ]);
+    confirmDestructive({
+      title: t.tags.removeTitle(name),
+      message: t.tags.removeBody,
+      confirmLabel: t.resetConfirmBtn,
+      onConfirm: () => removeTag(id),
+    });
   }
   /** Advance a person to the next palette hue. The colour is auto-assigned at creation, so
    *  this is the only way to resolve two people who happened to land on the same one. */
@@ -563,16 +559,16 @@ export default function SettingsScreen() {
     usePeopleStore.getState().publishSelfCapacity(daily, weekly);
   }
 
+  /** The reset flavour of confirmDestructive: one label in, the title/body/button triple every
+   *  "Reset X" row on this screen shares. This function is where confirmDestructive itself was
+   *  invented, privately, before the other 15 sites got it (2026-08-12). */
   function confirmReset(label: string, action: () => void) {
-    warning();
-    showAppModal(
-      t.resetConfirmTitle(label),
-      t.resetConfirmBody,
-      [
-        { text: t.cancel, style: 'cancel' },
-        { text: t.resetConfirmBtn, style: 'destructive', onPress: () => { heavy(); action(); } },
-      ]
-    );
+    confirmDestructive({
+      title: t.resetConfirmTitle(label),
+      message: t.resetConfirmBody,
+      confirmLabel: t.resetConfirmBtn,
+      onConfirm: action,
+    });
   }
 
   // Send Feedback (2026-07-13) — mailto: via Linking, falling back to the OS
@@ -688,26 +684,24 @@ export default function SettingsScreen() {
       showAppModal(t.backup.title, t.backup.tooNew);
       return;
     }
-    warning();
-    showAppModal(t.backup.importConfirmTitle, t.backup.importConfirmBody(parsed.rowCount), [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.backup.importConfirmBtn,
-        style: 'destructive',
-        onPress: () => {
-          heavy();
-          try {
-            restoreBackup(parsed.data);
-          } catch {
-            showAppModal(t.backup.title, t.backup.restoreError);
-            return;
-          }
-          showAppModal(t.backup.title, t.backup.restoreDone, [
-            { text: t.ok, onPress: () => { void reloadApp(); } },
-          ]);
-        },
+    // Destructive because a restore REPLACES what's on the device, not because it deletes a
+    // row — hence the same red-button confirm a delete gets.
+    confirmDestructive({
+      title: t.backup.importConfirmTitle,
+      message: t.backup.importConfirmBody(parsed.rowCount),
+      confirmLabel: t.backup.importConfirmBtn,
+      onConfirm: () => {
+        try {
+          restoreBackup(parsed.data);
+        } catch {
+          showAppModal(t.backup.title, t.backup.restoreError);
+          return;
+        }
+        showAppModal(t.backup.title, t.backup.restoreDone, [
+          { text: t.ok, onPress: () => { void reloadApp(); } },
+        ]);
       },
-    ]);
+    });
   }
 
   // AI setup guide — download (share sheet + local save, mirroring the backup card's

@@ -126,7 +126,7 @@ import { useFeedbackStore } from '@/store/useFeedbackStore';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 
 type Tier = 'site' | 'sub';
 
@@ -256,12 +256,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   // Red delete circle: clear ALL notes, behind the shared reset-confirm modal.
   function handleDeleteAllPress() {
-    tap();
     if (feedbackNotes.length === 0) return;
-    showAppModal(t.resetConfirmTitle(t.debug.resetNotes.toLowerCase()), t.resetConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.resetConfirmBtn, style: 'destructive', onPress: () => clearAllNotes() },
-    ]);
+    confirmDestructive({
+      title: t.resetConfirmTitle(t.debug.resetNotes.toLowerCase()),
+      message: t.resetConfirmBody,
+      confirmLabel: t.resetConfirmBtn,
+      onConfirm: () => clearAllNotes(),
+    });
   }
 
   const handleSettingsPress = () => {

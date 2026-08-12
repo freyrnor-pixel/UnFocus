@@ -46,7 +46,7 @@ import { generateSecret } from '@/lib/peerAuth';
 import { encodeSharePayload, decodeSharePayload } from '@/lib/share';
 import { isSyncAvailable } from '@/lib/syncService';
 import { dateStr, formatDisplayDate } from '@/lib/date';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
@@ -158,10 +158,12 @@ export default function PairDeviceScreen() {
   }
 
   function confirmRemove(peerId: string) {
-    showAppModal(t.peers.removeConfirmTitle, t.peers.removeConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.peers.removeDevice, style: 'destructive', onPress: () => removePeer(peerId) },
-    ]);
+    confirmDestructive({
+      title: t.peers.removeConfirmTitle,
+      message: t.peers.removeConfirmBody,
+      confirmLabel: t.peers.removeDevice,
+      onConfirm: () => removePeer(peerId),
+    });
   }
 
   const qrPayload =

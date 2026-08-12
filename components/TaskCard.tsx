@@ -246,7 +246,7 @@ import {
 } from '@/lib/cardType';
 import { dayOfWeekMon0, formatDisplayDate, todayStr } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
-import { tap, warning } from '@/lib/haptics';
+import { tap } from '@/lib/haptics';
 import { generateId } from '@/lib/id';
 import { Task, TaskStep, useTaskStore } from '@/store/useTaskStore';
 import { useGoalStore } from '@/store/useGoalStore';
@@ -273,7 +273,7 @@ import IconButton from '@/components/IconButton';
 import Stepper from '@/components/Stepper';
 import Button from '@/components/Button';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import GlowPulse from '@/components/GlowPulse';
 import Collapsible from '@/components/Collapsible';
@@ -872,11 +872,12 @@ function TaskCard({
   }
 
   function handleDelete() {
-    warning();
-    showAppModal(t.deleteConfirmTitle(task.title || t.taskTitlePlaceholder), t.deleteConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.deleteConfirmBtn, style: 'destructive', onPress: () => removeTask(task.id) },
-    ]);
+    confirmDestructive({
+      title: t.deleteConfirmTitle(task.title || t.taskTitlePlaceholder),
+      message: t.deleteConfirmBody,
+      confirmLabel: t.deleteConfirmBtn,
+      onConfirm: () => removeTask(task.id),
+    });
   }
 
   return (

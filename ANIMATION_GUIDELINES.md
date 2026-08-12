@@ -132,7 +132,7 @@ Timing matters: fire the haptic at the exact moment of the visual event, on `onP
 |---|---|---|
 | Any `PressableScale` button | `tap()` on press-in | ✅ implemented |
 | Task/habit complete | `success()` | ✅ implemented (`PlanTaskCard.tsx`, `app/habits.tsx`) |
-| Destructive confirm dialogs (automations, habit delete, settings resets, remove child) | `warning()` before the dialog, `heavy()` on confirm | ✅ implemented |
+| Destructive confirm dialogs (deletes, resets, restores, remove person/tag/device) | `warning()` before the dialog, `heavy()` on confirm | ✅ implemented — **by construction since 2026-08-12**: `confirmDestructive()` in `components/AppModal.tsx` fires both beats, and all 16 call sites go through it. This row read "✅ implemented" for months while five sites opened with `tap()` or nothing and eight never fired `heavy()` — a claim nothing checked. `lib/__tests__/destructiveConfirm.test.ts` checks it now |
 | Focus mode entry | `confirm()` on screen mount | ✅ implemented |
 | Shopping add-sheet swipe-to-close | `selection()` once crossing the close threshold, `heavy()` on snap-close | ✅ implemented |
 | Error / validation fail | — | ❌ not wired up anywhere yet — no `expo-haptics` Error-style calls exist in the app today |

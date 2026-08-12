@@ -42,7 +42,7 @@ import IconButton from '@/components/IconButton';
 import PressableScale from '@/components/PressableScale';
 import { Input } from '@/components/FormControls';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import OptionalTag from '@/components/OptionalTag';
 import { Spacing, Radius, FontSize, Fonts } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -88,21 +88,15 @@ export function GoalPicker({ value, onChange }: Props) {
   }
 
   function confirmDelete(id: string, title: string) {
-    showAppModal(
-      t.goals.deleteConfirmTitle(title || t.goals.pickerLabel),
-      t.goals.deleteConfirmBody,
-      [
-        { text: t.cancel, style: 'cancel' },
-        {
-          text: t.goals.deleteLabel,
-          style: 'destructive',
-          onPress: () => {
-            removeGoal(id);
-            if (value === id) onChange(null);
-          },
-        },
-      ]
-    );
+    confirmDestructive({
+      title: t.goals.deleteConfirmTitle(title || t.goals.pickerLabel),
+      message: t.goals.deleteConfirmBody,
+      confirmLabel: t.goals.deleteLabel,
+      onConfirm: () => {
+        removeGoal(id);
+        if (value === id) onChange(null);
+      },
+    });
   }
 
   return (
