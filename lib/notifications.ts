@@ -67,6 +67,7 @@
  *     parallel to cancelTaskNotification's `-s${day}`/`-e${day}` convention.
  */
 import * as Notifications from 'expo-notifications';
+import type { Language } from '@/store/useSettingsStore';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -285,6 +286,34 @@ export function isWithinQuietHours(hour: number, minute: number, start: string, 
   const e = toMinutes(end);
   if (s === e) return false;
   return s < e ? t >= s && t < e : t >= s || t < e;
+}
+
+/**
+ * The quiet-hours settings every scheduler needs, plus the language its copy is baked in.
+ *
+ * lib/taskNotifications.ts, lib/habitNotifications.ts and lib/medicineNotifications.ts each
+ * declared these same four fields inline on their own `XNotifSettings` type; they extend
+ * this now and add only what is theirs. A structural subset of the settings store, so a
+ * caller can keep passing the store object straight through.
+ */
+export type QuietHoursSettings = {
+  language: Language;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+};
+
+/**
+ * Whether a reminder at `hour`:`minute` should be SKIPPED entirely for quiet hours.
+ *
+ * Habits and medicine trays skip; tasks defer instead (see `pushPastQuietHours` below).
+ * That split is deliberate — a habit or a dose window has a natural next occurrence, so a
+ * skipped one is simply not nudged, whereas a task reminder has only the one chance and is
+ * pushed past the window. lib/habitNotifications.ts and lib/medicineNotifications.ts had
+ * this same condition written out inline.
+ */
+export function shouldSkipForQuietHours(hour: number, minute: number, s: QuietHoursSettings): boolean {
+  return s.quietHoursEnabled && isWithinQuietHours(hour, minute, s.quietHoursStart, s.quietHoursEnd);
 }
 
 /**

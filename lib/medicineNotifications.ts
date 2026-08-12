@@ -14,7 +14,7 @@
  * The dose itself is never gated by quiet hours; only the nudge about it is.
  *
  * Connections:
- *   Imports → lib/notifications (scheduleDailyReminder/cancelDailyReminder/isWithinQuietHours/
+ *   Imports → lib/notifications (scheduleDailyReminder/cancelDailyReminder/shouldSkipForQuietHours/
  *             syncMedicineCategories/scheduleTrayReNudge), lib/i18n (getTranslations),
  *             lib/medicineSchedule (TRAY_IDS/TrayTimes + tray membership helpers),
  *             store/useSettingsStore (Language type only)
@@ -43,7 +43,8 @@ import type { Language } from '@/store/useSettingsStore';
 import { getTranslations } from '@/lib/i18n';
 import {
   cancelDailyReminder,
-  isWithinQuietHours,
+  shouldSkipForQuietHours,
+  type QuietHoursSettings,
   scheduleDailyReminder,
   scheduleTrayReNudge,
   syncMedicineCategories,
@@ -68,11 +69,7 @@ export type MedicineNotifSettings = {
   featureMedicine: boolean;
   medicineRemindersEnabled: boolean;
   medicineTrayTimes: TrayTimes;
-  language: Language;
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-};
+} & QuietHoursSettings;
 
 /** A medicine as this file needs it: schedulable fields plus the names to show. */
 export type NotifiableMedicine = SchedulableMedicine & { name: string; dose: string };
@@ -118,7 +115,7 @@ export function syncTrayReminders(meds: NotifiableMedicine[], s: MedicineNotifSe
       const inTray = medicinesForTray(meds, tray);
       if (inTray.length === 0) continue;
       const [hour, minute] = parseTrayTime(s.medicineTrayTimes, tray);
-      if (s.quietHoursEnabled && isWithinQuietHours(hour, minute, s.quietHoursStart, s.quietHoursEnd)) continue;
+      if (shouldSkipForQuietHours(hour, minute, s)) continue;
       plan.set(tray, { hour, minute, body: describeTray(inTray, t.notif.medicineTrayMore) });
     }
   }

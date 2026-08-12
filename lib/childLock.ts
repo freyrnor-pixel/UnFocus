@@ -9,7 +9,7 @@
  *
  * Connections:
  *   Imports → expo-secure-store (native — folds into the Decision 038a/038c consolidated
- *             build), lib/hmac (sha256)
+ *             build), lib/hmac (sha256 + toHex)
  *   Used by → app/settings.tsx (set/change/clear password + enter/exit child mode);
  *             store/useSettingsStore only mirrors the flags, never the secret.
  *   Data    → expo-secure-store key `unfocus.childMode.password` (JSON {salt,hash});
@@ -24,16 +24,16 @@
  *   - SecureStore is async and unavailable on web — child mode is a device feature.
  */
 import * as SecureStore from 'expo-secure-store';
-import { sha256 } from '@/lib/hmac';
+import { sha256, toHex } from '@/lib/hmac';
 
 const KEY = 'unfocus.childMode.password';
 
 type Stored = { salt: string; hash: string };
 
 function randomSalt(): string {
-  let s = '';
-  for (let i = 0; i < 16; i++) s += Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
-  return s;
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return toHex(bytes);
 }
 
 /** Whether a parent password has been set on this device. */

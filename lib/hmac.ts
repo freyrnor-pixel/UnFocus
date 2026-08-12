@@ -9,7 +9,8 @@
  *
  * Connections:
  *   Imports → —
- *   Used by → lib/peerAuth.ts (sign/verify LAN envelopes against a paired peer key)
+ *   Used by → lib/peerAuth.ts (sign/verify LAN envelopes against a paired peer key; also
+ *             toHex, for its random secret), lib/childLock.ts (sha256 + toHex, for its salt)
  *   Data    → none (pure computation)
  *
  * Edit notes:
@@ -123,7 +124,13 @@ function utf8Bytes(str: string): Uint8Array {
   return Uint8Array.from(out);
 }
 
-function toHex(bytes: Uint8Array): string {
+/**
+ * Lowercase hex for a byte array, two digits per byte.
+ *
+ * Exported because lib/peerAuth.ts and lib/childLock.ts each had this exact loop inlined
+ * inside a "make me a random hex string" helper. Both already imported from this module.
+ */
+export function toHex(bytes: Uint8Array): string {
   let s = '';
   for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
   return s;

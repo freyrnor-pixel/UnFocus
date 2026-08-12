@@ -9,7 +9,8 @@
  * paired partner (the risk called out in 038d option (b)).
  *
  * Connections:
- *   Imports → lib/hmac, expo-crypto
+ *   Imports → lib/hmac (hmacSha256 + toHex — the hex loop is shared, not re-inlined),
+ *             expo-crypto
  *   Used by → lib/syncService.ts (signOutbound on every broadcastRow, verifyInbound
  *             on every received envelope; peer secrets come from store/usePeersStore),
  *             app/pair-device.tsx (generateSecret() when a user starts the QR
@@ -31,7 +32,7 @@
  *     (with the old, weaker guarantee) until those installs get a new native build.
  */
 import * as Crypto from 'expo-crypto';
-import { hmacSha256 } from '@/lib/hmac';
+import { hmacSha256, toHex } from '@/lib/hmac';
 
 /** Signed wire wrapper carried as the 038a envelope `payload`. */
 export type SignedWrapper = {
@@ -56,9 +57,7 @@ export function generateSecret(): string {
     bytes = new Uint8Array(SECRET_BYTES);
     for (let i = 0; i < SECRET_BYTES; i++) bytes[i] = Math.floor(Math.random() * 256);
   }
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
-  return s;
+  return toHex(bytes);
 }
 
 /** Wrap an application body into a signed wrapper for sending to a paired peer. */
