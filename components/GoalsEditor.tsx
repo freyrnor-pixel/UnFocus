@@ -13,6 +13,8 @@
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/AddRow,
  *             components/StarterCard (its `embedded` mode — the empty state),
+ *             components/StarterSuggestionChip (2026-08-12 — the shared empty-state
+ *             suggestion chip; this file's own hand-rolled copy is deleted),
  *             components/GoalGlowDot, components/PressableScale, components/AppModal
  *             (showAppModal), constants/theme, constants/motion (Travel), lib/goalStarters,
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
@@ -54,16 +56,14 @@
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
-import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import StarterCard from '@/components/StarterCard';
+import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { showAppModal } from '@/components/AppModal';
-import { FontSize, Fonts, Radius, Spacing, TabularNums } from '@/constants/theme';
-import { Travel } from '@/constants/motion';
+import { FontSize, Spacing, TabularNums } from '@/constants/theme';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
 import { tap, success } from '@/lib/haptics';
@@ -129,19 +129,13 @@ export default function GoalsEditor({ accent }: { accent: string }) {
         <StarterCard embedded text={t.hints.goals.text}>
           <View style={styles.starterChips}>
             {GOAL_STARTERS.map((starter) => (
-              <PressableScale
+              <StarterSuggestionChip
                 key={starter.key}
-                style={[styles.starterChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={() => addStarter(t.starters.goals.suggestions[starter.key])}
-                travel={Travel.sm}
-                accessibilityRole="button"
-                accessibilityLabel={`${t.starters.addExample} ${t.starters.goals.suggestions[starter.key]}`}
-              >
-                <Ionicons name={starter.icon} size={16} color={theme.accent} />
-                <Text style={[styles.starterChipText, { color: theme.text }]}>
-                  {t.starters.goals.suggestions[starter.key]}
-                </Text>
-              </PressableScale>
+                label={t.starters.goals.suggestions[starter.key]}
+                icon={starter.icon}
+                onAdd={() => addStarter(t.starters.goals.suggestions[starter.key])}
+                addLabel={t.starters.addExample}
+              />
             ))}
           </View>
         </StarterCard>
@@ -204,15 +198,4 @@ const styles = StyleSheet.create({
   // `embedded` mode draws it now. Don't reintroduce a local copy.
   meta: { fontSize: FontSize.xs },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 });

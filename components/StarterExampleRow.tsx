@@ -21,6 +21,14 @@
  *             real store
  *
  * Edit notes:
+ *   - **This finish is shared with components/StarterSuggestionChip (2026-08-12).** The app has
+ *     exactly TWO empty-state example shapes — this row (one illustration of a row in the list
+ *     below it) and that chip (one of N pick-one suggestions, which has to wrap) — and since
+ *     2026-08-12 they have ONE finish: dashed, unfilled, muted italic, neutral, accent on the
+ *     "+" alone. The shapes stay different on purpose (`Radius.sm` here, `Radius.full` there);
+ *     the finish must not. Maintainer: *"Examples are placed the same throughout app, but does
+ *     not look the same … I prefer the visual in the to-do preview card."* Change a channel
+ *     here and change it there in the same edit, or the split reopens.
  *   - **⚠️ REVERSED 2026-08-10 — this row is deliberately NOT a real row any more.** User
  *     report: "Examples are not visible examples, they look like a part of the card or an
  *     active task, not as a temporary thing."

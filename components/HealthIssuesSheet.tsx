@@ -14,7 +14,9 @@
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
- *             components/StarterCard, components/AddRow, components/Button,
+ *             components/StarterCard, components/StarterSuggestionChip (2026-08-12 — the
+ *             shared empty-state suggestion chip, replacing this file's own copy),
+ *             components/AddRow, components/Button,
  *             components/AppModal (showAppModal), constants/theme, constants/motion (Travel),
  *             lib/date (todayStr, parseDateStr), lib/haptics, lib/i18n, lib/useAppTheme,
  *             lib/symptomSeed (SYMPTOM_SEED — the starter chips), store/useHealthStore
@@ -48,6 +50,7 @@ import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StarterCard from '@/components/StarterCard';
+import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import AddRow from '@/components/AddRow';
 import Button from '@/components/Button';
 import { showAppModal } from '@/components/AppModal';
@@ -163,17 +166,13 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
             >
               <View style={styles.starterChips}>
                 {starters.map((starter) => (
-                  <PressableScale
+                  <StarterSuggestionChip
                     key={starter.name}
-                    style={[styles.starterChip, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                    onPress={() => addStarter(starter.name, starter.category)}
-                    travel={Travel.sm}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${t.starters.addExample} ${starter.name}`}
-                  >
-                    <Ionicons name="medical-outline" size={16} color={theme.accent} />
-                    <Text style={[styles.starterChipText, { color: theme.text }]}>{starter.name}</Text>
-                  </PressableScale>
+                    label={starter.name}
+                    icon="medical-outline"
+                    onAdd={() => addStarter(starter.name, starter.category)}
+                    addLabel={t.starters.addExample}
+                  />
                 ))}
               </View>
             </StarterCard>
@@ -255,17 +254,6 @@ const styles = StyleSheet.create({
   issueTitle: { flex: 1, minWidth: 0, fontFamily: Type.bodyStrong.fontFamily, fontSize: Type.bodyStrong.size },
   issueMeta: { fontSize: FontSize.xs },
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  starterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-  starterChipText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
   // Button owns its own height, radius, padding and press travel; this only positions it.
   doneBtn: { marginTop: Spacing.xs },
 });
