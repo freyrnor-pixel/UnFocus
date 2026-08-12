@@ -8,7 +8,7 @@
  * first; now the box always opens the picker). That column also carries a delete affordance
  * per goal and an inline "new goal" row pinned at its bottom, so create/select/delete all
  * happen without leaving the field. (Goals can also be created/deleted from
- * components/GoalsEditor.tsx / app/goals.tsx — this is the per-item picker, not the only
+ * components/GoalsEditor.tsx — this is the per-item picker, not the only
  * place goals are managed.) Modeled on the "Then" follower picker in components/TaskCard.tsx
  * (was app/task-form.tsx, retired 2026-07-23).
  *

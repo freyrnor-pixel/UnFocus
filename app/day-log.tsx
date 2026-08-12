@@ -40,8 +40,8 @@
  *     live day belongs to the card that has the now-line.
  *   - `settings.featureDayLog` gates the log itself (lib/useDayLog returns `undefined`
  *     when it's off, coalesced to `[]` here), so with the flag off this screen renders
- *     its empty state rather than 404ing. That matches app/goals.tsx's rule — a direct
- *     deep link never dead-ends.
+ *     its empty state rather than 404ing — a direct deep link never dead-ends. (This rule
+ *     was inherited from app/goals.tsx, which is retired as of 2026-08-12; the rule isn't.)
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';

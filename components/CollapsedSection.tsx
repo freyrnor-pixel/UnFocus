@@ -136,6 +136,15 @@ type Props = {
   onTitlePress?: () => void;
   /** a11y label for `onTitlePress`, e.g. "Open Goals". Defaults to `label`. */
   titlePressHint?: string;
+  /**
+   * Open the drawer because something arrived FOR its body — currently only a note sent to
+   * Goals (lib/prefill.ts), which lands in an add row two levels inside this card. Pass the
+   * arriving value; the drawer opens whenever it changes to a non-empty string.
+   *
+   * Deliberately not a controlled `open` prop: the drawer's open state is the user's, and a
+   * caller that owned it outright could hold it open against them. This only ever opens.
+   */
+  openSignal?: string;
   children: React.ReactNode;
 };
 
@@ -147,6 +156,7 @@ export default function CollapsedSection({
   count,
   onTitlePress,
   titlePressHint,
+  openSignal,
   children,
 }: Props) {
   const theme = useAppTheme();
@@ -154,6 +164,16 @@ export default function CollapsedSection({
   const { reducedMotion } = useAccessibility();
   const [open, setOpen] = useState(false);
   const toggle = () => { tap(); setOpen((v) => !v); };
+
+  // See `openSignal`. Ref-guarded so closing the drawer again doesn't re-open it on the same
+  // value, and silent — no haptic, because this is not a press.
+  const openedFor = useRef('');
+  useEffect(() => {
+    const signal = openSignal ?? '';
+    if (!signal || openedFor.current === signal) return;
+    openedFor.current = signal;
+    setOpen(true);
+  }, [openSignal]);
 
   // Drives the rail's own bottom margin on the SAME clock the Collapsible body below it
   // animates on (2026-08-11, user report: "movement of buttons while expanding and closing,

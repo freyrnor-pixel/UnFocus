@@ -84,7 +84,13 @@ const SCREEN_TOKEN: Record<ScreenKey, keyof ThemePalette | null> = {
   notes: 'featNote',      // yellow — notes
   food: 'featMeal',       // orange — food & meals
   scan: 'featScan',       // violet — scan & receipts
-  goals: 'featPlan',      // indigo — goals
+  // Indigo — goals. **No screen passes this key any more** (2026-08-12): app/goals.tsx was
+  // retired, and the Goals drawer that replaced it deliberately wears its HOST screen's hue
+  // (see components/CollapsedSection.tsx's `badgeHue` note — a drawer that changed colour
+  // depending on which tab you opened it from was the 2026-08-10 "wrong coloring" report).
+  // Kept because goals are still a domain with a colour, and this table is the one place that
+  // is written down; don't wire it up to the drawer.
+  goals: 'featPlan',
   // No hue of their own — see the header. Home's preview cards borrow their source screen's.
   index: null,
   home: null,

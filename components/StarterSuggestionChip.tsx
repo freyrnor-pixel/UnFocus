@@ -13,7 +13,7 @@
  *   Imports → components/PressableScale, constants/theme, lib/useAppTheme
  *   Used by → app/(tabs)/habits.tsx, components/HomeHabitsCard.tsx (both pass `leading`, a
  *             components/HabitIcon — a habit's glyph may be a legacy emoji, which Ionicons
- *             cannot draw), app/goals.tsx, components/GoalsEditor.tsx,
+ *             cannot draw), components/GoalsEditor.tsx,
  *             components/HealthIssuesSheet.tsx (all three pass `icon`, an Ionicons name).
  *             Every caller renders these inside components/StarterCard's `children` slot.
  *   Data    → none — pure presentation; callers pass already-localized strings and own the

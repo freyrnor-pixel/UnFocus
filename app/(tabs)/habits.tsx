@@ -89,8 +89,8 @@
  *        `HabitCard` for the full reasoning, and its new `flash` state for the momentary
  *        colour confirmation on each tap ("so they know it's been registered").
  *     4. **The goal's living-glow dot left this screen** and shows only on the goal card
- *        itself (components/GoalsEditor.tsx / app/goals.tsx) — "the reward light indicator
- *        should be on the Goals, not the habits".
+ *        itself (components/GoalsEditor.tsx) — "the reward light indicator should be on the
+ *        Goals, not the habits".
  *     5. ~~StarterCard is dismissible~~ **superseded 2026-08-06 v2 — see below.** The first
  *        pass put components/StarterCard.tsx here with a permanent `dismissKey="habits"` "X".
  *        That's gone from this screen; read the v2 note for what replaced it.
@@ -154,11 +154,16 @@
  *     wrong with the card was that it spent a card on a row's worth of information and could
  *     only ever be *followed*; a drawer shows what is behind it, which is what earns the card.
  *     A row inside the Habits card would now make this screen the odd one out.
- *     Gated on `featureGoals` — one of Goals' two entry points now that it no longer has its
- *     own Home card (see app/goals.tsx's header). Opens components/GoalsSheet.tsx as a popup
- *     (was `router.push('/goals')`) so editing goals doesn't leave this tab; the `/goals`
- *     route itself is unchanged and still reachable directly (deep links, notes' "Send it
- *     to…").
+ *     Gated on `featureGoals` — one of Goals' two entry points (the other is To-do), and as
+ *     of 2026-08-12 one of only two, full stop: **app/goals.tsx is deleted**. That screen was
+ *     a second implementation of this drawer's body — the same list, add row, starter chips
+ *     and delete confirm as components/GoalsEditor.tsx, with its own copy of the confirm copy
+ *     both headers used to tell each other to keep in sync. The `/goals` route is gone with
+ *     it, so a note's "Send it to… → Goals" lands HERE now, in the `goals` prefill slot (see
+ *     the `usePrefill` calls below and lib/prefill.ts). One thing was genuinely lost, not
+ *     moved: that screen showed a goal's title uncapped, and a PadRow caps it at one line.
+ *     That is the 2026-08-12 "read just like other cards" ruling applied consistently, not an
+ *     oversight — the full title is still in the row's accessible name.
  *   - **No streaks (2026-07-20)**: the habit card shows an Energy badge (habit.energyValue,
  *     from the optional Energy system, lib/energy.ts) instead of a streak counter — only
  *     for habits with `energyEnabled`. Rest day no longer needs to "protect" anything (it
@@ -449,7 +454,7 @@ function HabitCard({
 
             The goal's own living-glow dot (components/GoalGlowDot) also left this row
             (2026-08-06, "the reward light indicator should be on the Goals, not the habits") —
-            it's on the goal card itself now (components/GoalsSheet.tsx / app/goals.tsx), which
+            it's on the goal row itself now (components/GoalsEditor.tsx), which
             is the ONE place per goal a user needs to see its momentum, rather than repeated on
             every habit and task that happens to link to it.
 
@@ -645,6 +650,13 @@ export default function HabitsScreen() {
   useEffect(() => {
     if (prefill) setHabitDraft(prefill);
   }, [prefill]);
+
+  // …and → Goals, which since 2026-08-12 arrives on THIS screen too: the Goals editor is a
+  // drawer down the page (app/goals.tsx, the screen it used to open, is retired). The `goals`
+  // slot is what keeps the two apart — without it the quick-add above would take a goal and
+  // silently create a habit named after the note. It seeds GoalsEditor's own add row and
+  // opens the drawer around it, so the text lands somewhere the user can see it.
+  const goalPrefill = usePrefill('goals');
 
   useFocusEffect(
     useCallback(() => {
@@ -1073,8 +1085,9 @@ export default function HabitsScreen() {
               domain="habit"
               icon="flag"
               label={t.goals.editLink}
+              openSignal={goalPrefill}
             >
-              <GoalsEditor accent={screenHue} />
+              <GoalsEditor accent={screenHue} prefill={goalPrefill} />
             </CollapsedSection>
           )}
 
