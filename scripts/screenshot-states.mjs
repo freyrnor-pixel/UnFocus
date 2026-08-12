@@ -442,13 +442,13 @@ async function main() {
 
       await tab(page, 'To-do');
       if (await tryButton(page, 'Goals')) {
-        await shot(page, 'goals-sheet', {
-          title: 'The Goals sheet (from To-do and from Habits)',
-          screen: 'components/GoalsSheet.tsx',
-          state: 'SHEET, EMPTY, with starter suggestions. A goal\'s strength rises on progress and cools back toward neutral but NEVER below — there is no state in which a goal is failing. Something you want to do LESS of ("Less time on my phone") is a goal whose linked tasks are the replacement behaviour; that is why habits have no negative kind.',
-          components: 'GoalsSheet, GoalGlowDot, AddRow',
+        await shot(page, 'goals-drawer', {
+          title: 'The Goals drawer, expanded (from To-do and from Habits)',
+          screen: 'components/GoalsEditor.tsx',
+          state: 'DRAWER, EMPTY, with the explanation + starter suggestions shown inline (2026-08-12 — no popup any more; add/edit/delete all happen in this same card). A goal\'s strength rises on progress and cools back toward neutral but NEVER below — there is no state in which a goal is failing. Something you want to do LESS of ("Less time on my phone") is a goal whose linked tasks are the replacement behaviour; that is why habits have no negative kind.',
+          components: 'GoalsEditor, GoalGlowDot, AddRow',
         });
-        await closeOverlays(page);
+        await tryButton(page, 'Goals'); // collapse the drawer back closed
       }
       if (await tryButton(page, 'How lists look')) {
         await shot(page, 'layout-picker', {

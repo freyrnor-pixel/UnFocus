@@ -219,18 +219,21 @@ describe('BottomNav — the pill never disappears', () => {
     expect(source).not.toMatch(/homeTop = clampTop\(/);
   });
 
-  it('rests a side tab sunk while selected, but not the Home FAB', () => {
-    // Side tabs: "Pressed = on". Home: the FAB has 8px of slack inside the bar and the ring
-    // needs 4 of it below the button, so a 4px resting sink left the ring 8px above the
-    // button and 3px below (the lopsided blob in the 2026-08-11 report). The ring IS Home's
-    // selection cue now, and a sink with no base under it never read as depth anyway.
-    expect(source.match(/sunk=\{active\}/g)?.length).toBe(1);
+  it('no longer rests any tab sunk while selected — the pill alone marks it (2026-08-12)', () => {
+    // Reverses the "Pressed = on" side-tab rule the two tests above this one used to pin
+    // (maintainer: "Instead of the pressed down look, just have the blue move between when
+    // going between screens"). `sunk={active}` is gone from NavTabItem's PressableScale —
+    // the sliding pill's colour and position are the only thing that marks the current tab,
+    // side tabs and Home alike. See components/BottomNav.tsx's own header for the full account.
+    expect(source).not.toMatch(/sunk=\{active\}/);
   });
 
-  it('offsets the side pill by the travel, since it sits under a sunk item', () => {
-    expect(source).toMatch(/\+ Travel\.sm,/);
-    // Home's counterpart is gone with its sink — restoring one without the other puts the
-    // ring back off its button.
+  it('carries no side-pill travel offset any more — nothing rests sunk to compensate for (2026-08-12)', () => {
+    // The `+ Travel.sm` arithmetic existed only to shift the pill down to meet a side tab
+    // resting sunk; with `sunk={active}` gone, an unsunk tab needs no such offset (keeping it
+    // would frame the icon a few px low). Same reasoning killed Home's `+ Travel.md` a day
+    // earlier. Neither should come back without the sunk state they compensated for.
+    expect(source).not.toMatch(/\+ Travel\.sm,/);
     expect(source).not.toMatch(/\+ Travel\.md,/);
   });
 

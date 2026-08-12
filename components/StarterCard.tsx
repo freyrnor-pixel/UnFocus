@@ -36,8 +36,11 @@
  *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
  *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx (`collapsible`), app/goals.tsx (`collapsible`),
- *             components/GoalsSheet.tsx (`collapsible`), components/MedicineTrayCard.tsx
- *             (compact — no watermark), components/EnergyMeter.tsx (`stage="sapling"`, NOT
+ *             components/MedicineTrayCard.tsx (compact — no watermark; components/GoalsEditor.tsx
+ *             renders the same empty-state copy + starter chips inline WITHOUT mounting this
+ *             component — it's embedded in another card's Surface, and this one always draws
+ *             its own, so a second Surface would read as a nested panel; see that file's Edit
+ *             notes), components/EnergyMeter.tsx (`stage="sapling"`, NOT
  *             `collapsible` — its `children` is a config Button, not suggestions) — most also
  *             use components/StarterExampleRow.tsx to build the `example` node
  *   Data    → reads/writes settings.dismissedStarters ONLY when a caller passes

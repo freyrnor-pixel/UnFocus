@@ -1334,9 +1334,10 @@ const en = {
     // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
     // that too, or the mechanic and the words disagree.
     title: 'Goals',
-    // Bottom-of-screen link on Habits/Plans that opens the GoalsSheet popup (2026-07-31 —
-    // moved off the top of those screens; see those files' Edit notes). Deliberately
-    // "Edit Goals" not "Goals": it opens straight into add/delete, not a browse view.
+    // Label for the "Goals" drawer on Habits/Plans (2026-07-31 — moved off the top of those
+    // screens; see those files' Edit notes). It opened a GoalsSheet popup until 2026-08-12,
+    // when that popup was deleted in favour of an in-card editor (components/GoalsEditor.tsx)
+    // mounted straight into the drawer — the label didn't need to change for that.
     /* A bare noun, like Shopping's "Food" and "Catalogue" links, which it now shares a
        component with (components/CollapsedSection.tsx). It read
        "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
@@ -1344,7 +1345,6 @@ const en = {
        way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
        To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
     editLink: 'Goals',
-    close: 'Done',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -2986,7 +2986,6 @@ const no: typeof en = {
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
     title: 'Mål',
     editLink: 'Mål',
-    close: 'Ferdig',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',

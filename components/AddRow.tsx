@@ -54,7 +54,7 @@
  *             lib/screenColor, lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx, app/goals.tsx,
- *             components/GoalsSheet.tsx, components/CatalogueTab.tsx, components/FoodTab.tsx,
+ *             components/GoalsEditor.tsx, components/CatalogueTab.tsx, components/FoodTab.tsx,
  *             components/MedicineTrayCard.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
  *             and automations.tsx, none of which import this file: shopping uses
