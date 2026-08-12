@@ -15,12 +15,14 @@
  * pressed, nothing adapts a default from it, and nothing summarises it. The row exists only
  * so the same day doesn't re-ask, and it is pruned with the rest of the dated history.
  *
- * Mirrors lib/viewSnapshot.ts exactly, including the discipline that matters most here:
- * every function swallows its DB errors and returns a safe default, because these reads run
- * inside a render pass (lib/useEnergyPause.ts) and must never throw a screen away.
+ * Shares its storage layer with lib/viewSnapshot.ts — both build a lib/metaJson.ts accessor,
+ * which owns the discipline that matters most here: every operation swallows its DB errors
+ * and returns a safe default, because these reads run inside a render pass
+ * (lib/useEnergyPause.ts) and must never throw a screen away. The two files used to be
+ * structurally identical with a different payload type; only the payload differs now.
  *
  * Connections:
- *   Imports → lib/db (the shared handle), lib/dataAccess (logDbError)
+ *   Imports → lib/metaJson (the shared app_meta JSON accessor)
  *   Used by → store/useEnergyStore.ts, lib/__tests__/energyPause.test.ts
  *   Data    → SQLite `app_meta` rows keyed `energy:day:<YYYY-MM-DD>` (the same key-value
  *             table lib/viewSnapshot.ts and store/useCatalogStore.ts use). No new table.
@@ -34,8 +36,7 @@
  *   - Never schedule anything from here. The pause is the opposite of a nudge, and
  *     lib/__tests__/energyPause.test.ts source-scans this file to keep that true.
  */
-import db from '@/lib/db';
-import { logDbError } from '@/lib/dataAccess';
+import { metaJson } from '@/lib/metaJson';
 
 const KEY_PREFIX = 'energy:day:';
 
@@ -56,8 +57,6 @@ export const DEFAULT_DAY_STATE: EnergyDayState = {
   pinnedTaskId: null,
 };
 
-const dayMetaKey = (date: string): string => `${KEY_PREFIX}${date}`;
-
 /** Coerce an untrusted parsed blob into a usable state. Total — never returns null. */
 export function normalizeDayState(raw: unknown): EnergyDayState {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return DEFAULT_DAY_STATE;
@@ -69,31 +68,22 @@ export function normalizeDayState(raw: unknown): EnergyDayState {
   };
 }
 
+/**
+ * The `app_meta` rows this module owns. A corrupt blob degrades to DEFAULT_DAY_STATE rather
+ * than crashing Home — see lib/metaJson.ts, which owns that discipline and the four
+ * operations below (this file and lib/viewSnapshot.ts each wrote them out by hand until
+ * 2026-08-12; this file's header already said it "mirrors lib/viewSnapshot.ts exactly").
+ */
+const store = metaJson<EnergyDayState>(KEY_PREFIX, normalizeDayState, DEFAULT_DAY_STATE, 'energyDayState');
+
 /** Read one day's pause state, or DEFAULT_DAY_STATE when there is nothing (readable) stored. */
 export function readDayState(date: string): EnergyDayState {
-  try {
-    const row = db.getFirstSync<{ value: string }>('SELECT value FROM app_meta WHERE key = ?', [
-      dayMetaKey(date),
-    ]);
-    if (!row?.value) return DEFAULT_DAY_STATE;
-    return normalizeDayState(JSON.parse(row.value) as unknown);
-  } catch (e) {
-    // A corrupt blob must degrade to "nothing has happened today", not crash Home.
-    logDbError(`energyDayState.readDayState(${date})`, e);
-    return DEFAULT_DAY_STATE;
-  }
+  return store.read(date);
 }
 
 /** Overwrite one day's pause state. */
 export function writeDayState(date: string, state: EnergyDayState): void {
-  try {
-    db.runSync('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)', [
-      dayMetaKey(date),
-      JSON.stringify(state),
-    ]);
-  } catch (e) {
-    logDbError(`energyDayState.writeDayState(${date})`, e);
-  }
+  store.write(date, state);
 }
 
 /**
@@ -102,33 +92,10 @@ export function writeDayState(date: string, state: EnergyDayState): void {
  * same shape as `overrides`. Returns `{}` on any failure.
  */
 export function readAllDayStates(): Record<string, EnergyDayState> {
-  try {
-    const rows = db.getAllSync<{ key: string; value: string }>(
-      "SELECT key, value FROM app_meta WHERE key GLOB 'energy:day:*'"
-    );
-    const out: Record<string, EnergyDayState> = {};
-    for (const row of rows ?? []) {
-      const date = row.key.slice(KEY_PREFIX.length);
-      if (!date) continue;
-      try {
-        out[date] = normalizeDayState(JSON.parse(row.value) as unknown);
-      } catch {
-        // One unreadable row must not cost the rest of them.
-        out[date] = DEFAULT_DAY_STATE;
-      }
-    }
-    return out;
-  } catch (e) {
-    logDbError('energyDayState.readAllDayStates', e);
-    return {};
-  }
+  return store.readAll();
 }
 
 /** Test/reset seam — drops one day's stored state. */
 export function clearDayState(date: string): void {
-  try {
-    db.runSync('DELETE FROM app_meta WHERE key = ?', [dayMetaKey(date)]);
-  } catch (e) {
-    logDbError(`energyDayState.clearDayState(${date})`, e);
-  }
+  store.clear(date);
 }

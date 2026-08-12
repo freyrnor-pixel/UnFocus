@@ -14,7 +14,7 @@
  * collapsed behind "Now and next".
  *
  * Connections:
- *   Imports → lib/db (the shared handle), lib/dataAccess (logDbError)
+ *   Imports → lib/metaJson (the shared app_meta JSON accessor)
  *   Used by → lib/useNewSinceSeen.ts, lib/__tests__/viewSnapshot.test.ts
  *   Data    → SQLite `app_meta` rows keyed `view:<surface>` (the same key-value table
  *             store/useCatalogStore.ts uses for its seed version). No new table.
@@ -33,8 +33,7 @@
  *   - Every function swallows DB errors into a safe default. A glow is a display nicety; it
  *     must never throw inside a render pass or block a screen.
  */
-import db from '@/lib/db';
-import { logDbError } from '@/lib/dataAccess';
+import { metaJson } from '@/lib/metaJson';
 
 const KEY_PREFIX = 'view:';
 
@@ -58,41 +57,27 @@ export type NewlyVisibleFields = FieldVisibility;
 
 export const NO_NEW_FIELDS: NewlyVisibleFields = { meta: false, price: false, extras: false };
 
+/**
+ * The `app_meta` rows this module owns. A corrupt/partial JSON blob degrades to "no saved
+ * view" rather than crashing the screen — see lib/metaJson.ts, which owns that discipline
+ * and the four operations below (this file and lib/energyDayState.ts each wrote them out
+ * by hand until 2026-08-12).
+ */
+const store = metaJson<ViewSnapshot | null>(KEY_PREFIX, normalizeSnapshot, null, 'viewSnapshot');
+
 /** Read a surface's saved view, or null if it has never had one. */
 export function getSnapshot(surface: string): ViewSnapshot | null {
-  try {
-    const row = db.getFirstSync<{ value: string }>('SELECT value FROM app_meta WHERE key = ?', [
-      `${KEY_PREFIX}${surface}`,
-    ]);
-    if (!row?.value) return null;
-    const parsed = JSON.parse(row.value) as unknown;
-    return normalizeSnapshot(parsed);
-  } catch (e) {
-    // A corrupt/partial JSON blob must degrade to "no saved view", not crash the screen.
-    logDbError(`viewSnapshot.getSnapshot(${surface})`, e);
-    return null;
-  }
+  return store.read(surface);
 }
 
 /** Overwrite a surface's saved view with what is on screen right now. */
 export function setSnapshot(surface: string, snapshot: ViewSnapshot): void {
-  try {
-    db.runSync('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)', [
-      `${KEY_PREFIX}${surface}`,
-      JSON.stringify(snapshot),
-    ]);
-  } catch (e) {
-    logDbError(`viewSnapshot.setSnapshot(${surface})`, e);
-  }
+  store.write(surface, snapshot);
 }
 
 /** Test/reset seam — drops a surface's saved view so the next visit re-records it. */
 export function clearSnapshot(surface: string): void {
-  try {
-    db.runSync('DELETE FROM app_meta WHERE key = ?', [`${KEY_PREFIX}${surface}`]);
-  } catch (e) {
-    logDbError(`viewSnapshot.clearSnapshot(${surface})`, e);
-  }
+  store.clear(surface);
 }
 
 /** Coerce an untrusted parsed blob into a usable snapshot, or null if it isn't one. */
