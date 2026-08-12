@@ -46,14 +46,13 @@
  *             screen" rule with anything since 2026-08-06 v2 — see below),
  *             components/PressableScale (the suggested-habits collapse/expand control lives in
  *             components/StarterCard now, not here),
- *             components/CollapsedSection + components/GoalsPreviewList (the "Edit Goals"
- *             drawer — the same shape To-do draws; this link has been a card, then a
- *             hand-rolled row, then a shared `SubScreenLinkRow`, and is a drawer as of
- *             2026-08-10, see the note below),
- *             components/GoalsSheet (2026-07-31, the popup that
- *             link opens — also
- *             where a habit's linked goal shows its living-glow dot as of 2026-08-06, not on
- *             this screen's own rows any more), components/DebugNoteAnchor,
+ *             components/CollapsedSection + components/GoalsEditor (the "Goals" drawer —
+ *             the same shape To-do draws; this link has been a card, then a hand-rolled row,
+ *             then a shared `SubScreenLinkRow`, a drawer-onto-a-popup as of 2026-08-10, and
+ *             is a drawer with the editor mounted straight in its body as of 2026-08-12 —
+ *             components/GoalsSheet.tsx, the popup it used to open, is deleted; see the note
+ *             below — also where a habit's linked goal shows its living-glow dot as of
+ *             2026-08-06, not on this screen's own rows any more), components/DebugNoteAnchor,
  *             components/GhostRow (2026-08-01,
  *             the "just deleted this habit — restore?" row, see below),
  *             constants/theme, constants/motion (Duration, the registration flash), lib/date,
@@ -88,7 +87,7 @@
  *        `HabitCard` for the full reasoning, and its new `flash` state for the momentary
  *        colour confirmation on each tap ("so they know it's been registered").
  *     4. **The goal's living-glow dot left this screen** and shows only on the goal card
- *        itself (components/GoalsSheet.tsx / app/goals.tsx) — "the reward light indicator
+ *        itself (components/GoalsEditor.tsx / app/goals.tsx) — "the reward light indicator
  *        should be on the Goals, not the habits".
  *     5. ~~StarterCard is dismissible~~ **superseded 2026-08-06 v2 — see below.** The first
  *        pass put components/StarterCard.tsx here with a permanent `dismissKey="habits"` "X".
@@ -207,7 +206,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import CollapsedSection from '@/components/CollapsedSection';
-import GoalsPreviewList from '@/components/GoalsPreviewList';
+import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
@@ -226,7 +225,6 @@ import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import StageTree from '@/components/StageTree';
-import GoalsSheet from '@/components/GoalsSheet';
 import GhostRow from '@/components/GhostRow';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 import { useGhostTimeout } from '@/lib/useGhostTimeout';
@@ -605,9 +603,8 @@ export default function HabitsScreen() {
   // value and every person row stays in the DB, so an existing multi-person setup returns
   // intact when the switch flips back; only the UI stands down.
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
-  // Gates the "Edit Goals" link at the bottom of the screen (2026-07-29).
+  // Gates the "Goals" drawer at the bottom of the screen (2026-07-29).
   const featureGoals = useSettingsStore((s) => s.featureGoals);
-  const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); the card's own tips line + suggested-habits card already teach
@@ -801,7 +798,6 @@ export default function HabitsScreen() {
   }
 
   return (
-    <>
       <ScreenScaffold
         title={t.habitsTitle}
         tier="site"
@@ -1046,8 +1042,11 @@ export default function HabitsScreen() {
               watermark from the suggested-habits card, which isn't a StarterCard any more —
               see the header's dated note) — back to the original plain gate: nothing to
               stand on until there's at least one habit. */}
-          {/* Goals — the same drawer the To-do tab draws (2026-08-10). Expanding previews the
-              goals; pressing the name opens GoalsSheet. See components/CollapsedSection.tsx.
+          {/* Goals — the same drawer the To-do tab draws (2026-08-10). Expanding shows the
+              goals AND lets you add/edit/delete them right there — no popup any more
+              (2026-08-12, maintainer: "This should not be a pop-up. Examples included in
+              card just like other cards, and making, editing and deleting in the card, not
+              a pop up."). See components/CollapsedSection.tsx and components/GoalsEditor.tsx.
 
               This REVERSES the 2026-08-06 placement, and deliberately. That pass moved Goals
               from a `SubScreenLinkButton` card into a plain row INSIDE the Habits card, on the
@@ -1058,17 +1057,16 @@ export default function HabitsScreen() {
               behind it, and it is now the app's one shape for "a surface this screen leads to"
               (To-do's Goals and Earlier days, Shopping's Food and Catalogue). A row inside the
               Habits card would be the odd one out again, on the very screen the maintainer
-              asked to make consistent. Same popup, same `featureGoals` gate — turning the
-              feature off removes the drawer, not just the sheet it opens. */}
+              asked to make consistent. Same `featureGoals` gate — turning the feature off
+              removes the drawer entirely, editor included. */}
           {featureGoals && (
             <CollapsedSection
               hue={screenHue}
               domain="habit"
               icon="flag"
               label={t.goals.editLink}
-              onTitlePress={() => setGoalsSheetOpen(true)}
             >
-              <GoalsPreviewList accent={screenHue} onOpen={() => setGoalsSheetOpen(true)} />
+              <GoalsEditor accent={screenHue} />
             </CollapsedSection>
           )}
 
@@ -1081,8 +1079,6 @@ export default function HabitsScreen() {
           )}
         </View>
       </ScreenScaffold>
-      <GoalsSheet visible={goalsSheetOpen} onClose={() => setGoalsSheetOpen(false)} />
-    </>
   );
 }
 

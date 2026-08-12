@@ -516,8 +516,9 @@ export default function WeekListCard({
             that it's the way out. The whole block is the tap target now (`onToggleLock`, the
             same handler the header's own padlock uses; unlocking never confirms, per
             shopping.tsx's handleToggleLock) instead of copy pointing at an add row that this
-            block never renders (2026-08-11 fix — see components/GoalsPreviewList.tsx's header
-            for the matching bug in the Goals drawer). */}
+            block never renders (2026-08-11 fix — the Goals drawer had the same "empty line
+            points at a control it doesn't render" bug at the time; that drawer's shape has
+            since changed under components/GoalsEditor.tsx, 2026-08-12). */}
         {progress.total === 0 && list.locked && (
           <PressableScale
             onPress={onToggleLock}

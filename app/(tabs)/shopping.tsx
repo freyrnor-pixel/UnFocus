@@ -1824,8 +1824,9 @@ export default function ShoppingScreen() {
                             // `!locked`) never renders — the real fix is unlocking, via the
                             // padlock icon up in the header, which carries no cue that it's the
                             // way out. Tapping this row unlocks directly instead (2026-08-11 fix
-                            // — see components/GoalsPreviewList.tsx's header for the matching
-                            // bug in the Goals drawer). Unlocking never confirms (unlike
+                            // — the Goals drawer had the same "empty line points at a control it
+                            // doesn't render" bug at the time; see components/WeekListCard.tsx's
+                            // matching note). Unlocking never confirms (unlike
                             // locking-while-dirty), so this can call the toggle straight.
                             // ⚠️ Restyled the same day: the first cut copied sectionEmpty's solid
                             // filled+bordered look, which is also this app's real-Input look —

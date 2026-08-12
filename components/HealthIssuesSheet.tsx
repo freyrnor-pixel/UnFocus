@@ -3,10 +3,14 @@
  * add one or stop tracking one.
  *
  * Opened by pressing the NAME of the "Health issues" drawer at the foot of app/(tabs)/health.tsx
- * — the same two-tap-targets header (chevron previews, name opens) that Goals uses on Habits
- * and To-do. This is components/GoalsSheet.tsx's counterpart and is deliberately built to the
- * same plan: AnimatedBottomSheet shell, a card per row, a StarterCard while the list is empty,
- * an AddRow at the foot, a secondary "Done".
+ * — the same two-tap-targets header (chevron previews, name opens) that Goals used to use on
+ * Habits and To-do, before Goals dropped its half of that on 2026-08-12 (see
+ * components/CollapsedSection.tsx's Edit notes) and became an in-card editor with no popup.
+ * This sheet still mirrors the OLD plan components/GoalsSheet.tsx followed before it was
+ * deleted: AnimatedBottomSheet shell, a card per row, a StarterCard while the list is empty, an
+ * AddRow at the foot, a secondary "Done". Untracking a health issue is deliberately still a
+ * pop-up-shaped job here — see the "Untracking deletes NOTHING" edit note below for why this
+ * one didn't follow Goals' reversal.
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
@@ -22,9 +26,9 @@
  *   - **"Stop tracking" is not a delete, and the copy must keep saying so.** It flips
  *     `symptoms.tracked` to 0 and leaves every `health_logs` row alone — the history stays
  *     readable in /health-log and on the symptom's own page. Health entries are the rows in
- *     this app that most deserve not to be lost to a tidying gesture. GoalsSheet's equivalent
- *     button genuinely deletes (and unlinks tasks/habits), so do NOT copy its confirm wording
- *     across; the two only look alike.
+ *     this app that most deserve not to be lost to a tidying gesture. components/GoalsEditor.tsx's
+ *     equivalent action genuinely deletes (and unlinks tasks/habits), so do NOT copy its
+ *     confirm wording across; the two only look alike.
  *   - There is no rename. A symptom's id is derived from its name (`sym_<name>`), so renaming
  *     would orphan every entry filed under the old one — the same trap lib/symptomSeed.ts's
  *     header warns about for seed entries.
@@ -144,7 +148,8 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
         <Text style={[styles.title, { color: theme.text }]}>{t.healthIssues.title}</Text>
         {/* Said once. With nothing tracked yet the StarterCard below is the teaching surface
             and carries the explanation; once there is a list, the subtitle takes the job back.
-            Same rule GoalsSheet's own subtitle follows. */}
+            Same rule GoalsSheet's own subtitle used to follow, before it was deleted
+            2026-08-12 — see components/GoalsEditor.tsx, its in-card replacement. */}
         {tracked.length > 0 && (
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>{t.healthIssues.subtitle}</Text>
         )}
@@ -180,8 +185,10 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
                   <Surface key={symptom.id} style={styles.issueCard}>
                     <View style={styles.issueHeader}>
                       <Ionicons name="medical-outline" size={16} color={theme.textMuted} />
-                      {/* No numberOfLines cap, same call GoalsSheet made: the name is the
-                          whole point of the card. */}
+                      {/* No numberOfLines cap, same call GoalsSheet used to make before it was
+                          deleted 2026-08-12 — its replacement, components/GoalsEditor.tsx,
+                          draws goal rows through PadRow instead, which DOES cap the title at
+                          one line (see that file's Edit notes for why). */}
                       <Text style={[styles.issueTitle, { color: theme.text }]}>{symptom.name}</Text>
                       <PressableScale
                         onPress={() => confirmUntrack(symptom.id, symptom.name)}
@@ -215,7 +222,9 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
           />
         </ScrollView>
 
-        {/* Secondary, like GoalsSheet's: dismissing is not this sheet's main action. */}
+        {/* Secondary, like GoalsSheet's used to be: dismissing is not this sheet's main
+            action. (GoalsEditor has no such button any more — there's nothing to dismiss;
+            the drawer just collapses.) */}
         <Button label={t.healthIssues.close} onPress={onClose} variant="secondary" style={styles.doneBtn} />
       </Surface>
     </AnimatedBottomSheet>

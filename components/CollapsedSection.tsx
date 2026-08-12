@@ -35,6 +35,12 @@
  *     row") — and a narrow one: the two targets are the same idea at two depths (look at it
  *     here / go to it), not two unrelated controls sharing a line. Don't generalise it into
  *     "section headers can carry a second control".
+ *     **Goals dropped its half of this on 2026-08-12** (maintainer: "This should not be a
+ *     pop-up. Examples included in card just like other cards, and making, editing and
+ *     deleting in the card, not a pop up.") — its two callers now pass no `onTitlePress`, so
+ *     the Goals drawer has one tap target like Whenever; only Earlier days still opens a
+ *     pop-up (a day picker, genuinely a "pick one and navigate" job). `onTitlePress` itself
+ *     is untouched — it's still there for any surface whose destination really is a pop-up.
  *   - **It replaced components/SubScreenLinkButton.tsx** (deleted 2026-08-10), which drew the
  *     same job as a small icon + label + chevron ROW inside a grouping card. That shape was
  *     added 2026-08-08 to stop three same-sized white cards reading as three sections of the
