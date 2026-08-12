@@ -88,6 +88,22 @@
  *     it always has (Habits: `!allStartersAdded`; Plans/Health: `length === 0 || …Added`) —
  *     `collapsible` only changes the SHAPE of the card while it's mounted, never whether it's
  *     mounted at all.
+ *   - **The trigger and its revealed content share ONE box (2026-08-12), not two.** Until
+ *     this pass the trigger row carried its own full border+radius and the example rows below
+ *     it started a fresh `marginTop` gap — so an expanded drop-down was a small bordered row
+ *     sitting just above a second, separately bordered box, with visible daylight between them
+ *     (user report, with a screenshot of the To-do day card's "Se et eksempel:" row: "the
+ *     examples should be inside the same box as the expanded container"). The border moved to
+ *     a new outer `collapsibleBox` wrapping both the trigger and the revealed body; the trigger
+ *     itself now draws no border, and `overflow: 'hidden'` lets the outer radius clip its top
+ *     corners exactly the way components/CollapsedSection.tsx's header+body `Surface` already
+ *     does — that component was the precedent this borrows the shape from. The revealed body
+ *     is split from the trigger by a hairline (`collapsibleContent`'s `borderTopWidth`), not a
+ *     second full border. Individual `StarterExampleRow`s keep their own dashed field-rung
+ *     border where revealed — a row nested inside this box is the same weight-graded nesting
+ *     every bordered list in the app already uses, not the card-inside-a-card pattern
+ *     `embedded` exists to avoid (that one is about nesting whole *Surfaces*, not a row inside
+ *     the box that lists it).
  *   - **`embedded` (2026-08-12)** — renders the card's contents as a plain block: no Surface,
  *     no padding of its own, no watermark. For a caller mounting this INSIDE another card,
  *     where this component's own Surface would be a panel nested in a panel. Same contract as
@@ -163,7 +179,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StageTree, { type TreeStage } from '@/components/StageTree';
-import { Fonts, FontSize, HitSlop, Radius, Spacing } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, HitSlop, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
@@ -289,15 +305,20 @@ export default function StarterCard({
         </View>
       ) : null}
       {collapsible && hasExampleContent ? (
-        <>
-          {/* The `collapsible` trigger row (2026-08-06 v3) — a bordered row at the same
-              rung as StarterExampleRow's own rows, but with no accent wash: it's a summary
-              control, not a suggestion item, so it has to read as quieter than the rows it
-              opens onto while still looking like a row rather than a floating pill. Always
-              visible; toggling it is the only way to reach the collapsed/expanded states. */}
+        // One box for the whole drop-down (2026-08-12, user report: the trigger and its
+        // revealed example were two separate bordered rectangles with a gap between them —
+        // "the examples should be inside the same box as the expanded container"). The card
+        // rung (`BORDER_WIDTH.card`) now belongs to this outer box; the trigger row itself
+        // draws no border of its own, and `overflow: 'hidden'` lets the outer radius clip its
+        // top corners the way components/CollapsedSection.tsx's header+body Surface already
+        // does. The example rows keep their own field-rung dashed border when revealed —
+        // that's a row nested inside a card, the same weight-graded nesting every other list
+        // uses, not the "card inside a card" pattern this component's `embedded` mode exists
+        // to avoid.
+        <View style={[styles.collapsibleBox, { borderColor: theme.border }]}>
           <PressableScale
             onPress={toggleCollapsed}
-            style={[styles.triggerRow, { borderColor: theme.border }]}
+            style={styles.triggerRow}
             accessibilityRole="button"
             accessibilityLabel={collapsed ? t.starters.expandExamples : t.starters.collapseExamples}
             accessibilityState={{ expanded: !collapsed }}
@@ -308,16 +329,14 @@ export default function StarterCard({
             <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={16} color={theme.textMuted} />
           </PressableScale>
           {collapsed ? null : (
-            <>
+            <View style={[styles.collapsibleContent, { borderTopColor: theme.border }]}>
               {example ? (
-                <View style={[styles.exampleBlock, compact && styles.exampleBlockCompact]}>
-                  <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
-                </View>
+                <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
               ) : null}
               {children ? <View style={styles.actions}>{children}</View> : null}
-            </>
+            </View>
           )}
-        </>
+        </View>
       ) : (
         <>
           {example ? (
@@ -389,19 +408,35 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.xs,
   },
-  // `collapsible` trigger row (2026-08-06 v3) — same geometry rung as StarterExampleRow's
-  // own rows (border + Radius.sm + matching padding), but no accent wash: this is a summary
-  // control, not a suggestion item. One row's height when collapsed, which is the whole
+  // `collapsible` — the outer box for the whole drop-down (2026-08-12). One card-rung border
+  // around the trigger AND whatever it reveals, so opening it grows one box instead of
+  // uncovering a second one below it. `overflow: 'hidden'` lets this radius clip the trigger
+  // row's top corners, the same way components/CollapsedSection.tsx's Surface clips its rail.
+  collapsibleBox: {
+    borderWidth: BORDER_WIDTH.card,
+    borderRadius: Radius.sm,
+    overflow: 'hidden',
+  },
+  // No border/radius of its own any more — those moved to `collapsibleBox`, which this sits
+  // inside as the always-visible header. One row's height when collapsed, which is the whole
   // point — "can't be disruptive or take up too much space when closed."
   triggerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
+  },
+  // The revealed body, inside the same box as the trigger — a hairline splits them instead of
+  // a second full border. Same horizontal inset as the trigger row so an example lines up
+  // under the label above it.
+  collapsibleContent: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
   },
   triggerLabel: {
     flex: 1,
