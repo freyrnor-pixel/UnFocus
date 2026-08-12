@@ -179,7 +179,10 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       subtitle: habitsRemaining > 0 ? t.widgets.habitsLeft(habitsRemaining) : '',
       items: habitItems,
       more: todayHabits.length > PREVIEW ? t.widgets.more(todayHabits.length - PREVIEW) : '',
-      empty: t.widgets.noHabits,
+      // No empty-state text (2026-08-12 — the "No habits today"/"Nothing logged" filler was
+      // removed from both this card and Health's below; Empty() in WidgetViews.tsx renders
+      // nothing for a blank string).
+      empty: '',
       accent: ACCENT.habits,
       hasContent: todayHabits.length > 0,
     },
@@ -188,7 +191,8 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       subtitle: ongoingCount > 0 ? t.widgets.healthOngoing(ongoingCount) : '',
       items: healthItems,
       more: activeHealth.length > PREVIEW ? t.widgets.more(activeHealth.length - PREVIEW) : '',
-      empty: t.widgets.noHealth,
+      // See the habits card's note above — no empty-state text here either.
+      empty: '',
       accent: ACCENT.health,
       hasContent: healthItems.length > 0,
     },

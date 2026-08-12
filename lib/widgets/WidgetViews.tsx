@@ -107,6 +107,7 @@ function Header({ title, subtitle, accent, p }: { title: string; subtitle: strin
 }
 
 function Empty({ text, p }: { text: string; p: Palette }) {
+  if (!text) return null;
   return (
     <FlexWidget
       style={{ width: 'match_parent', flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}

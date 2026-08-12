@@ -910,19 +910,12 @@ export default function HabitsScreen() {
                     the shame/reward framing the app deliberately avoids. */}
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
-                    // The explainer job (what a habit is for, plus one-tap examples) moved up
-                    // to the card-level tips line + suggested-habits card above (2026-08-06 v2)
-                    // — this is just the quiet one-liner now, for BOTH "no habits at all" and
-                    // "habits exist but none occur today". Neutral edge (theme.border, not the
-                    // habit domain hue) — "nothing here yet", not a coded surface.
-                    // A quiet inset line, not a <Surface> (2026-08-08). This drew a full card
-                    // inside the Habits card — same white fill, same border rung, same radius —
-                    // so one sentence of muted text occupied a box that read as heavy as the
-                    // list it stood in for. This is the shape app/(tabs)/plans.tsx has used for
-                    // an empty section all along (`sectionEmpty`).
-                    <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-                      {t.noHabitsYet}
-                    </Text>
+                    // 2026-08-12: the quiet "nothing here yet" one-liner was removed for BOTH
+                    // "no habits at all" and "habits exist but none occur today" — the
+                    // card-level tips line + suggested-habits card above already explain an
+                    // empty list, so this rendered nothing but a redundant line under them.
+                    // See components/HomeHabitsCard.tsx's matching removal.
+                    null
                   ) : (
                     draggedHabits.map((h, hi) => (
                       <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
@@ -1167,18 +1160,6 @@ const baseStyles = StyleSheet.create({
   section: { gap: Spacing.sm },
   // The card's bottom half stacks at the card's own rhythm — see the render-side note.
   habitsCardBody: { gap: Spacing.md },
-  // Empty section line — the same quiet treatment app/(tabs)/plans.tsx uses (`sectionEmpty`),
-  // deliberately NOT a Surface. Border defaults to transparent and is overridden at the call
-  // site, matching Plans exactly so an empty list looks the same on both screens.
-  sectionEmpty: {
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.medium,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
 
   // Tips line (2026-08-06 v2) — plain text under the sub-header, not boxed.
   tipsRow: { flexDirection: 'row', gap: Spacing.xs },

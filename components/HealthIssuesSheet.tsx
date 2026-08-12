@@ -199,13 +199,15 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
                         <Ionicons name="close-outline" size={18} color={theme.textMuted} />
                       </PressableScale>
                     </View>
-                    <Text style={[styles.issueMeta, TabularNums, { color: theme.textMuted }]}>
-                      {stat
-                        ? `${t.healthIssues.entryCount(stat.count)} · ${t.healthIssues.lastLogged(
-                            daysSince(stat.last, today)
-                          )}`
-                        : t.healthIssues.neverLogged}
-                    </Text>
+                    {/* No meta line at all for a symptom with no entries yet (2026-08-12 —
+                        dropped the "Nothing logged yet" filler). */}
+                    {stat ? (
+                      <Text style={[styles.issueMeta, TabularNums, { color: theme.textMuted }]}>
+                        {`${t.healthIssues.entryCount(stat.count)} · ${t.healthIssues.lastLogged(
+                          daysSince(stat.last, today)
+                        )}`}
+                      </Text>
+                    ) : null}
                   </Surface>
                 );
               })}
