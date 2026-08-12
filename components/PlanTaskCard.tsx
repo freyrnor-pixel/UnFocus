@@ -83,7 +83,10 @@
  *             only), lib/padState (PadState, padVisibleRows),
  *             components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
- *             components/StarterExampleRow (the empty day's suggested-add row),
+ *             components/StarterExampleRow (the empty day's suggested-add row) wrapped in
+ *             components/StarterCard (`embedded collapsible`, no `text` — the trigger row that
+ *             folds the example away, 2026-08-12), components/CardHintNote (the empty-day
+ *             explainer, `placement="head"`),
  *             lib/dayLog (DayEntry + formatEntryTime — TYPES AND FORMATTING ONLY; the
  *             entries themselves arrive as the `dayLog` prop, because this card cannot
  *             derive its own date and app/day-log.tsx renders a different day through it),
@@ -166,10 +169,13 @@
  *     portion now.
  *   - **Empty state (2026-07-24 text removed → 2026-07-25 blank row → hour ruler → 2026-07-26
  *     real grid → 2026-07-27 explainer + suggestion → 2026-07-30 the teaching moved to the
- *     foot)**: an empty day (`showEmpty`) renders one real suggested-add row
- *     (`StarterExampleRow`, its "+" wired through `onAddExample`) where the content would be,
- *     and the explainer (`t.starters.plans.text`) as a `components/CardHintNote` at the very
- *     bottom of the card. Until 2026-07-30 the explainer LED the block and an uppercase
+ *     foot → 2026-08-12 back under the header, and the example got a trigger)**: an empty day
+ *     (`showEmpty`) renders one real suggested-add row (`StarterExampleRow`, its "+" wired
+ *     through `onAddExample`) where the content would be — inside a `StarterCard embedded
+ *     collapsible` so it can be folded away like every other surface's example — and the
+ *     explainer (`t.starters.plans.text`) as a `components/CardHintNote placement="head"`
+ *     directly under the header, while and only while the day is empty (see that component's
+ *     placement note). Until 2026-07-30 the explainer LED the block and an uppercase
  *     "Example tasks" caption sat under it — three lines of teaching between the title and the
  *     first thing you could act on. The caption's job (a suggestion styled to look like a real
  *     row reads as an actual task) is done by the row's own `tag` chip now; see
@@ -335,6 +341,7 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import { Badge } from '@/components/Badge';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
+import StarterCard from '@/components/StarterCard';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
 import { DayEntry, formatEntryTime } from '@/lib/dayLog';
 import type { DeviceCalendarEvent } from '@/lib/deviceCalendar';
@@ -1523,6 +1530,17 @@ export default function PlanTaskCard({
           </PressableScale>
         )}
 
+        {/* The empty-day explainer, under the header while the day is EMPTY (2026-08-12,
+            maintainer: the explanation sits under the sub-header, "only when the card is
+            empty"). It led the empty state, moved to the foot on 2026-07-30, and comes back
+            here — that complaint was about teaching standing between a title and content the
+            user already has, which an empty day by definition doesn't. Once there are tasks
+            the ⓘ hint is where this lives. See components/CardHintNote.tsx's placement note.
+            A SIBLING of the header block, not inside it: the header renders only when
+            `readOnly` (the Home preview), and on the To-do timeline this note is correctly the
+            card's first child — nothing above it to sit under. */}
+        {showEmpty ? <CardHintNote text={t.starters.plans.text} placement="head" /> : null}
+
         {/* The type line, in ONE fixed place for every state this card can be in (2026-08-03).
             It used to have two mount points: PadSheet's `typeRow` (the pad's first line, i.e.
             the TOP of the card) whenever the ruled list was drawn, and a standalone PadSheet
@@ -1545,20 +1563,33 @@ export default function PlanTaskCard({
                 dashed, unfilled sketch since 2026-08-10, deliberately NOT as a real row (see
                 components/StarterExampleRow.tsx's reversal note); it sits directly above the
                 dashed ghost add-row below and now shares its finish, which is the point.
-                The explainer that used to lead this block is now a one-line
-                CardHintNote at the FOOT of the card (2026-07-30) — see that mount below, and
-                its component header for why teaching moved out from between the title and the
-                content. The "EXAMPLE TASKS" caption line went with it: the marker is the
-                row's own `tag` chip now. */}
+                The explainer that used to lead this block is the head-mounted CardHintNote
+                above (2026-08-12) — the "EXAMPLE TASKS" caption line went with it back in
+                2026-07-30: the marker is the row's own `tag` chip now.
+                **The trigger row (2026-08-12, maintainer: "add a trigger to the day card")**:
+                wrapped in the shared `StarterCard collapsible` so this example can be folded
+                away like Health's, Habits', Goals' and the To-do SCREEN's — this card was the
+                last surface whose example could not be. `embedded` because we are already
+                inside this card's Surface, and **no `text`**: the explainer is the
+                head-mounted CardHintNote, and saying it twice in one card with two different
+                lifespans is what StarterCard's optional-`text` note warns against. The cost is
+                one extra line in the card that was the model for the others — accepted. */}
             {onAddExample ? (
-              <StarterExampleRow
-                icon="ellipse-outline"
-                title={t.starters.plans.exampleTitle}
-                tag={t.starters.exampleLabel}
-                meta="17:00–17:20"
-                accent={screenColor.base}
-                onAdd={onAddExample}
-                addLabel={t.starters.addExample}
+              <StarterCard
+                embedded
+                collapsible
+                exampleHeaderLabel={t.starters.plans.tapToAdd}
+                example={
+                  <StarterExampleRow
+                    icon="ellipse-outline"
+                    title={t.starters.plans.exampleTitle}
+                    tag={t.starters.exampleLabel}
+                    meta="17:00–17:20"
+                    accent={screenColor.base}
+                    onAdd={onAddExample}
+                    addLabel={t.starters.addExample}
+                  />
+                }
               />
             ) : null}
             {/* Ghost "add" row (debug-note 2026-07-21) — an empty day should still offer a
@@ -1773,11 +1804,6 @@ export default function PlanTaskCard({
           total={spec.timeline ? pendingCount : listTasks.length}
         />
 
-        {/* The empty-day explainer, at the FOOT of the card (2026-07-30) — it used to lead the
-            empty state, between the title and the first thing you can actually do. Only while
-            the day is genuinely empty: once there are tasks, the ⓘ hint is where this lives. */}
-        {showEmpty ? <CardHintNote text={t.starters.plans.text} noBorder /> : null}
-
       </View>
     </Surface>
   );
@@ -1797,9 +1823,10 @@ const baseStyles = StyleSheet.create({
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
   emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
-  // Just the suggestion row + the ghost add row now — the bulb/italic explainer and the
-  // "EXAMPLE TASKS" caption that used to lead this block became a foot-of-card CardHintNote
-  // and the row's own `tag` chip respectively (2026-07-30).
+  // The suggestion row (in its StarterCard trigger wrapper since 2026-08-12) + the ghost add
+  // row. The bulb/italic explainer that used to lead this block is a CardHintNote (2026-07-30
+  // at the foot, back under the header on 2026-08-12) and the "EXAMPLE TASKS" caption is the
+  // row's own `tag` chip.
   // Spacing.xs, the gap PadSheet stacks real rows at and StarterCard stacks example rows at
   // (2026-08-12) — it was Spacing.sm, so the two dashed rows in here sat further apart than
   // any two rows this card ever draws for real.

@@ -18,6 +18,15 @@
  *      inside another card's Surface passes `embedded`. `EnergyMeter` is the one documented
  *      exception — its card REPLACES the meter rather than annotating a list.
  *
+ * A fourth was added on 2026-08-12, from the maintainer's follow-up ruling ("explanation always
+ * sits underneath sub-header", scoped to "only when the card is empty"):
+ *
+ *   4. **An empty card's explainer sits under its header; a card with content keeps it at the
+ *      foot.** Every `CardHintNote` in the app is empty-gated and therefore `placement="head"`
+ *      — except `EnergyMeter`'s, whose hint is permanent and stays at the default foot. That
+ *      counter-case is the most valuable assertion in this file: without it the suite would
+ *      read "head everywhere" and the next session would flatten the rule into a constant.
+ *
  * Source-scanning rather than rendering, for the reason lib/__tests__/chromeRhythm.test.ts
  * gives: a width and a wrapper depth are settled by styles that the node env doesn't lay out,
  * and the web preview cannot see either (react-native-web's box model differs, and these
@@ -140,7 +149,10 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     ['app/(tabs)/health.tsx', 'Health'],
     ['app/(tabs)/habits.tsx', 'Habits'],
     ['components/GoalsEditor.tsx', 'the Goals drawer'],
-    ['components/MedicineTrayCard.tsx', 'the medicine tray card'],
+    // 2026-08-12: the day card joined this list when its bare example gained the shared
+    // collapse trigger, and components/MedicineTrayCard left it — that card's explainer is a
+    // CardHintNote now, so it mounts no StarterCard at all (asserted separately below).
+    ['components/PlanTaskCard.tsx', 'the day card'],
   ] as const) {
     it(`${label} mounts it embedded`, () => {
       const source = code(file);
@@ -149,6 +161,33 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
       for (const mount of mounts) expect({ file, mount, embedded: mount.includes('embedded') }).toEqual({ file, mount, embedded: true });
     });
   }
+
+  it('gives the day card\'s example the same collapse trigger every other surface has', () => {
+    // Ruling 2 (2026-08-12, "add a trigger to the day card"): this was the last surface whose
+    // example could not be folded away. No `text` on the mount — the explainer is the
+    // head-mounted CardHintNote, and one card saying the same sentence twice with two
+    // different lifespans is what StarterCard's optional-`text` note warns against.
+    const source = code('components/PlanTaskCard.tsx');
+    expect(source.match(/<StarterCard\b/g) ?? []).toHaveLength(1);
+    // The wrapper's OWN props — everything between its tag and the example row it wraps.
+    const props = source.slice(source.indexOf('<StarterCard'), source.indexOf('<StarterExampleRow'));
+    expect(props).toContain('collapsible');
+    expect(props).toContain('exampleHeaderLabel={t.starters.plans.tapToAdd}');
+    expect(props).not.toMatch(/\btext=/);
+    // The ghost add-row stays OUTSIDE it: on the `readOnly && !onAddTask` branch it is the
+    // only way in, and a collapse must never take away the last "add something" affordance.
+    expect(source).toMatch(/styles\.emptyAddRow/);
+    expect(source).not.toMatch(/example=\{[\s\S]{0,600}styles\.emptyAddRow/);
+  });
+
+  it('the medicine card carries the shared explainer line, not a StarterCard of its own', () => {
+    // Its placement was already right (`statusLine()` returns null with nothing scheduled, so
+    // this sits directly under the header row); 2026-08-12 changed only the component, so all
+    // five empty-state explainers are one component in one position.
+    const source = code('components/MedicineTrayCard.tsx');
+    expect(source).not.toMatch(/<StarterCard/);
+    expect(source).toMatch(/<CardHintNote text=\{t\.starters\.medicine\.text\} placement="head"/);
+  });
 
   it('leaves the Energy tutorial as a real card — it IS the meter, not a note beside one', () => {
     const source = code('components/EnergyMeter.tsx');
@@ -188,5 +227,56 @@ describe('the example sits in the list it is an example of, not above the list\'
     expect(section).toBeGreaterThan(-1);
     expect(section).toBeLessThan(starter);
     expect(starter).toBeLessThan(composer);
+  });
+});
+
+// ── 4. An empty card explains itself under its header ────────────────────────
+
+describe('CardHintNote placement is decided by emptiness, not fixed', () => {
+  it('defaults to the foot when a caller passes no placement', () => {
+    // The default is what makes EnergyMeter's mount below a deliberate choice rather than an
+    // omission — assert it, or "no prop" stops meaning anything.
+    const source = code('components/CardHintNote.tsx');
+    expect(source).toMatch(/placement = 'foot'/);
+    expect(source).toMatch(/const head = placement === 'head';/);
+    // Head: no hairline to attach it to what it follows, no marginTop (the header owns that
+    // gap), a marginBottom instead. Foot keeps the shape it has had since 2026-07-30.
+    expect(source).toMatch(/head: \{\s*marginBottom: Spacing\.md,\s*\}/);
+    expect(source).toMatch(/foot: \{[\s\S]*?borderTopWidth: StyleSheet\.hairlineWidth[\s\S]*?marginTop: Spacing\.md,/);
+  });
+
+  // Each card's explainer is empty-gated, so under the ruling each one leads its card. The
+  // second index is the card's BODY — the thing the note now introduces rather than follows.
+  for (const [file, body, label] of [
+    ['components/PlanTaskCard.tsx', 'styles.emptyWrap', 'the day card'],
+    ['components/HomeHabitsCard.tsx', '<PadSheet', "Home's habits card"],
+    ['components/HomeNotesCard.tsx', '<PadSheet', "Home's notes card"],
+    ['components/HomeShoppingCard.tsx', 'styles.weekRow', "Home's shopping card"],
+    ['components/MedicineTrayCard.tsx', '<Collapsible', 'the medicine tray card'],
+  ] as const) {
+    it(`${label} explains itself under its header, not at its foot`, () => {
+      const source = code(file);
+      const mounts = source.match(/<CardHintNote[\s\S]*?\/>/g) ?? [];
+      expect(mounts).toHaveLength(1);
+      expect(mounts[0]).toContain('placement="head"');
+      // `noBorder` was the foot's "don't double the pad's own rule" escape hatch; at the head
+      // there is no hairline to suppress, so a caller passing both is stating something false.
+      expect(mounts[0]).not.toContain('noBorder');
+      const note = source.indexOf('<CardHintNote');
+      const content = source.indexOf(body);
+      expect(content).toBeGreaterThan(-1);
+      expect(note).toBeLessThan(content);
+    });
+  }
+
+  it('leaves the Energy hint at the foot — it is permanent, not an empty state', () => {
+    // The counter-case, and the reason this describe asserts a RULE rather than five
+    // positions. EnergyMeter's hint sits under a meter that has a number in it: teaching
+    // between a title and content the user already has is exactly what 2026-07-30 moved out
+    // of the way, and that half of the decision still stands.
+    const source = code('components/EnergyMeter.tsx');
+    const mounts = source.match(/<CardHintNote[\s\S]*?\/>/g) ?? [];
+    expect(mounts).toHaveLength(1);
+    expect(mounts[0]).not.toContain('placement');
   });
 });
