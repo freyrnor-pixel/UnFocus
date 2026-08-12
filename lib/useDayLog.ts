@@ -41,7 +41,7 @@
  */
 import { useMemo } from 'react';
 import { buildDayLog, DayEntry, DayLogSources } from '@/lib/dayLog';
-import { utcStampToLocalMinutes } from '@/lib/date';
+import { parseTimeToMinutes, utcStampToLocalMinutes } from '@/lib/date';
 import { getTranslations } from '@/lib/i18n';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -53,14 +53,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 
 /** 'H:MM'/'HH:MM' → minutes since midnight, or null. Local copy so lib/dayLog stays pure. */
-function timeToMinutes(hhmm: string): number | null {
-  const match = hhmm?.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  if (h > 23 || m > 59) return null;
-  return h * 60 + m;
-}
 
 /**
  * The day's already-happened entries for `date`, oldest first, cut at `cutoffMinutes`.
@@ -130,7 +122,7 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] | und
         .map((l) => ({
           id: l.id,
           label: l.ailment,
-          atMinutes: timeToMinutes(l.startTime) ?? utcStampToLocalMinutes(l.createdAt, date),
+          atMinutes: parseTimeToMinutes(l.startTime) ?? utcStampToLocalMinutes(l.createdAt, date),
         })),
       moments: moments
         .filter((m) => m.logDate === date)

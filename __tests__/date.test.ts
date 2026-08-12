@@ -21,6 +21,8 @@ import {
   utcStampToLocalMinutes,
   parseTimeToMinutes,
   addDurationToTime,
+  formatMinutesAsTime,
+  localMinutesOf,
 } from '@/lib/date';
 
 describe('dateStr / todayStr', () => {
@@ -282,5 +284,62 @@ describe('utcStampToLocalMinutes', () => {
     ['a malformed stamp', '2026-13-45 99:99:99'],
   ])('returns null for %s', (_label, stamp) => {
     expect(utcStampToLocalMinutes(stamp, '2026-06-15')).toBeNull();
+  });
+});
+
+// These three became shared in the 2026-08-12 de-duplication pass: `parseTimeToMinutes`
+// absorbed the byte-identical private copies in lib/dayLog.ts and lib/useDayLog.ts (which
+// differed only by accepting a nullable argument), while `formatMinutesAsTime` and
+// `localMinutesOf` absorbed three hand-written copies each. The point of the tests below is
+// that the ONE implementation still satisfies every caller's contract — in particular the
+// midnight wrap lib/medicineSchedule.ts needs and the no-op that same wrap must be for
+// lib/dayLog.ts, which never crosses midnight.
+describe('parseTimeToMinutes — nullable input', () => {
+  it.each([
+    ['null', null],
+    ['undefined', undefined],
+  ])('returns null for %s rather than throwing', (_label, input) => {
+    expect(parseTimeToMinutes(input as unknown as string)).toBeNull();
+  });
+});
+
+describe('formatMinutesAsTime', () => {
+  it.each([
+    [0, '00:00'],
+    [65, '01:05'],
+    [1439, '23:59'],
+  ])('formats %i as %s, zero-padded', (minutes, expected) => {
+    expect(formatMinutesAsTime(minutes)).toBe(expected);
+  });
+
+  // lib/medicineSchedule.ts's formatMinutes relies on this; lib/dayLog.ts's formatEntryTime
+  // relies on it never firing, since an entry's minute is always within the day.
+  it.each([
+    [1440, '00:00'],
+    [1500, '01:00'],
+    [-60, '23:00'],
+  ])('wraps %i past midnight to %s', (minutes, expected) => {
+    expect(formatMinutesAsTime(minutes)).toBe(expected);
+  });
+
+  it('rounds a fractional minute', () => {
+    expect(formatMinutesAsTime(90.6)).toBe('01:31');
+  });
+
+  it('round-trips with parseTimeToMinutes across the whole day', () => {
+    for (let m = 0; m < 1440; m++) {
+      expect(parseTimeToMinutes(formatMinutesAsTime(m))).toBe(m);
+    }
+  });
+});
+
+describe('localMinutesOf', () => {
+  it('reads LOCAL wall-clock hours/minutes, not UTC', () => {
+    const d = new Date(2026, 5, 15, 14, 30);
+    expect(localMinutesOf(d)).toBe(14 * 60 + 30);
+  });
+
+  it('agrees with nowHHMM, which is built from it', () => {
+    expect(formatMinutesAsTime(localMinutesOf(new Date()))).toBe(nowHHMM());
   });
 });

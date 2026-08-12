@@ -11,16 +11,22 @@
  * says you did nothing. That is why the invariants below are absolute rather than stylistic.
  *
  * Connections:
- *   Imports → none (deliberately — see below)
+ *   Imports → lib/date only (parseTimeToMinutes, formatMinutesAsTime) — see below
  *   Used by → lib/useDayLog.ts (the ONLY place that reads stores for this),
  *             components/PlanTaskCard.tsx (renders the entries), app/day-log.tsx
  *   Data    → none — pure functions over plain arrays
  *
  * Edit notes:
- *   - **Dependency-free, and a test enforces it.** Same discipline as lib/cardLayout.ts and
- *     lib/growth.ts: no store imports, no lib/notifications, no lib/reminders, no React.
- *     lib/__tests__/dayLog.test.ts source-scans this file and asserts zero hits. If you need
- *     store state here, pass it in — lib/useDayLog.ts is where that belongs.
+ *   - **Effect-free, and a test enforces it.** Same discipline as lib/cardLayout.ts and
+ *     lib/growth.ts: no store imports, no lib/db, no lib/notifications, no lib/reminders,
+ *     no lib/widgets, no React. lib/__tests__/dayLog.test.ts source-scans this file and
+ *     asserts zero hits on that list. If you need store state here, pass it in —
+ *     lib/useDayLog.ts is where that belongs.
+ *     The one import is lib/date, which is itself dependency-free and is deliberately NOT
+ *     on that forbidden list. Until 2026-08-12 this file and lib/useDayLog.ts each carried
+ *     a byte-identical private copy of the `HH:MM` parser and formatter, on the stated
+ *     grounds of "keeping lib/dayLog pure" — which never held, since lib/date reaches
+ *     nothing either. Two copies of a parser that must agree is the bigger risk.
  *   - **No counting, ever** (invariant 1). No totals, no "3 of 9", no percentage, no
  *     progress bar, no completion rate. A chaotic day yields a low number and a low number
  *     is a verdict. `DayEntry` deliberately carries no count field and this module exports
@@ -44,6 +50,7 @@
  *     lib/dayGrid.ts already speak. Not epoch ms: the schema has exactly one epoch-ms
  *     column (ifttt_rules.created_at) and lib/db.ts flags it as a legacy outlier.
  */
+import { formatMinutesAsTime, parseTimeToMinutes } from '@/lib/date';
 
 /**
  * Where an entry came from. Drives the row's icon and accent only — every kind renders in
@@ -91,15 +98,7 @@ export type DayLogSources = {
   moments: { id: string; text: string; atTime: string }[];
 };
 
-/** 'H:MM'/'HH:MM' → minutes since midnight, or null if malformed or out of range. */
-function timeToMinutes(hhmm: string): number | null {
-  const match = hhmm?.trim().match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return null;
-  const h = Number(match[1]);
-  const m = Number(match[2]);
-  if (h > 23 || m > 59) return null;
-  return h * 60 + m;
-}
+
 
 /**
  * Union every source into one chronological stream, oldest first.
@@ -120,17 +119,17 @@ export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayE
   const entries: DayEntry[] = [];
 
   for (const t of sources.tasks) {
-    const at = timeToMinutes(t.doneAt);
+    const at = parseTimeToMinutes(t.doneAt);
     if (at === null) continue;
     entries.push({ id: `task:${t.id}`, kind: 'task', atMinutes: at, label: t.title, sourceId: t.id });
   }
   for (const h of sources.habits) {
-    const at = timeToMinutes(h.firstAt);
+    const at = parseTimeToMinutes(h.firstAt);
     if (at === null) continue;
     entries.push({ id: `habit:${h.id}`, kind: 'habit', atMinutes: at, label: h.name, sourceId: h.id });
   }
   for (const d of sources.doses) {
-    const at = timeToMinutes(d.takenAt);
+    const at = parseTimeToMinutes(d.takenAt);
     if (at === null) continue;
     entries.push({ id: `dose:${d.id}`, kind: 'medicine', atMinutes: at, label: d.label, sourceId: d.id });
   }
@@ -139,7 +138,7 @@ export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayE
     entries.push({ id: `health:${h.id}`, kind: 'health', atMinutes: h.atMinutes, label: h.label, sourceId: h.id });
   }
   for (const m of sources.moments) {
-    const at = timeToMinutes(m.atTime);
+    const at = parseTimeToMinutes(m.atTime);
     if (at === null) continue;
     // A moment has no origin record to navigate to — it IS the record. No sourceId.
     entries.push({ id: `moment:${m.id}`, kind: 'moment', atMinutes: at, label: m.text });
@@ -153,9 +152,13 @@ export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayE
     .sort((a, b) => a.atMinutes - b.atMinutes || a.id.localeCompare(b.id));
 }
 
-/** Local minutes since midnight → 'HH:MM', the row's one right-hand value. */
-export function formatEntryTime(atMinutes: number): string {
-  const h = Math.floor(atMinutes / 60);
-  const m = atMinutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
+/**
+ * Local minutes since midnight → 'HH:MM', the row's one right-hand value.
+ *
+ * Re-exported rather than re-implemented: this and lib/useDayLog.ts each carried a private
+ * copy of both this and the parser above until 2026-08-12, justified as keeping this module
+ * pure. lib/date.ts is itself dependency-free and is not on this file's forbidden-import
+ * list (lib/__tests__/dayLog.test.ts bans the DB, stores, notifications, widgets and react —
+ * not the date helpers), so the justification did not hold.
+ */
+export const formatEntryTime = formatMinutesAsTime;

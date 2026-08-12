@@ -46,7 +46,7 @@
  *   - An uncomputable duration (a legacy row, or an unparseable/missing time) returns null and
  *     the caller renders NOTHING — not "unknown", not "—".
  */
-import { dateStr, parseDateStr, parseTimeToMinutes } from '@/lib/date';
+import { dateStr, formatMinutesAsTime, localMinutesOf, parseDateStr, parseTimeToMinutes } from '@/lib/date';
 
 /**
  * The single source of truth for whether an entry is still happening.
@@ -92,8 +92,7 @@ export function backdatedStart(preset: BackdatePreset, now: Date): { date: strin
     prev.setDate(prev.getDate() - 1);
     return { date: dateStr(prev), time: '21:00' };
   }
-  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  return { date: dateStr(now), time };
+  return { date: dateStr(now), time: formatMinutesAsTime(localMinutesOf(now)) };
 }
 
 /** Absolute minute index for a `YYYY-MM-DD` + `HH:MM` pair, or null if either is missing
