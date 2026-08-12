@@ -11,7 +11,8 @@
  * app/settings.tsx.
  *
  * Connections:
- *   Imports → components/AnimatedBottomSheet, components/FormControls,
+ *   Imports → components/AnimatedBottomSheet, components/SettingRow (ToggleRow — the shared
+ *             labelled switch row; this file's own copy of it went 2026-08-12),
  *             components/PressableScale, components/Surface, constants/theme, lib/i18n,
  *             lib/useAppTheme, store/useShoppingListStore (ShoppingList type only)
  *   Used by → app/(tabs)/shopping.tsx (weekly list's recurring-toggle sheet)
@@ -35,7 +36,7 @@ import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
-import { Switch } from '@/components/FormControls';
+import { ToggleRow } from '@/components/SettingRow';
 
 const WEEK_OPTIONS = [1, 2, 3, 4];
 
@@ -70,13 +71,11 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
         <View style={[styles.handle, { backgroundColor: theme.border }]} />
         <Text style={[styles.title, { color: theme.text }]}>{t.listSettingsTitle}</Text>
 
-        <View style={styles.switchRow}>
-          <Text style={[styles.switchLabel, { color: theme.text }]}>{t.listRecurringToggleLabel}</Text>
-          <Switch
-            checked={lastList.isRecurring}
-            onChange={(v) => onSetRecurring(v, lastList.recurrenceIntervalWeeks)}
-          />
-        </View>
+        <ToggleRow
+          label={t.listRecurringToggleLabel}
+          checked={lastList.isRecurring}
+          onChange={(v) => onSetRecurring(v, lastList.recurrenceIntervalWeeks)}
+        />
 
         {lastList.isRecurring && (
           <View style={styles.intervalBlock}>
@@ -130,8 +129,6 @@ const baseStyles = StyleSheet.create({
   },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full, marginBottom: Spacing.xs },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
-  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   intervalBlock: { gap: Spacing.xs },
   fieldLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   chipRow: { flexDirection: 'row', gap: Spacing.xs },

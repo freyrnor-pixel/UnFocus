@@ -15,7 +15,8 @@
  *
  * Connections:
  *   Imports → components/{ScreenScaffold,Surface,Button,ExpandableCard,PressableScale,TabSlider,
- *             Slider,DesignLabBench,ColorPickerSheet,FormControls,AppModal}, constants/theme,
+ *             Slider,DesignLabBench,ColorPickerSheet,FormControls,SettingRow,AppModal},
+ *             constants/theme,
  *             lib/{designLab,designLabExport,useDesignLab,useAppTheme,i18n,haptics,date},
  *             store/useSettingsStore, expo-constants
  *   Used by → app/design-lab/index.tsx (a header button)
@@ -55,7 +56,8 @@ import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import Slider from '@/components/Slider';
 import DesignLabBench from '@/components/DesignLabBench';
 import ColorPickerSheet from '@/components/ColorPickerSheet';
-import { Input, SegmentedControl, Switch } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
+import { ToggleRow } from '@/components/SettingRow';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import {
   COLOR_KNOBS,
@@ -321,16 +323,12 @@ export default function DesignLabTokensScreen() {
         {/* Apply / note / export. Mounted once, at the end of whichever tab is showing, so it
             is always a scroll away and never duplicated in the tree. */}
         <Surface style={styles.card}>
-          <View style={styles.switchRow}>
-            <View style={styles.switchTextCol}>
-              <Text style={[styles.switchLabel, { color: theme.text }]}>{t.designLab.applyLabel}</Text>
-              <Text style={[styles.hint, { color: theme.textMuted }]}>{t.designLab.applyHint}</Text>
-            </View>
-            <Switch
-              checked={settings.designLabApply}
-              onChange={(v) => { selection(); settings.update({ designLabApply: v }); }}
-            />
-          </View>
+          <ToggleRow
+            label={t.designLab.applyLabel}
+            hint={t.designLab.applyHint}
+            checked={settings.designLabApply}
+            onChange={(v) => { selection(); settings.update({ designLabApply: v }); }}
+          />
 
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -467,8 +465,6 @@ const styles = StyleSheet.create({
   card: { padding: Spacing.md, gap: Spacing.sm },
   divider: { height: StyleSheet.hairlineWidth, marginVertical: Spacing.xs },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
-  // flex + minWidth:0 so a long label yields instead of shoving the control off the card.
-  switchTextCol: { flex: 1, minWidth: 0, gap: 1 },
   switchLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   stackedRow: { gap: Spacing.xs },
   shapeValue: { fontSize: FontSize.sm, fontFamily: Fonts.regular, ...TabularNums },

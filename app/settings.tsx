@@ -70,7 +70,10 @@
  * segmented-control shape instead of a full pill (Plans/Shopping keep the default pill).
  *
  * Connections:
- *   Imports → components/AppModal, components/ConfirmationBanner, components/FormControls,
+ *   Imports → components/AppModal (showAppModal + confirmDestructive), components/SettingRow
+ *             (ToggleRow + SettingLinkRow — every switch row and every "go to this screen" row
+ *             on this screen; they were written out by hand 23 times, ~160 lines, until
+ *             2026-08-12), components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/SectionDivider, components/Surface,
  *             components/ExpandableCard, components/PressableScale, components/TabSlider,
  *             components/AiSetupPreviewModal, constants/theme, lib/domainColor, lib/backup
@@ -233,7 +236,8 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import ExpandableCard from '@/components/ExpandableCard';
-import { Input, Switch as FormSwitch, SegmentedControl } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
+import { SettingLinkRow, ToggleRow } from '@/components/SettingRow';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import PressableScale from '@/components/PressableScale';
@@ -863,29 +867,26 @@ export default function SettingsScreen() {
 
                 {/* TILGJENGELIGHET — same merged panel. */}
                 <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent} rounded>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.reducedMotion}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.reducedMotionHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.reducedMotion} onChange={(v) => settings.update({ reducedMotion: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.settings.accessibility.reducedMotion}
+                    hint={t.settings.accessibility.reducedMotionHint}
+                    checked={settings.reducedMotion}
+                    onChange={(v) => settings.update({ reducedMotion: v })}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.particles}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.particlesHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.particlesEnabled} onChange={(v) => settings.update({ particlesEnabled: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.settings.accessibility.particles}
+                    hint={t.settings.accessibility.particlesHint}
+                    checked={settings.particlesEnabled}
+                    onChange={(v) => settings.update({ particlesEnabled: v })}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.glassSurfaces}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.glassSurfacesHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.glassSurfaces} onChange={(v) => settings.update({ glassSurfaces: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.settings.accessibility.glassSurfaces}
+                    hint={t.settings.accessibility.glassSurfacesHint}
+                    checked={settings.glassSurfaces}
+                    onChange={(v) => settings.update({ glassSurfaces: v })}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
                   <SegmentedControl
@@ -898,13 +899,12 @@ export default function SettingsScreen() {
                     ]}
                   />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.leftHanded}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.leftHandedHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.leftHanded} onChange={(v) => settings.update({ leftHanded: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.settings.accessibility.leftHanded}
+                    hint={t.settings.accessibility.leftHandedHint}
+                    checked={settings.leftHanded}
+                    onChange={(v) => settings.update({ leftHanded: v })}
+                  />
                   {/* The horizontal-plans-timeline switch used to sit here; it moved to
                       Personal → Layout in the 2026-07-25 reorganization. It's a taste
                       preference about how the Plans rail is drawn, not an accessibility
@@ -982,16 +982,12 @@ export default function SettingsScreen() {
                   )}
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   {/* Auto-backup toggle */}
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.autoBackup.label}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.autoBackup.hint}</Text>
-                    </View>
-                    <FormSwitch
-                      checked={settings.autoBackupEnabled}
-                      onChange={(v) => { void handleAutoBackupToggle(v); }}
-                    />
-                  </View>
+                  <ToggleRow
+                    label={t.config.autoBackup.label}
+                    hint={t.config.autoBackup.hint}
+                    checked={settings.autoBackupEnabled}
+                    onChange={(v) => { void handleAutoBackupToggle(v); }}
+                  />
                   {settings.autoBackupEnabled && (
                     <>
                       <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs, marginBottom: 0 }]}>
@@ -1128,13 +1124,12 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.weeklyReminders} accentColor={theme.accent} first rounded>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.weeklyReminders}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.desc.weeklyReminders}</Text>
-                    </View>
-                    <FormSwitch checked={settings.remindersEnabled} onChange={(v) => applyAndSync({ remindersEnabled: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.weeklyReminders}
+                    hint={t.config.desc.weeklyReminders}
+                    checked={settings.remindersEnabled}
+                    onChange={(v) => applyAndSync({ remindersEnabled: v })}
+                  />
                   {settings.remindersEnabled && (
                     <>
                       <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -1151,43 +1146,33 @@ export default function SettingsScreen() {
 
                 {/* GENERELLE — same merged panel. */}
                 <ExpandableCard title={t.config.sections.notifications} accentColor={theme.accent} rounded>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.taskNotificationsHint}</Text>
-                    </View>
-                    <FormSwitch
-                      checked={settings.taskNotificationsEnabled}
-                      onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
-                    />
-                  </View>
+                  <ToggleRow
+                    label={t.taskNotifications}
+                    hint={t.taskNotificationsHint}
+                    checked={settings.taskNotificationsEnabled}
+                    onChange={(v) => applyAndSync({ taskNotificationsEnabled: v })}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.habitNotifications}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.habitNotificationsHint}</Text>
-                    </View>
-                    <FormSwitch
-                      checked={settings.habitNotificationsEnabled}
-                      onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
-                    />
-                  </View>
+                  <ToggleRow
+                    label={t.habitNotifications}
+                    hint={t.habitNotificationsHint}
+                    checked={settings.habitNotificationsEnabled}
+                    onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.persistentNotifLabel}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.persistentNotifHint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.persistentNotifEnabled} onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }} />
-                  </View>
+                  <ToggleRow
+                    label={t.persistentNotifLabel}
+                    hint={t.persistentNotifHint}
+                    checked={settings.persistentNotifEnabled}
+                    onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }}
+                  />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.quietHours.label}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.quietHours.hint}</Text>
-                    </View>
-                    <FormSwitch checked={settings.quietHoursEnabled} onChange={(v) => applyAndSync({ quietHoursEnabled: v })} />
-                  </View>
+                  <ToggleRow
+                    label={t.settings.quietHours.label}
+                    hint={t.settings.quietHours.hint}
+                    checked={settings.quietHoursEnabled}
+                    onChange={(v) => applyAndSync({ quietHoursEnabled: v })}
+                  />
                   {settings.quietHoursEnabled && (
                     <>
                       <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -1289,13 +1274,12 @@ export default function SettingsScreen() {
                 </Text>
                 <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.layouts.hint}</Text>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.settings.accessibility.timelineHorizontal}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.settings.accessibility.timelineHorizontalHint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.planTimelineHorizontal} onChange={(v) => settings.update({ planTimelineHorizontal: v })} />
-                </View>
+                <ToggleRow
+                  label={t.settings.accessibility.timelineHorizontal}
+                  hint={t.settings.accessibility.timelineHorizontalHint}
+                  checked={settings.planTimelineHorizontal}
+                  onChange={(v) => settings.update({ planTimelineHorizontal: v })}
+                />
                 {/* Starting screen — the permanent home of first-run step 4. Same three
                     values from lib/firstRunOptions.ts and the same nav labels the flow
                     uses, so a choice made there and a choice made here are the same thing.
@@ -1324,13 +1308,11 @@ export default function SettingsScreen() {
                     new-user welcome screen instead, which would be a strange thing to reach
                     from a settings row. */}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <PressableScale style={styles.switchRow} onPress={() => router.push('/onboarding/basics?rows=all')} scaleTo={0.97}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.firstRun.reRun}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.reRunHint}</Text>
-                  </View>
-                  <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                </PressableScale>
+                <SettingLinkRow
+                  label={t.firstRun.reRun}
+                  hint={t.firstRun.reRunHint}
+                  onPress={() => router.push('/onboarding/basics?rows=all')}
+                />
               </Surface>
             </View>
 
@@ -1345,49 +1327,33 @@ export default function SettingsScreen() {
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.voiceNotes.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.voiceNotes.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.voiceNotesEnabled}
-                    onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.permissions.voiceNotes.label}
+                  hint={t.permissions.voiceNotes.hint}
+                  checked={settings.voiceNotesEnabled}
+                  onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
+                />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.contacts.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.contacts.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.contactsEnabled}
-                    onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.permissions.contacts.label}
+                  hint={t.permissions.contacts.hint}
+                  checked={settings.contactsEnabled}
+                  onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
+                />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.location.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.location.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.locationEnabled}
-                    onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.permissions.location.label}
+                  hint={t.permissions.location.hint}
+                  checked={settings.locationEnabled}
+                  onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
+                />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.permissions.calendar.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.permissions.calendar.hint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.calendarSyncEnabled}
-                    onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.permissions.calendar.label}
+                  hint={t.permissions.calendar.hint}
+                  checked={settings.calendarSyncEnabled}
+                  onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
+                />
 
                 {/* Which device calendars the timeline may READ (2026-08-02,
                     lib/deviceCalendar.ts). Distinct from the toggle above it, which is about
@@ -1409,25 +1375,22 @@ export default function SettingsScreen() {
                       const all = settings.dayLogCalendarIds.length === 0;
                       const checked = all || settings.dayLogCalendarIds.includes(cal.id);
                       return (
-                        <View key={cal.id} style={styles.switchRow}>
-                          <View style={styles.switchTextCol}>
-                            <Text style={[styles.switchLabel, { color: theme.text }]}>{cal.title}</Text>
-                          </View>
-                          <FormSwitch
-                            checked={checked}
-                            onChange={(v) => {
-                              selection();
-                              // Turning one OFF while "all" is implicit has to materialise
-                              // the full list first, or the patch would read as "only this
-                              // one" and hide every other calendar in one tap.
-                              const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
-                              const next = v
-                                ? [...new Set([...current, cal.id])]
-                                : current.filter((id) => id !== cal.id);
-                              settings.update({ dayLogCalendarIds: next });
-                            }}
-                          />
-                        </View>
+                        <ToggleRow
+                          key={cal.id}
+                          label={cal.title}
+                          checked={checked}
+                          onChange={(v) => {
+                            selection();
+                            // Turning one OFF while "all" is implicit has to materialise
+                            // the full list first, or the patch would read as "only this
+                            // one" and hide every other calendar in one tap.
+                            const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
+                            const next = v
+                              ? [...new Set([...current, cal.id])]
+                              : current.filter((id) => id !== cal.id);
+                            settings.update({ dayLogCalendarIds: next });
+                          }}
+                        />
                       );
                     })}
                   </>
@@ -1456,7 +1419,7 @@ export default function SettingsScreen() {
                   (2026-08-02), not doubled here. The per-task/habit control is one signed
                   stepper that reads 0 until you set it, so an untouched task costs nothing
                   even in Energy mode. The section header + intro above already carry
-                  label/hint, so there is no switchTextCol row to sit beside anything. */}
+                  label/hint, so there is no labelled ToggleRow to sit beside anything. */}
                 <View style={styles.energyCapacityRows}>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.energy.modeLabel}</Text>
                   <SegmentedControl
@@ -1573,16 +1536,12 @@ export default function SettingsScreen() {
                 {FEATURE_ROWS.map(({ key, copy }) => (
                   <React.Fragment key={key}>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <View style={styles.switchRow}>
-                      <View style={styles.switchTextCol}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{copy(t).label}</Text>
-                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{copy(t).hint}</Text>
-                      </View>
-                      <FormSwitch
-                        checked={settings[key]}
-                        onChange={(v) => { selection(); settings.update({ [key]: v } as Partial<Settings>); }}
-                      />
-                    </View>
+                    <ToggleRow
+                      label={copy(t).label}
+                      hint={copy(t).hint}
+                      checked={settings[key]}
+                      onChange={(v) => { selection(); settings.update({ [key]: v } as Partial<Settings>); }}
+                    />
                   </React.Fragment>
                 ))}
 
@@ -1594,13 +1553,11 @@ export default function SettingsScreen() {
                 {settings.featureAutomations && (
                   <>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <PressableScale style={styles.switchRow} onPress={() => router.push('/automations')} scaleTo={0.97}>
-                      <View style={styles.switchTextCol}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.nav.automations}</Text>
-                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.hints.automations.text}</Text>
-                      </View>
-                      <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                    </PressableScale>
+                    <SettingLinkRow
+                      label={t.nav.automations}
+                      hint={t.hints.automations.text}
+                      onPress={() => router.push('/automations')}
+                    />
                   </>
                 )}
               </Surface>
@@ -1623,16 +1580,12 @@ export default function SettingsScreen() {
                     go. Everything a user already configured is still there when it returns. */}
                 {SHARING_VISIBLE && (
                 <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent} first rounded>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchTextCol}>
-                      <Text style={[styles.switchLabel, { color: theme.text }]}>{t.peopleMode.label}</Text>
-                      <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.peopleMode.hint}</Text>
-                    </View>
-                    <FormSwitch
-                      checked={settings.peopleModeEnabled}
-                      onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
-                    />
-                  </View>
+                  <ToggleRow
+                    label={t.peopleMode.label}
+                    hint={t.peopleMode.hint}
+                    checked={settings.peopleModeEnabled}
+                    onChange={(v) => { selection(); settings.update({ peopleModeEnabled: v }); }}
+                  />
 
                   {settings.peopleModeEnabled && (
                     <>
@@ -1787,13 +1740,12 @@ export default function SettingsScreen() {
                 seed/unseed is the most side-effect-heavy switch on the screen). */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.config.freyrMode.label}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.config.freyrMode.hint}</Text>
-                  </View>
-                  <FormSwitch checked={settings.freyrModeEnabled} onChange={handleToggleFreyrMode} />
-                </View>
+                <ToggleRow
+                  label={t.config.freyrMode.label}
+                  hint={t.config.freyrMode.hint}
+                  checked={settings.freyrModeEnabled}
+                  onChange={handleToggleFreyrMode}
+                />
               </Surface>
             </View>
 
@@ -1805,16 +1757,12 @@ export default function SettingsScreen() {
                 already on, as the way back out. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.debug.toggleLabel}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.debug.toggleHint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.debugModeEnabled}
-                    onChange={(v) => { selection(); settings.update({ debugModeEnabled: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.debug.toggleLabel}
+                  hint={t.debug.toggleHint}
+                  checked={settings.debugModeEnabled}
+                  onChange={(v) => { selection(); settings.update({ debugModeEnabled: v }); }}
+                />
                 {settings.debugModeEnabled && (
                   <>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -1846,29 +1794,23 @@ export default function SettingsScreen() {
                 revealed under its own switch, the same shape as Automations above. */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchTextCol}>
-                    <Text style={[styles.switchLabel, { color: theme.text }]}>{t.designLab.title}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.designLab.toggleHint}</Text>
-                  </View>
-                  <FormSwitch
-                    checked={settings.featureDesignLab}
-                    // Named, unlike its neighbours: a bare switch in a row announces only its
-                    // state, so a screen-reader user hears "off" with nothing to say what is.
-                    accessibilityLabel={t.designLab.title}
-                    onChange={(v) => { selection(); settings.update({ featureDesignLab: v }); }}
-                  />
-                </View>
+                <ToggleRow
+                  label={t.designLab.title}
+                  hint={t.designLab.toggleHint}
+                  checked={settings.featureDesignLab}
+                  // The explicit accessibilityLabel this row carried — with a comment reading
+                  // "Named, unlike its neighbours" — is gone: ToggleRow gives every switch the
+                  // row's own name, so the neighbours are named too now.
+                  onChange={(v) => { selection(); settings.update({ featureDesignLab: v }); }}
+                />
                 {settings.featureDesignLab && (
                   <>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <PressableScale style={styles.switchRow} onPress={() => router.push('/design-lab')} scaleTo={0.97}>
-                      <View style={styles.switchTextCol}>
-                        <Text style={[styles.switchLabel, { color: theme.text }]}>{t.designLab.linkLabel}</Text>
-                        <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.designLab.intro}</Text>
-                      </View>
-                      <Text style={[styles.switchLabel, { color: theme.accent }]}>{'→'}</Text>
-                    </PressableScale>
+                    <SettingLinkRow
+                      label={t.designLab.linkLabel}
+                      hint={t.designLab.intro}
+                      onPress={() => router.push('/design-lab')}
+                    />
                   </>
                 )}
               </Surface>
@@ -1921,7 +1863,6 @@ const baseStyles = StyleSheet.create({
   // chip row could not fit seven options on any phone.
   paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  switchTextCol: { flex: 1, marginRight: Spacing.md },
   switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   dangerBtn: { paddingVertical: Spacing.sm },
