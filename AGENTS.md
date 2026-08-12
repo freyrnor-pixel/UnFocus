@@ -243,7 +243,7 @@ file owns which token.)
     | Composer | Tier 1 | Tier 2 | Tier 3 | Used by |
     |---|---|---|---|---|
     | `PadTypeRow` | always-open line | `panel` + `extras` | `onMore` ✓ | the 4 Home cards, Habits tab, To-do timeline |
-    | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsSheet, Food, Catalogue, Medicine |
+    | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsEditor, Food, Catalogue, Medicine |
     | `InlineAddItem` | collapsed `+` bar → **whole panel** | **not separated** — name, catalog autocomplete, price, category, qty and Temporary all at once | n/a | Shopping, inventory |
     Two known gaps, stated so they are decisions rather than drift: **`AddRow` has no tier 3**,
     so a surface on it cannot offer a fuller editor from the composer; and **`InlineAddItem`
@@ -484,11 +484,13 @@ file owns which token.)
     **deleted** — don't look for it. `CollapsedSection` itself was lifted out of
     `app/(tabs)/plans.tsx`, where it was a local component used only for Whenever; Whenever
     passes no `onTitlePress` and renders exactly as before.
-  - **A pop-up where one is cheap, a push where it isn't.** Goals opens the existing
-    `GoalsSheet`; Earlier days opens the new `components/DayPickerSheet.tsx` (a list of recent
-    days → `/day-log?date=…`). Food and Catalogue keep PUSHING: they are whole library screens
-    with their own adding/editing/filtering, and a pop-up copy would be a second implementation
-    of each to keep in step.
+  - **A pop-up where one is cheap, a push where it isn't** (as first written 2026-08-10; Goals'
+    half reversed 2026-08-12 — see the next bullet). Earlier days opens
+    `components/DayPickerSheet.tsx` (a list of recent days → `/day-log?date=…`) — still a
+    pop-up, and still the right call: picking a day and navigating is a pop-up-shaped job.
+    Food and Catalogue keep PUSHING: they are whole library screens with their own
+    adding/editing/filtering, and a pop-up copy would be a second implementation of each to
+    keep in step.
   - **The body of a drawer onto a whole screen is that screen's own component, mounted**
     (2026-08-10, later the same day — this REPLACES the "the shared part is the card and the
     preview" answer above, and the preview body it named). Maintainer, against the first cut:
@@ -511,9 +513,18 @@ file owns which token.)
       rows need the virtualised list and the scrubber; the drawer shows a capped run and its
       search narrows to the rest.
     - Mount cost is nothing while a drawer is shut: `components/Collapsible.tsx` lazy-mounts.
-  - Goals' and Earlier days' bodies are still read-only previews —
-    `components/GoalsPreviewList.tsx` and `RecentDaysList` — because their destinations are
-    pop-ups, i.e. the same rows in a different container, with nothing extra to mount.
+  - Earlier days' body is still a read-only preview — `RecentDaysList` — because its
+    destination is a pop-up, i.e. the same rows in a different container, with nothing extra
+    to mount. **Goals is the exception as of 2026-08-12**: its drawer body,
+    `components/GoalsEditor.tsx`, is not a preview of anything — there's no popup left to be
+    a preview OF. Maintainer: *"This should not be a pop-up. Examples included in card just
+    like other cards, and making, editing and deleting in the card, not a pop up."* So
+    `components/GoalsSheet.tsx` (the old popup) is deleted, `GoalsEditor` carries the full
+    add/browse/delete UI — including the empty-state explanation + starter chips
+    `components/StarterCard.tsx` shows elsewhere, rendered inline without StarterCard's own
+    Surface wrapper (a Surface inside the drawer's Surface would read as a nested panel, same
+    rule Food/Catalogue's `embedded` mode follows) — and its `CollapsedSection` passes no
+    `onTitlePress`, so the drawer has one tap target, same as Whenever.
   - **Counts on the rail: a size yes, a score no.** Goals and Earlier days pass none (a tally of
     goals reads as a score; a tally of past days is meaningless). Food and Catalogue do: how
     many dishes or known items a library holds is a size.
@@ -545,12 +556,13 @@ file owns which token.)
     symptom is tracked the moment it is logged (`ensureSymptom` promotes it — every log path
     goes through it) or when it is added by hand in the sheet. Read `tracked`, never
     `symptoms.length`, for anything a user would call "my issues".
-  - **Untracking deletes NOTHING**, which is where this deliberately diverges from `GoalsSheet`
-    — whose ✕ genuinely deletes and unlinks. Health entries are the rows in this app that most
-    deserve not to be lost to a tidying gesture, so `setSymptomTracked(id, false)` touches no
-    `health_logs` row and the history stays readable in `/health-log` and on the symptom's own
-    page. The copy says **"Stop tracking"**, never "Delete", and the modal button is not
-    `destructive`. Don't copy GoalsSheet's confirm wording across; the two only look alike.
+  - **Untracking deletes NOTHING**, which is where this deliberately diverges from
+    `components/GoalsEditor.tsx` — whose row action genuinely deletes and unlinks. Health
+    entries are the rows in this app that most deserve not to be lost to a tidying gesture, so
+    `setSymptomTracked(id, false)` touches no `health_logs` row and the history stays readable
+    in `/health-log` and on the symptom's own page. The copy says **"Stop tracking"**, never
+    "Delete", and the modal button is not `destructive`. Don't copy GoalsEditor's confirm
+    wording across; the two only look alike.
     There is also no rename (a symptom's id is derived from its name, so renaming orphans every
     entry filed under the old one) and no hard delete (a DELETE is re-seeded on the next
     `load()` — the trap `useCatalogStore` solved with a tombstone).

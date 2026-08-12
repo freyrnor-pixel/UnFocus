@@ -31,12 +31,14 @@
  *             here seeds the add field), store/useGoalStore, store/useTaskStore,
  *             store/useHabitStore (linked counts only)
  *   Used by → Expo Router route "/goals" — direct deep links only (a note's "Send it to… →
- *             Goals" still routes here). The Habits/Plans "Edit Goals" link no longer opens
- *             this screen (2026-07-31): it opens components/GoalsSheet.tsx, a popup that
- *             duplicates this screen's list/add/delete behaviour, so editing goals doesn't
- *             leave the tab you were on. This screen is kept unchanged so an existing deep
- *             link never dead-ends. (2026-07-29 — Goals dropped its own Home card,
- *             components/HomeGoalsCard.tsx, deleted; see below)
+ *             Goals" still routes here). The Habits/Plans "Goals" link no longer opens this
+ *             screen (2026-07-31): it opened components/GoalsSheet.tsx, a popup that
+ *             duplicated this screen's list/add/delete behaviour, until GoalsSheet.tsx was
+ *             deleted 2026-08-12 in favour of an in-card editor, components/GoalsEditor.tsx,
+ *             mounted straight into the Habits/Plans drawer — so editing goals never leaves
+ *             the tab you were on, and there's no popup left either. This screen is kept
+ *             unchanged so an existing deep link never dead-ends. (2026-07-29 — Goals dropped
+ *             its own Home card, components/HomeGoalsCard.tsx, deleted; see below)
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules
  *             nothing.
@@ -47,12 +49,12 @@
  *     `dismissKey="goals"` "X" (see components/StarterCard.tsx's own Edit note). The
  *     `t.starters.goals.tapToAdd` line that used to repeat inside the card as its first
  *     child now lives only on the trigger row (`exampleHeaderLabel`), so it isn't said twice.
- *   - `settings.featureGoals` gates the Habits/Plans "Edit Goals" link (and GoalsSheet.tsx,
- *     the popup it opens), not this screen — this route stays reachable directly so an
- *     existing deep link never dead-ends even with the feature off.
+ *   - `settings.featureGoals` gates the Habits/Plans "Goals" drawer (and its embedded
+ *     components/GoalsEditor.tsx), not this screen — this route stays reachable directly so
+ *     an existing deep link never dead-ends even with the feature off.
  *   - Deleting a goal unlinks every task and habit pointing at it (useGoalStore.remove does
  *     that in one transaction). The confirm copy already says so — keep it in sync with
- *     GoalsSheet.tsx's copy of the same confirm.
+ *     components/GoalsEditor.tsx's copy of the same confirm.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value. See
  *     lib/goalStrength.ts: the raw number plus a timestamp IS the state; decay is computed
  *     on read, so anything that renders the raw value shows a stale, too-warm goal.
@@ -201,7 +203,8 @@ export default function GoalsScreen() {
                       size={14}
                     />
                     {/* No numberOfLines cap (2026-08-06, "Goals should be expanded in
-                        full") — mirrors the same fix in components/GoalsSheet.tsx. */}
+                        full") — this screen keeps that rule; the in-card
+                        components/GoalsEditor.tsx deliberately doesn't (see its Edit notes). */}
                     <Text style={[styles.goalTitle, { color: theme.text }]}>
                       {goal.title}
                     </Text>

@@ -52,10 +52,11 @@
  *
  * Coverage note: this walks onboarding, the tour card, all five tabs, Settings, the **Energy
  * config sheet**, and — since 2026-08-01 — the **task editor** (where the mic bug lived),
- * the **goals sheet**, the **health form** and the **medicine editor**. Pushed sub-screens
- * and opened editors/sheets were invisible to this audit before that pass, so a whole class
- * of the app's densest layouts was never measured. When you add a surface with tight
- * horizontal pressure, add a step for it here rather than trusting a screenshot.
+ * the **Goals drawer** (an in-card editor as of 2026-08-12, was a popup before that), the
+ * **health form** and the **medicine editor**. Pushed sub-screens and opened editors/sheets
+ * were invisible to this audit before that pass, so a whole class of the app's densest
+ * layouts was never measured. When you add a surface with tight horizontal pressure, add a
+ * step for it here rather than trusting a screenshot.
  *
  * Ordering is constrained by three facts, all verified rather than assumed — see main():
  *   - the run is TWO passes, because `settings` and `medicine-form` are dead ends (pushed
@@ -124,7 +125,7 @@ const L = {
     // you back into onboarding. BottomNav stays mounted over a pushed screen (verified), so
     // a tab tap is the way back out — except `settings` and `medicine-form`, which render no
     // BottomNav at all and so end whichever pass reaches them (see main()).
-    editGoals: 'Goals', goalsClose: 'Done',
+    editGoals: 'Goals',
     // Shopping's Food and Catalogue drawers (2026-08-10). Their expanded body is no longer a
     // names-only preview — it is the real FoodTab / CatalogueTab, so the drawer now holds a
     // search field, an add composer and name·price·trash rows inside a card that is itself
@@ -156,7 +157,7 @@ const L = {
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
     typeHabit: 'Skriv vane',
-    editGoals: 'Mål', goalsClose: 'Ferdig',
+    editGoals: 'Mål',
     expandList: 'Vis liste',
     logSymptom: 'Hva plager deg?',
     advancedTab: 'Avansert', designLab: 'Designlab',
@@ -529,21 +530,22 @@ async function main() {
       console.error(`  (task-editor step skipped: ${e.message.split('\n')[0]})`);
     }
 
-    // ── Goals (a popup, not a route) ──
-    // components/GoalsSheet.tsx replaced the old `router.push('/goals')` so editing goals
-    // doesn't leave the tab you were on. app/goals.tsx still exists but is direct-route
-    // only, and a page.goto() would reset the DB — so the sheet is what gets measured,
-    // which is also what users actually see. Still on the To-do tab from the step above.
+    // ── Goals (an in-card drawer as of 2026-08-12, not a popup) ──
+    // components/GoalsEditor.tsx is mounted straight into the drawer body now —
+    // components/GoalsSheet.tsx, the popup this used to open, is deleted (maintainer: "This
+    // should not be a pop-up... making, editing and deleting in the card, not a pop up.").
+    // Clicking the label expands the drawer in place; clicking it again collapses it.
+    // Still on the To-do tab from the step above.
     try {
       const link = page.getByText(L.editGoals, { exact: true }).first();
       await link.scrollIntoViewIfNeeded({ timeout: 5000 });
       await link.click({ timeout: 10000 });
       await page.waitForTimeout(900);
-      await scan(page, 'goals-sheet');
-      await clickText(page, L.goalsClose);
+      await scan(page, 'goals-drawer');
+      await link.click({ timeout: 10000 });
       await page.waitForTimeout(600);
     } catch (e) {
-      console.error(`  (goals-sheet step skipped: ${e.message.split('\n')[0]})`);
+      console.error(`  (goals-drawer step skipped: ${e.message.split('\n')[0]})`);
     }
 
     // ── Health's symptom form ──

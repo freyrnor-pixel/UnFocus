@@ -5,9 +5,14 @@
  * edits anything — adding and untracking live in components/HealthIssuesSheet.tsx, which the
  * drawer's title opens.
  *
- * The direct counterpart of components/GoalsPreviewList.tsx, and deliberately built from the
- * same two primitives (PadSheet + PadRow) so the Goals drawer on Habits and the Health issues
- * drawer on Health are the same object with different rows in it.
+ * Was the direct counterpart of components/GoalsPreviewList.tsx, and deliberately built from
+ * the same two primitives (PadSheet + PadRow) so the Goals drawer on Habits and the Health
+ * issues drawer on Health were the same object with different rows in it. **That symmetry
+ * broke on 2026-08-12**, when Goals' drawer stopped being a read-only preview onto a popup:
+ * GoalsPreviewList.tsx is deleted and components/GoalsEditor.tsx — a full add/edit/delete
+ * editor, no popup — replaced it. This file is unchanged and still reads exactly like the OLD
+ * GoalsPreviewList shape (PadSheet + PadRow rows, a popup opened elsewhere) — the maintainer's
+ * ask was specifically about Goals, not Health issues, so untracking here stays a pop-up job.
  *
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, constants/theme,
@@ -21,19 +26,21 @@
  *     names that power the typeahead (lib/symptomSeed.ts); a drawer opening onto all of them
  *     would be a vocabulary list, not "the things you keep an eye on". See
  *     store/useHealthStore.ts's `tracked` doc.
- *   - **A row opens that issue's own page** (app/health-detail.tsx), not the sheet — which is
- *     where this diverges from GoalsPreviewList, and for a reason: a goal has no per-goal
- *     screen, so its rows can only lead back to the sheet, while an issue has a real history
- *     view worth reaching. The sheet is still one tap away on the drawer's title.
+ *   - **A row opens that issue's own page** (app/health-detail.tsx), not the sheet — a goal has
+ *     no per-goal screen, so components/GoalsEditor.tsx's rows lead nowhere (they just display,
+ *     with delete as their ⋯ action), while an issue has a real history view worth reaching.
+ *     The sheet is still one tap away on the drawer's title.
  *   - **No severity, no trend, no "worse than last week".** A row carries a size (how many
  *     entries) and a date, and nothing that evaluates them. The same limit lib/episodes.ts
  *     documents for relief data: displayed, never interpreted.
  *   - **A quiet issue is not congratulated and an active one is not flagged.** There is
- *     deliberately no third band here the way GoalsPreviewList has three strength bands — a
- *     goal's momentum is something the user drives, a symptom is not.
+ *     deliberately no third band here the way components/GoalsEditor.tsx has three strength
+ *     bands — a goal's momentum is something the user drives, a symptom is not.
  *   - The empty state is the quiet inset line, the same shape app/(tabs)/plans.tsx uses for an
- *     empty section. It lives HERE rather than at the call site for the same reason
- *     GoalsPreviewList's does: so the drawer and the sheet can't drift apart.
+ *     empty section. It lives HERE rather than at the call site so this drawer and
+ *     components/HealthIssuesSheet.tsx's own empty state can't drift apart — the same reason
+ *     the now-deleted GoalsPreviewList.tsx kept its empty state in one place before Goals
+ *     dropped its popup entirely.
  */
 import React, { useMemo } from 'react';
 import { StyleSheet, Text } from 'react-native';

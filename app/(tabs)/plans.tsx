@@ -58,12 +58,13 @@
  *             the timeline; the hook owns the ONE contextual permission prompt — take
  *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
  *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
- *             components/CollapsedSection (the shared drawer — Whenever, plus "Edit Goals"
+ *             components/CollapsedSection (the shared drawer — Whenever, plus "Goals"
  *             (2026-07-29, Goals dropped its own Home card; see app/goals.tsx's header) and
  *             "Earlier days", both of which became drawers on 2026-08-10; they were two
  *             floating link cards, then rows in one `SubScreenLinkButton` card, and that
- *             component is now deleted), components/GoalsPreviewList + components/GoalsSheet
- *             (the Goals drawer's body and the popup its title opens),
+ *             component is now deleted), components/GoalsEditor (the Goals drawer's body —
+ *             add/edit/delete happens in the drawer itself as of 2026-08-12;
+ *             components/GoalsSheet.tsx, the popup its title used to open, is deleted),
  *             components/DayPickerSheet (`RecentDaysList` body + the pop-up its title opens)
  *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
@@ -226,11 +227,10 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import CollapsedSection from '@/components/CollapsedSection';
-import GoalsPreviewList from '@/components/GoalsPreviewList';
+import GoalsEditor from '@/components/GoalsEditor';
 import DayPickerSheet, { RecentDaysList } from '@/components/DayPickerSheet';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import GoalsSheet from '@/components/GoalsSheet';
 import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
@@ -618,7 +618,6 @@ export default function TasksScreen() {
   const [todayCardState, setTodayCardState] = useCardState('plans');
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
-  const [goalsSheetOpen, setGoalsSheetOpen] = useState(false);
   const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
@@ -1528,8 +1527,16 @@ export default function TasksScreen() {
             (2026-08-10, maintainer: "Goals and Previous days should be like the 'Whenever' card
             with expandability, and pressing the name gives you a pop-up. This is to stay
             consistent across app"). Expanding shows what's behind the door; pressing the name
-            opens it. See components/CollapsedSection.tsx for why a section header carries two
-            tap targets here.
+            opened a pop-up under that instruction. See components/CollapsedSection.tsx for why
+            a section header carries two tap targets here.
+
+            **Goals reversed the "pressing the name opens a pop-up" half on 2026-08-12**
+            (maintainer: "This should not be a pop-up. Examples included in card just like
+            other cards, and making, editing and deleting in the card, not a pop up.") — its
+            CollapsedSection now passes no `onTitlePress`, so it has only the one tap target,
+            same as Whenever. Earlier days is UNCHANGED and still carries `onTitlePress` — a
+            day picker is genuinely a pop-up-shaped job (pick one → navigate), not an editor
+            you'd want to do in place.
 
             History worth keeping, because this is the second reshaping of the same two links:
             they were two separate full-width `SubScreenLinkButton` cards with gradient badges
@@ -1539,24 +1546,25 @@ export default function TasksScreen() {
             fixed the confusion and introduced the opposite problem — a link that can only be
             followed, never glanced at. A drawer is both, so `SubScreenLinkButton` is deleted.
 
-            Edit Goals (2026-07-29, moved to the bottom + renamed + popup 2026-07-31) — Goals
-            dropped its own Home card (too many lists on Home); this is one of its two entry
-            points, alongside Habits, and it opens GoalsSheet as a popup rather than pushing to
-            /goals so editing goals doesn't leave this tab. Earlier days (2026-08-02) — the day
-            log itself lives in the card above; this is only the way back through previous days,
-            and its pop-up is components/DayPickerSheet.tsx. Each is gated on its own feature
-            flag, so turning one off removes its drawer rather than leaving a door to an empty
-            room. Neither carries a `count`: a tally of goals reads as a score, and a tally of
-            past days is meaningless. */}
+            Goals (2026-07-29, moved to the bottom; popup dropped 2026-08-12) — Goals dropped
+            its own Home card (too many lists on Home); this is one of its two entry points,
+            alongside Habits. It no longer opens a popup — expanding the drawer IS the editor
+            (components/GoalsEditor.tsx), so adding/editing/deleting a goal never leaves this
+            tab, and there's no separate sheet to push to /goals for either. Earlier days
+            (2026-08-02) — the day log itself lives in the card above; this is only the way
+            back through previous days, and its pop-up is components/DayPickerSheet.tsx (that
+            one is unchanged — a picker genuinely is a pop-up-shaped job, unlike Goals' CRUD).
+            Each is gated on its own feature flag, so turning one off removes its drawer
+            entirely. Neither carries a `count`: a tally of goals reads as a score, and a
+            tally of past days is meaningless. */}
         {featureGoals && (
           <CollapsedSection
             hue={wheneverHue}
             domain="task"
             icon="flag"
             label={t.goals.editLink}
-            onTitlePress={() => { tap(); setGoalsSheetOpen(true); }}
           >
-            <GoalsPreviewList accent={wheneverHue} onOpen={() => setGoalsSheetOpen(true)} />
+            <GoalsEditor accent={wheneverHue} />
           </CollapsedSection>
         )}
         {featureDayLog && (
@@ -1576,7 +1584,6 @@ export default function TasksScreen() {
         surface="plans"
         onClose={() => setLayoutPickerOpen(false)}
       />
-      <GoalsSheet visible={goalsSheetOpen} onClose={() => setGoalsSheetOpen(false)} />
       <DayPickerSheet visible={dayPickerOpen} onClose={() => setDayPickerOpen(false)} accent={wheneverHue} />
     </ScreenScaffold>
   );
