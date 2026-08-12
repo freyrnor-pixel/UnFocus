@@ -59,7 +59,7 @@
  *             `useIsFocused` from expo-router, never @react-navigation/native, which fails the
  *             bundle outright on SDK 56), store/useMomentsStore (manual capture + delete),
  *             components/CollapsedSection (the shared drawer — Whenever, plus "Goals"
- *             (2026-07-29, Goals dropped its own Home card; see app/goals.tsx's header) and
+ *             (2026-07-29, Goals dropped its own Home card; 2026-08-12, its own screen) and
  *             "Earlier days", both of which became drawers on 2026-08-10; they were two
  *             floating link cards, then rows in one `SubScreenLinkButton` card, and that
  *             component is now deleted), components/GoalsEditor (the Goals drawer's body —

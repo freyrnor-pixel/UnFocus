@@ -84,7 +84,7 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { backdatedStart, type BackdatePreset } from '@/lib/episodes';
-import { tap, warning } from '@/lib/haptics';
+import { tap } from '@/lib/haptics';
 import { severities, severityInk } from '@/lib/severity';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { Input, SegmentedControl } from '@/components/FormControls';
@@ -94,7 +94,7 @@ import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DateChipRow from '@/components/DateChipRow';
 import OptionalTag from '@/components/OptionalTag';
 import Button from '@/components/Button';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
 /** The three one-tap start shortcuts, in the order they read as a timeline back from now. */
@@ -204,11 +204,12 @@ export default function HealthFormScreen() {
   }
 
   function confirmDelete() {
-    warning();
-    showAppModal(t.deleteConfirmTitle(ailment || t.unnamedIssue), t.deleteConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.deleteConfirmBtn, style: 'destructive', onPress: performDelete },
-    ]);
+    confirmDestructive({
+      title: t.deleteConfirmTitle(ailment || t.unnamedIssue),
+      message: t.deleteConfirmBody,
+      confirmLabel: t.deleteConfirmBtn,
+      onConfirm: performDelete,
+    });
   }
 
   return (

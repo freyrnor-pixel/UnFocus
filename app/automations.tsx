@@ -32,12 +32,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAutomationStore, AutomationRule, TriggerType, ActionType } from '@/store/useAutomationStore';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
 import { SegmentedControl } from '@/components/FormControls';
 import Collapsible from '@/components/Collapsible';
 import { useT } from '@/lib/i18n';
-import { warning, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
@@ -65,11 +64,12 @@ function RuleCard({ rule, onToggle, onDelete }: {
   const styles = useScaledStyles(baseStyles);
 
   function confirmDelete() {
-    warning();
-    showAppModal(t.automations.deleteTitle, t.automations.deleteBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.automations.deleteBtn, style: 'destructive', onPress: () => { heavy(); onDelete(rule.id); } },
-    ]);
+    confirmDestructive({
+      title: t.automations.deleteTitle,
+      message: t.automations.deleteBody,
+      confirmLabel: t.automations.deleteBtn,
+      onConfirm: () => onDelete(rule.id),
+    });
   }
 
   return (

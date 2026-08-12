@@ -20,7 +20,8 @@
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useGoalStore, store/useTaskStore, store/useHabitStore (linked counts only)
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx — both inside a
- *             components/CollapsedSection.tsx "Goals" drawer, with no `onTitlePress`
+ *             components/CollapsedSection.tsx "Goals" drawer, with no `onTitlePress`. Habits
+ *             additionally passes `prefill` (a note sent to Goals lands there — lib/prefill.ts)
  *   Data    → reads/writes useGoalStore (goals table) via add/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules
  *             nothing.
@@ -44,17 +45,20 @@
  *     which REVERSES GoalsSheet's deliberate "no cap — a goal's title is the whole point of
  *     the card" call (2026-08-06). Trade-off, not an oversight: the maintainer's 2026-08-12
  *     ask was for Goals to read "just like other cards" in the drawer, and every other row on
- *     this row-anatomy contract truncates at one line. A goal's full title is still visible
- *     in app/goals.tsx (the standalone screen) and in the row's own accessible name.
+ *     this row-anatomy contract truncates at one line. **app/goals.tsx, the standalone screen
+ *     that showed it uncapped, is deleted (2026-08-12)** — it was a second implementation of
+ *     this component, so the cap is now the only rendering a goal title has. The full text is
+ *     still in the row's own accessible name.
  *   - Deleting a goal unlinks every task and habit pointing at it (useGoalStore.remove does
- *     that in one transaction) — same confirm copy app/goals.tsx uses, keep them in sync.
+ *     that in one transaction). This used to say "same confirm copy app/goals.tsx uses, keep
+ *     them in sync" — there is nothing left to keep in sync, which is why that screen went.
  *   - Strength shown is always `decayedStrength(...)`, never the raw stored value — see
  *     lib/goalStrength.ts.
  *   - Delete is the row's ⋯ action (PadRow's `onAction`), going straight to the confirm
  *     dialog — same pattern HomeShoppingCard's remove and PlanTaskCard's delete-task use,
  *     not a menu with a second step.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -62,11 +66,11 @@ import AddRow from '@/components/AddRow';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import { FontSize, Spacing, TabularNums } from '@/constants/theme';
 import { GOAL_STARTERS } from '@/lib/goalStarters';
 import { decayedStrength } from '@/lib/goalStrength';
-import { tap, success } from '@/lib/haptics';
+import { success } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useGoalStore } from '@/store/useGoalStore';
@@ -75,7 +79,7 @@ import { useHabitStore } from '@/store/useHabitStore';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-export default function GoalsEditor({ accent }: { accent: string }) {
+export default function GoalsEditor({ accent, prefill }: { accent: string; prefill?: string }) {
   const theme = useAppTheme();
   const t = useT();
   const goals = useGoalStore((s) => s.goals);
@@ -84,6 +88,14 @@ export default function GoalsEditor({ accent }: { accent: string }) {
   const tasks = useTaskStore((s) => s.tasks);
   const habits = useHabitStore((s) => s.habits);
   const [draft, setDraft] = useState('');
+
+  // A note sent here from another screen's ⋯ → Send it to… → Goals (lib/prefill.ts): seed the
+  // add row with its text rather than making the user retype what they just wrote. The caller
+  // consumes the route param in the `goals` slot and hands the text down; the same value goes
+  // to AddRow's `expandSignal`, which opens the row so the text is visible and focused.
+  useEffect(() => {
+    if (prefill) setDraft(prefill);
+  }, [prefill]);
 
   const linked = useMemo(() => {
     const counts = new Map<string, { tasks: number; habits: number }>();
@@ -112,11 +124,12 @@ export default function GoalsEditor({ accent }: { accent: string }) {
   }
 
   function confirmDelete(id: string, title: string) {
-    tap();
-    showAppModal(t.goals.deleteConfirmTitle(title), t.goals.deleteConfirmBody, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.goals.deleteLabel, style: 'destructive', onPress: () => removeGoal(id) },
-    ]);
+    confirmDestructive({
+      title: t.goals.deleteConfirmTitle(title),
+      message: t.goals.deleteConfirmBody,
+      confirmLabel: t.goals.deleteLabel,
+      onConfirm: () => removeGoal(id),
+    });
   }
 
   return (
@@ -187,6 +200,7 @@ export default function GoalsEditor({ accent }: { accent: string }) {
         placeholder={t.goals.newPlaceholder}
         accent={accent}
         showDivider={goals.length > 0}
+        expandSignal={prefill}
       />
     </View>
   );

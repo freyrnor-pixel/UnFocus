@@ -15,8 +15,9 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons (Ionicons glyph-name type only)
- *   Used by → app/goals.tsx (empty-state starter chips), lib/__tests__/goalStarters.test.ts
- *   Data    → none directly; a tap in app/goals.tsx feeds these into useGoalStore.add
+ *   Used by → components/GoalsEditor.tsx (empty-state starter chips — app/goals.tsx was the
+ *             other caller until that screen was retired), lib/__tests__/goalStarters.test.ts
+ *   Data    → none directly; a tap on a chip feeds these into useGoalStore.add
  *
  * Edit notes:
  *   - Keys are load-bearing: each one needs a matching title in BOTH the `en` and `no`

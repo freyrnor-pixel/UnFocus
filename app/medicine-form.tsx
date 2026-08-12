@@ -53,7 +53,7 @@ import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
 import HintCard from '@/components/HintCard';
 import OptionalTag from '@/components/OptionalTag';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -63,7 +63,7 @@ import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
 import { useT } from '@/lib/i18n';
 import { getWeekDates, todayStr } from '@/lib/date';
-import { heavy, tap, warning } from '@/lib/haptics';
+import { tap, warning } from '@/lib/haptics';
 import { SEVERITY_COLORS } from '@/lib/severity';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { TRAY_IDS, TrayId } from '@/lib/medicineSchedule';
@@ -153,19 +153,14 @@ export default function MedicineFormScreen() {
   }
 
   function confirmDelete() {
-    warning();
-    showAppModal(t.medicine.deleteConfirm, '', [
-      { text: t.cancel, style: 'cancel' },
-      {
-        text: t.deleteConfirmBtn,
-        style: 'destructive',
-        onPress: () => {
-          heavy();
-          if (id) removeMedicine(id);
-          router.back();
-        },
+    confirmDestructive({
+      title: t.medicine.deleteConfirm,
+      confirmLabel: t.deleteConfirmBtn,
+      onConfirm: () => {
+        if (id) removeMedicine(id);
+        router.back();
       },
-    ]);
+    });
   }
 
   const canSave = name.trim().length > 0;

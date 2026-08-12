@@ -44,9 +44,8 @@ import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import Button from '@/components/Button';
-import { showAppModal } from '@/components/AppModal';
+import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import { pickAndParseBackup, restoreBackup, reloadApp } from '@/lib/backup';
-import { warning, heavy } from '@/lib/haptics';
 
 export default function RestoreScreen() {
   const router = useRouter();
@@ -69,26 +68,24 @@ export default function RestoreScreen() {
         showAppModal(t.backup.title, t.backup.tooNew);
         return;
       }
-      warning();
-      showAppModal(t.backup.importConfirmTitle, t.backup.importConfirmBody(parsed.rowCount), [
-        { text: t.cancel, style: 'cancel' },
-        {
-          text: t.backup.importConfirmBtn,
-          style: 'destructive',
-          onPress: () => {
-            heavy();
-            try {
-              restoreBackup(parsed.data);
-            } catch {
-              showAppModal(t.backup.title, t.backup.restoreError);
-              return;
-            }
-            showAppModal(t.backup.title, t.backup.restoreDone, [
-              { text: t.ok, onPress: () => { void reloadApp(); } },
-            ]);
-          },
+      // Destructive because a restore REPLACES what's on the device — see app/settings.tsx's
+      // copy of this flow, which it shares its copy strings with.
+      confirmDestructive({
+        title: t.backup.importConfirmTitle,
+        message: t.backup.importConfirmBody(parsed.rowCount),
+        confirmLabel: t.backup.importConfirmBtn,
+        onConfirm: () => {
+          try {
+            restoreBackup(parsed.data);
+          } catch {
+            showAppModal(t.backup.title, t.backup.restoreError);
+            return;
+          }
+          showAppModal(t.backup.title, t.backup.restoreDone, [
+            { text: t.ok, onPress: () => { void reloadApp(); } },
+          ]);
         },
-      ]);
+      });
     } finally {
       setBusy(false);
     }

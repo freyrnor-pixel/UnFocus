@@ -25,7 +25,9 @@ const SCREENS = [
   'app/(tabs)/health.tsx',
   'app/(tabs)/shopping.tsx',
   'app/notes.tsx',
-  'app/goals.tsx',
+  // app/goals.tsx was here until 2026-08-12, when the Goals screen was retired — its list,
+  // add row and delete confirm were a second copy of components/GoalsEditor.tsx, which is
+  // mounted in the Goals drawer on Habits and To-do. Both of those screens are already above.
 ];
 
 /**

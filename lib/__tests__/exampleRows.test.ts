@@ -147,7 +147,8 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   for (const file of [
     'app/(tabs)/habits.tsx',
     'components/HomeHabitsCard.tsx',
-    'app/goals.tsx',
+    // app/goals.tsx was the fifth caller until it was retired (2026-08-12) — its copy of the
+    // chip cloud is now only in components/GoalsEditor.tsx, on the line below.
     'components/GoalsEditor.tsx',
     'components/HealthIssuesSheet.tsx',
   ] as const) {

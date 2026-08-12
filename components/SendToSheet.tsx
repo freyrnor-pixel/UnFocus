@@ -56,6 +56,7 @@ import { Domain } from '@/lib/domainColor';
 import { tap, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 /** Where a note can be sent. */
 export type SendToTarget = 'shopping' | 'habits' | 'goals' | 'todo';
@@ -77,13 +78,20 @@ type Props = {
 export default function SendToSheet({ visible, onClose, onPick, onDelete, deleteLabel }: Props) {
   const theme = useAppTheme();
   const t = useT();
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   // Identity hue rides the badge FILL, never the glyph colour — see the header's A.4 note.
   const targets: { id: SendToTarget; label: string; icon: keyof typeof Ionicons.glyphMap; domain: Domain }[] = [
     { id: 'todo', label: t.sendTo.todo, icon: 'calendar', domain: 'plan' },
     { id: 'shopping', label: t.sendTo.shopping, icon: 'cart', domain: 'shop' },
     { id: 'habits', label: t.sendTo.habits, icon: 'repeat', domain: 'habit' },
-    { id: 'goals', label: t.sendTo.goals, icon: 'flag', domain: 'task' },
+    // Goals is the one target whose destination can be switched off (2026-08-12). It used to
+    // have a screen of its own that stayed reachable with the feature off; now it is a drawer
+    // on the Habits tab that `featureGoals` removes outright — and picking a target TICKS THE
+    // NOTE OFF, so offering a destination that isn't mounted would quietly consume the note.
+    ...(featureGoals
+      ? [{ id: 'goals' as const, label: t.sendTo.goals, icon: 'flag' as const, domain: 'task' as const }]
+      : []),
   ];
 
   return (

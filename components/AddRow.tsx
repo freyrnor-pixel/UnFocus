@@ -53,7 +53,7 @@
  *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, …), lib/useAppTheme,
  *             lib/screenColor, lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx, app/goals.tsx,
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
  *             components/GoalsEditor.tsx, components/CatalogueTab.tsx, components/FoodTab.tsx,
  *             components/MedicineTrayCard.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
@@ -134,6 +134,16 @@ type Props = {
    * for, and this was the app's last consumer still confusing the two outside `PadSheet`.
    */
   showDivider?: boolean;
+  /**
+   * Open this row and focus it because something OUTSIDE it put text in `value` — currently
+   * only a note's "Send it to…" prefill (lib/prefill.ts). Pass the arriving text; the row
+   * expands whenever this changes to a non-empty string, and ignores it otherwise.
+   *
+   * It has to be its own prop rather than "expand whenever `value` is non-empty": `commit()`
+   * deliberately collapses back to the "+" bar after each save, and a caller that leaves the
+   * committed text in `value` would re-open the row every time it was used.
+   */
+  expandSignal?: string;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -149,6 +159,7 @@ export default function AddRow({
   extras,
   panel,
   showDivider = true,
+  expandSignal,
   accessibilityLabel,
   style,
 }: Props) {
@@ -193,6 +204,20 @@ export default function AddRow({
     // Focus on the next frame — the input mounts this render, so it isn't focusable yet.
     requestAnimationFrame(() => inputRef.current?.focus());
   }
+
+  // A prefill arriving from another screen: open the row on the user's behalf, since they
+  // never tapped the "+" bar themselves and the text they just wrote would otherwise be
+  // sitting invisibly behind it. Guarded by a ref rather than by `expanded`, so a manual
+  // collapse doesn't immediately re-open on the same signal. Body is expand()'s two lines
+  // inlined — calling it would put an unstable function in this effect's dependencies.
+  const seededWith = useRef('');
+  useEffect(() => {
+    const seed = expandSignal ?? '';
+    if (!seed || seededWith.current === seed) return;
+    seededWith.current = seed;
+    setExpanded(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, [expandSignal]);
 
   function collapse() {
     onChangeText('');

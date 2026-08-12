@@ -35,14 +35,13 @@
  *             caller passes `dismissKey`), @expo/vector-icons
  *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
  *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
- *             app/(tabs)/health.tsx (`collapsible`), app/goals.tsx (`collapsible`),
+ *             app/(tabs)/health.tsx (`collapsible`),
  *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
  *             day's example row, and deliberately NO `text`: that card's explainer is its own
- *             head-mounted components/CardHintNote; components/GoalsEditor.tsx
- *             renders the same empty-state copy + starter chips inline WITHOUT mounting this
- *             component — it's embedded in another card's Surface, and this one always draws
- *             its own, so a second Surface would read as a nested panel; see that file's Edit
- *             notes), components/EnergyMeter.tsx (`stage="sapling"`, NOT
+ *             head-mounted components/CardHintNote), components/GoalsEditor.tsx (`embedded`
+ *             too — it is mounted inside a drawer's Surface, and this component always draws
+ *             its own; that line used to say GoalsEditor hand-copied the contents instead,
+ *             which stopped being true when `embedded` landed), components/EnergyMeter.tsx (`stage="sapling"`, NOT
  *             `collapsible` — its `children` is a config Button, not suggestions) — most also
  *             use components/StarterExampleRow.tsx to build the `example` node
  *   Data    → reads/writes settings.dismissedStarters ONLY when a caller passes

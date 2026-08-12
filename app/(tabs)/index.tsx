@@ -197,7 +197,8 @@ import { computeSpendPace } from '@/lib/budget';
 // 'goals' was dropped 2026-07-29 (user report: Home had too many lists) — Goals no
 // longer has a Home card at all; sanitizeHomeCardOrder below drops a leftover 'goals'
 // entry from anyone's already-persisted order for free (unknown kinds are filtered).
-// See app/goals.tsx's header for the screen's new entry points (Habits, Plans).
+// Goals has no screen of its own either as of 2026-08-12 — it is a drawer on Habits and
+// To-do, mounting components/GoalsEditor.tsx; see app/(tabs)/habits.tsx's header.
 const HOME_CARD_KINDS = ['plans', 'habits', 'notes', 'shopping'] as const;
 type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 

@@ -302,7 +302,7 @@ type Props = {
    * This screen's key in lib/screenColor.ts — the hue every card inside it wears on its
    * border (card design reset, 2026-08-05). Tab screens pass their react-navigation route
    * name ('plans', 'habits', 'health', 'shopping'); sub-tier screens pass their own key
-   * ('notes', 'food', 'scan', 'goals'). Omit it — as Home and Settings deliberately do — and
+   * ('notes', 'food', 'scan'). Omit it — as Home and Settings deliberately do — and
    * the body provides no hue, so its cards fall through to the neutral `theme.border`.
    *
    * This only sets a DEFAULT for the body. A card that belongs to a different screen than the
