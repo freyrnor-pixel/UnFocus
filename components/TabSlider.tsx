@@ -86,7 +86,8 @@
  *     segment's `onLayout` has fired, and `withTiming` used to animate its width in from 0 even
  *     on that very first positioning — so the active tab's high-contrast text sat over the bare
  *     track, unreadable, for one `Duration.control` on every mount (reported as illegible
- *     "Ukelister" text on Shopping's default-active Weekly tab, which is the one tab that's
+ *     "Ukelister" text on Shopping's default-active Weekly tab — that label reads
+ *     "Handlelister" since 2026-08-13, but the tab is still the one that's
  *     genuinely on screen at cold launch when it's the configured start screen — the other four
  *     tabs pre-settle off-screen under the pager's `lazy: false`). `hasPositioned` (a ref, not
  *     state — this must never trigger a re-render) tracks whether the pill has been placed at
@@ -170,7 +171,8 @@ export default function TabSlider<T extends string | number>({
   // animate the pill's WIDTH in from 0. That left the active tab's high-contrast text
   // floating over the bare (unfilled) track for one full Duration.control on every mount —
   // reliably reproducible, not a rare race, since it happens on every screen open (2026-08-05,
-  // reported as illegible "Ukelister" text on Shopping's default-active Weekly tab). Fixed the
+  // reported as illegible text on Shopping's default-active Weekly tab, "Ukelister" as it
+  // was then labelled). Fixed the
   // same way PressableScale seeds a mounted-already-sunk control: snap straight to the
   // measured rect on the FIRST positioning, and only animate a pill move after that.
   const hasPositioned = useRef(false);
@@ -232,7 +234,7 @@ export default function TabSlider<T extends string | number>({
           // ANCESTOR is forced non-flattening (`collapsable={false}`, as components/TourTarget.tsx
           // now does around Shopping's tab row so it can `measureInWindow`), this pill stopped
           // painting on-device even though its computed style was correct — reported as an
-          // invisible accent pill behind the active "Ukelister" tab, persisting across tab
+          // invisible accent pill behind the active Weekly tab, persisting across tab
           // switches. Reproduces only on native; the web preview renders it correctly (verified —
           // the pill's computed backgroundColor/width/position are all right there in the DOM),
           // which is why this needed a device report to actually pin down. `collapsable={false}`

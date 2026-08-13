@@ -442,7 +442,6 @@ import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
-import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import InlineAddItem from '@/components/InlineAddItem';
 import AddDishSheet, { AddDishTarget } from '@/components/AddDishSheet';
@@ -853,6 +852,16 @@ export default function ShoppingScreen() {
     () => groupByDish(unallocatedItems),
     [unallocatedItems]
   );
+
+  /**
+   * Nothing on the Weekly tab at all — no real lists, no saved templates, nothing loose in the
+   * Unallocated bucket. Named because it now drives TWO things that must agree: whether the
+   * empty card renders, and whether the "Create a new list" trigger renders instead of it
+   * (2026-08-13 — the two used to stack, see the call site). Inlining the condition twice is
+   * how they would drift into both showing or neither.
+   */
+  const isWeeklyEmpty =
+    nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0;
 
   const ukelisteBadge = useMemo(
     () =>
@@ -2178,8 +2187,8 @@ export default function ShoppingScreen() {
                   via handleRegisterWeekSectionNode) once at least one list OR saved list
                   exists — a saved list needs somewhere to be dropped even before the first
                   live list is created. With neither, there's nothing to drag yet, so the big
-                  EmptyState placeholder below covers that case instead of 4 redundant "no
-                  lists here" sections. */}
+                  empty card below covers that case instead of 4 redundant "no lists here"
+                  sections. */}
               {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
                 const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
                 const weekLists = listsByWeek[week] ?? [];
@@ -2327,19 +2336,6 @@ export default function ShoppingScreen() {
                 );
               })}
 
-              {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0 && (
-                // Neutral edge (theme.border) instead of the default screen-hue edge, so this
-                // empty placeholder reads as a quiet "nothing here yet", not a coded surface
-                // (2026-07-20 unify placeholder cards).
-                <Surface style={styles.weekEmptyCard}>
-                  <EmptyState
-                    icon="cart-outline"
-                    title={t.weekEmptyTitle}
-                    body={t.weekEmptyBody}
-                  />
-                </Surface>
-              )}
-
               {/* Creating a new list has no single text field to fill (it's auto-named by
                   date range, then offers a start-empty/from-saved choice), so it genuinely
                   doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
@@ -2351,28 +2347,77 @@ export default function ShoppingScreen() {
                   what it does. The label is back (same change, same reasoning, as the Monthly
                   tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
                   trigger's hardest moment is an empty tab where there is nothing to declutter
-                  and everything to explain). */}
-              <PressableScale
-                // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
-                // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
-                // the two triggers are deliberately kept identical.
-                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                onPress={() =>
-                  showAppModal(t.newWeeklyListTitle, '', [
-                    { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
-                    { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
-                    { text: t.cancel, style: 'cancel' },
-                  ])
-                }
-                accessibilityRole="button"
-                accessibilityLabel={t.newWeeklyListTitle}
-                scaleTo={0.97}
-              >
-                <Ionicons name="add" size={22} color={theme.accent} />
-                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                  {t.newWeeklyListTitle}
-                </Text>
-              </PressableScale>
+                  and everything to explain).
+
+                  **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
+                  "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
+                  that creating the first just looks like editing the default card that is there
+                  when there are No lists. When there are lists, we can use the make New list
+                  button." They used to stack — an `EmptyState` card saying "Make a new list
+                  below to get started", then the thing it pointed at — so an empty tab spent
+                  two cards saying one thing, and the card was inert while the real affordance
+                  was somewhere else.
+                  Empty: one card whose body IS the two choices, so the first list is made by
+                  filling in the card already on screen. Not empty: the trigger alone, exactly
+                  as before.
+                  The chooser modal is skipped on the empty path deliberately — with only two
+                  options and a whole card to hold them, putting them behind a dialog is one tap
+                  and one context switch for nothing. It stays on the not-empty path, where the
+                  trigger is a single row with no room to spell them out. */}
+              {isWeeklyEmpty ? (
+                // Neutral edge (theme.border) instead of the default screen-hue edge, so this
+                // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
+                // placeholder cards).
+                <Surface style={styles.weekEmptyCard}>
+                  <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
+                  <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
+                  <PressableScale
+                    style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                    onPress={handleCreateNewWeeklyList}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.startEmptyList}
+                    scaleTo={0.97}
+                  >
+                    <Ionicons name="add" size={22} color={theme.accent} />
+                    <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                      {t.startEmptyList}
+                    </Text>
+                  </PressableScale>
+                  <PressableScale
+                    style={styles.weekEmptySecondary}
+                    onPress={() => setSavedListsListId('__new__')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.savedListsTitle}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
+                      {t.savedListsTitle}
+                    </Text>
+                  </PressableScale>
+                </Surface>
+              ) : (
+                <PressableScale
+                  // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
+                  // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
+                  // the two triggers are deliberately kept identical.
+                  style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                  onPress={() =>
+                    showAppModal(t.newWeeklyListTitle, '', [
+                      { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
+                      { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
+                      { text: t.cancel, style: 'cancel' },
+                    ])
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={t.newWeeklyListTitle}
+                  scaleTo={0.97}
+                >
+                  <Ionicons name="add" size={22} color={theme.accent} />
+                  <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                    {t.newWeeklyListTitle}
+                  </Text>
+                </PressableScale>
+              )}
             </>
           )}
 
@@ -2711,7 +2756,16 @@ const styles = StyleSheet.create({
 
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  weekEmptyCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  // The empty Weekly tab's one card — it holds its own explanation AND the two ways to make a
+  // first list (2026-08-13), so it needs real padding and a gap, where it used to be a thin
+  // wrapper around an EmptyState that brought its own.
+  weekEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.md },
+  weekEmptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'center', ...OpticalCenter },
+  weekEmptyBody: { fontSize: FontSize.sm, textAlign: 'center', ...OpticalCenter },
+  // "Saved lists" — the second, quieter way in. A worded row rather than a second filled
+  // trigger: two accent-tinted buttons of equal weight in one card is two primaries.
+  weekEmptySecondary: { minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center' },
+  weekEmptySecondaryLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
   // One section per week of the monthly cycle (2026-07-22) — a plain bordered region (not
   // a Surface: WeekListCard is already its own Surface-backed card, so this stays a quiet
   // grouping frame). borderColor/backgroundColor go transparent at rest, tinted to

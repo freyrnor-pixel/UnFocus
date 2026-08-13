@@ -677,7 +677,7 @@ const en = {
   movedToDish: (dish: string) => `Moved into ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} put back in inventory`,
   // --- end W-C additions ---
-  weeklyTabLabel: 'Week lists',
+  weeklyTabLabel: 'Shopping lists',
   monthlyTabLabel: 'Monthly list',
   // --- Katalog/Ukeliste redesign ---
   inWeeklyListSection: 'Shopping list',
@@ -756,7 +756,7 @@ const en = {
   monthlyListsEmpty: 'No monthly lists yet — create one to get started.',
   deleteMonthlyListAction: 'Delete this list',
   weekEmptyTitle: 'No lists this week yet',
-  weekEmptyBody: 'Make a new list below to get started.',
+  weekEmptyBody: 'Start one here whenever you need it.',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
   monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
@@ -2779,7 +2779,7 @@ const no: typeof en = {
   movedToDish: (dish: string) => `Flyttet til ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} lagt tilbake i inventar`,
   // --- end W-C additions ---
-  weeklyTabLabel: 'Ukelister',
+  weeklyTabLabel: 'Handlelister',
   monthlyTabLabel: 'Måned',
   // --- Katalog/Ukeliste redesign ---
   inWeeklyListSection: 'Handleliste',
@@ -2848,7 +2848,7 @@ const no: typeof en = {
   monthlyListsEmpty: 'Ingen månedslister ennå — opprett en for å komme i gang.',
   deleteMonthlyListAction: 'Slett denne listen',
   weekEmptyTitle: 'Ingen lister denne uken ennå',
-  weekEmptyBody: 'Lag en ny liste under for å komme i gang.',
+  weekEmptyBody: 'Start en her når du trenger det.',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
   monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
