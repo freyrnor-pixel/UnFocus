@@ -27,6 +27,10 @@
  *   - Keep the list short and the goals broad. A goal is the thing tasks and habits point
  *     AT; a list of narrow, prescriptive goals would turn it into a wellness programme,
  *     which is the opposite of what this app is for.
+ *   - **Keep the TITLES short too, in both languages.** These draw as one-line
+ *     components/StarterExampleRow rows, so a sentence-length starter ellipsizes at the
+ *     large-text sizes — measured at 327px, which is `npm run wraps`' proxy for the `large`
+ *     text setting. Norwegian is the long side of every pair, so check it there first.
  */
 import type { Ionicons } from '@expo/vector-icons';
 

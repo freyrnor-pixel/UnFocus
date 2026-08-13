@@ -1949,7 +1949,11 @@ const en = {
         // The "less of" example. Deliberately phrased as the thing you're aiming at, not as
         // a failure to avoid — see lib/goalStarters.ts.
         cutBack: 'Less time on my phone',
-        together: 'More time with the people I love',
+        // Kept short on purpose: these draw as one-line rows, so a sentence-length starter
+        // ellipsizes at the large-text sizes — "More time with loved ones" was still 5px over
+        // at 327px. See components/GoalsEditor.tsx's example note. The "More …"/"Less …" pair
+        // with cutBack is what makes a goal read as a direction rather than a rule.
+        together: 'More time together',
       },
     },
   },
@@ -3831,9 +3835,11 @@ const no: typeof en = {
       tapToAdd: 'Trykk på en for å starte:',
       suggestions: {
         rested: 'Bli mer uthvilt',
-        moving: 'Være i bevegelse hver dag',
+        // Norwegian is the long side of every pair here, and these draw as one-line rows —
+        // see the note on the English twins.
+        moving: 'Bevege meg hver dag',
         cutBack: 'Mindre tid på telefonen',
-        together: 'Mer tid med dem jeg er glad i',
+        together: 'Mer tid sammen',
       },
     },
   },
