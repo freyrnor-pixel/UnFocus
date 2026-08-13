@@ -28,7 +28,7 @@ import React from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
-import { Fonts, FontSize, Radius, Spacing, contrastOn } from '@/constants/theme';
+import { Fonts, FontSize, OpticalCenter, Radius, Spacing, contrastOn } from '@/constants/theme';
 import { personInitials } from '@/lib/personColor';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -122,7 +122,7 @@ export default function PersonChip({
 
 const styles = StyleSheet.create({
   dot: { alignItems: 'center', justifyContent: 'center' },
-  dotText: { fontFamily: Fonts.semibold, includeFontPadding: false },
+  dotText: { fontFamily: Fonts.semibold, ...OpticalCenter },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

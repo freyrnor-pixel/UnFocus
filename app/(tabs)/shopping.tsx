@@ -485,7 +485,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -2552,7 +2552,7 @@ const styles = StyleSheet.create({
   // vertically center it within the reserved sticky height.
   stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold, ...OpticalCenter },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
 
   catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },

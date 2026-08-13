@@ -90,7 +90,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
@@ -206,7 +206,16 @@ const styles = StyleSheet.create({
   },
   // The meta pill at MARK too. Badge keeps its own horizontal padding — only the height is
   // pinned, so a long value still gets the room it needs.
-  metaMark: { height: MARK, justifyContent: 'center' },
+  //
+  // **`minHeight`, never `height` (2026-08-13, user report: "The time pill cuts the lower part
+  // of the numbers inside").** A hard 22 minus Badge's own chrome (paddingVertical 4 ×2 +
+  // borderWidth 1 ×2 = 10) left 12px for a 12px font whose line box is ~16 — so "17:00–17:20"
+  // was clipped along the bottom. This was the ONLY `<Badge>` in the app with a height
+  // override; the other eight let the Badge size itself, and `minHeight` is the house pattern
+  // everywhere else (Badge's own `chip`, PartControls' `pill`, CollapsedSection's
+  // `rowMinHeight`). It still matches the other marks at rest — the row's other three are 22
+  // and this floors at 22 — it just can't crush its own text any more.
+  metaMark: { minHeight: MARK, justifyContent: 'center' },
   title: {
     flex: 1,
     // minWidth:0 so the title yields to the tag/meta/add cluster instead of pushing them off

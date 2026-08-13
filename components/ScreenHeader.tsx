@@ -116,7 +116,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { FontSize, Fonts, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -524,12 +524,11 @@ const styles = StyleSheet.create({
     // `allowFontScaling={false}` on the Text — see the comment at titleNode and the
     // getHeaderMetrics doc for the double-scaling bug this arrangement fixes. Do NOT put a
     // fontSize/lineHeight back here or re-enable font scaling on the title.
-    // includeFontPadding stays off (#198): Android otherwise adds font-metric padding on
-    // top of lineHeight, offsetting the glyph down inside the numberOfLines=1 box.
-    // textAlignVertical centers the glyph in the (1.45-ratio) line box, which reserves
+    // OpticalCenter stays on (#198): Android otherwise adds font-metric padding on top of
+    // lineHeight, offsetting the glyph down inside the numberOfLines=1 box. Its
+    // textAlignVertical half centers the glyph in the (1.45-ratio) line box, which reserves
     // room for descenders (j/g/p/y) AND top accents (å/ø).
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
     // Sentence-case title (2026-07-28 design review). The 2026-07-20 header-prominence pass
     // set `textTransform: 'uppercase'` here; at HEADER_TITLE_BASE_SIZE (24) that put all-caps
     // at a heading size, where platform convention (iOS grouped headers, Material overline)

@@ -23,7 +23,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
-import { FontSize, Fonts, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
+import { FontSize, Fonts, OpticalCenter, Radius, Spacing, TabularNums, rgba } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
@@ -106,9 +106,13 @@ const styles = StyleSheet.create({
   pillBorder: {
     borderWidth: 1,
   },
+  // OpticalCenter (2026-08-13): a pill is a short box a Text does not size, so on Android the
+  // glyphs rode high inside it — most visible on the example rows' time pill, which pins its
+  // height. Every pill in the app draws through here.
   pillText: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
+    ...OpticalCenter,
   },
   chip: {
     borderWidth: 1,

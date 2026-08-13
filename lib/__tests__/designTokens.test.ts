@@ -266,6 +266,20 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     expect(src).not.toMatch(/[^n]height:\s*SIZE_HEIGHT\[size\]/);
   });
 
+  test('no hand-written includeFontPadding — use OpticalCenter', () => {
+    // 2026-08-13. `includeFontPadding: false` + `textAlignVertical: 'center'` is the Android
+    // fix for a Text riding high inside a box it does not size. It was found and re-written by
+    // hand SEVEN times before `OpticalCenter` existed (constants/theme.ts), and then nine more
+    // call sites kept their local copies while three files used the token — so the app had one
+    // idea in two spellings and no way to tell which surfaces had been done.
+    //
+    // A scan, not a measurement, for the same reason as the Button-height test above: neither
+    // property exists on iOS or react-native-web, so `npm run preview` and `npm run wraps` are
+    // both blind to it. It only shows on a device, which is exactly how it kept coming back.
+    const offenders = SCANNED.filter((f) => /includeFontPadding/.test(readCode(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+
   test('no raw millisecond literals in animated code — use Duration.*', () => {
     const ALLOW = new Set([
       // Per-particle drift times for ambient background scenery — data describing a scene,

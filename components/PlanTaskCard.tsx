@@ -325,7 +325,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { BORDER_WIDTH, DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -1909,7 +1909,9 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timeBoxText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // OpticalCenter: the box is a tight padded pill the Text does not size, so on Android the
+  // digits rode high in it (same family as the example row's clipped time pill, 2026-08-13).
+  timeBoxText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   anytimeDot: { width: 10, height: 10, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed' },
   dot: { width: 16, height: 16, borderRadius: Radius.full, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   // Decision (visual-audit 2026-07-11): a subtle card behind each row's title/hint so
@@ -2026,10 +2028,10 @@ const baseStyles = StyleSheet.create({
   headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 32 },
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
-  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
-  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
+  // OpticalCenter so the title optically centers against the round CardAccentBadge on Android
+  // (same font-padding fix as TabSlider/ScreenHeader — see constants/theme.ts for why).
   // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
-  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, includeFontPadding: false, textAlignVertical: 'center' },
+  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

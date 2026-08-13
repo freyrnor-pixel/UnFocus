@@ -97,7 +97,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, OpticalCenter, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
@@ -331,14 +331,13 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     paddingHorizontal: Spacing.md,
   },
-  // includeFontPadding/textAlignVertical: without these, Android adds font-metric
-  // padding below the glyph baseline that flex's alignItems:'center' doesn't know
-  // about, so the label optically sits low inside the segment (same bug/fix as
-  // ScreenHeader's title — see that component's edit notes).
+  // OpticalCenter: without it, Android adds font-metric padding below the glyph
+  // baseline that flex's alignItems:'center' doesn't know about, so the label
+  // optically sits low inside the segment (same bug/fix as ScreenHeader's title —
+  // see that component's edit notes).
   label: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
   },
 });
