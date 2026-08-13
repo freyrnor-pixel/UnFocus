@@ -12,7 +12,10 @@
  *   Imports → react, react-native (AppState), lib/date (localMinutesOf)
  *   Used by → components/PlanTaskCard.tsx (day-grid now-line),
  *             components/MedicineTrayCard.tsx (current/next tray, as-needed guard),
- *             lib/__tests__/useNowMinutes.test.ts
+ *             app/(tabs)/plans.tsx + app/(tabs)/index.tsx (the day log's cutoff, and their
+ *             own render-scope `today`), app/(tabs)/habits.tsx + app/(tabs)/health.tsx
+ *             (2026-08-13 — subscribed for the DATE, not the minute: see below),
+ *             lib/__tests__/useNowMinutes.test.ts, lib/__tests__/todayFreshness.test.ts
  *   Data    → none — reads the system clock only
  *
  * Edit notes:
@@ -37,6 +40,14 @@
  *     resumed after an hour would otherwise show an hour-old "now" until its next tick, which
  *     is the same bug at a worse scale. AppState covers that; `setNow` with an unchanged value
  *     is a no-op re-render, so the extra reads cost nothing.
+ *   - **Two callers subscribe and ignore the value** (`useNowMinutes()` with no assignment,
+ *     added 2026-08-13): the Habits and Health tabs want the RE-RENDER, because each derives
+ *     `const today = todayStr()` at render scope and nothing else re-derives it — a mounted
+ *     screen kept its pre-midnight date indefinitely, and on Habits that date is what
+ *     `increment`/`decrement`/`markRestDay` WRITE. A bare call looks like a mistake, so don't
+ *     "clean it up"; `lib/__tests__/todayFreshness.test.ts` fails if either one loses it. The
+ *     minute cadence is finer than a date needs, but it is the tick the app already has, and
+ *     one shared interval beats a second timer that fires once a day.
  *   - Returns a plain number (not a Date) so consumers compare against the same
  *     minutes-since-midnight scale lib/dayGrid.ts and lib/medicineSchedule.ts use.
  */
