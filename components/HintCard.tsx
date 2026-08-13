@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme,
  *             lib/i18n (useT), components/PressableScale
- *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx, app/(tabs)/shopping.tsx,
+ *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx,
  *             app/(tabs)/health.tsx (this-week summary), app/(tabs)/habits.tsx,
  *             app/scan.tsx, app/meals.tsx, app/habit-form.tsx,
  *             app/notes.tsx, app/health-form.tsx, app/health-log.tsx
@@ -24,6 +24,13 @@
  *     explainer that renders inline while a surface has no content, and is gated on a plain
  *     `length === 0`. They deliberately look different so a screen showing both at once
  *     doesn't read as the same card twice.
+ *   - **components/HintSheet.tsx is the same content in a bottom sheet (2026-08-13)**, and
+ *     app/(tabs)/shopping.tsx is its one caller — that screen's hint body is the largest
+ *     block on the tab (two paragraphs plus the two reset-cadence controls) and opening it
+ *     inline pushed every list card down. The other ten callers here are unchanged. Same
+ *     `text`/`example`/`children` contract on both, deliberately, so moving a screen between
+ *     them is a swap rather than a rewrite; if a second screen's hint outgrows its card, move
+ *     it, don't build a third shape.
  *   - Optional `children` render below text/example — used to embed a setting control
  *     (shopping reset cadence, notifications) that lives nowhere else. Since the card no
  *     longer auto-opens, those controls are reachable only via the ⓘ button; don't assume a

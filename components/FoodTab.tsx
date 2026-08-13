@@ -25,7 +25,8 @@
  *             components/Collapsible + components/AnimatedChevron (meal-section collapse),
  *             store/useMealStore (Dish/MealType/Difficulty/dishTotalPrice + CRUD incl.
  *             duplicateDish), store/useCatalogStore (suggest, StoreItem),
- *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), @expo/vector-icons
+ *             store/useShoppingStore (add + UNALLOCATED_LIST_ID), store/useMonthlyListStore
+ *             (lists + `monthlyListLabel` for the add-to-list picker), @expo/vector-icons
  *   Used by → app/food.tsx (its own button-launched sub-screen as of 2026-07-23, UX audit
  *             F1 — was app/(tabs)/shopping.tsx's in-place "Food" tab before that),
  *             app/(tabs)/shopping.tsx (the Food drawer, `embedded` — 2026-08-10)
@@ -107,7 +108,7 @@ import { SegmentedControl } from '@/components/FormControls';
 import { useMealStore, MealType, Difficulty, Dish, Ingredient, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
-import { useMonthlyListStore } from '@/store/useMonthlyListStore';
+import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
 import { contrastOn, computeBorderTone, rgba, BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
@@ -420,7 +421,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
     }
     setPopupDish(null);
     showAppModal(t.allocateToListTitle, '', [
-      ...monthlyLists.map((l) => ({ text: l.name, onPress: () => pushDishToMonthlyList(dish, l.id) })),
+      ...monthlyLists.map((l) => ({ text: monthlyListLabel(l, t.defaultMonthlyListName), onPress: () => pushDishToMonthlyList(dish, l.id) })),
       { text: t.cancel, style: 'cancel' as const },
     ]);
   }
