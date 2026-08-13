@@ -416,14 +416,22 @@ export const RowTrailing = {
 } as const;
 
 // Body text is never below 16; secondary/caption text never below 14.
+//
+// **Raised ~8% on 2026-08-13** (user report: "the text in general and all that is a bit too
+// small in Normal Size"). The bump is on the BASE ladder rather than on `fontScaleMap.default`
+// deliberately: that map's three rungs are 0.875 / 1 / 1.2, so moving `default` up toward
+// `large` would have squeezed the Size setting's own range from both ends — "Large" would have
+// become a 9% step instead of a 20% one, and "Small" would have stopped being smaller by much.
+// Raising the ladder itself moves every rung together, so Normal gets bigger and the three
+// choices stay as far apart as they were. Ratios between the steps are preserved.
 export const FontSize = {
-  xs: 12,
-  sm: 14,
-  md: 16,
-  lg: 18,
-  xl: 22,
-  xxl: 28,
-  hero: 36,
+  xs: 13,
+  sm: 15,
+  md: 17,
+  lg: 20,
+  xl: 24,
+  xxl: 30,
+  hero: 38,
 };
 
 /**
