@@ -168,6 +168,13 @@ export default function StarterExampleRow({ icon, title, tag, meta, metaVariant 
  * and the "+" (2026-08-10, maintainer: make boxes the same size where it makes sense). Measured,
  * these were 22 / 18 / 26 / 22: four marks doing the same weight of job at three sizes on one
  * short line. 22 is the ring's existing size, which is the app's row-checkbox sizing.
+ *
+ * **It is a `height` on the two icon marks and a `minHeight` on the two text marks, and that
+ * split is deliberate (2026-08-13).** An Ionicons glyph is drawn at an explicit `size` and never
+ * font-scales, so its box can be pinned exactly. The "Example" chip and the meta pill contain a
+ * <Text>, which DOES grow with the OS display-size setting — and both are `Radius.full`, which
+ * masks children on Android — so pinning those clips the letters instead of cramping them. Equal
+ * heights are the intent, not the invariant: let a text mark grow rather than slice it.
  */
 const MARK = 22;
 
@@ -206,7 +213,17 @@ const styles = StyleSheet.create({
   },
   // The meta pill at MARK too. Badge keeps its own horizontal padding — only the height is
   // pinned, so a long value still gets the room it needs.
-  metaMark: { height: MARK, justifyContent: 'center' },
+  //
+  // **`minHeight`, never `height` (2026-08-13).** User report, with a screenshot of the day
+  // card's "17:00–17:20" example: the digits were sliced off along the bottom. `height: 22` is
+  // a hard box, and Badge does NOT run through useScaledStyles — its label is a plain <Text>
+  // with RN's default `allowFontScaling`, so the OS display-size setting grows the glyph while
+  // this box stays at 22. Badge's own pill is `FontSize.xs` + `paddingVertical: 4`, i.e. ~24pt
+  // of content at OS scale 1.0 already, and its `Radius.full` masks its children on Android —
+  // so the overflow is CLIPPED rather than spilling, which is why it read as a rendering bug
+  // and not as a cramped pill. minHeight keeps the "one height for every mark" intent at the
+  // sizes where it fits and simply lets the pill grow at the sizes where it doesn't.
+  metaMark: { minHeight: MARK, justifyContent: 'center' },
   title: {
     flex: 1,
     // minWidth:0 so the title yields to the tag/meta/add cluster instead of pushing them off
@@ -227,8 +244,10 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     paddingHorizontal: 6,
     // MARK rather than a vertical padding, so the marker matches the icon ring, the meta pill
-    // and the "+" instead of being the shortest thing on the line.
-    height: MARK,
+    // and the "+" instead of being the shortest thing on the line. `minHeight`, not `height`,
+    // for the same reason as `metaMark` above — this chip is text in a Radius.full (masking)
+    // box too, so a hard height clips its letters once the OS font scale is turned up.
+    minHeight: MARK,
     justifyContent: 'center',
   },
   tagText: { fontSize: 10, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.3 },

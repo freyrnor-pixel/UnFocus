@@ -1885,7 +1885,7 @@ const en = {
     plans: {
       text: 'Break it into smaller pieces.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'See an example:',
+      tapToAdd: 'Examples',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1910,7 +1910,7 @@ const en = {
     health: {
       text: 'Log what bothers you. And what helps.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'See an example:',
+      tapToAdd: 'Examples',
       exampleTitle: 'Headache',
     },
     // Medicine card's empty state — compact (no example row): the card's own add field
@@ -3799,7 +3799,7 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del opp i mindre biter.',
-      tapToAdd: 'Se et eksempel:',
+      tapToAdd: 'Eksempler',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -3816,7 +3816,7 @@ const no: typeof en = {
     },
     health: {
       text: 'Logg plagene dine. Og hva som hjelper.',
-      tapToAdd: 'Se et eksempel:',
+      tapToAdd: 'Eksempler',
       exampleTitle: 'Hodepine',
     },
     medicine: {
