@@ -21,6 +21,17 @@
  *   - The week shown is always the week containing TODAY, not the week containing `value` —
  *     picking a date three weeks back leaves the chips on this week with none active, which
  *     is correct: the calendar below is where that date is visible.
+ *   - **That week is computed ONCE, at mount (`useMemo(…, [])`), so this component is only
+ *     correct where it mounts fresh each time it opens** (2026-08-13). Both callers do:
+ *     app/health-form.tsx is a pushed screen, and EpisodeCloseSheet's chips live inside
+ *     components/AnimatedBottomSheet, which renders `null` while closed. Mount one of these
+ *     somewhere permanently mounted — a tab screen, a card that is always on Home — and it
+ *     will still be showing the week it was born in days later, with no signal that anything
+ *     is wrong. That is the same rot as the Habits tab's stale `today`
+ *     (lib/__tests__/todayFreshness.test.ts), and left as a memo on purpose: a new caller
+ *     needs to make a real decision here, not inherit a silent one. Recomputing per render
+ *     would not save such a caller either — a component that never re-renders never re-derives
+ *     anything, which is precisely how the Habits bug survived.
  *   - app/task-form.tsx still has its own inline copy. Folding that one in too is a fine
  *     follow-up, but it was out of scope for the change that extracted this.
  */

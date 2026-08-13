@@ -39,7 +39,7 @@
  *     renders into — sits outside the screen's own KeyboardAvoidingView subtree. Without this
  *     the keyboard covered the "did anything help" note field and the action buttons below it.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import Surface from '@/components/Surface';
@@ -80,6 +80,22 @@ export default function EpisodeCloseSheet({ log, onClose }: Props) {
   const [calExpanded, setCalExpanded] = useState(false);
   const [note, setNote] = useState('');
   const [medicineId, setMedicineId] = useState('');
+
+  /**
+   * Re-seed the "Pick a time" date each time the sheet OPENS (2026-08-13).
+   *
+   * `pickDate`'s initial value is read when this component mounts, which is when the Health
+   * tab mounts — i.e. app launch — and `reset()` only runs on dismiss. So the first open in a
+   * session that has been alive since yesterday defaulted the date to yesterday. Same family as
+   * the Habits tab's stale `today`, and far milder (this one is on screen, in a date field the
+   * user can see and change), but the honest default for "when did it stop" is today, and this
+   * is the one line that keeps it that way. Keyed on `log?.id` so re-renders while the sheet is
+   * already open don't stamp over a date the user has just picked.
+   */
+  const openId = log?.id ?? null;
+  useEffect(() => {
+    if (openId) setPickDate(todayStr());
+  }, [openId]);
 
   /** Resolved on every render rather than at open, so `Just now` means the moment the
    *  user confirms — not the moment the sheet appeared. */
