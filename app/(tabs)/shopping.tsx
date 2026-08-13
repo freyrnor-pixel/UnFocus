@@ -28,7 +28,9 @@
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
- *             components/HintCard, components/StarterCard (first-run explainer, shown while
+ *             components/HintSheet (the ⓘ explanation as a bottom sheet — this screen's
+ *             body was a components/HintCard until 2026-08-13; see the edit note),
+ *             components/StarterCard (first-run explainer, shown while
  *             there are no weekly lists and no items — text-only as of 2026-07-28, no example
  *             rows any more), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
@@ -74,6 +76,29 @@
  *             Food/Catalogue drawers — and reads each store only for the drawer's own count.
  *
  * Edit notes:
+ *   - **MD3-flavoured declutter pass (2026-08-13, from an outside review).** Four asks, and
+ *     what each became. (1) **The ⓘ body is a bottom sheet now** — components/HintSheet.tsx,
+ *     mounted with the other overlays instead of at the top of `shoppingIntro`, where opening
+ *     it shoved every list down the screen. The ⓘ was already its only trigger; only the
+ *     landing place changed. Its reset-cadence controls came along unchanged and its
+ *     `useKeyboardLift` did NOT (a Modal is outside the ScrollView that hook scrolls — the
+ *     sheet's own KeyboardAvoidingView replaces it). (2) **The empty-list line lost its fill
+ *     and border** (`sectionEmpty`) — it was the app's real-Input look, so an empty list read
+ *     as a text field; same complaint the locked+empty variant was restyled for two days
+ *     earlier, and the same quiet centred line Habits and Health already draw. (3)
+ *     **"Manage inventory" and "Reset all monthly lists now" moved into each monthly card's
+ *     ⋮** (`openMonthlyListOptions`) — an archive-box glyph that never said "inventory", and
+ *     a muted caption-shaped row under the last card that was the furthest-reaching action on
+ *     the tab. (4) **The seeded monthly list is localized at render time** —
+ *     `monthlyListLabel()` (store/useMonthlyListStore.ts), because lib/db.ts's seed migration
+ *     wrote the English literal "Monthly" and a migration can't know the language.
+ *     **Two asks were deliberately NOT done**, on the maintainer's call: detaching the header
+ *     from the sticky tab bar and restyling the tabs as an MD3 underline (that seam is
+ *     transparent — the 2026-08-10 chrome pass attached them precisely because scrolled
+ *     content flickered through it, and components/TabSlider.tsx's accent-filled pill IS the
+ *     screen-tier shape for a pick-one question), and reshaping the bottom nav's active pill
+ *     (measured on the web preview: it is centred on its tab to within 0.9px — see
+ *     components/BottomNav.tsx's `gap` note for the one real defect that turned up).
  *   - **Food/Catalogue link icons upgraded to CardAccentBadge (2026-07-26, user feedback: the
  *     two buttons read as too plain/undefined)**: `foodCatalogueLinks`'s bare `Ionicons` glyphs
  *     (just accent-colored, on the Surface's neutral fill) swapped for `CardAccentBadge` at a
@@ -407,7 +432,7 @@ import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_I
 import { useShoppingListStore, ShoppingList } from '@/store/useShoppingListStore';
 import { useMealStore } from '@/store/useMealStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
-import { useMonthlyListStore, MonthlyList } from '@/store/useMonthlyListStore';
+import { useMonthlyListStore, MonthlyList, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
@@ -444,7 +469,7 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import ShoppingStoreMode from '@/components/ShoppingStoreMode';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import HintCard from '@/components/HintCard';
+import HintSheet from '@/components/HintSheet';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
@@ -518,8 +543,11 @@ export default function ShoppingScreen() {
   // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
   // updates the setting, leaving it blank keeps the current value.
+  // (No useKeyboardLift here since 2026-08-13: this field moved into components/HintSheet.tsx,
+  // which is a <Modal> — outside the ScrollView that hook scrolls. The sheet's own
+  // KeyboardAvoidingView does the job instead. The Monthly rename field below still uses it;
+  // that one is genuinely in the scroll content.)
   const [monthlyDateInput, setMonthlyDateInput] = useState('');
-  const monthlyDateLift = useKeyboardLift<TextInput>();
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1048,22 +1076,43 @@ export default function ShoppingScreen() {
    *  action row (which also carries the Budget pill + Manage inventory icon) into one
    *  overflow entry point, same "tuck rare actions behind ⋮" convention WeekListCard's
    *  openListOptions already uses. */
+  /**
+   * The monthly card's ⋮ menu. Grew from two entries to four on 2026-08-13, in the same
+   * declutter spirit as the 2026-07-23 pass that created it: the header row carried a
+   * `file-tray-full-outline` IconButton for "Manage inventory" whose glyph reads as an
+   * archive box and says nothing about inventory, and the Monthly tab ended with a small
+   * muted "Reset all monthly lists now" line floating under the last card, looking like a
+   * caption rather than a control. Both are secondary or destructive; both live here now.
+   *
+   * "Reset all lists" is the odd one out and is worded to say so — it is the one entry in a
+   * per-list menu that does NOT act on this list alone. It is placed after this list's own
+   * reset so the narrower action is read first, and it keeps its own confirm dialog
+   * (`resetAllConfirmVisible`), which names the scope again before anything happens.
+   */
   function openMonthlyListOptions(list: MonthlyList) {
-    showAppModal(list.name, undefined, [
+    showAppModal(monthlyListLabel(list, t.defaultMonthlyListName), undefined, [
+      { text: t.manageInventoryAction, onPress: () => router.push({ pathname: '/inventory-edit', params: { listId: list.id } }) },
       { text: t.resetMonthlyListAction, onPress: () => { warning(); setResetListConfirmId(list.id); } },
+      { text: t.resetAllMonthlyListsAction, onPress: handleManualMonthlyReset },
       ...(!list.locked ? [{ text: t.deleteMonthlyListAction, style: 'destructive' as const, onPress: () => handleDeleteMonthlyList(list.id) }] : []),
       { text: t.cancel, style: 'cancel' as const },
     ]);
   }
 
   function startMonthlyListNameEdit(list: MonthlyList) {
-    setMonthlyListNameInput(list.name);
+    // Seeds the field with what the user SEES, not the stored literal — otherwise renaming
+    // the seeded list starts you editing the English "Monthly" you were never shown.
+    setMonthlyListNameInput(monthlyListLabel(list, t.defaultMonthlyListName));
     setEditingMonthlyListId(list.id);
   }
 
   function commitMonthlyListRename(list: MonthlyList) {
     const trimmed = monthlyListNameInput.trim();
-    if (trimmed && trimmed !== list.name) renameMonthlyList(list.id, trimmed);
+    // Compared against the DISPLAYED name as well as the stored one: on the seeded list those
+    // differ, so opening the field and closing it again without typing would otherwise write
+    // the localized default in as a real name — a rename the user never made.
+    const unchanged = trimmed === list.name || trimmed === monthlyListLabel(list, t.defaultMonthlyListName);
+    if (trimmed && !unchanged) renameMonthlyList(list.id, trimmed);
     setEditingMonthlyListId(null);
   }
 
@@ -1572,10 +1621,26 @@ export default function ShoppingScreen() {
     </TourTarget>
   );
 
-  // Screen intro chrome (first-run hint + incoming shared requests), shared by both tabs.
-  const shoppingIntro = (
-    <>
-      <HintCard text={t.hints.shopping.text} example={t.hints.shopping.example} open={hintOpen} noPill>
+  // The ⓘ explanation, as a bottom sheet (2026-08-13) — mounted with the other overlays
+  // below, NOT in the scroll content. It was a components/HintCard.tsx in `noPill` mode
+  // sitting at the top of `shoppingIntro`, i.e. inline between the sticky tab bar and the
+  // first list card: on this screen that body is the largest block anywhere on the tab (two
+  // paragraphs plus the weekly-reset weekday row and the monthly-reset date field), so
+  // opening it shoved every list down the moment you asked a question about them. The ⓘ was
+  // already the only way to open it (lib/useFirstVisitHint.ts stopped auto-opening on first
+  // visit 2026-07-31) — this changes where the answer lands, not how it is asked for.
+  //   The reset-cadence controls come along unchanged; this is still their ONLY home in the
+  // app. What does NOT come along is `monthlyDateLift` (lib/useKeyboardLift): it hands the
+  // field to ScreenScaffold's ScrollView, and a <Modal> renders outside that subtree, so it
+  // could only ever no-op in here. components/HintSheet.tsx carries a KeyboardAvoidingView
+  // instead — the same swap components/EpisodeCloseSheet.tsx made for the same reason.
+  const hintSheet = (
+    <HintSheet
+      visible={hintOpen}
+      onClose={() => setHintOpen(false)}
+      text={t.hints.shopping.text}
+      example={t.hints.shopping.example}
+    >
         <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
           <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
           <View style={styles.hintDayRow}>
@@ -1607,7 +1672,6 @@ export default function ShoppingScreen() {
           </View>
           <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
           <TextInput
-            ref={monthlyDateLift.ref}
             style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
             value={monthlyDateInput}
             onChangeText={(v) => {
@@ -1615,8 +1679,7 @@ export default function ShoppingScreen() {
               const n = parseInt(v, 10);
               if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
             }}
-            onFocus={monthlyDateLift.onFocus}
-            onBlur={() => { monthlyDateLift.onBlur(); setMonthlyDateInput(''); }}
+            onBlur={() => setMonthlyDateInput('')}
             keyboardType="number-pad"
             placeholder={String(monthlyResetDate)}
             placeholderTextColor={theme.textMuted}
@@ -1624,7 +1687,12 @@ export default function ShoppingScreen() {
             returnKeyType="done"
           />
         </View>
-      </HintCard>
+    </HintSheet>
+  );
+
+  // Screen intro chrome (first-run explainer + incoming shared requests), shared by both tabs.
+  const shoppingIntro = (
+    <>
       {/* First-run explainer (2026-07-26, example rows dropped 2026-07-28): when to add
           something, and what the two reset cadences actually mean — the weekly/monthly
           distinction is exactly what's opaque before you have one of each. No suggested-add
@@ -1726,7 +1794,7 @@ export default function ShoppingScreen() {
 
               {monthlyListViews.length === 0 ? (
                 <Surface style={styles.catalogCard}>
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                  <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>
                     {t.monthlyListsEmpty}
                   </Text>
                 </Surface>
@@ -1772,7 +1840,7 @@ export default function ShoppingScreen() {
                               scaleTo={0.98}
                               disabled={locked}
                             >
-                              <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{list.name}</Text>
+                              <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{monthlyListLabel(list, t.defaultMonthlyListName)}</Text>
                             </PressableScale>
                           )}
                         </View>
@@ -1796,11 +1864,10 @@ export default function ShoppingScreen() {
                             <Ionicons name="wallet-outline" size={14} color={theme.accent} />
                             <Text style={[styles.budgetPillText, { color: theme.accent }]}>{t.budget.title}</Text>
                           </PressableScale>
-                          <IconButton
-                            icon="file-tray-full-outline"
-                            label={t.manageInventoryAction}
-                            onPress={() => router.push({ pathname: '/inventory-edit', params: { listId: list.id } })}
-                          />
+                          {/* "Manage inventory" moved into the ⋮ menu (2026-08-13) — see
+                              openMonthlyListOptions. It was an archive-box glyph in a row that
+                              also holds Budget and ⋮, and nothing about the glyph said
+                              "inventory"; the menu says it in words. */}
                           <IconButton
                             icon="ellipsis-vertical"
                             label={t.listOptionsButtonLabel}
@@ -1848,9 +1915,9 @@ export default function ShoppingScreen() {
                               <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
                             </PressableScale>
                           ) : view.catalogItems.length === 0 ? (
-                            <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyListEmpty}</Text>
+                            <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyListEmpty}</Text>
                           ) : view.filteredCatalogItems.length === 0 ? (
-                            <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.monthlyPreviewEmpty}</Text>
+                            <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
                           ) : (
                             <>
                               {view.catalogDishGroups.length > 0 && (
@@ -2016,13 +2083,10 @@ export default function ShoppingScreen() {
               )}
 
               <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
-
-              {monthlyListViews.length > 0 && (
-                <PressableScale style={styles.resetAllRow} onPress={handleManualMonthlyReset} scaleTo={0.97}>
-                  <Ionicons name="refresh-outline" size={14} color={theme.textMuted} />
-                  <Text style={[styles.resetAllText, { color: theme.textMuted }]}>{t.resetAllMonthlyListsAction}</Text>
-                </PressableScale>
-              )}
+              {/* "Reset all monthly lists now" moved into every card's ⋮ (2026-08-13) — see
+                  openMonthlyListOptions. It was a small muted icon+label row floating under the
+                  last card with no card of its own, which read as a caption on the tab rather
+                  than a control, while being the most far-reaching action on the screen. */}
             </>
           )}
 
@@ -2361,6 +2425,7 @@ export default function ShoppingScreen() {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
       />
+      {hintSheet}
       <LayoutPickerSheet
         visible={layoutPickerOpen}
         surface="shopping"
@@ -2539,8 +2604,6 @@ const styles = StyleSheet.create({
   // Relocated global "reset every list" entry point — a quiet text row under the list
   // cards + "+ New list", not a prominent icon (each list's own reset icon is the primary
   // affordance now).
-  resetAllRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: Spacing.sm },
-  resetAllText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
 
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   dialogBox: { borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 340, gap: Spacing.lg },
@@ -2556,7 +2619,14 @@ const styles = StyleSheet.create({
   dialogBtn: { flex: 1 },
   // Visual-audit 2026-07-11: background/border colour applied inline (theme) at each
   // call site — was bare muted text floating on the particle background.
-  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: Radius.sm, borderWidth: 1 },
+  // Plain centred muted text — no fill, no border (2026-08-13). It was a filled, bordered,
+  // left-aligned box, which is this app's real-Input look: an empty list read as an empty text
+  // FIELD you were meant to type into. That is the same complaint the locked+empty variant
+  // below was restyled for on 2026-08-11 ("buttons should look like buttons and text fields
+  // like text fields") — this is the other half of it, and it matches what the Habits and
+  // Health tabs already draw for an empty section. The locked variant KEEPS its dashed edge:
+  // it is a real tap target (it unlocks the list), and a border is what says so.
+  sectionEmpty: { fontSize: FontSize.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, textAlign: 'center' },
   // The locked+empty monthly-list variant of sectionEmpty — a real tap target (it unlocks the
   // list), so it's floored to MIN_TAP_TARGET (DESIGN_RULES rule 17). Dashed + unfilled rather
   // than sectionEmpty's solid fill — that filled look is also this app's real-Input look, and

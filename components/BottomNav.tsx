@@ -432,7 +432,16 @@ export default function BottomNav({ state, navigation }: Props = {}) {
 
   const activeIndex = SITE_ITEMS.findIndex(isActive);
   const isHomeActive = activeIndex === 2;
-  const gap = Spacing.sm;
+  // Read off the SCALED style, not the raw `Spacing.sm` token (2026-08-13). Every other
+  // number in this arithmetic is measured from the real layout; this one was the constant the
+  // group's `gap` is *authored* as, and `styles` here is `useScaledStyles(baseStyles)`, which
+  // rewrites `gap` under the design lab's `spacingScale`. When the two disagree the error is
+  // cumulative — `slotX` multiplies it by the slot index and `segW` divides the leftover — so
+  // the pill stays centred on the outermost tab and creeps off the inner one, which is exactly
+  // what "the box isn't symmetric" looks like. Identical at the default scale (both are 8);
+  // measured on the web preview at 430px, the pill is centred on all four side tabs to within
+  // 0.9px, which is layout rounding rather than this.
+  const gap = styles.leftGroup.gap;
   const leftSegW = leftTrack.w > 0 ? (leftTrack.w - gap * (ITEMS_PER_SIDE - 1)) / ITEMS_PER_SIDE : 0;
   const rightSegW = rightTrack.w > 0 ? (rightTrack.w - gap * (ITEMS_PER_SIDE - 1)) / ITEMS_PER_SIDE : 0;
   // Both sides measure equal (the bar is `justify-content: space-between` with flex:1 on both

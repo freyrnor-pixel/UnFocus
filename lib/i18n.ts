@@ -270,6 +270,8 @@ const en = {
   a11yDiscardRow: 'Discard new row',
   showHint: 'How this works',
   hideHint: 'Hide instructions',
+  /** Closes components/HintSheet.tsx — the ⓘ explanation as a bottom sheet (Shopping). */
+  hintSheetDone: 'Done',
   /**
    * The pad (notepad) language, 2026-07-30 — shared by every list-bearing card so the four
    * Home cards stop wording the same control four different ways. `summary` is the closed
@@ -738,6 +740,14 @@ const en = {
   monthlyListSection: 'Monthly list',
   // Shopping — Monthly redesign (2026-07-22): multiple named, budgeted Monthly lists
   newMonthlyListBtn: 'New list',
+  /**
+   * Display name for the ONE monthly list lib/db.ts seeds on install (id `default-monthly`),
+   * which that migration wrote as the untranslated literal `'Monthly'` — the only name in the
+   * app the user never chose and never saw translated. Resolved at render time by
+   * `monthlyListLabel()` (store/useMonthlyListStore.ts) so it follows the language setting;
+   * the moment the user renames the list, their own name wins and this is never shown again.
+   */
+  defaultMonthlyListName: 'Monthly list',
   newMonthlyListNamePlaceholder: 'List name',
   createMonthlyListBtn: 'Create',
   monthlyListsEmpty: 'No monthly lists yet — create one to get started.',
@@ -2450,6 +2460,7 @@ const no: typeof en = {
   a11yDiscardRow: 'Forkast ny rad',
   showHint: 'Slik fungerer det',
   hideHint: 'Skjul instruksjoner',
+  hintSheetDone: 'Ferdig',
   pad: {
     summary: (left: number, total: number) => `${left}/${total} igjen`,
     more: (n: number) => `${n} flere`,
@@ -2820,6 +2831,7 @@ const no: typeof en = {
   weekNumberChip: (n: number) => `Uke ${n}`,
   monthlyListSection: 'Månedsliste',
   newMonthlyListBtn: 'Ny liste',
+  defaultMonthlyListName: 'Månedsliste',
   newMonthlyListNamePlaceholder: 'Listenavn',
   createMonthlyListBtn: 'Opprett',
   monthlyListsEmpty: 'Ingen månedslister ennå — opprett en for å komme i gang.',

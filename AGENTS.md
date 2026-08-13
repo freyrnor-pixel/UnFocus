@@ -604,6 +604,45 @@ file owns which token.)
   - Not in the AI setup guide and **no `AI_SETUP_SCHEMA_VERSION` bump**: health is not an
     importable domain (`lib/aiSetupGuide.ts` refuses health-log data outright), and `symptoms`
     is not in `SyncTable` either.
+- **The Shopping declutter pass (2026-08-13)** — `components/HintSheet.tsx` (new) +
+  `app/(tabs)/shopping.tsx` + `monthlyListLabel()` in `store/useMonthlyListStore.ts`. From an
+  outside MD3-flavoured review; the maintainer ruled on each ask, and the two REFUSALS are the
+  load-bearing half of this entry.
+  - **The ⓘ body is a bottom sheet on Shopping, and only on Shopping.** Same
+    `text`/`example`/`children` contract as `components/HintCard.tsx`, so this is a swap, not a
+    second implementation — but that screen's hint is two paragraphs plus the weekly-reset
+    weekday row and the monthly-reset date field, i.e. the largest block on the tab, and it
+    opened inline between the sticky tabs and the first list card. The ⓘ was already the only
+    way to open it (`lib/useFirstVisitHint.ts` stopped auto-opening 2026-07-31); what changed is
+    where the answer lands. `lib/useKeyboardLift` does NOT survive the move — a `<Modal>` is
+    outside the ScrollView that hook scrolls, so the sheet carries a `KeyboardAvoidingView`
+    instead. The other ten HintCard callers are untouched; if a second one outgrows its card,
+    move it to HintSheet rather than building a third shape.
+  - **An empty list is a plain centred line, not a filled bordered box.** `sectionEmpty`'s fill
+    and border WERE this app's real-Input look, so an empty list read as a text field you were
+    meant to type into — the same objection that restyled the locked+empty monthly row two days
+    earlier ("buttons should look like buttons and text fields like text fields"), and the same
+    quiet line Habits and Health already draw. `app/(tabs)/plans.tsx` still has the twin style;
+    it was out of scope here, not a deliberate divergence.
+  - **The seeded monthly list is localized at RENDER time**, by `monthlyListLabel(list, t.…)`.
+    `lib/db.ts`'s seed migration wrote the English literal `'Monthly'` and migrations are an
+    append-only log that runs before the language is known, so it cannot be fixed at the write
+    end. The guard needs BOTH halves — id `default-monthly` AND the name still being that
+    literal — so a list a user deliberately names "Monthly" keeps it, and the seed row stops
+    being special the moment it's renamed. Nothing is written. Call it at every site that DRAWS
+    a monthly list's name (5 today), or the same list reads two different ways on two screens.
+  - **REFUSED: detaching the header from the sticky tab bar, and an MD3 underline indicator.**
+    That 8px seam is transparent — the 2026-08-10 chrome pass attached them *because* scrolled
+    content flickered through it — and `components/TabSlider.tsx`'s accent-filled pill is the
+    screen-tier shape in the two-shapes rule. MD3's 48px tap target is the one thing this app
+    takes from MD3; its look is not.
+  - **REFUSED: reshaping the bottom nav's active pill.** Measured on the web preview at 430px,
+    the pill is centred on its tab within 0.9px (3px of pill above and below the item, 5px
+    inside the bar) — there was no asymmetry to fix, and shrinking it behind the icon would
+    weaken the cue the 2026-08-12 pass made the *only* selection cue. The investigation did find
+    one real defect: `BottomNav`'s `gap` was the raw `Spacing.sm` token while the group's
+    rendered `gap` goes through `useScaledStyles`, so under the design lab's `spacingScale` the
+    error compounded across slots. It reads the scaled style now.
 - **Dark mode is TRUE BLACK (2026-08-10)** — `bg` `#000000`, `surface` `#1E1E1E`,
   `surfaceMuted` `#121212`, `text` `#F3F4F6`, `accent` `#3B82F6`. Adopted wholesale from an
   outside design review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight

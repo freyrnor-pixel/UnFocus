@@ -43,7 +43,9 @@
  *             lib/haptics (selection on each arrow), lib/i18n, lib/shoppingGroups (listProgress),
  *             lib/useAppTheme, lib/domainColor, lib/padState, lib/budget (SpendPace type only),
  *             react-native-reanimated, store/useShoppingStore (ShoppingItem type),
- *             store/useShoppingListStore (ShoppingList type)
+ *             store/useShoppingListStore (ShoppingList type),
+ *             store/useMonthlyListStore (`monthlyListLabel` only — the add-target chip names a
+ *             monthly list, and the seeded one's stored name is untranslated)
  *   Used by → app/(tabs)/index.tsx (Home shopping preview — it builds the `weeks` array with
  *             lib/date's weekOfMonthlyCycle/dateRangeForCycleWeek, the same helpers
  *             app/(tabs)/shopping.tsx buckets its own Week 1–4 sections with)
@@ -117,6 +119,7 @@ import { selection, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { ShoppingList } from '@/store/useShoppingListStore';
+import { monthlyListLabel } from '@/store/useMonthlyListStore';
 import { listProgress } from '@/lib/shoppingGroups';
 import { getScreenColor } from '@/lib/screenColor';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -270,7 +273,10 @@ export default function HomeShoppingCard({
   const addTargetName =
     addTargetIndex === 0
       ? t.home.weeklyListChip
-      : monthlyLists[addTargetIndex - 1]?.name ?? t.home.weeklyListChip;
+      : (() => {
+          const target = monthlyLists[addTargetIndex - 1];
+          return target ? monthlyListLabel(target, t.defaultMonthlyListName) : t.home.weeklyListChip;
+        })();
 
   /**
    * Pick a destination list, replacing a chip that cycled to the next one on every tap.

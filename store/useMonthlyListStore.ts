@@ -14,7 +14,10 @@
  * Connections:
  *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update/delete), lib/id
  *   Used by → app/(tabs)/shopping.tsx (Monthly tab), app/budget.tsx (per-list budget editor),
- *             app/scan.tsx (receipt monthly-list tagging picker, type only)
+ *             app/scan.tsx (receipt monthly-list tagging picker, type only).
+ *             `monthlyListLabel()` additionally by app/inventory-edit.tsx,
+ *             app/(tabs)/index.tsx and components/FoodTab.tsx — everywhere a monthly list's
+ *             name is DRAWN, so the seeded list reads the same in all of them
  *   Data    → defines a Zustand store; owns SQLite table monthly_lists
  *
  * Edit notes:
@@ -55,6 +58,32 @@ export type MonthlyList = {
   lastReset: string;
   createdAt: string;
 };
+
+/** The one list lib/db.ts's `INSERT … WHERE NOT EXISTS` migration seeds on install. */
+export const DEFAULT_MONTHLY_LIST_ID = 'default-monthly';
+/** The untranslated literal that migration wrote as its name — see `monthlyListLabel`. */
+const SEEDED_MONTHLY_LIST_NAME = 'Monthly';
+
+/**
+ * What to SHOW for a monthly list's name (2026-08-13).
+ *
+ * Every monthly list is named by the user except one: the list lib/db.ts seeds on install,
+ * whose name is the English literal `'Monthly'` baked into a migration. Migrations are an
+ * append-only log that runs before the language setting is known, so that literal can't be
+ * localized at write time — and it surfaced untranslated in a Norwegian-first app (the card
+ * header, the inventory and budget screen titles, Home's add-target chip, Food's
+ * add-to-list menu).
+ *
+ * So it is resolved at RENDER time: pass `t.defaultMonthlyListName`, and only the untouched
+ * seed row gets it. Both halves of the guard matter — the id, so a list a user deliberately
+ * names "Monthly" keeps that name, and the name, so the seed row stops being special the
+ * moment it is renamed. Nothing is written; the stored name is left exactly as it is.
+ */
+export function monthlyListLabel(list: { id: string; name: string }, defaultName: string): string {
+  return list.id === DEFAULT_MONTHLY_LIST_ID && list.name === SEEDED_MONTHLY_LIST_NAME
+    ? defaultName
+    : list.name;
+}
 
 type MonthlyListAddInput = {
   name?: string;

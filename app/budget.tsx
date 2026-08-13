@@ -13,7 +13,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
  *             components/PhotoFrame, constants/theme, lib/date, lib/budget (computeSpendPace),
- *             lib/i18n, lib/useAppTheme, store/useReceiptStore, store/useMonthlyListStore, store/useSettingsStore
+ *             lib/i18n, lib/useAppTheme, store/useReceiptStore, store/useMonthlyListStore
+ *             (incl. `monthlyListLabel()` for the screen title), store/useSettingsStore
  *   Used by → Expo Router route "/budget"; reached via a Monthly list card's Budget pill (router.push, listId param)
  *   Data    → reads useReceiptStore (receipts table, filtered locally by monthlyListId — this
  *             store's own receiptsForMonth/totalForMonth/receiptsByStore methods operate on
@@ -52,7 +53,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
-import { useMonthlyListStore } from '@/store/useMonthlyListStore';
+import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useT } from '@/lib/i18n';
 import { currentMonthStr, formatDisplayDate } from '@/lib/date';
@@ -132,7 +133,7 @@ export default function BudgetScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.budget.titleForList(list.name)} tier="sub" screenKey="shopping" onBack={() => router.back()}>
+      <ScreenScaffold title={t.budget.titleForList(monthlyListLabel(list, t.defaultMonthlyListName))} tier="sub" screenKey="shopping" onBack={() => router.back()}>
         <View style={styles.content}>
           {/* Month selector */}
           {months.length > 1 && (

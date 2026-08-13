@@ -16,7 +16,9 @@
  *             (catalog row add/remove fade), components/UpdateSheet, components/InlineAddItem,
  *             components/EmptyState, constants/theme, lib/haptics, lib/i18n, lib/shoppingGroups
  *             (catalogItemsForList), lib/useAppTheme, store/useShoppingStore,
- *             store/useMonthlyListStore (list name, for the title)
+ *             store/useMonthlyListStore (list name, for the title — through
+ *             `monthlyListLabel()`, so the seeded list's untranslated stored name doesn't
+ *             reach the header; see that store)
  *   Used by → Expo Router route "/inventory-edit" — pushed from app/(tabs)/shopping.tsx's
  *             Monthly list header ("Manage inventory" button), with a `listId` param
  *   Data    → useShoppingStore (shopping_items, status === 'catalog' rows for this listId)
@@ -38,7 +40,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
-import { useMonthlyListStore } from '@/store/useMonthlyListStore';
+import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { catalogItemsForList } from '@/lib/shoppingGroups';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
@@ -111,7 +113,7 @@ export default function InventoryEditScreen() {
 
   return (
     <>
-      <ScreenScaffold title={list ? t.inventoryEditTitle + ' — ' + list.name : t.inventoryEditTitle} tier="sub" screenKey="shopping" onBack={() => router.back()}>
+      <ScreenScaffold title={list ? t.inventoryEditTitle + ' — ' + monthlyListLabel(list, t.defaultMonthlyListName) : t.inventoryEditTitle} tier="sub" screenKey="shopping" onBack={() => router.back()}>
         <View style={styles.content}>
           {/* "+ Add item" collapses to a bar and expands into the full add form IN PLACE
               (no modal) — the multi-field catalog-add counterpart to components/AddRow. */}
