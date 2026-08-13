@@ -157,16 +157,19 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
           // and nothing else. No `tag`: an "Example" chip on each of four rows is noise, and
           // the trigger row above already says what they are.
           //
-          // **Measured trade-off, accepted.** `npm run wraps --lang=no` at 360px drops the
-          // goals-drawer's wrapped-control-row finding outright (4 items on 4 lines, short by
-          // 441px — the staircase) and adds nothing anywhere else. At **327px**, the large-text
-          // proxy, the longest label instead TRUNCATES by 23px, because StarterExampleRow caps
-          // its title at one line like every other row in the app. That is the better of the
-          // two failures: an even list with one ellipsis beats four ragged steps, the full
-          // string still reaches a screen reader through the "+" button's accessibilityLabel,
-          // and the one-line cap is the app-wide row rule rather than something to special-case
-          // here. If it ever needs fixing, shorten the STRING — do not give this row two lines,
-          // which would change every example in the app.
+          // **Measured, and the copy was shortened rather than the row loosened (2026-08-13).**
+          // `npm run wraps --lang=no` at 360px drops the goals-drawer's wrapped-control-row
+          // finding outright (4 items on 4 lines, short by 441px — the staircase). The first cut
+          // of this change left the longest Norwegian label TRUNCATING by 23px at **327px**, the
+          // large-text proxy, because StarterExampleRow caps its title at one line like every
+          // other row in the app — and English was 5px over on the same row once Norwegian was
+          // fixed, so it was never a translation-length problem. The fix is at the STRING end:
+          // `starters.goals.suggestions` holds short labels in both languages now, and
+          // `npm run wraps --width=327` reports nothing on this screen in either. 327 is the
+          // binding width — it is the tightest the audit walks, and every wider one has strictly
+          // more room for the same type — so a starter goal has to fit one line THERE. Do NOT
+          // give this row two lines to make a longer one fit; that would change every example in
+          // the app.
           example={GOAL_STARTERS.map((starter) => (
             <StarterExampleRow
               key={starter.key}

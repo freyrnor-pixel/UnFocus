@@ -113,6 +113,13 @@ export type DayLogSources = {
  * every single time you ticked something, i.e. exactly when you'd look at it. An entry
  * stamped at the current minute has already happened; that is what a timestamp means.
  *
+ * **The cutoff itself has to be the RIGHT minute, which is the other half of the same bug**
+ * (fixed 2026-08-13). `useNowMinutes` used to tick on an unaligned 60s interval, so the value
+ * arriving here as `cutoffMinutes` could sit a whole minute behind the wall clock — and an
+ * entry stamped in the minute the caller had not caught up to yet fell outside an inclusive
+ * cutoff just the same. That hook is aligned to the minute boundary now; don't reintroduce a
+ * plain `setInterval` there, and don't compensate for one by loosening the comparison here.
+ *
  * Entries with no resolvable time are dropped — see the header's "absence beats invention".
  */
 export function buildDayLog(sources: DayLogSources, cutoffMinutes: number): DayEntry[] {
