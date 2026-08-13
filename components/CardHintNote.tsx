@@ -15,8 +15,13 @@
  * Connections:
  *   Imports → constants/theme (FontSize, Spacing), lib/useAppTheme, @expo/vector-icons
  *   Used by → components/{PlanTaskCard,HomeHabitsCard,HomeNotesCard,HomeShoppingCard,
- *             MedicineTrayCard,EnergyMeter}.tsx — the first five at `placement="head"` (all
- *             empty-gated), EnergyMeter alone at the default foot (its hint is permanent)
+ *             MedicineTrayCard,EnergyMeter}.tsx and app/(tabs)/{habits,health}.tsx — everything
+ *             except EnergyMeter at `placement="head"`, EnergyMeter alone at the default foot
+ *             (its hint is permanent AND annotates a meter with a number in it). The two tabs
+ *             joined 2026-08-13, replacing two separately hand-rolled copies of this line that
+ *             had drifted to different type sizes and weights; **their tips are permanent, not
+ *             empty-gated**, which is why "head" means "under the header" rather than "while
+ *             empty" — see the placement note below
  *   Data    → none — presentational; `text` arrives already localized (same contract as
  *             HintCard/StarterCard, which never call useT() themselves)
  *
@@ -26,15 +31,22 @@
  *     `npm run wraps -- --lang=no --width=360`). A tip taller than the content it explains is
  *     the complaint this exists to fix; if a sentence won't fit, shorten the sentence rather
  *     than letting this grow to two lines.
- *   - **Placement is decided by emptiness (2026-08-12).** While the surface is EMPTY the
- *     explainer is the main thing in the card, so it sits directly under the header
- *     (`placement="head"`). Once the card has real content to lead with, the note goes back to
- *     the foot — which is why components/EnergyMeter.tsx, whose hint is permanent rather than
- *     empty-gated, is the one caller still passing the default. This narrows, and does not
- *     delete, the 2026-07-30 "move tips out from between the title and the content" decision:
- *     that complaint was about teaching standing between a title and content *the user already
- *     has*. Pinned by lib/__tests__/exampleRows.test.ts, because a placement is invisible to a
- *     screenshot.
+ *   - **`head` means "under the header" (2026-08-12, restated 2026-08-13).** The original
+ *     ruling was "explanation always sits underneath sub-header", scoped on follow-up to "only
+ *     when the card is empty" — and for a while every head caller WAS empty-gated, so the two
+ *     readings were indistinguishable and this note said the gate decided the placement. They
+ *     came apart on 2026-08-13, when app/(tabs)/{habits,health}.tsx's permanent tips lines
+ *     moved onto this component (maintainer: leave their lifespan alone, just share the
+ *     component). So: the POSITION is head — under the header, where an explanation the reader
+ *     needs first belongs — and whether the caller unmounts it once the card fills up is the
+ *     caller's own separate decision.
+ *     components/EnergyMeter.tsx is still the one caller at the default foot, and now for one
+ *     clear reason rather than two entangled ones: its hint annotates a METER WITH A NUMBER IN
+ *     IT, i.e. content the user already has. That is exactly what the 2026-07-30 "move tips out
+ *     from between the title and the content" decision was about, and that decision is narrowed
+ *     by this rule, not deleted. Pinned by lib/__tests__/exampleRows.test.ts — including the
+ *     EnergyMeter counter-case, without which the rule reads as "head everywhere" and the next
+ *     session flattens it into a constant.
  *   - At the foot, the hairline is a `borderTopWidth`, so this attaches to whatever it follows
  *     rather than floating as its own paragraph — mount it as the LAST child of the card's
  *     content view, after the pad/list. At the head there is nothing above it but the card's

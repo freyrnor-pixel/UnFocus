@@ -21,11 +21,26 @@
  * A fourth was added on 2026-08-12, from the maintainer's follow-up ruling ("explanation always
  * sits underneath sub-header", scoped to "only when the card is empty"):
  *
- *   4. **An empty card's explainer sits under its header; a card with content keeps it at the
- *      foot.** Every `CardHintNote` in the app is empty-gated and therefore `placement="head"`
- *      — except `EnergyMeter`'s, whose hint is permanent and stays at the default foot. That
- *      counter-case is the most valuable assertion in this file: without it the suite would
- *      read "head everywhere" and the next session would flatten the rule into a constant.
+ *   4. **An explainer sits under its card's header.** Every `CardHintNote` in the app is
+ *      `placement="head"` except `EnergyMeter`'s, which annotates a meter with a NUMBER IN IT
+ *      — content the user already has — and stays at the default foot. That counter-case is
+ *      the most valuable assertion in this file: without it the suite would read "head
+ *      everywhere" and the next session would flatten the rule into a constant.
+ *      *(Restated 2026-08-13. This read "an EMPTY card's explainer sits under its header" and
+ *      gave every head caller being empty-gated as the reason. That was a fact about who the
+ *      callers happened to be, not the rule: when app/(tabs)/{habits,health}.tsx's PERMANENT
+ *      tips lines moved onto the shared component they went to the head too. Position and
+ *      lifespan are separate decisions — "explanation always sits underneath sub-header" is
+ *      the first, "only when the card is empty" was each caller's answer to the second.)*
+ *
+ * A fifth was added on 2026-08-13, from *"cards still differ when it comes to where new and
+ * empty row sits, and how examples look (box vs no box, and above or below)"*:
+ *
+ *   5. **The composer comes after the examples, and every example is in the foldable box.**
+ *      Both had split three ways across the surfaces — see the `collapsible` assertions below
+ *      and the last describe in this file. Neither is visible to a screenshot: an order is two
+ *      elements inside one card, and a fold is invisible in the open state every screenshot is
+ *      taken in.
  *
  * Source-scanning rather than rendering, for the reason lib/__tests__/chromeRhythm.test.ts
  * gives: a width and a wrapper depth are settled by styles that the node env doesn't lay out,
@@ -144,12 +159,26 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
     expect(row).toMatch(/borderRadius: Radius\.sm/);
   });
 
+  it('is dropped where the labels are too long to pair up on a line', () => {
+    // 2026-08-13. components/GoalsEditor.tsx's four suggestions are sentences, so at
+    // Radius.full each took most of a line and the "cloud" wrapped into a ragged four-step
+    // staircase — the shape the maintainer's screenshot caught. It renders StarterExampleRows
+    // now: same finish (they have shared one since 2026-08-12), even left edge, no ragged tail.
+    // Asserted as an ABSENCE plus a presence, because "we moved it" is only true if the old
+    // one actually went.
+    const source = code('components/GoalsEditor.tsx');
+    expect(source).toMatch(/<StarterExampleRow\b/);
+    expect(source).not.toMatch(/<StarterSuggestionChip\b/);
+    expect(source).not.toMatch(/starterChips: \{/);
+  });
+
   for (const file of [
     'app/(tabs)/habits.tsx',
     'components/HomeHabitsCard.tsx',
-    // app/goals.tsx was the fifth caller until it was retired (2026-08-12) — its copy of the
-    // chip cloud is now only in components/GoalsEditor.tsx, on the line below.
-    'components/GoalsEditor.tsx',
+    // app/goals.tsx was a caller until it was retired (2026-08-12), and its successor
+    // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
+    // is the two habit surfaces and the health sheet, all of them short-label clouds that
+    // genuinely pair up on a line, which is what the chip is for.
     'components/HealthIssuesSheet.tsx',
   ] as const) {
     it(`${file} mounts the shared chip instead of a local copy`, () => {
@@ -211,12 +240,33 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     // collapse trigger, and components/MedicineTrayCard left it — that card's explainer is a
     // CardHintNote now, so it mounts no StarterCard at all (asserted separately below).
     ['components/PlanTaskCard.tsx', 'the day card'],
+    // 2026-08-13: Home's habits card stopped hand-rolling a label-plus-bare-cloud stand-in
+    // for the trigger row and mounts the real thing.
+    ['components/HomeHabitsCard.tsx', "Home's habits card"],
   ] as const) {
     it(`${label} mounts it embedded`, () => {
       const source = code(file);
       const mounts = source.match(/<StarterCard[\s\S]*?(?:\/>|>)/g) ?? [];
       expect(mounts.length).toBeGreaterThan(0);
       for (const mount of mounts) expect({ file, mount, embedded: mount.includes('embedded') }).toEqual({ file, mount, embedded: true });
+    });
+
+    // 2026-08-13, maintainer: "boxed everywhere so it can always be folded." Every empty-state
+    // example lives in the bordered trigger box — the two that didn't were Goals (StarterCard
+    // with no `collapsible`, so it fell through to the bare `actions` branch) and Home's habits
+    // card (no StarterCard at all). A fold is invisible to a screenshot in its OPEN state,
+    // which is the state every screenshot is taken in, so it has to be asserted here.
+    it(`${label} makes it collapsible`, () => {
+      const source = code(file);
+      const mounts = source.match(/<StarterCard[\s\S]*?(?:\/>|>)/g) ?? [];
+      for (const mount of mounts) {
+        expect({ file, mount, collapsible: mount.includes('collapsible') })
+          .toEqual({ file, mount, collapsible: true });
+        // `exampleHeaderLabel` is required alongside it — StarterCard has no default copy, so
+        // a caller that forgets it renders a trigger row with an empty label.
+        expect({ file, mount, label: mount.includes('exampleHeaderLabel') })
+          .toEqual({ file, mount, label: true });
+      }
     });
   }
 
@@ -256,7 +306,12 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
 
   it('is what the Goals drawer uses instead of its old hand-copied explainer', () => {
     const source = code('components/GoalsEditor.tsx');
-    expect(source).toMatch(/<StarterCard embedded text=\{t\.hints\.goals\.text\}>/);
+    // Matched the whole one-line mount until 2026-08-13, when `collapsible` +
+    // `exampleHeaderLabel` broke it across lines. What this test is actually for is that the
+    // drawer uses the shared card's own explainer rather than a hand-copy of it, so it asserts
+    // the `text` prop and its source key — the mount's shape is covered by the `embedded` and
+    // `collapsible` loops above.
+    expect(source).toMatch(/<StarterCard\b[\s\S]*?text=\{t\.hints\.goals\.text\}/);
     // The local copies of StarterCard's bulb row are gone; a second implementation of one
     // explainer is exactly what drifted last time.
     expect(source).not.toMatch(/bulb-outline/);
@@ -288,6 +343,55 @@ describe('the example sits in the list it is an example of, not above the list\'
   });
 });
 
+// ── 5. The composer is the LAST thing, on every surface ──────────────────────
+
+/**
+ * 2026-08-13, maintainer with two screenshots: *"Cards still differ when it comes to where new
+ * and empty row sits."* Health, Habits and Goals put the composer under their examples; the
+ * To-do day card put it above (hoisted to a single fixed mount by the 2026-08-03 pass, which
+ * chose the top for PadSheet's notepad metaphor), and Home's habits/notes/shopping cards put
+ * theirs at the top of the pad for the same reason. So "where does the new row go" had two
+ * answers depending on which card you were looking at.
+ *
+ * Settled toward the app's own existing rule — "an add-new-row trigger lives at the bottom of
+ * the list it appends to" (AGENTS.md) — which was already what three of the surfaces did.
+ *
+ * This is the assertion the whole pass exists for, and nothing else can make it: two elements'
+ * ORDER inside one card is exactly what a screenshot cannot be diffed on reliably, and the
+ * web preview lays both out fine either way.
+ */
+describe('the composer comes after the examples, everywhere', () => {
+  for (const [file, starterMarker, composerMarker, label] of [
+    ['app/(tabs)/health.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
+    ['app/(tabs)/habits.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
+    ['components/HomeHabitsCard.tsx', '<StarterCard', '<PadSheet', "Home's habits card"],
+    ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
+    ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
+  ] as const) {
+    it(`${label} draws its composer below its example`, () => {
+      const source = code(file);
+      const starter = source.indexOf(starterMarker);
+      const composer = source.indexOf(composerMarker);
+      expect({ label, starter: starter > -1, composer: composer > -1 })
+        .toEqual({ label, starter: true, composer: true });
+      expect({ label, composerIsBelow: composer > starter }).toEqual({ label, composerIsBelow: true });
+    });
+  }
+
+  it('PadSheet draws its type line under the rows and above the done zone', () => {
+    // The mechanism behind three of the rows above: Home's habits, notes and shopping cards
+    // pass `typeRow` and never position it themselves. Above the `footer` because that slot is
+    // the done/checked zone — this field appends to the ACTIVE list, not to that one.
+    const source = code('components/PadSheet.tsx');
+    const rows = source.indexOf('<Collapsible open={state !== \'closed\'}>');
+    const typeLine = source.indexOf('styles.typeLine');
+    const footer = source.indexOf("state === 'open' && footer");
+    expect(rows).toBeGreaterThan(-1);
+    expect(typeLine).toBeGreaterThan(rows);
+    expect(footer).toBeGreaterThan(typeLine);
+  });
+});
+
 // ── 4. An empty card explains itself under its header ────────────────────────
 
 describe('CardHintNote placement is decided by emptiness, not fixed', () => {
@@ -303,14 +407,23 @@ describe('CardHintNote placement is decided by emptiness, not fixed', () => {
     expect(source).toMatch(/foot: \{[\s\S]*?borderTopWidth: StyleSheet\.hairlineWidth[\s\S]*?marginTop: Spacing\.md,/);
   });
 
-  // Each card's explainer is empty-gated, so under the ruling each one leads its card. The
-  // second index is the card's BODY — the thing the note now introduces rather than follows.
+  // Every explainer leads its card. The second index is the card's BODY — the thing the note
+  // introduces rather than follows.
+  //
+  // The first five are empty-gated; the two tabs (2026-08-13) are PERMANENT and still at the
+  // head, which is what separates the two readings of the original ruling. "Explanation always
+  // sits underneath sub-header" is about POSITION; "only when the card is empty" was about
+  // whether it stays, and that is each caller's own call. Before the tabs moved onto the shared
+  // component every head caller happened to be empty-gated, so the two were indistinguishable
+  // and this file used to describe the gate as deciding the placement. It doesn't.
   for (const [file, body, label] of [
     ['components/PlanTaskCard.tsx', 'styles.emptyWrap', 'the day card'],
     ['components/HomeHabitsCard.tsx', '<PadSheet', "Home's habits card"],
     ['components/HomeNotesCard.tsx', '<PadSheet', "Home's notes card"],
     ['components/HomeShoppingCard.tsx', 'styles.weekRow', "Home's shopping card"],
     ['components/MedicineTrayCard.tsx', '<Collapsible', 'the medicine tray card'],
+    ['app/(tabs)/habits.tsx', 'styles.habitsCardBody', 'the Habits tab'],
+    ['app/(tabs)/health.tsx', 'styles.healthCardBody', 'the Health tab'],
   ] as const) {
     it(`${label} explains itself under its header, not at its foot`, () => {
       const source = code(file);

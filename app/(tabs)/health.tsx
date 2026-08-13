@@ -113,6 +113,7 @@ import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
+import CardHintNote from '@/components/CardHintNote';
 import CollapsedSection from '@/components/CollapsedSection';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
 import HealthIssuesSheet from '@/components/HealthIssuesSheet';
@@ -543,13 +544,12 @@ export default function HealthScreen() {
                 </Text>
 
                 {/* Tips — a plain line under the sub-header, not boxed and not gated on
-                    emptiness, the same permanent explainer Habits keeps. */}
-                <View style={styles.tipsRow}>
-                  <Ionicons name="bulb-outline" size={14} color={theme.textMuted} style={styles.tipsIcon} />
-                  <Text style={[styles.tipsText, { color: theme.textMuted }]}>
-                    {t.starters.health.text}
-                  </Text>
-                </View>
+                    emptiness, the same permanent explainer Habits keeps.
+                    **components/CardHintNote since 2026-08-13** — see the Habits tab's matching
+                    mount. The two tabs hand-rolled this line separately and had drifted apart
+                    (this one was regular weight and not italic; Habits' was medium italic at a
+                    step larger), which is the whole reason it is one component now. */}
+                <CardHintNote text={t.starters.health.text} placement="head" style={styles.tipsNote} />
 
                 {/* The bottom half of the card — list, then composer. Matches the Habits card's
                     own `habitsCardBody` rhythm; the card breathed at the top and was flush at
@@ -776,9 +776,10 @@ const baseStyles = StyleSheet.create({
   // Bold + full contrast, the shape the Habits sub-header was corrected to on 2026-08-06 v2
   // after a first pass in small muted text read as just another line of body copy.
   cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  tipsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs },
-  tipsIcon: { marginTop: 2 },
-  tipsText: { flex: 1, minWidth: 0, fontSize: FontSize.xs, fontFamily: Fonts.regular },
+  // The tips line's own row/icon/text styles are gone (2026-08-13) — components/CardHintNote
+  // draws all three now. This cancels the note's own head gap: the card already stacks its
+  // children on `gap: Spacing.md`, and both together would make it 32px.
+  tipsNote: { marginBottom: 0 },
   healthCardBody: { gap: Spacing.md },
   section: { gap: Spacing.xs },
   // Boxed row at the FIELD rung (card design reset, 2026-08-05) — the same construction

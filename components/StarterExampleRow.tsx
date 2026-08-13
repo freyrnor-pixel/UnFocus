@@ -7,14 +7,17 @@
  *
  * Connections:
  *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
- *   Used by → app/(tabs)/habits.tsx, app/(tabs)/plans.tsx, app/(tabs)/health.tsx (all inside
- *             their StarterCard's `example` slot — app/(tabs)/shopping.tsx dropped its own
- *             two example rows 2026-07-28, see that file's StarterCard call), plus
- *             components/PlanTaskCard.tsx and components/HomeHabitsCard.tsx, which render
- *             it directly in their own in-card empty states (no StarterCard wrapper — a
- *             Surface inside a Surface would read as a nested panel; HomeShoppingCard
- *             dropped its own use of this the same day, for the same reason as its full
- *             /shopping screen)
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, components/PlanTaskCard.tsx and
+ *             components/GoalsEditor.tsx (2026-08-13 — its four goal suggestions moved off
+ *             components/StarterSuggestionChip: sentence-length labels at Radius.full wrapped
+ *             into a ragged staircase, and a row list's even left edge is worth more than the
+ *             pill there). All four render it inside a components/StarterCard `example` slot.
+ *             **Two corrections to what this line claimed until 2026-08-13**: app/(tabs)/habits.tsx
+ *             has passed chips, not rows, since 2026-07-30, and components/HomeHabitsCard.tsx
+ *             the same — its read-only row was deleted then for rendering the same suggestion
+ *             twice. Neither has imported this since. (app/(tabs)/shopping.tsx dropped its own
+ *             two example rows 2026-07-28, see that file's StarterCard call; HomeShoppingCard
+ *             dropped its use the same day, for the same reason as its full /shopping screen.)
  *   Data    → none — pure presentation; callers pass already-localized strings, a
  *             domain/semantic accent color (e.g. getDomainColor(theme, 'shop').accent),
  *             and (optionally) an `onAdd` callback that writes the example into the

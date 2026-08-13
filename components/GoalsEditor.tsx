@@ -12,9 +12,11 @@
  *
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, components/AddRow,
- *             components/StarterCard (its `embedded` mode — the empty state),
- *             components/StarterSuggestionChip (2026-08-12 — the shared empty-state
- *             suggestion chip; this file's own hand-rolled copy is deleted),
+ *             components/StarterCard (`embedded collapsible` — the empty state, in the same
+ *             foldable box every other empty-state example uses since 2026-08-13),
+ *             components/StarterExampleRow (2026-08-13 — the four goal suggestions are
+ *             full-width dashed ROWS now, not the pill cloud that wrapped into a staircase;
+ *             components/StarterSuggestionChip is no longer imported here),
  *             components/GoalGlowDot, components/PressableScale, components/AppModal
  *             (showAppModal), constants/theme, constants/motion (Travel), lib/goalStarters,
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
@@ -64,7 +66,7 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import AddRow from '@/components/AddRow';
 import StarterCard from '@/components/StarterCard';
-import StarterSuggestionChip from '@/components/StarterSuggestionChip';
+import StarterExampleRow from '@/components/StarterExampleRow';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
 import { FontSize, Spacing, TabularNums } from '@/constants/theme';
@@ -139,19 +141,43 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
         // a hand-copy of components/StarterCard.tsx's own bulb row + chip slot, because there
         // was no way to get that card's contents without the card. `embedded` is that way now,
         // so the explainer's wording, spacing and voice come from the one component again.
-        <StarterCard embedded text={t.hints.goals.text}>
-          <View style={styles.starterChips}>
-            {GOAL_STARTERS.map((starter) => (
-              <StarterSuggestionChip
-                key={starter.key}
-                label={t.starters.goals.suggestions[starter.key]}
-                icon={starter.icon}
-                onAdd={() => addStarter(t.starters.goals.suggestions[starter.key])}
-                addLabel={t.starters.addExample}
-              />
-            ))}
-          </View>
-        </StarterCard>
+        <StarterCard
+          embedded
+          collapsible
+          exampleHeaderLabel={t.starters.goals.tapToAdd}
+          text={t.hints.goals.text}
+          // Full-width dashed ROWS, not the pill cloud this used to be (2026-08-13). The four
+          // goal suggestions are sentences — "Mer tid med dem jeg er glad i" — so at
+          // `Radius.full` each one took most of a line and the cloud wrapped into a ragged
+          // four-step staircase, which is what the maintainer's screenshot caught. A chip is
+          // the right shape for N SHORT pick-one suggestions that pair up on a line (Habits'
+          // two do); it is the wrong shape for four full-width ones, where the even left edge
+          // of a row list is worth more than the pill. The finish is identical either way —
+          // the two components have shared one since 2026-08-12 — so this changes the shape
+          // and nothing else. No `tag`: an "Example" chip on each of four rows is noise, and
+          // the trigger row above already says what they are.
+          //
+          // **Measured trade-off, accepted.** `npm run wraps --lang=no` at 360px drops the
+          // goals-drawer's wrapped-control-row finding outright (4 items on 4 lines, short by
+          // 441px — the staircase) and adds nothing anywhere else. At **327px**, the large-text
+          // proxy, the longest label instead TRUNCATES by 23px, because StarterExampleRow caps
+          // its title at one line like every other row in the app. That is the better of the
+          // two failures: an even list with one ellipsis beats four ragged steps, the full
+          // string still reaches a screen reader through the "+" button's accessibilityLabel,
+          // and the one-line cap is the app-wide row rule rather than something to special-case
+          // here. If it ever needs fixing, shorten the STRING — do not give this row two lines,
+          // which would change every example in the app.
+          example={GOAL_STARTERS.map((starter) => (
+            <StarterExampleRow
+              key={starter.key}
+              icon={starter.icon}
+              title={t.starters.goals.suggestions[starter.key]}
+              accent={accent}
+              onAdd={() => addStarter(t.starters.goals.suggestions[starter.key])}
+              addLabel={t.starters.addExample}
+            />
+          ))}
+        />
       ) : (
         <PadSheet state="open">
           {goals.map((goal) => {
@@ -211,5 +237,7 @@ const styles = StyleSheet.create({
   // The bulb row's own styles are gone with the hand-copy — components/StarterCard.tsx's
   // `embedded` mode draws it now. Don't reintroduce a local copy.
   meta: { fontSize: FontSize.xs },
-  starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  // `starterChips` (the wrapping pill cloud) is gone with the chips themselves — the
+  // suggestions are StarterExampleRows in StarterCard's own `example` slot now, which owns
+  // their stacking gap. Don't reintroduce a local cloud style here.
 });

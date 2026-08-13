@@ -17,6 +17,9 @@
  *
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
+ *             components/StarterCard (2026-08-13 — `embedded collapsible`, so the suggestions
+ *             sit in the same foldable box every other empty-state example does; this card's
+ *             hand-rolled label-plus-bare-cloud is deleted),
  *             components/StarterSuggestionChip (2026-08-12 — the shared empty-state
  *             suggestion chip; this card's own hand-rolled copy is deleted),
  *             components/HabitIcon (starter chips only), components/HabitLeading (2026-08-04 —
@@ -131,6 +134,7 @@ import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
 import CardHintNote from '@/components/CardHintNote';
+import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import PadSheet from '@/components/PadSheet';
@@ -416,22 +420,34 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // StarterExampleRow — which rendered "Drink 4 glasses of water 0/4" directly above a
           // chip reading "Drink 4 glasses of water +", i.e. the same suggestion twice, four
           // lines deep, before anything you could act on. The chips ARE the example and they're
-          // tappable; the explainer moved to the card's foot (CardHintNote, below).
+          // tappable; the explainer is the head-mounted CardHintNote above.
+          //
+          // **The shared collapsible box since 2026-08-13.** The trigger row used to be a plain
+          // `starterTapLabel` Text with an unboxed chip cloud under it — a hand-rolled stand-in
+          // for components/StarterCard's `collapsible`, and the reason this card's suggestions
+          // were the one set in the app that could not be folded away. Same content, same
+          // chips; what it gains is the border, the chevron and the fold (maintainer,
+          // 2026-08-13: "boxed everywhere so it can always be folded"). `embedded` because we
+          // are inside this card's own Surface already, and **no `text`** — the explainer is
+          // the CardHintNote above, and one card saying the same sentence twice with two
+          // different lifespans is what StarterCard's optional-`text` note warns against.
           <View style={styles.emptyWrap}>
-            <Text style={[styles.starterTapLabel, { color: theme.textMuted }]}>{t.starters.habits.tapToAdd}</Text>
-            {/* components/StarterSuggestionChip since 2026-08-12 — see the Habits tab's own
-                mount for why the five hand-rolled copies became one. */}
-            <View style={styles.starterChips}>
-              {HABIT_STARTERS.slice(0, STARTER_PREVIEW_COUNT).map((s) => (
-                <StarterSuggestionChip
-                  key={s.key}
-                  label={t.starters.habits.suggestions[s.key]}
-                  leading={<HabitIcon icon={s.icon} size={14} color={theme.textMuted} />}
-                  onAdd={() => createHabit(t.starters.habits.suggestions[s.key], s.icon, s.dailyGoal)}
-                  addLabel={t.starters.addExample}
-                />
-              ))}
-            </View>
+            <StarterCard embedded collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
+              {/* components/StarterSuggestionChip since 2026-08-12 — see the Habits tab's own
+                  mount for why the five hand-rolled copies became one. Two chips, not four:
+                  `npm run wraps` had the four-chip row wrapping at every width tested. */}
+              <View style={styles.starterChips}>
+                {HABIT_STARTERS.slice(0, STARTER_PREVIEW_COUNT).map((s) => (
+                  <StarterSuggestionChip
+                    key={s.key}
+                    label={t.starters.habits.suggestions[s.key]}
+                    leading={<HabitIcon icon={s.icon} size={14} color={theme.textMuted} />}
+                    onAdd={() => createHabit(t.starters.habits.suggestions[s.key], s.icon, s.dailyGoal)}
+                    addLabel={t.starters.addExample}
+                  />
+                ))}
+              </View>
+            </StarterCard>
           </View>
         ) : null}
 
@@ -527,7 +543,8 @@ const baseStyles = StyleSheet.create({
   // back under the header on 2026-08-12) and the read-only example row (a duplicate of
   // chip #1) is gone entirely.
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },
-  starterTapLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
+  // `starterTapLabel` is gone (2026-08-13) — it was a hand-rolled stand-in for StarterCard's
+  // `collapsible` trigger row, which draws that label itself. Don't reintroduce a local copy.
   // The cloud's wrap/gap only — the chip is components/StarterSuggestionChip.tsx (2026-08-12).
   starterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 

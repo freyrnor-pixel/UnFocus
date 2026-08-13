@@ -41,9 +41,20 @@
  *     (`padVisibleRows(rows, state)`); this component does not filter. That keeps the "what is
  *     visible" answer in one place — the same value a caller hands to lib/viewSnapshot for the
  *     what-was-hidden glow.
- *   - `typeRow` is pinned above the rows and drawn in EVERY state, including closed — it is the
- *     pad's first line, and losing it when you fold a card away would cost the fastest capture
- *     path in the app. It gets NO box of its own: `components/PadTypeRow.tsx` already draws a
+ *   - **`typeRow` is the pad's LAST line as of 2026-08-13, not its first.** It is still drawn in
+ *     EVERY state, including closed — losing it when you fold a card away would cost the fastest
+ *     capture path in the app, and that half is the reason it is a named slot rather than just
+ *     another child. What moved is only WHERE. It sat above the rows from the 2026-07-30 notepad
+ *     pass onward, on the reasoning that the type line IS the notepad's first rule; the cost was
+ *     that Home's four cards put their composer at the top while the Habits tab, the Health tab
+ *     and the Goals drawer put theirs at the foot, so the same field lived in two places
+ *     depending on which surface you asked (maintainer, 2026-08-13, with screenshots: "cards
+ *     still differ when it comes to where new and empty row sits"). The app's own rule already
+ *     said which way to settle it — "an add-new-row trigger lives at the bottom of the list it
+ *     appends to" (AGENTS.md) — so the pad follows it now and the split is closed.
+ *     **Above the `footer`, not below it**: the footer is the done/checked zone, and this field
+ *     appends to the ACTIVE list, not to that one.
+ *     It gets NO box of its own: `components/PadTypeRow.tsx` already draws a
  *     bordered field, and wrapping a bordered field in a bordered box is the doubled-border
  *     mistake this whole pass exists to avoid.
  *   - Rows animate open/shut through components/Collapsible (measured-height clip, no fade) so
@@ -74,8 +85,10 @@ type Props = {
   /** Which of the three sizes to draw. Drives the rows' reveal. */
   state: PadState;
   /**
-   * The pad's first line — the always-open "Type note"/"Type task" field. Shown in every
-   * state, including closed. Drawn unboxed; it brings its own border.
+   * The pad's last line — the always-open "Type note"/"Type task" field, drawn under the rows
+   * and above the `footer`'s done zone. Shown in every state, including closed. Drawn unboxed;
+   * it brings its own border. See the "`typeRow` is the pad's LAST line" Edit note for why it
+   * is not the first any more.
    */
   typeRow?: React.ReactNode;
   /** One child per row, already sliced to what `state` shows (see padVisibleRows). */
@@ -133,8 +146,6 @@ export default function PadSheet({
 
   return (
     <View style={[styles.sheet, style]}>
-      {typeRow ? <View style={styles.typeLine}>{typeRow}</View> : null}
-
       {/* Clip-reveal rather than a mount/unmount pop, so folding a card away reads as the rows
           being covered edge-by-edge — the same motion as the done zones. */}
       <Collapsible open={state !== 'closed'}>
@@ -145,6 +156,17 @@ export default function PadSheet({
         ))}
       </Collapsible>
 
+      {/* The composer, at the foot of the list it appends to (2026-08-13 — see the header's
+          `typeRow` note). The gap above it is the same one the rows stack at, and it is spent
+          only when there is actually a row above to be separated FROM: on a closed pad the
+          Collapsible is clipped to zero height, so an unconditional marginTop would hang the
+          field off a card with nothing over it. */}
+      {typeRow ? (
+        <View style={[styles.typeLine, rows.length > 0 && state !== 'closed' && stackGap]}>{typeRow}</View>
+      ) : null}
+
+      {/* Below the composer: the done/checked zone belongs under the thing that creates rows,
+          not between the list and its own add line. */}
       {state === 'open' && footer ? footer : null}
     </View>
   );
@@ -155,6 +177,8 @@ const styles = StyleSheet.create({
   sheet: { width: '100%' },
   // The always-open type line keeps the fuller rhythm (its own 44px minHeight, from
   // PadTypeRow) — this wrapper just needs to not clip it short. It is deliberately unboxed.
+  // No margin of its own: the gap to the rows above is applied at the call site from the same
+  // `stackGap` the rows use, so the pad has one number for "space between two lines".
   typeLine: { minHeight: PAD_ROW_MIN_HEIGHT, justifyContent: 'center' },
   // A row box. `justifyContent:'center'` keeps a short row vertically centred in its box the
   // way it used to be centred on its ruled line, so converting to boxes didn't shift any
