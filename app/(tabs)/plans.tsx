@@ -1568,7 +1568,7 @@ export default function TasksScreen() {
             hue={wheneverHue}
             domain="task"
             icon="flag"
-            label={t.goals.editLink}
+            label={t.goals.editLinkPractical}
           >
             <GoalsEditor accent={wheneverHue} />
           </CollapsedSection>

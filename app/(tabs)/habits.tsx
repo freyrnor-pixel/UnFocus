@@ -1084,7 +1084,7 @@ export default function HabitsScreen() {
               hue={screenHue}
               domain="habit"
               icon="flag"
-              label={t.goals.editLink}
+              label={t.goals.editLinkPersonal}
               openSignal={goalPrefill}
             >
               <GoalsEditor accent={screenHue} prefill={goalPrefill} />

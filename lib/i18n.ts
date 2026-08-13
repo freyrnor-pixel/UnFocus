@@ -355,7 +355,10 @@ const en = {
     todo: 'To-do',
     shopping: 'Shopping list',
     habits: 'Habits',
-    goals: 'Goals',
+    // Names the drawer this actually lands in: lib/prefill.ts's `goals` slot opens the HABITS
+    // tab's drawer, which is the personal one (2026-08-13, when the two drawers split names).
+    // Counterintuitive but correct — see components/SendToSheet.tsx's note.
+    goals: 'Personal goals',
   },
   // Task form
   newTask: 'New task',
@@ -1338,18 +1341,27 @@ const en = {
     // that hasn't been worked in a while has simply cooled back to neutral — lib/
     // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
     // that too, or the mechanic and the words disagree.
-    title: 'Goals',
-    // Label for the "Goals" drawer on Habits/Plans (2026-07-31 — moved off the top of those
-    // screens; see those files' Edit notes). It opened a GoalsSheet popup until 2026-08-12,
-    // when that popup was deleted in favour of an in-card editor (components/GoalsEditor.tsx)
-    // mounted straight into the drawer — the label didn't need to change for that.
-    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which it now shares a
-       component with (components/CollapsedSection.tsx). It read
-       "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
-       a sheet you can look at as well as edit) and that reads as a list row rather than a
-       way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
-       To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
-    editLink: 'Goals',
+    /**
+     * Labels for the "Goals" drawer, which is mounted TWICE — once on Habits and once on To-do
+     * (components/CollapsedSection.tsx, both bodies components/GoalsEditor.tsx).
+     *
+     * **They were ONE key (`editLink`) until 2026-08-13**, so one destination wore one word on
+     * two screens. Maintainer: "Habit Goals should be renamed to Personal Goals, and to-do
+     * Goals renamed to practical Goals." The split is the point — a goal reached through habits
+     * is something you want to BE, one reached through to-dos is something you want DONE — so
+     * the two drawers are no longer interchangeable and must not be re-merged into one key.
+     *
+     * Still bare noun phrases, like Shopping's "Food" and "Catalogue" links, which they share a
+     * component with. `editLink` read "Edit Goals" until 2026-08-03 — a verb that overstates
+     * what the tap does and reads as a list row rather than a way out of the screen. Keep both
+     * of these on the noun side of that line.
+     *
+     * (The `title` key that sat here is deleted: it named the Goals SHEET, and both the sheet
+     * — components/GoalsSheet.tsx — and app/goals.tsx were deleted on 2026-08-12, leaving it
+     * with no consumer at all.)
+     */
+    editLinkPersonal: 'Personal goals',
+    editLinkPractical: 'Practical goals',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -2503,7 +2515,7 @@ const no: typeof en = {
     todo: 'Gjøremål',
     shopping: 'Handleliste',
     habits: 'Vaner',
-    goals: 'Mål',
+    goals: 'Personlige mål',
   },
   newTask: 'Ny oppgave',
   add: 'Legg til',
@@ -2990,8 +3002,8 @@ const no: typeof en = {
     deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
-    title: 'Mål',
-    editLink: 'Mål',
+    editLinkPersonal: 'Personlige mål',
+    editLinkPractical: 'Praktiske mål',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',
