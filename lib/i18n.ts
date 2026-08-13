@@ -1862,7 +1862,6 @@ const en = {
    * the preview row would just be a redundant second way to do the same thing.
    */
   starters: {
-    exampleLabel: 'Example',
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
     /** Accessibility label for a StarterCard's dismiss "X" (2026-08-06). */
@@ -1885,7 +1884,7 @@ const en = {
     plans: {
       text: 'Break it into smaller pieces.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'See an example:',
+      tapToAdd: 'Examples:',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1910,7 +1909,7 @@ const en = {
     health: {
       text: 'Log what bothers you. And what helps.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'See an example:',
+      tapToAdd: 'Examples:',
       exampleTitle: 'Headache',
     },
     // Medicine card's empty state — compact (no example row): the card's own add field
@@ -3778,7 +3777,6 @@ const no: typeof en = {
     },
   },
   starters: {
-    exampleLabel: 'Eksempel',
     addExample: 'Legg til',
     dismiss: 'Lukk',
     expandExamples: 'Vis forslag',
@@ -3795,7 +3793,7 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del opp i mindre biter.',
-      tapToAdd: 'Se et eksempel:',
+      tapToAdd: 'Eksempler:',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -3812,7 +3810,7 @@ const no: typeof en = {
     },
     health: {
       text: 'Logg plagene dine. Og hva som hjelper.',
-      tapToAdd: 'Se et eksempel:',
+      tapToAdd: 'Eksempler:',
       exampleTitle: 'Hodepine',
     },
     medicine: {
@@ -3828,7 +3826,10 @@ const no: typeof en = {
     },
     goals: {
       text: 'Det gjøremålene og vanene dine går til sammen om.',
-      tapToAdd: 'Trykk på en for å starte:',
+      // Same Norwegian as starters.habits.tapToAdd — one English string had two translations
+      // ("Trykk på én for å komme i gang:" vs "Trykk på en for å starte:", the second also
+      // missing the accent on "én"). Both label the same gesture on the same kind of chip row.
+      tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         rested: 'Bli mer uthvilt',
         moving: 'Være i bevegelse hver dag',

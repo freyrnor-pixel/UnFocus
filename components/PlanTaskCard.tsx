@@ -1551,7 +1551,8 @@ export default function PlanTaskCard({
                 dashed ghost add-row below and now shares its finish, which is the point.
                 The explainer that used to lead this block is the head-mounted CardHintNote
                 above (2026-08-12) — the "EXAMPLE TASKS" caption line went with it back in
-                2026-07-30: the marker is the row's own `tag` chip now.
+                2026-07-30, and the row's `tag` chip that replaced it went on 2026-08-13. The
+                marker is the trigger row's own wording now ("Eksempler:"), one level up.
                 **The trigger row (2026-08-12, maintainer: "add a trigger to the day card")**:
                 wrapped in the shared `StarterCard collapsible` so this example can be folded
                 away like Health's, Habits', Goals' and the To-do SCREEN's — this card was the
@@ -1569,7 +1570,6 @@ export default function PlanTaskCard({
                   <StarterExampleRow
                     icon="ellipse-outline"
                     title={t.starters.plans.exampleTitle}
-                    tag={t.starters.exampleLabel}
                     meta="17:00–17:20"
                     accent={screenColor.base}
                     onAdd={onAddExample}
