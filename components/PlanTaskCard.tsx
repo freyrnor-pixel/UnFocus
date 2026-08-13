@@ -1541,20 +1541,6 @@ export default function PlanTaskCard({
             card's first child — nothing above it to sit under. */}
         {showEmpty ? <CardHintNote text={t.starters.plans.text} placement="head" /> : null}
 
-        {/* The type line, in ONE fixed place for every state this card can be in (2026-08-03).
-            It used to have two mount points: PadSheet's `typeRow` (the pad's first line, i.e.
-            the TOP of the card) whenever the ruled list was drawn, and a standalone PadSheet
-            AFTER the body for the three cases that don't draw a pad — the timeline layout, an
-            empty day and an all-done day. So writing the first task of the day moved the field
-            you had just typed into from the bottom of the card to the top, and the same card
-            put its input in different places on Home and on the To-do tab. That is rules 8 and
-            9 both, and it was the single clearest instance of the "I press here, then it moves
-            and I have to press the other side" report this pass came from.
-            Top rather than bottom because it keeps PadSheet's notepad metaphor intact (the type
-            line IS the first rule) and leaves the field where the thumb left it as the list
-            grows downward — the other six PadSheet callers are unaffected. */}
-        {onAddTask ? <PadSheet state="closed" typeRow={typeRow} /> : null}
-
         {showEmpty ? (
           <View style={styles.emptyWrap}>
             {/* One concrete suggestion, in the card, where the content would be (2026-07-27,
@@ -1720,8 +1706,30 @@ export default function PlanTaskCard({
           </>
         )}
 
-        {/* (The type line used to have its second mount point here — see the single hoisted
-            mount above the body branch.) */}
+        {/* The type line, in ONE fixed place for every state this card can be in (2026-08-03),
+            and since 2026-08-13 that place is the card's bottom edge.
+            It used to have two mount points: PadSheet's `typeRow` (the pad's first line, i.e.
+            the TOP of the card) whenever the ruled list was drawn, and a standalone PadSheet
+            AFTER the body for the three cases that don't draw a pad — the timeline layout, an
+            empty day and an all-done day. So writing the first task of the day moved the field
+            you had just typed into from the bottom of the card to the top, and the same card
+            put its input in different places on Home and on the To-do tab. That is rules 8 and
+            9 both, and it was the single clearest instance of the "I press here, then it moves
+            and I have to press the other side" report the 2026-08-03 pass came from. **One
+            mount is the part of that fix that mattered, and it is untouched** (pinned by
+            lib/__tests__/stableLayout.test.ts) — what changed is which fixed position it holds.
+            That pass chose the top, to keep PadSheet's notepad metaphor intact (the type line
+            IS the first rule). The cost only became visible when the empty states were compared
+            side by side (maintainer, 2026-08-13, with screenshots): this card put its composer
+            above its own example while the Habits tab, the Health tab and the Goals drawer put
+            theirs below, so "where the new row goes" depended on which card you were looking
+            at. The app's own rule settles it — "an add-new-row trigger lives at the bottom of
+            the list it appends to" (AGENTS.md) — and PadSheet moved its `typeRow` in the same
+            pass, so the notepad metaphor is not being broken here so much as re-cut: the type
+            line is the pad's last rule now, everywhere, and this card is where the shape came
+            from. Above the done zone below, never below it: this field adds to the day, and a
+            completed task is not what it appends to. */}
+        {onAddTask ? <PadSheet state="closed" typeRow={typeRow} /> : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the

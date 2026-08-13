@@ -15,6 +15,14 @@
  *      body for the three states that draw something else — the timeline layout, an empty day
  *      and an all-done day. Home defaults to the ruled list and the To-do tab to the timeline,
  *      so the same component also put its input in different places on the two surfaces.
+ *      **The fix was ONE mount, and that half is untouched. The position flipped on
+ *      2026-08-13**: the 2026-08-03 pass parked the single mount at the top (the notepad's
+ *      first rule), which left this card putting its composer above its own example while the
+ *      Habits tab, the Health tab and the Goals drawer put theirs below — a different
+ *      inconsistency, invisible until the empty states were compared side by side. It is at
+ *      the card's bottom edge now, above the done zone, and components/PadSheet.tsx moved its
+ *      own `typeRow` the same way in the same pass, so there is one answer app-wide. Read the
+ *      assertions below as "exactly one position", never as "this particular position".
  *   2. **The header summary and progress bar were conditional.** Gated on
  *      `countableTasks.length > 0`, so the first task of the day made a subtitle and a 4px bar
  *      appear from nothing and pushed the body down.
@@ -48,14 +56,28 @@ describe('PlanTaskCard — the type line has exactly one position', () => {
     expect([...src.matchAll(/typeRow=\{typeRow\}/g)]).toHaveLength(1);
   });
 
-  it('that mount is hoisted above the body branch, not inside one of its arms', () => {
+  it('that mount is outside the body branch, not inside one of its arms', () => {
     const mount = src.indexOf('typeRow={typeRow}');
     const bodyBranch = src.indexOf('{showEmpty ? (');
     expect(mount).toBeGreaterThan(-1);
     expect(bodyBranch).toBeGreaterThan(-1);
-    // Above the branch => the same position in all four states (empty / all-done / ruled
-    // list / timeline) rather than one position per arm.
-    expect(mount).toBeLessThan(bodyBranch);
+    // Outside the branch => the same position in all four states (empty / all-done / ruled
+    // list / timeline) rather than one position per arm. **BELOW it since 2026-08-13** — this
+    // asserted `mount < bodyBranch` until then. The invariant that fixed the original bug is
+    // "exactly one mount", asserted above and unchanged; which end of the branch it sits at
+    // is a separate, later question, and the empty-state audit answered it the other way (see
+    // the mount's own comment in PlanTaskCard). Still one position, still no per-arm mount.
+    expect(mount).toBeGreaterThan(bodyBranch);
+  });
+
+  it('sits above the done zone, not below it', () => {
+    // The composer appends to the ACTIVE day; a completed task is not what it adds to. This is
+    // also the order components/PadSheet.tsx itself now draws (rows → typeRow → footer), so
+    // the standalone mount here and the pad's built-in one agree.
+    const mount = src.indexOf('typeRow={typeRow}');
+    const doneZone = src.indexOf('!dayLogActive && doneTasks.length > 0');
+    expect(doneZone).toBeGreaterThan(-1);
+    expect(mount).toBeLessThan(doneZone);
   });
 
   it('the ruled-list PadSheet no longer draws its own type row', () => {

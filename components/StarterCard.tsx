@@ -38,10 +38,14 @@
  *             app/(tabs)/health.tsx (`collapsible`),
  *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
  *             day's example row, and deliberately NO `text`: that card's explainer is its own
- *             head-mounted components/CardHintNote), components/GoalsEditor.tsx (`embedded`
- *             too — it is mounted inside a drawer's Surface, and this component always draws
- *             its own; that line used to say GoalsEditor hand-copied the contents instead,
- *             which stopped being true when `embedded` landed), components/EnergyMeter.tsx (`stage="sapling"`, NOT
+ *             head-mounted components/CardHintNote), components/GoalsEditor.tsx (`embedded
+ *             collapsible` since 2026-08-13 — it is mounted inside a drawer's Surface, and this
+ *             component always draws its own; that line used to say GoalsEditor hand-copied the
+ *             contents instead, which stopped being true when `embedded` landed),
+ *             components/HomeHabitsCard.tsx (2026-08-13, `embedded collapsible` and no `text`
+ *             — it hand-rolled a label-plus-bare-cloud stand-in for the trigger row until then,
+ *             which made its suggestions the one set in the app that could not be folded away),
+ *             components/EnergyMeter.tsx (`stage="sapling"`, NOT
  *             `collapsible` — its `children` is a config Button, not suggestions) — most also
  *             use components/StarterExampleRow.tsx to build the `example` node
  *   Data    → reads/writes settings.dismissedStarters ONLY when a caller passes

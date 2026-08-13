@@ -13,9 +13,10 @@
  *   Imports → components/PressableScale, constants/theme, lib/useAppTheme
  *   Used by → app/(tabs)/habits.tsx, components/HomeHabitsCard.tsx (both pass `leading`, a
  *             components/HabitIcon — a habit's glyph may be a legacy emoji, which Ionicons
- *             cannot draw), components/GoalsEditor.tsx,
- *             components/HealthIssuesSheet.tsx (all three pass `icon`, an Ionicons name).
- *             Every caller renders these inside components/StarterCard's `children` slot.
+ *             cannot draw) and components/HealthIssuesSheet.tsx (passes `icon`, an Ionicons
+ *             name). Every caller renders these inside components/StarterCard's `children`
+ *             slot. components/GoalsEditor.tsx was the fourth until 2026-08-13 and now uses
+ *             components/StarterExampleRow — see the "which shape" note below.
  *   Data    → none — pure presentation; callers pass already-localized strings and own the
  *             store write (and its own haptic) behind `onAdd`, matching
  *             components/StarterExampleRow's contract
@@ -38,6 +39,17 @@
  *   - **`Radius.full` is kept, and is the one thing deliberately NOT converged.** The row is
  *     `Radius.sm` because it is the shape of a row; a pill is the shape of a wrapping cloud.
  *     The finish converged, the shape did not — that is the ruling, not an oversight.
+ *   - **Which shape a surface should pick (2026-08-13).** Chip or row is decided by the LABELS,
+ *     not by the surface: a chip is for suggestions short enough that two or more share a line
+ *     (Habits' "Drikk 4 glass vann" + "Morgenstrekk"), because that is what makes a cloud read
+ *     as a cloud. Once each label needs most of a line the cloud stops wrapping and starts
+ *     STAIRCASING — four dashed pills each on its own line, left edges stepping in and out —
+ *     and at that point components/StarterExampleRow is strictly better: same finish, even left
+ *     edge, no ragged tail. That is why components/GoalsEditor.tsx moved off this component;
+ *     its four goals are sentences ("Mer tid med dem jeg er glad i"). AGENTS.md's line about
+ *     "four full-width dashed rows would be a wall of dashes" is the counter-argument, and it
+ *     is real — but a staircase of four dashed pills is that wall plus a ragged edge, so it
+ *     only argues against rows where the chips were actually pairing up.
  *   - **Every chip has the trailing "+", including the three that used to have none.** Goals,
  *     the Goals drawer and the health-issues sheet drew an accent glyph on the LEFT and no "+",
  *     while Habits drew a neutral glyph and a "+" — one gesture with two anatomies. The row's
