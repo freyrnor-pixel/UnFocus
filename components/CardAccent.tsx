@@ -3,20 +3,21 @@
  * badge flattened 2026-07-24, re-gradiented 2026-07-26, wash DELETED 2026-07-31 — see Edit notes).
  *
  * A card borrows its identity colour from the four-hue identity set (lib/domainColor.ts), keyed to
- * its life area, and expresses it as ONE colour move: a gradient icon BADGE. The card's own
- * low-alpha edge (Surface's `borderColor`) is the only other place that hue appears. Action colour
+ * its life area, and expresses it as ONE colour move: the icon BADGE. Since Tactile Glass
+ * (2026-08-15) that is the LOUD half of a two-part system — the card's edge is neutral now, and
+ * the quiet half is the 5% `SCREEN_TINT` wash on the pane itself (components/Surface.tsx). Action colour
  * (Save=primary, Delete=danger) is deliberately NOT here — it stays constant across every card so it
  * never competes with identity colour.
  *
  * One part now:
- *   - <CardAccentBadge domain icon? size? /> — a round two-stop gradient badge (the domain's
- *     `badgeGradient`) with the palette's declared ink for the glyph and a light rim. Drop it as a
- *     leading element in any card/section header.
+ *   - <CardAccentBadge domain icon? size? /> — a round frosted disc with the domain's identity
+ *     hue as an opaque glyph on top (2026-08-15; it was a gradient fill with a white glyph
+ *     until then). Drop it as a leading element in any card/section header.
  *
  * Connections:
- *   Imports → @expo/vector-icons (Ionicons), expo-linear-gradient, constants/theme (Radius),
- *             lib/useAppTheme, lib/domainColor (Domain, getDomainColor, badgeGradientFor,
- *             BADGE_ICON_INK)
+ *   Imports → @expo/vector-icons (Ionicons), constants/theme (getBadgeFrost, Radius, rgba),
+ *             lib/useAppTheme (useAppTheme, useIsDark), lib/domainColor (Domain,
+ *             getDomainColor, badgeGlyphFor)
  *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/HomeHabitsCard,
  *             components/PlanTaskCard, components/WeekListCard, components/MedicineTrayCard,
  *             components/SectionRail, app/(tabs)/health.tsx,
@@ -79,14 +80,36 @@
  *     is `BADGE_ICON_INK` (`'#FFFFFF'`) unconditionally; `accentOverride` (Home's preview cards,
  *     which pass a `feat*` screen hue instead of a `card*` domain hue) routes through the same
  *     `badgeGradientFor()`, so Notes' yellow and Food's orange get the identical treatment.
+ *   - **(2026-08-15, Tactile Glass) THE BADGE IS INVERTED: a neutral frosted disc with the hue
+ *     as a fully-opaque GLYPH on top.** Brief §4: "an icon badge should be a translucent
+ *     frosted circle with a brightly colored, fully opaque vector icon sitting on top." So the
+ *     gradient fill and the white glyph above are both gone, and `badgeGradientFor` has no
+ *     consumer here any more (it stays exported — `lib/__tests__/colors.test.ts` pins it).
+ *     Everything the 2026-08-10 and 2026-08-11 notes above say about CONTRAST still applies and
+ *     is the reason this is not just a colour swap:
+ *       · the 2026-08-10 decline was of a hue fill at a FIXED opacity with a hue glyph — the
+ *         thing that made it fail was that one opacity cannot serve eight hues in two modes.
+ *         This plate is NEUTRAL and per-mode, and the glyph is derived per hue against the real
+ *         composited plate by `badgeGlyphFor()`. It is the derivation, not the look, that the
+ *         two earlier declines were about.
+ *       · measured on the actual plates, the RAW hue fails in one mode each and badly — gold
+ *         1.92:1 on the light plate, To-do 1.88:1 / Health 2.33:1 / Habits 2.69:1 on the dark
+ *         one. Never put `domainColor.accent` straight onto this badge; always go through
+ *         `badgeGlyphFor(hue, plate, isDark)`.
+ *       · the RIM moved off `rgba(255,255,255,0.55)` for the same reason: a 55% white ring on a
+ *         neutral light-mode frost is brighter than the plate it rings, and the badge became a
+ *         white blob. It derives from the glyph now.
+ *     ⚠️ This inverts `lib/domainColor.ts`'s A.4 rule 1 ("an identity hue is a FILL, never an
+ *     icon colour"). Read that function's doc before restoring it — the rule's real content was
+ *     "never put a hue where nothing checks its contrast", and the check now lives in the code
+ *     rather than in the choice of channel.
  */
 import React from 'react';
-import { StyleSheet, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Radius } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
-import { Domain, getDomainColor, badgeGradientFor, BADGE_ICON_INK } from '@/lib/domainColor';
+import { getBadgeFrost, Radius, rgba } from '@/constants/theme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { Domain, getDomainColor, badgeGlyphFor } from '@/lib/domainColor';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
@@ -105,10 +128,6 @@ const DOMAIN_ICON: Record<Domain, IoniconsName> = {
   budget: 'wallet',
   note: 'document-text',
 };
-
-// 135° diagonal (top-left → bottom-right), matching the DS card's linear-gradient(135deg,…).
-const GRAD_START = { x: 0, y: 0 } as const;
-const GRAD_END = { x: 1, y: 1 } as const;
 
 type BadgeProps = {
   domain: Domain;
@@ -139,27 +158,37 @@ type BadgeProps = {
  */
 export function CardAccentBadge({ domain, icon, size = 44, style, accentOverride }: BadgeProps) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const domainColor = getDomainColor(theme, domain);
-  const badgeGradient = accentOverride ? badgeGradientFor(accentOverride) : domainColor.badgeGradient;
+  const hue = accentOverride ?? domainColor.accent;
   const glyph = icon ?? DOMAIN_ICON[domain];
+  // The plate is measured, not assumed — see badgeGlyphFor's doc for the numbers, and for why
+  // the raw hue is NOT safe to use here in either mode.
+  const frost = getBadgeFrost(theme.surface, isDark);
+  const glyphColor = badgeGlyphFor(hue, frost.plate, isDark);
   return (
-    <LinearGradient
-      colors={badgeGradient}
-      start={GRAD_START}
-      end={GRAD_END}
+    <View
       style={[
         styles.badge,
         {
           width: size,
           height: size,
           borderRadius: Radius.full,
+          backgroundColor: frost.paint,
+          // The rim follows the plate: a 55%-white ring reads as a lifted key on a hue fill,
+          // but on a neutral frost in LIGHT mode it is brighter than the plate it rings and
+          // the badge turns into a white blob. Derived from the glyph instead, well faded, so
+          // the badge keeps an edge in both modes without inventing a third colour.
+          borderColor: rgba(glyphColor, isDark ? 0.34 : 0.22),
         },
         style,
       ]}
     >
-      {/* Always white (2026-08-11) — badgeGradient is deepened per-hue so this stays legible. */}
-      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={BADGE_ICON_INK} />
-    </LinearGradient>
+      {/* The hue itself, fully opaque (Tactile Glass, 2026-08-15) — the inverse of the
+          2026-08-11 white-on-gradient badge. `badgeGlyphFor` has already walked it far enough
+          toward white/black to clear the contrast floor on THIS plate. */}
+      <Ionicons name={glyph} size={Math.round(size * 0.44)} color={glyphColor} />
+    </View>
   );
 }
 

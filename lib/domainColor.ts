@@ -164,6 +164,53 @@ function badgeGradientFor(accent: string): readonly [string, string] {
  */
 export { badgeGradientFor };
 
+/**
+ * The INVERTED badge (Tactile Glass, 2026-08-15): the hue as a fully-opaque GLYPH sitting on a
+ * neutral frosted plate, instead of a white glyph on a hue-gradient plate.
+ *
+ * Brief §4: *"an icon badge should be a translucent frosted circle with a brightly colored,
+ * fully opaque vector icon sitting on top."*
+ *
+ * ⚠️ **This inverts A.4 rule 1 — "AN IDENTITY HUE IS A FILL. IT IS NEVER TEXT AND NEVER AN
+ * ICON COLOUR"** — and that rule was not arbitrary, so read this before restoring it. Its
+ * evidence was that Shopping's gold `#D9A441` measures 2.25:1 on *its own soft hue wash*, and
+ * that "a fixed opacity cannot hold across eight hues and two modes". Both facts are still
+ * true. What changed is the GROUND: the plate is neutral now, not a wash of the same hue, and
+ * a hue-on-neutral measurement is a different measurement — one this function makes rather
+ * than assumes. The rule's real content was "never put a hue somewhere nothing checks its
+ * contrast", and the check is right here.
+ *
+ * Measured on the real frost plates, the raw hues fail in ONE mode each and by a lot, which is
+ * why this cannot be skipped:
+ *   light plate `#EBEDF1` — todo 5.81 ✓ · habits 4.06 ✓ · health 4.70 ✓ · **shopping 1.92 ✗**
+ *   dark plate  `#323232` — **todo 1.88 ✗ · habits 2.69 ✗ · health 2.33 ✗** · shopping 5.70 ✓
+ *
+ * So: walk the accent toward white (dark mode) or black (light) in 1% steps until it clears
+ * `BADGE_ICON_MIN_CONTRAST` on the plate — the exact mirror of `badgeGradientFor`, which walks
+ * the FILL toward navy until white clears the same floor. Every hue lands by t ≤ 0.26, a shift
+ * small enough that the hue is still recognisably itself.
+ *
+ * **The L\* spread survives this**, which matters more than it looks: `IDENTITY_HUES`' load-
+ * bearing constraint is that the four hues separate by lightness so they work in greyscale and
+ * for every form of colour blindness. Shopping is the light one and stays untouched in dark
+ * (5.70 already clears), while the three dark hues lighten — so the gap widens rather than
+ * closing. In light mode only Shopping moves, and it moves DOWN, again widening it.
+ *
+ * @param plate the composited frost colour to measure against — `theme.badgeFrost` over the
+ *   pane. Passed in rather than derived here because this module has no access to what the
+ *   badge is actually sitting on, and guessing is how the 2.25:1 gold shipped in the first place.
+ */
+export function badgeGlyphFor(accent: string, plate: string, isDark: boolean): string {
+  const towards = isDark ? '#FFFFFF' : '#000000';
+  let t = 0;
+  let cur = accent;
+  while (t < 1 && contrastRatio(cur, plate) < BADGE_ICON_MIN_CONTRAST) {
+    t += 0.01;
+    cur = mix(accent, towards, t);
+  }
+  return cur;
+}
+
 const DOMAIN_TOKEN: Record<Domain, keyof ThemePalette> = {
   task: 'cardTask',
   plan: 'cardPlan',

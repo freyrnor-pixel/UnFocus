@@ -1,22 +1,34 @@
 /**
- * glassMaterial.test.ts — what is LEFT of the glass model, and the promises that outlived it.
+ * glassMaterial.test.ts — the card material, and which of its promises survive each rewrite.
  *
- * The frosted-glass system this file was written for is gone: `Surface` and `Button` dropped it
- * in the 2026-08-05 card reset, `AddFAB` (the last `GlassFill` mount) was flattened on
- * 2026-08-08, and `getMaterialStyle` + `components/GlassFill.tsx` were deleted with it. What
- * survives here is the part anything still calls — `filledEdge`, `getGlow`, `getLayeredShadow`
- * — plus a SOURCE SCAN standing in for the assertions that used to guard the deleted recipe.
+ * **The glass came back on 2026-08-15 (Tactile Glass), by maintainer ruling.** This file has
+ * now guarded three different materials under one name, and keeping it under that name is
+ * deliberate — its git history is the record of how the card has been argued about, and a
+ * fresh file would throw that away. The three:
+ *   1. 2026-07-18 → 08-05: a frosted-glass system (BlurView, wash, face-lift scrim, beveled
+ *      rim, inner line) with `getMaterialStyle` + `components/GlassFill.tsx`.
+ *   2. 2026-08-05 → 08-15: the card reset. All of it deleted; a flat opaque page with one
+ *      hue-ramped border. This file became a SOURCE SCAN asserting the frost stayed gone.
+ *   3. 2026-08-15 →: Tactile Glass. A translucent pane, a light-catching edge, and a BlurView
+ *      where — and only where — there is content behind it worth blurring.
  *
- * That scan is the point of keeping this file. `DESIGN_COMPARISON/16-solid-pressable-materials.md`
- * §2 says, in as many words, "do not re-add the specular highlight — glassMaterial.test.ts will
- * fail, and correctly". It used to fail via `expect('specular' in getMaterialStyle(...))`, which
- * is vacuous once the function is gone, so the promise is enforced against the source instead.
- * "Hard and solid" was never the same request as "glossy".
+ * **Two of (2)'s promises were reversed here and one was not, and the difference matters.**
+ * `DESIGN_COMPARISON/16-solid-pressable-materials.md` §2 required a maintainer conversation and
+ * a separate PR before either the frost or the specular highlight could return; that happened,
+ * and this is that PR — so the BlurView assertion is rewritten in place, with its history in
+ * the comment above it. **The specular/gloss ban STANDS and is untouched.** "Hard and solid"
+ * was never the same request as "glossy", and neither is "frosted": a translucent fill and a
+ * lit EDGE are not a shine on the FACE. Don't read this pass as licence to re-add one.
+ *
+ * The rest of the file still guards what anything still calls — `filledEdge`, `getGlow`,
+ * `getLayeredShadow` — and `GlassFill.tsx` stays deleted: the new material is ~15 lines inside
+ * `Surface`, not a resurrected component.
  */
 import { readFileSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { filledEdge, getLayeredShadow, getGlow, rgba, lighten } from '@/constants/theme';
+import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, rgba, lighten } from '@/constants/theme';
+import { THEMES } from '@/constants/colors';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
@@ -77,10 +89,82 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the three flat surfaces mount no BlurView', () => {
-    const files = ['components/Surface.tsx', 'components/Button.tsx', 'components/AddFAB.tsx'];
-    const offenders = files.filter((f) => /<BlurView/.test(read(f)));
-    expect(offenders).toEqual([]);
+  // ⚠️ **REVERSED BY MAINTAINER RULING, 2026-08-15 (Tactile Glass).** This assertion used to
+  // read "the three flat surfaces mount no BlurView" and was the CI half of the 2026-08-05 card
+  // reset. `DESIGN_COMPARISON/16-solid-pressable-materials.md` §2 said re-adding the frost "is
+  // a maintainer conversation and a separate PR — not a quiet test edit"; that conversation
+  // happened and this is that PR, so the assertion is rewritten rather than deleted, and the
+  // history stays here where the next session will find it.
+  //
+  // What replaced it is narrower and says more. "Mounts a BlurView" was never the property
+  // worth protecting — WHERE it mounts is:
+  //   · an overlay/nav surface has real scrolling content behind it, so the blur does visible
+  //     work and is what the brief actually describes;
+  //   · an ambient content card has the BACKDROP behind it, which in dark mode is pure black.
+  //     Blurring black returns black, so a BlurView under all ~59 cards would be pure GPU cost
+  //     on every scrolling list for no visible difference.
+  // That distinction is invisible to a screenshot and to the web preview alike (Chromium
+  // renders `backdrop-filter` on both paths), which is exactly why it needs a source scan.
+  it('mounts a BlurView ONLY where there is something behind it to blur', () => {
+    const surface = read('components/Surface.tsx');
+    expect(surface).toMatch(/<BlurView/);
+    // The gate, not just the mount: an ambient card must be excluded by an explicit condition.
+    expect(surface).toMatch(/surfaceContext !== 'ambient'/);
+    // Buttons stay solid — a translucent primary action would take its own accent down toward
+    // whatever it happens to sit on, which is the opposite of "one obvious action".
+    const solid = ['components/Button.tsx', 'components/AddFAB.tsx'];
+    expect(solid.filter((f) => /<BlurView/.test(read(f)))).toEqual([]);
+  });
+
+  it('turns every bit of it off when the user asks for less transparency', () => {
+    // `settings.glassSurfaces` went inert in the 2026-08-05 reset because everything was
+    // already opaque — the state it was asking for. Now that translucency is back, the toggle
+    // is load-bearing again, and this is the assertion that keeps it honest: the blur is gated
+    // on it, and the fill falls back through getGlassFill to the opaque composite.
+    const surface = read('components/Surface.tsx');
+    expect(surface).toMatch(/glassSurfaces/);
+    expect(surface).toMatch(/\{glassOn && surfaceContext !== 'ambient' \?/);
+    expect(surface).toMatch(/getGlassFill\(/);
+  });
+
+  it('the painted glass and the measured composite agree', () => {
+    // The load-bearing invariant of the whole material. `surfaceGlass` is what gets painted;
+    // `surface` is the same colour already composited over the backdrop, and is what every
+    // contrast assertion in lib/__tests__/colors.test.ts measures. If the two drift, those
+    // assertions keep passing while measuring a colour the app no longer draws — the exact
+    // shape of the "a comment asserted a safety property nothing checked" bug AGENTS.md
+    // records from PR #540.
+    //
+    // Dark's ground is genuinely #000000 (ScreenBackground's DARK.base is three black stops
+    // with both glows at 0). Light's is the backdrop gradient's DARKEST stop, so the real pane
+    // is never darker than the value the tests check.
+    const GROUND = { light: '#e4ecfb', dark: '#000000' } as const;
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      const m = p.surfaceGlass.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+      expect(m).toBeTruthy();
+      const [, r, g, b, a] = m!;
+      const under = GROUND[mode].replace('#', '');
+      const composite = [r, g, b].map((c, i) => {
+        const u = parseInt(under.slice(i * 2, i * 2 + 2), 16);
+        return Math.round(Number(c) * Number(a) + u * (1 - Number(a)));
+      });
+      const hex = `#${composite.map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+      expect(hex).toBe(p.surface.toUpperCase());
+    });
+  });
+
+  it('the pane edge catches light on one side and is a real boundary on the other', () => {
+    // getGlassEdge's two sides do different jobs and only one of them is a contrast promise.
+    // Pinned here as well as in borderRamp.test.ts because THIS is the file that documents the
+    // material as a whole, and the boundary half is what pays for DESIGN_RULES.md rule 10b's
+    // relaxed fill step in light mode.
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      const [lit, shade] = getGlassEdge(p.border, mode === 'dark').colors;
+      expect(lit).toMatch(/^rgba\(255, 255, 255,/);
+      expect(shade).toBe(rgba(p.border, 1));
+    });
   });
 });
 
@@ -121,12 +205,14 @@ describe('getLayeredShadow', () => {
 });
 
 describe('glass settings', () => {
-  it('glassSurfaces still defaults on, and is now inert everywhere', () => {
-    // It was the reduce-transparency a11y toggle. Every surface it could reduce is already
-    // opaque unconditionally — Surface and Button since 2026-08-05, AddFAB (the last holdout)
-    // since 2026-08-08 — so the app now behaves as if it were permanently ON, which is what
-    // that toggle was asking for. The setting and its DB column stay: this repo never drops
-    // columns, and the default is pinned here so a migration can't quietly flip it.
+  it('glassSurfaces still defaults on, and is LIVE again', () => {
+    // It is the reduce-transparency a11y toggle. It was inert from 2026-08-05 to 2026-08-15,
+    // because every surface it could reduce was already opaque — the state it was asking for —
+    // and this assertion existed only to stop a migration quietly flipping a dead column. With
+    // Tactile Glass it drives real behaviour again (see the two assertions above), so the
+    // default matters for what a new install actually LOOKS like, not just for tidiness.
+    // No new copy was needed: the shipped EN/NO strings already say "Frosted glass finish on
+    // cards, buttons and the add button. Turn off for plain, solid surfaces."
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
   });
 });

@@ -1838,7 +1838,12 @@ const baseStyles = StyleSheet.create({
   // Spacing.xs, the gap PadSheet stacks real rows at and StarterCard stacks example rows at
   // (2026-08-12) — it was Spacing.sm, so the two dashed rows in here sat further apart than
   // any two rows this card ever draws for real.
-  emptyWrap: { gap: Spacing.xs },
+  // Tracks PadSheet's row gap — the empty state has to sit at the same rhythm as the real rows
+  // it stands in for, or the card visibly re-spaces itself the moment the first row lands.
+  // Went Spacing.xs → Spacing.sm with the 2026-08-15 de-boxing, for the reason spelled out at
+  // PadSheet's `stackGap`: with no borders to keep apart, the gap IS the separation.
+  // lib/__tests__/exampleRows.test.ts asserts the two stay equal.
+  emptyWrap: { gap: Spacing.sm },
   // Same box as the StarterExampleRow directly above it (2026-08-12): it was Radius.md and a
   // literal borderWidth 1 against the example's Radius.sm, so two dashed rows in the same
   // eight pixels of card had different corners and different weights.

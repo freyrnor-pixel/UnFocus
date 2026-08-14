@@ -89,6 +89,35 @@ export interface ThemePalette {
    */
   rule: string;
 
+  // ── Glass (Tactile Glass, 2026-08-15) ────────────────────────────────────
+  /**
+   * The pane's REAL translucent fill — what `components/Surface.tsx` actually paints.
+   * `surface` above is the same colour already COMPOSITED over the backdrop, and that
+   * split is the whole reason WCAG stays testable under translucency: every contrast
+   * assertion in lib/__tests__/colors.test.ts keeps measuring an opaque hex, and it is
+   * a hex the compositor really produces, because the ground behind a card is known.
+   *
+   * ⚠️ The two must agree. Dark: `rgba(255,255,255,0.118)` over `#000000` composites to
+   * exactly `#1E1E1E`, which is why the dark palette did not move at all in this pass.
+   * Light: `rgba(255,255,255,0.78)` over the backdrop's DARKEST stop (`#e4ecfb` in
+   * components/ScreenBackground.tsx) gives `#F9FBFE` — worst case, so the real pane is
+   * never darker than the value the tests check. Change one, re-derive the other; the
+   * test asserts the composite, so they cannot silently drift apart.
+   *
+   * ⚠️ The dark alpha is set by the HALATION CEILING, not by taste. The brief asked for
+   * 5–10% white; at 7% the pane is `#121212` and `text` measures 17.0:1 on it, over the
+   * 16:1 ceiling DESIGN_RULES.md rule 10a defends (near-white text on a dark surface
+   * blooms for astigmatic readers). 11.8% is the lowest alpha that stays inside it.
+   */
+  surfaceGlass: string;
+  /**
+   * The overlay/nav tier — sheets, modals, the floating header, the bottom nav. Brighter
+   * (more tint, less transparent) so a surface that floats ABOVE content reads as raised.
+   * These are also the only places that mount a real `BlurView`: they are the only ones
+   * with content behind them worth blurring. See components/Surface.tsx's `surfaceContext`.
+   */
+  surfaceGlassStrong: string;
+
   // ── Text ─────────────────────────────────────────────────────────────────
   text: string;            // Primary text (must be ≥ 4.5:1 contrast on bg AND surface)
   textMuted: string;       // Secondary text (must be ≥ 4.5:1 contrast on bg AND surface)
@@ -331,11 +360,27 @@ const defaultLight: ThemePalette = {
   //   surfaceMuted ↔ inset   1.118
   //   rule ↔ surface         1.396  (unchanged)
   // Verified in lib/__tests__/colors.test.ts; those exact ratios are asserted there.
+  // ── Tactile Glass, 2026-08-15: `surface` is now a COMPOSITE, and `bg` did not move ──────
+  // `surface` was `#FFFFFF` — "at the ceiling on purpose". A translucent pane cannot reach
+  // the ceiling, so it drops to `#F9FBFE` (`surfaceGlass` over the backdrop's darkest stop)
+  // and the bg↔surface step goes 1.212 → 1.170.
+  //
+  // ⚠️ DO NOT "fix" that by darkening `bg`. It was measured: at `#DCE5F3` the step is back to
+  // 1.212 and SIX tokens fail 4.5:1 at once (textMuted, accent, good, bad, warn, borderStrong,
+  // with `border` dropping under 3:1 too). That is exactly what the 2026-07-31 note below
+  // predicted — "the ladder target and the frozen tokens were mutually exclusive" — and it is
+  // still true; translucency only tightened it. The relaxation is recorded as DESIGN_RULES.md
+  // rule 10b, and it is a trade, not a loss: the card boundary MOVED from the fill step to the
+  // edge, where `getGlassEdge()`'s shade stop is plain `border` at 3.658:1 on the pane and
+  // 3.128:1 on bg. A measured 3:1 boundary is a stronger promise than a 1.21 fill step was.
+  // Every text and chromatic token is untouched and still clears 4.5:1 on both rungs.
   bg: '#E2EAF5',
-  surface: '#FFFFFF',      // at the ceiling on purpose — see the semantic-trio note below
+  surface: '#F9FBFE',      // = surfaceGlass composited over the backdrop's darkest stop
   surfaceMuted: '#E6EDF6',
   surfaceInset: '#D8E1EE',
   rule: '#D3DBE6',         // decorative row divider ONLY — never a control boundary
+  surfaceGlass: 'rgba(255,255,255,0.78)',
+  surfaceGlassStrong: 'rgba(255,255,255,0.88)',
   text: '#1B2432',
   textMuted: '#5F6978',    // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg
   textInverse: '#FFFFFF',
@@ -519,6 +564,19 @@ const defaultDark: ThemePalette = {
   surface: '#1E1E1E',
   surfaceMuted: '#121212',
   surfaceInset: '#0A0A0A',
+  // ── Tactile Glass, 2026-08-15 ───────────────────────────────────────────────────────────
+  // `rgba(255,255,255,0.118)` over a `#000000` ground composites to EXACTLY `#1E1E1E` — the
+  // value `surface` already had — which is why not one number in this dark block moved when
+  // the app went translucent, and why every dark assertion in colors.test.ts still passes
+  // unedited. The ground really is pure black: ScreenBackground's DARK.base is three
+  // `#000000` stops with both radial glows at opacity 0, and its branch art is edge-anchored
+  // with the centre box (where cards live) kept clear by design.
+  //
+  // ⚠️ 0.118, not the brief's "5% to 10%", and the reason is the halation ceiling rather than
+  // taste — at 0.07 the pane is `#121212` and `text` measures 17.0:1 on it, past the 16:1
+  // bound rule 10a defends. Lowering this alpha makes the app LESS legible, not airier.
+  surfaceGlass: 'rgba(255,255,255,0.118)',
+  surfaceGlassStrong: 'rgba(255,255,255,0.16)',   // -> #292929, the overlay/nav tier
   // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
   // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as

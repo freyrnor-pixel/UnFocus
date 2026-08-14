@@ -208,8 +208,13 @@ describe('PlanTaskCard — the two dashed rows on an empty day are one box', () 
   });
 
   it('stacks the empty state at the gap real rows stack at', () => {
-    expect(source).toMatch(/emptyWrap: \{ gap: Spacing\.xs \}/);
-    expect(code('components/PadSheet.tsx')).toMatch(/marginTop: Spacing\.xs \* shape\.spacingScale/);
+    // Both moved xs → sm on 2026-08-15 when rows lost their borders (Tactile Glass): with no
+    // border to keep two rows apart, the gap became the ONLY separation and 4px stopped being
+    // one. The pairing is the point of this test and is unchanged — an empty card must be at
+    // the same rhythm as the rows it stands in for, or it re-spaces itself when the first row
+    // lands. This caught them drifting during that very pass, which is exactly its job.
+    expect(source).toMatch(/emptyWrap: \{ gap: Spacing\.sm \}/);
+    expect(code('components/PadSheet.tsx')).toMatch(/Spacing\.xs : Spacing\.sm\) \* shape\.spacingScale/);
   });
 
   it('keeps the field rung a real token, so this test is measuring something', () => {

@@ -180,14 +180,30 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  // Unified card/section header title (2026-07-19): ALL-CAPS, tracked, bold — reads
-  // unmistakably as a header, one step below the screen-level title (extrabold 28).
+  // Unified card/section header title (2026-07-19): sentence case, bold — reads unmistakably
+  // as a header. Was a hardcoded 20/25 until 2026-08-15.
+  //
+  // ── Tactile Glass, 2026-08-15 ─────────────────────────────────────────────────────────────
+  // Promoted to `FontSize.xl` (24) extrabold, and moved onto the TOKEN — a bare 20 in a
+  // StyleSheet was invisible to the type scale and to the design lab's font pass alike. The
+  // brief: *"Use a massive, bold font weight for section headers (iOS style) to guide the eye,
+  // rather than drawing boxes around lists."* That second clause is why this is part of the
+  // same change as PadSheet's de-boxing rather than a cosmetic bump — the boxes that used to
+  // group rows are gone, so the header has to be strong enough to do the grouping on its own.
+  // Against 17px body this is a real step; at 20 it was not.
+  //
+  // ⚠️ The SCREEN title (`HEADER_TITLE_BASE_SIZE`) deliberately did NOT move with it, so this
+  // now equals it at 24. That is not an oversight and not a hierarchy inversion: the two live
+  // on different planes — the screen title sits in the floating header chrome, extrabold, in
+  // its own band, while this sits in content. Raising the screen title is what re-creates a
+  // MEASURED bug: it was dialled 28 → 24 on 2026-07-24 specifically so Shopping's 11-character
+  // extrabold "HANDLELISTE" fits on one line beside that screen's 5-icon control row without
+  // the per-screen autosize shrink hack that pass deleted. Anything above 24 walks back into
+  // it. See constants/theme.ts's note above that constant before trying.
   label: {
-    fontSize: 20,
-    lineHeight: 25,
-    fontFamily: Fonts.bold,
-    // Sentence case (2026-07-28 design review) — 20px is a heading size, not a label size;
-    // the 0.8 tracking that made all-caps readable is dropped with it.
+    fontSize: FontSize.xl,
+    lineHeight: 30,
+    fontFamily: Fonts.extrabold,
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   right: { marginLeft: 'auto' },

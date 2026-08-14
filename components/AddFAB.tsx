@@ -56,7 +56,7 @@ import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { darken, filledEdge, Fonts, getGlow, hitSlopFor, Radius, Shadow, Spacing } from '@/constants/theme';
+import { darken, filledEdge, Fonts, hitSlopFor, Radius, Shadow, Spacing } from '@/constants/theme';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
 import { Travel } from '@/constants/motion';
@@ -89,9 +89,14 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
   const t = useT();
   const dimension = DIMENSION[size];
   const edgeColor = filledEdge(theme.accent, isDark);
-  // Purposeful glow (2026-07-18): only the floating 'lg' FAB, always on — see the file
-  // header's Glow edit note.
-  const glowShadow = size === 'lg' ? getGlow(theme.accent, 'strong').boxShadow : [];
+  // Purposeful glow (2026-07-18): only the floating 'lg' FAB — see the file header's Glow edit
+  // note. **It is no longer "always on" as of 2026-08-15 (Tactile Glass).** It still rests lit,
+  // but it now goes OUT as the key sinks, because the brief makes glow-removal half of what a
+  // press means ("the outer glow must disappear"), and a FAB whose halo survived its own press
+  // would be the one control in the app contradicting that. Moved from a static `boxShadow` in
+  // the style below onto PressableScale's `glow`, which drives it off the same shared value as
+  // the travel — so the light dying and the cap landing are one gesture.
+  const glow = size === 'lg' ? { color: theme.accent, level: 'strong' as const } : undefined;
 
   // Key press (2026-07-28) — the FAB travels furthest of anything (v6's travel table), a big
   // soft key rather than a twitchy chip. Task 16 (2026-08-04) gives it the base that travel
@@ -114,6 +119,11 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       hitSlop={size === 'sm' ? hitSlopFor(dimension) : undefined}
       scaleTo={0.9}
       travel={travel}
+      glow={glow}
+      // The FAB's pressable bounds ARE the circle (width/height below), so the face's
+      // absoluteFill lands exactly on the cap. That is not true of IconButton, whose pressable
+      // is the padded hit target rather than the visible button — which is why it has no face.
+      face={{ radius: Radius.full }}
       style={[
         styles.base,
         { width: dimension, height: dimension },
@@ -128,7 +138,6 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
           borderWidth: 1.5,
           borderColor: edgeColor,
           ...Shadow.fab,
-          boxShadow: glowShadow,
         },
       ]}
     >

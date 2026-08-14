@@ -48,6 +48,28 @@
  *     The darken is the only genuinely new ingredient; the elevation numbers are still the
  *     app's own tokens (`getElevation('raised')`, `Travel.*`), not per-button literals, so a
  *     Button, an IconButton and an AddFAB still read as the same material.
+ *   - **Tactile Glass adds a FACE and a HALO (2026-08-15); it did not restructure any of the
+ *     above.** The brief asked for buttons that "feel like physical hardware keys": a top-edge
+ *     highlight and a coloured glow at rest, and on press a move into the screen with the glow
+ *     gone and a dark inner shadow in its place. Three of those five were already shipped by
+ *     the 2026-08-12 pass — the sink, the shadow collapse, the face darken — so this change is
+ *     only the two that were missing, and both go through PressableScale's new `face`/`glow`
+ *     props on the SAME `press` shared value as the rest. Five cues, one curve.
+ *       · `face` — every filled key gets it (gated on `pressFill`, so never a `ghost`: a
+ *         highlight along the top of a bare word is nonsense).
+ *       · `glow` — `isRaised` only, i.e. `primary`/`danger`. That is deliberately the same
+ *         predicate as the housing rather than a new flag, so the two can't drift; and it is
+ *         what keeps the halo inside DESIGN_RULES.md rule 15 ("never decoration") and rule 6
+ *         (one primary action per screen).
+ *     ⚠️ **`secondary` did NOT get its housing back.** The 2026-08-12 reasoning above is
+ *     untouched by this brief, which asks specifically for *primary* buttons to read as
+ *     hardware. Secondary sinks, darkens and now lights its face; primary additionally sits in
+ *     a housing and glows. The gap between them got WIDER in this pass, not narrower.
+ *   - `travel` stays `Travel.*` (3/4/5), not the brief's literal `translateY: 2`. Same rule the
+ *     2026-08-12 pass wrote down — implement the STATES, not the numbers — and `Travel` is
+ *     shared with Surface/IconButton/AddFAB/BottomNav, so a per-button literal would make a
+ *     Button stop being the same material as an IconButton beside it. A bare `2` would also
+ *     fail `lib/__tests__/designTokens.test.ts`.
  *   - **`secondary` lost `travel` px of layout height** with its housing (the wrapper's
  *     `paddingBottom` reserved the base's sliver). Intended — "flush with the UI" — and
  *     harmless because screens space their cards with `SCREEN_GAP`. Worth knowing if a
@@ -57,8 +79,13 @@
  *     fill with a border and the cap-on-base sink. Deleted with it: the transparent pressable,
  *     the `LinearGradient` rim ring, the `overflow:'hidden'` pill mask, the `GlassFill` frost +
  *     wash, and the `settings.glassSurfaces` read that chose between them. The same pass
- *     removed the equivalent layers from components/Surface.tsx, so a button and a card are
- *     once again made of the same material — which is now no material at all.
+ *     removed the equivalent layers from components/Surface.tsx.
+ *     **Still true of BUTTONS after Tactile Glass (2026-08-15), and deliberately so** — that
+ *     pass made CARDS translucent again but left every button fill solid. A button is the lit
+ *     object in the brief ("illuminated and raised"), not the frosted one; a translucent
+ *     primary action would take its own accent colour down toward whatever it happened to be
+ *     sitting on, which is the opposite of "one obvious action". So a button and a card are no
+ *     longer the same material, and that is the design: glass panes, solid keys ON them.
  *   - **Point 7 of that brief was "button states stay as designed now", and it held until
  *     2026-08-12** — that pass removed only translucency. The tactile-states change above is
  *     the first deliberate exception, made on instruction, and it is a narrow one: it adds the
@@ -219,6 +246,28 @@ export default function Button({
       ? { rest: colors.bg, pressed: darken(colors.bg, PRESS_DARKEN) }
       : undefined;
 
+  // ── Tactile Glass, 2026-08-15: the cap's face and its halo ───────────────────────────────
+  // The FACE (top-edge highlight at rest, dark inner shade while held) goes on any filled key,
+  // because every one of them is a cap that sinks — it is the same gesture at three strengths,
+  // not a fourth variant. Gated on `pressFill` rather than on the variant so it can never
+  // appear on something with no fill to light: a `ghost` button is a word, and a highlight
+  // along the top of a word is nonsense.
+  const face = pressFill ? { radius: Radius.full } : undefined;
+  // The HALO is the narrow one. `isRaised` is already exactly "primary or danger", i.e. the
+  // one action a screen is asking for (DESIGN_RULES.md rule 6), which is the same scope rule 15
+  // puts on getGlow: "the purposeful halo is for the one active/focused surface, never
+  // decoration". Tying it to `isRaised` rather than to a new flag is what keeps the two from
+  // drifting apart later.
+  //
+  // ⚠️ `secondary` deliberately does NOT get one, and deliberately does NOT get its housing
+  // back either. The 2026-08-12 pass flattened it because "a soft-tint fill that is elevated
+  // competes with the one action a screen is asking for", and that reasoning is untouched by
+  // this brief — which asks specifically for "PRIMARY buttons should feel like physical
+  // hardware keys". Secondary still sinks its full travel, still darkens, and now lights its
+  // face; what separates it from primary is the housing and the halo, which is a wider gap
+  // than it had before rather than a narrower one.
+  const glow = isRaised ? { color: colors.bg } : undefined;
+
   const pressable = (
     <PressableScale
       onPress={onPress}
@@ -230,6 +279,8 @@ export default function Button({
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
       travel={travel}
       pressFill={pressFill}
+      face={face}
+      glow={disabled || loading ? undefined : glow}
       depth={isRaised ? 'raised' : undefined}
       style={[
         styles.base,
@@ -348,3 +399,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bold,
   },
 });
+
+/**
+ * `<TactileButton>` — the Tactile Glass brief's name for this component (2026-08-15).
+ *
+ * An ALIAS, for the same reason `Surface` exports `GlassCard`: this file already is the app's
+ * one button primitive, and forking a parallel component would leave every existing call site
+ * on the old shape and give the app two button implementations — the exact duplication the
+ * brief's "build reusable primitive components so the styling isn't repeated" is written
+ * against. Prefer importing `Button` in app code; this export exists for new code written
+ * against the brief's vocabulary and for the design-system docs.
+ */
+export const TactileButton = Button;
