@@ -1665,7 +1665,13 @@ export default function ShoppingScreen() {
     // TEXT still painted at roughly its old position since RN doesn't clip overflow by
     // default. Restoring an explicit height here re-establishes the definite-size parent
     // `flex: 1` needs, without touching TourTarget itself (whose other callers are fine).
-    <TourTarget id="tour.shopping.list" style={{ height: stickyHeight }}>
+    // The side margin lives on the TourTarget rather than on TabSlider itself (2026-08-14), so
+    // the target's box is the tab bar's own footprint. It used to be the full-bleed sticky
+    // block, which made this the one tour step whose ring hung off BOTH screen edges instead
+    // of hugging the thing it points at. The height note above is unaffected: TabSlider's
+    // `flex: 1` still resolves against this View's explicit height, and stretching to the
+    // cross axis gives it exactly the width the margin used to.
+    <TourTarget id="tour.shopping.list" style={{ height: stickyHeight, marginHorizontal: Spacing.sm }}>
       <TabSlider attachedTop value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
     </TourTarget>
   );
@@ -2569,7 +2575,9 @@ const styles = StyleSheet.create({
   // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
   // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and
   // vertically center it within the reserved sticky height.
-  stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
+  // No marginHorizontal — the TourTarget wrapping this carries it now, so the tour's ring
+  // measures the bar's real footprint rather than the full-bleed sticky block (2026-08-14).
+  stickyBar: { flex: 1, justifyContent: 'center' },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold, ...OpticalCenter },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },

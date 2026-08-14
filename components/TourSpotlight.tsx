@@ -31,7 +31,9 @@
  * do different jobs (that one is a way to START, this one a way to go further later).
  *
  * Connections:
- *   Imports → react-native, expo-router (useRouter), @expo/vector-icons, @/lib/tourSteps,
+ *   Imports → react-native, react-native-safe-area-context, expo-router (useRouter),
+ *             @expo/vector-icons, @/lib/tourSteps, @/lib/tourSpotlight (the hole/ring
+ *             geometry), @/components/ScreenScaffold (tabChromeBand — where the chrome is),
  *             @/components/TourTarget (the rect registry), @/components/Motif,
  *             @/components/Button, @/lib/i18n, @/lib/haptics, @/lib/useAppTheme,
  *             @/lib/aiSetupGuide (exportAiSetupGuide), @/components/AppModal,
@@ -45,6 +47,20 @@
  *     concentric circles meant to sit BEHIND a floating button; drawn over the un-dimmed hole
  *     it tinted the card it was supposed to be picking out. `halo-ring` is still used on the
  *     closing card, where it IS behind an icon and works as designed.
+ *   - **Targets are measured in WINDOW space and this overlay subtracts its own origin**
+ *     (2026-08-14). The scrim is a `StyleSheet.absoluteFill` inside the tabs root view, which is
+ *     NOT the origin `measureInWindow` reports against on Android — see `origin` below and
+ *     components/TourTarget.tsx's coordinate-space note. Every hole shipped one status bar too
+ *     high on device because of it. Don't "simplify" this by swapping in `measure()`: its
+ *     root-relative pageX/pageY are right on native and wrong on web, and that trade was
+ *     measured, not assumed.
+ *   - **The hole is clamped to the chrome's band, and the arithmetic is in lib/tourSpotlight.ts**
+ *     (2026-08-14). A target's measured rect is its LAYOUT box; content scrolls under the
+ *     floating header and nav cards and is hidden BY them, so the part of a rect that runs past
+ *     that band is not visible content — cutting a hole there un-dims the CHROME. Home's to-do
+ *     card is taller than the band, and that shipped: the bottom nav sat lit at full brightness
+ *     with the focus ring drawn across it while the rest of the screen was dimmed. The band
+ *     comes from ScreenScaffold's `tabChromeBand`, never re-summed here.
  *   - **The hole is four dim rects around the target, not an SVG `<Mask>`.** Masking is the
  *     flakier path across native and the web preview; four plain views need no mask support
  *     anywhere, and they leave the middle genuinely untouched — so the card underneath is
@@ -65,7 +81,8 @@
  *     (lib/__tests__/copyTone.test.ts scans every string in lib/i18n.ts).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, PixelRatio, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -87,18 +104,20 @@ import {
   stepPosition,
 } from '@/lib/tourSteps';
 import { getTargetRect, remeasureTargets, subscribeTargets, type TargetRect } from '@/components/TourTarget';
+// The chrome's own footprint, from the component that positions it — see the hole's clamp.
+import { tabChromeBand } from '@/components/ScreenScaffold';
 // Where to leave the user when the tour ends — see dismissAll. Same map app/(tabs)/_layout.tsx
 // uses for `initialRouteName`, in its navigate-there-now form.
 import { START_SCREEN_PATHS } from '@/lib/firstRunOptions';
+// The hole/ring arithmetic, pure and unit-tested — see lib/tourSpotlight.ts's header for why
+// it does not live inline here.
+import { hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
 
-/** Breathing room between the target's edge and the hole. */
-const HOLE_PAD = 8;
-/** How far the focus ring sits outside the hole. */
-const RING_GAP = 4;
 /** Space the coach card is guaranteed, so it can never be pushed off either edge. */
 const CARD_RESERVE = 260;
 /**
- * How often the active step re-measures its target. One `measureInWindow` per mounted target,
+ * How often the active step re-measures its target (and this overlay its own origin). One
+ * `measureInWindow` per mounted target,
  * and TourTarget's own measure() skips the update (and the re-render) whenever the rect is
  * unchanged — which is the normal case. Duration.card because that is the timescale the
  * layout shifts this exists to catch actually move on; the point is a stale ring corrects
@@ -113,6 +132,7 @@ export default function TourSpotlight() {
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const tourProgress = useSettingsStore((s) => s.tourProgress);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
@@ -129,7 +149,30 @@ export default function TourSpotlight() {
   const [, bump] = useState(0);
   useEffect(() => subscribeTargets(() => bump((n) => n + 1)), []);
 
-  const raw: TargetRect | undefined = step ? getTargetRect(step.targetId) : undefined;
+  /**
+   * Where this overlay's own top-left sits in the coordinate space TourTarget measures in
+   * (2026-08-14). Targets come back from `measureInWindow`; the scrim below is a
+   * `StyleSheet.absoluteFill` inside the tabs root view. **Those are not the same origin.** On
+   * Android, Fabric folds a viewport offset into "window" that is `−statusBarHeight` under the
+   * edge-to-edge window Expo enforces (see TourTarget's coordinate-space note), so every hole
+   * was drawn one status bar too high on device — the bug five real-device screenshots showed.
+   *
+   * Measuring THIS view the same way and subtracting cancels whatever a platform folds in,
+   * with no status-bar constant written down anywhere: the delta is 0 on iOS and on the web
+   * preview, and exactly the status bar on Android. Starting at {0,0} is the right initial
+   * guess (it is the final answer on two of the three platforms) and the first measure lands
+   * within a frame, well inside the fade-in.
+   */
+  const overlayRef = useRef<View>(null);
+  const [origin, setOrigin] = useState({ x: 0, y: 0 });
+  const measureOrigin = useCallback(() => {
+    overlayRef.current?.measureInWindow((x, y) => {
+      setOrigin((prev) => (prev.x === x && prev.y === y ? prev : { x, y }));
+    });
+  }, []);
+
+  const measured: TargetRect | undefined = step ? getTargetRect(step.targetId) : undefined;
+  const raw = measured && { ...measured, x: measured.x - origin.x, y: measured.y - origin.y };
   // Only trust a rect that is actually on screen. app/(tabs)/_layout.tsx runs the pager with
   // `lazy: false`, so ALL FIVE tab screens are mounted from launch and every target measures
   // itself immediately — including the four currently swiped off-screen. Taking the first
@@ -165,10 +208,17 @@ export default function TourSpotlight() {
    */
   useEffect(() => {
     if (!step) return;
-    remeasureTargets();
-    const iv = setInterval(remeasureTargets, REMEASURE_INTERVAL);
+    // The overlay's own origin rides the same cadence: it moves for the same reasons a target
+    // does (an insets dispatch, a rotation), and one extra measureInWindow per tick is nothing
+    // next to the five this already does.
+    const pass = () => {
+      measureOrigin();
+      remeasureTargets();
+    };
+    pass();
+    const iv = setInterval(pass, REMEASURE_INTERVAL);
     return () => clearInterval(iv);
-  }, [step]);
+  }, [step, measureOrigin]);
 
   const fade = useRef(new Animated.Value(0)).current;
   const visible = Boolean((step && rect) || showFinale);
@@ -235,9 +285,23 @@ export default function TourSpotlight() {
   // to 'dismissed' by the migration, so this never surprises someone mid-use.
   if (!setupComplete || dismissed) return null;
 
+  /**
+   * Every return below goes through this wrapper, INCLUDING the empty one, because it is what
+   * carries `overlayRef` — the origin probe (see `origin` above) has to be mounted and
+   * measurable before there is anything to draw, or the first frame of each step is placed
+   * against a stale offset. It is an empty `absoluteFill` with `box-none`, so while the tour
+   * has nothing on screen it costs one view and blocks no touches. `collapsable={false}` keeps
+   * Android from flattening away the very view being measured.
+   */
+  const frame = (children: React.ReactNode) => (
+    <View ref={overlayRef} style={[StyleSheet.absoluteFill, styles.root]} pointerEvents="box-none" collapsable={false}>
+      {children}
+    </View>
+  );
+
   // ── The closing card ──────────────────────────────────────────────────────
   if (showFinale) {
-    return (
+    return frame(
       <Animated.View style={[StyleSheet.absoluteFill, styles.finaleWrap, { opacity: fade }]}>
         <View style={[styles.scrimFull, { backgroundColor: theme.overlay }]} />
         <View style={[styles.card, styles.finaleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -259,19 +323,34 @@ export default function TourSpotlight() {
           />
           <Button label={t.tour.finale.done} onPress={dismissAll} variant="primary" size="md" />
         </View>
-      </Animated.View>
+      </Animated.View>,
     );
   }
 
-  if (!step || !rect) return null;
+  if (!step || !rect) return frame(null);
 
   // ── The hole ──────────────────────────────────────────────────────────────
-  const hole = {
-    x: Math.max(0, rect.x - HOLE_PAD),
-    y: Math.max(0, rect.y - HOLE_PAD),
-    w: rect.width + HOLE_PAD * 2,
-    h: rect.height + HOLE_PAD * 2,
-  };
+  // **Clamped to where the target is actually VISIBLE, not to its whole rect** (2026-08-14,
+  // real-device report + reproduced in the web preview). A target's measured rect is its layout
+  // box, and on a tab screen that box routinely runs past what you can see: content scrolls
+  // underneath the floating header and bottom-nav cards and is hidden BY them (they are opaque
+  // — see the `viewportInset` note in components/ScreenScaffold.tsx). Home's to-do card is
+  // taller than the band, so the un-clamped hole ran 28px into the nav bar and left it lit at
+  // full brightness with the focus ring drawn straight across it, while everything else on the
+  // screen was dimmed. Shopping's target is the whole sticky block, so its hole overhung both
+  // side edges too.
+  // The band comes from ScreenScaffold rather than being re-summed here: two places computing
+  // the same chrome geometry and drifting by a few px is the exact failure the 2026-08-10 clip
+  // pass is a long note about.
+  // A target scrolled fully behind the chrome clamps to zero. The four dim rects below then
+  // degenerate into a plain full-screen scrim, which is the honest picture — there is nothing to
+  // point at. The coach card still renders, so the tour stays advanceable rather than stranding
+  // the user on a dimmed screen with no way forward.
+  const screen = { width, height };
+  const band = tabChromeBand(insets, PixelRatio.getFontScale());
+  const hole = spotlightHole(rect, screen, band);
+  const ring = spotlightRing(hole, screen, band);
+  const lit = hasHole(hole);
   // Put the card on whichever side of the hole has more room, and pin it to that EDGE rather
   // than to the hole. Anchoring it to the hole meant a target near the top of the screen
   // pushed the card off the top, where it was clipped and unreadable — and a tall target
@@ -280,7 +359,7 @@ export default function TourSpotlight() {
   const cardBelow = spaceBelow >= hole.y;
   const copy = t.tour.steps[step.id as keyof typeof t.tour.steps];
 
-  return (
+  return frame(
     <Animated.View style={[StyleSheet.absoluteFill, styles.overlay, { opacity: fade }]} pointerEvents="box-none">
       {/* Four rects around the target rather than a masked scrim — see the edit notes. The
           middle is left genuinely uncovered, so the card underneath stays tappable. */}
@@ -298,19 +377,15 @@ export default function TourSpotlight() {
           three FILLED concentric circles designed to sit BEHIND a floating button, so drawn
           over an un-dimmed hole it tinted the very card it was meant to pick out. An outline
           adds the emphasis without touching the content's colour. */}
-      <View
-        pointerEvents="none"
-        style={[
-          styles.halo,
-          {
-            borderColor: theme.accent,
-            top: hole.y - RING_GAP,
-            left: hole.x - RING_GAP,
-            width: hole.w + RING_GAP * 2,
-            height: hole.h + RING_GAP * 2,
-          },
-        ]}
-      />
+      {lit && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.halo,
+            { borderColor: theme.accent, top: ring.y, left: ring.x, width: ring.w, height: ring.h },
+          ]}
+        />
+      )}
 
       <View
         style={[
@@ -345,11 +420,18 @@ export default function TourSpotlight() {
           />
         </View>
       </View>
-    </Animated.View>
+    </Animated.View>,
   );
 }
 
 const baseStyles = StyleSheet.create({
+  // **The zIndex belongs on the OUTERMOST view, not on the scrim inside it.** app/(tabs)/
+  // _layout.tsx renders PagerFloatingNav — itself `zIndex: 100` — as this component's sibling,
+  // so whatever is the sibling here has to carry the matching value or the bar paints straight
+  // over the dim and the coach card. Losing this to the origin-probe wrapper (2026-08-14) left
+  // the bottom nav lit while everything around it dimmed, which reads exactly like the
+  // un-clamped hole this pass had just fixed.
+  root: { zIndex: 100 },
   overlay: { zIndex: 100 },
   finaleWrap: { zIndex: 100, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   scrimFull: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
