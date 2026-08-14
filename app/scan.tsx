@@ -34,6 +34,15 @@
  *   - Four screen modes via `mode` state: idle, scanning, result, manual.
  *   - OCR pipeline: takePhoto/pickImage → mode:scanning → processImage → TextRecognition.recognize →
  *     parseReceiptText → enrichItemsWithCategories → auto-transition to mode:result. On failure/empty → mode:manual.
+ *   - **A scan has a TARGET since 2026-08-13** (`target` + `listId` params, lib/scanTarget.ts).
+ *     Maintainer: "Shopping list Scan means match against this shopping list, same logic for
+ *     Monthly, and in catalogue it means Add/update." Before this the screen took no target at
+ *     all and every confirmed line became a new `inWeeklyList` row with no listId — so scanning
+ *     the receipt for a shop you had just done added the entire shop again. 'weekly'/'monthly'
+ *     now MATCH: a line already on the target list ticks that row off and corrects its price
+ *     instead of duplicating it. 'catalogue' writes to no shopping list at all. An absent or
+ *     unknown `target` falls back to 'weekly' with no listId, which is exactly the old
+ *     behaviour, so the post-trip "Shopping done!" pushes are unchanged.
  *   - Recognised items are ALWAYS reviewed (checkbox list) before adding; never auto-added.
  *   - addToList() (AP-06B) creates a receipt (date/store/total of selected items) via useReceiptStore
  *     BEFORE recordPurchases, then threads receipt.id into every recordPurchases entry so app/budget.tsx
@@ -81,6 +90,7 @@ import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useT } from '@/lib/i18n';
+import { categoryPresets } from '@/lib/shoppingCategories';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import HintCard from '@/components/HintCard';
@@ -93,6 +103,7 @@ import PressableScale from '@/components/PressableScale';
 import { decodeSharePayload } from '@/lib/share';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
+import { matchScanToList, parseScanTarget, shouldRaisePrice, targetWritesToList } from '@/lib/scanTarget';
 import { persistPhoto } from '@/lib/photoStorage';
 import { Fonts, FontSize, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
@@ -107,14 +118,20 @@ const NORWEGIAN_STORES = [
   'REMA 1000', 'Kiwi', 'Coop Extra', 'Coop Mega', 'Meny', 'Spar', 'Bunnpris', 'Joker', 'Prix',
 ];
 
-const CATEGORIES = ['produce', 'dairy', 'meat', 'fish', 'bread', 'frozen', 'canned', 'dry', 'snacks', 'drinks', 'cleaning', 'personal', 'other'];
-
 type ScreenMode = 'idle' | 'scanning' | 'result' | 'manual';
 
 export default function ScanScreen() {
   const router = useRouter();
   const pathname = usePathname();
-  const { autoCapture } = useLocalSearchParams<{ autoCapture?: 'camera' | 'library' }>();
+  const { autoCapture, target: targetParam, listId } = useLocalSearchParams<{
+    autoCapture?: 'camera' | 'library';
+    target?: string;
+    listId?: string;
+  }>();
+  // What this scan is FOR (2026-08-13). Until then /scan took no target at all and every
+  // confirmed line became a new weekly row, so scanning the receipt for a shop you had just
+  // done added the whole shop again. See lib/scanTarget.ts.
+  const scanTarget = parseScanTarget(targetParam);
   const addShopping = useShoppingStore((s) => s.add);
   const updateShoppingItem = useShoppingStore((s) => s.update);
   const shoppingItems = useShoppingStore((s) => s.items);
@@ -125,6 +142,10 @@ export default function ScanScreen() {
   const addSharedShopping = useSharedStore((s) => s.addSharedShopping);
   const addSharedTasks = useSharedStore((s) => s.addSharedTasks);
   const t = useT();
+  const scanTargetLabel =
+    scanTarget === 'monthly' ? t.scanTargetMonthly
+    : scanTarget === 'catalogue' ? t.scanTargetCatalogue
+    : t.scanTargetWeekly;
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
@@ -141,7 +162,10 @@ export default function ScanScreen() {
   const [selectedMonthlyListId, setSelectedMonthlyListId] = useState('');
   // Falls back to the first Monthly list when nothing's explicitly picked (the picker UI
   // itself only renders once there's more than one list to choose between).
-  const effectiveMonthlyListId = selectedMonthlyListId || monthlyLists[0]?.id;
+  // A `listId` from the caller wins over both the local picker and the first-list fallback:
+  // if you opened this from a specific monthly card, that card is the target, full stop.
+  const effectiveMonthlyListId =
+    (scanTarget === 'monthly' && listId) || selectedMonthlyListId || monthlyLists[0]?.id;
   const [manualText, setManualText] = useState('');
   const [manualPrice, setManualPrice] = useState('');
   const [customStoreVisible, setCustomStoreVisible] = useState(false);
@@ -315,12 +339,48 @@ export default function ScanScreen() {
       const match = findFuzzyMatch(item.name, catalogNames);
       if (match) {
         const catalogItem = catalogItems.find((i) => i.name === match);
-        if (catalogItem && item.price > catalogItem.price) {
+        if (catalogItem && shouldRaisePrice(item.price, catalogItem.price)) {
           updateShoppingItem(catalogItem.id, { price: item.price });
         }
       }
-      addShopping({ name: item.name, amount: '1', unit: '', listType: 'weekly', store: selectedStore, price: item.price, inventoryQty: 0, status: 'inWeeklyList' });
     });
+
+    // ── Where the lines land, per target (2026-08-13) ──────────────────────────────────
+    // 'catalogue' writes to no shopping list at all — the catalogue upsert above and the
+    // recordPurchases below ARE the whole job ("add/update"). The two list targets MATCH:
+    // a scanned line already on the list you were shopping from ticks that row off and
+    // corrects its price instead of adding a second copy of it. See lib/scanTarget.ts.
+    if (targetWritesToList(scanTarget)) {
+      const listRows =
+        scanTarget === 'monthly'
+          ? shoppingItems.filter((i) => i.status === 'catalog' && i.monthlyListId === effectiveMonthlyListId)
+          : shoppingItems.filter((i) => i.status === 'inWeeklyList' && (!listId || i.listId === listId));
+
+      matchScanToList(selected, listRows).forEach(({ item, matchedId, newPrice }) => {
+        if (matchedId) {
+          // Confirming a row you already had: tick it and correct its price. `checked` only
+          // means anything on a weekly row — a monthly/catalog row has no cart to be in — so
+          // the monthly target just corrects the price.
+          updateShoppingItem(matchedId, {
+            ...(newPrice != null ? { price: newPrice } : {}),
+            ...(scanTarget === 'weekly' ? { checked: true } : {}),
+          });
+          return;
+        }
+        addShopping({
+          name: item.name,
+          amount: '1',
+          unit: '',
+          listType: scanTarget === 'monthly' ? 'monthly' : 'weekly',
+          store: selectedStore,
+          price: item.price,
+          inventoryQty: 0,
+          status: scanTarget === 'monthly' ? 'catalog' : 'inWeeklyList',
+          ...(scanTarget === 'monthly' ? { monthlyListId: effectiveMonthlyListId } : {}),
+          ...(scanTarget === 'weekly' && listId ? { listId } : {}),
+        });
+      });
+    }
 
     // Copy the scanned photo out of ImagePicker/Camera's transient cache into
     // permanent storage so it survives after this screen unmounts. Best-effort —
@@ -588,7 +648,13 @@ export default function ScanScreen() {
             <Surface borderColor={theme.good} style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
               <Ionicons name="bulb-outline" size={18} color={theme.good} style={styles.tipIcon} />
-              <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
+              <View style={styles.tipTextWrap}>
+                <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
+                {/* Which list this scan will act on (2026-08-13). The screen is reached from
+                    three different places now and does three different things; saying so is
+                    the difference between "scan" meaning something and meaning anything. */}
+                <Text style={[styles.tipTarget, { color: theme.textMuted }]}>{scanTargetLabel}</Text>
+              </View>
             </Surface>
 
             {/* Primary camera button — the hero action. Debug notes: anchor this one button
@@ -738,7 +804,12 @@ export default function ScanScreen() {
               <View style={[styles.sheetHandle, { backgroundColor: theme.surfaceMuted }]} />
               <Text style={[styles.sheetTitle, { color: theme.text }]}>{t.recognisedItems}</Text>
               <ScrollView style={styles.categoryGrid} contentContainerStyle={styles.categoryGridContent}>
-                {CATEGORIES.map((cat) => (
+                {/* categoryPresets, not a local list (2026-08-13). This screen carried its own
+                    13-value CATEGORIES array in the catalogue's private vocabulary — a second
+                    source of truth that the rest of the app could not read — AND rendered the
+                    raw key as the label, so a Norwegian-first app showed "cleaning", "personal",
+                    "dry". Both are gone: one vocabulary, localised labels. */}
+                {categoryPresets(t).map(({ value: cat, label }) => (
                   <PressableScale
                     key={cat}
                     style={[styles.categoryOption, { backgroundColor: parsedItems[categoryPickerIndex]?.category === cat ? theme.accent : theme.surfaceMuted }]}
@@ -749,7 +820,7 @@ export default function ScanScreen() {
                     scaleTo={0.97}
                   >
                     <Text style={[styles.categoryOptionText, { color: parsedItems[categoryPickerIndex]?.category === cat ? theme.accentInk : theme.text }]}>
-                      {cat}
+                      {label}
                     </Text>
                   </PressableScale>
                 ))}
@@ -842,7 +913,9 @@ const baseStyles = StyleSheet.create({
   tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
   tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   tipIcon: {},
-  tipText: { flex: 1, fontSize: FontSize.sm, lineHeight: 20 },
+  tipTextWrap: { flex: 1, gap: 2 },
+  tipTarget: { fontSize: FontSize.xs, fontStyle: 'italic' },
+  tipText: { fontSize: FontSize.sm, lineHeight: 20 },
 
   storeSection: { gap: Spacing.sm },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, letterSpacing: 0.07 },

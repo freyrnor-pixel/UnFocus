@@ -123,7 +123,6 @@ describe('ScreenHeader gates each icon off exactly one thing', () => {
   });
 
   test.each([
-    ['infoButton', 'onInfoToggle'],
     ['scanButton', 'onScanPress'],
     ['shareButton', 'onSharePress'],
     ['layoutButton', 'onLayoutPress'],
@@ -153,22 +152,64 @@ describe('ScreenHeader gates each icon off exactly one thing', () => {
 
 // ── (b) What each screen asks for ────────────────────────────────────────────────────────
 
-describe('every top-level tab header is title + ⓘ + gear', () => {
+describe('every top-level tab header is title + gear', () => {
   test.each(TAB_SCREENS)('%s is site tier', (rel) => {
     const tags = scaffoldTags(rel);
     expect(tags).toHaveLength(1);
     expect(tierOf(tags[0])).toBe('site');
   });
 
-  test.each(TAB_SCREENS)('%s passes the ⓘ hint toggle', (rel) => {
+  // ⓘ REMOVED 2026-08-13. Maintainer: "Having the info button in the header section with
+  // settings showing when you press it makes No sense. Instead the instructions should be in
+  // the screen with examples like a introduction part (users can of course close the card)."
+  // These two assertions replace "%s passes the ⓘ hint toggle" and are its mirror image: the
+  // header must NOT offer the prop, and the screen must render the thing that replaced it.
+  test.each(TAB_SCREENS)('%s passes no ⓘ props — the header has none to take', (rel) => {
     const tag = scaffoldTags(rel)[0];
-    expect(passes(tag, 'onInfoToggle')).toBe(true);
-    expect(passes(tag, 'infoActive')).toBe(true);
+    expect(passes(tag, 'onInfoToggle')).toBe(false);
+    expect(passes(tag, 'infoActive')).toBe(false);
   });
 
-  test('Shopping is the only tab with the camera', () => {
+  test('ScreenHeader has no info button left to wire', () => {
+    // `code()` (not `read()`) so ScreenHeader's own header — which explains that the ⓘ was
+    // removed, and names both identifiers to say so — can't fail this. Deleting an explanation
+    // must never be the cheapest way to green; that is what `code()` exists for.
+    const headerSrc = code('components/ScreenHeader.tsx');
+    expect(headerSrc).not.toMatch(/const infoButton\s*=/);
+    expect(headerSrc).not.toMatch(/onInfoToggle/);
+  });
+
+  test.each(TAB_SCREENS)('%s renders a dismissible intro card instead', (rel) => {
+    // `noPill` + `onDismiss` together are the intro card; `noPill` alone was the old
+    // header-driven body, which had no way to close itself.
+    const src = read(rel);
+    expect(src).toMatch(/<HintCard[\s\S]{0,400}noPill/);
+    expect(src).toMatch(/<HintCard[\s\S]{0,400}onDismiss=\{dismissHint\}/);
+  });
+
+  // The camera left the header on 2026-08-13. Maintainer: "the camera for scanning should be
+  // per card, not in the header row" — a single header icon could not know WHICH list you
+  // meant, so a scan could only ever add rows. It is a per-card action now (each weekly and
+  // monthly list's ⋮, and the Catalogue's own header), each passing a `target` so "scan" means
+  // match-against-this-list or update-the-catalogue. See lib/scanTarget.ts.
+  test('no tab passes the camera to its header any more', () => {
     const withScan = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onScanPress'));
-    expect(withScan).toEqual(['app/(tabs)/shopping.tsx']);
+    expect(withScan).toEqual([]);
+  });
+
+  test('every scan entry point names the list it acts on', () => {
+    // A `/scan` push with no `target` falls back to 'weekly' with no listId, which is the old
+    // add-everything behaviour. The two entry points allowed to do that are the post-trip
+    // "Shopping done!" prompt's two rows, which have just committed the trip and legitimately
+    // mean "whatever is on the weekly list". Every OTHER push must scope itself.
+    const sources = ['app/(tabs)/shopping.tsx', 'components/WeekListCard.tsx', 'components/CatalogueTab.tsx'];
+    const unscoped = sources.flatMap((rel) =>
+      [...code(rel).matchAll(/pathname: '\/scan'[^}]*\}/g)]
+        .map((m) => m[0])
+        .filter((push) => !/target:/.test(push) && !/autoCapture:/.test(push))
+        .map((push) => `${rel}: ${push}`)
+    );
+    expect(unscoped).toEqual([]);
   });
 
   test('Home is the only tab that can show the OTA cloud', () => {

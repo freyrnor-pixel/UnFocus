@@ -55,6 +55,15 @@
  *     collapsed), and hands off to the numeric branch the instant `measured` is set. It is never
  *     reached as an animated transition TO undefined (the case Fabric ignores), so it can't get
  *     stuck the way the old closed→open fallback did.
+ *   - **A fully-closed instance renders `null`, not a zero-height clip (2026-08-13).** An empty
+ *     `Animated.View` is still a flex child, so in a `gap`-ed container it booked a whole gap
+ *     slot for absent content — 8px of dead space under a collapsed Food meal section's header,
+ *     which read as the title sitting above the card's centre. AGENTS.md documented this as
+ *     "a closed Collapsible still books a gap slot" and two call sites worked around it by hand
+ *     (plans.tsx's wrapped filter rows, habits.tsx's gated person filter); both are now
+ *     redundant but harmless. It also settled a disagreement between the two motion settings —
+ *     the `reducedMotion` branch has always returned null. Don't reintroduce the empty wrapper
+ *     to "keep layout stable": there is nothing to keep stable at height 0.
  *   - **Lazy mount preserved:** children render only while `open` OR while a close animation is
  *     still playing; the close `withTiming` completion callback unmounts them (`runOnJS`). A
  *     fully-collapsed instance renders no children (matters for long lists like WeekListCard
@@ -147,6 +156,22 @@ export default function Collapsible({ open, children, style }: Props) {
   if (reducedMotion) {
     return open ? <View style={style}>{children}</View> : null;
   }
+
+  // Fully closed (not open, and the close animation has finished unmounting the children):
+  // render NOTHING, not a zero-height clip. An empty `Animated.View` is still a flex child, so
+  // in a `gap`-ed container — which since the 2026-08-08 spacing pass is every screen and most
+  // cards — it books a full gap slot for content that isn't there. That is what put 8px of dead
+  // space under a collapsed Food meal section's header, leaving its title visibly above the
+  // card's centre (2026-08-13, user report: "Food containers text should be vertically
+  // centered"). It also made the two motion settings disagree: the reducedMotion branch above
+  // has always returned null here.
+  //
+  // Safe because it changes nothing about the measure/animate cycle: `mounted` is already false
+  // in exactly this state, so the measuring child was not being rendered either and `measured`
+  // was already 0 for a never-opened instance. The hooks above still run (this is a render-time
+  // early return, not a conditional hook), so `progress`/`measured` survive across the gap and a
+  // re-open animates from the cached height exactly as before.
+  if (!open && !mounted) return null;
 
   return (
     <Animated.View style={[styles.clip, style, clipStyle]}>

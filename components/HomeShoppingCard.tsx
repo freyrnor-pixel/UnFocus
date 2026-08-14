@@ -106,6 +106,7 @@ import {
   FontSize,
   Fonts,
   HOME_PREVIEW_CARD_MIN_HEIGHT,
+  OpticalCenter,
   PAD_GUTTER,
   Radius,
   Spacing,
@@ -559,8 +560,7 @@ const baseStyles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 25,
     fontFamily: Fonts.bold,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
   },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   // Tabular figures (2026-08-04, DESIGN_COMPARISON/09) — the label is now a "{remaining}/{total}"

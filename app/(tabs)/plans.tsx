@@ -655,7 +655,7 @@ export default function TasksScreen() {
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open, and the
   // per-screen `autoOpen` arg that used to switch it off here, are both gone). This screen's
   // StarterCard already teaches the same thing WITH a tappable example row.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
+  const [hintOpen, dismissHint] = useFirstVisitHint('plans');
   // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Tag filter (2026-07-28) — selected tag ids; empty means "All tags". Unlike the person
@@ -1162,8 +1162,6 @@ export default function TasksScreen() {
       stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
-      infoActive={hintOpen}
-      onInfoToggle={() => setHintOpen((v) => !v)}
       onSharePress={featureSharing ? () => router.push('/share-modal?kind=t') : undefined}
       onLayoutPress={() => setLayoutPickerOpen(true)}
     >
@@ -1173,7 +1171,7 @@ export default function TasksScreen() {
             step) — removed 2026-07-25 along with the Work mode card in Settings, because
             `workModeEnabled` was never read by anything: the switch promised to hide
             personal plans and did nothing at all. */}
-        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill />
+        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill onDismiss={dismissHint} />
 
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once
@@ -1191,8 +1189,15 @@ export default function TasksScreen() {
             **`collapsible` (2026-08-06 v3)**: the example row now sits behind StarterCard's
             shared collapse-to-row drop-down (open by default) instead of always being drawn —
             same mechanism Habits/Goals/Health now use. This screen's own mount condition above
-            is unchanged; `collapsible` only changes the card's shape while it's mounted. */}
-        {(tasks.length === 0 || planStarterAdded) && !(tab === 'today' && layoutSpec.timeline) && (
+            is unchanged; `collapsible` only changes the card's shape while it's mounted.
+            **Today only (2026-08-13)**, maintainer: "Example container can be removed from
+            'This week' and 'All' in to-do." It used to sit OUTSIDE all three `tab === …` blocks
+            and so drew on every tab; its only tab reference was the negative one below. Today
+            is where a new user starts and where the teaching belongs — and note the two halves
+            of "Today" split cleanly: under the DEFAULT timeline layout this card stays
+            suppressed and components/PlanTaskCard draws the example inline instead, so the gate
+            below only puts it on screen for Today under a non-timeline layout. */}
+        {tab === 'today' && (tasks.length === 0 || planStarterAdded) && !layoutSpec.timeline && (
           <StarterCard
             text={t.starters.plans.text}
             collapsible
@@ -1201,7 +1206,6 @@ export default function TasksScreen() {
               <StarterExampleRow
                 icon="ellipse-outline"
                 title={t.starters.plans.exampleTitle}
-                tag={t.starters.exampleLabel}
                 meta="17:00–17:20"
                 accent={wheneverHue}
                 onAdd={planStarterAdded ? undefined : addPlanStarterTask}
@@ -1562,7 +1566,7 @@ export default function TasksScreen() {
             hue={wheneverHue}
             domain="task"
             icon="flag"
-            label={t.goals.editLink}
+            label={t.goals.editLinkPractical}
           >
             <GoalsEditor accent={wheneverHue} />
           </CollapsedSection>

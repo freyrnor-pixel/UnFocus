@@ -51,7 +51,7 @@
 import React, { useState } from 'react';
 import { LayoutAnimation, Platform, StyleSheet, Text, UIManager, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
@@ -81,9 +81,18 @@ type Props = {
    * the hint teaches it in context on first visit. See app/(tabs)/*.
    */
   children?: React.ReactNode;
+  /**
+   * `noPill` only — the intro card's "X" (2026-08-13). When given, the card draws a dismiss
+   * button in its top-right corner; the caller persists the dismissal (lib/useFirstVisitHint's
+   * `dismiss`, which writes settings.dismissedHints) and stops passing `open`.
+   *
+   * Optional because the pill path has no use for it: that card is already one tap from being
+   * closed by the pill that opened it.
+   */
+  onDismiss?: () => void;
 };
 
-export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill, children }: Props) {
+export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill, children, onDismiss }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -99,7 +108,9 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
     else setOpenInternal((v) => !v);
   }
 
-  // Header-driven mode: no pill, just the card body when open.
+  // Intro-card mode: no pill, just the card body, open until the caller says otherwise.
+  // Named `noPill` from when the header ⓘ was the toggle; the flag now means "the screen owns
+  // whether this shows" and the ⓘ is gone (2026-08-13 — see lib/useFirstVisitHint.ts).
   if (noPill) {
     if (!openProp) return null;
     return (
@@ -110,6 +121,21 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
           {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
           {children ? <View style={styles.childrenSlot}>{children}</View> : null}
         </View>
+        {/* Same dismiss affordance as components/StarterCard.tsx's — an intro card and an
+            empty-state explainer are the same promise ("this will go away"), so they close the
+            same way. Outside `body` so its hit area clears the text rather than overlapping it. */}
+        {onDismiss ? (
+          <PressableScale
+            onPress={onDismiss}
+            hitSlop={HitSlop.base}
+            scaleTo={0.9}
+            accessibilityRole="button"
+            accessibilityLabel={t.starters.dismiss}
+            style={styles.dismiss}
+          >
+            <Ionicons name="close" size={16} color={theme.textMuted} />
+          </PressableScale>
+        ) : null}
       </View>
     );
   }
@@ -189,5 +215,15 @@ const baseStyles = StyleSheet.create({
   },
   childrenSlot: {
     marginTop: Spacing.sm,
+  },
+  // Top-aligned rather than centred: the card can run to several lines (Shopping's is two
+  // paragraphs) and an "X" floating at the vertical middle of a tall card reads as unrelated
+  // to it. `alignSelf: 'flex-start'` keeps it level with the first line of text.
+  dismiss: {
+    alignSelf: 'flex-start',
+    minWidth: MIN_TAP_TARGET,
+    minHeight: MIN_TAP_TARGET,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

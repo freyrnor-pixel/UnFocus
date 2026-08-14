@@ -84,7 +84,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { computeBorderTone, FontSize, Fonts, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { computeBorderTone, FontSize, Fonts, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
@@ -671,20 +671,18 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     padding: 2,
   },
-  // includeFontPadding/textAlignVertical: without these, Android adds font-metric padding
-  // below the glyph baseline that alignItems:'center' doesn't account for, so the label
-  // optically sits low inside the segment (carried over from SlideSelector and TabSlider).
+  // OpticalCenter: without it, Android adds font-metric padding below the glyph baseline that
+  // alignItems:'center' doesn't account for, so the label optically sits low inside the segment
+  // (carried over from SlideSelector and TabSlider).
   segmentLabel: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
   },
   segmentLabelCompact: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
   },
   labelRow: {
     flexDirection: 'row',

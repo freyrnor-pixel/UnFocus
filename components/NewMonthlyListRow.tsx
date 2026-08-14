@@ -45,7 +45,7 @@
 import React, { useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing, contrastOn } from '@/constants/theme';
+import { FontSize, Fonts, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, contrastOn } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
@@ -165,11 +165,14 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
-  addBarLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  addBarLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, ...OpticalCenter },
   panel: { borderWidth: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm },
   actionsRow: { flexDirection: 'row', gap: Spacing.sm },
-  ghostBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
-  ghostBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
-  primaryBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md },
-  primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
+  // `minHeight: MIN_TAP_TARGET` + justifyContent (2026-08-13): `paddingVertical: Spacing.sm`
+  // around a FontSize.md line came to ~40px, under DESIGN_RULES.md rule 17's 48. The padding
+  // stays so the buttons don't shrink at a large font scale — the floor only applies at small.
+  ghostBtn: { flex: 1, paddingVertical: Spacing.sm, minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md },
+  ghostBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold, ...OpticalCenter },
+  primaryBtn: { flex: 1, paddingVertical: Spacing.sm, minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center', borderRadius: Radius.md },
+  primaryBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md, ...OpticalCenter },
 });

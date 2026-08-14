@@ -456,7 +456,6 @@ import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
-import EmptyState from '@/components/EmptyState';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import InlineAddItem from '@/components/InlineAddItem';
 import AddDishSheet, { AddDishTarget } from '@/components/AddDishSheet';
@@ -483,7 +482,7 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import ShoppingStoreMode from '@/components/ShoppingStoreMode';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import HintSheet from '@/components/HintSheet';
+import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
@@ -499,7 +498,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -553,7 +552,7 @@ export default function ShoppingScreen() {
   const [tab, setTab] = useState<Tab>('weekly');
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
-  const [hintOpen, setHintOpen] = useFirstVisitHint('shopping');
+  const [hintOpen, dismissHint] = useFirstVisitHint('shopping');
   // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
   // updates the setting, leaving it blank keeps the current value.
@@ -805,10 +804,7 @@ export default function ShoppingScreen() {
   useFocusEffect(
     useCallback(() => {
       runShoppingDateChecks();
-      return () => {
-        setHintOpen(false);
-      };
-    }, [runShoppingDateChecks, setHintOpen])
+    }, [runShoppingDateChecks])
   );
 
   /**
@@ -895,6 +891,16 @@ export default function ShoppingScreen() {
     () => groupByDish(unallocatedItems),
     [unallocatedItems]
   );
+
+  /**
+   * Nothing on the Weekly tab at all — no real lists, no saved templates, nothing loose in the
+   * Unallocated bucket. Named because it now drives TWO things that must agree: whether the
+   * empty card renders, and whether the "Create a new list" trigger renders instead of it
+   * (2026-08-13 — the two used to stack, see the call site). Inlining the condition twice is
+   * how they would drift into both showing or neither.
+   */
+  const isWeeklyEmpty =
+    nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0;
 
   const ukelisteBadge = useMemo(
     () =>
@@ -1133,6 +1139,7 @@ export default function ShoppingScreen() {
    */
   function openMonthlyListOptions(list: MonthlyList) {
     showAppModal(monthlyListLabel(list, t.defaultMonthlyListName), undefined, [
+      { text: t.scanReceiptForListAction, onPress: () => router.push({ pathname: '/scan', params: { target: 'monthly', listId: list.id } }) },
       { text: t.manageInventoryAction, onPress: () => router.push({ pathname: '/inventory-edit', params: { listId: list.id } }) },
       { text: t.resetMonthlyListAction, onPress: () => { warning(); setResetListConfirmId(list.id); } },
       { text: t.resetAllMonthlyListsAction, onPress: handleManualMonthlyReset },
@@ -1663,75 +1670,6 @@ export default function ShoppingScreen() {
     </TourTarget>
   );
 
-  // The ⓘ explanation, as a bottom sheet (2026-08-13) — mounted with the other overlays
-  // below, NOT in the scroll content. It was a components/HintCard.tsx in `noPill` mode
-  // sitting at the top of `shoppingIntro`, i.e. inline between the sticky tab bar and the
-  // first list card: on this screen that body is the largest block anywhere on the tab (two
-  // paragraphs plus the weekly-reset weekday row and the monthly-reset date field), so
-  // opening it shoved every list down the moment you asked a question about them. The ⓘ was
-  // already the only way to open it (lib/useFirstVisitHint.ts stopped auto-opening on first
-  // visit 2026-07-31) — this changes where the answer lands, not how it is asked for.
-  //   The reset-cadence controls come along unchanged; this is still their ONLY home in the
-  // app. What does NOT come along is `monthlyDateLift` (lib/useKeyboardLift): it hands the
-  // field to ScreenScaffold's ScrollView, and a <Modal> renders outside that subtree, so it
-  // could only ever no-op in here. components/HintSheet.tsx carries a KeyboardAvoidingView
-  // instead — the same swap components/EpisodeCloseSheet.tsx made for the same reason.
-  const hintSheet = (
-    <HintSheet
-      visible={hintOpen}
-      onClose={() => setHintOpen(false)}
-      text={t.hints.shopping.text}
-      example={t.hints.shopping.example}
-    >
-        <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
-          <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
-          <View style={styles.hintDayRow}>
-            {/* `t.dayLabels` is the localized 3-letter abbreviation; this used to render
-                `t.dayFull[i].slice(0, 3)`, which hardcoded an English/Norwegian-shaped
-                truncation into a bilingual UI and would mangle any language whose short
-                form isn't just its first three letters. Both arrays are Mon-first, so the
-                index (and `weeklyResetDay`) is unchanged. */}
-            {t.dayLabels.map((label, i) => (
-              <PressableScale
-                key={i}
-                style={[
-                  styles.hintDayChip,
-                  { backgroundColor: theme.surfaceMuted },
-                  weeklyResetDay === i && { backgroundColor: theme.accent },
-                ]}
-                onPress={() => updateSettings({ weeklyResetDay: i })}
-                scaleTo={0.97}
-              >
-                <Text style={[
-                  styles.hintDayText,
-                  { color: theme.text },
-                  weeklyResetDay === i && { color: theme.accentInk },
-                ]}>
-                  {label}
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
-          <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
-          <TextInput
-            style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
-            value={monthlyDateInput}
-            onChangeText={(v) => {
-              setMonthlyDateInput(v);
-              const n = parseInt(v, 10);
-              if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
-            }}
-            onBlur={() => setMonthlyDateInput('')}
-            keyboardType="number-pad"
-            placeholder={String(monthlyResetDate)}
-            placeholderTextColor={theme.textMuted}
-            maxLength={2}
-            returnKeyType="done"
-          />
-        </View>
-    </HintSheet>
-  );
-
   // Screen intro chrome (first-run explainer + incoming shared requests), shared by both tabs.
   const shoppingIntro = (
     <>
@@ -1747,6 +1685,34 @@ export default function ShoppingScreen() {
           install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
           would suppress this for every new user. Items covers the seeded list having been
           filled in. */}
+      {/* The screen's explanation, inline and closable (2026-08-13). Maintainer: "Having the
+          info button in the header section with settings showing when you press it makes No
+          sense. Instead the instructions should be in the screen with examples like a
+          introduction part (users can of course close the card)."
+          It has now been three shapes in three weeks — an auto-opening first-visit card, a
+          collapsed-until-you-tap-ⓘ card, and (for one day) a bottom sheet — and the thing that
+          changed with this one is that closing it STICKS (settings.dismissedHints). The two
+          reset-cadence controls it used to carry are gone to Settings → Personal: a panel
+          whose contents are settings is not an explanation, which is what the ⓘ complaint was
+          about. The link row below is how you get to them from here. */}
+      <HintCard
+        text={t.hints.shopping.text}
+        example={t.hints.shopping.example}
+        open={hintOpen}
+        noPill
+        onDismiss={dismissHint}
+      >
+        <PressableScale
+          onPress={() => router.push('/settings?tab=personal')}
+          style={styles.hintSettingsLink}
+          accessibilityRole="button"
+          accessibilityLabel={t.shoppingCadenceLink}
+          scaleTo={0.97}
+        >
+          <Ionicons name="options-outline" size={16} color={theme.accent} />
+          <Text style={[styles.hintSettingsLinkLabel, { color: theme.accent }]}>{t.shoppingCadenceLink}</Text>
+        </PressableScale>
+      </HintCard>
       {lists.length === 0 && items.length === 0 && (
         <StarterCard text={`• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`} />
       )}
@@ -1810,7 +1776,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2220,8 +2186,8 @@ export default function ShoppingScreen() {
                   via handleRegisterWeekSectionNode) once at least one list OR saved list
                   exists — a saved list needs somewhere to be dropped even before the first
                   live list is created. With neither, there's nothing to drag yet, so the big
-                  EmptyState placeholder below covers that case instead of 4 redundant "no
-                  lists here" sections. */}
+                  empty card below covers that case instead of 4 redundant "no lists here"
+                  sections. */}
               {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
                 const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
                 const weekLists = listsByWeek[week] ?? [];
@@ -2369,19 +2335,6 @@ export default function ShoppingScreen() {
                 );
               })}
 
-              {nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0 && (
-                // Neutral edge (theme.border) instead of the default screen-hue edge, so this
-                // empty placeholder reads as a quiet "nothing here yet", not a coded surface
-                // (2026-07-20 unify placeholder cards).
-                <Surface style={styles.weekEmptyCard}>
-                  <EmptyState
-                    icon="cart-outline"
-                    title={t.weekEmptyTitle}
-                    body={t.weekEmptyBody}
-                  />
-                </Surface>
-              )}
-
               {/* Creating a new list has no single text field to fill (it's auto-named by
                   date range, then offers a start-empty/from-saved choice), so it genuinely
                   doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
@@ -2393,28 +2346,77 @@ export default function ShoppingScreen() {
                   what it does. The label is back (same change, same reasoning, as the Monthly
                   tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
                   trigger's hardest moment is an empty tab where there is nothing to declutter
-                  and everything to explain). */}
-              <PressableScale
-                // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
-                // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
-                // the two triggers are deliberately kept identical.
-                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                onPress={() =>
-                  showAppModal(t.newWeeklyListTitle, '', [
-                    { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
-                    { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
-                    { text: t.cancel, style: 'cancel' },
-                  ])
-                }
-                accessibilityRole="button"
-                accessibilityLabel={t.newWeeklyListTitle}
-                scaleTo={0.97}
-              >
-                <Ionicons name="add" size={22} color={theme.accent} />
-                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                  {t.newWeeklyListTitle}
-                </Text>
-              </PressableScale>
+                  and everything to explain).
+
+                  **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
+                  "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
+                  that creating the first just looks like editing the default card that is there
+                  when there are No lists. When there are lists, we can use the make New list
+                  button." They used to stack — an `EmptyState` card saying "Make a new list
+                  below to get started", then the thing it pointed at — so an empty tab spent
+                  two cards saying one thing, and the card was inert while the real affordance
+                  was somewhere else.
+                  Empty: one card whose body IS the two choices, so the first list is made by
+                  filling in the card already on screen. Not empty: the trigger alone, exactly
+                  as before.
+                  The chooser modal is skipped on the empty path deliberately — with only two
+                  options and a whole card to hold them, putting them behind a dialog is one tap
+                  and one context switch for nothing. It stays on the not-empty path, where the
+                  trigger is a single row with no room to spell them out. */}
+              {isWeeklyEmpty ? (
+                // Neutral edge (theme.border) instead of the default screen-hue edge, so this
+                // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
+                // placeholder cards).
+                <Surface style={styles.weekEmptyCard}>
+                  <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
+                  <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
+                  <PressableScale
+                    style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                    onPress={handleCreateNewWeeklyList}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.startEmptyList}
+                    scaleTo={0.97}
+                  >
+                    <Ionicons name="add" size={22} color={theme.accent} />
+                    <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                      {t.startEmptyList}
+                    </Text>
+                  </PressableScale>
+                  <PressableScale
+                    style={styles.weekEmptySecondary}
+                    onPress={() => setSavedListsListId('__new__')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.savedListsTitle}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
+                      {t.savedListsTitle}
+                    </Text>
+                  </PressableScale>
+                </Surface>
+              ) : (
+                <PressableScale
+                  // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
+                  // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
+                  // the two triggers are deliberately kept identical.
+                  style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                  onPress={() =>
+                    showAppModal(t.newWeeklyListTitle, '', [
+                      { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
+                      { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
+                      { text: t.cancel, style: 'cancel' },
+                    ])
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={t.newWeeklyListTitle}
+                  scaleTo={0.97}
+                >
+                  <Ionicons name="add" size={22} color={theme.accent} />
+                  <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                    {t.newWeeklyListTitle}
+                  </Text>
+                </PressableScale>
+              )}
             </>
           )}
 
@@ -2467,7 +2469,6 @@ export default function ShoppingScreen() {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
       />
-      {hintSheet}
       <LayoutPickerSheet
         visible={layoutPickerOpen}
         surface="shopping"
@@ -2538,36 +2539,12 @@ const styles = StyleSheet.create({
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
   content: { padding: Spacing.md, gap: SCREEN_GAP },
-  // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
-  hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
-  hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
-  // 7 chips share the row instead of each claiming a fixed 40px (2026-07-28 wrap audit).
-  // The old `minWidth: 40` + `gap: 4` gave the row a hard 304px floor (7*40 + 6*4); the
-  // Shopping hint only offers ~295px at a 360px phone width, so `flexWrap` broke Mon–Sun
-  // onto two lines — missing a single line by 9px. `flex: 1` with no minWidth lets the
-  // chips shrink to whatever fits, which is what components/TaskCard.tsx's weekdayChip
-  // has always done for the same 7-day picker. flexWrap is dropped deliberately: with
-  // flex:1 children there is nothing left to wrap, and leaving it in would silently
-  // reintroduce the two-line break the moment someone re-adds a minimum width.
-  hintDayRow: { flexDirection: 'row', gap: 4 },
-  hintDayChip: {
-    flex: 1,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    borderRadius: Radius.full,
-  },
-  hintDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  hintDateInput: {
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    padding: Spacing.sm,
-    fontSize: FontSize.md,
-    textAlign: 'center',
-    alignSelf: 'flex-start',
-    minWidth: 64,
-  },
+  // Link out to Settings → Personal, inside the intro card. The weekly-reset weekday row and
+  // the monthly-reset date field used to live in this card's body; they are real settings and
+  // they moved there (2026-08-13). This is a door, not a duplicate control — two live copies of
+  // one setting is the drift this repo keeps paying for.
+  hintSettingsLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
+  hintSettingsLinkLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
   // Food/Catalogue entry-point buttons (UX audit F1, 2026-07-23) — shown above the list
   // content on both Weekly and Monthly, since either sub-screen is reachable regardless
   // of which shopping list tab is active.
@@ -2594,7 +2571,7 @@ const styles = StyleSheet.create({
   // vertically center it within the reserved sticky height.
   stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
   tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold },
+  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold, ...OpticalCenter },
   tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
 
   catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
@@ -2753,7 +2730,16 @@ const styles = StyleSheet.create({
 
   weekLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  weekEmptyCard: { borderRadius: Radius.md, paddingVertical: Spacing.sm, marginBottom: Spacing.md },
+  // The empty Weekly tab's one card — it holds its own explanation AND the two ways to make a
+  // first list (2026-08-13), so it needs real padding and a gap, where it used to be a thin
+  // wrapper around an EmptyState that brought its own.
+  weekEmptyCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.md },
+  weekEmptyTitle: { fontSize: FontSize.md, fontFamily: Fonts.bold, textAlign: 'center', ...OpticalCenter },
+  weekEmptyBody: { fontSize: FontSize.sm, textAlign: 'center', ...OpticalCenter },
+  // "Saved lists" — the second, quieter way in. A worded row rather than a second filled
+  // trigger: two accent-tinted buttons of equal weight in one card is two primaries.
+  weekEmptySecondary: { minHeight: MIN_TAP_TARGET, alignItems: 'center', justifyContent: 'center' },
+  weekEmptySecondaryLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
   // One section per week of the monthly cycle (2026-07-22) — a plain bordered region (not
   // a Surface: WeekListCard is already its own Surface-backed card, so this stays a quiet
   // grouping frame). borderColor/backgroundColor go transparent at rest, tinted to

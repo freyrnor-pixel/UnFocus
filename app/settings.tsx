@@ -278,7 +278,7 @@ import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { selection, heavy } from '@/lib/haptics';
+import { selection, heavy, success } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
@@ -909,6 +909,27 @@ export default function SettingsScreen() {
                       Personal → Layout in the 2026-07-25 reorganization. It's a taste
                       preference about how the Plans rail is drawn, not an accessibility
                       aid, and keeping it here made this card read as a grab bag. */}
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  {/* "Show tips again" (2026-08-13) — the ONLY way back once a screen's intro
+                      card has been closed, so it has to exist somewhere findable. It lives with
+                      the accessibility/appearance controls rather than under Data because it is
+                      about what the app shows you, not about your rows.
+                      A button, not a toggle: `dismissedHints` is a SET of screen keys, and a
+                      switch would have to answer "on or off?" for five independent cards. Also
+                      why the confirmation is a transient message rather than a state change —
+                      after pressing it there is nothing here to look different. */}
+                  <Text style={[styles.switchLabel, { color: theme.text }]}>{t.restoreHintsLabel}</Text>
+                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.restoreHintsBody}</Text>
+                  <PressableScale
+                    style={[styles.dangerBtn, settings.dismissedHints.length === 0 && { opacity: 0.4 }]}
+                    onPress={() => { settings.restoreHints(); success(); setInputWarning(t.restoreHintsDone); }}
+                    disabled={settings.dismissedHints.length === 0}
+                    accessibilityRole="button"
+                    accessibilityLabel={t.restoreHintsLabel}
+                    scaleTo={0.97}
+                  >
+                    <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.restoreHintsLabel}</Text>
+                  </PressableScale>
                 </ExpandableCard>
               </Surface>
             </View>

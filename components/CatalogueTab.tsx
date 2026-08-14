@@ -140,6 +140,10 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
+import IconButton from '@/components/IconButton';
+import { useRouter } from 'expo-router';
+import { SegmentedControl } from '@/components/FormControls';
+import { sortByCategoryThenName } from '@/lib/shoppingCategories';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -188,6 +192,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
   item,
   isFirst,
   embedded,
+  locked,
   onStartEdit,
   onRemove,
   theme,
@@ -197,6 +202,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
   item: StoreItem;
   isFirst: boolean;
   embedded: boolean;
+  locked: boolean;
   onStartEdit: (item: StoreItem) => void;
   onRemove: (id: string) => void;
   theme: ThemePalette;
@@ -229,19 +235,24 @@ const CatalogueRow = React.memo(function CatalogueRow({
           Reanimated shared-value/animated-style node + AccessibilityInfo listener per trash
           button is real mount cost across the ~10 rows built on first paint — the second half
           of the Catalogue tab's open latency. Opacity dip keeps the tap feeling responsive. */}
-      <Pressable
-        onPress={() => onRemove(item.id)}
-        hitSlop={HitSlop.base}
-        accessibilityLabel={deleteLabel}
-        style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
-      >
-        <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
-      </Pressable>
+      {/* Hidden while the catalogue is locked (2026-08-13) — see the `locked` state's note.
+          Absent, not disabled: a greyed-out trash on 286 rows is 286 things that look broken. */}
+      {!locked && (
+        <Pressable
+          onPress={() => onRemove(item.id)}
+          hitSlop={HitSlop.base}
+          accessibilityLabel={deleteLabel}
+          style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
+        >
+          <Ionicons name="trash-outline" size={18} color={theme.textMuted} />
+        </Pressable>
+      )}
     </View>
   );
 });
 
 export default function CatalogueTab({ onNotify, header, embedded = false, onOpenFull }: Props) {
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -264,6 +275,26 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
 
   const [query, setQuery] = useState('');
 
+  /**
+   * "By name" (the store's own Norwegian collation) or "By type" (shop-walk aisle order).
+   * Presentation only — `useCatalogStore` keeps its canonical name order and nothing is
+   * written back. Local, not persisted: it is which way you want to read the list right now.
+   */
+  const [sortMode, setSortMode] = useState<'name' | 'type'>('name');
+
+  /**
+   * The catalogue's delete buttons are hidden until this is unlocked (2026-08-13, maintainer:
+   * "Catalogue should not have the delete button there unless the lock is unlocked").
+   *
+   * Local and NOT persisted, deliberately, and not a settings column: it is a per-visit safety
+   * catch on a destructive one-tap action, not a preference. `handleRemove` has never had a
+   * confirm dialog — one tap deletes — which is defensible with the lock in front of it and
+   * was not before. Don't add `confirmDestructive()` on top: two gates on one action is worse
+   * than one good one. It must also never sync (a paired phone locking your catalogue is
+   * nonsense), which a settings column would invite.
+   */
+  const [locked, setLocked] = useState(true);
+
   // `items` already arrives Norwegian-collated from useCatalogStore (sorted once in
   // load() + kept sorted by every mutation), so this tab renders it directly — no
   // per-mount sort, which is what used to add a "loading" beat when opening this tab.
@@ -271,15 +302,21 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
   // empty query returns the original array reference (no allocation / no re-render churn).
   const displayItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [items, query]);
+    const filtered = q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
+    // 'name' returns the input reference untouched — the store already sorts that way, so the
+    // default path allocates nothing. 'type' re-orders a COPY (sortByCategoryThenName never
+    // mutates): this is a view, and the catalogue's stored order stays the store's.
+    return sortMode === 'type' ? sortByCategoryThenName(filtered) : filtered;
+  }, [items, query, sortMode]);
 
   // ── A–Z scrubber ──────────────────────────────────────────────────────────────────
   const flatListRef = useRef<FlatList<StoreItem>>(null);
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
   // Only worth showing on a long, unfiltered list (a filtered/short list has nothing to scrub).
-  const showScrubber = query.trim().length === 0 && displayItems.length >= SCRUB_MIN_ITEMS;
+  // Also hidden in 'type' order: an A–Z rail that jumps to a letter is meaningless over a list
+  // grouped by aisle, where the names restart at A in every group.
+  const showScrubber =
+    sortMode === 'name' && query.trim().length === 0 && displayItems.length >= SCRUB_MIN_ITEMS;
 
   // Letters to render + first-row-index for each present letter, derived from what's on screen.
   const scrubData = useMemo(() => {
@@ -450,15 +487,19 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
           <PressableScale style={[styles.iconBtn, { backgroundColor: theme.good }]} onPress={commitEdit} hitSlop={HitSlop.tight} scaleTo={0.9}>
             <Ionicons name="checkmark" size={16} color={theme.textInverse} />
           </PressableScale>
-          <PressableScale
-            style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
-            onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
-            hitSlop={HitSlop.tight}
-            accessibilityLabel={t.catalogueDeleteItemLabel}
-            scaleTo={0.93}
-          >
-            <Ionicons name="trash-outline" size={16} color={theme.bad} />
-          </PressableScale>
+          {/* Gated on the lock too — the row's own trash is hidden while locked, and leaving
+              this one live would make "unlock to delete" a lie that costs one extra tap. */}
+          {!locked && (
+            <PressableScale
+              style={[styles.iconBtn, { backgroundColor: theme.badSoft }]}
+              onPress={() => { removeItem(item.id); heavy(); setEditingId(null); }}
+              hitSlop={HitSlop.tight}
+              accessibilityLabel={t.catalogueDeleteItemLabel}
+              scaleTo={0.93}
+            >
+              <Ionicons name="trash-outline" size={16} color={theme.bad} />
+            </PressableScale>
+          )}
         </View>
       );
     }
@@ -467,6 +508,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
         item={item}
         isFirst={isFirst}
         embedded={embedded}
+        locked={locked}
         onStartEdit={startEdit}
         onRemove={handleRemove}
         theme={theme}
@@ -515,6 +557,42 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
           )}
         </View>,
         styles.searchCard
+      )}
+      {/* ── Sort + lock ── one row: how the list is ordered, and whether it can be deleted from.
+          The SegmentedControl is the FORM-tier pick-one shape (components/FormControls) — the
+          screen-tier TabSlider is an accent-filled pill and this list is inside a card, plus
+          Shopping's drawer already spends its one screen-tier control on Weekly/Monthly.
+          "Always" visible, per the maintainer, not only while a query is active. */}
+      {shell(
+        <View style={styles.sortRow}>
+          <View style={styles.sortControl}>
+            <SegmentedControl
+              value={sortMode}
+              onChange={setSortMode}
+              options={[
+                { value: 'name' as const, label: t.sortByName },
+                { value: 'type' as const, label: t.sortByType },
+              ]}
+            />
+          </View>
+          {/* Scan → 'catalogue' target (2026-08-13): add unknown names, update known prices,
+              and write to no shopping list at all. The camera used to be a single header icon
+              on Shopping with no idea what you meant by it. See lib/scanTarget.ts. */}
+          <IconButton
+            icon="camera-outline"
+            label={t.scanForCatalogueLabel}
+            onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
+            size={22}
+          />
+          <IconButton
+            icon={locked ? 'lock-closed' : 'lock-open-outline'}
+            label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+            onPress={() => { setLocked((v) => !v); selection(); }}
+            active={!locked}
+            size={22}
+          />
+        </View>,
+        styles.sortCard
       )}
       {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
           visible at the top of this long, alphabetized reference list. */}
@@ -581,7 +659,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
               pressed ? { opacity: 0.5 } : null,
             ]}
             accessibilityRole="button"
-            accessibilityLabel={t.catalogueTabLabel}
+            accessibilityLabel={t.andMoreItems(rest)}
           >
             <Text style={[styles.moreText, { color: theme.textMuted }]}>{t.andMoreItems(rest)}</Text>
             <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
@@ -723,16 +801,29 @@ const baseStyles = StyleSheet.create({
   embeddedRoot: { gap: Spacing.sm },
   // Tail row — "and N more", opens the full screen. Muted and chevron'd so it reads as a door
   // rather than as another item; deliberately NOT styled as a row you could edit or delete.
+  //
+  // **Right-aligned since 2026-08-13** (maintainer: "The 'See more' in catalogue should be
+  // moved to the right, to the left of the arrow so it looks more like a link instead of an
+  // item"). It was `justifyContent: 'space-between'`, which put the label hard left on the
+  // same x as every item name above it and the chevron hard right — the exact geometry of the
+  // rows it is NOT one of, with the whole width between them reading as an empty row body.
+  // Pushed together at the right, the pair reads as one trailing control.
   moreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
+    justifyContent: 'flex-end',
+    gap: Spacing.xs,
     minHeight: MIN_TAP_TARGET,
     borderTopWidth: 1,
   },
   moreText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
   searchCard: { paddingHorizontal: Spacing.md },
+  sortCard: { paddingHorizontal: Spacing.md },
+  // The segment takes the width and the lock sits beside it. `flex: 1` + `minWidth: 0` on the
+  // control, not on the row, so the two Norwegian labels ("Etter navn"/"Etter type") get every
+  // pixel the lock isn't using — the wrap-audit lesson from the task editor.
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  sortControl: { flex: 1, minWidth: 0 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
   // A–Z scrubber column: fills the card height so touch-Y ÷ height × letters maps uniformly.

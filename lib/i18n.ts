@@ -355,7 +355,10 @@ const en = {
     todo: 'To-do',
     shopping: 'Shopping list',
     habits: 'Habits',
-    goals: 'Goals',
+    // Names the drawer this actually lands in: lib/prefill.ts's `goals` slot opens the HABITS
+    // tab's drawer, which is the personal one (2026-08-13, when the two drawers split names).
+    // Counterintuitive but correct — see components/SendToSheet.tsx's note.
+    goals: 'Personal goals',
   },
   // Task form
   newTask: 'New task',
@@ -674,7 +677,7 @@ const en = {
   movedToDish: (dish: string) => `Moved into ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} put back in inventory`,
   // --- end W-C additions ---
-  weeklyTabLabel: 'Week lists',
+  weeklyTabLabel: 'Shopping lists',
   monthlyTabLabel: 'Monthly list',
   // --- Katalog/Ukeliste redesign ---
   inWeeklyListSection: 'Shopping list',
@@ -753,7 +756,7 @@ const en = {
   monthlyListsEmpty: 'No monthly lists yet — create one to get started.',
   deleteMonthlyListAction: 'Delete this list',
   weekEmptyTitle: 'No lists this week yet',
-  weekEmptyBody: 'Make a new list below to get started.',
+  weekEmptyBody: 'Start one here whenever you need it.',
   catalogueSearchPlaceholder: 'Search the catalogue…',
   monthlyListTotal: (kr: string) => `Total: ${kr}`,
   monthlyListEmpty: 'Nothing added yet — pick from the catalogue below.',
@@ -780,14 +783,43 @@ const en = {
   removeItemLabel: 'Remove item',
   putBackItemLabel: 'Put back in stock',
   categoryPickerLabel: 'Category (optional)',
+  // In shop-walk order, matching CATEGORY_VALUES in lib/shoppingCategories.ts — these are the
+  // "In the store" layout's aisle headers, so the order is the order you walk. Grown from 8 to
+  // 13 on 2026-08-13 when the catalogue's vocabulary and the app's were merged; see that file.
+  // Catalogue sort toggle (2026-08-13) — "always" visible, per the maintainer, not only while
+  // a query is active. "Type" rather than "category" because the aisle is what it means to a
+  // person standing in a shop.
+  // Link from Shopping's intro card to Settings → Personal, where the weekly/monthly reset
+  // cadence controls moved on 2026-08-13.
+  // Per-card scan entries (2026-08-13) — the camera moved off the header, where it had no
+  // idea which list you meant. On a list it MATCHES against that list; in the Catalogue it
+  // adds unknown names and updates prices. See lib/scanTarget.ts.
+  scanReceiptForListAction: 'Scan a receipt',
+  scanForCatalogueLabel: 'Scan prices',
+  scanTargetWeekly: 'Matching against this shopping list',
+  scanTargetMonthly: 'Matching against this monthly list',
+  scanTargetCatalogue: 'Adding and updating catalogue prices',
+  shoppingCadenceLink: 'Reset days',
+  // Settings → General: brings back every intro card the user has closed.
+  restoreHintsLabel: 'Show tips again',
+  restoreHintsBody: 'Bring back the intro card on every screen.',
+  restoreHintsDone: 'Tips are back',
+  sortByType: 'By type',
+  sortByName: 'By name',
+  sortLabel: 'Sort',
   categoryLabels: {
     produce: 'Produce',
-    dairy: 'Dairy',
-    meatFish: 'Meat & fish',
     bakery: 'Bakery',
-    pantry: 'Pantry',
+    dairy: 'Dairy',
+    meat: 'Meat',
+    fish: 'Fish',
     frozen: 'Frozen',
-    household: 'Household',
+    pantry: 'Pantry',
+    canned: 'Tinned',
+    snacks: 'Snacks',
+    drinks: 'Drinks',
+    cleaning: 'Cleaning',
+    personal: 'Personal care',
     other: 'Other',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
@@ -1338,18 +1370,27 @@ const en = {
     // that hasn't been worked in a while has simply cooled back to neutral — lib/
     // goalStrength.ts floors at 0 and is never driven below it — so the copy has to say
     // that too, or the mechanic and the words disagree.
-    title: 'Goals',
-    // Label for the "Goals" drawer on Habits/Plans (2026-07-31 — moved off the top of those
-    // screens; see those files' Edit notes). It opened a GoalsSheet popup until 2026-08-12,
-    // when that popup was deleted in favour of an in-card editor (components/GoalsEditor.tsx)
-    // mounted straight into the drawer — the label didn't need to change for that.
-    /* A bare noun, like Shopping's "Food" and "Catalogue" links, which it now shares a
-       component with (components/CollapsedSection.tsx). It read
-       "Edit Goals" until 2026-08-03 — a verb that overstates what the tap does (it opens
-       a sheet you can look at as well as edit) and that reads as a list row rather than a
-       way out of the screen, which is how the 2026-08-03 walkthrough took it on both the
-       To-do and Habits tabs. AGENTS.md had already recorded the label as "Goals". */
-    editLink: 'Goals',
+    /**
+     * Labels for the "Goals" drawer, which is mounted TWICE — once on Habits and once on To-do
+     * (components/CollapsedSection.tsx, both bodies components/GoalsEditor.tsx).
+     *
+     * **They were ONE key (`editLink`) until 2026-08-13**, so one destination wore one word on
+     * two screens. Maintainer: "Habit Goals should be renamed to Personal Goals, and to-do
+     * Goals renamed to practical Goals." The split is the point — a goal reached through habits
+     * is something you want to BE, one reached through to-dos is something you want DONE — so
+     * the two drawers are no longer interchangeable and must not be re-merged into one key.
+     *
+     * Still bare noun phrases, like Shopping's "Food" and "Catalogue" links, which they share a
+     * component with. `editLink` read "Edit Goals" until 2026-08-03 — a verb that overstates
+     * what the tap does and reads as a list row rather than a way out of the screen. Keep both
+     * of these on the noun side of that line.
+     *
+     * (The `title` key that sat here is deleted: it named the Goals SHEET, and both the sheet
+     * — components/GoalsSheet.tsx — and app/goals.tsx were deleted on 2026-08-12, leaving it
+     * with no consumer at all.)
+     */
+    editLinkPersonal: 'Personal goals',
+    editLinkPractical: 'Practical goals',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -1862,7 +1903,6 @@ const en = {
    * the preview row would just be a redundant second way to do the same thing.
    */
   starters: {
-    exampleLabel: 'Example',
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
     /** Accessibility label for a StarterCard's dismiss "X" (2026-08-06). */
@@ -1885,7 +1925,7 @@ const en = {
     plans: {
       text: 'Break it into smaller pieces.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'Examples',
+      tapToAdd: 'Examples:',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1910,7 +1950,7 @@ const en = {
     health: {
       text: 'Log what bothers you. And what helps.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'Examples',
+      tapToAdd: 'Examples:',
       exampleTitle: 'Headache',
     },
     // Medicine card's empty state — compact (no example row): the card's own add field
@@ -2508,7 +2548,7 @@ const no: typeof en = {
     todo: 'Gjøremål',
     shopping: 'Handleliste',
     habits: 'Vaner',
-    goals: 'Mål',
+    goals: 'Personlige mål',
   },
   newTask: 'Ny oppgave',
   add: 'Legg til',
@@ -2772,7 +2812,7 @@ const no: typeof en = {
   movedToDish: (dish: string) => `Flyttet til ${dish} ✓`,
   itemPutBackToInventory: (name: string) => `${name} lagt tilbake i inventar`,
   // --- end W-C additions ---
-  weeklyTabLabel: 'Ukelister',
+  weeklyTabLabel: 'Handlelister',
   monthlyTabLabel: 'Måned',
   // --- Katalog/Ukeliste redesign ---
   inWeeklyListSection: 'Handleliste',
@@ -2841,7 +2881,7 @@ const no: typeof en = {
   monthlyListsEmpty: 'Ingen månedslister ennå — opprett en for å komme i gang.',
   deleteMonthlyListAction: 'Slett denne listen',
   weekEmptyTitle: 'Ingen lister denne uken ennå',
-  weekEmptyBody: 'Lag en ny liste under for å komme i gang.',
+  weekEmptyBody: 'Start en her når du trenger det.',
   catalogueSearchPlaceholder: 'Søk i katalogen…',
   monthlyListTotal: (kr: string) => `Totalt: ${kr}`,
   monthlyListEmpty: 'Ingenting lagt til ennå — velg fra katalogen under.',
@@ -2865,14 +2905,31 @@ const no: typeof en = {
   removeItemLabel: 'Fjern vare',
   putBackItemLabel: 'Legg tilbake på lager',
   categoryPickerLabel: 'Kategori (valgfritt)',
+  scanReceiptForListAction: 'Skann en kvittering',
+  scanForCatalogueLabel: 'Skann priser',
+  scanTargetWeekly: 'Sammenlignes med denne handlelisten',
+  scanTargetMonthly: 'Sammenlignes med denne månedslisten',
+  scanTargetCatalogue: 'Legger til og oppdaterer katalogpriser',
+  shoppingCadenceLink: 'Nullstillingsdager',
+  restoreHintsLabel: 'Vis tipsene igjen',
+  restoreHintsBody: 'Hent tilbake introkortet på alle skjermene.',
+  restoreHintsDone: 'Tipsene er tilbake',
+  sortByType: 'Etter type',
+  sortByName: 'Etter navn',
+  sortLabel: 'Sorter',
   categoryLabels: {
     produce: 'Frukt & grønt',
-    dairy: 'Meieri',
-    meatFish: 'Kjøtt & fisk',
     bakery: 'Bakevarer',
-    pantry: 'Tørrvarer',
+    dairy: 'Meieri',
+    meat: 'Kjøtt',
+    fish: 'Fisk',
     frozen: 'Frossenmat',
-    household: 'Husholdning',
+    pantry: 'Tørrvarer',
+    canned: 'Hermetikk',
+    snacks: 'Snacks',
+    drinks: 'Drikke',
+    cleaning: 'Rengjøring',
+    personal: 'Personlig pleie',
     other: 'Annet',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
@@ -2995,8 +3052,8 @@ const no: typeof en = {
     deleteConfirmTitle: (name: string) => `Slette «${name}»?`,
     deleteConfirmBody: 'Oppgaver og vaner som er koblet til, blir frakoblet. Dette kan ikke angres.',
     strengthLabel: 'Måldriv — vokser når du jobber med det, avtar rolig når du ikke gjør det.',
-    title: 'Mål',
-    editLink: 'Mål',
+    editLinkPersonal: 'Personlige mål',
+    editLinkPractical: 'Praktiske mål',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',
@@ -3782,7 +3839,6 @@ const no: typeof en = {
     },
   },
   starters: {
-    exampleLabel: 'Eksempel',
     addExample: 'Legg til',
     dismiss: 'Lukk',
     expandExamples: 'Vis forslag',
@@ -3799,7 +3855,7 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del opp i mindre biter.',
-      tapToAdd: 'Eksempler',
+      tapToAdd: 'Eksempler:',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -3816,7 +3872,7 @@ const no: typeof en = {
     },
     health: {
       text: 'Logg plagene dine. Og hva som hjelper.',
-      tapToAdd: 'Eksempler',
+      tapToAdd: 'Eksempler:',
       exampleTitle: 'Hodepine',
     },
     medicine: {
@@ -3832,7 +3888,10 @@ const no: typeof en = {
     },
     goals: {
       text: 'Det gjøremålene og vanene dine går til sammen om.',
-      tapToAdd: 'Trykk på en for å starte:',
+      // Same Norwegian as starters.habits.tapToAdd — one English string had two translations
+      // ("Trykk på én for å komme i gang:" vs "Trykk på en for å starte:", the second also
+      // missing the accent on "én"). Both label the same gesture on the same kind of chip row.
+      tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         rested: 'Bli mer uthvilt',
         // Norwegian is the long side of every pair here, and these draw as one-line rows —

@@ -112,6 +112,7 @@ import {
   FontSize,
   Fonts,
   HOME_PREVIEW_CARD_MIN_HEIGHT,
+  OpticalCenter,
   PAD_GUTTER,
   Radius,
   Spacing,
@@ -446,14 +447,13 @@ const baseStyles = StyleSheet.create({
   },
   headerLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
-  // includeFontPadding:false + textAlignVertical:'center' so the title optically centers against
-  // the round CardAccentBadge on Android (same font-padding fix as TabSlider/ScreenHeader).
+  // OpticalCenter so the title optically centers against the round CardAccentBadge on Android
+  // (same font-padding fix as TabSlider/ScreenHeader — see constants/theme.ts for why).
   title: {
     fontSize: 20,
     lineHeight: 25,
     fontFamily: Fonts.bold,
-    includeFontPadding: false,
-    textAlignVertical: 'center',
+    ...OpticalCenter,
   },
   micButton: {
     width: 28,

@@ -284,8 +284,16 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     expect(props).not.toMatch(/\btext=/);
     // The ghost add-row stays OUTSIDE it: on the `readOnly && !onAddTask` branch it is the
     // only way in, and a collapse must never take away the last "add something" affordance.
+    //
+    // Checked by POSITION against the StarterCard block's own end, not by a character distance
+    // from `example={`. It was `not.toMatch(/example=\{[\s\S]{0,600}styles\.emptyAddRow/)`
+    // until 2026-08-13, when deleting one prop line from the example row shortened the gap
+    // under 600 and failed the test while the ghost row was still exactly where it belonged.
+    // A window that a formatting change can walk across is measuring the wrong thing.
     expect(source).toMatch(/styles\.emptyAddRow/);
-    expect(source).not.toMatch(/example=\{[\s\S]{0,600}styles\.emptyAddRow/);
+    const starterCardEnd = source.indexOf(') : null}', source.indexOf('<StarterCard'));
+    expect(starterCardEnd).toBeGreaterThan(-1);
+    expect(source.indexOf('styles.emptyAddRow')).toBeGreaterThan(starterCardEnd);
   });
 
   it('the medicine card carries the shared explainer line, not a StarterCard of its own', () => {

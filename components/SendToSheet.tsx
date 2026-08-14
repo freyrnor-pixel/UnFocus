@@ -35,6 +35,12 @@
  *     (that file dropped its own `domain` prop on 2026-08-08 and draws the flag as a bare
  *     glyph in the screen hue — the GLYPH is what is shared here, not the badge).
  *     Note "todo" here means the Plans/day view (`domain="plan"`) — same hue either way.
+ *   - **The Goals row says "Personal goals", and that is deliberate (2026-08-13).** The two
+ *     Goals drawers were renamed apart that day — Personal on Habits, Practical on To-do — and
+ *     `lib/prefill.ts`'s `goals` slot lands on the HABITS tab, so this target opens the
+ *     personal one. Counterintuitive next to the "To-do" row right above it, which is why the
+ *     label names the destination rather than the feature. If the prefill slot is ever
+ *     re-pointed at the To-do drawer, this string has to move with it.
  *   - Closes itself on pick (the caller is about to navigate); no confirm step, because the
  *     created row lands focused and editable, which IS the confirm.
  *   - **The optional delete row is not a fifth target** (2026-08-01, app/notes.tsx). It sits

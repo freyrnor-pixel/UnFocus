@@ -234,8 +234,6 @@ type Props = {
   /** Rendered height of `stickyBelowHeader` — required whenever that prop is passed. */
   stickyBelowHeaderHeight?: number;
   /** Info/hint toggle — forwarded to the header ⓘ button. */
-  infoActive?: boolean;
-  onInfoToggle?: () => void;
   /** Site-tier only — forwarded to the header's optional share icon. */
   onSharePress?: () => void;
   /** Site-tier only — forwarded to the header's optional scan icon. */
@@ -321,8 +319,6 @@ export default function ScreenScaffold({
   headerRight,
   stickyBelowHeader,
   stickyBelowHeaderHeight = 0,
-  infoActive,
-  onInfoToggle,
   onSharePress,
   onScanPress,
   onLayoutPress,
@@ -682,8 +678,6 @@ export default function ScreenScaffold({
           isHome={isHome}
           onBack={onBack}
           headerRight={headerRight}
-          infoActive={infoActive}
-          onInfoToggle={onInfoToggle}
           onSharePress={onSharePress}
           onScanPress={onScanPress}
           onLayoutPress={onLayoutPress}

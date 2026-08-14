@@ -48,14 +48,14 @@
  *       • title in `theme.textMuted`, **italic** — matching StarterCard's own explainer voice
  *       • icon ring in `theme.border`, not the accent
  *     `accent` survives for exactly two things: the "+" button (a real action, in the app's one
- *     action colour) and the tag chip's edge, so the suggestion still points at its own list.
+ *     action colour). The tag chip that used to carry the second half of it is gone (2026-08-13).
  *     **Don't "restore" the real-row styling by citing the 2026-07-27 note** — that note is
  *     kept above precisely so the reversal is legible as a decision, not as drift.
  *   - **(2026-07-31, addendum A.4 rule 1) `accent` is a FILL/EDGE colour here, never ink.** The
  *     leading glyph and the "example" tag word used to be drawn in it; both are `textMuted`
  *     now, and the "+" is `theme.accent` (it is an action, and the app has one action colour).
- *     The row keeps every hue it had — wash, row edge, icon circle, tag chip, "+" button — so
- *     it still reads as belonging to its list. The reason is legibility at the collapsed
+ *     The row kept every hue it had at the time — wash, row edge, icon circle, tag chip, "+"
+ *     button — so it still read as belonging to its list; only the "+" carries one now. The reason is legibility at the collapsed
  *     four-hue set: Shopping's gold is 2.25:1 on white, so a 13px glyph and an 11px word drawn
  *     in it were the two least readable things on an empty screen.
  *   - `onAdd` is optional — omit it for a purely read-only preview (Habits' row does
@@ -66,13 +66,16 @@
  *     it, matching the house pattern (see app/(tabs)/habits.tsx's createHabit).
  *   - `meta`/`metaVariant` reuse components/Badge — keep meta text short (a count,
  *     a signed number, a recurrence word) so it reads as a pill, not a second sentence.
- *   - **`tag` replaced the caption line (2026-07-30)**: the "is this a real row?" ambiguity
- *     that this row's deliberate real-row styling creates used to be answered by a full-width
- *     uppercase "EXAMPLE TASKS" caption above it (StarterCard's `exampleLabel`, plus
- *     hand-rolled copies in PlanTaskCard/HomeHabitsCard). That cost a whole line on a card
- *     whose whole problem was already too many lines of teaching before any content — so the
- *     marker moved onto the row itself. Keep the copy to one word (`t.starters.exampleLabel`);
- *     it competes for width with the title, meta pill and "+" at 360px.
+ *   - **The "Example" chip is GONE (2026-08-13) — don't reintroduce it.** History, because it
+ *     is a marker that has now been tried in two shapes and dropped: a full-width uppercase
+ *     "EXAMPLE TASKS" caption line above the row (2026-07-30, cut for costing a whole line on
+ *     a card whose problem was already too much teaching before any content), then a one-word
+ *     `tag` chip on the row itself, cut now. Both were answering "is this a real row?" — a
+ *     question the 2026-08-10 provisional finish (dashed, unfilled, muted italic) already
+ *     answers, and which the trigger row above the box now answers a second time in words
+ *     ("Eksempler:" / "Examples:", `StarterCard`'s `exampleHeaderLabel`). Maintainer: "Remove
+ *     the 'Eksempel' in the example row since the 'Eksempler:' already shows user that these
+ *     are examples." Three markers for one idea is two too many.
  *   - There used to be a `compact` chip variant for a `compact` StarterCard. Its only caller
  *     was components/EnergyMeter's disappearing empty-state explainer, which became a
  *     permanent one-line hint with no examples (2026-07-27) — the variant went with it.
@@ -90,7 +93,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
@@ -98,17 +101,11 @@ type Props = {
   icon: React.ComponentProps<typeof Ionicons>['name'];
   /** Row title — the example item itself (e.g. "Milk", "Headache"). */
   title: string;
-  /**
-   * Short "this is an example, not a real row" marker (`t.starters.exampleLabel`), drawn as a
-   * small chip between the icon and the title. Replaces the full-width uppercase caption line
-   * that used to sit above these rows — see the Edit notes.
-   */
-  tag?: string;
   /** Optional trailing pill (e.g. "Weekly", "+1", "3/5"). */
   meta?: string;
   metaVariant?: 'neutral' | 'success' | 'warning' | 'danger';
   /** The surrounding list's domain accent — drives the row wash and the three edges (row,
-   *  icon circle, tag chip, "+" button). Never the glyph or the text: see the A.4 note. */
+   *  icon circle, "+" button). Never the glyph or the text: see the A.4 note. */
   accent: string;
   /** When provided, renders a trailing "+" button that writes this example into the
    *  real store — omit for a read-only preview (see Edit notes). */
@@ -120,22 +117,17 @@ type Props = {
   added?: boolean;
 };
 
-export default function StarterExampleRow({ icon, title, tag, meta, metaVariant = 'neutral', accent, onAdd, addLabel, added }: Props) {
+export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel, added }: Props) {
   const theme = useAppTheme();
   // Dashed + unfilled + neutral: a sketch of a row, not a row. See the 2026-08-10 reversal in
   // the Edit notes before making any of this look "finished" again.
   return (
     <View style={[styles.row, { borderColor: theme.border }, added && styles.rowAdded]}>
       {/* A.4 rule 1: the glyph and the "example" word are neutral ink. The ring is neutral too
-          now — the accent survives only on the tag's edge and the "+" (a real action). */}
+          now — the accent survives only on the "+" (a real action). */}
       <View style={[styles.iconWrap, { borderColor: theme.border }]}>
         <Ionicons name={icon} size={13} color={theme.textMuted} />
       </View>
-      {tag ? (
-        <View style={[styles.tag, { borderColor: rgba(accent, 0.45) }]}>
-          <Text style={[styles.tagText, { color: theme.textMuted }]} numberOfLines={1}>{tag}</Text>
-        </View>
-      ) : null}
       <Text style={[styles.title, { color: theme.textMuted }]} numberOfLines={1}>
         {title}
       </Text>
@@ -235,22 +227,6 @@ const styles = StyleSheet.create({
     // text uses, which is what ties the example to the teaching card rather than to the list.
     fontStyle: 'italic',
   },
-  // The "Example" marker (2026-07-30) — a small outlined chip that replaced the full-width
-  // uppercase caption line above these rows. flexShrink:0 keeps it whole; the title shrinks
-  // first, since a clipped marker would defeat the point of having one.
-  tag: {
-    flexShrink: 0,
-    borderWidth: 1,
-    borderRadius: Radius.full,
-    paddingHorizontal: 6,
-    // MARK rather than a vertical padding, so the marker matches the icon ring, the meta pill
-    // and the "+" instead of being the shortest thing on the line. `minHeight`, not `height`,
-    // for the same reason as `metaMark` above — this chip is text in a Radius.full (masking)
-    // box too, so a hard height clips its letters once the OS font scale is turned up.
-    minHeight: MARK,
-    justifyContent: 'center',
-  },
-  tagText: { fontSize: 10, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.3 },
   addBtn: {
     width: MARK,
     height: MARK,

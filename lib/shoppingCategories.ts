@@ -16,14 +16,41 @@
  */
 import { Translations } from '@/lib/i18n';
 
-const CATEGORY_VALUES = [
+/**
+ * The app's ONE shopping-category vocabulary — in shop-walk order, which is what the
+ * "In the store" layout's aisle headers read down (`groupByAisle`, lib/cardLayout.ts).
+ *
+ * **There were TWO of these until 2026-08-13, and the bigger half of the data was filed
+ * under the one nothing read.** This list held 8 values while `lib/catalogSeed.ts` and
+ * `app/scan.tsx` used a different 12; only produce/dairy/frozen appeared in both, so **205
+ * of the catalogue's 286 seeded items** carried a value `categoryLabel()` had never heard
+ * of and fell through its `?? other` to render as "Annet". Three live consequences: "In the
+ * store" mode drew one giant Other aisle, the category filter could never match a seeded
+ * item, and app/scan.tsx rendered the raw English key as its picker label.
+ *
+ * Resolved by GROWING this list to the seed's aisle granularity rather than collapsing the
+ * seed into the old 8 — collapsing put 108 of 286 items into a single "Pantry" and would
+ * have gutted the one feature these values exist for. Existing rows are migrated in
+ * lib/db.ts; see that migration for the two mappings that are judgement calls.
+ *
+ * Adding a value means: a `categoryLabels` entry in BOTH languages (tsc enforces the pair),
+ * and nothing else — `categoryPresets`/`categoryLabel` are derived. Removing one means a
+ * migration, because it is a stored string.
+ * `lib/__tests__/shoppingCategories.test.ts` pins the seed against this list.
+ */
+export const CATEGORY_VALUES = [
   'produce',
-  'dairy',
-  'meatFish',
   'bakery',
-  'pantry',
+  'dairy',
+  'meat',
+  'fish',
   'frozen',
-  'household',
+  'pantry',
+  'canned',
+  'snacks',
+  'drinks',
+  'cleaning',
+  'personal',
   'other',
 ] as const;
 
@@ -38,4 +65,36 @@ export function categoryPresets(t: Translations): { value: string; label: string
 export function categoryLabel(t: Translations, category: string | undefined): string {
   const key = (category ?? 'other') as CategoryValue;
   return t.categoryLabels[key] ?? t.categoryLabels.other;
+}
+
+/**
+ * Sort rank for a stored category value — its index in `CATEGORY_VALUES`, i.e. shop-walk
+ * order, with anything unrecognised sorted last alongside 'other'.
+ *
+ * Extracted (2026-08-13) for the Catalogue's "Sort by type" toggle. Pure and dependency-free
+ * on purpose: it is the whole of that feature's logic, so it is the part worth a unit test,
+ * and a comparator buried in a component's `useMemo` is not testable.
+ *
+ * A rank rather than a `localeCompare` on the LABEL: sorting by the translated word would
+ * put the aisles in a different order in Norwegian than in English, and neither would be
+ * the order of the shop.
+ */
+export function categoryRank(category: string | undefined): number {
+  const i = CATEGORY_VALUES.indexOf((category ?? 'other') as CategoryValue);
+  return i === -1 ? CATEGORY_VALUES.length : i;
+}
+
+/**
+ * Order a list by category (shop-walk order), then by name within each category.
+ *
+ * Generic over anything carrying a `name` and a `category`, since the catalogue's `StoreItem`
+ * and a shopping row are different types with the same two fields. **Returns a new array and
+ * never mutates** — this is a presentation-layer sort, and its callers' stored order is either
+ * the store's own Norwegian collation (`useCatalogStore.load`) or a user-dragged order
+ * (`lib/useDragReorder.ts`). Sorting must never be written back.
+ */
+export function sortByCategoryThenName<T extends { name: string; category?: string }>(rows: readonly T[]): T[] {
+  return [...rows].sort(
+    (a, b) => categoryRank(a.category) - categoryRank(b.category) || a.name.localeCompare(b.name, 'no')
+  );
 }

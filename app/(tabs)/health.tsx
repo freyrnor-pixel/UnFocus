@@ -277,7 +277,7 @@ export default function HealthScreen() {
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); StarterCard already teaches this.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('health');
+  const [hintOpen, dismissHint] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
   const [quickStartTime, setQuickStartTime] = useState('');
@@ -311,14 +311,6 @@ export default function HealthScreen() {
   const screenHue = getScreenColor(theme, 'health').base;
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setHintOpen(false);
-      };
-    }, [setHintOpen])
-  );
 
   // Same minute tick as the Habits tab, for the weaker of the two reasons (2026-08-13): this
   // screen's `today` is DISPLAY only — the 7-day severity strip and its "is this day still in
@@ -490,8 +482,6 @@ export default function HealthScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        infoActive={hintOpen}
-        onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
           <HintCard
@@ -499,6 +489,7 @@ export default function HealthScreen() {
             example={t.hints.health.example}
             open={hintOpen}
             noPill
+            onDismiss={dismissHint}
           />
 
           {/* Ongoing-episode prompts (2026-08-01) — above the card, because they are about an
@@ -612,7 +603,6 @@ export default function HealthScreen() {
                           <StarterExampleRow
                             icon="medical-outline"
                             title={t.starters.health.exampleTitle}
-                            tag={t.starters.exampleLabel}
                             meta="3/5"
                             metaVariant="warning"
                             accent={SEVERITY_COLORS[2]}
