@@ -97,7 +97,13 @@ function rowToItem(row: Row): StoreItem {
 
 // Bump this whenever lib/catalogSeed.ts changes (items added/removed or seed prices
 // edited) so the one-time gate below re-runs the seed once to pick the changes up.
-const CATALOG_SEED_VERSION = '2';
+// '3' (2026-08-13): every seed row's `category` was rewritten onto the app's own vocabulary
+// — 'dry' → 'pantry' and 'bread' → 'bakery', the two seed values that had no counterpart —
+// after lib/shoppingCategories.ts grew to hold the rest. seedCatalog() re-syncs price AND
+// category for price_source='seed' rows, so this bump is what actually repairs the 205 rows
+// that were rendering as "Annet" on existing installs. Rows the USER created are not touched
+// by the re-seed and are migrated in lib/db.ts instead.
+const CATALOG_SEED_VERSION = '3';
 const CATALOG_SEED_META_KEY = 'catalog_seed_version';
 
 function catalogSeedVersion(): string {

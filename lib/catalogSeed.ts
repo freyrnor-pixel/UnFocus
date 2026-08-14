@@ -1,7 +1,7 @@
 /**
  * catalogSeed.ts — static list of common Norwegian groceries used to seed the item catalog.
  *
- * Exports CATALOG_SEED, ~230 real-world grocery/household items each tagged with
+ * Exports CATALOG_SEED, 286 real-world grocery/household items each tagged with
  * a shopping category key and a realistic Norwegian price (NOK). useCatalogStore
  * inserts these into the store_items table on first run to power autocomplete and
  * auto-categorisation, and backfills prices for any rows previously seeded without one.
@@ -12,8 +12,16 @@
  *   Data    → seeds the `store_items` SQLite table (via useCatalogStore)
  *
  * Edit notes:
- *   - `category` values must match the shopping category keys (produce, dairy,
- *     meat, fish, bread, frozen, canned, dry, snacks, drinks, cleaning, personal).
+ *   - **`category` values must be members of `CATEGORY_VALUES` in lib/shoppingCategories.ts**,
+ *     and `lib/__tests__/shoppingCategories.test.ts` fails the build if one isn't.
+ *     This line named a DIFFERENT twelve until 2026-08-13 (…meat, fish, bread, canned, dry…),
+ *     which is how the drift survived: the file documented its own vocabulary as authoritative
+ *     while the app read another, so 205 of these 286 rows rendered as "Annet"/"Other" and the
+ *     "In the store" layout drew them all into one aisle. Never re-state the list here — cite
+ *     the module, or the two can disagree again.
+ *   - Changing ANY row (name, category or price) means bumping `CATALOG_SEED_VERSION` in
+ *     store/useCatalogStore.ts, or the re-seed never runs and existing installs keep the old
+ *     values forever.
  *   - Item names are intentionally Norwegian and NOT translated — only UI follows the user's language.
  *   - Prices are approximate typical NOK retail prices and will be overwritten once
  *     the user records an actual purchase via the scan/shopping flow.
@@ -134,27 +142,27 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Klippfisk', category: 'fish', price: 139.90 },
 
   // Brød og bakst
-  { name: 'Grovbrød', category: 'bread', price: 34.90 },
-  { name: 'Loff', category: 'bread', price: 29.90 },
-  { name: 'Kneippbrød', category: 'bread', price: 34.90 },
-  { name: 'Rugbrød', category: 'bread', price: 39.90 },
-  { name: 'Surdeigsbrød', category: 'bread', price: 49.90 },
-  { name: 'Rundstykker', category: 'bread', price: 29.90 },
-  { name: 'Bagett', category: 'bread', price: 19.90 },
-  { name: 'Pitabrød', category: 'bread', price: 29.90 },
-  { name: 'Tortilla hvete', category: 'bread', price: 34.90 },
-  { name: 'Tortilla fullkorn', category: 'bread', price: 34.90 },
-  { name: 'Hamburgerbrød', category: 'bread', price: 29.90 },
-  { name: 'Hotdogbrød', category: 'bread', price: 24.90 },
-  { name: 'Knekkebrød', category: 'bread', price: 39.90 },
-  { name: 'Kavring', category: 'bread', price: 39.90 },
-  { name: 'Flatbrød', category: 'bread', price: 34.90 },
+  { name: 'Grovbrød', category: 'bakery', price: 34.90 },
+  { name: 'Loff', category: 'bakery', price: 29.90 },
+  { name: 'Kneippbrød', category: 'bakery', price: 34.90 },
+  { name: 'Rugbrød', category: 'bakery', price: 39.90 },
+  { name: 'Surdeigsbrød', category: 'bakery', price: 49.90 },
+  { name: 'Rundstykker', category: 'bakery', price: 29.90 },
+  { name: 'Bagett', category: 'bakery', price: 19.90 },
+  { name: 'Pitabrød', category: 'bakery', price: 29.90 },
+  { name: 'Tortilla hvete', category: 'bakery', price: 34.90 },
+  { name: 'Tortilla fullkorn', category: 'bakery', price: 34.90 },
+  { name: 'Hamburgerbrød', category: 'bakery', price: 29.90 },
+  { name: 'Hotdogbrød', category: 'bakery', price: 24.90 },
+  { name: 'Knekkebrød', category: 'bakery', price: 39.90 },
+  { name: 'Kavring', category: 'bakery', price: 39.90 },
+  { name: 'Flatbrød', category: 'bakery', price: 34.90 },
   // REMA 1000 additions
-  { name: 'Bondebrød Bergen 750g Mb (Mesterbakeren)', category: 'bread', price: 51.90 },
-  { name: 'Brioche Burgerbrød 4pk (Mesterbakeren)', category: 'bread', price: 38.90 },
-  { name: 'G&G Proteinbrød Fryst 720G', category: 'bread', price: 55.90 },
-  { name: 'Grovbrød Fryst 660g Superhelt', category: 'bread', price: 39.90 },
-  { name: 'Skoleboller 2Pk (250 G)', category: 'bread', price: 42.90 },
+  { name: 'Bondebrød Bergen 750g Mb (Mesterbakeren)', category: 'bakery', price: 51.90 },
+  { name: 'Brioche Burgerbrød 4pk (Mesterbakeren)', category: 'bakery', price: 38.90 },
+  { name: 'G&G Proteinbrød Fryst 720G', category: 'bakery', price: 55.90 },
+  { name: 'Grovbrød Fryst 660g Superhelt', category: 'bakery', price: 39.90 },
+  { name: 'Skoleboller 2Pk (250 G)', category: 'bakery', price: 42.90 },
 
   // Frysevarer
   { name: 'Grandiosa pizza', category: 'frozen', price: 79.90 },
@@ -190,59 +198,59 @@ export const CATALOG_SEED: SeedItem[] = [
   { name: 'Tomatpuré 140g', category: 'canned', price: 8.90 },
 
   // Tørrmat
-  { name: 'Spaghetti', category: 'dry', price: 19.90 },
-  { name: 'Penne', category: 'dry', price: 19.90 },
-  { name: 'Fusilli', category: 'dry', price: 19.90 },
-  { name: 'Ris langkornet', category: 'dry', price: 24.90 },
-  { name: 'Basmatiris', category: 'dry', price: 34.90 },
-  { name: 'Müsli', category: 'dry', price: 44.90 },
-  { name: 'Cornflakes', category: 'dry', price: 39.90 },
-  { name: 'Hvetemel', category: 'dry', price: 19.90 },
-  { name: 'Grovt mel', category: 'dry', price: 22.90 },
-  { name: 'Brunt sukker', category: 'dry', price: 29.90 },
-  { name: 'Havsalt', category: 'dry', price: 24.90 },
-  { name: 'Pepper', category: 'dry', price: 29.90 },
-  { name: 'Paprikapulver', category: 'dry', price: 29.90 },
-  { name: 'Karri', category: 'dry', price: 29.90 },
-  { name: 'Oregano', category: 'dry', price: 24.90 },
-  { name: 'Basilikum', category: 'dry', price: 24.90 },
-  { name: 'Timian', category: 'dry', price: 24.90 },
-  { name: 'Olivenolje', category: 'dry', price: 59.90 },
-  { name: 'Rapsolje', category: 'dry', price: 39.90 },
-  { name: 'Soyasaus', category: 'dry', price: 34.90 },
-  { name: 'Ketchup', category: 'dry', price: 29.90 },
-  { name: 'Honning', category: 'dry', price: 59.90 },
-  { name: 'Syltetøy jordbær', category: 'dry', price: 39.90 },
-  { name: 'Peanøttsmør', category: 'dry', price: 49.90 },
-  { name: 'Nutella', category: 'dry', price: 59.90 },
-  { name: 'Kaffe malt', category: 'dry', price: 89.90 },
-  { name: 'Kaffe filterkokt', category: 'dry', price: 99.90 },
-  { name: 'Instant kaffe', category: 'dry', price: 79.90 },
-  { name: 'Svart te', category: 'dry', price: 49.90 },
-  { name: 'Grønn te', category: 'dry', price: 49.90 },
-  { name: 'Kakao', category: 'dry', price: 44.90 },
-  { name: 'Bakepulver', category: 'dry', price: 19.90 },
+  { name: 'Spaghetti', category: 'pantry', price: 19.90 },
+  { name: 'Penne', category: 'pantry', price: 19.90 },
+  { name: 'Fusilli', category: 'pantry', price: 19.90 },
+  { name: 'Ris langkornet', category: 'pantry', price: 24.90 },
+  { name: 'Basmatiris', category: 'pantry', price: 34.90 },
+  { name: 'Müsli', category: 'pantry', price: 44.90 },
+  { name: 'Cornflakes', category: 'pantry', price: 39.90 },
+  { name: 'Hvetemel', category: 'pantry', price: 19.90 },
+  { name: 'Grovt mel', category: 'pantry', price: 22.90 },
+  { name: 'Brunt sukker', category: 'pantry', price: 29.90 },
+  { name: 'Havsalt', category: 'pantry', price: 24.90 },
+  { name: 'Pepper', category: 'pantry', price: 29.90 },
+  { name: 'Paprikapulver', category: 'pantry', price: 29.90 },
+  { name: 'Karri', category: 'pantry', price: 29.90 },
+  { name: 'Oregano', category: 'pantry', price: 24.90 },
+  { name: 'Basilikum', category: 'pantry', price: 24.90 },
+  { name: 'Timian', category: 'pantry', price: 24.90 },
+  { name: 'Olivenolje', category: 'pantry', price: 59.90 },
+  { name: 'Rapsolje', category: 'pantry', price: 39.90 },
+  { name: 'Soyasaus', category: 'pantry', price: 34.90 },
+  { name: 'Ketchup', category: 'pantry', price: 29.90 },
+  { name: 'Honning', category: 'pantry', price: 59.90 },
+  { name: 'Syltetøy jordbær', category: 'pantry', price: 39.90 },
+  { name: 'Peanøttsmør', category: 'pantry', price: 49.90 },
+  { name: 'Nutella', category: 'pantry', price: 59.90 },
+  { name: 'Kaffe malt', category: 'pantry', price: 89.90 },
+  { name: 'Kaffe filterkokt', category: 'pantry', price: 99.90 },
+  { name: 'Instant kaffe', category: 'pantry', price: 79.90 },
+  { name: 'Svart te', category: 'pantry', price: 49.90 },
+  { name: 'Grønn te', category: 'pantry', price: 49.90 },
+  { name: 'Kakao', category: 'pantry', price: 44.90 },
+  { name: 'Bakepulver', category: 'pantry', price: 19.90 },
   // REMA 1000 additions
-  { name: 'Ekte Majones 330g (Mills)', category: 'dry', price: 36.90 },
-  { name: 'Flerkornsgrøt Eple/Fersken 8m (Semper 120g)', category: 'dry', price: 18.90 },
-  { name: 'Grøt Eple & Fersken 6m (Semper 120g)', category: 'dry', price: 18.90 },
-  { name: 'Grøt Pære & Aprikos 6m (Semper 120g)', category: 'dry', price: 24.90 },
-  { name: 'Rotfrukter M/laks 8m 190g Nestle', category: 'dry', price: 24.90 },
-  { name: 'Havregranola Naturell 4-korn Urkraft (430 G)', category: 'dry', price: 42.00 },
-  { name: 'Havregryn Lettkokte 1.2kg Urkraft', category: 'dry', price: 21.90 },
-  { name: 'Kanel Malt 67g Toro', category: 'dry', price: 21.10 },
-  { name: 'Kardemomme 46g Toro', category: 'dry', price: 35.90 },
-  { name: 'Lasagne Plater 500g Barilla', category: 'dry', price: 41.90 },
-  { name: 'Maggi Klar Oksekraft 500Ml', category: 'dry', price: 55.40 },
-  { name: 'Melis 500g Dansukker', category: 'dry', price: 21.30 },
-  { name: 'Sennep Dijon Original 380g', category: 'dry', price: 29.90 },
-  { name: 'Sukker 1Kg Dansukker', category: 'dry', price: 35.90 },
-  { name: 'Sweet Baby Rays Barbecue Sauce 510g', category: 'dry', price: 46.90 },
-  { name: 'Taco Sauce Hot 230g Santa Maria', category: 'dry', price: 20.40 },
-  { name: 'Taco Spice Mix', category: 'dry', price: 11.00 },
-  { name: 'Tørrgjær Original 65g Idun (5 Pos)', category: 'dry', price: 19.40 },
-  { name: 'Urt Koriander 6X15g Flow Vikin', category: 'dry', price: 16.00 },
-  { name: 'Worcester Sauce 150ml (Heinz)', category: 'dry', price: 37.40 },
+  { name: 'Ekte Majones 330g (Mills)', category: 'pantry', price: 36.90 },
+  { name: 'Flerkornsgrøt Eple/Fersken 8m (Semper 120g)', category: 'pantry', price: 18.90 },
+  { name: 'Grøt Eple & Fersken 6m (Semper 120g)', category: 'pantry', price: 18.90 },
+  { name: 'Grøt Pære & Aprikos 6m (Semper 120g)', category: 'pantry', price: 24.90 },
+  { name: 'Rotfrukter M/laks 8m 190g Nestle', category: 'pantry', price: 24.90 },
+  { name: 'Havregranola Naturell 4-korn Urkraft (430 G)', category: 'pantry', price: 42.00 },
+  { name: 'Havregryn Lettkokte 1.2kg Urkraft', category: 'pantry', price: 21.90 },
+  { name: 'Kanel Malt 67g Toro', category: 'pantry', price: 21.10 },
+  { name: 'Kardemomme 46g Toro', category: 'pantry', price: 35.90 },
+  { name: 'Lasagne Plater 500g Barilla', category: 'pantry', price: 41.90 },
+  { name: 'Maggi Klar Oksekraft 500Ml', category: 'pantry', price: 55.40 },
+  { name: 'Melis 500g Dansukker', category: 'pantry', price: 21.30 },
+  { name: 'Sennep Dijon Original 380g', category: 'pantry', price: 29.90 },
+  { name: 'Sukker 1Kg Dansukker', category: 'pantry', price: 35.90 },
+  { name: 'Sweet Baby Rays Barbecue Sauce 510g', category: 'pantry', price: 46.90 },
+  { name: 'Taco Sauce Hot 230g Santa Maria', category: 'pantry', price: 20.40 },
+  { name: 'Taco Spice Mix', category: 'pantry', price: 11.00 },
+  { name: 'Tørrgjær Original 65g Idun (5 Pos)', category: 'pantry', price: 19.40 },
+  { name: 'Urt Koriander 6X15g Flow Vikin', category: 'pantry', price: 16.00 },
+  { name: 'Worcester Sauce 150ml (Heinz)', category: 'pantry', price: 37.40 },
 
   // Snacks
   { name: 'Potetgull', category: 'snacks', price: 39.90 },

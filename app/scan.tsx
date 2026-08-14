@@ -81,6 +81,7 @@ import { useCatalogStore } from '@/store/useCatalogStore';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useT } from '@/lib/i18n';
+import { categoryPresets } from '@/lib/shoppingCategories';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import HintCard from '@/components/HintCard';
@@ -106,8 +107,6 @@ const QR_HINT = 'rgba(255,255,255,0.6)';
 const NORWEGIAN_STORES = [
   'REMA 1000', 'Kiwi', 'Coop Extra', 'Coop Mega', 'Meny', 'Spar', 'Bunnpris', 'Joker', 'Prix',
 ];
-
-const CATEGORIES = ['produce', 'dairy', 'meat', 'fish', 'bread', 'frozen', 'canned', 'dry', 'snacks', 'drinks', 'cleaning', 'personal', 'other'];
 
 type ScreenMode = 'idle' | 'scanning' | 'result' | 'manual';
 
@@ -738,7 +737,12 @@ export default function ScanScreen() {
               <View style={[styles.sheetHandle, { backgroundColor: theme.surfaceMuted }]} />
               <Text style={[styles.sheetTitle, { color: theme.text }]}>{t.recognisedItems}</Text>
               <ScrollView style={styles.categoryGrid} contentContainerStyle={styles.categoryGridContent}>
-                {CATEGORIES.map((cat) => (
+                {/* categoryPresets, not a local list (2026-08-13). This screen carried its own
+                    13-value CATEGORIES array in the catalogue's private vocabulary — a second
+                    source of truth that the rest of the app could not read — AND rendered the
+                    raw key as the label, so a Norwegian-first app showed "cleaning", "personal",
+                    "dry". Both are gone: one vocabulary, localised labels. */}
+                {categoryPresets(t).map(({ value: cat, label }) => (
                   <PressableScale
                     key={cat}
                     style={[styles.categoryOption, { backgroundColor: parsedItems[categoryPickerIndex]?.category === cat ? theme.accent : theme.surfaceMuted }]}
@@ -749,7 +753,7 @@ export default function ScanScreen() {
                     scaleTo={0.97}
                   >
                     <Text style={[styles.categoryOptionText, { color: parsedItems[categoryPickerIndex]?.category === cat ? theme.accentInk : theme.text }]}>
-                      {cat}
+                      {label}
                     </Text>
                   </PressableScale>
                 ))}

@@ -1226,6 +1226,32 @@ export function initDb() {
     // The phase anchor is DERIVED from habits.created_at in lib/habitRecurrence.ts, never
     // stored, so there is no second column to keep in sync.
     'ALTER TABLE habits ADD COLUMN recurrence_interval INTEGER DEFAULT 1',
+    // ── One shopping-category vocabulary (2026-08-13) ──────────────────────
+    // The app read 8 category values (lib/shoppingCategories.ts) while lib/catalogSeed.ts and
+    // app/scan.tsx wrote a different 12; only produce/dairy/frozen were in both. That list has
+    // grown to hold the union, and these two UPDATEs move rows written under the retired
+    // spellings onto the surviving ones.
+    //
+    // Scope: `store_items` and `shopping_items` are the ONLY two tables on this vocabulary.
+    // habits.category, receipts.category and symptoms.category are different domains that
+    // happen to share a column name — do not add them here.
+    //
+    // Seeded catalogue rows are NOT the target: seedCatalog() re-syncs price and category for
+    // price_source='seed' rows whenever CATALOG_SEED_VERSION changes, and it was bumped to '3'
+    // in the same change. These UPDATEs are for rows the USER created (scan captures, hand-added
+    // catalogue entries, shopping-list items), which the re-seed never touches.
+    //
+    // Two of the four mappings are exact and two are judgement calls, stated so they read as
+    // decisions rather than bugs:
+    //   'bread' → 'bakery'    exact, same aisle, the app's spelling won
+    //   'dry'   → 'pantry'    exact, same aisle, the app's spelling won
+    //   'meatFish' → 'meat'   LOSSY. The old value merged two aisles that are now separate and
+    //                         nothing in the row says which; 'meat' is the larger of the two in
+    //                         the seed (21 vs 10). Only ever set by hand from the old 8-value
+    //                         picker, so the affected rows are few and re-pickable.
+    //   'household' → 'cleaning'  LOSSY, same shape: it covered cleaning AND personal care.
+    "UPDATE store_items SET category = CASE category WHEN 'bread' THEN 'bakery' WHEN 'dry' THEN 'pantry' WHEN 'meatFish' THEN 'meat' WHEN 'household' THEN 'cleaning' ELSE category END WHERE category IN ('bread', 'dry', 'meatFish', 'household')",
+    "UPDATE shopping_items SET category = CASE category WHEN 'bread' THEN 'bakery' WHEN 'dry' THEN 'pantry' WHEN 'meatFish' THEN 'meat' WHEN 'household' THEN 'cleaning' ELSE category END WHERE category IN ('bread', 'dry', 'meatFish', 'household')",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

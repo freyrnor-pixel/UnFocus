@@ -16,14 +16,41 @@
  */
 import { Translations } from '@/lib/i18n';
 
-const CATEGORY_VALUES = [
+/**
+ * The app's ONE shopping-category vocabulary — in shop-walk order, which is what the
+ * "In the store" layout's aisle headers read down (`groupByAisle`, lib/cardLayout.ts).
+ *
+ * **There were TWO of these until 2026-08-13, and the bigger half of the data was filed
+ * under the one nothing read.** This list held 8 values while `lib/catalogSeed.ts` and
+ * `app/scan.tsx` used a different 12; only produce/dairy/frozen appeared in both, so **205
+ * of the catalogue's 286 seeded items** carried a value `categoryLabel()` had never heard
+ * of and fell through its `?? other` to render as "Annet". Three live consequences: "In the
+ * store" mode drew one giant Other aisle, the category filter could never match a seeded
+ * item, and app/scan.tsx rendered the raw English key as its picker label.
+ *
+ * Resolved by GROWING this list to the seed's aisle granularity rather than collapsing the
+ * seed into the old 8 — collapsing put 108 of 286 items into a single "Pantry" and would
+ * have gutted the one feature these values exist for. Existing rows are migrated in
+ * lib/db.ts; see that migration for the two mappings that are judgement calls.
+ *
+ * Adding a value means: a `categoryLabels` entry in BOTH languages (tsc enforces the pair),
+ * and nothing else — `categoryPresets`/`categoryLabel` are derived. Removing one means a
+ * migration, because it is a stored string.
+ * `lib/__tests__/shoppingCategories.test.ts` pins the seed against this list.
+ */
+export const CATEGORY_VALUES = [
   'produce',
-  'dairy',
-  'meatFish',
   'bakery',
-  'pantry',
+  'dairy',
+  'meat',
+  'fish',
   'frozen',
-  'household',
+  'pantry',
+  'canned',
+  'snacks',
+  'drinks',
+  'cleaning',
+  'personal',
   'other',
 ] as const;
 

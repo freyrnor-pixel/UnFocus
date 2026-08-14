@@ -783,14 +783,22 @@ const en = {
   removeItemLabel: 'Remove item',
   putBackItemLabel: 'Put back in stock',
   categoryPickerLabel: 'Category (optional)',
+  // In shop-walk order, matching CATEGORY_VALUES in lib/shoppingCategories.ts — these are the
+  // "In the store" layout's aisle headers, so the order is the order you walk. Grown from 8 to
+  // 13 on 2026-08-13 when the catalogue's vocabulary and the app's were merged; see that file.
   categoryLabels: {
     produce: 'Produce',
-    dairy: 'Dairy',
-    meatFish: 'Meat & fish',
     bakery: 'Bakery',
-    pantry: 'Pantry',
+    dairy: 'Dairy',
+    meat: 'Meat',
+    fish: 'Fish',
     frozen: 'Frozen',
-    household: 'Household',
+    pantry: 'Pantry',
+    canned: 'Tinned',
+    snacks: 'Snacks',
+    drinks: 'Drinks',
+    cleaning: 'Cleaning',
+    personal: 'Personal care',
     other: 'Other',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
@@ -2874,12 +2882,17 @@ const no: typeof en = {
   categoryPickerLabel: 'Kategori (valgfritt)',
   categoryLabels: {
     produce: 'Frukt & grønt',
-    dairy: 'Meieri',
-    meatFish: 'Kjøtt & fisk',
     bakery: 'Bakevarer',
-    pantry: 'Tørrvarer',
+    dairy: 'Meieri',
+    meat: 'Kjøtt',
+    fish: 'Fisk',
     frozen: 'Frossenmat',
-    household: 'Husholdning',
+    pantry: 'Tørrvarer',
+    canned: 'Hermetikk',
+    snacks: 'Snacks',
+    drinks: 'Drikke',
+    cleaning: 'Rengjøring',
+    personal: 'Personlig pleie',
     other: 'Annet',
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
