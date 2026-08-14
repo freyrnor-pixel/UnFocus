@@ -86,6 +86,12 @@ Never hardcode a hex, size, spacing or duration — always use tokens (`theme.ac
 
 **Related docs**: DESIGN_RULES.md, DESIGN_RULES_AUDIT.md, ANIMATION_GUIDELINES.md, AGENTS.md
 
+**Proposed, not shipped**: `MD3_FUTURE_PLAN.md` — a full Material Design 3 adoption plan.
+Read it before acting on any request to "make this MD3" — it lists which parts collide with
+decisions already made here (tonal elevation, translucent surfaces, MD3 color roles) and
+which parts the app already independently arrived at (48px tap targets, 8px spacing,
+bordered fields). Not binding; no maintainer ruling yet.
+
 > `DESIGN_SYSTEM_IMPLEMENTATION.md` — the frozen 2026-06-25 checklist this note used to flag
 > as superseded-but-still-present — was deleted 2026-08-01 (STALE_CODE_AUDIT.md). It referenced
 > a "5 colour schemes" system and a `components/TaskItem.tsx` that no longer exist; nothing in
