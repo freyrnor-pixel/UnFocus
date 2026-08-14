@@ -1252,6 +1252,16 @@ export function initDb() {
     //   'household' → 'cleaning'  LOSSY, same shape: it covered cleaning AND personal care.
     "UPDATE store_items SET category = CASE category WHEN 'bread' THEN 'bakery' WHEN 'dry' THEN 'pantry' WHEN 'meatFish' THEN 'meat' WHEN 'household' THEN 'cleaning' ELSE category END WHERE category IN ('bread', 'dry', 'meatFish', 'household')",
     "UPDATE shopping_items SET category = CASE category WHEN 'bread' THEN 'bakery' WHEN 'dry' THEN 'pantry' WHEN 'meatFish' THEN 'meat' WHEN 'household' THEN 'cleaning' ELSE category END WHERE category IN ('bread', 'dry', 'meatFish', 'household')",
+    // Screen keys whose inline intro card the user has closed (2026-08-13) — same
+    // JSON-array-in-TEXT shape as seen_screen_hints and dismissed_starters. This replaced the
+    // header ⓘ button: the explanation is a card at the top of the screen now, open by
+    // default, with an "X". Settings → General → "Show tips again" clears the set.
+    //
+    // NOT the same column as seen_screen_hints, and NOT back-filled from it. That column is
+    // written on every focus and means "you have been past this screen"; this one means "you
+    // asked this to go away". Reusing it would have started every existing install with all
+    // five cards already closed — nobody who has used the app would ever see the surface.
+    "ALTER TABLE settings ADD COLUMN dismissed_hints TEXT DEFAULT '[]'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

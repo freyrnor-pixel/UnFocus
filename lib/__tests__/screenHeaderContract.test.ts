@@ -123,7 +123,6 @@ describe('ScreenHeader gates each icon off exactly one thing', () => {
   });
 
   test.each([
-    ['infoButton', 'onInfoToggle'],
     ['scanButton', 'onScanPress'],
     ['shareButton', 'onSharePress'],
     ['layoutButton', 'onLayoutPress'],
@@ -153,17 +152,39 @@ describe('ScreenHeader gates each icon off exactly one thing', () => {
 
 // ── (b) What each screen asks for ────────────────────────────────────────────────────────
 
-describe('every top-level tab header is title + ⓘ + gear', () => {
+describe('every top-level tab header is title + gear', () => {
   test.each(TAB_SCREENS)('%s is site tier', (rel) => {
     const tags = scaffoldTags(rel);
     expect(tags).toHaveLength(1);
     expect(tierOf(tags[0])).toBe('site');
   });
 
-  test.each(TAB_SCREENS)('%s passes the ⓘ hint toggle', (rel) => {
+  // ⓘ REMOVED 2026-08-13. Maintainer: "Having the info button in the header section with
+  // settings showing when you press it makes No sense. Instead the instructions should be in
+  // the screen with examples like a introduction part (users can of course close the card)."
+  // These two assertions replace "%s passes the ⓘ hint toggle" and are its mirror image: the
+  // header must NOT offer the prop, and the screen must render the thing that replaced it.
+  test.each(TAB_SCREENS)('%s passes no ⓘ props — the header has none to take', (rel) => {
     const tag = scaffoldTags(rel)[0];
-    expect(passes(tag, 'onInfoToggle')).toBe(true);
-    expect(passes(tag, 'infoActive')).toBe(true);
+    expect(passes(tag, 'onInfoToggle')).toBe(false);
+    expect(passes(tag, 'infoActive')).toBe(false);
+  });
+
+  test('ScreenHeader has no info button left to wire', () => {
+    // `code()` (not `read()`) so ScreenHeader's own header — which explains that the ⓘ was
+    // removed, and names both identifiers to say so — can't fail this. Deleting an explanation
+    // must never be the cheapest way to green; that is what `code()` exists for.
+    const headerSrc = code('components/ScreenHeader.tsx');
+    expect(headerSrc).not.toMatch(/const infoButton\s*=/);
+    expect(headerSrc).not.toMatch(/onInfoToggle/);
+  });
+
+  test.each(TAB_SCREENS)('%s renders a dismissible intro card instead', (rel) => {
+    // `noPill` + `onDismiss` together are the intro card; `noPill` alone was the old
+    // header-driven body, which had no way to close itself.
+    const src = read(rel);
+    expect(src).toMatch(/<HintCard[\s\S]{0,400}noPill/);
+    expect(src).toMatch(/<HintCard[\s\S]{0,400}onDismiss=\{dismissHint\}/);
   });
 
   test('Shopping is the only tab with the camera', () => {

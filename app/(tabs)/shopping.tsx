@@ -468,7 +468,7 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import ShoppingStoreMode from '@/components/ShoppingStoreMode';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import HintSheet from '@/components/HintSheet';
+import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
@@ -538,7 +538,7 @@ export default function ShoppingScreen() {
   const [tab, setTab] = useState<Tab>('weekly');
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
-  const [hintOpen, setHintOpen] = useFirstVisitHint('shopping');
+  const [hintOpen, dismissHint] = useFirstVisitHint('shopping');
   // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
   // updates the setting, leaving it blank keeps the current value.
@@ -784,11 +784,7 @@ export default function ShoppingScreen() {
       if (!alreadyResetThisPeriod && !resetReviewVisible && new Date().getDate() >= settings.monthlyResetDate) {
         setResetReviewVisible(true);
       }
-
-      return () => {
-        setHintOpen(false);
-      };
-    }, [loadShopping, advanceRecurringLists, resetReviewVisible, setHintOpen])
+    }, [loadShopping, advanceRecurringLists, resetReviewVisible])
   );
 
   // Flat, all-lists-combined catalog — used only by AddFromMonthlyModal (Weekly's "Add from
@@ -1630,75 +1626,6 @@ export default function ShoppingScreen() {
     </TourTarget>
   );
 
-  // The ⓘ explanation, as a bottom sheet (2026-08-13) — mounted with the other overlays
-  // below, NOT in the scroll content. It was a components/HintCard.tsx in `noPill` mode
-  // sitting at the top of `shoppingIntro`, i.e. inline between the sticky tab bar and the
-  // first list card: on this screen that body is the largest block anywhere on the tab (two
-  // paragraphs plus the weekly-reset weekday row and the monthly-reset date field), so
-  // opening it shoved every list down the moment you asked a question about them. The ⓘ was
-  // already the only way to open it (lib/useFirstVisitHint.ts stopped auto-opening on first
-  // visit 2026-07-31) — this changes where the answer lands, not how it is asked for.
-  //   The reset-cadence controls come along unchanged; this is still their ONLY home in the
-  // app. What does NOT come along is `monthlyDateLift` (lib/useKeyboardLift): it hands the
-  // field to ScreenScaffold's ScrollView, and a <Modal> renders outside that subtree, so it
-  // could only ever no-op in here. components/HintSheet.tsx carries a KeyboardAvoidingView
-  // instead — the same swap components/EpisodeCloseSheet.tsx made for the same reason.
-  const hintSheet = (
-    <HintSheet
-      visible={hintOpen}
-      onClose={() => setHintOpen(false)}
-      text={t.hints.shopping.text}
-      example={t.hints.shopping.example}
-    >
-        <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
-          <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyResetDay}</Text>
-          <View style={styles.hintDayRow}>
-            {/* `t.dayLabels` is the localized 3-letter abbreviation; this used to render
-                `t.dayFull[i].slice(0, 3)`, which hardcoded an English/Norwegian-shaped
-                truncation into a bilingual UI and would mangle any language whose short
-                form isn't just its first three letters. Both arrays are Mon-first, so the
-                index (and `weeklyResetDay`) is unchanged. */}
-            {t.dayLabels.map((label, i) => (
-              <PressableScale
-                key={i}
-                style={[
-                  styles.hintDayChip,
-                  { backgroundColor: theme.surfaceMuted },
-                  weeklyResetDay === i && { backgroundColor: theme.accent },
-                ]}
-                onPress={() => updateSettings({ weeklyResetDay: i })}
-                scaleTo={0.97}
-              >
-                <Text style={[
-                  styles.hintDayText,
-                  { color: theme.text },
-                  weeklyResetDay === i && { color: theme.accentInk },
-                ]}>
-                  {label}
-                </Text>
-              </PressableScale>
-            ))}
-          </View>
-          <Text style={[styles.hintSettingLabel, { color: theme.text, marginTop: Spacing.sm }]}>{t.monthlyResetDateQuestion}</Text>
-          <TextInput
-            style={[styles.hintDateInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
-            value={monthlyDateInput}
-            onChangeText={(v) => {
-              setMonthlyDateInput(v);
-              const n = parseInt(v, 10);
-              if (!isNaN(n) && n >= 1 && n <= 31) updateSettings({ monthlyResetDate: n });
-            }}
-            onBlur={() => setMonthlyDateInput('')}
-            keyboardType="number-pad"
-            placeholder={String(monthlyResetDate)}
-            placeholderTextColor={theme.textMuted}
-            maxLength={2}
-            returnKeyType="done"
-          />
-        </View>
-    </HintSheet>
-  );
-
   // Screen intro chrome (first-run explainer + incoming shared requests), shared by both tabs.
   const shoppingIntro = (
     <>
@@ -1714,6 +1641,34 @@ export default function ShoppingScreen() {
           install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
           would suppress this for every new user. Items covers the seeded list having been
           filled in. */}
+      {/* The screen's explanation, inline and closable (2026-08-13). Maintainer: "Having the
+          info button in the header section with settings showing when you press it makes No
+          sense. Instead the instructions should be in the screen with examples like a
+          introduction part (users can of course close the card)."
+          It has now been three shapes in three weeks — an auto-opening first-visit card, a
+          collapsed-until-you-tap-ⓘ card, and (for one day) a bottom sheet — and the thing that
+          changed with this one is that closing it STICKS (settings.dismissedHints). The two
+          reset-cadence controls it used to carry are gone to Settings → Personal: a panel
+          whose contents are settings is not an explanation, which is what the ⓘ complaint was
+          about. The link row below is how you get to them from here. */}
+      <HintCard
+        text={t.hints.shopping.text}
+        example={t.hints.shopping.example}
+        open={hintOpen}
+        noPill
+        onDismiss={dismissHint}
+      >
+        <PressableScale
+          onPress={() => router.push('/settings?tab=personal')}
+          style={styles.hintSettingsLink}
+          accessibilityRole="button"
+          accessibilityLabel={t.shoppingCadenceLink}
+          scaleTo={0.97}
+        >
+          <Ionicons name="options-outline" size={16} color={theme.accent} />
+          <Text style={[styles.hintSettingsLinkLabel, { color: theme.accent }]}>{t.shoppingCadenceLink}</Text>
+        </PressableScale>
+      </HintCard>
       {lists.length === 0 && items.length === 0 && (
         <StarterCard text={`• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`} />
       )}
@@ -1777,7 +1732,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} infoActive={hintOpen} onInfoToggle={() => setHintOpen((v) => !v)} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2470,7 +2425,6 @@ export default function ShoppingScreen() {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
       />
-      {hintSheet}
       <LayoutPickerSheet
         visible={layoutPickerOpen}
         surface="shopping"
@@ -2541,36 +2495,12 @@ const styles = StyleSheet.create({
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
   content: { padding: Spacing.md, gap: SCREEN_GAP },
-  // Embedded first-run setting inside the ⓘ hint (weekly/monthly reset).
-  hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.xs },
-  hintSettingLabel: { fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
-  // 7 chips share the row instead of each claiming a fixed 40px (2026-07-28 wrap audit).
-  // The old `minWidth: 40` + `gap: 4` gave the row a hard 304px floor (7*40 + 6*4); the
-  // Shopping hint only offers ~295px at a 360px phone width, so `flexWrap` broke Mon–Sun
-  // onto two lines — missing a single line by 9px. `flex: 1` with no minWidth lets the
-  // chips shrink to whatever fits, which is what components/TaskCard.tsx's weekdayChip
-  // has always done for the same 7-day picker. flexWrap is dropped deliberately: with
-  // flex:1 children there is nothing left to wrap, and leaving it in would silently
-  // reintroduce the two-line break the moment someone re-adds a minimum width.
-  hintDayRow: { flexDirection: 'row', gap: 4 },
-  hintDayChip: {
-    flex: 1,
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    borderRadius: Radius.full,
-  },
-  hintDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  hintDateInput: {
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    padding: Spacing.sm,
-    fontSize: FontSize.md,
-    textAlign: 'center',
-    alignSelf: 'flex-start',
-    minWidth: 64,
-  },
+  // Link out to Settings → Personal, inside the intro card. The weekly-reset weekday row and
+  // the monthly-reset date field used to live in this card's body; they are real settings and
+  // they moved there (2026-08-13). This is a door, not a duplicate control — two live copies of
+  // one setting is the drift this repo keeps paying for.
+  hintSettingsLink: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, minHeight: MIN_TAP_TARGET },
+  hintSettingsLinkLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...OpticalCenter },
   // Food/Catalogue entry-point buttons (UX audit F1, 2026-07-23) — shown above the list
   // content on both Weekly and Monthly, since either sub-screen is reachable regardless
   // of which shopping list tab is active.

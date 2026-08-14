@@ -789,6 +789,13 @@ const en = {
   // Catalogue sort toggle (2026-08-13) — "always" visible, per the maintainer, not only while
   // a query is active. "Type" rather than "category" because the aisle is what it means to a
   // person standing in a shop.
+  // Link from Shopping's intro card to Settings → Personal, where the weekly/monthly reset
+  // cadence controls moved on 2026-08-13.
+  shoppingCadenceLink: 'Reset days',
+  // Settings → General: brings back every intro card the user has closed.
+  restoreHintsLabel: 'Show tips again',
+  restoreHintsBody: 'Bring back the intro card on every screen.',
+  restoreHintsDone: 'Tips are back',
   sortByType: 'By type',
   sortByName: 'By name',
   sortLabel: 'Sort',
@@ -2886,6 +2893,10 @@ const no: typeof en = {
   removeItemLabel: 'Fjern vare',
   putBackItemLabel: 'Legg tilbake på lager',
   categoryPickerLabel: 'Kategori (valgfritt)',
+  shoppingCadenceLink: 'Nullstillingsdager',
+  restoreHintsLabel: 'Vis tipsene igjen',
+  restoreHintsBody: 'Hent tilbake introkortet på alle skjermene.',
+  restoreHintsDone: 'Tipsene er tilbake',
   sortByType: 'Etter type',
   sortByName: 'Etter navn',
   sortLabel: 'Sorter',

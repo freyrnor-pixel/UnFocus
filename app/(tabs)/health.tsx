@@ -275,7 +275,7 @@ export default function HealthScreen() {
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); StarterCard already teaches this.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('health');
+  const [hintOpen, dismissHint] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
   const [quickStartTime, setQuickStartTime] = useState('');
@@ -309,14 +309,6 @@ export default function HealthScreen() {
   const screenHue = getScreenColor(theme, 'health').base;
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setHintOpen(false);
-      };
-    }, [setHintOpen])
-  );
 
   const today = todayStr();
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -481,8 +473,6 @@ export default function HealthScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        infoActive={hintOpen}
-        onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
           <HintCard
@@ -490,6 +480,7 @@ export default function HealthScreen() {
             example={t.hints.health.example}
             open={hintOpen}
             noPill
+            onDismiss={dismissHint}
           />
 
           {/* Ongoing-episode prompts (2026-08-01) — above the card, because they are about an

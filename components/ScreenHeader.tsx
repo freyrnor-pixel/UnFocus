@@ -89,8 +89,12 @@
  *     same base size. Note: with debug mode ON, Shopping shows up to 7 icons (adds bug + email
  *     + delete), which can still ellipsize the long title — an accepted tester-only edge. Since
  *     2026-07-25 the default is lighter: bug/email/delete are hidden unless debug is on, and
- *     scan/share only appear when their feature flags are on, so a fresh install's Shopping
- *     header is just [ⓘ info] [gear].
+ *     scan/share only appear when their feature flags are on. **Since 2026-08-13 the ⓘ is gone
+ *     too** (maintainer: "Having the info button in the header section with settings showing
+ *     when you press it makes No sense") — a screen's explanation is an inline, closable intro
+ *     card at the top of its content now (components/HintCard's `noPill` mode +
+ *     lib/useFirstVisitHint). So a fresh install's Shopping header is just [scan] [gear], and
+ *     `infoActive`/`onInfoToggle` no longer exist on this component or on ScreenScaffold.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)
@@ -139,8 +143,6 @@ type Props = {
   headerRight?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   /** Info/hint toggle (optional). When provided, an ⓘ icon appears in the header controls. */
-  infoActive?: boolean;
-  onInfoToggle?: () => void;
   /** Site-tier only. When provided, a share icon appears in the header controls. */
   onSharePress?: () => void;
   /** Site-tier only. When provided, a scan icon appears in the header controls. */
@@ -149,7 +151,7 @@ type Props = {
   onLayoutPress?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, infoActive, onInfoToggle, onSharePress, onScanPress, onLayoutPress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -319,22 +321,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       <Ionicons name="list-outline" size={22} color={theme.text} />
     </PressableScale>
   ) : null;
-  const infoButton = onInfoToggle ? (
-    <PressableScale
-      onPress={onInfoToggle}
-      hitSlop={HitSlop.base}
-      accessibilityRole="button"
-      accessibilityLabel={infoActive ? t.hideHint : t.showHint}
-      accessibilityState={{ selected: !!infoActive }}
-      scaleTo={0.9}
-    >
-      <Ionicons
-        name={infoActive ? 'information-circle' : 'information-circle-outline'}
-        size={24}
-        color={infoActive ? theme.accent : theme.text}
-      />
-    </PressableScale>
-  ) : null;
 
   // Home-only OTA update icon (see edit notes) — a small spinner while fetching.
   const updateButton = isHome && updateAvailable ? (
@@ -407,7 +393,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // which Shopping now does only when the matching feature flag is on. Gear is outermost on
   // whichever side the group sits (Decision 034). Items that don't apply are null/filtered.
   const siteControls = tier === 'site'
-    ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, infoButton, gearButton].filter(Boolean) as React.ReactNode[])
+    ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
   const titleNode = (align: 'left' | 'right') => (

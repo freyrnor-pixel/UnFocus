@@ -618,7 +618,7 @@ export default function HabitsScreen() {
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); the card's own tips line + suggested-habits card already teach
   // this (2026-08-06 v2 — see the header's dated note; was StarterCard until then).
-  const [hintOpen, setHintOpen] = useFirstVisitHint('habits');
+  const [hintOpen, dismissHint] = useFirstVisitHint('habits');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -658,12 +658,6 @@ export default function HabitsScreen() {
   // silently create a habit named after the note. It seeds GoalsEditor's own add row and
   // opens the drawer around it, so the text lands somewhere the user can see it.
   const goalPrefill = usePrefill('goals');
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => { setHintOpen(false); };
-    }, [setHintOpen])
-  );
 
   const today = todayStr();
 
@@ -821,8 +815,6 @@ export default function HabitsScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        infoActive={hintOpen}
-        onInfoToggle={() => setHintOpen((v) => !v)}
       >
         <View style={styles.content}>
           {/* The reward system deliberately has NO card here (2026-07-31). The Bonsai card
@@ -831,7 +823,7 @@ export default function HabitsScreen() {
               which is also why the 2026-07-21 debug note below, removing a plain "X / Y
               done" tally from this same screen, still holds: no score belongs on this
               screen. */}
-          <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill />
+          <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill onDismiss={dismissHint} />
 
           {/* Habits — one hue-edged card holding the filter · view tabs · rows · add line.
               This used to be a `SectionCard`, whose header label was the string "Habits"

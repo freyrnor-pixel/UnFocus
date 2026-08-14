@@ -655,7 +655,7 @@ export default function TasksScreen() {
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open, and the
   // per-screen `autoOpen` arg that used to switch it off here, are both gone). This screen's
   // StarterCard already teaches the same thing WITH a tappable example row.
-  const [hintOpen, setHintOpen] = useFirstVisitHint('plans');
+  const [hintOpen, dismissHint] = useFirstVisitHint('plans');
   // Person filter (People/family mode): null = Everyone, otherwise a person id.
   const [personFilter, setPersonFilter] = useState<string | null>(null);
   // Tag filter (2026-07-28) — selected tag ids; empty means "All tags". Unlike the person
@@ -1162,8 +1162,6 @@ export default function TasksScreen() {
       stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
-      infoActive={hintOpen}
-      onInfoToggle={() => setHintOpen((v) => !v)}
       onSharePress={featureSharing ? () => router.push('/share-modal?kind=t') : undefined}
       onLayoutPress={() => setLayoutPickerOpen(true)}
     >
@@ -1173,7 +1171,7 @@ export default function TasksScreen() {
             step) — removed 2026-07-25 along with the Work mode card in Settings, because
             `workModeEnabled` was never read by anything: the switch promised to hide
             personal plans and did nothing at all. */}
-        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill />
+        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill onDismiss={dismissHint} />
 
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once

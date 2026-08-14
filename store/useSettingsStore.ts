@@ -479,6 +479,19 @@ export type Settings = {
    * gate the caller uses to decide whether it WOULD show one. See StarterCard's header.
    */
   dismissedStarters: string[];
+  /**
+   * Screen keys whose inline intro card the user has closed (2026-08-13) — 'home', 'plans',
+   * 'shopping', 'habits', 'health'.
+   *
+   * A SEPARATE fact from `seenScreenHints`, deliberately, even though the two look alike.
+   * "Seen" is written on every focus and records that you have been past a screen; "dismissed"
+   * records that you asked for its explanation to go away. Conflating them would have meant
+   * every existing install started with all five cards already closed — i.e. nobody who has
+   * used the app would ever meet the surface that replaced the ⓘ button.
+   *
+   * Cleared as a set by Settings → General → "Show tips again", which is the only way back.
+   */
+  dismissedHints: string[];
 };
 
 type SettingsStore = Settings & {
@@ -503,6 +516,10 @@ type SettingsStore = Settings & {
   markScreenHintSeen: (key: string) => void;
   /** Record that a components/StarterCard.tsx instance has been manually dismissed. */
   dismissStarter: (key: string) => void;
+  /** Record that a screen's inline intro card has been closed (2026-08-13). */
+  dismissHint: (key: string) => void;
+  /** Bring every closed intro card back — Settings → General → "Show tips again". */
+  restoreHints: () => void;
 };
 
 /** Map the single settings row to the persisted Settings (defaults mirror the old load()). */
@@ -564,6 +581,7 @@ function rowToSettings(row: Row): Settings {
     planTimelineHorizontal: readBool(row, 'plan_timeline_horizontal'),
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
     dismissedStarters: readJson<string[]>(row, 'dismissed_starters', []),
+    dismissedHints: readJson<string[]>(row, 'dismissed_hints', []),
     homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'habits', 'notes', 'shopping']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
@@ -658,6 +676,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   planTimelineHorizontal: { col: 'plan_timeline_horizontal', to: bool },
   seenScreenHints: { col: 'seen_screen_hints', to: (v) => JSON.stringify(v) },
   dismissedStarters: { col: 'dismissed_starters', to: (v) => JSON.stringify(v) },
+  dismissedHints: { col: 'dismissed_hints', to: (v) => JSON.stringify(v) },
   homeCardOrder: { col: 'home_card_order', to: (v) => JSON.stringify(v) },
   energySystemEnabled: { col: 'energy_system_enabled', to: bool },
   energyDailyCapacity: { col: 'energy_daily_capacity' },
@@ -749,6 +768,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   planTimelineHorizontal: false,
   seenScreenHints: [],
   dismissedStarters: [],
+  dismissedHints: [],
   homeCardOrder: ['plans', 'habits', 'notes', 'shopping'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
@@ -853,6 +873,31 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
         logDbError(`useSettingsStore.dismissStarter(${key})`, e);
       }
       return { ...s, dismissedStarters };
+    });
+  },
+
+  dismissHint(key) {
+    set((s) => {
+      if (s.dismissedHints.includes(key)) return s;
+      const dismissedHints = [...s.dismissedHints, key];
+      try {
+        updateRow('settings', rowValues({ dismissedHints }, SETTINGS_COLUMNS), 'id = 1');
+      } catch (e) {
+        logDbError(`useSettingsStore.dismissHint(${key})`, e);
+      }
+      return { ...s, dismissedHints };
+    });
+  },
+
+  restoreHints() {
+    set((s) => {
+      if (s.dismissedHints.length === 0) return s;
+      try {
+        updateRow('settings', rowValues({ dismissedHints: [] }, SETTINGS_COLUMNS), 'id = 1');
+      } catch (e) {
+        logDbError('useSettingsStore.restoreHints', e);
+      }
+      return { ...s, dismissedHints: [] };
     });
   },
 }));

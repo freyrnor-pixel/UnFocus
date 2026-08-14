@@ -223,7 +223,7 @@ export default function HomeScreen() {
 
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded notification settings, and lib/useFirstVisitHint.ts).
-  const [hintOpen, setHintOpen] = useFirstVisitHint('home');
+  const [hintOpen, dismissHint] = useFirstVisitHint('home');
 
   // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
   // plumbing at smaller scale (one card, no listId keying needed). See that file's own edit
@@ -326,14 +326,6 @@ export default function HomeScreen() {
       habits: t.home.manageCards.kinds.habits,
     }),
     [t]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        setHintOpen(false);
-      };
-    }, [setHintOpen])
   );
 
   // These derived views used to recompute on EVERY render (each is a full-array filter/
@@ -720,12 +712,10 @@ export default function HomeScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        infoActive={hintOpen}
-        onInfoToggle={() => setHintOpen((v) => !v)}
         onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.home.text} example={t.hints.home.example} open={hintOpen} noPill>
+          <HintCard text={t.hints.home.text} example={t.hints.home.example} open={hintOpen} noPill onDismiss={dismissHint}>
             <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
