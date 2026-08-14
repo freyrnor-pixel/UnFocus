@@ -27,9 +27,28 @@
  *             (they are screen positions; they are wrong the moment anything scrolls)
  *
  * Edit notes:
- *   - Measuring uses `measureInWindow`, not `onLayout`'s local coordinates: the spotlight is a
- *     full-screen overlay, so it needs window coordinates, and a card's onLayout gives its
- *     offset within its scroll parent — which is not the same thing once the list scrolls.
+ *   - **These are WINDOW coordinates and the spotlight subtracts its own origin from them.**
+ *     `measureInWindow`, not `onLayout` (which gives an offset inside the scroll parent, and so
+ *     stops being the card's position the moment the list scrolls) — but window space is NOT the
+ *     space components/TourSpotlight.tsx draws in. Its scrim is a `StyleSheet.absoluteFill`
+ *     inside the tabs root view, and on Android those two differ: Fabric adds
+ *     `includeViewportOffset` to measureInWindow (ReactCommon/react/renderer/dom/DOM.cpp), which
+ *     on Android is `rootView.getLocationInWindow() − getWindowVisibleDisplayFrame().top`
+ *     (uimanager/RootViewUtil.kt) — under the edge-to-edge window Expo enforces, the root spans
+ *     the whole window while the visible frame starts below the status bar, so the offset is
+ *     exactly `−statusBarHeight`. That shipped, and every hole landed one status bar too high:
+ *     each step ringed the card ABOVE its target, and Shopping ringed the header instead of the
+ *     tab bar (2026-08-14, from five real-device screenshots).
+ *     **The fix is the SUBTRACTION, not a different call** — the spotlight measures its own
+ *     absoluteFill the same way and takes the delta, so whatever a platform folds into "window"
+ *     cancels out and no status-bar constant is hardcoded anywhere. `measure()`'s root-relative
+ *     pageX/pageY look like the obvious one-line answer and were tried first: they are correct
+ *     on native and WRONG on web, where react-native-web implements `measure` as an
+ *     `offsetParent` walk that never subtracts the pager's `scrollLeft`
+ *     (exports/UIManager/index.js). Home's target came back at x=802 on a 393px screen, failed
+ *     the on-screen filter below, and the whole tour silently stopped rendering in
+ *     `npm run preview` — i.e. it would have traded a device bug for a permanent hole in the
+ *     one harness that can see this component at all. Measure both ends the same way instead.
  *   - **A rect goes stale silently, so the spotlight re-measures on a cadence** (2026-08-05).
  *     mount/focus/onLayout all miss the commonest way a card moves — something above it
  *     resizing, especially a Collapsible reveal, which animates from a Reanimated worklet and
@@ -55,7 +74,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { TOUR_DISMISSED, nextStep, parseProgress } from '@/lib/tourSteps';
 import { Duration } from '@/constants/motion';
 
-/** A measured target, in WINDOW coordinates. */
+/** A measured target, in WINDOW coordinates — see the coordinate-space note above. */
 export type TargetRect = { x: number; y: number; width: number; height: number };
 
 type Listener = () => void;
@@ -130,8 +149,10 @@ export default function TourTarget({ id, active, style, children }: Props) {
 
   const measure = useCallback(() => {
     if (!running) return;
-    // measureInWindow can fire before layout settles and hand back zeros; a zero-size target
-    // would draw a hole around nothing, so treat it as "not ready" and wait for the next pass.
+    // Window coordinates, translated into the overlay's space by TourSpotlight — see the
+    // header's coordinate-space note. measureInWindow can fire before layout settles and hand
+    // back zeros; a zero-size target would draw a hole around nothing, so treat it as "not
+    // ready" and wait for the next pass.
     ref.current?.measureInWindow((x, y, width, height) => {
       if (!width || !height) return;
       const prev = rects.get(id);

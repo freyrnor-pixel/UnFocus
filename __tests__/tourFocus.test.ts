@@ -46,13 +46,33 @@ describe('TourSpotlight re-measures its target on a cadence, not just once', () 
     );
   });
 
+  /**
+   * The cadence effect's body, so the assertions below can be about what it DOES rather than
+   * about one exact spelling of it. It was matched literally until 2026-08-14, when the same
+   * pass also started re-measuring the overlay's own origin and the shared work moved into a
+   * local `pass()` — three of these four tests failed on a change that kept every property they
+   * exist to protect. Pin the mechanism, not the punctuation.
+   */
+  // Two step-gated effects live in this file (the other one walks the router to the step's
+  // tab), so pick the cadence one by the thing that makes it the cadence.
+  const effect = [...src.matchAll(/useEffect\(\(\) => \{\s*if \(!step\) return;([\s\S]*?)\}, (\[[^\]]*\])\);/g)].find(
+    (m) => m[1].includes('setInterval'),
+  );
+
+  it('has a step-gated cadence effect at all', () => {
+    expect(effect).toBeDefined();
+  });
+
   it('measures immediately AND arms an interval, not an interval alone', () => {
-    // Both calls have to exist together: the immediate call catches the common case with no
-    // visible delay, the interval catches everything that happens after (async loads, a
-    // scroll, the user working the live card the tour deliberately leaves interactive).
-    expect(src).toMatch(
-      /remeasureTargets\(\);\s*\n\s*const \w+ = setInterval\(remeasureTargets,\s*REMEASURE_INTERVAL\)/,
-    );
+    // Both have to exist together: the immediate pass catches the common case with no visible
+    // delay, the interval catches everything that happens after (async loads, a scroll, the
+    // user working the live card the tour deliberately leaves interactive).
+    const body = effect![1];
+    expect(body).toMatch(/remeasureTargets\(\)/);
+    expect(body).toMatch(/setInterval\(\w+,\s*REMEASURE_INTERVAL\)/);
+    // The immediate call: whatever the interval is armed with, invoked once on its own first.
+    const armed = body.match(/setInterval\((\w+),\s*REMEASURE_INTERVAL\)/)![1];
+    expect(body).toMatch(new RegExp(`(^|\\n)\\s*${armed}\\(\\);`));
   });
 
   it('clears the interval on cleanup', () => {
@@ -62,11 +82,7 @@ describe('TourSpotlight re-measures its target on a cadence, not just once', () 
   it('re-arms the cadence on every step change, not once on mount', () => {
     // A `[]` dependency array here is the exact regression this test exists to catch: it would
     // measure once when the tour starts and never again as the user moves through steps.
-    const effect = src.match(
-      /useEffect\(\(\) => \{\s*if \(!step\) return;\s*remeasureTargets\(\);[\s\S]*?\}, (\[[^\]]*\])\);/,
-    );
-    expect(effect).not.toBeNull();
-    expect(effect![1]).toBe('[step]');
+    expect(effect![2]).toMatch(/\bstep\b/);
   });
 });
 

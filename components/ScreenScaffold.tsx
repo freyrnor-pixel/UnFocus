@@ -228,6 +228,41 @@ export const ScrollIntoViewContext = React.createContext<((node: Measurable | nu
 /** Extra gap left between the lifted row's bottom and the top of the keyboard. */
 const KEYBOARD_MARGIN = 16;
 
+/**
+ * The status-bar clearance the floating chrome is positioned against.
+ *
+ * Belt-and-suspenders for Android: safe-area-context can read 0 for the top inset before the
+ * first window-insets dispatch, so fall back to the native status-bar height. `Math.max` avoids
+ * double-counting once `insets.top` is correct.
+ *
+ * Exported because anything drawing OVER a screen has to agree with the chrome about where the
+ * chrome is, and there is exactly one right answer — the 2026-08-10 clip pass is a long note
+ * about what happens when two places compute this and disagree by a few px.
+ */
+export function resolveTopInset(insetTop: number): number {
+  return Platform.OS === 'android' ? Math.max(insetTop, StatusBar.currentHeight ?? 0) : insetTop;
+}
+
+/**
+ * The band the pager's floating chrome covers, measured from the top and bottom of the ROOT
+ * view — i.e. `[top, screenHeight - bottom]` is the strip where a tab screen's own content is
+ * the thing on screen.
+ *
+ * Both edges are the chrome cards' OUTER footprint, the same edges `viewportInset` clips to
+ * below. Content genuinely scrolls underneath both cards and is hidden BY them (they are
+ * opaque), which is exactly why a caller drawing its own overlay cannot just use the target's
+ * measured rect: the part of a card that runs past this band is not visible, it is behind the
+ * header or the nav bar. components/TourSpotlight.tsx clamps its hole to this, after a real
+ * -device report where the guided tour's ring cut straight across a fully-lit bottom nav
+ * (2026-08-14) — Home's to-do card is taller than the band, so its rect ran 28px into the bar.
+ */
+export function tabChromeBand(insets: { top: number; bottom: number }, fontScale: number) {
+  return {
+    top: resolveTopInset(insets.top) + getHeaderMetrics(fontScale).headerHeight,
+    bottom: BOTTOM_NAV_HEIGHT + insets.bottom + NAV_FLOAT_GAP,
+  };
+}
+
 type Tier = 'site' | 'sub';
 
 type Props = {
@@ -361,13 +396,9 @@ export default function ScreenScaffold({
   // explicitly. (The in-flow ScrollView still gets its inset padding from the
   // SafeAreaView, so scroll content keeps clearing the bars as before.)
   const insets = useSafeAreaInsets();
-  // Belt-and-suspenders for Android: if safe-area-context under-reports the top
-  // inset (it can read 0 before the first window-insets dispatch), fall back to
-  // the reliable native status-bar height so the header never sits behind the
-  // notification bar. Math.max avoids double-counting when insets.top is correct.
-  const topInset = Platform.OS === 'android'
-    ? Math.max(insets.top, StatusBar.currentHeight ?? 0)
-    : insets.top;
+  // See resolveTopInset above — shared with anything that draws over a screen and therefore has
+  // to land on the same status-bar clearance the header is positioned against.
+  const topInset = resolveTopInset(insets.top);
   const bottomInset = insets.bottom;
 
   // Header band height scales with the OS text-size setting so the title's line box always
@@ -507,8 +538,10 @@ export default function ScreenScaffold({
   // pagerFloatingNav reserves clearance for the pager's overlay bar (see that prop's doc)
   // without this scaffold rendering a second bar of its own — independent of `bottomNav`.
   const reserveBottomNav = tier === 'site' && scrollable && (bottomNav || pagerFloatingNav);
+  // The floating-bar branch goes through tabChromeBand so this number and the one an overlay
+  // clamps itself to are the same number, not two copies of the same sum.
   const bottomNavClearance = pagerFloatingNav
-    ? BOTTOM_NAV_HEIGHT + bottomInset + NAV_FLOAT_GAP
+    ? tabChromeBand(insets, PixelRatio.getFontScale()).bottom
     : BOTTOM_NAV_HEIGHT + bottomInset;
   // 'top' is applied by hand below rather than listed here (2026-08-10). SafeAreaView pads a
   // listed edge with the RAW `insets.top`, while the header block floors the same inset with
