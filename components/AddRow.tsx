@@ -13,7 +13,10 @@
  *     autocomplete + price + category chips + qty stepper + temporary toggle). Shopping and
  *     inventory only.
  *   - **this file** — collapsed `+ label` pill → input + Save/Delete, plus an `extras` slot
- *     and a `panel` slot. Plans, Health, Goals, Food, Catalogue, Medicine.
+ *     and a `panel` slot. Plans, Health, Goals, Food, Medicine. (Catalogue left on
+ *     2026-08-14 — its composer became a "+" beside the search field opening
+ *     components/CatalogueAddSheet.tsx; see that file's header for why that list is the one
+ *     where an inline composer never quite fit.)
  * **The fields are ALREADY converged** — all three draw the same bordered, focus-showing field
  * (this one got it on 2026-08-05; `InlineAddItem` by using `FormControls`' `Input` outright),
  * and `panel` below takes the same `QuickAddOptionsPanel` node under the same
@@ -54,7 +57,7 @@
  *             lib/screenColor, lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
- *             components/GoalsEditor.tsx, components/CatalogueTab.tsx, components/FoodTab.tsx,
+ *             components/GoalsEditor.tsx, components/FoodTab.tsx,
  *             components/MedicineTrayCard.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
  *             and automations.tsx, none of which import this file: shopping uses

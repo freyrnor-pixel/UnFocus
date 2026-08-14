@@ -4,23 +4,22 @@
  * The master list of known items (store_items via useCatalogStore), rendered as one
  * flat list sorted alphabetically by name (Decision, visual-audit 2026-07-11 —
  * previously sectioned by item type; flattened since a single glance-sorted list is
- * faster to scan than hunting through category headers). A top AddRow (name + a price
- * extra input) authors a brand-new catalogue item — always visible, no expand/collapse
- * toggle (design-consistency pass: one shared "add a row" shape app-wide instead of a
- * bespoke toggle-open form). Each existing row shows name + price, is tappable to edit
- * in place (name/price/save), and has a delete button. The catalogue is the single basis
- * both the week lists and the Food screen draw item names/prices from (autocomplete), so
- * edits here flow everywhere.
+ * faster to scan than hunting through category headers). Each existing row shows name + price,
+ * is tappable to edit in place (name/price/save), and has a delete button. The catalogue is the
+ * single basis both the week lists and the Food screen draw item names/prices from
+ * (autocomplete), so edits here flow everywhere.
  *
- * A search field at the top of the list header filters the rows by name (case-insensitive
- * substring), and a vertical A–Z scrubber down the right edge (hold-and-drag, contacts-style)
- * jumps the list to the first item under the touched letter — see the "Search + A–Z scrubber"
- * edit note below.
+ * **The header is TWO boxes (2026-08-14)** — see the "Two boxes" edit note. Box 1 is sort +
+ * the camera + the lock; box 2 is the search field with a "+" at its right that opens
+ * components/CatalogueAddSheet.tsx. A vertical A–Z scrubber down the right edge
+ * (hold-and-drag, contacts-style) jumps the list to the first item under the touched letter —
+ * see the "Search + A–Z scrubber" edit note below.
  *
  * Connections:
  *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics (success/heavy/
  *             selection), lib/money (formatKr), lib/screenColor, components/Surface,
- *             components/PressableScale, components/AddRow, store/useCatalogStore,
+ *             components/PressableScale, components/IconButton, components/FormControls
+ *             (SegmentedControl), components/CatalogueAddSheet, store/useCatalogStore,
  *             @expo/vector-icons
  *   Used by → app/catalogue.tsx (its own button-launched sub-screen as of 2026-07-23, UX
  *             audit F1 — was app/(tabs)/shopping.tsx's in-place "Catalogue" tab before that),
@@ -29,10 +28,34 @@
  *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
  *
  * Edit notes:
+ *   - **Two boxes, and each box IS its control (2026-08-14).** From a marked-up screenshot:
+ *     *"The dark coloring looks unnatural, and not like the rest of the app"* (the search
+ *     field), *"[the segment] and [the lock] should be the same box"*, *"the search field and
+ *     the others should not be slimmer than the catalogue itself"*, and — for the composer —
+ *     *"Instead do two boxes. Top one has the sort by and lock icon. The one under has one
+ *     search box and the plus sign to the right. Pressing the plus sign shows a pop-up that
+ *     gives user option to enter Name and (optionally) price, save or discard."* Four changes,
+ *     and they share one cause: the header was a stack of Surfaces each holding a SECOND
+ *     bordered-or-filled control inside it, inset from the card that already contains them.
+ *       · The search input's `theme.surfaceMuted` pill is gone — the Surface's own edge and
+ *         white fill are the field now. Nothing else in the app fills a text field with the
+ *         muted token, which is exactly why it read as foreign.
+ *       · The camera and lock moved INTO the sort box instead of sitting beside it.
+ *       · `listHeader`'s `marginHorizontal` went to 0, so a box is exactly as wide as the rows
+ *         under it. See that style's own note for the shadow trade-off that inset was for.
+ *       · The `components/AddRow.tsx` composer — the third box — became the "+" in the search
+ *         box plus components/CatalogueAddSheet.tsx. Worth knowing before "restoring" it: this
+ *         is the one list where an inline composer was always slightly wrong, because a new
+ *         row does not appear where you typed it (it lands under its own letter, usually off
+ *         screen), so the top-of-list placement the note below defended was already a
+ *         compromise rather than a fit.
+ *     This does NOT license a general "unwrap the field from its card" pass — the rule
+ *     everywhere else is still `FormControls`' `Input` inside a card with other content. It
+ *     applies where a box holds exactly one control and would otherwise draw two edges.
  *   - **`embedded` (2026-08-10) — mounted inside Shopping's Catalogue drawer, not only on
  *     /catalogue.** Maintainer, against the drawer's old names-only preview: *"I would rather
  *     just the expanded state be like the screens."* So the drawer mounts THIS, and
- *     `components/SubScreenPreviewList.tsx` is deleted. Search, the AddRow composer, the rows
+ *     `components/SubScreenPreviewList.tsx` is deleted. Search, the "+" and its pop-up, the rows
  *     and tap-to-edit-in-place are the SAME code and the same state in both modes — what the
  *     drawer cannot host is the SHELL, and that is all the flag removes:
  *       · the FlatList → a `.map()` capped at `EMBEDDED_ROWS`, because a FlatList inside
@@ -40,8 +63,10 @@
  *       · the A–Z scrubber → gone, it needs a full column of screen height to drag down;
  *       · the notepad container + grow-to-fill footer → the drawer's card IS the container,
  *         and there is no leftover viewport inside a drawer to soak up;
- *       · the search/add `Surface` wrappers → a Surface inside the drawer's Surface reads as a
- *         nested panel, and both controls carry their own border and fill already;
+ *       · the two header `Surface` wrappers → a Surface inside the drawer's Surface reads as a
+ *         nested panel. The search field draws its OWN field-rung edge in this mode to
+ *         compensate (`searchRowEmbedded`) — on the real screen its box is that edge, and
+ *         without one the drawer would show a bare icon and a caret on the card's paper;
  *       · the rows' `paddingHorizontal` and rounded first row → the drawer already pads by
  *         Spacing.md, and a third stacked inset is what wraps a long Norwegian item name.
  *     `onOpenFull` is the tail row out to the whole list. Rows deliberately keep this screen's
@@ -64,21 +89,21 @@
  *     ~10 of each built synchronously on first paint (part of the tab's open latency). Only the
  *     inline EDIT row's action buttons keep PressableScale (one edit row exists at a time).
  *     `CatalogueRow` is `React.memo`'d with stable callbacks (onStartEdit/onRemove from
- *     useCallback) so typing in the add row or entering edit mode only re-renders the affected
+ *     useCallback) so typing in the search field or entering edit mode only re-renders the affected
  *     row, not the whole visible window.
  *   - **No per-mount sort (perf, tab-open latency)**: `items` arrives already Norwegian-collated
  *     from useCatalogStore (sorted once in load(), kept sorted by every mutation), so this tab
  *     feeds `items` straight to the FlatList. The old `sortedItems` useMemo re-collated all ~286
  *     rows with localeCompare('no') on every mount — a synchronous beat every time the tab opened.
  *   - **`header` prop** (currently unused — app/catalogue.tsx passes none): when given,
- *     renders as the FlatList's ListHeaderComponent (above the add row) so it scrolls with
+ *     renders as the FlatList's ListHeaderComponent (above the two header boxes) so it scrolls with
  *     the list. Shopping's old in-place Catalogue tab used to hand in its shared hint card
  *     + SharedRequestsSection this way, back when this rendered as one of Shopping's own
  *     tabs outside the screen's normal padded content View.
- *   - New items are still authored into the 'other' category (no picker in the add row,
- *     per the spec's "name, price, delete, save") — `category` is kept on the row (used
+ *   - New items are still authored into the 'other' category (no category picker in the add
+ *     pop-up either, per the spec's "name, price, delete, save") — `category` is kept on the row (used
  *     by autocomplete elsewhere) even though this tab no longer groups/displays by it.
- *   - The add row sits at the TOP of this list (unlike Plans/Shopping's bottom-of-list
+ *   - The add control sits at the TOP of this list (unlike Plans/Shopping's bottom-of-list
  *     AddRow) — deliberate exception: this is a long, alphabetized reference list, not a
  *     short append-order list, so a bottom add row would require scrolling on every add.
  *   - removeItem soft-deletes (see useCatalogStore) so deleting a seeded item sticks across
@@ -86,8 +111,8 @@
  *   - **No per-row border on the ROWS (2026-07-13, updated 2026-07-14)**: unlike WeekListCard,
  *     individual rows don't carry a screen-hued edge — this list is one long, continuous card,
  *     so a per-row outline would read as a loud frame at this scale. `screenHue` (was
- *     `domainColor.accent` until 2026-08-06 — see the inline note) is still used for the small
- *     AddRow confirm-button fill AND the OUTER container's border + shadow (`cardOuter`,
+ *     `domainColor.accent` until 2026-08-06 — see the inline note) is still used for the "+"
+ *     button's fill AND the OUTER container's border + shadow (`cardOuter`,
  *     2026-07-24) — see the "Notepad container" note below.
  *   - **Grow-to-fill footer (visual-audit, 2026-07-17)**: a short catalogue (most seeded
  *     rows soft-deleted, or a fresh manually-built one) left the FlatList's own flex:1 tail
@@ -102,8 +127,8 @@
  *     ScreenScaffold's `contentPadding` double-reserving `BOTTOM_NAV_HEIGHT` on top of the
  *     clearance the tab pager already gives every `bottomNav={false}` screen; fixed there
  *     (see ScreenScaffold.tsx's own edit notes), not here.
- *   - **Search + A–Z scrubber (2026-07-19)**: a search `TextInput` (in the list header, above the
- *     add row) filters `items` → `displayItems` by case-insensitive substring; the FlatList renders
+ *   - **Search + A–Z scrubber (2026-07-19)**: a search `TextInput` (in the list header's second
+ *     box) filters `items` → `displayItems` by case-insensitive substring; the FlatList renders
  *     `displayItems`. A vertical alphabet column (`indexBar`) sits as a sibling to the FlatList inside
  *     the notepad `card` (a `cardInner` row wraps both) — a fixed reserved gutter, not an absolute
  *     overlay, so long row names never run under it. A single `PanResponder` on the column maps the
@@ -139,14 +164,14 @@ import { FlatList, PanResponder, Pressable, StyleProp, StyleSheet, Text, TextInp
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import AddRow from '@/components/AddRow';
+import CatalogueAddSheet from '@/components/CatalogueAddSheet';
 import IconButton from '@/components/IconButton';
 import { useRouter } from 'expo-router';
 import { SegmentedControl } from '@/components/FormControls';
 import { sortByCategoryThenName } from '@/lib/shoppingCategories';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
 import { success, heavy, selection } from '@/lib/haptics';
@@ -161,11 +186,11 @@ const SCRUB_MIN_ITEMS = 12;
 
 type Props = {
   onNotify: (msg: string) => void;
-  /** Screen-owned chrome (hint card + shared requests) rendered above the add row. */
+  /** Screen-owned chrome (hint card + shared requests) rendered above the header boxes. */
   header?: React.ReactNode;
   /**
    * Drawn inside a card rather than as the screen — Shopping's Catalogue drawer
-   * (components/CollapsedSection.tsx). The search field, the add composer, the rows and the
+   * (components/CollapsedSection.tsx). The search field, the "+" pop-up, the rows and the
    * tap-to-edit-in-place row are the SAME code and the same state; what the drawer cannot
    * host is the shell. A FlatList inside Shopping's ScrollView is a nested same-axis
    * VirtualizedList, and an A–Z scrubber needs a full column to drag down — so embedded
@@ -262,12 +287,16 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
   const updateItem = useCatalogStore((s) => s.updateItem);
   const removeItem = useCatalogStore((s) => s.removeItem);
 
-  const [addName, setAddName] = useState('');
-  const [addPrice, setAddPrice] = useState('');
+  /** The "+" beside the search field opens components/CatalogueAddSheet.tsx (2026-08-14). */
+  const [addOpen, setAddOpen] = useState(false);
   // This screen's own green (2026-08-06) — was lib/domainColor's 'shop' identity, which the
   // 2026-07-31 hue collapse turned to gold; the outer container border was separately hardcoded
   // neutral (`theme.border`) rather than this screen's green. Both now draw the same hue.
   const screenHue = useScreenColor() ?? theme.border;
+  // Only used in `embedded` mode — see the search row's own note. Computed unconditionally
+  // (a hook can't sit behind a branch, and this is a plain call beside one).
+  const isDark = useIsDark();
+  const searchFieldEdge = computeBorderTone(screenHue, isDark, 'field');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -403,14 +432,10 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
     [handleScrub, endScrub]
   );
 
-  function handleAdd() {
-    const name = addName.trim();
-    if (!name) return;
-    addItem({ name, price: parseFloat(addPrice.replace(',', '.')) || 0, category: 'other' });
+  function handleAdd({ name, price }: { name: string; price: number }) {
+    addItem({ name, price, category: 'other' });
     success();
     onNotify(t.catalogueItemAdded(name));
-    setAddName('');
-    setAddPrice('');
   }
 
   // Lets startEdit find the tapped row's current index without depending on `displayItems`
@@ -525,44 +550,22 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
   const shell = (node: React.ReactNode, style: StyleProp<ViewStyle>) =>
     embedded ? <View style={style}>{node}</View> : <Surface style={style}>{node}</Surface>;
 
+  // Rendered in BOTH branches below — it is a <Modal>, so it costs nothing while shut and works
+  // the same from inside Shopping's drawer as from the full screen.
+  const addSheet = (
+    <CatalogueAddSheet visible={addOpen} onClose={() => setAddOpen(false)} onSave={handleAdd} />
+  );
+
   const listHeader = (
     <View style={[styles.listHeader, embedded && styles.listHeaderEmbedded]}>
       {header}
-      {/* ── Search ── filters the catalogue by name (case-insensitive substring). Sits above
-          the add row; hides the A–Z scrubber while a query is active (the filtered list is
-          short and no longer in a scannable A→Å run). */}
-      {shell(
-        <View style={[styles.searchRow, { backgroundColor: theme.surfaceMuted }]}>
-          <Ionicons name="search" size={16} color={theme.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: theme.text }]}
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t.catalogueSearchPlaceholder}
-            placeholderTextColor={theme.textMuted}
-            returnKeyType="search"
-            autoCorrect={false}
-            clearButtonMode="never"
-          />
-          {query.length > 0 && (
-            <PressableScale
-              onPress={() => setQuery('')}
-              hitSlop={HitSlop.base}
-              scaleTo={0.9}
-              accessibilityLabel={t.catalogueSearchClearLabel}
-              accessibilityRole="button"
-            >
-              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
-            </PressableScale>
-          )}
-        </View>,
-        styles.searchCard
-      )}
-      {/* ── Sort + lock ── one row: how the list is ordered, and whether it can be deleted from.
-          The SegmentedControl is the FORM-tier pick-one shape (components/FormControls) — the
-          screen-tier TabSlider is an accent-filled pill and this list is inside a card, plus
-          Shopping's drawer already spends its one screen-tier control on Weekly/Monthly.
-          "Always" visible, per the maintainer, not only while a query is active. */}
+      {/* ── Box 1: sort + the icons ── how the list is ordered, and whether it can be deleted
+          from. The SegmentedControl is the FORM-tier pick-one shape (components/FormControls)
+          — the screen-tier TabSlider is an accent-filled pill and this list is inside a card,
+          plus Shopping's drawer already spends its one screen-tier control on Weekly/Monthly.
+          Always visible, per the maintainer, not only while a query is active. The camera and
+          the lock ride in the SAME box as the segment (2026-08-14) rather than each drawing
+          its own edge beside it — three boxes in a row read as three unrelated controls. */}
       {shell(
         <View style={styles.sortRow}>
           <View style={styles.sortControl}>
@@ -594,30 +597,58 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
         </View>,
         styles.sortCard
       )}
-      {/* ── Top: add-new-item row ── the shared AddRow (name input + price extra), always
-          visible at the top of this long, alphabetized reference list. */}
+      {/* ── Box 2: search + add ── filters the catalogue by name (case-insensitive substring),
+          and hides the A–Z scrubber while a query is active (the filtered list is short and no
+          longer in a scannable A→Å run). The BOX IS THE FIELD (2026-08-14): the search input
+          used to be a `surfaceMuted` pill floating inside this card, which read as a dark inset
+          slot unlike anything else in the app and made the typing area visibly narrower than
+          the card around it. The card's own edge and fill are the field's now — one border, one
+          width. The "+" opens components/CatalogueAddSheet.tsx; it sits in this box because
+          "find an item" and "add an item you couldn't find" are one errand. */}
       {shell(
-        <AddRow
-          placeholder={t.catalogueItemNamePlaceholder}
-          value={addName}
-          onChangeText={setAddName}
-          onSubmit={handleAdd}
-          accent={screenHue}
-          showDivider={false}
-          accessibilityLabel={t.catalogueAddNewBtn}
-          extras={
-            <TextInput
-              style={[styles.addPriceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-              value={addPrice}
-              onChangeText={setAddPrice}
-              placeholder={t.catalogueItemPricePlaceholder}
-              placeholderTextColor={theme.textMuted}
-              keyboardType="decimal-pad"
-              onSubmitEditing={handleAdd}
-            />
-          }
-        />,
-        styles.addRowCard
+        <View
+          style={[
+            styles.searchRow,
+            // Embedded there is no Surface around this row (a Surface inside the drawer's
+            // Surface reads as a nested panel), so the field would be drawn with no edge at
+            // all — a bare icon and a caret on the drawer's paper. It wears the FIELD rung of
+            // the screen hue instead, which is what every other field in the app does inside a
+            // card. On the real screen the box IS the edge and a second one would double it.
+            embedded && [styles.searchRowEmbedded, { borderColor: searchFieldEdge }],
+          ]}
+        >
+          <Ionicons name="search" size={16} color={theme.textMuted} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t.catalogueSearchPlaceholder}
+            placeholderTextColor={theme.textMuted}
+            returnKeyType="search"
+            autoCorrect={false}
+            clearButtonMode="never"
+          />
+          {query.length > 0 && (
+            <PressableScale
+              onPress={() => setQuery('')}
+              hitSlop={HitSlop.base}
+              scaleTo={0.9}
+              accessibilityLabel={t.catalogueSearchClearLabel}
+              accessibilityRole="button"
+            >
+              <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+            </PressableScale>
+          )}
+          <IconButton
+            icon="add"
+            label={t.catalogueAddNewBtn}
+            onPress={() => setAddOpen(true)}
+            tint={screenHue}
+            color={theme.textInverse}
+            size={30}
+          />
+        </View>,
+        styles.searchCard
       )}
       {items.length === 0 && (
         <Text style={[styles.empty, { color: theme.textMuted }]}>{t.catalogueEmpty}</Text>
@@ -666,6 +697,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
           </Pressable>
         )}
         </View>
+        {addSheet}
       </View>
     );
   }
@@ -756,6 +788,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
       )}
       </View>
       </View>
+      {addSheet}
     </View>
   );
 }
@@ -783,21 +816,28 @@ const baseStyles = StyleSheet.create({
   flatList: { flex: 1 },
   listContent: { paddingBottom: Spacing.md, flexGrow: 1 },
   // No paddingBottom here (2026-07-21 fix): `card`/`cardInner` have no background fill — the
-  // floating search/add-row chrome sits directly over the screen's ambient artwork by design
+  // floating header chrome sits directly over the screen's ambient artwork by design
   // (see "Notepad container" note above), but a trailing gap after the LAST header card exposed
   // that same ambient background as a persistent seam between the chrome and the first solid
   // row. Barely visible at rest, it became a jarring blank strip once scrolled partway (the
   // chrome clips to a sliver while the seam stays full-size) — reported as "blank space under
   // the tab row". `gap` still spaces the header's own cards apart; only the trailing pad is gone,
   // so the last card now sits flush against the first row with no background showing through.
-  // marginTop + marginHorizontal (2026-07-24): the search/add-row Surfaces below cast their own
-  // drop shadow (getLayeredShadow). Without this inset they sit flush against `card`'s
-  // overflow:hidden bounds and that shadow gets clipped clean off — the "shadow abnormality
-  // above the list" bug report. This gives the shadow room to render before hitting the clip.
-  listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: Spacing.md },
-  // Embedded: the margins exist on the real screen so the two Surfaces' shadows clear the
+  // marginTop (2026-07-24): the header Surfaces below cast their own drop shadow
+  // (getLayeredShadow). Without this inset they sit flush against `card`'s overflow:hidden
+  // bounds and that shadow gets clipped clean off — the "shadow abnormality above the list"
+  // bug report. This gives the shadow room to render before hitting the clip.
+  //
+  // **marginHorizontal is 0 as of 2026-08-14** (maintainer: *"the search field and the others
+  // should not be slimmer than the catalogue itself"*). It was `Spacing.md`, for the same
+  // shadow-clearance reason — but that inset a full-width control by 16px on each side inside
+  // a card whose own rows run edge to edge, so the two boxes read as a narrower stack floating
+  // on top of the list rather than as part of it. The side shadows clip at the card's own edge
+  // now, which is invisible; a 32px width difference was not.
+  listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: 0 },
+  // Embedded: the top margin exists on the real screen so the Surfaces' shadows clear the
   // FlatList's clip. There are no Surfaces and no clip inside the drawer.
-  listHeaderEmbedded: { marginTop: 0, marginHorizontal: 0 },
+  listHeaderEmbedded: { marginTop: 0 },
   embeddedRoot: { gap: Spacing.sm },
   // Tail row — "and N more", opens the full screen. Muted and chevron'd so it reads as a door
   // rather than as another item; deliberately NOT styled as a row you could edit or delete.
@@ -817,23 +857,33 @@ const baseStyles = StyleSheet.create({
     borderTopWidth: 1,
   },
   moreText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
-  searchCard: { paddingHorizontal: Spacing.md },
-  sortCard: { paddingHorizontal: Spacing.md },
+  // The search box IS the field (2026-08-14) — its own padding is the field's padding, and
+  // there is no second bordered/filled pill inside it. `paddingRight` is smaller because the
+  // "+" key carries its own hit padding out to MIN_TAP_TARGET.
+  searchCard: { paddingLeft: Spacing.md, paddingRight: Spacing.sm, paddingVertical: Spacing.xs },
+  sortCard: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
   // The segment takes the width and the lock sits beside it. `flex: 1` + `minWidth: 0` on the
   // control, not on the row, so the two Norwegian labels ("Etter navn"/"Etter type") get every
   // pixel the lock isn't using — the wrap-audit lesson from the task editor.
   sortRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sortControl: { flex: 1, minWidth: 0 },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
-  searchInput: { flex: 1, fontSize: FontSize.sm, padding: 0 },
+  // No fill, no radius, no border of its own: the box around it is the field. minHeight keeps
+  // the row at the tap floor now that its old paddingVertical is gone.
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: MIN_TAP_TARGET },
+  // Drawer only: the field draws its own edge because there is no Surface around it there.
+  searchRowEmbedded: { borderWidth: BORDER_WIDTH.field, borderRadius: Radius.sm, paddingLeft: Spacing.sm, paddingRight: Spacing.xs },
+  // `minWidth: 0` alongside `flex: 1` (2026-08-14): without it a flex child keeps its
+  // intrinsic width, so the Norwegian placeholder ("Søk i katalogen…") refused to shrink and
+  // shoved the new "+" 11px past the drawer's clip — caught by `npm run wraps -- --lang=no
+  // --width=360` as a CLIPPED control, which is exactly the pair AGENTS.md's wrap-audit
+  // lessons prescribe for an input sharing a row with a fixed-size control.
+  searchInput: { flex: 1, minWidth: 0, fontSize: FontSize.sm, padding: 0 },
   // A–Z scrubber column: fills the card height so touch-Y ÷ height × letters maps uniformly.
   indexBar: { width: 22, justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: Spacing.xs },
   indexLetter: { fontSize: 11, lineHeight: 13, fontFamily: Fonts.bold, textAlign: 'center' },
   // Centered floating letter shown while dragging the scrubber.
   scrubBubble: { position: 'absolute', alignSelf: 'center', top: '38%', width: 68, height: 68, borderRadius: Radius.full, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold },
-  addRowCard: { paddingHorizontal: Spacing.md },
-  addPriceInput: { width: 76, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8, fontSize: FontSize.sm },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },
