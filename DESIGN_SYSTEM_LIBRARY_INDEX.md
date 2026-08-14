@@ -86,6 +86,14 @@ Never hardcode a hex, size, spacing or duration — always use tokens (`theme.ac
 
 **Related docs**: DESIGN_RULES.md, DESIGN_RULES_AUDIT.md, ANIMATION_GUIDELINES.md, AGENTS.md
 
+**The card material is Tactile Glass (2026-08-15)** — `components/Surface.tsx` owns it, with
+`getGlassEdge`/`getGlassFill`/`getBadgeFrost`/`getTopHighlight`/`getInnerShade` in
+`constants/theme.ts` and the `surfaceGlass`/`surfaceGlassStrong` pair in `constants/colors.ts`.
+Read that component's header before changing a card, a border or a press state: it reverses the
+2026-08-05 flat-card reset, and the reversal was ruled on conflict-by-conflict
+(`DESIGN_RULES_AUDIT.md`, 2026-08-15 addendum). The deliberate gap noted above still holds —
+cards/surfaces/modals have no library doc of their own, because `<Surface>` IS the doc.
+
 **Proposed, not shipped**: `MD3_FUTURE_PLAN.md` — a full Material Design 3 adoption plan.
 Read it before acting on any request to "make this MD3" — it lists which parts collide with
 decisions already made here (tonal elevation, translucent surfaces, MD3 color roles) and

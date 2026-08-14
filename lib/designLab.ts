@@ -308,7 +308,12 @@ export const CONTROL_KNOBS: readonly ControlKnob[] = [
     usedBy: 'reminder times, medicine trays, task start/finish',
   },
   {
-    id: 'rowShape', variants: ['boxed', 'ruled', 'flush'], fallback: 'boxed',
+    // 'flush' is what ships as of 2026-08-15 (Tactile Glass — "no box-in-a-box: strip away all
+    // unnecessary nested borders, group elements purely using whitespace"). It was 'boxed'
+    // from the 2026-08-05 card reset until then, and 'ruled' from the 2026-07-30 notepad pass
+    // before that. All three answers were given by the maintainer to the same question about
+    // different materials, which is precisely why this knob exists.
+    id: 'rowShape', variants: ['boxed', 'ruled', 'flush'], fallback: 'flush',
     source: 'components/PadSheet.tsx',
     usedBy: 'how one row is separated from the next',
   },

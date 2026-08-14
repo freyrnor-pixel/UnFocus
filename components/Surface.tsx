@@ -1,25 +1,42 @@
 /**
- * Surface.tsx — the one card shape: a flat opaque page with a single hue-ramped border.
+ * Surface.tsx — the one card shape: a frosted glass pane with a light-catching edge.
+ * Also exported as `GlassCard`, the Tactile Glass brief's name for it (see the bottom).
  *
- * **Card design reset, 2026-08-05 (maintainer brief, "one simple design for all cards").**
- * Every card in the app is now the same object: an opaque fill — pure white in light mode,
- * the flat navy `theme.surface` in dark — with ONE simple border carrying the screen's own
- * colour, ramped deep→light down the edge. Nothing is drawn on the face. There is no frost,
- * no colour wash, no translucency, no face-lift gradient, and no beveled rim.
+ * **Tactile Glass, 2026-08-15 (maintainer brief).** A card is a pane of dark glass floating
+ * over the backdrop: a translucent fill (`theme.surfaceGlass`), ONE edge that catches the
+ * light on its top-left and carries the control boundary on its bottom-right
+ * (`getGlassEdge`), and — where there is genuinely something behind it to smear — a real
+ * `BlurView`. Colour comes from a 5% screen-hue wash on the pane, never from the edge.
  *
- * What that replaced, so nobody re-adds it by halves: a glass system built between 2026-07-18
- * and 2026-08-05 — a BlurView for overlay contexts, a per-context translucent wash
- * (`GLASS_WASH_ALPHA`), a 10%-white face lift fading out by 42% with a 4% bottom shade
- * (`getMaterialStyle`'s `scrim`), a 2.5px beveled `computeRimGradient` ring, and an
- * `innerLine` second edge. All of it is gone from this component. `components/GlassFill.tsx`
- * is no longer mounted here at all.
+ * ⚠️ **This REVERSES the 2026-08-05 card reset, which this header used to describe** ("a flat
+ * opaque page… no frost, no BlurView, no translucent wash, no beveled rim"), and it reverses
+ * that pass's flat-rim decision too, since a light-catching edge is by definition a simulated
+ * light source. Both were deliberate, and both were re-put to the maintainer before this was
+ * written — `DESIGN_COMPARISON/16-solid-pressable-materials.md` §2 required exactly that
+ * ("a maintainer conversation and a separate PR — not a quiet test edit"). Read that file's
+ * 2026-08-15 addendum and DESIGN_RULES_AUDIT.md before reverting any of it on the authority
+ * of the older entries; they are history now, not current state.
+ *
+ * Three things about the new material that are load-bearing and not obvious:
+ *   - **The fill is a pair.** `surfaceGlass` is what gets PAINTED; `surface` is the same
+ *     colour already composited over the backdrop, and is what every contrast test measures.
+ *     They are derived from each other by construction — dark's alpha was chosen so the
+ *     composite lands exactly on the `#1E1E1E` the palette already had, which is why not one
+ *     dark token moved in this pass. Change one, re-derive the other.
+ *   - **The edge is the boundary now.** A translucent pane can't reach light mode's `#FFFFFF`
+ *     ceiling, so the bg↔surface fill step fell to 1.170 and DESIGN_RULES.md rule 10b relaxed
+ *     its floor. The compensation is that the edge's shade stop is plain `theme.border` at
+ *     full strength, clearing WCAG 1.4.11's 3:1 against both the page and the pane — a
+ *     measured boundary where the fill step was only ever an assumed one. Don't fade it.
+ *   - **Blur is contextual, not global.** See the comment at the BlurView itself.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, computeBorderRamp, darken,
- *             getLayeredShadow, Radius), constants/motion (Travel), lib/useAppTheme
- *             (useAppTheme, useIsDark, useAccessibility), lib/screenColor (useScreenColor),
- *             lib/useDesignLab (useLabShape — the design lab's geometry, see Edit notes),
- *             components/PressableScale, expo-linear-gradient
+ *   Imports → constants/theme (BORDER_WIDTH, darken, getGlassEdge, getGlassFill,
+ *             getLayeredShadow, Radius, SCREEN_TINT), constants/motion (Travel),
+ *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility), lib/screenColor
+ *             (useScreenColor), lib/useDesignLab (useLabShape — the design lab's geometry,
+ *             see Edit notes), store/useSettingsStore (glassSurfaces),
+ *             components/PressableScale, expo-linear-gradient, expo-blur
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, app/health-log,
  *             app/health-detail, app/scan. **components/CollapsedSection doesn't use this
@@ -31,27 +48,32 @@
  *             useScreenColor() (provided by components/ScreenScaffold.tsx)
  *
  * Edit notes:
- *   - **Colour lives ONLY in the border, and the border's hue comes from the SCREEN.** The
- *     resolution order is `borderColor` (an explicit override — Home's preview cards pass
- *     their source screen's hue this way) → `tint` → the ambient screen hue from
- *     lib/screenColor.ts → the neutral `theme.border`. Home and Settings provide no hue on
- *     purpose, so their cards land on that neutral and are grey. See lib/screenColor.ts's
- *     header for why the per-screen layer came back after being retired on 2026-07-31.
- *   - **The ramp is a gradient again, and that is not a revert.** `constants/theme.ts`'s
- *     `computeRimGradient` was flattened one day earlier because a border should not simulate
- *     a light source. `computeBorderRamp` is not a light source: it stays inside the screen's
- *     own hue with no white and no black in it. Read that function's own doc before changing
- *     either of them.
- *   - `surfaceContext` ('ambient' | 'overlay' | 'nav') is kept in the API but **no longer
- *     changes a pixel** — every context is now the same opaque fill. It survives so the ~40
- *     call sites that pass it don't all need touching in this pass, and so a future
- *     "sheets should differ from cards" decision has somewhere to land. Don't wire new
- *     behaviour to it without asking; today it is documentation, not a switch.
- *   - **`settings.glassSurfaces` is inert for this component now.** It was the
- *     reduce-transparency a11y toggle, and the thing it reduced no longer exists — every
- *     surface is fully opaque unconditionally, which is the state that toggle was asking for.
- *     The setting and its DB column stay (this repo never drops columns) and other consumers
- *     still read it; Surface simply has nothing left to vary.
+ *   - **The EDGE is neutral on every screen; the screen's colour is a WASH on the pane.** This
+ *     is the 2026-08-15 ruling and it inverts what this note said for the ten days before it.
+ *     `theme.border` is the edge in every mode and on every screen. The identity hue resolves
+ *     `borderColor` (an explicit override — Home's preview cards pass their source screen's
+ *     hue this way) → `tint` → the ambient screen hue from lib/screenColor.ts, and is painted
+ *     as a `SCREEN_TINT` (5%) layer inside the mask. Home and Settings supply no hue on
+ *     purpose and get no wash at all. lib/screenColor.ts is NOT retired by this — it was
+ *     retired once before, in 2026-07-31's addendum A.5, precisely for having no consumers,
+ *     and it has two here (this wash and the icon badge).
+ *   - **The edge simulates a light source, deliberately.** That is the direct reversal of the
+ *     2026-08-05 flat-rim pass, whose stated reason was that a border should not. It is the
+ *     brief's central image ("an old UI trick… it perfectly simulates a light source hitting
+ *     the physical edge of a piece of glass"). `computeBorderRamp`/`computeBorderTone` still
+ *     exist and still work; they simply have no consumer here any more.
+ *   - **`surfaceContext` ('ambient' | 'overlay' | 'nav') is a REAL SWITCH again**, for the
+ *     first time since 2026-08-05, and it decides two things: which of the two glass tokens
+ *     the pane uses, and whether a `BlurView` is mounted at all. This is the "future 'sheets
+ *     should differ from cards' decision" the prop was explicitly kept alive for — so a caller
+ *     that has been passing it decoratively is now passing it meaningfully. Check the value is
+ *     right when you touch a sheet or a nav surface.
+ *   - **`settings.glassSurfaces` is LIVE again** (it was inert here from 2026-08-05, because
+ *     everything was already opaque — the state that toggle asks for). Off ⇒ the opaque
+ *     composite and no BlurView anywhere. It needs no new copy: the shipped EN/NO strings
+ *     already describe exactly this ("Frosted glass finish on cards, buttons and the add
+ *     button. Turn off for plain, solid surfaces"). A caller-supplied `tint` also stays
+ *     opaque — those callers want that exact colour, not a frosted approximation of it.
  *   - Depth is still `getLayeredShadow(theme.shadow)` — a three-pass `boxShadow` — and this
  *     view must NOT also set the `shadow*`/`elevation` keys (they would double up).
  *     `elevated` deepens it to the `floating` tier. Shadow was not part of the reset brief:
@@ -90,7 +112,17 @@
 import React from 'react';
 import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BORDER_WIDTH, computeBorderRamp, darken, getLayeredShadow, Radius } from '@/constants/theme';
+import { BlurView } from 'expo-blur';
+import {
+  BORDER_WIDTH,
+  darken,
+  getGlassEdge,
+  getGlassFill,
+  getLayeredShadow,
+  Radius,
+  SCREEN_TINT,
+} from '@/constants/theme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLabShape } from '@/lib/useDesignLab';
 import { Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
@@ -224,12 +256,31 @@ export default function Surface({
   const [heldFlat, setHeldFlat] = React.useState(false);
   const staticPressed = isKey && reducedMotion && heldFlat && !disabled;
 
-  // The page. Opaque, flat, no wash and nothing drawn on top of it — white (#FFFFFF) in light
-  // mode, the flat navy `surface` in dark. This single line is most of the 2026-08-05 reset.
-  const fill = staticPressed ? theme.surfaceMuted : (tint ?? theme.surface);
-  // Border hue: explicit override → tint → the ambient screen hue → neutral grey. See the
-  // Edit notes; Home and Settings deliberately land on the neutral.
-  const edgeHue = borderColor ?? tint ?? screenHue ?? theme.border;
+  // ── The pane (Tactile Glass, 2026-08-15) ────────────────────────────────────────────────
+  // A frosted pane, not an opaque page. `glassSurfaces` is the user's reduce-transparency
+  // switch and is LIVE again — it went inert in the 2026-08-05 reset because everything was
+  // already opaque, which was the state it asked for. Off ⇒ `theme.surface`, which is the
+  // SAME colour already composited over the backdrop, so turning glass off changes what is
+  // drawn and never what colors.test.ts measures.
+  //
+  // `tint` (a caller-supplied fill) still wins outright and stays opaque: its callers pass a
+  // specific colour because they need that exact colour, not a frosted approximation of it.
+  const glassOn = useSettingsStore((s) => s.glassSurfaces) && !tint;
+  const glassFill = surfaceContext === 'ambient' ? theme.surfaceGlass : theme.surfaceGlassStrong;
+  const fill = staticPressed
+    ? theme.surfaceMuted
+    : tint ?? getGlassFill(glassFill, theme.surface, glassOn);
+  // ── Where the screen's colour went ──────────────────────────────────────────────────────
+  // The 2026-08-15 ruling took the identity hue OFF the card edge, which is now neutral in
+  // every screen. It did not delete lib/screenColor.ts: the hue moved into this faint
+  // `SCREEN_TINT` wash over the pane, and into the icon badge (lib/domainColor.ts), which is
+  // the loud half. `borderColor`/`tint` still override, so Home's preview cards keep passing
+  // their SOURCE screen's hue and still read as belonging to that screen.
+  const tintHue = borderColor ?? tint ?? screenHue;
+  // The edge is neutral in every mode and on every screen — see getGlassEdge's doc. Its shade
+  // stop is plain `border` at full strength, which is what carries WCAG 1.4.11's 3:1 now that
+  // rule 10b has relaxed the bg↔surface fill step.
+  const edgeHue = theme.border;
   // Design lab (lib/designLab.ts). Card thickness, ramp strength and shadow depth are OWNED by
   // this component — a caller's style can't set them (see OWNED_KEYS) and they don't come from
   // a StyleSheet, so `useScaledStyles`' geometry pass can't reach them. This is one of the four
@@ -237,7 +288,7 @@ export default function Surface({
   // exactly what the card shipped with, so this is inert until the lab is used.
   const shape = useLabShape();
   const edgeWidth = shape.borderCardWidth * shape.borderScale;
-  const ramp = computeBorderRamp(edgeHue, isDark, 'card', shape.borderRampStrength);
+  const ramp = getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
   const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
@@ -352,8 +403,12 @@ export default function Surface({
       <LinearGradient
         colors={ramp.colors}
         locations={ramp.locations}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        // Diagonal, from getGlassEdge — a vertical sweep would light the top edge and leave
+        // the left one dark, and the brief asks for both. `?? ` keeps the older RimGradient
+        // producers (computeRimGradient/computeBorderRamp) rendering vertically as they always
+        // did, since neither sets these.
+        start={ramp.start ?? { x: 0, y: 0 }}
+        end={ramp.end ?? { x: 0, y: 1 }}
         style={[
           styles.ring,
           maskGrowStyle,
@@ -379,12 +434,50 @@ export default function Surface({
             },
           ]}
         >
+          {/* ── Blur, and only where there is something to blur ──────────────────────────
+              An `overlay`/`nav` surface floats above real scrolling content, so a BlurView
+              genuinely bleeds it through the pane — that is the effect the brief describes,
+              and it is why `surfaceContext` was kept in the API through the 2026-08-05 reset
+              ("a future 'sheets should differ from cards' decision has somewhere to land").
+              An `ambient` content card has the BACKDROP behind it, which in dark mode is pure
+              black: blurring black returns black, so a BlurView under all ~59 cards would be
+              pure GPU cost on a scrolling list for zero visible difference. The translucent
+              wash alone composites to the identical colour. This is the brief's own "use
+              expo-blur OR semi-transparent hex codes", resolved per context.
+              Android below API 31 degrades this to a flat translucent overlay — i.e. exactly
+              the ambient treatment — so the fallback is graceful rather than broken. */}
+          {glassOn && surfaceContext !== 'ambient' ? (
+            <BlurView
+              intensity={BLUR_INTENSITY}
+              tint={isDark ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+          ) : null}
+          {/* The screen's identity, at the weight a pane can carry without competing with its
+              own content. Painted as its own layer rather than mixed into `fill` because a hue
+              cannot be mixed into an rgba() string — and because as a separate layer it
+              composites the same whether the fill under it is glass or opaque. */}
+          {tintHue ? (
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: tintHue, opacity: SCREEN_TINT }]}
+              pointerEvents="none"
+            />
+          ) : null}
           <View style={[content, padding]}>{children}</View>
         </View>
       </LinearGradient>
     </View>
   );
 }
+
+/**
+ * How hard the overlay/nav blur bites. Tuned against `surfaceGlassStrong` rather than chosen —
+ * the wash already carries most of the pane's opacity, so the blur only has to smear whatever
+ * shows through the remaining ~12–15%. Higher reads as frosted plastic and costs more on
+ * Android, where this is a real render-effect pass on every frame the sheet is on screen.
+ */
+const BLUR_INTENSITY = 28;
 
 const styles = StyleSheet.create({
   // The gradient ring sits between the outer shadow-casting view and the mask, `padding:
@@ -411,3 +504,20 @@ const styles = StyleSheet.create({
   // via `maskGrowStyle` above — see that comment for why it isn't baked in here.
   mask: { overflow: 'hidden', alignSelf: 'stretch' },
 });
+
+/**
+ * `<GlassCard>` — the Tactile Glass brief's name for this component (2026-08-15, brief §5:
+ * "build reusable primitive components so the styling isn't repeated across screens").
+ *
+ * Deliberately an ALIAS and not a second component. `Surface` already is the app's one card
+ * primitive with ~59 call sites, and the brief's actual requirement — that the material lives
+ * in one place rather than being re-typed per screen — has been satisfied by this file since
+ * the 2026-08-05 reset. Forking a parallel `GlassCard` would have left those 59 sites on the
+ * old shape and given the app two card implementations, which is the exact failure the brief
+ * is written against. So the name is the deliverable; the implementation is right here.
+ *
+ * Prefer importing `Surface` in app code — every existing call site does, and one name in the
+ * imports is easier to grep than two. This export is for new code written against the brief's
+ * vocabulary, and for the design-system docs.
+ */
+export const GlassCard = Surface;

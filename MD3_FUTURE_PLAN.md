@@ -1,5 +1,24 @@
 # Future plan: full Material Design 3 adoption (NOT current policy)
 
+> ## ⛔ SUPERSEDED 2026-08-15 — the app took an explicitly non-MD3 direction
+>
+> The maintainer specified **Tactile Glass**, an iOS/Cupertino + hardware hybrid, and it shipped:
+> frosted translucent panes, a light-catching edge, Cupertino type, hardware-key press states.
+> See AGENTS.md's "Tactile Glass" bullet and `DESIGN_RULES_AUDIT.md`'s 2026-08-15 addendum.
+>
+> That answers this file's open question in the negative, and note **it went the opposite way on
+> the two biggest collisions this document identified**: §2 said tonal elevation and translucent
+> surfaces were "flatly rejected, twice, on the record" — translucency is now the material, but
+> as GLASS (a frosted pane over a true-black canvas), never as MD3 tonal elevation (a surface
+> that lightens toward primary as it rises). And the screen-identity hue system survived; it
+> moved off the card edge into the pane tint and the badge rather than being replaced by MD3
+> colour roles.
+>
+> `MIN_TAP_TARGET` at 48 remains the one thing taken from MD3, exactly as before. Everything
+> below is kept as a record of an idea that was considered and not adopted — **do not implement
+> it**; a request to "make this MD3" now contradicts a shipped, dated design system rather than
+> merely an absence of one.
+
 **Status: proposed, not started, not ruled on by the maintainer.** This file exists so a
 future session doesn't discover this idea by re-deriving it from scratch, and — more
 importantly — doesn't start implementing it without first reading how much of it conflicts

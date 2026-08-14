@@ -84,7 +84,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { computeBorderTone, FontSize, Fonts, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { computeBorderTone, FontSize, Fonts, getGlow, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
@@ -211,25 +211,61 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
 
   return (
     <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
-      {/* Themed frame (task 16, 3/N) — the bare native switch was the one FormControls
-          control with no edge at all; matches segmentWrap's static theme.border ring rather
-          than reacting to checked, since the track colors below already carry on/off state. */}
-      <View style={[styles.switchFrame, { borderColor: theme.border, borderWidth: shape.borderFieldWidth * shape.borderScale }]}>
+      {/* ── The hardware toggle (Tactile Glass, 2026-08-15) ─────────────────────────────────
+          The brief asks for "physical hardware toggles with high-contrast, glowing 'On'
+          states, leaving no doubt about the setting". That is a FINISH, not a different
+          control, so this stays a slider and DESIGN_RULES.md rule 19a is untouched — "a
+          boolean is always a slider… never a checkbox, a pill, a chip, a tick, or a
+          highlighted row. One shape, everywhere." (Rule 19a is a maintainer ruling from
+          DESIGN_COMPARISON/15; components/ReminderBell.tsx remains its ONE documented
+          exception and nothing here widens it.)
+
+          The frame does the work, because the thumb and track of an `RNSwitch` are rendered
+          by the OS and cannot be made into a keycap. On, it wears the accent and a
+          `getGlow` halo; off, it is the same quiet `border` ring every other field has. The
+          halo is the one place a glow is allowed outside a primary action — an engaged toggle
+          IS the active element in its row, which is what DESIGN_RULES.md rule 15 asks of
+          `getGlow`, and it is static rather than breathing, so GlowPulse's
+          "never more than one breathing halo at once" is unaffected. */}
+      <View
+        style={[
+          styles.switchFrame,
+          {
+            borderColor: checked ? theme.accent : theme.border,
+            borderWidth: shape.borderFieldWidth * shape.borderScale,
+          },
+          checked && !disabled ? getGlow(theme.accent, 'soft') : null,
+        ]}
+      >
         <RNSwitch
           value={checked}
           onValueChange={onChange}
           disabled={disabled}
           accessibilityLabel={accessibilityLabel}
-          trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
-          // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
-          // in dark mode (it means "text on an accent-colored fill"), which made the off-state
-          // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
-          thumbColor={checked ? theme.accent : '#FFFFFF'}
+          // ON is the full `accent`, not `accentSoft`. The soft token is a near-black navy in
+          // dark mode, so the old on-state differed from off mainly by the thumb — "no doubt
+          // about the setting" is exactly what it lacked.
+          trackColor={{ false: theme.surfaceMuted, true: theme.accent }}
+          // Fixed white in BOTH states now, which is the classic slider read: the thumb is
+          // constant and the track behind it changes. It was `theme.accent` when on, which on
+          // an accent track would be an invisible thumb. The off-state reasoning is unchanged
+          // and still applies (2026-07-25 contrast fix): NOT `theme.textInverse`, which flips
+          // to near-black in dark mode — it means "text on an accent-coloured fill" — and made
+          // the off thumb nearly invisible against the dark track.
+          thumbColor="#FFFFFF"
         />
       </View>
     </View>
   );
 }
+
+/**
+ * `<HardwareToggle>` — the Tactile Glass brief's name for `Switch` (2026-08-15). An alias, for
+ * the same reason `Surface` exports `GlassCard` and `Button` exports `TactileButton`: this is
+ * already the app's one boolean control, and a parallel component would immediately violate
+ * rule 19a's "one shape, everywhere" by existing. Prefer importing `Switch` in app code.
+ */
+export const HardwareToggle = Switch;
 
 // ── SegmentedControl ─────────────────────────────────────────────────────────
 

@@ -14,8 +14,24 @@
  *     (FormControls' Input) and a gradient-bordered row look like the same system;
  *   - dark mode LIGHTENS instead of darkening, since a darkened hue on a near-black surface
  *     is an invisible edge rather than a subtle one.
+ *
+ * **`getGlassEdge` joined them on 2026-08-15 (Tactile Glass) and is what the app now draws.**
+ * `computeBorderRamp`/`computeBorderTone` are kept, still exported and still tested here —
+ * what they lost is consumers, not correctness — because this repo records rather than
+ * deletes, and because the weight family they established is the one property the new edge
+ * inherits wholesale. The glass block at the bottom asserts exactly that inheritance, plus the
+ * two things that are new: the edge is DIAGONAL (it lights the top-left corner, not the top
+ * edge), and its two sides do different jobs — a near-invisible white catch on one, and the
+ * real WCAG 1.4.11 boundary on the other. See DESIGN_RULES.md rule 10b for why the boundary
+ * had to move onto the edge at all.
  */
-import { BORDER_WIDTH, computeBorderRamp, computeBorderTone } from '@/constants/theme';
+import {
+  BORDER_WIDTH,
+  computeBorderRamp,
+  computeBorderTone,
+  getGlassEdge,
+  type BorderWeight,
+} from '@/constants/theme';
 
 /** Pull the mean channel value out of an `rgba(r, g, b, a)` string — a crude lightness proxy. */
 function lightnessOf(rgba: string): number {
@@ -122,5 +138,82 @@ describe('computeBorderTone', () => {
 
   it('defaults to the card weight', () => {
     expect(computeBorderTone(HUE, false)).toBe(computeBorderTone(HUE, false, 'card'));
+  });
+});
+
+// ── Tactile Glass, 2026-08-15 ────────────────────────────────────────────────
+// `theme.border` in both modes — the contrast-tuned control-boundary token, which is what
+// getGlassEdge takes as its shade stop. A fixture, not a claim about the palette.
+const BORDER_LIGHT = '#7284A2';
+const BORDER_DARK = '#787882';
+
+describe('getGlassEdge — the light-catching pane edge', () => {
+  const WEIGHTS: BorderWeight[] = ['card', 'field', 'button'];
+
+  it('runs DIAGONALLY, so it lights the top-left corner rather than the top edge', () => {
+    // The whole reason RimGradient grew start/end. A vertical sweep lights the top edge and
+    // leaves the left one dark, which is not how a pane catches a light source above-left of
+    // it — and the brief asks specifically for "the top and left edges".
+    const edge = getGlassEdge(BORDER_DARK, true);
+    expect(edge.start).toEqual({ x: 0, y: 0 });
+    expect(edge.end).toEqual({ x: 1, y: 1 });
+  });
+
+  it('is lit at the start and shaded at the end, never the other way round', () => {
+    // Inverting these lights the pane from below, which reads as a hole rather than a pane.
+    for (const isDark of [false, true]) {
+      const edge = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark);
+      expect(lightnessOf(edge.colors[0])).toBeGreaterThan(lightnessOf(edge.colors[1]));
+    }
+  });
+
+  it('the lit side is white in both modes — the light source is not themed', () => {
+    for (const isDark of [false, true]) {
+      const [lit] = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark).colors;
+      expect(lit).toMatch(/^rgba\(255, 255, 255,/);
+    }
+  });
+
+  it('inherits the card > field > button family from the ramp it replaced', () => {
+    // The single most load-bearing property of the old layer, carried over intact: a card
+    // holding five bordered controls must read as a hierarchy, not as a grid of equal lines.
+    for (const isDark of [false, true]) {
+      const shade = isDark ? BORDER_DARK : BORDER_LIGHT;
+      const alphas = WEIGHTS.map((w) => alphaOf(getGlassEdge(shade, isDark, w).colors[1]));
+      expect(alphas[0]).toBeGreaterThan(alphas[1]);
+      expect(alphas[1]).toBeGreaterThan(alphas[2]);
+      alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
+    }
+  });
+
+  it('keeps the shade stop at FULL border strength on a card', () => {
+    // Load-bearing, and the half that makes rule 10b's relaxed fill step a trade rather than
+    // a loss: the card edge IS `theme.border`, undiluted, so lib/__tests__/colors.test.ts's
+    // "the card edge is a real boundary on both sides" (≥3:1 vs bg AND vs surface) is a
+    // statement about what actually gets painted. Fading this fades the boundary with it.
+    for (const isDark of [false, true]) {
+      const shade = isDark ? BORDER_DARK : BORDER_LIGHT;
+      expect(alphaOf(getGlassEdge(shade, isDark, 'card').colors[1])).toBe(1);
+    }
+  });
+
+  it('the lit catch is far weaker in dark mode than in light', () => {
+    // A 95%-white lip on a near-white pane is a highlight; the same lip on near-black would
+    // be a bright outline, which is the "glowing rim" look the flat-rim pass rejected.
+    const light = alphaOf(getGlassEdge(BORDER_LIGHT, false).colors[0]);
+    const dark = alphaOf(getGlassEdge(BORDER_DARK, true).colors[0]);
+    expect(dark).toBeLessThan(light / 3);
+  });
+
+  it('scales both sides together under the design lab’s strength knob', () => {
+    // Scaling one side alone tilts the light source rather than quieting the edge.
+    const full = getGlassEdge(BORDER_DARK, true, 'card', 1);
+    const half = getGlassEdge(BORDER_DARK, true, 'card', 0.5);
+    expect(alphaOf(half.colors[0])).toBeCloseTo(alphaOf(full.colors[0]) / 2, 5);
+    expect(alphaOf(half.colors[1])).toBeCloseTo(alphaOf(full.colors[1]) / 2, 5);
+  });
+
+  it('defaults to the card weight', () => {
+    expect(getGlassEdge(BORDER_DARK, true)).toEqual(getGlassEdge(BORDER_DARK, true, 'card'));
   });
 });
