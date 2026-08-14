@@ -67,6 +67,7 @@
  *             components/PressableScale, components/DebugNoteAnchor, components/TourTarget,
  *             components/FormControls (Input, SegmentedControl), constants/theme,
  *             constants/motion (Travel), lib/date, lib/episodes, lib/i18n,
+ *             lib/useNowMinutes (keeps the week strip's `today` current across midnight),
  *             lib/severity, lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor,
  *             lib/haptics, lib/useKeyboardLift (the composer's start-time/duration fields),
  *             store/useHealthStore,
@@ -132,6 +133,7 @@ import { useT } from '@/lib/i18n';
 import { success, tap } from '@/lib/haptics';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
+import { useNowMinutes } from '@/lib/useNowMinutes';
 import { openEpisodes } from '@/lib/episodes';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import {
@@ -310,6 +312,13 @@ export default function HealthScreen() {
   const SEVERITIES = severities();
   const severityLabel = (value: number) => t.severityLabels[value - 1] ?? '';
 
+  // Same minute tick as the Habits tab, for the weaker of the two reasons (2026-08-13): this
+  // screen's `today` is DISPLAY only — the 7-day severity strip and its "is this day still in
+  // the future" dimming — because every write here calls `todayStr()` fresh inside its own
+  // handler. So a stale value showed last week's strip rather than filing an entry under the
+  // wrong day. Fixed alongside Habits because it is the same one-line pairing and the two
+  // screens are deliberately built alike; `lib/__tests__/todayFreshness.test.ts` pins both.
+  useNowMinutes();
   const today = todayStr();
   const weekDates = useMemo(() => getWeekDates(today), [today]);
 

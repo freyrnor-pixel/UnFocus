@@ -160,6 +160,13 @@ export default function StarterExampleRow({ icon, title, meta, metaVariant = 'ne
  * and the "+" (2026-08-10, maintainer: make boxes the same size where it makes sense). Measured,
  * these were 22 / 18 / 26 / 22: four marks doing the same weight of job at three sizes on one
  * short line. 22 is the ring's existing size, which is the app's row-checkbox sizing.
+ *
+ * **It is a `height` on the two icon marks and a `minHeight` on the two text marks, and that
+ * split is deliberate (2026-08-13).** An Ionicons glyph is drawn at an explicit `size` and never
+ * font-scales, so its box can be pinned exactly. The "Example" chip and the meta pill contain a
+ * <Text>, which DOES grow with the OS display-size setting — and both are `Radius.full`, which
+ * masks children on Android — so pinning those clips the letters instead of cramping them. Equal
+ * heights are the intent, not the invariant: let a text mark grow rather than slice it.
  */
 const MARK = 22;
 
@@ -199,14 +206,15 @@ const styles = StyleSheet.create({
   // The meta pill at MARK too. Badge keeps its own horizontal padding — only the height is
   // pinned, so a long value still gets the room it needs.
   //
-  // **`minHeight`, never `height` (2026-08-13, user report: "The time pill cuts the lower part
-  // of the numbers inside").** A hard 22 minus Badge's own chrome (paddingVertical 4 ×2 +
-  // borderWidth 1 ×2 = 10) left 12px for a 12px font whose line box is ~16 — so "17:00–17:20"
-  // was clipped along the bottom. This was the ONLY `<Badge>` in the app with a height
-  // override; the other eight let the Badge size itself, and `minHeight` is the house pattern
-  // everywhere else (Badge's own `chip`, PartControls' `pill`, CollapsedSection's
-  // `rowMinHeight`). It still matches the other marks at rest — the row's other three are 22
-  // and this floors at 22 — it just can't crush its own text any more.
+  // **`minHeight`, never `height` (2026-08-13).** User report, with a screenshot of the day
+  // card's "17:00–17:20" example: the digits were sliced off along the bottom. `height: 22` is
+  // a hard box, and Badge does NOT run through useScaledStyles — its label is a plain <Text>
+  // with RN's default `allowFontScaling`, so the OS display-size setting grows the glyph while
+  // this box stays at 22. Badge's own pill is `FontSize.xs` + `paddingVertical: 4`, i.e. ~24pt
+  // of content at OS scale 1.0 already, and its `Radius.full` masks its children on Android —
+  // so the overflow is CLIPPED rather than spilling, which is why it read as a rendering bug
+  // and not as a cramped pill. minHeight keeps the "one height for every mark" intent at the
+  // sizes where it fits and simply lets the pill grow at the sizes where it doesn't.
   metaMark: { minHeight: MARK, justifyContent: 'center' },
   title: {
     flex: 1,

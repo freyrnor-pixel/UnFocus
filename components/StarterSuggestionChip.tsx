@@ -46,7 +46,8 @@
  *     STAIRCASING — four dashed pills each on its own line, left edges stepping in and out —
  *     and at that point components/StarterExampleRow is strictly better: same finish, even left
  *     edge, no ragged tail. That is why components/GoalsEditor.tsx moved off this component;
- *     its four goals are sentences ("Mer tid med dem jeg er glad i"). AGENTS.md's line about
+ *     its four goals were sentences ("Mer tid med dem jeg er glad i" — since shortened, once
+ *     the row shape made a sentence ellipsize at 327px). AGENTS.md's line about
  *     "four full-width dashed rows would be a wall of dashes" is the counter-argument, and it
  *     is real — but a staircase of four dashed pills is that wall plus a ragged edge, so it
  *     only argues against rows where the chips were actually pairing up.

@@ -58,6 +58,8 @@
  *             components/GhostRow (2026-08-01,
  *             the "just deleted this habit — restore?" row, see below),
  *             constants/theme, constants/motion (Duration, the registration flash), lib/date,
+ *             lib/useNowMinutes (the tick that keeps `today` from going stale across
+ *             midnight — see its call site; it is what the writes are dated by),
  *             lib/haptics, lib/habitStarters, lib/i18n,
  *             lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (drag-to-reorder),
  *             lib/useGhostTimeout (2026-08-01, the ghost row's timing),
@@ -246,6 +248,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates } from '@/lib/date';
+import { useNowMinutes } from '@/lib/useNowMinutes';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
@@ -659,6 +662,18 @@ export default function HabitsScreen() {
   // opens the drawer around it, so the text lands somewhere the user can see it.
   const goalPrefill = usePrefill('goals');
 
+  // **The minute tick is what keeps this date HONEST — it is not decoration (2026-08-13).**
+  // `today` is threaded into HabitCard as a prop and is what `increment`/`decrement`/
+  // `markRestDay` write, so a stale value here files a habit under the wrong DAY. Nothing else
+  // refreshes it: the tab pager keeps all five screens mounted (`lazy: false`), this screen
+  // subscribes to `habits` but NOT to `logs`, so logging a habit re-renders only the row, and
+  // the root foreground handler reloads tasks/shopping/notes — none of which this screen reads.
+  // Measured before the fix, on the web preview with a faked clock: with the app mounted at
+  // 23:58 and the clock moved to 00:03, every "+" wrote to the PREVIOUS day, indefinitely (tap
+  // 2 and tap 3 as well — the write re-renders the row, never the screen), while Home's card
+  // wrote the correct day in the same second because it re-renders on this tick.
+  // `lib/__tests__/todayFreshness.test.ts` pins the pairing; don't drop one without the other.
+  useNowMinutes();
   const today = todayStr();
 
   // Person filter row shows only in People/family mode with somebody besides you
