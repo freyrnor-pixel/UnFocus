@@ -141,6 +141,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AddRow from '@/components/AddRow';
 import IconButton from '@/components/IconButton';
+import { useRouter } from 'expo-router';
 import { SegmentedControl } from '@/components/FormControls';
 import { sortByCategoryThenName } from '@/lib/shoppingCategories';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
@@ -251,6 +252,7 @@ const CatalogueRow = React.memo(function CatalogueRow({
 });
 
 export default function CatalogueTab({ onNotify, header, embedded = false, onOpenFull }: Props) {
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -573,6 +575,15 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
               ]}
             />
           </View>
+          {/* Scan → 'catalogue' target (2026-08-13): add unknown names, update known prices,
+              and write to no shopping list at all. The camera used to be a single header icon
+              on Shopping with no idea what you meant by it. See lib/scanTarget.ts. */}
+          <IconButton
+            icon="camera-outline"
+            label={t.scanForCatalogueLabel}
+            onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
+            size={22}
+          />
           <IconButton
             icon={locked ? 'lock-closed' : 'lock-open-outline'}
             label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}

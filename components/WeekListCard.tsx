@@ -133,6 +133,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
@@ -296,6 +297,7 @@ export default function WeekListCard({
   newSinceIds,
   newFields,
 }: Props) {
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   // This screen's own green (2026-08-06) — was lib/domainColor's 'shop' identity, which the
@@ -343,6 +345,11 @@ export default function WeekListCard({
   // IconButtons with one entry point, reusing the app's existing showAppModal chooser.
   function openListOptions() {
     showAppModal(list.name, undefined, [
+      // Scan a receipt AGAINST this list (2026-08-13) — the camera used to be a single
+      // header icon with no idea which list you meant, so it could only ever add. Scoped to
+      // this card, "scan" means what you'd expect it to: tick off what you bought and correct
+      // the prices. See lib/scanTarget.ts.
+      { text: t.scanReceiptForListAction, onPress: () => router.push({ pathname: '/scan', params: { target: 'weekly', listId: list.id } }) },
       { text: t.savedListsButtonLabel, onPress: onOpenSavedLists },
       // Direct "save as template" entry (2026-07-23) — was a button at the bottom of the
       // "Saved lists" browse modal, moved here so it's one tap instead of open-modal +

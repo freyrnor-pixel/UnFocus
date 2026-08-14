@@ -187,9 +187,29 @@ describe('every top-level tab header is title + gear', () => {
     expect(src).toMatch(/<HintCard[\s\S]{0,400}onDismiss=\{dismissHint\}/);
   });
 
-  test('Shopping is the only tab with the camera', () => {
+  // The camera left the header on 2026-08-13. Maintainer: "the camera for scanning should be
+  // per card, not in the header row" — a single header icon could not know WHICH list you
+  // meant, so a scan could only ever add rows. It is a per-card action now (each weekly and
+  // monthly list's ⋮, and the Catalogue's own header), each passing a `target` so "scan" means
+  // match-against-this-list or update-the-catalogue. See lib/scanTarget.ts.
+  test('no tab passes the camera to its header any more', () => {
     const withScan = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onScanPress'));
-    expect(withScan).toEqual(['app/(tabs)/shopping.tsx']);
+    expect(withScan).toEqual([]);
+  });
+
+  test('every scan entry point names the list it acts on', () => {
+    // A `/scan` push with no `target` falls back to 'weekly' with no listId, which is the old
+    // add-everything behaviour. The two entry points allowed to do that are the post-trip
+    // "Shopping done!" prompt's two rows, which have just committed the trip and legitimately
+    // mean "whatever is on the weekly list". Every OTHER push must scope itself.
+    const sources = ['app/(tabs)/shopping.tsx', 'components/WeekListCard.tsx', 'components/CatalogueTab.tsx'];
+    const unscoped = sources.flatMap((rel) =>
+      [...code(rel).matchAll(/pathname: '\/scan'[^}]*\}/g)]
+        .map((m) => m[0])
+        .filter((push) => !/target:/.test(push) && !/autoCapture:/.test(push))
+        .map((push) => `${rel}: ${push}`)
+    );
+    expect(unscoped).toEqual([]);
   });
 
   test('Home is the only tab that can show the OTA cloud', () => {

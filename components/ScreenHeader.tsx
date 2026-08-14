@@ -25,10 +25,10 @@
  * also shows an OTA "update available" icon. All read their own state directly from
  * settings/feedback/expo-updates — no props threaded down.
  *
- * Site-tier headers also accept optional `onSharePress`/`onScanPress` — when a screen passes
- * either, a matching icon appears in the controls group (currently only Shopping, wired to
- * `/share-modal?kind=s` and `/scan` respectively, 2026-07-23). Omit either and its icon
- * simply doesn't render — every other site-tier screen is unaffected.
+ * Site-tier headers also accept an optional `onSharePress` — when a screen passes it, a share
+ * icon appears in the controls group. `onScanPress` still exists but **no screen passes it any
+ * more** (2026-08-13): the camera moved to a per-card action, because one header icon could not
+ * know which list you meant and so could only ever ADD rows. See lib/scanTarget.ts.
  *
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail

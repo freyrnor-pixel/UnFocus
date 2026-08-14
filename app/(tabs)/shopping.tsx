@@ -1096,6 +1096,7 @@ export default function ShoppingScreen() {
    */
   function openMonthlyListOptions(list: MonthlyList) {
     showAppModal(monthlyListLabel(list, t.defaultMonthlyListName), undefined, [
+      { text: t.scanReceiptForListAction, onPress: () => router.push({ pathname: '/scan', params: { target: 'monthly', listId: list.id } }) },
       { text: t.manageInventoryAction, onPress: () => router.push({ pathname: '/inventory-edit', params: { listId: list.id } }) },
       { text: t.resetMonthlyListAction, onPress: () => { warning(); setResetListConfirmId(list.id); } },
       { text: t.resetAllMonthlyListsAction, onPress: handleManualMonthlyReset },
@@ -1732,7 +1733,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onScanPress={() => router.push('/scan')} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>

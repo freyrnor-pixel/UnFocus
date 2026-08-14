@@ -791,6 +791,14 @@ const en = {
   // person standing in a shop.
   // Link from Shopping's intro card to Settings → Personal, where the weekly/monthly reset
   // cadence controls moved on 2026-08-13.
+  // Per-card scan entries (2026-08-13) — the camera moved off the header, where it had no
+  // idea which list you meant. On a list it MATCHES against that list; in the Catalogue it
+  // adds unknown names and updates prices. See lib/scanTarget.ts.
+  scanReceiptForListAction: 'Scan a receipt',
+  scanForCatalogueLabel: 'Scan prices',
+  scanTargetWeekly: 'Matching against this shopping list',
+  scanTargetMonthly: 'Matching against this monthly list',
+  scanTargetCatalogue: 'Adding and updating catalogue prices',
   shoppingCadenceLink: 'Reset days',
   // Settings → General: brings back every intro card the user has closed.
   restoreHintsLabel: 'Show tips again',
@@ -2893,6 +2901,11 @@ const no: typeof en = {
   removeItemLabel: 'Fjern vare',
   putBackItemLabel: 'Legg tilbake på lager',
   categoryPickerLabel: 'Kategori (valgfritt)',
+  scanReceiptForListAction: 'Skann en kvittering',
+  scanForCatalogueLabel: 'Skann priser',
+  scanTargetWeekly: 'Sammenlignes med denne handlelisten',
+  scanTargetMonthly: 'Sammenlignes med denne månedslisten',
+  scanTargetCatalogue: 'Legger til og oppdaterer katalogpriser',
   shoppingCadenceLink: 'Nullstillingsdager',
   restoreHintsLabel: 'Vis tipsene igjen',
   restoreHintsBody: 'Hent tilbake introkortet på alle skjermene.',
