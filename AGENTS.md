@@ -266,7 +266,7 @@ file owns which token.)
     | Composer | Tier 1 | Tier 2 | Tier 3 | Used by |
     |---|---|---|---|---|
     | `PadTypeRow` | always-open line | `panel` + `extras` | `onMore` ✓ | the 4 Home cards, Habits tab, To-do timeline |
-    | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsEditor, Food, Catalogue, Medicine |
+    | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsEditor, Food, Medicine |
     | `InlineAddItem` | collapsed `+` bar → **whole panel** | **not separated** — name, catalog autocomplete, price, category, qty and Temporary all at once | n/a | Shopping, inventory |
     Two known gaps, stated so they are decisions rather than drift: **`AddRow` has no tier 3**,
     so a surface on it cannot offer a fuller editor from the composer; and **`InlineAddItem`
@@ -525,7 +525,7 @@ file owns which token.)
     Mounting the component is a stronger answer to drift than describing it was: it is what
     makes the per-dish "+" ask week-or-monthly in the drawer exactly as it does on `/food`.
     - **`embedded` is presentation only, and must stay that way.** It unwraps the chrome that
-      assumes a screen backdrop — the meal sections' `Surface`, Catalogue's search/add
+      assumes a screen backdrop — the meal sections' `Surface`, Catalogue's two header
       `Surface`s, its notepad container, its grow-to-fill footer, its rows' third stacked
       horizontal inset — and, for Catalogue, swaps the FlatList for a capped `.map()` and drops
       the A–Z rail, neither of which can live inside Shopping's ScrollView. **No behaviour goes
@@ -643,6 +643,28 @@ file owns which token.)
     one real defect: `BottomNav`'s `gap` was the raw `Spacing.sm` token while the group's
     rendered `gap` goes through `useScaledStyles`, so under the design lab's `spacingScale` the
     error compounded across slots. It reads the scaled style now.
+- **The catalogue header is TWO boxes, and each box IS its control (2026-08-14)** —
+  `components/CatalogueTab.tsx` + the new `components/CatalogueAddSheet.tsx`. From a marked-up
+  screenshot of `/catalogue`: the search field's dark fill *"looks unnatural, and not like the
+  rest of the app"*, the sort segment and the lock *"should be the same box"*, and the header
+  controls *"should not be slimmer than the catalogue itself"*. One cause behind all three —
+  the header was a stack of `Surface`s each wrapping a SECOND bordered-or-filled control,
+  inset from the card that already contained them.
+  - **Box 1 is sort + camera + lock; box 2 is the search field with a "+" at its right.** The
+    search input's `theme.surfaceMuted` pill is deleted: the Surface's own edge and white fill
+    are the field. Nothing else in the app fills a text field with the muted token, which is
+    why it read as foreign. `listHeader`'s `marginHorizontal` is 0, so a box is exactly as wide
+    as the rows under it — the side shadows now clip at the card's edge, which is invisible,
+    where a 32px width difference was not.
+  - **The `AddRow` composer became a pop-up** (`CatalogueAddSheet`: name, optional price,
+    Discard/Save). Catalogue is the one list where an inline composer never fit — a new row
+    does not appear where you typed it, it lands under its own letter, usually off screen — so
+    the "add row sits at the TOP here, unlike every other list" exception that file documented
+    was already a compromise. `AddRow`'s caller list is one shorter; the tier table above is
+    updated with it.
+  - This is **not** a licence for a general "unwrap the field from its card" pass. The rule
+    everywhere else is still `FormControls`' `Input` inside a card with other content; this
+    applies where a box holds exactly one control and would otherwise draw two edges.
 - **Dark mode is TRUE BLACK (2026-08-10)** — `bg` `#000000`, `surface` `#1E1E1E`,
   `surfaceMuted` `#121212`, `text` `#F3F4F6`, `accent` `#3B82F6`. Adopted wholesale from an
   outside design review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight
@@ -1443,7 +1465,7 @@ swatches, sizes, weights, positions, lines and widths), the
 and closed again before the tab loop, since a bottom sheet's scrim swallows every click
 under it), **Shopping's Food and Catalogue drawers** (2026-08-10, one scan each — their
 expanded body is the real `FoodTab`/`CatalogueTab` now, so the Catalogue one puts a search
-field, an add composer and name·price·trash rows inside a card that is itself inside the
+field, a sort segment and name·price·trash rows inside a card that is itself inside the
 screen's padding: three stacked horizontal insets, the shape that produced the task editor's
 findings), and — since 2026-08-01 — the **task editor**, the **goals sheet**, the **health
 form** and the **medicine editor**. Before that pass it had never opened an editor or pushed
