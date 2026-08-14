@@ -52,7 +52,8 @@
  *             ScreenScaffold alongside the other overlays), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
  *             components/PressableScale, components/TabSlider, components/SectionDivider,
- *             constants/theme,
+ *             constants/theme, react-native (AppState — the payday-boundary check also
+ *             runs on app foreground now, not just navigation focus; see the edit note),
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
  *             dateRangeForCycleWeek, formatDateRange), lib/haptics (success,
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
@@ -76,6 +77,19 @@
  *             Food/Catalogue drawers — and reads each store only for the drawer's own count.
  *
  * Edit notes:
+ *   - **The payday-boundary check also runs on app foreground, not just navigation focus
+ *     (2026-08-13).** `runShoppingDateChecks()` (recurring-list roll-forward + the
+ *     `resetReviewVisible` detection) used to live entirely inside the `useFocusEffect` below,
+ *     which fires only on a NAVIGATION event. This screen stays mounted at all times (the tab
+ *     pager is `lazy: false`), so a session parked on Shopping across a payday boundary — or
+ *     backgrounded and reopened on Shopping without switching tabs — never re-ran the check;
+ *     only an unrelated tab-away-and-back did. Measured on the web preview: onboard just before
+ *     a period boundary, cross it while parked on this tab, simulate a background→foreground
+ *     cycle with no tab switch — the review sheet stayed hidden until fixed. Same class of bug
+ *     as the Habits tab's stale `today` (lib/useNowMinutes.ts, lib/__tests__/todayFreshness),
+ *     except the stale part here is WHEN the check runs rather than a captured value, so the
+ *     fix is a second trigger (`AppState` 'active') rather than a live tick — this only needs
+ *     to catch up once per app-open, not stay reactive to the minute.
  *   - **MD3-flavoured declutter pass (2026-08-13, from an outside review).** Four asks, and
  *     what each became. (1) **The ⓘ body is a bottom sheet now** — components/HintSheet.tsx,
  *     mounted with the other overlays instead of at the top of `shoppingIntro`, where opening
@@ -424,7 +438,7 @@
  *     separate design decision, not a side effect of this change.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -754,43 +768,71 @@ export default function ShoppingScreen() {
     [nonTemplateLists, focusedListId]
   );
 
-  // Recurring-list roll-forward + payday reset detection. Runs on every focus;
-  // also closes both add sheets on blur (mirrors the old app: the receipt
-  // pop-up's Scan/Upload choices would otherwise leave a sheet open behind
+  /**
+   * Roll any overdue recurring list forward to the period containing today, and open the
+   * payday-boundary review sheet once per period, when today's day-of-month has reached
+   * monthlyResetDate and we haven't already reset for this period.
+   *
+   * Extracted (2026-08-13) so it can run from BOTH `useFocusEffect` below (a navigation event)
+   * AND an `AppState` 'active' listener — see that effect for why. `advanceRecurringLists()` is
+   * a no-op once every recurring list is already current, so it's safe to call from either
+   * trigger; the shopping reload only fires when it actually created a list, since a full
+   * table reload + a visible reflow is real cost paid on every no-op call otherwise.
+   *
+   * Reads settings via `getState()` (not a render-time selector) so it sees the latest
+   * persisted values, and doesn't guard on `resetReviewVisible` — `setResetReviewVisible(true)`
+   * when it's already true is a same-value setState, which React no-ops, so there is nothing to
+   * gain from a stale-closure-prone check here. Opens the interactive review sheet rather than
+   * resetting immediately — lastMonthlyReset is only stamped once the user actually dismisses
+   * it (finalizeMonthlyReset), so a backgrounded/killed app with the sheet still open just
+   * re-opens it next time instead of silently skipping the period.
+   */
+  const runShoppingDateChecks = useCallback(() => {
+    const today = todayStr();
+    if (advanceRecurringLists(today)) loadShopping();
+
+    const periodKey = today.slice(0, 7); // YYYY-MM
+    const settings = useSettingsStore.getState();
+    const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
+    if (!alreadyResetThisPeriod && new Date().getDate() >= settings.monthlyResetDate) {
+      setResetReviewVisible(true);
+    }
+  }, [loadShopping, advanceRecurringLists]);
+
+  // Runs the checks above on every focus; also closes both add sheets on blur (mirrors the old
+  // app: the receipt pop-up's Scan/Upload choices would otherwise leave a sheet open behind
   // whatever screen it pushed to).
   useFocusEffect(
     useCallback(() => {
-      // Roll any overdue recurring list forward to the period containing today.
-      // A no-op once every recurring list is already current, so it's safe to run
-      // on every focus rather than gating it behind a once-per-period flag like
-      // the monthly reset below. advanceRecurringLists() writes shopping_items
-      // rows directly via the list store, so re-run the shopping load ONLY when it
-      // actually created a list — otherwise every focus paid two full-table SQLite
-      // scans + a re-render that visibly reflowed the list AFTER the screen painted
-      // (focus effects run post-commit). The common case (nothing overdue) now skips it.
-      const today = todayStr();
-      if (advanceRecurringLists(today)) loadShopping();
-
-      // Automatic payday-boundary reset: once per period, when today's day-of-month
-      // has reached monthlyResetDate and we haven't already reset for this period.
-      // Read settings via getState() (not a render-time selector) so we see the latest
-      // persisted values. Opens the interactive review sheet rather than resetting
-      // immediately — lastMonthlyReset is only stamped once the user actually
-      // dismisses it (finalizeMonthlyReset), so a backgrounded/killed app with the
-      // sheet still open just re-opens it next focus instead of silently skipping
-      // the period.
-      const periodKey = today.slice(0, 7); // YYYY-MM
-      const settings = useSettingsStore.getState();
-      const alreadyResetThisPeriod = settings.lastMonthlyReset.slice(0, 7) === periodKey;
-      if (!alreadyResetThisPeriod && !resetReviewVisible && new Date().getDate() >= settings.monthlyResetDate) {
-        setResetReviewVisible(true);
-      }
-
+      runShoppingDateChecks();
       return () => {
         setHintOpen(false);
       };
-    }, [loadShopping, advanceRecurringLists, resetReviewVisible, setHintOpen])
+    }, [runShoppingDateChecks, setHintOpen])
   );
+
+  /**
+   * Also run the same checks on app foreground, independent of navigation (2026-08-13).
+   *
+   * `useFocusEffect` only fires on a navigation event — this screen stays mounted at all
+   * times (the tab pager is `lazy: false`), so backgrounding the app on the Shopping tab and
+   * reopening it WITHOUT switching tabs never re-triggers the focus effect, and the boundary
+   * check silently sits on whatever it last saw. Measured on the web preview: onboard just
+   * before a period boundary, cross it while parked on this tab, then simulate a
+   * background→foreground cycle with no tab switch — the review sheet stayed hidden; only an
+   * unrelated tab-away-and-back made it appear. That's the same class of bug the Habits tab
+   * had (a clock-dependent outcome that only re-evaluates on a discrete event, not on time
+   * actually passing) — see lib/useNowMinutes.ts and lib/__tests__/todayFreshness.test.ts —
+   * except here the stale part is WHEN the check runs, not a captured value going stale, so
+   * the fix is a second trigger rather than a live tick: this only needs to catch up once per
+   * app-open, not stay reactive to the minute the way a mounted screen's date does.
+   */
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') runShoppingDateChecks();
+    });
+    return () => sub?.remove();
+  }, [runShoppingDateChecks]);
 
   // Flat, all-lists-combined catalog — used only by AddFromMonthlyModal (Weekly's "Add from
   // monthly" popup groups these by list itself) and MonthlyResetReviewSheet's whole-household
