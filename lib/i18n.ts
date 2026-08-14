@@ -786,6 +786,12 @@ const en = {
   // In shop-walk order, matching CATEGORY_VALUES in lib/shoppingCategories.ts — these are the
   // "In the store" layout's aisle headers, so the order is the order you walk. Grown from 8 to
   // 13 on 2026-08-13 when the catalogue's vocabulary and the app's were merged; see that file.
+  // Catalogue sort toggle (2026-08-13) — "always" visible, per the maintainer, not only while
+  // a query is active. "Type" rather than "category" because the aisle is what it means to a
+  // person standing in a shop.
+  sortByType: 'By type',
+  sortByName: 'By name',
+  sortLabel: 'Sort',
   categoryLabels: {
     produce: 'Produce',
     bakery: 'Bakery',
@@ -2880,6 +2886,9 @@ const no: typeof en = {
   removeItemLabel: 'Fjern vare',
   putBackItemLabel: 'Legg tilbake på lager',
   categoryPickerLabel: 'Kategori (valgfritt)',
+  sortByType: 'Etter type',
+  sortByName: 'Etter navn',
+  sortLabel: 'Sorter',
   categoryLabels: {
     produce: 'Frukt & grønt',
     bakery: 'Bakevarer',

@@ -17,7 +17,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { CATALOG_SEED } from '@/lib/catalogSeed';
-import { CATEGORY_VALUES, categoryLabel } from '@/lib/shoppingCategories';
+import { CATEGORY_VALUES, categoryLabel, categoryRank, sortByCategoryThenName } from '@/lib/shoppingCategories';
 import { getTranslations } from '@/lib/i18n';
 
 const ROOT = join(__dirname, '..', '..');
@@ -83,5 +83,62 @@ describe('one shopping-category vocabulary', () => {
     expect(categoryLabel(en, 'definitely-not-a-category')).toBe(en.categoryLabels.other);
     expect(categoryLabel(en, undefined)).toBe(en.categoryLabels.other);
     expect(categoryLabel(no, 'dry')).toBe(no.categoryLabels.other);
+  });
+});
+
+/**
+ * The Catalogue's "Sort by type" toggle (2026-08-13). All of its logic lives in these two pure
+ * functions precisely so it can be tested — a comparator inside a component's `useMemo` cannot.
+ */
+describe('sortByCategoryThenName', () => {
+  const rows = [
+    { name: 'Zucchini', category: 'produce' },
+    { name: 'Melk', category: 'dairy' },
+    { name: 'Agurk', category: 'produce' },
+    { name: 'Såpe', category: 'cleaning' },
+    { name: 'Brød', category: 'bakery' },
+  ];
+
+  test('orders by aisle, then by name inside each aisle', () => {
+    expect(sortByCategoryThenName(rows).map((r) => r.name)).toEqual([
+      // produce (0) → bakery (1) → dairy (2) → cleaning (10): shop-walk order, not the
+      // alphabetical order of either the values or their labels.
+      'Agurk',
+      'Zucchini',
+      'Brød',
+      'Melk',
+      'Såpe',
+    ]);
+  });
+
+  test('never mutates its input — the stored order is the store\'s, or the user\'s drag order', () => {
+    const before = rows.map((r) => r.name);
+    sortByCategoryThenName(rows);
+    expect(rows.map((r) => r.name)).toEqual(before);
+  });
+
+  test('sorts unknown and missing categories last, with "other"', () => {
+    const mixed = [
+      { name: 'Ukjent', category: 'from-a-future-build' },
+      { name: 'Annet', category: 'other' },
+      { name: 'Blank', category: undefined },
+      { name: 'Eple', category: 'produce' },
+    ];
+    expect(sortByCategoryThenName(mixed)[0].name).toBe('Eple');
+    // 'other' is the last real value; anything unrecognised ranks past it rather than
+    // silently landing at the front, which is what an `indexOf` of -1 would have done.
+    expect(categoryRank('from-a-future-build')).toBeGreaterThan(categoryRank('other'));
+    expect(categoryRank(undefined)).toBe(categoryRank('other'));
+  });
+
+  test('name ordering is Norwegian-collated, matching the store', () => {
+    // useCatalogStore.load() sorts with localeCompare(name, 'no'); a different collation here
+    // would make the two orders disagree on æ/ø/å the moment you flipped the toggle back.
+    const nordic = [
+      { name: 'Ål', category: 'fish' },
+      { name: 'Abbor', category: 'fish' },
+      { name: 'Ørret', category: 'fish' },
+    ];
+    expect(sortByCategoryThenName(nordic).map((r) => r.name)).toEqual(['Abbor', 'Ørret', 'Ål']);
   });
 });

@@ -66,3 +66,35 @@ export function categoryLabel(t: Translations, category: string | undefined): st
   const key = (category ?? 'other') as CategoryValue;
   return t.categoryLabels[key] ?? t.categoryLabels.other;
 }
+
+/**
+ * Sort rank for a stored category value — its index in `CATEGORY_VALUES`, i.e. shop-walk
+ * order, with anything unrecognised sorted last alongside 'other'.
+ *
+ * Extracted (2026-08-13) for the Catalogue's "Sort by type" toggle. Pure and dependency-free
+ * on purpose: it is the whole of that feature's logic, so it is the part worth a unit test,
+ * and a comparator buried in a component's `useMemo` is not testable.
+ *
+ * A rank rather than a `localeCompare` on the LABEL: sorting by the translated word would
+ * put the aisles in a different order in Norwegian than in English, and neither would be
+ * the order of the shop.
+ */
+export function categoryRank(category: string | undefined): number {
+  const i = CATEGORY_VALUES.indexOf((category ?? 'other') as CategoryValue);
+  return i === -1 ? CATEGORY_VALUES.length : i;
+}
+
+/**
+ * Order a list by category (shop-walk order), then by name within each category.
+ *
+ * Generic over anything carrying a `name` and a `category`, since the catalogue's `StoreItem`
+ * and a shopping row are different types with the same two fields. **Returns a new array and
+ * never mutates** — this is a presentation-layer sort, and its callers' stored order is either
+ * the store's own Norwegian collation (`useCatalogStore.load`) or a user-dragged order
+ * (`lib/useDragReorder.ts`). Sorting must never be written back.
+ */
+export function sortByCategoryThenName<T extends { name: string; category?: string }>(rows: readonly T[]): T[] {
+  return [...rows].sort(
+    (a, b) => categoryRank(a.category) - categoryRank(b.category) || a.name.localeCompare(b.name, 'no')
+  );
+}
