@@ -861,3 +861,76 @@ pass whose brief was consistency.
 - **Open conflict #6 widened**, not closed: `TabSlider`'s segment went 38 → 34 for the
   "slightly slimmer" request, joining `PAD_ROW_HEIGHT` (38), `Button` `sm` (36) and
   FormControls' 40px rows under the 48px target. Stated rather than quietly absorbed.
+
+---
+
+## Addendum, 2026-08-15 — Tactile Glass: four maintainer rulings
+
+A new global design system, specified by the maintainer: *"Tactile Glass (Hardware-Cupertino
+Hybrid)"* — a true-black OLED canvas, frosted glass panes instead of solid boxes, a
+light-catching top/left edge, buttons that sink into the screen like physical hardware keys,
+glowing hardware toggles, big bold Cupertino section headers, and identity colour applied as
+vibrant glowing accents.
+
+It contradicted several decisions this repo had made deliberately and written down, so each
+conflict was put to the maintainer before any code was written. The four rulings:
+
+| Question | Ruling |
+|---|---|
+| The brief is OLED-only. What happens to light mode, which was deliberately left untouched by the 2026-08-10 true-black pass? | **Translate to light too** — one system, two palettes |
+| The brief's white top/left edge vs. `lib/screenColor.ts`, which had owned every card edge since 2026-08-05 | **White light-catch only** — the identity hue leaves the edge |
+| The brief's "no box-in-a-box" vs. the 2026-08-05 instruction to put borders around everything | **Strip row borders** |
+| Scope | **Everything in one pass**, typography and the badge inversion included |
+
+### What that reversed, and where each reversal is recorded
+
+- **The 2026-08-05 card reset's material** ("a flat opaque page… no frost, no `BlurView`, no
+  translucent wash, no beveled rim"). `components/Surface.tsx`'s header; the CI half was
+  `__tests__/glassMaterial.test.ts`'s "the three flat surfaces mount no BlurView", retargeted
+  in place with its history in the comment above it.
+  **`DESIGN_COMPARISON/16-solid-pressable-materials.md` §2 required exactly this**: *"If you
+  conclude the highlight is genuinely required, that is a maintainer conversation and a
+  separate PR — not a quiet test edit."* That conversation is this addendum.
+  **The specular/gloss ban was NOT reversed and still stands** — a translucent fill and a lit
+  EDGE are not a shine on the FACE.
+- **The 2026-08-05 flat-rim pass** (a border should not simulate a light source). It does now;
+  that is the brief's central image.
+- **Rule 5** flips back to whitespace-over-lines, closing open conflict #8's first half in the
+  rule's favour. Third answer to that question, all three the maintainer's — see rule 5's own
+  entry for why the answer tracks the material.
+- **`lib/domainColor.ts`'s A.4 rule 1** ("an identity hue is a FILL, never an icon colour").
+  The badge inverts to a hue glyph on a neutral frosted plate. The rule's real content — never
+  put a hue where nothing measures it — is preserved by `badgeGlyphFor()`, which derives the
+  glyph per hue per mode against the real composited plate. Necessary, not cosmetic: the raw
+  hues measure 1.88–2.69:1 on one plate or the other.
+
+### One relaxation, and it is a trade rather than a loss
+
+`DESIGN_RULES.md` **rule 10b**: light's `bg`↔`surface` fill step goes ≥1.20 → ≥1.15. Darkening
+`bg` to repair it was measured and rejected (it drops six tokens under 4.5:1 at once). The card
+boundary moved onto the EDGE instead, where it is asserted at ≥3:1 on both sides in both modes.
+Dark needed no relaxation at all — its glass alpha was solved so the composite lands on the
+`#1E1E1E` the palette already had.
+
+### Deliberately NOT done, though the brief could be read as asking
+
+- **`secondary` did not regain its housing.** The 2026-08-12 reasoning ("a soft-tint fill that
+  is elevated competes with the one action a screen is asking for") is untouched by a brief
+  that asks specifically for *primary* buttons to read as hardware.
+- **`translateY: 2` was not taken literally.** `Travel.*` (3/4/5) stays — implement the states,
+  not the numbers, per the same 2026-08-12 pass.
+- **The screen title did not grow with the section headers.** Raising
+  `HEADER_TITLE_BASE_SIZE` above 24 walks back into the measured 2026-07-24 "HANDLELISTE"
+  overflow. Section headers went 20 → `FontSize.xl` (24) extrabold; the screen title stayed.
+- **`IconButton` got no face or halo.** Its pressable is the padded hit target rather than the
+  visible circle, so an `absoluteFill` layer would be the wrong size. It keeps its existing
+  sunk + depth + rim treatment.
+- **Rule 19a is untouched.** The "hardware toggle" is a finish on the existing `Switch`, not a
+  new shape; `components/ReminderBell.tsx` remains its one documented exception.
+
+### Known cosmetic finding, accepted
+
+`npm run wraps --lang=no --width=327` (the large-text proxy) reports "Tidligere dager" missing
+one line by **3px** at the new 24px section-header size. It wraps rather than truncating, and
+327 is clean of 24px findings at every real device width (360/393/430). Not fixed — shrinking
+the header would undo the change the brief asked for.

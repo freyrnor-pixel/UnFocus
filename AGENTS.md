@@ -707,79 +707,83 @@ file owns which token.)
     `DESIGN_RULES.md` rule 10a for the table. Four are arithmetic or structural; the halation
     ceiling (7–12:1 → 7–16:1) is a real accessibility trade that was accepted knowingly, and
     that entry says what to pull back first if a device disagrees.
-- **One card design — the 2026-08-05 reset** (`components/Surface.tsx` + `lib/screenColor.ts` +
-  `computeBorderRamp`/`computeBorderTone`/`BORDER_WIDTH` in `constants/theme.ts`). The
-  maintainer's brief was "I've been messing around too much with the visuals. One simple design
-  for all cards." Ten numbered points; this is what they became. **Read this before proposing
-  any card/border/material change — most of what the older bullets above describe is gone.**
-  - **A card is a flat opaque page with ONE border.** White (`#FFFFFF`) in light mode, the flat
-    navy `theme.surface` in dark. No frost, no `BlurView`, no translucent wash, no face-lift
-    scrim, no beveled rim, no inner line. `components/GlassFill.tsx` is no longer mounted by
-    `Surface` OR by `Button` — both took the solid path in the same pass. `settings.glassSurfaces`
-    (the reduce-transparency toggle) is now **inert for Surface and Button**: everything is
-    opaque unconditionally, which is what that toggle was asking for. Column and setting stay.
-  - **Colour lives ONLY in the border, and the border's hue comes from the SCREEN.**
-    `lib/screenColor.ts` is **revived** (it was retired 2026-07-31 in addendum A.5 — read its
-    header before "re-retiring" it). Mapping: To-do blue · Habits sky · Health teal · Shopping
-    green · Notes yellow · Food orange · Scan violet · Goals indigo · **Home and Settings
-    neutral grey**. A domain sub-screen wears its parent's hue, so pushing into it doesn't
-    change colour. Pinned by `lib/__tests__/screenColor.test.ts`.
-  - **Home is the index of the other screens.** It has no hue of its own; each preview card
-    passes `borderColor={getScreenColor(theme, '<source screen>').base}`, so Home's habits card
-    is sky and its notes card is yellow. That explicit `borderColor` override is the ONLY
-    legitimate use of the prop — a card on its own screen passes nothing and inherits.
-  - **The hue is graded by weight: card → field → button**, deeper/thicker to lighter/thinner
-    (`BORDER_WIDTH` + the `RAMP` table). This is what stops a card full of bordered rows
-    reading as a grid, and `lib/__tests__/borderRamp.test.ts` pins the ordering in both
-    thickness and strength. Each individual border ALSO ramps deep→light down its own edge
-    ("green to light green"). **That gradient is not a revert of the 2026-08-05 flat-rim pass**
-    — that pass removed a *lighting* ramp (white lip → dark bottom); this one stays inside the
-    screen's own hue with no white and no black in it. Both functions still exist; read
-    `computeBorderRamp`'s doc before touching either.
-  - **`lib/domainColor.ts` is NOT dead and is not a rival any more.** The two colour systems
-    were split by CHANNEL: the screen hue owns every EDGE, the domain hue owns the gradient
-    BADGE and its ink. That is what resolved the collision that killed screenColor in A.5.
-    Don't derive a card edge from `getDomainColor` — several call sites did, and each one put a
-    differently-coloured card on a single-colour screen (the To-do tab's maroon "Recurring"
-    card next to its blue "Whenever" one was the visible symptom).
-    **The badge takes the screen hue wherever the card isn't domain-coded** —
-    `CardAccentBadge`'s `accentOverride`, added 2026-08-06 for the Home preview cards,
-    `WeekListCard` and `MedicineTrayCard`. `components/CollapsedSection.tsx` was the missed call
-    site (2026-08-10, user report "wrong coloring"): every sub-screen drawer already passes the
-    SCREEN's hue as `SectionRail`'s `hue`, so the rail disagreed with its own badge — the Goals
-    drawer on Habits drew a `#218432` green flag inside a `#22A7E0` sky card above a sky-tinted
-    divider, while the identical Goals drawer on To-do drew it indigo, i.e. one destination with
-    two colours depending on where you opened it. `SectionRail` takes a `badgeHue` flag for
-    this; `domain` still chooses the GLYPH. Leave it off where a badge genuinely marks a domain
-    (a section of mixed-domain rows).
-  - **Rows are bordered boxes; there are no ruled lines and no spare lines.**
-    `components/PadSheet.tsx` draws one box per row at the FIELD rung with a `Spacing.xs` gap
-    (flush would double two 1.25px borders into a line heavier than the card's own, inverting
-    the hierarchy). This **reverses `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`** — that
-    rejection was about boxed rows inside a *glass* card ("cards inside a card"), and the glass
-    is gone. It also resolves the rule-5 half of `DESIGN_RULES.md` open conflict #8, and
-    **overrules rule 5 itself** ("whitespace over lines") — borders are the grouping signal now,
-    by explicit instruction. Dividers are still out: separate with boundaries, not with lines
-    between things.
-  - **Quick-add options are a dense grid, all visible while typing.**
-    `components/QuickAddOptionsPanel.tsx` wraps; `QuickAddOptionRow` is a bordered CELL (label
-    over value) that pairs two-per-line and `flexGrow`s so an odd last cell fills its line
-    instead of leaving a hole. Pass `wide` for a live control or a long value. **Adjacency is
-    the caller's job** — flexbox pairs in the order it's given, so reorder children at the call
-    site; there is deliberately no grouping API.
-  - **Button fills and states are untouched.** Point 7 of the brief was "button states stay as
-    designed now", and the maintainer separately confirmed primary keeps its accent fill so a
-    screen still has one obvious action. Only translucency went. A filled variant's border
-    derives from its own fill (`mat.innerLine`); `ghost`, having no fill, wears the screen hue
-    at the BUTTON rung.
-  - **The backdrop got quieter, not removed** — `ScreenBackground`'s `branchOpacity` 0.5→0.28
-    light / 0.7→0.42 dark. Point 10 was "decorate with less opaque leaves and branches in edges,
-    not to disturb, only to decorate". Cards themselves stay clean; nothing is drawn on a card.
+- **Tactile Glass — the 2026-08-15 material** (`components/Surface.tsx` + `PressableScale.tsx`
+  + `constants/colors.ts`/`theme.ts` + `components/PadSheet.tsx` + `lib/domainColor.ts`).
+  Maintainer brief: a *"Hardware-Cupertino Hybrid"* — an OLED-black canvas, frosted glass panes,
+  a light-catching edge, and buttons that behave like physical hardware keys.
+  **This REPLACED the 2026-08-05 "One card design" reset, which this bullet used to describe.**
+  Read `DESIGN_RULES_AUDIT.md`'s 2026-08-15 addendum before undoing any of it — the four
+  conflicts with shipped decisions were put to the maintainer and ruled on individually.
+  - **A card is a frosted pane with ONE light-catching edge.** Translucent fill
+    (`theme.surfaceGlass`), a single stroke that runs white at the top-left and `theme.border` at
+    the bottom-right (`getGlassEdge`), and a `getLayeredShadow` under it. This reverses the reset's
+    *"flat opaque page… no frost, no BlurView, no translucent wash, no beveled rim"* AND its
+    flat-rim pass (an edge may simulate a light source again — that is the brief's central image).
+    **`DESIGN_COMPARISON/16` §2 required a maintainer conversation and a separate PR for exactly
+    this**, and got one. **The specular/gloss ban is NOT reversed** — a translucent fill and a lit
+    EDGE are not a shine on the FACE.
+  - **The fill is a PAIR, and this is the load-bearing bit.** `surfaceGlass` is what gets painted;
+    `surface` is the same colour already COMPOSITED over the backdrop, and is what every contrast
+    test measures. They are derived from each other by construction, and
+    `__tests__/glassMaterial.test.ts` asserts they still agree — if they drift, every WCAG
+    assertion keeps passing while measuring a colour the app no longer draws.
+    **Dark's alpha (0.118) composites to exactly the `#1E1E1E` the palette already had**, which is
+    why not one dark token moved. It is set by the HALATION CEILING, not taste: the brief asked for
+    5–10% white, but at 7% the pane is `#121212` and `text` measures 17.0:1, past rule 10a's 16:1
+    bound. Lowering it makes the app less legible, not airier.
+  - **Blur only where there is something to blur.** `surfaceContext` is a REAL SWITCH again (its
+    first job since 2026-08-05, and the one it was explicitly kept alive for): `overlay`/`nav`
+    mount a `BlurView`, `ambient` content cards do not. An ambient card has the BACKDROP behind it,
+    which in dark mode is pure black — blurring black returns black, so a BlurView under all ~59
+    cards is GPU cost on every scrolling list for no visible difference. Android below API 31
+    degrades to a flat translucent overlay, i.e. the ambient treatment, so the fallback is graceful.
+  - **`settings.glassSurfaces` is LIVE again** as the reduce-transparency path (it was inert from
+    2026-08-05, because everything was already opaque). Off ⇒ opaque composite, no blur anywhere.
+    It needed no new copy — the shipped EN/NO strings already describe exactly this.
+  - **Colour left the card EDGE and went two places.** The edge is neutral on every screen now.
+    `lib/screenColor.ts` is NOT retired by this (it was retired once, in 2026-07-31's A.5, for
+    having no consumers): the hue is a 5% `SCREEN_TINT` wash on the pane — the quiet half — and the
+    icon BADGE is the loud half. `borderColor`/`tint` still override, so Home's preview cards keep
+    passing their source screen's hue. Don't put a hue back on the edge.
+  - **The badge is INVERTED**: a neutral frosted disc with the identity hue as a fully-opaque
+    glyph, via `badgeGlyphFor(hue, plate, isDark)`. This inverts `lib/domainColor.ts`'s A.4 rule 1
+    ("an identity hue is a FILL, never an icon colour") — legitimately, because that rule's real
+    content was *never put a hue where nothing checks its contrast*, and the check is now in the
+    code. Necessary rather than cosmetic: the RAW hues measure 1.92:1 (gold, light plate) and
+    1.88/2.33/2.69:1 (To-do/Health/Habits, dark plate). Never use `domainColor.accent` here directly.
+  - **Rows are FLUSH** (`PadSheet`), separated by `Spacing.sm` of whitespace. Restores
+    `DESIGN_RULES.md` rule 5 and closes open conflict #8's rule-5 half in the rule's favour —
+    the THIRD answer to that question, all three the maintainer's; see
+    `DESIGN_COMPARISON/10`'s top box. The gap grew xs → sm because with no border to keep two rows
+    apart, the gap IS the separation. **The composer keeps its box** — a rule-18 focus fix; de-boxing
+    rows is not precedent for un-boxing the field, exactly as the reverse is not precedent either.
+    ⚠️ **`app/(tabs)/habits.tsx` hand-rolls its own row box and does NOT move when PadSheet does** —
+    that is how it shipped boxed rows for one build while everything else went flush, caught in a
+    screenshot rather than by a test. Grep for both.
+  - **Buttons are hardware keys, and three of the five cues were already shipped.** The
+    2026-08-12 pass had the sink, the shadow collapse and the face darken; this adds a resting
+    top-edge HIGHLIGHT, a resting coloured HALO, and a pressed INNER SHADE — `PressableScale`'s new
+    opt-in `face`/`glow`, interpolated off the SAME `press` shared value as the rest. Five cues,
+    one curve, and reduce-motion needs no branch. Colours are precomputed on the JS thread; only
+    opacity is animated (`__tests__/workletSafety.test.ts`).
+    Scope: `face` on any filled key; `glow` on `primary`/`danger`/`AddFAB` only, per rules 15 and 6.
+    ⚠️ **`secondary` did NOT regain its housing** — the 2026-08-12 reasoning stands, and the brief
+    asks specifically for *primary* buttons. **`translateY` stays `Travel.*`**, not the brief's
+    literal 2: implement the states, not the numbers. **`IconButton` gets neither layer** — its
+    pressable is the padded hit target, not the visible circle, so an absoluteFill layer would be
+    the wrong size.
+  - **The toggle is a FINISH, not a new shape.** `FormControls`' `Switch` keeps the slider
+    (rule 19a, "one shape, everywhere"): accent track + `getGlow` halo when on, quiet `border`
+    ring when off, white thumb in both. `ReminderBell` stays rule 19a's one exception.
+  - **Section headers are `FontSize.xl` extrabold** (off a hardcoded 20), which is what carries
+    the grouping now that rows have no boxes. **The SCREEN title deliberately stayed at 24** —
+    above that re-creates the measured 2026-07-24 "HANDLELISTE" overflow.
+  - **Light mode's one relaxation is rule 10b**: `bg`↔`surface` ≥1.20 → ≥1.15. Darkening `bg` to
+    repair it was measured and REJECTED — it drops six tokens under 4.5:1 at once. The boundary
+    moved to the edge, where it is asserted at ≥3:1 on both sides in both modes. A trade, not a loss.
   - **Deliberate exceptions that are NOT drift**: `components/StarterCard.tsx` and
-    `components/OpenEpisodeCard.tsx` still pass an explicit neutral `theme.border` on a hued
-    screen. Both are documented choices that predate this pass (StarterCard must not twin with
-    HintCard; an open episode is deliberately the one flat, neutral card on the Health tab).
-    Leave them unless the maintainer rules otherwise.
+    `components/OpenEpisodeCard.tsx` still pass an explicit neutral `theme.border`. Both predate
+    this pass and are documented choices; leave them unless the maintainer rules otherwise.
 - **Ongoing symptom episodes** (2026-08-01, `lib/episodes.ts` + `components/OpenEpisodeCard.tsx`
   + `components/EpisodeCloseSheet.tsx`, over `health_logs`' new `episode_state` / `relief_note` /
   `relief_medicine_id` columns). A symptom entry that is STILL HAPPENING, as opposed to one

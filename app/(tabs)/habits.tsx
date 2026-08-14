@@ -252,11 +252,11 @@ import { useNowMinutes } from '@/lib/useNowMinutes';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
-import { BORDER_WIDTH, computeBorderTone, contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
+import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
-import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
-import { useScreenColor, getScreenColor } from '@/lib/screenColor';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
 // Habits are no longer split into build/break — a single calm "met" colour (good),
@@ -353,8 +353,10 @@ function HabitCard({
   first?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const isDark = useIsDark();
-  const screenHue = useScreenColor() ?? theme.border;
+  // `useIsDark()` and `useScreenColor()` were read here only to build the row's border, which
+  // came off in the 2026-08-15 de-boxing. The screen hue still reaches this row — via the
+  // pane's own SCREEN_TINT wash in components/Surface.tsx — it just isn't this component's job
+  // to fetch any more.
   const logs = useHabitStore((s) => s.logs);
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
@@ -386,14 +388,19 @@ function HabitCard({
   }
 
   const accent = habitColor(habit.kind, theme);
-  // Boxed row (card design reset, 2026-08-05) — the same border this screen's rows get inside
-  // components/PadSheet.tsx: the screen hue at the FIELD rung, one step lighter than the card's
-  // own edge, so a card full of rows reads as a hierarchy rather than as a grid.
-  const rowBox = {
-    borderWidth: BORDER_WIDTH.field,
-    borderColor: computeBorderTone(screenHue, isDark, 'field'),
-    borderRadius: Radius.sm,
-  };
+  // ── Flush row (Tactile Glass, 2026-08-15) ────────────────────────────────────────────────
+  // Was a boxed row from the 2026-08-05 card reset until now: `BORDER_WIDTH.field` in the
+  // screen hue at the field rung. The brief's "no box-in-a-box — group elements purely using
+  // whitespace" takes the border off, and the gap under `habitCardStacked` grows to carry the
+  // separation instead (Spacing.xs → sm, matching PadSheet's `stackGap`).
+  //
+  // ⚠️ **This screen hand-rolls the row box because it never adopted `components/PadSheet.tsx`
+  // (see this file's header), so it does NOT move when PadSheet does.** That is exactly how it
+  // survived the first pass of this change and shipped boxed rows on the Habits tab while
+  // every PadSheet surface went flush — caught in a dark-mode screenshot, not by a test. If a
+  // future pass changes the row shape again, grep for `rowShape` AND for this constant; the
+  // real fix is adopting PadSheet here, which is already tracked in AGENTS.md's row rule.
+  const rowBox = null;
 
   const prevDone = useRef(isDone);
   useEffect(() => {
@@ -1210,7 +1217,9 @@ const baseStyles = StyleSheet.create({
   },
   // 4px gap between boxes, not flush — two adjacent 1.25px borders would paint a line heavier
   // than the CARD's own edge and invert the hierarchy. Same rule as components/PadSheet.tsx.
-  habitCardStacked: { marginTop: Spacing.xs },
+  // Tracks PadSheet's `stackGap`: xs → sm on 2026-08-15 when the row border came off. With no
+  // border to keep two rows apart, this gap IS the separation.
+  habitCardStacked: { marginTop: Spacing.sm },
   habitAccent: { width: 4, alignSelf: 'stretch' },
   habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   // The row shell itself — leading icon, title, the ONE meta line, the ONE right-hand value,

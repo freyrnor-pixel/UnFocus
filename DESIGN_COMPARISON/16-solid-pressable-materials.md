@@ -142,3 +142,35 @@ Update the headers of every component touched. If the material direction changes
 `DESIGN_RULES.md` / `DESIGN_RULES_AUDIT.md` — the current text says don't raise the finish, and
 a future session will obey it unless the nuance in §2 is written down. Commit, PR into `main`,
 merge.
+
+---
+
+## Addendum, 2026-08-15 — §2's condition was met, and only half of it was used
+
+§2 above says the frost and the specular highlight may not come back quietly: *"If you conclude
+the highlight is genuinely required, that is a maintainer conversation and a separate PR — not
+a quiet test edit."* The maintainer specified a new global design system ("Tactile Glass") that
+requires the frost, so that conversation happened and that PR is the one that carries this
+addendum. `DESIGN_RULES_AUDIT.md`'s 2026-08-15 entry has the four rulings.
+
+**What was reversed:**
+- **The frost.** `components/Surface.tsx` is a translucent pane again, with a real `BlurView` on
+  the overlay/nav tier. `__tests__/glassMaterial.test.ts`'s "the three flat surfaces mount no
+  BlurView" is rewritten in place — the file keeps its name and its history deliberately.
+- **The flat rim.** The card edge simulates a light source now (white catch on the top-left,
+  `border` on the bottom-right). That is the direct opposite of the 2026-08-05 flat pass's
+  stated reason, and it is the brief's central image.
+
+**What was NOT reversed, and still holds:**
+- **The specular / gloss ban.** Still asserted, still correct. A translucent FILL and a lit
+  EDGE are not a shine on the FACE, and "frosted" is no more "glossy" than "hard and solid"
+  was. Don't cite this addendum as licence to re-add a highlight to a card face.
+- **`Radius.md` stays 16.** Untouched by this pass.
+- **§1's "a cap with no base is the bug"** — still the rule, and the new `face`/`glow` layers on
+  `PressableScale` ride the same `press` value as the existing sink precisely so they cannot
+  drift from it.
+
+**What §3's audit asked for, now delivered rather than superseded:** the buttons genuinely do
+feel "hard and pressable" — they were already sinking, collapsing their shadow and darkening
+their face (2026-08-12); this pass added the resting top-edge highlight, the resting coloured
+halo, and the pressed inner shade. Five cues on one curve.
