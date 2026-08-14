@@ -133,6 +133,14 @@
  *     corners; the sticky bar (components/TabSlider.tsx's `attachedTop`) squares its top ones.
  *     Maintainer: "Tab slider should be under the header without dividing space." Screens with
  *     no sticky bar keep the 8px gap — there's nothing under them to attach to.
+ *   - **`HEADER_SEAM_OVERLAP` (2026-08-14)**: the two cards only ABUT (header's bottom edge ==
+ *     sticky block's top edge), and that exact-abutment coordinate can round to two separate
+ *     device pixels rather than one, leaving a hairline seam that showed scrolled content
+ *     through it while scrolling (user report). `headerBlock` (zIndex 100, above the sticky
+ *     block's zIndex 99) paints one `StyleSheet.hairlineWidth` taller than `headerBlockHeight`
+ *     when attached, so the opaque header card overlaps the seam instead of relying on the two
+ *     edges rounding identically. `contentTopClear` and the sticky block's own `top` are
+ *     deliberately NOT bumped by this — only the header's paint extends, nothing else moves.
  *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25)**:
  *     `floatChrome` (= !plainBackground) insets the header with `headerFloatBottom` (gap before
  *     content) and `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style
@@ -396,6 +404,15 @@ export default function ScreenScaffold({
   // header's bottom corners and the slider squares its top ones. Screens with no sticky bar
   // keep the gap — there is nothing under them for the header to attach to.
   const headerAttachedBelow = floatChrome && !!stickyBelowHeader;
+  // A device-pixel seam between the header card and an attached sticky bar (2026-08-14): the
+  // two are independently-positioned absolute views that only ABUT (header's bottom edge ==
+  // sticky block's top edge), and on some pixel densities that shared coordinate rounds to two
+  // adjacent device pixels rather than one, leaving a hairline where the clipped scroll content
+  // underneath shows through while scrolling. `headerBlock` is zIndex 100 (above the zIndex-99
+  // sticky block), so painting it a hairline TALLER — without moving `contentTopClear` or the
+  // sticky block's own `top`, both still keyed to the un-overlapped `headerBlockHeight` — lets
+  // the header's opaque card cover that seam from above instead of relying on exact abutment.
+  const HEADER_SEAM_OVERLAP = headerAttachedBelow ? StyleSheet.hairlineWidth : 0;
   const headerFloatBottom = floatChrome && !headerAttachedBelow ? Spacing.sm : 0;
   // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
   // header and bottom-nav floating cards should read as the same width (2026-07-24).
@@ -654,7 +671,7 @@ export default function ScreenScaffold({
         style={[
         styles.headerBlock,
         {
-          height: headerBlockHeight,
+          height: headerBlockHeight + HEADER_SEAM_OVERLAP,
           paddingTop: topInset + headerFloatTop,
           paddingBottom: headerFloatBottom,
           paddingHorizontal: headerFloatH,
