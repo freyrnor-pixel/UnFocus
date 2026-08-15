@@ -76,17 +76,20 @@ describe('domainColor — semantic color-coding layer', () => {
         // deepened exactly when white does NOT already clear the badge floor on it.
         //
         // Before: Shopping's gold alone (plus its meal/budget/scan aliases) failed, and every
-        // other light stop was the raw accent. Now the set is the opposite — the five
-        // categoricals are all bright, so white measures 1.30–3.62:1 on them and only Health's
-        // rose (`#FF2A6D`, 3.62) clears unmixed. Everything else starts already-mixed toward
-        // the navy deep-stop. That is `badgeGradientFor` working as designed under a brighter
-        // palette, not a regression: the assertion that matters is (b) above, which checks the
-        // white glyph on both stops.
+        // other light stop was the raw accent. Under the 2026-08-16 neons the set was the
+        // opposite — all bright, so only Health's rose (`#FF2A6D`, 3.62) cleared unmixed.
+        // Since the 2026-08-17 lightness ladder it is **Notes** (`#B45CFF`, 3.55): the ladder
+        // put Health's rose up at L* 71.7, where white measures 2.18, and left Notes as the
+        // darkest rung. So the identity of the exception tracks whichever hue is at the BOTTOM
+        // of the band, which is the honest way to read this pin — not a claim about rose.
+        // Everything else starts already-mixed toward the navy deep-stop. That is
+        // `badgeGradientFor` working as designed under a brighter palette, not a regression:
+        // the assertion that matters is (b) above, which checks the white glyph on both stops.
         const clearsWhiteUnmixed = (d: Domain) =>
           contrastRatio('#FFFFFF', getDomainColor(theme, d).accent) >= 3.3;
         // Pinned so "every hue is deepened" (i.e. the derivation silently doing nothing
         // interesting) would still be caught.
-        expect(DOMAINS.filter(clearsWhiteUnmixed)).toEqual(['health']);
+        expect(DOMAINS.filter(clearsWhiteUnmixed)).toEqual(['note']);
         DOMAINS.forEach((d) => {
           const c = getDomainColor(theme, d);
           // washTop is an opaque hex blend (mix returns hex), badgeGradient a 2-stop tuple

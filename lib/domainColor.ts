@@ -20,8 +20,9 @@
  * the LIGHT surface it measures 1.1–3.1:1, i.e. a word or glyph in one is not readable at all.
  * (The pre-2026-08-16 version of this note cited Shopping's gold at 2.25:1 as the single worst
  * case and the four-hue set's L\* spread as the thing that only survives on a filled shape. The
- * gold is gone and so is the L\* spread — see DESIGN_RULES.md rule 11a — but the rule this
- * paragraph states is unchanged and now binds on all five rather than mostly on one.)
+ * gold is gone; the L\* spread went with it and then came BACK on 2026-08-17 — see
+ * DESIGN_RULES.md rule 11a — but the rule this paragraph states never depended on either and
+ * binds on all five regardless.)
  * `badgeGlyphFor()` below is the ONE sanctioned exception, and it is sanctioned precisely
  * because it measures.
  *
@@ -149,12 +150,13 @@ const BADGE_GRADIENT_SPAN = 0.35;
  *
  * ⚠️ **Which hues get deepened flipped almost completely on 2026-08-16.** This note used to say
  * that only Shopping's gold shifted and everyone else's light stop was the raw accent. Under
- * the neon set it is the other way round: white measures 1.30–3.62:1 on the five, so **Health's
- * rose is the only one that clears unmixed** and every other domain now starts already-mixed
- * toward the navy. That is the function working as designed under a brighter palette, not a
- * regression — the guarantee is "white is legible on both stops", not "the light stop is the
- * accent". `lib/__tests__/domainColor.test.ts` case (e) derives the deepened set rather than
- * listing it, so it cannot go stale this way again.
+ * the neon set it is the other way round: white measures 1.40–3.55:1 on the five, so all but
+ * one start already-mixed toward the navy. The exception is whichever hue sits at the BOTTOM of
+ * the lightness band — Health's rose until 2026-08-17, **Notes' violet since**, the ladder
+ * having moved rose up to rung 3. That is the function working as designed under a brighter
+ * palette, not a regression — the guarantee is "white is legible on both stops", not "the light
+ * stop is the accent". `lib/__tests__/domainColor.test.ts` case (e) derives the deepened set
+ * rather than listing it, so it cannot go stale this way again.
  */
 function badgeGradientFor(accent: string): readonly [string, string] {
   let t = 0;
@@ -196,23 +198,25 @@ export { badgeGradientFor };
  * `BADGE_ICON_MIN_CONTRAST` on the plate — the exact mirror of `badgeGradientFor`, which walks
  * the FILL toward navy until white clears the same floor.
  *
- * ⚠️ **Under the 2026-08-16 neon set this is a NO-OP in dark mode**, and that is the good
- * outcome rather than a reason to delete it. Measured on the real plates:
- *   dark plate  `#323232` — todo 7.81 ✓ · habits 7.39 ✓ · health 3.54 ✓ · shopping 9.83 ✓ ·
- *                           notes 3.94 ✓   (all clear unaided — bright-on-near-black is the
- *                           entire point of the set)
- *   light plate `#EBEDF1` — **todo 1.40 ✗ · habits 1.48 ✗ · shopping 1.11 ✗ · notes 2.78 ✗** ·
- *                           health 3.09 ✓  (four of five fail, some by a factor of three)
- * So the derivation now earns its keep entirely in LIGHT mode, where it is the only thing
- * between a `#00FF85` glyph and a 1.11:1 badge. `lib/__tests__/colors.test.ts`'s "the raw hue
- * is NOT safe for at least one identity hue" guard is scoped to light for this reason.
- * (Before the retune the numbers ran the other way — three hues failed in dark and only
- * Shopping's gold failed in light, at 1.92:1.)
+ * ⚠️ **This is a NO-OP in dark mode and load-bearing in light**, and that is the good outcome
+ * rather than a reason to delete it. Measured on the real plates (2026-08-17 lightness ladder):
+ *   dark plate  `#323232` — todo 9.14 ✓ · habits 7.39 ✓ · health 5.89 ✓ · shopping 4.62 ✓ ·
+ *                           notes 3.61 ✓   (all clear unaided — bright-on-near-black is the
+ *                           entire point of the set; the ladder narrows the spread from
+ *                           3.54–9.83 to 3.61–9.14 without dropping a rung under the floor)
+ *   light plate `#EBEDF1` — **all five fail: todo 1.20 ✗ · habits 1.48 ✗ · health 1.86 ✗ ·
+ *                           shopping 2.37 ✗ · notes 3.03 ✗** (Notes was the last hue that
+ *                           cleared unaided, at 3.09 before the ladder)
+ * So the derivation earns its keep entirely in LIGHT mode, where it is the only thing between
+ * a `#0DB34A` glyph and a 2.37:1 badge. `lib/__tests__/colors.test.ts`'s "the raw hue is NOT
+ * safe for at least one identity hue" guard is scoped to light for this reason.
+ * (Before the 2026-08-16 neon retune the numbers ran the other way — three hues failed in dark
+ * and only Shopping's gold failed in light, at 1.92:1.)
  *
- * **This used to argue that the L\* spread survives the walk.** That argument is retired with
- * the spread itself — see DESIGN_RULES.md rule 11a. What the walk must not do is collapse two
- * hues into each other, and it cannot: in dark it moves nothing, and in light every hue moves
- * toward black by the same rule, preserving their order.
+ * **The L\* ladder survives the walk, and now that the ladder is back (2026-08-17) that matters
+ * again.** What the walk must not do is collapse two hues into each other, and it cannot: in
+ * dark it moves nothing, and in light every hue moves toward black by the same rule, which
+ * preserves their order — the rungs compress slightly but never cross.
  *
  * @param plate the composited frost colour to measure against — `theme.badgeFrost` over the
  *   pane. Passed in rather than derived here because this module has no access to what the

@@ -194,19 +194,33 @@ design, not the rule.
 
 11. **Never use color as the only signal.** Pair it with an icon or text label.
     Status, selection, and meaning must survive in greyscale.
-11a. **The identity hues no longer survive greyscale, by instruction (2026-08-16).**
-    Rule 11 stands everywhere else and is unchanged; this records the one place it was
-    deliberately given up, because a silently-broken rule is worse than a recorded exception.
-    The five card-identity hues (`IDENTITY_HUES`, `constants/colors.ts`) used to separate by
-    **L\*** — 38.6 / 48.3 / 44.3 / 70.7 — precisely so they worked in greyscale and for every
-    form of colour blindness. The neon/OLED brief cannot hold that: a set spread across
-    L\* 38–71 contains, by construction, three hues too dark to glow on pure black. Asked as a
-    direct trade and answered "full neon, drop the greyscale guarantee". The five now sit at
-    L\* 56–90 and separate by **hue and chroma only** (ΔE2000 ≥ 25 pairwise, worst 32.7).
-    **What still holds, and is what keeps rule 11 true in practice:** every one of the five is
-    paired with its own ICON (`components/CardAccent.tsx`'s `DOMAIN_ICON`) and its own WORD, so
-    no meaning is carried by the colour alone; only the *hue-to-hue* distinction is now
-    colour-only. Restoring the L\* spread is a maintainer conversation, not a tidy-up.
+11a. **Categorical accent colours must hold a neon/jewel-tone aesthetic while enforcing
+    strict luminance separation for colour-blind accessibility.** Icons and text stay the
+    primary meaning-carriers; the colour is recognition, never the message.
+    The five card-identity hues (`IDENTITY_HUES`, `constants/colors.ts`) sit on a **lightness
+    ladder** — L\* 86.9 To-do · 79.3 Habits · 71.7 Health · 64.0 Shopping · 56.7 Notes, ~7.6
+    apart, in that order — because lightness is the one channel that survives greyscale,
+    deuteranopia, protanopia and monochromacy alike. On top of it the older hue-space floor
+    still applies (pairwise ΔE2000 ≥ 25) and so does AA: **every hue is ≥ 4.5:1 against both
+    the true-black canvas and the dark glass card**, since these are drawn as glyphs.
+    The aesthetic is not traded away for it — every value is on the sRGB gamut boundary at its
+    assigned lightness, i.e. as saturated as that lightness physically allows (C\* 43–93).
+    **Three things follow, and they are constraints rather than observations:** the band is
+    only ~30 L\* wide (its bottom fixed by the AA floor at 55.4, its top by sRGB having no
+    saturated amber above ~87), so **five rungs is the capacity — a sixth identity hue does not
+    fit**; a rung cannot be deepened past the floor (this is why Notes is `#B45CFF` and not a
+    darker violet); and a hue whose family is only saturated outside its rung takes the rung,
+    not the saturation (this is why Health's rose is `#FF8CB2` and not `#FF2A6D`).
+    *History, because this rule has been answered both ways:* the ladder existed as a four-hue
+    spread, was **dropped on 2026-08-16** on the maintainer's explicit instruction to go full
+    neon ("drop the greyscale guarantee"), and was **restored on 2026-08-17** when the cost was
+    measured — the worst pair under deuteranopia simulation was ΔE2000 11.8, and a greyscale
+    screenshot flattened To-do/Habits/Shopping into one band. The restoration kept the neon
+    brief; it re-picked the values instead of un-picking the look. All five guarantees are
+    asserted in `lib/__tests__/colors.test.ts`, including the dichromat simulation itself.
+    **Rule 11 is not delegated to any of this:** each hue is also paired with its own ICON
+    (`components/CardAccent.tsx`'s `DOMAIN_ICON`) and its own WORD, so no meaning is ever
+    carried by colour alone.
 12. **One accent color for actions, plus a neutral grey scale.** Add semantic
     colors (success / warning / error) only where they carry meaning. *(Open conflict #5: the
     app runs one additional identity-hue system on purpose, `lib/domainColor.ts`'s card

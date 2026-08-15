@@ -597,8 +597,11 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   // unreadable bar: a 16% wash of a NEON hue over the nav's already-light glass composites to a
   // strong tint, so the rose "Health" label sat on a rose plate at roughly 1.5:1. That recipe
   // was written for hues that are mid-tones; these are not. Measured on the real plate, this
-  // one gives 4.89:1 (Health, the worst) to 10.50:1 (Shopping) — better than the `accentSoft`
-  // baseline it replaces, which is 4.52:1.
+  // one gives 5.99:1 (Shopping, the worst of the four hued tabs) to 10.07:1 (To-do) — better
+  // than the `accentSoft` baseline it replaces, which is 4.52:1. (It was 4.89–10.50 before the
+  // 2026-08-17 lightness ladder; the FLOOR rose because that pass deepened Shopping's green and
+  // lifted Health's rose, and the plate is derived from the hue, so a hue and its own plate keep
+  // their ratio as the hue moves. Notes is not a tab and so never appears here.)
   const pillFill =
     pillHue === theme.accent ? theme.accentSoft : mix(theme.bg, pillHue, PILL_PLATE_MIX);
   // **No halo of any kind on the pill.** `getLayeredShadow` went on 2026-08-10 (a grey,

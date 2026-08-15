@@ -326,41 +326,57 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       expect(ratio).toBeLessThanOrEqual(17);
     });
 
-    // ── The five identity hues (2026-08-16 categorical brief §7) ────────────────────────
+    // ── The five identity hues, on a LIGHTNESS LADDER (2026-08-17) ──────────────────────
     const HUE_KEYS = ['todo', 'habits', 'health', 'shopping', 'notes'] as const;
 
-    // ⚠️ `DOCUMENTED_LSTAR` and the "Shopping keeps a ≥15 L* gap" test lived here and are
-    // DELETED, together, on 2026-08-16. Read this before writing anything L*-shaped back in.
+    // ⚠️ The L*-shaped guarantee was DELETED on 2026-08-16 and is RESTORED here, in a stronger
+    // form. Read this before weakening any of the four tests below, because the deletion had a
+    // recorded reason and it was still wrong.
     //
-    // They encoded addendum A.6's central claim: the identity set separates by LIGHTNESS, not
-    // hue, because lightness is the only channel that survives greyscale and colour blindness.
-    // That claim is still true as colour science and was not refuted. It was OVERRIDDEN by the
-    // maintainer, explicitly and with the trade stated in the question ("full neon, drop the
-    // greyscale guarantee"), because the OLED brief it conflicts with cannot be satisfied
-    // while it holds — a set spread L* 38–71 necessarily contains hues too dark to glow on
-    // pure black. The five neon values sit at L* 56–90.
+    // A.6's claim — the identity set must separate by LIGHTNESS, because lightness is the only
+    // channel that survives greyscale, deuteranopia, protanopia and monochromacy — was
+    // overridden on 2026-08-16 as a stated trade ("full neon, drop the greyscale guarantee").
+    // The follow-up review measured what that cost: at L* 81/79/56/89/59 the worst pair under
+    // deuteranopia simulation was ΔE2000 11.8, and a greyscale screenshot flattened
+    // To-do/Habits/Shopping into one band. The aesthetic was kept and the values re-picked —
+    // every hue is still on the sRGB gamut boundary at its lightness — so this is not a return
+    // to pastels; it is the same neon set, ordered.
     //
-    // What replaces it is NOT nothing, and that matters: the pairwise ΔE2000 ≥ 25 test below
-    // is now load-bearing rather than one of two alternatives, and it is checked over five
-    // hues instead of four. The hex pin beneath it is a STRICTER drift guard than the old
-    // `toBeCloseTo(L*, 0)` was — an L* pin admits any hue rotation at constant lightness,
-    // which is exactly the "harmonise the badges" edit A.6 was trying to catch.
+    // FOUR things are pinned, and they are not redundant with each other:
+    //   1. the hex, per hue — the strictest drift guard (an L* pin alone admits a hue rotation
+    //      at constant lightness, which is the "harmonise the badges" edit A.6 existed to catch);
+    //   2. the ladder — adjacent rungs ≥ 7 L* apart, IN ORDER. This is the accessibility
+    //      guarantee itself, and it is what a "make Health more vivid" edit would break;
+    //   3. the AA floor — ≥ 4.5:1 on the dark glass card, which is what fixes the BOTTOM of the
+    //      band at L* 55.4 and is therefore why Notes cannot be a deeper violet;
+    //   4. the dichromat regression — the simulated worst pair, which is the number the whole
+    //      change exists to move (11.8 → 19.7).
+    // Plus the pre-existing pairwise ΔE2000 ≥ 25 floor, which is unchanged and still catches
+    // the hue-space half.
     const DOCUMENTED_HEX: Record<(typeof HUE_KEYS)[number], string> = {
-      todo: '#FFC000',
+      todo: '#FFD700',
       habits: '#05D9E8',
-      health: '#FF2A6D',
-      shopping: '#00FF85',
-      notes: '#B967FF',
+      health: '#FF8CB2',
+      shopping: '#0DB34A',
+      notes: '#B45CFF',
     };
+
+    // The ladder, brightest rung first. The ORDER is asserted, not just the gaps: two hues
+    // swapped would keep every gap and still undo the recognition this buys, because the
+    // categories are learned as "the bright one" / "the dark one".
+    const LADDER = ['todo', 'habits', 'health', 'shopping', 'notes'] as const;
+    /** Minimum lightness step between adjacent rungs. Shipped set: 7.4–7.7. */
+    const LADDER_MIN_STEP = 7;
 
     HUE_KEYS.forEach((key) => {
       const { hue, ink } = IDENTITY_HUES[key];
 
       // A.6 #1, RELAXED 4.5 → 3 on 2026-08-16, and structurally rather than as a judgement
-      // call — the same shape of relaxation as `accentInk` above. Health's neon rose
-      // `#FF2A6D` admits NO AA-contrast ink in either direction (white 3.62:1, dark 4.32:1),
-      // so no choice of `ink` could satisfy 4.5 and the assertion could only ever have been
-      // met by abandoning the mandated hue.
+      // call — the same shape of relaxation as `accentInk` above. At the time it was Health's
+      // rose `#FF2A6D` that admitted NO AA-contrast ink in either direction (white 3.62:1,
+      // dark 4.32:1), so no choice of `ink` could satisfy 4.5. The 2026-08-17 ladder moved that
+      // particular hue up to 7.66:1 and the binding case is now Notes at the band's floor
+      // (dark ink 4.28:1) — a different hue, same arithmetic, so the relaxation stands.
       //
       // 3:1 is the honest floor here for a second reason: since the 2026-08-15 inversion the
       // app does not DRAW ink on a hue fill any more — the badge is a hue glyph on a neutral
@@ -382,17 +398,71 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       });
 
       // The drift guard, on the value itself. See the DOCUMENTED_HEX note above for why this
-      // replaced an L* pin rather than joining it.
+      // is pinned alongside the L* ladder rather than instead of it.
       test(`identity ${key}: hue has not drifted from its documented value`, () => {
         expect(`${key}=${hue}`).toBe(`${key}=${DOCUMENTED_HEX[key]}`);
       });
+
+      // Pin #3 — the AA floor, per hue, on the harder of the two dark grounds. `surface`
+      // (#1E1E1E) is the dark glass card; anything clearing it clears `bg` (#000000) too, and
+      // both are asserted because "on the black canvas" is how the requirement is usually
+      // stated. This is the test that fixes the BOTTOM of the band at L* 55.4 — it is why
+      // Notes cannot be a deeper violet, and why no future rung can be added below it.
+      test(`identity ${key}: ≥ 4.5:1 as a glyph on the dark card AND on the black canvas`, () => {
+        const p = THEMES.default.dark;
+        expect(contrastRatio(hue, p.surface)).toBeGreaterThanOrEqual(4.5);
+        expect(contrastRatio(hue, p.bg)).toBeGreaterThanOrEqual(4.5);
+      });
     });
 
-    // A.6 #2 — every pair is separable. THE ONLY SEPARATION GUARANTEE the set still carries
-    // (see the DOCUMENTED_HEX note): the `|| L* apart ≥ 15` alternative is gone, so this is a
-    // strict hue/chroma floor over all ten pairs. Worst pair today is Habits/Shopping at 32.7
-    // — which is why Shopping is `#00FF85` and not the brief's suggested `#01FFC3`, measured
-    // at 22.9 against Habits' cyan and failing this outright.
+    // Pin #2 — THE LADDER. This is the accessibility guarantee the whole 2026-08-17 pass
+    // exists to make: lightness is the one channel that survives greyscale, deuteranopia,
+    // protanopia and monochromacy, so the five categories are carried on it. Both halves
+    // matter — the ORDER (a swap keeps every gap and still costs the "bright one / dark one"
+    // recognition) and the STEP.
+    //
+    // Shipped steps are 7.4–7.7 against a floor of 7, which is deliberately tight: the band is
+    // only ~30 L* wide (bottom fixed by the AA test above, top by sRGB running out of saturated
+    // amber above L* 87), so five rungs is what fits. **A sixth identity hue does not fit** —
+    // this test failing on an added hue is the correct outcome, not an obstacle to route around.
+    test('identity hues: the lightness ladder is in order and every step is ≥ 7 L*', () => {
+      const rungs = LADDER.map((k) => ({ key: k, L: lstar(IDENTITY_HUES[k].hue) }));
+      for (let i = 1; i < rungs.length; i += 1) {
+        const step = rungs[i - 1].L - rungs[i].L;
+        const pair = `${rungs[i - 1].key}→${rungs[i].key}`;
+        expect(`${pair}: ${step >= LADDER_MIN_STEP}`).toBe(`${pair}: true`);
+      }
+    });
+
+    // Pin #4 — the dichromat regression. The ladder is what MAKES this hold, so this test is
+    // not a second guarantee so much as the measurement that proves the first one works on the
+    // readers it is for. Simulation is Viénot/Brettel/Mollon (1999), the standard LMS
+    // projection, implemented inline at the bottom of this file next to the Lab maths.
+    //
+    // The floor is 15 against a shipped worst pair of 19.7 (deutan) / 12.9 (protan). Protanopia
+    // gets the lower floor because its luminance response is itself shifted — a protanope sees
+    // red-family hues darker than the CIE Y this ladder is built on — so the same rungs
+    // compress slightly. Both are far above what the pre-ladder set managed: 11.8 and 11.9,
+    // i.e. the whole set within one ΔE band of "these two are the same colour".
+    test('identity hues: every pair survives deuteranopia and protanopia simulation', () => {
+      const FLOORS = { deutan: 15, protan: 12 } as const;
+      (['deutan', 'protan'] as const).forEach((kind) => {
+        for (let i = 0; i < HUE_KEYS.length; i += 1) {
+          for (let j = i + 1; j < HUE_KEYS.length; j += 1) {
+            const a = simulateDichromacy(IDENTITY_HUES[HUE_KEYS[i]].hue, kind);
+            const b = simulateDichromacy(IDENTITY_HUES[HUE_KEYS[j]].hue, kind);
+            const label = `${kind} ${HUE_KEYS[i]}/${HUE_KEYS[j]}`;
+            expect(`${label}: ${deltaE2000(a, b) >= FLOORS[kind]}`).toBe(`${label}: true`);
+          }
+        }
+      });
+    });
+
+    // A.6 #2 — every pair is separable in COLOUR space too, which the ladder does not imply:
+    // two hues one rung apart could still be the same hue at two lightnesses. Worst pair today
+    // is Health/Notes at 26.9. This floor is also what caught the 2026-08-16 brief's own
+    // suggested Shopping value (`#01FFC3`, 22.9 against Habits' cyan) before it shipped, and
+    // what stops Health's rose being rotated back toward magenta for chroma (24.0 at h 350).
     test('identity hues: every pair is ΔE2000 ≥ 25', () => {
       for (let i = 0; i < HUE_KEYS.length; i += 1) {
         for (let j = i + 1; j < HUE_KEYS.length; j += 1) {
@@ -488,11 +558,13 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       // hue clear the floor unaided, this fails — and that is the moment to check whether
       // badgeGlyphFor is still doing anything, not to delete this test."
       //
-      // That moment arrived. On the dark plate (`#323232`) the five neons measure 7.81 / 7.39 /
-      // 3.54 / 9.83 / 3.94 — all clear — because bright-on-near-black is the whole point of the
-      // set. So in DARK, `badgeGlyphFor` is now a genuine no-op, and asserting otherwise would
-      // be asserting a defect. In LIGHT it is still doing real work and still the only thing
-      // standing between a `#00FF85` glyph and a 1.11:1 badge, so the guard lives there.
+      // That moment arrived. On the dark plate (`#323232`) the five measure 9.14 / 7.39 / 5.89 /
+      // 4.62 / 3.61 (2026-08-17 ladder values; 7.81 / 7.39 / 3.54 / 9.83 / 3.94 before it) —
+      // all clear either way, because bright-on-near-black is the whole point of the set. So in
+      // DARK, `badgeGlyphFor` is a genuine no-op, and asserting otherwise would be asserting a
+      // defect. In LIGHT it is still doing real work — since the ladder ALL FIVE need the walk
+      // there, Notes having been the last hue that cleared unaided (3.03 against a 3.3 floor) —
+      // so the guard lives there.
       // If light mode is ever retuned to neons too, this test has nothing left to guard and
       // `badgeGlyphFor` should be re-examined rather than this line edited again.
       const derivationStillMatters = mode === 'light';
@@ -669,6 +741,39 @@ function toLab(hex: string): [number, number, number] {
 /** Perceptual lightness (0 = black, 100 = white) — the greyscale/colour-blind channel. */
 function lstar(hex: string): number {
   return toLab(hex)[0];
+}
+
+/**
+ * Dichromacy simulation — Viénot, Brettel & Mollon (1999), the standard LMS projection: convert
+ * linear sRGB to LMS, collapse the missing cone's response onto the plane the remaining two
+ * span, convert back. Added 2026-08-17 with the identity-hue lightness ladder, so that "these
+ * two categories are still distinguishable" is a MEASUREMENT in CI rather than a claim in a
+ * comment — the exact thing the 2026-08-16 set got wrong.
+ *
+ * Inline for the same reason as the Lab maths above: ~20 lines, and the token layer stays
+ * dependency-free. Feed the output to `deltaE2000` — the simulated colours are ordinary sRGB.
+ */
+function simulateDichromacy(hex: string, kind: 'deutan' | 'protan'): string {
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const unlin = (c: number) => {
+    const v = Math.min(1, Math.max(0, c));
+    return (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055) * 255;
+  };
+  const [r, g, b] = hexToRgb(hex).map(lin);
+  const L = 17.8824 * r + 43.5161 * g + 4.11935 * b;
+  const M = 3.45565 * r + 27.1554 * g + 3.86714 * b;
+  const S = 0.0299566 * r + 0.184309 * g + 1.46709 * b;
+  const Ld = kind === 'protan' ? 2.02344 * M - 2.52581 * S : L;
+  const Md = kind === 'deutan' ? 0.494207 * L + 1.24827 * S : M;
+  const out = [
+    0.080944 * Ld - 0.130504 * Md + 0.116721 * S,
+    -0.0102485 * Ld + 0.0540194 * Md - 0.113615 * S,
+    -0.000365294 * Ld - 0.00412163 * Md + 0.693513 * S,
+  ].map((c) => Math.round(unlin(c)));
+  return `#${out.map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
 }
 
 /** Chroma (distance from the neutral axis) — how "colourful" a hue is at all. */

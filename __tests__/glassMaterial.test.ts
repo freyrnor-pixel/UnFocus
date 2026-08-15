@@ -340,8 +340,8 @@ describe('getRecessedField — the inputs are sunk into the pane, not drawn on i
   it('gives every category a focus ring that is actually visible on the well', () => {
     // Brief §8's "adopt a subtle border... using the Categorical Color of its parent card".
     // The composers route that hue through `badgeGlyphFor`, which is what makes this hold in
-    // LIGHT mode: the identity hues are mode-invariant neons, and a raw #FFC000 ring on a
-    // #EDEEF1 field is ~1.4:1 — a focus state you cannot see, i.e. DESIGN_RULES.md rule 18
+    // LIGHT mode: the identity hues are mode-invariant neons, and a raw #FFD700 ring on a
+    // #EDEEF1 field is 1.21:1 — a focus state you cannot see, i.e. DESIGN_RULES.md rule 18
     // with the cue missing. In dark the walk is a no-op and the raw hues already clear.
     (['light', 'dark'] as const).forEach((mode) => {
       const isDark = mode === 'dark';

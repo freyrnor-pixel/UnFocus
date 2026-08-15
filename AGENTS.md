@@ -810,8 +810,10 @@ file owns which token.)
     glyph, via `badgeGlyphFor(hue, plate, isDark)`. This inverts `lib/domainColor.ts`'s A.4 rule 1
     ("an identity hue is a FILL, never an icon colour") — legitimately, because that rule's real
     content was *never put a hue where nothing checks its contrast*, and the check is now in the
-    code. Necessary rather than cosmetic: the RAW hues measure 1.92:1 (gold, light plate) and
-    1.88/2.33/2.69:1 (To-do/Health/Habits, dark plate). Never use `domainColor.accent` here directly.
+    code. Necessary rather than cosmetic: on the LIGHT plate every one of the five raw hues
+    measures 1.20–3.03:1 (it was gold alone at 1.92:1 under the pre-neon four-hue set, and the
+    dark plate's 1.88/2.33/2.69:1 for To-do/Health/Habits with it). Never use
+    `domainColor.accent` here directly.
   - **Rows are FLUSH** (`PadSheet`), separated by `Spacing.sm` of whitespace. Restores
     `DESIGN_RULES.md` rule 5 and closes open conflict #8's rule-5 half in the rule's favour —
     the THIRD answer to that question, all three the maintainer's; see
@@ -849,28 +851,54 @@ file owns which token.)
   *"the current UI is washed out, flat, and uses weak, generic pastel colors"*). It does not
   replace Tactile Glass; it turns four of its dials much harder and adds a categorical colour
   system. The canvas half is in the dark-mode bullet above. The rest:
-  - **FIVE neon categoricals, named by the maintainer, one per section** (`IDENTITY_HUES`):
-    To-do `#FFC000` amber · Habits `#05D9E8` cyan · Health `#FF2A6D` rose · Shopping `#00FF85`
-    green · **Notes `#B967FF` amethyst — Notes now HAS an identity hue**, where A.3 had
-    deliberately left it `IDENTITY_NEUTRAL`. Home is the only neutral left, and has no `card*`
-    token, so `IDENTITY_NEUTRAL` currently has no palette consumer.
-    - **Shopping is `#00FF85`, not the brief's suggested `#01FFC3`.** That value measured
-      ΔE2000 **22.9** against Habits' cyan — under the 25 separation floor, and visibly so:
-      two cyan-greens one tab apart in the nav. Rotated toward green until it cleared, at 32.7.
-    - ⚠️ **The L\* spread is gone, on instruction** — see `DESIGN_RULES.md` rule 11a for the
-      trade as it was put and answered. `DOCUMENTED_LSTAR` and the "Shopping keeps a ≥15 L\*
-      gap" test are deleted; the pairwise ΔE2000 ≥ 25 test is now the ONLY separation
-      guarantee, and a hex pin replaced the L\* pin (stricter — an L\* pin admits any hue
-      rotation at constant lightness, which is the edit A.6 was trying to catch).
-    - **The dark `feat*` octet is aligned onto the same five**, so a screen's 5% pane wash and
-      the badge sitting on it stop disagreeing. **Light's octet is untouched** and still the
-      2026-08-10 cinematic set — these neons measure 1.1–1.5:1 there. The consequence (light
-      mode has a teal Health wash under a rose Health badge) is known and accepted.
+  - **FIVE neon categoricals, one per section, on a LIGHTNESS LADDER** (`IDENTITY_HUES`).
+    The maintainer named the five on 2026-08-16; the VALUES below are the **2026-08-17
+    recalibration**, which kept the neon aesthetic and re-picked every hex so the set survives
+    greyscale and colour blindness. Brightest first — the order is part of the guarantee:
+    To-do `#FFD700` gold (L\* 86.9) · Habits `#05D9E8` cyan (79.3) · Health `#FF8CB2` rose
+    (71.7) · Shopping `#0DB34A` emerald (64.0) · **Notes `#B45CFF` violet (56.7) — Notes HAS an
+    identity hue** since 2026-08-16, where A.3 had deliberately left it `IDENTITY_NEUTRAL`.
+    Home is the only neutral left, and has no `card*` token, so `IDENTITY_NEUTRAL` currently has
+    no palette consumer.
+    - ⚠️ **The L\* ladder was dropped on 2026-08-16 and RESTORED on 2026-08-17** — see
+      `DESIGN_RULES.md` rule 11a (rewritten) and `DESIGN_RULES_AUDIT.md`'s 2026-08-17 addendum
+      for both halves of the argument. Dropping it cost more than the trade anticipated: the
+      worst pair under deuteranopia simulation was ΔE2000 **11.8** and the smallest lightness
+      gap in the set was **2.0**, so a colour-blind reader lost the instant "which section am I
+      in" recognition the hues exist for. Now: rungs ~7.6 L\* apart, worst deutan pair 19.7.
+    - **The band is derived, not chosen, and it is FULL.** Bottom = L\* 55.4, the lightness at
+      which any hue clears WCAG AA 4.5:1 as a glyph on the dark glass card (`surface`, harder
+      than `bg`); top = ~87, above which sRGB has no saturated amber left. Five rungs is what
+      fits at ~7.6 apart, so **a sixth identity hue does not fit** — that is a conversation
+      about the band, not a value to slot in. Notes cannot be a deeper violet for the same
+      reason (`#A855F7` measures 4.21:1 and fails AA).
+    - **It is still neon**: every value sits on the sRGB gamut boundary at its assigned
+      lightness (C\* 43–93), i.e. nothing was desaturated to hit a rung. Health's rose is the
+      one that visibly moved — a rose is only deeply saturated below L\* 60, so a mid-rung rose
+      is necessarily lighter. It also stopped colliding with `bad` `#FF3B5C` (1.1 L\* → 14.5).
+    - **Shopping is `#0DB34A`.** It was `#00FF85`, the LIGHTEST hue in the set, sitting one nav
+      tab from Habits' cyan — and deuteranopia renders a mint green and a cyan much the same,
+      so the two were separated by a channel some readers don't have. There are now 15 L\*
+      between them. (The brief's own suggested `#01FFC3` was rejected before ever shipping, at
+      ΔE2000 22.9 against Habits' cyan, under the 25 separation floor.)
+    - **Five things are pinned in `lib/__tests__/colors.test.ts`**: the hex per hue, the
+      ladder's order and step (≥7 L\*), AA ≥4.5:1 on `surface` AND `bg`, a dichromat-simulation
+      floor (inline Viénot/Brettel/Mollon projection — deutan ≥15, protan ≥12), and the older
+      pairwise ΔE2000 ≥ 25. None is redundant: the ladder doesn't imply hue separation, and
+      ΔE2000 doesn't imply either lightness order or contrast.
+    - **The dark `feat*` octet is aligned onto the same five** (it moves whenever they do), so a
+      screen's 5% pane wash and the badge sitting on it stop disagreeing. The three non-category
+      entries (`featMeal`/`featBudget`/`featScan`) are deliberately NOT on the ladder — `feat*`
+      is a per-screen wash and only Home shows several at once, whose cards are four of the five
+      categories. **Light's octet is untouched** and still the 2026-08-10 cinematic set — these
+      neons measure 1.1–1.5:1 there. The consequence (light mode has a teal Health wash under a
+      rose Health badge) is known and accepted.
     - Consequence in `lib/domainColor.ts`: `badgeGradientFor`'s deepening flipped almost
-      completely — every hue except Health's rose now starts already-mixed toward navy, where
-      before only Shopping's gold did. And `badgeGlyphFor` is a genuine **no-op in dark** now
-      (all five clear 3:1 raw on the frost plate), so its "at least one raw hue is unsafe"
-      guard is scoped to light, where it still does real work.
+      completely in the neon pass — all but one hue now start already-mixed toward navy, where
+      before only Shopping's gold did — and the exception is whichever hue is at the BOTTOM of
+      the band, so it moved from Health to **Notes** with the ladder. `badgeGlyphFor` is still a
+      genuine **no-op in dark** (all five clear 3:1 raw on the frost plate) and in light now does
+      work for all five, so its "at least one raw hue is unsafe" guard stays scoped to light.
   - **The card edge is a top-left lip that fades out** (brief §3) — `getGlassEdge`'s new
     `shadeDark: 0` path returns a THREE-stop ramp ending at `rgba(255,255,255,0)`.
     ⚠️ **Cards in DARK only**, and both halves matter: a card is a container (separated on
@@ -897,13 +925,17 @@ file owns which token.)
     resolves it from `useScreenColor()`; `danger` opts out so a destructive action never
     borrows its screen's colour), and the **active bottom-nav tab** — icon, label and the
     sliding pill, which share `navTabHue()` so a rose icon can't land on a blue plate.
-    - ⚠️ A primary button's **FILL stays `theme.accent`**; only its light is categorical. Two
-      of the five hues admit no AA-contrast ink at all, so a rose Save button ships a label at
-      4.32:1 at best — and one action colour app-wide is what makes "primary" a role rather
-      than a sixth category.
+    - ⚠️ A primary button's **FILL stays `theme.accent`**; only its light is categorical. One
+      of the five hues still admits no AA-contrast ink at all — Notes' violet, at 4.40:1 with
+      dark ink and 3.55:1 with white — so a categorical Save button would ship a sub-AA label
+      on at least one screen; and one action colour app-wide is what makes "primary" a role
+      rather than a sixth category. (It was TWO hues before the 2026-08-17 ladder, Health's
+      rose having been the other at 4.32:1; the ladder took that one to 7.17:1.)
     - ⚠️ The nav tab's categorical colour is **dark-mode only**, and that is measured: light's
       octet is mid-tones, and a mid-tone label on a plate tinted with itself lands 2.0–3.6:1,
-      worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark measures 4.89–10.50:1.
+      worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark measures 5.99–10.07:1
+      across the four hued tabs (was 4.89–10.50 before the 2026-08-17 ladder — the plate is
+      derived from the hue, so a hue and its plate keep their ratio as the hue moves).
     - ⚠️ The pill plate is `mix(bg, hue, 0.2)`, **not** the `soft` `rgba(hue, 0.16)` wash every
       other surface uses. The first cut used the wash and shipped an unreadable bar — a 16%
       wash of a NEON hue over the nav's light glass put the rose "Health" label on a rose plate
