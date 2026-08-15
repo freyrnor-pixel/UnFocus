@@ -638,7 +638,19 @@ type GradientStops = readonly [number, number, ...number[]];
  * 2026-08-05 flat-rim pass every stop is the SAME colour, so it renders as one evenly-weighted
  * edge; the shape is kept so the five `LinearGradient` call sites don't all need rewriting.
  */
-export type RimGradient = { colors: GradientColors; locations: GradientStops };
+/**
+ * `start`/`end` are OPTIONAL and were added for `getGlassEdge()` (2026-08-15), which needs a
+ * diagonal sweep rather than the top-to-bottom one every earlier consumer wanted. Omitting them
+ * means "vertical", so `computeRimGradient` and `computeBorderRamp` are byte-identical to before
+ * and no existing call site changed.
+ */
+export type GradientPoint = { x: number; y: number };
+export type RimGradient = {
+  colors: GradientColors;
+  locations: GradientStops;
+  start?: GradientPoint;
+  end?: GradientPoint;
+};
 
 /**
  * The raised-keycap rim recipe, extracted so callers whose edge hue differs from their fill hue
@@ -773,6 +785,167 @@ export function computeBorderTone(
   const alpha = base.alpha;
   const mid = (deep + light) / 2;
   return rgba(isDark ? lighten(hue, mid + 0.26) : mix(darken(hue, deep), lighten(hue, light), 0.5), alpha);
+}
+
+// ── Tactile Glass (2026-08-15) ───────────────────────────────────────────────
+//
+// ⚠️ This section REVERSES two decisions that were made deliberately and written down, and it
+// is the "maintainer conversation and a separate PR" that
+// DESIGN_COMPARISON/16-solid-pressable-materials.md §2 required before either could be
+// reopened. Read that file and DESIGN_RULES_AUDIT.md's 2026-08-15 addendum before editing:
+//   - the 2026-08-05 card reset removed all translucency ("no frost, no BlurView, no
+//     translucent wash, no beveled rim"); it is back, as the app's material.
+//   - the same pass removed a LIGHTING ramp (a white lip fading to a dark bottom) on the
+//     grounds that a border should not simulate a light source. It now does simulate one,
+//     because that is precisely what the Tactile Glass brief asks a pane's edge to do.
+// `computeBorderRamp`/`computeBorderTone` above still exist and still work; what they lost is
+// consumers, not correctness. The screen-identity hue did not go away either — it moved off
+// the EDGE and into the pane's own faint tint and the icon badge (lib/screenColor.ts,
+// lib/domainColor.ts), per the 2026-08-15 ruling.
+
+/**
+ * Per-weight strength of the glass edge, mirroring `RAMP` above so the card → field → button
+ * family still steps DOWN in presence. That hierarchy is the thing that stops a card full of
+ * bordered controls reading as a grid, and it survives the material change unchanged in spirit;
+ * `lib/__tests__/borderRamp.test.ts` still asserts the ordering.
+ *
+ * The two sides are tuned independently and asymmetrically, which is the whole point:
+ *   - `lit` is the light CATCH. On a light pane it is near-opaque white and contributes almost
+ *     no contrast (~1.04:1) — it is a highlight, not a boundary.
+ *   - `shade` is the BOUNDARY, and it is plain `theme.border`, which is contrast-tuned to clear
+ *     WCAG 1.4.11's 3:1 on every rung it is drawn against (3.658:1 on the light pane, 3.817:1
+ *     on the dark one). This is what lets DESIGN_RULES.md rule 10b relax the bg↔surface FILL
+ *     step under glass: the boundary moved from the fill to the edge, and unlike the fill step
+ *     it is measured on both sides.
+ * Never make `shade` fainter than `lit` at the card rung — that inverts the light direction and
+ * the pane reads as lit from below.
+ */
+const GLASS_EDGE: Record<BorderWeight, { lit: number; litDark: number; shade: number }> = {
+  card: { lit: 0.95, litDark: 0.16, shade: 1 },
+  field: { lit: 0.75, litDark: 0.12, shade: 0.68 },
+  button: { lit: 0.62, litDark: 0.1, shade: 0.52 },
+};
+
+/** The light source, per the brief: a white lip on the top and left edges. */
+const GLASS_LIGHT = '#FFFFFF';
+
+/**
+ * The Tactile Glass edge: one stroke that catches the light on its TOP-LEFT and carries the
+ * control boundary on its BOTTOM-RIGHT.
+ *
+ * Returns a `RimGradient`, so it drops straight into the `LinearGradient` padding-ring
+ * `components/Surface.tsx` already renders — no new plumbing at the call site, exactly as
+ * `computeBorderRamp` did. The difference is the DIAGONAL (`start` top-left → `end`
+ * bottom-right): a vertical sweep would light the top edge and leave the left one dark, which
+ * is not how a pane of glass catches a light source above and to the left of it.
+ *
+ * @param shade the boundary colour — pass `theme.border`. NOT a screen hue: colour left the
+ *   card edge in the 2026-08-15 pass and lives in the pane tint and the badge now.
+ */
+export function getGlassEdge(
+  shade: string,
+  isDark: boolean,
+  weight: BorderWeight = 'card',
+  strength: number = 1,
+): RimGradient {
+  const w = GLASS_EDGE[weight];
+  // `strength` is the design lab's borderRampStrength knob and defaults to 1, so every pinned
+  // test sees unscaled output. It scales both sides together — fading the edge as a whole is
+  // the honest answer to "make the border quieter", where scaling only one side would tilt the
+  // light source instead.
+  const lit = (isDark ? w.litDark : w.lit) * strength;
+  return {
+    colors: [rgba(GLASS_LIGHT, lit), rgba(shade, w.shade * strength)],
+    locations: [0, 1],
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 1 },
+  };
+}
+
+/**
+ * The pane fill: the translucent glass, or the fully-opaque composite when the user has asked
+ * for less transparency.
+ *
+ * `settings.glassSurfaces` is LIVE again as of 2026-08-15. It was the reduce-transparency
+ * accessibility toggle, and between the 2026-08-05 card reset and this pass it was inert
+ * because every surface was already opaque — the state it was asking for. Now that translucency
+ * is back, so is the toggle, and it needs no new copy: the shipped EN/NO strings already read
+ * "Frosted glass finish on cards, buttons and the add button. Turn off for plain, solid
+ * surfaces."
+ *
+ * The screen's identity TINT is deliberately not handled here — a hue cannot be mixed into an
+ * `rgba()` string without parsing it, and the tint is a property of the pane rather than of the
+ * glass. `components/Surface.tsx` paints it as its own `SCREEN_TINT` wash inside the mask, which
+ * also means it composites identically whether the fill under it is translucent or opaque.
+ *
+ * @param glass   `theme.surfaceGlass` or `theme.surfaceGlassStrong`
+ * @param opaque  `theme.surface` — the SAME colour, already composited over the backdrop. The
+ *   two are derived from each other by construction (see the `surfaceGlass` doc in
+ *   constants/colors.ts) and `__tests__/glassMaterial.test.ts` asserts they still agree, so
+ *   turning glass off changes what is drawn but never what is measured for contrast.
+ */
+export function getGlassFill(glass: string, opaque: string, enabled: boolean): string {
+  return enabled ? glass : opaque;
+}
+
+/**
+ * How much of the screen's identity hue a glass pane carries. 5% — enough to read as "this
+ * screen is the green one" when two are compared, not enough to be seen as colour when one is
+ * looked at alone. This is where `lib/screenColor.ts` went after the 2026-08-15 ruling took hue
+ * off the card edge; it is the QUIET half of the screen's identity, and the icon badge
+ * (lib/domainColor.ts) is the loud one. Raising it re-creates the exact problem the ruling
+ * solved — a differently-coloured card on a single-colour screen.
+ */
+export const SCREEN_TINT = 0.05;
+
+/**
+ * The two halves of a hardware key's face, per the Tactile Glass brief: *"a subtle top-edge
+ * highlight (inner shadow)"* at rest, and *"a dark inner shadow… to simulate the button being
+ * depressed into the hardware casing"* while held.
+ *
+ * React Native has no inner shadow, so both are `LinearGradient` overlays inside the cap's
+ * clipping mask — one fading DOWN from the top edge, one fading down from the top edge in the
+ * opposite colour. `components/PressableScale.tsx` cross-fades them off the SAME `press` shared
+ * value that already drives the sink and the fill darken, so the four cues are one gesture on
+ * one curve and cannot disagree. That also means reduced motion needs no branch: `press` is
+ * assigned instantly there, so the face snaps with the travel.
+ *
+ * Returned as plain colour tuples rather than styles because they are consumed inside an
+ * animated component — anything computed here must be computed on the JS thread and captured,
+ * never called from inside a worklet (`__tests__/workletSafety.test.ts`).
+ */
+export const KEY_FACE_STOPS = [0, 0.45, 1] as const;
+
+/**
+ * The frosted badge plate (Tactile Glass, 2026-08-15) — the neutral disc an identity-hue glyph
+ * sits on, per the brief's "a translucent frosted circle with a brightly colored, fully opaque
+ * vector icon sitting on top".
+ *
+ * Returns BOTH halves from one place, deliberately: `paint` is the translucent colour that gets
+ * drawn, `plate` is the same thing already composited over the pane, which is what
+ * `badgeGlyphFor()` has to measure the glyph against. Keeping the alpha in one constant is the
+ * whole point — a palette token plus a separate compositing helper would be two copies of
+ * `0.09` free to drift, and a drifted alpha here means a glyph whose measured contrast is not
+ * the contrast it actually has. That is the exact failure mode A.4 rule 1 was written about.
+ *
+ * NEUTRAL in both modes, and the light one is a DARK wash rather than a white one: a white
+ * frost on a near-white pane gives a gold glyph nothing to sit on (measured 1.92:1).
+ */
+const BADGE_FROST = { light: { tint: '#0F172A', alpha: 0.06 }, dark: { tint: '#FFFFFF', alpha: 0.09 } };
+
+export function getBadgeFrost(surface: string, isDark: boolean): { paint: string; plate: string } {
+  const { tint, alpha } = isDark ? BADGE_FROST.dark : BADGE_FROST.light;
+  return { paint: rgba(tint, alpha), plate: mix(surface, tint, alpha) };
+}
+
+/** Resting: light catches the top edge of the cap. */
+export function getTopHighlight(strength = 0.18): GradientColors {
+  return [rgba('#FFFFFF', strength), rgba('#FFFFFF', strength * 0.25), 'rgba(255,255,255,0)'];
+}
+
+/** Held: the cap has sunk into its housing and the housing shades its top edge. */
+export function getInnerShade(strength = 0.28): GradientColors {
+  return [rgba('#000000', strength), rgba('#000000', strength * 0.3), 'rgba(0,0,0,0)'];
 }
 
 /**

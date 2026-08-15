@@ -1,6 +1,41 @@
 # 10 — Boxed rows vs ruled rows
 
-> ## ⛔ SUPERSEDED — read this box before anything below it (2026-08-08)
+> ## ⛔ SUPERSEDED TWICE — read this box before anything below it
+>
+> **Current state (2026-08-15, Tactile Glass): rows are FLUSH — no border, no fill, no rule,
+> separated by `Spacing.sm` of whitespace.** That is option **(d)** in the fork below, and it
+> is the THIRD answer this question has had, each one the maintainer's own:
+>
+> | Date | Answer | Why it changed |
+> |---|---|---|
+> | 2026-07-30 | ruled lines | user report: *"look like notepads"* |
+> | 2026-08-05 | bordered boxes | card reset: *"borders around cards, buttons, text-boxes, options and so on for separating them"* |
+> | 2026-08-15 | flush + whitespace | Tactile Glass: *"No 'Box-in-a-Box': strip away all unnecessary nested borders. Group elements purely using whitespace"* |
+>
+> **None of the three was drift, and the reason it keeps moving is the MATERIAL, not taste.**
+> Boxes made sense inside a flat opaque card and stopped making sense inside a frosted pane,
+> which already reads as a container without help. `DESIGN_RULES.md` rule 5 is restored and open
+> conflict #8's rule-5 half is closed in the rule's favour; `DESIGN_RULES_AUDIT.md`'s 2026-08-15
+> addendum has the ruling.
+>
+> **The gap grew with the change** (`Spacing.xs` → `Spacing.sm`, in `PadSheet`'s `stackGap`,
+> `PlanTaskCard`'s `emptyWrap` and `habits.tsx`'s `habitCardStacked` alike). At `boxed` the 4px
+> had one job — stop two 1.25px borders butting into a line heavier than the card's own edge.
+> With no borders there is nothing to keep apart, and 4px of nothing is a collision rather than
+> a separation. Whitespace is the only grouping signal on a flush row, so it has to be readable.
+>
+> **The composer still keeps its box**, and the note at the bottom of this file about that is
+> still exactly right — it is a rule-18 focus fix, and it is not precedent for boxing rows. The
+> inverse holds just as strongly: de-boxing rows is not precedent for un-boxing the field.
+>
+> **`app/(tabs)/habits.tsx` hand-rolls its own row box and does NOT move when `PadSheet` does.**
+> That is how it shipped boxed rows for one build while every PadSheet surface went flush,
+> caught in a dark-mode screenshot rather than by a test. Grep for both when changing this again.
+>
+> Everything below the 2026-08-08 box is history. It is kept because the reasoning still
+> explains why each answer was right for the card it was drawn on.
+
+> ## ⛔ SUPERSEDED — the 2026-08-08 box (now itself superseded, see above)
 >
 > **The outcome recorded at the bottom of this file — "(a) was taken and still stands", rows
 > flush and ruled with no per-row border, fill or gap — is no longer what the app does.** The

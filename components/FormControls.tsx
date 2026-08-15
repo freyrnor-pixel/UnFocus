@@ -51,17 +51,21 @@
  *     semantically "text on an accent fill" and equals dark mode's `bg` (#080B12) — the
  *     off-state thumb was disappearing into the dark track/card. Thumb color for "off" is
  *     now theme-invariant white, matching how native switches render regardless of theme.
- *   - **The switch has NO frame (2026-08-14) — this REVERSES the 2026-08-05 "controls get
- *     edges" pass (task 16 3/N, DESIGN_COMPARISON/16-solid-pressable-materials.md), which
- *     had wrapped the bare `RNSwitch` in a static `theme.border` pill (`switchFrame`) on the
- *     reasoning that it was the one control in this file with no edge.** Maintainer, on
- *     device: *"Toggle sliders do not need borders."* And they don't — a switch's own track
- *     is already a filled, rounded, high-contrast shape, so a ring around it drew a second
- *     concentric pill 2px outside the first, which reads as a control inside a control rather
- *     than as an edge. The audit's premise was wrong for this one control: it wasn't missing
- *     an edge, its edge just isn't a border. Checkbox, SegmentedControl and Input keep theirs
- *     — they have flat or open interiors that genuinely need bounding. Don't re-add it for
- *     consistency with them. All that survives is `switchControl`'s `alignSelf`.
+ *   - **Switch pill frame (2026-08-05, task 16 3/N — DESIGN_COMPARISON/16-solid-pressable-
+ *     materials.md; restated 2026-08-15 by Tactile Glass)**: audited all four controls against
+ *     that task's "controls get edges" rule. Checkbox, SegmentedControl and Input already had a
+ *     themed border from earlier passes; the bare native `RNSwitch` was the one gap, so it's
+ *     wrapped in a `switchFrame` pill. Tactile Glass then made that frame REACTIVE — accent +
+ *     `getGlow` when on, quiet `theme.border` when off — because an `RNSwitch`'s track and thumb
+ *     are drawn by the OS and cannot themselves be made into a keycap, so the frame is the only
+ *     surface available to carry a high-contrast on-state. No specular highlight
+ *     (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
+ *   - **A 2026-08-14 device note asked for the frame to be REMOVED** ("toggle sliders do not
+ *     need borders" — the objection being that a ring 2px outside a switch's own rounded track
+ *     reads as a control inside a control). It was not actioned: Tactile Glass landed the next
+ *     day and the maintainer's ruling on the collision was to keep the newer decision. Recorded
+ *     because the two are genuinely in tension and the question will come back — if the frame
+ *     ever does go, the on-state has to move onto the `trackColor` first, not simply be dropped.
  *   - **The design lab can reshape two of these controls (2026-08-06, lib/designLab.ts).**
  *     `Switch` dispatches on the `boolean` slot (switch · segmented · checkbox · pill) and
  *     `SegmentedControl` on the `choice` slot (segmented · pills · dropdown · sheet); the
@@ -89,7 +93,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { computeBorderTone, FontSize, Fonts, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { computeBorderTone, FontSize, Fonts, getGlow, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
@@ -216,22 +220,61 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
 
   return (
     <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
-      {/* No frame around the switch — see the header. A slider's track IS its edge. */}
-      <RNSwitch
-        style={styles.switchControl}
-        value={checked}
-        onValueChange={onChange}
-        disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
-        // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
-        // in dark mode (it means "text on an accent-colored fill"), which made the off-state
-        // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
-        thumbColor={checked ? theme.accent : '#FFFFFF'}
-      />
+      {/* ── The hardware toggle (Tactile Glass, 2026-08-15) ─────────────────────────────────
+          The brief asks for "physical hardware toggles with high-contrast, glowing 'On'
+          states, leaving no doubt about the setting". That is a FINISH, not a different
+          control, so this stays a slider and DESIGN_RULES.md rule 19a is untouched — "a
+          boolean is always a slider… never a checkbox, a pill, a chip, a tick, or a
+          highlighted row. One shape, everywhere." (Rule 19a is a maintainer ruling from
+          DESIGN_COMPARISON/15; components/ReminderBell.tsx remains its ONE documented
+          exception and nothing here widens it.)
+
+          The frame does the work, because the thumb and track of an `RNSwitch` are rendered
+          by the OS and cannot be made into a keycap. On, it wears the accent and a
+          `getGlow` halo; off, it is the same quiet `border` ring every other field has. The
+          halo is the one place a glow is allowed outside a primary action — an engaged toggle
+          IS the active element in its row, which is what DESIGN_RULES.md rule 15 asks of
+          `getGlow`, and it is static rather than breathing, so GlowPulse's
+          "never more than one breathing halo at once" is unaffected. */}
+      <View
+        style={[
+          styles.switchFrame,
+          {
+            borderColor: checked ? theme.accent : theme.border,
+            borderWidth: shape.borderFieldWidth * shape.borderScale,
+          },
+          checked && !disabled ? getGlow(theme.accent, 'soft') : null,
+        ]}
+      >
+        <RNSwitch
+          value={checked}
+          onValueChange={onChange}
+          disabled={disabled}
+          accessibilityLabel={accessibilityLabel}
+          // ON is the full `accent`, not `accentSoft`. The soft token is a near-black navy in
+          // dark mode, so the old on-state differed from off mainly by the thumb — "no doubt
+          // about the setting" is exactly what it lacked.
+          trackColor={{ false: theme.surfaceMuted, true: theme.accent }}
+          // Fixed white in BOTH states now, which is the classic slider read: the thumb is
+          // constant and the track behind it changes. It was `theme.accent` when on, which on
+          // an accent track would be an invisible thumb. The off-state reasoning is unchanged
+          // and still applies (2026-07-25 contrast fix): NOT `theme.textInverse`, which flips
+          // to near-black in dark mode — it means "text on an accent-coloured fill" — and made
+          // the off thumb nearly invisible against the dark track.
+          thumbColor="#FFFFFF"
+        />
+      </View>
     </View>
   );
 }
+
+/**
+ * `<HardwareToggle>` — the Tactile Glass brief's name for `Switch` (2026-08-15). An alias, for
+ * the same reason `Surface` exports `GlassCard` and `Button` exports `TactileButton`: this is
+ * already the app's one boolean control, and a parallel component would immediately violate
+ * rule 19a's "one shape, everywhere" by existing. Prefer importing `Switch` in app code.
+ */
+export const HardwareToggle = Switch;
 
 // ── SegmentedControl ─────────────────────────────────────────────────────────
 
@@ -680,13 +723,14 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
   },
-  // `alignSelf` so the switch hugs its own intrinsic size rather than stretching to
-  // switchRow's width (switchRow has no width of its own; it inherits whatever its
-  // row-layout caller gives it). This is all that survives of the deleted `switchFrame`
-  // ring — the other Switch variants below still want a stretching row, so this cannot
-  // move onto `switchRow` itself.
-  switchControl: {
+  // Pill ring around the native Switch — alignSelf so it hugs the switch's own size rather
+  // than stretching to switchRow's width (switchRow has no width of its own; it inherits
+  // whatever its row-layout caller gives it).
+  switchFrame: {
     alignSelf: 'flex-start',
+    borderWidth: 1.5,
+    borderRadius: Radius.full,
+    padding: 2,
   },
   // OpticalCenter: without it, Android adds font-metric padding below the glyph baseline that
   // alignItems:'center' doesn't account for, so the label optically sits low inside the segment

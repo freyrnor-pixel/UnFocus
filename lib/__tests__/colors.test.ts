@@ -23,13 +23,20 @@ import {
   IDENTITY_HUES,
   IDENTITY_NEUTRAL,
 } from '@/constants/colors';
-import { contrastOn } from '@/constants/theme';
-import { getDomainColor, Domain } from '@/lib/domainColor';
+import { contrastOn, getBadgeFrost } from '@/constants/theme';
+import { getDomainColor, badgeGlyphFor, Domain } from '@/lib/domainColor';
 
 const THEME_NAMES: ThemeName[] = ['default'];
 
 const REQUIRED_TOKENS = [
   'bg', 'surface', 'surfaceMuted', 'surfaceInset', 'rule',
+  // Tactile Glass, 2026-08-15. These three are rgba() strings, not hexes — they are what is
+  // actually painted, while `surface` is the same colour already composited over the backdrop.
+  // The completeness sweep below only checks presence, and the contrast sweeps deliberately
+  // skip them: you cannot measure a contrast ratio against a translucent colour, which is
+  // exactly why the composite is a separate token. __tests__/glassMaterial.test.ts is what
+  // asserts the two still agree.
+  'surfaceGlass', 'surfaceGlassStrong',
   'text', 'textMuted', 'textInverse',
   'border', 'borderStrong',
   'accent', 'accentSoft', 'accentInk',
@@ -190,10 +197,36 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // Before this pass light bg↔surface was 1.078:1: a card had no edge of its own, so every
     // surface needed a border to exist at all. 1.20:1 is the floor at which the fill alone
     // reads as a raised plane.
+    // ⚠️ LIGHT's floor is RELAXED to 1.15 under Tactile Glass (2026-08-15, DESIGN_RULES.md
+    // rule 10b). Dark is untouched at 1.20 and still measures 1.260, because its glass alpha
+    // was chosen to composite to exactly the `#1E1E1E` it already had.
+    //
+    // Why light had to give: `surface` was `#FFFFFF`, its ceiling. A translucent pane cannot
+    // reach the ceiling, so it lands at `#F9FBFE` and the step falls to 1.170. The obvious
+    // repair — darken `bg` — was measured and REJECTED: at `#DCE5F3` the step is back to 1.212
+    // and SIX tokens drop under 4.5:1 at once (textMuted, accent, good, bad, warn,
+    // borderStrong), with `border` falling under 3:1 too. That is the mutual exclusion the
+    // 2026-07-31 A.2 note in constants/colors.ts already documented; translucency only
+    // tightened it.
+    //
+    // This is a trade rather than a loss, and the next test is the half that makes it one: the
+    // card boundary MOVED from the fill step to the edge, where it is now measured at ≥3:1 on
+    // BOTH sides. A 1.21 fill step was never checked against anything; a 1.4.11 boundary is.
+    const bgSurfaceFloor = (mode: 'light' | 'dark') => (mode === 'light' ? 1.15 : 1.2);
     MODES.forEach((mode) => {
-      test(`${mode}: bg vs surface ≥ 1.20:1`, () => {
+      test(`${mode}: bg vs surface clears its floor`, () => {
         const p = THEMES.default[mode];
-        expect(contrastRatio(p.bg, p.surface)).toBeGreaterThanOrEqual(1.2);
+        expect(contrastRatio(p.bg, p.surface)).toBeGreaterThanOrEqual(bgSurfaceFloor(mode));
+      });
+
+      // The other half of rule 10b. `getGlassEdge`'s shade stop is plain `border`, so a card
+      // edge clears WCAG 1.4.11's 3:1 against the page it sits on AND against its own fill —
+      // which is what actually tells you where a card starts now that the fill step is softer.
+      // If a future pass makes the edge fainter than `border`, this fails, and correctly.
+      test(`${mode}: the card edge is a real boundary on both sides`, () => {
+        const p = THEMES.default[mode];
+        expect(contrastRatio(p.border, p.surface)).toBeGreaterThanOrEqual(3);
+        expect(contrastRatio(p.border, p.bg)).toBeGreaterThanOrEqual(3);
       });
 
       // ⚠️ The BOTTOM rung's floor is RELAXED for dark only, 1.10 → 1.05 (2026-08-10,
@@ -213,8 +246,11 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       // for, and a drifting value is the first sign someone re-tuned a surface in isolation.
       test(`${mode}: documented ladder ratios hold`, () => {
         const p = THEMES.default[mode];
+        // Light re-solved 2026-08-15 for the glass composite (`surface` #FFFFFF → #F9FBFE).
+        // Dark is byte-identical to the true-black pass — its glass alpha was picked so the
+        // composite lands on the `#1E1E1E` it already had, so nothing below it moved.
         const expected = mode === 'light'
-          ? { bgSurface: 1.212, ladderA: 1.179, ladderB: 1.118, rule: 1.396 }
+          ? { bgSurface: 1.170, ladderA: 1.138, ladderB: 1.118, rule: 1.347 }
           : { bgSurface: 1.260, ladderA: 1.124, ladderB: 1.057, rule: 1.119 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);
@@ -390,6 +426,44 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
             expect(contrastRatio(ink, stop)).toBeGreaterThanOrEqual(3);
           });
         });
+      });
+    });
+
+    // ── The INVERTED badge (Tactile Glass, 2026-08-15) ──────────────────────────────────────
+    // The block above still stands and still guards `badgeGradientFor`, which is retained. What
+    // components/CardAccent.tsx actually DRAWS is now the other way round — a neutral frosted
+    // disc with the hue as an opaque glyph on it — so the guarantee that matters in the shipped
+    // app is this one.
+    //
+    // This is the assertion that makes inverting `lib/domainColor.ts`'s A.4 rule 1 ("an identity
+    // hue is a FILL, never an icon colour") legitimate rather than a regression. That rule
+    // existed because a hue was being put somewhere nothing measured it; here it is measured,
+    // per hue, per mode, against the REAL composited plate. Both halves of the sweep matter and
+    // neither is redundant:
+    //   · the raw hue genuinely fails in one mode each — gold 1.92:1 on the light plate; To-do
+    //     1.88:1, Health 2.33:1, Habits 2.69:1 on the dark one — so a test that only checked the
+    //     derived glyph would pass just as well if someone deleted the derivation and got lucky;
+    //   · the derived glyph must clear the floor in BOTH.
+    MODES.forEach((mode) => {
+      HUE_KEYS.forEach((key) => {
+        test(`${mode}: ${key} badge glyph ≥ 3:1 on the frosted plate`, () => {
+          const isDark = mode === 'dark';
+          const theme = getThemePalette('default', isDark);
+          const { accent } = getDomainColor(theme, HUE_DOMAIN[key]);
+          const { plate } = getBadgeFrost(theme.surface, isDark);
+          expect(contrastRatio(badgeGlyphFor(accent, plate, isDark), plate)).toBeGreaterThanOrEqual(3);
+        });
+      });
+
+      test(`${mode}: the raw hue is NOT safe on the plate for at least one identity hue`, () => {
+        // Guards the derivation itself. If a palette retune ever made every raw hue clear the
+        // floor unaided, this fails — and that is the moment to check whether badgeGlyphFor is
+        // still doing anything, not to delete this test.
+        const isDark = mode === 'dark';
+        const theme = getThemePalette('default', isDark);
+        const { plate } = getBadgeFrost(theme.surface, isDark);
+        const raw = HUE_KEYS.map((k) => contrastRatio(getDomainColor(theme, HUE_DOMAIN[k]).accent, plate));
+        expect(Math.min(...raw)).toBeLessThan(3);
       });
     });
 

@@ -1,14 +1,31 @@
 /**
- * PadSheet.tsx — the shared body of every list-bearing card: one bordered box per row.
+ * PadSheet.tsx — the shared body of every list-bearing card: flush rows, separated by space.
  *
- * **Boxed rows, 2026-08-05 (card design reset, maintainer brief points 3 + 9: "no lines, just
- * rows for user to type in", "borders around cards, buttons, text-boxes, options and so on for
- * separating them").** Each row is its own bordered rectangle in the screen's hue family,
- * stacked with a hairline-thin gap so two adjacent borders never double into a fat line. There
- * are no ruled notepad lines and no blank spare lines.
+ * **Flush rows, 2026-08-15 (Tactile Glass, maintainer brief §3: "No 'Box-in-a-Box': strip away
+ * all unnecessary nested borders. Group elements purely using whitespace and edge-to-edge
+ * layouts.").** A row has no border, no fill and no rule under it; what separates it from the
+ * next one is `Spacing.sm` of nothing. The card's own glass pane is the only box.
  *
- * **This deliberately reverses two earlier decisions, and both were re-put to the maintainer
- * before it was written** — don't revert either by citing its original file:
+ * ⚠️ **This is the THIRD answer to one question, and each was the maintainer's own.** Ruled
+ * lines (2026-07-30 notepad pass) → bordered boxes (2026-08-05 card reset) → flush (now).
+ * None of the three was drift, and the reason the answer keeps moving is that it depends on
+ * the MATERIAL: boxes made sense inside a flat opaque card and stopped making sense inside a
+ * frosted pane, which already reads as a container without help. `DESIGN_RULES.md` rule 5
+ * ("whitespace over lines") is therefore RESTORED, and open conflict #8's rule-5 half flips
+ * back with it — read DESIGN_RULES_AUDIT.md's 2026-08-15 addendum before moving it again.
+ * `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` has all three in one place.
+ *
+ * **What did NOT change, and must not be "finished" by this pass**: the composer keeps its
+ * box. `components/PadTypeRow.tsx` and `FormControls`' `Input` are still bordered, filled and
+ * focus-showing, because that box is a rule-18 fix ("focus is never invisible") answering a
+ * real user report — *"Not visible where user is typing, looks unnatural"* — and
+ * DESIGN_COMPARISON/10 says in as many words that the composer box is not precedent for
+ * boxing rows. The inverse holds exactly as strongly: de-boxing rows is not precedent for
+ * un-boxing the field. One control you type INTO gets a box; rows do not.
+ *
+ * **The 2026-08-05 pass this replaced reversed two earlier decisions, and both were re-put to
+ * the maintainer before it was written** — history, kept because the reasoning still explains
+ * why the boxes were right for the card they were drawn on:
  *   - `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` + `DESIGN_RULES_AUDIT.md` item 12
  *     (2026-08-04) rejected boxed rows as "cards inside a card". The counter-argument then was
  *     PR #483, which had moved Habits the other way a day earlier. What changed is that a card
@@ -142,7 +159,15 @@ export default function PadSheet({
   // This file's `styles` are NOT run through useScaledStyles, so it owns its own geometry
   // outright — no double-application risk, unlike a caller-supplied radius (see Surface).
   const gutter = { paddingHorizontal: Spacing.sm * shape.spacingScale };
-  const stackGap = { marginTop: Spacing.xs * shape.spacingScale };
+  // ── The gap has to grow when the borders go (Tactile Glass, 2026-08-15) ──────────────────
+  // At `boxed` the gap was `Spacing.xs` (4) and had exactly one job: keep two 1.25px borders
+  // from butting into a 2.5px line heavier than the card's own 1.5px edge. With no borders
+  // there is nothing to keep apart — and 4px of nothing is not a separation, it is a
+  // collision. Whitespace is the ONLY grouping signal on a flush row, so it has to be worth
+  // reading: `Spacing.sm` (8). This is the practical half of restoring DESIGN_RULES.md rule 5
+  // ("whitespace over lines"), which the 2026-08-05 reset overruled and the 2026-08-15 ruling
+  // reinstates — the rule is only true if the whitespace is actually there.
+  const stackGap = { marginTop: (box ? Spacing.xs : Spacing.sm) * shape.spacingScale };
 
   return (
     <View style={[styles.sheet, style]}>

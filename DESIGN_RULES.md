@@ -74,18 +74,33 @@ design, not the rule.
    same idea at two depths — look at it here / go to it — not two unrelated controls, and both
    are ≥ `MIN_TAP_TARGET`. Don't generalise it into "section headers can carry a second
    control".)*
-5. ~~**Whitespace over lines.**~~ **OVERRULED 2026-08-05 — borders are now the
-   grouping signal.** The maintainer's card-design reset says the opposite of this
-   rule, in as many words: *"Borders around cards, buttons, text-boxes, options and
-   so on for separating them."* Every card, row, field, option cell and button now
-   carries a visible border, graded by importance through the screen's own hue
-   (`computeBorderRamp`/`computeBorderTone`, `constants/theme.ts`). This is a
-   deliberate reversal, not drift — do not "restore" rule 5 by stripping borders.
-   What the reset kept from it: **dividers** are gone (the notepad rules and the
-   quick-add panel's hairlines were both deleted), so the app separates with
-   *boundaries*, never with *lines between things*. Spacing still does the work
-   between sections; borders do it between peers. *(This resolves former open
-   conflict #8's first half — see the conflicts table.)*
+5. **Whitespace over lines.** **RESTORED 2026-08-15 (Tactile Glass), after being
+   overruled on 2026-08-05.** A row inside a card has no border, no fill and no rule
+   under it; what separates it from the next one is `Spacing.sm` of nothing
+   (`components/PadSheet.tsx`). The maintainer's brief: *"No 'Box-in-a-Box': strip
+   away all unnecessary nested borders. Group elements purely using whitespace and
+   edge-to-edge layouts."*
+
+   ⚠️ **This rule has now been answered three times, each time by the maintainer, and
+   the answer depends on the MATERIAL rather than on taste.** Ruled lines (2026-07-30
+   notepad pass) → bordered boxes (2026-08-05 card reset, *"borders around cards,
+   buttons, text-boxes, options and so on for separating them"*) → whitespace (now).
+   Boxes were right inside a flat opaque card and stopped being right inside a frosted
+   pane, which already reads as a container without help. Before changing it a fourth
+   time, read `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`, which has all three in one
+   place — none of them was drift.
+
+   **Two things this does NOT strip.** (a) The CARD still has one edge — that edge is
+   what carries the control boundary under rule 10b, so "no boxes" never means "no
+   card". (b) The COMPOSER keeps its box (`FormControls`' `Input`, `PadTypeRow`): that
+   box is a rule-18 fix answering a real user report — *"Not visible where user is
+   typing, looks unnatural"* — and de-boxing rows is not precedent for un-boxing the
+   one control you type INTO, exactly as `DESIGN_COMPARISON/10` says the reverse is not
+   precedent either.
+
+   Dividers stay gone, as they have been throughout: the app separates with
+   *boundaries* and *space*, never with *lines between things*. *(This flips former
+   open conflict #8's first half back — see the conflicts table.)*
 
 ## 2. Placement & order
 
@@ -132,6 +147,36 @@ design, not the rule.
     `text` back toward `~#D8DADF` and lower the ceiling with it — do not darken a surface to
     chase it.** The ceiling still exists and still catches the runaway case; it now sits at
     the shipped value plus headroom rather than at the comfort threshold.
+10b. **ONE light-mode assertion was relaxed on 2026-08-15, when cards became glass —
+    and the thing it was protecting moved rather than being dropped.** Dark is
+    untouched by this pass entirely (see below for why).
+    | What | Was | Now | Kind |
+    |---|---|---|---|
+    | light `bg`↔`surface` fill step | ≥1.20 (measured 1.212) | ≥**1.15** (measured 1.170) | a trade — the boundary moved to the edge |
+
+    **Why it had to give.** Light's `surface` was `#FFFFFF`, its ceiling. A translucent
+    pane cannot reach the ceiling, so it composites to `#F9FBFE` and the step falls.
+    The obvious repair — darken `bg` — was **measured and rejected**: at `#DCE5F3` the
+    step returns to 1.212 and *six* tokens fall under 4.5:1 at once (`textMuted`,
+    `accent`, `good`, `bad`, `warn`, `borderStrong`), with `border` dropping under 3:1
+    too. That is the same mutual exclusion `constants/colors.ts`'s 2026-07-31 A.2 note
+    already documented ("the ladder target and the frozen tokens were mutually
+    exclusive"); translucency only tightened it.
+
+    **What replaced it is stronger, not weaker.** The card boundary is now the EDGE:
+    `getGlassEdge`'s shade stop is plain `border` at full strength, and
+    `lib/__tests__/colors.test.ts` asserts it clears WCAG 1.4.11's 3:1 against **both**
+    the page and the pane, in both modes (3.658 / 3.128 light, 3.817 / 4.808 dark). A
+    1.21 fill step was never checked against anything; a 1.4.11 boundary is. Every
+    text and chromatic token is untouched and still clears its floor on both rungs.
+
+    **Dark needed no relaxation at all**, which is worth knowing before anyone "fixes"
+    it: its glass alpha (0.118) was solved so the composite lands on exactly the
+    `#1E1E1E` the palette already had. And that alpha is set by 10a's halation ceiling
+    rather than by taste — the brief asked for 5–10% white, but at 7% the pane is
+    `#121212` and `text` measures 17.0:1 on it, past the 16:1 bound. **Lowering the
+    dark glass alpha makes the app less legible, not airier.**
+
 11. **Never use color as the only signal.** Pair it with an icon or text label.
     Status, selection, and meaning must survive in greyscale.
 12. **One accent color for actions, plus a neutral grey scale.** Add semantic
@@ -252,7 +297,7 @@ one of these in passing.
 | 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
 | 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. **`TabSlider`'s segment joined them at 34 on 2026-08-10** ("the tab slider should be slightly vertically slimmer"), which is the smallest of the four — the sticky tab row is a full-width 3-segment control, so each target is ~100px wide and the height is the only axis under pressure. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
-| 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **Half resolved 2026-08-05.** The rule-5 half is settled: the notepad rules are DELETED and rule 5 itself is overruled — every row is its own bordered box now (see rule 5's own entry above). The rule-9 half stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
+| 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **The rule-5 half FLIPPED BACK on 2026-08-15 and the conflict is now CLOSED in rule 5's favour**: rows are flush and separated by space, so the code and the rule agree for the first time since 2026-07-30. (It was "resolved against rule 5" from 2026-08-05, when every row was its own bordered box — read rule 5's own entry for why the answer moves with the material rather than drifting.) The rule-9 half still stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
 
 ---
 
