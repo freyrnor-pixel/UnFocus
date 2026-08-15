@@ -11,7 +11,7 @@
  * it with the exact (recurring-task / list-scoped) computation.
  *
  * It talks ONLY to SQLite (like snapshot.ts / widgetActions.ts): no Zustand stores, no
- * lib/i18n. Localisation comes from a tiny local EN/NO string table keyed off settings.language,
+ * lib/i18n. Localisation comes from a tiny local EN/NO/IS string table keyed off settings.language,
  * mirroring the handful of `widgets`/`notif` keys sync.ts bakes. Approximations are deliberate
  * (today's non-recurring tasks; status='inWeeklyList' shopping regardless of list_id) — this only
  * runs in the no-snapshot edge case and is corrected on the next foreground sync.
@@ -30,7 +30,8 @@
  *     so a headless render can't drift from an app-pushed one. This file kept its own byte-equal
  *     copy of that map until 2026-08-15, with a comment telling the next session to keep the two
  *     in step by hand — which is not a mechanism. New display strings still go in WIDGET_STRINGS
- *     (both en + no); that duplication is real and unavoidable, since lib/i18n.ts is a store.
+ *     (all three of en + no + is); that duplication is real and unavoidable, since lib/i18n.ts
+ *     is a store. The local `isCount` below is duplicated from lib/i18n.ts for the same reason.
  */
 import db from '@/lib/db';
 import { localMinutesOf, todayStr } from '@/lib/date';
@@ -71,8 +72,16 @@ type Strings = {
   trayNames: Record<string, string>;
 };
 
+/**
+ * Icelandic count agreement — a number ending in 1 takes the singular, except 11
+ * ("21 vara", but "11 vörur"). Mirrors `isCount` in lib/i18n.ts; duplicated rather than
+ * imported because this module is deliberately i18n-free (see the header).
+ */
+const isCount = (n: number, one: string, many: string): string =>
+  Math.abs(n) % 10 === 1 && Math.abs(n) % 100 !== 11 ? one : many;
+
 // Mirror of the strings sync.ts pulls from lib/i18n (widgets + notif.overview*). Keep in sync.
-const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
+const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
   en: {
     shoppingTitle: 'Shopping',
     tasksTitle: "Today's to-do",
@@ -119,12 +128,39 @@ const WIDGET_STRINGS: Record<'en' | 'no', Strings> = {
     stillDue: (trays) => `Gjenstår: ${trays}`,
     trayNames: { morning: 'Morgen', midday: 'Midt på dagen', evening: 'Kveld', night: 'Natt' },
   },
+  is: {
+    shoppingTitle: 'Innkaup',
+    tasksTitle: 'Verkefni dagsins',
+    notesTitle: 'Minnispunktar',
+    habitsTitle: 'Venjur',
+    healthTitle: 'Heilsa',
+    overviewTitle: 'Yfirlit dagsins',
+    itemsLeft: (n) => `${n} ${isCount(n, 'vara', 'vörur')} eftir`,
+    tasksLeft: (n) => `${n} verkefni eftir`,
+    habitsLeft: (n) => `${n} ${isCount(n, 'venja', 'venjur')} eftir`,
+    healthOngoing: (n) => `${n} í gangi`,
+    more: (n) => `+${n} í viðbót`,
+    allDone: 'Allt búið 🎉',
+    noItems: 'Listinn er tómur',
+    noTasks: 'Ekkert á dagskrá í dag',
+    noNotes: 'Engir minnispunktar enn',
+    voiceNote: 'Talupptaka',
+    overviewEmpty: 'Engin verkefni eftir í dag',
+    // "lyf" is neuter with one form for both numbers, so it needs no isCount.
+    medicineDue: (n) => `${n} lyf eftir`,
+    trayProgress: (taken, total) => `${taken} af ${total}`,
+    stillDue: (trays) => `Eftir: ${trays}`,
+    trayNames: { morning: 'Morgunn', midday: 'Miðdegi', evening: 'Kvöld', night: 'Nótt' },
+  },
 };
 
-function currentLang(): 'en' | 'no' {
+function currentLang(): 'en' | 'no' | 'is' {
   try {
     const row = db.getFirstSync<{ language: string }>('SELECT language FROM settings WHERE id = 1');
-    return row?.language === 'en' ? 'en' : 'no'; // Norwegian-first default (matches lib/db migration)
+    // Norwegian-first default (matches lib/db migration) — anything unrecognised falls to 'no'.
+    if (row?.language === 'en') return 'en';
+    if (row?.language === 'is') return 'is';
+    return 'no';
   } catch {
     return 'no';
   }

@@ -90,11 +90,18 @@ export function categoryRank(category: string | undefined): number {
  * Generic over anything carrying a `name` and a `category`, since the catalogue's `StoreItem`
  * and a shopping row are different types with the same two fields. **Returns a new array and
  * never mutates** — this is a presentation-layer sort, and its callers' stored order is either
- * the store's own Norwegian collation (`useCatalogStore.load`) or a user-dragged order
+ * the store's own collation (`useCatalogStore.load`) or a user-dragged order
  * (`lib/useDragReorder.ts`). Sorting must never be written back.
+ *
+ * `locale` is the ICU locale for the name tiebreak — `collationLocale(language)` from
+ * lib/collate.ts, so Icelandic's þ/ð/ö land where an Icelandic reader looks for them.
+ * Defaults to Norwegian, which is what this did for every caller before 2026-08-15.
  */
-export function sortByCategoryThenName<T extends { name: string; category?: string }>(rows: readonly T[]): T[] {
+export function sortByCategoryThenName<T extends { name: string; category?: string }>(
+  rows: readonly T[],
+  locale = 'no',
+): T[] {
   return [...rows].sort(
-    (a, b) => categoryRank(a.category) - categoryRank(b.category) || a.name.localeCompare(b.name, 'no')
+    (a, b) => categoryRank(a.category) - categoryRank(b.category) || a.name.localeCompare(b.name, locale)
   );
 }

@@ -68,7 +68,7 @@
  *     app/scan.web.tsx and measuring it would report on a screen that isn't the real one.
  *
  * Usage:
- *   node scripts/measure-wraps.mjs [--lang=no|en] [--width=393] [--json]
+ *   node scripts/measure-wraps.mjs [--lang=no|en|is] [--width=393] [--json]
  *
  * Widths worth checking: 430 (iPhone Pro Max), 393 (iPhone 15 / Pixel 8), 360 (common
  * small Android). Large-font pressure: the app's `large` font setting is 1.2x, so
@@ -167,9 +167,30 @@ const L = {
     labTabColor: 'Farge', labTabShape: 'Form', labTabControls: 'Kontroller',
     addMedicine: 'Legg til medisin', probeMed: 'Bredde-med',
   },
+  is: {
+    // Same trick as `en`: Basics renders in Norwegian until this row is tapped, so the label
+    // to click is the Norwegian screen's Icelandic OPTION ("Språk: Íslenska."). Everything
+    // below it is post-switch and genuinely Icelandic.
+    langRow: /^Språk: Íslenska\./, basicsNext: 'Áfram',
+    start: 'Byrja', tourNext: 'Ég skil', skipTour: 'Sleppa kynningunni',
+    tabs: ['Innkaup', 'Verkefni', 'Heilsa', 'Venjur'], home: 'Heim', settings: 'Stillingar',
+    dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
+    tasksTabAll: 'Allt', newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
+    energyTutorialAction: 'Stilla orku dagsins', energyDone: 'Búið',
+    typeHabit: 'Skrifa venju',
+    editGoals: 'Markmið',
+    expandList: 'Sýna lista',
+    logSymptom: 'Hvað er að angra þig?',
+    advancedTab: 'Ítarlegt', designLab: 'Hönnunarstofa',
+    labAddCard: 'Bæta við korti', labBlankCard: 'Tómt kort',
+    labShelfGroup: 'Stýringar', labAddSlider: 'Bæta við: sleði',
+    labTokensLink: 'Litir og form',
+    labTabColor: 'Litur', labTabShape: 'Form', labTabControls: 'Stýringar',
+    addMedicine: 'Bæta við lyfi', probeMed: 'Breiddarlyf',
+  },
 }[LANG];
 
-if (!L) { console.error(`unknown --lang=${LANG} (expected en or no)`); process.exit(1); }
+if (!L) { console.error(`unknown --lang=${LANG} (expected en, no or is)`); process.exit(1); }
 
 async function clickText(page, text) {
   const locator = page.getByText(text, { exact: true });

@@ -71,6 +71,7 @@ import { Row, FieldMap, loadAll, insertRow, readStr, readInt } from '@/lib/dataA
 import { deleteById, replaceById, updateById, withoutId } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { byPrefixThenName } from '@/lib/typeahead';
+import { currentCollationLocale } from '@/lib/collate';
 import { SYMPTOM_SEED } from '@/lib/symptomSeed';
 import { EpisodeState, closePatch, toEpisodeState } from '@/lib/episodes';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
@@ -287,7 +288,7 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     const q = query.trim().toLowerCase();
     if (!q) return [];
     const matches = get().symptoms.filter((s) => s.name.toLowerCase().includes(q));
-    matches.sort(byPrefixThenName(q));
+    matches.sort(byPrefixThenName(q, currentCollationLocale()));
     return matches.slice(0, limit);
   },
 
@@ -320,7 +321,7 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
     set((s) =>
       s.symptoms.some((x) => x.id === id)
         ? s
-        : { symptoms: [...s.symptoms, created].sort((a, b) => a.name.localeCompare(b.name, 'no')) }
+        : { symptoms: [...s.symptoms, created].sort((a, b) => a.name.localeCompare(b.name, currentCollationLocale())) }
     );
     return created;
   },

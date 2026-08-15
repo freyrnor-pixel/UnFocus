@@ -39,7 +39,7 @@
  *     stale-warn every guide file users have already downloaded. Same reasoning applies to
  *     `health_logs.medicine_id`.
  *   - The guide text is deliberately English-only, even though the rest of the app's
- *     UI is bilingual (en/no) — it's a technical document for an AI to parse, and its
+ *     UI is translated (en/no/is) — it's a technical document for an AI to parse, and its
  *     field names/schema are English regardless of app language. Only the buttons/
  *     modals AROUND this feature go through useT() as usual.
  *   - NATIVE modules used here (expo-file-system / expo-sharing / expo-document-picker)
@@ -60,6 +60,11 @@ import {
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
  *
+ * v8 (2026-08-15) — Icelandic joined the app, so `settings.language`'s enum grew a third
+ * value, "is". Additive only: a v7 file naming "en" or "no" still applies unchanged. The
+ * bump exists for the other direction — a v8 file carrying "is" reaching a build that has
+ * no Icelandic dictionary is rejected as 'invalid' rather than silently ignored.
+ *
  * v7 (2026-08-15) — new settings key: `opaqueCards` (boolean). Draws content cards as solid
  * panels instead of frosted glass; presentation only, losslessly reversible, and neither
  * device-specific nor an OS permission gate, so it clears the whitelist bar the cookbook sets.
@@ -77,7 +82,7 @@ import {
  * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
  * the document it was generated from has been reworded.
  */
-export const AI_SETUP_SCHEMA_VERSION = 7;
+export const AI_SETUP_SCHEMA_VERSION = 8;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -86,7 +91,7 @@ export const AI_SETUP_END = '===UNFOCUS-AI-CONFIG-END===';
 // ── Config schema (untrusted-input shapes — validated in lib/aiSetupApply.ts) ──────
 
 export type AiSettingsPatch = {
-  language?: 'en' | 'no';
+  language?: 'en' | 'no' | 'is';
   darkMode?: 'system' | 'on' | 'off';
   fontSize?: 'small' | 'default' | 'large';
   reducedMotion?: boolean;
@@ -272,7 +277,7 @@ field not listed here is not supported for import in this app version.
 
 "settings" (object) — a patch of app preferences. Only these keys are
 accepted (anything else is ignored):
-  language: "en" | "no"
+  language: "en" | "no" | "is"
   darkMode: "system" | "on" | "off"
   fontSize: "small" | "default" | "large"
   reducedMotion, particlesEnabled, glassSurfaces, leftHanded: boolean

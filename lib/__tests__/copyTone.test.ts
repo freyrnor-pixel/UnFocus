@@ -67,6 +67,15 @@ describe('DESIGN_RULES.md rule 23 — no guilt, urgency or judgment in UI copy',
     [/\bdu burde\b|\bskulle ha\b/i, 'NO: retrospective judgment'],
     [/\bhaster\b|\bskynd deg\b/i, 'NO: manufactured urgency'],
     [/\bmislyktes\b/i, 'NO: "failed"'],
+    // Icelandic (2026-08-15). Stems again, so inflections are covered by one entry:
+    // "gleymdir/gleymt/gleymdu" all fall to `gleym`, "misstir/misstum af" to `misst.* af`.
+    [/\bgleym\w*/i, 'IS: "gleymdir/gleymt/ekki gleyma" — blames or nags'],
+    [/\bmisst\w*\s+af\b/i, 'IS: "missed out on"'],
+    [/\bof seint\b|\bá eftir áætlun\b/i, 'IS: frames lateness'],
+    [/\bþú hefðir átt að\b|\bþú áttir að\b/i, 'IS: retrospective judgment'],
+    [/\bflýttu þér\b|\báríðandi\b|\bliggur á\b/i, 'IS: manufactured urgency'],
+    [/\bþér mistókst\b|\bþú klúðraðir\b/i, 'IS: direct judgment'],
+    [/\bkomin\w* í vanskil\b|\bá gjalddaga\b/i, 'IS: frames lateness as a debt'],
   ];
 
   test.each(BANNED)('no UI string matches %s — %s', (pattern, _why) => {
@@ -76,15 +85,23 @@ describe('DESIGN_RULES.md rule 23 — no guilt, urgency or judgment in UI copy',
 
   test('no countdown framing ("only N left", "N days remaining")', () => {
     const hits = STRINGS.filter((s) =>
-      /\bonly \d+ (left|remaining)\b/i.test(s.text) || /\bbare \d+ igjen\b/i.test(s.text),
+      /\bonly \d+ (left|remaining)\b/i.test(s.text) ||
+      /\bbare \d+ igjen\b/i.test(s.text) ||
+      /\baðeins \d+ eftir\b/i.test(s.text) ||
+      /\bbara \d+ eftir\b/i.test(s.text),
     ).map((s) => `i18n.ts:${s.line}: "${s.text}"`);
     expect(hits).toEqual([]);
   });
 
   test('exclamation marks stay frozen at the known celebratory set (ratchet — may shrink, never grow)', () => {
-    // All 13 are congratulation or confirmation, i.e. the opposite of what rule 23 targets.
-    // Removing one from the copy? Remove it here too. Adding a new "!"? Don't — resolve
-    // open conflict #7 first.
+    // Every one is a congratulation or a confirmation, i.e. the opposite of what rule 23
+    // targets. Removing one from the copy? Remove it here too. Adding a new "!"? Don't —
+    // resolve open conflict #7 first.
+    //
+    // The Icelandic block (2026-08-15) is NOT the ratchet loosening. Each entry is the
+    // twin of a string already frozen here, one per EN/NO pair — a third dictionary of the
+    // same copy, not a new place the app shouts. If one of these has no counterpart above,
+    // that is the bug: delete it rather than adding its pair.
     const ALLOWED = new Set([
       // Confirmations
       'Added!', 'Lagt til!',
@@ -101,6 +118,17 @@ describe('DESIGN_RULES.md rule 23 — no guilt, urgency or judgment in UI copy',
       "Let's go! 🌿", 'Kom i gang! 🌿',
       'You have ${min} minutes for this. Good luck!',
       'Du har ${min} minutter til dette. Lykke til!',
+      // Icelandic twins of the pairs above, in the same order.
+      'Bætt við!',
+      'Listi móttekinn!',
+      'Parað!',
+      'Vel gert!',
+      'Allt klárt!',
+      'Engin verkefni í dag! Njóttu dagsins',
+      "Þú hefur klárað ${n} ${isCount(n, 'hlut', 'hluti')} — smáatriðin telja!",
+      'Kominn tími til að byrja!',
+      'Byrjum! 🌿',
+      "Þú hefur ${min} ${isCount(min, 'mínútu', 'mínútur')} í þetta. Gangi þér vel!",
     ]);
     // `!==` / `!=` inside a template literal's ${…} is a JS operator, not punctuation.
     const punctuation = (text: string) => text.replace(/!==?/g, '').includes('!');

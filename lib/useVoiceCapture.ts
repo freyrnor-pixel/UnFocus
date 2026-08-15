@@ -25,7 +25,10 @@
  *     'end'/'error'); every handler bails out early unless it's set. Without this, both a
  *     Home recording AND the /notes FAB would fire `onTranscript` for the same utterance —
  *     e.g. two notes created from one recording.
- *   - Locale is derived from useSettingsStore's language ('no' → 'nb-NO', 'en' → 'en-US').
+ *   - Locale is derived from useSettingsStore's language ('no' → 'nb-NO', 'is' → 'is-IS',
+ *     'en' → 'en-US'). Icelandic on-device dictation is not available on every phone;
+ *     the recognizer reports that as an ordinary error, which the handler below already
+ *     surfaces through showAppModal rather than failing silently.
  *   - interimResults:false + continuous:false — the OS recognizer auto-ends on a speech
  *     pause (like Siri/Google dictation) and only ever emits final results.
  *   - "no-speech"/"aborted" errors are expected (silence, or the user stopped early) and are
@@ -36,6 +39,10 @@ import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-spe
 import { useT } from '@/lib/i18n';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { showAppModal } from '@/components/AppModal';
+import type { Language } from '@/store/useSettingsStore';
+
+/** BCP-47 tag handed to the OS recognizer, one per app language. */
+const SPEECH_LOCALE: Record<Language, string> = { no: 'nb-NO', is: 'is-IS', en: 'en-US' };
 
 export function useVoiceCapture(onTranscript: (text: string) => void) {
   const t = useT();
@@ -88,7 +95,7 @@ export function useVoiceCapture(onTranscript: (text: string) => void) {
     }
     activeRef.current = true;
     ExpoSpeechRecognitionModule.start({
-      lang: language === 'no' ? 'nb-NO' : 'en-US',
+      lang: SPEECH_LOCALE[language] ?? 'en-US',
       interimResults: false,
       continuous: false,
       addsPunctuation: true,

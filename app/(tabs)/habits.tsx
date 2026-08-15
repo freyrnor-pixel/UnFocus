@@ -289,8 +289,12 @@ function dotRatio(habit: Habit, count: number): number {
   return habit.dailyGoal > 0 ? Math.min(count / habit.dailyGoal, 1) : 0;
 }
 
+// One initial per weekday, Monday-first. Ambiguous pairs (English T/T and S/S, Norwegian
+// T/T, Icelandic M/M and F/F) are the normal convention in each language — the strip's
+// position carries the day, the letter only confirms it.
 const DAY_ABBR = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_ABBR_NO = ['M', 'T', 'O', 'T', 'F', 'L', 'S'];
+const DAY_ABBR_IS = ['M', 'Þ', 'M', 'F', 'F', 'L', 'S'];
 
 // No streaks (2026-07-20) — habits with the optional Energy system enabled show their
 // signed energy value instead (positive restores the day's/week's budget, negative drains
@@ -314,7 +318,7 @@ function WeekStrip({
 }) {
   const logs = useHabitStore((s) => s.logs);
   const weekDates = useMemo(() => getWeekDates(today), [today]);
-  const abbr = lang === 'no' ? DAY_ABBR_NO : DAY_ABBR;
+  const abbr = lang === 'no' ? DAY_ABBR_NO : lang === 'is' ? DAY_ABBR_IS : DAY_ABBR;
   const styles = useScaledStyles(baseStyles);
 
   return (

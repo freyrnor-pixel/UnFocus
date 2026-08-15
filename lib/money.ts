@@ -1,8 +1,9 @@
 /**
  * money.ts — locale-aware NOK currency formatting.
  *
- * The app is Norwegian-first but bilingual. Norwegian writes the decimal
- * separator as a comma (`123,50 kr`) while English uses a period (`123.50 kr`).
+ * The app is Norwegian-first but multilingual. Norwegian and Icelandic both write
+ * the decimal separator as a comma (`123,50 kr`) while English uses a period
+ * (`123.50 kr`). The `kr` suffix is right for Icelandic as well (ISK is "kr" too).
  * `.toFixed(n)` always emits a period, so fractional prices rendered inline
  * (`${x.toFixed(2)} kr`) showed the wrong separator for Norwegian users.
  * `formatKr()` centralises this: it formats the amount with the requested
@@ -24,10 +25,11 @@
 import { useSettingsStore } from '@/store/useSettingsStore';
 import type { Language } from '@/store/useSettingsStore';
 
-/** Format an amount as localised NOK, e.g. `123,50 kr` (no) / `123.50 kr` (en). */
+/** Format an amount as localised NOK, e.g. `123,50 kr` (no/is) / `123.50 kr` (en). */
 export function formatKr(amount: number, decimals = 2, lang?: Language): string {
   const language = lang ?? useSettingsStore.getState().language;
   const fixed = amount.toFixed(decimals);
-  const localized = language === 'no' ? fixed.replace('.', ',') : fixed;
+  // Icelandic uses the comma decimal separator too, so only English keeps the period.
+  const localized = language === 'en' ? fixed : fixed.replace('.', ',');
   return `${localized} kr`;
 }

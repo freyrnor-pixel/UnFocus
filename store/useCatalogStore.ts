@@ -12,7 +12,7 @@
  * narrower CatalogSuggestion shape is a structural subset — they keep compiling.
  *
  * Connections:
- *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id, lib/typeahead
+ *   Imports → lib/catalogSeed, lib/db, lib/dataAccess, lib/id, lib/collate, lib/typeahead
  *             (byPrefixThenName — the suggestion ordering, shared with useHealthStore),
  *             lib/receipt (findFuzzyMatch —
  *             recordPurchases() dedup, 2026-07-20)
@@ -41,8 +41,9 @@
  *     (sets `deleted = 1`) rather than DELETEing, because seedCatalog() re-inserts every seed row
  *     on each load(); load() filters `deleted = 0`. User-added rows use generateId() (not the
  *     'cat_<name>' seed id) so re-adding a deleted seed name creates a fresh live row.
- *   - load() JS-collates the loaded rows with localeCompare('no') so `items` is stored in
- *     Norwegian display order (SQL orderBy sorts by byte value and mis-orders æ/ø/å). Doing
+ *   - load() JS-collates the loaded rows with lib/collate's `currentCollationLocale()` so
+ *     `items` is stored in display order for the active language (SQL orderBy sorts by byte
+ *     value and mis-orders æ/ø/å, and Icelandic's þ/ð/ö the same way). Doing
  *     it once here — not per Catalogue-tab mount — keeps opening that tab instant; the
  *     mutation methods (addItem/updateItem/recordPurchases/resetItemPrice) re-sort the same way.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
@@ -52,6 +53,7 @@ import db from '@/lib/db';
 import { Row, loadAll, insertRow, readStr, readReal, tx } from '@/lib/dataAccess';
 import { generateId } from '@/lib/id';
 import { byPrefixThenName } from '@/lib/typeahead';
+import { currentCollationLocale } from '@/lib/collate';
 import { CATALOG_SEED } from '@/lib/catalogSeed';
 import { findFuzzyMatch } from '@/lib/receipt';
 
@@ -156,19 +158,28 @@ function seedCatalog(): void {
   });
 }
 
+/**
+ * Keeps `items` in the active language's alphabetical order after a single-row mutation.
+ * `load()` reads the locale once for its 287-row sort; these four touch one row, so the
+ * per-comparison store read is not worth hoisting.
+ */
+const byName = (a: StoreItem, b: StoreItem) => a.name.localeCompare(b.name, currentCollationLocale());
+
 export const useCatalogStore = create<CatalogStore>((set, get) => ({
   items: [],
 
   load() {
     seedCatalog();
-    // Collate in JS with localeCompare('no') so æ/ø/å order correctly (SQL orderBy
+    // Collate in JS in the active language's locale so æ/ø/å (and Icelandic þ/ð/ö) order
+    // correctly (SQL orderBy
     // sorts by byte value and mis-orders them). Sorting HERE — once, at startup load —
     // means `items` is stored in final display order, so CatalogueTab renders it
     // directly with no per-mount sort (that 287-item locale sort used to run every time
     // the Catalogue tab was opened, adding a "loading" beat to the tap). The mutation
     // methods below already keep this order after edits.
     const rows = loadAll('store_items', rowToItem, { where: 'deleted = 0' });
-    rows.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    const locale = currentCollationLocale();
+    rows.sort((a, b) => a.name.localeCompare(b.name, locale));
     set({ items: rows });
   },
 
@@ -182,7 +193,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
       seen.add(ln);
       return true;
     });
-    matches.sort(byPrefixThenName(q));
+    matches.sort(byPrefixThenName(q, currentCollationLocale()));
     return matches.slice(0, limit);
   },
 
@@ -256,7 +267,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     }
     });
 
-    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    next.sort(byName);
     set({ items: next });
   },
 
@@ -276,7 +287,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         price_source: 'purchase',
       });
     } catch { /* ignore */ }
-    const next = [...get().items, item].sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    const next = [...get().items, item].sort(byName);
     set({ items: next });
     return id;
   },
@@ -300,7 +311,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
     } catch { /* ignore */ }
     const next = [...get().items];
     next[idx] = updated;
-    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    next.sort(byName);
     set({ items: next });
   },
 
@@ -330,7 +341,7 @@ export const useCatalogStore = create<CatalogStore>((set, get) => ({
         [newPrice, 'purchase', now, id]
       );
     } catch { /* ignore */ }
-    next.sort((a, b) => a.name.localeCompare(b.name, 'no'));
+    next.sort(byName);
     set({ items: next });
   },
 }));

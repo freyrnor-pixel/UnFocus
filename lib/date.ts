@@ -31,6 +31,14 @@
  *     as if it were local shifts an entry 1–2h in Norway, which is exactly the kind of
  *     quiet lie a day log must not tell. Convert here, nowhere else.
  */
+/**
+ * The language codes the two display formatters below branch on. Declared here rather
+ * than imported from lib/i18n so this module stays dependency-free (see the header) —
+ * it is structurally the same union as `Lang`, and tsc catches a drift at every call
+ * site, all of which pass the store's `language` straight through.
+ */
+export type DateLang = 'en' | 'no' | 'is';
+
 export function todayStr(): string {
   const d = new Date();
   return dateStr(d);
@@ -145,15 +153,17 @@ export function dateRangeForCycleWeek(
  * Render a stored `YYYY-MM-DD` key as a user-facing date string (Norwegian date
  * display — code-only, no ledger number; see Decision 028's numbering note).
  * Norwegian convention is DD.MM.YYYY; English keeps the ISO `YYYY-MM-DD` form.
+ * Icelandic writes dates the same way Norwegian does (DD.MM.YYYY), so it shares
+ * that branch rather than getting one of its own.
  * DISPLAY ONLY — never feed the result back into a store/DB key or a comparison;
  * the ISO string stays the canonical key everywhere else. Malformed input is
  * returned unchanged so a bad value never crashes a render.
  */
-export function formatDisplayDate(iso: string, lang: 'en' | 'no'): string {
+export function formatDisplayDate(iso: string, lang: DateLang): string {
   const parts = iso.split('-');
   if (parts.length !== 3 || parts.some((p) => p === '')) return iso;
   const [y, m, d] = parts;
-  return lang === 'no' ? `${d}.${m}.${y}` : iso;
+  return lang === 'en' ? iso : `${d}.${m}.${y}`;
 }
 
 /** Current local wall-clock time as `HH:MM`. Minute resolution — nothing in the app needs seconds. */
@@ -252,8 +262,10 @@ export function addDurationToTime(
  * Formats a `[startDate, endDate]` pair as a short, locale-aware range label,
  * e.g. "May 1 – 7" / "1.–7. mai" (same month) or "Apr 29 – May 5" / "29. apr–5. mai"
  * (crossing a month boundary). `monthsShort` is the caller's `t.monthsShort` array.
+ * Icelandic follows the Norwegian day-then-month order ("1.–7. maí"), so the two
+ * share a branch — only English puts the month first.
  */
-export function formatDateRange(startDate: string, endDate: string, monthsShort: string[], lang: 'en' | 'no'): string {
+export function formatDateRange(startDate: string, endDate: string, monthsShort: string[], lang: DateLang): string {
   const s = new Date(startDate + 'T12:00:00');
   const e = new Date(endDate + 'T12:00:00');
   const sDay = s.getDate();
@@ -261,7 +273,7 @@ export function formatDateRange(startDate: string, endDate: string, monthsShort:
   const sMonth = monthsShort[s.getMonth()];
   const eMonth = monthsShort[e.getMonth()];
   const sameMonth = s.getMonth() === e.getMonth();
-  if (lang === 'no') {
+  if (lang !== 'en') {
     return sameMonth ? `${sDay}.–${eDay}. ${sMonth}` : `${sDay}. ${sMonth}–${eDay}. ${eMonth}`;
   }
   return sameMonth ? `${sMonth} ${sDay} – ${eDay}` : `${sMonth} ${sDay} – ${eMonth} ${eDay}`;

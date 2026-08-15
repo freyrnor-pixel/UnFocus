@@ -188,7 +188,9 @@ import { EMPTY_OVERRIDES, sanitizeLabOverrides, type LabOverrides } from '@/lib/
 // The app ships a single palette ("Default"). The union is kept as a type so
 // existing casts (`as ColorTheme`) still compile; only 'default' is ever stored.
 export type ColorTheme = 'default';
-export type Language = 'en' | 'no';
+// 'is' (Icelandic) joined 2026-08-15. The dictionary lives beside `en`/`no` in lib/i18n.ts
+// and is typed off `en` the same way, so a missing key is a compile error, not a fallback.
+export type Language = 'en' | 'no' | 'is';
 export type DarkMode = 'system' | 'on' | 'off';
 export type FontSizePref = 'small' | 'default' | 'large';
 export type EnergyMode = 'daily' | 'weekly' | 'custom';
@@ -564,7 +566,7 @@ function rowToSettings(row: Row): Settings {
     workDays: readJson<number[]>(row, 'work_days', [0, 1, 2, 3, 4]),
     showGrowth: readBool(row, 'show_points'),
     showHints: readInt(row, 'show_hints', 1) !== 0,
-    language: readEnum<Language>(row, 'language', ['en', 'no'], 'no'),
+    language: readEnum<Language>(row, 'language', ['en', 'no', 'is'], 'no'),
     holidaysEnabled: readInt(row, 'holidays_enabled', 1) !== 0,
     // Fallback 'on' since 2026-08-16 — see `defaultSettings` below. This only fires when the
     // column is NULL or holds something unrecognised; a stored 'off' is still read as 'off'.
