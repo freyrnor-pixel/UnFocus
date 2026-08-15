@@ -919,6 +919,18 @@ export default function SettingsScreen() {
                     ]}
                   />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  {/* Card material (2026-08-15). Appearance, deliberately not Accessibility:
+                      this is a look preference, and the card above is for aids — the same
+                      reasoning that moved the plans-timeline switch out of it. The global
+                      reduce-transparency switch (`glassSurfaces`) stays over there and still
+                      wins over this one; see components/Surface.tsx's Edit notes. */}
+                  <ToggleRow
+                    label={t.settings.cardStyle.title}
+                    hint={t.settings.cardStyle.hint}
+                    checked={settings.opaqueCards}
+                    onChange={(v) => settings.update({ opaqueCards: v })}
+                  />
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.photoFormat.title}</Text>
                   <SegmentedControl
                     value={settings.photoAspectRatio}

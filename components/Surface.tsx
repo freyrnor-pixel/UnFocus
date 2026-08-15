@@ -44,7 +44,7 @@
  *             getLayeredShadow, Radius, SCREEN_TINT), constants/motion (Travel),
  *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility), lib/screenColor
  *             (useScreenColor), lib/useDesignLab (useLabShape — the design lab's geometry,
- *             see Edit notes), store/useSettingsStore (glassSurfaces),
+ *             see Edit notes), store/useSettingsStore (glassSurfaces, opaqueCards),
  *             components/PressableScale, expo-linear-gradient, expo-blur
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, app/health-log,
@@ -85,6 +85,18 @@
  *     already describe exactly this ("Frosted glass finish on cards, buttons and the add
  *     button. Turn off for plain, solid surfaces"). A caller-supplied `tint` also stays
  *     opaque — those callers want that exact colour, not a frosted approximation of it.
+ *   - **`settings.opaqueCards` is the CARD-ONLY version of that switch** (2026-08-15), added so
+ *     the maintainer can A/B this material against a solid one. It is NOT a duplicate of
+ *     `glassSurfaces` and the difference is the whole reason it exists: `glassSurfaces` is the
+ *     global reduce-transparency mode and also restyles buttons, the FAB, sheets, the header
+ *     and the nav, so flipping it changes several materials at once and can't answer "is the
+ *     CARD better solid?". This one gates on `surfaceContext === 'ambient'`, which is exactly
+ *     the content-card population, and leaves every chrome surface frosted.
+ *     Three ordering facts, all of them load-bearing: `glassSurfaces` still wins outright (off
+ *     ⇒ opaque everywhere regardless of this); `tint` still wins over both; and the opaque fill
+ *     is `theme.surface`, the SAME colour `surfaceGlass` already composites to, so this changes
+ *     what is drawn and never what `colors.test.ts` measures. It defaults OFF — glass is the
+ *     shipped look and this is the experiment, not the other way round.
  *   - Depth is still `getLayeredShadow(theme.shadow)` — a three-pass `boxShadow` — and this
  *     view must NOT also set the `shadow*`/`elevation` keys (they would double up).
  *     `elevated` deepens it to the `floating` tier. Shadow was not part of the reset brief:
@@ -276,8 +288,16 @@ export default function Surface({
   //
   // `tint` (a caller-supplied fill) still wins outright and stays opaque: its callers pass a
   // specific colour because they need that exact colour, not a frosted approximation of it.
-  const glassOn = useSettingsStore((s) => s.glassSurfaces) && !tint;
-  const glassFill = surfaceContext === 'ambient' ? theme.surfaceGlass : theme.surfaceGlassStrong;
+  //
+  // `opaqueCards` (2026-08-15) is the third input and the NARROWEST: it takes the frost off
+  // content cards only, leaving sheets, the header and the nav frosted, so the card material
+  // can be judged without also changing the chrome around it. `glassSurfaces` still wins —
+  // with it off, everything here is opaque whatever this says. See the Edit notes.
+  const glassPref = useSettingsStore((s) => s.glassSurfaces);
+  const opaqueCards = useSettingsStore((s) => s.opaqueCards);
+  const isAmbient = surfaceContext === 'ambient';
+  const glassOn = glassPref && !tint && !(isAmbient && opaqueCards);
+  const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
   const fill = staticPressed
     ? theme.surfaceMuted
     : tint ?? getGlassFill(glassFill, theme.surface, glassOn);
@@ -475,7 +495,7 @@ export default function Surface({
               exactly the old ambient treatment — so the fallback is graceful, not broken. */}
           {glassOn ? (
             <BlurView
-              intensity={surfaceContext === 'ambient' ? BLUR_AMBIENT : BLUR_STRONG}
+              intensity={isAmbient ? BLUR_AMBIENT : BLUR_STRONG}
               tint={isDark ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"

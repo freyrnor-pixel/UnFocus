@@ -60,6 +60,12 @@ import {
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
  *
+ * v7 (2026-08-15) — new settings key: `opaqueCards` (boolean). Draws content cards as solid
+ * panels instead of frosted glass; presentation only, losslessly reversible, and neither
+ * device-specific nor an OS permission gate, so it clears the whitelist bar the cookbook sets.
+ * A v6 file still applies exactly as before — it simply doesn't mention the key, and an
+ * omitted key leaves the setting alone.
+ *
  * v6 (2026-08-11) — new field: "habits"' optional `recurrenceInterval` (1-12, "every N
  * days/weeks" — a multiplier on daily/weekly recurrence, see lib/habitRecurrence.ts).
  * Clamped to [1, 12] on import; omitted defaults to 1, today's plain daily/weekly
@@ -71,7 +77,7 @@ import {
  * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
  * the document it was generated from has been reworded.
  */
-export const AI_SETUP_SCHEMA_VERSION = 6;
+export const AI_SETUP_SCHEMA_VERSION = 7;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -86,6 +92,7 @@ export type AiSettingsPatch = {
   reducedMotion?: boolean;
   particlesEnabled?: boolean;
   glassSurfaces?: boolean;
+  opaqueCards?: boolean;
   leftHanded?: boolean;
   remindersEnabled?: boolean;
   reminderTime?: string;
@@ -269,6 +276,7 @@ accepted (anything else is ignored):
   darkMode: "system" | "on" | "off"
   fontSize: "small" | "default" | "large"
   reducedMotion, particlesEnabled, glassSurfaces, leftHanded: boolean
+  opaqueCards: boolean (draw content cards as solid panels instead of frosted glass)
   remindersEnabled: boolean
   reminderTime: "HH:MM"
   taskNotificationsEnabled, habitNotificationsEnabled,
