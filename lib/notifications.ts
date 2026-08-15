@@ -368,9 +368,10 @@ async function ensurePersistentChannel() {
     sound: null,
     enableVibrate: false,
     vibrationPattern: [],
-    // Readable on a locked screen. lib/widgets/sync.ts is what keeps that safe: the body it
-    // posts is the snapshot's `overview.safeLines`, which omits health entirely and reduces
-    // medicine to a bare count — the widget's own `overview.lines` is the fuller version.
+    // Readable on a locked screen, contents and all — a summary you have to unlock to read is
+    // one you will not read. The control for anyone who does not want that is the whole
+    // notification's own switch (`settings.persistentNotifEnabled`), not a redacted body: an
+    // omit-health variant was tried on 2026-08-15 and reversed by the maintainer the same day.
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   }).catch(ignore);
   for (const legacy of LEGACY_PERSISTENT_CHANNEL_IDS) {

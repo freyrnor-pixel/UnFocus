@@ -83,6 +83,32 @@ describe('widget LIGHT/DARK palettes mirror constants/colors.ts', () => {
   });
 });
 
+describe('the picker previews are generated, not drawn', () => {
+  // assets/widget-previews/*.png is what Android shows in the widget picker. They were
+  // hand-drawn one-offs until 2026-08-15 and had gone a full palette out of date — the same
+  // failure as the widget palette itself, one step further from anything that would catch it.
+  // scripts/build-widget-previews.mjs regenerates them by EXTRACTING every colour from the
+  // sources above at run time, so the only way it can drift is if someone types a hex into it.
+  const GEN = path.join(__dirname, '..', '..', '..', 'scripts', 'build-widget-previews.mjs');
+
+  it('the generator exists and bakes in no colour of its own', () => {
+    const src = fs.readFileSync(GEN, 'utf8');
+    expect(src.match(/#[0-9A-Fa-f]{6}\b/g)).toBeNull();
+  });
+
+  it('reads the tables this test also reads, so the two cannot disagree', () => {
+    const src = fs.readFileSync(GEN, 'utf8');
+    for (const name of ['DARK', 'LIGHT', 'LIGHT_INK', 'WIDGET_ACCENT']) expect(src).toContain(name);
+  });
+
+  it('has one PNG per live widget', () => {
+    const dir = path.join(__dirname, '..', '..', '..', 'assets', 'widget-previews');
+    for (const name of ['shopping', 'tasks', 'notes', 'habits', 'health']) {
+      expect(fs.existsSync(path.join(dir, `${name}.png`))).toBe(true);
+    }
+  });
+});
+
 describe('LIGHT_INK keeps every hue legible in light mode', () => {
   const table = literalTable('LIGHT_INK');
   const hues: string[] = [

@@ -243,18 +243,44 @@ file owns which token.)
     darkens each until it clears 4.5:1 — the same walk `lib/domainColor.ts`'s `badgeGlyphFor()`
     does at runtime, baked because this file cannot call it. The test asserts the FAILURE too,
     so nobody removes `ink()` on the assumption a neon is fine on white.
-  - **The pinned notification is built TWICE, and the split is a privacy boundary.** Its channel
-    is `PUBLIC` now (it had never set a visibility, so Android's `PRIVATE` default showed
-    "contents hidden" on a locked screen — the one place a pinned overview earns its keep). So
-    `overview.lines` is the full rendering and `overview.safeLines` is the ONLY thing
-    `refreshPersistentNotification` ever posts: health is absent from it entirely and medicine is
-    a bare count, where the full version names the trays still due. File any new line into one or
-    both **deliberately**; `lib/widgets/__tests__/overviewSplit.test.ts` pins it, because a
-    boundary that lives in the order of two array pushes is what a later de-duplication pass
-    collapses without noticing. ⚠️ **The `-v2` in `persistent-overview-v2` is load-bearing** —
-    Android freezes a channel's importance/visibility/sound at creation and silently ignores a
-    later change, so on every install that had already posted an overview, setting this on the
-    old id would have been a no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **The pinned notification shows the WHOLE day, lock screen included.** Its channel is
+    `PUBLIC` now (it had never set a visibility, so Android's `PRIVATE` default showed "contents
+    hidden" on a locked screen — the one place a pinned overview earns its keep), and
+    `overview.lines` is the single rendering it posts verbatim: task/shopping/habit counts, the
+    named trays still due, a count of open episodes, then the next task.
+    ⚠️ **A redacted second rendering (`safeLines`) shipped for a few hours the same day and was
+    reversed** — health dropped, medicine reduced to a count. The maintainer's ruling: a summary
+    you have to unlock to read is one you will not read, and half a summary is worse than none.
+    The privacy control is `persistentNotifEnabled`, which turns the whole notification off.
+    **Don't reintroduce a redacted variant without asking**; `lib/widgets/__tests__/overviewSplit.test.ts`
+    keeps its now-misleading name so the history stays findable, and asserts the absence.
+    ⚠️ **The `-v2` in `persistent-overview-v2` is load-bearing** — Android freezes a channel's
+    importance/visibility/sound at creation and silently ignores a later change, so on every
+    install that had already posted an overview, setting this on the old id would have been a
+    no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **Every notification switch lives in Settings → Personal, and turning one ON asks for the OS
+    permission.** Two gaps closed on 2026-08-15. `medicineRemindersEnabled` existed ONLY as the
+    bell on the Health tab's medicine card, so the one screen a user goes to to manage
+    notifications did not list the app's most time-critical one (both write the same value; the
+    bell is the in-context control, Settings is the inventory, and the row is hidden with
+    `featureMedicine` like every other medicine surface). And `applyAndSync` never called
+    `requestPermissions()` — permission was only ever asked at onboarding and from Home's ⓘ
+    toggles, so anyone who declined there, or who revoked it in Android settings later, flipped a
+    switch here that read as on while `scheduleNotificationAsync` failed silently (lib/
+    notifications.ts swallows those by design). `NOTIF_SWITCHES` in `app/settings.tsx` is the
+    list; **add a new notification toggle to it in the same edit that adds the row.**
+  - **The picker previews are generated from source, not drawn** (`scripts/build-widget-previews.mjs`,
+    `npm run widget-previews`). `assets/widget-previews/*.png` is what Android shows when you
+    long-press the home screen and browse widgets — the first and often only look anyone gets
+    before placing one — and they were hand-drawn one-offs in the retired navy, with the
+    pre-categorical accents, English-only titles, and a "Today's tasks" heading the widget never
+    rendered. The generator EXTRACTS every colour and every title from `WidgetViews.tsx` /
+    `snapshot.ts` / `headlessSnapshot.ts` at run time and rasterises through the pre-installed
+    Chromium; only the sample row text is invented, because a preview has no real data. The
+    palette test asserts the script contains **no hex literal at all**, so the one way it could
+    drift is closed. ⚠️ **These are NATIVE — `previewImage` is bundled into the APK as a
+    drawable, so regenerating them reaches nobody over OTA and needs a new build.** It does not
+    change the JS↔native contract, so it does not by itself need a `runtimeVersion` bump.
   - **Medicine reached the outside for the first time**, folded into the Health widget rather
     than given a sixth receiver (a new widget means `app.json`, a `runtimeVersion` bump and a
     native build; this ships over OTA). That makes the Health widget's tray rows its first write
