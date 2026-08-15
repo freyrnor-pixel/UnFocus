@@ -37,8 +37,12 @@
  *     `radius` prop and its inter-segment gap. Radius no longer encodes tier, and the pill
  *     maths here (`segW = (trackW - SEG_PAD*2)/n`) has no gap term — adding one means
  *     re-deriving it, not adding a style key.
- *   - Input border is `border` normally, `borderStrong` while focused (or `bad` on error,
- *     regardless of focus); active segment background is `surface` — a raised surface,
+ *   - Input border is the screen hue at the field rung normally, and since 2026-08-16 the same
+ *     hue walked to legibility by `badgeGlyphFor` (plus a `getGlow` halo) while focused — it was
+ *     a flat `borderStrong` before. `bad` on error still beats both. The FILL is `surface`
+ *     unless the caller passes `recessed`, which is opt-in and has a measured reason: see that
+ *     prop's doc, and don't make it the default.
+ *     Active segment background is `surface` — a raised surface,
  *     not on-colour text. That raised surface is a single sliding pill (Reanimated
  *     translateX, ~150ms ease-out; snaps under reducedMotion, and snaps on its FIRST
  *     placement — see `SegmentedTrack`'s `hasPositioned`) that moves between segments
@@ -93,7 +97,8 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { computeBorderTone, FontSize, Fonts, getGlow, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { computeBorderTone, FontSize, Fonts, getGlow, getRecessedField, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { badgeGlyphFor } from '@/lib/domainColor';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useToggleColor } from '@/lib/useToggleColor';
@@ -603,6 +608,24 @@ type InputProps = TextInputProps & {
    * through the card's overflow mask. Added 2026-08-09 with those two call sites.
    */
   containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Draw this field as a RECESSED WELL — sunk into the pane, no resting stroke — instead of the
+   * default bordered box (2026-08-16, brief §8's "Per-Card Inline Inputs").
+   *
+   * ⚠️ **Opt-in, and it must stay opt-in.** A recess is a relationship to the surface a field is
+   * sunk INTO, so it is only legible when the field is inside a card. This component is also
+   * mounted straight onto the screen backdrop (every editor: `app/medicine-form.tsx`,
+   * `app/health-form.tsx`, …), and there a `rgba(0,0,0,0.35)` wash on a near-black backdrop with
+   * no resting stroke makes the field vanish — measured in the web preview, not theorised: the
+   * medicine form's Name/Dose/Note rendered as bare text with no boundary at all.
+   *
+   * So: pass this only from a composer that is contractually inside a Surface. Today that is
+   * `components/InlineAddItem.tsx` alone, which passes it so Shopping's composer matches
+   * `components/PadTypeRow.tsx` and `components/AddRow.tsx` — the three are meant to be ONE
+   * field, and letting one of them keep a border while the other two lost theirs is exactly the
+   * divergence AddRow's header warns against.
+   */
+  recessed?: boolean;
 };
 
 /**
@@ -613,7 +636,7 @@ type InputProps = TextInputProps & {
  * category button. Nothing passed a ref before 2026-08-08, so this is purely additive.
  */
 export const Input = React.forwardRef<TextInput, InputProps>(function Input(
-  { label, error, optional, style, containerStyle, onFocus, onBlur, ...rest },
+  { label, error, optional, style, containerStyle, recessed, onFocus, onBlur, ...rest },
   ref
 ) {
   const theme = useAppTheme();
@@ -621,14 +644,41 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
   const fieldHue = useScreenColor() ?? theme.border;
   const shape = useLabShape();
   const [focused, setFocused] = useState(false);
-  // Resting border is the screen's own hue at the FIELD rung (card design reset, 2026-08-05),
-  // so an editor's fields belong to the screen that pushed them. Error and focus still WIN over
-  // it — a state the user needs to see must beat the decorative hue, DESIGN_RULES.md rule 18.
+  // ── This field KEEPS its resting border, and that is a scope decision (2026-08-16) ────────
+  // Brief §8 asks for recessed, borderless wells — but its own title is *"Per-Card Inline
+  // Inputs"* and its first line is *"the user creates items directly inside each category
+  // card"*. That scope is load-bearing rather than incidental: a recess is a relationship to
+  // the PANE a field is sunk into, and this component is the one field in the app with no such
+  // guarantee. `components/PadTypeRow.tsx` and `components/AddRow.tsx` are contractually
+  // mounted inside a card (see AddRow's "do NOT wrap it in its own card"); this one is mounted
+  // in editors and sheets, where it sits directly on the screen backdrop.
+  //
+  // It was briefly given the recessed treatment anyway, and the web preview caught what that
+  // does: on `app/medicine-form.tsx` the Name/Dose/Note fields sit on the near-black backdrop,
+  // so a `rgba(0,0,0,0.35)` wash on near-black is invisible and, with the resting stroke gone,
+  // the fields disappeared entirely — bare text floating with no boundary. A field that does
+  // not look like a field is the exact complaint the 2026-08-13 Shopping pass fixed in the
+  // other direction. So the fill and the resting border stay as they were.
+  //
+  // What DID come across from §8 is the focus state, which is pure gain and carries no such
+  // risk: the ring is the screen's own hue rather than a flat `borderStrong`, walked toward the
+  // ground by `badgeGlyphFor` until it clears 3.3:1 on the fill. Outside a screen that provides
+  // a hue, `fieldHue` is already `theme.border` and the walk leaves it alone, so a modal's field
+  // keeps a neutral ring rather than inventing a colour. Error still WINS over focus, unchanged
+  // — a state the user needs to fix must beat a decorative hue (DESIGN_RULES.md rule 18).
+  //
+  // A caller that IS contractually inside a card can opt into the recessed well via `recessed`
+  // — see that prop's doc for why it is opt-in rather than the default.
+  const recess = getRecessedField(theme.surface, isDark);
+  const fill = recessed ? recess.paint : theme.surface;
+  const focusGround = recessed ? recess.composite : theme.surface;
   const borderColor = error
     ? theme.bad
     : focused
-      ? theme.borderStrong
-      : computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength);
+      ? badgeGlyphFor(fieldHue, focusGround, isDark)
+      : recessed
+        ? 'transparent'
+        : computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength);
 
   return (
     <View style={containerStyle}>
@@ -652,10 +702,14 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
         }}
         style={[
           styles.input,
+          // Reinforcement only — see AddRow's note on why a boxShadow on a bare TextInput is
+          // acceptable here: `borderColor` above already carries the focus state, so rule 18
+          // holds even where Android declines to paint this.
+          focused && !error ? getGlow(fieldHue, 'soft') : null,
           {
             color: theme.text,
             borderColor,
-            backgroundColor: theme.surface,
+            backgroundColor: fill,
             borderWidth: shape.borderFieldWidth * shape.borderScale,
             borderRadius: Radius.sm * shape.radiusScale,
             minHeight: shape.minTapTarget,

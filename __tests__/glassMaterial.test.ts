@@ -27,8 +27,9 @@
 import { readFileSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, rgba, lighten } from '@/constants/theme';
-import { THEMES } from '@/constants/colors';
+import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
+import { THEMES, contrastRatio, IDENTITY_HUES } from '@/constants/colors';
+import { badgeGlyphFor } from '@/lib/domainColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
@@ -267,5 +268,89 @@ describe('voice settings', () => {
     // 2026-07-18: enabled by default; existing installs flipped on by a one-time UPDATE
     // migration in lib/db.ts. Notes/Home mic buttons render regardless of this flag.
     expect(useSettingsStore.getState().voiceNotesEnabled).toBe(true);
+  });
+});
+
+describe('getRecessedField — the inputs are sunk into the pane, not drawn on it', () => {
+  // Brief §8, 2026-08-16: "recessed, indented fields within the glass surface... darker than
+  // the glass card it sits on to simulate depth". Pinned here because a recess is a
+  // relationship between two colours, and neither a screenshot nor the web preview can tell
+  // "sunk by a measured amount" from "sunk by a hair" or "not sunk at all".
+
+  it('is genuinely darker than the pane it sits in, in both modes', () => {
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      const { composite } = getRecessedField(p.surface, mode === 'dark');
+      // A visible step, not a token difference nobody can see. Both land near 1.11.
+      expect(contrastRatio(composite, p.surface)).toBeGreaterThanOrEqual(1.08);
+    });
+  });
+
+  it('paints a translucent wash, so the glass still shows through the well', () => {
+    // The point of an rgba over a token: the field is a dent IN the pane, not a tile ON it.
+    // If this ever becomes an opaque hex, the BlurView under it stops reaching the field.
+    (['light', 'dark'] as const).forEach((mode) => {
+      expect(getRecessedField(THEMES.default[mode].surface, mode === 'dark').paint)
+        .toMatch(/^rgba\(0, 0, 0, 0\./);
+    });
+  });
+
+  it("light's recess is a fraction of dark's, or the field becomes a charcoal slab", () => {
+    // The brief's literal rgba(0,0,0,0.4) is a dark-mode number. Over a near-white pane it
+    // produces a different control, not a recessed one.
+    const alpha = (mode: 'light' | 'dark') =>
+      Number(getRecessedField(THEMES.default[mode].surface, mode === 'dark').paint.match(/([\d.]+)\)$/)![1]);
+    expect(alpha('light')).toBeLessThan(alpha('dark') / 4);
+  });
+
+  it('keeps body text legible ON the well, not just on the pane', () => {
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      const { composite } = getRecessedField(p.surface, mode === 'dark');
+      expect(contrastRatio(p.text, composite)).toBeGreaterThanOrEqual(4.5);
+      // The placeholder is `textMuted` and is the one that can actually fail here.
+      expect(contrastRatio(p.textMuted, composite)).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
+  // ⚠️ A SECOND halation bound, for a surface the existing one does not cover.
+  //
+  // `colors.test.ts` caps `text` on `surface` at 17:1 (DESIGN_RULES.md rule 10a). A recessed
+  // field is DARKER than `surface`, so white text measures higher on it than that test can
+  // see — 18.42:1 — and the gap is exactly the shape of the bug AGENTS.md records from PR
+  // #540: an assertion that keeps passing while measuring a colour the app no longer draws
+  // everywhere. Rather than leave the new surface unmeasured, it gets its own explicit bound.
+  //
+  // Why it is allowed to be looser rather than the field being lightened: the arithmetic
+  // leaves no choice — with `text` at pure #FFFFFF, ANY darkening of `#1E1E1E` exceeds 17
+  // (even a 10% wash lands at 17.22), so "recessed field" and "17:1 ceiling" are mutually
+  // exclusive. And the contexts genuinely differ: the halation ceiling defends sustained
+  // READING of body copy on a card, where bloom accumulates over a paragraph; this is one
+  // line the user is actively typing into, bounded by a 26px control and its own edge. If a
+  // real-device complaint ever arrives, pull `text` back toward ~#D8DADF — which fixes both
+  // bounds at once — rather than lightening the well and losing the recess.
+  it('holds a documented halation bound of its own on the dark well', () => {
+    const p = THEMES.default.dark;
+    const { composite } = getRecessedField(p.surface, true);
+    const ratio = contrastRatio(p.text, composite);
+    expect(ratio).toBeGreaterThan(contrastRatio(p.text, p.surface));
+    expect(ratio).toBeLessThanOrEqual(19);
+  });
+
+  it('gives every category a focus ring that is actually visible on the well', () => {
+    // Brief §8's "adopt a subtle border... using the Categorical Color of its parent card".
+    // The composers route that hue through `badgeGlyphFor`, which is what makes this hold in
+    // LIGHT mode: the identity hues are mode-invariant neons, and a raw #FFC000 ring on a
+    // #EDEEF1 field is ~1.4:1 — a focus state you cannot see, i.e. DESIGN_RULES.md rule 18
+    // with the cue missing. In dark the walk is a no-op and the raw hues already clear.
+    (['light', 'dark'] as const).forEach((mode) => {
+      const isDark = mode === 'dark';
+      const p = THEMES.default[mode];
+      const { composite } = getRecessedField(p.surface, isDark);
+      (Object.keys(IDENTITY_HUES) as (keyof typeof IDENTITY_HUES)[]).forEach((key) => {
+        const ring = badgeGlyphFor(IDENTITY_HUES[key].hue, composite, isDark);
+        expect(`${mode}/${key}: ${contrastRatio(ring, composite) >= 3}`).toBe(`${mode}/${key}: true`);
+      });
+    });
   });
 });

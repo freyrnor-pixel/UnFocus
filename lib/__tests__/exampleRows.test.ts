@@ -67,36 +67,57 @@ const code = (rel: string) =>
 
 // ── 1. The composer is never narrowed by its own preview ─────────────────────
 
-describe('PadTypeRow — the ghost ring is inside the field, not beside it', () => {
+// ⚠️ **The CONTROL in this slot changed on 2026-08-16 (brief §8); the INVARIANT did not.**
+// This block used to be titled "the ghost ring is inside the field" and asserted over a dim
+// preview ring that only appeared while the line was idle. That ring is gone: the slot now
+// holds a real submit arrow, present in every state, muted when the line is empty and filled
+// with the card's categorical colour once there is text ("instead of an empty circle, place a
+// highly tactile submit button... inside the right side of the text input").
+//
+// What is being protected is unchanged and is the reason this file exists: **the composer is
+// never narrowed by whatever sits at its trailing edge.** As a flex sibling that control cost
+// the field ~26px, so the composer was narrower than the example row and the real rows below
+// it, and it jumped width whenever the control mounted or unmounted. Anything that lands in
+// this slot has to be absolutely positioned inside the field's own box.
+describe('PadTypeRow — the trailing control is inside the field, not beside it', () => {
   const source = code('components/PadTypeRow.tsx');
 
-  it('renders the ring within the field wrapper rather than as a sibling of it', () => {
-    // The bug was structural, not numeric: as a sibling in a flex row the ring took layout
-    // width away from a `flex: 1` field. Assert it is no longer emitted next to the field in
-    // either of the two return branches (`panel` and inline).
-    expect(source).not.toMatch(/\{fieldAndPrompt\}\s*\{ghostCheck\}/);
-    expect(source).not.toMatch(/const ghostCheck = /);
+  it('renders the control within the field wrapper rather than as a sibling of it', () => {
+    // The bug was structural, not numeric: as a sibling in a flex row it took layout width
+    // away from a `flex: 1` field. Assert it is no longer emitted next to the field in either
+    // of the two return branches (`panel` and inline).
+    expect(source).not.toMatch(/\{fieldAndPrompt\}\s*\{submitButton\}/);
+    expect(source).not.toMatch(/\{moreButton\}\s*\{confirmButton\}/);
     // ...and that it IS emitted inside the field wrapper, after the TextInput.
-    expect(source).toMatch(/styles\.field[\s\S]{0,4000}showGhostCheck \? \([\s\S]{0,400}styles\.ghostCheckSlot/);
+    expect(source).toMatch(/styles\.field[\s\S]{0,4000}\{submitButton\}\s*<\/View>/);
   });
 
-  it('positions the ring absolutely, so it takes no layout width at all', () => {
-    expect(source).toMatch(/ghostCheckSlot: \{[^}]*position: 'absolute'/);
-    expect(source).toMatch(/ghostCheckSlot: \{[^}]*right: Spacing\.sm/);
+  it('positions the control absolutely, so it takes no layout width at all', () => {
+    expect(source).toMatch(/submitSlot: \{[^}]*position: 'absolute'/);
+    expect(source).toMatch(/submitSlot: \{[^}]*right: Spacing\.sm/);
   });
 
-  it('derives the field\'s reserved right padding from the ring\'s own size', () => {
-    // Two hand-written numbers here is how the placeholder ends up running under the ring.
-    expect(source).toMatch(/const GHOST_CHECK = 22;/);
-    expect(source).toMatch(/inputWithGhost: \{ paddingRight: Spacing\.sm \* 2 \+ GHOST_CHECK \}/);
-    expect(source).toMatch(/ghostCheck: \{ width: GHOST_CHECK, height: GHOST_CHECK/);
+  it("derives the field's reserved right padding from the control's own size", () => {
+    // Two hand-written numbers here is how the placeholder ends up running under the button.
+    expect(source).toMatch(/const SUBMIT_SIZE = 26;/);
+    expect(source).toMatch(/inputWithSubmit: \{ paddingRight: Spacing\.sm \* 2 \+ SUBMIT_SIZE \}/);
+    expect(source).toMatch(/submit: \{\s*width: SUBMIT_SIZE,\s*height: SUBMIT_SIZE/);
   });
 
-  it('reserves that padding only while the ring is actually up', () => {
-    // A focused field gets the whole line back for typing; a permanent 38px inset would be a
-    // different, quieter version of the same width bug.
-    expect(source).toMatch(/showGhostCheck && styles\.inputWithGhost/);
-    expect(source).toMatch(/const showGhostCheck = !showControls && !noGhostCheck;/);
+  it('reserves that padding exactly when the control is mounted', () => {
+    // Now that the control is live in every state, the padding is too — the old ring released
+    // the line back on focus, which is precisely the width jump this file was written about.
+    // The pairing is what matters: the same flag gates the mount and the inset.
+    expect(source).toMatch(/showSubmit && styles\.inputWithSubmit/);
+    expect(source).toMatch(/const showSubmit = !noGhostCheck;/);
+  });
+
+  it('lights the control in the card\'s categorical colour once there is text', () => {
+    // Brief §8's "when the user types, this button should light up in the Categorical Color".
+    // `accent` is the per-CARD hue the caller passes, not the ambient screen hue — on Home the
+    // To-do and Habits cards share one hue-less screen and must still light differently.
+    expect(source).toMatch(/backgroundColor: active \? accent : theme\.surfaceMuted/);
+    expect(source).toMatch(/color=\{active \? contrastOn\(accent\) : theme\.textMuted\}/);
   });
 });
 

@@ -17,8 +17,13 @@
  *     2026-08-14 — its composer became a "+" beside the search field opening
  *     components/CatalogueAddSheet.tsx; see that file's header for why that list is the one
  *     where an inline composer never quite fit.)
- * **The fields are ALREADY converged** — all three draw the same bordered, focus-showing field
- * (this one got it on 2026-08-05; `InlineAddItem` by using `FormControls`' `Input` outright),
+ * **The fields are ALREADY converged** — all three draw the same field, and since 2026-08-16
+ * (brief §8) that is a RECESSED WELL: a translucent black wash sunk into the card, no stroke at
+ * rest, and a focus ring in the card's own categorical colour plus a `getGlow` halo. This one
+ * and `PadTypeRow` build it from `getRecessedField` directly; `InlineAddItem` gets it by passing
+ * `recessed` to `FormControls`' `Input`, which is opt-in there for a measured reason — see that
+ * prop's doc before assuming every field in the app should look like this (it should not; an
+ * editor's fields sit on the backdrop, where a black wash on near-black is invisible),
  * and `panel` below takes the same `QuickAddOptionsPanel` node under the same
  * one-of-`extras`/`panel` contract as `PadTypeRow`'s prop of the same name. So "converge the
  * composers" is not the open work and shouldn't be re-proposed.
@@ -53,9 +58,12 @@
  * buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, computeBorderTone, …), lib/useAppTheme,
- *             lib/screenColor, lib/i18n, lib/haptics, components/PressableScale,
+ *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getGlow, …), lib/useAppTheme,
+ *             lib/domainColor (badgeGlyphFor — keeps the focus ring visible on the well),
+ *             lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
+ *             (lib/screenColor left on 2026-08-16 — a recessed field has no resting stroke, so
+ *             there is nothing left for the ambient screen hue to colour here)
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
  *             components/GoalsEditor.tsx, components/FoodTab.tsx,
  *             components/MedicineTrayCard.tsx
@@ -93,10 +101,10 @@ import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { badgeGlyphFor } from '@/lib/domainColor';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 
@@ -168,10 +176,14 @@ export default function AddRow({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const fieldHue = useScreenColor() ?? theme.border;
   const t = useT();
   const active = value.trim().length > 0 && !disabled;
   const fill = accent ?? theme.good;
+  // The recessed well and its focus colour — same helpers, same reasoning as
+  // components/PadTypeRow.tsx (2026-08-16, brief §8). `useScreenColor()` was read here for the
+  // resting border and is no longer needed: a recessed field has no resting stroke.
+  const recess = getRecessedField(theme.surface, isDark);
+  const focusHue = badgeGlyphFor(fill, recess.composite, isDark);
 
   // Collapsed by default: a "+ <placeholder>" bar. Tapping it expands into the editing row.
   const [expanded, setExpanded] = useState(false);
@@ -262,18 +274,23 @@ export default function AddRow({
       ref={inputRef}
       style={[
         styles.input,
+        // The focus halo. Unlike PadTypeRow this field has no wrapper View of its own to hang
+        // it on, so it goes on the TextInput — where a `boxShadow` renders less reliably on
+        // Android. That is acceptable HERE and only because the border below carries the focus
+        // state on its own: the glow is reinforcement, and rule 18 is satisfied without it.
+        focused ? getGlow(fill, 'soft') : null,
         {
           color: theme.text,
-          // White/plain surface fill (2026-08-06, user report: "text-boxes are too grey" —
-          // matches components/FormControls.tsx's Input and what a text field looks like in
-          // most web/native apps), not the sunken `surfaceMuted` well a disabled control uses.
-          backgroundColor: theme.surface,
-          // Same field shape and same colour rule as components/PadTypeRow.tsx — see its
-          // header. `theme.border` is the ≥3:1 control-boundary token; the accent marks focus.
-          // Screen hue at the FIELD rung at rest, the surface's own fill while focused — the same
-          // shape components/PadTypeRow.tsx uses, so the app's two composers are one control
-          // (card design reset, 2026-08-05).
-          borderColor: focused ? fill : computeBorderTone(fieldHue, isDark, 'field'),
+          // ── Recessed, not raised (2026-08-16, brief §8) ────────────────────────────────
+          // The same well components/PadTypeRow.tsx sinks into, from the same helper, so the
+          // app's composers stay one control — read that file's note for why this reverses
+          // the 2026-08-06 "text-boxes are too grey" fix rather than contradicting it.
+          backgroundColor: recess.paint,
+          // No stroke at rest; the card's categorical colour on focus, walked toward the
+          // ground by `badgeGlyphFor` only as far as legibility on the well requires (a no-op
+          // in dark, load-bearing in light — see PadTypeRow). Transparent rather than
+          // zero-width so focusing cannot reflow the field.
+          borderColor: focused ? focusHue : 'transparent',
         },
       ]}
       value={value}
