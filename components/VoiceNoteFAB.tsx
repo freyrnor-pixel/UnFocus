@@ -26,14 +26,15 @@
  *     (Decision 040/AGENTS.md) — using it here is a normal JS change, no new native build needed.
  */
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
-import { Radius, Shadow, Spacing } from '@/constants/theme';
+import { glassKey, Radius, Spacing } from '@/constants/theme';
 import { FAB_LG_SIZE, FAB_DEFAULT_BOTTOM } from '@/components/AddFAB';
 import PressableScale from '@/components/PressableScale';
+import { Travel } from '@/constants/motion';
 
 type Props = {
   /** Fires once, with the recognized text, when a recording ends with non-empty speech. */
@@ -45,9 +46,11 @@ type Props = {
 
 export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const t = useT();
   const { listening, toggle } = useVoiceCapture(onTranscript);
   const autoStartedRef = useRef(false);
+  const key = glassKey(listening ? theme.bad : theme.accent, isDark, listening ? 'loud' : 'key');
 
   // Auto-start once when opened via the widget's voice deep-link.
   useEffect(() => {
@@ -64,20 +67,39 @@ export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
       accessibilityRole="button"
       accessibilityLabel={listening ? t.notes.stopRecording : t.notes.recordVoiceNote}
       scaleTo={0.9}
+      // Matte glass, like every other key in the app since 2026-08-17/18: a flat translucent
+      // wash of its own hue and one lit top-left edge, with an outward halo instead of a cast
+      // shadow. **The opaque `theme.surface` disc under it is the one thing specific to a
+      // FLOATING key** — this button hangs over a scrolling list rather than sitting on a card,
+      // and a body that is only a 14–24% wash would let note rows travel through the middle of
+      // it. Same answer the chrome got in the same pass: keep the glass, put the app's own
+      // ground behind it so what shows through is a surface and never content.
+      glow={{ color: listening ? theme.bad : theme.accent, radius: Radius.full }}
+      travel={Travel.fab}
       style={[
         styles.base,
         {
           width: FAB_LG_SIZE,
           height: FAB_LG_SIZE,
           bottom: FAB_DEFAULT_BOTTOM,
-          backgroundColor: listening ? theme.bad : theme.accent,
+          // The opaque ground; the translucent body is the child below.
+          backgroundColor: theme.surface,
+          borderWidth: key.borderWidth,
+          borderTopColor: key.borderTopColor,
+          borderLeftColor: key.borderLeftColor,
+          borderBottomColor: key.borderBottomColor,
+          borderRightColor: key.borderRightColor,
         },
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, styles.body, { backgroundColor: key.backgroundColor }]}
+      />
       <Ionicons
         name={listening ? 'stop' : 'mic'}
         size={24}
-        color={listening ? theme.textInverse : theme.accentInk}
+        color={theme.text}
       />
     </PressableScale>
   );
@@ -90,6 +112,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadow.fab,
+    // No `Shadow.fab` (2026-08-18): a 16px black blur is the "inner/heavy shadow" family the
+    // matte-glass ruling drops. The outward `glow` is the key's only light now.
+  },
+  // The translucent key body, painted over the opaque ground and under the glyph. Full radius
+  // so the wash follows the circle rather than filling its bounding box.
+  body: {
+    borderRadius: Radius.full,
   },
 });

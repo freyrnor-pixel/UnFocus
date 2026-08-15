@@ -326,7 +326,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { BORDER_WIDTH, DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -1567,7 +1567,6 @@ export default function PlanTaskCard({
                     icon="ellipse-outline"
                     title={t.starters.plans.exampleTitle}
                     meta="17:00–17:20"
-                    accent={screenColor.base}
                     onAdd={onAddExample}
                     addLabel={t.starters.addExample}
                   />
@@ -1826,7 +1825,7 @@ const baseStyles = StyleSheet.create({
   // ONE horizontal inset for the whole card (PAD_GUTTER). The old paddingLeft:52 title inset
   // that dodged an absolutely-pinned badge is gone with the badge.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER, position: 'relative' },
-  emptyText: { fontSize: FontSize.sm, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
+  emptyText: { fontSize: FontSize.sm, textAlign: 'center', paddingVertical: Spacing.sm },
   // The suggestion row (in its StarterCard trigger wrapper since 2026-08-12) + the ghost add
   // row. The bulb/italic explainer that used to lead this block moved to the foot (2026-07-30),
   // back under the header (2026-08-12), and was deleted with its whole tier (2026-08-17); the
@@ -1840,18 +1839,18 @@ const baseStyles = StyleSheet.create({
   // PadSheet's `stackGap`: with no borders to keep apart, the gap IS the separation.
   // lib/__tests__/exampleRows.test.ts asserts the two stay equal.
   emptyWrap: { gap: Spacing.sm },
-  // Same box as the StarterExampleRow directly above it (2026-08-12): it was Radius.md and a
-  // literal borderWidth 1 against the example's Radius.sm, so two dashed rows in the same
-  // eight pixels of card had different corners and different weights.
+  // Same box as the StarterExampleRow directly above it — which as of 2026-08-18 means NO box
+  // (*"List items… must sit seamlessly on the main card's background"*). The pair was matched
+  // on 2026-08-12 because two dashed rows in the same eight pixels of card had different
+  // corners and different weights; they are matched now by both having no edge at all, and
+  // lib/__tests__/exampleRows.test.ts still asserts the two against each other so they cannot
+  // drift apart one file at a time. Only the padding is left, which is what keeps this the same
+  // HEIGHT as the row it invites you to create.
   emptyAddRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: BORDER_WIDTH.field,
-    borderStyle: 'dashed',
   },
   emptyAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
@@ -1931,7 +1930,7 @@ const baseStyles = StyleSheet.create({
   followerBadge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 1 },
   followerBadgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   hintRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.xs, marginTop: 2 },
-  hintText: { fontSize: FontSize.xs, flexShrink: 1, fontStyle: 'italic' },
+  hintText: { fontSize: FontSize.xs, flexShrink: 1 },
 
   // Fixed-hour grid viewport (2026-07-26 rebuild — see file header). Height is set inline
   // (collapsed vs. expanded); rounded + clipped so the grid's hour lines don't bleed past
@@ -1984,7 +1983,7 @@ const baseStyles = StyleSheet.create({
   hNowLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, position: 'absolute', top: -2 },
   hGapMarker: { width: 72, alignItems: 'center', paddingTop: 2 },
   hGapDot: { width: 8, height: 8, borderRadius: Radius.full, borderWidth: 2, borderStyle: 'dashed', marginBottom: 4 },
-  hGapText: { fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center' },
+  hGapText: { fontSize: FontSize.xs, textAlign: 'center' },
 
   // Frames the done header + its collapsed rows as one card (2026-07-16) — previously a
   // transparent top border (no real frame). This card already sits inside the outer Surface,

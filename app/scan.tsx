@@ -918,7 +918,7 @@ const baseStyles = StyleSheet.create({
   tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
   tipIcon: {},
   tipTextWrap: { flex: 1, gap: 2 },
-  tipTarget: { fontSize: FontSize.xs, fontStyle: 'italic' },
+  tipTarget: { fontSize: FontSize.xs },
   tipText: { fontSize: FontSize.sm, lineHeight: 20 },
 
   storeSection: { gap: Spacing.sm },

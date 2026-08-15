@@ -190,7 +190,7 @@ const baseStyles = StyleSheet.create({
   fieldLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
   // Caption tier: this explains the control above it
   // and must never compete with it.
-  fieldHint: { fontSize: FontSize.xs, fontStyle: 'italic', lineHeight: 17 },
+  fieldHint: { fontSize: FontSize.xs, lineHeight: 17 },
   divider: { height: StyleSheet.hairlineWidth },
   done: { alignSelf: 'stretch' },
 });

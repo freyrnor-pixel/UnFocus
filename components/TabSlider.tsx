@@ -8,9 +8,14 @@
  * The app has exactly two, and the tier is carried by the ACTIVE TREATMENT, not by the
  * corner radius:
  *
- *   - **Screen tier — this file.** An accent-FILLED sliding pill (`theme.accent` +
- *     `theme.accentInk`). At most one per screen: Today/This week/All tasks, Weekly/Monthly,
- *     Settings' three category tabs. It switches what the whole screen is showing.
+ *   - **Screen tier — this file.** A SOFT TRANSLUCENT sliding pill in the tab's own colour,
+ *     with the label in `theme.text`. At most one per screen: Today/This week/All tasks,
+ *     Weekly/Monthly, Settings' three category tabs. It switches what the whole screen is
+ *     showing. (It was an accent-FILLED pill + `accentInk` until 2026-08-18 — maintainer:
+ *     *"Active Top Tabs should use a soft, translucent pill strictly behind the text/icon."*
+ *     The tier is still carried by the ACTIVE TREATMENT rather than by the corner radius; what
+ *     changed is that the screen tier is now the hued-wash one and the form tier below is the
+ *     raised-white one, which is a bigger difference between them than a fill opacity was.)
  *   - **Form tier — `FormControls`' `SegmentedControl`.** A raised white sliding pill
  *     (`theme.surface` + `theme.text`). Everything nested inside a card, form or editor —
  *     a property of the thing being edited, not of the screen.
@@ -81,8 +86,11 @@
  *     count badge or an animated cue) — it doesn't know about `active` state itself, so
  *     the caller must bake `isActive`-dependent styling into the node before passing it.
  *   - **Pill must SNAP on its first positioning, never animate in (fixed 2026-08-05)**: the
- *     active label's text colour is `theme.accentInk`, chosen for contrast against the FILLED
- *     pill, on the assumption the pill is already there. But the pill only exists once the
+ *     active label's text colour was `theme.accentInk`, chosen for contrast against the FILLED
+ *     pill, on the assumption the pill is already there. (It is `theme.text` since 2026-08-18,
+ *     which reads on the bare track too — so this particular bug can no longer bite. The snap
+ *     stays: a pill animating its width in from 0 on mount is wrong regardless of the ink.)
+ *     But the pill only exists once the
  *     segment's `onLayout` has fired, and `withTiming` used to animate its width in from 0 even
  *     on that very first positioning — so the active tab's high-contrast text sat over the bare
  *     track, unreadable, for one `Duration.control` on every mount (reported as illegible
@@ -98,8 +106,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Fonts, FontSize, OpticalCenter, Radius, Spacing } from '@/constants/theme';
-import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { Fonts, FontSize, OpticalCenter, Radius, rgba, Spacing } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { selection } from '@/lib/haptics';
 import PressableScale from '@/components/PressableScale';
 import { Duration, Ease } from '@/constants/motion';
@@ -136,6 +144,17 @@ const TRACK_GAP = 3;
  *  (38) and Button size `sm` (36) already live there. */
 const SEGMENT_HEIGHT = 34;
 /**
+ * How strongly the active pill carries its tab's colour (2026-08-18).
+ *
+ * Higher in dark than in light because the wash composites over a near-black ground there and
+ * loses most of its strength doing so, where in light it is already sitting on a pale track.
+ * Both are tuned so the pill is unmistakably present behind the label and the label itself is
+ * read as `theme.text` — full contrast, on every hue a caller can pass, in both modes. Raise
+ * either and the label starts competing with its own background; that is the failure the
+ * BottomNav plate hit in the 2026-08-16 pass.
+ */
+const PILL_ALPHA = { light: 0.16, dark: 0.24 };
+/**
  * The slider's natural content height — `borderWidth 1 × 2 + TRACK_PAD × 2 + SEGMENT_HEIGHT`.
  *
  * Exported because a caller mounting this as `stickyBelowHeader` must hand ScreenScaffold a
@@ -156,6 +175,7 @@ export default function TabSlider<T extends string | number>({
   style,
 }: Props<T>) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const [trackH, setTrackH] = useState(0);
   const [segLayouts, setSegLayouts] = useState<{ x: number; width: number }[]>([]);
@@ -243,7 +263,13 @@ export default function TabSlider<T extends string | number>({
           collapsable={false}
           style={[
             styles.pill,
-            { height: pillH, top: TRACK_PAD, borderRadius: pillRadius, backgroundColor: options[activeIndex]?.color ?? theme.accent },
+            // **A soft translucent wash, never a solid fill (2026-08-18)** — maintainer:
+            // *"Active Top Tabs should use a soft, translucent pill strictly behind the
+            // text/icon."* It was `theme.accent` at full opacity, which is what made the label
+            // need `accentInk` and made a row of screen tabs the loudest thing on the screen.
+            // The hue still identifies the active tab; it just sits behind the word instead of
+            // replacing the ground under it.
+            { height: pillH, top: TRACK_PAD, borderRadius: pillRadius, backgroundColor: rgba(options[activeIndex]?.color ?? theme.accent, PILL_ALPHA[isDark ? 'dark' : 'light']) },
             pillStyle,
           ]}
         />
@@ -271,8 +297,12 @@ export default function TabSlider<T extends string | number>({
                 control's own name is the one failure the row can't recover from — the same
                 reason BottomNav auto-shrinks. `minimumFontScale` floors it at a legible size,
                 so a label that still doesn't fit wraps the row instead of vanishing. */}
+            {/* Full-contrast ink on the active tab, muted on the rest. It was `accentInk`,
+                which only made sense while the pill under it was a solid accent fill — on a
+                translucent wash that ink is being read against the screen's own ground, and
+                `theme.text` is the only value that holds on every hue in both modes. */}
             <Text
-              style={[styles.label, { color: isActive ? theme.accentInk : theme.textMuted }]}
+              style={[styles.label, { color: isActive ? theme.text : theme.textMuted }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.85}
@@ -290,13 +320,18 @@ export default function TabSlider<T extends string | number>({
     <View
       style={[
         styles.wrap,
-        { backgroundColor: theme.surfaceMuted, borderColor: theme.border, borderRadius: radius },
+        // **No visible track edge (2026-08-18)** — the bordered box around a row of tabs is
+        // exactly the "box-in-a-box" the maintainer ruled out, and on the four screens that
+        // mount this as `stickyBelowHeader` it drew a second rectangle immediately under the
+        // header card's own. The stroke stays at `transparent` rather than going to width 0:
+        // `TAB_SLIDER_HEIGHT` counts those 2px, and every caller reserves that number.
+        { backgroundColor: theme.surfaceMuted, borderColor: 'transparent', borderRadius: radius },
         // Attached to the header above: square the top corners and drop the top border, so the
         // seam between the two is a single line rather than two stacked edges of different
         // colours. `paddingTop` gives the px back, keeping the rendered height exactly
         // TAB_SLIDER_HEIGHT — the caller reserves that number, and a surplus/deficit is what
         // knocks the pill's vertical inset out of true (see that constant's doc).
-        attachedTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0, paddingTop: 1 },
+        attachedTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
         style,
       ]}
     >

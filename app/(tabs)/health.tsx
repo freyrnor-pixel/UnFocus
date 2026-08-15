@@ -612,7 +612,6 @@ export default function HealthScreen() {
                             title={t.starters.health.exampleTitle}
                             meta="3/5"
                             metaVariant="warning"
-                            accent={SEVERITY_COLORS[2]}
                             onAdd={healthStarterAdded ? undefined : addHealthStarterLog}
                             addLabel={t.starters.addExample}
                             added={healthStarterAdded}

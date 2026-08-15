@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   personLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.xs },
   personName: { fontSize: FontSize.sm, fontFamily: Fonts.medium, flexShrink: 1 },
   personValue: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
-  personNote: { fontSize: FontSize.xs, fontFamily: Fonts.regular, fontStyle: 'italic' },
+  personNote: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
   divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
   summary: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
 });

@@ -1176,3 +1176,100 @@ claim in a comment, which is the specific thing the 2026-08-16 set got wrong.
 The ΔE2000 ≥ 25 pairwise floor is unchanged and still load-bearing — it is what rejects rotating
 Health's rose back toward magenta for chroma (24.0 at h 350), the same way it rejected the
 brief's own suggested Shopping value in the first place.
+
+---
+
+## Addendum — the blueprint pass (2026-08-18)
+
+A third maintainer brief, written after the previous two had only been partly carried out:
+*"You have been falling back on standard CSS habits (nested boxes, gradients, and text bloat).
+Stop guessing."* Four instructions plus one addition, each reversing something that had shipped
+deliberately. What follows is what each one COST, so the next session can tell a decision from
+drift.
+
+### 1. The bottom nav lost its indicator, not just its shape
+
+*"Do not use massive asymmetrical background circles for the active Bottom Nav icon… the active
+state should just be a filled icon in the active color with no background shape."*
+
+This deletes the whole 2026-07-24 → 2026-08-12 sliding-pill lineage — five slots, three measured
+tracks, a morphing width/height/radius, two clamps against the bar's clipping mask, and a
+56px centre FAB — and it deletes them *for a reason that was never about the bugs those passes
+fixed*. Every one of those fixes was real; the object they were fixing is what is no longer
+wanted.
+
+**What is knowingly given up:** the selection cue is now a single channel — colour — where it
+used to be three (position, plate, colour). For a colour-blind reader the filled-vs-outline
+glyph is what remains, which is why the Ionicons variant swap is load-bearing and not
+decorative. The 2026-08-17 lightness ladder is what makes this survivable: the five hues are
+≥7 L\* apart and clear AA on both dark grounds, so "which tab am I on" is answerable in
+greyscale by the fill and in colour by the hue. **If a device report says the active tab is hard
+to find, the answer is a heavier glyph or a larger size differential — not a plate.**
+
+### 2. A top tab's pill went translucent, and the two-shapes rule survived it
+
+Rule: screen tier = `TabSlider`, form tier = `SegmentedControl`, and **the tier is carried by the
+ACTIVE TREATMENT, never by the corner radius.** That is intact. The screen tier is now a soft
+hued wash with `theme.text` on it; the form tier is still a raised white pill. The two are
+further apart than they were when the difference was a fill opacity.
+
+Cost: `accentInk` has no reader in `TabSlider` any more, which retires the 2026-08-05
+snap-on-first-positioning bug class outright (the label is legible on the bare track now). The
+snap itself was kept — a pill animating its width in from 0 on mount is wrong regardless of what
+colour the text is.
+
+### 3. "No box inside a card" cost the example row its last edge
+
+The dashed field-rung border on `StarterExampleRow`/`StarterSuggestionChip` was itself the
+outcome of two prior rulings (2026-08-10's provisional finish, 2026-08-12's converge-the-two-
+shapes pass). Both are honoured in substance and reversed in mechanism: the two shapes still
+share ONE finish, an example still must not look finished, and the row still keeps the GEOMETRY
+of the row it stands in for. Only the channel changed — from an edge to ink plus a shared
+`getMatte()` plate.
+
+**The risk, stated plainly:** with no edge and no fill, an example row differs from a real row by
+ink colour alone. That is one channel, and 2026-08-10's report was precisely that the example was
+being mistaken for content. The mitigations are the trigger row above it, which says "Examples:"
+in words, and the fact that a starter card only renders while the surface is EMPTY — there are no
+real rows next to it to be confused with. If a report says the examples read as content again,
+the honest fix is a stronger word or a dimmer ink, not a border.
+
+### 4. Italics are gone app-wide
+
+14 files carried `fontStyle: 'italic'`, all of them for the same job: marking a line as an aside.
+Those lines are now plain muted text. Where a line's ONLY distinction was the slant, it now has
+none — that is the instruction, and the deeper reading of it is that a line needing a typographic
+apology probably should not be on the screen. The ⓘ banner clamp (`HINT_LINES` = 2) and
+`StarterCard`'s (3) are what stop the freed space from refilling with prose.
+
+### 5. The addition, and the one thing it reverses outright
+
+*"even though things are translucent, things like header and bottom nav should still not show
+elements behind it when user is scrolling, or have scrolled. Only the backdrop."*
+
+`ScreenScaffold`'s clip window moved from the chrome's OUTER footprint to its INNER edges. The
+2026-08-11 arithmetic it replaces was correct on its own terms and failed for a reason worth
+recording: it rested on the premise that the chrome is opaque ("content scrolls under the header
+and nav cards and is hidden BY them"), which was true under the 2026-08-05 flat-card reset and
+stopped being true on 2026-08-15, when the header and bar became frosted glass. **Nothing
+announced the change, because the arithmetic never mentioned opacity — it only assumed it.** That
+is the general lesson here, and it is the same one AGENTS.md records about a header comment that
+asserts a safety property: a premise stated in prose is not re-checked when the thing it is about
+moves.
+
+**What this gives up, explicitly:** the corner peek — *"when cards slide behind the bottom nav,
+they should be visible in the bottom nav's cut corners at the top"* (2026-08-10). That request and
+this one are the same question with opposite answers. This is the later ruling and the more
+general one (it governs every pixel of the chrome, not four corners), so it wins; the peek is not
+a bug to re-fix. The viewport's corner radii went with it — they existed only to cover the two
+OUTER corner pairs the window no longer reaches.
+
+### 6. Two components caught up rather than changed
+
+`IconButton` and `VoiceNoteFAB` were not part of any of the four instructions; they were simply
+still carrying the layers the 2026-08-17 button pass deleted from `Button` (a `darken(fill, 0.22)`
+housing, a black cast shadow, a `LinearGradient` rim). Converting them is the pass finishing its
+own job. **The FAB keeps one documented exception**: its glass body is painted over an opaque
+`theme.surface` disc, because it floats over a scrolling list and a 14% wash would let note rows
+travel through the middle of it. That is the same answer the chrome got in this pass, for the same
+reason — translucency is a look, not a licence to show content through a control.
