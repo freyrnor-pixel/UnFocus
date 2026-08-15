@@ -20,8 +20,10 @@
  *   Card identity hues (lib/domainColor.ts, drives the card badge + the pane's 5% wash —
  *     COLLAPSED from nine hues to FOUR on 2026-07-31 (addendum A.3), then RETUNED to FIVE
  *     neon categoricals on 2026-08-16 (maintainer brief §7, which also gave Notes a hue of
- *     its own); the nine token names all still exist and alias five values, see the card
- *     block below): cardTask, cardPlan, cardHabit,
+ *     its own), then RECALIBRATED onto a lightness ladder on 2026-08-17 — same five
+ *     categories, same neon aesthetic, values re-picked so they survive greyscale and
+ *     colour blindness; the nine token names all still exist and alias five values, see the
+ *     card block below): cardTask, cardPlan, cardHabit,
  *     cardShop, cardMeal, cardBudget, cardNote, cardHealth, cardScan
  *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
  *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
@@ -48,9 +50,11 @@
  * Edit notes:
  *   - `rule` is DECORATIVE ONLY and deliberately sits below the 3:1 control-boundary floor —
  *     read its doc comment on ThemePalette before using it anywhere. `border` keeps that job.
- *   - The five identity hues are mode-invariant and separate by HUE (ΔE2000 ≥ 25 pairwise).
- *     They used to separate by L\* instead; that guarantee was dropped on instruction in the
- *     2026-08-16 neon pass — read the ⚠️ block above IDENTITY_HUES before restoring it.
+ *   - The five identity hues are mode-invariant and separate by **L\*** — a five-rung ladder
+ *     ~7.6 apart (86.9 / 79.3 / 71.7 / 64.0 / 56.7), on top of the ΔE2000 ≥ 25 pairwise floor.
+ *     The ladder was dropped in the 2026-08-16 neon pass and RESTORED on 2026-08-17 because
+ *     the set had stopped surviving greyscale and deuteranopia; read the ⚠️ block above
+ *     IDENTITY_HUES before moving any value, and DESIGN_RULES.md rule 11a for the rule.
  *   - Adding a colour token? Add it to the matching list in lib/__tests__/colors.test.ts in
  *     the same edit — a token in no list is a token nothing checks.
  */
@@ -219,65 +223,127 @@ export function contrastRatio(hex1: string, hex2: string): number {
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
-// ── Identity hues — FIVE neon categoricals (2026-08-16, maintainer brief §7) ─
+// ── Identity hues — FIVE neon categoricals on a LIGHTNESS LADDER (2026-08-17) ─
 //
-// History, because this table has been rewritten twice and the reasons matter:
+// History, because this table has been rewritten three times and the reasons matter:
 // the system had NINE hues until 2026-07-31 (addendum A.3), which collapsed it to FOUR on the
 // grounds that nobody learns nine colours at a 22px badge. The collapse stands — this is still
-// "one hue per thing a person thinks of as a separate part of their life" — but the VALUES and
-// the count are the maintainer's 2026-08-16 categorical brief, which named each one by hand
-// and added Notes as a real identity rather than a neutral:
+// "one hue per thing a person thinks of as a separate part of their life" — and so does the
+// 2026-08-16 categorical brief, which took it to FIVE named neons and gave Notes an identity
+// of its own. What changed on **2026-08-17** is the VALUES, not the count or the aesthetic:
 //
-//   Hue      Value      Badge ink   Owns
-//   To-do    #FFC000    DARK        tasks, plans, goals            (neon amber)
-//   Habits   #05D9E8    DARK        habits                         (electric cyan)
-//   Health   #FF2A6D    DARK        health entries, medicines, episodes (neon rose)
-//   Shopping #00FF85    DARK        shopping, food, catalogue, budget, scan (neon green)
-//   Notes    #B967FF    DARK        notes                          (amethyst)
+//   Rung  Hue      Value      L\*    Badge ink   Owns
+//   1     To-do    #FFD700    86.9   DARK        tasks, plans, goals            (gold)
+//   2     Habits   #05D9E8    79.3   DARK        habits                         (electric cyan)
+//   3     Health   #FF8CB2    71.7   DARK        health entries, medicines, episodes (rose)
+//   4     Shopping #0DB34A    64.0   DARK        shopping, food, catalogue, budget, scan (emerald)
+//   5     Notes    #B45CFF    56.7   DARK        notes                          (violet)
 //
 // Home still gets NO identity hue (IDENTITY_NEUTRAL below); Notes no longer shares that fate.
 //
-// ⚠️ **THE L\* SPREAD IS GONE, DELIBERATELY, AND THIS IS THE ONE THING TO READ BEFORE EDITING.**
-// The four-hue set separated by **L\*** (38.6 / 48.3 / 44.3 / 70.7) rather than by hue, and the
-// note that stood here said in capitals never to harmonise them, because lightness is the only
-// channel that survives greyscale and colour blindness. That is still TRUE as colour science.
-// It was **overridden on the maintainer's explicit instruction** (2026-08-16), asked and
-// answered as a direct trade — "full neon, drop the greyscale guarantee" — in service of the
-// OLED brief: a set spread across L\* 38–71 contains, by construction, three hues too dark to
-// glow against pure black, which is the entire look being asked for. So these five sit at
-// L\* 56–90 and separate by **hue and chroma** instead: every pair is ΔE2000 ≥ 25 (worst is
-// Habits/Shopping at 32.7), and that pairwise floor is now the ONLY separation guarantee.
-// Consequences, so nobody is surprised:
-//   · A deuteranope cannot reliably tell Habits' cyan from Shopping's green. Accepted.
-//   · A greyscale screenshot flattens To-do/Habits/Shopping (L\* 81/79/89) into one band.
-//   · `lib/__tests__/colors.test.ts` no longer asserts a per-hue L\* pin or Shopping's ≥15 L\*
-//     gap; it asserts the ΔE2000 floor. Both changes are recorded there with this reasoning.
-// **This is the guarantee that pays for it**: the badge GLYPH is contrast-checked per hue, per
-// mode, against the real composited plate (`badgeGlyphFor`, `lib/domainColor.ts`), so no hue
-// is ever drawn somewhere its legibility is merely assumed. If you are tempted to restore the
-// L\* spread, that is a maintainer conversation, not a tidy-up — it un-picks the brief.
+// ⚠️ **THE L\* LADDER IS BACK, AND IT IS THE THING TO READ BEFORE EDITING ANY VALUE.**
+// The 2026-08-16 set was chosen for maximum neon and separated by hue and chroma ALONE, at
+// L\* 81 / 79 / 56 / 89 / 59 — three hues inside 10 points of each other at the top. That was
+// taken deliberately, as a stated trade ("full neon, drop the greyscale guarantee"), and it was
+// **reversed on 2026-08-17** on a follow-up review: a deuteranope reading the app saw To-do's
+// amber, Shopping's green and Health's rose collapse toward one another (worst pair simulated
+// at ΔE2000 **11.8**), and a greyscale screenshot flattened To-do/Habits/Shopping into one
+// band. Lightness is the only channel that survives greyscale, deuteranopia, protanopia and
+// monochromacy at once, so it is the channel the categories are carried on.
 //
-// All five take DARK ink, which is not the old asymmetry returning inverted: they are all
-// bright now, so `contrastOn()` picks the dark end for every one of them. That uniformity is a
-// symptom of the neon set, not a separate decision.
+// **The rungs are ~7.6 L\* apart and the ladder is not decoration — it is the accessibility
+// guarantee.** Reordering two hues, or "harmonising" one toward its neighbour, deletes it.
+//
+// **The band is not a taste choice either — it is derived, and both ends are pinned:**
+//   · BOTTOM, L\* 55.4. Every hue must clear WCAG AA 4.5:1 as a glyph on the dark glass card
+//     (`surface` #1E1E1E — a harder ground than `bg` #000000, so clearing it clears both).
+//     4.5:1 there needs relative luminance ≥ 0.2333, i.e. L\* ≥ 55.4, whatever the hue.
+//     Notes sits at 56.7 (4.70:1) for margin — it is the DEEPEST violet AA allows here, and
+//     "deeper" is not available without failing rule 11's own contrast requirement.
+//   · TOP, ~L\* 87. Above that, sRGB has no saturated amber left: the gold cusp is at L\* 87
+//     and everything higher is a pale cream (at L\* 92 the best amber is C\* 34, a third of
+//     what it is here). Pushing To-do higher buys ladder room by spending the neon.
+//   · So the whole set lives in a 30-point band, and 5 rungs is what fits at ~7.6 apart. **A
+//     SIXTH identity hue does not fit.** If one is ever needed, that is a conversation about
+//     the band, not a value to slot in between two rungs.
+//
+// **Every hue is on the sRGB gamut boundary at its assigned lightness**, which is what keeps
+// this a neon/jewel set rather than a pastel one: none of them is desaturated to hit its rung,
+// each is the most saturated colour that exists at that lightness in its family (C\* 43–93;
+// cyan's 43 is not a compromise — 46 is the physical maximum for any cyan at L\* 79).
+// Health's rose is the one that visibly moved (`#FF2A6D` → `#FF8CB2`): a rose can only be
+// deeply saturated below L\* 60, and rung 3 is above that. In exchange it stopped colliding
+// with `bad` `#FF3B5C` (a 1.1 L\* gap became 14.5), which was its own quiet defect.
+//
+// What the set still guarantees, unchanged from the neon pass:
+//   · pairwise ΔE2000 ≥ 25 (worst pair now Health/Notes at 26.9);
+//   · every hue ≥ 4.5:1 on `surface` AND on `bg` in dark mode (worst 4.70:1 / 5.92:1);
+//   · the badge GLYPH is contrast-checked per hue, per mode, against the real composited plate
+//     (`badgeGlyphFor`, `lib/domainColor.ts`), so no hue is ever drawn somewhere its
+//     legibility is merely assumed.
+// All four are asserted in `lib/__tests__/colors.test.ts`, together with the ladder itself and
+// a dichromat-simulation regression floor.
+//
+// All five take DARK ink: they are all bright, so `contrastOn()` picks the dark end for every
+// one of them. That uniformity is a symptom of the band's bottom being L\* 55.4, not a
+// separate decision.
 export const IDENTITY_HUES = {
-  /** Tasks, plans, goals. Neon amber. */
-  todo: { hue: '#FFC000', ink: '#1B2432' },
-  /** Habits. Electric cyan. */
-  habits: { hue: '#05D9E8', ink: '#1B2432' },
-  /** Health entries, medicines, episodes. Neon rose. */
-  health: { hue: '#FF2A6D', ink: '#1B2432' },
   /**
-   * Shopping, food, catalogue, budget, scan. Neon green.
+   * Rung 1, L\* 86.9 — the brightest of the five. Tasks, plans, goals. Gold.
    *
-   * The brief offered `#01FFC3` "or bright neon green". `#01FFC3` was measured against Habits'
-   * electric cyan at **ΔE2000 22.9** — under the 25 separation floor, and visibly so: two
-   * cyan-greens one tab apart in the nav. `#00FF85` is the same mint-emerald idea rotated far
-   * enough toward green to clear it at 32.7. Don't rotate it back.
+   * `#FFC000` until 2026-08-17, at L\* 81.3, which sat 2 points from Habits' cyan and 7 BELOW
+   * Shopping's green — above them in saturation and under them in lightness, which is exactly
+   * the arrangement greyscale cannot show. It moves up the ladder rather than around the hue
+   * wheel: at L\* 87 gold is still C\* 87, and it is the last rung where an amber is saturated
+   * at all (at L\* 92 the best one left is C\* 34, a pale cream).
    */
-  shopping: { hue: '#00FF85', ink: '#1B2432' },
-  /** Notes. Amethyst. New in 2026-08-16 — Notes was IDENTITY_NEUTRAL before this. */
-  notes: { hue: '#B967FF', ink: '#1B2432' },
+  todo: { hue: '#FFD700', ink: '#1B2432' },
+  /**
+   * Rung 2, L\* 79.3 — electric cyan. Habits.
+   *
+   * The one value the 2026-08-17 ladder did NOT have to move: it already sat where rung 2 wants
+   * it. Its C\* 43 is not a compromise — 46 is the physical maximum for any cyan at this
+   * lightness, so this is on the gamut boundary like every other rung.
+   */
+  habits: { hue: '#05D9E8', ink: '#1B2432' },
+  /**
+   * Rung 3, L\* 71.7 — rose. Health entries, medicines, episodes.
+   *
+   * ⚠️ **The value that moved furthest (`#FF2A6D` → `#FF8CB2`), and it is not a fade.** A rose
+   * is only deeply saturated below L\* 60 — the red-magenta gamut cusp is down there — so a
+   * mid-rung rose is necessarily lighter, and at C\* 48 this one is on the gamut boundary for
+   * its lightness, same rule as the rest. Two quiet defects went with it: `#FF2A6D` sat 1.1 L\*
+   * from the destructive token `bad` `#FF3B5C` (now 14.5 apart), and at 4.61:1 it was the rung
+   * with no AA margin at all (now 7.66:1).
+   *
+   * Rotating it back toward magenta to buy chroma costs Notes: at h 350 the pair measures
+   * ΔE2000 24.0 and fails the ≥25 separation floor outright.
+   */
+  health: { hue: '#FF8CB2', ink: '#1B2432' },
+  /**
+   * Rung 4, L\* 64.0 — emerald. Shopping, food, catalogue, budget, scan.
+   *
+   * This is the rung the 2026-08-17 review was really about. `#00FF85` was the LIGHTEST hue in
+   * the set (L\* 88.5), 9 points above Habits' cyan — and deuteranopia turns a mint green and a
+   * cyan into much the same thing, so two tabs sitting one apart in the nav were told apart by
+   * a channel some readers do not have. Deepening it to a forest/emerald neon puts 15 L\*
+   * between them, which is what a deuteranope actually reads. Simulated worst-pair separation
+   * across the whole set goes ΔE2000 11.8 → 19.7; To-do/Shopping specifically, 11.8 → 23.0.
+   *
+   * (For the record, the 2026-08-16 brief's own suggestion `#01FFC3` was rejected before that
+   * set ever shipped, at ΔE2000 22.9 against Habits' cyan. Don't rotate back toward it.)
+   */
+  shopping: { hue: '#0DB34A', ink: '#1B2432' },
+  /**
+   * Rung 5, L\* 56.7 — violet. Notes. (Notes was IDENTITY_NEUTRAL until 2026-08-16.)
+   *
+   * ⚠️ **This is the floor of the whole system and it cannot go deeper.** 4.5:1 on the dark
+   * glass card needs L\* ≥ 55.4; this sits at 56.7 (4.70:1) to keep margin against rounding.
+   * A deeper violet — `#A855F7` at L\* 53.5, say — measures 4.21:1 and fails AA as a glyph,
+   * which is rule 11's own contrast half. At C\* 93 it is the most saturated value in the set,
+   * so "deep" is carried here by chroma rather than by lightness.
+   */
+  notes: { hue: '#B45CFF', ink: '#1B2432' },
 } as const;
 
 /**
@@ -698,25 +764,42 @@ const defaultDark: ThemePalette = {
   // and making it worse to make it consistent is the wrong trade. The consequence — light mode
   // has a teal Health wash under a rose Health badge — is known and accepted.
   //
+  // ⚠️ The six categorical entries below are `IDENTITY_HUES` VERBATIM and must stay that way —
+  // they moved with the 2026-08-17 lightness-ladder recalibration and would silently un-align
+  // the wash from its badge if left behind. Copied rather than referenced only because this
+  // block is a literal palette; `lib/__tests__/colors.test.ts` asserts they agree.
+  //
   // Three of the nine are NOT one of the five named categories and are picked to stay clear of
-  // all of them rather than to mean anything new:
-  featPlan: '#FFC000',   // goals — rides To-do's amber (this token has no live consumer; see
+  // all of them rather than to mean anything new. **They are deliberately NOT on the ladder**,
+  // and the reason is that they cannot be seen beside it: `feat*` is a per-SCREEN wash, one
+  // screen at a time, and the only surface that shows several at once is Home — whose preview
+  // cards are To-do, Habits, Shopping and Notes, i.e. four of the five. Food, Scan and Budget
+  // have no Home card, so `featMeal` sharing Shopping's rung (L\* 66.0 vs 64.0) costs nothing
+  // that is ever on screen together. Don't "finish the ladder" by putting them on it — that
+  // would spend rungs the five categories need.
+  featPlan: '#FFD700',   // goals — rides To-do's gold (this token has no live consumer; see
   // lib/screenColor.ts's SCREEN_TOKEN note on `goals`)
-  featTask: '#FFC000',   // the to-do list — neon amber
-  featHabit: '#05D9E8',  // habits — electric cyan
-  featHealth: '#FF2A6D', // health — neon rose
+  featTask: '#FFD700',   // the to-do list — gold (ladder rung 1)
+  featHabit: '#05D9E8',  // habits — electric cyan (rung 2)
+  featHealth: '#FF8CB2', // health — rose (rung 3)
   featMeal: '#FF7A1A',   // food & meals — neon orange. Part of the shopping world, but its own
   // screen, so it can't just take Shopping's green; orange is the nearest free slot.
-  featShop: '#00FF85',   // shopping — neon green
+  featShop: '#0DB34A',   // shopping — emerald (rung 4)
   featBudget: '#FFB300', // money — unwired, no screen maps to it
-  featNote: '#B967FF',   // notes — amethyst
-  featScan: '#7C5CFF',   // scan & receipts — electric indigo. It was violet, which amethyst
-  // now owns; moved along the hue wheel rather than being left to collide with Notes.
+  featNote: '#B45CFF',   // notes — violet (rung 5)
+  featScan: '#7C5CFF',   // scan & receipts — electric indigo. It was violet, which Notes owns;
+  // moved along the hue wheel rather than being left to collide with it. It still sits closest
+  // to Notes of anything here (ΔE2000 9.4, was 10.9 before the 2026-08-17 recalibration) and is
+  // left alone on purpose: rotating it further toward blue just trades that for a collision
+  // with `accent` (#1E88FF, ΔE 19.5 today, 12.8 at h 285), and Scan is a pushed sub-screen that
+  // shares no view with either.
 
   // Card identity (dark) — IDENTICAL to light as of 2026-07-31 (addendum A.3). The old ramp
-  // lightened every stop ~0.20 for the dark surface; the four collapsed hues do NOT, because
+  // lightened every stop ~0.20 for the dark surface; the five collapsed hues do NOT, because
   // their separation is carried by the L\* gaps (see IDENTITY_HUES) and lightening per mode
-  // would give dark mode a different set of gaps than light. Same nine-name → four-value
+  // would give dark mode a different set of gaps than light — which is exactly what the
+  // 2026-08-17 recalibration re-established, so this constraint is live again rather than
+  // vestigial. Same nine-name → four-value
   // aliasing as the light block; the mapping table lives there, stated once.
   cardPlan: IDENTITY_HUES.todo.hue,
   cardTask: IDENTITY_HUES.todo.hue,

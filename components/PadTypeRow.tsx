@@ -379,10 +379,10 @@ export default function PadTypeRow({
             //
             // The focus colour goes through `badgeGlyphFor`, which is the app's existing
             // "walk a hue toward the ground until it clears 3.3:1 on what it is drawn on"
-            // helper. In DARK that is a no-op (the five categoricals measure 5.09–13.72:1 on
+            // helper. In DARK that is a no-op (the five categoricals measure 5.19–13.13:1 on
             // the recessed well). In LIGHT it is load-bearing: the identity hues are
-            // mode-invariant neons, and a raw `#FFC000` focus ring on a `#EDEEF1` field is
-            // about 1.4:1, i.e. no visible focus state at all — rule 18 with the cue missing.
+            // mode-invariant neons, and a raw `#FFD700` focus ring on a `#EDEEF1` field is
+            // 1.21:1, i.e. no visible focus state at all — rule 18 with the cue missing.
             borderColor: focused ? focusHue : 'transparent',
           },
         ]}

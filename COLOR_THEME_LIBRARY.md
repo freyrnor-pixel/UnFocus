@@ -77,7 +77,7 @@ renamed because a colour changed.
 | Depth | `shadow`, `overlay` | Shadow tint (theme-aware), modal/sheet backdrop rgba |
 | Hint card | `hintBg`, `hintBorder`, `hintAccent` | The `HintCard` explainer surface only |
 | Feature octet (screen hues) | `featTask`, `featPlan`, `featHabit`, `featShop`, `featMeal`, `featBudget`, `featNote`, `featHealth`, `featScan` | Per-screen accent hue (`lib/screenColor.ts`) — walks a deliberate arc, see that token block's comment in `constants/colors.ts` for the full ordering rationale |
-| Card identity hues | `cardTask`, `cardPlan`, `cardHabit`, `cardHealth`, `cardMeal`, `cardShop`, `cardBudget`, `cardNote`, `cardScan` | Card badge + header wash + domain edge (`lib/domainColor.ts`) — nine token **names**, but only **four distinct values** behind them since 2026-07-31 (see below) |
+| Card identity hues | `cardTask`, `cardPlan`, `cardHabit`, `cardHealth`, `cardMeal`, `cardShop`, `cardBudget`, `cardNote`, `cardScan` | Card badge + header wash + domain edge (`lib/domainColor.ts`) — nine token **names**, but only **five distinct values** behind them — a lightness ladder, see below |
 | Priority ramp (reserved) | `priorityHigh(Soft)`, `priorityMedium(Soft)`, `priorityLow(Soft)` | Not read by any live feature yet |
 | Category palette (reserved) | `categoryWork(Soft)`, `categoryHealth(Soft)`, `categoryHome(Soft)`, `categoryPersonal(Soft)`, `categoryShared(Soft)` | Not read by any live feature yet |
 
@@ -90,34 +90,40 @@ those were the pre-rebuild names. The nearest current equivalents are `bg`
 
 ---
 
-## Card identity hues — four values, not nine (2026-07-31, addendum A.3)
+## Card identity hues — five values, not nine (2026-08-17)
 
 The nine `card*` token names above all still exist (so nothing has to be
-renamed), but they now alias just **four** distinct hues, one per thing a
-person actually thinks of as a separate part of their life:
+renamed), but they alias just **five** distinct hues, one per thing a person
+actually thinks of as a separate part of their life — and those five sit on a
+**lightness ladder**, brightest first:
 
-| Hue | Value | Badge ink | Owns |
-|---|---|---|---|
-| To-do | `#3F52B5` | white | tasks, plans, goals |
-| Habits | `#218432` | white | habits |
-| Health | `#A84A60` | white | health entries, medicines, episodes |
-| Shopping | `#D9A441` | **dark** | shopping, food, catalogue, budget, scan |
+| Rung | Hue | Value | L\* | Badge ink | Owns |
+|---|---|---|---|---|---|
+| 1 | To-do | `#FFD700` | 86.9 | dark | tasks, plans, goals |
+| 2 | Habits | `#05D9E8` | 79.3 | dark | habits |
+| 3 | Health | `#FF8CB2` | 71.7 | dark | health entries, medicines, episodes |
+| 4 | Shopping | `#0DB34A` | 64.0 | dark | shopping, food, catalogue, budget, scan |
+| 5 | Notes | `#B45CFF` | 56.7 | dark | notes |
 
-Home and Notes get **no** identity hue — `IDENTITY_NEUTRAL` (`#6B7280`), a
-near-grey slate.
+Home gets **no** identity hue — `IDENTITY_NEUTRAL` (`#6B7280`), a near-grey
+slate. (Notes shared that until 2026-08-16, when it got amethyst of its own.)
 
-**⚠️ Load-bearing constraint — read before touching any of these four values:**
-they separate by **L\*** (lightness: 38.6 / 48.3 / 44.3 / 70.7), not by hue.
-That's what makes them distinguishable in greyscale, in a black-and-white
-screenshot, and for every form of colour blindness. Never "harmonise" them to
-equal lightness — that reads tidier in a swatch strip and destroys the one
-channel that survives colour blindness. Shopping's dark ink (vs. the other
-three's white) is the price of that L* spread, not an inconsistency to "fix".
-See `constants/colors.ts`'s `IDENTITY_HUES` comment for the full reasoning,
-including the honest caveat that Habits and Health sit only 4.0 L\* apart and
-separate by hue/chroma instead (ΔE2000 63.1). Habits was `#1F7A2E` (L\* 44.8,
-0.5 from Health) until 2026-08-04, when it was lightened to `#218432` along the
-same hue angle — the one value in this table that has ever moved.
+**⚠️ Load-bearing constraint — read before touching any of these five values:**
+they separate by **L\*** (~7.6 between adjacent rungs), not only by hue. That's
+what makes them distinguishable in greyscale, in a black-and-white screenshot,
+and for every form of colour blindness. Never "harmonise" them to equal
+lightness — that reads tidier in a swatch strip and destroys the one channel
+that survives colour blindness. This has been answered both ways: the ladder was
+dropped on 2026-08-16 for a full-neon set that separated by hue alone, and
+restored on 2026-08-17 after the cost was measured (worst pair under
+deuteranopia simulation: ΔE2000 11.8). The restoration kept the neon look — every
+value is on the sRGB gamut boundary at its lightness.
+
+The band is **full**: its bottom is fixed at L\* 55.4 by WCAG AA 4.5:1 on the
+dark glass card, its top at ~87 by sRGB running out of saturated amber, so five
+rungs is the capacity and a sixth identity hue does not fit. See
+`constants/colors.ts`'s `IDENTITY_HUES` comment for the per-hue reasoning and
+`DESIGN_RULES.md` rule 11a for the rule.
 
 ---
 
@@ -179,7 +185,7 @@ const theme = getThemePalette('default', isDark);
 ```typescript
 import { IDENTITY_HUES } from '@/constants/colors';
 
-const habitsHue = IDENTITY_HUES.habits.hue; // '#218432', same in light and dark
+const habitsHue = IDENTITY_HUES.habits.hue; // '#05D9E8', same in light and dark
 ```
 
 ---
@@ -219,8 +225,8 @@ only in overlay/chrome contexts — ambient content cards get no blur layer).
   exception, and only via their named exports).
 - Reference `theme.cream`/`theme.orange`/`theme.white`/etc. — dead pre-rebuild
   names, not real tokens.
-- "Harmonise" the four identity hues to equal lightness — see the load-bearing
-  constraint above.
+- "Harmonise" the five identity hues to equal lightness — see the load-bearing
+  constraint above. Their L\* ladder is the colour-blind guarantee.
 - Add a user-facing custom-theme picker without checking with the maintainer
   first — the whole custom-theme system was removed at Decision 006, and this
   file used to be the only place still describing it as live.

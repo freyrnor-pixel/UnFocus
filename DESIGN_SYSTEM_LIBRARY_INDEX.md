@@ -38,7 +38,7 @@ light/dark and hands back the `ThemePalette` as `theme`. Outside a component, ca
 | Library | Covers | When to use |
 |---------|--------|-----------|
 | **BUTTON_LIBRARY.md** | Buttons, FAB, IconButton, form controls (Checkbox, Switch, Input, SegmentedControl), Badge, Chip | Adding buttons, designing interactions, building forms |
-| **COLOR_THEME_LIBRARY.md** | The single `default` theme's light/dark `ThemePalette`, the four-hue card identity system, `contrastOn`/`contrastRatio`, the `getMaterialStyle`/`getGlow` surface finish | Choosing colours, theming UI, ensuring accessibility |
+| **COLOR_THEME_LIBRARY.md** | The single `default` theme's light/dark `ThemePalette`, the five-hue card identity system (a lightness ladder), `contrastOn`/`contrastRatio`, the `getMaterialStyle`/`getGlow` surface finish | Choosing colours, theming UI, ensuring accessibility |
 | **TYPOGRAPHY_LIBRARY.md** | Nunito font (regular–extrabold), 7-level text hierarchy (12–36px), readability, text colour hierarchy | Styling text, creating headings, ensuring readability |
 | **SPACING_LAYOUT_LIBRARY.md** | Spacing scale (xs 4 → xxl 48), radius scale (sm 12 → full 999), layout patterns, breathing room | Spacing components, building layouts, grid systems |
 | **ICON_LIBRARY.md** | Ionicons reference (1000+ icons), sizing guide, feature-specific icons, accessibility, dark mode colouring | Choosing icons, sizing, ensuring accessibility |

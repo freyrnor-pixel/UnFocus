@@ -961,6 +961,13 @@ assumed:
 
 ### Override 1 — the identity hues no longer survive greyscale (rule 11a)
 
+> ⚠️ **REVERSED on 2026-08-17 — see the addendum at the end of this file.** The trade recorded
+> below was taken as stated, then measured on a follow-up review and bought back: the hues are
+> on a lightness ladder again, *without* returning to pastels. Everything in this section is
+> still the honest record of how the decision was made and why the L\* spread was expensive
+> enough to be worth a conversation — but the numbers in it (L\* 81/79/89, ΔE 32.7, the deleted
+> tests) describe a palette that is no longer shipped.
+
 Addendum A.6's central claim was that the identity set separates by **lightness**, because
 lightness is the only channel that survives greyscale and colour blindness. That claim was
 never refuted and is still true as colour science. It is incompatible with the brief: a set
@@ -1093,3 +1100,79 @@ react-native-web does not suppress it and native RN has no equivalent.
 Confirmed rather than assumed, by temporarily widening the border to 5px magenta and re-shooting:
 the magenta rendered exactly where it should, *inside* the white. Noted in `PadTypeRow`'s source
 at the relevant line so the next session runs the probe instead of re-colouring the border.
+
+---
+
+## Addendum, 2026-08-17 — the identity hues get their lightness ladder back
+
+A follow-up review of the two 2026-08-16 PRs, on rule 11a specifically: keep the OLED "Tactile
+Glass" look and the glowing accents, but **restore the luminance separation so the categories
+survive greyscale and deuteranopia**. Which is exactly the guarantee this file's "Override 1"
+recorded giving up, so this reverses that override — and it is worth being precise about what
+it does and does not reverse.
+
+### It does NOT reverse the neon brief
+
+The 2026-08-16 pass concluded that the L\* spread and "vibrant jewel tones" were mutually
+exclusive, because the old four-hue spread ran L\* 38–71 and hues down at 38 do not glow on
+black. That reasoning was right about *those values* and wrong as a general claim, and the
+difference is where the band sits rather than how wide it is:
+
+* the band's **bottom** is not a taste choice — WCAG AA 4.5:1 on the dark glass card (`surface`
+  `#1E1E1E`, a harder ground than `bg` `#000000`) requires L\* ≥ 55.4 for any hue whatsoever;
+* the band's **top** is sRGB — above L\* ~87 there is no saturated amber left (at 92 the best
+  one available is C\* 34, a pale cream);
+* so the whole set lives in a ~30-point band, and **five rungs fit at ~7.6 apart**.
+
+Every value is on the sRGB gamut boundary at its assigned lightness, so nothing was desaturated
+to reach its rung: C\* runs 43–93, and cyan's 43 is the physical maximum for a cyan at L\* 79.
+
+| Rung | Category | Was (2026-08-16) | Now | L\* was → now |
+|---|---|---|---|---|
+| 1 | To-do | `#FFC000` | `#FFD700` | 81.3 → 86.9 |
+| 2 | Habits | `#05D9E8` | `#05D9E8` | 79.3 → 79.3 (unchanged) |
+| 3 | Health | `#FF2A6D` | `#FF8CB2` | 56.1 → 71.7 |
+| 4 | Shopping | `#00FF85` | `#0DB34A` | 88.5 → 64.0 |
+| 5 | Notes | `#B967FF` | `#B45CFF` | 59.2 → 56.7 |
+
+### What it bought, measured
+
+| | 2026-08-16 | 2026-08-17 |
+|---|---|---|
+| worst pair, deuteranopia simulated | ΔE2000 **11.8** | **19.7** |
+| worst pair, protanopia simulated | 11.9 | 12.9 |
+| smallest lightness gap in the set | **2.0** L\* | **7.4** L\* |
+| worst hue's contrast on the dark card | 4.61:1 | 4.70:1 |
+| worst pair, normal vision (ΔE2000) | 29.5 | 26.9 |
+
+The last row is the only one that moved the wrong way, and it is the trade: packing five hues
+into a fixed lightness band costs a little hue-space room. 26.9 still clears the ≥25 floor that
+has guarded this set since 2026-07-31.
+
+### Two decisions inside it that will look like mistakes later
+
+* **Health's rose became visibly lighter** (`#FF2A6D` → `#FF8CB2`) and will read as "washed
+  out" next to a screenshot of the old one. A rose is only deeply saturated below L\* 60 — the
+  red-magenta cusp is down there — so a mid-rung rose is necessarily lighter, and this one is
+  on the gamut boundary for its lightness like every other rung. It also fixed two quiet
+  defects: the old value sat 1.1 L\* from the destructive token `bad` `#FF3B5C`, and at 4.61:1
+  it was the only rung with no AA margin at all.
+* **Shopping's green got deeper** (`#00FF85` → `#0DB34A`), which is the single change the
+  review was really about. `#00FF85` was the *lightest* hue in the set and sat one nav tab away
+  from Habits' cyan; deuteranopia renders a mint green and a cyan much the same, so those two
+  tabs were being told apart by a channel some readers do not have. There are now 15 L\*
+  between them.
+
+### The deleted tests came back, in a stronger form
+
+`DOCUMENTED_LSTAR` and the "Shopping keeps a ≥15 L\* gap" test were deleted on 2026-08-16.
+`lib/__tests__/colors.test.ts` now pins **four** things rather than restoring those two: the hex
+per hue (kept from the neon pass — stricter than an L\* pin, which admits a hue rotation at
+constant lightness), the ladder's *order and step*, the AA floor on both dark grounds, and a
+dichromat-simulation floor using an inline Viénot/Brettel/Mollon projection. The last one is the
+point: "these two categories are still distinguishable" is now a measurement in CI rather than a
+claim in a comment, which is the specific thing the 2026-08-16 set got wrong.
+
+The ΔE2000 ≥ 25 pairwise floor is unchanged and still load-bearing — it is what rejects rotating
+Health's rose back toward magenta for chroma (24.0 at h 350), the same way it rejected the
+brief's own suggested Shopping value in the first place.
