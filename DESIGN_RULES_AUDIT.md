@@ -1035,3 +1035,61 @@ hue at a fifth brightness, which is what `accentSoft` had always been for the ac
 would have caught this** — it is a composite of a translucent token over another translucent
 token, two components apart — which is the argument for running `npm run preview` on any pass
 that touches colour, not only on one that touches layout.
+
+---
+
+## Addendum, 2026-08-16 (b) — brief §8: the recessed inline field
+
+A follow-up section of the same categorical brief, covering the per-card composers: inputs that
+read as *"recessed, indented fields within the glass surface"* rather than flat web forms, a
+focus state in the parent card's categorical colour, and one submit control inside the field's
+right edge that lights up in that colour once there is text.
+
+Almost all of it landed as asked. Three things are worth recording because they are decisions
+rather than transcription.
+
+### The scope in the brief's own title turned out to be load-bearing
+
+§8 is titled **"Per-Card Inline Inputs"** and opens *"the user creates items directly inside each
+category card"*. That scope was initially over-read as "every text field in the app", and
+`FormControls`' `Input` — the shared editor field — was given the recessed treatment too.
+
+**The web preview caught what that does.** On `app/medicine-form.tsx` the Name/Dose/Note fields
+are mounted straight onto the screen backdrop, not inside a card. A `rgba(0,0,0,0.35)` wash on a
+near-black backdrop is invisible, and with the resting stroke removed the fields disappeared
+entirely — three lines of bare text with no boundary anywhere. A field that does not look like a
+field is precisely the complaint the 2026-08-13 Shopping pass fixed in the other direction
+("buttons should look like buttons and text fields like text fields").
+
+So a recess is a **relationship to the pane a field is sunk into**, and only the composers that
+are *contractually* inside a card can have one — `PadTypeRow` and `AddRow` (whose header already
+said "mount inside the section's Surface, do NOT wrap it in its own card"), plus `InlineAddItem`
+via a new opt-in `recessed` prop on `Input`. Everything else keeps its border. The prop is opt-in
+rather than opt-out on purpose: the failure mode is an invisible control, so the default has to
+be the safe one.
+
+### A second halation bound, for a surface the first one cannot see
+
+`colors.test.ts` caps `text` on `surface` at 17:1. A recessed field is *darker* than `surface`,
+so white text measures 18.42:1 on it — outside what that assertion can reach. That is the exact
+shape of the PR #540 bug AGENTS.md records: an assertion that keeps passing while the app draws
+something it does not measure.
+
+Rather than leave the new surface unmeasured, `glassMaterial.test.ts` gives it its own explicit
+bound (≤19:1) with the reasoning attached. The looser number is not a preference — with `text` at
+pure `#FFFFFF`, **any** darkening of `#1E1E1E` exceeds 17 (even a 10% wash lands at 17.22), so
+"recessed field" and "17:1 ceiling" are mutually exclusive; and the contexts differ (a ceiling
+that defends sustained reading of body copy vs. one line being actively typed). The remedy if a
+device ever complains is unchanged and fixes both at once: pull `text` back toward `~#D8DADF`
+rather than lightening the well and losing the recess.
+
+### A web-preview artifact that looks exactly like a bug
+
+In `npm run preview` the focused field's ring renders **white**, not the categorical colour.
+It is Chromium's own `:focus-visible` outline on the underlying `<input>` — ~3px of white
+immediately outside the border box, which swamps a 1.25px neon ring in a screenshot.
+react-native-web does not suppress it and native RN has no equivalent.
+
+Confirmed rather than assumed, by temporarily widening the border to 5px magenta and re-shooting:
+the magenta rendered exactly where it should, *inside* the white. Noted in `PadTypeRow`'s source
+at the relevant line so the next session runs the probe instead of re-colouring the border.

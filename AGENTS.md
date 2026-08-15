@@ -284,9 +284,18 @@ file owns which token.)
     - **Tier 3 — the editor.** Everything else, behind the worded "More options" (`onMore`),
       which must be live in every state including an empty line, or absent entirely.
     **Three composers implement this, and they are more converged than they look.** All three
-    already draw the same bordered, focus-showing field — `AddRow` and `InlineAddItem` both got
-    it in the 2026-08-05/06 passes, `InlineAddItem` by using `FormControls`' `Input` outright —
-    so "converge the field" is **done**; don't re-propose it. What still differs is the TIERING:
+    already draw the same field — `AddRow` and `InlineAddItem` both got it in the 2026-08-05/06
+    passes, `InlineAddItem` by using `FormControls`' `Input` outright — so "converge the field"
+    is **done**; don't re-propose it. Since 2026-08-16 (brief §8) that shared field is a
+    **recessed well**: a translucent black wash sunk into the card, no stroke at rest, and a
+    focus ring in the card's own categorical colour plus a `getGlow` halo. `PadTypeRow` also
+    carries the one trailing SUBMIT arrow, inside the field's right edge, muted until there is
+    text and then filled with that same hue.
+    ⚠️ **The recess is scoped to composers that are contractually inside a card**, which is why
+    `FormControls`' `recessed` is opt-in and `InlineAddItem` is its only caller. An editor's
+    fields sit on the screen backdrop, and there a black wash on near-black with no resting
+    stroke makes the field *vanish* — measured in the preview on `app/medicine-form.tsx`, not
+    theorised. What still differs between the three is the TIERING:
     | Composer | Tier 1 | Tier 2 | Tier 3 | Used by |
     |---|---|---|---|---|
     | `PadTypeRow` | always-open line | `panel` + `extras` | `onMore` ✓ | the 4 Home cards, Habits tab, To-do timeline |

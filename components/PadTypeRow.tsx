@@ -7,8 +7,28 @@
  * expand it, one to focus — and read as chrome appended after the list rather than as the next
  * line of it.
  *
- * **The line is a real, bordered FIELD (2026-08-05), and the prompt is a plain `placeholder`
- * again.** This reverses two things at once, so read why before undoing either:
+ * **The line is a RECESSED WELL (2026-08-16), and the prompt is a plain `placeholder`.**
+ *
+ * Brief §8: *"These inputs must NOT look like traditional flat web forms. They must look like
+ * recessed, indented fields within the glass surface... darker than the glass card it sits on to
+ * simulate depth... Remove all solid borders."* Plus a focus state that *"immediately adopts a
+ * subtle border or outer glow using the Categorical Color of its parent card"* — amber inside
+ * the To-do card, cyan inside Habits — and one trailing submit that *"lights up in the
+ * Categorical Color"* once there is text.
+ *
+ * This is a FINISH change on top of the 2026-08-05 pass described below, not a reversal of it.
+ * That pass's point was that the composer is a real, visible, focus-showing CONTROL rather than
+ * a bare caret on a blank card; all three of those properties are stronger here, not weaker —
+ * the well is visible at rest, the focus ring is coloured instead of grey, and it is joined by a
+ * halo. What changed is the direction of the depth (sunk instead of raised) and where the
+ * boundary comes from (the fill step instead of a stroke).
+ *
+ * ⚠️ The recess only reads because this component is contractually mounted INSIDE a card. See
+ * `getRecessedField`'s note and `FormControls`' `recessed` prop for what happens to a field
+ * that isn't — it was measured, in the preview, on `app/medicine-form.tsx`.
+ *
+ * **The 2026-08-05 pass, kept because its reasoning still binds:** this reversed two things at
+ * once, so read why before undoing either:
  *   - Until now the input carried NO border, background, radius or focus state — the whole
  *     style was a font and a vertical padding. Its only affordance was the prompt layer below,
  *     which was gated on `!focused`, and the ghost check beside it, gated on `!showControls`.
@@ -93,11 +113,14 @@
  *     surfaces differ: a habit has a real create-mode editor screen (`/habit-form`), so
  *     nothing is saved until Save there; a task's editor is an expanded `TaskCard` on a
  *     SAVED row (app/task-form.tsx was retired 2026-07-23), so that one still commits first.
- *   - **`noGhostCheck` (2026-08-06)**: app/(tabs)/habits.tsx passes this — its rows never end
- *     in a check any more (always a −/+ pair, see HabitCard), so the idle-state ghost ring
- *     used to preview a control the row could never actually show. Every other caller keeps
- *     the ring; only opt out where it would be misleading.
- *   - **The ghost ring is INSIDE the field's box (2026-08-12), not beside it.** It used to be a
+ *   - **`noGhostCheck` (2026-08-06)**: app/(tabs)/habits.tsx passes this. Its original meaning
+ *     was "this pad's rows never end in a check (always a −/+ pair, see HabitCard), so don't
+ *     preview one". The thing it suppresses is now the SUBMIT ARROW rather than a preview ring
+ *     (2026-08-16), so the prop's name is legacy — it is kept rather than renamed because it is
+ *     a published prop with live callers and the SLOT is the same one. Read it as "this line
+ *     has no trailing control": a caller that opts out commits by keyboard return or by its own
+ *     buttons instead.
+ *   - **The trailing control is INSIDE the field's box (2026-08-12), not beside it.** It used to be a
  *     sibling of the field in the row, so it cost the field its own width plus the row's
  *     `gap`: 26px. Two visible consequences, both reported as one complaint ("the example is
  *     wider than the empty row above"): the composer was 26px narrower than
@@ -118,21 +141,22 @@ import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 import {
   BORDER_WIDTH,
-  computeBorderTone,
   FontSize,
   Fonts,
   MIN_TAP_TARGET,
   PAD_ROW_MIN_HEIGHT,
   Radius,
-  Shadow,
   Spacing,
   contrastOn,
+  getGlow,
+  getRecessedField,
   HitSlop,
 } from '@/constants/theme';
+import { Travel } from '@/constants/motion';
 import { confirm as hapticConfirm } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
+import { badgeGlyphFor } from '@/lib/domainColor';
 
 type Props = {
   /** The grey prompt, worded for this card: "Type note" / "Type task" / … */
@@ -140,7 +164,15 @@ type Props = {
   value: string;
   onChangeText: (v: string) => void;
   onSubmit: () => void;
-  /** Domain accent (lib/domainColor) — tints the commit button once there's text. */
+  /**
+   * This CARD's categorical colour (lib/domainColor / lib/screenColor). It fills the submit
+   * arrow once there is text and colours the focus ring + halo — brief §8's "the Task input
+   * field glows Neon Amber when tapped; the Habit input glows Electric Cyan".
+   *
+   * Deliberately a per-card PROP rather than the ambient `useScreenColor()`: on Home the To-do
+   * and Habits cards sit on one hue-less screen and still have to light up differently, so the
+   * caller is the only thing that knows the answer.
+   */
   accent: string;
   /** Per-surface quick-add controls, shown only while the line is active. */
   extras?: React.ReactNode;
@@ -183,9 +215,17 @@ export default function PadTypeRow({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  // The screen's own hue for the resting field border; neutral grey outside a screen that
-  // provides one (Home, Settings), which is the same fallback every other bordered thing uses.
-  const fieldHue = useScreenColor() ?? theme.border;
+  // ── The recessed well, and the colour its focus ring lights up in (2026-08-16, brief §8) ──
+  // `accent` is the CARD's categorical colour (the caller passes `getDomainColor(...).accent`),
+  // which is what the brief asks the focus state to adopt — "the Task input field glows Neon
+  // Amber when tapped; the Habit input glows Electric Cyan". Note this is deliberately NOT the
+  // ambient SCREEN hue: on Home the To-do and Habits cards sit on one hue-less screen and must
+  // still light up differently, so the per-card prop is the only thing that can answer this.
+  //
+  // `useScreenColor()` was read here for the resting border and is no longer needed — a
+  // recessed field has no resting stroke at all.
+  const recess = getRecessedField(theme.surface, isDark);
+  const focusHue = badgeGlyphFor(accent, recess.composite, isDark);
   const t = useT();
   const [focused, setFocused] = useState(false);
 
@@ -249,59 +289,101 @@ export default function PadTypeRow({
       />
     ) : null;
 
-  const confirmButton = showControls ? (
-    <PressableScale
-      style={[
-        styles.confirm,
-        active && Shadow.button,
-        {
-          backgroundColor: active ? accent : theme.surfaceMuted,
-          borderColor: active ? 'rgba(255,255,255,0.5)' : theme.border,
-        },
-      ]}
-      onPress={commit}
-      disabled={!active}
-      hitSlop={HitSlop.base}
-      scaleTo={0.9}
-      haptic={false}
-      accessibilityRole="button"
-      accessibilityLabel={t.a11yAdd}
-    >
-      <Ionicons name="checkmark" size={18} color={active ? contrastOn(accent) : theme.textMuted} />
-    </PressableScale>
+  // ── ONE trailing control, inside the field (2026-08-16, brief §8) ────────────────────────
+  // *"Instead of an empty circle, place a highly tactile submit button (like an arrow or plus
+  // icon) inside the right side of the text input. When the user types, this button should
+  // light up in the Categorical Color."*
+  //
+  // This REPLACES two things that used to alternate in this slot, and collapsing them is most
+  // of the point: a dim `ghostCheck` ring while idle (a preview of where a tick would land) and
+  // a separate `confirm` button laid out BESIDE the field once controls showed. So the trailing
+  // affordance changed shape, position and meaning depending on state, and the empty circle in
+  // particular read as a checkbox you could tick rather than as "type here, then send".
+  //
+  // Now: one arrow, always in the same place, inside the field's right edge. Muted while the
+  // line is empty, filled with the card's categorical colour the moment there is text — which
+  // is exactly the "lights up" the brief asks for, and it doubles as the affordance telling you
+  // the line is committable. `noGhostCheck` keeps its meaning (a caller whose line commits some
+  // other way suppresses the trailing control entirely) and keeps its name, since it is a
+  // published prop and the slot is the same one.
+  const showSubmit = !noGhostCheck;
+  const submitButton = showSubmit ? (
+    <View style={styles.submitSlot}>
+      <PressableScale
+        style={[
+          styles.submit,
+          {
+            // The lit state is a real accent FILL, not a tinted glyph: at 26px an outline-only
+            // icon in a neon hue reads as decoration, and this is the primary action of the row.
+            backgroundColor: active ? accent : theme.surfaceMuted,
+            opacity: active ? 1 : 0.7,
+          },
+        ]}
+        onPress={commit}
+        disabled={!active}
+        hitSlop={HitSlop.base}
+        travel={Travel.sm}
+        haptic={false}
+        accessibilityRole="button"
+        accessibilityLabel={t.a11yAdd}
+      >
+        <Ionicons
+          name="arrow-up"
+          size={16}
+          color={active ? contrastOn(accent) : theme.textMuted}
+        />
+      </PressableScale>
+    </View>
   ) : null;
 
-  // Ghost check preview — idle state only (2026-07-31, user report: the blank spare
-  // lines below used to each carry their own ghost ring, which read as several
-  // identical previews; there is really only one "next thing to check" and it belongs
-  // on this row, the one actually empty-but-selected for input). Same 22×22/Radius.full
-  // ring as PadRow's real check and the old spare-line ghost, but dimmer — it's a
-  // preview of where a check WILL go once this line becomes a real row, not a control.
-  // It lives INSIDE the field's box since 2026-08-12 — see the styles below for why.
-  const showGhostCheck = !showControls && !noGhostCheck;
-
   const fieldAndPrompt = (
-    <View style={styles.field}>
+    // The focus halo lives on this WRAPPER rather than on the TextInput. A `boxShadow` on a
+    // TextInput renders unreliably on Android, and a halo that silently doesn't paint would take
+    // half the focus cue with it; on a plain View it is the same shadow every Surface draws.
+    // The border below carries the focus state on its own, so if the glow ever fails to render
+    // the field still passes DESIGN_RULES.md rule 18 — the glow is reinforcement, not the cue.
+    //
+    // ⚠️ **In `npm run preview` the focus ring looks WHITE, and it is not** (measured 2026-08-16,
+    // don't re-investigate). Chromium paints its own `:focus-visible` outline on the underlying
+    // `<input>`, ~3px of white immediately outside the border box, which swamps a 1.25px neon
+    // ring in a screenshot. react-native-web does not suppress it and native RN has no such
+    // concept, so it is a harness artifact with no device equivalent. Confirmed by temporarily
+    // widening this border to 5px magenta and re-shooting: the magenta rendered exactly where
+    // it should, INSIDE the white. If a screenshot ever makes you doubt this border again, run
+    // that probe rather than changing the colour.
+    <View style={[styles.field, focused ? getGlow(accent, 'soft') : null]}>
       <TextInput
         style={[
           styles.input,
-          // Room for the ring, only while the ring is there. An edge-specific padding wins
-          // over `paddingHorizontal` in Yoga regardless of key order, so this is safe to
+          // Room for the trailing arrow, only while it is mounted. An edge-specific padding
+          // wins over `paddingHorizontal` in Yoga regardless of key order, so this is safe to
           // append rather than having to restate the whole padding.
-          showGhostCheck && styles.inputWithGhost,
+          showSubmit && styles.inputWithSubmit,
           {
             color: theme.text,
-            // White/plain surface fill (2026-08-06, user report: "text-boxes are too grey" —
-            // matches components/FormControls.tsx's Input and what a text field looks like in
-            // most web/native apps), not the sunken `surfaceMuted` well a disabled control uses.
-            backgroundColor: theme.surface,
-            // At rest the field wears the screen's own hue at the FIELD rung — the same border
-            // components/PadSheet.tsx gives a row and QuickAddOptionRow gives a cell, so the
-            // composer belongs to the screen it sits on rather than being a fixed grey
-            // (card design reset, 2026-08-05, brief point 9). Focus still overrides it with the
-            // surface's accent, because a focus state has to WIN over the resting border to be
-            // a focus state at all — DESIGN_RULES.md rule 18.
-            borderColor: focused ? accent : computeBorderTone(fieldHue, isDark, 'field'),
+            // ── Recessed, not raised (2026-08-16, brief §8) ────────────────────────────────
+            // *"They must look like recessed, indented fields within the glass surface...
+            // darker than the glass card it sits on to simulate depth."* This reverses the
+            // 2026-08-06 "text-boxes are too grey" fix, which had moved the fill from the
+            // sunken `surfaceMuted` up to plain `theme.surface`. That complaint was about a
+            // field being greyer than the WHITE card around it, which read as disabled; sunk
+            // into a dark glass pane the same relationship reads as depth. The value is a
+            // translucent black wash rather than a token, so the glass still shows through —
+            // the well is in the pane, not a tile on it. See getRecessedField.
+            backgroundColor: recess.paint,
+            // ── No stroke at rest; the category's colour on focus ──────────────────────────
+            // *"Remove all solid borders"* at rest, and *"when the TextInput is focused, it
+            // must immediately adopt a subtle border or outer glow using the Categorical Color
+            // of its parent card."* Transparent rather than zero-width, so tapping the field
+            // cannot reflow it — see getRecessedField's note.
+            //
+            // The focus colour goes through `badgeGlyphFor`, which is the app's existing
+            // "walk a hue toward the ground until it clears 3.3:1 on what it is drawn on"
+            // helper. In DARK that is a no-op (the five categoricals measure 5.09–13.72:1 on
+            // the recessed well). In LIGHT it is load-bearing: the identity hues are
+            // mode-invariant neons, and a raw `#FFC000` focus ring on a `#EDEEF1` field is
+            // about 1.4:1, i.e. no visible focus state at all — rule 18 with the cue missing.
+            borderColor: focused ? focusHue : 'transparent',
           },
         ]}
         value={value}
@@ -333,11 +415,7 @@ export default function PadTypeRow({
           if (hasText) commit();
         }}
       />
-      {showGhostCheck ? (
-        <View style={styles.ghostCheckSlot} pointerEvents="none">
-          <View style={[styles.ghostCheck, { borderColor: theme.border }]} />
-        </View>
-      ) : null}
+      {submitButton}
     </View>
   );
 
@@ -357,10 +435,9 @@ export default function PadTypeRow({
             {panel}
           </View>
         ) : null}
-        {showControls && (moreButton || confirmButton) ? (
+        {showControls && moreButton ? (
           <View style={styles.panelButtonRow} {...controlsResponderProps}>
             {moreButton}
-            {confirmButton}
           </View>
         ) : null}
       </View>
@@ -382,17 +459,19 @@ export default function PadTypeRow({
       ) : null}
 
       {moreButton}
-      {confirmButton}
     </View>
   );
 }
 
 /**
- * The ghost ring's diameter — PadRow's real check size, which is also the size every small mark
- * on components/StarterExampleRow.tsx shares. It is named because the field's own right-hand
- * padding is derived from it; the two must not drift apart or the placeholder runs under the ring.
+ * The trailing submit button's diameter. Named because the field's own right-hand padding is
+ * derived from it; the two must not drift apart or the placeholder runs under the arrow.
+ *
+ * 26, up from the ghost ring's 22 it replaced (2026-08-16): that ring was a preview, this is a
+ * real control. Its TAP target is `HitSlop.base` beyond this, which is what keeps it clear of
+ * `MIN_TAP_TARGET` — a 26px visible circle inside a 48px-tall field cannot itself be 48.
  */
-const GHOST_CHECK = 22;
+const SUBMIT_SIZE = 26;
 
 const styles = StyleSheet.create({
   // `paddingVertical` (2026-08-05) keeps the field's own border off PadSheet's hairline rule
@@ -424,8 +503,9 @@ const styles = StyleSheet.create({
     // flex:1 alone doesn't beat, which pushes the trailing controls off the card.
     minWidth: 0,
     minHeight: MIN_TAP_TARGET,
-    // Same weight as every other field-rung border in the app (rows, option cells), so the
-    // composer, the rows under it and the option grid beside it read as one system.
+    // Kept at the field rung's weight even though the resting colour is transparent — the
+    // focused state paints this same stroke, and a width that changes on focus reflows the
+    // text under the user's caret. See getRecessedField's note.
     borderWidth: BORDER_WIDTH.field,
     borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
@@ -433,34 +513,32 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
   },
-  // Room for the ghost ring inside the box: the ring's own inset from the border, the ring,
-  // and the field's normal text inset. Applied only while the ring is mounted, so a focused
-  // field gets the whole line back for typing.
-  inputWithGhost: { paddingRight: Spacing.sm * 2 + GHOST_CHECK },
-  // The ring is positioned over the field's trailing edge rather than laid out beside it
-  // (2026-08-12). As a sibling it cost the field 26px (the ring plus the row's gap), so the
-  // composer was 26px narrower than the example row and the real rows below it — which is
-  // what read as "the example is wider than the empty row above" — and it also made the
-  // field JUMP wider on focus, since the ring unmounts as soon as controls show. Inside the
-  // box it is also the truer preview: a real PadRow draws its check inside the row's own
-  // box, in the right-hand cluster, which is exactly where this now sits.
-  ghostCheckSlot: {
+  // Room for the arrow inside the box: its own inset from the edge, the button, and the
+  // field's normal text inset. Unlike the ghost ring this replaced, it is NOT dropped once
+  // the line has text — the button is a live control at that point, so the text must keep
+  // clearing it rather than running underneath.
+  inputWithSubmit: { paddingRight: Spacing.sm * 2 + SUBMIT_SIZE },
+  // Positioned over the field's trailing edge rather than laid out beside it (2026-08-12,
+  // kept). As a sibling it cost the field ~26px (the control plus the row's gap), so the
+  // composer was that much narrower than the example row and the real rows below it — which
+  // is what read as "the example is wider than the empty row above" — and it made the field
+  // JUMP wider whenever the trailing control unmounted. Inside the box it also matches a real
+  // PadRow, which draws its own check inside the row's box in the right-hand cluster.
+  submitSlot: {
     position: 'absolute',
     right: Spacing.sm,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
   },
-  confirm: {
-    width: 32,
-    height: 32,
+  // No border. The lit state is carried by the fill and the icon's ink; an outline on a 26px
+  // circle that already changes colour is a third cue for one piece of state.
+  submit: {
+    width: SUBMIT_SIZE,
+    height: SUBMIT_SIZE,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
   },
-  // Same ring geometry as PadRow's real check (22×22, Radius.full, 2px), but faint — a
-  // preview of where a check will land, not a control (see the mount note above).
-  ghostCheck: { width: GHOST_CHECK, height: GHOST_CHECK, borderRadius: Radius.full, borderWidth: 2, opacity: 0.4 },
   gated: { opacity: 0.45 },
 });

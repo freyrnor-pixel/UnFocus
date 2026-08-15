@@ -255,6 +255,7 @@ export default function InlineAddItem({
       <View ref={nameLift.ref}>
         <Input
           label={t.varenavnLabel}
+          recessed
           value={name}
           onChangeText={(v) => {
             setName(v);
@@ -304,6 +305,7 @@ export default function InlineAddItem({
       <View style={styles.priceFieldWrap} ref={priceLift.ref}>
         <Input
           label={t.estimertPrisLabel}
+          recessed
           value={price}
           onChangeText={setPrice}
           keyboardType="decimal-pad"

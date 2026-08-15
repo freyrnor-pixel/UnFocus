@@ -990,6 +990,41 @@ export function getBadgeFrost(surface: string, isDark: boolean): { paint: string
   return { paint: rgba(tint, alpha), plate: mix(surface, tint, alpha) };
 }
 
+/**
+ * The recessed field (2026-08-16, brief §8) — an input that reads as pressed INTO the glass
+ * pane rather than drawn on top of it.
+ *
+ * *"These inputs must NOT look like traditional flat web forms. They must look like recessed,
+ * indented fields within the glass surface... darker than the glass card it sits on to simulate
+ * depth... Remove all solid borders."*
+ *
+ * Returns BOTH halves from one place, the same contract as `getBadgeFrost` above and for the
+ * same reason: `paint` is the translucent colour that actually gets drawn (so the glass keeps
+ * showing through — the well is *in* the pane, not a tile on it), and `composite` is that same
+ * colour already resolved over the pane, which is what any contrast assertion has to measure.
+ * One alpha, one place; a second copy is free to drift, and a drifted alpha here means text
+ * whose measured contrast is not the contrast it actually has.
+ *
+ * ⚠️ **"Remove all solid borders" is implemented as a TRANSPARENT border, not a zero-width
+ * one.** The stroke has to still be there at zero visibility, because the focused state adds a
+ * coloured one back: dropping the width to 0 and restoring it on focus reflows the field by
+ * `2 × BORDER_WIDTH.field` the instant it is tapped, which moves the text under the user's
+ * caret. Same trick the app already uses for the resting-vs-active `keyBase`.
+ *
+ * ⚠️ **The light-mode alpha is a fraction of dark's, and must stay that way.** The brief's
+ * literal `rgba(0,0,0,0.4)` is a dark-mode number — over a near-white pane it produces a
+ * charcoal slab, which is not "recessed", it is a different control. 0.05 over `#F9FBFE` gives
+ * a well that is visibly sunk and still a light field.
+ *
+ * @param surface `theme.surface` — the pane's composited colour, i.e. what this well is sunk into.
+ */
+const FIELD_RECESS = { light: 0.05, dark: 0.35 };
+
+export function getRecessedField(surface: string, isDark: boolean): { paint: string; composite: string } {
+  const alpha = isDark ? FIELD_RECESS.dark : FIELD_RECESS.light;
+  return { paint: rgba('#000000', alpha), composite: mix(surface, '#000000', alpha) };
+}
+
 /** Resting: light catches the top edge of the cap. */
 export function getTopHighlight(strength = 0.18): GradientColors {
   return [rgba('#FFFFFF', strength), rgba('#FFFFFF', strength * 0.25), 'rgba(255,255,255,0)'];
