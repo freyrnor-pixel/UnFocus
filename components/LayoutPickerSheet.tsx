@@ -36,7 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import {
   LayoutId,
   LayoutSurface,
@@ -46,7 +46,7 @@ import {
 } from '@/lib/cardLayout';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Props = {
@@ -57,6 +57,7 @@ type Props = {
 
 export default function LayoutPickerSheet({ visible, surface, onClose }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -142,11 +143,11 @@ export default function LayoutPickerSheet({ visible, surface, onClose }: Props) 
         })}
 
         <PressableScale
-          style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+          style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           onPress={onClose}
           scaleTo={0.95}
         >
-          <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.config.layouts.close}</Text>
+          <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.config.layouts.close}</Text>
         </PressableScale>
       </Surface>
     </AnimatedBottomSheet>

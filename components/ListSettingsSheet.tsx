@@ -30,8 +30,8 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { ShoppingList } from '@/store/useShoppingListStore';
-import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -51,6 +51,7 @@ type Props = {
 
 export default function ListSettingsSheet({ visible, list, onClose, onSetRecurring, onSetActiveWeeks }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -108,8 +109,8 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
           </View>
         )}
 
-        <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.95}>
-          <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.save}</Text>
+        <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.95}>
+          <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.save}</Text>
         </PressableScale>
       </Surface>
     </AnimatedBottomSheet>

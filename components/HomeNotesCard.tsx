@@ -102,7 +102,6 @@ import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
-import CardHintNote from '@/components/CardHintNote';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import Collapsible from '@/components/Collapsible';
@@ -293,12 +292,6 @@ export default function HomeNotesCard({ cardMenu }: Props) {
           {cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : null}
         </View>
 
-        {/* Explainer under the header while the card is EMPTY (2026-08-12) — with no notes to
-            lead with, the explanation is the main thing here, so it sits where a sub-header
-            would. It returns to the foot the moment there is content; see
-            components/CardHintNote.tsx's placement note for why that narrows, rather than
-            reverses, the 2026-07-30 "tips out of the way" decision. */}
-        {notes.length === 0 ? <CardHintNote text={t.starters.notes.text} placement="head" /> : null}
 
         <PadSheet
           state={state}

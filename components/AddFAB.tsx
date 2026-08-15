@@ -119,11 +119,13 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
       hitSlop={size === 'sm' ? hitSlopFor(dimension) : undefined}
       scaleTo={0.9}
       travel={travel}
-      glow={glow}
-      // The FAB's pressable bounds ARE the circle (width/height below), so the face's
-      // absoluteFill lands exactly on the cap. That is not true of IconButton, whose pressable
-      // is the padded hit target rather than the visible button — which is why it has no face.
-      face={{ radius: Radius.full }}
+      // The FAB's pressable bounds ARE the circle (width/height below), so the halo's
+      // absoluteFill lands exactly on the cap and takes its radius. It used to pass a `face`
+      // alongside — a white top-edge highlight cross-fading to a dark inner shade — deleted with
+      // the rest of the gloss on 2026-08-17 (see components/Button.tsx's matte-glass note). This
+      // circle keeps its SOLID accent fill: unlike a Button it floats free over scrolling
+      // content with no card behind it, so a 14% wash would leave it reading as a hole.
+      glow={glow ? { ...glow, radius: Radius.full } : undefined}
       style={[
         styles.base,
         { width: dimension, height: dimension },

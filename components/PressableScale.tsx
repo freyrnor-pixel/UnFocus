@@ -25,7 +25,7 @@
  *   - This is a shared primitive — keep its API a strict superset of Pressable so
  *     it can replace one without churn. Extra props: `haptic` (default true),
  *     `press` (default `'key'`), `travel` (default `Travel.sm`), `sunk`,
- *     `pressFill` (the cap's rest → pressed fill), `scaleTo` (default 0.94, scale mode only),
+ *     `glow` (the outward coloured halo), `scaleTo` (default 0.94, scale mode only),
  *     `depth` (Purposeful Depth System,
  *     2026-07-14), `releaseSpring` (scale mode only; default `Spring.snappy`, pass
  *     `Spring.calm` for a less bouncy release on repeatedly-tapped toggles).
@@ -55,18 +55,19 @@
  *     A caller with a real FILL should also draw a visible base — see components/Button.tsx's
  *     `keyBase` — so the cap has something to meet; a caller with no fill (a row, a chip, a
  *     text link) sinks against the surface behind it, which is the point of the default.
- *   - **`pressFill` — the cap darkens as it lands (2026-08-12)**: an optional
- *     `{ rest, pressed }` pair interpolated off the SAME `press` shared value as the sink, so
- *     the colour change and the travel are one gesture on one curve rather than two effects
- *     that can disagree. It exists because travel alone reads weakly on a wide button — the
- *     3–5px is easy to miss — while a fill moving toward its own base's shade says "this has
- *     moved away from the light". Key mode only (`press.value` never moves in scale mode).
- *     **A caller passing `pressFill` must NOT also put `backgroundColor` in `style`** — same
- *     "owned property" contract as `depth` and the shadow keys. Reduce-motion needs no branch:
- *     `press.value` is assigned instantly there, so the fill snaps with the sink.
- *     Note the free consequence, in case you want it: a caller that ALSO passes `sunk` rests
- *     at the pressed fill while it is "on", which is consistent with "Pressed = on". No
- *     current caller does both — components/Button.tsx passes `pressFill` and never `sunk`.
+ *   - **`pressFill` and `face` are GONE (2026-08-17, "no glossy plastic")**. Between them they
+ *     were the whole of the cap's lighting: `pressFill` interpolated the face from its resting
+ *     colour toward `darken(fill, 0.1)` as the key sank, and `face` cross-faded two
+ *     `LinearGradient`s inside the cap's clipping mask — a white top-edge highlight at rest, a
+ *     dark inner shade while held. The maintainer's ruling is that the combination reads as
+ *     "glossy Web 2.0 plastic": *"Do NOT use LinearGradient, inner shadows, or solid heavy
+ *     colors for the background of primary buttons."* Both props, both gradient helpers
+ *     (`getTopHighlight`/`getInnerShade`/`KEY_FACE_STOPS`) and the `expo-linear-gradient`
+ *     import were deleted rather than turned down — a fainter gloss is still gloss.
+ *     What carries the press now is the SINK plus the halo going out, and what carries "raised"
+ *     at rest is the halo plus components/Button.tsx's lit top-left edge. Don't reintroduce a
+ *     face layer here to make a control "feel richer"; a translucent body with a lit edge is
+ *     the material, and PressableScale is not where a caller's fill is decided any more.
  *   - **`sunkRef` — why the release reads a ref and not the prop (2026-08-10)**. React Native
  *     only defers `onPressOut` past `onPress` for taps SHORTER than Pressability's
  *     `DEFAULT_MIN_PRESS_DURATION` (130ms). On a slower tap `onPressOut` fires FIRST, so the
@@ -82,27 +83,18 @@
  *     PlanTaskCard's footer button reflowing in sync with its rail/done-zone).
  */
 import React from 'react';
-import { Pressable, PressableProps, StyleSheet, View, ViewStyle, StyleProp } from 'react-native';
+import { Pressable, PressableProps, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   interpolate,
-  interpolateColor,
   Extrapolation,
 } from 'react-native-reanimated';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { tap as hapticTap } from '@/lib/haptics';
-import {
-  ElevationLevel,
-  getElevation,
-  getGlow,
-  getInnerShade,
-  getTopHighlight,
-  KEY_FACE_STOPS,
-} from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ElevationLevel, getElevation, getGlow } from '@/constants/theme';
 import { Ease, PRESS_DURATION, Spring, Duration, Travel } from '@/constants/motion';
 
 type Props = PressableProps & {
@@ -134,41 +126,24 @@ type Props = PressableProps & {
    */
   sunk?: boolean;
   /**
-   * Rest → pressed fill, interpolated off the same `press` value as the sink so the darken
-   * lands exactly as the cap meets its base. Key mode only. A caller passing this must NOT
-   * also set `backgroundColor` in `style` — PressableScale owns that property here, the same
-   * way it owns the shadow keys when `depth` is set. See the Edit notes.
-   */
-  pressFill?: { rest: string; pressed: string };
-  /**
-   * Tactile Glass (2026-08-15): draw the cap's FACE — a white highlight along its top edge at
-   * rest, cross-fading to a dark inner shade as it sinks into its housing. The brief's
-   * "subtle top-edge highlight (inner shadow)" and "a dark inner shadow must be applied to
-   * simulate the button being depressed into the hardware casing".
-   *
-   * **Opt-in, and it should stay that way.** Only a control with a real FILL and a real base
-   * is a hardware key — Button, IconButton and AddFAB pass this. The other ~320 PressableScale
-   * call sites are rows, chips and text links that sink against the surface behind them; a lit
-   * face on those would be the "everything is emphasized" failure DESIGN_RULES.md rule 15
-   * names. Needs the caller's `radius` because the gradients are clipped to the cap's shape
-   * and PressableScale has no other way to know it.
-   */
-  face?: { radius: number };
-  /**
    * Tactile Glass (2026-08-15): a resting coloured halo that goes out as the key is pressed —
    * the brief's "colored drop shadow (a 'glow') to make them look illuminated and raised",
-   * and "the outer glow must disappear" on press.
+   * and "the outer glow must disappear" on press. It projects OUTWARD (a `boxShadow`, drawn
+   * outside the pressable's bounds) and is the only lighting effect left on a key — see the
+   * 2026-08-17 note in the Edit notes for the two that were removed.
    *
    * **Scope this narrowly.** DESIGN_RULES.md rule 15 governs `getGlow`: "the purposeful halo
    * is for the one active/focused surface, never decoration", and rule 6 allows exactly one
-   * primary action per screen. Today: `primary`/`danger` Button, AddFAB, and a HardwareToggle
-   * that is ON. Never a card, never a `ghost`/`secondary` button, and never breathing —
-   * `components/GlowPulse.tsx` still owns the one-at-a-time animated halo and is untouched.
+   * primary action per screen. Today: `primary`/`danger` Button, and AddFAB. Never a card,
+   * never a `ghost`/`secondary` button, and never breathing — `components/GlowPulse.tsx` still
+   * owns the one-at-a-time animated halo and is untouched.
    *
    * `level` is `getGlow`'s own, defaulting to `'soft'`; AddFAB passes `'strong'` because it is
-   * the one control that floats free over scrolling content.
+   * the one control that floats free over scrolling content. `radius` clips the halo to the
+   * cap's own shape — pass the caller's `borderRadius`, since PressableScale has no other way
+   * to know it.
    */
-  glow?: { color: string; level?: 'soft' | 'strong' };
+  glow?: { color: string; level?: 'soft' | 'strong'; radius?: number };
   /** Press-out spring, scale mode only. Default `Spring.snappy`; pass `Spring.calm` for
    *  section/accordion toggle headers where the default bounce reads as too energetic. */
   releaseSpring?: { damping: number; stiffness: number };
@@ -189,8 +164,6 @@ export default function PressableScale({
   scaleTo = 0.94,
   travel = Travel.sm,
   sunk = false,
-  pressFill,
-  face,
   glow,
   releaseSpring = Spring.snappy,
   depth,
@@ -244,38 +217,20 @@ export default function PressableScale({
     []
   );
 
-  // Captured as two primitives rather than the object, so the worklet closes over strings
-  // (AGENTS.md's worklet rule: prefer capturing primitives) and a caller re-rendering with a
-  // fresh `{ rest, pressed }` literal doesn't invalidate the style every frame.
-  const fillRest = pressFill?.rest;
-  const fillPressed = pressFill?.pressed;
-
-  // ── The cap's face and its halo (Tactile Glass, 2026-08-15) ──────────────────────────────
-  // Both colour tuples are built HERE, on the JS thread, and only their opacity is animated.
-  // That is deliberate and not just tidiness: `getTopHighlight`/`getInnerShade`/`getGlow` are
-  // ordinary JS functions, and calling one from inside a worklet throws "tried to synchronously
-  // call a non-worklet function on the UI thread" and takes the app down on device while
-  // looking perfect in the web preview (AGENTS.md's Reanimated gotcha;
-  // __tests__/workletSafety.test.ts is the guard). Cross-fading two STATIC gradients also
-  // avoids interpolating colour inside a gradient, which Reanimated cannot do at all.
-  const highlightColors = React.useMemo(() => getTopHighlight(), []);
-  const shadeColors = React.useMemo(() => getInnerShade(), []);
+  // ── The key's halo (Tactile Glass, 2026-08-15) ───────────────────────────────────────────
+  // The colour tuple is built HERE, on the JS thread, and only its opacity is animated. That is
+  // deliberate and not just tidiness: `getGlow` is an ordinary JS function, and calling one from
+  // inside a worklet throws "tried to synchronously call a non-worklet function on the UI thread"
+  // and takes the app down on device while looking perfect in the web preview (AGENTS.md's
+  // Reanimated gotcha; __tests__/workletSafety.test.ts is the guard).
   const glowColor = glow?.color;
   const glowLevel = glow?.level ?? 'soft';
+  const glowRadius = glow?.radius;
   const glowShadow = React.useMemo(
     () => (glowColor ? getGlow(glowColor, glowLevel) : null),
     [glowColor, glowLevel]
   );
 
-  // Rest → pressed: the highlight goes out as the shade comes in, both off the same `press`
-  // value as the sink and the fill darken. Four cues, one curve, and reduced motion needs no
-  // branch because `press` is assigned instantly there.
-  const highlightStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(press.value, [0, 1], [1, 0], Extrapolation.CLAMP),
-  }));
-  const shadeStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(press.value, [0, 1], [0, 1], Extrapolation.CLAMP),
-  }));
   // "The outer glow must disappear" — and it is gone well before the cap lands, so the key
   // reads as having been switched off by the press rather than dimming with it.
   const glowStyle = useAnimatedStyle(() => ({
@@ -293,16 +248,7 @@ export default function PressableScale({
             ? undefined
             : interpolate(scale.value, [scaleTo, 1], [0.85, 1], Extrapolation.CLAMP),
         };
-    // The face darkens as the cap goes down. This is NOT the opacity dip the note above
-    // rejects — a dim reads as disabled, whereas a fill moving toward its own base's shade
-    // reads as a surface that has moved away from the light. It exists because 3–5px of
-    // travel is easy to miss on a wide button, and it rides the same `press` value as the
-    // sink so the two can never disagree.
-    const fill =
-      isKey && fillRest && fillPressed
-        ? { backgroundColor: interpolateColor(press.value, [0, 1], [fillRest, fillPressed]) }
-        : null;
-    if (!rest_) return { ...base, ...fill };
+    if (!rest_) return base;
     // The cap's shadow goes to nothing at the bottom of the travel — that's what says it has
     // met the base, rather than floating lower.
     const compress = isKey
@@ -310,7 +256,6 @@ export default function PressableScale({
       : (from: number) => interpolate(scale.value, [scaleTo, 1], [from * 0.35, from], Extrapolation.CLAMP);
     return {
       ...base,
-      ...fill,
       shadowColor: rest_.shadowColor,
       shadowOpacity: compress(rest_.shadowOpacity),
       shadowRadius: compress(rest_.shadowRadius),
@@ -355,37 +300,17 @@ export default function PressableScale({
       {/* The halo sits at absoluteFill INSIDE the cap, so it travels with it, but its
           `boxShadow` renders outside those bounds (nothing here sets overflow:'hidden' on the
           pressable itself) — which is what makes it a halo around the key rather than a fill
-          behind it. Drawn first so it is under the face and the children. */}
+          behind it. Drawn first so it is under the children. */}
       {glowShadow ? (
         <Animated.View
           pointerEvents="none"
           style={[
             StyleSheet.absoluteFill,
             glowShadow,
-            face ? { borderRadius: face.radius } : null,
+            glowRadius !== undefined ? { borderRadius: glowRadius } : null,
             glowStyle,
           ]}
         />
-      ) : null}
-      {/* The face. Clipped to the cap's own radius — this is the ONE place overflow:'hidden'
-          appears, and it must stay on this wrapper rather than on the pressable, or it would
-          clip the halo above and every caller's shadow with it. */}
-      {face ? (
-        <View
-          pointerEvents="none"
-          style={[StyleSheet.absoluteFill, { borderRadius: face.radius, overflow: 'hidden' }]}
-        >
-          <AnimatedLinearGradient
-            colors={highlightColors}
-            locations={KEY_FACE_STOPS}
-            style={[StyleSheet.absoluteFill, highlightStyle]}
-          />
-          <AnimatedLinearGradient
-            colors={shadeColors}
-            locations={KEY_FACE_STOPS}
-            style={[StyleSheet.absoluteFill, shadeStyle]}
-          />
-        </View>
       ) : null}
       {children}
     </AnimatedPressable>
@@ -393,4 +318,3 @@ export default function PressableScale({
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);

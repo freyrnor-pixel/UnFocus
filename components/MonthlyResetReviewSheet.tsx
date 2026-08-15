@@ -43,8 +43,8 @@
  */
 import React, { useRef, useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
-import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { reorderByDrag } from '@/lib/reorder';
 import Surface from '@/components/Surface';
@@ -78,6 +78,7 @@ export default function MonthlyResetReviewSheet({
   onFinalize,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -225,8 +226,8 @@ export default function MonthlyResetReviewSheet({
           <PressableScale style={[styles.footerBtn, { backgroundColor: theme.surfaceMuted }]} onPress={handleSkip} scaleTo={0.97}>
             <Text style={[styles.footerBtnText, { color: theme.text }]}>{t.monthlyResetReviewSkipBtn}</Text>
           </PressableScale>
-          <PressableScale style={[styles.footerBtn, { backgroundColor: theme.accent }]} onPress={handleConfirm} scaleTo={0.95}>
-            <Text style={[styles.footerBtnText, { color: theme.accentInk }]}>{t.monthlyResetReviewConfirmBtn}</Text>
+          <PressableScale style={[styles.footerBtn, glassKey(theme.accent, isDark)]} onPress={handleConfirm} scaleTo={0.95}>
+            <Text style={[styles.footerBtnText, { color: theme.text }]}>{t.monthlyResetReviewConfirmBtn}</Text>
           </PressableScale>
         </View>
       </Surface>

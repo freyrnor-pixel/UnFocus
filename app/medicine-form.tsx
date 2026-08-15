@@ -174,7 +174,7 @@ export default function MedicineFormScreen() {
         onBack={() => router.back()}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.medicineForm.text} example={t.hints.medicineForm.example} />
+          <HintCard text={t.hints.medicineForm.text} />
 
           <View style={styles.field}>
             <Input

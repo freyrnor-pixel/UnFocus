@@ -174,27 +174,34 @@ file owns which token.)
     OUTERMOST view carries the `zIndex: 100` — `PagerFloatingNav` is a `zIndex: 100` sibling, so
     a wrapper without it lets the bar paint over the scrim and the coach card.
 - **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`components/GoalsEditor.tsx`; it was `app/goals.tsx` until that screen was retired 2026-08-12) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, never as a nested Surface (a Surface inside a Surface reads as a nested panel) — since 2026-08-12 that means `StarterCard`'s `embedded` prop rather than hand-rolling the block; see the placement paragraph at the end of this bullet. Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) is drawn as a **provisional sketch** — dashed neutral border, no fill, muted italic title, accent only on its "+" and its "Example" chip. **That reversed on 2026-08-10** ("Examples are not visible examples, they look like a part of the card or an active task, not as a temporary thing"); until then it deliberately DID copy the surrounding list's real row styling (accent wash + accent edge) on the opposite 2026-07-27 report, and succeeded so completely that a one-word chip was the only thing left telling the two apart. It keeps the row's GEOMETRY — an example has to be the same shape as the thing it's an example of — and changes only the finish. Read that file's Edit notes before restoring any of it. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
-  **Placement is decided by EMPTINESS, and there is one component for the line (2026-08-12).**
-  Maintainer: *"Explanation always sits underneath sub-header"*, scoped on follow-up to *"only
-  when the card is empty"*. So the explainer line — `components/CardHintNote.tsx`, the shared
-  bulb + italic sentence — takes a `placement` prop: `'head'` (directly under the card's header,
-  no hairline, no `marginTop`) while the surface is empty and the explanation is the main thing
-  in the card, `'foot'` (the default, with its attaching hairline) once the card has real
-  content to lead with. **This narrows, and does not delete, the 2026-07-30 "move tips out from
-  between the title and the content" decision** — that complaint was about teaching standing
-  between a title and content *the user already has*. All five empty-gated explainers are
-  therefore at the head (`PlanTaskCard`, the three Home cards, and `MedicineTrayCard`, whose
-  `compact embedded` StarterCard became a `CardHintNote` in the same pass, leaving `compact`
-  caller-less); **`EnergyMeter`'s hint is the documented exception and stays at the foot**,
-  because it is permanent rather than empty-gated — a hint under a meter that has a number in
-  it. `lib/__tests__/exampleRows.test.ts` asserts the rule *and* that counter-case, since a
-  placement is invisible to a screenshot. In the same pass `PlanTaskCard`'s example gained the
-  shared `StarterCard collapsible` trigger row (`embedded`, and deliberately **no `text`** — its
-  explainer is the head-mounted note, and one card saying the same sentence twice with two
-  different lifespans is what StarterCard's optional-`text` note warns against), so the card
-  that was the model for the others is no longer the one surface whose example can't be folded
-  away. Its ghost add-row stays OUTSIDE that wrapper: on the `readOnly && !onAddTask` branch it
-  is the only way in, and a collapse must never take away the last "add something" affordance.
+  **The explainer LINE is deleted — the "no manual" pass (2026-08-17).** Maintainer: *"A native
+  app should not read like a manual. You are placing way too much text on the screen. Delete all
+  lightbulb (💡) sections entirely."* `components/CardHintNote.tsx` — the shared bulb + italic
+  sentence that eight cards mounted — **does not exist any more**, and neither do the strings it
+  drew (`starters.{habits,health,notes,medicine}.text`, `starters.energy.text`,
+  `energyMeter.hint`, `healthIssues.cardSubtitle`). They were deleted rather than unmounted, so
+  nothing can be quietly rewired. The bulb glyph came off `StarterCard` and `PlanTaskCard`'s
+  task-hint row too, and `app/scan.tsx`'s tip banner took the ⓘ glyph instead.
+  Three things this did NOT do, so the gaps read as decisions:
+  - **`StarterCard` keeps its one short line**, minus the bulb, minus the italic, clamped to
+    three lines. It is what an EMPTY surface says instead of being blank — deleting it leaves a
+    blank card, which is not "lighter", it is broken.
+  - **A task's OWN hint survives** (`PlanTaskCard`'s `task.hint` row) — that is user content, not
+    app teaching. Only the glyph went.
+  - **The ⓘ banner is now the one place a screen explains itself**, and it was trimmed in the same
+    pass: `HintCard`'s `example` prop and every `hints.*.example` string are gone (the italic
+    "e.g. milk weekly, washing powder monthly." tier), each `hints.*.text` is cut to one short
+    instruction, and the card clamps to `HINT_LINES` (2) with real padding on all four sides.
+  **The placement rule this replaced, kept because it is still right if a short explainer is ever
+  wanted again**: an explanation sits directly under the card's HEADER (*"Explanation always sits
+  underneath sub-header"*, 2026-08-12), and whether it disappears once the card fills up is each
+  caller's separate decision. `lib/__tests__/exampleRows.test.ts` §4 now asserts the ABSENCE
+  across all eight former callers plus that nothing hand-rolls a bulb-and-italic replacement.
+  Unrelated to the deletion and still true: `PlanTaskCard`'s example is wrapped in the shared
+  `StarterCard collapsible` trigger row (`embedded`, and deliberately **no `text`**), so the card
+  that was the model for the others is not the one surface whose example can't be folded away.
+  Its ghost add-row stays OUTSIDE that wrapper: on the `readOnly && !onAddTask` branch it is the
+  only way in, and a collapse must never take away the last "add something" affordance.
 - **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
   **The reminder bell is `components/ReminderBell.tsx` (2026-08-10), shared with
   `app/habit-form.tsx`, and it IS the switch.** It used to open the times panel while drawing
@@ -347,36 +354,45 @@ file owns which token.)
     `onPressOut` past `onPress` for taps under 130ms, so on a slower tap the release read a
     stale `sunk`, animated the cap UP, and the effect animated it back down. The release reads
     `sunkRef` a tick later now. Pinned by `lib/__tests__/chromeRhythm.test.ts`.
-  - **A button has THREE states, and only the top two variants pop out (2026-08-12).** From a
-    brief asking for "flat, popped out, pressed in". Almost all of it was already shipped — the
-    resting elevation (`depth="raised"` + the `keyBase` housing), the sink, and the shadow
-    collapsing to nothing at the bottom of the travel — so this pass added the one missing
-    ingredient and reassigned who wears which state:
-    - **The face darkens while held**, by `PRESS_DARKEN` (0.1) in `components/Button.tsx`, via
-      PressableScale's new `pressFill={{ rest, pressed }}`. It is interpolated off the **same
-      `press` shared value as the sink**, so the colour and the travel are one gesture that
-      cannot disagree, and reduce-motion needs no branch (that value is assigned instantly).
-      The amount is deliberately *between* the cap and its `keyBase` (`darken(fill, 0.22)`):
-      the face moves toward the shade of the base it is landing on, never past it, or the
-      pressed cap reads as a hole rather than a key. **This is not the opacity dip the
-      2026-08-10 pass rejected** — a dim reads as disabled; a darker fill reads as a surface
-      that has moved away from the light. A caller passing `pressFill` must not also set
-      `backgroundColor` in `style`; PressableScale owns it, same contract as `depth`.
-    - **`secondary` is FLAT now** — no `keyBase`, no cast shadow, flush with the card. A
-      soft-tint fill that is elevated competes with the one action a screen is asking for.
-      It keeps its full `travel` and its darken, so flat is not inert. Side effect worth
-      knowing: it lost the wrapper's `paddingBottom: travel`, so a secondary button is 3–5px
-      shorter in layout than it was. `primary`/`danger` keep the whole raised kit unchanged.
-    - **The app's tokens won over the brief's literals.** The brief specified
-      `shadowOffset {0,4}` / opacity 0.15 / radius 4 and a flat `translateY: 2`; the shipped
-      values stay `getElevation('raised')` and `Travel.*`, because both are shared with
-      `Surface`, `IconButton`, `AddFAB` and `BottomNav` and `Travel` is deliberately per-size.
-      Implement the *states*, not the numbers, or a Button stops being the same material as
-      an IconButton beside it.
-    - `ghost` was left alone: no fill to darken, no base to sink onto, so it keeps its
-      documented `press="scale"` opt-out. Don't "finish the job" on it.
-    Pinned by `lib/__tests__/chromeRhythm.test.ts` §4 — a press state is invisible in a
-    screenshot, and the web preview runs worklets on the JS thread, so it cannot see one either.
+  - **Matte glass, not plastic — the 2026-08-17 button pass** (`glassKey()` in
+    `constants/theme.ts` + `components/Button.tsx` + `components/PressableScale.tsx`; pinned by
+    `lib/__tests__/chromeRhythm.test.ts` §4). Maintainer: *"the primary buttons look like glossy
+    Web 2.0 plastic pills… FORBIDDEN: Do NOT use LinearGradient, inner shadows, or solid heavy
+    colors for the background of primary buttons."* A key is now exactly three layers:
+    - **Body** — a flat translucent wash of the key's own hue, `glassKey`'s `KEY_BODY_ALPHA`
+      (14% dark / 16% light for `primary`, **24% for `danger`**, 8/10% for `secondary`).
+    - **Edge** — ONE stroke with per-side COLOURS: white on the top and left, a quiet shade on
+      the bottom and right. Deliberately not the brief's per-side *widths* — RN renders mixed
+      border widths on a `Radius.full` pill inconsistently, and dropping two sides takes away the
+      WCAG 1.4.11 control boundary a button (unlike a card, see `getGlassEdge`'s `shadeDark`
+      note) cannot afford to lose.
+    - **Halo** — `getGlow` in the screen's categorical hue, projecting OUTWARD, `primary`/`danger`
+      only, going out well before the cap lands on press.
+    **Deleted, and none of it comes back piecemeal:** the `keyBase` housing (a
+    `darken(fill, 0.22)` slab — "solid heavy colors" exactly), `depth="raised"`'s black cast
+    shadow, PressableScale's `face` gradients (the resting top-edge highlight AND the pressed
+    inner shade — "LinearGradient" and "inner shadows" exactly), `pressFill`/`PRESS_DARKEN`, and
+    `getTopHighlight`/`getInnerShade`/`KEY_FACE_STOPS` from `constants/theme.ts`. **The SINK
+    survives** — it is a motion, not a finish, and it is what still makes a press physical.
+    Three things worth knowing before touching it:
+    - **`glassKey()` is shared, and that is the point.** `Button` was never where most of the
+      plastic was: ~18 action pills draw themselves — every bottom sheet's Done, `AppModal`'s
+      dialog buttons (**"Start empty" is one of them**, which the brief named), scan's confirm
+      bar, `FoodTab`'s popup, `budget`, `ErrorBoundary`, onboarding's footer. They all set
+      `backgroundColor: theme.accent` directly. They go through the helper now; fixing `Button`
+      alone would have left the app in two materials with no rule saying which was which.
+    - **Nothing is written ON a hue any more**, which is what freed the body to be categorical.
+      The label is `theme.text` on every filled variant. That REVERSES the 2026-08-16 rule that a
+      primary button's fill must stay `theme.accent` — that rule existed only because
+      `accentInk` had to be re-derived per screen.
+    - **`danger`'s label is `theme.text` too, and that was measured, not assumed.** Keeping it red
+      was tried: `bad` on a wash of itself runs 4.62 → 3.59:1 across the usable alpha range in
+      light and 4.33 → 3.59 in dark, i.e. it fails AA at every alpha worth having. Hence the
+      opposite trade — plain ink plus the deepest wash in the band, so the red is what the eye
+      lands on rather than what it has to read. The test asserts BOTH halves, including the
+      failure, so the next session cannot "restore" it.
+    Everything is invisible to a screenshot in isolation and the web preview runs worklets on the
+    JS thread, so the source scan is the only guard that holds.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
@@ -823,18 +839,14 @@ file owns which token.)
     ⚠️ **`app/(tabs)/habits.tsx` hand-rolls its own row box and does NOT move when PadSheet does** —
     that is how it shipped boxed rows for one build while everything else went flush, caught in a
     screenshot rather than by a test. Grep for both.
-  - **Buttons are hardware keys, and three of the five cues were already shipped.** The
-    2026-08-12 pass had the sink, the shadow collapse and the face darken; this adds a resting
-    top-edge HIGHLIGHT, a resting coloured HALO, and a pressed INNER SHADE — `PressableScale`'s new
-    opt-in `face`/`glow`, interpolated off the SAME `press` shared value as the rest. Five cues,
-    one curve, and reduce-motion needs no branch. Colours are precomputed on the JS thread; only
-    opacity is animated (`__tests__/workletSafety.test.ts`).
-    Scope: `face` on any filled key; `glow` on `primary`/`danger`/`AddFAB` only, per rules 15 and 6.
-    ⚠️ **`secondary` did NOT regain its housing** — the 2026-08-12 reasoning stands, and the brief
-    asks specifically for *primary* buttons. **`translateY` stays `Travel.*`**, not the brief's
-    literal 2: implement the states, not the numbers. **`IconButton` gets neither layer** — its
-    pressable is the padded hit target, not the visible circle, so an absoluteFill layer would be
-    the wrong size.
+  - ~~**Buttons are hardware keys**~~ — **superseded by the matte-glass pass (2026-08-17); see
+    that bullet above.** This pass gave `PressableScale` an opt-in `face` (a resting top-edge
+    highlight cross-fading to a pressed inner shade) and `glow`, on the same `press` shared value
+    as the sink. **`face` is deleted** — it was the "LinearGradient / inner shadows" the later
+    ruling forbids — along with the `keyBase` housing and the cast shadow. **`glow` survives and
+    is now the only light on a key**, still `primary`/`danger`/`AddFAB` only, per rules 15 and 6.
+    `IconButton` still gets neither layer: its pressable is the padded hit target rather than the
+    visible circle, so an absoluteFill layer would be the wrong size.
   - **The toggle is a FINISH, not a new shape.** `FormControls`' `Switch` keeps the slider
     (rule 19a, "one shape, everywhere"): accent track + `getGlow` halo when on, quiet `border`
     ring when off, white thumb in both. `ReminderBell` stays rule 19a's one exception.
@@ -925,12 +937,14 @@ file owns which token.)
     resolves it from `useScreenColor()`; `danger` opts out so a destructive action never
     borrows its screen's colour), and the **active bottom-nav tab** — icon, label and the
     sliding pill, which share `navTabHue()` so a rose icon can't land on a blue plate.
-    - ⚠️ A primary button's **FILL stays `theme.accent`**; only its light is categorical. One
-      of the five hues still admits no AA-contrast ink at all — Notes' violet, at 4.40:1 with
-      dark ink and 3.55:1 with white — so a categorical Save button would ship a sub-AA label
-      on at least one screen; and one action colour app-wide is what makes "primary" a role
-      rather than a sixth category. (It was TWO hues before the 2026-08-17 ladder, Health's
-      rose having been the other at 4.32:1; the ladder took that one to 7.17:1.)
+    - ⚠️ **REVERSED 2026-08-17: a primary button's BODY is categorical too.** This read "the FILL
+      stays `theme.accent`; only its light is categorical", because one of the five hues admits
+      no AA-contrast ink at all (Notes' violet, 4.40:1 with dark ink and 3.55:1 with white) and a
+      categorical Save button would have shipped a sub-AA label on at least one screen. That
+      constraint died with the opaque fill: the body is a 14% wash now and the label is
+      `theme.text` at full contrast on every hue, so nothing is written on a hue to measure. See
+      the matte-glass bullet. What still holds is that `danger` opts out of the screen's colour
+      entirely — a destructive action must not borrow the hue of the screen it happens to be on.
     - ⚠️ The nav tab's categorical colour is **dark-mode only**, and that is measured: light's
       octet is mid-tones, and a mid-tone label on a plate tinted with itself lands 2.0–3.6:1,
       worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark measures 5.99–10.07:1

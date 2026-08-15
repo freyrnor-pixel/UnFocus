@@ -105,8 +105,8 @@ import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { parseReceiptText, findFuzzyMatch, ParsedReceiptItem as ParsedItem } from '@/lib/receipt';
 import { matchScanToList, parseScanTarget, shouldRaisePrice, targetWritesToList } from '@/lib/scanTarget';
 import { persistPhoto } from '@/lib/photoStorage';
-import { Fonts, FontSize, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, Radius, rgba, Shadow, Spacing, TabularNums } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { Duration } from '@/constants/motion';
 
 // Fixed camera-chrome colours (Decision 025) — theme-independent, always white-on-black.
@@ -147,6 +147,7 @@ export default function ScanScreen() {
     : scanTarget === 'catalogue' ? t.scanTargetCatalogue
     : t.scanTargetWeekly;
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
 
@@ -614,7 +615,7 @@ export default function ScanScreen() {
                   <Text style={[styles.sheetCancelText, { color: theme.textMuted }]}>{t.cancel}</Text>
                 </PressableScale>
                 <PressableScale
-                  style={[styles.sheetAddBtn, { backgroundColor: theme.accent }, !customStoreName.trim() && { opacity: 0.4 }]}
+                  style={[styles.sheetAddBtn, glassKey(theme.accent, isDark), !customStoreName.trim() && { opacity: 0.4 }]}
                   onPress={() => {
                     if (customStoreName.trim()) {
                       setSelectedStore(customStoreName.trim());
@@ -625,7 +626,7 @@ export default function ScanScreen() {
                   disabled={!customStoreName.trim()}
                   scaleTo={0.95}
                 >
-                  <Text style={[styles.sheetAddText, { color: theme.accentInk }]}>{t.ok}</Text>
+                  <Text style={[styles.sheetAddText, { color: theme.text }]}>{t.ok}</Text>
                 </PressableScale>
               </View>
             </Surface>
@@ -647,7 +648,10 @@ export default function ScanScreen() {
                 per-screen hue layer is retired as of 2026-07-31, A.5). */}
             <Surface borderColor={theme.good} style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
-              <Ionicons name="bulb-outline" size={18} color={theme.good} style={styles.tipIcon} />
+              {/* `information-circle-outline`, not a bulb (2026-08-17): this is an info banner
+                  in the same family as components/HintCard.tsx, and the 💡 belonged to the
+                  explainer tier deleted in that pass. */}
+              <Ionicons name="information-circle-outline" size={18} color={theme.good} style={styles.tipIcon} />
               <View style={styles.tipTextWrap}>
                 <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
                 {/* Which list this scan will act on (2026-08-13). The screen is reached from
@@ -661,12 +665,12 @@ export default function ScanScreen() {
                 (not the option cards below) — one DebugNoteAnchor per region. */}
             <DebugNoteAnchor id="scan.takePhoto" label="Scan — Take photo">
             <PressableScale
-              style={[styles.primaryButton, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}
+              style={[styles.primaryButton, glassKey(theme.accent, isDark), { shadowColor: theme.shadow }]}
               onPress={takePhoto}
               scaleTo={0.95}
             >
-              <Ionicons name="camera-outline" size={46} color={theme.accentInk} />
-              <Text style={[styles.primaryButtonText, { color: theme.accentInk }]}>{t.takePhoto}</Text>
+              <Ionicons name="camera-outline" size={46} color={theme.text} />
+              <Text style={[styles.primaryButtonText, { color: theme.text }]}>{t.takePhoto}</Text>
             </PressableScale>
             </DebugNoteAnchor>
 
@@ -738,7 +742,7 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.foundOnReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} example="" />
+            <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} />
             {renderMonthlyListSelector()}
 
             {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
@@ -780,8 +784,8 @@ export default function ScanScreen() {
             </Surface>
             </DebugNoteAnchor>
 
-            <PressableScale style={[styles.confirmButton, { backgroundColor: theme.accent }]} onPress={addToList} scaleTo={0.95}>
-              <Text style={[styles.confirmButtonText, { color: theme.accentInk }]}>{t.addToListButton(selectedCount)}</Text>
+            <PressableScale style={[styles.confirmButton, glassKey(theme.accent, isDark)]} onPress={addToList} scaleTo={0.95}>
+              <Text style={[styles.confirmButtonText, { color: theme.text }]}>{t.addToListButton(selectedCount)}</Text>
             </PressableScale>
 
             <PressableScale style={[styles.cancelButton, { borderColor: theme.border }]} onPress={() => {
@@ -840,7 +844,7 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.manualEntryTitle} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            <HintCard text={t.manualEntryHint} example="" />
+            <HintCard text={t.manualEntryHint} />
 
             {renderStoreSelector()}
             {renderMonthlyListSelector()}
@@ -872,12 +876,12 @@ export default function ScanScreen() {
             )}
 
             <PressableScale
-              style={[styles.confirmButton, { backgroundColor: theme.accent }, manualLineCount === 0 && { opacity: 0.5 }]}
+              style={[styles.confirmButton, glassKey(theme.accent, isDark), manualLineCount === 0 && { opacity: 0.5 }]}
               onPress={addManualItems}
               disabled={manualLineCount === 0}
               scaleTo={0.95}
             >
-              <Text style={[styles.confirmButtonText, { color: theme.accentInk }]}>
+              <Text style={[styles.confirmButtonText, { color: theme.text }]}>
                 {t.addToListButton(manualLineCount)}
               </Text>
             </PressableScale>

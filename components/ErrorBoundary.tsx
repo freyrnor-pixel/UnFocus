@@ -34,14 +34,14 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import PressableScale from '@/components/PressableScale';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, Radius, Spacing } from '@/constants/theme';
 
 type Props = { children: React.ReactNode };
 type State = { error: Error | null; info: string | null };
 
-class ErrorBoundaryClass extends React.Component<Props & { theme: ReturnType<typeof useAppTheme>; t: ReturnType<typeof useT> }, State> {
+class ErrorBoundaryClass extends React.Component<Props & { theme: ReturnType<typeof useAppTheme>; isDark: boolean; t: ReturnType<typeof useT> }, State> {
   state: State = { error: null, info: null };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
@@ -57,7 +57,7 @@ class ErrorBoundaryClass extends React.Component<Props & { theme: ReturnType<typ
   render() {
     const { error, info } = this.state;
     if (!error) return this.props.children;
-    const { theme, t } = this.props;
+    const { theme, isDark, t } = this.props;
     return (
       <View style={[styles.root, { backgroundColor: theme.bg }]}>
         <Text style={[styles.title, { color: theme.text }]}>{t.errorBoundaryTitle}</Text>
@@ -66,12 +66,12 @@ class ErrorBoundaryClass extends React.Component<Props & { theme: ReturnType<typ
           {info ? `\n${info}` : ''}
         </Text>
         <PressableScale
-          style={[styles.retryBtn, { backgroundColor: theme.accent }]}
+          style={[styles.retryBtn, glassKey(theme.accent, isDark)]}
           onPress={() => this.setState({ error: null, info: null })}
           accessibilityRole="button"
           accessibilityLabel={t.errorBoundaryRetry}
         >
-          <Text style={[styles.retryText, { color: theme.accentInk }]}>{t.errorBoundaryRetry}</Text>
+          <Text style={[styles.retryText, { color: theme.text }]}>{t.errorBoundaryRetry}</Text>
         </PressableScale>
       </View>
     );
@@ -81,9 +81,10 @@ class ErrorBoundaryClass extends React.Component<Props & { theme: ReturnType<typ
 /** Function-component wrapper so callers don't need to thread theme/t through props themselves. */
 export default function ErrorBoundary({ children }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const t = useT();
   return (
-    <ErrorBoundaryClass theme={theme} t={t}>
+    <ErrorBoundaryClass theme={theme} isDark={isDark} t={t}>
       {children}
     </ErrorBoundaryClass>
   );

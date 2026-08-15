@@ -915,6 +915,58 @@ export function getGlassEdge(
 }
 
 /**
+ * ── The matte-glass KEY (2026-08-17) ─────────────────────────────────────────────────────────
+ * The body + edge of an action button, as one style object.
+ *
+ * Maintainer: *"The button body must be a flat, semi-transparent layer… Apply a crisp top and
+ * left border to simulate a glass edge catching the light."* `components/Button.tsx` is where
+ * that is documented in full; this function exists because **Button is not the only thing in
+ * the app that draws a primary action pill.** Roughly eighteen hand-rolled ones — every bottom
+ * sheet's "Done", `components/AppModal.tsx`'s dialog buttons, the scan screen's confirm bar,
+ * onboarding's footer — set `backgroundColor: theme.accent` directly and never went through
+ * Button at all. They were the majority of the "glossy plastic pills" actually on screen, so
+ * fixing Button alone would have left the app in two materials with no rule saying which was
+ * which.
+ *
+ * Returns `backgroundColor` plus the four per-side border colours and the width, so a caller
+ * spreads it and is done. It deliberately does NOT set `borderRadius`, padding or layout — a
+ * sheet's full-width footer pill and a 36px inline button are the same MATERIAL and different
+ * shapes.
+ *
+ * @param hue    what the key is made of: the screen's categorical colour for a primary action,
+ *               `theme.bad` for a destructive one, `theme.text` for a quiet one. The LABEL that
+ *               goes on it is `theme.text` in every case — nothing is written on a hue any more,
+ *               which is the whole reason the hue is free to vary (see Button's `hue`/`ink`).
+ * @param weight `key` (the 10–15% band the brief names) · `loud` (destructive — the deepest rung,
+ *               because a red label on a red wash fails AA at every usable alpha, measured) ·
+ *               `quiet` (secondary, one step back so a screen still has one loudest action).
+ */
+const KEY_BODY_ALPHA = {
+  dark: { key: 0.14, loud: 0.24, quiet: 0.08 },
+  light: { key: 0.16, loud: 0.24, quiet: 0.1 },
+} as const;
+/** The lit top-left lip, and the bottom-right boundary that keeps WCAG 1.4.11's 3:1 job. */
+const KEY_EDGE_LIT = { dark: 0.3, light: 0.9 } as const;
+const KEY_EDGE_SHADE_DARK = 0.07;
+const KEY_EDGE_SHADE_LIGHT = 0.35;
+
+export type KeyWeight = keyof (typeof KEY_BODY_ALPHA)['dark'];
+
+export function glassKey(hue: string, isDark: boolean, weight: KeyWeight = 'key', width = BORDER_WIDTH.button) {
+  const mode = isDark ? 'dark' : 'light';
+  const lit = rgba(GLASS_LIGHT, KEY_EDGE_LIT[mode]);
+  const shade = isDark ? rgba(GLASS_LIGHT, KEY_EDGE_SHADE_DARK) : rgba(hue, KEY_EDGE_SHADE_LIGHT);
+  return {
+    backgroundColor: rgba(hue, KEY_BODY_ALPHA[mode][weight]),
+    borderWidth: width,
+    borderTopColor: lit,
+    borderLeftColor: lit,
+    borderBottomColor: shade,
+    borderRightColor: shade,
+  };
+}
+
+/**
  * The pane fill: the translucent glass, or the fully-opaque composite when the user has asked
  * for less transparency.
  *
@@ -951,22 +1003,18 @@ export function getGlassFill(glass: string, opaque: string, enabled: boolean): s
 export const SCREEN_TINT = 0.05;
 
 /**
- * The two halves of a hardware key's face, per the Tactile Glass brief: *"a subtle top-edge
- * highlight (inner shadow)"* at rest, and *"a dark inner shadow… to simulate the button being
- * depressed into the hardware casing"* while held.
+ * **A key's FACE is deleted (2026-08-17, "no glossy plastic").** `KEY_FACE_STOPS`,
+ * `getTopHighlight` and `getInnerShade` lived here: the gradient stops and the two colour tuples
+ * for a hardware key's resting top-edge highlight and its pressed inner shade, cross-faded by
+ * `components/PressableScale.tsx` inside the cap's clipping mask.
  *
- * React Native has no inner shadow, so both are `LinearGradient` overlays inside the cap's
- * clipping mask — one fading DOWN from the top edge, one fading down from the top edge in the
- * opposite colour. `components/PressableScale.tsx` cross-fades them off the SAME `press` shared
- * value that already drives the sink and the fill darken, so the four cues are one gesture on
- * one curve and cannot disagree. That also means reduced motion needs no branch: `press` is
- * assigned instantly there, so the face snaps with the travel.
- *
- * Returned as plain colour tuples rather than styles because they are consumed inside an
- * animated component — anything computed here must be computed on the JS thread and captured,
- * never called from inside a worklet (`__tests__/workletSafety.test.ts`).
+ * The maintainer's ruling: *"FORBIDDEN: Do NOT use LinearGradient, inner shadows, or solid heavy
+ * colors for the background of primary buttons."* Both halves were exactly that, so they went
+ * with the props that consumed them rather than being turned down — a fainter gloss is still
+ * gloss. What replaced them is in components/Button.tsx: a flat translucent body, a lit top-left
+ * edge, and `getGlow` projecting outward. If a future brief asks for a lit face again, that is a
+ * new system to write, not a token to un-delete.
  */
-export const KEY_FACE_STOPS = [0, 0.45, 1] as const;
 
 /**
  * The frosted badge plate (Tactile Glass, 2026-08-15) — the neutral disc an identity-hue glyph
@@ -1023,16 +1071,6 @@ const FIELD_RECESS = { light: 0.05, dark: 0.35 };
 export function getRecessedField(surface: string, isDark: boolean): { paint: string; composite: string } {
   const alpha = isDark ? FIELD_RECESS.dark : FIELD_RECESS.light;
   return { paint: rgba('#000000', alpha), composite: mix(surface, '#000000', alpha) };
-}
-
-/** Resting: light catches the top edge of the cap. */
-export function getTopHighlight(strength = 0.18): GradientColors {
-  return [rgba('#FFFFFF', strength), rgba('#FFFFFF', strength * 0.25), 'rgba(255,255,255,0)'];
-}
-
-/** Held: the cap has sunk into its housing and the housing shades its top edge. */
-export function getInnerShade(strength = 0.28): GradientColors {
-  return [rgba('#000000', strength), rgba('#000000', strength * 0.3), 'rgba(0,0,0,0)'];
 }
 
 /**

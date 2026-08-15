@@ -1703,7 +1703,6 @@ export default function ShoppingScreen() {
           about. The link row below is how you get to them from here. */}
       <HintCard
         text={t.hints.shopping.text}
-        example={t.hints.shopping.example}
         open={hintOpen}
         noPill
         onDismiss={dismissHint}

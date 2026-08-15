@@ -233,11 +233,18 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // worst. The tutorial stands where the meter will stand, with the same pop-up behind its
     // button.
     // `[^>]*` so a presentational prop can be added without failing this: what matters is that
-    // the tutorial card is mounted with the energy copy, not the exact attribute list. It grew
+    // the tutorial card is mounted at all, not the exact attribute list. It grew
     // `stage="sapling"` on 2026-08-04 (design comparison task 03) — a call-site choice about
     // how large a watermark this card has room for, deliberately NOT `current / capacity`,
     // which is one of the tree bindings both the design project and lib/growth.ts decline.
-    expect(src).toMatch(/<StarterCard text=\{t\.starters\.energy\.text\}[^>]*>/);
+    //
+    // ⚠️ It LOST its `text` on 2026-08-17 (*"Remove the 'Energy is how much a day holds…'
+    // block"*), and that half is asserted as an absence below. The card itself is what this test
+    // is really about — the point was never the paragraph, it was that this spot must not draw a
+    // full ten-pip bar before anything can spend it.
+    expect(src).toMatch(/<StarterCard[^>]*stage="sapling"[^>]*>/);
+    expect(src).not.toMatch(/<StarterCard[^>]*\btext=/);
+    expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
     expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
     // Either kind of "something added" sends the meter back: an energy value on a task/habit,
     // or a capacity the user set themselves (any energy_budgets override row).
@@ -250,8 +257,10 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     for (const store of ['store/useTaskStore.ts', 'store/useHabitStore.ts', 'store/useEnergyStore.ts']) {
       expect({ store, hasFlag: read(store).includes('loaded: true') }).toEqual({ store, hasFlag: true });
     }
-    // The meter, its hint and the tutorial are mutually exclusive — a strip drawing both would
-    // be the "explainer taller than the thing it explains" complaint all over again.
+    // The meter and the tutorial are mutually exclusive — a strip drawing both would be the
+    // "explainer taller than the thing it explains" complaint all over again. (The permanent
+    // hint that used to be the third member of this set was deleted with the bulb tier on
+    // 2026-08-17; see lib/__tests__/exampleRows.test.ts section 4.)
     expect(src).toMatch(/\{!pause\.paused && showTutorial && \(/);
     expect(src).toMatch(/\{!pause\.paused && !showTutorial && \(/);
   });

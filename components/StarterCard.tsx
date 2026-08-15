@@ -37,8 +37,9 @@
  *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx (`collapsible`),
  *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
- *             day's example row, and deliberately NO `text`: that card's explainer is its own
- *             head-mounted components/CardHintNote), components/GoalsEditor.tsx (`embedded
+ *             day's example row, and deliberately NO `text` — that card had a head-mounted
+ *             explainer line of its own, and has none at all since 2026-08-17),
+ *             components/GoalsEditor.tsx (`embedded
  *             collapsible` since 2026-08-13 — it is mounted inside a drawer's Surface, and this
  *             component always draws its own; that line used to say GoalsEditor hand-copied the
  *             contents instead, which stopped being true when `embedded` landed),
@@ -143,8 +144,8 @@
  *     Keep it to lightweight chips — this is an explainer, not a form.
  *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
  *     "EXAMPLE" caption. **As of 2026-08-12 it is CALLER-LESS** — components/MedicineTrayCard,
- *     its last user, now mounts components/CardHintNote instead, so that all five empty-state
- *     explainers are one component in one position (see that component's placement note).
+ *     its last user, moved to the shared explainer line instead, and that line was itself
+ *     deleted app-wide on 2026-08-17, so that card now carries no explainer at all.
  *     Energy's compact card, the other original caller, had already become a permanent inline
  *     hint in its own card (see EnergyMeter's header). Left in place rather than deleted, the
  *     same treatment `dismissKey` above gets: it costs nothing, and a future surface wanting a
@@ -187,6 +188,18 @@ import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppThem
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
 import { useSettingsStore } from '@/store/useSettingsStore';
+
+/**
+ * How many lines the empty-state explanation may take (2026-08-17, brief section 3: *"Secondary
+ * descriptive text must be heavily clamped… to prevent it from pushing functional UI elements off
+ * the screen."*).
+ *
+ * Three, not two — this is a card of its own rather than a banner line, it is what stands where
+ * content would be, and Shopping's mount is deliberately a two-bullet block. It is a ceiling, not
+ * a target: every string under `starters.*` in lib/i18n.ts is one short sentence, and the clamp
+ * exists so that a future edit cannot quietly turn one back into a paragraph.
+ */
+const STARTER_TEXT_LINES = 3;
 
 type Props = {
   /**
@@ -309,8 +322,17 @@ export default function StarterCard({
       ) : null}
       {text ? (
         <View style={[styles.textRow, dismissKey && styles.textRowDismissable]}>
-          <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
-          <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
+          {/* No bulb (2026-08-17, "delete all lightbulb sections entirely"). This is the last
+              explainer tier standing — it is what an EMPTY surface says instead of being blank,
+              so the sentence stays — but the 💡 that marked it as part of the manual does not,
+              and neither does the indent it needed. Clamped so an empty state can never grow
+              into a paragraph again (brief section 3). */}
+          <Text
+            style={[styles.text, compact && styles.textCompact, { color: theme.text }]}
+            numberOfLines={STARTER_TEXT_LINES}
+          >
+            {text}
+          </Text>
         </View>
       ) : null}
       {collapsible && hasExampleContent ? (
@@ -476,15 +498,16 @@ const baseStyles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
   },
-  bulbIcon: {
-    marginTop: 2,
-  },
   text: {
     flex: 1,
+    minWidth: 0,
     fontSize: FontSize.sm,
     lineHeight: 20,
+    // Medium, upright, full-contrast (2026-08-17). It was `italic` because it was the same
+    // teaching tier as the bulb line — italic is what carried "this is an aside". With that tier
+    // deleted this is no longer an aside beside content; on an empty surface it IS the content,
+    // and a whole card set in italic reads as a caption for something that is not there.
     fontFamily: Fonts.medium,
-    fontStyle: 'italic',
   },
   textCompact: {
     fontSize: FontSize.xs,

@@ -222,9 +222,6 @@ const en = {
     todayCapacityHint: 'How much today holds. Every other day keeps its own number.',
     weekCapacityHint: 'How much the whole week holds.',
     done: 'Done',
-    /** Permanent one-liner under the meter (components/EnergyMeter.tsx). Keep it to one
-     *  sentence with no examples — see that file's "Permanent inline hint" note. */
-    hint: 'Plan the day around the energy you actually have.',
     // The "+ today only" boost, in the ✏️ editor beside the capacity stepper (2026-08-02).
     // It is extra energy for ONE day, never a reward and never a target — the hint says
     // where it goes and that tomorrow is unaffected, and stops there. `overCommittedDay/Week`
@@ -1308,12 +1305,6 @@ const en = {
     untrackConfirmTitle: (name: string) => `Stop tracking "${name}"?`,
     untrackConfirmBody: 'It leaves this list. Everything you have logged stays in the health log.',
     close: 'Done',
-    /**
-     * Sub-header of the Health tab's main card — the counterpart of `habits.cardSubtitle`, and
-     * it carries the same promise for the same reason: this card counts entries, so it has to
-     * say out loud that the count is a size and not a score. A quiet week is not a win here.
-     */
-    cardSubtitle: 'A record of how you have been — no scores, no streaks.',
     /** The card's composer prompt (the pad type line at the foot of the list). */
     typePrompt: 'Log something',
     /** a11y for a card row's "+", where a habit row has its −/+ pair. */
@@ -1820,71 +1811,39 @@ const en = {
     micPermissionBody: 'Microphone access is required to add a voice note.',
     micErrorBody: "Couldn't catch that — try again.",
   },
+  /**
+   * The ⓘ banner copy — ONE short instruction per screen, and nothing else (2026-08-17).
+   *
+   * **`example` is deleted.** Every entry used to carry a second, italic, muted line —
+   * "Draining tasks get a minus, restoring ones a plus.", "e.g. milk weekly, washing powder
+   * monthly.", "e.g. 'Headache' at 3 of 5 — a couple of weeks shows a pattern." Maintainer:
+   * *"Remove all italicized explanatory examples from the top info banners. Keep only the
+   * absolute shortest, primary instruction."* The prop went from components/HintCard.tsx in the
+   * same pass; the keys are deleted here rather than emptied so nothing can wire them back.
+   *
+   * **The `text` lines were trimmed with them**, to the one thing a first-time reader needs and
+   * cannot get from the screen itself — usually a gesture ("Hold a card to move it") or what the
+   * surface is for. What came off was every clause the UI already says out loud: a tab bar that
+   * shows the day/week split, a row that shows its own gear, a heading that already says
+   * "Whenever". `components/HintCard.tsx` clamps these to two lines, so a hint that grows past a
+   * short sentence in Norwegian will be truncated rather than pushing the card's controls down.
+   */
   hints: {
-    home: {
-      text: 'Today at a glance. Hold a card to move it.',
-      example: 'Draining tasks get a minus, restoring ones a plus.',
-    },
-    taskForm: {
-      text: 'Add a task with a title, date, and optional details.',
-      example: '',
-    },
-    habitForm: {
-      // Rewritten 2026-07-26: used to say "a habit you're building or breaking", describing
-      // the build/break `kind` split that store/useHabitStore.ts dropped on 2026-07-20.
-      text: 'How often it repeats, how many times a day it counts, and optionally a goal, reminders and an energy value.',
-      example: 'e.g. "Drink 4 glasses of water" — daily, 4 a day.',
-    },
-    medicineForm: {
-      text: 'Pick its trays, or set it as needed with a minimum gap between doses.',
-      example: 'e.g. painkillers as needed, at least 6 hours apart.',
-    },
-    shopping: {
-      text: 'Add things as you run out. Resets weekly. Hold a row to move it.',
-      example: 'e.g. milk weekly, washing powder monthly.',
-    },
-    meals: {
-      text: 'Browse dishes and add their ingredients to your shopping list.',
-      example: '',
-    },
-    health: {
-      text: 'Log and track health issues over time.',
-      example: 'e.g. "Headache" at 3 of 5 — a couple of weeks shows a pattern.',
-    },
-    scan: {
-      text: 'Photo a receipt to add items, or scan a shared QR code.',
-      example: '',
-    },
-    settings: {
-      text: 'Changes apply immediately.',
-      example: '',
-    },
-    shared: {
-      text: 'Items shared with you — mark your part done.',
-      example: '',
-    },
-    habits: {
-      // Rewritten 2026-07-26: the old "build habits you want more of, or break ones you want
-      // less of" described the build/break `kind` split removed from the store on 2026-07-20.
-      text: 'Small things you want to repeat. Tap to count it, gear to set it up. Hold a row to move it.',
-      example: 'e.g. "Drink 4 glasses of water" — daily, 4 a day.',
-    },
-    plans: {
-      text: 'Everything to do, by day and week. Under Whenever, hold a row to move it.',
-      example: 'e.g. "Book the dentist" under Whenever.',
-    },
-    automations: {
-      text: 'Simple rules: when X happens, do Y automatically.',
-      example: '',
-    },
-    notes: {
-      text: 'Write it down. Send it anywhere. Hold a note to move it.',
-      example: '',
-    },
-    goals: {
-      text: 'The bigger thing your to-dos and habits are for. Link them and it gets stronger.',
-      example: 'It can be something you want less of too.',
-    },
+    home: { text: 'Hold a card to move it.' },
+    taskForm: { text: 'Add a task with a title, date, and optional details.' },
+    habitForm: { text: 'How often it repeats and how many times a day it counts.' },
+    medicineForm: { text: 'Pick its trays, or set it as needed.' },
+    shopping: { text: 'Add things as you run out. Resets weekly.' },
+    meals: { text: 'Browse dishes and add their ingredients to your shopping list.' },
+    health: { text: 'Log and track health issues over time.' },
+    scan: { text: 'Photo a receipt to add items, or scan a shared QR code.' },
+    settings: { text: 'Changes apply immediately.' },
+    shared: { text: 'Items shared with you — mark your part done.' },
+    habits: { text: 'Tap to count it, gear to set it up.' },
+    plans: { text: 'Everything to do, by day and week.' },
+    automations: { text: 'Simple rules: when X happens, do Y automatically.' },
+    notes: { text: 'Write it down. Send it anywhere.' },
+    goals: { text: 'The bigger thing your to-dos and habits are for.' },
   },
   /**
    * Empty-state explainers (components/StarterCard.tsx, 2026-07-26). Shown inline where the
@@ -1917,7 +1876,6 @@ const en = {
     expandExamples: 'Show suggestions',
     collapseExamples: 'Hide suggestions',
     habits: {
-      text: 'All wins matter, big and small.',
       tapToAdd: 'Tap one to start:',
       suggestions: {
         water: 'Drink 4 glasses of water',
@@ -1942,7 +1900,7 @@ const en = {
     shopping: {
       // ONE short line (2026-07-30). This was a two-item bullet list on both surfaces, which
       // on Home's card was the largest block of teaching anywhere on the screen — see
-      // components/CardHintNote.tsx's header. The weekly/monthly split is taught by the two
+      // the shared explainer line's header. The weekly/monthly split is taught by the two
       // tabs' own labels; this only has to say what the list is for.
       text: 'Add things as you run out.',
       // The /shopping screen keeps the weekly-vs-monthly distinction: that screen IS the
@@ -1952,20 +1910,9 @@ const en = {
       textMonthly: 'Monthly list for what the house needs.',
     },
     health: {
-      text: 'Log what bothers you. And what helps.',
       /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
       tapToAdd: 'Examples:',
       exampleTitle: 'Headache',
-    },
-    // Medicine card's empty state — compact (no example row): the card's own add field
-    // is right underneath it, and seeding a fake medicine would be a bad idea.
-    medicine: {
-      text: 'Add what you take. Tap it off when you do — a tray is a window, not a deadline.',
-    },
-    // Home preview card's empty state (2026-07-28) — Notes had no explainer at all (just the
-    // "Nothing" label), unlike its sibling Home cards. See HomeNotesCard.tsx.
-    notes: {
-      text: 'Note thoughts for later.',
     },
     /**
      * The Energy strip's tutorial state (2026-08-03) — what stands at the top of Home while
@@ -1981,7 +1928,6 @@ const en = {
      * under it, and the permanent hint stays exactly where it is.
      */
     energy: {
-      text: 'Energy is how much a day holds. Give a to-do or a habit a cost, and the meter here shows what the day has left.',
       action: "Set the day's energy",
     },
     goals: {
@@ -2485,7 +2431,6 @@ const no: typeof en = {
     todayCapacityHint: 'Hvor mye dagen i dag rommer. Alle andre dager beholder sitt eget tall.',
     weekCapacityHint: 'Hvor mye hele uken rommer.',
     done: 'Ferdig',
-    hint: 'Planlegg dagen ut fra energien du faktisk har.',
     boostToday: 'Ekstra i dag',
     boostHint: 'Noen dager rommer mer enn vanlig. Dette legges bare til i dag, og i morgen starter på det vanlige igjen.',
     /* "bare i dag" er hele poenget — tallet er lånt av én dag, ikke en større dag. */
@@ -3705,7 +3650,6 @@ const no: typeof en = {
     untrackConfirmTitle: (name: string) => `Slutte å følge «${name}»?`,
     untrackConfirmBody: 'Den forsvinner fra denne listen. Alt du har logget blir liggende i helse-loggen.',
     close: 'Ferdig',
-    cardSubtitle: 'En oversikt over hvordan du har hatt det — ingen poeng, ingen rekker.',
     typePrompt: 'Logg noe',
     logAgain: (name: string) => `Logg ${name} på nytt`,
     timesThisWeek: (n: number) => `${n}×`,
@@ -3785,66 +3729,21 @@ const no: typeof en = {
     micErrorBody: 'Fikk ikke med det — prøv igjen.',
   },
   hints: {
-    home: {
-      text: 'Dagen på ett blikk. Hold et kort for å flytte.',
-      example: 'Krevende oppgaver får minus, de som gir påfyll pluss.',
-    },
-    taskForm: {
-      text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.',
-      example: '',
-    },
-    habitForm: {
-      text: 'Hvor ofte den gjentas, hvor mange ganger om dagen den teller, og eventuelt mål, påminnelser og energiverdi.',
-      example: 'F.eks. «Drikk 4 glass vann» — daglig, 4 om dagen.',
-    },
-    medicineForm: {
-      text: 'Velg runder, eller sett den til ved behov med minste pause mellom doser.',
-      example: 'F.eks. smertestillende ved behov, minst 6 timer mellom.',
-    },
-    shopping: {
-      text: 'Legg til når du går tom. Nullstilles ukentlig. Hold en rad for å flytte.',
-      example: 'F.eks. melk ukentlig, vaskepulver månedlig.',
-    },
-    meals: {
-      text: 'Bla gjennom retter og legg ingrediensene til handlelisten.',
-      example: '',
-    },
-    health: {
-      text: 'Logg og følg opp helseplager over tid.',
-      example: 'F.eks. «Hodepine» på 3 av 5 — et par uker viser et mønster.',
-    },
-    scan: {
-      text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.',
-      example: '',
-    },
-    settings: {
-      text: 'Endringer trer i kraft umiddelbart.',
-      example: '',
-    },
-    shared: {
-      text: 'Delt med deg — merk din del som utført.',
-      example: '',
-    },
-    habits: {
-      text: 'Små ting du vil gjenta. Trykk for å telle, tannhjul for å sette opp. Hold en rad for å flytte.',
-      example: 'F.eks. «Drikk 4 glass vann» — daglig, 4 om dagen.',
-    },
-    plans: {
-      text: 'Alt som skal gjøres, etter dag og uke. Under «Når som helst», hold en rad for å flytte.',
-      example: 'F.eks. «Bestill tannlegetime» under «Når som helst».',
-    },
-    automations: {
-      text: 'Enkle regler: når X skjer, gjør Y automatisk.',
-      example: '',
-    },
-    notes: {
-      text: 'Skriv det ned. Send det videre. Hold et notat for å flytte.',
-      example: '',
-    },
-    goals: {
-      text: 'Det større gjøremålene og vanene dine er til for. Koble dem, så blir det sterkere.',
-      example: 'Det kan også være noe du vil ha mindre av.',
-    },
+    home: { text: 'Hold et kort for å flytte.' },
+    taskForm: { text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.' },
+    habitForm: { text: 'Hvor ofte den gjentas og hvor mange ganger om dagen den teller.' },
+    medicineForm: { text: 'Velg runder, eller sett den til ved behov.' },
+    shopping: { text: 'Legg til når du går tom. Nullstilles ukentlig.' },
+    meals: { text: 'Bla gjennom retter og legg ingrediensene til handlelisten.' },
+    health: { text: 'Logg og følg opp helseplager over tid.' },
+    scan: { text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.' },
+    settings: { text: 'Endringer trer i kraft umiddelbart.' },
+    shared: { text: 'Delt med deg — merk din del som utført.' },
+    habits: { text: 'Trykk for å telle, tannhjul for å sette opp.' },
+    plans: { text: 'Alt som skal gjøres, etter dag og uke.' },
+    automations: { text: 'Enkle regler: når X skjer, gjør Y automatisk.' },
+    notes: { text: 'Skriv det ned. Send det videre.' },
+    goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
   },
   starters: {
     addExample: 'Legg til',
@@ -3852,7 +3751,6 @@ const no: typeof en = {
     expandExamples: 'Vis forslag',
     collapseExamples: 'Skjul forslag',
     habits: {
-      text: 'Alle seire teller, små som store.',
       tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         water: 'Drikk 4 glass vann',
@@ -3879,19 +3777,11 @@ const no: typeof en = {
       textMonthly: 'Månedlig liste for det huset trenger.',
     },
     health: {
-      text: 'Logg plagene dine. Og hva som hjelper.',
       tapToAdd: 'Eksempler:',
       exampleTitle: 'Hodepine',
     },
-    medicine: {
-      text: 'Legg inn det du tar. Trykk det av når du tar det — en runde er et tidsrom, ikke en frist.',
-    },
-    notes: {
-      text: 'Noter tanker til senere.',
-    },
     /* Se den engelske tvillingen: energistripens opplæringstilstand (2026-08-03). */
     energy: {
-      text: 'Energi er hvor mye en dag rommer. Gi et gjøremål eller en vane en kostnad, så viser måleren her hva dagen har igjen.',
       action: 'Sett dagens energi',
     },
     goals: {

@@ -47,11 +47,11 @@ import PressableScale from '@/components/PressableScale';
 import Stepper from '@/components/Stepper';
 import Surface from '@/components/Surface';
 import { Input } from '@/components/FormControls';
-import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { categoryPresets } from '@/lib/shoppingCategories';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 
 /** Same clamps the row used for its inline stepper, kept in step deliberately. */
@@ -66,6 +66,7 @@ type Props = {
 
 export default function ShoppingItemSheet({ visible, item, onClose }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const update = useShoppingStore((s) => s.update);
@@ -235,11 +236,11 @@ export default function ShoppingItemSheet({ visible, item, onClose }: Props) {
           ) : null}
 
           <PressableScale
-            style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+            style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
             onPress={close}
             scaleTo={0.95}
           >
-            <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>
+            <Text style={[styles.doneBtnText, { color: theme.text }]}>
               {t.shoppingItemSheet.done}
             </Text>
           </PressableScale>

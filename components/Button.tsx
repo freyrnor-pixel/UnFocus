@@ -1,11 +1,12 @@
 /**
- * Button.tsx — soft, rounded, shame-free action button. Variants: primary (filled), secondary (soft tint), danger (destructive), ghost (text).
+ * Button.tsx — soft, rounded, shame-free action button. Variants: primary (matte glass, lit and
+ * haloed), secondary (the same glass, quieter and unlit), danger (destructive), ghost (text).
  *
  * Sentence-case labels; no copy is baked in. Leading/trailing icons supported. Resolves
  * fill/text colours from the active theme (Decision 006 tokens). Minimum touch target is 44px tall.
  *
  * Connections:
- *   Imports → constants/theme (computeBorderTone, filledEdge),
+ *   Imports → constants/theme (computeBorderTone, glassKey — the shared matte-glass material),
  *             lib/useDesignLab (useLabControl/useLabShape — the design lab's `button` shape
  *             knob: key (shipped) · filled · ghost · outline, plus the edge width),
  *             lib/useAppTheme, lib/screenColor (useScreenColor — the `ghost` border hue),
@@ -23,91 +24,56 @@
  *     lineHeight by the OS font scale when allowFontScaling is on, double-scaling the line box
  *     (constants/theme.ts's getHeaderMetrics block documents that trap in full).
  *   - BorderRadius.full (999) for buttons (fully rounded pills).
- *   - Secondary is soft-tint fill (accentSoft), NOT border.
+ *   - Secondary is the same matte glass at a quieter alpha, NOT a border-only button.
  *   - Disabled state is opacity 0.45 applied over the variant's own colours — never swap fill for disabled.
- *   - **Key press (2026-07-28)**: every filled variant is a CAP ON A BASE. The base is a
- *     plain `darken(fill, 0.22)` slab behind the cap (v6 `handoff/BUTTONS.md`: "the face at
- *     ~78% lightness — a real moulded edge, never a drop shadow"), and the wrapper's
- *     `paddingBottom: travel` is what leaves a sliver of it showing under the cap at rest.
- *     PressableScale's `travel` then sinks the cap onto it on press (Travel.sm/md/lg by size).
- *     Two consequences worth knowing: `style` moves to the WRAPPER on this path (a caller's
- *     width/margin has to size the whole key, or the base sticks out past the cap), and
- *     `ghost` opts out entirely — it's text with no fill, so it has no cap to sink and keeps
- *     the historical scale-bounce.
- *   - **Three states, and only PRIMARY/DANGER pop out (2026-08-12)**. The brief was "flat,
- *     popped out, pressed in", and the three now map onto the variants like this:
- *       · **Popped out** — `primary`/`danger` (`isRaised`): the `keyBase` housing AND the
- *         `depth="raised"` cast shadow, exactly as before. Nothing about the resting look
- *         changed; this pass only decided who gets it.
- *       · **Flat** — `secondary`, as of this change: no housing, no shadow, flush with the
- *         card. A soft-tint fill that is elevated competes with the one action a screen is
- *         actually asking for. It keeps its full `travel`, so it is flat, not inert.
- *       · **Pressed in** — every filled variant sinks by `travel`, its shadow collapses to
- *         nothing, and now its FACE DARKENS by `PRESS_DARKEN` (PressableScale's `pressFill`,
- *         driven off the same shared value as the sink so the two can't disagree).
- *     The darken is the only genuinely new ingredient; the elevation numbers are still the
- *     app's own tokens (`getElevation('raised')`, `Travel.*`), not per-button literals, so a
- *     Button, an IconButton and an AddFAB still read as the same material.
- *   - **Tactile Glass adds a FACE and a HALO (2026-08-15); it did not restructure any of the
- *     above.** The brief asked for buttons that "feel like physical hardware keys": a top-edge
- *     highlight and a coloured glow at rest, and on press a move into the screen with the glow
- *     gone and a dark inner shadow in its place. Three of those five were already shipped by
- *     the 2026-08-12 pass — the sink, the shadow collapse, the face darken — so this change is
- *     only the two that were missing, and both go through PressableScale's new `face`/`glow`
- *     props on the SAME `press` shared value as the rest. Five cues, one curve.
- *       · `face` — every filled key gets it (gated on `pressFill`, so never a `ghost`: a
- *         highlight along the top of a bare word is nonsense).
- *       · `glow` — `isRaised` only, i.e. `primary`/`danger`. That is deliberately the same
- *         predicate as the housing rather than a new flag, so the two can't drift; and it is
- *         what keeps the halo inside DESIGN_RULES.md rule 15 ("never decoration") and rule 6
- *         (one primary action per screen).
- *     ⚠️ **`secondary` did NOT get its housing back.** The 2026-08-12 reasoning above is
- *     untouched by this brief, which asks specifically for *primary* buttons to read as
- *     hardware. Secondary sinks, darkens and now lights its face; primary additionally sits in
- *     a housing and glows. The gap between them got WIDER in this pass, not narrower.
- *   - `travel` stays `Travel.*` (3/4/5), not the brief's literal `translateY: 2`. Same rule the
- *     2026-08-12 pass wrote down — implement the STATES, not the numbers — and `Travel` is
- *     shared with Surface/IconButton/AddFAB/BottomNav, so a per-button literal would make a
- *     Button stop being the same material as an IconButton beside it. A bare `2` would also
- *     fail `lib/__tests__/designTokens.test.ts`.
- *   - **`secondary` lost `travel` px of layout height** with its housing (the wrapper's
- *     `paddingBottom` reserved the base's sliver). Intended — "flush with the UI" — and
- *     harmless because screens space their cards with `SCREEN_GAP`. Worth knowing if a
- *     tightly-packed row of secondary buttons ever looks 4px off from a mock.
- *   - **There is no glass path any more (card design reset, 2026-08-05, brief point 6: "white
- *     fill, full opacity for all cards and buttons").** Every variant is a solid, fully opaque
- *     fill with a border and the cap-on-base sink. Deleted with it: the transparent pressable,
- *     the `LinearGradient` rim ring, the `overflow:'hidden'` pill mask, the `GlassFill` frost +
- *     wash, and the `settings.glassSurfaces` read that chose between them. The same pass
- *     removed the equivalent layers from components/Surface.tsx.
- *     **Still true of BUTTONS after Tactile Glass (2026-08-15), and deliberately so** — that
- *     pass made CARDS translucent again but left every button fill solid. A button is the lit
- *     object in the brief ("illuminated and raised"), not the frosted one; a translucent
- *     primary action would take its own accent colour down toward whatever it happened to be
- *     sitting on, which is the opposite of "one obvious action". So a button and a card are no
- *     longer the same material, and that is the design: glass panes, solid keys ON them.
- *   - **Point 7 of that brief was "button states stay as designed now", and it held until
- *     2026-08-12** — that pass removed only translucency. The tactile-states change above is
- *     the first deliberate exception, made on instruction, and it is a narrow one: it adds the
- *     press-darken and moves `secondary` to flat. Everything else point 7 protected is still
- *     untouched — the variant fills, the per-variant `scaleTo`, the travel by size, the 0.45
- *     disabled opacity, the flat face, and `depth="raised"` on the variants that keep it.
- *     Still don't read the card reset as licence to restyle the states generally.
- *   - **Every variant has a border.** A FILLED variant's edge is `filledEdge`, derived from
- *     its own fill — a green screen-hue edge on a blue primary would read as a mistake.
- *     `ghost` has no fill to derive from, so it takes the screen's hue at the BUTTON rung
- *     (`computeBorderTone(hue, isDark, 'button')`), the lightest step of the card → field →
- *     button family. It falls back to the neutral `theme.border` on Home and Settings, which
- *     provide no hue.
- *   - **Flat face (2026-08-05)**: nothing is painted ON the face — no top-lit fill gradient, no
- *     face-lift scrim. "Raised" is read from the border, the keyBase sliver and the cast shadow,
- *     none of which touch the face. This used to call `getMaterialStyle` for the whole glass
- *     recipe and consume exactly one field of it; since 2026-08-08 it calls `filledEdge`, which
- *     IS that field, and the rest of the recipe is deleted.
- *   - Purposeful Depth System (2026-07-14): primary/danger pass PressableScale's
- *     `depth="raised"` (solid-fill, physical — reads as tappable); `ghost` (text-only) stays
- *     flat/unset since it has no fill to cast a shadow from. **`secondary` joined `ghost` on
- *     the flat side on 2026-08-12** — see the three-states note above.
+ *   - **Matte glass, not plastic (2026-08-17)** — the current material, and the one that
+ *     replaced the "hardware key" build below. Maintainer: *"the primary buttons look like
+ *     glossy Web 2.0 plastic pills… FORBIDDEN: Do NOT use LinearGradient, inner shadows, or
+ *     solid heavy colors for the background of primary buttons."* Three layers, and that is all:
+ *       · **Body + Edge** — both come from `glassKey()` in constants/theme.ts: a flat,
+ *         semi-transparent wash of the key's own hue (14% dark / 16% light for primary, 24% for
+ *         danger, 8/10% for secondary), and one stroke that runs white on the TOP and LEFT and a
+ *         quiet shade on the bottom and right. That is the glass catching a light source above
+ *         and to the left — the same read `getGlassEdge` gives a card, done with per-side border
+ *         COLOURS because a button is small enough that a gradient ring is not worth the extra
+ *         view. Nothing is painted on top: no gradient, no scrim, no frost, no BlurView.
+ *         **The helper is shared with the ~18 hand-rolled action pills** (every sheet's Done,
+ *         AppModal's dialog buttons, scan's confirm bar) that never went through this component
+ *         — they were most of the plastic actually on screen, so fixing Button alone would have
+ *         left the app in two materials.
+ *       · **Halo** — `getGlow` in the screen's categorical hue, projecting OUTWARD, on
+ *         `primary`/`danger` only, and out well before the cap lands on press.
+ *     **Deleted by this pass, and none of it should come back piecemeal:** the `keyBase` housing
+ *     (a `darken(fill, 0.22)` slab — "solid heavy colors" exactly), the `depth="raised"` black
+ *     cast shadow (the halo is the lift now), PressableScale's `face` gradients (a white top-edge
+ *     highlight cross-fading to a dark inner shade — "LinearGradient" and "inner shadows"
+ *     exactly), and `pressFill`/`PRESS_DARKEN` (a darken has nothing to act on once the body is a
+ *     wash). What survives from the hardware era is the SINK, which is a motion rather than a
+ *     finish, and it is what still makes a press feel physical.
+ *   - **The history this replaced**, kept because the next brief will otherwise re-derive it:
+ *     2026-07-28 made every filled variant a cap on a base; 2026-08-12 split the variants into
+ *     "popped out" (primary/danger, housed + shadowed) and "flat" (secondary), and added the
+ *     press-darken; 2026-08-15's Tactile Glass added the face highlight and the halo; 2026-08-16
+ *     made the halo categorical while keeping the fill `theme.accent`. Everything in that chain
+ *     except the halo and the sink is now gone. The one rule that survived all four passes and
+ *     still holds: **implement the STATES, not the numbers** — `travel` stays `Travel.*` (3/4/5)
+ *     rather than a brief's literal `translateY: 2`, and the edge is `edgeWidth` off the design
+ *     lab's own token rather than a bare `1`. `Travel` is shared with
+ *     Surface/IconButton/AddFAB/BottomNav, so a per-button literal would stop a Button being the
+ *     same material as an IconButton beside it, and a bare `2` would fail
+ *     `lib/__tests__/designTokens.test.ts`.
+ *   - **Every variant has a border**, and every filled one now has the same one — the lit/shade
+ *     pair above, derived from `hue`. `ghost` has no body to derive from, so it keeps the
+ *     screen's hue at the BUTTON rung (`computeBorderTone(hue, isDark, 'button')`), the lightest
+ *     step of the card → field → button family, falling back to the neutral `theme.border` on
+ *     Home and Settings, which provide no hue.
+ *   - **The label is `theme.text` on every filled variant, `danger` included.** It is not derived
+ *     from the hue any more — nothing is written on a hue now, since the body is a wash rather
+ *     than a fill, which is what freed the body to be categorical at all. Keeping `danger`'s label
+ *     red was tried and MEASURED: `bad` on a wash of itself runs 4.62 → 3.59:1 across the usable
+ *     alpha range in light and 4.33 → 3.59 in dark, i.e. it fails AA everywhere. Hence the
+ *     opposite trade — plain ink, and the deepest wash in the band so the red is what the eye
+ *     lands on rather than what it has to read.
  *   - **`emphasis` (2026-07-22, reserve-only)**: opt-in breathing `GlowPulse` halo behind the
  *     PRIMARY variant to draw the eye to the single main action on a screen (reduces "which
  *     button" load). Wrapped in a relative View so the halo isn't clipped by the pill.
@@ -118,7 +84,7 @@ import { ActivityIndicator, StyleSheet, Text, View, ViewStyle, StyleProp } from 
 import { Ionicons } from '@expo/vector-icons';
 // Label stays on FontSize/Fonts.bold rather than a Type role (2026-07-18 typography pass) —
 // no Type entry fits a short CTA pill label; Type is for headings/body/captions.
-import { computeBorderTone, darken, filledEdge, FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
+import { computeBorderTone, FontSize, Fonts, glassKey, type KeyWeight, Radius, Spacing } from '@/constants/theme';
 import { Travel } from '@/constants/motion';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
@@ -148,13 +114,7 @@ const SIZE_FONT: Record<Size, number> = { sm: FontSize.sm, md: FontSize.md, lg: 
 const SIZE_PADDING: Record<Size, [number, number]> = { sm: [8, 16], md: [12, 22], lg: [15, 28] };
 /** Cap travel per size — design-system v6 `handoff/BUTTONS.md`'s "Travel by size" table. */
 const SIZE_TRAVEL: Record<Size, number> = { sm: Travel.sm, md: Travel.md, lg: Travel.lg };
-/**
- * How far a filled face darkens while it is held down (2026-08-12). Deliberately BETWEEN the
- * cap and its `keyBase` (`darken(fill, 0.22)`): the face moves toward the shade of the base it
- * is landing on, and never past it. A value at or above 0.22 would make the pressed cap darker
- * than the housing it sits in, which reads as a hole rather than a key.
- */
-const PRESS_DARKEN = 0.1;
+
 
 export default function Button({
   label,
@@ -177,37 +137,53 @@ export default function Button({
   const buttonHue = screenHue ?? theme.border;
   const [vertPad, horizPad] = SIZE_PADDING[size];
 
-  const variantColors = {
-    primary: { bg: theme.accent, text: theme.accentInk },
-    secondary: { bg: theme.accentSoft, text: theme.text },
-    danger: { bg: theme.bad, text: theme.textInverse },
-    ghost: { bg: 'transparent', text: theme.accent },
-  };
-  // Design lab (lib/designLab.ts): what a button IS. 'key' is what the app ships — a filled
-  // cap sunk onto a darker base — and is the fallback, so the three alternatives below are
-  // unreachable until the lab says otherwise. 'filled' keeps the fill but drops the sink;
-  // 'ghost' and 'outline' drop the fill entirely and move the variant's colour to the label
-  // (and, for outline, to the edge), which is how the shipped `ghost` variant already works.
+  // ── The material a key is made of (2026-08-17, "no glossy plastic") ────────────────────────
+  // `hue` is what the body, the shade edge and the halo are all derived from, so a key can never
+  // be tinted one colour and lit another. `ink` is the label, and it is deliberately NOT derived
+  // from the hue: the body is a 8–16% wash, i.e. very close to the surface behind it, so the
+  // text that reads best on it is the app's ordinary `theme.text` at full contrast. That also
+  // sidesteps the `accentInk` problem the 2026-08-16 halo note records — two of the five
+  // categorical hues admit no AA-contrast ink at all, which only bites if something is written
+  // ON the hue. Nothing is, any more.
+  //
+  // `danger` is not an exception to that — see `glassKey`'s `loud` note for the measurement that
+  // decided it. Its label is `theme.text` like every other filled key, and what makes it read as
+  // destructive is the deepest wash in the band plus a red halo.
+  const hue =
+    variant === 'danger'
+      ? theme.bad
+      : variant === 'secondary'
+        ? theme.text // neutral glass — `rgba(255,255,255,0.08)` in dark, exactly the brief's example
+        : screenHue ?? theme.accent;
+  const weight: KeyWeight = variant === 'danger' ? 'loud' : variant === 'secondary' ? 'quiet' : 'key';
+  const ink = theme.text;
+
+  // Design lab (lib/designLab.ts): what a button IS. 'key' is what the app ships — a matte-glass
+  // cap that sinks — and is the fallback, so the three alternatives below are unreachable until
+  // the lab says otherwise. 'filled' keeps the body but drops the sink; 'ghost' and 'outline'
+  // drop the body entirely and move the variant's colour to the label (and, for outline, to the
+  // edge), which is how the shipped `ghost` variant already works.
   const buttonShape = useLabControl('button');
   const labShape = useLabShape();
   const unfilled = buttonShape === 'ghost' || buttonShape === 'outline';
-  const filledColors = variantColors[variant];
-  const colors = unfilled
-    ? { bg: 'transparent', text: variant === 'secondary' ? theme.text : filledColors.bg }
-    : filledColors;
   const edgeWidth = labShape.borderButtonWidth * labShape.borderScale;
-  // **Never glass (card design reset, 2026-08-05, brief point 6: "white fill, full opacity for
-  // all cards and buttons").** Every variant now takes the solid path: an opaque fill in its own
-  // colour, a border, and the cap-on-base sink. The frosted path — a transparent pressable with
-  // a rim ring and a translucent GlassFill wash inside an overflow:hidden mask — is gone, in the
-  // same pass that removed it from components/Surface.tsx, so a button and a card are made of
-  // the same (absence of) material again.
-  //
-  // Point 7 of the same brief is "button states stay as designed now", and they do: the fills
-  // (`variantColors` above), the per-variant scale, the travel, the disabled opacity and the
-  // `depth` are all untouched. Only the translucency went. This is also why `glassSurfaces` is
-  // no longer read here — see components/Surface.tsx's note on that setting going inert.
-  const filledBorder = filledEdge(colors.bg, isDark);
+
+  // `glassKey` (constants/theme.ts) is the whole material — the translucent body AND the
+  // lit-top-left/quiet-bottom-right edge — and it is shared with the ~18 action pills that draw
+  // themselves without going through this component (every sheet's Done, AppModal's dialog
+  // buttons, scan's confirm bar). Read its doc before changing an alpha: the numbers are
+  // load-bearing in both places, and the two drifting apart is what it exists to prevent.
+  const key = glassKey(hue, isDark, weight, edgeWidth);
+
+  // The lab's unfilled shapes drop the body and move the identity onto the label/edge. That
+  // branch takes the HUE rather than the body, which is what it always meant — the body is an
+  // `rgba()` wash and a wash makes no sense as a text colour.
+  const colors = unfilled
+    ? { bg: 'transparent', text: variant === 'ghost' ? theme.accent : hue }
+    : {
+        bg: variant === 'ghost' ? 'transparent' : key.backgroundColor,
+        text: variant === 'ghost' ? theme.accent : ink,
+      };
 
   const inner = loading ? (
     <ActivityIndicator color={colors.text} />
@@ -227,49 +203,24 @@ export default function Button({
   const isKeyShape = variant !== 'ghost' && buttonShape === 'key';
   const travel = isKeyShape ? SIZE_TRAVEL[size] : undefined;
 
-  // **Which variants POP OUT at rest (2026-08-12).** `primary` and `danger` are the actions a
-  // screen wants you to find, so they keep the whole raised kit: the `keyBase` housing, the
-  // sliver of base showing under the cap, and a real cast shadow. `secondary` is now FLUSH with
-  // the card it sits on — a soft-tint fill that is elevated competes with the one action the
-  // screen is actually asking for — and `ghost` never had either. Flat does not mean inert:
-  // a flat variant still sinks its full `travel` and still darkens, so losing the elevation
-  // costs it none of the feedback. It sinks against the card behind it, which is what
-  // PressableScale prescribes for a caller with no base of its own.
+  // **Which variants are LIT at rest.** `primary` and `danger` are the actions a screen wants
+  // you to find, so they carry the halo; `secondary` is the same glass unlit, and `ghost` has no
+  // body at all. This used to gate a housing and a cast shadow as well — both deleted 2026-08-17
+  // — so the predicate now decides exactly one thing, which is the halo below.
   const isRaised = !unfilled && (variant === 'primary' || variant === 'danger');
-  // Only a raised variant gets the cap-on-base housing; a flat one is the bare pressable, so
-  // it also stops reserving the `paddingBottom: travel` sliver that the base showed through.
-  const housed = !!travel && isRaised;
 
-  // The face darkens while held (PressableScale's `pressFill`, on the same shared value as the
-  // sink). `ghost` and the lab's unfilled shapes have `bg: 'transparent'` — there is nothing to
-  // darken, and they keep the scale bounce as their own feedback. Gated on `isKeyShape` too,
-  // since PressableScale only interpolates the fill in key mode: without that guard the lab's
-  // `filled` shape would drop its static fill here and get no animated one back.
-  const pressFill =
-    isKeyShape && colors.bg !== 'transparent'
-      ? { rest: colors.bg, pressed: darken(colors.bg, PRESS_DARKEN) }
-      : undefined;
-
-  // ── Tactile Glass, 2026-08-15: the cap's face and its halo ───────────────────────────────
-  // The FACE (top-edge highlight at rest, dark inner shade while held) goes on any filled key,
-  // because every one of them is a cap that sinks — it is the same gesture at three strengths,
-  // not a fourth variant. Gated on `pressFill` rather than on the variant so it can never
-  // appear on something with no fill to light: a `ghost` button is a word, and a highlight
-  // along the top of a word is nonsense.
-  const face = pressFill ? { radius: Radius.full } : undefined;
+  // ── Tactile Glass, 2026-08-15: the cap's halo ────────────────────────────────────────────
   // The HALO is the narrow one. `isRaised` is already exactly "primary or danger", i.e. the
   // one action a screen is asking for (DESIGN_RULES.md rule 6), which is the same scope rule 15
   // puts on getGlow: "the purposeful halo is for the one active/focused surface, never
   // decoration". Tying it to `isRaised` rather than to a new flag is what keeps the two from
   // drifting apart later.
   //
-  // ⚠️ `secondary` deliberately does NOT get one, and deliberately does NOT get its housing
-  // back either. The 2026-08-12 pass flattened it because "a soft-tint fill that is elevated
-  // competes with the one action a screen is asking for", and that reasoning is untouched by
-  // this brief — which asks specifically for "PRIMARY buttons should feel like physical
-  // hardware keys". Secondary still sinks its full travel, still darkens, and now lights its
-  // face; what separates it from primary is the housing and the halo, which is a wider gap
-  // than it had before rather than a narrower one.
+  // ⚠️ `secondary` deliberately does NOT get one. The 2026-08-12 pass flattened it because "a
+  // soft-tint fill that is elevated competes with the one action a screen is asking for", and
+  // that reasoning survives every brief since. Secondary is the same glass at a quieter alpha
+  // with the same lit edge and the same sink; the halo is the whole of what separates it from
+  // primary now, which is why the halo has to stay rare.
   //
   // ── The halo carries the CATEGORY, not the fill (2026-08-16, brief §7) ───────────────────
   // *"When rendering an icon, a badge, or the glowing shadow of a button associated with a
@@ -279,22 +230,24 @@ export default function Button({
   // per-button category prop, and adding one would mean touching every call site to say
   // something the screen already knows).
   //
-  // ⚠️ The FILL deliberately stays `colors.bg`, i.e. the accent. Only the light is categorical.
-  // Two reasons, and the second is the one that decides it:
-  //   · `accentInk` is derived from `theme.accent` — recolouring the fill per screen means
-  //     re-deriving the label's colour per screen, and two of the five hues admit no
-  //     AA-contrast ink at all (see IDENTITY_HUES' note in constants/colors.ts). A neon-rose
-  //     Save button would ship with a label measured at 4.32:1 at best.
-  //   · One action colour app-wide is what makes "the thing you press" learnable. The category
-  //     is already carried by the badge, the icon and the pane wash; the halo joins them, but
-  //     the button staying blue is what keeps "primary" readable as a ROLE rather than as a
-  //     sixth category.
-  // `danger` opts out and keeps its own red halo — a destructive action must not borrow the
-  // colour of the screen it happens to be on. Outside a ScreenScaffold (modals, sheets)
-  // `useScreenColor()` is null and this falls back to the fill, exactly as before.
-  const glow = isRaised
-    ? { color: variant === 'danger' ? colors.bg : screenHue ?? colors.bg }
-    : undefined;
+  // ⚠️ **The 2026-08-16 rule that the FILL stays `theme.accent` no longer applies**, and it is
+  // worth saying why rather than letting it read as drift. That rule existed because the label
+  // sat ON the fill: recolouring an opaque fill per screen means re-deriving `accentInk` per
+  // screen, and two of the five hues admit no AA-contrast ink at all. A 14% wash is not a fill
+  // the label sits on — `theme.text` is what reads on it, at full contrast, on every screen —
+  // so the constraint that forced one action colour app-wide is gone with the opaque face.
+  // "Primary" is still a ROLE, carried now by the halo and the lit edge rather than by blue.
+  // `danger` opts out and keeps its own red — a destructive action must not borrow the colour of
+  // the screen it happens to be on. Outside a ScreenScaffold (modals, sheets) `useScreenColor()`
+  // is null and `hue` falls back to `theme.accent`, exactly as before.
+  //
+  // Since 2026-08-17 this is the ONLY light on a key. The face gradients that used to sit on top
+  // of it are gone (see PressableScale's note), so "raised" is now carried by a halo projecting
+  // OUTWARD plus the lit top-left edge — which is exactly what the brief asks for: *"Use an
+  // outer shadowColor (in the category's neon color) to create the glow effect, projecting
+  // outward, not inward."* `hue` already resolves to the categorical colour for primary and to
+  // `theme.bad` for danger, so the halo and the body can't disagree about which colour the key is.
+  const glow = isRaised ? { color: hue, radius: Radius.full } : undefined;
 
   const pressable = (
     <PressableScale
@@ -306,10 +259,7 @@ export default function Button({
       press={isKeyShape ? 'key' : 'scale'}
       scaleTo={variant === 'danger' ? 0.93 : size === 'sm' ? 0.97 : 0.95}
       travel={travel}
-      pressFill={pressFill}
-      face={face}
       glow={disabled || loading ? undefined : glow}
-      depth={isRaised ? 'raised' : undefined}
       style={[
         styles.base,
         {
@@ -327,18 +277,25 @@ export default function Button({
           // or above the floor at every size, and the knob still moves fields, rows and the
           // checkbox, which is where a too-small target actually bites.
           minHeight: SIZE_HEIGHT[size],
-          // With `pressFill`, PressableScale OWNS backgroundColor — it interpolates the face
-          // from this colour toward its darkened self as the cap sinks — and its contract says
-          // not to set both. Without it (ghost, the lab's non-key shapes) the fill stays here.
-          backgroundColor: pressFill ? undefined : colors.bg,
+          // Static again since 2026-08-17: PressableScale no longer owns backgroundColor (its
+          // `pressFill` interpolation is deleted along with the rest of the face), so the body
+          // is a plain flat translucent layer set right here.
+          backgroundColor: colors.bg,
           opacity: disabled ? 0.45 : 1,
         },
         { paddingVertical: vertPad, paddingHorizontal: horizPad },
-        // A filled button's border is derived from its OWN fill (`filledEdge`), not from the
-        // screen hue: a green edge on a blue primary would read as a mistake, and point 7 keeps
-        // the variants' colours as they are. The screen's hue reaches buttons through `ghost`
-        // below — the one variant with no fill of its own to derive from.
-        variant !== 'ghost' && !unfilled ? { borderWidth: edgeWidth, borderColor: filledBorder } : null,
+        // The glass edge: one width, lit on the top-left, a boundary on the bottom-right. The
+        // screen's hue reaches this through `hue` (it is what `body` and the halo are made of
+        // too), so the three can't disagree about which colour the key is.
+        variant !== 'ghost' && !unfilled
+          ? {
+              borderWidth: key.borderWidth,
+              borderTopColor: key.borderTopColor,
+              borderLeftColor: key.borderLeftColor,
+              borderBottomColor: key.borderBottomColor,
+              borderRightColor: key.borderRightColor,
+            }
+          : null,
         // Lab 'outline': no fill, and the edge carries the variant's own colour at full strength
         // rather than the screen's hue — the point of the shape is that the button's identity
         // moves from its face to its edge.
@@ -355,36 +312,24 @@ export default function Button({
         variant === 'ghost' && !unfilled
           ? { borderWidth: edgeWidth, borderColor: computeBorderTone(buttonHue, isDark, 'button', labShape.borderRampStrength) }
           : null,
-        // With the housing, `style` goes on the cap+base wrapper instead — a caller's
-        // margin/width must size the whole key, not just the cap, or the base would stick out
-        // past it. A flat variant has no wrapper, so `style` belongs here; keying this off
-        // `travel` rather than `housed` would silently drop a secondary button's width.
-        housed ? null : style,
+        // There is no wrapper any more (the `keyBase` housing went with the 2026-08-17 pass), so
+        // the caller's style always belongs on the pressable itself.
+        style,
       ]}
     >
       {inner}
     </PressableScale>
   );
 
-  // The base the cap sits on (design-system v6 `handoff/BUTTONS.md`): "the face at ~78%
-  // lightness — a real moulded edge, never a drop shadow". It's a plain darker slab behind the
-  // cap, `travel` px taller, so at rest you see that sliver of base under the button and on
-  // press the cap closes the gap and lands on it. A drop shadow can't do this: a shadow says
-  // "floating above the page", a base says "this is a key in a housing".
-  // Raised variants only since 2026-08-12 — `secondary` is flat and renders the bare cap.
-  const button = housed ? (
-    <View style={[styles.keyWrap, { paddingBottom: travel }, style]}>
-      <View
-        style={[
-          styles.keyBase,
-          { borderRadius: Radius.full, backgroundColor: darken(colors.bg, 0.22), opacity: disabled ? 0.45 : 1 },
-        ]}
-      />
-      {pressable}
-    </View>
-  ) : (
-    pressable
-  );
+  // **The `keyBase` housing is deleted (2026-08-17).** It was a `darken(fill, 0.22)` slab behind
+  // the cap with `travel` px of it showing at rest — the "cap in a housing" half of the hardware
+  // metaphor, and the single heaviest thing on a button: a solid, heavily-darkened block of the
+  // action colour under a solid block of the action colour. That is precisely the *"solid heavy
+  // colors"* the brief rules out, and it cannot survive a translucent body in any case — a
+  // darkened slab shows straight THROUGH a 14% wash, which reads as a smudge rather than depth.
+  // The sink stays (`travel` is unchanged): a glass key now sinks against the card behind it,
+  // exactly as PressableScale prescribes for a caller with no base of its own.
+  const button = pressable;
 
   // Reserve-only emphasis: a single breathing halo behind the primary CTA. Wrapped in a
   // non-clipping relative View because the glass path sets overflow:'hidden' (which would clip
@@ -401,11 +346,6 @@ export default function Button({
 }
 
 const styles = StyleSheet.create({
-  // Cap + base housing. `paddingBottom: travel` is what reserves the sliver of base that
-  // shows under the cap at rest — without it the base would be exactly covered and the
-  // button would look identical to the old flat pill until pressed.
-  keyWrap: { position: 'relative' },
-  keyBase: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   base: {
     borderRadius: Radius.full,
     alignItems: 'center',
@@ -425,6 +365,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: Fonts.bold,
+    // Centred, and centred by the TEXT as well as by the box (2026-08-17, brief §3: "Primary
+    // text (Titles, Button labels) must be centered or left-aligned with a bold, legible font
+    // weight"). `styles.base` already centres the content row; this is what keeps a label that
+    // wraps to two lines centred rather than ragged-right.
+    textAlign: 'center',
   },
 });
 

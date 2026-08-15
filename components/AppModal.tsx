@@ -49,10 +49,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, Radius, Spacing } from '@/constants/theme';
 import { heavy, warning } from '@/lib/haptics';
 import { getTranslations } from '@/lib/i18n';
-import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { Duration, Ease } from '@/constants/motion';
 
 export type AppModalButton = {
@@ -131,6 +131,7 @@ export function confirmDestructive({
 
 export default function AppModalHost() {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const [request, setRequest] = useState<AppModalRequest | null>(null);
   const progress = useSharedValue(0);
@@ -171,10 +172,22 @@ export default function AppModalHost() {
 
   if (!request) return null;
 
+  /**
+   * Matte glass (2026-08-17), through the same `glassKey()` components/Button.tsx draws — a
+   * dialog button never went through that component, so it was one of the solid accent pills the
+   * "glossy Web 2.0 plastic" ruling was actually about ("Start empty" is a button on this
+   * component). `cancel` stays bodyless: a dialog needs one obvious way forward, and giving the
+   * escape hatch a body of its own is what makes two buttons look like a choice between equals.
+   *
+   * Ink is `theme.text` on both filled styles, `destructive` included — see Button's note for the
+   * measurement: a red label on a red wash fails AA at every usable alpha, so the red lives in
+   * the (deeper, `loud`) wash instead of in the word.
+   */
   function buttonLook(style?: AppModalButton['style']) {
-    if (style === 'cancel') return { fill: 'transparent', textColor: theme.textMuted, scaleTo: 0.97 };
-    if (style === 'destructive') return { fill: theme.bad, textColor: theme.textInverse, scaleTo: 0.93 };
-    return { fill: theme.accent, textColor: theme.accentInk, scaleTo: 0.95 };
+    if (style === 'cancel') return { keyStyle: null, textColor: theme.textMuted, scaleTo: 0.97 };
+    if (style === 'destructive')
+      return { keyStyle: glassKey(theme.bad, isDark, 'loud'), textColor: theme.text, scaleTo: 0.93 };
+    return { keyStyle: glassKey(theme.accent, isDark), textColor: theme.text, scaleTo: 0.95 };
   }
 
   return (
@@ -191,14 +204,14 @@ export default function AppModalHost() {
 
             <View style={[styles.buttonRow, request.buttons.length !== 2 && styles.buttonColumn]}>
               {request.buttons.map((btn, i) => {
-                const { fill, textColor, scaleTo } = buttonLook(btn.style);
+                const { keyStyle, textColor, scaleTo } = buttonLook(btn.style);
                 return (
                   <PressableScale
                     key={i}
                     style={[
                       styles.button,
                       request.buttons.length !== 2 && styles.buttonColumnItem,
-                      { backgroundColor: fill },
+                      keyStyle,
                     ]}
                     scaleTo={scaleTo}
                     onPress={() => dismiss(btn.onPress)}
