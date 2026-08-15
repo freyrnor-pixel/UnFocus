@@ -14,17 +14,25 @@
  * the fill-shaped derivatives of those: `soft` plates, chip/row washes, a progress-bar fill, an
  * AddRow confirm button. Drawing `accent` as a glyph colour or as `style.color` is a bug — pass
  * `theme.text`/`theme.textMuted` for ink, `theme.accent` for something you can act on, and a
- * status token (`good`/`bad`/`warn`) for something that IS a status. Reason, not taste: with the
- * hues collapsed to four, Shopping's gold is 2.25:1 on the light surface, so a gold word or
- * glyph is not readable at all — and the whole point of the four-hue set is that it separates by
- * L\*, which only survives on a filled shape big enough to read as a colour.
+ * status token (`good`/`bad`/`warn`) for something that IS a status. Reason, not taste: an
+ * identity hue is chosen to be seen as a colour, not measured against a background, and the
+ * neon set makes that worse rather than better — every one of the five is bright enough that on
+ * the LIGHT surface it measures 1.1–3.1:1, i.e. a word or glyph in one is not readable at all.
+ * (The pre-2026-08-16 version of this note cited Shopping's gold at 2.25:1 as the single worst
+ * case and the four-hue set's L\* spread as the thing that only survives on a filled shape. The
+ * gold is gone and so is the L\* spread — see DESIGN_RULES.md rule 11a — but the rule this
+ * paragraph states is unchanged and now binds on all five rather than mostly on one.)
+ * `badgeGlyphFor()` below is the ONE sanctioned exception, and it is sanctioned precisely
+ * because it measures.
  *
  * The mirror rule (A.4 rule 2): a STATUS token is the opposite — text/icon only, never a fill.
  * `getStatusColor()` below is the sanctioned mapping and currently has no production callers.
  *
- * COLLAPSED 2026-07-31 (addendum A.3): the nine `card*` tokens now alias FOUR hues — To-do,
- * Habits, Health, Shopping — plus IDENTITY_NEUTRAL for Notes. The token names all survive so
- * DOMAIN_TOKEN below is untouched, but several domains deliberately share a value now
+ * COLLAPSED 2026-07-31 (addendum A.3) from nine hues to four, then RETUNED to FIVE neon
+ * categoricals on 2026-08-16 (maintainer brief §7) — To-do amber, Habits cyan, Health rose,
+ * Shopping green, **Notes amethyst**, which is the one that changed count: Notes was
+ * IDENTITY_NEUTRAL under A.3 and has a hue of its own now. The token names all survive so
+ * DOMAIN_TOKEN below is untouched, but several domains deliberately share a value
  * (task/plan, shop/meal/budget/scan), which is why the badge GLYPH became load-bearing: see
  * components/CardAccent.tsx's DOMAIN_ICON note.
  *
@@ -139,10 +147,14 @@ const BADGE_GRADIENT_SPAN = 0.35;
  * always the binding constraint; the darker stop (light stop + `BADGE_GRADIENT_SPAN`) is never
  * checked separately because it's strictly higher-contrast once the light stop clears.
  *
- * For To-do/Habits/Health and the Notes neutral, the raw accent already clears the floor, so
- * this returns byte-identical to the pre-2026-08-11 `[accent, mix(accent, DEEP, 0.35)]` — only
- * Shopping's gold (`#D9A441`, 2.25:1 with white unmixed) and its shop/meal/budget/scan aliases
- * actually shift, landing around t≈0.26.
+ * ⚠️ **Which hues get deepened flipped almost completely on 2026-08-16.** This note used to say
+ * that only Shopping's gold shifted and everyone else's light stop was the raw accent. Under
+ * the neon set it is the other way round: white measures 1.30–3.62:1 on the five, so **Health's
+ * rose is the only one that clears unmixed** and every other domain now starts already-mixed
+ * toward the navy. That is the function working as designed under a brighter palette, not a
+ * regression — the guarantee is "white is legible on both stops", not "the light stop is the
+ * accent". `lib/__tests__/domainColor.test.ts` case (e) derives the deepened set rather than
+ * listing it, so it cannot go stale this way again.
  */
 function badgeGradientFor(accent: string): readonly [string, string] {
   let t = 0;
@@ -180,21 +192,27 @@ export { badgeGradientFor };
  * than assumes. The rule's real content was "never put a hue somewhere nothing checks its
  * contrast", and the check is right here.
  *
- * Measured on the real frost plates, the raw hues fail in ONE mode each and by a lot, which is
- * why this cannot be skipped:
- *   light plate `#EBEDF1` — todo 5.81 ✓ · habits 4.06 ✓ · health 4.70 ✓ · **shopping 1.92 ✗**
- *   dark plate  `#323232` — **todo 1.88 ✗ · habits 2.69 ✗ · health 2.33 ✗** · shopping 5.70 ✓
- *
  * So: walk the accent toward white (dark mode) or black (light) in 1% steps until it clears
  * `BADGE_ICON_MIN_CONTRAST` on the plate — the exact mirror of `badgeGradientFor`, which walks
- * the FILL toward navy until white clears the same floor. Every hue lands by t ≤ 0.26, a shift
- * small enough that the hue is still recognisably itself.
+ * the FILL toward navy until white clears the same floor.
  *
- * **The L\* spread survives this**, which matters more than it looks: `IDENTITY_HUES`' load-
- * bearing constraint is that the four hues separate by lightness so they work in greyscale and
- * for every form of colour blindness. Shopping is the light one and stays untouched in dark
- * (5.70 already clears), while the three dark hues lighten — so the gap widens rather than
- * closing. In light mode only Shopping moves, and it moves DOWN, again widening it.
+ * ⚠️ **Under the 2026-08-16 neon set this is a NO-OP in dark mode**, and that is the good
+ * outcome rather than a reason to delete it. Measured on the real plates:
+ *   dark plate  `#323232` — todo 7.81 ✓ · habits 7.39 ✓ · health 3.54 ✓ · shopping 9.83 ✓ ·
+ *                           notes 3.94 ✓   (all clear unaided — bright-on-near-black is the
+ *                           entire point of the set)
+ *   light plate `#EBEDF1` — **todo 1.40 ✗ · habits 1.48 ✗ · shopping 1.11 ✗ · notes 2.78 ✗** ·
+ *                           health 3.09 ✓  (four of five fail, some by a factor of three)
+ * So the derivation now earns its keep entirely in LIGHT mode, where it is the only thing
+ * between a `#00FF85` glyph and a 1.11:1 badge. `lib/__tests__/colors.test.ts`'s "the raw hue
+ * is NOT safe for at least one identity hue" guard is scoped to light for this reason.
+ * (Before the retune the numbers ran the other way — three hues failed in dark and only
+ * Shopping's gold failed in light, at 1.92:1.)
+ *
+ * **This used to argue that the L\* spread survives the walk.** That argument is retired with
+ * the spread itself — see DESIGN_RULES.md rule 11a. What the walk must not do is collapse two
+ * hues into each other, and it cannot: in dark it moves nothing, and in light every hue moves
+ * toward black by the same rule, preserving their order.
  *
  * @param plate the composited frost colour to measure against — `theme.badgeFrost` over the
  *   pane. Passed in rather than derived here because this module has no access to what the

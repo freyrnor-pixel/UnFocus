@@ -139,6 +139,21 @@ design, not the rule.
     | `rule` lower bound | ≥1.2:1 | ≥1.1:1 | keeps the supplied `#27272A`; the `<3:1` upper bound stands |
     | `accentInk` on `accent` | ≥4.5:1 | ≥3.0:1 | structural: `#3B82F6` admits no AA ink in either direction |
     | chromatic tokens on `bg`/`surface` | ≥4.5:1 | ≥4.4:1 | `bad` `#EF4444` measures 4.43 |
+
+    **Two of the five moved again on 2026-08-16** (the neon/OLED pass), in opposite
+    directions — one relaxed further, one repaired:
+    | What | 2026-08-10 | 2026-08-16 | Kind |
+    |---|---|---|---|
+    | halation band, `text` on `surface` | 7–16:1 | 7–**17**:1 | brief §5 requires pure `#FFFFFF` (16.67:1) |
+    | chromatic tokens on `bg`/`surface` | ≥4.4:1 | ≥**4.5**:1 | **repaired** — `bad` retuned to `#FF3B5C`, 4.79:1 |
+
+    The chromatic floor going back to 4.5 is the 2026-08-10 note's own instruction being
+    carried out ("if `bad` is ever retuned, put this back to 4.5 rather than leaving a floor
+    nothing needs"), so dark mode now has **no relaxed chromatic floor at all**. The halation
+    ceiling is the last time that number can move for this reason: pure white is the ceiling
+    of the ceiling, and a further rise could only come from darkening `surface`, which the
+    paragraph below already forbids as the way to chase it.
+
     **The halation one is the only one with a cost, and it was accepted knowingly.** The ≤12
     ceiling existed because near-white text on a dark surface blooms for astigmatic readers —
     the most common dark-mode legibility complaint there is — and it is why `text` was pulled
@@ -179,15 +194,37 @@ design, not the rule.
 
 11. **Never use color as the only signal.** Pair it with an icon or text label.
     Status, selection, and meaning must survive in greyscale.
+11a. **The identity hues no longer survive greyscale, by instruction (2026-08-16).**
+    Rule 11 stands everywhere else and is unchanged; this records the one place it was
+    deliberately given up, because a silently-broken rule is worse than a recorded exception.
+    The five card-identity hues (`IDENTITY_HUES`, `constants/colors.ts`) used to separate by
+    **L\*** — 38.6 / 48.3 / 44.3 / 70.7 — precisely so they worked in greyscale and for every
+    form of colour blindness. The neon/OLED brief cannot hold that: a set spread across
+    L\* 38–71 contains, by construction, three hues too dark to glow on pure black. Asked as a
+    direct trade and answered "full neon, drop the greyscale guarantee". The five now sit at
+    L\* 56–90 and separate by **hue and chroma only** (ΔE2000 ≥ 25 pairwise, worst 32.7).
+    **What still holds, and is what keeps rule 11 true in practice:** every one of the five is
+    paired with its own ICON (`components/CardAccent.tsx`'s `DOMAIN_ICON`) and its own WORD, so
+    no meaning is carried by the colour alone; only the *hue-to-hue* distinction is now
+    colour-only. Restoring the L\* spread is a maintainer conversation, not a tidy-up.
 12. **One accent color for actions, plus a neutral grey scale.** Add semantic
-    colors (success / warning / error) only where they carry meaning, and keep
-    them muted, not saturated. *(Open conflict #5: the app runs one additional
-    identity-hue system on purpose, `lib/domainColor.ts`'s 4-hue card identity.
-    `lib/screenColor.ts`'s 9 screen hues were a SECOND such system until
-    2026-07-31 (addendum A.5) retired it — zero production consumers as of
-    2026-08-04's DESIGN_COMPARISON/06, which reaffirmed keeping it retired.)*
+    colors (success / warning / error) only where they carry meaning. *(Open conflict #5: the
+    app runs one additional identity-hue system on purpose, `lib/domainColor.ts`'s card
+    identity — FIVE hues since 2026-08-16, having been four since 2026-07-31 and nine before
+    that. `lib/screenColor.ts`'s screen hues were a SECOND such system, retired 2026-07-31
+    (A.5), revived 2026-08-05, and as of 2026-08-16 its DARK octet is aligned onto the same
+    five categoricals — so in dark mode the two systems agree by construction rather than
+    competing. Light mode keeps the separate cinematic octet and the conflict is real there.)*
+    ⚠️ **"and keep them muted, not saturated" was struck on 2026-08-16** — the brief asks for
+    the opposite in as many words ("highly saturated, vibrant jewel tones... they must glow
+    beautifully against the true black background"), and every semantic and identity token in
+    dark mode is now chosen for saturation. The muting instruction was written for a pale
+    canvas, where a saturated token shouts; on black an unsaturated one simply disappears.
+    It still applies to **light** mode, which is untouched.
 13. **Low-saturation backgrounds by default.** Reserve the highest contrast on a
-    screen for the single thing you want looked at.
+    screen for the single thing you want looked at. *(Unaffected by 12's amendment: the
+    saturation went onto FOREGROUND tokens — badges, glyphs, glows, active tabs. The
+    background is `#000000` and the pane wash is 5%, which is as low-saturation as it gets.)*
 
 ## 4. Visual hierarchy
 

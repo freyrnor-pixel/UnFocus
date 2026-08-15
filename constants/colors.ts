@@ -17,9 +17,11 @@
  *     This line said "RETIRED 2026-07-31 addendum A.5, zero production consumers" until
  *     2026-08-10 — it had been stale for five days): featTask, featPlan,
  *     featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
- *   Card identity hues (lib/domainColor.ts, drives card badge+wash+edge — COLLAPSED from
- *     nine hues to FOUR on 2026-07-31, addendum A.3; the nine token names all still exist
- *     and now alias four values, see the card block below): cardTask, cardPlan, cardHabit,
+ *   Card identity hues (lib/domainColor.ts, drives the card badge + the pane's 5% wash —
+ *     COLLAPSED from nine hues to FOUR on 2026-07-31 (addendum A.3), then RETUNED to FIVE
+ *     neon categoricals on 2026-08-16 (maintainer brief §7, which also gave Notes a hue of
+ *     its own); the nine token names all still exist and alias five values, see the card
+ *     block below): cardTask, cardPlan, cardHabit,
  *     cardShop, cardMeal, cardBudget, cardNote, cardHealth, cardScan
  *   Priority ramp (reserved, unwired — no live UI/DB reads this yet): priorityHigh,
  *     priorityHighSoft, priorityMedium, priorityMediumSoft, priorityLow, priorityLowSoft
@@ -27,10 +29,12 @@
  *     categoryWorkSoft, categoryHealth, categoryHealthSoft, categoryHome, categoryHomeSoft,
  *     categoryPersonal, categoryPersonalSoft, categoryShared, categorySharedSoft
  *
- * Also exports IDENTITY_HUES / IDENTITY_NEUTRAL — the four card-identity hues + their declared
- * badge ink, which the nine card* token names alias onto (2026-07-31, addendum A.3). See the
- * 2026-08-04 decision note above `IDENTITY_NEUTRAL` for why this stays the ONLY live
- * identity-hue system (DESIGN_COMPARISON/06 declined reviving feat* for card colour).
+ * Also exports IDENTITY_HUES / IDENTITY_NEUTRAL — the five card-identity hues + their declared
+ * badge ink, which the nine card* token names alias onto. See the 2026-08-04 decision note
+ * above `IDENTITY_NEUTRAL` for why this stays the ONLY live identity-hue system for CARDS
+ * (DESIGN_COMPARISON/06 declined reviving feat* for card colour); the dark `feat*` octet is
+ * aligned to the same five categoricals as of 2026-08-16 so a screen's 5% pane wash and its
+ * badges agree, which is a different job, not a second system.
  *
  * Connections:
  *   Imports → constants/theme.ts (relLuminance only — the WCAG maths behind contrastRatio;
@@ -44,8 +48,9 @@
  * Edit notes:
  *   - `rule` is DECORATIVE ONLY and deliberately sits below the 3:1 control-boundary floor —
  *     read its doc comment on ThemePalette before using it anywhere. `border` keeps that job.
- *   - The four identity hues separate by L\*, not hue, and are mode-invariant. Never equalise
- *     their lightness — see the ⚠️ block above IDENTITY_HUES.
+ *   - The five identity hues are mode-invariant and separate by HUE (ΔE2000 ≥ 25 pairwise).
+ *     They used to separate by L\* instead; that guarantee was dropped on instruction in the
+ *     2026-08-16 neon pass — read the ⚠️ block above IDENTITY_HUES before restoring it.
  *   - Adding a colour token? Add it to the matching list in lib/__tests__/colors.test.ts in
  *     the same edit — a token in no list is a token nothing checks.
  */
@@ -214,58 +219,88 @@ export function contrastRatio(hex1: string, hex2: string): number {
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
 
-// ── Identity hues — FOUR, collapsed from nine (2026-07-31, addendum A.3) ────
+// ── Identity hues — FIVE neon categoricals (2026-08-16, maintainer brief §7) ─
 //
-// The card-identity system had NINE hues (cardPlan/cardTask/cardHabit/cardHealth/cardMeal/
-// cardShop/cardBudget/cardNote/cardScan — the audit found nine, not the eight the earlier
-// prose assumed). Nine hues at a 22px badge is not an identity system, it's noise: nobody
-// learns nine colours, and several of them only ever appeared on one screen. Collapsed to
-// four, one per thing a person actually thinks of as a separate part of their life.
+// History, because this table has been rewritten twice and the reasons matter:
+// the system had NINE hues until 2026-07-31 (addendum A.3), which collapsed it to FOUR on the
+// grounds that nobody learns nine colours at a 22px badge. The collapse stands — this is still
+// "one hue per thing a person thinks of as a separate part of their life" — but the VALUES and
+// the count are the maintainer's 2026-08-16 categorical brief, which named each one by hand
+// and added Notes as a real identity rather than a neutral:
 //
 //   Hue      Value      Badge ink   Owns
-//   To-do    #3F52B5    white       tasks, plans, goals
-//   Habits   #218432    white       habits
-//   Health   #A84A60    white       health entries, medicines, episodes
-//   Shopping #D9A441    DARK        shopping, food, catalogue, budget, scan
+//   To-do    #FFC000    DARK        tasks, plans, goals            (neon amber)
+//   Habits   #05D9E8    DARK        habits                         (electric cyan)
+//   Health   #FF2A6D    DARK        health entries, medicines, episodes (neon rose)
+//   Shopping #00FF85    DARK        shopping, food, catalogue, budget, scan (neon green)
+//   Notes    #B967FF    DARK        notes                          (amethyst)
 //
-// Home and Notes get NO identity hue — they are neutral (IDENTITY_NEUTRAL below).
+// Home still gets NO identity hue (IDENTITY_NEUTRAL below); Notes no longer shares that fate.
 //
-// ⚠️ THE LOAD-BEARING CONSTRAINT — READ BEFORE TOUCHING ANY OF THESE FOUR VALUES:
-// these four separate by **L\*** (38.6 / 48.3 / 44.3 / 70.7), not by hue. That is what makes
-// them work in greyscale, in a screenshot printed in black and white, and for every form of
-// colour blindness — a deuteranope cannot tell the green from the rose by hue at all, but the
-// gold reads instantly as "the light one" and the other three as "the dark ones". **NEVER
-// "harmonise" them to equal lightness** — an even-lightness set looks tidier in a swatch strip
-// and destroys the only channel that survives colour blindness.
-// Shopping consequently takes DARK ink while the other three take white. That asymmetry looks
-// like an inconsistency and is not: it is the price of the L* spread, and it is correct. A
-// "fix" that makes all four take white ink means Shopping was darkened, which means the spread
-// is gone.
-// (Honest caveat so nobody is surprised by the test: Habits 48.3 and Health 44.3 are only 4.0
-// L* apart — those two separate by hue/chroma, ΔE2000 63.1. They were 0.5 apart until the
-// 2026-08-04 Habits lightening below, which widened the gap without being aimed at it. The L*
-// spread is what carries Shopping away from the other three and what keeps the set from
-// collapsing into one grey.)
+// ⚠️ **THE L\* SPREAD IS GONE, DELIBERATELY, AND THIS IS THE ONE THING TO READ BEFORE EDITING.**
+// The four-hue set separated by **L\*** (38.6 / 48.3 / 44.3 / 70.7) rather than by hue, and the
+// note that stood here said in capitals never to harmonise them, because lightness is the only
+// channel that survives greyscale and colour blindness. That is still TRUE as colour science.
+// It was **overridden on the maintainer's explicit instruction** (2026-08-16), asked and
+// answered as a direct trade — "full neon, drop the greyscale guarantee" — in service of the
+// OLED brief: a set spread across L\* 38–71 contains, by construction, three hues too dark to
+// glow against pure black, which is the entire look being asked for. So these five sit at
+// L\* 56–90 and separate by **hue and chroma** instead: every pair is ΔE2000 ≥ 25 (worst is
+// Habits/Shopping at 32.7), and that pairwise floor is now the ONLY separation guarantee.
+// Consequences, so nobody is surprised:
+//   · A deuteranope cannot reliably tell Habits' cyan from Shopping's green. Accepted.
+//   · A greyscale screenshot flattens To-do/Habits/Shopping (L\* 81/79/89) into one band.
+//   · `lib/__tests__/colors.test.ts` no longer asserts a per-hue L\* pin or Shopping's ≥15 L\*
+//     gap; it asserts the ΔE2000 floor. Both changes are recorded there with this reasoning.
+// **This is the guarantee that pays for it**: the badge GLYPH is contrast-checked per hue, per
+// mode, against the real composited plate (`badgeGlyphFor`, `lib/domainColor.ts`), so no hue
+// is ever drawn somewhere its legibility is merely assumed. If you are tempted to restore the
+// L\* spread, that is a maintainer conversation, not a tidy-up — it un-picks the brief.
+//
+// All five take DARK ink, which is not the old asymmetry returning inverted: they are all
+// bright now, so `contrastOn()` picks the dark end for every one of them. That uniformity is a
+// symptom of the neon set, not a separate decision.
 export const IDENTITY_HUES = {
-  /** Tasks, plans, goals. */
-  todo: { hue: '#3F52B5', ink: '#FFFFFF' },
-  /** Habits. Lightened from `#1F7A2E` on 2026-08-04 — see the decision note below. */
-  habits: { hue: '#218432', ink: '#FFFFFF' },
-  /** Health entries, medicines, episodes. */
-  health: { hue: '#A84A60', ink: '#FFFFFF' },
-  /** Shopping, food, catalogue, budget, scan. Dark ink — see the constraint note above. */
-  shopping: { hue: '#D9A441', ink: '#1B2432' },
+  /** Tasks, plans, goals. Neon amber. */
+  todo: { hue: '#FFC000', ink: '#1B2432' },
+  /** Habits. Electric cyan. */
+  habits: { hue: '#05D9E8', ink: '#1B2432' },
+  /** Health entries, medicines, episodes. Neon rose. */
+  health: { hue: '#FF2A6D', ink: '#1B2432' },
+  /**
+   * Shopping, food, catalogue, budget, scan. Neon green.
+   *
+   * The brief offered `#01FFC3` "or bright neon green". `#01FFC3` was measured against Habits'
+   * electric cyan at **ΔE2000 22.9** — under the 25 separation floor, and visibly so: two
+   * cyan-greens one tab apart in the nav. `#00FF85` is the same mint-emerald idea rotated far
+   * enough toward green to clear it at 32.7. Don't rotate it back.
+   */
+  shopping: { hue: '#00FF85', ink: '#1B2432' },
+  /** Notes. Amethyst. New in 2026-08-16 — Notes was IDENTITY_NEUTRAL before this. */
+  notes: { hue: '#B967FF', ink: '#1B2432' },
 } as const;
 
 /**
- * The absence of an identity hue, for the surfaces that deliberately have none (Home, Notes).
- * A near-grey slate (C\* 8.6) — deliberately far below the four hues' chroma (41–60) so it
- * reads as "no colour assigned" rather than as a fifth, quieter identity. Mode-invariant like
- * the four hues; white ink clears AA on it (4.83:1). Do not saturate it.
+ * The absence of an identity hue, for the surfaces that deliberately have none.
+ *
+ * ⚠️ **Notes LEFT this on 2026-08-16** — the categorical brief gave it amethyst. Home is the
+ * only holdout now, and Home has no `card*` token at all, so this constant currently has no
+ * palette consumer. It is kept (and still contrast-tested) because "no colour assigned" is a
+ * state the system should be able to express, and because reviving it is a one-line change.
+ * A near-grey slate (C\* 8.6) — deliberately far below the five hues' chroma (43–87) so it
+ * reads as absence rather than as a sixth, quieter identity. Do not saturate it.
  */
 export const IDENTITY_NEUTRAL = '#6B7280';
 
 // ── 2026-08-04 — "which colour system" decision (DESIGN_COMPARISON/06) ──────
+// ⚠️ **HISTORY, NOT CURRENT STATE, on two counts (both superseded 2026-08-16).** Kept because
+// the reasoning below is still the reason there is ONE card-identity system rather than two,
+// which does still hold — but its two headline conclusions have since been overruled by the
+// maintainer's categorical brief: the set is FIVE hues, not four, and Notes now HAS an identity
+// hue (option (d), declined here, was effectively granted). The dark `feat*` octet is also
+// aligned onto those five now, which is not the same as "reviving feat* for card colour" — the
+// two systems still have separate jobs (screen wash vs card badge); they simply agree on the
+// values in dark mode. Read IDENTITY_HUES' block above for what is true today.
 // The design project's `HomeScreen.jsx` colours every card from a 9-hue `--c-feat-*` set
 // (`lib/screenColor.ts`), where this app colours cards from the 4-hue `--c-card-*` set above.
 // DECIDED: **keep the 4-hue card-identity system exactly as-is, everywhere (option (a)).**
@@ -494,9 +529,10 @@ const defaultLight: ThemePalette = {
   //   cardMeal   → shopping (food/recipes are part of the shopping world)
   //   cardBudget → shopping (already dead per the audit — nothing reads it)
   //   cardScan   → shopping (already dead per the audit — nothing reads it)
-  //   cardNote   → NEUTRAL  (Notes gets no identity hue; Home likewise, it has no token)
+  //   cardNote   → notes    (amethyst — was NEUTRAL until the 2026-08-16 categorical brief;
+  //                          Home still has no identity hue, and no token either)
   //
-  // The five retired names are kept as ALIASES rather than deleted, deliberately: consumers
+  // The four retired names are kept as ALIASES rather than deleted, deliberately: consumers
   // (lib/domainColor.ts's DOMAIN_TOKEN, and every screen behind it) keep compiling untouched,
   // a later consumer-migration pass can retire them one at a time, and backing the whole
   // collapse out is a one-commit revert of this block. Do not delete a name here before its
@@ -512,7 +548,7 @@ const defaultLight: ThemePalette = {
   cardMeal: IDENTITY_HUES.shopping.hue,
   cardShop: IDENTITY_HUES.shopping.hue,
   cardBudget: IDENTITY_HUES.shopping.hue,
-  cardNote: IDENTITY_NEUTRAL,
+  cardNote: IDENTITY_HUES.notes.hue,
   cardScan: IDENTITY_HUES.shopping.hue,
 
   // Reserved priority/category ramps from the 2026-07-14 Claude Design brief — no live
@@ -583,15 +619,22 @@ const defaultDark: ThemePalette = {
   // a card/input/chip edge would erase the border-as-grouping-signal system the 2026-08-05
   // card reset is built on. See `border` below for the value that does that job.
   rule: '#27272A',
-  // ⚠️ 17.0:1 on `surface` — OUTSIDE the old 7–12 halation band, by instruction (2026-08-10).
-  // The band existed because near-white text on a dark surface blooms for astigmatic readers,
-  // and that reasoning has not been shown to be wrong — it was overridden on the maintainer's
-  // call in favour of the review's contrast-first palette. colors.test.ts's ceiling was raised
-  // to 16 in the same pass with the history kept beside it. If a legibility complaint ever
-  // comes back from a real device, THIS is the token to pull back first (toward ~#D8DADF),
-  // before touching any surface value.
-  text: '#F3F4F6',
-  textMuted: '#9CA3AF',
+  // ⚠️ PURE WHITE, 16.67:1 on `surface` — outside the old 7–12 halation band, and now outside
+  // the 16 ceiling that replaced it too. Both moves were by instruction, one after the other:
+  // 2026-08-10 raised the ceiling 12 → 16 for the true-black palette's `#F3F4F6`, and
+  // 2026-08-16's brief §5 requires "Primary text (Headers, main tasks) must be pure white
+  // (#FFFFFF)", which needs 17. The original reasoning has still never been shown to be wrong —
+  // near-white text on a dark surface blooms for astigmatic readers, and it is the most common
+  // dark-mode legibility complaint there is. If one ever comes back from a real device, THIS is
+  // the token to pull back first (toward ~#D8DADF), before touching any surface value.
+  text: '#FFFFFF',
+  // Brief §5: "Secondary text (dates, placeholders) must be a highly legible silver/grey
+  // (rgba(255,255,255,0.6))". A literal 60% white over `surface` composites to `#8E8E8E`, which
+  // lands at 4.99:1 — legible, but the brief's own word is "highly", and a flat neutral next to
+  // a pure-white primary reads as dirty rather than as silver. `#A1A1AA` is that value opened up
+  // to 6.50:1 on `surface` / 8.19:1 on `bg`, with a faint cool cast so it belongs to the same
+  // family as the white above it. Do not take it below ~#8E8E8E; that is the AA cliff.
+  textMuted: '#A1A1AA',
   textInverse: '#0A0A0A',
   // NOT the supplied #27272A (1.41:1 on bg, 1.26:1 on surface — an invisible control edge).
   // Derived instead to clear WCAG 1.4.11's 3:1 on every rung it is ever drawn against:
@@ -599,21 +642,30 @@ const defaultDark: ThemePalette = {
   // slate-blue #5F7090, to match the greyed-out surfaces above.
   border: '#787882',
   borderStrong: '#9A9AA5',
-  // Supplied brand.primary, dark mode only — light keeps #235EE0, which clears 4.5:1 on its
-  // own background where this does not (3.52:1). Note #3B82F6 is a mid-tone: it admits NO
-  // AA-contrast ink at all (white 3.678:1, dark 3.977:1), which is why the accentInk floor in
-  // colors.test.ts is 3:1. contrastOn() picks the dark ink, the same as the #6EA8FF it
-  // replaces, so nothing that sits on an accent fill flips colour.
-  accent: '#3B82F6',
+  // ── Vibrant pass, 2026-08-16 (brief §4: "highly saturated, vibrant jewel tones") ──────────
+  // Dark mode only — light keeps its own accessible values, which are constrained by a pale
+  // background these hues cannot survive.
+  //
+  // ⚠️ `accent` is ELECTRIC BLUE and deliberately not cyan, even though the brief lists "Neon
+  // Cyan" first. Cyan is spoken for: brief §7 assigns `#05D9E8` to Habits as a CATEGORY colour,
+  // and an accent that matches one category's identity makes every primary button on every
+  // other screen look like it belongs to Habits. Blue is the one vivid slot the five
+  // categoricals leave open (nearest is Habits' cyan at ΔE2000 30.5).
+  // 4.78:1 on `surface` (was 4.53), so this also retires the 4.4 floor's last excuse — see
+  // `bad` below. contrastOn() still picks the dark ink, so nothing on an accent fill flipped.
+  accent: '#1E88FF',
   accentSoft: '#12233D',
   accentInk: '#0A0A0A',
-  good: '#10B981',
+  // Bright emerald, per the brief's named example. 9.98:1 on `surface`.
+  good: '#00E58A',
   goodSoft: '#0B2A20',
-  // 4.430:1 on `surface` — 0.07 under AA, which is why the dark chromatic floor is 4.4 rather
-  // than 4.5. Kept at the supplied hex on instruction; two points lighter would clear it.
-  bad: '#EF4444',
+  // ⚠️ Retuned off `#EF4444`, and that FIXES a documented shortfall rather than creating one:
+  // #EF4444 measured 4.430:1 on `surface` — 0.07 under AA — and was kept on instruction in the
+  // 2026-08-10 pass, which is the sole reason `CHROMATIC_FLOOR.dark` in colors.test.ts was
+  // relaxed to 4.4. This is 4.79:1, so that floor goes back to 4.5 in the same change.
+  bad: '#FF3B5C',
   badSoft: '#2E1215',
-  warn: '#F59E0B',
+  warn: '#FFB300',
   warnSoft: '#2D2109',
   // Neutral now, not navy-tinted — a blue-black shadow over a true-black page reads as a
   // colour cast on the one surface that is supposed to have none.
@@ -633,17 +685,33 @@ const defaultDark: ThemePalette = {
   // Every value clears 3:1 against `surface` — worst is featPlan at 4.18:1 — and note
   // computeBorderRamp lightens these AGAIN at render in dark mode, so they are the floor, not
   // the drawn colour.)
-  featPlan: '#7D76EC',   // 1 · indigo
-  featTask: '#5988F0',   // 2 · blue
-  featHabit: '#4EA9D8',  // 3 · sky
-  featHealth: '#51B2A9', // 4 · teal
-  featMeal: '#EF8046',   // 5 · orange (2026-07-18: muted off neon #FF9A55)
-  featShop: '#60A97B',   // 6 · green  (2026-07-18: muted off neon #45D588)
-  featBudget: '#E49D4C', // 7 · amber (2026-07-20: deepened/desaturated off #FBBF3C, dark mirror
-  // of the light-mode change above — same reasoning, less neon against the blue tab bar)
-  featNote: '#DAAD4F',   // 8 · yellow
-  // Scan screen hue — violet (per-screen color only; see lib/screenColor.ts, 2026-07-18).
-  featScan: '#B977F9',
+  // ── ALIGNED TO THE FIVE CATEGORICALS, 2026-08-16 (brief §7) ─────────────────────────────
+  // The dark octet no longer mirrors light's routine-sequence arc. It can't: `feat*` is what
+  // `lib/screenColor.ts` resolves for a screen's 5% pane wash, and `card*` is what the badge
+  // on that same pane draws — so a teal Health wash under a neon-rose Health badge is one
+  // screen wearing two identities. The brief's "distinct visual identity for each section"
+  // means those two agree, so the five named categoricals are repeated here verbatim.
+  //
+  // ⚠️ **LIGHT MODE IS DELIBERATELY NOT TOUCHED.** Its octet is the 2026-08-10 "cinematic"
+  // set, tuned for legibility against a pale card; these neons measure 1.1–1.5:1 there. Light
+  // is the accessibility path now (see the dark-default note in store/useSettingsStore.ts),
+  // and making it worse to make it consistent is the wrong trade. The consequence — light mode
+  // has a teal Health wash under a rose Health badge — is known and accepted.
+  //
+  // Three of the nine are NOT one of the five named categories and are picked to stay clear of
+  // all of them rather than to mean anything new:
+  featPlan: '#FFC000',   // goals — rides To-do's amber (this token has no live consumer; see
+  // lib/screenColor.ts's SCREEN_TOKEN note on `goals`)
+  featTask: '#FFC000',   // the to-do list — neon amber
+  featHabit: '#05D9E8',  // habits — electric cyan
+  featHealth: '#FF2A6D', // health — neon rose
+  featMeal: '#FF7A1A',   // food & meals — neon orange. Part of the shopping world, but its own
+  // screen, so it can't just take Shopping's green; orange is the nearest free slot.
+  featShop: '#00FF85',   // shopping — neon green
+  featBudget: '#FFB300', // money — unwired, no screen maps to it
+  featNote: '#B967FF',   // notes — amethyst
+  featScan: '#7C5CFF',   // scan & receipts — electric indigo. It was violet, which amethyst
+  // now owns; moved along the hue wheel rather than being left to collide with Notes.
 
   // Card identity (dark) — IDENTICAL to light as of 2026-07-31 (addendum A.3). The old ramp
   // lightened every stop ~0.20 for the dark surface; the four collapsed hues do NOT, because
@@ -657,7 +725,7 @@ const defaultDark: ThemePalette = {
   cardMeal: IDENTITY_HUES.shopping.hue,
   cardShop: IDENTITY_HUES.shopping.hue,
   cardBudget: IDENTITY_HUES.shopping.hue,
-  cardNote: IDENTITY_NEUTRAL,
+  cardNote: IDENTITY_HUES.notes.hue,
   cardScan: IDENTITY_HUES.shopping.hue,
 
   // Reserved priority/category ramps — dark values from the 2026-07-14 Claude Design brief.

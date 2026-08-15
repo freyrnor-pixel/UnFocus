@@ -170,7 +170,11 @@ export default function Button({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const buttonHue = useScreenColor() ?? theme.border;
+  // Raw (nullable) as well as defaulted: the border wants the neutral fallback, but the
+  // categorical halo below must be able to tell "this screen has no hue" from "this screen is
+  // grey" — a grey glow on Home would be a smudge, not an identity.
+  const screenHue = useScreenColor();
+  const buttonHue = screenHue ?? theme.border;
   const [vertPad, horizPad] = SIZE_PADDING[size];
 
   const variantColors = {
@@ -266,7 +270,31 @@ export default function Button({
   // hardware keys". Secondary still sinks its full travel, still darkens, and now lights its
   // face; what separates it from primary is the housing and the halo, which is a wider gap
   // than it had before rather than a narrower one.
-  const glow = isRaised ? { color: colors.bg } : undefined;
+  //
+  // ── The halo carries the CATEGORY, not the fill (2026-08-16, brief §7) ───────────────────
+  // *"When rendering an icon, a badge, or the glowing shadow of a button associated with a
+  // specific category, you MUST use its mapped categorical color."* So a primary button on the
+  // Health tab throws a neon-rose light, on Habits an electric-cyan one, and so on — the same
+  // five hues the badges and the pane wash use, resolved from the ambient screen (there is no
+  // per-button category prop, and adding one would mean touching every call site to say
+  // something the screen already knows).
+  //
+  // ⚠️ The FILL deliberately stays `colors.bg`, i.e. the accent. Only the light is categorical.
+  // Two reasons, and the second is the one that decides it:
+  //   · `accentInk` is derived from `theme.accent` — recolouring the fill per screen means
+  //     re-deriving the label's colour per screen, and two of the five hues admit no
+  //     AA-contrast ink at all (see IDENTITY_HUES' note in constants/colors.ts). A neon-rose
+  //     Save button would ship with a label measured at 4.32:1 at best.
+  //   · One action colour app-wide is what makes "the thing you press" learnable. The category
+  //     is already carried by the badge, the icon and the pane wash; the halo joins them, but
+  //     the button staying blue is what keeps "primary" readable as a ROLE rather than as a
+  //     sixth category.
+  // `danger` opts out and keeps its own red halo — a destructive action must not borrow the
+  // colour of the screen it happens to be on. Outside a ScreenScaffold (modals, sheets)
+  // `useScreenColor()` is null and this falls back to the fill, exactly as before.
+  const glow = isRaised
+    ? { color: variant === 'danger' ? colors.bg : screenHue ?? colors.bg }
+    : undefined;
 
   const pressable = (
     <PressableScale

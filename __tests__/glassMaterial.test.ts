@@ -105,11 +105,22 @@ describe('the material system stays deleted, and stays matte', () => {
   //     on every scrolling list for no visible difference.
   // That distinction is invisible to a screenshot and to the web preview alike (Chromium
   // renders `backdrop-filter` on both paths), which is exactly why it needs a source scan.
-  it('mounts a BlurView ONLY where there is something behind it to blur', () => {
+  it('mounts a BlurView on every pane, at a lighter intensity for ambient cards', () => {
+    // ⚠️ REVERSED on 2026-08-16 (brief §2: "use expo-blur as the absolute foundation for every
+    // card"). This used to assert the OPPOSITE — that an ambient card is excluded by an
+    // explicit `surfaceContext !== 'ambient'` gate — on the reasoning that blurring a black
+    // backdrop returns black. See the BlurView comment in Surface.tsx for why that lost.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/<BlurView/);
-    // The gate, not just the mount: an ambient card must be excluded by an explicit condition.
-    expect(surface).toMatch(/surfaceContext !== 'ambient'/);
+    // Not gated on context any more, but still gated on the reduce-transparency setting.
+    expect(surface).not.toMatch(/surfaceContext !== 'ambient'/);
+    // The per-tier intensity is the cost mitigation and is the part worth pinning: ~59 ambient
+    // cards to an overlay's one, so an ambient pass must stay the cheaper of the two.
+    expect(surface).toMatch(/surfaceContext === 'ambient' \? BLUR_AMBIENT : BLUR_STRONG/);
+    const ambient = Number(surface.match(/const BLUR_AMBIENT = (\d+)/)?.[1]);
+    const strong = Number(surface.match(/const BLUR_STRONG = (\d+)/)?.[1]);
+    expect(ambient).toBeGreaterThan(0);
+    expect(ambient).toBeLessThan(strong);
     // Buttons stay solid — a translucent primary action would take its own accent down toward
     // whatever it happens to sit on, which is the opposite of "one obvious action".
     const solid = ['components/Button.tsx', 'components/AddFAB.tsx'];
@@ -123,7 +134,7 @@ describe('the material system stays deleted, and stays matte', () => {
     // on it, and the fill falls back through getGlassFill to the opaque composite.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/glassSurfaces/);
-    expect(surface).toMatch(/\{glassOn && surfaceContext !== 'ambient' \?/);
+    expect(surface).toMatch(/\{glassOn \?/);
     expect(surface).toMatch(/getGlassFill\(/);
   });
 
@@ -154,16 +165,43 @@ describe('the material system stays deleted, and stays matte', () => {
     });
   });
 
-  it('the pane edge catches light on one side and is a real boundary on the other', () => {
-    // getGlassEdge's two sides do different jobs and only one of them is a contrast promise.
-    // Pinned here as well as in borderRamp.test.ts because THIS is the file that documents the
-    // material as a whole, and the boundary half is what pays for DESIGN_RULES.md rule 10b's
-    // relaxed fill step in light mode.
-    (['light', 'dark'] as const).forEach((mode) => {
-      const p = THEMES.default[mode];
-      const [lit, shade] = getGlassEdge(p.border, mode === 'dark').colors;
-      expect(lit).toMatch(/^rgba\(255, 255, 255,/);
-      expect(shade).toBe(rgba(p.border, 1));
+  // getGlassEdge's two sides do different jobs and only one of them is a contrast promise.
+  // Pinned here as well as in borderRamp.test.ts because THIS is the file that documents the
+  // material as a whole, and the boundary half is what pays for DESIGN_RULES.md rule 10b's
+  // relaxed fill step in light mode.
+  //
+  // The two modes diverged on 2026-08-16 (brief §3) and now assert opposite things, which is
+  // the point rather than an inconsistency — see constants/theme.ts's GLASS_EDGE block.
+  it('light: the pane edge catches light on one side and is a real boundary on the other', () => {
+    const p = THEMES.default.light;
+    const [lit, shade] = getGlassEdge(p.border, false).colors;
+    expect(lit).toMatch(/^rgba\(255, 255, 255,/);
+    expect(shade).toBe(rgba(p.border, 1));
+  });
+
+  it('dark: a card edge is a top-left lip that fades out, with no bottom-right frame', () => {
+    // Brief §3 asks for borderTop/Left only and borderBottom/Right at zero. Implemented as a
+    // third gradient stop at zero alpha rather than per-side widths (a 1px→0px step cuts
+    // visibly at a rounded corner; the ring is a LinearGradient for that same reason).
+    const p = THEMES.default.dark;
+    const ramp = getGlassEdge(p.border, true);
+    expect(ramp.colors).toHaveLength(3);
+    // Fades to transparent WHITE, not to the boundary colour and not to a named `transparent`
+    // — interpolating a named transparent goes through black on Android and smudges the
+    // bottom-right rather than leaving it clean.
+    expect(ramp.colors[2]).toBe('rgba(255, 255, 255, 0)');
+    expect(ramp.colors[0]).toMatch(/^rgba\(255, 255, 255, 0\.1/);
+    // Diagonal, or the "top AND left" the trick depends on becomes "top only".
+    expect(ramp.start).toEqual({ x: 0, y: 0 });
+    expect(ramp.end).toEqual({ x: 1, y: 1 });
+    // ⚠️ Scope guard, and the reason this test is worth its length: the boundary is dropped for
+    // CARDS only. A field or a button identifies a CONTROL, so WCAG 1.4.11's 3:1 still applies
+    // to it and its shaded side must survive. A card is a container, separated on black by its
+    // own fill and its shadow.
+    (['field', 'button'] as const).forEach((weight) => {
+      const w = getGlassEdge(p.border, true, weight);
+      expect(w.colors).toHaveLength(2);
+      expect(w.colors[1]).toMatch(new RegExp(`^rgba\\(120, 120, 130,`));
     });
   });
 });
@@ -171,18 +209,25 @@ describe('the material system stays deleted, and stays matte', () => {
 describe('getGlow', () => {
   const color = '#3366CC';
 
+  // Alphas raised for the black canvas on 2026-08-16 (brief §4). 0.34/0.55 were tuned against
+  // a PALE backdrop, where a halo only has to tint a light surface to read; on `#000000` what
+  // reaches the eye is just `alpha × colour`, so a third of an accent is a dark smudge. `strong`
+  // takes the brief's stated 0.8; `soft` inherits what `strong` used to be, which keeps the two
+  // rungs a real step apart instead of collapsing them.
   it('returns a two-pass boxShadow halo tinted with the passed color', () => {
     const glow = getGlow(color, 'soft');
     expect(glow.boxShadow).toHaveLength(2);
-    expect(glow.boxShadow[0].color).toBe(rgba(color, 0.34));
-    expect(glow.boxShadow[1].color).toBe(rgba(color, 0.17));
+    expect(glow.boxShadow[0].color).toBe(rgba(color, 0.55));
+    // The outer bloom is always half the inner pass's alpha — that ratio is what makes it read
+    // as one light falling off, rather than as two rings.
+    expect(glow.boxShadow[1].color).toBe(rgba(color, 0.275));
   });
 
   it("'strong' has a larger radius and higher alpha than 'soft'", () => {
     const soft = getGlow(color, 'soft');
     const strong = getGlow(color, 'strong');
     expect(strong.boxShadow[0].blurRadius).toBeGreaterThan(soft.boxShadow[0].blurRadius);
-    expect(strong.boxShadow[0].color).toBe(rgba(color, 0.55));
+    expect(strong.boxShadow[0].color).toBe(rgba(color, 0.8));
   });
 });
 
