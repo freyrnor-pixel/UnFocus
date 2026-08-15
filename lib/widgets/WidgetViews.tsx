@@ -15,10 +15,13 @@
  *   - Shopping row → 'CYCLE_SHOP_ITEM' (list → cart → purchased)
  *   - Notes   row → 'TOGGLE_NOTE'      (check off; it then leaves the active list)
  *   - Habits  row → 'TOGGLE_HABIT'     (mark today met / not-met)
- * Health is read-only (its rows carry no clickAction — empty taps fall through to the
- * card's OPEN_APP). The Notes header's mic + "open" buttons use 'OPEN_URI' into the app
- * (speech recognition can only run in-app), and every frame falls back to OPEN_APP /
- * OPEN_URI for empty taps.
+ *   - Health  medicine tray row → 'TAKE_TRAY' (log the whole window, 2026-08-15)
+ * Health's SYMPTOM rows stay read-only (no clickAction — empty taps fall through to the card's
+ * OPEN_APP): un-logging one deletes a dated entry with a severity and maybe a note on it, which
+ * belongs in the app's own editor, not on a home screen. Its medicine trays are the exception
+ * and the widget's only write into health data. The Notes header's mic + "open" buttons use
+ * 'OPEN_URI' into the app (speech recognition can only run in-app), and every frame falls back
+ * to OPEN_APP / OPEN_URI for empty taps.
  *
  * Connections:
  *   Imports → react-native-android-widget (FlexWidget, TextWidget, ListWidget), lib/widgets/snapshot (types)
@@ -53,17 +56,78 @@ type Hex = `#${string}`;
 const hex = (c: string) => c as Hex;
 
 type Palette = {
-  bg: Hex;
+  /** The widget's own face. A widget on a home screen IS a card, so this is `surface`. */
   card: Hex;
   text: Hex;
   muted: Hex;
   line: Hex;
+  dark: boolean;
 };
 
-// Hand-mirrored from constants/colors.ts's bg/surface/text/textMuted/border (2026-07-14
-// Claude Design palette refresh) — widgets can't call useAppTheme() at runtime.
-const LIGHT: Palette = { bg: '#F7F8FA', card: '#FFFFFF', text: '#161B26', muted: '#5B6472', line: '#E2E5EA' };
-const DARK: Palette = { bg: '#0B0E14', card: '#1A2030', text: '#E7EAF0', muted: '#8891A0', line: '#2E3446' };
+/**
+ * Hand-mirrored from constants/colors.ts — widgets render headless and can't call
+ * useAppTheme(). `lib/widgets/__tests__/widgetPalette.test.ts` asserts these still equal the
+ * real tokens, which is what stopped them drifting for a year.
+ *
+ * Refreshed 2026-08-15. Both palettes had been frozen at the 2026-07-14 values and were wrong
+ * on every channel: DARK was the retired "Midnight glass" navy (`#0B0E14`/`#1A2030`) rather
+ * than the true black the app went to on 2026-08-10 — and dark is the DEFAULT since
+ * 2026-08-16, so that was what most people were actually looking at.
+ *
+ * The frame paints `card`/`surface`, not `bg`. A widget floats on the user's wallpaper with
+ * no page behind it, so `surface` is what it structurally is; painting a widget `#000000`
+ * would also dissolve it into any dark wallpaper. (The old `bg` field is gone rather than
+ * left unused — `card` was declared and never referenced, which is how the frame ended up
+ * drawn in the page colour in the first place.)
+ */
+const LIGHT: Palette = { card: '#F9FBFE', text: '#1B2432', muted: '#5F6978', line: '#7284A2', dark: false };
+const DARK: Palette = { card: '#1E1E1E', text: '#FFFFFF', muted: '#A1A1AA', line: '#787882', dark: true };
+
+/**
+ * A hue's light-mode ink. The five identity hues are tuned for a BLACK card — on the light
+ * surface they measure 1.35–3.42:1, i.e. unreadable as the header's subtitle text and under
+ * the 3:1 shape floor for the row markers. Each value here is its hue mixed toward black
+ * until it clears 4.5:1 on LIGHT.card, which is exactly what lib/domainColor.ts's
+ * badgeGlyphFor() computes at runtime in the app — a call this file can't make, since it
+ * renders in a bare headless context. The test recomputes them from IDENTITY_HUES rather
+ * than trusting the table, so a hue moving in the app moves these too.
+ */
+const LIGHT_INK: Record<string, Hex> = {
+  '#FFD700': '#877200', // To-do gold
+  '#05D9E8': '#038089', // Habits cyan
+  '#FF8CB2': '#A85C75', // Health rose
+  '#0DB34A': '#0A8638', // Shopping emerald
+  '#B45CFF': '#994ED9', // Notes violet
+  '#1E88FF': '#1972D6', // accent (the overview's stand-in for an identity hue)
+};
+
+/** The accent as it may actually be drawn in this palette. Identity hues pass through in dark. */
+function ink(accent: Hex, p: Palette): Hex {
+  if (p.dark) return accent;
+  return LIGHT_INK[accent.toUpperCase()] ?? accent;
+}
+
+/**
+ * Label colour for something drawn ON an accent fill (the Notes mic button). Mirrors
+ * constants/theme.ts's contrastOn, including its `#1E293B` dark ink. Hardcoded white was
+ * 3.55:1 on the violet — under AA at the 12px this label is drawn at.
+ */
+function onInk(fill: Hex): Hex {
+  const lin = (c: number) => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const l = (h: string) => {
+    const n = h.replace('#', '');
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  };
+  const ratio = (a: string, b: string) => {
+    const [x, y] = [l(a), l(b)];
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  return ratio(fill, '#1E293B') >= ratio(fill, '#FFFFFF') ? '#1E293B' : '#FFFFFF';
+}
 
 const FRAME = {
   height: 'match_parent' as const,
@@ -139,9 +203,9 @@ function ScrollBody({ more, p, children }: { more: string; p: Palette; children:
 // ── Shopping ─────────────────────────────────────────────────────────────────
 function ShoppingWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.shopping;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
       <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
@@ -170,9 +234,9 @@ function ShoppingWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
 // ── Tasks ────────────────────────────────────────────────────────────────────
 function TasksWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.tasks;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
       <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
@@ -198,9 +262,9 @@ function TasksWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
 // ── Overview ("Notifications" widget — mirrors the persistent daily-overview notification) ──
 function OverviewWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.overview;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
       <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
         <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: accent, marginRight: 8 }} />
         <TextWidget text={s.title} style={{ fontSize: 15, fontWeight: '700', color: p.text }} />
@@ -227,9 +291,9 @@ function OverviewWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
 // ── Notes ────────────────────────────────────────────────────────────────────
 function NotesWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.notes;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'unfocus:///notes' }} style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'unfocus:///notes' }} style={{ ...FRAME, backgroundColor: p.card }}>
       <FlexWidget
         style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
@@ -250,8 +314,8 @@ function NotesWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
             paddingVertical: 5,
           }}
         >
-          <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF', marginRight: 6 }} />
-          <TextWidget text={s.voiceLabel} style={{ fontSize: 12, fontWeight: '600', color: '#FFFFFF' }} />
+          <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: onInk(accent), marginRight: 6 }} />
+          <TextWidget text={s.voiceLabel} style={{ fontSize: 12, fontWeight: '600', color: onInk(accent) }} />
         </FlexWidget>
       </FlexWidget>
       {!s.hasContent ? (
@@ -273,9 +337,9 @@ function NotesWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
 // ── Habits ───────────────────────────────────────────────────────────────────
 function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.habits;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
       <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
@@ -298,7 +362,35 @@ function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   );
 }
 
-// ── Health (read-only) ───────────────────────────────────────────────────────
+// ── Health (medicine trays + symptom entries) ────────────────────────────────
+/**
+ * One medicine tray. The ONLY actionable row on this widget — a tap logs the whole window
+ * (TAKE_TRAY), the same unit the notification's "Taken" button works in.
+ *
+ * Three states, and the middle one is the point: taken (filled dot, muted label — settled),
+ * still due (hollow accent ring, full-strength label — visible without being shouted at), and
+ * upcoming (hollow muted ring, muted label — not your problem yet). A tray that has passed
+ * untaken looks exactly like one that has not yet arrived, apart from where the eye lands;
+ * there is no red, no count of how late, no escalation of any kind. That is the tray contract
+ * from lib/medicineSchedule.ts carried onto the home screen.
+ */
+function TrayRow({ tray, accent, p }: { tray: NonNullable<WidgetSnapshot['health']['trays']>[number]; accent: Hex; p: Palette }) {
+  const label = tray.taken || !tray.due ? p.muted : p.text;
+  return (
+    <FlexWidget
+      clickAction="TAKE_TRAY"
+      clickActionData={{ id: tray.id }}
+      style={{ ...ROW, justifyContent: 'space-between' }}
+    >
+      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        {tray.taken ? <Dot color={accent} /> : <Ring color={tray.due ? accent : p.muted} />}
+        <TextWidget text={tray.label} maxLines={1} truncate="END" style={{ fontSize: 13, color: label }} />
+      </FlexWidget>
+      <TextWidget text={tray.detail} style={{ fontSize: 12, color: p.muted, marginLeft: 8 }} />
+    </FlexWidget>
+  );
+}
+
 /** Severity 1–5 as a compact scale of filled dots (accent) over hollow rings (line). */
 function SeverityScale({ severity, accent, p }: { severity: number; accent: Hex; p: Palette }) {
   const filled = Math.max(0, Math.min(5, severity));
@@ -320,14 +412,22 @@ function SeverityScale({ severity, accent, p }: { severity: number; accent: Hex;
 
 function HealthWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.health;
-  const accent = hex(s.accent);
+  const accent = ink(hex(s.accent), p);
+  // `?? []` because a snapshot row persisted by a build older than the 2026-08-15 medicine
+  // fold-in has no `trays` key at all, and the handler renders that row verbatim.
+  const trays = s.trays ?? [];
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.bg }}>
+    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
       <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
         <ScrollBody more={s.more} p={p}>
+          {/* Trays first: they are the actionable half, and they are a fixed short list (at
+              most four), so they can't push the entries off the top of a scrolling body. */}
+          {trays.map((tray) => (
+            <TrayRow key={`tray-${tray.id}`} tray={tray} accent={accent} p={p} />
+          ))}
           {s.items.map((entry, i) => (
             // Read-only: no per-row clickAction (empty taps fall through to the card's OPEN_APP).
             <FlexWidget key={`${i}-${entry.id}`} style={{ ...ROW, justifyContent: 'space-between' }}>
