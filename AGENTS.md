@@ -258,6 +258,25 @@ file owns which token.)
     importance/visibility/sound at creation and silently ignores a later change, so on every
     install that had already posted an overview, setting this on the old id would have been a
     no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **Every notification can be ANSWERED from the shade, not just read.** Two were read-only.
+    A **habit reminder** had no buttons at all — tasks had Done from AP-05 and trays got Taken
+    with the tray system, but the reminder most likely to arrive while your hands are full could
+    only be dismissed or tapped through. It has its own `'habit-reminder'` category now
+    (Done/Remind me later, payload `data.habitId`), and Done is an **`increment()`**, not a
+    "mark met": a counter habit nudged three times should count three times, and for a
+    daily-goal-of-1 — almost every real habit — the two are identical. And the **pinned
+    overview** had none, because a day summary has no single "Done" that means anything. It
+    nominates the most answerable item instead (a tray still due, else the next undone task) and
+    **borrows that item's own category** rather than minting an `'overview'` one — so the button
+    reads as the verb for something the body names, and acting from the overview takes the exact
+    same store path as acting from the reminder itself. There are now three categories and three
+    listeners mounted at once, each filtering on its own payload key (`taskId` / `medicineTray` /
+    `habitId`); **a missing payload is a silent button, not a broken one**, which is why the
+    tests assert the payload rather than the label. `refreshPersistentNotification`'s dedupe key
+    includes the action, or finishing the 09:00 task would leave the button pointed at it while
+    the body moved on. Still deliberately actionless: the weekly/monthly nudges (no single act
+    to take) and an open episode (closing one asks when it ended and what helped; "Still going"
+    writes nothing at all — a shade button can express neither).
   - **Every notification switch lives in Settings → Personal, and turning one ON asks for the OS
     permission.** Two gaps closed on 2026-08-15. `medicineRemindersEnabled` existed ONLY as the
     bell on the Health tab's medicine card, so the one screen a user goes to to manage

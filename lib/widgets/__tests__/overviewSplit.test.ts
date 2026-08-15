@@ -189,3 +189,45 @@ describe('medicine trays on the Health widget', () => {
 it('todayStr is the mocked date (guards the fixtures above)', () => {
   expect(todayStr()).toBe(TODAY);
 });
+
+/**
+ * The overview summarises a whole day, so there is no single "Done" that means anything on its
+ * own — which is why it shipped with no buttons and stayed a thing you could only read. It
+ * nominates the most answerable item instead, and borrows the category that item's own reminder
+ * already uses, so the button always reads as the verb for something the body names.
+ */
+describe('the pinned overview nominates one action', () => {
+  it('prefers a tray still due — more time-critical, and logging it is idempotent', () => {
+    state.tasks = [{ id: 't1', title: 'Standup', done: false, time: '09:00', cardType: 'standard' }];
+    state.medicines = [med('m1', ['morning'])];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'tray', tray: 'morning' });
+  });
+
+  it('falls back to the next task when no tray is due', () => {
+    state.tasks = [{ id: 't1', title: 'Standup', done: false, time: '09:00', cardType: 'standard' }];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'task', taskId: 't1' });
+  });
+
+  it('nominates the first UNDONE task, not the first task', () => {
+    state.tasks = [
+      { id: 't1', title: 'Done already', done: true, time: '08:00', cardType: 'standard' },
+      { id: 't2', title: 'Standup', done: false, time: '09:00', cardType: 'standard' },
+    ];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'task', taskId: 't2' });
+  });
+
+  it('offers nothing on a day with neither — a button that cannot act must not render', () => {
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+    state.health = [{ id: 'h1', ailment: 'Migraine', severity: 3, date: TODAY, episodeState: 'ongoing' }];
+    // An open episode is NOT actionable from a notification: closing one asks when it ended and
+    // what helped (components/EpisodeCloseSheet.tsx), and "Still going" deliberately writes
+    // nothing at all. A shade button can express neither.
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+  });
+
+  it('goes quiet with featureMedicine off, rather than nominating a hidden tray', () => {
+    state.medicines = [med('m1', ['morning'])];
+    state.featureMedicine = false;
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+  });
+});

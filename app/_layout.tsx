@@ -160,8 +160,10 @@ import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 import { initDb, pruneOldData } from '@/lib/db';
 import { getTranslations } from '@/lib/i18n';
-import { cancelReNudge, cancelTrayReNudge, onMedicineAction, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
+import { cancelHabitReNudge, cancelReNudge, cancelTrayReNudge, onHabitAction, onMedicineAction, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
 import { registerMedicineCategory, snoozeTrayReminder } from '@/lib/medicineNotifications';
+import { registerHabitCategory, snoozeHabitReminder } from '@/lib/habitNotifications';
+import { todayStr } from '@/lib/date';
 import { isTrayId } from '@/lib/medicineSchedule';
 import { snoozeTaskReminder } from '@/lib/taskNotifications';
 import { saveAutoBackup } from '@/lib/backup';
@@ -356,8 +358,13 @@ export default function RootLayout() {
         void syncNotificationCategories(tNotif.notif.actionDone, tNotif.notif.actionRemindLater);
         // The medicine tray reminders' own Taken / Remind-me-later category (separate from
         // 'task-reminder' — different payload, different meaning). app/settings.tsx re-registers
-        // both on a language change to relabel the OS-level buttons.
+        // all three on a language change to relabel the OS-level buttons.
         registerMedicineCategory(useSettingsStore.getState().language);
+        // Habit reminders' Done / Remind-me-later. They were the one reminder type in the app
+        // with no buttons at all until 2026-08-15 — a habit nudge could only be dismissed or
+        // tapped through, which is the wrong ask for the reminder most likely to arrive while
+        // your hands are full.
+        registerHabitCategory(useSettingsStore.getState().language);
       }
       // Push today's tasks/shopping to the home-screen widgets + persistent overview
       // notification. Deferred to Tier B (was synchronous in the boot tick): its
@@ -405,6 +412,24 @@ export default function RootLayout() {
         return;
       }
       snoozeTrayReminder(tray, useSettingsStore.getState().language);
+    });
+  }, []);
+
+  // Habit reminders' action buttons (2026-08-15). 'habit-done' counts the habit for today
+  // through the store's normal increment() — the same write a tap on the card takes, so the
+  // goal-strength bump, the widget sync and the day log all still happen. Deliberately an
+  // INCREMENT, not a "mark met": a counter habit nudged three times a day should count three
+  // times, and for the daily-goal-of-1 case (almost every real habit) the two are identical.
+  // 'habit-snooze' re-nudges in 15 minutes. Same cold-start-safe shape as the two above.
+  useEffect(() => {
+    return onHabitAction((action, habitId) => {
+      if (action === 'habit-done') {
+        useHabitStore.getState().increment(habitId, todayStr());
+        void cancelHabitReNudge(habitId);
+        return;
+      }
+      const habit = useHabitStore.getState().habits.find((h) => h.id === habitId);
+      if (habit) snoozeHabitReminder(habit, useSettingsStore.getState().language);
     });
   }, []);
 

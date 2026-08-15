@@ -96,3 +96,33 @@ describe('scheduling', () => {
     expect(schedule.mock.calls[0][1]).toBe(12);
   });
 });
+
+/**
+ * Habit reminders were the only reminder type in the app with NO action buttons — tasks had
+ * Done from AP-05 and medicine trays got Taken with the tray system, but a habit nudge could
+ * only be dismissed or tapped through into the app. That is the wrong ask for the reminder
+ * most likely to arrive while your hands are full, so it carries its own category now.
+ *
+ * The payload is what the listener in app/_layout.tsx filters on, and it is the ONLY thing
+ * distinguishing a habit response from a task or medicine one — all three listeners are
+ * mounted at once and each ignores what it does not recognise. A missing `habitId` here is
+ * therefore not a broken button, it is a silent one.
+ */
+describe('habit reminders are actionable', () => {
+  it('carries the habit-reminder category and the habit id', () => {
+    syncHabitReminder(habit({ notificationTimes: ['08:00'] }), baseSettings);
+    expect(schedule.mock.calls[0][4]).toEqual({
+      data: { habitId: 'h1' },
+      categoryIdentifier: 'habit-reminder',
+    });
+  });
+
+  it('uses its own category, never the task or medicine one', () => {
+    syncHabitReminder(habit({ notificationTimes: ['08:00', '12:00'] }), baseSettings);
+    for (const call of schedule.mock.calls) {
+      expect(call[4].categoryIdentifier).toBe('habit-reminder');
+      expect(call[4].data).not.toHaveProperty('taskId');
+      expect(call[4].data).not.toHaveProperty('medicineTray');
+    }
+  });
+});

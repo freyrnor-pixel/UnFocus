@@ -278,6 +278,7 @@ import { PersonDot } from '@/components/PersonChip';
 import { PERSON_PALETTE, paletteColorAt, personColor } from '@/lib/personColor';
 import { syncReminders } from '@/lib/reminders';
 import { registerMedicineCategory } from '@/lib/medicineNotifications';
+import { registerHabitCategory } from '@/lib/habitNotifications';
 import { requestPermissions, syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
@@ -622,8 +623,10 @@ export default function SettingsScreen() {
         if (keys.includes('language')) {
           const tNew = getTranslations(useSettingsStore.getState().language);
           void syncNotificationCategories(tNew.notif.actionDone, tNew.notif.actionRemindLater);
-          // Same relabel for the medicine category's Taken button.
+          // Same relabel for the other two categories' buttons — all three are OS-level
+          // registrations that keep whatever labels they were last given.
           registerMedicineCategory(useSettingsStore.getState().language);
+          registerHabitCategory(useSettingsStore.getState().language);
         }
       }
       // Medicine tray reminders: their content and times are localised/scheduled from the

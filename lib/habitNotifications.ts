@@ -26,16 +26,37 @@
  */
 import type { Habit } from '@/store/useHabitStore';
 import { getTranslations } from '@/lib/i18n';
+import type { Language } from '@/store/useSettingsStore';
 import {
   scheduleDailyReminder,
   cancelDailyReminder,
+  scheduleHabitReNudge,
   shouldSkipForQuietHours,
+  syncHabitCategories,
   type QuietHoursSettings,
 } from '@/lib/notifications';
 import { parseTimeOrDefault } from '@/lib/time';
 
 /** Upper bound on reminders-per-habit we schedule/cancel — keeps the cancel loop finite. */
 const MAX_HABIT_REMINDERS = 24;
+
+/** How long "Remind me later" defers a habit nudge. Matches the task and tray snoozes. */
+export const HABIT_SNOOZE_MS = 15 * 60 * 1000;
+
+/** Register the Done / Remind-me-later buttons. Call again after a language change. */
+export function registerHabitCategory(language?: Language): void {
+  const t = getTranslations(language);
+  void syncHabitCategories(t.notif.actionDone, t.notif.actionRemindLater);
+}
+
+/** Arm the "Remind me later" follow-up for a habit, 15 minutes out. */
+export function snoozeHabitReminder(habit: Pick<Habit, 'id' | 'title'>, language?: Language): void {
+  const t = getTranslations(language);
+  void scheduleHabitReNudge(habit.id, HABIT_SNOOZE_MS, {
+    title: t.notif.habitReminderTitle(habit.title),
+    body: t.notif.renudgeBody,
+  });
+}
 
 /** The settings a habit reminder depends on (a structural subset of the settings store). */
 export type HabitNotifSettings = {
@@ -65,9 +86,14 @@ export function syncHabitReminder(habit: Habit, s: HabitNotifSettings): void {
   habit.notificationTimes.slice(0, MAX_HABIT_REMINDERS).forEach((time, i) => {
     const [hour, minute] = parseTimeOrDefault(time);
     if (shouldSkipForQuietHours(hour, minute, s)) return;
-    void scheduleDailyReminder(`habit-${habit.id}-${i}`, hour, minute, {
-      title: t.notif.habitReminderTitle(habit.title),
-      body: t.notif.habitReminderBody,
-    });
+    void scheduleDailyReminder(
+      `habit-${habit.id}-${i}`,
+      hour,
+      minute,
+      { title: t.notif.habitReminderTitle(habit.title), body: t.notif.habitReminderBody },
+      // Done / Remind me later, so the nudge can be answered from the shade. Habit reminders
+      // were the only kind in the app with no actions at all until 2026-08-15.
+      { data: { habitId: habit.id }, categoryIdentifier: 'habit-reminder' }
+    );
   });
 }

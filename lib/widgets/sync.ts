@@ -245,6 +245,14 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
     overview: {
       title: t.notif.overviewTitle,
       lines: overviewLines,
+      // A tray still due beats the next task: more time-critical, and logging it is idempotent
+      // where completing a task is not. Both borrow the category their own reminder already
+      // uses, so the button reads as the verb for the thing the body names.
+      action: dueTrays.length > 0
+        ? { kind: 'tray' as const, tray: dueTrays[0] }
+        : nextTask
+          ? { kind: 'task' as const, taskId: nextTask.id }
+          : undefined,
       empty: t.notif.overviewBodyNoTasks,
       accent: WIDGET_ACCENT.overview,
       hasContent: overviewLines.length > 0,
@@ -316,11 +324,10 @@ async function updatePersistentNotification(snapshot: WidgetSnapshot) {
   }
   const lines = snapshot.overview.lines;
   const body = lines.length > 0 ? lines.join(' · ') : t.notif.overviewNothingElse;
-  await refreshPersistentNotification({
-    title: snapshot.overview.title,
-    body,
-    color: WIDGET_ACCENT.overview,
-  });
+  await refreshPersistentNotification(
+    { title: snapshot.overview.title, body, color: WIDGET_ACCENT.overview },
+    snapshot.overview.action
+  );
 }
 
 /**

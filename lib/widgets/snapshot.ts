@@ -131,6 +131,18 @@ export type WidgetSnapshot = {
      * key; nothing reads it.
      */
     lines: string[];
+    /**
+     * The most answerable thing on the overview, which the pinned notification turns into its
+     * one action button (lib/notifications.ts's PersistentAction — same shape, deliberately
+     * NOT the same declaration: importing it would pull expo-notifications into the headless
+     * widget context, and importing this into lib/notifications.ts would pull lib/db into the
+     * scheduler. Structural typing connects them; keep the two in step by hand, which is cheap
+     * for a two-case union that has no reason to grow).
+     *
+     * A tray still due wins over the next task: it is more time-critical, and logging it is
+     * idempotent where completing a task is not. Undefined on a day with neither.
+     */
+    action?: { kind: 'tray'; tray: string } | { kind: 'task'; taskId: string };
     empty: string;
     accent: string;
     hasContent: boolean;
