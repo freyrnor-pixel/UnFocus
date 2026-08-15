@@ -875,5 +875,5 @@ const styles = StyleSheet.create({
   // pause a bordered header, i.e. exactly the status banner this must not be. No margin of
   // its own: `strip`'s existing gap is the only spacing, so the strip's outer geometry is
   // identical paused and unpaused.
-  pausedNote: { fontSize: FontSize.xs, fontStyle: 'italic' },
+  pausedNote: { fontSize: FontSize.xs },
 });

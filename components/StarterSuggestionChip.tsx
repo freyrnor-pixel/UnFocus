@@ -30,12 +30,17 @@
  *     was applied to the example ROW only. The chips were never revisited, so they still wore
  *     precisely the styling that reversal removed (solid border, fill, full-contrast label),
  *     which meant Habits' suggestions read as MORE finished than Health's example did: the
- *     exact inversion the 2026-08-10 report was about. Every channel here now says provisional:
- *       • **dashed** border at the FIELD rung in neutral `theme.border`
- *       • **no fill** — transparent, so it never reads as a filled button
- *       • label in `theme.textMuted`, **italic** — StarterCard's own explainer voice
- *       • leading glyph neutral; `theme.accent` survives on the trailing "+" alone
- *     Read StarterExampleRow's own reversal note before making any of this look finished again.
+ *     exact inversion the 2026-08-10 report was about. Two of the four channels that pass set —
+ *     the dashed edge and the italic label — were themselves ruled out on 2026-08-18 (see the
+ *     next note); what survives is the part that still matters, muted ink and the accent on the
+ *     "+" alone. Read StarterExampleRow's own reversal note before making any of this look
+ *     finished again.
+ *   - **⚠️ Borderless and upright since 2026-08-18.** Maintainer: *"Suggestion chips should be
+ *     simple, borderless, matte shapes… Remove all italicized text."* So the dashed FIELD-rung
+ *     edge is gone and so is the slant; the chip is a flat `getMatte()` plate with muted upright
+ *     ink. The two shapes are STILL one finish — StarterExampleRow lost its edge and its italic
+ *     in the same pass — so the rule that opens this note is unchanged: change a channel here
+ *     and change it there in the same edit.
  *   - **`Radius.full` is kept, and is the one thing deliberately NOT converged.** The row is
  *     `Radius.sm` because it is the shape of a row; a pill is the shape of a wrapping cloud.
  *     The finish converged, the shape did not — that is the ruling, not an oversight.
@@ -74,8 +79,8 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
-import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { Fonts, FontSize, getMatte, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
   /** The suggestion itself, already localized (e.g. "Drink water", "Less time on my phone"). */
@@ -96,15 +101,16 @@ type Props = {
 
 export default function StarterSuggestionChip({ label, icon, leading, onAdd, addLabel }: Props) {
   const theme = useAppTheme();
-  // Dashed + unfilled + neutral, with the accent on the "+" alone: the same four channels
-  // components/StarterExampleRow uses to say "this isn't here yet". See the Edit notes before
-  // giving any of it a fill or a solid edge again.
+  const isDark = useIsDark();
+  // **A simple, borderless, matte shape (2026-08-18)** — maintainer's words. A flat translucent
+  // plate, no stroke of any kind, muted upright ink, and the accent spent on the "+" alone.
+  // See the Edit notes before drawing an edge on this again.
   return (
     <PressableScale
       onPress={onAdd}
       accessibilityRole="button"
       accessibilityLabel={addLabel ? `${addLabel} ${label}` : label}
-      style={[styles.chip, { borderColor: theme.border }]}
+      style={[styles.chip, { backgroundColor: getMatte(isDark) }]}
     >
       {leading ?? (icon ? <Ionicons name={icon} size={14} color={theme.textMuted} /> : null)}
       <Text style={[styles.label, { color: theme.textMuted }]}>{label}</Text>
@@ -122,12 +128,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.xs,
-    // The FIELD rung and a dashed edge — the example row's exact border, so the two example
-    // shapes are one weight and one finish. Three of the five call sites this replaced used a
-    // literal `1`, two of them hued.
-    borderWidth: BORDER_WIDTH.field,
-    borderStyle: 'dashed',
-    // NOT the row's Radius.sm — a pill is the cloud's shape, and the shape is what stayed
+    // No border at all (2026-08-18). The matte plate set at the call site is the whole shape.
+    // NOT the row's radius — a pill is the cloud's shape, and the shape is what stayed
     // different on purpose (see the Edit notes).
     borderRadius: Radius.full,
     paddingVertical: Spacing.xs,
@@ -139,9 +141,8 @@ const styles = StyleSheet.create({
   label: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.medium,
-    // Italic, in textMuted — StarterCard's explainer voice, which is what ties a suggestion to
-    // the teaching card rather than to the list it will land in.
-    fontStyle: 'italic',
+    // Upright (2026-08-18, *"Remove all italicized text"*) — muted ink alone carries the
+    // "not yours yet" voice, exactly as it now does on components/StarterExampleRow.
   },
   // A wrapper rather than a bare glyph so the "+" keeps its own optical column when the label
   // wraps nothing and the chip is at its narrowest.

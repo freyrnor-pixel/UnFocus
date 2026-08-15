@@ -439,7 +439,7 @@ const baseStyles = StyleSheet.create({
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  hint: { fontSize: FontSize.xs, fontStyle: 'italic' },
+  hint: { fontSize: FontSize.xs },
   error: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   switchRow: {
     flexDirection: 'row',

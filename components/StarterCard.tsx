@@ -92,7 +92,14 @@
  *     it always has (Habits: `!allStartersAdded`; Plans/Health: `length === 0 || …Added`) —
  *     `collapsible` only changes the SHAPE of the card while it's mounted, never whether it's
  *     mounted at all.
- *   - **The trigger and its revealed content share ONE box (2026-08-12), not two.** Until
+ *   - **⚠️ SUPERSEDED 2026-08-18 — there is NO box.** The drop-down draws no border, no radius
+ *     and no divider now; the trigger row and everything it reveals sit directly on the card,
+ *     separated by padding alone (maintainer: *"The 'Examples' accordion and its nested chips
+ *     must lose their borders"*). The note below is kept because the thing it was protecting
+ *     still holds — the trigger and its content must read as ONE element, not two stacked
+ *     rectangles — and because it records that "give the accordion its own border" has already
+ *     been tried and ruled on.
+ *   - **(Historical) The trigger and its revealed content share ONE box (2026-08-12), not two.** Until
  *     this pass the trigger row carried its own full border+radius and the example rows below
  *     it started a fresh `marginTop` gap — so an expanded drop-down was a small bordered row
  *     sitting just above a second, separately bordered box, with visible daylight between them
@@ -183,7 +190,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StageTree, { type TreeStage } from '@/components/StageTree';
-import { BORDER_WIDTH, Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
@@ -336,17 +343,18 @@ export default function StarterCard({
         </View>
       ) : null}
       {collapsible && hasExampleContent ? (
-        // One box for the whole drop-down (2026-08-12, user report: the trigger and its
-        // revealed example were two separate bordered rectangles with a gap between them —
-        // "the examples should be inside the same box as the expanded container"). The card
-        // rung (`BORDER_WIDTH.card`) now belongs to this outer box; the trigger row itself
-        // draws no border of its own, and `overflow: 'hidden'` lets the outer radius clip its
-        // top corners the way components/CollapsedSection.tsx's header+body Surface already
-        // does. The example rows keep their own field-rung dashed border when revealed —
-        // that's a row nested inside a card, the same weight-graded nesting every other list
-        // uses, not the "card inside a card" pattern this component's `embedded` mode exists
-        // to avoid.
-        <View style={[styles.collapsibleBox, { borderColor: theme.border }]}>
+        // **No box at all (2026-08-18).** Maintainer: *"Do NOT place borders, `<Divider/>`
+        // lines, or separate background boxes inside of main cards. The 'Examples' accordion
+        // and its nested chips must lose their borders… Separate elements using purely padding
+        // and typography."* So the outer `collapsibleBox` border, its radius, its clipping mask
+        // and the hairline that split the trigger from the revealed body are all gone; the
+        // trigger is a plain row and its content sits directly on the card underneath.
+        //   This supersedes the 2026-08-12 "one box, not two" pass, which was the right answer
+        // to the question it was asked (an expanded drop-down drawn as a bordered row floating
+        // above a separately bordered box) — the box is simply not the unit any more. What that
+        // pass was really protecting is preserved: the trigger and what it reveals still read
+        // as one thing, now because nothing is drawn between them.
+        <View style={styles.collapsibleBox}>
           <PressableScale
             onPress={toggleCollapsed}
             style={styles.triggerRow}
@@ -354,13 +362,13 @@ export default function StarterCard({
             accessibilityLabel={collapsed ? t.starters.expandExamples : t.starters.collapseExamples}
             accessibilityState={{ expanded: !collapsed }}
           >
-            <Text style={[styles.triggerLabel, { color: theme.text }]} numberOfLines={1}>
+            <Text style={[styles.triggerLabel, { color: theme.textMuted }]} numberOfLines={1}>
               {exampleHeaderLabel}
             </Text>
             <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={16} color={theme.textMuted} />
           </PressableScale>
           {collapsed ? null : (
-            <View style={[styles.collapsibleContent, { borderTopColor: theme.border }]}>
+            <View style={styles.collapsibleContent}>
               {example ? (
                 <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
               ) : null}
@@ -439,34 +447,25 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.sm,
     gap: Spacing.xs,
   },
-  // `collapsible` — the outer box for the whole drop-down (2026-08-12). One card-rung border
-  // around the trigger AND whatever it reveals, so opening it grows one box instead of
-  // uncovering a second one below it. `overflow: 'hidden'` lets this radius clip the trigger
-  // row's top corners, the same way components/CollapsedSection.tsx's Surface clips its rail.
-  collapsibleBox: {
-    borderWidth: BORDER_WIDTH.card,
-    borderRadius: Radius.sm,
-    overflow: 'hidden',
-  },
-  // No border/radius of its own any more — those moved to `collapsibleBox`, which this sits
-  // inside as the always-visible header. One row's height when collapsed, which is the whole
-  // point — "can't be disruptive or take up too much space when closed."
+  // `collapsible` — a plain group, not a box (2026-08-18; see the call site). No border, no
+  // radius, no clipping mask: the trigger and its content sit straight on the card, and the
+  // only thing separating them from the copy above is space.
+  collapsibleBox: {},
+  // The always-visible header of the drop-down. One row's height when collapsed, which is the
+  // whole point — "can't be disruptive or take up too much space when closed." No horizontal
+  // padding any more: with the box gone there is nothing to inset FROM, and the label has to
+  // line up with the card's own copy and with the example rows below it.
   triggerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
   },
-  // The revealed body, inside the same box as the trigger — a hairline splits them instead of
-  // a second full border. Same horizontal inset as the trigger row so an example lines up
-  // under the label above it.
+  // The revealed body. Separated from the trigger by padding alone — the hairline that used to
+  // split them was a `<Divider/>` line inside a card by another name.
   collapsibleContent: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.sm,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    paddingBottom: Spacing.xs,
     gap: Spacing.xs,
   },
   triggerLabel: {

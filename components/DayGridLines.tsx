@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     opacity: 0.7,
   },
-  gapText: { fontSize: FontSize.xs, fontStyle: 'italic' },
+  gapText: { fontSize: FontSize.xs },
   // marginTop centers the line/dot on `top` (nowY) instead of starting there.
   nowRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', alignItems: 'center', marginTop: -7, zIndex: 1 },
   // Empty spacer matching the hour-label gutter, so the now-line still starts flush with

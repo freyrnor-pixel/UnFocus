@@ -1963,7 +1963,7 @@ const baseStyles = StyleSheet.create({
   // `dayRow`/`dayChip`/`dayText` deleted 2026-08-10 — the weekly-reset-day picker is a
   // `SegmentedControl` now. See the note at its call site for why the old `minWidth`-based
   // chip row could not fit seven options on any phone.
-  paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs, fontStyle: 'italic' },
+  paydayHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   switchLabel: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   switchHint: { fontSize: FontSize.xs, marginTop: Spacing.xs },

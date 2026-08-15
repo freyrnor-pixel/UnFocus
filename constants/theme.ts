@@ -1039,6 +1039,31 @@ export function getBadgeFrost(surface: string, isDark: boolean): { paint: string
 }
 
 /**
+ * The matte plate (2026-08-18) — the one fill a BORDERLESS shape sits on.
+ *
+ * Maintainer: *"Do NOT place borders, `<Divider/>` lines, or separate background boxes inside of
+ * main cards… Suggestion chips should be simple, borderless, matte shapes."* Everything that
+ * used to say "this is a distinct little box" with a stroke (the empty-state suggestion chips,
+ * the example row's "+", a tab slider's pill) says it with this instead: a flat translucent wash
+ * of the ambient light, no edge, no gradient, no shadow.
+ *
+ * Same neutral-and-mode-aware shape as `getBadgeFrost` above, and a DARK wash in light mode for
+ * the same reason: a white film on a near-white pane is invisible, so the light rung tints
+ * toward the app's ink instead. Deliberately weaker than `getBadgeFrost`'s — a badge plate is
+ * the ground for one opaque glyph, while this may sit under a whole label and must not read as
+ * a second card.
+ *
+ * ⚠️ **This is not a button body.** A key's body is `glassKey()`, which is the key's own HUE at
+ * `KEY_BODY_ALPHA` plus a lit edge. Use this only where the shape is meant to recede.
+ */
+const MATTE = { light: { tint: '#0F172A', alpha: 0.05 }, dark: { tint: GLASS_LIGHT, alpha: 0.08 } };
+
+export function getMatte(isDark: boolean): string {
+  const { tint, alpha } = isDark ? MATTE.dark : MATTE.light;
+  return rgba(tint, alpha);
+}
+
+/**
  * The recessed field (2026-08-16, brief §8) — an input that reads as pressed INTO the glass
  * pane rather than drawn on top of it.
  *

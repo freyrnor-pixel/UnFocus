@@ -393,6 +393,68 @@ file owns which token.)
       failure, so the next session cannot "restore" it.
     Everything is invisible to a screenshot in isolation and the web preview runs worklets on the
     JS thread, so the source scan is the only guard that holds.
+- **The blueprint pass — 2026-08-18** (a third maintainer brief, written after the previous two
+  were only partly carried out: *"You have been falling back on standard CSS habits (nested
+  boxes, gradients, and text bloat). Stop guessing."*). Four instructions, each a reversal of
+  something shipped, plus one addition. Pinned by `lib/__tests__/chromeRhythm.test.ts` §3/§4 and
+  `lib/__tests__/exampleRows.test.ts` §2.
+  - **The bottom nav is FIVE EQUAL SLOTS** (`components/BottomNav.tsx`): *"Do not use massive
+    asymmetrical background circles for the active Bottom Nav icon… the active state should just
+    be a filled icon in the active color with no background shape."* The sliding pill/ring AND
+    the 56px centre FAB are both **deleted** — Home is an ordinary tab in the ordinary row — and
+    with them went three measured tracks, the `absoluteFill` probe, `PILL_*`/`HOME_RING`, both
+    clamps, every shared value in the file and the last `LinearGradient`. The bar has no
+    animation left because it has nothing to move. Active = the filled Ionicons variant in the
+    section's categorical hue (`navTabHue`, still dark-mode only); inactive = the outline glyph
+    in `textMuted`. **That makes the hue load-bearing**, not decorative — it is now the only
+    channel, so don't collapse it back to one accent. This supersedes the whole 2026-07-24 →
+    2026-08-12 pill lineage below; the component's header keeps that history so it isn't
+    rebuilt from a stale note.
+  - **A top tab's active pill is a SOFT TRANSLUCENT WASH** (`components/TabSlider.tsx`):
+    *"Active Top Tabs should use a soft, translucent pill strictly behind the text/icon."*
+    `rgba(hue, PILL_ALPHA)` instead of a solid `theme.accent` fill, the label in `theme.text`
+    instead of `accentInk`, and the track's border painted `transparent` (kept at width 1 so
+    `TAB_SLIDER_HEIGHT`, which five callers reserve, does not move). ⚠️ **This edits the
+    two-shapes rule, it does not break it**: the tier is still carried by the ACTIVE TREATMENT
+    (screen tier = hued wash, form tier = raised white pill), and the two are further apart now
+    than a fill opacity ever made them.
+  - **No box inside a card** (`StarterCard`'s accordion, `StarterExampleRow`,
+    `StarterSuggestionChip`, `PlanTaskCard`'s ghost add-row): *"Do NOT place borders,
+    `<Divider/>` lines, or separate background boxes inside of main cards… Suggestion chips
+    should be simple, borderless, matte shapes."* Every edge in that family is gone — the
+    accordion's `collapsibleBox` border and its hairline divider, the example row's dashed
+    field rung, its icon ring and "+" strokes, the chip's dashed pill, the ghost row's dashed
+    box — replaced by padding, muted ink and one shared `getMatte()` plate (`constants/theme.ts`,
+    new). **The row's GEOMETRY is untouched**, which is what still makes an example an example
+    of the rows around it. This supersedes the 2026-08-12 "one box, not two" pass and half of
+    the 2026-08-10 provisional-finish reversal — the finish is ink-only now — but not their
+    conclusions: the two example shapes still share ONE finish, and an example still must not
+    look finished.
+  - **No italics anywhere, and no "e.g."**: *"Remove all italicized text and 'e.g.' (example)
+    explanations."* `fontStyle: 'italic'` is gone from all 14 files that carried it, and the
+    `e.g.`/`f.eks.` prefix is off every placeholder in `lib/i18n.ts`. The ⓘ banners were already
+    one short sentence each (2026-08-17); the two that were two sentences are now one.
+  - **⚠️ THE ADDITION, and it reverses a load-bearing 2026-08-11 decision**: *"even though
+    things are translucent, things like header and bottom nav should still not show elements
+    behind it when user is scrolling, or have scrolled. Only the backdrop."*
+    `components/ScreenScaffold.tsx`'s clip window moved from the chrome's OUTER footprint to its
+    INNER edges — content is now bounded by the header's (or an attached sticky bar's) bottom
+    edge and the nav card's top edge, and `contentPad` is `{0, 0}` because the viewport's own
+    margins are the whole clearance. The old arithmetic was correct and rested on a premise that
+    expired silently: it let content scroll behind the chrome "hidden BY" it, which was true
+    while every Surface was opaque and false from 2026-08-15, when the header and bar became
+    frosted glass. **What this knowingly gives up is the corner peek** ("cards … visible in the
+    bottom nav's cut corners at the top") — that request and this one are the same question with
+    opposite answers, and this is both the later and the more general ruling. The surviving rule
+    is unchanged: **one clearance each — the clip is margin on the wrapper, never also padding on
+    the content.**
+  - **`components/IconButton.tsx` and `components/VoiceNoteFAB.tsx` finally got the 2026-08-17
+    button treatment**, which had only reached `Button` and the ~18 hand-rolled action pills.
+    Both dropped a `darken(fill, 0.22)` housing, a black cast shadow and (IconButton) a
+    `LinearGradient` rim ring for `glassKey()` plus an outward `getGlow`. The FAB is the one
+    documented exception to "flat and translucent": it floats over a scrolling list, so its
+    glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
+    in this pass, for the same reason.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).

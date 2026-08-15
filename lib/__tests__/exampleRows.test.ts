@@ -123,21 +123,35 @@ describe('PadTypeRow — the trailing control is inside the field, not beside it
 
 // ── 2. An example is the same box as the row it stands in for ────────────────
 
-describe('StarterExampleRow — the field rung, like every other row-sized box', () => {
+describe('StarterExampleRow — borderless, sitting on the card it is an example inside', () => {
   const source = code('components/StarterExampleRow.tsx');
 
-  it('takes its border weight from the token, not a literal', () => {
-    expect(source).toMatch(/borderWidth: BORDER_WIDTH\.field/);
-    expect(source).not.toMatch(/borderWidth: 1,\n\s*borderStyle: 'dashed'/);
+  // 2026-08-18: *"Do NOT place borders, `<Divider/>` lines, or separate background boxes inside
+  // of main cards… List items, text inputs, and suggestion chips must sit seamlessly on the
+  // main card's background."* The dashed field-rung edge this used to be pinned TO is the
+  // thing that went; these assertions are its mirror image, so a future session restoring the
+  // old finish from the (deliberately preserved) history notes fails here.
+  it('draws no edge of any kind — not on the row, not on its two marks', () => {
+    expect(source).not.toMatch(/borderStyle: 'dashed'/);
+    expect(source).not.toMatch(/borderWidth/);
+    expect(source).not.toMatch(/borderColor/);
   });
 
-  it('still says "provisional" through its finish, which is the part that must not change', () => {
-    // The 2026-08-10 reversal put the whole signal in the finish; matching the weight to the
-    // real rows is only safe as long as these four hold.
-    expect(source).toMatch(/borderStyle: 'dashed'/);
-    expect(source).toMatch(/fontStyle: 'italic'/);
+  it('has no fill either, so it never reads as a filled row on the card', () => {
     expect(source).not.toMatch(/row: \{[^}]*backgroundColor/);
-    expect(source).toMatch(/borderColor: theme\.border/);
+  });
+
+  it('says "provisional" through ink alone, and upright', () => {
+    // Muted on every part of the row, and no italic anywhere (*"Remove all italicized text"*).
+    expect(source).not.toMatch(/fontStyle: 'italic'/);
+    expect(source).toMatch(/color: theme\.textMuted/);
+  });
+
+  it('keeps the row geometry, which is the one thing that makes it an EXAMPLE', () => {
+    // An example has to be the same shape as the thing it is an example of. The finish may
+    // change (it has, twice); the height must not.
+    expect(source).toMatch(/paddingVertical: Spacing\.sm/);
+    expect(source).toMatch(/const MARK = 22/);
   });
 });
 
@@ -148,15 +162,18 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   // 2026-08-12, from "Examples are placed the same througout app, but does not look the same …
   // the dottet lines instead of full border and the filled buttons. I prefer the visual in the
   // to-do preview card." The 2026-08-10 provisional reversal had been applied to the ROW only,
-  // so the chips still wore the styling it removed — solid edge, fill, full-contrast label.
-  it('carries all four provisional channels the row does', () => {
-    for (const channel of [/borderStyle: 'dashed'/, /fontStyle: 'italic'/, /borderWidth: BORDER_WIDTH\.field/]) {
-      expect({ channel: String(channel), chip: channel.test(chip), row: channel.test(row) })
-        .toEqual({ channel: String(channel), chip: true, row: true });
+  // so the chips still wore the styling it removed. The CHANNELS have since changed twice —
+  // they are ink-only as of 2026-08-18 — but the rule that the two shapes share ONE finish is
+  // what this has always been guarding, so it is asserted over both files, as before.
+  it('carries the same provisional channels the row does, and no others', () => {
+    for (const absent of [/borderStyle: 'dashed'/, /fontStyle: 'italic'/, /borderWidth/]) {
+      expect({ channel: String(absent), chip: absent.test(chip), row: absent.test(row) })
+        .toEqual({ channel: String(absent), chip: false, row: false });
     }
-    // The fourth channel is an ABSENCE, so it is asserted as one: no fill on either box.
-    expect(chip).not.toMatch(/chip: \{[^}]*backgroundColor/);
-    expect(row).not.toMatch(/row: \{[^}]*backgroundColor/);
+    // A matte plate is the chip's whole shape, and the row's two marks use the same helper —
+    // one borderless finish, from one place.
+    expect(chip).toMatch(/getMatte\(isDark\)/);
+    expect(row).toMatch(/getMatte\(isDark\)/);
   });
 
   it('spends the accent on the "+" and nothing else', () => {
@@ -171,13 +188,18 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
     // Habits/HomeHabitsCard hued their chip's edge with the screen colour while Goals, the
     // Goals drawer and the health sheet used theme.border — half of why five copies never
     // matched. The edge is neutral everywhere now; the hue reaches it through the card.
-    expect(chip).toMatch(/borderColor: theme\.border/);
+    // Since 2026-08-18 the chip has no edge at all, so the stronger form of the same claim is
+    // that neither file takes a colour prop — the hue reaches both through the card that holds
+    // them, and can therefore never be applied at one call site and not another.
     expect(chip).not.toMatch(/accent: string/);
+    expect(row).not.toMatch(/accent: string/);
   });
 
   it('keeps the pill radius the row does not — the shape is the deliberate difference', () => {
+    // The chip is still a pill; the row no longer draws a box at all, which is a stronger
+    // version of "these two are different shapes" than the old radius pair was.
     expect(chip).toMatch(/borderRadius: Radius\.full/);
-    expect(row).toMatch(/borderRadius: Radius\.sm/);
+    expect(row).not.toMatch(/row: \{[^}]*borderRadius/);
   });
 
   it('is dropped where the labels are too long to pair up on a line', () => {
@@ -213,19 +235,21 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   }
 });
 
-describe('PlanTaskCard — the two dashed rows on an empty day are one box', () => {
+describe('PlanTaskCard — the two empty-day rows are one shape', () => {
   const source = code('components/PlanTaskCard.tsx');
   const exampleRow = code('components/StarterExampleRow.tsx');
 
-  it('gives the ghost add-row the example row\'s radius and weight', () => {
+  it('gives the ghost add-row exactly the example row\'s finish — which is now no edge at all', () => {
     const emptyAddRow = source.match(/emptyAddRow: \{[^}]*\}/)?.[0] ?? '';
-    expect(emptyAddRow).toMatch(/borderRadius: Radius\.sm/);
-    expect(emptyAddRow).toMatch(/borderWidth: BORDER_WIDTH\.field/);
-    // The same two values the example row itself carries — asserted against its source rather
-    // than restated, so the pair cannot drift apart one file at a time.
     const example = exampleRow.match(/row: \{[\s\S]*?\n  \}/)?.[0] ?? '';
-    expect(example).toMatch(/borderRadius: Radius\.sm/);
-    expect(example).toMatch(/borderWidth: BORDER_WIDTH\.field/);
+    // Asserted against the example row's own source rather than restated, so the pair cannot
+    // drift apart one file at a time — the point of this test since 2026-08-12, when the two
+    // had different corners and different weights. They match by absence now (2026-08-18).
+    for (const box of [emptyAddRow, example]) {
+      expect(box).not.toMatch(/border/);
+      expect(box).not.toMatch(/backgroundColor/);
+      expect(box).toMatch(/paddingVertical: Spacing\.sm/);
+    }
   });
 
   it('stacks the empty state at the gap real rows stack at', () => {

@@ -1207,7 +1207,6 @@ export default function TasksScreen() {
                 icon="ellipse-outline"
                 title={t.starters.plans.exampleTitle}
                 meta="17:00–17:20"
-                accent={wheneverHue}
                 onAdd={planStarterAdded ? undefined : addPlanStarterTask}
                 addLabel={t.starters.addExample}
                 added={planStarterAdded}

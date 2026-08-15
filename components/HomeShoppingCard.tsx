@@ -574,7 +574,6 @@ const baseStyles = StyleSheet.create({
     fontSize: FontSize.sm,
     lineHeight: 20,
     fontFamily: Fonts.medium,
-    fontStyle: 'italic',
     marginBottom: Spacing.sm,
   },
   metaText: { flex: 1, fontSize: FontSize.xs, fontFamily: Fonts.regular },
