@@ -16,6 +16,17 @@
  *
  * Edit notes:
  *   - reducedMotion snaps (duration 0). Rotation only — colour/size are static props.
+ *   - **It runs on the BODY's clock, not the control clock (2026-08-14).** This was
+ *     `Duration.control` (150) with `Ease.enter` in both directions, while the thing it points
+ *     at — `components/Collapsible.tsx` — runs 220/`Ease.enter` open and 200/`Ease.exit` close.
+ *     So the arrow finished ~70ms early and, on close, decelerated into its stop while the body
+ *     accelerated away from it: two halves of one gesture visibly disagreeing, which is part of
+ *     what a device read as "expanding and collapsing animation does not look smooth". Every
+ *     caller of this component is an expand/collapse affordance for a `Collapsible` body, so
+ *     matching that pair is the right DEFAULT rather than a per-call-site prop — a prop would
+ *     have to be passed correctly at each site to be worth anything, and the sites that forgot
+ *     would be exactly the ones nobody looked at. If a non-collapse caller ever needs the
+ *     shorter control timing, give it an override then; there is none today.
  */
 import React, { useEffect } from 'react';
 import Animated, {
@@ -39,9 +50,12 @@ export default function AnimatedChevron({ open, color, size = 18 }: Props) {
   const progress = useSharedValue(open ? 1 : 0);
 
   useEffect(() => {
+    // The same duration/easing PAIR components/Collapsible.tsx uses, so the arrow and the body
+    // it points at start and land together — including the asymmetry (a close is faster than an
+    // open, and eases the other way). See the edit note.
     progress.value = withTiming(open ? 1 : 0, {
-      duration: reducedMotion ? 0 : Duration.control,
-      easing: Ease.enter,
+      duration: reducedMotion ? 0 : open ? Duration.card : Duration.cardOut,
+      easing: open ? Ease.enter : Ease.exit,
     });
   }, [open, reducedMotion, progress]);
 

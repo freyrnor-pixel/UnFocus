@@ -64,6 +64,25 @@
  *     redundant but harmless. It also settled a disagreement between the two motion settings —
  *     the `reducedMotion` branch has always returned null. Don't reintroduce the empty wrapper
  *     to "keep layout stable": there is nothing to keep stable at height 0.
+ *   - **The open curve WAITS for the first measurement (2026-08-14).** `setMounted(true)` and
+ *     the `withTiming` used to run on the same tick, so on a body that had never been opened
+ *     the curve started against `measured === 0`: the clip held at `progress * 0` for the first
+ *     frames, then jumped to `progress * measured` — already partway along — the moment React
+ *     committed the child and `onLayout` fired. A hitch, then a catch-up, on every first
+ *     expand, and worst exactly where it is most visible (Shopping's drawers mount the whole of
+ *     `FoodTab`/`CatalogueTab`). An open with no height yet now sets `pendingOpen` instead, and
+ *     a `useAnimatedReaction` on `measured` starts the reveal on the frame the height lands.
+ *     Re-opens are unaffected — `measured` survives the unmount, so they take the immediate
+ *     path. **Keep the reaction's body worklet-safe**: `runOpen` is `'worklet'`-marked and
+ *     touches only shared values, and a plain JS call in there crashes on device while looking
+ *     perfect in the web preview, which runs worklets on the JS thread (see AGENTS.md's
+ *     Reanimated note and `__tests__/workletSafety.test.ts`).
+ *   - **A height change while OPEN is animated too.** `onLayout` assigned `measured` straight
+ *     through, and with `progress` already at 1 that re-rendered the clip at the new height in
+ *     one frame — adding or removing a row inside an open card jumped. Deliberately scoped to
+ *     the already-open, already-measured, not-reduced-motion case: the FIRST measurement must
+ *     land instantly (the deferred reveal above is waiting on it), and a body resizing while it
+ *     is still opening should ride its existing curve rather than start a competing one.
  *   - **Lazy mount preserved:** children render only while `open` OR while a close animation is
  *     still playing; the close `withTiming` completion callback unmounts them (`runOnJS`). A
  *     fully-collapsed instance renders no children (matters for long lists like WeekListCard
@@ -78,6 +97,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -100,6 +120,19 @@ export default function Collapsible({ open, children, style }: Props) {
   const progress = useSharedValue(open ? 1 : 0);
   const measured = useSharedValue(0);
   const firstRun = useRef(true);
+  /**
+   * Set when an open was asked for but the body had no height yet, so the reveal has to WAIT
+   * for the first measurement (see the "deferred open" edit note). Cleared the moment the
+   * curve is actually started, by whichever of the two paths gets there first.
+   */
+  const pendingOpen = useSharedValue(false);
+
+  /** The open curve. Shared by the effect and the deferred path so they cannot disagree. */
+  function runOpen() {
+    'worklet';
+    pendingOpen.value = false;
+    progress.value = withTiming(1, { duration: Duration.card, easing: Ease.enter });
+  }
 
   useEffect(() => {
     // Skip animating on the very first render: a mount-already-open instance shows its content
@@ -111,31 +144,70 @@ export default function Collapsible({ open, children, style }: Props) {
     if (open) setMounted(true);
 
     if (reducedMotion) {
+      pendingOpen.value = false;
       progress.value = open ? 1 : 0;
       if (!open) setMounted(false);
       return;
     }
 
+    if (open) {
+      // **Nothing starts until there is a height to grow to.** `setMounted(true)` above and this
+      // curve used to fire on the SAME tick, so for a body that had never been opened `measured`
+      // was still 0 when the timing began: the clip sat at `progress * 0` for the first frames,
+      // and when React committed the child and `onLayout` landed, the height snapped straight to
+      // wherever the curve had already got to. That hitch-then-catch-up is what a device read as
+      // "expanding and collapsing animation does not look smooth", and it was worst on the heavy
+      // bodies — Shopping's drawers mount the whole of FoodTab/CatalogueTab.
+      if (measured.value > 0) runOpen();
+      else pendingOpen.value = true;
+      return;
+    }
+
+    pendingOpen.value = false;
     progress.value = withTiming(
-      open ? 1 : 0,
-      {
-        duration: open ? Duration.card : Duration.cardOut,
-        easing: open ? Ease.enter : Ease.exit,
-      },
+      0,
+      { duration: Duration.cardOut, easing: Ease.exit },
       (finished) => {
         // Unmount the (now-hidden) children once the close animation lands.
-        if (finished && !open) runOnJS(setMounted)(false);
+        if (finished) runOnJS(setMounted)(false);
       }
     );
-  }, [open, reducedMotion, progress]);
+  }, [open, reducedMotion, progress, measured, pendingOpen]);
+
+  /**
+   * The deferred half of the rule above: start the waiting reveal as soon as a real height
+   * arrives. A reaction rather than a branch inside `onLayout` because `measured` is a shared
+   * value — the UI thread owns it, and this keeps the decision on the same thread as the write,
+   * so the curve begins on the very frame the height lands rather than a JS round-trip later.
+   *
+   * `runOpen` is marked `'worklet'` and touches only shared values. Nothing here may call a
+   * plain JS function: an auto-workletized body that does takes the app down on device while
+   * looking perfect on web (AGENTS.md's Reanimated note; `__tests__/workletSafety.test.ts`).
+   */
+  useAnimatedReaction(
+    () => measured.value > 0 && pendingOpen.value,
+    (ready) => {
+      if (ready) runOpen();
+    },
+  );
 
   const onLayout = (e: LayoutChangeEvent) => {
     // The measuring child is absolutely positioned (styles.measure), so it lays out at its
     // natural height regardless of the clip's current (possibly 0) height — this always reports
-    // the real content height, even while collapsed. The reveal then animates 0 → measured off
-    // `progress`, so there's nothing to snap here.
+    // the real content height, even while collapsed.
     const h = e.nativeEvent.layout.height;
-    if (h > 0) measured.value = h;
+    if (h <= 0 || h === measured.value) return;
+    // **A height that changes while the card is OPEN is animated, not assigned.** `progress` is
+    // already 1, so writing `measured` straight through re-renders the animated style at the new
+    // numeric height in one frame — a row added to or removed from an open card jumped. Scoped
+    // hard to the already-open, already-measured case: the first measurement of a reveal has to
+    // land instantly (the curve is waiting on it), and a body that resizes while it is still
+    // opening should follow its own curve rather than start a second one.
+    if (progress.value === 1 && measured.value > 0 && !reducedMotion) {
+      measured.value = withTiming(h, { duration: Duration.card, easing: Ease.enter });
+      return;
+    }
+    measured.value = h;
   };
 
   const clipStyle = useAnimatedStyle(() => {
