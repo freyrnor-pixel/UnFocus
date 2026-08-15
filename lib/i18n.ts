@@ -1474,6 +1474,10 @@ const en = {
       timelineHorizontal: 'Horizontal to-do timeline',
       timelineHorizontalHint: "Shows today's to-dos as a left-to-right timeline instead of top-to-bottom",
     },
+    cardStyle: {
+      title: 'Solid cards',
+      hint: 'Cards are frosted glass by default. Turn this on to draw them as solid panels instead. Sheets, the header and the menu bar stay frosted.',
+    },
     photoFormat: {
       title: 'Photo format',
       hint: 'How photo tiles are cropped.',
@@ -3083,6 +3087,10 @@ const no: typeof en = {
       leftHandedHint: 'Flytter menyknappen til venstre side',
       timelineHorizontal: 'Horisontal gjøremålstidslinje',
       timelineHorizontalHint: 'Viser dagens gjøremål som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
+    },
+    cardStyle: {
+      title: 'Heldekkende kort',
+      hint: 'Kort er frostet glass som standard. Slå på for å tegne dem som heldekkende paneler i stedet. Ark, toppfeltet og menylinja forblir frostet.',
     },
     photoFormat: {
       title: 'Bildeformat',
