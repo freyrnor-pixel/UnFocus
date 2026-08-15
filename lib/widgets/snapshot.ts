@@ -123,17 +123,26 @@ export type WidgetSnapshot = {
   };
   overview: {
     title: string;
+    /**
+     * The whole of today, and what the pinned notification posts verbatim — lock screen
+     * included, since that channel is PUBLIC. A redacted second rendering (`safeLines`) shipped
+     * alongside this for a few hours on 2026-08-15 and was reversed: see lib/widgets/sync.ts's
+     * block at `overviewLines`. A persisted snapshot from that build still carries the extra
+     * key; nothing reads it.
+     */
     lines: string[];
     /**
-     * The lock-screen-safe subset of `lines`, and the ONLY thing the persistent notification
-     * ever posts (lib/widgets/sync.ts). The overview's channel is PUBLIC, so its body is
-     * readable by anyone who picks up a locked phone: this variant drops health entirely and
-     * collapses medicine to a bare count, where `lines` names the trays that are still due.
+     * The most answerable thing on the overview, which the pinned notification turns into its
+     * one action button (lib/notifications.ts's PersistentAction — same shape, deliberately
+     * NOT the same declaration: importing it would pull expo-notifications into the headless
+     * widget context, and importing this into lib/notifications.ts would pull lib/db into the
+     * scheduler. Structural typing connects them; keep the two in step by hand, which is cheap
+     * for a two-case union that has no reason to grow).
      *
-     * Optional because a snapshot is persisted JSON — a row written by an older build has no
-     * such key, and the handler renders it verbatim. Read it as `safeLines ?? lines`.
+     * A tray still due wins over the next task: it is more time-critical, and logging it is
+     * idempotent where completing a task is not. Undefined on a day with neither.
      */
-    safeLines?: string[];
+    action?: { kind: 'tray'; tray: string } | { kind: 'task'; taskId: string };
     empty: string;
     accent: string;
     hasContent: boolean;
@@ -164,8 +173,8 @@ export type WidgetSnapshot = {
     subtitle: string;
     items: WidgetHealthLine[];
     /**
-     * Today's medicine trays, drawn above `items`. Optional for the same reason `safeLines`
-     * is — an older persisted snapshot has no key here. Read it as `trays ?? []`.
+     * Today's medicine trays, drawn above `items`. Optional because a snapshot is persisted
+     * JSON and a row written by an older build has no key here. Read it as `trays ?? []`.
      */
     trays?: WidgetTrayLine[];
     more: string;

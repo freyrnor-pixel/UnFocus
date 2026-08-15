@@ -482,9 +482,14 @@ const en = {
   taskNotifications: 'Plan notifications',
   taskNotificationsHint: 'Reminder when a plan starts',
   persistentNotifLabel: "Today's overview notification",
-  persistentNotifHint: "Keeps one notification up to date with today's remaining tasks and shopping items",
+  // Was "today's remaining tasks and shopping items" until 2026-08-15, when the overview grew
+  // habits, medicine and open episodes — and became readable on the lock screen, which is the
+  // part a user needs told before they switch it on.
+  persistentNotifHint: 'Keeps one notification up to date with the rest of your day, readable on the lock screen',
   habitNotifications: 'Habit reminders',
   habitNotificationsHint: "Reminder when it's time for a habit",
+  medicineNotifications: 'Medicine reminders',
+  medicineNotificationsHint: 'One reminder per tray, with a Taken button',
   // From/To are the generic time-range labels — the only remaining consumer is the
   // quiet-hours range in Settings → Personal. (The rest of the Work-mode strings were
   // deleted with that card in the 2026-07-25 settings reorganization: every one of its
@@ -2627,9 +2632,11 @@ const no: typeof en = {
   taskNotifications: 'Planvarsler',
   taskNotificationsHint: 'Påminnelse når en plan begynner',
   persistentNotifLabel: 'Dagens oversikt-varsel',
-  persistentNotifHint: 'Holder ett varsel oppdatert med dagens gjenstående oppgaver og varer på handlelisten',
+  persistentNotifHint: 'Holder ett varsel oppdatert med resten av dagen, lesbart på låseskjermen',
   habitNotifications: 'Varslinger for vaner',
   habitNotificationsHint: 'Påminnelse når det er tid for en vane',
+  medicineNotifications: 'Medisinvarsler',
+  medicineNotificationsHint: 'Én påminnelse per runde, med en Tatt-knapp',
   workHoursFrom: 'Fra',
   workHoursTo: 'Til',
   sectionLanguage: 'Språk',

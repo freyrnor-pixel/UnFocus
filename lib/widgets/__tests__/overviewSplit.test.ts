@@ -1,17 +1,17 @@
 /**
- * overviewSplit.test.ts — what the pinned/lock-screen notification is allowed to say.
+ * overviewSplit.test.ts — what the pinned/lock-screen notification says.
  *
- * lib/widgets/sync.ts builds today's overview TWICE: `lines` is the full rendering (widget +
- * in-app) and `safeLines` is the only thing the persistent notification ever posts. That
- * notification's channel is PUBLIC as of 2026-08-15 — readable on a locked phone without
- * unlocking — so the split is a privacy boundary, not a formatting preference: health is
- * absent from `safeLines` entirely and medicine appears only as a count, where the full
- * version names the trays that are still due.
+ * lib/widgets/sync.ts builds today's overview ONCE and the persistent notification posts it
+ * verbatim, lock screen included (that channel is PUBLIC as of 2026-08-15). A redacted second
+ * rendering — health dropped, medicine reduced to a count — shipped for a few hours the same
+ * day and was reversed on the maintainer's ruling: a summary you have to unlock to read is one
+ * you will not read, and half a summary is worse than none. The privacy control is
+ * `persistentNotifEnabled`, which turns the whole notification off.
  *
- * A boundary that lives in the order of two array pushes is exactly the kind that a later
- * "tidy up the duplication" pass collapses without noticing what it was for, so it is pinned
- * here rather than described in a comment. The tray derivation is tested alongside it,
- * because the two are computed together and a wrong tray count leaks into both.
+ * So what is pinned here is the OPPOSITE of what the file name suggests, and the name is kept
+ * so the history is findable: the overview must carry every domain, and a future pass must not
+ * quietly re-redact it. The tray derivation is tested alongside, because the two are computed
+ * together and a wrong tray count leaks into both.
  */
 import { todayStr } from '@/lib/date';
 
@@ -92,37 +92,45 @@ beforeEach(() => {
   state.featureMedicine = true;
 });
 
-describe('the lock-screen-safe overview', () => {
-  it('never carries an open health episode, which the full rendering does', () => {
+describe('the pinned overview carries the whole day', () => {
+  it('has exactly one rendering — no redacted variant survives', () => {
+    state.health = [{ id: 'h1', ailment: 'Migraine', severity: 3, date: TODAY, episodeState: 'ongoing' }];
+    const snap = buildWidgetSnapshot();
+    expect(snap.overview).not.toHaveProperty('safeLines');
+  });
+
+  it('carries an open health episode, as a bare count', () => {
     state.health = [{ id: 'h1', ailment: 'Migraine', severity: 3, date: TODAY, episodeState: 'ongoing' }];
     const snap = buildWidgetSnapshot();
     expect(snap.overview.lines).toContain('1 ongoing');
-    expect(snap.overview.safeLines).not.toContain('1 ongoing');
-    expect(snap.overview.safeLines).toEqual([]);
+    // A count and nothing else: no day tally, no escalation, and never the ailment itself —
+    // lib/episodes.ts's promise is that a week-old episode reads like an hour-old one.
+    expect(JSON.stringify(snap.overview.lines)).not.toContain('Migraine');
   });
 
-  it('never names a medicine tray — the full rendering does, as a count here', () => {
-    state.medicines = [med('m1', ['morning']), med('m2', ['morning'])];
+  it('names the medicine trays still due, in the app\'s own tray-card words', () => {
+    state.medicines = [med('m1', ['morning']), med('m2', ['midday'])];
     const snap = buildWidgetSnapshot();
-    // Full: the app's own tray-card copy, naming the window.
-    expect(snap.overview.lines).toContain('Still due: Morning');
-    // Safe: how many, never which.
-    expect(snap.overview.safeLines).toEqual(['2 medicines still due']);
-    expect(snap.overview.safeLines!.join(' ')).not.toMatch(/Morning|Midday|Evening|Night/);
+    expect(snap.overview.lines).toContain('Still due: Morning, Midday');
   });
 
-  it('never names a medicine itself', () => {
+  it('never names a medicine itself — the tray is the unit, here as everywhere', () => {
     state.medicines = [{ ...med('m1', ['morning']), name: 'Elvanse' }];
-    const snap = buildWidgetSnapshot();
-    expect(JSON.stringify(snap.overview.safeLines)).not.toContain('Elvanse');
-    expect(JSON.stringify(snap.overview.lines)).not.toContain('Elvanse');
+    expect(JSON.stringify(buildWidgetSnapshot().overview.lines)).not.toContain('Elvanse');
   });
 
-  it('does carry the shared counts and the next task — those are what it is for', () => {
+  it('orders the day as counts, then medicine, then health, then the next task', () => {
     state.tasks = [{ id: 't1', title: 'Standup', done: false, time: '09:00', cardType: 'standard' }];
     state.habits = [{ id: 'hab1', title: 'Water', active: true }];
-    const snap = buildWidgetSnapshot();
-    expect(snap.overview.safeLines).toEqual(['1 task left', '1 habit left', '09:00 · Standup']);
+    state.medicines = [med('m1', ['morning'])];
+    state.health = [{ id: 'h1', ailment: 'Migraine', severity: 3, date: TODAY, episodeState: 'ongoing' }];
+    expect(buildWidgetSnapshot().overview.lines).toEqual([
+      '1 task left',
+      '1 habit left',
+      'Still due: Morning',
+      '1 ongoing',
+      '09:00 · Standup',
+    ]);
   });
 });
 
@@ -141,7 +149,7 @@ describe('medicine trays on the Health widget', () => {
     state.doses = [{ id: 'd1', medicineId: 'm1', date: TODAY, tray: 'morning' }];
     const trays = buildWidgetSnapshot().health.trays!;
     expect(trays[0]).toMatchObject({ id: 'morning', taken: true, due: false, detail: '1 of 1' });
-    expect(buildWidgetSnapshot().overview.safeLines).toEqual([]);
+    expect(buildWidgetSnapshot().overview.lines).toEqual([]);
   });
 
   it('counts only the untaken half of a partly-logged tray', () => {
@@ -149,7 +157,10 @@ describe('medicine trays on the Health widget', () => {
     state.doses = [{ id: 'd1', medicineId: 'm1', date: TODAY, tray: 'morning' }];
     const snap = buildWidgetSnapshot();
     expect(snap.health.trays![0].detail).toBe('1 of 3');
-    expect(snap.overview.safeLines).toEqual(['2 medicines still due']);
+    // The tray is named on the overview; the untaken COUNT is what the Health widget's
+    // subtitle carries, so both numbers are exercised here.
+    expect(snap.overview.lines).toEqual(['Still due: Morning']);
+    expect(snap.health.subtitle).toBe('2 medicines still due');
   });
 
   it('ignores as-needed medicines — nothing in this app nudges a PRN dose', () => {
@@ -165,7 +176,6 @@ describe('medicine trays on the Health widget', () => {
     expect(snap.health.trays).toEqual([]);
     expect(snap.health.subtitle).toBe('');
     expect(snap.overview.lines).toEqual([]);
-    expect(snap.overview.safeLines).toEqual([]);
   });
 
   it('gives the Health widget content on a day with trays and no symptom entries', () => {
@@ -178,4 +188,46 @@ describe('medicine trays on the Health widget', () => {
 
 it('todayStr is the mocked date (guards the fixtures above)', () => {
   expect(todayStr()).toBe(TODAY);
+});
+
+/**
+ * The overview summarises a whole day, so there is no single "Done" that means anything on its
+ * own — which is why it shipped with no buttons and stayed a thing you could only read. It
+ * nominates the most answerable item instead, and borrows the category that item's own reminder
+ * already uses, so the button always reads as the verb for something the body names.
+ */
+describe('the pinned overview nominates one action', () => {
+  it('prefers a tray still due — more time-critical, and logging it is idempotent', () => {
+    state.tasks = [{ id: 't1', title: 'Standup', done: false, time: '09:00', cardType: 'standard' }];
+    state.medicines = [med('m1', ['morning'])];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'tray', tray: 'morning' });
+  });
+
+  it('falls back to the next task when no tray is due', () => {
+    state.tasks = [{ id: 't1', title: 'Standup', done: false, time: '09:00', cardType: 'standard' }];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'task', taskId: 't1' });
+  });
+
+  it('nominates the first UNDONE task, not the first task', () => {
+    state.tasks = [
+      { id: 't1', title: 'Done already', done: true, time: '08:00', cardType: 'standard' },
+      { id: 't2', title: 'Standup', done: false, time: '09:00', cardType: 'standard' },
+    ];
+    expect(buildWidgetSnapshot().overview.action).toEqual({ kind: 'task', taskId: 't2' });
+  });
+
+  it('offers nothing on a day with neither — a button that cannot act must not render', () => {
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+    state.health = [{ id: 'h1', ailment: 'Migraine', severity: 3, date: TODAY, episodeState: 'ongoing' }];
+    // An open episode is NOT actionable from a notification: closing one asks when it ended and
+    // what helped (components/EpisodeCloseSheet.tsx), and "Still going" deliberately writes
+    // nothing at all. A shade button can express neither.
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+  });
+
+  it('goes quiet with featureMedicine off, rather than nominating a hidden tray', () => {
+    state.medicines = [med('m1', ['morning'])];
+    state.featureMedicine = false;
+    expect(buildWidgetSnapshot().overview.action).toBeUndefined();
+  });
 });

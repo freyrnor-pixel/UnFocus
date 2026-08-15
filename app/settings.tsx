@@ -278,7 +278,8 @@ import { PersonDot } from '@/components/PersonChip';
 import { PERSON_PALETTE, paletteColorAt, personColor } from '@/lib/personColor';
 import { syncReminders } from '@/lib/reminders';
 import { registerMedicineCategory } from '@/lib/medicineNotifications';
-import { syncNotificationCategories } from '@/lib/notifications';
+import { registerHabitCategory } from '@/lib/habitNotifications';
+import { requestPermissions, syncNotificationCategories } from '@/lib/notifications';
 import { syncWidgetsAndOverview } from '@/lib/widgets/sync';
 import { seedFreyrMode, unseedFreyrMode, parseFreyrSeedIds } from '@/lib/freyrModeSeed';
 import { exportBackup, exportBackupToDevice, pickAndParseBackup, restoreBackup, reloadApp, saveAutoBackup, chooseAutoBackupLocation } from '@/lib/backup';
@@ -293,6 +294,23 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, heavy, success } from '@/lib/haptics';
 import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
+
+/**
+ * Every switch on this screen that turns a notification ON, and therefore needs the OS
+ * permission to exist before its scheduler runs (see applyAndSync). Kept as one list because
+ * the failure it prevents is silent on all five: `scheduleNotificationAsync` rejects without
+ * POST_NOTIFICATIONS and lib/notifications.ts swallows the rejection by design, so a missing
+ * entry here reads as "the toggle is on and nothing happens" rather than as an error.
+ *
+ * ⚠️ Add a new notification toggle to this list in the same edit that adds the row.
+ */
+const NOTIF_SWITCHES = [
+  'remindersEnabled',
+  'taskNotificationsEnabled',
+  'habitNotificationsEnabled',
+  'medicineRemindersEnabled',
+  'persistentNotifEnabled',
+] as const satisfies readonly (keyof Settings)[];
 
 type SettingsTab = 'general' | 'personal' | 'advanced';
 /** Runtime companion to `SettingsTab`, so a `?tab=` param can be validated rather than cast. */
@@ -585,30 +603,55 @@ export default function SettingsScreen() {
   function applyAndSync(patch: Partial<Settings>) {
     settings.update(patch);
     const keys = Object.keys(patch);
-    if (keys.some((k) => ['remindersEnabled', 'reminderTime', 'weeklyResetDay', 'monthlyResetDate', 'language'].includes(k))) {
-      void syncReminders();
-    }
-    if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd'].includes(k))) {
-      syncTaskNotifs();
-    }
+
+    // Everything a scheduler needs to run AFTER the OS permission exists. Wrapped rather than
+    // inline because switching a notification ON without POST_NOTIFICATIONS granted leaves the
+    // switch reading as on while nothing ever fires — the schedule calls fail and
+    // lib/notifications.ts swallows them by design. This screen never asked: permission was
+    // requested at onboarding (app/onboarding/privacy.tsx) and from Home's ⓘ toggles, so
+    // anyone who declined then, or who turned notifications off in Android settings later, hit
+    // exactly that dead switch here. See NOTIF_SWITCHES below.
+    const run = () => {
+      if (keys.some((k) => ['remindersEnabled', 'reminderTime', 'weeklyResetDay', 'monthlyResetDate', 'language'].includes(k))) {
+        void syncReminders();
+      }
+      if (keys.some((k) => ['taskNotificationsEnabled', 'language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd'].includes(k))) {
+        syncTaskNotifs();
+      }
+      if (keys.includes('language') || keys.includes('habitNotificationsEnabled')) {
+        syncHabitNotifs();
+        if (keys.includes('language')) {
+          const tNew = getTranslations(useSettingsStore.getState().language);
+          void syncNotificationCategories(tNew.notif.actionDone, tNew.notif.actionRemindLater);
+          // Same relabel for the other two categories' buttons — all three are OS-level
+          // registrations that keep whatever labels they were last given.
+          registerMedicineCategory(useSettingsStore.getState().language);
+          registerHabitCategory(useSettingsStore.getState().language);
+        }
+      }
+      // Medicine tray reminders: their content and times are localised/scheduled from the
+      // medicine store, so re-sync on a language change, a quiet-hours change, the reminder
+      // switch itself, or the feature flag flipping (turning either off must actually cancel
+      // the four daily reminders, not just hide the card).
+      if (keys.some((k) => ['language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'featureMedicine', 'medicineRemindersEnabled'].includes(k))) {
+        syncMedicineNotifs();
+      }
+      // The pinned overview is re-posted in place rather than scheduled, so it has no
+      // scheduler of its own — `persistentOnly` skips the widget writes, which nothing here
+      // changed.
+      if (keys.includes('persistentNotifEnabled')) {
+        void syncWidgetsAndOverview({ persistentOnly: true });
+      }
+    };
+
     if (keys.includes('calendarSyncEnabled')) {
       syncTaskCalendarEvents();
     }
-    if (keys.includes('language') || keys.includes('habitNotificationsEnabled')) {
-      syncHabitNotifs();
-      if (keys.includes('language')) {
-        const tNew = getTranslations(useSettingsStore.getState().language);
-        void syncNotificationCategories(tNew.notif.actionDone, tNew.notif.actionRemindLater);
-        // Same relabel for the medicine category's Taken button.
-        registerMedicineCategory(useSettingsStore.getState().language);
-      }
-    }
-    // Medicine tray reminders: their content and times are localised/scheduled from the
-    // medicine store, so re-sync on a language change, a quiet-hours change, or the feature
-    // flag itself flipping (turning it off must actually cancel the four daily reminders).
-    if (keys.some((k) => ['language', 'quietHoursEnabled', 'quietHoursStart', 'quietHoursEnd', 'featureMedicine'].includes(k))) {
-      syncMedicineNotifs();
-    }
+
+    // Ask once, on the way ON only — never on the way off, and never for a time/format edit.
+    const turningOn = NOTIF_SWITCHES.some((k) => patch[k] === true);
+    if (turningOn) void requestPermissions().finally(run);
+    else run();
     // Energy capacity is ALSO a fact about a person, not just a device setting: the
     // household balance card (components/EnergyBalanceCard.tsx) measures everyone against
     // their own capacity, so without this the self row would sit at usePeopleStore's 10/50
@@ -1261,12 +1304,29 @@ export default function SettingsScreen() {
                     checked={settings.habitNotificationsEnabled}
                     onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
                   />
+                  {/* Medicine tray reminders. Until 2026-08-15 this switch existed ONLY as the
+                      bell on the Health tab's medicine card — so the one place a user goes to
+                      turn notifications on or off did not list the app's most time-critical
+                      one. Both write the same `medicineRemindersEnabled`; the bell stays the
+                      in-context control, this is the inventory. Hidden with its feature flag,
+                      like every other medicine surface. */}
+                  {settings.featureMedicine && (
+                    <>
+                      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                      <ToggleRow
+                        label={t.medicineNotifications}
+                        hint={t.medicineNotificationsHint}
+                        checked={settings.medicineRemindersEnabled}
+                        onChange={(v) => applyAndSync({ medicineRemindersEnabled: v })}
+                      />
+                    </>
+                  )}
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <ToggleRow
                     label={t.persistentNotifLabel}
                     hint={t.persistentNotifHint}
                     checked={settings.persistentNotifEnabled}
-                    onChange={(v) => { settings.update({ persistentNotifEnabled: v }); void syncWidgetsAndOverview({ persistentOnly: true }); }}
+                    onChange={(v) => applyAndSync({ persistentNotifEnabled: v })}
                   />
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <ToggleRow

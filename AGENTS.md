@@ -243,18 +243,63 @@ file owns which token.)
     darkens each until it clears 4.5:1 — the same walk `lib/domainColor.ts`'s `badgeGlyphFor()`
     does at runtime, baked because this file cannot call it. The test asserts the FAILURE too,
     so nobody removes `ink()` on the assumption a neon is fine on white.
-  - **The pinned notification is built TWICE, and the split is a privacy boundary.** Its channel
-    is `PUBLIC` now (it had never set a visibility, so Android's `PRIVATE` default showed
-    "contents hidden" on a locked screen — the one place a pinned overview earns its keep). So
-    `overview.lines` is the full rendering and `overview.safeLines` is the ONLY thing
-    `refreshPersistentNotification` ever posts: health is absent from it entirely and medicine is
-    a bare count, where the full version names the trays still due. File any new line into one or
-    both **deliberately**; `lib/widgets/__tests__/overviewSplit.test.ts` pins it, because a
-    boundary that lives in the order of two array pushes is what a later de-duplication pass
-    collapses without noticing. ⚠️ **The `-v2` in `persistent-overview-v2` is load-bearing** —
-    Android freezes a channel's importance/visibility/sound at creation and silently ignores a
-    later change, so on every install that had already posted an overview, setting this on the
-    old id would have been a no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **The pinned notification shows the WHOLE day, lock screen included.** Its channel is
+    `PUBLIC` now (it had never set a visibility, so Android's `PRIVATE` default showed "contents
+    hidden" on a locked screen — the one place a pinned overview earns its keep), and
+    `overview.lines` is the single rendering it posts verbatim: task/shopping/habit counts, the
+    named trays still due, a count of open episodes, then the next task.
+    ⚠️ **A redacted second rendering (`safeLines`) shipped for a few hours the same day and was
+    reversed** — health dropped, medicine reduced to a count. The maintainer's ruling: a summary
+    you have to unlock to read is one you will not read, and half a summary is worse than none.
+    The privacy control is `persistentNotifEnabled`, which turns the whole notification off.
+    **Don't reintroduce a redacted variant without asking**; `lib/widgets/__tests__/overviewSplit.test.ts`
+    keeps its now-misleading name so the history stays findable, and asserts the absence.
+    ⚠️ **The `-v2` in `persistent-overview-v2` is load-bearing** — Android freezes a channel's
+    importance/visibility/sound at creation and silently ignores a later change, so on every
+    install that had already posted an overview, setting this on the old id would have been a
+    no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **Every notification can be ANSWERED from the shade, not just read.** Two were read-only.
+    A **habit reminder** had no buttons at all — tasks had Done from AP-05 and trays got Taken
+    with the tray system, but the reminder most likely to arrive while your hands are full could
+    only be dismissed or tapped through. It has its own `'habit-reminder'` category now
+    (Done/Remind me later, payload `data.habitId`), and Done is an **`increment()`**, not a
+    "mark met": a counter habit nudged three times should count three times, and for a
+    daily-goal-of-1 — almost every real habit — the two are identical. And the **pinned
+    overview** had none, because a day summary has no single "Done" that means anything. It
+    nominates the most answerable item instead (a tray still due, else the next undone task) and
+    **borrows that item's own category** rather than minting an `'overview'` one — so the button
+    reads as the verb for something the body names, and acting from the overview takes the exact
+    same store path as acting from the reminder itself. There are now three categories and three
+    listeners mounted at once, each filtering on its own payload key (`taskId` / `medicineTray` /
+    `habitId`); **a missing payload is a silent button, not a broken one**, which is why the
+    tests assert the payload rather than the label. `refreshPersistentNotification`'s dedupe key
+    includes the action, or finishing the 09:00 task would leave the button pointed at it while
+    the body moved on. Still deliberately actionless: the weekly/monthly nudges (no single act
+    to take) and an open episode (closing one asks when it ended and what helped; "Still going"
+    writes nothing at all — a shade button can express neither).
+  - **Every notification switch lives in Settings → Personal, and turning one ON asks for the OS
+    permission.** Two gaps closed on 2026-08-15. `medicineRemindersEnabled` existed ONLY as the
+    bell on the Health tab's medicine card, so the one screen a user goes to to manage
+    notifications did not list the app's most time-critical one (both write the same value; the
+    bell is the in-context control, Settings is the inventory, and the row is hidden with
+    `featureMedicine` like every other medicine surface). And `applyAndSync` never called
+    `requestPermissions()` — permission was only ever asked at onboarding and from Home's ⓘ
+    toggles, so anyone who declined there, or who revoked it in Android settings later, flipped a
+    switch here that read as on while `scheduleNotificationAsync` failed silently (lib/
+    notifications.ts swallows those by design). `NOTIF_SWITCHES` in `app/settings.tsx` is the
+    list; **add a new notification toggle to it in the same edit that adds the row.**
+  - **The picker previews are generated from source, not drawn** (`scripts/build-widget-previews.mjs`,
+    `npm run widget-previews`). `assets/widget-previews/*.png` is what Android shows when you
+    long-press the home screen and browse widgets — the first and often only look anyone gets
+    before placing one — and they were hand-drawn one-offs in the retired navy, with the
+    pre-categorical accents, English-only titles, and a "Today's tasks" heading the widget never
+    rendered. The generator EXTRACTS every colour and every title from `WidgetViews.tsx` /
+    `snapshot.ts` / `headlessSnapshot.ts` at run time and rasterises through the pre-installed
+    Chromium; only the sample row text is invented, because a preview has no real data. The
+    palette test asserts the script contains **no hex literal at all**, so the one way it could
+    drift is closed. ⚠️ **These are NATIVE — `previewImage` is bundled into the APK as a
+    drawable, so regenerating them reaches nobody over OTA and needs a new build.** It does not
+    change the JS↔native contract, so it does not by itself need a `runtimeVersion` bump.
   - **Medicine reached the outside for the first time**, folded into the Health widget rather
     than given a sixth receiver (a new widget means `app.json`, a `runtimeVersion` bump and a
     native build; this ships over OTA). That makes the Health widget's tray rows its first write
@@ -2028,7 +2073,23 @@ Two things there are worth knowing before editing it:
 - **Retention**: `pruneOldData()` in `lib/db.ts` trims dated history to the last `RETENTION_DAYS` (365) on startup; config tables are left untouched.
 - **Materials — MOSTLY HISTORY as of the 2026-08-05 card reset** (see "One card design" above: `Surface` and `Button` no longer mount `GlassFill` at all, and `settings.glassSurfaces` is inert for both). What survives: `getMaterialStyle()` is still called for `mat.innerLine` (a filled button's border) and by the handful of back-compat consumers listed in its own doc, and `getGlow`/`getLayeredShadow` are untouched. The description that follows is kept because those consumers still exist — but **do not build anything new on it**. `getMaterialStyle()` in `constants/theme.ts` computes the glass surface finish from a single base colour — a translucent tinted `backgroundColor` wash plus a calm border, consumed by `components/GlassFill.tsx` (≤2 render layers: an optional `BlurView` frost for overlay/chrome contexts, then the colour wash; ambient content cards get no `BlurView` at all). Rendered via a two-layer view (outer = border + `getLayeredShadow`, inner `overflow:'hidden'` mask = the fill) so shadows aren't clipped. There is no `bubbleMaterial` metal/rock/paper/stone finish system — that never existed in code, only in earlier prose; `settings.glassSurfaces` (reduce-transparency a11y toggle) is the only material-related setting. Purposeful active/focus glow is a separate, sparingly-applied halo — `getGlow(color, level)` — not part of the material itself.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
-- **Biometric authentication**: `expo-local-authentication` is already in `package.json` and `app.json`'s `plugins` array (Decision 040, reserve-only — module ships in the build, no feature code uses it yet). Once the maintainer cuts the build with this dependency, the lock/unlock UI can ship as a normal OTA change — no further native work needed for that feature. See `REBUILD_DECISIONS.md` Decision 040 and `REBUILD_PLAN.md` §1 for the rest of the reserve-only native surface (`expo-location`, `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition`) that's ready the same way.
+- **⚠️ The reserve-only native surface is GONE as of 2026-08-15 (v1.6.0) — Decision 040 is
+  retired.** On maintainer instruction ("remove all dependencies not wired up to something"),
+  eight packages that nothing imported were removed along with their `app.json` plugin entries:
+  `expo-local-authentication`, `expo-sensors`, `expo-audio`, `expo-media-library`,
+  `expo-quick-actions`, `expo-background-task`, `expo-task-manager` (orphaned with it) and
+  `expo-network` (which was not even plugin-registered). Decision 040's bet had already paid
+  off for the half of the reserve that got used — `expo-location`, `expo-calendar`,
+  `expo-contacts` and `expo-speech-recognition` are all wired now and shipped over OTA without
+  a build — but the other half sat unused for months while adding manifest permissions the app
+  never exercised (`BODY_SENSORS`, the media-library storage pair, `USE_BIOMETRIC`).
+  **What this costs, stated plainly so nobody rediscovers it the hard way**: biometric app-lock
+  (the most plausible near-term want, given this app holds health rows) and anything sensor- or
+  background-task-shaped now needs the package re-added AND a new native build before its UI
+  can ship. That is a real regression in optionality, accepted deliberately. **Do not re-add a
+  package "in reserve" without asking** — the rule now is that a native dependency arrives in
+  the same change as the feature that uses it. `REBUILD_DECISIONS.md` Decision 040 and
+  `REBUILD_PLAN.md` §1 describe the old strategy and are history, not current state.
 - **Debug notes (2026-07-13)**: `settings.debugModeEnabled` turns on long-press-to-annotate — `components/DebugNoteAnchor.tsx` wraps a card/header; holding it opens a text note, saved notes show a small bubble badge (tap to edit, clear the text to delete). Currently wired onto every screen's header title (`components/ScreenHeader.tsx`) and Home's cards (`app/(tabs)/index.tsx`); wrap more screens' cards the same way as needed. `store/useFeedbackStore.ts` owns the data (table `feedback_notes`); export (Share sheet, top header icon) and "Reset all notes" (Settings → Data, same card as the toggle) both read/clear that store. Replaced the old flat DebugOverlay panel (deleted).
 - **OTA "update available" indicator**: Home's header (`components/ScreenHeader.tsx`, gated on `isHome`) checks `expo-updates` on mount and on every app-foreground and shows a small cloud icon when an update is ready — tapping it fetches and reloads. Silent no-op in dev/debug builds (`Updates.isEnabled` is false there). This is a convenience wrapper around the same `Updates.checkForUpdateAsync`/`fetchUpdateAsync`/`reloadAsync` flow Settings → Version & updates already exposes manually.
 

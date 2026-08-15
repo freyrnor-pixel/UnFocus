@@ -333,22 +333,14 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
     }
 
     // ── Overview lines ──
-    // Same two-rendering split as lib/widgets/sync.ts: `lines` is the full one (still used by
-    // the retired Overview receiver on installs that predate the Habits/Health widgets),
-    // `safeLines` is the lock-screen-safe one. This builder never posts a notification itself,
-    // but the shapes have to agree or a headless-built snapshot would be missing a key the
-    // app-built one has.
-    const sharedLines: string[] = [];
-    if (tasksRemaining > 0) sharedLines.push(s.tasksLeft(tasksRemaining));
-    if (shopRemaining > 0) sharedLines.push(s.itemsLeft(shopRemaining));
-    if (habitsRemaining > 0) sharedLines.push(s.habitsLeft(habitsRemaining));
-
-    const overviewLines = [...sharedLines];
+    // Mirrors lib/widgets/sync.ts's single rendering. Still used by the retired Overview
+    // receiver on installs that predate the Habits/Health widgets.
+    const overviewLines: string[] = [];
+    if (tasksRemaining > 0) overviewLines.push(s.tasksLeft(tasksRemaining));
+    if (shopRemaining > 0) overviewLines.push(s.itemsLeft(shopRemaining));
+    if (habitsRemaining > 0) overviewLines.push(s.habitsLeft(habitsRemaining));
     if (dueTrayNames.length > 0) overviewLines.push(s.stillDue(dueTrayNames.join(', ')));
     if (ongoingCount > 0) overviewLines.push(s.healthOngoing(ongoingCount));
-
-    const overviewSafeLines = [...sharedLines];
-    if (dueMedicines > 0) overviewSafeLines.push(s.medicineDue(dueMedicines));
 
     const healthSubtitle = [
       dueMedicines > 0 ? s.medicineDue(dueMedicines) : '',
@@ -380,7 +372,6 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
       overview: {
         title: s.overviewTitle,
         lines: overviewLines,
-        safeLines: overviewSafeLines,
         empty: s.overviewEmpty,
         accent: ACCENT.overview,
         hasContent: overviewLines.length > 0,

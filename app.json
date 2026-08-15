@@ -3,13 +3,13 @@
     "name": "UnFocus",
     "slug": "unfocus",
     "owner": "freyrnor-pixel",
-    "version": "1.5.1",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F6F8FB",
     "scheme": "unfocus",
-    "runtimeVersion": "1.5.1",
+    "runtimeVersion": "1.6.0",
     "updates": {
       "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
@@ -61,17 +61,7 @@
           "photosPermission": "Allow UnFocus to access your photos to scan receipts."
         }
       ],
-      "expo-audio",
-      "expo-task-manager",
-      "expo-background-task",
       "expo-font",
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow UnFocus to access your photo library.",
-          "saveToPhotosPermission": "Allow UnFocus to save images to your photo library."
-        }
-      ],
       [
         "react-native-android-widget",
         {
@@ -142,12 +132,6 @@
       "./plugins/withWidgetBackground",
       "@bacons/apple-targets",
       [
-        "expo-local-authentication",
-        {
-          "faceIDPermission": "Unlock UnFocus with Face ID."
-        }
-      ],
-      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow UnFocus to use your location for location-based reminders."
@@ -166,19 +150,12 @@
         }
       ],
       [
-        "expo-sensors",
-        {
-          "motionPermission": "Allow UnFocus to access motion data for step counting."
-        }
-      ],
-      [
         "expo-speech-recognition",
         {
           "microphonePermission": "UnFocus uses the microphone so you can record voice notes.",
           "speechRecognitionPermission": "Allow UnFocus to convert your voice notes into text."
         }
-      ],
-      "expo-quick-actions"
+      ]
     ],
     "ios": {
       "supportsTablet": false,

@@ -36,9 +36,9 @@
  *             the persistent notification; updates Android widgets
  *
  * Edit notes:
- *   - The overview is built TWICE — `lines` (full) and `safeLines` (what the pinned
- *     notification posts, and therefore what a locked screen shows). File any new line into
- *     one or both on purpose; see the comment at the split.
+ *   - The overview is built ONCE and the pinned notification posts it verbatim, lock screen
+ *     included. A redacted second rendering was tried and reversed the same day — read the
+ *     block at `overviewLines` before adding one back.
  *   - Medicine has no widget of its own; its trays ride on the Health slice. Anything read off
  *     the medicine store here is gated on `settings.featureMedicine`, because a flag that
  *     hides a surface has to hide it outside the app too.
@@ -186,35 +186,34 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
   const { trays, dueMedicines, dueTrays } = buildTrays(localMinutesOf(new Date()), today);
 
   // ── Overview lines ──
-  // TWO renderings of the same day, and the split is the whole point (2026-08-15). `lines` is
-  // the full one, for the widget and anything in-app. `safeLines` is what the pinned
-  // notification posts, and its channel is PUBLIC — so it drops health outright and reduces
-  // medicine to a count, where the full version names the trays that are still due. Anything
-  // added below has to be filed into one or both deliberately; a line that lands in `lines`
-  // alone is simply not on the lock screen, which is a legitimate answer.
+  // ONE rendering, and the pinned notification posts it verbatim — including on a locked
+  // screen, since the channel is PUBLIC.
+  //
+  // ⚠️ This deliberately REVERSES the split that shipped earlier the same day. That version
+  // built a second, redacted `safeLines` (health dropped, medicine reduced to a count) on the
+  // reasoning that a PUBLIC channel is readable by anyone holding the phone. The maintainer's
+  // ruling is that the overview is for the person whose phone it is: a pinned summary you have
+  // to unlock to read is one you will not read, and half a summary is worse than none. So
+  // health and the named trays go on the lock screen too. **Don't reintroduce a redacted
+  // variant without asking** — the privacy control here is `persistentNotifEnabled`, which
+  // turns the whole notification off, not a second rendering of it.
   const nextTask = todayTasks.find((task) => !task.done);
   const nextTaskLine = nextTask ? (nextTask.time ? `${nextTask.time} · ${nextTask.title}` : nextTask.title) : '';
 
-  const shared: string[] = [];
-  if (tasksRemaining > 0) shared.push(t.widgets.tasksLeft(tasksRemaining));
-  if (shopRemaining > 0) shared.push(t.widgets.itemsLeft(shopRemaining));
-  if (habitsRemaining > 0) shared.push(t.widgets.habitsLeft(habitsRemaining));
-
-  const overviewLines = [...shared];
+  const overviewLines: string[] = [];
+  if (tasksRemaining > 0) overviewLines.push(t.widgets.tasksLeft(tasksRemaining));
+  if (shopRemaining > 0) overviewLines.push(t.widgets.itemsLeft(shopRemaining));
+  if (habitsRemaining > 0) overviewLines.push(t.widgets.habitsLeft(habitsRemaining));
   // "Still due: Morning, Midday" — t.medicine.stillDue is the app's own tray-card copy, so the
   // notification and the Health screen say the same thing in the same words.
   if (dueTrays.length > 0) {
     overviewLines.push(t.medicine.stillDue(dueTrays.map((tray) => t.medicine.trays[tray]).join(', ')));
   }
-  // Health rides along on the full line only. It is a COUNT of open episodes and nothing more —
-  // no day tally, no escalation, no second prompt — because lib/episodes.ts's promise is that an
-  // episode open for a week reads exactly like one open for an hour.
+  // A COUNT of open episodes and nothing more — no day tally, no escalation, no second prompt —
+  // because lib/episodes.ts's promise is that an episode open for a week reads exactly like one
+  // open for an hour. That promise is what makes this safe to pin somewhere always visible.
   if (ongoingCount > 0) overviewLines.push(t.widgets.healthOngoing(ongoingCount));
   if (nextTaskLine) overviewLines.push(nextTaskLine);
-
-  const overviewSafeLines = [...shared];
-  if (dueMedicines > 0) overviewSafeLines.push(t.widgets.medicineDue(dueMedicines));
-  if (nextTaskLine) overviewSafeLines.push(nextTaskLine);
 
   const healthSubtitle = [
     dueMedicines > 0 ? t.widgets.medicineDue(dueMedicines) : '',
@@ -246,7 +245,14 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
     overview: {
       title: t.notif.overviewTitle,
       lines: overviewLines,
-      safeLines: overviewSafeLines,
+      // A tray still due beats the next task: more time-critical, and logging it is idempotent
+      // where completing a task is not. Both borrow the category their own reminder already
+      // uses, so the button reads as the verb for the thing the body names.
+      action: dueTrays.length > 0
+        ? { kind: 'tray' as const, tray: dueTrays[0] }
+        : nextTask
+          ? { kind: 'task' as const, taskId: nextTask.id }
+          : undefined,
       empty: t.notif.overviewBodyNoTasks,
       accent: WIDGET_ACCENT.overview,
       hasContent: overviewLines.length > 0,
@@ -316,16 +322,12 @@ async function updatePersistentNotification(snapshot: WidgetSnapshot) {
     await cancelPersistentNotification();
     return;
   }
-  // `safeLines`, never `lines` — this is the surface that shows on a locked screen (see the
-  // channel's PUBLIC visibility in lib/notifications.ts and the split where the two are built).
-  // `?? lines` only ever fires for a snapshot object built by an older build.
-  const lines = snapshot.overview.safeLines ?? snapshot.overview.lines;
+  const lines = snapshot.overview.lines;
   const body = lines.length > 0 ? lines.join(' · ') : t.notif.overviewNothingElse;
-  await refreshPersistentNotification({
-    title: snapshot.overview.title,
-    body,
-    color: WIDGET_ACCENT.overview,
-  });
+  await refreshPersistentNotification(
+    { title: snapshot.overview.title, body, color: WIDGET_ACCENT.overview },
+    snapshot.overview.action
+  );
 }
 
 /**

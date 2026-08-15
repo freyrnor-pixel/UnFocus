@@ -49,7 +49,7 @@ function placeholder(): WidgetSnapshot {
     updatedAt: Date.now(),
     shopping: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.shop, hasContent: false },
     tasks: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.task, hasContent: false },
-    overview: { title: 'UnFocus', lines: [], safeLines: [], empty: '—', accent: WIDGET_ACCENT.overview, hasContent: false },
+    overview: { title: 'UnFocus', lines: [], empty: '—', accent: WIDGET_ACCENT.overview, hasContent: false },
     notes: { title: 'UnFocus', items: [], more: '', empty: '—', voiceLabel: '', accent: WIDGET_ACCENT.notes, hasContent: false },
     habits: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.habits, hasContent: false },
     health: { title: 'UnFocus', subtitle: '', items: [], trays: [], more: '', empty: '—', accent: WIDGET_ACCENT.health, hasContent: false },
