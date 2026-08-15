@@ -2093,6 +2093,30 @@ Two things there are worth knowing before editing it:
   package "in reserve" without asking** — the rule now is that a native dependency arrives in
   the same change as the feature that uses it. `REBUILD_DECISIONS.md` Decision 040 and
   `REBUILD_PLAN.md` §1 describe the old strategy and are history, not current state.
+  - **⚠️ Removing the packages did NOT remove their manifest entries — that was a second,
+    separate pass (2026-08-15, launch prep), and it is the reusable lesson here.** A plugin
+    entry is what an `expo install` adds; a raw `android.permissions` / `ios.infoPlist` key
+    is hand-written and survives the package leaving, invisibly, because nothing typechecks
+    an app.json string against an installed dependency. Left behind for a full release:
+    `ACTIVITY_RECOGNITION` + `NSMotionUsageDescription` (expo-sensors), `NSFaceIDUsageDescription`
+    (expo-local-authentication), `UIBackgroundModes: [fetch, processing]` (expo-background-task),
+    `NSPhotoLibraryAddUsageDescription` (expo-media-library) — plus two that never belonged to
+    any package: `FOREGROUND_SERVICE` and `USE_FULL_SCREEN_INTENT`, neither of which any code
+    or library manifest asks for. **This is a Google Play problem, not just tidiness**: several
+    of those are policy-gated permissions whose mere presence forces a Play Console declaration
+    form and invites rejection for an app that demonstrably never calls them.
+  - **`@bacons/apple-targets` went in the same pass**, for the original rule's reason: it was
+    plugin-registered with no `targets/` dir and no `expo-target.config` anywhere, i.e. iOS
+    widget scaffolding that has never had a target to build. The App Group entitlement
+    (`group.com.freyrnorpixel.unfocus`) is declared directly in `app.json`'s `ios.entitlements`
+    and is untouched, so re-adding the package is all that stands between here and an iOS
+    widget target. That, and `ios.appleTeamId`, are still unset — see the TestFlight section.
+  - **`USE_EXACT_ALARM` was deliberately KEPT and is the one left for the maintainer.** Play
+    restricts it to alarm-clock/calendar apps and will ask you to justify it; but expo-notifications
+    drives every reminder in this app through AlarmManager, and dropping it risks medicine-tray
+    and habit reminders firing late on Android 14+, where `SCHEDULE_EXACT_ALARM` alone is
+    denied by default. That is a policy-vs-reliability call, not a cleanup — don't remove it
+    to make a doctor warning go away.
 - **Debug notes (2026-07-13)**: `settings.debugModeEnabled` turns on long-press-to-annotate — `components/DebugNoteAnchor.tsx` wraps a card/header; holding it opens a text note, saved notes show a small bubble badge (tap to edit, clear the text to delete). Currently wired onto every screen's header title (`components/ScreenHeader.tsx`) and Home's cards (`app/(tabs)/index.tsx`); wrap more screens' cards the same way as needed. `store/useFeedbackStore.ts` owns the data (table `feedback_notes`); export (Share sheet, top header icon) and "Reset all notes" (Settings → Data, same card as the toggle) both read/clear that store. Replaced the old flat DebugOverlay panel (deleted).
 - **OTA "update available" indicator**: Home's header (`components/ScreenHeader.tsx`, gated on `isHome`) checks `expo-updates` on mount and on every app-foreground and shows a small cloud icon when an update is ready — tapping it fetches and reloads. Silent no-op in dev/debug builds (`Updates.isEnabled` is false there). This is a convenience wrapper around the same `Updates.checkForUpdateAsync`/`fetchUpdateAsync`/`reloadAsync` flow Settings → Version & updates already exposes manually.
 
@@ -2129,6 +2153,27 @@ Two things there are worth knowing before editing it:
 - Runtime version is read from `runtimeVersion` in `app.json` — an OTA reaches only installs whose runtime matches that value
 - Apps pick it up automatically on next launch — no download needed
 - Takes ~1–2 min on CI
+
+### ⚠️ Merging to `main` does NOT reach Google Play users (found 2026-08-15, launch prep)
+`update.yml` publishes to EAS branch `preview`. The `preview` and `testflight` build
+profiles are channelled to `preview`, so a merge reaches testers. **The `production`
+profile — the Play Store AAB — is channelled to `production`**, and nothing was
+publishing to that channel at all. Every "published" fix was going to the testers'
+channel while a Play install sat frozen on its embedded bundle, with no error anywhere
+— the same silent shape as the predecessor app's `runtimeVersion` policy incident.
+- The missing half is `.github/workflows/promote-production.yml` ("OTA Update
+  (Production channel)"), `workflow_dispatch` only. **Deliberately not a push
+  trigger**: merging should keep reaching testers instantly, while reaching real
+  users stays a decision somebody makes rather than a side effect of a merge.
+- **Prefer promoting a GROUP over a fresh publish.** Pass the update group id from
+  `eas update:list --branch preview` and the workflow runs `eas update:republish`,
+  shipping the exact bytes already tested. A blank group republishes from whatever
+  `main` looks like now, which is not necessarily what the testers approved.
+- **One-time setup, maintainer-only and NOT yet done** (needs an interactive
+  `eas login`): `eas channel:create production --branch production`, verified with
+  `eas channel:view production`. Until that link exists the workflow publishes to a
+  branch nothing listens on — a silent no-op, so check the channel before trusting
+  the first green run.
 
 ### New preview APK build (the actual go-to path — agent-triggerable)
 - Workflow: `.github/workflows/eas-build-android.yml` ("EAS Build Android (Preview
