@@ -1,0 +1,95 @@
+name: OTA Update (Production channel)
+
+# WHY THIS EXISTS, and why it is NOT a push trigger.
+#
+# `update.yml` publishes every push to `main` to EAS branch `preview`, which is the
+# branch the `preview` (internal APK) and `testflight` build profiles are channelled to.
+# The `production` profile in eas.json uses channel `production` — a DIFFERENT channel,
+# which nothing was ever publishing to. A Play Store build therefore received no OTA
+# update at all: `update.yml` shipped to `preview` and the Play install listened on
+# `production`. This workflow is the missing half.
+#
+# It is deliberately `workflow_dispatch` only. Merging to `main` should keep reaching
+# testers instantly (that is what `preview` is for) while reaching real Play Store
+# users stays a decision somebody makes, not a side effect of a merge.
+#
+# ONE-TIME SETUP before the first run (maintainer, from an `eas login` session):
+#   eas channel:create production --branch production
+# (or `eas channel:edit production --branch production` if the channel already exists
+# because a production build has been cut). Verify with `eas channel:view production`.
+# Without that link the update publishes to the branch and reaches nobody.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: Update message (shown on the EAS dashboard)
+        required: false
+        type: string
+      group:
+        description: >-
+          Optional EAS update GROUP ID to promote. Strongly preferred: it republishes the
+          exact bytes already tested on `preview` instead of rebuilding from the current
+          tree. Find it with `eas update:list --branch preview`. Leave blank to publish
+          fresh from the checked-out ref.
+        required: false
+        type: string
+
+jobs:
+  update:
+    name: Publish OTA to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CI: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate app.json (runtimeVersion / slug guardrail)
+        run: node .github/scripts/check-app-config.js
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish update
+        run: |
+          set -euo pipefail
+          MSG="${{ inputs.message }}"
+          if [ -z "$MSG" ]; then MSG=$(git log -1 --format=%s); fi
+
+          if [ -n "${{ inputs.group }}" ]; then
+            echo "Promoting existing update group ${{ inputs.group }} → branch production"
+            eas update:republish --group "${{ inputs.group }}" --branch production --message "$MSG"
+          else
+            echo "Publishing a fresh update from $(git rev-parse --short HEAD) → branch production"
+            # `--platform all` in ONE command, for the same reason update.yml does it:
+            # per-platform calls produce two update groups per release and can strand the
+            # platforms on different code if one fails mid-sequence.
+            eas update --branch production --platform all --message "$MSG"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## OTA → production channel" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- runtimeVersion: \`$(node -p "require('./app.json').expo.runtimeVersion")\`" >> $GITHUB_STEP_SUMMARY
+          echo "- version: \`$(node -p "require('./app.json').expo.version")\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Source: ${{ inputs.group && format('republished group {0}', inputs.group) || 'fresh publish from this ref' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Reaches only Play Store installs whose embedded runtimeVersion matches the value above." >> $GITHUB_STEP_SUMMARY

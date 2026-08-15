@@ -91,6 +91,59 @@ updates on (eas.json `preview` profile):
    bump `runtimeVersion`. Pure JS/UI/logic/styles = OTA only. Keep `runtimeVersion`
    at the installed build's value (see `app.json`) or OTAs stop matching.
 
+## Google Play: two channels, and `main` does NOT reach Play users
+
+⚠️ **This is the trap this section exists for.** `update.yml` publishes to EAS branch
+`preview`. The `preview` (internal APK) and `testflight` profiles are channelled to
+`preview`, so merging to `main` reaches them. The **`production` profile — the Play
+Store AAB — is channelled to `production`**, a different channel, and nothing was
+publishing to it. A Play Store install would have received **no OTA update, ever**,
+while every "published" fix silently went to the testers' channel instead.
+
+So there are two questions, and they have different answers:
+
+| Where the change goes | What ships it |
+|---|---|
+| Testers on the internal APK / TestFlight | merge to `main` → `update.yml` → channel `preview` |
+| **Real users on Google Play** | run **"OTA Update (Production channel)"** → channel `production` |
+| Anything native (package/plugin/permission) on Play | a new **AAB**, then a Play Console release — OTA cannot carry it |
+
+**One-time setup before the first production OTA** (maintainer, from an `eas login`
+session — the workflow cannot do this itself):
+
+```
+eas channel:create production --branch production   # or channel:edit, if it exists
+eas channel:view production                         # confirm it points at branch `production`
+```
+
+Without that link the update lands on the branch and reaches nobody — the exact
+failure mode this whole section is about, one level down.
+
+**The intended release rhythm:**
+
+1. Merge to `main` → testers get it on `preview` automatically. Let it sit.
+2. Once it looks good, run **Actions → "OTA Update (Production channel)"**, passing
+   the update **group id** from `eas update:list --branch preview`. That republishes
+   the *exact bytes already tested* rather than rebuilding from a tree that may have
+   moved on. Leave the group blank only if you deliberately want a fresh publish.
+3. Runtime still rules: a production OTA only reaches Play installs whose embedded
+   `runtimeVersion` matches `app.json`. An AAB built at 1.6.0 is not reached by an
+   OTA published while `app.json` says 1.7.0.
+
+### Sending an update to Google Play — which one do you need?
+
+- **JS / UI / logic / copy / styles** → OTA on the `production` channel. No new
+  APK/AAB, no Play Console review, live on next cold start.
+- **Native surface** (new native package, `app.json` plugin/permission change,
+  `eas.json` build config, or a `runtimeVersion` bump) → **new AAB required**:
+  `eas build --platform android --profile production`, then
+  `eas submit -p android --profile production --latest` (internal track first),
+  then promote in Play Console. Reviews typically take hours to a few days.
+
+Version bumps for Play: the human-facing `version` in `app.json` is manual; the
+Android `versionCode` is **not** — `appVersionSource: "remote"` + the production
+profile's `autoIncrement` means EAS owns it. Don't hand-edit `android.versionCode`.
+
 ## Automation: auto-opened PRs
 
 `.github/workflows/auto-pr.yml` opens (or reuses) a PR from any `claude/**`

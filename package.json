@@ -3,7 +3,6 @@
   "version": "1.6.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@bacons/apple-targets": "^4.0.7",
     "@expo-google-fonts/nunito": "^0.4.2",
     "@expo/metro-runtime": "~56.0.16",
     "@expo/vector-icons": "^15.1.1",
