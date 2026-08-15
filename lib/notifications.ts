@@ -49,7 +49,10 @@
  *     identical content on every app open made it look like a fresh alert.
  *   - The persistent notification lives on its own Android channel
  *     (PERSISTENT_CHANNEL_ID) with showBadge: false and LOW importance, so it
- *     never contributes an app-icon badge count or a heads-up popup.
+ *     never contributes an app-icon badge count or a heads-up popup. Its lockscreen
+ *     visibility is PUBLIC (2026-08-15) so the pinned overview is readable without
+ *     unlocking — read PERSISTENT_CHANNEL_ID's block before changing that value or the
+ *     id, because Android freezes a channel's importance/visibility/sound at creation.
  *   - Content.color (optional) tints the small notification icon on Android —
  *     used by the persistent overview to mirror a task's in-app accent color.
  *   - This is the ONLY file that imports 'expo-notifications' directly — other
@@ -336,7 +339,23 @@ export function pushPastQuietHours(
 }
 
 // ── Persistent "today's overview" notification ──────────────────────────────
-const PERSISTENT_CHANNEL_ID = 'persistent-overview';
+/**
+ * ⚠️ **The `-v2` suffix is load-bearing and the id must never be edited in place.**
+ *
+ * Android treats a channel's importance, sound and lockscreen visibility as immutable after
+ * the first `createNotificationChannel` for that id: a later call with the same id updates
+ * only the name/description/group and silently drops everything else, because those fields
+ * belong to the user once the channel exists. The 2026-08-15 pass turned this notification's
+ * lockscreen visibility PUBLIC (it had never been set, so it sat at Android's `PRIVATE`
+ * default and showed "contents hidden" on a secure lock screen — the one place a pinned
+ * overview is worth having). On every install that had already posted an overview, setting
+ * it on the old `persistent-overview` id would have been a no-op. Hence a new id, plus a
+ * one-shot delete of the legacy one so the shade doesn't list two "Daily overview" channels.
+ *
+ * If a future change touches importance/visibility/sound again, bump to `-v3` the same way.
+ */
+const PERSISTENT_CHANNEL_ID = 'persistent-overview-v2';
+const LEGACY_PERSISTENT_CHANNEL_IDS = ['persistent-overview'];
 
 let persistentChannelReady = false;
 async function ensurePersistentChannel() {
@@ -349,7 +368,14 @@ async function ensurePersistentChannel() {
     sound: null,
     enableVibrate: false,
     vibrationPattern: [],
+    // Readable on a locked screen. lib/widgets/sync.ts is what keeps that safe: the body it
+    // posts is the snapshot's `overview.safeLines`, which omits health entirely and reduces
+    // medicine to a bare count — the widget's own `overview.lines` is the fuller version.
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   }).catch(ignore);
+  for (const legacy of LEGACY_PERSISTENT_CHANNEL_IDS) {
+    await Notifications.deleteNotificationChannelAsync(legacy).catch(ignore);
+  }
 }
 
 // Fires immediately under a stable identifier, so each call replaces the

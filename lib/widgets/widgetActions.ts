@@ -15,7 +15,8 @@
  * Connections:
  *   Imports → lib/db (shared SQLite handle), lib/date (todayStr), lib/id (generateId)
  *   Used by → lib/widgets/handler.tsx (WIDGET_CLICK dispatch)
- *   Data    → writes tasks / task_steps / shopping_items / notes / habit_logs; checkpoints WAL after
+ *   Data    → writes tasks / task_steps / shopping_items / notes / habit_logs / medicine_doses;
+ *             checkpoints WAL after
  *
  * Edit notes:
  *   - Every write runs `PRAGMA wal_checkpoint(TRUNCATE)` after committing — same reason as
@@ -130,6 +131,58 @@ export function toggleHabitDone(id: string): { done: boolean } | null {
     }
     checkpoint();
     return { done: !currentlyDone };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Log every not-yet-taken medicine in a tray for today — the widget's copy of
+ * useMedicineStore.takeTray(), which is itself what the tray notification's "Taken" button
+ * calls. A tray is a WINDOW, so it is logged as a whole; there is no per-medicine row to tap
+ * on a widget and there should not be one.
+ *
+ * Idempotent by the same rule the store uses: a scheduled dose's identity is
+ * (medicine_id, log_date, tray), so an already-logged medicine is skipped rather than
+ * duplicated. That matters more here than in the app — a widget tap can land while the
+ * notification's Taken button is being pressed on the same tray, from two processes.
+ *
+ * Deliberately NOT taking as-needed medicines: they belong to no tray (`trays` is empty and
+ * `as_needed` is 1), and nothing in this app ever nudges someone into a PRN dose.
+ */
+export function takeTray(tray: string): { taken: number; total: number } | null {
+  try {
+    const today = todayStr();
+    // `trays` is a JSON array column ('["morning","evening"]'), so membership is matched in JS
+    // rather than SQL — LIKE '%morning%' would also match a tray named "morning-after".
+    const meds = db.getAllSync<{ id: string; trays: string }>(
+      'SELECT id, trays FROM medicines WHERE active = 1 AND as_needed = 0'
+    );
+    const inTray = meds.filter((m) => {
+      try {
+        const list = JSON.parse(m.trays || '[]');
+        return Array.isArray(list) && list.includes(tray);
+      } catch {
+        return false;
+      }
+    });
+    if (inTray.length === 0) return null;
+
+    const now = new Date();
+    const at = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    for (const med of inTray) {
+      const existing = db.getFirstSync<{ id: string }>(
+        'SELECT id FROM medicine_doses WHERE medicine_id = ? AND log_date = ? AND tray = ?',
+        [med.id, today, tray]
+      );
+      if (existing) continue;
+      db.runSync(
+        'INSERT INTO medicine_doses (id, medicine_id, log_date, tray, taken_at, note) VALUES (?, ?, ?, ?, ?, ?)',
+        [generateId(), med.id, today, tray, at, '']
+      );
+    }
+    checkpoint();
+    return { taken: inTray.length, total: inTray.length };
   } catch {
     return null;
   }

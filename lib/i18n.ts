@@ -1146,6 +1146,13 @@ const en = {
     habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
     healthTitle: 'Health',
     healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
+    // Medicine folded into the Health widget + the pinned overview (2026-08-15). Counts
+    // MEDICINES, not trays: it doubles as the lock-screen-safe line, where naming a tray
+    // would say more about someone's day than a locked phone should. "Still due" is the
+    // tray vocabulary — a window that has passed with something in it is never "missed".
+    medicineDue: (n: number) => (n === 1 ? '1 medicine still due' : `${n} medicines still due`),
+    /** A tray's progress on the widget row, e.g. "2 of 3". */
+    trayProgress: (taken: number, total: number) => `${taken} of ${total}`,
   },
   // Radial menu labels
   nav: {
@@ -3521,6 +3528,8 @@ const no: typeof en = {
     habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
     healthTitle: 'Helse',
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
+    medicineDue: (n: number) => (n === 1 ? '1 medisin gjenstår' : `${n} medisiner gjenstår`),
+    trayProgress: (taken: number, total: number) => `${taken} av ${total}`,
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
