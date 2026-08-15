@@ -258,6 +258,16 @@ export type Settings = {
    * falls back to plain opaque surfaces — a user-facing reduce-transparency mode.
    */
   glassSurfaces: boolean;
+  /**
+   * Paint content CARDS as opaque panes (2026-08-15). Off by default — the frosted glass the
+   * app currently ships with is the default look, and this exists to compare against it.
+   *
+   * Deliberately narrower than `glassSurfaces`, which is the global reduce-transparency
+   * switch: this one reaches only `surfaceContext === 'ambient'` surfaces, leaving sheets,
+   * the nav and the header frosted, so the card material can be judged on its own. With
+   * `glassSurfaces` off everything is opaque regardless — that switch still wins.
+   */
+  opaqueCards: boolean;
   fontSize: FontSizePref;
   // Left-handed mode
   leftHanded: boolean;
@@ -565,6 +575,7 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     glassSurfaces: readInt(row, 'glass_surfaces', 1) !== 0,
+    opaqueCards: readBool(row, 'opaque_cards'),
     fontSize: readEnum<FontSizePref>(row, 'font_size', ['small', 'default', 'large'], 'default'),
     leftHanded: readBool(row, 'left_handed'),
     persistentNotifEnabled: readBool(row, 'persistent_notif_enabled'),
@@ -661,6 +672,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   glassSurfaces: { col: 'glass_surfaces', to: bool },
+  opaqueCards: { col: 'opaque_cards', to: bool },
   fontSize: { col: 'font_size' },
   leftHanded: { col: 'left_handed', to: bool },
   persistentNotifEnabled: { col: 'persistent_notif_enabled', to: bool },
@@ -765,6 +777,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   glassSurfaces: true,
+  opaqueCards: false,
   fontSize: 'default' as FontSizePref,
   leftHanded: false,
   persistentNotifEnabled: false,

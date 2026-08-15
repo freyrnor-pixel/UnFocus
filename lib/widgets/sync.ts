@@ -15,14 +15,17 @@
  * the notification helpers already swallow their own failures.
  *
  * Connections:
- *   Imports → react-native (Platform), lib/date, lib/i18n (getTranslations),
- *             lib/cardType (isCompletable — 'note' cards never reach the widget, since
- *             every row it lists is tappable and a tap flips `done`),
+ *   Imports → react-native (Platform), lib/date (todayStr, localMinutesOf), lib/i18n
+ *             (getTranslations), lib/cardType (isCompletable — 'note' cards never reach the
+ *             widget, since every row it lists is tappable and a tap flips `done`),
  *             lib/episodes (isOpen — the health "ongoing" count),
- *             lib/notifications (refresh/cancelPersistentNotification), lib/widgets/snapshot,
+ *             lib/medicineSchedule (traysInUse/trayProgress/trayMinutes — today's trays),
+ *             lib/notifications (refresh/cancelPersistentNotification),
+ *             lib/widgets/snapshot (types + the shared WIDGET_ACCENT map),
  *             lib/widgets/WidgetViews (renderWidgetByName, WIDGET_NAMES), store/useTaskStore,
  *             store/useShoppingStore, store/useShoppingListStore, store/useNotesStore,
- *             store/useHabitStore, store/useHealthStore, store/useSettingsStore
+ *             store/useHabitStore, store/useHealthStore, store/useMedicineStore,
+ *             store/useSettingsStore
  *   Used by → app/_layout.tsx (foreground/background + after startup load), app/settings.tsx
  *             (persistent-notif toggle); scheduleWidgetSync (debounced) is called from the
  *             mutating actions of store/useTaskStore, store/useShoppingStore,
@@ -33,19 +36,32 @@
  *             the persistent notification; updates Android widgets
  *
  * Edit notes:
+ *   - The overview is built ONCE and the pinned notification posts it verbatim, lock screen
+ *     included. A redacted second rendering was tried and reversed the same day — read the
+ *     block at `overviewLines` before adding one back.
+ *   - Medicine has no widget of its own; its trays ride on the Health slice. Anything read off
+ *     the medicine store here is gated on `settings.featureMedicine`, because a flag that
+ *     hides a surface has to hide it outside the app too.
  *   - Widget names passed to requestWidgetUpdate MUST match WIDGET_NAMES / app.json.
  *   - requestWidgetUpdate is lazily required inside the Android guard so the native module is
  *     never touched on iOS or in a build without the widget native code linked.
  *   - Strings are localised HERE (getTranslations), never in the headless handler/views.
  */
 import { Platform } from 'react-native';
-import { todayStr } from '@/lib/date';
+import { localMinutesOf, todayStr } from '@/lib/date';
 import { isCompletable } from '@/lib/cardType';
 import { isOpen } from '@/lib/episodes';
 import { getTranslations } from '@/lib/i18n';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
+import {
+  TRAY_IDS,
+  trayMinutes,
+  trayProgress,
+  traysInUse,
+  type TrayId,
+} from '@/lib/medicineSchedule';
 import { refreshPersistentNotification, cancelPersistentNotification } from '@/lib/notifications';
-import { saveWidgetSnapshot, type WidgetSnapshot } from './snapshot';
+import { saveWidgetSnapshot, WIDGET_ACCENT, type WidgetSnapshot, type WidgetTrayLine } from './snapshot';
 import { renderWidgetByName, WIDGET_NAMES } from './WidgetViews';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -53,24 +69,59 @@ import { useShoppingListStore } from '@/store/useShoppingListStore';
 import { useNotesStore } from '@/store/useNotesStore';
 import { useHabitStore, type Habit } from '@/store/useHabitStore';
 import { useHealthStore } from '@/store/useHealthStore';
+import { useMedicineStore } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 // Widgets scroll (ListWidget), so we can bake more than a handful of rows; overflow
 // beyond this still shows a "+N more" footer.
 const PREVIEW = 20;
-const ACCENT = {
-  shop: '#0891B2',
-  task: '#2563EB',
-  overview: '#F4A261',
-  notes: '#8B5CF6',
-  habits: '#16A34A',
-  health: '#E11D48',
-};
 
 /** First non-empty line of a note's header/body, trimmed for a one-line widget preview. */
 function noteText(header: string, body: string): string {
   const src = (header || '').trim() || (body || '').trim();
   return src.split('\n')[0].slice(0, 60);
+}
+
+/**
+ * Today's medicine trays for the Health widget, plus how many medicines are still untaken.
+ *
+ * No person filter, matching lib/medicineNotifications.ts's own reasoning: a tray covers
+ * everyone's medicine in that window, which is what a shared morning tray should do. Gated on
+ * `featureMedicine` — a flag that hides a surface must hide it everywhere, including the ones
+ * outside the app — and an off flag yields zero trays, so nothing about medicine reaches the
+ * widget or the notification.
+ */
+function buildTrays(nowMinutes: number, today: string): { trays: WidgetTrayLine[]; dueMedicines: number; dueTrays: TrayId[] } {
+  const s = useSettingsStore.getState();
+  if (!s.featureMedicine) return { trays: [], dueMedicines: 0, dueTrays: [] };
+  const t = getTranslations();
+  const meds = useMedicineStore.getState().medicines.filter((m) => m.active);
+  const doses = useMedicineStore.getState().doses;
+  const times = s.medicineTrayTimes;
+  const inUse = new Set(traysInUse(meds, times));
+
+  const trays: WidgetTrayLine[] = [];
+  const dueTrays: TrayId[] = [];
+  let dueMedicines = 0;
+  // TRAY_IDS is already morning → night, i.e. the order the day runs in.
+  for (const tray of TRAY_IDS) {
+    if (!inUse.has(tray)) continue;
+    const { total, taken } = trayProgress(meds, doses, tray, today);
+    const allTaken = taken >= total;
+    const due = !allTaken && trayMinutes(times, tray) <= nowMinutes;
+    if (due) {
+      dueTrays.push(tray);
+      dueMedicines += total - taken;
+    }
+    trays.push({
+      id: tray,
+      label: t.medicine.trays[tray],
+      detail: t.widgets.trayProgress(taken, total),
+      taken: allTaken,
+      due,
+    });
+  }
+  return { trays, dueMedicines, dueTrays };
 }
 
 /** Build the fully-localised snapshot from the current store state. */
@@ -131,12 +182,45 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
     .map((l) => ({ id: l.id, label: l.ailment, severity: l.severity, ongoing: isOpen(l) }));
   const ongoingCount = activeHealth.filter(isOpen).length;
 
-  // ── Overview lines (also feeds the persistent notification body) ──
+  // ── Medicine trays (Health widget + the overview) ──
+  const { trays, dueMedicines, dueTrays } = buildTrays(localMinutesOf(new Date()), today);
+
+  // ── Overview lines ──
+  // ONE rendering, and the pinned notification posts it verbatim — including on a locked
+  // screen, since the channel is PUBLIC.
+  //
+  // ⚠️ This deliberately REVERSES the split that shipped earlier the same day. That version
+  // built a second, redacted `safeLines` (health dropped, medicine reduced to a count) on the
+  // reasoning that a PUBLIC channel is readable by anyone holding the phone. The maintainer's
+  // ruling is that the overview is for the person whose phone it is: a pinned summary you have
+  // to unlock to read is one you will not read, and half a summary is worse than none. So
+  // health and the named trays go on the lock screen too. **Don't reintroduce a redacted
+  // variant without asking** — the privacy control here is `persistentNotifEnabled`, which
+  // turns the whole notification off, not a second rendering of it.
+  const nextTask = todayTasks.find((task) => !task.done);
+  const nextTaskLine = nextTask ? (nextTask.time ? `${nextTask.time} · ${nextTask.title}` : nextTask.title) : '';
+
   const overviewLines: string[] = [];
   if (tasksRemaining > 0) overviewLines.push(t.widgets.tasksLeft(tasksRemaining));
   if (shopRemaining > 0) overviewLines.push(t.widgets.itemsLeft(shopRemaining));
-  const nextTask = todayTasks.find((task) => !task.done);
-  if (nextTask) overviewLines.push(nextTask.time ? `${nextTask.time} · ${nextTask.title}` : nextTask.title);
+  if (habitsRemaining > 0) overviewLines.push(t.widgets.habitsLeft(habitsRemaining));
+  // "Still due: Morning, Midday" — t.medicine.stillDue is the app's own tray-card copy, so the
+  // notification and the Health screen say the same thing in the same words.
+  if (dueTrays.length > 0) {
+    overviewLines.push(t.medicine.stillDue(dueTrays.map((tray) => t.medicine.trays[tray]).join(', ')));
+  }
+  // A COUNT of open episodes and nothing more — no day tally, no escalation, no second prompt —
+  // because lib/episodes.ts's promise is that an episode open for a week reads exactly like one
+  // open for an hour. That promise is what makes this safe to pin somewhere always visible.
+  if (ongoingCount > 0) overviewLines.push(t.widgets.healthOngoing(ongoingCount));
+  if (nextTaskLine) overviewLines.push(nextTaskLine);
+
+  const healthSubtitle = [
+    dueMedicines > 0 ? t.widgets.medicineDue(dueMedicines) : '',
+    ongoingCount > 0 ? t.widgets.healthOngoing(ongoingCount) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return {
     updatedAt: Date.now(),
@@ -146,7 +230,7 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       items: shopItems,
       more: listItems.length > PREVIEW ? t.widgets.more(listItems.length - PREVIEW) : '',
       empty: listItems.length === 0 ? t.widgets.noItems : t.widgets.allDone,
-      accent: ACCENT.shop,
+      accent: WIDGET_ACCENT.shop,
       hasContent: shopItems.length > 0,
     },
     tasks: {
@@ -155,14 +239,22 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       items: taskItems,
       more: todayTasks.length > PREVIEW ? t.widgets.more(todayTasks.length - PREVIEW) : '',
       empty: t.widgets.noTasks,
-      accent: ACCENT.task,
+      accent: WIDGET_ACCENT.task,
       hasContent: todayTasks.length > 0,
     },
     overview: {
       title: t.notif.overviewTitle,
       lines: overviewLines,
+      // A tray still due beats the next task: more time-critical, and logging it is idempotent
+      // where completing a task is not. Both borrow the category their own reminder already
+      // uses, so the button reads as the verb for the thing the body names.
+      action: dueTrays.length > 0
+        ? { kind: 'tray' as const, tray: dueTrays[0] }
+        : nextTask
+          ? { kind: 'task' as const, taskId: nextTask.id }
+          : undefined,
       empty: t.notif.overviewBodyNoTasks,
-      accent: ACCENT.overview,
+      accent: WIDGET_ACCENT.overview,
       hasContent: overviewLines.length > 0,
     },
     notes: {
@@ -171,7 +263,7 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       more: activeNotes.length > PREVIEW ? t.widgets.more(activeNotes.length - PREVIEW) : '',
       empty: t.widgets.noNotes,
       voiceLabel: t.widgets.voiceNote,
-      accent: ACCENT.notes,
+      accent: WIDGET_ACCENT.notes,
       hasContent: noteItems.length > 0,
     },
     habits: {
@@ -183,18 +275,20 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       // removed from both this card and Health's below; Empty() in WidgetViews.tsx renders
       // nothing for a blank string).
       empty: '',
-      accent: ACCENT.habits,
+      accent: WIDGET_ACCENT.habits,
       hasContent: todayHabits.length > 0,
     },
     health: {
       title: t.widgets.healthTitle,
-      subtitle: ongoingCount > 0 ? t.widgets.healthOngoing(ongoingCount) : '',
+      subtitle: healthSubtitle,
       items: healthItems,
+      trays,
       more: activeHealth.length > PREVIEW ? t.widgets.more(activeHealth.length - PREVIEW) : '',
       // See the habits card's note above — no empty-state text here either.
       empty: '',
-      accent: ACCENT.health,
-      hasContent: healthItems.length > 0,
+      accent: WIDGET_ACCENT.health,
+      // A day with trays and no entries is a perfectly normal, and common, day.
+      hasContent: healthItems.length > 0 || trays.length > 0,
     },
   };
 }
@@ -228,10 +322,12 @@ async function updatePersistentNotification(snapshot: WidgetSnapshot) {
     await cancelPersistentNotification();
     return;
   }
-  const body = snapshot.overview.hasContent
-    ? snapshot.overview.lines.join(' · ')
-    : t.notif.overviewNothingElse;
-  await refreshPersistentNotification({ title: snapshot.overview.title, body, color: ACCENT.overview });
+  const lines = snapshot.overview.lines;
+  const body = lines.length > 0 ? lines.join(' · ') : t.notif.overviewNothingElse;
+  await refreshPersistentNotification(
+    { title: snapshot.overview.title, body, color: WIDGET_ACCENT.overview },
+    snapshot.overview.action
+  );
 }
 
 /**

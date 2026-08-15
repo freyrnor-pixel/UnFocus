@@ -24,6 +24,17 @@
  *             real store
  *
  * Edit notes:
+ *   - **⚠️ BORDERLESS AND UPRIGHT since 2026-08-18 — read this before the two notes below it.**
+ *     Maintainer: *"Do NOT place borders, `<Divider/>` lines, or separate background boxes
+ *     inside of main cards… List items, text inputs, and suggestion chips must sit seamlessly on
+ *     the main card's background… Remove all italicized text."* So the dashed field-rung edge,
+ *     the icon ring's stroke, the "+" button's stroke and the italic title are all gone. What is
+ *     LEFT saying "provisional" is muted ink on every part of the row, a recessive `getMatte()`
+ *     disc under the two marks, and the accent on the "+" glyph alone — and the row's geometry
+ *     is unchanged, which is what still makes it an example OF the rows around it.
+ *     The 2026-08-10 reversal below is not undone: this is still not a real row, and nothing
+ *     here should be given a fill, a hue or a finished-looking weight. Only the CHANNELS
+ *     changed, from an edge to ink.
  *   - **This finish is shared with components/StarterSuggestionChip (2026-08-12).** The app has
  *     exactly TWO empty-state example shapes — this row (one illustration of a row in the list
  *     below it) and that chip (one of N pick-one suggestions, which has to wrap) — and since
@@ -93,8 +104,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Badge } from '@/components/Badge';
 import PressableScale from '@/components/PressableScale';
-import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { Fonts, FontSize, getMatte, Radius, Spacing, HitSlop } from '@/constants/theme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
   /** Leading glyph, shown inside a thin circle matching the app's row-checkbox sizing. */
@@ -104,9 +115,6 @@ type Props = {
   /** Optional trailing pill (e.g. "Weekly", "+1", "3/5"). */
   meta?: string;
   metaVariant?: 'neutral' | 'success' | 'warning' | 'danger';
-  /** The surrounding list's domain accent — drives the row wash and the three edges (row,
-   *  icon circle, "+" button). Never the glyph or the text: see the A.4 note. */
-  accent: string;
   /** When provided, renders a trailing "+" button that writes this example into the
    *  real store — omit for a read-only preview (see Edit notes). */
   onAdd?: () => void;
@@ -117,15 +125,18 @@ type Props = {
   added?: boolean;
 };
 
-export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', accent, onAdd, addLabel, added }: Props) {
+export default function StarterExampleRow({ icon, title, meta, metaVariant = 'neutral', onAdd, addLabel, added }: Props) {
   const theme = useAppTheme();
-  // Dashed + unfilled + neutral: a sketch of a row, not a row. See the 2026-08-10 reversal in
-  // the Edit notes before making any of this look "finished" again.
+  const isDark = useIsDark();
+  const matte = getMatte(isDark);
+  // Borderless: the row sits straight on the card it is an example inside, and says
+  // "provisional" through muted ink and a recessive matte "+" rather than through a stroke.
+  // See the 2026-08-18 note in the Edit notes before drawing an edge here again.
   return (
-    <View style={[styles.row, { borderColor: theme.border }, added && styles.rowAdded]}>
-      {/* A.4 rule 1: the glyph and the "example" word are neutral ink. The ring is neutral too
-          now — the accent survives only on the "+" (a real action). */}
-      <View style={[styles.iconWrap, { borderColor: theme.border }]}>
+    <View style={[styles.row, added && styles.rowAdded]}>
+      {/* A.4 rule 1: the glyph is neutral ink. Its ring is a matte disc rather than a drawn
+          circle — same mark, no edge. */}
+      <View style={[styles.iconWrap, { backgroundColor: matte }]}>
         <Ionicons name={icon} size={13} color={theme.textMuted} />
       </View>
       <Text style={[styles.title, { color: theme.textMuted }]} numberOfLines={1}>
@@ -136,7 +147,7 @@ export default function StarterExampleRow({ icon, title, meta, metaVariant = 'ne
           Badge in the app moves. */}
       {meta ? <Badge label={meta} variant={metaVariant} style={styles.metaMark} /> : null}
       {added ? (
-        <View style={[styles.addBtn, { borderColor: theme.textMuted }]}>
+        <View style={[styles.addBtn, { backgroundColor: matte }]}>
           <Ionicons name="checkmark" size={14} color={theme.textMuted} />
         </View>
       ) : onAdd ? (
@@ -146,7 +157,9 @@ export default function StarterExampleRow({ icon, title, meta, metaVariant = 'ne
           hitSlop={HitSlop.base}
           accessibilityRole="button"
           accessibilityLabel={addLabel ? `${addLabel} ${title}` : title}
-          style={[styles.addBtn, { borderColor: accent }]}
+          // A matte disc, not an outlined one. The accent is still spent here and nowhere else
+          // on the row — on the GLYPH, which is the part that has to be seen.
+          style={[styles.addBtn, { backgroundColor: matte }]}
         >
           <Ionicons name="add" size={14} color={theme.accent} />
         </PressableScale>
@@ -179,16 +192,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    // The FIELD rung, like every other row-sized box in the app (PadSheet's rows,
-    // QuickAddOptionRow's cells, the composer's own field). This was a literal `1` until
-    // 2026-08-12, which put the example a quarter-pixel lighter than the rows it stands in
-    // for — the finish is what says "provisional" here (dashed, unfilled, neutral, muted
-    // italic), never the weight. Pinned by lib/__tests__/exampleRows.test.ts.
-    borderWidth: BORDER_WIDTH.field,
-    borderStyle: 'dashed',
-    borderRadius: Radius.sm,
+    // **No border, no fill, no radius (2026-08-18).** The dashed field-rung edge that lived
+    // here is gone: an example row sits seamlessly on the card that lists it, like every other
+    // list item. Only the horizontal padding is gone with it — the vertical padding stays,
+    // because it is what keeps the row the same HEIGHT as the thing it is an example of, which
+    // is the one property this component has always had to keep.
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
   },
   // Already added this visit — dimmed, not a fifth row style, just a faded version of the
   // same one (see the `added` Edit note).
@@ -199,7 +208,6 @@ const styles = StyleSheet.create({
     width: MARK,
     height: MARK,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -223,15 +231,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontSize: FontSize.sm,
     fontFamily: Fonts.semibold,
-    // Italic, and drawn in textMuted at the call site — the same voice StarterCard's explainer
-    // text uses, which is what ties the example to the teaching card rather than to the list.
-    fontStyle: 'italic',
+    // **Upright (2026-08-18)** — *"Remove all italicized text."* Muted ink, set at the call
+    // site, is what still says "this one isn't yours yet"; a slanted face was the app saying it
+    // twice, in the one channel the maintainer ruled out.
   },
   addBtn: {
     width: MARK,
     height: MARK,
     borderRadius: Radius.full,
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -409,7 +409,7 @@ const en = {
   deleteTask: 'Delete plan',
   // Task form — "next-time hint" note field (Decision 019, freeform, display-only)
   taskHintLabel: 'Next time…',
-  taskHintPlaceholder: 'e.g. Keep the charger in the top drawer',
+  taskHintPlaceholder: 'Keep the charger in the top drawer',
   // Task form — "then" follow-up link (Decision 020, one-to-one, surfacing-only)
   thenTaskLabel: 'Then',
   thenTaskNone: 'No follow-up task set',
@@ -445,7 +445,7 @@ const en = {
   store: 'Store',
   otherStore: 'Other store…',
   customStoreLabel: 'Store name',
-  customStorePlaceholder: 'e.g. Local shop',
+  customStorePlaceholder: 'Local shop',
   selectStoreFirstTitle: 'Pick a store',
   selectStoreFirstBody: 'Please select which store this receipt is from before adding items.',
   takePhoto: 'Take photo',
@@ -499,9 +499,14 @@ const en = {
   taskNotifications: 'Plan notifications',
   taskNotificationsHint: 'Reminder when a plan starts',
   persistentNotifLabel: "Today's overview notification",
-  persistentNotifHint: "Keeps one notification up to date with today's remaining tasks and shopping items",
+  // Was "today's remaining tasks and shopping items" until 2026-08-15, when the overview grew
+  // habits, medicine and open episodes — and became readable on the lock screen, which is the
+  // part a user needs told before they switch it on.
+  persistentNotifHint: 'Keeps one notification up to date with the rest of your day, readable on the lock screen',
   habitNotifications: 'Habit reminders',
   habitNotificationsHint: "Reminder when it's time for a habit",
+  medicineNotifications: 'Medicine reminders',
+  medicineNotificationsHint: 'One reminder per tray, with a Taken button',
   // From/To are the generic time-range labels — the only remaining consumer is the
   // quiet-hours range in Settings → Personal. (The rest of the Work-mode strings were
   // deleted with that card in the 2026-07-25 settings reorganization: every one of its
@@ -1165,6 +1170,13 @@ const en = {
     habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
     healthTitle: 'Health',
     healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
+    // Medicine folded into the Health widget + the pinned overview (2026-08-15). Counts
+    // MEDICINES, not trays: it doubles as the lock-screen-safe line, where naming a tray
+    // would say more about someone's day than a locked phone should. "Still due" is the
+    // tray vocabulary — a window that has passed with something in it is never "missed".
+    medicineDue: (n: number) => (n === 1 ? '1 medicine still due' : `${n} medicines still due`),
+    /** A tray's progress on the widget row, e.g. "2 of 3". */
+    trayProgress: (taken: number, total: number) => `${taken} of ${total}`,
   },
   // Radial menu labels
   nav: {
@@ -1225,7 +1237,7 @@ const en = {
   // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
   shoppingItemSheet: {
     quantity: 'How many',
-    quantityPlaceholder: 'e.g. 2, or "a bunch"',
+    quantityPlaceholder: '2, or "a bunch"',
     name: 'Name',
     unit: 'Unit',
     unitPlaceholder: 'kg, L, pack…',
@@ -1493,9 +1505,13 @@ const en = {
       timelineHorizontal: 'Horizontal to-do timeline',
       timelineHorizontalHint: "Shows today's to-dos as a left-to-right timeline instead of top-to-bottom",
     },
+    cardStyle: {
+      title: 'Solid cards',
+      hint: 'Cards are frosted glass by default. Turn this on to draw them as solid panels instead. Sheets, the header and the menu bar stay frosted.',
+    },
     photoFormat: {
       title: 'Photo format',
-      hint: 'Default crop for photo tiles (e.g. receipt photos). Fit shows the whole photo; the others crop to a fixed shape.',
+      hint: 'How photo tiles are cropped.',
       fit: 'Fit',
       square: '1:1',
       classic: '4:3',
@@ -1517,7 +1533,7 @@ const en = {
     monthlyBudget: {
       label: 'Monthly budget',
       hint: "Optional — see how this month's grocery spend compares on the Budget screen.",
-      placeholder: 'e.g. 3000',
+      placeholder: '3000',
     },
   },
   // --- W-E Config additions (grouped settings + onboarding) ---
@@ -1852,7 +1868,7 @@ const en = {
     taskForm: { text: 'Add a task with a title, date, and optional details.' },
     habitForm: { text: 'How often it repeats and how many times a day it counts.' },
     medicineForm: { text: 'Pick its trays, or set it as needed.' },
-    shopping: { text: 'Add things as you run out. Resets weekly.' },
+    shopping: { text: 'Add things as you run out — resets weekly.' },
     meals: { text: 'Browse dishes and add their ingredients to your shopping list.' },
     health: { text: 'Log and track health issues over time.' },
     scan: { text: 'Photo a receipt to add items, or scan a shared QR code.' },
@@ -1861,7 +1877,7 @@ const en = {
     habits: { text: 'Tap to count it, gear to set it up.' },
     plans: { text: 'Everything to do, by day and week.' },
     automations: { text: 'Simple rules: when X happens, do Y automatically.' },
-    notes: { text: 'Write it down. Send it anywhere.' },
+    notes: { text: 'Write it down, then send it anywhere.' },
     goals: { text: 'The bigger thing your to-dos and habits are for.' },
   },
   /**
@@ -2001,9 +2017,9 @@ const en = {
     formTitleNew: 'New medicine',
     formTitleEdit: 'Medicine',
     nameLabel: 'Name',
-    namePlaceholder: 'e.g. Elvanse',
+    namePlaceholder: 'Elvanse',
     doseLabel: 'Dose',
-    dosePlaceholder: 'e.g. 30 mg',
+    dosePlaceholder: '30 mg',
     traysLabel: 'When to take it',
     traysHint: 'Pick one or more. A tray is a window, not a deadline.',
     asNeededSwitch: 'Take as needed instead',
@@ -2549,7 +2565,7 @@ const no: typeof en = {
   deleteTask: 'Slett plan',
   // Task form — "neste gang"-notat (Decision 019, fritekst, kun visning)
   taskHintLabel: 'Neste gang…',
-  taskHintPlaceholder: 'f.eks. Legg laderen i den øverste skuffen',
+  taskHintPlaceholder: 'Legg laderen i den øverste skuffen',
   // Task form — "så"-oppfølgingslenke (Decision 020, én-til-én, kun visning)
   thenTaskLabel: 'Så',
   thenTaskNone: 'Ingen oppfølgingsoppgave satt',
@@ -2582,7 +2598,7 @@ const no: typeof en = {
   store: 'Butikk',
   otherStore: 'Annen butikk…',
   customStoreLabel: 'Butikknavn',
-  customStorePlaceholder: 'F.eks. Lokalt utsalg',
+  customStorePlaceholder: 'Lokalt utsalg',
   selectStoreFirstTitle: 'Velg butikk',
   selectStoreFirstBody: 'Velg hvilken butikk denne kvitteringen er fra før du legger til varer.',
   takePhoto: 'Ta bilde',
@@ -2635,9 +2651,11 @@ const no: typeof en = {
   taskNotifications: 'Planvarsler',
   taskNotificationsHint: 'Påminnelse når en plan begynner',
   persistentNotifLabel: 'Dagens oversikt-varsel',
-  persistentNotifHint: 'Holder ett varsel oppdatert med dagens gjenstående oppgaver og varer på handlelisten',
+  persistentNotifHint: 'Holder ett varsel oppdatert med resten av dagen, lesbart på låseskjermen',
   habitNotifications: 'Varslinger for vaner',
   habitNotificationsHint: 'Påminnelse når det er tid for en vane',
+  medicineNotifications: 'Medisinvarsler',
+  medicineNotificationsHint: 'Én påminnelse per runde, med en Tatt-knapp',
   workHoursFrom: 'Fra',
   workHoursTo: 'Til',
   sectionLanguage: 'Språk',
@@ -3105,9 +3123,13 @@ const no: typeof en = {
       timelineHorizontal: 'Horisontal gjøremålstidslinje',
       timelineHorizontalHint: 'Viser dagens gjøremål som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
     },
+    cardStyle: {
+      title: 'Heldekkende kort',
+      hint: 'Kort er frostet glass som standard. Slå på for å tegne dem som heldekkende paneler i stedet. Ark, toppfeltet og menylinja forblir frostet.',
+    },
     photoFormat: {
       title: 'Bildeformat',
-      hint: 'Standard beskjæring for bilde-fliser (f.eks. kvitteringsbilder). Tilpass viser hele bildet; de andre beskjærer til en fast form.',
+      hint: 'Hvordan bilde-fliser beskjæres.',
       fit: 'Tilpass',
       square: '1:1',
       classic: '4:3',
@@ -3128,7 +3150,7 @@ const no: typeof en = {
     monthlyBudget: {
       label: 'Månedlig budsjett',
       hint: 'Valgfritt — se hvordan handlebeløpet denne måneden ligger an på Budsjett-skjermen.',
-      placeholder: 'f.eks. 3000',
+      placeholder: '3000',
     },
   },
   // --- W-E Config additions (grouped settings + onboarding) ---
@@ -3365,7 +3387,7 @@ const no: typeof en = {
   habitEveryNWeeksLabel: (n: number) => `Hver ${n}. uke`,
   habitRepeatDaysLabel: 'Hvilke dager',
   habitTitleLabel: 'Navn',
-  habitTitlePlaceholder: 'F.eks. Drikk vann',
+  habitTitlePlaceholder: 'Drikk vann',
   habitIconLabel: 'Ikon',
   habitDeleteLabel: 'Slett vane',
   habitNotification: 'Daglig påminnelse',
@@ -3542,6 +3564,8 @@ const no: typeof en = {
     habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
     healthTitle: 'Helse',
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
+    medicineDue: (n: number) => (n === 1 ? '1 medisin gjenstår' : `${n} medisiner gjenstår`),
+    trayProgress: (taken: number, total: number) => `${taken} av ${total}`,
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
@@ -3591,7 +3615,7 @@ const no: typeof en = {
   priceTotal: (total: string) => `${total} totalt`,
   shoppingItemSheet: {
     quantity: 'Hvor mange',
-    quantityPlaceholder: 'f.eks. 2, eller «en bunt»',
+    quantityPlaceholder: '2, eller «en bunt»',
     name: 'Navn',
     unit: 'Enhet',
     unitPlaceholder: 'kg, L, pk…',
@@ -3754,7 +3778,7 @@ const no: typeof en = {
     taskForm: { text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.' },
     habitForm: { text: 'Hvor ofte den gjentas og hvor mange ganger om dagen den teller.' },
     medicineForm: { text: 'Velg runder, eller sett den til ved behov.' },
-    shopping: { text: 'Legg til når du går tom. Nullstilles ukentlig.' },
+    shopping: { text: 'Legg til når du går tom — nullstilles ukentlig.' },
     meals: { text: 'Bla gjennom retter og legg ingrediensene til handlelisten.' },
     health: { text: 'Logg og følg opp helseplager over tid.' },
     scan: { text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.' },
@@ -3763,7 +3787,7 @@ const no: typeof en = {
     habits: { text: 'Trykk for å telle, tannhjul for å sette opp.' },
     plans: { text: 'Alt som skal gjøres, etter dag og uke.' },
     automations: { text: 'Enkle regler: når X skjer, gjør Y automatisk.' },
-    notes: { text: 'Skriv det ned. Send det videre.' },
+    notes: { text: 'Skriv det ned, og send det videre.' },
     goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
   },
   starters: {
@@ -3851,9 +3875,9 @@ const no: typeof en = {
     formTitleNew: 'Ny medisin',
     formTitleEdit: 'Medisin',
     nameLabel: 'Navn',
-    namePlaceholder: 'F.eks. Elvanse',
+    namePlaceholder: 'Elvanse',
     doseLabel: 'Dose',
-    dosePlaceholder: 'F.eks. 30 mg',
+    dosePlaceholder: '30 mg',
     traysLabel: 'Når skal den tas',
     traysHint: 'Velg én eller flere. En runde er et tidsrom, ikke en frist.',
     asNeededSwitch: 'Ta ved behov i stedet',
@@ -4478,6 +4502,8 @@ const is: typeof en = {
   persistentNotifHint: 'Heldur einni tilkynningu uppfærðri með því sem er eftir í dag og vörunum á innkaupalistanum',
   habitNotifications: 'Tilkynningar um venjur',
   habitNotificationsHint: 'Áminning þegar það er kominn tími á venju',
+  medicineNotifications: 'Lyfjaáminningar',
+  medicineNotificationsHint: 'Ein áminning á hvert hólf, með Tekið-hnappi',
   workHoursFrom: 'Frá',
   workHoursTo: 'Til',
   sectionLanguage: 'Tungumál',
@@ -4941,6 +4967,10 @@ const is: typeof en = {
       timelineHorizontal: 'Lárétt tímalína verkefna',
       timelineHorizontalHint: 'Sýnir verkefni dagsins sem tímalínu frá vinstri til hægri í stað ofan frá og niður',
     },
+    cardStyle: {
+      title: 'Gegnheil kort',
+      hint: 'Kort eru frostað gler sjálfgefið. Kveiktu á þessu til að teikna þau sem gegnheil spjöld í staðinn. Blöð, hausinn og valmyndarslá haldast frostuð.',
+    },
     photoFormat: {
       title: 'Myndsnið',
       hint: 'Sjálfgefinn skurður fyrir myndaflísar (t.d. myndir af kvittunum). „Passa“ sýnir alla myndina; hinir skera hana í fasta lögun.',
@@ -5379,6 +5409,9 @@ const is: typeof en = {
     habitsLeft: (n: number) => `${n} ${isCount(n, 'venja', 'venjur')} eftir`,
     healthTitle: 'Heilsa',
     healthOngoing: (n: number) => `${n} í gangi`,
+    // "lyf" is neuter with one form for both numbers, so it needs no isCount.
+    medicineDue: (n: number) => `${n} lyf eftir`,
+    trayProgress: (taken: number, total: number) => `${taken} af ${total}`,
   },
   nav: {
     newTask: 'Nýtt', plans: 'Verkefni', shop: 'Innkaup', habits: 'Venjur',

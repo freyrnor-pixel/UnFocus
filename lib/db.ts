@@ -1297,6 +1297,17 @@ export function initDb() {
     // light mode is not removed — it is one tap away in Settings → General → Appearance, and
     // the choice sticks from then on because this migration runs exactly once.
     "UPDATE settings SET dark_mode = 'on'",
+    // ── Opaque cards, as a test switch (2026-08-15) ───────────────────────────────────────
+    // A maintainer-facing A/B of the Tactile Glass card material: off (the default, 0) is the
+    // frosted translucent pane the app ships with, on paints the same colour already composited
+    // over the backdrop and mounts no BlurView.
+    //
+    // DEFAULT 0 is the whole point — "how it looks as of now is default". This is deliberately
+    // NOT a second `glass_surfaces`: that column is the global reduce-transparency switch and
+    // takes the frost off buttons, the FAB, sheets and the nav too. This one is scoped to
+    // `surfaceContext === 'ambient'` panes, i.e. content cards, so the two effects can be
+    // compared one at a time. See components/Surface.tsx's Edit notes.
+    'ALTER TABLE settings ADD COLUMN opaque_cards INTEGER DEFAULT 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

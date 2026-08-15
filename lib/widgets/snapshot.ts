@@ -29,6 +29,31 @@
  */
 import db from '@/lib/db';
 
+/**
+ * The identity hue each widget wears — ONE map, shared by every producer of a snapshot
+ * (lib/widgets/sync.ts, lib/widgets/headlessSnapshot.ts, handler.tsx's placeholder).
+ *
+ * ⚠️ **Hand-mirrored from `IDENTITY_HUES` in constants/colors.ts, deliberately not imported.**
+ * Everything downstream of a snapshot runs headless — a bare JS context with the app process
+ * dead — and constants/colors.ts pulls in constants/theme.ts, which is a react-native module
+ * graph this context has no business evaluating. The copy is what keeps the widget layer
+ * dependency-free; `lib/widgets/__tests__/widgetPalette.test.ts` is what keeps it honest, by
+ * importing both and asserting they agree. Don't "tidy" this into an import.
+ *
+ * These were six invented hexes (`#0891B2`/`#2563EB`/`#F4A261`/`#8B5CF6`/`#16A34A`/`#E11D48`)
+ * until 2026-08-15 — pre-dating the categorical system entirely, so a widget's dot was a
+ * colour that appeared nowhere in the app it belonged to. `overview` has no identity hue to
+ * borrow (Home is the one neutral surface), so it takes the palette's own `accent`.
+ */
+export const WIDGET_ACCENT = {
+  shop: '#0DB34A', // IDENTITY_HUES.shopping
+  task: '#FFD700', // IDENTITY_HUES.todo
+  overview: '#1E88FF', // DARK.accent — Home/overview is IDENTITY_NEUTRAL, which is a drab grey
+  notes: '#B45CFF', // IDENTITY_HUES.notes
+  habits: '#05D9E8', // IDENTITY_HUES.habits
+  health: '#FF8CB2', // IDENTITY_HUES.health
+} as const;
+
 /** One task row shown in the Tasks widget. `id` lets a widget tap toggle it (WIDGET_CLICK). */
 export type WidgetTaskLine = { id: string; title: string; done: boolean };
 
@@ -43,6 +68,33 @@ export type WidgetHabitLine = { id: string; title: string; done: boolean };
 
 /** One health row shown in the Health widget (read-only). `ongoing` = no end date yet. */
 export type WidgetHealthLine = { id: string; label: string; severity: number; ongoing: boolean };
+
+/**
+ * One medicine tray row, rendered above the entries in the Health widget (2026-08-15).
+ *
+ * Medicine has no widget of its own — a sixth receiver means an app.json change and a native
+ * rebuild, and folding it in here ships over OTA instead. It sits on Health because that is
+ * where the medicine card lives in the app, and it is why the Health widget stopped being
+ * read-only: `id` is the TrayId, and a tap fires TAKE_TRAY (lib/widgets/widgetActions.ts),
+ * logging every not-yet-taken medicine in the window exactly as the notification's Taken
+ * button does.
+ *
+ * `due` is the tray's own no-shame framing carried outward: a tray whose time has passed with
+ * something untaken is STILL DUE, never missed, and it stays visible rather than escalating.
+ * A tray still ahead of now is neither due nor taken — it simply reads as upcoming.
+ */
+export type WidgetTrayLine = {
+  /** TrayId ('morning' | 'midday' | 'evening' | 'night'), and the TAKE_TRAY click payload. */
+  id: string;
+  /** Localised tray name, e.g. "Morning" / "Morgen". */
+  label: string;
+  /** Localised progress, e.g. "2 of 3". */
+  detail: string;
+  /** Every medicine in the tray is logged for today. */
+  taken: boolean;
+  /** The tray's time has passed and something in it is still untaken. */
+  due: boolean;
+};
 
 /** Fully-localised snapshot rendered by every widget. */
 export type WidgetSnapshot = {
@@ -71,7 +123,26 @@ export type WidgetSnapshot = {
   };
   overview: {
     title: string;
+    /**
+     * The whole of today, and what the pinned notification posts verbatim — lock screen
+     * included, since that channel is PUBLIC. A redacted second rendering (`safeLines`) shipped
+     * alongside this for a few hours on 2026-08-15 and was reversed: see lib/widgets/sync.ts's
+     * block at `overviewLines`. A persisted snapshot from that build still carries the extra
+     * key; nothing reads it.
+     */
     lines: string[];
+    /**
+     * The most answerable thing on the overview, which the pinned notification turns into its
+     * one action button (lib/notifications.ts's PersistentAction — same shape, deliberately
+     * NOT the same declaration: importing it would pull expo-notifications into the headless
+     * widget context, and importing this into lib/notifications.ts would pull lib/db into the
+     * scheduler. Structural typing connects them; keep the two in step by hand, which is cheap
+     * for a two-case union that has no reason to grow).
+     *
+     * A tray still due wins over the next task: it is more time-critical, and logging it is
+     * idempotent where completing a task is not. Undefined on a day with neither.
+     */
+    action?: { kind: 'tray'; tray: string } | { kind: 'task'; taskId: string };
     empty: string;
     accent: string;
     hasContent: boolean;
@@ -98,9 +169,14 @@ export type WidgetSnapshot = {
   };
   health: {
     title: string;
-    /** e.g. "1 ongoing" / '' */
+    /** e.g. "1 medicine still due · 1 ongoing" / '' */
     subtitle: string;
     items: WidgetHealthLine[];
+    /**
+     * Today's medicine trays, drawn above `items`. Optional because a snapshot is persisted
+     * JSON and a row written by an older build has no key here. Read it as `trays ?? []`.
+     */
+    trays?: WidgetTrayLine[];
     more: string;
     empty: string;
     accent: string;

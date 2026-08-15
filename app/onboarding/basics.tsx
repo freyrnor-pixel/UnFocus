@@ -466,7 +466,6 @@ const baseStyles = StyleSheet.create({
   rowNote: {
     fontSize: FontSize.sm,
     lineHeight: 20,
-    fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 2,
   },

@@ -601,7 +601,34 @@ export default function ScreenScaffold({
   // `headerFloatBottom` gap already gives the tab bar breathing room, so this doesn't
   // read as flush/cramped, and there's no separate transparent strip left to leak through.
   const stickyGap = 0;
-  // **The clip is the chrome's OUTER edge; the resting gap is content padding (2026-08-11).**
+  // **⚠️ THE CLIP IS THE CHROME'S INNER EDGE (2026-08-18) — this reverses the block below it.**
+  // Maintainer: *"even though things are translucent, things like header and bottom nav should
+  // still not show elements behind it when user is scrolling, or have scrolled. Only the
+  // backdrop."*
+  //   The 2026-08-11 design under it is sound arithmetic resting on a premise that expired: it
+  // put the clip on the chrome's OUTER footprint and let content scroll the full height of the
+  // header and the nav card, "hidden BY them" — true while every Surface was flat and opaque
+  // (the 2026-08-05 card reset), and false from 2026-08-15, when the header and the bar became
+  // frosted glass with a real BlurView. From that day a scrolled card was legible through both,
+  // and the bar's rounded corners had cards moving inside them. Nothing announced the change,
+  // because the arithmetic here never mentioned opacity — it only ever assumed it.
+  //   So the window is now the gap BETWEEN the two cards: from the header's (or an attached
+  // sticky bar's) BOTTOM edge to the nav card's TOP edge, still inset by the same `Spacing.sm`
+  // the two cards are. Behind the glass there is only `components/ScreenBackground.tsx`, which
+  // is what the maintainer asked for and, incidentally, what the blur was always tuned against.
+  //   **What this knowingly gives up** is the 2026-08-10 corner peek — "when cards slide behind
+  // the bottom nav, they should be visible in the bottom nav's cut corners at the top". That
+  // request and this one are the same question asked twice with opposite answers; this is the
+  // later ruling, and it is the more general one (it is about every pixel of the chrome, not
+  // about four corners). The two clip edges no longer coincide with an opaque OUTER edge, which
+  // the block below correctly says is what makes a cut invisible — that is fine here for the
+  // same reason in reverse: the cut happens exactly where a card is covered by the chrome that
+  // is about to be drawn over it, so there is no open air on either side of it.
+  //   The one rule that survives intact: **one clearance each, never both.** The clip is margin
+  // on the wrapper and there is no content padding at all now; put the number back on the
+  // content as well and every screen grows a blank band the height of its own header.
+  //
+  // ── (Historical, 2026-08-11) The clip is the chrome's OUTER edge; the resting gap is padding ──
   // Two rules that have to hold at once, and every earlier cut of this satisfied one by breaking
   // the other:
   //   1. "Nothing should be visible (cards, text, buttons and so on) above the header, or under
@@ -643,33 +670,27 @@ export default function ScreenScaffold({
   // container already pads by `Spacing.md`. Widen the inset without that and every card on every
   // screen gets narrower.
   const viewportInset = {
-    // No marginTop: the box already starts at `topInset` (the SafeAreaView's hand-applied
-    // padding), which is exactly where the header card's top edge is — `headerFloatTop` is 0.
     marginHorizontal: headerFloatH,
-    // The band BELOW the nav card, which is all that has to stay clear down there. On the pager
-    // tab scenes the safe-area 'bottom' edge is dropped, so this covers it by hand; on every
-    // other screen SafeAreaView has already ended the box at the safe-area edge, which is where
-    // a standalone bottom block's card ends too.
-    marginBottom: pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0,
-    // Match the chrome's own corners at the two edges where the viewport meets a chrome card's
-    // OUTER corner — the header's top pair, the bar's bottom pair. These are the corners nothing
-    // should peek through. The bar's top pair and the header's bottom pair are deliberately NOT
-    // here: they sit in the middle of this box, so a card fills them for free.
-    ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
-    ...(floatChrome && reserveBottomNav
-      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
-      : null),
+    // The header card's own height (plus a sticky bar's, when one is attached under it) —
+    // the clip edge sits on the chrome's INNER edge, so content stops where the glass starts.
+    marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    // The nav bar's whole footprint: its card, its float gap and the safe-area band below it.
+    // Was split — the band as margin here, the card's height as content padding — which is
+    // exactly what let content travel behind the glass. Summed, the clearance is unchanged;
+    // what changed is that all of it now CLIPS rather than half of it merely padding.
+    marginBottom:
+      (pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0) + (reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0),
+    // **No corner radii any more.** They existed to cover the header's TOP corners and the
+    // bar's BOTTOM ones while content ran the chrome's full height behind both. The window no
+    // longer reaches either pair — it is a plain rectangle in the gap between the two cards,
+    // and every edge of it is now flush against something opaque enough to hide the cut.
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
-  // The resting clearance — how far the first/last card sits from the chrome before any
-  // scrolling. This is the other half of the pair above: the viewport now runs the chrome's full
-  // height, so without this the first card would render underneath the header at rest.
-  // paddingBottom is the bar's card height alone (`bottomNavClearance` minus the band already
-  // taken as margin), so the resting position of the last card is unchanged from before.
-  const contentPad = {
-    paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
-    paddingBottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0,
-  };
+  // Nothing left to pad: the viewport's own margins are the clearance now, and putting the same
+  // number on both would double-count it — every screen would grow a blank band the height of
+  // its own header. (This is the pair the 2026-08-11 note below warns about, resolved the other
+  // way round: the clip took over the resting gap rather than the gap taking over the clip.)
+  const contentPad = { paddingTop: 0, paddingBottom: 0 };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
   // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one

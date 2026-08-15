@@ -147,29 +147,35 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(code('components/ScreenScaffold.tsx')).not.toMatch(/NAV_PEEK/);
   });
 
-  it('splits the bar\'s footprint: the band below it clips, the card itself pads', () => {
-    // 2026-08-11. The whole footprint as ONE margin (`marginBottom: bottomNavClearance`) put the
-    // clip edge on the bar's NEAR edge: content was cut where the bar starts instead of passing
-    // behind it, and the corner notch it is supposed to peek through — a wedge *inside* the bar's
-    // rectangle, beside its top-corner arc — sat below that edge, unreachable at any radius.
-    // Split in two, each half landing where something opaque actually is.
+  it('clips the WHOLE nav footprint, so nothing travels behind the glass', () => {
+    // 2026-08-18, reversing the 2026-08-11 split. That split (`marginBottom` = the band below
+    // the bar, `paddingBottom` = the bar's own height) deliberately let content scroll behind
+    // the card and be "hidden BY" it — correct while the bar was opaque, and false from
+    // 2026-08-15, when it became frosted glass with a real BlurView. Maintainer: *"things like
+    // header and bottom nav should still not show elements behind it when user is scrolling…
+    // Only the backdrop."* Summed, the clearance is identical; all of it now CLIPS.
     const source = code('components/ScreenScaffold.tsx');
-    expect(source).toMatch(/marginBottom: pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0/);
-    expect(source).toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0/);
-    // Neither half may be spelled as the whole clearance again — that constant is now only the
+    expect(source).toMatch(
+      /marginBottom:\s*\n?\s*\(pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0\) \+ \(reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0\)/,
+    );
+    // Not as content padding as well — that is the double-count that grows a blank band on
+    // every screen. This is the surviving half of the old rule: one clearance each, never both.
+    expect(source).not.toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0/);
+    // And still never spelled as the whole clearance constant, which is now only the
     // DebugGeneralNoteButton's offset from the screen edge.
     expect(source).not.toMatch(/(margin|padding)Bottom: bottomNavClearance/);
   });
 
-  it('starts the clip at the header card\'s own top edge, not below it', () => {
-    // `contentTopClear` folds in `headerFloatBottom`, so using it as the viewport's margin put
-    // the top clip edge 8px BELOW the header card, in transparent backdrop — a card scrolling
-    // past was guillotined mid-glyph with nothing over the cut (the reported bug). The box starts
-    // at `topInset` (= the header card's top, since headerFloatTop is 0) and `contentTopClear`
-    // is the content's RESTING padding instead.
+  it('starts the clip at the header card\'s BOTTOM edge, including any sticky bar', () => {
+    // Same reversal, top end. The clip used to sit on the header card's OUTER (top) edge with
+    // the resting gap as content padding; it is the chrome's INNER edge now, so a scrolled card
+    // stops where the glass begins. `stickyBelowHeaderHeight` has to be in it — a screen's tab
+    // row is chrome too, and content showing through THAT was the same defect one card lower.
     const source = code('components/ScreenScaffold.tsx');
-    expect(source).not.toMatch(/marginTop: contentTopClear/);
-    expect(source).toMatch(/paddingTop: contentTopClear/);
+    expect(source).toMatch(
+      /marginTop: contentTopClear \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\)/,
+    );
+    expect(source).not.toMatch(/paddingTop: contentTopClear/);
   });
 
   it('clips the scroll viewport AND pads the content — one clearance each', () => {
@@ -178,9 +184,12 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
-    // The resting gap is the content's padding, and it reaches BOTH branches — the ScrollView's
-    // contentContainer and the non-scrollable (FlatList) wrapper.
-    expect(source).toMatch(/const contentPad = \{/);
+    // `contentPad` still exists and still reaches BOTH branches — the ScrollView's
+    // contentContainer and the non-scrollable (FlatList) wrapper — but it is zero on both axes
+    // since 2026-08-18: the viewport's own margins are the whole clearance now. It is kept as
+    // the one named place that decision is written down, so restoring a resting gap means
+    // editing a documented constant rather than sprinkling padding at two call sites.
+    expect(source).toMatch(/const contentPad = \{ paddingTop: 0, paddingBottom: 0 \}/);
     expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
     expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
   });
@@ -204,93 +213,79 @@ describe('chrome edges — content is clipped, not merely padded', () => {
 
 // ── The bottom nav's own indicator ───────────────────────────────────────────
 
-describe('BottomNav — the pill never disappears', () => {
+describe('BottomNav — flat equality, no background shape', () => {
   const source = code('components/BottomNav.tsx');
 
-  it('gives Home a real slot instead of fading out and unmounting', () => {
-    expect(source).not.toMatch(/pillOpacity/);
-    expect(source).not.toMatch(/setPillMounted/);
-    expect(source).toMatch(/const homeSize = Math\.min\(centreTrack\.w \+ HOME_RING \* 2/);
+  // 2026-08-18. Maintainer: *"Do not use massive asymmetrical background circles for the active
+  // Bottom Nav icon… Bottom nav icons should have equal visual weight; the active state should
+  // just be a filled icon in the active color with no background shape."*
+  //   Every test in this block used to pin the OPPOSITE — a sliding pill measured against three
+  // tracks, a ring sized from HOME_RING and centred on a 56px FAB, two clamps keeping both
+  // inside the bar's mask. All of that is deleted, and these assertions are its mirror image so
+  // it cannot be rebuilt from the (deliberately preserved) history notes in the component.
+  it('draws nothing behind the active tab — no pill, no ring, no plate', () => {
+    for (const gone of [/pill/i, /HOME_RING/, /PILL_INSET/, /PILL_GROW/, /clampTop/, /clampLeft/, /accentSoft/]) {
+      expect({ pattern: String(gone), present: gone.test(source) })
+        .toEqual({ pattern: String(gone), present: false });
+    }
   });
 
-  it('sizes Home\'s ring from HOME_RING and centres it on the button', () => {
-    // 2026-08-11, user report + screenshots. The ring used to ask for `PILL_GROW_X * 2` past
-    // the FAB — 72px inside a 72px masked box, i.e. a plate the height of the whole bar — and
-    // was then squeezed by `maxPillH` and shoved by `clampTop`. Sizing from the ring outward
-    // and centring on the button is what makes it a frame; the cap comes last and is
-    // arithmetic (`homeFit`), not a guard.
-    expect(source).toMatch(/const homeCentreY = centreTrack\.y \+ centreTrack\.h \/ 2;/);
-    expect(source).toMatch(/const homeTop = homeCentreY - homeSize \/ 2;/);
-    expect(source).toMatch(/const homeX = centreTrack\.x \+ centreTrack\.w \/ 2 - homeSize \/ 2;/);
-    // ...and NOT through the clamp, which can only shove — see the next test.
-    expect(source).not.toMatch(/homeTop = clampTop\(/);
+  it('has no centre FAB — Home is an ordinary slot in an ordinary row', () => {
+    // A 56px accent-filled circle with a gradient rim cannot coexist with "equal visual
+    // weight", whatever is or isn't drawn behind the other four.
+    expect(source).not.toMatch(/centreButton/);
+    expect(source).not.toMatch(/renderCentre/);
+    expect(source).not.toMatch(/LinearGradient/);
+    // ...and the bar no longer slices SITE_ITEMS around a centre index, so reordering the tabs
+    // needs no arithmetic here.
+    expect(source).not.toMatch(/SITE_ITEMS\.slice/);
+    expect(source).toMatch(/SITE_ITEMS\.map\(/);
   });
 
-  it('no longer rests any tab sunk while selected — the pill alone marks it (2026-08-12)', () => {
-    // Reverses the "Pressed = on" side-tab rule the two tests above this one used to pin
-    // (maintainer: "Instead of the pressed down look, just have the blue move between when
-    // going between screens"). `sunk={active}` is gone from NavTabItem's PressableScale —
-    // the sliding pill's colour and position are the only thing that marks the current tab,
-    // side tabs and Home alike. See components/BottomNav.tsx's own header for the full account.
+  it('marks the active tab with a filled glyph in the section colour, and nothing else', () => {
+    expect(source).toMatch(/const tint = active \? navTabHue\(theme, isDark, item\) : theme\.textMuted/);
+    expect(source).toMatch(/name=\{active \? item\.activeIcon : item\.icon\}/);
+    expect(source).toMatch(/color=\{tint\}/);
+  });
+
+  it('gives every slot the same box', () => {
+    // `flex: 1` on all five and no `gap`/`justifyContent` on the bar — the five divide the bar
+    // evenly by construction. The old bar needed both because it was three children of unequal
+    // width, and its raw-vs-scaled `gap` was itself a bug (2026-08-13).
+    const item = source.match(/item: \{[^}]*\}/)?.[0] ?? '';
+    expect(item).toMatch(/flex: 1/);
+    const bar = source.match(/bar: \{[\s\S]*?\n  \}/)?.[0] ?? '';
+    expect(bar).not.toMatch(/gap:/);
+    expect(bar).not.toMatch(/justifyContent/);
+  });
+
+  it('still rests no tab sunk while selected (2026-08-12), and carries no compensating offset', () => {
+    // Maintainer, then: "Instead of the pressed down look, just have the blue move between when
+    // going between screens." What moves between screens is now the colour rather than a plate,
+    // but the ruling is unchanged — `sunk` is for a momentary press, not for "this is the tab
+    // you are on". `travel` (the ordinary press sink) stays.
     expect(source).not.toMatch(/sunk=\{active\}/);
-  });
-
-  it('carries no side-pill travel offset any more — nothing rests sunk to compensate for (2026-08-12)', () => {
-    // The `+ Travel.sm` arithmetic existed only to shift the pill down to meet a side tab
-    // resting sunk; with `sunk={active}` gone, an unsunk tab needs no such offset (keeping it
-    // would frame the icon a few px low). Same reasoning killed Home's `+ Travel.md` a day
-    // earlier. Neither should come back without the sunk state they compensated for.
     expect(source).not.toMatch(/\+ Travel\.sm,/);
     expect(source).not.toMatch(/\+ Travel\.md,/);
+    expect(source).toMatch(/travel=\{Travel\.sm\}/);
   });
 
-  // The bar is a Surface, and a Surface clips its children to its rounded mask — so a pill
-  // that doesn't fit is drawn SLICED, not overflowing. Home's ring was 72px in a 72px bar (a
-  // flattened squircle) and a side pill's bottom corner ran into the bar's own Radius.lg arc.
-  it('keeps the pill inside the bar rather than letting the mask slice it', () => {
-    // Both slots shrink to fit...
-    expect(source).toMatch(/const maxPillH = Math\.max\(0, innerH - PILL_INSET \* 2\)/);
-    expect(source).toMatch(/const pillHeight = Math\.min\(/);
-    expect(source).toMatch(/const homeSize = Math\.min\(/);
-    // ...the side pill's position goes through the clamp rather than straight from its
-    // measured track (Home is fitted by construction instead — see above).
-    expect(source).toMatch(/const sideTop = clampTop\(/);
-    // Against the MEASURED box, never the constant — this bar's padding is useScaledStyles'd,
-    // so BOTTOM_NAV_HEIGHT is only true at font scale 1.0.
-    expect(source).toMatch(/setInnerH/);
-    expect(source).not.toMatch(/innerH = BOTTOM_NAV_HEIGHT/);
-  });
-
-  it('measures the box the pill lives in, not the box the Surface paints', () => {
-    // 2026-08-11. Surface's outer view is 2 × BORDER_WIDTH.card bigger than the mask that
-    // clips its children, so measuring it made every "keep N px off the edge" sum 3px
-    // optimistic — which is how Home's ring ended up 1px off that mask. An absoluteFill probe
-    // rendered beside the pill shares the pill's containing block by definition, so the two
-    // cannot disagree. A `<Surface … onLayout=` here means someone measured the wrong box.
-    expect(source).toMatch(/style=\{StyleSheet\.absoluteFill\}/);
-    // Bounded to the opening tag ([^>], not [\s\S]) — the probe's own onLayout sits further
-    // down the same file and would otherwise match.
-    expect(source).not.toMatch(/<Surface[^>]*onLayout=/);
-    expect(code('components/Surface.tsx')).not.toMatch(/onLayout/);
-  });
-
-  it('clamps the side pill horizontally too, not just vertically', () => {
-    // The first clamp pass (above) only closed the vertical axis; the outermost tabs (Shop,
-    // Health) sit close enough to the bar's own rounded corners that a pill could still catch
-    // the diagonal corner arc horizontally — same failure mode, other axis.
-    expect(source).toMatch(/const clampLeft = \(/);
-    expect(source).toMatch(/setInnerW/);
-    expect(source).toMatch(/return clampLeft\(leftTrack\.x/);
-    expect(source).toMatch(/return clampLeft\(rightTrack\.x/);
-  });
-
-  it('keeps grey depth off the pill and off the Home button, in either state', () => {
-    // A card drop-shadow is a hue-less grey blur. Under the pale accentSoft plate it read as a
-    // dirty donut; Shadow.fab's 16px blur smeared across the ring when Home was active, and
-    // drew a grey collar around the blue circle when it wasn't (2026-08-11 report). The bar is
-    // a Surface and already casts one shadow for the whole cluster.
+  it('keeps grey depth and every halo off the bar', () => {
+    // Each of these was deleted on its own user report in 2026-08-10/11 — a hue-less blur under
+    // a pale plate read as a dirty donut, a 15px glow with 4px of clearance to a clipping mask
+    // could never fade out, and Shadow.fab drew a grey collar rather than a float. The bar is a
+    // Surface that already casts one shadow for the whole cluster.
     expect(source).not.toMatch(/getLayeredShadow/);
+    expect(source).not.toMatch(/getGlow/);
     expect(source).not.toMatch(/Shadow\.fab/);
+  });
+
+  it('has no measurement or animation left at all, because it has nothing to move', () => {
+    // The three measured tracks, the absoluteFill probe and every shared value existed only to
+    // position the pill. A `useSharedValue` reappearing here means a background shape did too.
+    expect(source).not.toMatch(/useSharedValue/);
+    expect(source).not.toMatch(/withTiming/);
+    expect(source).not.toMatch(/onLayout/);
   });
 });
 
@@ -299,23 +294,18 @@ describe('BottomNav — the pill never disappears', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins, and rounds only the OUTER corner pairs', () => {
+  it('takes the chrome\'s side margins, and rounds no corner at all', () => {
     // The margins close the 8px gutters beside the header/bar, where no chrome covers content.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    // The corner radius is back (2026-08-11) — but it means something different now, which is
-    // why this assertion flipped twice. The viewport spans the chrome's OUTER footprint, so its
-    // own corners land on the header's TOP pair and the bar's BOTTOM pair: the two pairs where
-    // nothing should show. The pairs the maintainer wants a scrolled card in — the bar's top,
-    // the header's bottom — are in the MIDDLE of this box and need no treatment at all: "visible
-    // in the bottom nav's cut corners at the top, not the two bottom ones — same for the header
-    // but the opposite". The 2026-08-10 cut had the box spanning the band BETWEEN the cards
-    // instead, so the same radius closed the wanted notches and un-rounding it (the pass after)
-    // couldn't open them either — they were outside the box entirely.
-    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
-    expect(source).toMatch(/borderBottomLeftRadius: Radius\.lg/);
-    // The bottom pair only where a bar is actually reserved — on a sub-tier screen that edge is
-    // just the safe area, with no chrome card for a corner to line up with.
-    expect(source).toMatch(/floatChrome && reserveBottomNav/);
+    // **No corner radius any more (2026-08-18).** This assertion has now flipped three times,
+    // and each flip followed the WINDOW moving rather than a taste change about corners: the
+    // radii were for the two pairs where the viewport met a chrome card's OUTER corner (the
+    // header's top, the bar's bottom). The window no longer reaches either — it is a plain
+    // rectangle in the gap BETWEEN the two cards — so a radius here would round content's
+    // corners against nothing. Both halves are asserted, so restoring one without moving the
+    // window back fails.
+    expect(source).not.toMatch(/borderTopLeftRadius: Radius\.lg/);
+    expect(source).not.toMatch(/borderBottomLeftRadius: Radius\.lg/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {

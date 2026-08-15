@@ -117,7 +117,11 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(surface).not.toMatch(/surfaceContext !== 'ambient'/);
     // The per-tier intensity is the cost mitigation and is the part worth pinning: ~59 ambient
     // cards to an overlay's one, so an ambient pass must stay the cheaper of the two.
-    expect(surface).toMatch(/surfaceContext === 'ambient' \? BLUR_AMBIENT : BLUR_STRONG/);
+    // `isAmbient` is `surfaceContext === 'ambient'`, hoisted on 2026-08-15 because the new
+    // `opaqueCards` gate needs the same predicate. Both halves are asserted so the hoist can't
+    // quietly become something else.
+    expect(surface).toMatch(/const isAmbient = surfaceContext === 'ambient';/);
+    expect(surface).toMatch(/intensity=\{isAmbient \? BLUR_AMBIENT : BLUR_STRONG\}/);
     const ambient = Number(surface.match(/const BLUR_AMBIENT = (\d+)/)?.[1]);
     const strong = Number(surface.match(/const BLUR_STRONG = (\d+)/)?.[1]);
     expect(ambient).toBeGreaterThan(0);
@@ -260,6 +264,32 @@ describe('glass settings', () => {
     // No new copy was needed: the shipped EN/NO strings already say "Frosted glass finish on
     // cards, buttons and the add button. Turn off for plain, solid surfaces."
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
+  });
+
+  it('opaqueCards defaults OFF — glass is the shipped look, this is the experiment', () => {
+    // 2026-08-15, added so the card material can be A/B'd against a solid one. The default is
+    // the whole point of the request ("how it looks as of now is default, but I want to
+    // test"), so a migration or a defaults edit that flips it changes what every existing
+    // install looks like on next launch. Its column DEFAULT is 0 for the same reason.
+    expect(useSettingsStore.getState().opaqueCards).toBe(false);
+  });
+
+  it('opaqueCards is scoped to CARDS, and glassSurfaces still wins over it', () => {
+    // The two switches are deliberately different sizes and this is what keeps them that way.
+    // `glassSurfaces` is the global reduce-transparency mode; `opaqueCards` reaches ambient
+    // panes only, so sheets, the header and the nav stay frosted and the card material can be
+    // judged on its own. Written as ONE boolean so the precedence is readable in one line:
+    // glassSurfaces off ⇒ opaque everywhere regardless, and `tint` still wins over both.
+    const surface = read('components/Surface.tsx');
+    expect(surface).toMatch(
+      /const glassOn = glassPref && !tint && !\(isAmbient && opaqueCards\);/,
+    );
+    // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
+    // turning the switch on would change what lib/__tests__/colors.test.ts measures rather
+    // than only what is drawn. getGlassFill's opaque arm is `theme.surface`, which is exactly
+    // that composite — asserted for real by 'the painted glass and the measured composite
+    // agree' above; this pins that the opaque path still routes through it.
+    expect(surface).toMatch(/getGlassFill\(glassFill, theme\.surface, glassOn\)/);
   });
 });
 

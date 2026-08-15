@@ -1301,7 +1301,7 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   restDayText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
-  restDayHint: { fontSize: FontSize.xs, fontStyle: 'italic', textAlign: 'center', marginTop: 4 },
+  restDayHint: { fontSize: FontSize.xs, textAlign: 'center', marginTop: 4 },
   dayCol: { alignItems: 'center', gap: 3 },
   dayAbbr: { fontSize: 9, fontFamily: Fonts.semibold },
   weekDot: {

@@ -49,7 +49,10 @@
  *     identical content on every app open made it look like a fresh alert.
  *   - The persistent notification lives on its own Android channel
  *     (PERSISTENT_CHANNEL_ID) with showBadge: false and LOW importance, so it
- *     never contributes an app-icon badge count or a heads-up popup.
+ *     never contributes an app-icon badge count or a heads-up popup. Its lockscreen
+ *     visibility is PUBLIC (2026-08-15) so the pinned overview is readable without
+ *     unlocking — read PERSISTENT_CHANNEL_ID's block before changing that value or the
+ *     id, because Android freezes a channel's importance/visibility/sound at creation.
  *   - Content.color (optional) tints the small notification icon on Android —
  *     used by the persistent overview to mirror a task's in-app accent color.
  *   - This is the ONLY file that imports 'expo-notifications' directly — other
@@ -336,7 +339,23 @@ export function pushPastQuietHours(
 }
 
 // ── Persistent "today's overview" notification ──────────────────────────────
-const PERSISTENT_CHANNEL_ID = 'persistent-overview';
+/**
+ * ⚠️ **The `-v2` suffix is load-bearing and the id must never be edited in place.**
+ *
+ * Android treats a channel's importance, sound and lockscreen visibility as immutable after
+ * the first `createNotificationChannel` for that id: a later call with the same id updates
+ * only the name/description/group and silently drops everything else, because those fields
+ * belong to the user once the channel exists. The 2026-08-15 pass turned this notification's
+ * lockscreen visibility PUBLIC (it had never been set, so it sat at Android's `PRIVATE`
+ * default and showed "contents hidden" on a secure lock screen — the one place a pinned
+ * overview is worth having). On every install that had already posted an overview, setting
+ * it on the old `persistent-overview` id would have been a no-op. Hence a new id, plus a
+ * one-shot delete of the legacy one so the shade doesn't list two "Daily overview" channels.
+ *
+ * If a future change touches importance/visibility/sound again, bump to `-v3` the same way.
+ */
+const PERSISTENT_CHANNEL_ID = 'persistent-overview-v2';
+const LEGACY_PERSISTENT_CHANNEL_IDS = ['persistent-overview'];
 
 let persistentChannelReady = false;
 async function ensurePersistentChannel() {
@@ -349,22 +368,59 @@ async function ensurePersistentChannel() {
     sound: null,
     enableVibrate: false,
     vibrationPattern: [],
+    // Readable on a locked screen, contents and all — a summary you have to unlock to read is
+    // one you will not read. The control for anyone who does not want that is the whole
+    // notification's own switch (`settings.persistentNotifEnabled`), not a redacted body: an
+    // omit-health variant was tried on 2026-08-15 and reversed by the maintainer the same day.
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   }).catch(ignore);
+  for (const legacy of LEGACY_PERSISTENT_CHANNEL_IDS) {
+    await Notifications.deleteNotificationChannelAsync(legacy).catch(ignore);
+  }
 }
+
+/**
+ * The one thing the pinned overview can be ACTED on, if anything (2026-08-15).
+ *
+ * The overview summarises a whole day, so there is no single "Done" that means anything on its
+ * own — which is why it shipped with no buttons at all and stayed a thing you could only read.
+ * The fix is to let the caller nominate the most answerable item on it and borrow the category
+ * that item already has: a tray still due carries 'medicine-reminder' and its Taken button, the
+ * next task carries 'task-reminder' and its Done button.
+ *
+ * Reusing the two existing categories rather than minting an 'overview' one is deliberate on
+ * two counts. A fixed label like "Done" on a day-summary notification says nothing about WHAT;
+ * borrowing means the button always reads as the verb for the thing named in the body. And the
+ * listeners in app/_layout.tsx already dispatch on these payloads, so acting from the overview
+ * takes exactly the same store path as acting from the reminder itself — no second code path
+ * to keep in step, and no chance of the two disagreeing about what "taken" writes.
+ */
+export type PersistentAction =
+  | { kind: 'tray'; tray: string }
+  | { kind: 'task'; taskId: string };
 
 // Fires immediately under a stable identifier, so each call replaces the
 // previous one in place rather than stacking new notifications. Skips the
 // native call entirely when the content hasn't changed since the last call,
 // so opening the app doesn't re-surface/reorder it when nothing is new.
 let lastPersistentContentKey: string | null = null;
-export async function refreshPersistentNotification(content: Content) {
-  const key = `${content.title} ${content.body} ${content.color ?? ''}`;
+export async function refreshPersistentNotification(content: Content, action?: PersistentAction) {
+  // The action is part of the identity: the body can be unchanged while the actionable item
+  // moves on (finish the 09:00 task and the 11:00 one takes its place under the same counts),
+  // and re-posting is the only way to relabel the button's payload.
+  const actionKey = action ? `${action.kind}:${action.kind === 'tray' ? action.tray : action.taskId}` : '';
+  const key = `${content.title} ${content.body} ${content.color ?? ''} ${actionKey}`;
   if (key === lastPersistentContentKey) return;
   lastPersistentContentKey = key;
   await ensurePersistentChannel();
+  const actionContent = !action
+    ? {}
+    : action.kind === 'tray'
+      ? { data: { medicineTray: action.tray }, categoryIdentifier: 'medicine-reminder' }
+      : { data: { taskId: action.taskId }, categoryIdentifier: 'task-reminder' };
   await Notifications.scheduleNotificationAsync({
     identifier: 'persistent-overview',
-    content: { ...content, sticky: true, autoDismiss: false, sound: false, vibrate: [] },
+    content: { ...content, ...actionContent, sticky: true, autoDismiss: false, sound: false, vibrate: [] },
     trigger: { channelId: PERSISTENT_CHANNEL_ID },
   }).catch(ignore);
 }
@@ -418,6 +474,59 @@ export async function syncMedicineCategories(takenLabel: string, snoozeLabel: st
     { identifier: 'med-taken', buttonTitle: takenLabel },
     { identifier: 'med-snooze', buttonTitle: snoozeLabel },
   ]).catch(ignore);
+}
+
+/**
+ * Registers the "habit-reminder" category — Done / Remind-me-later on a habit nudge.
+ *
+ * Habit reminders were the one reminder type in the app with NO actions at all (2026-08-15):
+ * tasks had Done since AP-05 and medicine trays got Taken with the tray system, but a habit
+ * nudge was a plain notification you could only dismiss or tap through into the app. A habit
+ * is the reminder most likely to arrive while your hands are full, which is exactly when
+ * opening an app is the thing you will not do.
+ *
+ * Its own category, not a reuse of 'task-reminder': the payload is a habit id and "done"
+ * means "count today", which is an increment rather than a completion.
+ */
+export async function syncHabitCategories(doneLabel: string, snoozeLabel: string) {
+  await Notifications.setNotificationCategoryAsync('habit-reminder', [
+    { identifier: 'habit-done', buttonTitle: doneLabel },
+    { identifier: 'habit-snooze', buttonTitle: snoozeLabel },
+  ]).catch(ignore);
+}
+
+export type HabitActionId = 'habit-done' | 'habit-snooze';
+
+/**
+ * Subscribes to taps on a habit reminder's buttons. Filters on `data.habitId`, so it ignores
+ * task/medicine/persistent notifications entirely — the same coexistence rule the other two
+ * listeners follow. Returns an unsubscribe function.
+ */
+export function onHabitAction(handler: (action: HabitActionId, habitId: string) => void): () => void {
+  const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+    const habitId = response.notification.request.content.data?.habitId as string | undefined;
+    const actionId = response.actionIdentifier;
+    if (!habitId || (actionId !== 'habit-done' && actionId !== 'habit-snooze')) return;
+    handler(actionId, habitId);
+  });
+  return () => subscription.remove();
+}
+
+/** One-off follow-up for a snoozed habit reminder (mirrors scheduleReNudge/scheduleTrayReNudge). */
+export async function scheduleHabitReNudge(habitId: string, delayMs: number, content: Content) {
+  await cancelHabitReNudge(habitId);
+  await Notifications.scheduleNotificationAsync({
+    identifier: `habit-${habitId}-renudge`,
+    content: { ...content, data: { habitId }, categoryIdentifier: 'habit-reminder' },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: Math.max(1, Math.round(delayMs / 1000)),
+    },
+  }).catch(ignore);
+}
+
+export async function cancelHabitReNudge(habitId: string) {
+  await Notifications.cancelScheduledNotificationAsync(`habit-${habitId}-renudge`).catch(ignore);
 }
 
 export type MedicineActionId = 'med-taken' | 'med-snooze';

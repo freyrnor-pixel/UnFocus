@@ -15,10 +15,11 @@
  *   Imports → react-native-android-widget (types), lib/widgets/snapshot (read/save),
  *             lib/widgets/headlessSnapshot (buildHeadlessSnapshot fallback),
  *             lib/widgets/WidgetViews (renderWidgetByName),
- *             lib/widgets/widgetActions (toggleTaskDone/cycleShoppingItem/toggleNoteChecked/toggleHabitDone)
+ *             lib/widgets/widgetActions (toggleTaskDone/cycleShoppingItem/toggleNoteChecked/
+ *             toggleHabitDone/takeTray)
  *   Used by → index.ts (registerWidgetTaskHandler, Android only)
  *   Data    → reads/writes the widget_snapshot SQLite row; the actions write tasks/
- *             shopping_items/notes/habit_logs
+ *             shopping_items/notes/habit_logs/medicine_doses
  *
  * Edit notes:
  *   - WIDGET_UPDATE (the OS periodic tick, app usually dead) rebuilds from live SQLite via
@@ -31,26 +32,27 @@
  *     and written a snapshot (the "invisible until I open the app" symptom). placeholder() is
  *     only the last resort if even that read fails.
  *   - WIDGET_CLICK dispatches on `clickAction` + `clickActionData.id`. OPEN_APP / OPEN_URI
- *     are handled natively (never reach here) — only the custom TOGGLE_/CYCLE_ actions do.
+ *     are handled natively (never reach here) — only the custom TOGGLE_/CYCLE_/TAKE_ actions
+ *     do. `id` is a row id for all of them EXCEPT TAKE_TRAY, where it is a TrayId.
  *   - The snapshot patch mirrors the DB write's effect on the visible list (flip done, move
  *     to cart, drop purchased/checked rows). Subtitles/counts aren't re-localised here (no
  *     i18n in the headless context) — they self-correct on the next in-app sync.
  */
 import type { WidgetTaskHandlerProps } from 'react-native-android-widget';
-import { readWidgetSnapshot, saveWidgetSnapshot, type WidgetSnapshot } from './snapshot';
+import { readWidgetSnapshot, saveWidgetSnapshot, WIDGET_ACCENT, type WidgetSnapshot } from './snapshot';
 import { buildHeadlessSnapshot } from './headlessSnapshot';
 import { renderWidgetByName } from './WidgetViews';
-import { toggleTaskDone, cycleShoppingItem, toggleNoteChecked, toggleHabitDone } from './widgetActions';
+import { toggleTaskDone, cycleShoppingItem, toggleNoteChecked, toggleHabitDone, takeTray } from './widgetActions';
 
 function placeholder(): WidgetSnapshot {
   return {
     updatedAt: Date.now(),
-    shopping: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#0891B2', hasContent: false },
-    tasks: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#2563EB', hasContent: false },
-    overview: { title: 'UnFocus', lines: [], empty: '—', accent: '#F4A261', hasContent: false },
-    notes: { title: 'UnFocus', items: [], more: '', empty: '—', voiceLabel: '', accent: '#8B5CF6', hasContent: false },
-    habits: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#16A34A', hasContent: false },
-    health: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: '#E11D48', hasContent: false },
+    shopping: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.shop, hasContent: false },
+    tasks: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.task, hasContent: false },
+    overview: { title: 'UnFocus', lines: [], empty: '—', accent: WIDGET_ACCENT.overview, hasContent: false },
+    notes: { title: 'UnFocus', items: [], more: '', empty: '—', voiceLabel: '', accent: WIDGET_ACCENT.notes, hasContent: false },
+    habits: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.habits, hasContent: false },
+    health: { title: 'UnFocus', subtitle: '', items: [], trays: [], more: '', empty: '—', accent: WIDGET_ACCENT.health, hasContent: false },
   };
 }
 
@@ -92,6 +94,21 @@ function applyClick(snap: WidgetSnapshot, action: string | undefined, id: string
       if (r) {
         const it = snap.habits.items.find((h) => h.id === id);
         if (it) it.done = r.done;
+      }
+      break;
+    }
+    case 'TAKE_TRAY': {
+      // `id` is a TrayId here, not a row id — a tray is logged as a whole (lib/widgets/
+      // widgetActions.ts). One-way on purpose: the app's own card has no un-take gesture
+      // either, and an accidental double-tap is a no-op rather than an undo.
+      const r = takeTray(id);
+      if (r) {
+        const tray = (snap.health.trays ?? []).find((t) => t.id === id);
+        if (tray) {
+          tray.taken = true;
+          tray.due = false;
+          tray.detail = `${r.taken}/${r.total}`; // Re-localised on the next in-app sync.
+        }
       }
       break;
     }

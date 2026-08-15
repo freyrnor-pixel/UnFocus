@@ -17,29 +17,35 @@
  * runs in the no-snapshot edge case and is corrected on the next foreground sync.
  *
  * Connections:
- *   Imports → lib/db (shared SQLite handle), lib/date (todayStr)
+ *   Imports → lib/db (shared SQLite handle), lib/date (todayStr, localMinutesOf),
+ *             lib/widgets/snapshot (types + the shared WIDGET_ACCENT map)
  *   Used by → lib/widgets/handler.tsx (render fallback before placeholder())
- *   Data    → reads tasks / shopping_items / notes / habits / habit_logs / health_logs / settings
+ *   Data    → reads tasks / shopping_items / notes / habits / habit_logs / health_logs /
+ *             medicines / medicine_doses / settings
  *
  * Edit notes:
  *   - Keep this store-free and i18n-free so it stays safe in a bare headless JS context.
  *   - Every query is wrapped: any failure degrades the whole builder to null (→ placeholder()).
- *   - Accents MUST match lib/widgets/sync.ts's ACCENT map so a headless render is visually
- *     identical to an app-pushed one. New display strings go in WIDGET_STRINGS (all three of
- *     en + no + is).
+ *   - Accents come from lib/widgets/snapshot.ts's WIDGET_ACCENT, shared with lib/widgets/sync.ts
+ *     so a headless render can't drift from an app-pushed one. This file kept its own byte-equal
+ *     copy of that map until 2026-08-15, with a comment telling the next session to keep the two
+ *     in step by hand — which is not a mechanism. New display strings still go in WIDGET_STRINGS
+ *     (all three of en + no + is); that duplication is real and unavoidable, since lib/i18n.ts
+ *     is a store. The local `isCount` below is duplicated from lib/i18n.ts for the same reason.
  */
 import db from '@/lib/db';
-import { todayStr } from '@/lib/date';
-import type { WidgetSnapshot } from './snapshot';
+import { localMinutesOf, todayStr } from '@/lib/date';
+import { WIDGET_ACCENT as ACCENT, type WidgetSnapshot, type WidgetTrayLine } from './snapshot';
 
 const PREVIEW = 20;
-const ACCENT = {
-  shop: '#0891B2',
-  task: '#2563EB',
-  overview: '#F4A261',
-  notes: '#8B5CF6',
-  habits: '#16A34A',
-  health: '#E11D48',
+
+/** Tray ids in the order the day runs, mirroring lib/medicineSchedule.ts's TRAY_IDS. */
+const TRAYS = ['morning', 'midday', 'evening', 'night'] as const;
+const DEFAULT_TRAY_TIMES: Record<string, string> = {
+  morning: '08:00',
+  midday: '12:00',
+  evening: '18:00',
+  night: '21:00',
 };
 
 type Strings = {
@@ -60,6 +66,10 @@ type Strings = {
   noNotes: string;
   voiceNote: string;
   overviewEmpty: string;
+  medicineDue: (n: number) => string;
+  trayProgress: (taken: number, total: number) => string;
+  stillDue: (trays: string) => string;
+  trayNames: Record<string, string>;
 };
 
 /**
@@ -90,6 +100,10 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noNotes: 'No notes yet',
     voiceNote: 'Voice note',
     overviewEmpty: 'No tasks left today',
+    medicineDue: (n) => (n === 1 ? '1 medicine still due' : `${n} medicines still due`),
+    trayProgress: (taken, total) => `${taken} of ${total}`,
+    stillDue: (trays) => `Still due: ${trays}`,
+    trayNames: { morning: 'Morning', midday: 'Midday', evening: 'Evening', night: 'Night' },
   },
   no: {
     shoppingTitle: 'Handleliste',
@@ -109,6 +123,10 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noNotes: 'Ingen notater ennå',
     voiceNote: 'Taleopptak',
     overviewEmpty: 'Ingen oppgaver igjen i dag',
+    medicineDue: (n) => (n === 1 ? '1 medisin gjenstår' : `${n} medisiner gjenstår`),
+    trayProgress: (taken, total) => `${taken} av ${total}`,
+    stillDue: (trays) => `Gjenstår: ${trays}`,
+    trayNames: { morning: 'Morgen', midday: 'Midt på dagen', evening: 'Kveld', night: 'Natt' },
   },
   is: {
     shoppingTitle: 'Innkaup',
@@ -128,6 +146,11 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noNotes: 'Engir minnispunktar enn',
     voiceNote: 'Talupptaka',
     overviewEmpty: 'Engin verkefni eftir í dag',
+    // "lyf" is neuter with one form for both numbers, so it needs no isCount.
+    medicineDue: (n) => `${n} lyf eftir`,
+    trayProgress: (taken, total) => `${taken} af ${total}`,
+    stillDue: (trays) => `Eftir: ${trays}`,
+    trayNames: { morning: 'Morgunn', midday: 'Miðdegi', evening: 'Kvöld', night: 'Nótt' },
   },
 };
 
@@ -283,10 +306,84 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
       /* leave health empty */
     }
 
-    // ── Overview lines (backward-compat for installs still running the Overview receiver) ──
+    // ── Medicine trays (folded into the Health widget, 2026-08-15) ──
+    // Gated on feature_medicine like every other read of this domain. `trays` is a JSON array
+    // column, so membership is matched in JS — a LIKE would match a substring of another id.
+    let trays: WidgetTrayLine[] = [];
+    let dueMedicines = 0;
+    const dueTrayNames: string[] = [];
+    try {
+      const cfg = db.getFirstSync<{ feature_medicine: number; medicine_tray_times: string }>(
+        'SELECT feature_medicine, medicine_tray_times FROM settings WHERE id = 1'
+      );
+      if (cfg?.feature_medicine) {
+        let times: Record<string, string> = DEFAULT_TRAY_TIMES;
+        try {
+          const parsed = JSON.parse(cfg.medicine_tray_times || '{}');
+          if (parsed && typeof parsed === 'object') times = { ...DEFAULT_TRAY_TIMES, ...parsed };
+        } catch {
+          /* malformed column — the defaults are the same ones lib/db.ts seeds */
+        }
+        const meds = db.getAllSync<{ id: string; trays: string }>(
+          'SELECT id, trays FROM medicines WHERE active = 1 AND as_needed = 0'
+        );
+        const taken = new Set(
+          db
+            .getAllSync<{ medicine_id: string; tray: string }>(
+              'SELECT medicine_id, tray FROM medicine_doses WHERE log_date = ?',
+              [today]
+            )
+            .map((d) => `${d.medicine_id}|${d.tray}`)
+        );
+        const nowMinutes = localMinutesOf(new Date());
+        for (const tray of TRAYS) {
+          const inTray = meds.filter((m) => {
+            try {
+              const list = JSON.parse(m.trays || '[]');
+              return Array.isArray(list) && list.includes(tray);
+            } catch {
+              return false;
+            }
+          });
+          if (inTray.length === 0) continue;
+          const takenCount = inTray.filter((m) => taken.has(`${m.id}|${tray}`)).length;
+          const allTaken = takenCount >= inTray.length;
+          const [th, tm] = (times[tray] || DEFAULT_TRAY_TIMES[tray]).split(':').map((n) => parseInt(n, 10));
+          const trayMin = (Number.isFinite(th) ? th : 0) * 60 + (Number.isFinite(tm) ? tm : 0);
+          const due = !allTaken && trayMin <= nowMinutes;
+          if (due) {
+            dueMedicines += inTray.length - takenCount;
+            dueTrayNames.push(s.trayNames[tray] ?? tray);
+          }
+          trays.push({
+            id: tray,
+            label: s.trayNames[tray] ?? tray,
+            detail: s.trayProgress(takenCount, inTray.length),
+            taken: allTaken,
+            due,
+          });
+        }
+      }
+    } catch {
+      trays = [];
+    }
+
+    // ── Overview lines ──
+    // Mirrors lib/widgets/sync.ts's single rendering. Still used by the retired Overview
+    // receiver on installs that predate the Habits/Health widgets.
     const overviewLines: string[] = [];
     if (tasksRemaining > 0) overviewLines.push(s.tasksLeft(tasksRemaining));
     if (shopRemaining > 0) overviewLines.push(s.itemsLeft(shopRemaining));
+    if (habitsRemaining > 0) overviewLines.push(s.habitsLeft(habitsRemaining));
+    if (dueTrayNames.length > 0) overviewLines.push(s.stillDue(dueTrayNames.join(', ')));
+    if (ongoingCount > 0) overviewLines.push(s.healthOngoing(ongoingCount));
+
+    const healthSubtitle = [
+      dueMedicines > 0 ? s.medicineDue(dueMedicines) : '',
+      ongoingCount > 0 ? s.healthOngoing(ongoingCount) : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     return {
       updatedAt: Date.now(),
@@ -336,12 +433,13 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
       },
       health: {
         title: s.healthTitle,
-        subtitle: ongoingCount > 0 ? s.healthOngoing(ongoingCount) : '',
+        subtitle: healthSubtitle,
         items: healthItems,
+        trays,
         more: healthTotal > PREVIEW ? s.more(healthTotal - PREVIEW) : '',
         empty: '',
         accent: ACCENT.health,
-        hasContent: healthItems.length > 0,
+        hasContent: healthItems.length > 0 || trays.length > 0,
       },
     };
   } catch {

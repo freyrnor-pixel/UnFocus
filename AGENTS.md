@@ -216,6 +216,103 @@ file owns which token.)
   to other settings. The card also has **no "nothing scheduled today" line** any more — it sat
   above the starter card saying less than the card did (and, when every medicine is as-needed,
   above nothing at all).
+- **The outside surfaces caught up with the app — 2026-08-15** (`lib/widgets/*` +
+  `lib/notifications.ts`'s persistent channel). The widgets and the pinned "today's overview"
+  notification are the only parts of this app that render with the app process DEAD, which is
+  also why they are the only parts nothing in the review loop ever looks at: they are invisible
+  to `tsc`, to the Jest suite, to `npm run preview` (Android widgets no-op on web — see
+  `lib/widgets/sync.web.ts`) and to every screenshot in `review-bundle/`. They had drifted about
+  a year behind on colour and a full feature-set behind on content. Four things changed, and the
+  first is the general lesson.
+  - **A hand-copied constant with a comment telling you to keep it in step is not a mechanism.**
+    `WidgetViews.tsx`'s palette carried exactly that comment and sat frozen at the 2026-07-14
+    values through true-black dark mode (2026-08-10), dark becoming the DEFAULT (2026-08-16) and
+    two categorical-hue recalibrations — so the surface most users saw first, on their home
+    screen, was drawn in a navy that no longer existed. The six widget accents were worse than
+    stale: `#0891B2`/`#2563EB`/`#F4A261`/`#8B5CF6`/`#16A34A`/`#E11D48` were invented before the
+    categorical system and matched nothing in the app at all. The copies are still copies —
+    importing `constants/colors.ts` into a headless context pulls a react-native module graph
+    that has no business being evaluated there — but `lib/widgets/__tests__/widgetPalette.test.ts`
+    now recomputes every one of them from `IDENTITY_HUES`/`getThemePalette` and fails the PR on a
+    drift. **Do the same for any new baked-in copy; do NOT "tidy" these into imports.**
+  - **The frame paints `surface`, not `bg`, and light mode needs its own ink.** A widget floats
+    on a wallpaper with no page behind it, so `surface` is what it structurally is — and
+    `#000000` would dissolve it into any dark wallpaper. (`Palette.card` had been declared and
+    never referenced, which is how the frame ended up in the page colour.) The five identity
+    hues are tuned for a black card and measure **1.35–3.42:1** on the light one, so `LIGHT_INK`
+    darkens each until it clears 4.5:1 — the same walk `lib/domainColor.ts`'s `badgeGlyphFor()`
+    does at runtime, baked because this file cannot call it. The test asserts the FAILURE too,
+    so nobody removes `ink()` on the assumption a neon is fine on white.
+  - **The pinned notification shows the WHOLE day, lock screen included.** Its channel is
+    `PUBLIC` now (it had never set a visibility, so Android's `PRIVATE` default showed "contents
+    hidden" on a locked screen — the one place a pinned overview earns its keep), and
+    `overview.lines` is the single rendering it posts verbatim: task/shopping/habit counts, the
+    named trays still due, a count of open episodes, then the next task.
+    ⚠️ **A redacted second rendering (`safeLines`) shipped for a few hours the same day and was
+    reversed** — health dropped, medicine reduced to a count. The maintainer's ruling: a summary
+    you have to unlock to read is one you will not read, and half a summary is worse than none.
+    The privacy control is `persistentNotifEnabled`, which turns the whole notification off.
+    **Don't reintroduce a redacted variant without asking**; `lib/widgets/__tests__/overviewSplit.test.ts`
+    keeps its now-misleading name so the history stays findable, and asserts the absence.
+    ⚠️ **The `-v2` in `persistent-overview-v2` is load-bearing** — Android freezes a channel's
+    importance/visibility/sound at creation and silently ignores a later change, so on every
+    install that had already posted an overview, setting this on the old id would have been a
+    no-op. Bump to `-v3` the same way if one of those fields moves again.
+  - **Every notification can be ANSWERED from the shade, not just read.** Two were read-only.
+    A **habit reminder** had no buttons at all — tasks had Done from AP-05 and trays got Taken
+    with the tray system, but the reminder most likely to arrive while your hands are full could
+    only be dismissed or tapped through. It has its own `'habit-reminder'` category now
+    (Done/Remind me later, payload `data.habitId`), and Done is an **`increment()`**, not a
+    "mark met": a counter habit nudged three times should count three times, and for a
+    daily-goal-of-1 — almost every real habit — the two are identical. And the **pinned
+    overview** had none, because a day summary has no single "Done" that means anything. It
+    nominates the most answerable item instead (a tray still due, else the next undone task) and
+    **borrows that item's own category** rather than minting an `'overview'` one — so the button
+    reads as the verb for something the body names, and acting from the overview takes the exact
+    same store path as acting from the reminder itself. There are now three categories and three
+    listeners mounted at once, each filtering on its own payload key (`taskId` / `medicineTray` /
+    `habitId`); **a missing payload is a silent button, not a broken one**, which is why the
+    tests assert the payload rather than the label. `refreshPersistentNotification`'s dedupe key
+    includes the action, or finishing the 09:00 task would leave the button pointed at it while
+    the body moved on. Still deliberately actionless: the weekly/monthly nudges (no single act
+    to take) and an open episode (closing one asks when it ended and what helped; "Still going"
+    writes nothing at all — a shade button can express neither).
+  - **Every notification switch lives in Settings → Personal, and turning one ON asks for the OS
+    permission.** Two gaps closed on 2026-08-15. `medicineRemindersEnabled` existed ONLY as the
+    bell on the Health tab's medicine card, so the one screen a user goes to to manage
+    notifications did not list the app's most time-critical one (both write the same value; the
+    bell is the in-context control, Settings is the inventory, and the row is hidden with
+    `featureMedicine` like every other medicine surface). And `applyAndSync` never called
+    `requestPermissions()` — permission was only ever asked at onboarding and from Home's ⓘ
+    toggles, so anyone who declined there, or who revoked it in Android settings later, flipped a
+    switch here that read as on while `scheduleNotificationAsync` failed silently (lib/
+    notifications.ts swallows those by design). `NOTIF_SWITCHES` in `app/settings.tsx` is the
+    list; **add a new notification toggle to it in the same edit that adds the row.**
+  - **The picker previews are generated from source, not drawn** (`scripts/build-widget-previews.mjs`,
+    `npm run widget-previews`). `assets/widget-previews/*.png` is what Android shows when you
+    long-press the home screen and browse widgets — the first and often only look anyone gets
+    before placing one — and they were hand-drawn one-offs in the retired navy, with the
+    pre-categorical accents, English-only titles, and a "Today's tasks" heading the widget never
+    rendered. The generator EXTRACTS every colour and every title from `WidgetViews.tsx` /
+    `snapshot.ts` / `headlessSnapshot.ts` at run time and rasterises through the pre-installed
+    Chromium; only the sample row text is invented, because a preview has no real data. The
+    palette test asserts the script contains **no hex literal at all**, so the one way it could
+    drift is closed. ⚠️ **These are NATIVE — `previewImage` is bundled into the APK as a
+    drawable, so regenerating them reaches nobody over OTA and needs a new build.** It does not
+    change the JS↔native contract, so it does not by itself need a `runtimeVersion` bump.
+  - **Medicine reached the outside for the first time**, folded into the Health widget rather
+    than given a sixth receiver (a new widget means `app.json`, a `runtimeVersion` bump and a
+    native build; this ships over OTA). That makes the Health widget's tray rows its first write
+    into health data — `TAKE_TRAY` logs the whole window, the same unit the notification's Taken
+    button uses, idempotent on `(medicine_id, log_date, tray)` because a widget tap and that
+    button can land from two processes at once. Its symptom rows stay read-only on purpose:
+    un-logging one deletes a dated entry with a severity and maybe a note on it. The tray's
+    no-shame contract survives the trip — a passed-but-untaken tray reads exactly like an
+    upcoming one apart from where the eye lands, with no red, no lateness, no escalation — and
+    every medicine read is gated on `featureMedicine`, because **a flag that hides a surface has
+    to hide it outside the app too.** Habits and open episodes joined the overview in the same
+    pass; the episode line is a count and stays one (`lib/episodes.ts`'s promise is that a
+    week-old episode reads like an hour-old one).
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
   Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
   post-date the rebuild; the rest of it describes the pre-rebuild app and is dead).
@@ -393,6 +490,68 @@ file owns which token.)
       failure, so the next session cannot "restore" it.
     Everything is invisible to a screenshot in isolation and the web preview runs worklets on the
     JS thread, so the source scan is the only guard that holds.
+- **The blueprint pass — 2026-08-18** (a third maintainer brief, written after the previous two
+  were only partly carried out: *"You have been falling back on standard CSS habits (nested
+  boxes, gradients, and text bloat). Stop guessing."*). Four instructions, each a reversal of
+  something shipped, plus one addition. Pinned by `lib/__tests__/chromeRhythm.test.ts` §3/§4 and
+  `lib/__tests__/exampleRows.test.ts` §2.
+  - **The bottom nav is FIVE EQUAL SLOTS** (`components/BottomNav.tsx`): *"Do not use massive
+    asymmetrical background circles for the active Bottom Nav icon… the active state should just
+    be a filled icon in the active color with no background shape."* The sliding pill/ring AND
+    the 56px centre FAB are both **deleted** — Home is an ordinary tab in the ordinary row — and
+    with them went three measured tracks, the `absoluteFill` probe, `PILL_*`/`HOME_RING`, both
+    clamps, every shared value in the file and the last `LinearGradient`. The bar has no
+    animation left because it has nothing to move. Active = the filled Ionicons variant in the
+    section's categorical hue (`navTabHue`, still dark-mode only); inactive = the outline glyph
+    in `textMuted`. **That makes the hue load-bearing**, not decorative — it is now the only
+    channel, so don't collapse it back to one accent. This supersedes the whole 2026-07-24 →
+    2026-08-12 pill lineage below; the component's header keeps that history so it isn't
+    rebuilt from a stale note.
+  - **A top tab's active pill is a SOFT TRANSLUCENT WASH** (`components/TabSlider.tsx`):
+    *"Active Top Tabs should use a soft, translucent pill strictly behind the text/icon."*
+    `rgba(hue, PILL_ALPHA)` instead of a solid `theme.accent` fill, the label in `theme.text`
+    instead of `accentInk`, and the track's border painted `transparent` (kept at width 1 so
+    `TAB_SLIDER_HEIGHT`, which five callers reserve, does not move). ⚠️ **This edits the
+    two-shapes rule, it does not break it**: the tier is still carried by the ACTIVE TREATMENT
+    (screen tier = hued wash, form tier = raised white pill), and the two are further apart now
+    than a fill opacity ever made them.
+  - **No box inside a card** (`StarterCard`'s accordion, `StarterExampleRow`,
+    `StarterSuggestionChip`, `PlanTaskCard`'s ghost add-row): *"Do NOT place borders,
+    `<Divider/>` lines, or separate background boxes inside of main cards… Suggestion chips
+    should be simple, borderless, matte shapes."* Every edge in that family is gone — the
+    accordion's `collapsibleBox` border and its hairline divider, the example row's dashed
+    field rung, its icon ring and "+" strokes, the chip's dashed pill, the ghost row's dashed
+    box — replaced by padding, muted ink and one shared `getMatte()` plate (`constants/theme.ts`,
+    new). **The row's GEOMETRY is untouched**, which is what still makes an example an example
+    of the rows around it. This supersedes the 2026-08-12 "one box, not two" pass and half of
+    the 2026-08-10 provisional-finish reversal — the finish is ink-only now — but not their
+    conclusions: the two example shapes still share ONE finish, and an example still must not
+    look finished.
+  - **No italics anywhere, and no "e.g."**: *"Remove all italicized text and 'e.g.' (example)
+    explanations."* `fontStyle: 'italic'` is gone from all 14 files that carried it, and the
+    `e.g.`/`f.eks.` prefix is off every placeholder in `lib/i18n.ts`. The ⓘ banners were already
+    one short sentence each (2026-08-17); the two that were two sentences are now one.
+  - **⚠️ THE ADDITION, and it reverses a load-bearing 2026-08-11 decision**: *"even though
+    things are translucent, things like header and bottom nav should still not show elements
+    behind it when user is scrolling, or have scrolled. Only the backdrop."*
+    `components/ScreenScaffold.tsx`'s clip window moved from the chrome's OUTER footprint to its
+    INNER edges — content is now bounded by the header's (or an attached sticky bar's) bottom
+    edge and the nav card's top edge, and `contentPad` is `{0, 0}` because the viewport's own
+    margins are the whole clearance. The old arithmetic was correct and rested on a premise that
+    expired silently: it let content scroll behind the chrome "hidden BY" it, which was true
+    while every Surface was opaque and false from 2026-08-15, when the header and bar became
+    frosted glass. **What this knowingly gives up is the corner peek** ("cards … visible in the
+    bottom nav's cut corners at the top") — that request and this one are the same question with
+    opposite answers, and this is both the later and the more general ruling. The surviving rule
+    is unchanged: **one clearance each — the clip is margin on the wrapper, never also padding on
+    the content.**
+  - **`components/IconButton.tsx` and `components/VoiceNoteFAB.tsx` finally got the 2026-08-17
+    button treatment**, which had only reached `Button` and the ~18 hand-rolled action pills.
+    Both dropped a `darken(fill, 0.22)` housing, a black cast shadow and (IconButton) a
+    `LinearGradient` rim ring for `glassKey()` plus an outward `getGlow`. The FAB is the one
+    documented exception to "flat and translucent": it floats over a scrolling list, so its
+    glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
+    in this pass, for the same reason.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
@@ -1913,11 +2072,27 @@ Two things there are worth knowing before editing it:
 - `BottomNav` labels read from `t.nav` — add new entries there when adding a tab.
 - `completedCount` in `useTaskStore` counts all-time done tasks (intentional — cumulative "small things add up" philosophy)
 - `backlogTasks(today)` only returns non-recurring tasks; recurring tasks reappear by date schedule
-- **Notifications**: `lib/notifications.ts` only takes already-localised content. Medicine tray reminders live in `lib/medicineNotifications.ts` (one daily reminder per tray, re-synced from `store/useMedicineStore.ts` on every mutation; quiet hours SKIP a tray like habits, never shift it) — and note its "decide first, then cancel only what isn't being rescheduled" rule: a blanket cancel-then-schedule races with `scheduleDailyReminder`'s own internal cancel and can silently un-schedule what it just armed. Per-task reminders live in `lib/taskNotifications.ts` and cover both kinds — one-off tasks fire once (skipped if done/past), weekly-recurring tasks fire on every selected weekday (via `scheduleWeeklyTaskNotifications`); time-box tasks also get an "end" reminder. Habit daily reminders in `lib/habitNotifications.ts`; weekly/monthly reminders in `lib/reminders.ts` (`syncReminders`). (Both scheduler modules were extracted out of their stores some time ago — this line said they still lived in `useTaskStore`/`useHabitStore` until 2026-08-12; the stores now hold only thin adapters.) The quiet-hours split is one shared helper each way: `shouldSkipForQuietHours` for the two that skip (habits, medicine trays), `pushPastQuietHours` for the one that defers (tasks) — and the four quiet-hours settings fields are one `QuietHoursSettings` type the three scheduler settings types extend. `settings.tsx` re-syncs on relevant changes; `_layout.tsx` and onboarding step 6 sync on startup/finish.
+- **Notifications**: `lib/notifications.ts` only takes already-localised content. Medicine tray reminders live in `lib/medicineNotifications.ts` (one daily reminder per tray, re-synced from `store/useMedicineStore.ts` on every mutation; quiet hours SKIP a tray like habits, never shift it) — and note its "decide first, then cancel only what isn't being rescheduled" rule: a blanket cancel-then-schedule races with `scheduleDailyReminder`'s own internal cancel and can silently un-schedule what it just armed. Per-task reminders live in `lib/taskNotifications.ts` and cover both kinds — one-off tasks fire once (skipped if done/past), weekly-recurring tasks fire on every selected weekday (via `scheduleWeeklyTaskNotifications`); time-box tasks also get an "end" reminder. Habit daily reminders in `lib/habitNotifications.ts`; weekly/monthly reminders in `lib/reminders.ts` (`syncReminders`). (Both scheduler modules were extracted out of their stores some time ago — this line said they still lived in `useTaskStore`/`useHabitStore` until 2026-08-12; the stores now hold only thin adapters.) The quiet-hours split is one shared helper each way: `shouldSkipForQuietHours` for the two that skip (habits, medicine trays), `pushPastQuietHours` for the one that defers (tasks) — and the four quiet-hours settings fields are one `QuietHoursSettings` type the three scheduler settings types extend. `settings.tsx` re-syncs on relevant changes; `_layout.tsx` and onboarding step 6 sync on startup/finish. The persistent "today's overview" notification is the odd one out — it is not scheduled but re-posted in place by `lib/widgets/sync.ts`, on a LOW-importance, badge-less, **`PUBLIC`-lockscreen** channel whose id carries a version suffix (see the 2026-08-15 bullet above before touching either).
 - **Retention**: `pruneOldData()` in `lib/db.ts` trims dated history to the last `RETENTION_DAYS` (365) on startup; config tables are left untouched.
 - **Materials — MOSTLY HISTORY as of the 2026-08-05 card reset** (see "One card design" above: `Surface` and `Button` no longer mount `GlassFill` at all, and `settings.glassSurfaces` is inert for both). What survives: `getMaterialStyle()` is still called for `mat.innerLine` (a filled button's border) and by the handful of back-compat consumers listed in its own doc, and `getGlow`/`getLayeredShadow` are untouched. The description that follows is kept because those consumers still exist — but **do not build anything new on it**. `getMaterialStyle()` in `constants/theme.ts` computes the glass surface finish from a single base colour — a translucent tinted `backgroundColor` wash plus a calm border, consumed by `components/GlassFill.tsx` (≤2 render layers: an optional `BlurView` frost for overlay/chrome contexts, then the colour wash; ambient content cards get no `BlurView` at all). Rendered via a two-layer view (outer = border + `getLayeredShadow`, inner `overflow:'hidden'` mask = the fill) so shadows aren't clipped. There is no `bubbleMaterial` metal/rock/paper/stone finish system — that never existed in code, only in earlier prose; `settings.glassSurfaces` (reduce-transparency a11y toggle) is the only material-related setting. Purposeful active/focus glow is a separate, sparingly-applied halo — `getGlow(color, level)` — not part of the material itself.
 - **Animation, button-press, and haptics**: read `ANIMATION_GUIDELINES.md` (repo root) before writing or editing any of these — it has the real timing/easing/spring values and the `lib/haptics.ts` contract this codebase actually uses. Paste its §8 block at the top of any animation/interaction/haptics prompt.
-- **Biometric authentication**: `expo-local-authentication` is already in `package.json` and `app.json`'s `plugins` array (Decision 040, reserve-only — module ships in the build, no feature code uses it yet). Once the maintainer cuts the build with this dependency, the lock/unlock UI can ship as a normal OTA change — no further native work needed for that feature. See `REBUILD_DECISIONS.md` Decision 040 and `REBUILD_PLAN.md` §1 for the rest of the reserve-only native surface (`expo-location`, `expo-calendar`, `expo-contacts`, `expo-sensors`, `expo-speech-recognition`) that's ready the same way.
+- **⚠️ The reserve-only native surface is GONE as of 2026-08-15 (v1.6.0) — Decision 040 is
+  retired.** On maintainer instruction ("remove all dependencies not wired up to something"),
+  eight packages that nothing imported were removed along with their `app.json` plugin entries:
+  `expo-local-authentication`, `expo-sensors`, `expo-audio`, `expo-media-library`,
+  `expo-quick-actions`, `expo-background-task`, `expo-task-manager` (orphaned with it) and
+  `expo-network` (which was not even plugin-registered). Decision 040's bet had already paid
+  off for the half of the reserve that got used — `expo-location`, `expo-calendar`,
+  `expo-contacts` and `expo-speech-recognition` are all wired now and shipped over OTA without
+  a build — but the other half sat unused for months while adding manifest permissions the app
+  never exercised (`BODY_SENSORS`, the media-library storage pair, `USE_BIOMETRIC`).
+  **What this costs, stated plainly so nobody rediscovers it the hard way**: biometric app-lock
+  (the most plausible near-term want, given this app holds health rows) and anything sensor- or
+  background-task-shaped now needs the package re-added AND a new native build before its UI
+  can ship. That is a real regression in optionality, accepted deliberately. **Do not re-add a
+  package "in reserve" without asking** — the rule now is that a native dependency arrives in
+  the same change as the feature that uses it. `REBUILD_DECISIONS.md` Decision 040 and
+  `REBUILD_PLAN.md` §1 describe the old strategy and are history, not current state.
 - **Debug notes (2026-07-13)**: `settings.debugModeEnabled` turns on long-press-to-annotate — `components/DebugNoteAnchor.tsx` wraps a card/header; holding it opens a text note, saved notes show a small bubble badge (tap to edit, clear the text to delete). Currently wired onto every screen's header title (`components/ScreenHeader.tsx`) and Home's cards (`app/(tabs)/index.tsx`); wrap more screens' cards the same way as needed. `store/useFeedbackStore.ts` owns the data (table `feedback_notes`); export (Share sheet, top header icon) and "Reset all notes" (Settings → Data, same card as the toggle) both read/clear that store. Replaced the old flat DebugOverlay panel (deleted).
 - **OTA "update available" indicator**: Home's header (`components/ScreenHeader.tsx`, gated on `isHome`) checks `expo-updates` on mount and on every app-foreground and shows a small cloud icon when an update is ready — tapping it fetches and reloads. Silent no-op in dev/debug builds (`Updates.isEnabled` is false there). This is a convenience wrapper around the same `Updates.checkForUpdateAsync`/`fetchUpdateAsync`/`reloadAsync` flow Settings → Version & updates already exposes manually.
 

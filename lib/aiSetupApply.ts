@@ -491,6 +491,7 @@ function processMonthlyLists(drafts: AiMonthlyListDraft[] | undefined, dryRun: b
 /** MUST stay in sync with lib/aiSetupGuide.ts's guide text — see that file's Edit notes. */
 const SETTINGS_WHITELIST = [
   'language', 'darkMode', 'fontSize', 'reducedMotion', 'particlesEnabled', 'glassSurfaces',
+  'opaqueCards',
   'leftHanded', 'remindersEnabled', 'reminderTime', 'taskNotificationsEnabled',
   'habitNotificationsEnabled', 'persistentNotifEnabled', 'quietHoursEnabled', 'quietHoursStart',
   'quietHoursEnd', 'weeklyResetDay', 'monthlyResetDate', 'energyMode', 'energyDailyCapacity',
@@ -505,7 +506,7 @@ const FONT_SIZES = ['small', 'default', 'large'] as const;
 const ENERGY_MODES = ['daily', 'weekly', 'custom'] as const;
 const ASPECT_RATIOS = ['fit', 'square', 'classic', 'widescreen', 'golden'] as const;
 const BOOLEAN_KEYS = new Set<string>([
-  'reducedMotion', 'particlesEnabled', 'glassSurfaces', 'leftHanded', 'remindersEnabled',
+  'reducedMotion', 'particlesEnabled', 'glassSurfaces', 'opaqueCards', 'leftHanded', 'remindersEnabled',
   'taskNotificationsEnabled', 'habitNotificationsEnabled', 'persistentNotifEnabled',
   'quietHoursEnabled', 'featureGoals', 'featureSharing', 'featureAutomations',
   'energySystemEnabled', 'showGrowth',

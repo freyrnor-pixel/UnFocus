@@ -319,9 +319,18 @@ design, not the rule.
     interface's voice — never a vague apology. The implementation of this is
     `components/StarterCard.tsx` + `StarterExampleRow.tsx` — an explainer plus one
     concrete example row, gone once the user has their own.
-25a. **An example must not be mistakable for content.** The example row is drawn as a
+25a. **An example must not be mistakable for content — but it may not draw a box to say
+    so (amended 2026-08-18).** The example row keeps the GEOMETRY of the row it stands in
+    for and says "provisional" in INK ALONE: muted title, muted glyph, a recessive
+    `getMatte()` disc under its two marks, and the accent on its "+" because that is a
+    real action. *(The dashed neutral border, the icon ring, the "+" stroke and the italic
+    title were all deleted in the blueprint pass — "Do NOT place borders, `<Divider/>`
+    lines, or separate background boxes inside of main cards… Remove all italicized
+    text." The "Example" chip had already gone on 2026-08-13. What is left is the 2026-08-10
+    ruling's substance: no fill, nothing finished-looking, neutral throughout.)*
+    Historical, and still the reason this rule exists at all: the row used to be drawn as a
     provisional sketch — dashed neutral border, no fill, muted italic title — plus its
-    "Example" chip; only its "+" carries the accent, because that is a real action.
+    "Example" chip; only its "+" carried the accent, because that is a real action.
     *(Reversed 2026-08-10, from the report "Examples are not visible examples, they look
     like a part of the card or an active task, not as a temporary thing." The previous
     rule, from the opposite report on 2026-07-27, was that the suggestion should be

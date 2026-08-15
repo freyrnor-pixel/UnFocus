@@ -1,6 +1,6 @@
 {
   "name": "unfocus",
-  "version": "1.1.0",
+  "version": "1.6.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@bacons/apple-targets": "^4.0.7",
@@ -12,8 +12,6 @@
     "@react-navigation/native": "^7.3.7",
     "expo": "~56.0.9",
     "expo-asset": "~56.0.18",
-    "expo-audio": "^56.0.12",
-    "expo-background-task": "~56.0.20",
     "expo-blur": "~56.0.3",
     "expo-calendar": "~56.0.9",
     "expo-camera": "~56.0.8",
@@ -29,23 +27,17 @@
     "expo-keep-awake": "~56.0.3",
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~56.0.15",
-    "expo-local-authentication": "~56.0.4",
     "expo-location": "~56.0.19",
-    "expo-media-library": "~56.0.9",
     "expo-navigation-bar": "~56.0.3",
-    "expo-network": "~56.0.5",
     "expo-notifications": "~56.0.19",
-    "expo-quick-actions": "~6.0.2",
     "expo-router": "~56.2.13",
     "expo-secure-store": "~56.0.0",
-    "expo-sensors": "~56.0.6",
     "expo-sharing": "~56.0.0",
     "expo-speech-recognition": "~56.0.1",
     "expo-splash-screen": "~56.0.12",
     "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
-    "expo-task-manager": "~56.0.20",
     "expo-updates": "~56.0.21",
     "qrcode-generator": "^2.0.4",
     "react": "19.2.3",
@@ -96,7 +88,8 @@
     "preview:serve": "node scripts/serve-web.mjs",
     "preview": "bash scripts/run-preview.sh",
     "wraps": "bash scripts/run-wraps.sh",
-    "review-bundle": "bash scripts/run-review-bundle.sh"
+    "review-bundle": "bash scripts/run-review-bundle.sh",
+    "widget-previews": "node scripts/build-widget-previews.mjs"
   },
   "private": true
 }

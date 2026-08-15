@@ -175,7 +175,6 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
               key={starter.key}
               icon={starter.icon}
               title={t.starters.goals.suggestions[starter.key]}
-              accent={accent}
               onAdd={() => addStarter(t.starters.goals.suggestions[starter.key])}
               addLabel={t.starters.addExample}
             />
