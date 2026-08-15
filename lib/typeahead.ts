@@ -17,22 +17,30 @@
  *   Data    → none (pure)
  *
  * Edit notes:
- *   - **`localeCompare(…, 'no')` is deliberate and must not become a bare `localeCompare()`.**
+ *   - **The explicit `locale` is deliberate and must not become a bare `localeCompare()`.**
  *     Norwegian sorts æ, ø, å after z; the default locale interleaves them with a/o, which
- *     puts "Ærfugl" between "A" and "B" in a list a Norwegian user is scanning.
+ *     puts "Ærfugl" between "A" and "B" in a list a Norwegian user is scanning. Icelandic
+ *     needs the same for þ/ð/ö. Callers pass `collationLocale(language)` from lib/collate.ts;
+ *     the default kept here is Norwegian, which is what every caller used before 2026-08-15.
  *   - The prefix test is done on an already-lowercased query — callers pass `query` after
  *     `trim().toLowerCase()`, matching how both stores computed it.
  */
 
 /**
- * Sort comparator for name suggestions: prefix matches first, then Norwegian alphabetical.
+ * Sort comparator for name suggestions: prefix matches first, then alphabetical in the
+ * given collation locale.
  *
- * @param query The user's input, already trimmed and lowercased.
+ * @param query  The user's input, already trimmed and lowercased.
+ * @param locale ICU locale for the alphabetical tiebreak — `collationLocale(language)`
+ *               from lib/collate.ts. Defaults to Norwegian.
  */
-export function byPrefixThenName<T extends { name: string }>(query: string): (a: T, b: T) => number {
+export function byPrefixThenName<T extends { name: string }>(
+  query: string,
+  locale = 'no',
+): (a: T, b: T) => number {
   return (a, b) => {
     const ap = a.name.toLowerCase().startsWith(query) ? 0 : 1;
     const bp = b.name.toLowerCase().startsWith(query) ? 0 : 1;
-    return ap !== bp ? ap - bp : a.name.localeCompare(b.name, 'no');
+    return ap !== bp ? ap - bp : a.name.localeCompare(b.name, locale);
   };
 }

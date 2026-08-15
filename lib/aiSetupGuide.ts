@@ -60,6 +60,11 @@ import {
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
  *
+ * v7 (2026-08-15) — Icelandic joined the app, so `settings.language`'s enum grew a third
+ * value, "is". Additive only: a v6 file naming "en" or "no" still applies unchanged. The
+ * bump exists for the other direction — a v7 file carrying "is" reaching a build that has
+ * no Icelandic dictionary is rejected as 'invalid' rather than silently ignored.
+ *
  * v6 (2026-08-11) — new field: "habits"' optional `recurrenceInterval` (1-12, "every N
  * days/weeks" — a multiplier on daily/weekly recurrence, see lib/habitRecurrence.ts).
  * Clamped to [1, 12] on import; omitted defaults to 1, today's plain daily/weekly
@@ -71,7 +76,7 @@ import {
  * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
  * the document it was generated from has been reworded.
  */
-export const AI_SETUP_SCHEMA_VERSION = 6;
+export const AI_SETUP_SCHEMA_VERSION = 7;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -80,7 +85,7 @@ export const AI_SETUP_END = '===UNFOCUS-AI-CONFIG-END===';
 // ── Config schema (untrusted-input shapes — validated in lib/aiSetupApply.ts) ──────
 
 export type AiSettingsPatch = {
-  language?: 'en' | 'no';
+  language?: 'en' | 'no' | 'is';
   darkMode?: 'system' | 'on' | 'off';
   fontSize?: 'small' | 'default' | 'large';
   reducedMotion?: boolean;
@@ -265,7 +270,7 @@ field not listed here is not supported for import in this app version.
 
 "settings" (object) — a patch of app preferences. Only these keys are
 accepted (anything else is ignored):
-  language: "en" | "no"
+  language: "en" | "no" | "is"
   darkMode: "system" | "on" | "off"
   fontSize: "small" | "default" | "large"
   reducedMotion, particlesEnabled, glassSurfaces, leftHanded: boolean

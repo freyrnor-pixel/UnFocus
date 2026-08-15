@@ -30,7 +30,7 @@ Quick-start guide for future Claude sessions on this codebase.
 
 ## App summary
 
-**UnFocus** — ADHD life-management app (React Native / Expo SDK 56, TypeScript, Expo Router, Zustand + SQLite). Local-only, no backend. Norwegian-first but fully bilingual (EN/NO). Target: iOS + Android.
+**UnFocus** — ADHD life-management app (React Native / Expo SDK 56, TypeScript, Expo Router, Zustand + SQLite). Local-only, no backend. Norwegian-first, and fully translated into English and **Icelandic** (added 2026-08-15). Target: iOS + Android.
 
 ## Read the file header first
 
@@ -61,7 +61,7 @@ Every `.ts`/`.tsx` file starts with a JSDoc header block. **Read it before editi
 | Rule | Why |
 |---|---|
 | `slug` in `app.json` MUST stay `unfocus` | EAS project ID `9c7c7e82-8c6e-4be7-aae1-e588b4ebc495` is registered under this slug; changing it breaks builds |
-| All strings through `useT()` from `lib/i18n.ts` | Bilingual app — never hardcode UI text |
+| All strings through `useT()` from `lib/i18n.ts` | Multilingual app (EN/NO/IS) — never hardcode UI text. `no` and `is` are both typed `typeof en`, so a missing key is a compile error |
 | Date format is always `YYYY-MM-DD` strings | Used as keys throughout the stores |
 | `todayStr()` / `dateStr(d)` from `lib/date.ts` | Shared helpers — do not re-implement locally |
 | SQLite file name: `unfocus.db` | Set in `lib/db.ts` |
@@ -1457,7 +1457,10 @@ file owns which token.)
     produce an app you can't tap out of. `design_lab` is **not** in `aiSetupApply`'s
     `SETTINGS_WHITELIST` (an AI-authored file must not be able to restyle the app) and none of
     its columns belong in `SyncTable`.
-- **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to both `en` and `no` objects in `lib/i18n.ts`
+- **i18n**: `const t = useT()` in any component; `t.someKey`; add new keys to **all three** of the `en`, `no` and `is` objects in `lib/i18n.ts` (tsc enforces it — both non-English dictionaries are typed `typeof en`).
+  - **Icelandic (2026-08-15) is not just a third table; it brought two rules the other two don't have.** (1) **Count agreement**: Icelandic takes the SINGULAR for any number ending in 1 except 11 — "21 vara", but "11 vörur" — so a bare `n === 1` is wrong. Every counted noun in `is` goes through `isCount(n, one, many)`, and where the verb or adjective agrees too the helper switches the WHOLE phrase ("vara fór" / "vörur fóru"), never a stem plus a suffix. `lib/widgets/headlessSnapshot.ts` carries its own copy of the helper, deliberately, because that module is i18n-free. (2) **No user text in a case slot**: Icelandic would want an interpolated task title or person name in the accusative, which arbitrary input cannot supply, so `is` either quotes it (`Eyða „${label}“?` — a citation takes the nominative) or routes around the preposition (`${name} → ${listName} ✓`). Don't rewrite those into the shape `en`/`no` use. Both rules are pinned by `lib/__tests__/icelandic.test.ts`.
+  - **Seed data stays Norwegian in every language**, Icelandic included — the catalogue (~287 grocery names), the 36 symptom names and the dish seed. That is the pre-existing convention (`lib/catalogSeed.ts`: "only UI follows the user's language"), not an Icelandic shortfall; an English user already reads Norwegian item names.
+  - **Alphabetical order follows the language** (`lib/collate.ts`). The five name-sort sites used to hardcode `localeCompare(…, 'no')` so æ/ø/å land after z; Icelandic needs the same for its own letters, and the two locales genuinely disagree — **ð** is a letter after d and **á/é/í/ó/ú/ý** are letters of their own, where Norwegian collation folds each into its base letter and sorts the word by its SECOND letter. English deliberately keeps Norwegian collation, because the list it is reading is Norwegian.
 - **AI setup guide** (`lib/aiSetupGuide.ts` + `lib/aiSetupApply.ts`, 2026-07-26): the app has no in-app AI/automation-builder, so this lets a user download a technical `.txt` (Settings → General → Local account, and a link on the guided tour's closing card) documenting the data model, hand it to an external AI, and upload the AI's filled-in reply back into Settings. The reply embeds one JSON block between fixed markers; `previewAiSetupConfig()`/`applyAiSetupConfig()` share one validation pass so the confirm-before-apply preview (`components/AiSetupPreviewModal.tsx`) can never disagree with what's actually written. v1 covers settings (a fixed whitelist), tasks, habits, goals, notes, shopping lists/items, household inventory, Catalogue-tab items, meals, and monthly lists — deliberately NOT automations (IFTTT rules), health-log data, or medicines/doses (too risky to validate / too sensitive — see that file's "out of scope" edit note before adding a medicine domain). See "Add a new SQLite column" / "Add a new setting toggle" below for the process rule that keeps the guide from drifting out of date.
 
 ## Common tasks

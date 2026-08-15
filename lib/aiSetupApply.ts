@@ -499,7 +499,7 @@ const SETTINGS_WHITELIST = [
   'photoAspectRatio', 'peopleModeEnabled',
 ] as const satisfies readonly (keyof AiSettingsPatch)[];
 
-const LANGUAGES = ['en', 'no'] as const;
+const LANGUAGES = ['en', 'no', 'is'] as const;
 const DARK_MODES = ['system', 'on', 'off'] as const;
 const FONT_SIZES = ['small', 'default', 'large'] as const;
 const ENERGY_MODES = ['daily', 'weekly', 'custom'] as const;

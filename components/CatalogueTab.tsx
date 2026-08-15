@@ -169,6 +169,8 @@ import IconButton from '@/components/IconButton';
 import { useRouter } from 'expo-router';
 import { SegmentedControl } from '@/components/FormControls';
 import { sortByCategoryThenName } from '@/lib/shoppingCategories';
+import { collationLocale } from '@/lib/collate';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
@@ -303,9 +305,12 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
   const [editPrice, setEditPrice] = useState('');
 
   const [query, setQuery] = useState('');
+  // Only read for the "By type" name tiebreak — the "By name" order comes pre-collated
+  // from the store, which reads the same locale.
+  const language = useSettingsStore((s) => s.language);
 
   /**
-   * "By name" (the store's own Norwegian collation) or "By type" (shop-walk aisle order).
+   * "By name" (the store's own collation) or "By type" (shop-walk aisle order).
    * Presentation only — `useCatalogStore` keeps its canonical name order and nothing is
    * written back. Local, not persisted: it is which way you want to read the list right now.
    */
@@ -324,7 +329,8 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
    */
   const [locked, setLocked] = useState(true);
 
-  // `items` already arrives Norwegian-collated from useCatalogStore (sorted once in
+  // `items` already arrives collated from useCatalogStore in the active language's order
+  // (sorted once in
   // load() + kept sorted by every mutation), so this tab renders it directly — no
   // per-mount sort, which is what used to add a "loading" beat when opening this tab.
   // The search box filters that already-sorted list by case-insensitive substring; an
@@ -335,8 +341,8 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
     // 'name' returns the input reference untouched — the store already sorts that way, so the
     // default path allocates nothing. 'type' re-orders a COPY (sortByCategoryThenName never
     // mutates): this is a view, and the catalogue's stored order stays the store's.
-    return sortMode === 'type' ? sortByCategoryThenName(filtered) : filtered;
-  }, [items, query, sortMode]);
+    return sortMode === 'type' ? sortByCategoryThenName(filtered, collationLocale(language)) : filtered;
+  }, [items, query, sortMode, language]);
 
   // ── A–Z scrubber ──────────────────────────────────────────────────────────────────
   const flatListRef = useRef<FlatList<StoreItem>>(null);

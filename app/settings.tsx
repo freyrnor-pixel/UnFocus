@@ -891,15 +891,35 @@ export default function SettingsScreen() {
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
                   {/* 2026-08-10: was a hand-rolled two-pill `langChip` row — an exclusive
                       picker sitting three lines above the darkMode SegmentedControl in this
-                      same card, drawn as accent-filled pills instead of a sliding track. The
-                      flags move into the labels rather than being dropped; they are how a
-                      language row is recognised before you can read either option. */}
+                      same card, drawn as accent-filled pills instead of a sliding track. That
+                      pass moved a flag into each label rather than dropping it, on the
+                      reasoning that a flag is how a language row is recognised before you can
+                      read either option.
+
+                      **The flags came back off on 2026-08-15, when Icelandic made it three.**
+                      SegmentedControl splits its track into n equal segments, so a third
+                      option takes each one to ~71px at 327px wide (and 82px at 360) while
+                      "🇮🇸 Íslenska" measures 77px — it shipped as "Ísle…" / "Eng…" on every
+                      common phone width. Measured, not estimated: the bare words need 53px
+                      (Íslenska), 49px (English) and 40px (Norsk), which clear every width with
+                      room to spare. A truncated language name is strictly worse at being
+                      recognised-before-read than an untruncated one, which is the flags' own
+                      argument turned around. Don't re-add flags without re-measuring.
+
+                      Note these are `t.*` strings, so they follow the CURRENT language — in an
+                      English UI the row reads "Norwegian / English / Icelandic". That differs
+                      from onboarding's Basics row, which names each language in ITSELF on
+                      purpose (see t.basics.language's note: you have to find your own language
+                      without already reading the current one). Settings can afford the
+                      difference because you are already in a language you can read; if that is
+                      ever unified, unify it toward the endonyms, not away from them. */}
                   <SegmentedControl
                     value={settings.language}
                     onChange={(v) => applyAndSync({ language: v as Language })}
                     options={[
-                      { value: 'no', label: `🇳🇴 ${t.norwegian}` },
-                      { value: 'en', label: `🇬🇧 ${t.english}` },
+                      { value: 'no', label: t.norwegian },
+                      { value: 'en', label: t.english },
+                      { value: 'is', label: t.icelandic },
                     ]}
                   />
                   <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>

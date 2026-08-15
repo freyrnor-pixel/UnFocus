@@ -98,11 +98,15 @@ export const DARK_MODE_CHOICES: readonly DarkMode[] = ['off', 'system', 'on'];
 /* ── Language ─────────────────────────────────────────────────────────────── */
 
 /**
- * The app's two languages. This row is FIRST on the Basics screen and previews live: tapping
+ * The app's languages. This row is FIRST on the Basics screen and previews live: tapping
  * it re-renders everything else in that language, which is both the demonstration that the
  * screen previews at all and the reason language no longer needs a screen of its own.
+ *
+ * Icelandic joined 2026-08-15 and is appended rather than slotted in, so the two rows a
+ * returning user already knows keep their positions. The cross-product the round-trip test
+ * sweeps grew 324 → 486 with it.
  */
-export const LANGUAGE_CHOICES: readonly Language[] = ['en', 'no'];
+export const LANGUAGE_CHOICES: readonly Language[] = ['en', 'no', 'is'];
 
 /* ── Handedness ───────────────────────────────────────────────────────────── */
 

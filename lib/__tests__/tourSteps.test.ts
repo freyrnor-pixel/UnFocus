@@ -135,13 +135,15 @@ describe('every step is actually wired up', () => {
     }
   });
 
-  test('each step has copy in BOTH languages', () => {
-    // `no: typeof en` catches a missing Norwegian key at compile time, but not a step id with
-    // no entry at all — t.tour.steps is indexed dynamically by step id.
+  test('each step has copy in EVERY language', () => {
+    // `no: typeof en` / `is: typeof en` catch a missing key at compile time, but not a step id
+    // with no entry at all — t.tour.steps is indexed dynamically by step id.
+    // Bump LANGS when a dictionary is added to lib/i18n.ts (en + no + is as of 2026-08-15).
+    const LANGS = 3;
     const i18n = readFileSync(join(ROOT, 'lib', 'i18n.ts'), 'utf8');
     for (const id of allIds) {
       const occurrences = i18n.split(`      ${id}: {`).length - 1;
-      expect({ id, langs: occurrences }).toEqual({ id, langs: 2 });
+      expect({ id, langs: occurrences }).toEqual({ id, langs: LANGS });
     }
   });
 });
