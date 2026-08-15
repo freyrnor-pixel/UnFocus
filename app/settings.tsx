@@ -105,6 +105,18 @@
  *             useMealStore, useMonthlyListStore
  *
  * Edit notes:
+ *   - **This screen can be linked INTO, at a card (2026-08-14): `/settings?tab=…&section=…`.**
+ *     `?tab=` had been passed by app/(tabs)/shopping.tsx's "Nullstillingsdager" link since that
+ *     link was written and read by nobody — there was no `useLocalSearchParams` here at all, so
+ *     every caller silently landed on General. Two things are worth knowing before adding a
+ *     second target. (1) A tab is not enough: every group here is a collapsed `ExpandableCard`,
+ *     so the right tab still leaves the control shut and usually off screen — a `section` opens
+ *     its card AND scrolls to it, via `ScrollToNodeContext` (components/ScreenScaffold.tsx), and
+ *     `?tab=` without `?section=` is a half-answer. (2) `tab` is seeded in the `useState`
+ *     INITIALIZER, not synced by an effect, because the target card measures itself on layout
+ *     and an effect would let General mount and lay out first. `SettingsSection` is a short
+ *     hand-maintained union on purpose: each target costs a ref, an `onLayout` and a controlled
+ *     `open` at its call site, so add one when a screen needs it rather than back-filling.
  *   - **Monthly budget moved out (2026-07-22)**: the "handle" tab used to have a Monthly
  *     budget Input here, writing the single global `monthlyBudgetNok` setting. Budget is per
  *     Monthly list now (store/useMonthlyListStore.ts) — edited from that list's own Budget
@@ -421,11 +433,30 @@ export default function SettingsScreen() {
     section?: SettingsSection;
   }>();
   const [tab, setTab] = useState<SettingsTab>(
-    // Seeded, not just synced by the effect below: setting it after the first render would
-    // mount General's whole tab, then throw it away — and the target card's `onLayout` would
-    // fire against a screen the user never sees.
+    // Seeded in the initializer rather than synced by an effect: setting it after the first
+    // render would mount General's whole tab and throw it away, and the target card's
+    // `onLayout` would fire against a screen the user never sees.
     () => (tabParam && SETTINGS_TABS.includes(tabParam) ? tabParam : 'general'),
   );
+  /**
+   * The linked-to card is open while `openSection` names it, and hands control straight back:
+   * `onToggle` clears it, so the FIRST tap on that header closes the card exactly as it would
+   * on any other visit. A `?section=` that stayed latched would make its card the one on this
+   * screen the user could not shut.
+   */
+  const [openSection, setOpenSection] = useState<SettingsSection | null>(
+    () => (sectionParam === 'shopping' ? 'shopping' : null),
+  );
+  const scrollToNode = useContext(ScrollToNodeContext);
+  const sectionNode = useRef<View | null>(null);
+  // Fires once the linked-to card has laid out. `onLayout` rather than an effect on mount,
+  // because the card's y is only meaningful after its tab's content has been measured — and on
+  // the deep-link path this screen mounts straight onto that tab (see the `tab` initializer).
+  const onSectionLayout = useCallback(() => {
+    if (!openSection) return;
+    scrollToNode?.(sectionNode.current);
+  }, [openSection, scrollToNode]);
+
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
@@ -1261,10 +1292,22 @@ export default function SettingsScreen() {
               </Surface>
             </View>
             {/* SHOPPING — the whole of the old Handle tab, which only ever held these two
-                settings and did not justify a tab of its own. */}
-          <View style={styles.section}>
+                settings and did not justify a tab of its own.
+
+                This is the one `?section=` target today (see SettingsSection): Shopping's ⓘ has
+                a "Nullstillingsdager" link that used to land on this screen's General tab with
+                this card shut. `ref` + `onLayout` are what let it be scrolled to; `open` is
+                controlled only while the deep link is live, and the first toggle hands the card
+                back to its own default-closed behaviour. */}
+          <View style={styles.section} ref={sectionNode} onLayout={onSectionLayout}>
             <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <ExpandableCard title={t.sectionShopping} accentColor={theme.accent} first>
+              <ExpandableCard
+                title={t.sectionShopping}
+                accentColor={theme.accent}
+                first
+                open={openSection === 'shopping' ? true : undefined}
+                onToggle={() => setOpenSection(null)}
+              >
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
                 {/* 2026-08-10: was a `flexWrap` row of seven `dayChip`s. Two things were wrong
                     with it and the conversion fixes both. It is an EXCLUSIVE picker (one reset
