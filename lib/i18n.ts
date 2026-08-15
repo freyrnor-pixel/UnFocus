@@ -504,7 +504,6 @@ const en = {
   // part a user needs told before they switch it on.
   persistentNotifHint: 'Keeps one notification up to date with the rest of your day, readable on the lock screen',
   habitNotifications: 'Habit reminders',
-  habitNotificationsHint: "Reminder when it's time for a habit",
   medicineNotifications: 'Medicine reminders',
   medicineNotificationsHint: 'One reminder per tray, with a Taken button',
   // From/To are the generic time-range labels — the only remaining consumer is the
@@ -824,7 +823,6 @@ const en = {
   shoppingCadenceLink: 'Reset days',
   // Settings → General: brings back every intro card the user has closed.
   restoreHintsLabel: 'Show tips again',
-  restoreHintsBody: 'Bring back the intro card on every screen.',
   restoreHintsDone: 'Tips are back',
   sortByType: 'By type',
   sortByName: 'By name',
@@ -996,7 +994,7 @@ const en = {
   peopleMode: {
     label: 'People / family',
     hint: 'Assign tasks and habits to the people in your household.',
-    profilesHint: 'Add the people you want to assign tasks and habits to. Tap a colour to change it.',
+    profilesHint: 'Tap a colour to change it.',
     addPlaceholder: 'Name',
     addButton: 'Add person',
     removeTitle: (name: string) => `Remove ${name}?`,
@@ -1491,7 +1489,6 @@ const en = {
     accessibility: {
       title: 'Accessibility',
       reducedMotion: 'Reduced motion',
-      reducedMotionHint: 'Turns off animations throughout the app',
       particles: 'Particle effects',
       particlesHint: 'Animated particles on the home screen background',
       glassSurfaces: 'Glass surfaces',
@@ -1511,7 +1508,6 @@ const en = {
     },
     photoFormat: {
       title: 'Photo format',
-      hint: 'How photo tiles are cropped.',
       fit: 'Fit',
       square: '1:1',
       classic: '4:3',
@@ -1560,7 +1556,6 @@ const en = {
     // A user should be able to pick correctly without reading the hint underneath.
     layouts: {
       title: 'How lists look',
-      hint: 'How much detail your lists show. Each list can differ.',
       /** Per-surface picker: falls back to the global choice above. */
       followsDefault: 'Same as my usual',
       useDefault: 'Use my usual layout',
@@ -1620,7 +1615,6 @@ const en = {
     // here too until the 2026-07-25 defaults revision — both are permanently on now,
     // so they no longer have copy or a switch anywhere.)
     features: {
-      intro: 'Turn on only what you need. You can change this at any time.',
       goals: {
         label: 'Goals',
         hint: 'Link to-dos and habits to a goal, and see how strong it is.',
@@ -1691,7 +1685,6 @@ const en = {
     },
     // One-sentence descriptions under each setting
     desc: {
-      language: 'Choose the language for everything in the app.',
       name: 'Only used to greet you — never leaves your phone.',
       weeklyReminders: 'A gentle weekly nudge on your shopping day.',
       holidays: 'Show public holidays on your calendar.',
@@ -2653,7 +2646,6 @@ const no: typeof en = {
   persistentNotifLabel: 'Dagens oversikt-varsel',
   persistentNotifHint: 'Holder ett varsel oppdatert med resten av dagen, lesbart på låseskjermen',
   habitNotifications: 'Varslinger for vaner',
-  habitNotificationsHint: 'Påminnelse når det er tid for en vane',
   medicineNotifications: 'Medisinvarsler',
   medicineNotificationsHint: 'Én påminnelse per runde, med en Tatt-knapp',
   workHoursFrom: 'Fra',
@@ -2901,7 +2893,6 @@ const no: typeof en = {
   scanTargetCatalogue: 'Legger til og oppdaterer katalogpriser',
   shoppingCadenceLink: 'Nullstillingsdager',
   restoreHintsLabel: 'Vis tipsene igjen',
-  restoreHintsBody: 'Hent tilbake introkortet på alle skjermene.',
   restoreHintsDone: 'Tipsene er tilbake',
   sortByType: 'Etter type',
   sortByName: 'Etter navn',
@@ -3109,7 +3100,6 @@ const no: typeof en = {
     accessibility: {
       title: 'Tilgjengelighet',
       reducedMotion: 'Redusert bevegelse',
-      reducedMotionHint: 'Slår av animasjoner i hele appen',
       particles: 'Partikkeleffekter',
       particlesHint: 'Animerte partikler på startskjermens bakgrunn',
       glassSurfaces: 'Glassflater',
@@ -3129,7 +3119,6 @@ const no: typeof en = {
     },
     photoFormat: {
       title: 'Bildeformat',
-      hint: 'Hvordan bilde-fliser beskjæres.',
       fit: 'Tilpass',
       square: '1:1',
       classic: '4:3',
@@ -3168,7 +3157,6 @@ const no: typeof en = {
     },
     layouts: {
       title: 'Hvordan lister ser ut',
-      hint: 'Hvor mye detaljer listene viser. Hver liste kan ha sitt eget.',
       followsDefault: 'Som jeg pleier',
       useDefault: 'Bruk oppsettet jeg pleier å ha',
       customBadge: 'Eget oppsett',
@@ -3215,7 +3203,6 @@ const no: typeof en = {
       advanced: 'Avansert',
     },
     features: {
-      intro: 'Skru på bare det du trenger. Du kan endre dette når som helst.',
       goals: {
         label: 'Mål',
         hint: 'Knytt gjøremål og vaner til et mål, og se hvor sterkt det står.',
@@ -3273,7 +3260,6 @@ const no: typeof en = {
       shareNote: 'Deling av en kopi inkluderer ikke ditt navn.',
     },
     desc: {
-      language: 'Velg språk for alt i appen.',
       name: 'Brukes kun til å hilse på deg — forlater aldri telefonen.',
       weeklyReminders: 'En vennlig ukentlig påminnelse på handledagen din.',
       holidays: 'Vis helligdager i kalenderen din.',
@@ -3411,7 +3397,7 @@ const no: typeof en = {
   peopleMode: {
     label: 'Personer / familie',
     hint: 'Tildel oppgaver og vaner til personene i husstanden.',
-    profilesHint: 'Legg til personene du vil tildele oppgaver og vaner til. Trykk på en farge for å endre den.',
+    profilesHint: 'Trykk på en farge for å endre den.',
     addPlaceholder: 'Navn',
     addButton: 'Legg til person',
     removeTitle: (name: string) => `Fjerne ${name}?`,
@@ -4501,7 +4487,6 @@ const is: typeof en = {
   persistentNotifLabel: 'Tilkynning með yfirliti dagsins',
   persistentNotifHint: 'Heldur einni tilkynningu uppfærðri með því sem er eftir í dag og vörunum á innkaupalistanum',
   habitNotifications: 'Tilkynningar um venjur',
-  habitNotificationsHint: 'Áminning þegar það er kominn tími á venju',
   medicineNotifications: 'Lyfjaáminningar',
   medicineNotificationsHint: 'Ein áminning á hvert hólf, með Tekið-hnappi',
   workHoursFrom: 'Frá',
@@ -4750,7 +4735,6 @@ const is: typeof en = {
   scanTargetCatalogue: 'Bætir við og uppfærir verð í vöruskrá',
   shoppingCadenceLink: 'Núllstillingardagar',
   restoreHintsLabel: 'Sýna ábendingarnar aftur',
-  restoreHintsBody: 'Náðu í kynningarkortið á öllum skjám.',
   restoreHintsDone: 'Ábendingarnar eru komnar aftur',
   /* The segment draws no "Raða" label of its own, so the two options carry the question.
      "Eftir tegund" overran its segment by 12px; the bare nouns fit and read the same. */
@@ -4953,7 +4937,6 @@ const is: typeof en = {
     accessibility: {
       title: 'Aðgengi',
       reducedMotion: 'Minni hreyfing',
-      reducedMotionHint: 'Slekkur á hreyfimyndum í öllu appinu',
       particles: 'Agnaáhrif',
       particlesHint: 'Hreyfðar agnir í bakgrunni heimaskjásins',
       glassSurfaces: 'Glerfletir',
@@ -4973,7 +4956,6 @@ const is: typeof en = {
     },
     photoFormat: {
       title: 'Myndsnið',
-      hint: 'Sjálfgefinn skurður fyrir myndaflísar (t.d. myndir af kvittunum). „Passa“ sýnir alla myndina; hinir skera hana í fasta lögun.',
       fit: 'Passa',
       square: '1:1',
       classic: '4:3',
@@ -5011,7 +4993,6 @@ const is: typeof en = {
     },
     layouts: {
       title: 'Hvernig listar líta út',
-      hint: 'Hversu mikil smáatriði listarnir sýna. Hver listi getur haft sitt eigið.',
       followsDefault: 'Eins og venjulega',
       /* "sem ég er vanur/vön að hafa" would have to agree with the reader's gender. */
       useDefault: 'Nota venjulegu uppsetninguna mína',
@@ -5059,7 +5040,6 @@ const is: typeof en = {
       advanced: 'Ítarlegt',
     },
     features: {
-      intro: 'Kveiktu bara á því sem þú þarft. Þú getur breytt þessu hvenær sem er.',
       goals: {
         label: 'Markmið',
         hint: 'Tengdu verkefni og venjur við markmið, og sjáðu hversu sterkt það stendur.',
@@ -5118,7 +5098,6 @@ const is: typeof en = {
       shareNote: 'Nafnið þitt fylgir ekki með þegar þú deilir afriti.',
     },
     desc: {
-      language: 'Veldu tungumál fyrir allt í appinu.',
       name: 'Aðeins notað til að heilsa þér — fer aldrei úr símanum.',
       weeklyReminders: 'Vinaleg vikuleg áminning á innkaupadeginum þínum.',
       holidays: 'Sýna frídaga í dagatalinu þínu.',
@@ -5257,7 +5236,7 @@ const is: typeof en = {
   peopleMode: {
     label: 'Fólk / fjölskylda',
     hint: 'Úthlutaðu verkefnum og venjum á fólkið á heimilinu.',
-    profilesHint: 'Bættu við fólkinu sem þú vilt úthluta verkefnum og venjum á. Ýttu á lit til að breyta honum.',
+    profilesHint: 'Ýttu á lit til að breyta honum.',
     addPlaceholder: 'Nafn',
     addButton: 'Bæta við manneskju',
     /* A person's name would need the accusative here; quoting keeps it in the form we have. */

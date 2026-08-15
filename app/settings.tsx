@@ -237,6 +237,25 @@
  *     should just always be on — see store/useSettingsStore.ts's "Inert columns" note for
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
+ *   - **A control that names itself gets no line under it (2026-08-15)**, the same "no manual"
+ *     rule the 💡 explainer pass applied to the cards (AGENTS.md, 2026-08-17). Maintainer:
+ *     the language row telling you what changing the language means is redundant. Seven lines
+ *     went, and the STRINGS went with them rather than the call sites alone, so nothing can be
+ *     quietly rewired: `config.desc.language`, `settings.photoFormat.hint`,
+ *     `settings.accessibility.reducedMotionHint`, `habitNotificationsHint`,
+ *     `restoreHintsBody`, `config.layouts.hint` and `config.features.intro`.
+ *     `peopleMode.profilesHint` was cut to its second half ("Tap a colour to change it") —
+ *     its first sentence repeated the `peopleMode.hint` two rows above it verbatim, and the
+ *     surviving half is also the colour dot's accessibility label.
+ *     **The test is whether the line carries a FACT the label cannot**, not whether it is
+ *     short: `config.desc.name` (never leaves your phone), `medicineNotificationsHint` (one
+ *     per tray, with a Taken button), `glassSurfacesHint`, `quietHours.hint`,
+ *     `config.desc.monthlyResetDate` (short months) and every `config.desc.dataNote`-style
+ *     warning stay, as do the per-option hints that CHANGE with the selection
+ *     (`config.layouts[level].hint`, `features.energy.modes.*.hint`) — those describe the
+ *     option you picked, which no label can. `components/SettingRow.tsx`'s `hint` is already
+ *     optional and documented as "omit where the name says everything"; dropping the prop is
+ *     the sanctioned shape, not a special case.
  */
 import React, { useState, useMemo, useEffect, useContext, useRef, useCallback } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
@@ -965,7 +984,6 @@ export default function SettingsScreen() {
                       { value: 'is', label: t.icelandic },
                     ]}
                   />
-                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.language}</Text>
                 </ExpandableCard>
 
                 {/* UTSEENDE — merged into the same panel as Profil/Tilgjengelighet
@@ -1006,14 +1024,12 @@ export default function SettingsScreen() {
                       { value: 'golden', label: t.settings.photoFormat.golden },
                     ]}
                   />
-                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.settings.photoFormat.hint}</Text>
                 </ExpandableCard>
 
                 {/* TILGJENGELIGHET — same merged panel. */}
                 <ExpandableCard title={t.settings.accessibility.title} accentColor={theme.accent} rounded>
                   <ToggleRow
                     label={t.settings.accessibility.reducedMotion}
-                    hint={t.settings.accessibility.reducedMotionHint}
                     checked={settings.reducedMotion}
                     onChange={(v) => settings.update({ reducedMotion: v })}
                   />
@@ -1063,7 +1079,6 @@ export default function SettingsScreen() {
                       why the confirmation is a transient message rather than a state change —
                       after pressing it there is nothing here to look different. */}
                   <Text style={[styles.switchLabel, { color: theme.text }]}>{t.restoreHintsLabel}</Text>
-                  <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.restoreHintsBody}</Text>
                   <PressableScale
                     style={[styles.dangerBtn, settings.dismissedHints.length === 0 && { opacity: 0.4 }]}
                     onPress={() => { settings.restoreHints(); success(); setInputWarning(t.restoreHintsDone); }}
@@ -1320,7 +1335,6 @@ export default function SettingsScreen() {
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />
                   <ToggleRow
                     label={t.habitNotifications}
-                    hint={t.habitNotificationsHint}
                     checked={settings.habitNotificationsEnabled}
                     onChange={(v) => applyAndSync({ habitNotificationsEnabled: v })}
                   />
@@ -1466,7 +1480,6 @@ export default function SettingsScreen() {
                 <Text style={[styles.switchHint, { color: theme.textMuted }]}>
                   {t.config.layouts[settings.layoutDetail].hint}
                 </Text>
-                <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.layouts.hint}</Text>
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <ToggleRow
                   label={t.settings.accessibility.timelineHorizontal}
@@ -1718,9 +1731,6 @@ export default function SettingsScreen() {
                     ? t.config.features.energy.modes.energy.hint
                     : t.config.features.energy.modes.rewards.hint}
                 </Text>
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.config.features.intro}</Text>
 
                 {/* The plain on/off features (Goals, Sharing & QR, Automations). Driven
                     off one list so the rows stay identical — each is a bare boolean with
