@@ -41,13 +41,42 @@ jobs:
         run: |
           eas build --platform android --profile preview --non-interactive --wait --message "${{ inputs.message || 'No message provided' }}" --json > build-result.json
           cat build-result.json
+
           # `eas build --json` does NOT emit a buildDetailsPageUrl field, so derive the
-          # expo.dev build page from the build id + project owner/slug. Single-quoted
-          # node args keep bash from treating anything as command substitution.
-          BUILD_URL=$(node -p 'const b=require("./build-result.json")[0]; "https://expo.dev/accounts/"+b.project.ownerAccount.name+"/projects/"+b.project.slug+"/builds/"+b.id')
-          APK_URL=$(node -p 'require("./build-result.json")[0].artifacts.buildUrl')
-          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
-          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
+          # expo.dev build page from the build id + owner/slug.
+          #
+          # ⚠️ The object holding owner/slug is `app`, NOT `project`. This step read
+          # `b.project.ownerAccount` until 2026-08-15 and threw `Cannot read properties
+          # of undefined` on eas-cli 22 — AFTER a build that had finished perfectly.
+          # Under `bash -e` that failed the whole job, so a green APK was reported as a
+          # red workflow run and the download link was never printed. Hence two rules
+          # below, both load-bearing:
+          #   1. Parsing is defensive and NEVER fails the step. A field rename upstream
+          #      must cost a missing link, not a build everyone believes is broken.
+          #   2. The step's pass/fail comes from the build's OWN `status` field, which is
+          #      the only thing here that actually means "did the APK build".
+          node -e '
+            const b = (require("./build-result.json") || [])[0] || {};
+            const app = b.app || b.project || {};
+            const owner = (app.ownerAccount || {}).name || "";
+            const slug = app.slug || "";
+            const page = owner && slug && b.id
+              ? "https://expo.dev/accounts/" + owner + "/projects/" + slug + "/builds/" + b.id
+              : "";
+            const out = [
+              "build_url=" + page,
+              "apk_url=" + ((b.artifacts || {}).buildUrl || ""),
+              "build_status=" + (b.status || "UNKNOWN"),
+            ].join("\n") + "\n";
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, out);
+          ' || echo "build_status=UNPARSEABLE" >> "$GITHUB_OUTPUT"
+
+          STATUS=$(grep '^build_status=' "$GITHUB_OUTPUT" | tail -1 | cut -d= -f2)
+          echo "EAS reported build status: $STATUS"
+          if [ "$STATUS" != "FINISHED" ]; then
+            echo "::error::EAS build did not finish successfully (status: $STATUS)"
+            exit 1
+          fi
 
       - name: Create build summary
         if: always()
@@ -55,6 +84,9 @@ jobs:
           echo "## EAS Android Build (preview)" >> $GITHUB_STEP_SUMMARY
           echo "Build message: ${{ inputs.message || 'No message provided' }}" >> $GITHUB_STEP_SUMMARY
           echo "Version: $(node -p "require('./app.json').expo.version") (runtimeVersion: $(node -p "require('./app.json').expo.runtimeVersion"))" >> $GITHUB_STEP_SUMMARY
+          echo "EAS build status: ${{ steps.eas_build.outputs.build_status }}" >> $GITHUB_STEP_SUMMARY
           echo "Build page: ${{ steps.eas_build.outputs.build_url }}" >> $GITHUB_STEP_SUMMARY
           echo "APK download: ${{ steps.eas_build.outputs.apk_url }}" >> $GITHUB_STEP_SUMMARY
           echo "Install directly from that page on your Android phone (internal distribution — no Play Store needed)." >> $GITHUB_STEP_SUMMARY
+          # If the links are blank but the status says FINISHED, the APK exists and only the
+          # link derivation broke — the expo.dev dashboard has it. Don't re-run the build.
