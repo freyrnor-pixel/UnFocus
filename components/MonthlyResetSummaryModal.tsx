@@ -32,8 +32,8 @@
  */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, TabularNums, MIN_TAP_TARGET } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, MIN_TAP_TARGET, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import Surface from '@/components/Surface';
@@ -49,6 +49,7 @@ type Props = {
 
 export default function MonthlyResetSummaryModal({ visible, summary, onClose }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -111,8 +112,8 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
           </ScrollView>
         )}
 
-        <PressableScale style={[styles.closeBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.95}>
-          <Text style={[styles.closeBtnText, { color: theme.accentInk }]}>{t.monthlyResetSummaryCloseBtn}</Text>
+        <PressableScale style={[styles.closeBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.95}>
+          <Text style={[styles.closeBtnText, { color: theme.text }]}>{t.monthlyResetSummaryCloseBtn}</Text>
         </PressableScale>
       </Surface>
     </AnimatedBottomSheet>

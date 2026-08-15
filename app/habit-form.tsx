@@ -451,7 +451,7 @@ export default function HabitForm() {
       }
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.habitForm.text} example={t.hints.habitForm.example} />
+        <HintCard text={t.hints.habitForm.text} />
 
         {/* Title */}
         <View style={styles.field}>

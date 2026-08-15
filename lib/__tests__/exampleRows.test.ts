@@ -21,17 +21,17 @@
  * A fourth was added on 2026-08-12, from the maintainer's follow-up ruling ("explanation always
  * sits underneath sub-header", scoped to "only when the card is empty"):
  *
- *   4. **An explainer sits under its card's header.** Every `CardHintNote` in the app is
- *      `placement="head"` except `EnergyMeter`'s, which annotates a meter with a NUMBER IN IT
- *      — content the user already has — and stays at the default foot. That counter-case is
- *      the most valuable assertion in this file: without it the suite would read "head
- *      everywhere" and the next session would flatten the rule into a constant.
- *      *(Restated 2026-08-13. This read "an EMPTY card's explainer sits under its header" and
- *      gave every head caller being empty-gated as the reason. That was a fact about who the
- *      callers happened to be, not the rule: when app/(tabs)/{habits,health}.tsx's PERMANENT
- *      tips lines moved onto the shared component they went to the head too. Position and
- *      lifespan are separate decisions — "explanation always sits underneath sub-header" is
- *      the first, "only when the card is empty" was each caller's answer to the second.)*
+ *   4. **No card carries a lightbulb explainer line at all** (2026-08-17, replacing the
+ *      placement rule this slot used to hold). The maintainer's ruling: *"A native app should
+ *      not read like a manual… Delete all lightbulb (💡) sections entirely."* So
+ *      `components/CardHintNote.tsx` is deleted and section 4 below asserts its ABSENCE across
+ *      all eight former callers, plus that nothing hand-rolls a bulb-and-italic replacement.
+ *      *(What it used to say, kept because the position rule is still the right one if a
+ *      shorter explainer is ever wanted again: every `CardHintNote` was `placement="head"` —
+ *      under the card's header — except `EnergyMeter`'s, which annotated a meter with a NUMBER
+ *      IN IT and stayed at the foot. Position and lifespan were separate decisions:
+ *      "explanation always sits underneath sub-header" answered the first, "only when the card
+ *      is empty" was each caller's own answer to the second.)*
  *
  * A fifth was added on 2026-08-13, from *"cards still differ when it comes to where new and
  * empty row sits, and how examples look (box vs no box, and above or below)"*:
@@ -47,7 +47,7 @@
  * and the web preview cannot see either (react-native-web's box model differs, and these
  * differences are single-digit pixels). Precedent: chromeRhythm, cardLayout, designTokens.
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { BORDER_WIDTH } from '@/constants/theme';
 
@@ -322,13 +322,14 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     expect(source.indexOf('styles.emptyAddRow')).toBeGreaterThan(starterCardEnd);
   });
 
-  it('the medicine card carries the shared explainer line, not a StarterCard of its own', () => {
-    // Its placement was already right (`statusLine()` returns null with nothing scheduled, so
-    // this sits directly under the header row); 2026-08-12 changed only the component, so all
-    // five empty-state explainers are one component in one position.
+  it('the medicine card carries no empty-state explainer at all', () => {
+    // It had a StarterCard, then the shared CardHintNote line (2026-08-12), and now neither
+    // (2026-08-17). Nothing was lost that the card does not already say: its own add field sits
+    // directly under the header, and a tray's "window, not a deadline" framing is carried by the
+    // copy on the tray rows themselves.
     const source = code('components/MedicineTrayCard.tsx');
     expect(source).not.toMatch(/<StarterCard/);
-    expect(source).toMatch(/<CardHintNote text=\{t\.starters\.medicine\.text\} placement="head"/);
+    expect(source).not.toMatch(/<CardHintNote/);
   });
 
   it('leaves the Energy tutorial as a real card — it IS the meter, not a note beside one', () => {
@@ -336,6 +337,10 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     const mounts = source.match(/<StarterCard[\s\S]*?>/g) ?? [];
     expect(mounts.length).toBe(1);
     expect(mounts[0]).not.toContain('embedded');
+    // …and it carries NO explanatory text since 2026-08-17 ("Remove the 'Energy is how much a
+    // day holds…' block"). What is left is the card and the one button into the config sheet,
+    // which is the only thing this state exists to offer.
+    expect(mounts[0]).not.toMatch(/\btext=/);
   });
 
   it('is what the Goals drawer uses instead of its old hand-copied explainer', () => {
@@ -426,67 +431,57 @@ describe('the composer comes after the examples, everywhere', () => {
   });
 });
 
-// ── 4. An empty card explains itself under its header ────────────────────────
+// ── 4. No card explains itself in a lightbulb line ───────────────────────────
 
-describe('CardHintNote placement is decided by emptiness, not fixed', () => {
-  it('defaults to the foot when a caller passes no placement', () => {
-    // The default is what makes EnergyMeter's mount below a deliberate choice rather than an
-    // omission — assert it, or "no prop" stops meaning anything.
-    const source = code('components/CardHintNote.tsx');
-    expect(source).toMatch(/placement = 'foot'/);
-    expect(source).toMatch(/const head = placement === 'head';/);
-    // Head: no hairline to attach it to what it follows, no marginTop (the header owns that
-    // gap), a marginBottom instead. Foot keeps the shape it has had since 2026-07-30.
-    expect(source).toMatch(/head: \{\s*marginBottom: Spacing\.md,\s*\}/);
-    expect(source).toMatch(/foot: \{[\s\S]*?borderTopWidth: StyleSheet\.hairlineWidth[\s\S]*?marginTop: Spacing\.md,/);
+describe('the bulb explainer line stays deleted', () => {
+  // ⚠️ **REPLACES the "CardHintNote placement is decided by emptiness" block (2026-08-17).**
+  // That block pinned where the app's one bulb-and-italic explainer sat on each of eight cards
+  // — head everywhere except EnergyMeter's permanent one at the foot. The maintainer's ruling
+  // deleted the whole tier: *"A native app should not read like a manual… Delete all lightbulb
+  // (💡) sections entirely."* So the component is gone and the assertions invert: what has to
+  // stay true now is that nothing brings it back, which is exactly the kind of thing a
+  // screenshot review re-introduces card by card without noticing it is a system.
+  //
+  // The placement rule it encoded is NOT lost, and is worth keeping legible in case a future
+  // brief wants a shorter explainer somewhere: an explanation belongs under the card's header
+  // ("explanation always sits underneath sub-header", 2026-08-12), and whether it disappears
+  // once the card fills up is each caller's separate decision.
+
+  it('has no CardHintNote component to mount', () => {
+    expect(existsSync(join(ROOT, 'components/CardHintNote.tsx'))).toBe(false);
   });
 
-  // Every explainer leads its card. The second index is the card's BODY — the thing the note
-  // introduces rather than follows.
-  //
-  // The first five are empty-gated; the two tabs (2026-08-13) are PERMANENT and still at the
-  // head, which is what separates the two readings of the original ruling. "Explanation always
-  // sits underneath sub-header" is about POSITION; "only when the card is empty" was about
-  // whether it stays, and that is each caller's own call. Before the tabs moved onto the shared
-  // component every head caller happened to be empty-gated, so the two were indistinguishable
-  // and this file used to describe the gate as deciding the placement. It doesn't.
-  for (const [file, body, label] of [
-    ['components/PlanTaskCard.tsx', 'styles.emptyWrap', 'the day card'],
-    ['components/HomeHabitsCard.tsx', '<PadSheet', "Home's habits card"],
-    ['components/HomeNotesCard.tsx', '<PadSheet', "Home's notes card"],
-    ['components/HomeShoppingCard.tsx', 'styles.weekRow', "Home's shopping card"],
-    // The person filter, which is where this card's body starts. Was a bare `<Collapsible`
-    // until 2026-08-14, when the fold-away pass wrapped the whole card body in one of those —
-    // so the marker matched the WRAPPER, which is above the note, and the test failed on a
-    // change that had moved nothing. A body marker has to name the body, not a container that
-    // could come to enclose the note too.
-    ['components/MedicineTrayCard.tsx', '<Collapsible open={showProfiles}', 'the medicine tray card'],
-    ['app/(tabs)/habits.tsx', 'styles.habitsCardBody', 'the Habits tab'],
-    ['app/(tabs)/health.tsx', 'styles.healthCardBody', 'the Health tab'],
+  for (const file of [
+    'components/PlanTaskCard.tsx',
+    'components/HomeHabitsCard.tsx',
+    'components/HomeNotesCard.tsx',
+    'components/HomeShoppingCard.tsx',
+    'components/MedicineTrayCard.tsx',
+    'components/EnergyMeter.tsx',
+    'app/(tabs)/habits.tsx',
+    'app/(tabs)/health.tsx',
   ] as const) {
-    it(`${label} explains itself under its header, not at its foot`, () => {
+    it(`${file} mounts no explainer line`, () => {
+      // Matches a MOUNT or an import, never a mention — these files legitimately explain in
+      // prose that they used to carry one, and a scan that trips on the explanation makes
+      // deleting the explanation the cheapest way to green.
       const source = code(file);
-      const mounts = source.match(/<CardHintNote[\s\S]*?\/>/g) ?? [];
-      expect(mounts).toHaveLength(1);
-      expect(mounts[0]).toContain('placement="head"');
-      // `noBorder` was the foot's "don't double the pad's own rule" escape hatch; at the head
-      // there is no hairline to suppress, so a caller passing both is stating something false.
-      expect(mounts[0]).not.toContain('noBorder');
-      const note = source.indexOf('<CardHintNote');
-      const content = source.indexOf(body);
-      expect(content).toBeGreaterThan(-1);
-      expect(note).toBeLessThan(content);
+      expect(source).not.toMatch(/<CardHintNote/);
+      expect(source).not.toMatch(/from '@\/components\/CardHintNote'/);
+      // …and nothing hand-rolls a replacement out of the same two ingredients.
+      expect(source).not.toMatch(/name="bulb-outline"/);
     });
   }
 
-  it('leaves the Energy hint at the foot — it is permanent, not an empty state', () => {
-    // The counter-case, and the reason this describe asserts a RULE rather than five
-    // positions. EnergyMeter's hint sits under a meter that has a number in it: teaching
-    // between a title and content the user already has is exactly what 2026-07-30 moved out
-    // of the way, and that half of the decision still stands.
-    const source = code('components/EnergyMeter.tsx');
-    const mounts = source.match(/<CardHintNote[\s\S]*?\/>/g) ?? [];
-    expect(mounts).toHaveLength(1);
-    expect(mounts[0]).not.toContain('placement');
+  it('leaves the ⓘ banner as the one place a screen explains itself', () => {
+    // The tier that survives, and the reason deleting the inline one is not a loss of teaching:
+    // it is opt-in, one short instruction, and clamped so it cannot grow back into a paragraph.
+    const source = code('components/HintCard.tsx');
+    expect(source).toMatch(/const HINT_LINES = \d;/);
+    expect(Number(source.match(/const HINT_LINES = (\d);/)![1])).toBeLessThanOrEqual(2);
+    expect(source).toMatch(/numberOfLines=\{HINT_LINES\}/);
+    // The italic second line went with the bulb — same ruling, same pass.
+    expect(source).not.toMatch(/example\?:/);
+    expect(source).not.toMatch(/fontStyle: 'italic'/);
   });
 });

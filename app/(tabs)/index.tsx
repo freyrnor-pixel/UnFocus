@@ -166,9 +166,9 @@ import { goToSite } from '@/lib/siteNav';
 import { todayStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { computeListGroups } from '@/lib/shoppingGroups';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, HitSlop, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
 import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
@@ -218,6 +218,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const today = todayStr();
 
@@ -715,7 +716,7 @@ export default function HomeScreen() {
         onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.home.text} example={t.hints.home.example} open={hintOpen} noPill onDismiss={dismissHint}>
+          <HintCard text={t.hints.home.text} open={hintOpen} noPill onDismiss={dismissHint}>
             <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
                 <View style={styles.hintSettingRow}>
                   <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
@@ -759,13 +760,13 @@ export default function HomeScreen() {
               </View>
               {cardsEditMode ? (
                 <PressableScale
-                  style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+                  style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
                   onPress={() => {
                     tap();
                     setCardsEditMode(false);
                   }}
                 >
-                  <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.home.manageCards.done}</Text>
+                  <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.home.manageCards.done}</Text>
                 </PressableScale>
               ) : (
                 <PressableScale

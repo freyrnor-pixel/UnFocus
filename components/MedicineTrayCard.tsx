@@ -18,9 +18,9 @@
  * Connections:
  *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/AddRow,
  *             components/PressableScale, components/Collapsible,
- *             components/CardHintNote (the empty-state explainer, `placement="head"` — the
- *             shared explainer line every other empty card uses; was a compact+embedded
- *             components/StarterCard until 2026-08-12), components/ReminderBell,
+ *             (no explainer line since 2026-08-17 — the bulb tier is deleted app-wide; this card
+ *             had a StarterCard until 2026-08-12 and a CardHintNote until this pass, and now has
+ *             neither: its add field sits directly under the header), components/ReminderBell,
  *             components/FormControls (Input), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
@@ -76,7 +76,6 @@ import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import CardCollapseToggle from '@/components/CardCollapseToggle';
-import CardHintNote from '@/components/CardHintNote';
 import ReminderBell from '@/components/ReminderBell';
 import { Input } from '@/components/FormControls';
 import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
@@ -287,20 +286,6 @@ export default function MedicineTrayCard() {
         <Collapsible open={!collapsed}>
         {status && <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>}
 
-        {/* The empty-state explainer, under the header row (2026-08-12). It was a StarterCard
-            (`compact embedded`) — a near-identical bulb + italic line — and is the shared
-            components/CardHintNote now, so all five empty-state explainers are ONE component
-            in ONE position: under the header while the card is empty. It was already in the
-            right place before this pass (`statusLine()` returns null with nothing scheduled),
-            so only the component changed; the visible diff is CardHintNote's own ink
-            (`textMuted`) and lineHeight, which is the explainer line's tier.
-            The local `marginTop` is this card's alone: `cardContent` has no `gap` and its
-            children each carry their own, whereas the four Home cards' headers own a
-            `marginBottom` that already supplies this gap. `placement="head"` only ever
-            contributes the margin BELOW. */}
-        {medicines.length === 0 && (
-          <CardHintNote text={t.starters.medicine.text} placement="head" style={styles.hintNote} />
-        )}
 
         {/* Person filter (People/family mode) — one chip per person, same as Habits. */}
         <Collapsible open={showProfiles}>
@@ -574,11 +559,6 @@ const baseStyles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sectionLabel: { flex: 1, fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
   status: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
-  // `cardContent` has no `gap` — every child here carries its own top margin (see `status`
-  // above). CardHintNote's `placement="head"` supplies only the margin BELOW it, so without
-  // this the note would sit flush against the header row. The four Home cards need no
-  // equivalent: their headers already carry a `marginBottom`.
-  hintNote: { marginTop: Spacing.xs },
   profileRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.sm },
   chip: {
     paddingHorizontal: Spacing.sm,

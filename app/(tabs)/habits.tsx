@@ -215,7 +215,6 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
-import CardHintNote from '@/components/CardHintNote';
 import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -851,7 +850,7 @@ export default function HabitsScreen() {
               which is also why the 2026-07-21 debug note below, removing a plain "X / Y
               done" tally from this same screen, still holds: no score belongs on this
               screen. */}
-          <HintCard text={t.hints.habits.text} example={t.hints.habits.example} open={hintOpen} noPill onDismiss={dismissHint} />
+          <HintCard text={t.hints.habits.text} open={hintOpen} noPill onDismiss={dismissHint} />
 
           {/* Habits — one hue-edged card holding the filter · view tabs · rows · add line.
               This used to be a `SectionCard`, whose header label was the string "Habits"
@@ -881,7 +880,11 @@ export default function HabitsScreen() {
                   badge-and-title row of its own. The text is unchanged; it just no longer spans
                   the full width. */}
               <View style={styles.cardSubtitleRow}>
-                <Text style={[styles.cardSubtitle, { color: theme.text }]}>{t.habits.cardSubtitle}</Text>
+                {/* Clamped (2026-08-17, brief section 3) — this is the card's only header line, so
+                    it must not be allowed to grow into a paragraph and push the list down. */}
+                <Text style={[styles.cardSubtitle, { color: theme.text }]} numberOfLines={2}>
+                  {t.habits.cardSubtitle}
+                </Text>
                 <CardCollapseToggle
                   collapsed={habitsCollapsed}
                   onToggle={toggleHabitsCollapsed}
@@ -891,19 +894,6 @@ export default function HabitsScreen() {
 
               <Collapsible open={!habitsCollapsed}>
 
-              {/* Tips (2026-08-06 v2, user feedback): a plain line under the sub-header, not
-                  boxed and not gated on emptiness — "tips stays". Distinct from the examples
-                  block right below, which has its own, different lifecycle (see there).
-                  **components/CardHintNote since 2026-08-13**, replacing a hand-rolled bulb +
-                  italic row. Same sentence, same position, same permanence — what changes is
-                  that it is no longer a third implementation of the app's one explainer line
-                  (this tab and Health had drifted to different type sizes and, here, a
-                  different weight). `placement="head"` is the position, not a claim about
-                  emptiness: the ruling is "the explanation sits underneath the sub-header",
-                  and this card's tip is permanent by an older, separate decision. The
-                  `marginBottom: 0` cancels the note's own head gap — this card stacks its
-                  children on `gap: Spacing.md` already, and both would make it 32px. */}
-              <CardHintNote text={t.starters.habits.text} placement="head" style={styles.tipsNote} />
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in
                   Settings. Mounted only when there IS somebody to filter by (2026-08-08): a
@@ -1205,10 +1195,6 @@ const baseStyles = StyleSheet.create({
   // The card's bottom half stacks at the card's own rhythm — see the render-side note.
   habitsCardBody: { gap: Spacing.md },
 
-  // Tips line (2026-08-06 v2) — plain text under the sub-header, not boxed.
-  // The tips line's own row/icon/text styles are gone (2026-08-13) — components/CardHintNote
-  // draws all three now. This is only the gap cancellation; see the mount for why.
-  tipsNote: { marginBottom: 0 },
 
   // Suggested-habits chips (2026-08-06 v3) — rendered inside components/StarterCard's
   // `collapsible` drop-down now; the card/pill shell itself moved there, shared by every

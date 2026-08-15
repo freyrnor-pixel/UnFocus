@@ -123,12 +123,19 @@
  * 2026-08-03 'custom' was also the only mode drawn as two stacked lines; every mode is now, see
  * the layout note above.)
  *
- * **Permanent inline hint (2026-07-27, kept through the 2026-07-31 strip pass)**: one small
- * italic line (`t.energyMeter.hint`) under a hairline rule, attached directly below the meter,
- * always — via the shared `components/CardHintNote.tsx` at its own `FontSize.xs`, i.e. at or
- * under caption size. Losing the card surface did NOT orphan it: it hangs off the strip's
- * bottom edge instead of the card's, and it is the only thing left naming what the pips are, so
- * it matters more here than it did inside a titled card. It replaced a `components/StarterCard` sibling that
+ * **The permanent inline hint is DELETED (2026-08-17).** From 2026-07-27 the strip carried one
+ * small italic line (`t.energyMeter.hint`, "Plan the day around the energy you actually have.")
+ * under a hairline rule, directly below the meter, always — the shape that later became the
+ * app's shared bulb explainer. The maintainer's ruling deleted that whole tier: *"A native app
+ * should not read like a manual… Delete all lightbulb (💡) sections entirely."* The string is
+ * gone from lib/i18n.ts too, not just unmounted.
+ * ⚠️ **What that costs, stated so it is a decision and not an oversight:** the hint was the only
+ * thing on this strip naming what the pips ARE, which is why it survived the 2026-07-31 pass
+ * that took away the card and its title. What answers that now is the LABEL on line 1 (which
+ * carries the word "Energy" — see `t.energyMeter.today`) plus the tutorial state below, which
+ * stands in place of the meter until something can actually spend energy. If the strip ever
+ * reads as a score again, the fix is the label or the tutorial, not a line of italic under it.
+ * It had replaced a `components/StarterCard` sibling that
  * carried two "+" example rows and vanished once anything had an energy value. Two problems with
  * that, both reported: (1) as a separate card BELOW the meter and directly ABOVE the to-do card,
  * it read as belonging to the to-do card, so its disappearing act looked like a bug in the wrong
@@ -213,7 +220,7 @@
  * Connections:
  *   Imports → components/Badge (the `+N today only` chip), components/Button,
  *             components/PressableScale, components/StarterCard (the tutorial state),
- *             components/CardHintNote, components/EnergyConfigSheet, components/EnergyPauseSheet,
+ *             components/EnergyConfigSheet, components/EnergyPauseSheet,
  *             constants/theme, constants/motion, lib/useAppTheme, lib/i18n, lib/date, lib/energy,
  *             lib/useEnergyPause, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, expo-router (useFocusEffect),
@@ -237,7 +244,6 @@ import { Badge } from '@/components/Badge';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
 import StarterCard from '@/components/StarterCard';
-import CardHintNote from '@/components/CardHintNote';
 import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
@@ -700,7 +706,12 @@ export default function EnergyMeter() {
         // bindings the design project and lib/growth.ts both decline. See components/StageTree.tsx.
         // It is also the only tree on Home: the other Home cards draw inline explainers rather
         // than StarterCards, so "one tree per screen" holds without a suppression term here.
-        <StarterCard text={t.starters.energy.text} stage="sapling">
+        // No explanatory paragraph any more (2026-08-17, "kill the text bloat"): the two
+        // sentences that used to lead this card — "Energy is how much a day holds…" — were the
+        // longest block of teaching on Home, standing above every piece of real content on the
+        // first screen a new user sees. What is left is the one thing this state is FOR: the
+        // way in to setting the day's energy. The full explanation still lives in the ⓘ.
+        <StarterCard stage="sapling">
           <Button
             label={t.starters.energy.action}
             variant="secondary"
@@ -727,14 +738,6 @@ export default function EnergyMeter() {
               FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
           {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls, null)}
 
-          {/* Permanent one-line explainer, attached directly under the meter it explains
-              (2026-07-27, user report). See the file header for why this is no longer a
-              disappearing StarterCard sibling. The shape this pioneered became the shared
-              components/CardHintNote.tsx (2026-07-30), which every Home card's tip now uses.
-              It KEEPS its top hairline (no `noBorder`): with the card surface gone that rule is
-              the strip's only bottom edge, and it's what stops the hint reading as a floating
-              paragraph between Energy and the card below. */}
-          <CardHintNote text={t.energyMeter.hint} style={styles.hint} />
         </>
       )}
 
@@ -743,8 +746,9 @@ export default function EnergyMeter() {
           retrospective on it: it is static, never counted, never referred to again, and gone
           at midnight without anyone dismissing it. A strip that silently emptied read as a
           bug, which is the other half of why it is here.
-          Deliberately NOT a CardHintNote (that tier carries a bulb icon and a hairline rule,
-          both of which would rebuild a card here), not tappable, and with no way back: the
+          Deliberately not an explainer line (that whole tier — a bulb icon plus a hairline rule
+          — was deleted app-wide on 2026-08-17 and would have rebuilt a card here anyway), not
+          tappable, and with no way back: the
           day is the unit, and it resets on its own. No icon, no accent, no entrance. */}
       {pause.paused && (
         <Text style={[styles.pausedNote, { color: theme.textMuted }]}>{t.energyPause.afterGood}</Text>
@@ -865,10 +869,7 @@ const styles = StyleSheet.create({
   // is an explainer, not a form", and a full-width CTA on the topmost card of Home reads as
   // setup the user owes the app, which is the one thing this state must not do.
   tutorialAction: { alignSelf: 'flex-start' },
-  // CardHintNote brings its own hairline/italic caption-or-smaller type; this only trims its
-  // default top margin, since `strip`'s own `gap` already separates it from the meter above.
-  hint: { marginTop: 2 },
-  // The paused day's single line. Same caption tier as CardHintNote's text (FontSize.xs,
+  // The paused day's single line. The app's caption tier (FontSize.xs,
   // italic, theme.textMuted) so it reads as the quietest thing on Home, but hand-rolled
   // rather than reusing that component — its bulb icon and hairline rule would give the
   // pause a bordered header, i.e. exactly the status banner this must not be. No margin of

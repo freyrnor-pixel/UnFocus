@@ -173,7 +173,7 @@ export default function NotesScreen() {
     <>
       <ScreenScaffold title={t.notes.title} tier="sub" screenKey="notes" onBack={() => router.back()}>
         <View style={styles.content}>
-          <HintCard text={t.hints.notes.text} example={t.hints.notes.example} />
+          <HintCard text={t.hints.notes.text} />
 
           {/* A pending ghost keeps its section (and the whole list) from reading as empty even
               though the note it stands in for is already out of `notes` — see

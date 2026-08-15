@@ -63,14 +63,15 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
 import PhotoFrame from '@/components/PhotoFrame';
-import { Fonts, FontSize, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function BudgetScreen() {
   const router = useRouter();
   const { listId } = useLocalSearchParams<{ listId?: string }>();
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
 
   const lang = useSettingsStore((s) => s.language);
@@ -194,11 +195,11 @@ export default function BudgetScreen() {
               <>
                 <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.budget.noBudgetSet}</Text>
                 <PressableScale
-                  style={[styles.setBudgetBtn, { backgroundColor: theme.accent }]}
+                  style={[styles.setBudgetBtn, glassKey(theme.accent, isDark)]}
                   onPress={() => { setBudgetInput(''); setBudgetEditorVisible(true); }}
                   scaleTo={0.95}
                 >
-                  <Text style={[styles.setBudgetBtnText, { color: theme.accentInk }]}>{t.budget.setBudget}</Text>
+                  <Text style={[styles.setBudgetBtnText, { color: theme.text }]}>{t.budget.setBudget}</Text>
                 </PressableScale>
               </>
             )}

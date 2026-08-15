@@ -22,8 +22,8 @@
  */
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -45,6 +45,7 @@ const DOMAIN_KEYS = [
 
 export default function AiSetupPreviewModal({ visible, preview, staleWarning, onConfirm, onCancel }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -120,12 +121,12 @@ export default function AiSetupPreviewModal({ visible, preview, staleWarning, on
             <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>{t.cancel}</Text>
           </PressableScale>
           <PressableScale
-            style={[styles.primaryBtn, { backgroundColor: theme.accent, opacity: nothingToDo ? 0.5 : 1 }]}
+            style={[styles.primaryBtn, glassKey(theme.accent, isDark), { opacity: nothingToDo ? 0.5 : 1 }]}
             onPress={onConfirm}
             scaleTo={0.95}
             disabled={nothingToDo}
           >
-            <Text style={[styles.primaryBtnText, { color: theme.accentInk }]}>{t.aiSetup.confirmImport}</Text>
+            <Text style={[styles.primaryBtnText, { color: theme.text }]}>{t.aiSetup.confirmImport}</Text>
           </PressableScale>
         </View>
       </Surface>

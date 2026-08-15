@@ -52,8 +52,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { FontSize, Fonts, Radius, Spacing } from '@/constants/theme';
-import { useAppTheme, useAccessibility, useScaledStyles } from '@/lib/useAppTheme';
+import { FontSize, Fonts, glassKey, Radius, Spacing } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
 import { success } from '@/lib/haptics';
@@ -80,6 +80,7 @@ type Props = {
 
 export default function AddDishSheet({ visible, onClose, onAdded, target }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -240,8 +241,8 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
               </ScrollView>
             )}
 
-            <PressableScale style={[styles.doneBtn, { backgroundColor: theme.accent }]} onPress={onClose} scaleTo={0.96}>
-              <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.closePopupLabel}</Text>
+            <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.96}>
+              <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.closePopupLabel}</Text>
             </PressableScale>
           </Surface>
         </Animated.View>

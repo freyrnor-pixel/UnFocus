@@ -13,9 +13,9 @@
  *      full painted footprint, and ScreenScaffold clips its scroll viewport.
  *   4. **A Button has three states, and the right variants wear them** (added 2026-08-12).
  *      Popped out = primary/danger only, flat = secondary, pressed in = sink + shadow to zero
- *      + a face that darkens toward its own base. Same reason as 1: a press state is invisible
+ *      + the matte-glass body it now has. Same reason as 1: a press state is invisible
  *      in a screenshot, and the web preview runs worklets on the JS thread so it can't see one
- *      either — a scan plus the darken arithmetic is the only guard that actually holds.
+ *      either — a source scan plus the contrast arithmetic is the only guard that holds.
  *
  * Precedent for reading source in a test: lib/__tests__/cardLayout.test.ts, and the "(b) Token
  * use" half of lib/__tests__/designTokens.test.ts. Same reasoning as both — the shape tests
@@ -23,7 +23,8 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { darken } from '@/constants/theme';
+import { getGlow, mix } from '@/constants/theme';
+import { contrastRatio, IDENTITY_HUES, THEMES } from '@/constants/colors';
 
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
@@ -326,62 +327,106 @@ describe('ScreenScaffold — the clipped viewport matches the floating chrome', 
   });
 });
 
-// ── 4. Three button states ───────────────────────────────────────────────────
+// ── 4. The matte-glass button ────────────────────────────────────────────────
 
-describe('Button — flat, popped out, pressed in', () => {
+describe('Button — matte glass, not plastic', () => {
   const button = code('components/Button.tsx');
   const pressable = code('components/PressableScale.tsx');
+  const theme = code('constants/theme.ts');
 
-  it('darkens a filled face toward its own base, never past it', () => {
-    // Pure arithmetic, so it can be asserted for real rather than scanned. The pressed face
-    // has to land BETWEEN the resting cap and the keyBase it is sinking onto: darker than the
-    // cap (or the press is invisible), lighter than the housing (or the cap reads as a hole
-    // punched in the button rather than a key that has gone down).
-    const fill = '#235EE0'; // theme.accent, light mode
-    const pressed = darken(fill, 0.1); // PRESS_DARKEN
-    const base = darken(fill, 0.22); // the keyBase slab
-    const lum = (hex: string) =>
-      [1, 3, 5].reduce((sum, i) => sum + parseInt(hex.slice(i, i + 2), 16), 0);
-    expect(lum(pressed)).toBeLessThan(lum(fill));
-    expect(lum(pressed)).toBeGreaterThan(lum(base));
+  // ⚠️ **REWRITTEN 2026-08-17.** This block used to pin the "hardware key" build: a
+  // `PRESS_DARKEN` face that darkened toward its `keyBase` housing, `pressFill` handing
+  // `backgroundColor` to PressableScale, and `depth="raised"` + `housed` on primary/danger. The
+  // maintainer's ruling is that the result read as *"glossy Web 2.0 plastic pills"*, so all of it
+  // is deleted, and the assertions are rewritten to guard what replaced it rather than removed —
+  // otherwise the next brief re-derives the same gloss from a clean slate. The one thing carried
+  // over unchanged is the SINK, which is the last test in this block.
+
+  it('draws the body as a flat translucent wash, never a solid fill', () => {
+    // The brief's central instruction, and the half a screenshot cannot check: `rgba()` at a
+    // single-digit-to-teens alpha, set statically on the pressable. Both halves matter — a
+    // translucent body with `pressFill` still alive would put two owners on backgroundColor.
+    expect(button).toMatch(/const key = glassKey\(hue, isDark, weight, edgeWidth\)/);
+    expect(button).toMatch(/backgroundColor: colors\.bg,/);
+    expect(button).not.toMatch(/pressFill/);
+    // The alphas live in constants/theme.ts now, because Button is not the only caller — the ~18
+    // hand-rolled action pills draw through the same helper, and two copies of these numbers is
+    // exactly the drift `glassKey` exists to stop.
+    for (const mode of ['dark', 'light'] as const) {
+      const rungs = theme
+        .match(new RegExp(`${mode}: \\{ key: ([\\d.]+), loud: ([\\d.]+), quiet: ([\\d.]+) \\}`))!
+        .slice(1)
+        .map(Number);
+      // "the mapped categorical color at 10-15% opacity", with light a couple of points up, the
+      // secondary rung one step back and `danger` at the top of the band (see glassKey's note).
+      // Anything at or above 0.25 stops being a wash and starts being a fill again.
+      for (const alpha of rungs) {
+        expect(alpha).toBeGreaterThan(0);
+        expect(alpha).toBeLessThan(0.25);
+      }
+      const [key, loud, quiet] = rungs;
+      expect(quiet).toBeLessThan(key);
+      expect(loud).toBeGreaterThan(key);
+    }
   });
 
-  it('keeps PRESS_DARKEN under the keyBase amount', () => {
-    // The relationship above stated as the constant it actually depends on, so raising
-    // PRESS_DARKEN past the housing fails here with the reason attached.
-    const amount = Number(button.match(/const PRESS_DARKEN = ([\d.]+);/)![1]);
-    expect(amount).toBeGreaterThan(0);
-    expect(amount).toBeLessThan(0.22);
+  it('lights the top-left edge and keeps a boundary on the bottom-right', () => {
+    // Per-side COLOURS at one width, not the brief's per-side widths — RN renders mixed border
+    // widths on a Radius.full pill inconsistently, and dropping two sides takes away the
+    // WCAG 1.4.11 control boundary a button (unlike a card) cannot afford to lose.
+    expect(theme).toMatch(/borderTopColor: lit,\s+borderLeftColor: lit,/);
+    expect(theme).toMatch(/borderBottomColor: shade,\s+borderRightColor: shade,/);
+    // One width for all four sides, and it stays a token rather than a bare 1 — Button hands it
+    // the design lab's own `edgeWidth`, and the default is BORDER_WIDTH.button.
+    expect(theme).toMatch(/width = BORDER_WIDTH\.button/);
+    expect(button).toMatch(/borderWidth: key\.borderWidth,/);
   });
 
-  it('hands the fill to PressableScale rather than styling it statically', () => {
-    // Both halves, because either alone is a broken button: the prop without dropping the
-    // static fill means two owners for backgroundColor, and dropping the static fill without
-    // the prop means a transparent button.
-    expect(button).toMatch(/pressFill=\{pressFill\}/);
-    expect(button).toMatch(/backgroundColor: pressFill \? undefined : colors\.bg/);
-    // …and the guard that keeps the lab's non-key shapes filled: PressableScale only
-    // interpolates in key mode, so a non-key shape must keep the static fill.
-    expect(button).toMatch(/isKeyShape && colors\.bg !== 'transparent'/);
+  it('has no gloss layer left anywhere on a key', () => {
+    // The three deleted layers, asserted as absences because each is invisible to a screenshot
+    // in isolation and only reads as "plastic" in combination. `face` covers both the resting
+    // highlight and the pressed inner shade — they were one prop.
+    expect(pressable).not.toMatch(/face\?:/);
+    expect(pressable).not.toMatch(/from 'expo-linear-gradient'/);
+    expect(pressable).not.toMatch(/interpolateColor/);
+    // …and the housing, which was the "solid heavy color" half of the same complaint.
+    expect(button).not.toMatch(/keyBase/);
+    expect(button).not.toMatch(/depth=/);
+    expect(button).toMatch(/const button = pressable;/);
   });
 
-  it('rides the same shared value as the sink, so colour and travel cannot disagree', () => {
-    expect(pressable).toMatch(/interpolateColor\(press\.value, \[0, 1\], \[fillRest, fillPressed\]\)/);
-    // Key mode only — in scale mode `press.value` never moves, so an interpolation off it
-    // would pin the face at its resting colour and quietly do nothing.
-    expect(pressable).toMatch(/isKey && fillRest && fillPressed/);
-  });
-
-  it('pops out primary and danger only — secondary is flat', () => {
-    // The 2026-08-12 call. A soft-tint fill that is elevated competes with the one action the
-    // screen is asking for, so `secondary` keeps the sink and the darken but loses the shadow
-    // and the housing. Both halves are gated on the same flag so they can't drift apart.
+  it('glows outward in the screen\'s categorical colour, on primary and danger only', () => {
+    // The one lighting effect that survives, and the one the brief asks for by name. `hue` is
+    // shared with the body and the shade edge, so the light and the tint cannot disagree.
     expect(button).toMatch(
       /const isRaised = !unfilled && \(variant === 'primary' \|\| variant === 'danger'\)/
     );
-    expect(button).toMatch(/depth=\{isRaised \? 'raised' : undefined\}/);
-    expect(button).toMatch(/const housed = !!travel && isRaised/);
-    expect(button).toMatch(/const button = housed \?/);
+    expect(button).toMatch(/const glow = isRaised \? \{ color: hue, radius: Radius\.full \} : undefined/);
+    // getGlow is a boxShadow with no offset — i.e. it projects outward, not inward.
+    const glow = getGlow('#1E88FF', 'soft');
+    expect(glow.boxShadow.every((s) => s.offsetX === 0 && s.offsetY === 0 && s.blurRadius > 0)).toBe(true);
+  });
+
+  it('reads on its own body in both modes, on every categorical hue', () => {
+    // The contrast question the old build answered with `accentInk`. Nothing is written ON a hue
+    // any more — the label is `theme.text` over a wash of the hue on the card — so this measures
+    // the label against what the body actually composites to. AA on all five hues in both modes
+    // is what makes a categorical primary button legal at all; if this fails, the fix is a lower
+    // body alpha, not a per-hue ink table.
+    for (const mode of ['light', 'dark'] as const) {
+      const p = THEMES.default[mode];
+      const alpha = mode === 'dark' ? 0.14 : 0.16;
+      for (const { hue } of Object.values(IDENTITY_HUES)) {
+        const composited = mix(p.surface, hue, alpha);
+        expect(contrastRatio(p.text, composited)).toBeGreaterThanOrEqual(4.5);
+      }
+      // …and `danger`, at its own deeper rung. **The counter-case matters as much as the rule**:
+      // a red LABEL on this wash measures 4.62 → 3.59:1 across the usable alpha range, i.e. it
+      // fails AA everywhere, which is why the label is `theme.text` here too and the red lives in
+      // the wash and the halo. Asserting the failure keeps the next session from "restoring" it.
+      expect(contrastRatio(p.text, mix(p.surface, p.bad, 0.24))).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(p.bad, mix(p.surface, p.bad, 0.24))).toBeLessThan(4.5);
+    }
   });
 
   it('still sinks a flat variant its full travel', () => {
@@ -390,9 +435,9 @@ describe('Button — flat, popped out, pressed in', () => {
     expect(button).toMatch(/const travel = isKeyShape \? SIZE_TRAVEL\[size\] : undefined/);
   });
 
-  it('gives a flat variant back the caller style the housing used to carry', () => {
-    // `style` moves to the wrapper only when there IS a wrapper. Keying this off `travel`
-    // (as it was) would drop every secondary button's caller-supplied width and margin.
-    expect(button).toMatch(/housed \? null : style/);
+  it('always puts the caller style on the pressable itself', () => {
+    // With the housing gone there is no wrapper to move it to. It was `housed ? null : style`,
+    // and a stale conditional here silently drops every button's caller-supplied width/margin.
+    expect(button).toMatch(/\s+style,\s+\]\}/);
   });
 });

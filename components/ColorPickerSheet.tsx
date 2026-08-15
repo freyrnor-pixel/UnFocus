@@ -49,12 +49,13 @@ import {
   contrastOn,
   hexToHsl,
   hslToHex,
+  glassKey,
 } from '@/constants/theme';
 import { SWATCH_GRID } from '@/lib/colorPalette';
 import { isValidHex, normalizeHex } from '@/lib/designLab';
 import { selection } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 
 type Props = {
   visible: boolean;
@@ -82,6 +83,7 @@ export default function ColorPickerSheet({
   onClear,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -212,9 +214,9 @@ export default function ColorPickerSheet({
           <PressableScale
             onPress={onClose}
             scaleTo={0.95}
-            style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+            style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           >
-            <Text style={[styles.doneText, { color: theme.accentInk }]}>{t.designLab.color.close}</Text>
+            <Text style={[styles.doneText, { color: theme.text }]}>{t.designLab.color.close}</Text>
           </PressableScale>
         </View>
       </Surface>

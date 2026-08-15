@@ -34,8 +34,7 @@
  *             energy row above; split out because app/(tabs)/habits.tsx mounts an IDENTICAL
  *             panel and the two are pinned against each other by
  *             lib/__tests__/energyModes.test.ts),
- *             components/CardHintNote (the empty-state explainer, `placement="head"` —
- *             under the header while the card is empty; see its placement note), components/AddRow,
+ *             components/AddRow,
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
  *             lib/screenColor, lib/habitRecurrence (habitOccursOn, habitProgress),
@@ -64,21 +63,11 @@
  *     get the lighter `tap()`.
  *   - **Empty states, two tiers (mirrors habits.tsx's Today tab exactly)**: no habits AT
  *     ALL → one-tap `HABIT_STARTERS` chips, capped at `STARTER_PREVIEW_COUNT` (see that
- *     constant — the Habits TAB still offers all four), and the explainer
- *     (`t.starters.habits.text`) as a `components/CardHintNote placement="head"` directly
- *     under the header — where it led before 2026-07-30, moved to the foot, and returned on
- *     2026-08-12 now that the placement is gated on emptiness rather than fixed.
- *     **Simplified 2026-07-30**: this block used to open with a bulb explainer, then an
- *     "Example habits" caption, then a read-only `StarterExampleRow` — which rendered the
- *     first starter's own title and goal ("Drink 4 glasses of water 0/4") directly above a
- *     chip reading "Drink 4 glasses of water +". Same suggestion twice, four lines deep,
- *     before anything actionable. The chips ARE the example and they're tappable, so the
- *     row went; the explainer moved to the foot, and came back under the header on
- *     2026-08-12 for the empty state only (see CardHintNote's placement note: the 2026-07-30
- *     complaint was about teaching between a title and content the user already has).
- *     Habits exist but none are due today → nothing renders below the header (2026-08-12
- *     removal of the quiet `t.noHabitsYet` one-liner; habits.tsx's Today tab dropped the
- *     same line, so the two surfaces still never disagree).
+ *     constant — the Habits TAB still offers all four). It also carried a one-line explainer
+ *     under the header (`t.starters.habits.text`, a bulb + italic sentence); **that whole tier
+ *     was deleted on 2026-08-17** — *"a native app should not read like a manual"* — so the card
+ *     goes straight from its header to its content and the ⓘ banner is where a screen explains
+ *     itself. See components/HintCard.tsx. The string is deleted too, not just unmounted.
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
  *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled
@@ -133,7 +122,6 @@ import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
-import CardHintNote from '@/components/CardHintNote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
@@ -406,13 +394,6 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           )}
         </View>
 
-        {/* Explainer under the header while the card is EMPTY (2026-08-12, maintainer: the
-            explanation sits under the sub-header, "only when the card is empty"). With no
-            habits to lead with, the explanation IS the main thing in this card, so it sits
-            where a sub-header would rather than at the foot it moved to on 2026-07-30 — that
-            complaint was about teaching standing between a title and content the user already
-            has. See components/CardHintNote.tsx's placement note. */}
-        {habits.length === 0 ? <CardHintNote text={t.starters.habits.text} placement="head" /> : null}
 
         {habits.length === 0 ? (
           // No habits AT ALL — one-tap starters, and nothing else (2026-07-30). This block used
@@ -420,7 +401,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // StarterExampleRow — which rendered "Drink 4 glasses of water 0/4" directly above a
           // chip reading "Drink 4 glasses of water +", i.e. the same suggestion twice, four
           // lines deep, before anything you could act on. The chips ARE the example and they're
-          // tappable; the explainer is the head-mounted CardHintNote above.
+          // tappable. (The explainer line that used to sit above it is deleted — 2026-08-17.)
           //
           // **The shared collapsible box since 2026-08-13.** The trigger row used to be a plain
           // `starterTapLabel` Text with an unboxed chip cloud under it — a hand-rolled stand-in
@@ -429,7 +410,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // chips; what it gains is the border, the chevron and the fold (maintainer,
           // 2026-08-13: "boxed everywhere so it can always be folded"). `embedded` because we
           // are inside this card's own Surface already, and **no `text`** — the explainer is
-          // the CardHintNote above, and one card saying the same sentence twice with two
+          // the explainer line that used to sit above, and one card saying the same sentence twice with two
           // different lifespans is what StarterCard's optional-`text` note warns against.
           <View style={styles.emptyWrap}>
             <StarterCard embedded collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
@@ -539,7 +520,7 @@ const baseStyles = StyleSheet.create({
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
-  // Just the starter chips now — the explainer is a CardHintNote (2026-07-30 at the foot,
+  // Just the starter chips now — the explainer line that used to accompany them (2026-07-30 at the foot,
   // back under the header on 2026-08-12) and the read-only example row (a duplicate of
   // chip #1) is gone entirely.
   emptyWrap: { gap: Spacing.sm, marginBottom: Spacing.sm },

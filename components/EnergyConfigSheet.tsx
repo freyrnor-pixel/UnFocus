@@ -188,7 +188,7 @@ const baseStyles = StyleSheet.create({
   // does nothing here (see components/TaskCard.tsx's note on the same fix).
   fieldLabelWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
   fieldLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
-  // Caption tier, same as components/CardHintNote's text: this explains the control above it
+  // Caption tier: this explains the control above it
   // and must never compete with it.
   fieldHint: { fontSize: FontSize.xs, fontStyle: 'italic', lineHeight: 17 },
   divider: { height: StyleSheet.hairlineWidth },

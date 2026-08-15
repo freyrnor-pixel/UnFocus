@@ -110,7 +110,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { contrastOn, computeBorderTone, rgba, BORDER_WIDTH, Fonts, FontSize, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, rgba, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -697,12 +697,12 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                 <Text style={[styles.popupBtnText, { color: theme.textInverse }]}>{t.addToWeekListBtn}</Text>
               </PressableScale>
               <PressableScale
-                style={[styles.popupBtn, { backgroundColor: theme.accent }]}
+                style={[styles.popupBtn, glassKey(theme.accent, isDark)]}
                 onPress={() => popupDish && handleAddToMonthly(popupDish)}
                 scaleTo={0.95}
               >
-                <Ionicons name="calendar-outline" size={18} color={theme.accentInk} />
-                <Text style={[styles.popupBtnText, { color: theme.accentInk }]}>{t.addToMonthlyListBtn}</Text>
+                <Ionicons name="calendar-outline" size={18} color={theme.text} />
+                <Text style={[styles.popupBtnText, { color: theme.text }]}>{t.addToMonthlyListBtn}</Text>
               </PressableScale>
             </Surface>
           </Animated.View>

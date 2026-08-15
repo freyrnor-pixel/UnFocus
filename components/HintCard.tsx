@@ -24,20 +24,25 @@
  *     explainer that renders inline while a surface has no content, and is gated on a plain
  *     `length === 0`. They deliberately look different so a screen showing both at once
  *     doesn't read as the same card twice.
- *   - **components/HintSheet.tsx is the same content in a bottom sheet (2026-08-13)**, and
- *     app/(tabs)/shopping.tsx is its one caller — that screen's hint body is the largest
- *     block on the tab (two paragraphs plus the two reset-cadence controls) and opening it
- *     inline pushed every list card down. The other ten callers here are unchanged. Same
- *     `text`/`example`/`children` contract on both, deliberately, so moving a screen between
- *     them is a swap rather than a rewrite; if a second screen's hint outgrows its card, move
- *     it, don't build a third shape.
- *   - Optional `children` render below text/example — used to embed a setting control
+ *   - **`example` is DELETED (2026-08-17, "kill the text bloat").** Every banner used to carry
+ *     a second, italic, muted line under its instruction — *"Draining tasks get a minus,
+ *     restoring ones a plus."*, *"e.g. milk weekly, washing powder monthly."*, *"e.g. 'Headache'
+ *     at 3 of 5 — a couple of weeks shows a pattern."* Maintainer: *"Remove all italicized
+ *     explanatory examples from the top info banners. Keep only the absolute shortest, primary
+ *     instruction."* So the prop is gone from the component AND the `hints.*.example` keys are
+ *     gone from lib/i18n.ts — leaving the strings behind would guarantee the next session wires
+ *     them back in. Note this does NOT touch components/StarterCard.tsx's `example`, which is a
+ *     different thing entirely: a real, addable example ROW, not a sentence about one.
+ *   - Optional `children` render below the instruction — used to embed a setting control
  *     (shopping reset cadence, notifications) that lives nowhere else. Since the card no
- *     longer auto-opens, those controls are reachable only via the ⓘ button; don't assume a
+ *     longer auto-opens, those controls are reachable only via the info button; don't assume a
  *     user has seen one. See app/(tabs)/shopping.tsx / plans.tsx / index.tsx.
- *   - Always renders the how-to button (collapsed by default) — callers should still pass text/example.
- *   - text/example are passed in already-localized; this component does not call useT() itself
+ *   - Always renders the how-to button (collapsed by default) — callers should still pass `text`.
+ *   - `text` is passed in already-localized; this component does not call useT() itself
  *     except for the toggle button's own label (t.showHint/t.hideHint).
+ *   - **The instruction is clamped to `HINT_LINES` and the card has real padding (2026-08-17).**
+ *     Both are brief section 3's "standardize text placement & padding"; see those two blocks
+ *     for the reasoning, and don't remove the clamp to fit a longer hint — shorten the hint.
  *   - Uses theme.hintBg/hintBorder/hintAccent (Decision 006 token layer) —
  *     theme-tuned per palette, not a fixed hue.
  *   - Pill path expand/collapse uses LayoutAnimation here (same pattern as ExpandableCard),
@@ -60,9 +65,22 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
+/**
+ * How many lines the banner's instruction may take (2026-08-17, brief §3: *"Secondary
+ * descriptive text must be heavily clamped… to prevent it from pushing functional UI elements
+ * off the screen."*).
+ *
+ * TWO, not one. Every hint was trimmed to a short imperative in the same pass, and all of them
+ * fit one line in English — but Norwegian runs ~15% longer and this card is the only place on
+ * some screens that carries a control in `children` (the shopping reset cadence, the
+ * notification row), so a hard one-line clamp would truncate the instruction on the exact
+ * screens where it does the most work. Two lines is the ceiling that keeps a card from ever
+ * growing into a paragraph again; if a hint needs three, shorten the hint.
+ */
+const HINT_LINES = 2;
+
 type Props = {
   text: string;
-  example?: string;
   /** Controlled open state — when provided, the internal state is bypassed. */
   open?: boolean;
   /** Controlled toggle — called instead of internal setState when provided. */
@@ -76,7 +94,7 @@ type Props = {
   noPill?: boolean;
   /**
    * Optional interactive content rendered inside the hint body, below the
-   * text/example. Used to embed a first-run setting control (e.g. shopping
+   * instruction. Used to embed a first-run setting control (e.g. shopping
    * reset day, work mode) that the old onboarding wizard used to collect —
    * the hint teaches it in context on first visit. See app/(tabs)/*.
    */
@@ -92,7 +110,7 @@ type Props = {
   onDismiss?: () => void;
 };
 
-export default function HintCard({ text, example, open: openProp, onToggle: onToggleProp, noPill, children, onDismiss }: Props) {
+export default function HintCard({ text, open: openProp, onToggle: onToggleProp, noPill, children, onDismiss }: Props) {
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -117,8 +135,7 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
       <View style={[styles.wrap, styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
         <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
         <View style={[styles.body, onDismiss && styles.bodyDismissable]}>
-          <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
-          {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+          <Text style={[styles.text, { color: theme.text }]} numberOfLines={HINT_LINES}>{text}</Text>
           {children ? <View style={styles.childrenSlot}>{children}</View> : null}
         </View>
         {/* Same dismiss affordance as components/StarterCard.tsx's — an intro card and an
@@ -158,8 +175,7 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
         <View style={[styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
           <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
           <View style={styles.body}>
-            <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
-            {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
+            <Text style={[styles.text, { color: theme.text }]} numberOfLines={HINT_LINES}>{text}</Text>
             {children ? <View style={styles.childrenSlot}>{children}</View> : null}
           </View>
         </View>
@@ -188,23 +204,29 @@ const baseStyles = StyleSheet.create({
     // `relative` so the absolutely-positioned dismiss below anchors to THIS box.
     position: 'relative',
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderRadius: Radius.sm,
     borderWidth: 1,
     overflow: 'hidden',
-    paddingVertical: Spacing.sm,
+    // Standard native padding on all four sides (2026-08-17, brief §3: "Text should not crowd
+    // the edges of its container"). It was `sm` vertical and `md` on the right only, with the
+    // left inset coming from the accent bar's own margin plus an `xs` on the body — so the text
+    // sat 3px from a hard edge on the left and 8px from the top. `alignItems` moved from
+    // 'flex-start' to 'center' with it: with the italic example gone the body is one short
+    // block, and top-aligning it against a stretched accent bar left the text riding high.
+    paddingVertical: Spacing.md,
     paddingRight: Spacing.md,
     marginTop: Spacing.xs,
   },
   accentBar: {
     width: 3,
     alignSelf: 'stretch',
-    marginRight: Spacing.sm,
+    marginRight: Spacing.md,
   },
   body: {
     flex: 1,
+    minWidth: 0,
     gap: Spacing.xs,
-    paddingLeft: Spacing.xs,
   },
   // The dismiss is out of flow, so the text has to reserve its own clearance or it runs
   // under the glyph. Only applied when there IS one — an undismissable card keeps the full width.
@@ -215,11 +237,6 @@ const baseStyles = StyleSheet.create({
     fontSize: FontSize.sm,
     lineHeight: 20,
     fontFamily: Fonts.medium,
-  },
-  example: {
-    fontSize: FontSize.xs,
-    lineHeight: 18,
-    fontStyle: 'italic',
   },
   childrenSlot: {
     marginTop: Spacing.sm,

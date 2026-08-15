@@ -1171,7 +1171,7 @@ export default function TasksScreen() {
             step) — removed 2026-07-25 along with the Work mode card in Settings, because
             `workModeEnabled` was never read by anything: the switch promised to hide
             personal plans and did nothing at all. */}
-        <HintCard text={t.hints.plans.text} example={t.hints.plans.example} open={hintOpen} noPill onDismiss={dismissHint} />
+        <HintCard text={t.hints.plans.text} open={hintOpen} noPill onDismiss={dismissHint} />
 
         {/* First-run explainer (2026-07-26): what a to-do is for here, plus an example.
             Shown only while there is not a single task on any tab, so it costs nothing once

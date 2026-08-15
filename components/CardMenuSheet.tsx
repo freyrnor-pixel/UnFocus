@@ -69,10 +69,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing, rgba } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, Radius, Spacing, rgba } from '@/constants/theme';
 import { selection, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 
 /** One row of a card's menu. See the "Row vocabulary is fixed" edit note before adding a field. */
 export type CardMenuOption = {
@@ -109,6 +109,7 @@ type SheetProps = CardMenu & {
 
 export default function CardMenuSheet({ open, onClose, cardTitle, options, onEditLayout }: SheetProps) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
 
@@ -200,11 +201,11 @@ export default function CardMenuSheet({ open, onClose, cardTitle, options, onEdi
         ) : null}
 
         <PressableScale
-          style={[styles.doneBtn, { backgroundColor: theme.accent }]}
+          style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           onPress={onClose}
           scaleTo={0.95}
         >
-          <Text style={[styles.doneBtnText, { color: theme.accentInk }]}>{t.home.cardMenu.close}</Text>
+          <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.home.cardMenu.close}</Text>
         </PressableScale>
       </Surface>
     </AnimatedBottomSheet>

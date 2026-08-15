@@ -108,7 +108,7 @@ import {
   settingsPatchFromPicks,
 } from '@/lib/firstRunOptions';
 import { buildTheme, resolveIsDark, scaleStyles, useSystemReducedMotion } from '@/lib/useAppTheme';
-import { FontSize, Fonts, MIN_TAP_TARGET, Radius, Shadow, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, glassKey, MIN_TAP_TARGET, Radius, Shadow, Spacing } from '@/constants/theme';
 import PressableScale from '@/components/PressableScale';
 
 /** One tappable option in a row. */
@@ -156,10 +156,11 @@ export default function OnboardingBasics() {
 
   // ── Live preview: this screen renders from `picks`, not from the store ──────
   const t = useMemo(() => getTranslations(picks.language), [picks.language]);
-  const theme = useMemo(
-    () => buildTheme(resolveIsDark(picks.darkMode, systemScheme)),
-    [picks.darkMode, systemScheme],
-  );
+  // `isDark` is pulled out as well as folded into `theme`: `glassKey` below needs it, and this
+  // screen previews an UNCOMMITTED appearance from local state, so it cannot call `useIsDark()`
+  // (that reads the store and would answer for the theme the user has not chosen yet).
+  const isDark = useMemo(() => resolveIsDark(picks.darkMode, systemScheme), [picks.darkMode, systemScheme]);
+  const theme = useMemo(() => buildTheme(isDark), [isDark]);
   const styles = useMemo(() => scaleStyles(baseStyles, picks.fontSize), [picks.fontSize]);
 
   // ── The one write ──────────────────────────────────────────────────────────
@@ -298,11 +299,14 @@ export default function OnboardingBasics() {
             selection();
             commit(picks);
           }}
-          style={[styles.footerBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}
+          // Matte glass, from the same `glassKey` every other action pill uses (2026-08-17).
+          // `glassKey` is a PURE function of a colour and a boolean, so it is one of the few
+          // shared pieces this screen can use — see the header note on why it hand-rolls the rest.
+          style={[styles.footerBtn, glassKey(theme.accent, isDark)]}
           accessibilityRole="button"
           accessibilityLabel={t.firstRun.continue}
         >
-          <Text style={[styles.footerBtnText, { color: theme.accentInk }]}>{t.firstRun.continue}</Text>
+          <Text style={[styles.footerBtnText, { color: theme.text }]}>{t.firstRun.continue}</Text>
         </PressableScale>
       </View>
     </SafeAreaView>
@@ -457,7 +461,7 @@ const baseStyles = StyleSheet.create({
   rowDesc: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center' },
   // Was a left accent bar (`borderLeftWidth: 2` + `paddingLeft`), which fought the centred
   // column — a rule down the left of centred text reads as a misalignment rather than an
-  // accent. Italic carries "this is an aside" on its own, the way components/CardHintNote.tsx
+  // accent. Italic carries "this is an aside" on its own, the way the app's explainer line
   // does. This is the OS-reduce-motion note; it appears on at most one row at a time.
   rowNote: {
     fontSize: FontSize.sm,

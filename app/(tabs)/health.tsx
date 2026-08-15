@@ -114,7 +114,6 @@ import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
-import CardHintNote from '@/components/CardHintNote';
 import CollapsedSection from '@/components/CollapsedSection';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
 import HealthIssuesSheet from '@/components/HealthIssuesSheet';
@@ -492,7 +491,6 @@ export default function HealthScreen() {
         <View style={styles.content}>
           <HintCard
             text={t.hints.health.text}
-            example={t.hints.health.example}
             open={hintOpen}
             noPill
             onDismiss={dismissHint}
@@ -552,20 +550,13 @@ export default function HealthScreen() {
                 </View>
                 <Collapsible open={!weekCollapsed}>
 
-                {/* Sub-header — the counterpart of the Habits card's, restyled the same way it
-                    was after the 2026-08-06 v2 feedback (bold, full-contrast, its own room), so
-                    it reads as a heading FOR the card rather than a caption inside it. */}
-                <Text style={[styles.cardSubtitle, { color: theme.text }]}>
-                  {t.healthIssues.cardSubtitle}
-                </Text>
+                {/* The "A record of how you have been — no scores, no streaks." sub-header was
+                    deleted 2026-08-17 ("kill the text bloat"). It was a promise ABOUT the card
+                    written on the card, and the card keeps the promise on its own: it still has
+                    no streak, no total, no escalating colour and no congratulation for a quiet
+                    week. Those invariants are enforced where they belong — in this file's header
+                    and in the tests — not by a sentence the user reads every visit. */}
 
-                {/* Tips — a plain line under the sub-header, not boxed and not gated on
-                    emptiness, the same permanent explainer Habits keeps.
-                    **components/CardHintNote since 2026-08-13** — see the Habits tab's matching
-                    mount. The two tabs hand-rolled this line separately and had drifted apart
-                    (this one was regular weight and not italic; Habits' was medium italic at a
-                    step larger), which is the whole reason it is one component now. */}
-                <CardHintNote text={t.starters.health.text} placement="head" style={styles.tipsNote} />
 
                 {/* The bottom half of the card — list, then composer. Matches the Habits card's
                     own `habitsCardBody` rhythm; the card breathed at the top and was flush at
@@ -800,10 +791,6 @@ const baseStyles = StyleSheet.create({
   // Bold + full contrast, the shape the Habits sub-header was corrected to on 2026-08-06 v2
   // after a first pass in small muted text read as just another line of body copy.
   cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  // The tips line's own row/icon/text styles are gone (2026-08-13) — components/CardHintNote
-  // draws all three now. This cancels the note's own head gap: the card already stacks its
-  // children on `gap: Spacing.md`, and both together would make it 32px.
-  tipsNote: { marginBottom: 0 },
   healthCardBody: { gap: Spacing.md },
   section: { gap: Spacing.xs },
   // Boxed row at the FIELD rung (card design reset, 2026-08-05) — the same construction

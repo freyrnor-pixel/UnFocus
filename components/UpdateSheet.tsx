@@ -39,8 +39,8 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, glassKey, HitSlop, Radius, Spacing } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -57,6 +57,7 @@ type Props = {
 
 export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const { bottom: bottomInset } = useSafeAreaInsets();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -162,8 +163,8 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
             <PressableScale style={styles.ghostBtn} onPress={onClose} scaleTo={0.97}>
               <Text style={[styles.ghostBtnText, { color: theme.textMuted }]}>{t.cancelBtn}</Text>
             </PressableScale>
-            <PressableScale style={[styles.primaryBtn, { backgroundColor: theme.accent }]} onPress={handleSave} scaleTo={0.95}>
-              <Text style={[styles.primaryBtnText, { color: theme.accentInk }]}>{t.saveBtn}</Text>
+            <PressableScale style={[styles.primaryBtn, glassKey(theme.accent, isDark)]} onPress={handleSave} scaleTo={0.95}>
+              <Text style={[styles.primaryBtnText, { color: theme.text }]}>{t.saveBtn}</Text>
             </PressableScale>
           </View>
 
