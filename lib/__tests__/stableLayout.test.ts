@@ -291,17 +291,20 @@ describe('TourSpotlight — one primary, one escape, and it puts you back where 
 describe('Onboarding backdrop — texture, not lines over the controls', () => {
   const src = code('app/onboarding/_layout.tsx');
 
-  it('dials the triptych back with a whole-motif multiplier', () => {
-    // Onboarding is the one place full-bleed art sits directly UNDER interactive controls
-    // rather than around a protected centre box, and it rendered at full baked opacity
-    // (trunk strokes up to 0.6/0.78) until 2026-08-03. The tab backdrop has always dialled
-    // its own cluster to 0.5/0.7 for the same reason.
-    const m = src.match(/const BACKDROP_OPACITY = ([\d.]+)/);
-    expect(m).not.toBeNull();
-    const value = Number(m![1]);
-    expect(value).toBeGreaterThan(0);
-    expect(value).toBeLessThan(1);
-    expect(src).toMatch(/opacity=\{BACKDROP_OPACITY\}/);
+  // **This replaces "dials the triptych back with a whole-motif multiplier" (2026-08-14.)**
+  // That test pinned `BACKDROP_OPACITY`, a constant that existed to stop the `onboarding-triptych`
+  // motif's trunk strokes (baked at up to 0.6/0.78) reading as lines drawn ON the controls —
+  // onboarding being the one place full-bleed art sat directly under them rather than around a
+  // protected centre box. The motif is gone from this flow: every step draws the app's ordinary
+  // `ScreenBackground`, which keeps a clear centre box by construction, so there is no bespoke
+  // opacity left to dial and nothing for a multiplier to apply to.
+  //
+  // The underlying concern is still real, so it is restated as the thing that guarantees it:
+  // this layout draws no art of its own at all.
+  it('draws no bespoke art under the onboarding controls', () => {
+    expect(src).not.toMatch(/<Motif/);
+    expect(src).not.toMatch(/BACKDROP_OPACITY/);
+    expect(src).toMatch(/<ScreenBackground\s*\/>/);
   });
 });
 

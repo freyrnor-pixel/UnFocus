@@ -105,6 +105,18 @@
  *             useMealStore, useMonthlyListStore
  *
  * Edit notes:
+ *   - **This screen can be linked INTO, at a card (2026-08-14): `/settings?tab=…&section=…`.**
+ *     `?tab=` had been passed by app/(tabs)/shopping.tsx's "Nullstillingsdager" link since that
+ *     link was written and read by nobody — there was no `useLocalSearchParams` here at all, so
+ *     every caller silently landed on General. Two things are worth knowing before adding a
+ *     second target. (1) A tab is not enough: every group here is a collapsed `ExpandableCard`,
+ *     so the right tab still leaves the control shut and usually off screen — a `section` opens
+ *     its card AND scrolls to it, via `ScrollToNodeContext` (components/ScreenScaffold.tsx), and
+ *     `?tab=` without `?section=` is a half-answer. (2) `tab` is seeded in the `useState`
+ *     INITIALIZER, not synced by an effect, because the target card measures itself on layout
+ *     and an effect would let General mount and lay out first. `SettingsSection` is a short
+ *     hand-maintained union on purpose: each target costs a ref, an `onLayout` and a controlled
+ *     `open` at its call site, so add one when a screen needs it rather than back-filling.
  *   - **Monthly budget moved out (2026-07-22)**: the "handle" tab used to have a Monthly
  *     budget Input here, writing the single global `monthlyBudgetNok` setting. Budget is per
  *     Monthly list now (store/useMonthlyListStore.ts) — edited from that list's own Budget
@@ -226,13 +238,13 @@
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext, useRef, useCallback } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import ScreenScaffold, { ScrollToNodeContext } from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import ExpandableCard from '@/components/ExpandableCard';
@@ -283,6 +295,18 @@ import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET,
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
 type SettingsTab = 'general' | 'personal' | 'advanced';
+/** Runtime companion to `SettingsTab`, so a `?tab=` param can be validated rather than cast. */
+const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'personal', 'advanced'] as const;
+
+/**
+ * A card on this screen that something else can link straight to, via `?section=`.
+ *
+ * Deliberately a short, hand-maintained list rather than "any card": a section has to open its
+ * `ExpandableCard` AND hand a ref to `scrollToNode`, so each one is a couple of lines at the
+ * call site. Add an entry when a screen genuinely needs to point at a setting; don't back-fill
+ * the whole screen.
+ */
+type SettingsSection = 'shopping';
 // From TabSlider itself since 2026-08-10 — this was 48 against a real 46, a 2px surplus that
 // `tabsGlass`'s justifyContent:'center' split around the pill. See TAB_SLIDER_HEIGHT's doc.
 const TAB_BAR_HEIGHT = TAB_SLIDER_HEIGHT;
@@ -387,7 +411,52 @@ export default function SettingsScreen() {
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const syncAvailable = isSyncAvailable();
 
-  const [tab, setTab] = useState<SettingsTab>('general');
+  /**
+   * Deep link into a particular setting (2026-08-14).
+   *
+   * `?tab=` was being PASSED by Shopping's "Nullstillingsdager" link since that link was
+   * written, and read by nobody — this screen had no `useLocalSearchParams` at all, so the
+   * param was silently dropped and every caller landed on General. Maintainer, on device:
+   * *"Nullstillingsdager in shopping takes you to settings, but not the actual setting you're
+   * looking for."*
+   *
+   * `?section=` is the second half of the answer, because the right tab is not the same thing
+   * as the right control: every group on this screen is a collapsed `ExpandableCard`, so a
+   * correct tab still left the two shopping-cadence fields shut and off screen. A section both
+   * opens its card and scrolls to it.
+   *
+   * Shape copied from app/(tabs)/plans.tsx's `tab` + `expandTaskId` pair, the repo's existing
+   * precedent for arriving at one row of a screen.
+   */
+  const { tab: tabParam, section: sectionParam } = useLocalSearchParams<{
+    tab?: SettingsTab;
+    section?: SettingsSection;
+  }>();
+  const [tab, setTab] = useState<SettingsTab>(
+    // Seeded in the initializer rather than synced by an effect: setting it after the first
+    // render would mount General's whole tab and throw it away, and the target card's
+    // `onLayout` would fire against a screen the user never sees.
+    () => (tabParam && SETTINGS_TABS.includes(tabParam) ? tabParam : 'general'),
+  );
+  /**
+   * The linked-to card is open while `openSection` names it, and hands control straight back:
+   * `onToggle` clears it, so the FIRST tap on that header closes the card exactly as it would
+   * on any other visit. A `?section=` that stayed latched would make its card the one on this
+   * screen the user could not shut.
+   */
+  const [openSection, setOpenSection] = useState<SettingsSection | null>(
+    () => (sectionParam === 'shopping' ? 'shopping' : null),
+  );
+  const scrollToNode = useContext(ScrollToNodeContext);
+  const sectionNode = useRef<View | null>(null);
+  // Fires once the linked-to card has laid out. `onLayout` rather than an effect on mount,
+  // because the card's y is only meaningful after its tab's content has been measured — and on
+  // the deep-link path this screen mounts straight onto that tab (see the `tab` initializer).
+  const onSectionLayout = useCallback(() => {
+    if (!openSection) return;
+    scrollToNode?.(sectionNode.current);
+  }, [openSection, scrollToNode]);
+
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));
@@ -1223,10 +1292,22 @@ export default function SettingsScreen() {
               </Surface>
             </View>
             {/* SHOPPING — the whole of the old Handle tab, which only ever held these two
-                settings and did not justify a tab of its own. */}
-          <View style={styles.section}>
+                settings and did not justify a tab of its own.
+
+                This is the one `?section=` target today (see SettingsSection): Shopping's ⓘ has
+                a "Nullstillingsdager" link that used to land on this screen's General tab with
+                this card shut. `ref` + `onLayout` are what let it be scrolled to; `open` is
+                controlled only while the deep link is live, and the first toggle hands the card
+                back to its own default-closed behaviour. */}
+          <View style={styles.section} ref={sectionNode} onLayout={onSectionLayout}>
             <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <ExpandableCard title={t.sectionShopping} accentColor={theme.accent} first>
+              <ExpandableCard
+                title={t.sectionShopping}
+                accentColor={theme.accent}
+                first
+                open={openSection === 'shopping' ? true : undefined}
+                onToggle={() => setOpenSection(null)}
+              >
                 <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
                 {/* 2026-08-10: was a `flexWrap` row of seven `dayChip`s. Two things were wrong
                     with it and the conversion fixes both. It is an EXCLUSIVE picker (one reset

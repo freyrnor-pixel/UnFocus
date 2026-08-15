@@ -10,11 +10,20 @@
  * instead of a run of separated cards.
  *
  * Connections:
- *   Imports → components/Surface, components/SectionRail, constants/theme
+ *   Imports → components/Surface, components/SectionRail, components/Collapsible,
+ *             components/CardCollapseToggle, constants/theme, lib/collapsedCards,
+ *             lib/useCollapsedCard
  *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx
- *   Data    → none — presentational
+ *   Data    → settings.collapsedCards, but ONLY when a caller passes `collapseKey` (the
+ *             foldable variant is a separate component so the plain one reads no store)
  *
  * Edit notes:
+ *   - **`collapseKey` makes a section foldable (2026-08-14), and only a singleton may take one.**
+ *     The id is the storage key, so a card drawn one per day or per group has nothing stable to
+ *     store — on the To-do tab that means Today/Whenever/Recurring opt in and the per-day and
+ *     per-group cards deliberately do not. Callers without the prop are untouched: no chevron,
+ *     no `Collapsible`, and no subscription to the settings store (see
+ *     `CollapsibleSectionCard`'s own note for why that split is a component and not an `if`).
  *   - **The card edge is the SCREEN's hue, not the section's (card design reset, 2026-08-05).**
  *     This used to pass `hue` straight to `<Surface borderColor>`, which is now an override of
  *     the one-colour-per-screen border and shipped a maroon "Recurring" card next to a blue
@@ -45,8 +54,12 @@ import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
+import Collapsible from '@/components/Collapsible';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import { Radius, Spacing } from '@/constants/theme';
 import { Domain } from '@/lib/domainColor';
+import { CardId } from '@/lib/collapsedCards';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 
 type Props = {
   /**
@@ -75,16 +88,105 @@ type Props = {
   style?: StyleProp<ViewStyle>;
   /** Extra style for the inner content wrapper below the header. */
   contentStyle?: StyleProp<ViewStyle>;
+  /**
+   * Makes the section foldable, remembered across launches under this id (2026-08-14).
+   *
+   * Omit it and the card behaves exactly as it always has — always open, no chevron, no store
+   * read. Only a SINGLETON section can take one: the id is the storage key, so a card drawn one
+   * per day or per group has nothing stable to store. See lib/collapsedCards.ts.
+   */
+  collapseKey?: CardId;
   children: React.ReactNode;
 };
 
-export default function SectionCard({ hue, domain, icon, label, count, right, style, contentStyle, children }: Props) {
+export default function SectionCard({
+  hue,
+  domain,
+  icon,
+  label,
+  count,
+  right,
+  style,
+  contentStyle,
+  collapseKey,
+  children,
+}: Props) {
   // No `borderColor` — the card inherits the SCREEN's hue (see the `hue` prop's doc). `hue`
   // still reaches the rail below, which is where a section's own identity lives now.
-  return (
+  return collapseKey ? (
+    <CollapsibleSectionCard
+      hue={hue}
+      domain={domain}
+      icon={icon}
+      label={label}
+      count={count}
+      right={right}
+      style={style}
+      contentStyle={contentStyle}
+      collapseKey={collapseKey}
+    >
+      {children}
+    </CollapsibleSectionCard>
+  ) : (
     <Surface style={[styles.card, style]}>
       <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
+    </Surface>
+  );
+}
+
+/**
+ * The foldable variant, split out so the plain one calls no hook at all.
+ *
+ * A branch rather than a `collapseKey ?? ''` default because `useCollapsedCard` subscribes to
+ * the settings store: every per-day and per-group SectionCard on the To-do tab would otherwise
+ * re-render on any collapse anywhere, for a feature it does not have. Rules of hooks means the
+ * split has to be a separate component, not an `if` inside one.
+ */
+function CollapsibleSectionCard({
+  hue,
+  domain,
+  icon,
+  label,
+  count,
+  right,
+  style,
+  contentStyle,
+  collapseKey,
+  children,
+}: Props & { collapseKey: CardId }) {
+  const [collapsed, toggleCollapsed] = useCollapsedCard(collapseKey);
+
+  return (
+    <Surface style={[styles.card, style]}>
+      <SectionRail
+        hue={hue}
+        domain={domain}
+        icon={icon}
+        label={label}
+        count={count}
+        // The chevron goes AFTER whatever the caller put in the header, so a section's own
+        // control keeps the position it has always had and the fold sits outermost — the same
+        // ordering components/MedicineTrayCard.tsx uses for its reminder bell.
+        // Wrapped in a row: SectionRail's own `right` slot is a bare View, so it is a COLUMN by
+        // default and two children would stack. Only wrapped when the caller supplied one —
+        // otherwise the chevron goes in alone and needs no row of its own.
+        right={
+          right ? (
+            <View style={styles.headerActions}>
+              {right}
+              <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={label} />
+            </View>
+          ) : (
+            <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={label} />
+          )
+        }
+      />
+      {/* The count stays on the rail while collapsed, which is the point: a folded section still
+          says how much is in it. */}
+      <Collapsible open={!collapsed}>
+        <View style={[styles.content, contentStyle]}>{children}</View>
+      </Collapsible>
     </Surface>
   );
 }
@@ -106,4 +208,8 @@ const styles = StyleSheet.create({
   // sections used (Spacing.sm). SectionRail carries its own marginBottom, so no extra
   // top gap is added here.
   content: { gap: Spacing.sm },
+  // Caller's own header control + the fold chevron, side by side. `Spacing.xs` rather than `sm`
+  // because both children already carry a MIN_TAP_TARGET box, so the visible gap is wider than
+  // the number suggests.
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 });

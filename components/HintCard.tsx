@@ -116,14 +116,15 @@ export default function HintCard({ text, example, open: openProp, onToggle: onTo
     return (
       <View style={[styles.wrap, styles.card, { backgroundColor: theme.hintBg, borderColor: theme.hintBorder }]}>
         <View style={[styles.accentBar, { backgroundColor: theme.hintAccent }]} />
-        <View style={styles.body}>
+        <View style={[styles.body, onDismiss && styles.bodyDismissable]}>
           <Text style={[styles.text, { color: theme.text }]}>{text}</Text>
           {example ? <Text style={[styles.example, { color: theme.textMuted }]}>{example}</Text> : null}
           {children ? <View style={styles.childrenSlot}>{children}</View> : null}
         </View>
         {/* Same dismiss affordance as components/StarterCard.tsx's — an intro card and an
             empty-state explainer are the same promise ("this will go away"), so they close the
-            same way. Outside `body` so its hit area clears the text rather than overlapping it. */}
+            same way. Absolutely positioned rather than a row child, so it sits in the CORNER
+            (see `dismiss`) instead of being centred against a tall body. */}
         {onDismiss ? (
           <PressableScale
             onPress={onDismiss}
@@ -184,6 +185,8 @@ const baseStyles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   card: {
+    // `relative` so the absolutely-positioned dismiss below anchors to THIS box.
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'flex-start',
     borderRadius: Radius.sm,
@@ -203,6 +206,11 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.xs,
     paddingLeft: Spacing.xs,
   },
+  // The dismiss is out of flow, so the text has to reserve its own clearance or it runs
+  // under the glyph. Only applied when there IS one — an undismissable card keeps the full width.
+  bodyDismissable: {
+    paddingRight: Spacing.lg,
+  },
   text: {
     fontSize: FontSize.sm,
     lineHeight: 20,
@@ -216,14 +224,27 @@ const baseStyles = StyleSheet.create({
   childrenSlot: {
     marginTop: Spacing.sm,
   },
-  // Top-aligned rather than centred: the card can run to several lines (Shopping's is two
-  // paragraphs) and an "X" floating at the vertical middle of a tall card reads as unrelated
-  // to it. `alignSelf: 'flex-start'` keeps it level with the first line of text.
+  // **In the corner, where every other app puts it (2026-08-14).** This was a row child with
+  // `alignSelf: 'flex-start'` + `justifyContent: 'center'`, which top-aligned the 48px TAP BOX
+  // and then centred the 16px glyph inside it — so against a two-line body the × landed at the
+  // text's vertical midpoint, ~16px down from the card's top edge. It only ever read as
+  // "top-right" on a one-line card. Maintainer: *"X for remove should always be placed like it
+  // would in every other app/webpage/element."*
+  //
+  // Absolute at top/right of the card, with the glyph pushed into that corner by
+  // `flex-start`/`flex-end` plus a Spacing.sm inset. The 48px target stays INSIDE the card on
+  // purpose: `card` is `overflow: 'hidden'`, and Android clips touches to the parent's bounds,
+  // so a box that overhangs to sit nearer the edge would lose the overhanging part of its own
+  // hit area. `body` reserves the width via `bodyDismissable`.
   dismiss: {
-    alignSelf: 'flex-start',
+    position: 'absolute',
+    top: 0,
+    right: 0,
     minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: Spacing.sm,
+    paddingRight: Spacing.sm,
   },
 });

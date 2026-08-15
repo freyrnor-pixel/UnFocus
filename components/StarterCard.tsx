@@ -182,7 +182,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import StageTree, { type TreeStage } from '@/components/StageTree';
-import { BORDER_WIDTH, Fonts, FontSize, HitSlop, Radius, Spacing } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { tap } from '@/lib/haptics';
@@ -291,20 +291,26 @@ export default function StarterCard({
       {compact || embedded ? null : (
         <StageTree stage={stage} opacity={0.34} style={styles.branch} />
       )}
+      {/* Corner-anchored, matching components/HintCard.tsx's (2026-08-14). It used to be the
+          third child of `textRow`, which put it beside the LAST line of a wrapping sentence
+          rather than in the card's corner, and gated it on `text` being present. Both are the
+          same defect HintCard's × had, and the maintainer's rule — an X for remove goes where
+          every other app puts one — applies to whichever card is on screen. */}
+      {dismissKey ? (
+        <PressableScale
+          onPress={() => { tap(); dismissStarter(dismissKey); }}
+          hitSlop={HitSlop.base}
+          accessibilityRole="button"
+          accessibilityLabel={t.starters.dismiss}
+          style={styles.dismiss}
+        >
+          <Ionicons name="close" size={compact ? 14 : 16} color={theme.textMuted} />
+        </PressableScale>
+      ) : null}
       {text ? (
-        <View style={styles.textRow}>
+        <View style={[styles.textRow, dismissKey && styles.textRowDismissable]}>
           <Ionicons name="bulb-outline" size={compact ? 12 : 14} color={theme.textMuted} style={styles.bulbIcon} />
           <Text style={[styles.text, compact && styles.textCompact, { color: theme.text }]}>{text}</Text>
-          {dismissKey ? (
-            <PressableScale
-              onPress={() => { tap(); dismissStarter(dismissKey); }}
-              hitSlop={HitSlop.base}
-              accessibilityRole="button"
-              accessibilityLabel={t.starters.dismiss}
-            >
-              <Ionicons name="close" size={compact ? 14 : 16} color={theme.textMuted} />
-            </PressableScale>
-          ) : null}
         </View>
       ) : null}
       {collapsible && hasExampleContent ? (
@@ -450,6 +456,25 @@ const baseStyles = StyleSheet.create({
   textRow: {
     flexDirection: 'row',
     gap: Spacing.xs,
+  },
+  // The dismiss is out of flow, so the copy reserves its own clearance. Only when there IS one.
+  textRowDismissable: {
+    paddingRight: Spacing.lg,
+  },
+  // Pinned to the card's top-right corner — see the comment at the call site. The glyph is
+  // pushed into the corner by flex-start/flex-end; the 48px target stays inside `card`, which
+  // is `overflow: 'hidden'` (Android clips touches to the parent's bounds, so a box that
+  // overhangs loses the overhanging part of its hit area). `card` already carries Spacing.md of
+  // padding, which is why this needs no inset of its own.
+  dismiss: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 1,
+    minWidth: MIN_TAP_TARGET,
+    minHeight: MIN_TAP_TARGET,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
   bulbIcon: {
     marginTop: 2,

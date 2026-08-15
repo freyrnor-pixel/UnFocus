@@ -40,7 +40,8 @@
  *   - Input border is `border` normally, `borderStrong` while focused (or `bad` on error,
  *     regardless of focus); active segment background is `surface` — a raised surface,
  *     not on-colour text. That raised surface is a single sliding pill (Reanimated
- *     translateX, ~150ms ease-out; snaps under reducedMotion) that moves between segments
+ *     translateX, ~150ms ease-out; snaps under reducedMotion, and snaps on its FIRST
+ *     placement — see `SegmentedTrack`'s `hasPositioned`) that moves between segments
  *     rather than a per-segment background hard-swap, and fires a `selection()` haptic on
  *     change (the app's one form-tier pick-one control since 2026-08-09 — see TabSlider's two-tier rule).
  *   - **Bordered track (2026-07-21)**: `segmentWrap` got a `theme.border` outline to match
@@ -51,12 +52,20 @@
  *     off-state thumb was disappearing into the dark track/card. Thumb color for "off" is
  *     now theme-invariant white, matching how native switches render regardless of theme.
  *   - **Switch pill frame (2026-08-05, task 16 3/N — DESIGN_COMPARISON/16-solid-pressable-
- *     materials.md)**: audited all four controls against that task's "controls get edges"
- *     rule. Checkbox, SegmentedControl and Input already had a themed border from earlier
- *     passes; the bare native `RNSwitch` was the one gap, so it's now wrapped in a static
- *     `theme.border` pill (`switchFrame`) — same non-reactive-border convention as
- *     `segmentWrap`, since the track/thumb colors already carry on/off state. No specular
- *     highlight added (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
+ *     materials.md; restated 2026-08-15 by Tactile Glass)**: audited all four controls against
+ *     that task's "controls get edges" rule. Checkbox, SegmentedControl and Input already had a
+ *     themed border from earlier passes; the bare native `RNSwitch` was the one gap, so it's
+ *     wrapped in a `switchFrame` pill. Tactile Glass then made that frame REACTIVE — accent +
+ *     `getGlow` when on, quiet `theme.border` when off — because an `RNSwitch`'s track and thumb
+ *     are drawn by the OS and cannot themselves be made into a keycap, so the frame is the only
+ *     surface available to carry a high-contrast on-state. No specular highlight
+ *     (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
+ *   - **A 2026-08-14 device note asked for the frame to be REMOVED** ("toggle sliders do not
+ *     need borders" — the objection being that a ring 2px outside a switch's own rounded track
+ *     reads as a control inside a control). It was not actioned: Tactile Glass landed the next
+ *     day and the maintainer's ruling on the collision was to keep the newer decision. Recorded
+ *     because the two are genuinely in tension and the question will come back — if the frame
+ *     ever does go, the on-state has to move onto the `trackColor` first, not simply be dropped.
  *   - **The design lab can reshape two of these controls (2026-08-06, lib/designLab.ts).**
  *     `Switch` dispatches on the `boolean` slot (switch · segmented · checkbox · pill) and
  *     `SegmentedControl` on the `choice` slot (segmented · pills · dropdown · sheet); the
@@ -70,7 +79,7 @@
  *     does NOT run through `useScaledStyles` — doing so would start scaling their label text
  *     with the user's Size setting, which is a real behaviour change nobody asked for.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   StyleSheet,
@@ -334,9 +343,25 @@ function SegmentedTrack<T extends string | number>({
   const pillH = Math.max(0, track.h - SEG_PAD * 2);
 
   const tx = useSharedValue(0);
+  // **The first placement SNAPS; only a later change animates (2026-08-14).** This effect used
+  // to run unguarded, and on the first render `track.w` is 0, so `segW` is 0 and the target was
+  // `activeIndex * 0` = 0 — the leftmost segment. When `onLayout` then reported a real width the
+  // effect re-ran with the true target and `withTiming` slid the pill in from the left. So every
+  // segmented control in the app replayed a pick the user made months ago, every single time its
+  // screen mounted (maintainer, on device: *"Sliders that look like tabs move each time you go to
+  // the screen, they move to the right from the left most position"*). Two guards, and BOTH are
+  // needed: bailing while unmeasured stops the pill ever being aimed at 0, and the ref makes the
+  // first REAL placement an assignment rather than a curve. This is a straight port of the same
+  // fix `components/TabSlider.tsx` took on 2026-08-05 (see its doc block) — that control snapped
+  // and this one didn't, which is why the screen-tier tabs looked right and the form-tier ones
+  // inside Settings' cards did not. `components/BottomNav.tsx` carries a third copy.
+  const hasPositioned = useRef(false);
   useEffect(() => {
+    if (segW <= 0) return;
     const to = activeIndex * segW;
-    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
+    if (reducedMotion || !hasPositioned.current) tx.value = to;
+    else tx.value = withTiming(to, { duration: Duration.control, easing: Ease.enter });
+    hasPositioned.current = true;
   }, [activeIndex, segW, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));

@@ -1709,7 +1709,11 @@ export default function ShoppingScreen() {
         onDismiss={dismissHint}
       >
         <PressableScale
-          onPress={() => router.push('/settings?tab=personal')}
+          // `section` as well as `tab` (2026-08-14): `tab` alone was being dropped outright —
+          // app/settings.tsx read no route params at all — and even once read, the right tab
+          // still leaves the two reset fields inside a collapsed card. `section` opens that
+          // card and scrolls to it.
+          onPress={() => router.push('/settings?tab=personal&section=shopping')}
           style={styles.hintSettingsLink}
           accessibilityRole="button"
           accessibilityLabel={t.shoppingCadenceLink}

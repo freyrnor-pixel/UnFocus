@@ -1262,6 +1262,24 @@ export function initDb() {
     // asked this to go away". Reusing it would have started every existing install with all
     // five cards already closed — nobody who has used the app would ever see the surface.
     "ALTER TABLE settings ADD COLUMN dismissed_hints TEXT DEFAULT '[]'",
+    // Content cards the user has folded away (2026-08-14) — a JSON object of
+    // {cardId: true}, the same storage shape as card_states / card_layouts /
+    // home_card_order. Maintainer: "Every card should be collapsable", and
+    // remembered across launches.
+    //
+    // A SEPARATE column from card_states on purpose, not an extension of it.
+    // That one is keyed by `LayoutSurface` — a six-value union that also drives
+    // which per-surface LAYOUT a card draws — so widening it to hold the medicine
+    // tray or the energy meter would imply those surfaces have layouts too. Two
+    // scopes wearing one key is the trap AGENTS.md records for cardType vs
+    // cardLayout; see lib/collapsedCards.ts's header for which cards use which.
+    //
+    // Default '{}' means every card starts open, which is what every existing
+    // install already has — no back-fill UPDATE needed. Read through
+    // sanitizeCollapsedCards rather than trusted raw, so a bad entry from an older
+    // build or a hand-edited backup degrades to "open" instead of hiding a card
+    // the user cannot get back.
+    "ALTER TABLE settings ADD COLUMN collapsed_cards TEXT DEFAULT '{}'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

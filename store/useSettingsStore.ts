@@ -182,6 +182,7 @@ import { DEFAULT_TRAY_TIMES, normalizeTrayTimes, TrayTimes } from '@/lib/medicin
 import { AspectRatioKey } from '@/constants/theme';
 import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/cardLayout';
 import { sanitizeCardStates } from '@/lib/padState';
+import { CollapsedCards, sanitizeCollapsedCards } from '@/lib/collapsedCards';
 import { EMPTY_OVERRIDES, sanitizeLabOverrides, type LabOverrides } from '@/lib/designLab';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
@@ -449,6 +450,18 @@ export type Settings = {
   // still counts in the card's own "8/10 left" summary. Nothing in the reminder, widget,
   // sync or automation paths may read this field.
   cardStates: Record<string, string>;
+  // Content cards the user has folded away (2026-08-14) — {cardId: true}, absent = open.
+  // Validated on read through lib/collapsedCards.ts's sanitizeCollapsedCards, which drops an
+  // unknown id outright, so a bag from an older build can only ever leave a card VISIBLE.
+  //
+  // A different axis from cardStates above, not a rival: that one is the three-state pad SIZE
+  // (closed/preview/open) for the surfaces built to show a partial list, keyed by LayoutSurface;
+  // this is a plain boolean for every other content card. See lib/collapsedCards.ts's header for
+  // which cards use which and why they aren't one column.
+  //
+  // Presentation ONLY, and device-local — same rule as cardStates. A collapsed card's rows are
+  // all still live; nothing in the reminder, widget, sync or automation paths may read this.
+  collapsedCards: CollapsedCards;
   // ---- Design lab (2026-08-06) ----
   // The override bag the lab writes: colour tokens (per light/dark), geometry scales, control
   // variants and row-slot assignments, plus the maintainer's own note. Same JSON-blob-in-TEXT
@@ -610,6 +623,7 @@ function rowToSettings(row: Row): Settings {
     layoutDetail: sanitizeDetailLevel(readStr(row, 'layout_detail', 'normal')),
     cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
     cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
+    collapsedCards: sanitizeCollapsedCards(readJson<unknown>(row, 'collapsed_cards', {})),
     designLab: sanitizeLabOverrides(readJson<unknown>(row, 'design_lab', {})),
     designLabApply: readBool(row, 'design_lab_apply'),
     tourProgress: readStr(row, 'tour_progress', ''),
@@ -700,6 +714,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   layoutDetail: { col: 'layout_detail' },
   cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
   cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
+  collapsedCards: { col: 'collapsed_cards', to: (v) => JSON.stringify(v) },
   designLab: { col: 'design_lab', to: (v) => JSON.stringify(v) },
   designLabApply: { col: 'design_lab_apply', to: bool },
   tourProgress: { col: 'tour_progress' },
@@ -802,6 +817,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Empty = every surface follows 'preview' (lib/padState's DEFAULT_PAD_STATE), which is
   // roughly the card an upgrading user already has.
   cardStates: {},
+  // Empty = nothing is folded away. Every existing install reads as this, which is the point:
+  // the feature adds an affordance and changes no card's resting state.
+  collapsedCards: {},
   // The lab starts empty and preview-only every time — see the field docs above.
   designLab: EMPTY_OVERRIDES,
   designLabApply: false,
