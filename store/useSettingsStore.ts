@@ -556,7 +556,9 @@ function rowToSettings(row: Row): Settings {
     showHints: readInt(row, 'show_hints', 1) !== 0,
     language: readEnum<Language>(row, 'language', ['en', 'no'], 'no'),
     holidaysEnabled: readInt(row, 'holidays_enabled', 1) !== 0,
-    darkMode: readEnum<DarkMode>(row, 'dark_mode', ['system', 'on', 'off'], 'off'),
+    // Fallback 'on' since 2026-08-16 — see `defaultSettings` below. This only fires when the
+    // column is NULL or holds something unrecognised; a stored 'off' is still read as 'off'.
+    darkMode: readEnum<DarkMode>(row, 'dark_mode', ['system', 'on', 'off'], 'on'),
     childProfiles: readJson<string[]>(row, 'child_profiles', []),
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
@@ -742,10 +744,21 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   showHints: true,
   language: 'no' as Language,
   holidaysEnabled: true,
-  // Decision 035: fresh-install default is light ('off'); 'system'/'on' are opt-in.
-  // Stored user choices are preserved — load() reads dark_mode with an 'off' fallback,
-  // so this default only applies when there's no settings row yet.
-  darkMode: 'off' as DarkMode,
+  // ⚠️ REVERSES Decision 035's "fresh-install default is light ('off')", 2026-08-16, on the
+  // maintainer's instruction under the Tactile Glass brief §1 ("the main app background must be
+  // true black... this is the foundation that makes the glass and glow effects visible").
+  //
+  // The reversal is the whole point rather than a side effect: every glass, edge-highlight and
+  // coloured-glow decision in this app is tuned for a black ground, and shipping them behind a
+  // light default meant the app's actual look was one nobody saw unless they went looking for
+  // it. Light mode is NOT removed — it stays a full palette, a Settings row and an onboarding
+  // choice, and it is now the deliberate accessibility path (high contrast, no halation) rather
+  // than the accidental majority.
+  //
+  // Stored user choices are still preserved: load() only falls back to this when the column is
+  // NULL or unrecognised. Existing installs were moved across once by a migration in lib/db.ts
+  // — see the note there for why that overwrite is instructed rather than careless.
+  darkMode: 'on' as DarkMode,
   childProfiles: [],
   reducedMotion: false,
   particlesEnabled: true,

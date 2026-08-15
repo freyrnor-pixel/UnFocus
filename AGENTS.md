@@ -723,12 +723,30 @@ file owns which token.)
   - This is **not** a licence for a general "unwrap the field from its card" pass. The rule
     everywhere else is still `FormControls`' `Input` inside a card with other content; this
     applies where a box holds exactly one control and would otherwise draw two edges.
-- **Dark mode is TRUE BLACK (2026-08-10)** — `bg` `#000000`, `surface` `#1E1E1E`,
-  `surfaceMuted` `#121212`, `text` `#F3F4F6`, `accent` `#3B82F6`. Adopted wholesale from an
-  outside design review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight
-  glass" deep navy. **The LIGHT palette was deliberately not touched** — the review's light
-  values put the control-edge border at 1.18:1, which would erase the border-as-grouping-signal
-  system the card reset below is built on. Three things to know before editing any of it:
+- **Dark mode is TRUE BLACK (2026-08-10), it is the DEFAULT (2026-08-16), and its chromatic
+  tokens are NEON (2026-08-16)** — `bg` `#000000`, `surface` `#1E1E1E`, `surfaceMuted`
+  `#121212`, `text` `#FFFFFF`, `accent` `#1E88FF`. Adopted wholesale from an outside design
+  review, on the maintainer's instruction, replacing the 2026-07-18 "Midnight glass" deep navy.
+  **The LIGHT palette was deliberately not touched** — the review's light values put the
+  control-edge border at 1.18:1, which would erase the border-as-grouping-signal system the
+  card reset below is built on.
+  - **`darkMode` defaults to `'on'` as of 2026-08-16**, reversing Decision 035, and existing
+    installs were moved across by a one-shot `UPDATE settings SET dark_mode = 'on'` migration.
+    Brief §1: *"MANDATORY: the main app background must be true black. Remove all weak grey or
+    light blue app backgrounds. This is the foundation that makes the glass and glow effects
+    visible."* Every glass, edge-highlight and coloured-glow decision in this app is tuned for
+    a black ground, and behind a light default the app's real look was one nobody saw.
+    **Light mode is NOT removed** — full palette, Settings row, onboarding row — it is now the
+    deliberate accessibility path rather than the accidental majority. The migration DOES
+    overwrite a user who chose light; that is instructed, and defensible because
+    `app/onboarding/basics.tsx` writes an appearance value for everyone, so there is no stored
+    signal separating "chose light" from "never thought about it".
+  - **`text` is pure `#FFFFFF`** (brief §5), which took the halation ceiling 16 → 17. See rule
+    10a — that is the last time that number can move for this reason.
+  - **`bad` was retuned `#EF4444` → `#FF3B5C`**, which REPAIRED the one relaxed contrast floor
+    dark mode had: `CHROMATIC_FLOOR.dark` is back to 4.5, so dark now has no relaxed chromatic
+    floor at all.
+  Three more things to know before editing any of it:
   - **`components/ScreenBackground.tsx` is what dark mode actually looks like, not the
     palette.** It paints its own private gradient over `theme.bg` on every non-`plainBackground`
     screen, so its `DARK.base` is three `#000000` stops now and both blue radial glows are at
@@ -818,6 +836,69 @@ file owns which token.)
   - **Deliberate exceptions that are NOT drift**: `components/StarterCard.tsx` and
     `components/OpenEpisodeCard.tsx` still pass an explicit neutral `theme.border`. Both predate
     this pass and are documented choices; leave them unless the maintainer rules otherwise.
+- **The neon/OLED pass — 2026-08-16** (a second maintainer brief, written against the first:
+  *"the current UI is washed out, flat, and uses weak, generic pastel colors"*). It does not
+  replace Tactile Glass; it turns four of its dials much harder and adds a categorical colour
+  system. The canvas half is in the dark-mode bullet above. The rest:
+  - **FIVE neon categoricals, named by the maintainer, one per section** (`IDENTITY_HUES`):
+    To-do `#FFC000` amber · Habits `#05D9E8` cyan · Health `#FF2A6D` rose · Shopping `#00FF85`
+    green · **Notes `#B967FF` amethyst — Notes now HAS an identity hue**, where A.3 had
+    deliberately left it `IDENTITY_NEUTRAL`. Home is the only neutral left, and has no `card*`
+    token, so `IDENTITY_NEUTRAL` currently has no palette consumer.
+    - **Shopping is `#00FF85`, not the brief's suggested `#01FFC3`.** That value measured
+      ΔE2000 **22.9** against Habits' cyan — under the 25 separation floor, and visibly so:
+      two cyan-greens one tab apart in the nav. Rotated toward green until it cleared, at 32.7.
+    - ⚠️ **The L\* spread is gone, on instruction** — see `DESIGN_RULES.md` rule 11a for the
+      trade as it was put and answered. `DOCUMENTED_LSTAR` and the "Shopping keeps a ≥15 L\*
+      gap" test are deleted; the pairwise ΔE2000 ≥ 25 test is now the ONLY separation
+      guarantee, and a hex pin replaced the L\* pin (stricter — an L\* pin admits any hue
+      rotation at constant lightness, which is the edit A.6 was trying to catch).
+    - **The dark `feat*` octet is aligned onto the same five**, so a screen's 5% pane wash and
+      the badge sitting on it stop disagreeing. **Light's octet is untouched** and still the
+      2026-08-10 cinematic set — these neons measure 1.1–1.5:1 there. The consequence (light
+      mode has a teal Health wash under a rose Health badge) is known and accepted.
+    - Consequence in `lib/domainColor.ts`: `badgeGradientFor`'s deepening flipped almost
+      completely — every hue except Health's rose now starts already-mixed toward navy, where
+      before only Shopping's gold did. And `badgeGlyphFor` is a genuine **no-op in dark** now
+      (all five clear 3:1 raw on the frost plate), so its "at least one raw hue is unsafe"
+      guard is scoped to light, where it still does real work.
+  - **The card edge is a top-left lip that fades out** (brief §3) — `getGlassEdge`'s new
+    `shadeDark: 0` path returns a THREE-stop ramp ending at `rgba(255,255,255,0)`.
+    ⚠️ **Cards in DARK only**, and both halves matter: a card is a container (separated on
+    black by its fill plus its shadow) where a field or button identifies a CONTROL and keeps
+    its WCAG 1.4.11 boundary; and in light the pane sits on `#E2EAF5` at a 1.17 fill step with
+    nothing else to separate it. Implemented as a gradient stop, **not** per-side border
+    widths — the ring is a `LinearGradient` precisely because RN can't blend two colours round
+    a rounded corner, and a 1px→0px step cuts visibly there.
+  - **Every card mounts a `BlurView` now** (brief §2), reversing 2026-08-15's ambient
+    exclusion. That exclusion's arithmetic was right (blurring black returns black) and it
+    still lost: the backdrop is not uniformly black — edge-anchored branch art, cards
+    overlapping while scrolling, and light mode's gradient the whole way across — and a card
+    that blurs on a sheet but not in a list is two materials. Cost is bounded by
+    `BLUR_AMBIENT` (15) being about half `BLUR_STRONG` (28), and `glassSurfaces` still kills
+    all of it in one switch.
+  - **`getGlow` alphas 0.34/0.55 → 0.55/0.8.** The old values were tuned against a PALE
+    backdrop; on `#000000` what reaches the eye is just `alpha × colour`. The **radii stayed**
+    at 15/22 rather than taking the brief's literal 12 — this is a two-pass halo and 12 would
+    make the outer bloom a near-duplicate of the inner pass. Implement the states, not the
+    numbers, exactly as the 2026-08-12 button pass recorded for `Travel`/elevation.
+  - **Where the categorical colour is actually drawn** (brief §7: *"an icon, a badge, or the
+    glowing shadow of a button associated with a specific category"*): the badge glyph
+    (already, via `badgeGlyphFor`), the pane wash, a **primary Button's halo** (`Button.tsx`
+    resolves it from `useScreenColor()`; `danger` opts out so a destructive action never
+    borrows its screen's colour), and the **active bottom-nav tab** — icon, label and the
+    sliding pill, which share `navTabHue()` so a rose icon can't land on a blue plate.
+    - ⚠️ A primary button's **FILL stays `theme.accent`**; only its light is categorical. Two
+      of the five hues admit no AA-contrast ink at all, so a rose Save button ships a label at
+      4.32:1 at best — and one action colour app-wide is what makes "primary" a role rather
+      than a sixth category.
+    - ⚠️ The nav tab's categorical colour is **dark-mode only**, and that is measured: light's
+      octet is mid-tones, and a mid-tone label on a plate tinted with itself lands 2.0–3.6:1,
+      worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark measures 4.89–10.50:1.
+    - ⚠️ The pill plate is `mix(bg, hue, 0.2)`, **not** the `soft` `rgba(hue, 0.16)` wash every
+      other surface uses. The first cut used the wash and shipped an unreadable bar — a 16%
+      wash of a NEON hue over the nav's light glass put the rose "Health" label on a rose plate
+      at roughly 1.5:1. That recipe assumes mid-tone hues; these are not.
 - **Ongoing symptom episodes** (2026-08-01, `lib/episodes.ts` + `components/OpenEpisodeCard.tsx`
   + `components/EpisodeCloseSheet.tsx`, over `health_logs`' new `episode_state` / `relief_note` /
   `relief_medicine_id` columns). A symptom entry that is STILL HAPPENING, as opposed to one

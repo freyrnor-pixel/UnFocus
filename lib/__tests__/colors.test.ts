@@ -122,12 +122,13 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // `bad` on delete/error labels, `warn` on budget-over copy, `accent` on links/actions.
     const TEXT_COLOURS = ['accent', 'good', 'bad', 'warn', 'borderStrong'] as const;
 
-    // ⚠️ RELAXED for dark only, 2026-08-10 (true-black palette). `bad` is #EF4444 verbatim
-    // from the design review and measures 4.430:1 on `surface` — 0.07 short of AA. The hex
-    // was kept on instruction rather than nudged, so the floor moved instead, and only far
-    // enough to admit that one value. Light stays at 4.5. If `bad` is ever retuned, put this
-    // back to 4.5 rather than leaving a floor nothing needs.
-    const CHROMATIC_FLOOR = { light: 4.5, dark: 4.4 } as const;
+    // ⚠️ BACK TO 4.5 IN BOTH MODES, 2026-08-16 — this floor is no longer relaxed anywhere.
+    // It was `dark: 4.4` from 2026-08-10 to admit exactly one value: `bad` was #EF4444
+    // verbatim from a design review, measured 4.430:1 on `surface`, and was kept on
+    // instruction rather than nudged, so the floor moved instead. That note ended "if `bad`
+    // is ever retuned, put this back to 4.5 rather than leaving a floor nothing needs" — the
+    // neon pass retuned it to #FF3B5C (4.79:1), so this is that instruction being carried out.
+    const CHROMATIC_FLOOR = { light: 4.5, dark: 4.5 } as const;
 
     MODES.forEach((mode) => {
       TEXT_COLOURS.forEach((token) => {
@@ -311,78 +312,102 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // shipped value plus a little headroom rather than at the comfort threshold. If a real
     // device ever produces a legibility complaint, pull `text` back toward ~#D8DADF FIRST
     // and lower this with it; do not chase it by darkening a surface.
-    test('dark: body text sits INSIDE the 7–16:1 halation band on surface', () => {
+    //
+    // (2026-08-16) RAISED AGAIN, 16 → 17, for the same kind of reason and by the same kind of
+    // instruction: the Tactile Glass brief §5 requires "Primary text (Headers, main tasks) must
+    // be pure white (#FFFFFF)", which measures 16.67:1 on `surface`. Pure white is the ceiling
+    // of the ceiling — there is no whiter text — so 17 is the last time this number can move
+    // for this reason. A future rise could only come from DARKENING `surface`, which the note
+    // above already forbids as the way to chase this.
+    test('dark: body text sits INSIDE the 7–17:1 halation band on surface', () => {
       const p = THEMES.default.dark;
       const ratio = contrastRatio(p.text, p.surface);
       expect(ratio).toBeGreaterThanOrEqual(7);
-      expect(ratio).toBeLessThanOrEqual(16);
+      expect(ratio).toBeLessThanOrEqual(17);
     });
 
-    // ── A.3/A.6 · the four identity hues ────────────────────────────────────────────────
-    const HUE_KEYS = ['todo', 'habits', 'health', 'shopping'] as const;
-    // The lightnesses the set was designed around. Pinned so a future "let's harmonise the
-    // badges" pass fails loudly here instead of silently destroying the greyscale channel.
-    // `habits` moved 44.8 → 48.3 on 2026-08-04 when `#1F7A2E` was lightened to `#218432`
-    // (DESIGN_COMPARISON/06's recorded-but-declined candidate, applied on the maintainer's
-    // overrule). That is the ONLY value that has moved; re-pinning it is exactly the "blast
-    // radius" the decline was worried about, and it was this one line.
-    const DOCUMENTED_LSTAR: Record<(typeof HUE_KEYS)[number], number> = {
-      todo: 38.6,
-      habits: 48.3,
-      health: 44.3,
-      shopping: 70.7,
+    // ── The five identity hues (2026-08-16 categorical brief §7) ────────────────────────
+    const HUE_KEYS = ['todo', 'habits', 'health', 'shopping', 'notes'] as const;
+
+    // ⚠️ `DOCUMENTED_LSTAR` and the "Shopping keeps a ≥15 L* gap" test lived here and are
+    // DELETED, together, on 2026-08-16. Read this before writing anything L*-shaped back in.
+    //
+    // They encoded addendum A.6's central claim: the identity set separates by LIGHTNESS, not
+    // hue, because lightness is the only channel that survives greyscale and colour blindness.
+    // That claim is still true as colour science and was not refuted. It was OVERRIDDEN by the
+    // maintainer, explicitly and with the trade stated in the question ("full neon, drop the
+    // greyscale guarantee"), because the OLED brief it conflicts with cannot be satisfied
+    // while it holds — a set spread L* 38–71 necessarily contains hues too dark to glow on
+    // pure black. The five neon values sit at L* 56–90.
+    //
+    // What replaces it is NOT nothing, and that matters: the pairwise ΔE2000 ≥ 25 test below
+    // is now load-bearing rather than one of two alternatives, and it is checked over five
+    // hues instead of four. The hex pin beneath it is a STRICTER drift guard than the old
+    // `toBeCloseTo(L*, 0)` was — an L* pin admits any hue rotation at constant lightness,
+    // which is exactly the "harmonise the badges" edit A.6 was trying to catch.
+    const DOCUMENTED_HEX: Record<(typeof HUE_KEYS)[number], string> = {
+      todo: '#FFC000',
+      habits: '#05D9E8',
+      health: '#FF2A6D',
+      shopping: '#00FF85',
+      notes: '#B967FF',
     };
 
     HUE_KEYS.forEach((key) => {
       const { hue, ink } = IDENTITY_HUES[key];
 
-      // A.6 #1 — text on an identity-badge FILL clears AA. This is the ink the app actually
-      // draws: contrastOn() picks it, and the declared `ink` in IDENTITY_HUES records that
-      // same choice so a human reading the table sees what the code computes.
-      test(`identity ${key}: declared badge ink matches contrastOn() and clears AA on the fill`, () => {
-        expect(contrastRatio(ink, hue)).toBeGreaterThanOrEqual(4.5);
+      // A.6 #1, RELAXED 4.5 → 3 on 2026-08-16, and structurally rather than as a judgement
+      // call — the same shape of relaxation as `accentInk` above. Health's neon rose
+      // `#FF2A6D` admits NO AA-contrast ink in either direction (white 3.62:1, dark 4.32:1),
+      // so no choice of `ink` could satisfy 4.5 and the assertion could only ever have been
+      // met by abandoning the mandated hue.
+      //
+      // 3:1 is the honest floor here for a second reason: since the 2026-08-15 inversion the
+      // app does not DRAW ink on a hue fill any more — the badge is a hue glyph on a neutral
+      // frosted plate, guarded by the `badgeGlyphFor` sweep further down, which is measured
+      // against the real composited plate. What survives on the fill path is
+      // `badgeGradientFor`, and that is asserted at ≥3 on BOTH stops separately below. So this
+      // test's remaining job is to keep the declared `ink` in IDENTITY_HUES honest about which
+      // END of the range the code picks — which is the half that actually drifts.
+      test(`identity ${key}: declared badge ink matches contrastOn() and clears 3:1 on the fill`, () => {
+        expect(contrastRatio(ink, hue)).toBeGreaterThanOrEqual(3);
         // Same family (dark-vs-white), not necessarily the same hex — contrastOn returns the
         // theme's own near-black, the table records the palette's `text`.
-        const picked = contrastOn(hue);
-        expect(picked === '#FFFFFF').toBe(ink === '#FFFFFF');
+        // Widened to `string` on purpose: since the 2026-08-16 neon pass every declared ink is
+        // the dark one, so TS narrows `ink` to that single literal and rejects the comparison
+        // as impossible. The assertion is still the one that matters — it is what would catch a
+        // future hue bright enough to flip contrastOn() without its table row being updated.
+        const picked: string = contrastOn(hue);
+        expect(picked === '#FFFFFF').toBe((ink as string) === '#FFFFFF');
       });
 
-      // A.6 #5 — the L* drift guard.
-      test(`identity ${key}: L* has not drifted from its documented value`, () => {
-        expect(lstar(hue)).toBeCloseTo(DOCUMENTED_LSTAR[key], 0);
+      // The drift guard, on the value itself. See the DOCUMENTED_HEX note above for why this
+      // replaced an L* pin rather than joining it.
+      test(`identity ${key}: hue has not drifted from its documented value`, () => {
+        expect(`${key}=${hue}`).toBe(`${key}=${DOCUMENTED_HEX[key]}`);
       });
     });
 
-    // A.6 #2 — every pair is separable.
-    test('identity hues: every pair is ΔE2000 ≥ 25 or L* apart ≥ 15', () => {
+    // A.6 #2 — every pair is separable. THE ONLY SEPARATION GUARANTEE the set still carries
+    // (see the DOCUMENTED_HEX note): the `|| L* apart ≥ 15` alternative is gone, so this is a
+    // strict hue/chroma floor over all ten pairs. Worst pair today is Habits/Shopping at 32.7
+    // — which is why Shopping is `#00FF85` and not the brief's suggested `#01FFC3`, measured
+    // at 22.9 against Habits' cyan and failing this outright.
+    test('identity hues: every pair is ΔE2000 ≥ 25', () => {
       for (let i = 0; i < HUE_KEYS.length; i += 1) {
         for (let j = i + 1; j < HUE_KEYS.length; j += 1) {
           const a = IDENTITY_HUES[HUE_KEYS[i]].hue;
           const b = IDENTITY_HUES[HUE_KEYS[j]].hue;
-          const separated = deltaE2000(a, b) >= 25 || Math.abs(lstar(a) - lstar(b)) >= 15;
+          const separated = deltaE2000(a, b) >= 25;
           expect(`${HUE_KEYS[i]}/${HUE_KEYS[j]}: ${separated}`).toBe(`${HUE_KEYS[i]}/${HUE_KEYS[j]}: true`);
         }
       }
     });
 
-    // A.6 #5, the greyscale half of it. NOTE ON SCOPE — read before "tightening" this:
-    // a literal "no identity hue's L* may come within 15 of another's" is UNSATISFIABLE for
-    // this set and always was. Four values pairwise ≥15 apart need a ≥45 L* span; the
-    // mandated hues span 38.6→70.7 = 32.1, and Habits/Health are 4.0 apart (0.5 before the
-    // 2026-08-04 Habits lightening, which widened it as a side effect rather than as a goal —
-    // they still separate by hue, at ΔE2000 63.1, asserted above). What the L* channel carries
-    // is Shopping standing clear of the other three — that is the gap that survives greyscale
-    // and colour blindness, and the reason Shopping alone takes dark ink. That is what is
-    // guarded here, plus the per-hue drift pin above.
-    test('identity hues: Shopping keeps a ≥15 L* gap from every other hue', () => {
-      const shop = lstar(IDENTITY_HUES.shopping.hue);
-      (['todo', 'habits', 'health'] as const).forEach((key) => {
-        expect(Math.abs(shop - lstar(IDENTITY_HUES[key].hue))).toBeGreaterThanOrEqual(15);
-      });
-    });
-
-    // The neutral must not become a fifth identity: near-zero chroma is what makes it read
-    // as "no colour assigned" rather than as a quiet hue of its own.
+    // The neutral must not become a sixth identity: near-zero chroma is what makes it read
+    // as "no colour assigned" rather than as a quiet hue of its own. It has no palette
+    // consumer since Notes took amethyst (2026-08-16) — this keeps it honest for the day
+    // something needs it back.
     test('identity neutral: near-grey, and its ink clears AA', () => {
       expect(chroma(IDENTITY_NEUTRAL)).toBeLessThan(15);
       HUE_KEYS.forEach((key) => {
@@ -412,6 +437,7 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       habits: 'habit',
       health: 'health',
       shopping: 'shop',
+      notes: 'note',
     };
     MODES.forEach((mode) => {
       HUE_KEYS.forEach((key) => {
@@ -455,7 +481,22 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
         });
       });
 
-      test(`${mode}: the raw hue is NOT safe on the plate for at least one identity hue`, () => {
+      // ⚠️ SCOPED TO LIGHT MODE on 2026-08-16, and the reason is the good outcome rather than
+      // a weakening. This asserted, per mode, that at least one raw hue fails 3:1 on the frost
+      // plate — a guard on the derivation itself, so that deleting `badgeGlyphFor` and getting
+      // lucky would still fail. Its own comment said: "If a palette retune ever made every raw
+      // hue clear the floor unaided, this fails — and that is the moment to check whether
+      // badgeGlyphFor is still doing anything, not to delete this test."
+      //
+      // That moment arrived. On the dark plate (`#323232`) the five neons measure 7.81 / 7.39 /
+      // 3.54 / 9.83 / 3.94 — all clear — because bright-on-near-black is the whole point of the
+      // set. So in DARK, `badgeGlyphFor` is now a genuine no-op, and asserting otherwise would
+      // be asserting a defect. In LIGHT it is still doing real work and still the only thing
+      // standing between a `#00FF85` glyph and a 1.11:1 badge, so the guard lives there.
+      // If light mode is ever retuned to neons too, this test has nothing left to guard and
+      // `badgeGlyphFor` should be re-examined rather than this line edited again.
+      const derivationStillMatters = mode === 'light';
+      (derivationStillMatters ? test : test.skip)(`${mode}: the raw hue is NOT safe on the plate for at least one identity hue`, () => {
         // Guards the derivation itself. If a palette retune ever made every raw hue clear the
         // floor unaided, this fails — and that is the moment to check whether badgeGlyphFor is
         // still doing anything, not to delete this test.
@@ -467,9 +508,10 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       });
     });
 
-    // The nine surviving token names must keep resolving to the four values + the neutral,
-    // in both modes — this is the revertable-alias contract from constants/colors.ts.
-    test('the nine card* names alias exactly four hues plus the neutral', () => {
+    // The nine surviving token names must keep resolving to the five values, in both modes —
+    // this is the revertable-alias contract from constants/colors.ts. `cardNote` left
+    // IDENTITY_NEUTRAL for amethyst on 2026-08-16, so the neutral no longer appears here.
+    test('the nine card* names alias exactly five hues', () => {
       const expectedMap: Record<string, string> = {
         cardPlan: IDENTITY_HUES.todo.hue,
         cardTask: IDENTITY_HUES.todo.hue,
@@ -479,7 +521,7 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
         cardShop: IDENTITY_HUES.shopping.hue,
         cardBudget: IDENTITY_HUES.shopping.hue,
         cardScan: IDENTITY_HUES.shopping.hue,
-        cardNote: IDENTITY_NEUTRAL,
+        cardNote: IDENTITY_HUES.notes.hue,
       };
       MODES.forEach((mode) => {
         const p = THEMES.default[mode] as unknown as Record<string, string>;

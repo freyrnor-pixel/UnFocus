@@ -50,30 +50,53 @@ describe('domainColor — semantic color-coding layer', () => {
         });
       });
 
-      it('(d) accent comes from the card* ramp, not the feat* screen hue', () => {
-        // The two layers are deliberately different: screens keep feat* (green/teal/…),
-        // cards use the blue→violet card* ramp. shop is the clearest divergence.
+      it('(d) accent comes from the card* ramp', () => {
+        // The SOURCE is what this pins: a domain's accent is its `card*` token, never a
+        // `feat*` one, regardless of whether the two happen to hold the same value.
         expect(getDomainColor(theme, 'shop').accent).toBe(theme.cardShop);
-        expect(getDomainColor(theme, 'shop').accent).not.toBe(theme.featShop);
         expect(getDomainColor(theme, 'health').accent).toBe(theme.cardHealth);
+
+        // ⚠️ Whether the two layers DIVERGE is now mode-dependent, and that is deliberate
+        // (2026-08-16). It used to be a flat "they must differ" — screens wore feat*
+        // (green/teal/…) while cards wore the card* ramp. The categorical brief §7 aligned
+        // the DARK feat* octet onto the same five hues precisely so a screen's 5% pane wash
+        // and the badge sitting on it stop disagreeing. Light mode was left on its
+        // legibility-tuned octet, so there the old divergence still holds.
+        if (isDark) {
+          expect(getDomainColor(theme, 'shop').accent).toBe(theme.featShop);
+          expect(getDomainColor(theme, 'health').accent).toBe(theme.featHealth);
+        } else {
+          expect(getDomainColor(theme, 'shop').accent).not.toBe(theme.featShop);
+        }
       });
 
       it('(e) gradient primitives derive from accent + navy deep-stop', () => {
-        // Shopping's gold (and its shop/meal/budget aliases) is the one hue where the raw
-        // accent doesn't already support a white glyph — badgeGradientFor() deepens its light
-        // stop past the accent to fix that (2026-08-11). Everyone else's light stop is still
-        // exactly the accent, unmixed, same as the original 2026-07-19 recipe.
-        const DEEPENED: Domain[] = ['shop', 'meal', 'budget'];
+        // Which hues get DEEPENED flipped almost completely in the 2026-08-16 neon pass, and
+        // the list is derived rather than typed out so it can't go stale again: a hue is
+        // deepened exactly when white does NOT already clear the badge floor on it.
+        //
+        // Before: Shopping's gold alone (plus its meal/budget/scan aliases) failed, and every
+        // other light stop was the raw accent. Now the set is the opposite — the five
+        // categoricals are all bright, so white measures 1.30–3.62:1 on them and only Health's
+        // rose (`#FF2A6D`, 3.62) clears unmixed. Everything else starts already-mixed toward
+        // the navy deep-stop. That is `badgeGradientFor` working as designed under a brighter
+        // palette, not a regression: the assertion that matters is (b) above, which checks the
+        // white glyph on both stops.
+        const clearsWhiteUnmixed = (d: Domain) =>
+          contrastRatio('#FFFFFF', getDomainColor(theme, d).accent) >= 3.3;
+        // Pinned so "every hue is deepened" (i.e. the derivation silently doing nothing
+        // interesting) would still be caught.
+        expect(DOMAINS.filter(clearsWhiteUnmixed)).toEqual(['health']);
         DOMAINS.forEach((d) => {
           const c = getDomainColor(theme, d);
           // washTop is an opaque hex blend (mix returns hex), badgeGradient a 2-stop tuple
           // whose second stop is the navy-shifted darker end.
           expect(c.washTop).toMatch(/^#[0-9a-fA-F]{6}$/);
           expect(c.badgeGradient).toHaveLength(2);
-          if (DEEPENED.includes(d)) {
-            expect(c.badgeGradient[0]).not.toBe(c.accent);
-          } else {
+          if (clearsWhiteUnmixed(d)) {
             expect(c.badgeGradient[0]).toBe(c.accent);
+          } else {
+            expect(c.badgeGradient[0]).not.toBe(c.accent);
           }
           expect(c.badgeGradient[1]).not.toBe(c.accent);
           expect(c.badgeGradient[1]).not.toBe(CARD_BADGE_DEEP);

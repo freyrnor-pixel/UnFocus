@@ -159,11 +159,18 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     expect(edge.end).toEqual({ x: 1, y: 1 });
   });
 
-  it('is lit at the start and shaded at the end, never the other way round', () => {
+  it('is lit at the start and never lit at the end, in either mode', () => {
     // Inverting these lights the pane from below, which reads as a hole rather than a pane.
+    // The two modes satisfy it differently since 2026-08-16 (brief §3): light's last stop is
+    // a genuinely DARKER colour, dark's is the same white faded to nothing. Both are "the
+    // light is at the start"; neither may end brighter than it began.
     for (const isDark of [false, true]) {
       const edge = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark);
-      expect(lightnessOf(edge.colors[0])).toBeGreaterThan(lightnessOf(edge.colors[1]));
+      const last = edge.colors[edge.colors.length - 1];
+      // Alpha-weighted, because a fully transparent white is byte-for-byte "255,255,255" and
+      // comparing raw lightness would call it the brightest stop on the ramp.
+      const weighted = (c: string) => lightnessOf(c) * alphaOf(c);
+      expect(weighted(edge.colors[0])).toBeGreaterThan(weighted(last));
     }
   });
 
@@ -174,27 +181,50 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     }
   });
 
-  it('inherits the card > field > button family from the ramp it replaced', () => {
+  it('light: inherits the card > field > button family from the ramp it replaced', () => {
     // The single most load-bearing property of the old layer, carried over intact: a card
     // holding five bordered controls must read as a hierarchy, not as a grid of equal lines.
-    for (const isDark of [false, true]) {
-      const shade = isDark ? BORDER_DARK : BORDER_LIGHT;
-      const alphas = WEIGHTS.map((w) => alphaOf(getGlassEdge(shade, isDark, w).colors[1]));
-      expect(alphas[0]).toBeGreaterThan(alphas[1]);
-      expect(alphas[1]).toBeGreaterThan(alphas[2]);
-      alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
-    }
+    const alphas = WEIGHTS.map((w) => alphaOf(getGlassEdge(BORDER_LIGHT, false, w).colors[1]));
+    expect(alphas[0]).toBeGreaterThan(alphas[1]);
+    expect(alphas[1]).toBeGreaterThan(alphas[2]);
+    alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
   });
 
-  it('keeps the shade stop at FULL border strength on a card', () => {
-    // Load-bearing, and the half that makes rule 10b's relaxed fill step a trade rather than
-    // a loss: the card edge IS `theme.border`, undiluted, so lib/__tests__/colors.test.ts's
-    // "the card edge is a real boundary on both sides" (≥3:1 vs bg AND vs surface) is a
-    // statement about what actually gets painted. Fading this fades the boundary with it.
-    for (const isDark of [false, true]) {
-      const shade = isDark ? BORDER_DARK : BORDER_LIGHT;
-      expect(alphaOf(getGlassEdge(shade, isDark, 'card').colors[1])).toBe(1);
-    }
+  it('dark: the card drops out of the shade family; field > button still holds', () => {
+    // 2026-08-16, brief §3. A dark card has NO shaded side at all — it is a top-left lip that
+    // fades to nothing — so it cannot take part in a shade-alpha ordering. The hierarchy still
+    // has to hold among the rungs that DO have one, which is the part that stops a card full
+    // of bordered controls reading as a grid.
+    const field = alphaOf(getGlassEdge(BORDER_DARK, true, 'field').colors[1]);
+    const button = alphaOf(getGlassEdge(BORDER_DARK, true, 'button').colors[1]);
+    expect(field).toBeGreaterThan(button);
+    expect(button).toBeGreaterThan(0.25);
+  });
+
+  it('light: keeps the shade stop at FULL border strength on a card', () => {
+    // Load-bearing IN LIGHT MODE, and the half that makes rule 10b's relaxed fill step a trade
+    // rather than a loss: the card edge IS `theme.border`, undiluted, so
+    // lib/__tests__/colors.test.ts's "the card edge is a real boundary on both sides"
+    // (≥3:1 vs bg AND vs surface) is a statement about what actually gets painted. Fading this
+    // fades the boundary with it.
+    //
+    // ⚠️ Dark mode deliberately does NOT have this any more (2026-08-16). It can afford not to:
+    // the pane is lighter than a `#000000` ground and carries a getLayeredShadow underneath,
+    // where light's pane sits on `#E2EAF5` at a 1.17 fill step with nothing else to separate
+    // them. `field`/`button` keep their shade in BOTH modes because those identify controls.
+    expect(alphaOf(getGlassEdge(BORDER_LIGHT, false, 'card').colors[1])).toBe(1);
+  });
+
+  it('dark: a card edge ends fully transparent instead of closing into a frame', () => {
+    const ramp = getGlassEdge(BORDER_DARK, true, 'card');
+    expect(ramp.colors).toHaveLength(3);
+    expect(alphaOf(ramp.colors[2])).toBe(0);
+    // The middle stop is what makes it read as a lip rather than a wash across the diagonal.
+    expect(alphaOf(ramp.colors[1])).toBeGreaterThan(0);
+    expect(alphaOf(ramp.colors[1])).toBeLessThan(alphaOf(ramp.colors[0]));
+    // The shade colour is not used at all on this path, so a caller passing a hue can't
+    // sneak colour back onto the edge.
+    ramp.colors.forEach((c) => expect(c).toMatch(/^rgba\(255, 255, 255,/));
   });
 
   it('the lit catch is far weaker in dark mode than in light', () => {

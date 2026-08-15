@@ -934,3 +934,104 @@ Dark needed no relaxation at all — its glass alpha was solved so the composite
 one line by **3px** at the new 24px section-header size. It wraps rather than truncating, and
 327 is clean of 24px findings at every real device width (360/393/430). Not fixed — shrinking
 the header would undo the change the brief asked for.
+
+---
+
+## Addendum, 2026-08-16 — the neon/OLED pass: two overrides and a repair
+
+A second maintainer brief, written explicitly against the first one's result: *"the current UI
+is washed out, flat, and uses weak, generic pastel colors."* It does not replace Tactile Glass —
+it turns four of that material's dials much harder and adds a categorical colour system on top.
+Full implementation notes live in AGENTS.md's "The neon/OLED pass" bullet; this records only the
+things that **overrode a decision already written down**, since those are the ones a later
+session will otherwise read as drift.
+
+### Two questions were put to the maintainer before any code was written
+
+Both changed what the work would be, and both were answered as stated trades rather than
+assumed:
+
+1. **"Remove all weak grey or light blue app backgrounds" — does that mean light mode goes?**
+   Answered: **default to dark, keep light available.** So `darkMode` now defaults to `'on'`
+   (reversing Decision 035) and a one-shot migration moved existing installs across. Light mode
+   keeps its full palette, its Settings row and its onboarding row.
+2. **"Vibrant jewel tones" conflicts with the identity hues' L\* spread — which wins?**
+   Answered: **full neon, drop the greyscale guarantee.** Recorded as `DESIGN_RULES.md` rule
+   11a, and it is the more expensive of the two answers.
+
+### Override 1 — the identity hues no longer survive greyscale (rule 11a)
+
+Addendum A.6's central claim was that the identity set separates by **lightness**, because
+lightness is the only channel that survives greyscale and colour blindness. That claim was
+never refuted and is still true as colour science. It is incompatible with the brief: a set
+spread across L\* 38–71 contains, by construction, three hues too dark to glow on pure black,
+which is the entire look being asked for.
+
+**What was given up, stated plainly so nobody discovers it by accident:** a deuteranope cannot
+reliably tell Habits' cyan from Shopping's green; a greyscale screenshot flattens
+To-do/Habits/Shopping (L\* 81/79/89) into one band.
+
+**What still holds:** every one of the five hues is paired with its own icon and its own word,
+so rule 11 ("never use colour as the only signal") is not actually broken for any *meaning* —
+only the hue-to-hue distinction is colour-only now. And the pairwise ΔE2000 ≥ 25 floor became
+load-bearing rather than one of two alternatives; it is what caught the brief's own suggested
+Shopping value (`#01FFC3`, 22.9 against Habits) before it shipped.
+
+**Test changes, so the deletions are legible:** `DOCUMENTED_LSTAR` and "Shopping keeps a ≥15 L\*
+gap" are gone; a hex pin replaced the L\* pin, which is *stricter* (an L\* pin admits any hue
+rotation at constant lightness — exactly the "harmonise the badges" edit A.6 existed to catch).
+
+### Override 2 — every card blurs again (reverses this file's own 2026-08-15 entry)
+
+The 2026-08-15 pass mounted a `BlurView` only on `overlay`/`nav`, reasoning that blurring a
+pure-black backdrop returns black and would be GPU cost for nothing. **That arithmetic was
+right and it still lost**, which is worth recording because the same argument will be made
+again: the backdrop is not uniformly black (edge-anchored branch art, cards overlapping while
+scrolling, and light mode's gradient the whole way across), and a card that blurs on a sheet
+but not in a list is two materials — the exact failure the brief is written against.
+Bounded rather than unbounded: `BLUR_AMBIENT` is about half `BLUR_STRONG`, and `glassSurfaces`
+still removes all of it in one switch.
+
+### A repair, in the opposite direction
+
+`CHROMATIC_FLOOR.dark` went **back to 4.5**. It had been relaxed to 4.4 on 2026-08-10 for a
+single value — `bad` `#EF4444` at 4.430:1, kept verbatim on instruction — with a note saying to
+restore it if that token was ever retuned. It was (`#FF3B5C`, 4.79:1), so dark mode now has
+**no relaxed chromatic floor at all**. The halation ceiling moved the other way, 16 → 17, for
+pure-white `text`; that is the last time it can move for that reason, since pure white is the
+ceiling of the ceiling.
+
+### Deliberately NOT done, though the brief could be read as asking
+
+- **A primary button's FILL is still `theme.accent`; only its halo is categorical.** Brief §7
+  says an icon, a badge, or *the glowing shadow* of a category button must use the category
+  colour — the fill is not on that list, and two of the five hues admit no AA-contrast ink at
+  all, so a rose Save button would ship a label at 4.32:1 at best. One action colour app-wide
+  is also what keeps "primary" readable as a role rather than as a sixth category.
+- **The nav tab's categorical colour is dark-mode only**, and that is measured rather than
+  timid: light's `feat*` octet is mid-tones, and a mid-tone label on a plate tinted with itself
+  lands at 2.0–3.6:1 — worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark
+  measures 4.89–10.50:1. If light ever goes neon, delete the branch rather than tuning it.
+- **Light mode's `feat*` octet was not aligned to the five categoricals.** These neons measure
+  1.1–1.5:1 against a pale card. The resulting inconsistency — light mode shows a teal Health
+  wash under a rose Health badge — is known and accepted; light is the accessibility path now,
+  and making it worse to make it consistent is the wrong trade.
+- **The bottom-right card edge was dropped for CARDS only, and in dark only.** A field or a
+  button identifies a control and keeps its WCAG 1.4.11 boundary; in light the pane has only a
+  1.17 fill step to distinguish it from the page. Don't "finish the job" on either axis.
+- **`getGlow`'s radii were not taken literally.** The brief's `shadowRadius: 12` is a
+  single-pass number; this is a two-pass halo where 12 would make the outer bloom a near-copy
+  of the inner one. Same rule as 2026-08-12's `translateY: 2` — implement the states, not the
+  numbers.
+
+### One bug caught in review rather than by a test, worth knowing
+
+The first cut of the categorical nav pill used `rgba(hue, 0.16)` — the `soft` recipe
+`lib/domainColor.ts` and `lib/screenColor.ts` both already use. It shipped an unreadable bar in
+the web preview: a 16% wash of a **neon** hue over the nav's already-light glass composites to
+a strong tint, putting the rose "Health" label on a rose plate at roughly 1.5:1. The `soft`
+recipe assumes mid-tone hues. The fix is a mix toward the page (`mix(bg, hue, 0.2)`), i.e. the
+hue at a fifth brightness, which is what `accentSoft` had always been for the accent. **No test
+would have caught this** — it is a composite of a translucent token over another translucent
+token, two components apart — which is the argument for running `npm run preview` on any pass
+that touches colour, not only on one that touches layout.

@@ -819,9 +819,39 @@ export function computeBorderTone(
  *     it is measured on both sides.
  * Never make `shade` fainter than `lit` at the card rung — that inverts the light direction and
  * the pane reads as lit from below.
+ *
+ * ── `shadeDark` and the asymmetric card edge (2026-08-16, brief §3) ────────────────────────
+ * The brief asks for the edge to exist on the TOP and LEFT only — `borderTopWidth: 1`,
+ * `borderLeftWidth: 1`, `borderBottomWidth: 0`, `borderRightWidth: 0` — because a lip that
+ * stops halfway round is what reads as a thick piece of glass catching a light source above
+ * and to the left, where a closed rectangle reads as a drawn frame.
+ *
+ * It is implemented as a THIRD GRADIENT STOP fading to transparent, not as per-side border
+ * widths, and that is deliberate: these edges are drawn as a `LinearGradient` padding-ring
+ * (see `getGlassEdge` and components/Surface.tsx) precisely because RN's native border renderer
+ * cannot blend two colours around a rounded corner. Mixing per-side widths INTO that ring would
+ * mean abandoning the ring, and a hard 1px→0px transition at the corner of a `Radius.lg` card
+ * is visibly a cut rather than a fade. A gradient that reaches zero alpha by the bottom-right
+ * produces the same read and survives the corner.
+ *
+ * ⚠️ **It applies to the CARD rung in DARK mode only, and both halves of that scope are
+ * load-bearing.**
+ *   - **Cards only.** `shade` at full strength is plain `theme.border`, and it is what carries
+ *     WCAG 1.4.11's 3:1 boundary for anything that identifies a CONTROL. A card is a container,
+ *     not a control, and on black it is separated by its own fill plus a `getLayeredShadow`
+ *     underneath — so it can afford to lose its bottom-right edge. A text field or a button
+ *     cannot, and they keep theirs. Do not "finish the job" by extending this to `field`.
+ *   - **Dark only.** The trick works because the ground is `#000000` and the pane is lighter
+ *     than it. In light mode the pane is `#F9FBFE` on a `#E2EAF5` backdrop — a 1.17 fill step
+ *     with nothing else to separate them — so removing the boundary there would leave a card
+ *     with no edge at all. Light keeps `shade` and therefore keeps its measured boundary.
  */
-const GLASS_EDGE: Record<BorderWeight, { lit: number; litDark: number; shade: number }> = {
-  card: { lit: 0.95, litDark: 0.16, shade: 1 },
+const GLASS_EDGE: Record<
+  BorderWeight,
+  { lit: number; litDark: number; shade: number; shadeDark?: number }
+> = {
+  // `shadeDark: 0` is the asymmetric top-left-only lip — see the block above.
+  card: { lit: 0.95, litDark: 0.16, shade: 1, shadeDark: 0 },
   field: { lit: 0.75, litDark: 0.12, shade: 0.68 },
   button: { lit: 0.62, litDark: 0.1, shade: 0.52 },
 };
@@ -839,8 +869,17 @@ const GLASS_LIGHT = '#FFFFFF';
  * bottom-right): a vertical sweep would light the top edge and leave the left one dark, which
  * is not how a pane of glass catches a light source above and to the left of it.
  *
+ * ── The asymmetric case (2026-08-16, brief §3) ─────────────────────────────────────────────
+ * A dark-mode CARD returns a THREE-stop ramp instead of two: the white lip, the same lip at a
+ * third of its alpha a third of the way across, then fully transparent at the bottom-right. The
+ * middle stop is what makes it a lip rather than a wash — without it the highlight is linear
+ * across the whole diagonal and reads as a gradient fill on the border, not as light landing on
+ * an edge. See `GLASS_EDGE`'s block above for why this is scoped to cards, to dark mode, and to
+ * a gradient rather than per-side border widths.
+ *
  * @param shade the boundary colour — pass `theme.border`. NOT a screen hue: colour left the
- *   card edge in the 2026-08-15 pass and lives in the pane tint and the badge now.
+ *   card edge in the 2026-08-15 pass and lives in the pane tint and the badge now. Ignored
+ *   entirely on the asymmetric path, which has no shaded side to colour.
  */
 export function getGlassEdge(
   shade: string,
@@ -854,8 +893,21 @@ export function getGlassEdge(
   // the honest answer to "make the border quieter", where scaling only one side would tilt the
   // light source instead.
   const lit = (isDark ? w.litDark : w.lit) * strength;
+  const shadeAlpha = (isDark && w.shadeDark !== undefined ? w.shadeDark : w.shade) * strength;
+  // Only the top-left catches light; the rest of the ring fades out rather than closing into a
+  // frame. `rgba(GLASS_LIGHT, 0)` and not `'transparent'`, because interpolating a named
+  // transparent against an rgba white goes through black on Android and leaves a dirty smudge
+  // along the bottom-right instead of nothing at all.
+  if (shadeAlpha === 0) {
+    return {
+      colors: [rgba(GLASS_LIGHT, lit), rgba(GLASS_LIGHT, lit * 0.34), rgba(GLASS_LIGHT, 0)],
+      locations: [0, 0.34, 1],
+      start: { x: 0, y: 0 },
+      end: { x: 1, y: 1 },
+    };
+  }
   return {
-    colors: [rgba(GLASS_LIGHT, lit), rgba(shade, w.shade * strength)],
+    colors: [rgba(GLASS_LIGHT, lit), rgba(shade, shadeAlpha)],
     locations: [0, 1],
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },
@@ -999,7 +1051,23 @@ export function filledEdge(base: string, isDark: boolean): string {
  * element on a screen). Not decoration; do not apply broadly. New-Arch boxShadow (iOS+Android).
  */
 export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
-  const alpha = level === 'strong' ? 0.55 : 0.34;
+  // ── Strengthened for the black canvas, 2026-08-16 (brief §4) ────────────────────────────
+  // 0.34 / 0.55 were tuned in 2026-07-18 against a PALE backdrop, where a coloured halo only
+  // has to tint a light surface slightly to read. On `#000000` the same alphas are close to
+  // invisible: there is no ambient light for the halo to modulate, so what reaches the eye is
+  // just `alpha × colour`, and a third of an accent on black is a dark smudge.
+  //
+  // The brief asks for `shadowOpacity: 0.8` outright ("must use a shadow colored with their
+  // respective accent color to create a 'glow'... it should look like LED lights"). `strong`
+  // takes that number as-is; `soft` goes to 0.55, i.e. exactly what `strong` used to be, which
+  // keeps the two rungs a real step apart rather than collapsing them onto one bright value.
+  //
+  // The RADII are deliberately NOT the brief's literal 12. This is a two-pass halo — a tight
+  // inner glow plus a wide outer bloom at 1.8× — and 12 is a sensible single-pass number that
+  // would make the outer pass a 22px near-duplicate of the inner one. Implement the states,
+  // not the numbers (the same rule the 2026-08-12 button pass recorded for Travel/elevation).
+  // Held at 15/22 so the bloom stays wider than the source it comes from.
+  const alpha = level === 'strong' ? 0.8 : 0.55;
   const radius = level === 'strong' ? 22 : 15;
   return {
     boxShadow: [

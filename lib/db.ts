@@ -1280,6 +1280,23 @@ export function initDb() {
     // build or a hand-edited backup degrades to "open" instead of hiding a card
     // the user cannot get back.
     "ALTER TABLE settings ADD COLUMN collapsed_cards TEXT DEFAULT '{}'",
+    // ── True black becomes the app's canvas (2026-08-16, Tactile Glass brief §1) ──────────
+    // "MANDATORY: the main app background must be true black (#000000). Remove all weak grey
+    // or light blue app backgrounds. This is the foundation that makes the glass and glow
+    // effects visible."
+    //
+    // `dark_mode`'s column DEFAULT is the string 'off' and CANNOT be changed — this log is
+    // append-only and the ALTER that created it (index 13) has long since run on every
+    // install. So a fresh install is handled in `defaultSettings`/`load()`
+    // (store/useSettingsStore.ts), and EXISTING installs are handled here.
+    //
+    // ⚠️ This DOES overwrite a user who deliberately chose light, and that is the instructed
+    // behaviour rather than an oversight. Two things make it defensible: `app/onboarding/
+    // basics.tsx` writes an appearance value for EVERY user who completes setup, so there is
+    // no stored signal separating "chose light" from "never thought about it" to key off; and
+    // light mode is not removed — it is one tap away in Settings → General → Appearance, and
+    // the choice sticks from then on because this migration runs exactly once.
+    "UPDATE settings SET dark_mode = 'on'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

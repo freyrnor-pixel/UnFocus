@@ -4,9 +4,18 @@
  *
  * **Tactile Glass, 2026-08-15 (maintainer brief).** A card is a pane of dark glass floating
  * over the backdrop: a translucent fill (`theme.surfaceGlass`), ONE edge that catches the
- * light on its top-left and carries the control boundary on its bottom-right
- * (`getGlassEdge`), and — where there is genuinely something behind it to smear — a real
- * `BlurView`. Colour comes from a 5% screen-hue wash on the pane, never from the edge.
+ * light on its top-left (`getGlassEdge`), and a real `BlurView`. Colour comes from a 5%
+ * screen-hue wash on the pane, never from the edge.
+ *
+ * **Amended 2026-08-16 (the neon/OLED brief).** Two clauses above changed, and this header used
+ * to state their opposites — that the edge "carries the control boundary on its bottom-right",
+ * and that the blur mounts only "where there is genuinely something behind it to smear". On a
+ * dark CARD the edge now fades to nothing, which is what makes a pane read as thick glass lit
+ * from above-left rather than as a drawn frame; and every pane blurs. Both are scoped: the fade
+ * is cards-in-dark only (a field or a button still identifies a control and keeps its 3:1
+ * boundary, and light's pane has only a 1.17 fill step to distinguish it from the page), and
+ * the blur is lighter on ambient panes than on overlays. See constants/theme.ts's GLASS_EDGE
+ * block and the BlurView comment below for the full reasoning on each.
  *
  * ⚠️ **This REVERSES the 2026-08-05 card reset, which this header used to describe** ("a flat
  * opaque page… no frost, no BlurView, no translucent wash, no beveled rim"), and it reverses
@@ -63,11 +72,13 @@
  *     the physical edge of a piece of glass"). `computeBorderRamp`/`computeBorderTone` still
  *     exist and still work; they simply have no consumer here any more.
  *   - **`surfaceContext` ('ambient' | 'overlay' | 'nav') is a REAL SWITCH again**, for the
- *     first time since 2026-08-05, and it decides two things: which of the two glass tokens
- *     the pane uses, and whether a `BlurView` is mounted at all. This is the "future 'sheets
- *     should differ from cards' decision" the prop was explicitly kept alive for — so a caller
- *     that has been passing it decoratively is now passing it meaningfully. Check the value is
- *     right when you touch a sheet or a nav surface.
+ *     first time since 2026-08-05. It decides which of the two glass tokens the pane uses and
+ *     how hard its blur bites. This is the "future 'sheets should differ from cards' decision"
+ *     the prop was explicitly kept alive for — so a caller that has been passing it
+ *     decoratively is now passing it meaningfully. Check the value is right when you touch a
+ *     sheet or a nav surface.
+ *     **It no longer decides WHETHER a BlurView mounts (2026-08-16, brief §2)** — every pane
+ *     blurs now; see the comment at the BlurView itself for why the ambient exclusion lost.
  *   - **`settings.glassSurfaces` is LIVE again** (it was inert here from 2026-08-05, because
  *     everything was already opaque — the state that toggle asks for). Off ⇒ the opaque
  *     composite and no BlurView anywhere. It needs no new copy: the shipped EN/NO strings
@@ -434,21 +445,37 @@ export default function Surface({
             },
           ]}
         >
-          {/* ── Blur, and only where there is something to blur ──────────────────────────
-              An `overlay`/`nav` surface floats above real scrolling content, so a BlurView
-              genuinely bleeds it through the pane — that is the effect the brief describes,
-              and it is why `surfaceContext` was kept in the API through the 2026-08-05 reset
-              ("a future 'sheets should differ from cards' decision has somewhere to land").
-              An `ambient` content card has the BACKDROP behind it, which in dark mode is pure
-              black: blurring black returns black, so a BlurView under all ~59 cards would be
-              pure GPU cost on a scrolling list for zero visible difference. The translucent
-              wash alone composites to the identical colour. This is the brief's own "use
-              expo-blur OR semi-transparent hex codes", resolved per context.
-              Android below API 31 degrades this to a flat translucent overlay — i.e. exactly
-              the ambient treatment — so the fallback is graceful rather than broken. */}
-          {glassOn && surfaceContext !== 'ambient' ? (
+          {/* ── Blur, on every pane (2026-08-16, brief §2) ────────────────────────────────
+              *"All cards MUST be translucent. Use expo-blur as the absolute foundation for
+              every card."* This REVERSES the 2026-08-15 decision to mount a BlurView only on
+              `overlay`/`nav`, which this comment used to defend at length. That argument is
+              worth keeping rather than deleting, because it is still half true:
+
+              An ambient content card sits on the BACKDROP, and in dark mode that backdrop is
+              `#000000` (ScreenBackground's DARK.base is three black stops with both radial
+              glows at 0). Blurring black returns black. So over the middle of a dark screen
+              this genuinely does nothing visible, and it is not free — on Android this is a
+              real render-effect pass per frame per card, on the scrolling lists that make up
+              most of the app.
+
+              What the old argument MISSED, and why it lost: "the backdrop" is not uniformly
+              black. `components/ScreenBackground.tsx` draws edge-anchored branch-and-leaf art,
+              cards overlap each other while scrolling, and — the case that actually settles it
+              — light mode's backdrop is a real gradient the whole way across. A card that
+              blurs on a sheet and doesn't on a list is two materials, which is the exact thing
+              the brief is written against.
+
+              Two mitigations rather than none, so the cost is bounded:
+                · `BLUR_AMBIENT` is roughly half `BLUR_STRONG` — an ambient pane's own wash
+                  already carries most of its opacity, so the blur only has to smear the last
+                  of it, and a lighter pass is measurably cheaper.
+                · `glassSurfaces` (the reduce-transparency toggle) still removes all of it, so
+                  a user on a slow device has one switch that turns the whole effect off.
+              Android below API 31 degrades a BlurView to a flat translucent overlay — i.e.
+              exactly the old ambient treatment — so the fallback is graceful, not broken. */}
+          {glassOn ? (
             <BlurView
-              intensity={BLUR_INTENSITY}
+              intensity={surfaceContext === 'ambient' ? BLUR_AMBIENT : BLUR_STRONG}
               tint={isDark ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
@@ -472,12 +499,17 @@ export default function Surface({
 }
 
 /**
- * How hard the overlay/nav blur bites. Tuned against `surfaceGlassStrong` rather than chosen —
- * the wash already carries most of the pane's opacity, so the blur only has to smear whatever
+ * How hard the blur bites, per tier. Tuned against the two glass tokens rather than chosen —
+ * the wash already carries most of a pane's opacity, so the blur only has to smear whatever
  * shows through the remaining ~12–15%. Higher reads as frosted plastic and costs more on
- * Android, where this is a real render-effect pass on every frame the sheet is on screen.
+ * Android, where this is a real render-effect pass on every frame the surface is on screen.
+ *
+ * `BLUR_AMBIENT` is the lighter of the two because there are ~59 ambient cards to an overlay's
+ * one, and an ambient pane has less behind it to reveal (see the BlurView comment above). Don't
+ * raise it to match: the cost difference is the reason blurring every card is affordable at all.
  */
-const BLUR_INTENSITY = 28;
+const BLUR_STRONG = 28;
+const BLUR_AMBIENT = 15;
 
 const styles = StyleSheet.create({
   // The gradient ring sits between the outer shadow-casting view and the mask, `padding:

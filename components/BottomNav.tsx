@@ -3,7 +3,9 @@
  *
  * Implements the design system's BottomNav pattern: left items (Shopping, Plans),
  * centre home/menu button, right items (Habits, Health). The centre button is
- * stylized as a gradient FAB. Active tab is highlighted with primary colour.
+ * stylized as a gradient FAB. In DARK mode the active tab is highlighted with its own CATEGORY
+ * colour — icon, label and the sliding pill together (2026-08-16, brief §7; see `navTabHue`);
+ * in light mode, and for Home in both modes, that is the primary accent as before.
  * Primary usage is as app/(tabs)/_layout.tsx's `tabBar` render prop — react-navigation
  * hands it the pager's `state`/`navigation`, which this component uses both to know
  * which tab is active and to switch tabs (`navigation.navigate()`, which the pager
@@ -14,11 +16,12 @@
  * Connections:
  *   Imports → @react-navigation/material-top-tabs (MaterialTopTabBarProps type),
  *             react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming for the
- *             sliding pill), expo-router, constants/theme (computeRimGradient, HitSlop and the
- *             spacing/type tokens — no shadow or glow helper: see the 2026-08-11 bullet),
- *             constants/motion
- *             (Duration/Ease), lib/i18n, lib/siteNav, lib/useAppTheme (incl. useAccessibility),
- *             components/PressableScale, components/Surface
+ *             sliding pill), expo-router, constants/theme (computeRimGradient, mix, HitSlop and
+ *             the spacing/type tokens — no shadow or glow helper: see the 2026-08-11 bullet),
+ *             constants/colors (ThemePalette, type-only), constants/motion
+ *             (Duration/Ease), lib/i18n, lib/siteNav, lib/screenColor (getScreenColor — the
+ *             active tab's category hue, see `navTabHue`), lib/useAppTheme (incl.
+ *             useAccessibility, useIsDark), components/PressableScale, components/Surface
  *   Used by → app/(tabs)/_layout.tsx (as the pager's tabBar); components/ScreenScaffold
  *             (standalone fallback via bottomNav=true — currently unused by any real screen)
  *   Data    → none (presentational; navigation only)
@@ -279,7 +282,9 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, computeRimGradient, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, computeRimGradient, HitSlop, mix } from '@/constants/theme';
+import { getScreenColor } from '@/lib/screenColor';
+import type { ThemePalette } from '@/constants/colors';
 import { Duration, Ease, Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -572,8 +577,30 @@ export default function BottomNav({ state, navigation }: Props = {}) {
   const pillRadiusStyle = useAnimatedStyle(() => ({ borderRadius: pr.value }));
   const pillInnerRadiusStyle = useAnimatedStyle(() => ({ borderRadius: Math.max(0, pr.value - EDGE_WIDTH) }));
 
-  // The pill marks whichever tab is active, all five of them, so its rim is always accent-hued.
-  const rim = computeRimGradient(theme.accent, isDark);
+  // ── The pill takes the ACTIVE tab's category colour (2026-08-16, brief §7) ───────────────
+  // This line read "the pill marks whichever tab is active, all five of them, so its rim is
+  // always accent-hued" — true when every active tab was accent-blue, and wrong the moment
+  // NavTabItem started colouring each tab by its own category (see the note there). A rose
+  // Health icon sitting on a blue plate is worse than either colour alone.
+  //
+  // Home keeps the accent, matching its centre ring — `getScreenColor` returns `neutral` for
+  // it, which is the same fallback NavTabItem uses, so the two cannot drift.
+  const activeItem = SITE_ITEMS.find(isActive);
+  const pillHue = navTabHue(theme, isDark, activeItem);
+  const rim = computeRimGradient(pillHue, isDark);
+  // `accentSoft` is a fixed dark-navy plate, so it cannot follow a hue — a hue needs a plate
+  // derived from itself. `mix(bg, hue, PILL_PLATE_MIX)` is that: the hue at a fifth strength
+  // over the page, which in dark mode is the hue at a fifth brightness over black.
+  //
+  // ⚠️ It is a MIX toward the page, not `rgba(hue, 0.16)`. The first cut used the alpha wash —
+  // the `soft` recipe lib/domainColor.ts and lib/screenColor.ts both use — and it shipped an
+  // unreadable bar: a 16% wash of a NEON hue over the nav's already-light glass composites to a
+  // strong tint, so the rose "Health" label sat on a rose plate at roughly 1.5:1. That recipe
+  // was written for hues that are mid-tones; these are not. Measured on the real plate, this
+  // one gives 4.89:1 (Health, the worst) to 10.50:1 (Shopping) — better than the `accentSoft`
+  // baseline it replaces, which is 4.52:1.
+  const pillFill =
+    pillHue === theme.accent ? theme.accentSoft : mix(theme.bg, pillHue, PILL_PLATE_MIX);
   // **No halo of any kind on the pill.** `getLayeredShadow` went on 2026-08-10 (a grey,
   // hue-less blur under a pale `accentSoft` plate read as a dirty donut rather than as depth),
   // and `getGlow(theme.accent, 'soft')` follows it on 2026-08-11 for a reason that is about
@@ -678,10 +705,10 @@ export default function BottomNav({ state, navigation }: Props = {}) {
               end={{ x: 0, y: 1 }}
               style={{ flex: 1, padding: EDGE_WIDTH }}
             >
-              <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft }, pillInnerRadiusStyle]} />
+              <Animated.View style={[{ flex: 1, backgroundColor: pillFill }, pillInnerRadiusStyle]} />
             </LinearGradient>
           ) : (
-            <Animated.View style={[{ flex: 1, backgroundColor: theme.accentSoft }, pillInnerRadiusStyle]} />
+            <Animated.View style={[{ flex: 1, backgroundColor: pillFill }, pillInnerRadiusStyle]} />
           )}
         </Animated.View>
       )}
@@ -748,6 +775,41 @@ function NavGroup({ items, isActive, onPress, label, styles, groupStyle, onTrack
   );
 }
 
+/**
+ * How strongly the active pill's plate carries its tab's hue. See `pillFill`'s note for why
+ * this is a mix toward the page rather than the `soft` alpha wash used elsewhere.
+ */
+const PILL_PLATE_MIX = 0.2;
+
+/**
+ * The colour an active nav tab wears — its own CATEGORY's, in dark mode (2026-08-16, brief §7).
+ *
+ * *"When rendering an icon, a badge, or the glowing shadow of a button associated with a
+ * specific category, you MUST use its mapped categorical color."* A nav tab is the most literal
+ * case of that in the app — it IS the category — and until this pass all four side tabs lit up
+ * in the same `theme.accent` blue, so the bar said "you are somewhere" without saying where.
+ *
+ * Resolved through `lib/screenColor.ts` rather than from a table here, so a tab and the screen
+ * it opens can never disagree: `SiteItem.route` is already the screen key that module is keyed
+ * by. Shared by the icon/label (`NavTabItem`) and the sliding pill (`BottomNav`), because a
+ * rose icon on a blue plate is worse than either colour on its own.
+ *
+ * ⚠️ **DARK MODE ONLY, and that is measured rather than squeamish.** The five categoricals are
+ * neon values chosen to glow on black; light mode keeps the 2026-08-10 "cinematic" `feat*`
+ * octet, which is a set of MID-TONES. A mid-tone label on a plate tinted with itself measures
+ * 2.0–3.6:1 at every mix strength worth trying — worse than the 4.19:1 that `accent` on
+ * `accentSoft` already gives — so in light mode this returns the accent and the bar is
+ * byte-identical to before. If light mode ever goes neon too, delete the branch, don't tune it.
+ *
+ * Home has no identity hue (`getScreenColor` reports `neutral`) and takes the accent in both
+ * modes, which is also what its centre ring uses — so the FAB and the Home tab cannot drift.
+ */
+function navTabHue(theme: ThemePalette, isDark: boolean, item: SiteItem | undefined): string {
+  if (!isDark || !item) return theme.accent;
+  const hue = getScreenColor(theme, item.route.replace('/', '') || 'index');
+  return hue.neutral ? theme.accent : hue.base;
+}
+
 type NavTabItemProps = {
   item: SiteItem;
   label: string;
@@ -758,7 +820,8 @@ type NavTabItemProps = {
 
 function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
-  const iconColor = active ? theme.accent : theme.textMuted;
+  const isDark = useIsDark();
+  const iconColor = active ? navTabHue(theme, isDark, item) : theme.textMuted;
 
   return (
     <PressableScale
