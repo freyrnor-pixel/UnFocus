@@ -226,13 +226,13 @@
  *     how to retire one the same way (unconditional migration UPDATE, un-gate every call
  *     site, drop the FEATURE_ROWS/onboarding-picker row, keep the DB column).
  */
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useContext, useRef, useCallback } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import ScreenScaffold, { ScrollToNodeContext } from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import SectionDivider from '@/components/SectionDivider';
 import ExpandableCard from '@/components/ExpandableCard';
@@ -283,6 +283,18 @@ import { AspectRatioKey, FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET,
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
 type SettingsTab = 'general' | 'personal' | 'advanced';
+/** Runtime companion to `SettingsTab`, so a `?tab=` param can be validated rather than cast. */
+const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'personal', 'advanced'] as const;
+
+/**
+ * A card on this screen that something else can link straight to, via `?section=`.
+ *
+ * Deliberately a short, hand-maintained list rather than "any card": a section has to open its
+ * `ExpandableCard` AND hand a ref to `scrollToNode`, so each one is a couple of lines at the
+ * call site. Add an entry when a screen genuinely needs to point at a setting; don't back-fill
+ * the whole screen.
+ */
+type SettingsSection = 'shopping';
 // From TabSlider itself since 2026-08-10 — this was 48 against a real 46, a 2px surplus that
 // `tabsGlass`'s justifyContent:'center' split around the pill. See TAB_SLIDER_HEIGHT's doc.
 const TAB_BAR_HEIGHT = TAB_SLIDER_HEIGHT;
@@ -387,7 +399,33 @@ export default function SettingsScreen() {
   const monthlyReset = useShoppingStore((s) => s.monthlyReset);
   const syncAvailable = isSyncAvailable();
 
-  const [tab, setTab] = useState<SettingsTab>('general');
+  /**
+   * Deep link into a particular setting (2026-08-14).
+   *
+   * `?tab=` was being PASSED by Shopping's "Nullstillingsdager" link since that link was
+   * written, and read by nobody — this screen had no `useLocalSearchParams` at all, so the
+   * param was silently dropped and every caller landed on General. Maintainer, on device:
+   * *"Nullstillingsdager in shopping takes you to settings, but not the actual setting you're
+   * looking for."*
+   *
+   * `?section=` is the second half of the answer, because the right tab is not the same thing
+   * as the right control: every group on this screen is a collapsed `ExpandableCard`, so a
+   * correct tab still left the two shopping-cadence fields shut and off screen. A section both
+   * opens its card and scrolls to it.
+   *
+   * Shape copied from app/(tabs)/plans.tsx's `tab` + `expandTaskId` pair, the repo's existing
+   * precedent for arriving at one row of a screen.
+   */
+  const { tab: tabParam, section: sectionParam } = useLocalSearchParams<{
+    tab?: SettingsTab;
+    section?: SettingsSection;
+  }>();
+  const [tab, setTab] = useState<SettingsTab>(
+    // Seeded, not just synced by the effect below: setting it after the first render would
+    // mount General's whole tab, then throw it away — and the target card's `onLayout` would
+    // fire against a screen the user never sees.
+    () => (tabParam && SETTINGS_TABS.includes(tabParam) ? tabParam : 'general'),
+  );
   const [name, setName] = useState(settings.userName);
   const [accountNameInput, setAccountNameInput] = useState(settings.accountName);
   const [monthlyDateInput, setMonthlyDateInput] = useState(String(settings.monthlyResetDate));

@@ -34,6 +34,11 @@
  *     re-broke the taps. Measuring the row and lifting just it is correct for last- and
  *     mid-list rows alike. AddRow calls this from its input's onFocus/keyboardDidShow. `null`
  *     outside a scrollable ScreenScaffold — the non-scrollable/FlatList branch self-manages.
+ *   - **ScrollToNodeContext (2026-08-14)** is its SIBLING, not a generalisation of it: "bring
+ *     this section up under the header", for a screen arriving at a deep link. Kept separate
+ *     because `scrollIntoView` scrolls only when the node overlaps the keyboard and only by
+ *     that overlap — correct for its job, wrong for every case here. Both are provided by the
+ *     scrollable branch and both are `null` on the non-scrollable one.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - **Content lives in a CLIPPED VIEWPORT that runs the chrome's FULL height (2026-08-11).**
  *     `styles.viewport` is an `overflow: 'hidden'` box whose edges sit on the chrome cards' OUTER
@@ -225,8 +230,26 @@ type Measurable = {
  */
 export const ScrollIntoViewContext = React.createContext<((node: Measurable | null) => void) | null>(null);
 
+/**
+ * Scrolls a given node up to just below the floating header — the "take me to that section"
+ * move, as opposed to `ScrollIntoViewContext`'s "lift this row off the keyboard".
+ *
+ * They are deliberately two contexts rather than one function with a mode. `scrollIntoView`
+ * only ever scrolls when the node OVERLAPS the keyboard and only by the overlap, which is
+ * exactly right for its job and useless for this one: a section already fully on screen but
+ * halfway down needs moving, and a section far below needs moving by more than an overlap.
+ *
+ * Added 2026-08-14 for Shopping's "Nullstillingsdager" link, which pushes into Settings at a
+ * particular card. Pass the target's own View node. `null` outside a scrollable
+ * ScreenScaffold, same as its sibling.
+ */
+export const ScrollToNodeContext = React.createContext<((node: Measurable | null) => void) | null>(null);
+
 /** Extra gap left between the lifted row's bottom and the top of the keyboard. */
 const KEYBOARD_MARGIN = 16;
+
+/** Breathing room between the header's bottom edge and a node scrolled to by `scrollToNode`. */
+const SCROLL_TO_MARGIN = 12;
 
 /**
  * The status-bar clearance the floating chrome is positioned against.
@@ -485,6 +508,26 @@ export default function ScreenScaffold({
     });
   }, []);
 
+  // Bring the given node up to just under the header (see ScrollToNodeContext doc). Measured in
+  // window coords like its sibling, and converted to an absolute offset through the live
+  // `scrollY` — a measured rect is where the node is NOW, and `scrollTo` wants where the content
+  // should be.
+  //
+  // The target edge is `headerBlockHeight`, not `contentTopClear`: the measurement is in WINDOW
+  // space, so it includes the safe-area inset that `contentTopClear` deliberately subtracts out.
+  // Using the wrong one of that pair puts the node a status bar's height under the header on
+  // Android and flush against it on iOS, which is the same class of mistake the 2026-08-10 clip
+  // pass spent a long note on.
+  const scrollToNode = useCallback((node: Measurable | null) => {
+    if (!scrollRef.current || !node?.measureInWindow) return;
+    node.measureInWindow((_x, y) => {
+      const delta = y - (headerBlockHeight + SCROLL_TO_MARGIN);
+      // Clamped at 0 — a node already near the top would otherwise ask for a negative offset,
+      // which on iOS bounces the content down past the header and settles back.
+      scrollRef.current?.scrollTo({ y: Math.max(0, scrollY.current + delta), animated: true });
+    });
+  }, [headerBlockHeight]);
+
   // The outer SafeAreaView pads the in-flow ScrollView into the safe area — this is
   // what confines scrolling so content can't slide up behind the status bar. So the
   // content padding here only accounts for the floating chrome (header + sticky bar +
@@ -645,7 +688,9 @@ export default function ScreenScaffold({
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          <ScrollIntoViewContext.Provider value={scrollIntoView}>{children}</ScrollIntoViewContext.Provider>
+          <ScrollIntoViewContext.Provider value={scrollIntoView}>
+            <ScrollToNodeContext.Provider value={scrollToNode}>{children}</ScrollToNodeContext.Provider>
+          </ScrollIntoViewContext.Provider>
         </ScrollView>
       ) : (
         // Non-scrollable: children own scrolling (e.g. a FlatList). ScrollIntoViewContext is a
@@ -655,7 +700,9 @@ export default function ScreenScaffold({
         // its own content insets and this scaffold can't reach them. Same resting layout as a
         // ScrollView screen; it just doesn't get the peek.
         <View style={[styles.scrollView, viewportBleed, contentPad]}>
-          <ScrollIntoViewContext.Provider value={null}>{children}</ScrollIntoViewContext.Provider>
+          <ScrollIntoViewContext.Provider value={null}>
+            <ScrollToNodeContext.Provider value={null}>{children}</ScrollToNodeContext.Provider>
+          </ScrollIntoViewContext.Provider>
         </View>
       )}
     </View>

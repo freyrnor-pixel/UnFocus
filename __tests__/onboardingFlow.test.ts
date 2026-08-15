@@ -26,6 +26,15 @@ const ROOT = join(__dirname, '..');
 const ONBOARDING = join(ROOT, 'app', 'onboarding');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
+/**
+ * Source with block and line comments removed, for the assertions that check a name is ABSENT.
+ * Every "this must not come back" scan in this repo has the same blind spot: it cannot tell a
+ * call site from the header paragraph explaining why the call site was deleted, so a file that
+ * documents its own history fails a rule it actually obeys. Only the absence checks need this
+ * — a presence check reads better against the raw source.
+ */
+const codeOnly = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
 /** The screens under app/onboarding/, by route segment ('index' for the group's own route). */
 const screenFiles = readdirSync(ONBOARDING)
   .filter((f) => f.endsWith('.tsx') && f !== '_layout.tsx')
@@ -91,9 +100,13 @@ describe('the flow is two screens', () => {
 });
 
 describe('the backdrop knows about every step', () => {
-  // app/onboarding/_layout.tsx slides the triptych by a step's position in STEPS. A screen
-  // missing from that list silently falls back to position 0, so the tree jumps backwards to
-  // the seed on that screen and forwards again on the next one.
+  // **STEPS no longer drives anything visual (2026-08-14).** app/onboarding/_layout.tsx used to
+  // slide the `onboarding-triptych` motif by a step's position, then (2026-08-09) render it on
+  // basics only; both are gone and every screen now draws the same `ScreenBackground`. What is
+  // left is the structural guard: STEPS is the one written-down list of the flow's screens, so
+  // pinning it to the files on disk is what catches an orphaned or unlisted onboarding route.
+  // The order itself still lives in hard-coded `router.push` literals across the screens — see
+  // the pushes asserted above; STEPS is a parallel list, not their source.
   const steps = (() => {
     const m = read('app/onboarding/_layout.tsx').match(/const STEPS = \[([^\]]+)\]/);
     expect(m).not.toBeNull();
@@ -104,26 +117,26 @@ describe('the backdrop knows about every step', () => {
     expect([...steps].sort()).toEqual(screenFiles);
   });
 
-  // 2026-08-05: the position used to be DERIVED (`index / (STEPS.length - 1)`), so it could
-  // not go out of sync. It is stated per step now — which is what let screen one be moved off
-  // the near-empty seed panel — so the two lists need pinning to each other.
-  it('gives every step an explicit backdrop position', () => {
-    const src = read('app/onboarding/_layout.tsx');
-    const m = src.match(/const STEP_POSITION[^=]*=\s*\{([^}]+)\}/);
-    expect(m).not.toBeNull();
-    const positioned = [...m![1].matchAll(/(\w+)\s*:/g)].map((x) => x[1]);
-    expect([...positioned].sort()).toEqual([...steps].sort());
-  });
-
-  it('starts screen one on branches, not on the blank seed panel', () => {
-    // Panel 1 of `onboarding-triptych` is a ground arc, a trunk stub and a dot, all below
-    // y≈680 — as the FIRST thing a new user sees it read as a blank field with no art at all
-    // (2026-08-05 device walkthrough). Anything above 0 puts the rising branch behind the
-    // screen; 0 is the specific value that must not come back.
-    const src = read('app/onboarding/_layout.tsx');
-    const basics = src.match(/basics:\s*([\d.]+)/);
-    expect(basics).not.toBeNull();
-    expect(Number(basics![1])).toBeGreaterThan(0);
+  // Replaces the old "gives every step an explicit backdrop position" and "starts screen one on
+  // branches, not on the blank seed panel" pair, both of which asserted properties of the
+  // STEP_POSITION map that no longer exists. The invariant worth keeping is the one the
+  // maintainer actually reported against: *"Introduction still shifts from one backdrop to
+  // another, in no way smoothly."* A per-step backdrop is what made that possible, so the guard
+  // is that the layout does not branch on which step it is drawing.
+  it('draws the same backdrop on every step', () => {
+    // Comments stripped first. The three names below are the ones the file's own header
+    // DESCRIBES at length — that history is the most useful thing in it, and a source scan
+    // that can't tell an explanation from a call site would force the header to stop naming
+    // what it removed.
+    const src = codeOnly(read('app/onboarding/_layout.tsx'));
+    // Exactly one backdrop element, rendered unconditionally.
+    expect(src.match(/<ScreenBackground\s*\/>/g)).toHaveLength(1);
+    // No per-step art, and nothing to branch on. `useSegments` is the specific mechanism that
+    // made the swap land mid-push: it flips at the START of the slide transition, so the old
+    // screen was still visible when its backdrop was replaced.
+    expect(src).not.toMatch(/useSegments/);
+    expect(src).not.toMatch(/onboarding-triptych/);
+    expect(src).not.toMatch(/STEP_POSITION/);
   });
 
   it('starts at the screen the app actually redirects new users to', () => {

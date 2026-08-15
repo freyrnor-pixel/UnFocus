@@ -37,6 +37,24 @@
  * demonstration that this screen previews at all, and the reason language no longer needs a
  * screen ahead of everything else.
  *
+ * **It is laid out like the rest of onboarding (2026-08-14).** Maintainer, on device: *"The
+ * 'setup basics' is not a part of the introduction, and looks bad."* It read as a settings
+ * form dropped into the flow rather than a step of it, for four separate reasons, all in the
+ * styles and none in the logic: the scroll container had no `flexGrow`, no `justifyContent`
+ * and no `alignItems`, so content was pinned to the top with a large dead band under it; the
+ * rows sat bare on the backdrop where privacy/restore put theirs in a shadowed card; the
+ * footer buttons were `Radius.md` rectangles against those screens' `Radius.full` pills; and
+ * the rhythm was `Spacing.lg` against their `Spacing.xl`. All four now match
+ * `privacy.tsx`/`restore.tsx`, which are the flow's idiom.
+ *
+ * **Everything is centred, on BOTH entry paths.** Centring used to be applied only when
+ * `!showAllRows` (`topHero`, `headingCenter`, `subCenter`), and only to the hero — so the
+ * fresh install was half-centred and the `?rows=all` re-run from Settings was entirely
+ * left-aligned with no icon. One screen, two alignments. Each row is now a centred label over
+ * a symmetric pill row, which is what the rest of the flow looks like. The one thing still
+ * conditional on `showAllRows` is VERTICAL centring, and that is a scroll constraint rather
+ * than a style choice — see the ScrollView's own comment.
+ *
  * Connections:
  *   Imports → @/lib/firstRunOptions, @/store/useSettingsStore, @/lib/i18n (getTranslations),
  *             @/lib/useAppTheme (pure helpers + useSystemReducedMotion), @/lib/haptics,
@@ -171,8 +189,15 @@ export default function OnboardingBasics() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={[styles.top, !showAllRows && styles.topHero]}>
+      <ScrollView
+        // Vertically centred only when the content is SHORT enough to fit (the fresh-install
+        // path draws one row). A ScrollView whose content container centres content taller
+        // than the viewport pushes the top of that content above the scroll origin, where it
+        // cannot be reached — so the six-row re-run from Settings stays top-anchored.
+        contentContainerStyle={[styles.scrollContent, !showAllRows && styles.scrollContentCentered]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.top}>
           {/* The app's real icon, not a generated backdrop motif — this is the first thing a
               new install ever shows, so it is the one place onboarding should look like the
               app rather than like abstract decoration. Fresh-install only: a re-run from
@@ -188,14 +213,16 @@ export default function OnboardingBasics() {
               this app?" before it asks for anything — nothing else in onboarding or the tour
               ever did. The re-run from Settings keeps the original wording, where the only
               open question really is what you are picking. */}
-          <Text style={[styles.heading, !showAllRows && styles.headingCenter, { color: theme.text }]}>
+          <Text style={[styles.heading, { color: theme.text }]}>
             {showAllRows ? t.basics.title : t.basics.welcomeTitle}
           </Text>
-          <Text style={[styles.sub, !showAllRows && styles.subCenter, { color: theme.textMuted }]}>
+          <Text style={[styles.sub, { color: theme.textMuted }]}>
             {showAllRows ? t.basics.sub : t.basics.welcomeSub}
           </Text>
         </View>
 
+        {/* The rows live in a card, the way privacy.tsx's bullets do — see the header. */}
+        <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
         {visibleRows.map((rowKey) => {
           const { label, options, selected, note } = rowContent(rowKey, t, picks, osReducedMotion);
           const chosen = options.find((o) => o.value === selected);
@@ -241,13 +268,12 @@ export default function OnboardingBasics() {
                 <Text style={[styles.rowDesc, { color: theme.textMuted }]}>{chosen.desc}</Text>
               ) : null}
               {note ? (
-                <Text style={[styles.rowNote, { color: theme.textMuted, borderColor: theme.border }]}>
-                  {note}
-                </Text>
+                <Text style={[styles.rowNote, { color: theme.textMuted }]}>{note}</Text>
               ) : null}
             </View>
           );
         })}
+        </View>
 
         <Text style={[styles.settingsNote, { color: theme.textMuted }]}>{t.firstRun.settingsNote}</Text>
       </ScrollView>
@@ -359,16 +385,23 @@ const START_SCREEN_LABELS = {
 
 const baseStyles = StyleSheet.create({
   safe: { flex: 1 },
+  // **Laid out like privacy.tsx and restore.tsx (2026-08-14)** — `flexGrow`, `Spacing.xl`
+  // rhythm, centred column. Maintainer, on device: *"The 'setup basics' is not a part of the
+  // introduction, and looks bad."* It wasn't: this was a left-aligned settings form with no
+  // `flexGrow`, no `alignItems` and no container, top-anchored above a large dead band, in a
+  // flow whose other two screens are a centred hero over a card. Worse, the centring it DID
+  // have was applied only on the `!showAllRows` branch, so the same screen had two different
+  // alignments depending on whether you arrived from a fresh install or from Settings.
   scrollContent: {
+    flexGrow: 1,
+    paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.lg,
-    gap: Spacing.lg,
+    gap: Spacing.xl,
+    alignItems: 'center',
   },
-  top: { gap: Spacing.xs },
-  // Fresh-install only (see the JSX above) — centres the real app icon + headline as a proper
-  // intro hero, instead of the abstract backdrop motif carrying the "this is UnFocus" job alone.
-  topHero: { alignItems: 'center' },
+  // See the ScrollView's comment — short content only.
+  scrollContentCentered: { justifyContent: 'center' },
+  top: { alignItems: 'center', gap: Spacing.xs },
   // icon.png is a flat opaque square (no alpha) — round it here so it reads as an app-icon
   // tile rather than a hard-edged sticker against the screen's own colour. Shadow lives on the
   // outer view (a shadow and `overflow:hidden` fight on the same node); the inner view does
@@ -376,12 +409,22 @@ const baseStyles = StyleSheet.create({
   appIconShadow: { width: 96, height: 96, marginBottom: Spacing.xs, ...Shadow.card },
   appIconClip: { flex: 1, borderRadius: Radius.lg, overflow: 'hidden' },
   appIcon: { width: '100%', height: '100%' },
-  heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold },
-  headingCenter: { textAlign: 'center' },
-  sub: { fontSize: FontSize.md, lineHeight: 22 },
-  subCenter: { textAlign: 'center' },
+  heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
+  sub: { fontSize: FontSize.md, lineHeight: 22, textAlign: 'center' },
+  // The rows' container, matching privacy.tsx's `bulletCard`: same radius, same shadow, same
+  // horizontal padding. `Spacing.md` horizontally rather than `lg` for the reason that file
+  // records — this card already sits inside the screen's own `Spacing.lg`, and two `lg` insets
+  // stacked left one card 238px of a 393px phone in the 2026-07-28 wrap audit.
+  rowsCard: {
+    width: '100%',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.lg,
+    ...Shadow.card,
+  },
   row: { gap: Spacing.xs },
-  rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  rowLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
   pills: { flexDirection: 'row', gap: Spacing.xs },
   // flex:1 with NO minWidth — a hard minimum is what breaks a control row on a 360px
   // phone (AGENTS.md's wrap-audit lessons). Norwegian labels are the tight case here.
@@ -399,31 +442,40 @@ const baseStyles = StyleSheet.create({
   },
   pillCheck: { marginRight: -2 },
   pillText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, flexShrink: 1 },
-  rowDesc: { fontSize: FontSize.sm, lineHeight: 18 },
+  rowDesc: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center' },
+  // Was a left accent bar (`borderLeftWidth: 2` + `paddingLeft`), which fought the centred
+  // column — a rule down the left of centred text reads as a misalignment rather than an
+  // accent. Italic carries "this is an aside" on its own, the way components/CardHintNote.tsx
+  // does. This is the OS-reduce-motion note; it appears on at most one row at a time.
   rowNote: {
     fontSize: FontSize.sm,
     lineHeight: 20,
-    borderLeftWidth: 2,
-    paddingLeft: Spacing.sm,
+    fontStyle: 'italic',
+    textAlign: 'center',
     marginTop: 2,
   },
-  settingsNote: { fontSize: FontSize.sm, lineHeight: 18 },
+  settingsNote: { fontSize: FontSize.sm, lineHeight: 18, textAlign: 'center' },
   footer: {
     flexDirection: 'row',
     gap: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.xl,
   },
+  // `Radius.full` and 12/22 padding are components/Button.tsx's `size="md"` geometry, which is
+  // what privacy.tsx and restore.tsx draw. These stay hand-rolled — `Button` reads the store,
+  // and this screen previews an UNCOMMITTED theme from local state (see the header) — so the
+  // shape has to be copied rather than imported. `MIN_TAP_TARGET` is 48, which is also that
+  // size's height, so the two agree by construction rather than by coincidence.
   footerBtn: {
     flex: 1,
     minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
   },
   footerBtnText: { fontSize: FontSize.md, fontFamily: Fonts.semibold, textAlign: 'center' },
 });

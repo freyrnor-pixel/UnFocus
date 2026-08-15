@@ -136,8 +136,10 @@ describe('boot work that first paint does not read is deferred', () => {
 
 describe('the tree watermark is gone', () => {
   // components/TreeWatermark.tsx was deleted on 2026-07-31. Its two callers both moved to the
-  // motif system: SectionDivider draws `trunk-divider`, and onboarding's backdrop is the
-  // `onboarding-triptych` strip. The old rule here was "every call site must pass a
+  // motif system: SectionDivider draws `trunk-divider`, and onboarding's backdrop became the
+  // `onboarding-triptych` strip — which was itself retired on 2026-08-14 in favour of the
+  // ordinary ScreenBackground (see app/onboarding/_layout.tsx). The old rule here was
+  // "every call site must pass a
   // tintColor", because the asset is Android's monochrome themed icon — a near-white
   // silhouette that vanishes on a light surface at any opacity unless the caller tints it.
   // That trap only existed because the component did; this replaces the rule with the reason

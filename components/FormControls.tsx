@@ -40,7 +40,8 @@
  *   - Input border is `border` normally, `borderStrong` while focused (or `bad` on error,
  *     regardless of focus); active segment background is `surface` — a raised surface,
  *     not on-colour text. That raised surface is a single sliding pill (Reanimated
- *     translateX, ~150ms ease-out; snaps under reducedMotion) that moves between segments
+ *     translateX, ~150ms ease-out; snaps under reducedMotion, and snaps on its FIRST
+ *     placement — see `SegmentedTrack`'s `hasPositioned`) that moves between segments
  *     rather than a per-segment background hard-swap, and fires a `selection()` haptic on
  *     change (the app's one form-tier pick-one control since 2026-08-09 — see TabSlider's two-tier rule).
  *   - **Bordered track (2026-07-21)**: `segmentWrap` got a `theme.border` outline to match
@@ -50,13 +51,17 @@
  *     semantically "text on an accent fill" and equals dark mode's `bg` (#080B12) — the
  *     off-state thumb was disappearing into the dark track/card. Thumb color for "off" is
  *     now theme-invariant white, matching how native switches render regardless of theme.
- *   - **Switch pill frame (2026-08-05, task 16 3/N — DESIGN_COMPARISON/16-solid-pressable-
- *     materials.md)**: audited all four controls against that task's "controls get edges"
- *     rule. Checkbox, SegmentedControl and Input already had a themed border from earlier
- *     passes; the bare native `RNSwitch` was the one gap, so it's now wrapped in a static
- *     `theme.border` pill (`switchFrame`) — same non-reactive-border convention as
- *     `segmentWrap`, since the track/thumb colors already carry on/off state. No specular
- *     highlight added (`__tests__/glassMaterial.test.ts` still asserts that token is gone).
+ *   - **The switch has NO frame (2026-08-14) — this REVERSES the 2026-08-05 "controls get
+ *     edges" pass (task 16 3/N, DESIGN_COMPARISON/16-solid-pressable-materials.md), which
+ *     had wrapped the bare `RNSwitch` in a static `theme.border` pill (`switchFrame`) on the
+ *     reasoning that it was the one control in this file with no edge.** Maintainer, on
+ *     device: *"Toggle sliders do not need borders."* And they don't — a switch's own track
+ *     is already a filled, rounded, high-contrast shape, so a ring around it drew a second
+ *     concentric pill 2px outside the first, which reads as a control inside a control rather
+ *     than as an edge. The audit's premise was wrong for this one control: it wasn't missing
+ *     an edge, its edge just isn't a border. Checkbox, SegmentedControl and Input keep theirs
+ *     — they have flat or open interiors that genuinely need bounding. Don't re-add it for
+ *     consistency with them. All that survives is `switchControl`'s `alignSelf`.
  *   - **The design lab can reshape two of these controls (2026-08-06, lib/designLab.ts).**
  *     `Switch` dispatches on the `boolean` slot (switch · segmented · checkbox · pill) and
  *     `SegmentedControl` on the `choice` slot (segmented · pills · dropdown · sheet); the
@@ -70,7 +75,7 @@
  *     does NOT run through `useScaledStyles` — doing so would start scaling their label text
  *     with the user's Size setting, which is a real behaviour change nobody asked for.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   LayoutChangeEvent,
   StyleSheet,
@@ -211,22 +216,19 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
 
   return (
     <View style={[styles.switchRow, { minHeight: shape.minTapTarget }]}>
-      {/* Themed frame (task 16, 3/N) — the bare native switch was the one FormControls
-          control with no edge at all; matches segmentWrap's static theme.border ring rather
-          than reacting to checked, since the track colors below already carry on/off state. */}
-      <View style={[styles.switchFrame, { borderColor: theme.border, borderWidth: shape.borderFieldWidth * shape.borderScale }]}>
-        <RNSwitch
-          value={checked}
-          onValueChange={onChange}
-          disabled={disabled}
-          accessibilityLabel={accessibilityLabel}
-          trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
-          // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
-          // in dark mode (it means "text on an accent-colored fill"), which made the off-state
-          // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
-          thumbColor={checked ? theme.accent : '#FFFFFF'}
-        />
-      </View>
+      {/* No frame around the switch — see the header. A slider's track IS its edge. */}
+      <RNSwitch
+        style={styles.switchControl}
+        value={checked}
+        onValueChange={onChange}
+        disabled={disabled}
+        accessibilityLabel={accessibilityLabel}
+        trackColor={{ false: theme.surfaceMuted, true: theme.accentSoft }}
+        // Off-thumb is a fixed white, not theme.textInverse — that token flips to near-black
+        // in dark mode (it means "text on an accent-colored fill"), which made the off-state
+        // thumb nearly invisible against the dark track (2026-07-25 contrast fix).
+        thumbColor={checked ? theme.accent : '#FFFFFF'}
+      />
     </View>
   );
 }
@@ -298,9 +300,25 @@ function SegmentedTrack<T extends string | number>({
   const pillH = Math.max(0, track.h - SEG_PAD * 2);
 
   const tx = useSharedValue(0);
+  // **The first placement SNAPS; only a later change animates (2026-08-14).** This effect used
+  // to run unguarded, and on the first render `track.w` is 0, so `segW` is 0 and the target was
+  // `activeIndex * 0` = 0 — the leftmost segment. When `onLayout` then reported a real width the
+  // effect re-ran with the true target and `withTiming` slid the pill in from the left. So every
+  // segmented control in the app replayed a pick the user made months ago, every single time its
+  // screen mounted (maintainer, on device: *"Sliders that look like tabs move each time you go to
+  // the screen, they move to the right from the left most position"*). Two guards, and BOTH are
+  // needed: bailing while unmeasured stops the pill ever being aimed at 0, and the ref makes the
+  // first REAL placement an assignment rather than a curve. This is a straight port of the same
+  // fix `components/TabSlider.tsx` took on 2026-08-05 (see its doc block) — that control snapped
+  // and this one didn't, which is why the screen-tier tabs looked right and the form-tier ones
+  // inside Settings' cards did not. `components/BottomNav.tsx` carries a third copy.
+  const hasPositioned = useRef(false);
   useEffect(() => {
+    if (segW <= 0) return;
     const to = activeIndex * segW;
-    tx.value = reducedMotion ? to : withTiming(to, { duration: Duration.control, easing: Ease.enter });
+    if (reducedMotion || !hasPositioned.current) tx.value = to;
+    else tx.value = withTiming(to, { duration: Duration.control, easing: Ease.enter });
+    hasPositioned.current = true;
   }, [activeIndex, segW, reducedMotion, tx]);
 
   const pillStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
@@ -662,14 +680,13 @@ const styles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     justifyContent: 'center',
   },
-  // Pill ring around the native Switch — alignSelf so it hugs the switch's own size rather
-  // than stretching to switchRow's width (switchRow has no width of its own; it inherits
-  // whatever its row-layout caller gives it).
-  switchFrame: {
+  // `alignSelf` so the switch hugs its own intrinsic size rather than stretching to
+  // switchRow's width (switchRow has no width of its own; it inherits whatever its
+  // row-layout caller gives it). This is all that survives of the deleted `switchFrame`
+  // ring — the other Switch variants below still want a stretching row, so this cannot
+  // move onto `switchRow` itself.
+  switchControl: {
     alignSelf: 'flex-start',
-    borderWidth: 1.5,
-    borderRadius: Radius.full,
-    padding: 2,
   },
   // OpticalCenter: without it, Android adds font-metric padding below the glyph baseline that
   // alignItems:'center' doesn't account for, so the label optically sits low inside the segment
