@@ -75,6 +75,7 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import CardHintNote from '@/components/CardHintNote';
 import ReminderBell from '@/components/ReminderBell';
 import { Input } from '@/components/FormControls';
@@ -89,6 +90,7 @@ import { todayStr, parseTimeToMinutes } from '@/lib/date';
 import { success, tap } from '@/lib/haptics';
 import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import {
@@ -145,6 +147,9 @@ export default function MedicineTrayCard() {
   const updateSettings = useSettingsStore((s) => s.update);
 
   const [draft, setDraft] = useState('');
+  // Folded away, remembered across launches (2026-08-14). Presentation only: a collapsed card
+  // still arms every tray reminder — nothing in lib/medicineNotifications.ts reads this.
+  const [collapsed, toggleCollapsed] = useCollapsedCard('healthMedicine');
   const [timeDrafts, setTimeDrafts] = useState<Partial<Record<TrayId, string>>>({});
   const [selectedPerson, setSelectedPerson] = useState('');
 
@@ -268,8 +273,18 @@ export default function MedicineTrayCard() {
             }}
             label={t.medicine.remindersToggle}
           />
+          {/* Fold-away chevron (2026-08-14) — LAST in the header cluster, after the bell. The
+              bell is about the card's SUBJECT (do these trays remind you) and the chevron is
+              about the card itself, so the one that changes app behaviour keeps the position it
+              has had, and the one that only changes what is drawn sits outermost. */}
+          <CardCollapseToggle
+            collapsed={collapsed}
+            onToggle={toggleCollapsed}
+            cardLabel={t.medicine.title}
+          />
         </View>
 
+        <Collapsible open={!collapsed}>
         {status && <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>}
 
         {/* The empty-state explainer, under the header row (2026-08-12). It was a StarterCard
@@ -545,6 +560,7 @@ export default function MedicineTrayCard() {
           showDivider={medicines.length > 0}
           accessibilityLabel={t.medicine.addPlaceholder}
         />
+        </Collapsible>
       </View>
     </Surface>
   );

@@ -368,6 +368,40 @@ file owns which token.)
       documented `press="scale"` opt-out. Don't "finish the job" on it.
     Pinned by `lib/__tests__/chromeRhythm.test.ts` §4 — a press state is invisible in a
     screenshot, and the web preview runs worklets on the JS thread, so it cannot see one either.
+- **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
+  `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
+  `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
+  Maintainer: *"Every card should be collapsable"*, remembered across launches. A folded card
+  keeps its header, its badge and its count and draws nothing else.
+  - **It is a THIRD axis, not a rival to the two that already exist**, and the names are close
+    enough to be worth stating: `lib/cardLayout.ts` is how much DETAIL a row shows (per surface,
+    a user setting); `lib/padState.ts` is HOW MANY rows are drawn (closed/preview/open, per
+    surface, the footer chevron); this is whether the card's body is drawn AT ALL. The first two
+    share the `LayoutSurface` union and the `card_states`/`card_layouts` columns; this one has
+    its own `CardId` union and its own column, deliberately — widening `LayoutSurface` so the
+    medicine tray could be folded would imply the medicine tray has a layout too.
+  - **The rule for which mechanism a card uses**: a card with a pad state uses the pad state
+    (the four Home cards and the To-do timeline already collapse, via `PadFooterToggle`); every
+    other content card uses `collapsedCards`. Two affordances with two storage backings on one
+    card is the thing to avoid.
+  - **`CARD_IDS` is hand-maintained, and every entry is a SINGLETON.** The union IS the
+    validation — a typo is a compile error rather than a card that silently never remembers —
+    and that property stops holding the moment an id is built at runtime, which is why there is
+    no per-list or per-day collapse (Shopping's monthly cards, To-do's day groups). Six ids
+    today: To-do's Today/Whenever/Recurring, the Habits list card, Health's This week and
+    Medicine.
+  - **Absent on purpose, so the gaps read as decisions**: `HintCard`/`StarterCard` (one
+    glanceable block each, both already have an ×), rows (`TaskCard` expands in place),
+    `OpenEpisodeCard` (a two-button prompt with no body, and folding it must not be mistakable
+    for answering it), `EnergyMeter` (its label lives inside the meter, so nothing is left when
+    it folds), and the two `SHARING_VISIBLE` cards, which don't render at all today.
+  - `SectionCard` takes an optional `collapseKey`; the foldable path is a **separate component**
+    so a caller without the prop subscribes to no store — otherwise every per-day section on the
+    To-do tab would re-render on any collapse anywhere.
+  - Presentation only, and enforced the same way the other two are: a folded card's rows keep
+    their reminders and still count. Not in `aiSetupApply`'s `SETTINGS_WHITELIST` (an AI file
+    must not be able to hide the app's surfaces — **no `AI_SETUP_SCHEMA_VERSION` bump**), and
+    not in `SyncTable`.
 - **One rhythm — the 2026-08-08 spacing pass** (`SCREEN_GAP` in `constants/theme.ts`, pinned by
   `lib/__tests__/screenRhythm.test.ts`). From a user report on the To-do and Habits tabs:
   *"the spacing between different elements, and the structure — it's not clear how things are

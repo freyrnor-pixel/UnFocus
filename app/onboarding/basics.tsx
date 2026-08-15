@@ -411,15 +411,21 @@ const baseStyles = StyleSheet.create({
   appIcon: { width: '100%', height: '100%' },
   heading: { fontSize: FontSize.xxl, fontFamily: Fonts.semibold, textAlign: 'center' },
   sub: { fontSize: FontSize.md, lineHeight: 22, textAlign: 'center' },
-  // The rows' container, matching privacy.tsx's `bulletCard`: same radius, same shadow, same
-  // horizontal padding. `Spacing.md` horizontally rather than `lg` for the reason that file
-  // records — this card already sits inside the screen's own `Spacing.lg`, and two `lg` insets
-  // stacked left one card 238px of a 393px phone in the 2026-07-28 wrap audit.
+  // The rows' container, matching privacy.tsx's `bulletCard` — same radius, same shadow, same
+  // vertical rhythm — but **`Spacing.sm` horizontally, not that card's `Spacing.md`.**
+  //
+  // Horizontal chrome stacks, and this card holds three-across PILL ROWS rather than text.
+  // Wrapping the rows cost them 2 × Spacing.md on top of the screen's own Spacing.lg, and
+  // `npm run wraps --lang=no --width=327` caught the result immediately: "Standard" truncated
+  // in the text-size row, which is the selected pill and so also carries a checkmark. A row of
+  // n equal flex pills has a hard floor that a paragraph does not — the same arithmetic behind
+  // AGENTS.md's weekday-chip note — so this card gets the tightest inset that still reads as a
+  // card, and privacy's `Spacing.md` is the right number only for the card that holds prose.
   rowsCard: {
     width: '100%',
     borderRadius: Radius.lg,
     paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     gap: Spacing.lg,
     ...Shadow.card,
   },
@@ -437,7 +443,13 @@ const baseStyles = StyleSheet.create({
     minHeight: MIN_TAP_TARGET,
     borderWidth: 1,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.xs,
+    // 2px horizontally, not Spacing.xs. The tight case is the text-size row's "Standard" —
+    // three equal pills, and the selected one also carries a checkmark — which `npm run wraps
+    // --lang=no --width=327` truncated once these rows moved inside a card. The label is
+    // centred and the pill's own edge is what bounds it, so horizontal padding here buys
+    // nothing but a smaller label; the tap target is unaffected (minHeight, and the pill
+    // spans a third of the row).
+    paddingHorizontal: 2,
     paddingVertical: Spacing.xs,
   },
   pillCheck: { marginRight: -2 },

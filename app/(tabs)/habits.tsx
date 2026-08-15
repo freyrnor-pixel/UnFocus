@@ -232,6 +232,7 @@ import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
@@ -256,6 +257,7 @@ import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, 
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
@@ -687,6 +689,10 @@ export default function HabitsScreen() {
   // (management moved to Settings — this screen only *filters* by person now). The self
   // row always exists in the People registry, so >1 is the real "is there anyone else" test.
   const showHabitProfiles = peopleModeEnabled && people.length > 1;
+  // Folded away, remembered across launches (2026-08-14). Collapsing takes the composer with it,
+  // which is deliberate — the card is one thing, and a quick-add hanging under a folded list
+  // would be an orphan. The Goals drawer below the card is unaffected; it has its own.
+  const [habitsCollapsed, toggleHabitsCollapsed] = useCollapsedCard('habitsList');
   // Memoise the habit filter chain (perf sweep 2026-07-15): this used to re-filter the
   // full habits array on every render of this large screen. Only recompute on real input
   // changes. Only filter by person when the filter UI is actually shown; otherwise (People mode
@@ -870,7 +876,20 @@ export default function HabitsScreen() {
                   under it, so it reads as a heading FOR the card rather than a caption INSIDE
                   it. Distinct wording from hints.habits.text (the collapsible ⓘ hint just
                   above this card) on purpose — see lib/i18n.ts's habits.cardSubtitle doc. */}
-              <Text style={[styles.cardSubtitle, { color: theme.text }]}>{t.habits.cardSubtitle}</Text>
+              {/* The sub-header doubles as this card's header ROW since 2026-08-14, because the
+                  fold-away chevron needs something to sit on and this card has never had a
+                  badge-and-title row of its own. The text is unchanged; it just no longer spans
+                  the full width. */}
+              <View style={styles.cardSubtitleRow}>
+                <Text style={[styles.cardSubtitle, { color: theme.text }]}>{t.habits.cardSubtitle}</Text>
+                <CardCollapseToggle
+                  collapsed={habitsCollapsed}
+                  onToggle={toggleHabitsCollapsed}
+                  cardLabel={t.nav.habits}
+                />
+              </View>
+
+              <Collapsible open={!habitsCollapsed}>
 
               {/* Tips (2026-08-06 v2, user feedback): a plain line under the sub-header, not
                   boxed and not gated on emptiness — "tips stays". Distinct from the examples
@@ -1052,6 +1071,7 @@ export default function HabitsScreen() {
                 />
 
               </View>
+              </Collapsible>
             </Surface>
             </DebugNoteAnchor>
           </TourTarget>
@@ -1166,7 +1186,10 @@ const baseStyles = StyleSheet.create({
   // No `marginBottom` (2026-08-08): the card's own `gap: Spacing.md` already separates this
   // from the tips line, and the extra Spacing.xs made the heading→tips gap 20px on a card
   // where every other gap was 16.
-  cardSubtitle: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // `flex: 1` + `minWidth: 0` so the sentence takes the slack and yields rather than shoving the
+  // fold chevron out of the card — this string is a full sentence, and longer in Norwegian.
+  cardSubtitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  cardSubtitle: { flex: 1, minWidth: 0, fontSize: FontSize.md, fontFamily: Fonts.bold },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,

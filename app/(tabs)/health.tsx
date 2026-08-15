@@ -126,6 +126,7 @@ import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import Collapsible from '@/components/Collapsible';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import { Input, SegmentedControl } from '@/components/FormControls';
@@ -150,6 +151,7 @@ import {
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor, useScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 
 /** The severity a one-gesture capture writes. See the file header's "+" edit note. */
 const DEFAULT_SEVERITY = 3;
@@ -303,6 +305,10 @@ export default function HealthScreen() {
   const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState<HealthLog | null>(null);
   const [issuesSheetOpen, setIssuesSheetOpen] = useState(false);
+  // Fold-away state for this screen's two content cards, persisted in settings.collapsedCards
+  // (2026-08-14). The open-episode prompts above them deliberately get none — see
+  // lib/collapsedCards.ts's list of exclusions.
+  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('healthWeek');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -534,7 +540,17 @@ export default function HealthScreen() {
                       2026-08-09 ("icon in upper left is too small"). */}
                   <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
                   <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
+                  {/* Fold-away chevron (2026-08-14) — `flex: 1` on the label above pushes it to
+                      the trailing edge. Everything below the header row is inside the
+                      Collapsible, INCLUDING the sub-header and the tips line: a collapsed card
+                      is its name and nothing else, or "collapsed" just means "shorter". */}
+                  <CardCollapseToggle
+                    collapsed={weekCollapsed}
+                    onToggle={toggleWeekCollapsed}
+                    cardLabel={t.thisWeekLabel}
+                  />
                 </View>
+                <Collapsible open={!weekCollapsed}>
 
                 {/* Sub-header — the counterpart of the Habits card's, restyled the same way it
                     was after the 2026-08-06 v2 feedback (bold, full-contrast, its own room), so
@@ -703,6 +719,7 @@ export default function HealthScreen() {
                     }
                   />
                 </View>
+                </Collapsible>
               </Surface>
             </DebugNoteAnchor>
           </TourTarget>
@@ -771,7 +788,15 @@ const baseStyles = StyleSheet.create({
   // Row wrapper (2026-07-26, "bring the card colour back"): the health badge + the label.
   // No marginBottom — the card's own `gap` owns the spacing now.
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  sectionLabel: { fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  // `flex: 1` + `minWidth: 0` so the title takes the slack and pushes the collapse chevron to
+  // the trailing edge — and so a long Norwegian title yields rather than shoving the chevron
+  // out of the card (the `flex: 1` alone does nothing here; see components/TaskCard.tsx's note).
+  sectionLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: Type.subheading.fontFamily,
+    fontSize: Type.subheading.size,
+  },
   // Bold + full contrast, the shape the Habits sub-header was corrected to on 2026-08-06 v2
   // after a first pass in small muted text read as just another line of body copy.
   cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

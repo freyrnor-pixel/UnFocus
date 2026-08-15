@@ -1279,7 +1279,7 @@ export default function TasksScreen() {
         {/* ── ALL TASKS (order: Whenever → Repeating → Shared) ── */}
         {tab === 'all' && (
           <>
-            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={wheneverAll.length}>
+            <SectionCard hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={wheneverAll.length} collapseKey="plansWhenever">
               {wheneverAll.length > 0 && (
                 <View style={styles.cardStack}>
                   {wheneverDragged.map((tk) => (
@@ -1336,7 +1336,7 @@ export default function TasksScreen() {
 
             {/* Debug notes: one anchor per region — wrap the section card, not its inner rows. */}
             <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-              <SectionCard hue={repeatingHue} domain="health" icon="repeat" label={t.tasksSectionRecurring} count={recurringAll.length}>
+              <SectionCard hue={repeatingHue} domain="health" icon="repeat" label={t.tasksSectionRecurring} count={recurringAll.length} collapseKey="plansRecurring">
                 {recurringAll.length === 0 ? (
                   <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
                 ) : (
@@ -1453,7 +1453,7 @@ export default function TasksScreen() {
                     footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   />
                 ) : (
-                  <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length}>
+                  <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday">
                     {/* Add row sits between the tasks and the collapsed "Done" zone (DoneSplitList
                         footer) so the active/white containers stay grouped and green "Done" is last. */}
                     <DoneSplitList

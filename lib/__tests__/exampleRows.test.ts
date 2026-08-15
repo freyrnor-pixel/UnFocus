@@ -434,7 +434,12 @@ describe('CardHintNote placement is decided by emptiness, not fixed', () => {
     ['components/HomeHabitsCard.tsx', '<PadSheet', "Home's habits card"],
     ['components/HomeNotesCard.tsx', '<PadSheet', "Home's notes card"],
     ['components/HomeShoppingCard.tsx', 'styles.weekRow', "Home's shopping card"],
-    ['components/MedicineTrayCard.tsx', '<Collapsible', 'the medicine tray card'],
+    // The person filter, which is where this card's body starts. Was a bare `<Collapsible`
+    // until 2026-08-14, when the fold-away pass wrapped the whole card body in one of those —
+    // so the marker matched the WRAPPER, which is above the note, and the test failed on a
+    // change that had moved nothing. A body marker has to name the body, not a container that
+    // could come to enclose the note too.
+    ['components/MedicineTrayCard.tsx', '<Collapsible open={showProfiles}', 'the medicine tray card'],
     ['app/(tabs)/habits.tsx', 'styles.habitsCardBody', 'the Habits tab'],
     ['app/(tabs)/health.tsx', 'styles.healthCardBody', 'the Health tab'],
   ] as const) {
