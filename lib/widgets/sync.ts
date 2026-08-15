@@ -107,8 +107,8 @@ function buildTrays(nowMinutes: number, today: string): { trays: WidgetTrayLine[
   for (const tray of TRAY_IDS) {
     if (!inUse.has(tray)) continue;
     const { total, taken } = trayProgress(meds, doses, tray, today);
-    const taken_all = taken >= total;
-    const due = !taken_all && trayMinutes(times, tray) <= nowMinutes;
+    const allTaken = taken >= total;
+    const due = !allTaken && trayMinutes(times, tray) <= nowMinutes;
     if (due) {
       dueTrays.push(tray);
       dueMedicines += total - taken;
@@ -117,7 +117,7 @@ function buildTrays(nowMinutes: number, today: string): { trays: WidgetTrayLine[
       id: tray,
       label: t.medicine.trays[tray],
       detail: t.widgets.trayProgress(taken, total),
-      taken: taken_all,
+      taken: allTaken,
       due,
     });
   }
