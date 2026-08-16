@@ -249,7 +249,10 @@ function SharedTaskRow({
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
   // `tabs`/`tab`/`tabText` deleted 2026-08-10 — this screen's switcher is `TabSlider` now.
   // It was the app's last hand-rolled tab bar, and it predated TabSlider: same raised-white
   // active treatment, but hard-swapped instead of slid, with no track border, no haptic and

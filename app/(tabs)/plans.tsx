@@ -1597,7 +1597,10 @@ const styles = StyleSheet.create({
   // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
-  content: { padding: Spacing.md, gap: SCREEN_GAP },
+  // No vertical padding (2026-08-19): components/ScreenScaffold.tsx clips this content
+  // flush to the header's glass and the nav bar's, and a margin here is the blank strip
+  // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
+  content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
   // ── "One thing at a time" (focusFirst) ──────────────────────────────────────
   // No SectionCard around any of it, deliberately: the whole point of this layout is that the
   // day stops looking like a stack of boxes. The hero, the Later chips and the Then list sit

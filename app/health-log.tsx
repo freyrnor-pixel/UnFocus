@@ -167,7 +167,10 @@ export default function HealthLogScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.sm },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
   // Inline add-symptom row card (shared AddRow shape).
   addRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   emptyCard: { borderRadius: Radius.md, padding: Spacing.md },

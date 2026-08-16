@@ -234,7 +234,10 @@ export default function AutomationsScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.sm },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
   // Bordered trigger pill — same shape as Shopping's monthlyTrigger/addTrigger/newListTrigger
   // (design-consistency pass: one shared "tap to open a fuller add flow" affordance).
   addTrigger: {

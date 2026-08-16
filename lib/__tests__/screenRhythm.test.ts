@@ -86,6 +86,61 @@ describe('SCREEN_GAP', () => {
   });
 });
 
+/**
+ * Every screen whose scroll content is a `content` style — the wrapper that sits directly
+ * inside ScreenScaffold. The five tab screens are first; the rest are pushed sub-screens.
+ *
+ * `app/catalogue.tsx` is deliberately absent: it passes `scrollable={false}` and its content is
+ * `components/CatalogueTab.tsx`'s own `root`, which is asserted separately below.
+ */
+const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
+  { file: 'app/(tabs)/index.tsx', bottomIsChrome: true },
+  { file: 'app/(tabs)/plans.tsx', bottomIsChrome: true },
+  { file: 'app/(tabs)/habits.tsx', bottomIsChrome: true },
+  { file: 'app/(tabs)/health.tsx', bottomIsChrome: true },
+  { file: 'app/(tabs)/shopping.tsx', bottomIsChrome: true },
+  ...[
+    'app/notes.tsx', 'app/scan.tsx', 'app/food.tsx', 'app/shared.tsx', 'app/medicine-form.tsx',
+    'app/health-form.tsx', 'app/inventory-edit.tsx', 'app/settings.tsx', 'app/day-log.tsx',
+    'app/health-log.tsx', 'app/health-detail.tsx', 'app/habit-form.tsx', 'app/pair-device.tsx',
+    'app/budget.tsx', 'app/share-modal.tsx', 'app/automations.tsx',
+  ].map((file) => ({ file, bottomIsChrome: false })),
+];
+
+describe('content meets the chrome flush — no screen re-adds the blank strip', () => {
+  // 2026-08-19, the other half of the seam pass. `ScreenScaffold` stopped contributing any gap
+  // (see chromeRhythm's `contentPad` assertions), and every screen was still padding its own
+  // content by `Spacing.md` on all four sides — so the strip the clip exists to delete was
+  // simply being drawn one level down, by 21 files instead of one. Maintainer, on being told
+  // the scaffold's half was done and this half wasn't: *"Fix"*.
+  //   **The rule is about what the edge MEETS, not about which tier the screen is.** A vertical
+  // edge that lands on the header's or the nav bar's glass is flush; an edge that lands on the
+  // safe area is not chrome at all and keeps its margin, which is why a pushed screen still pads
+  // its bottom and a tab screen does not. Horizontal padding is untouched on both: the side
+  // gutters are backdrop by design, and it is what insets every card from the screen edge.
+  it.each(SCAFFOLD_CONTENT)('$file', ({ file, bottomIsChrome }) => {
+    const body = styleBody(read(file), 'content');
+    expect(body).not.toBe('');
+    // A `padding:` shorthand is the shape this replaced, and the easy one to reintroduce by
+    // copying an older screen — it sets the top gap without ever naming it.
+    expect(body).not.toMatch(/padding\s*:/);
+    expect(body).not.toMatch(/padding(Top|Vertical)\s*:/);
+    expect(body).toMatch(/paddingHorizontal:\s*Spacing\.md/);
+    expect(`${file}: ${/paddingBottom\s*:/.test(body)}`).toBe(`${file}: ${!bottomIsChrome}`);
+  });
+
+  it('components/CatalogueTab.tsx — the one screen whose content is a component', () => {
+    // Its `root` carried a paddingTop whose stated purpose was to match the `content` wrapper
+    // above, so it has to follow that wrapper rather than be forgotten beside it. Non-embedded
+    // branch only (the Shopping drawer returns before this style), and that screen reserves no
+    // nav, so the bottom margin stays.
+    const body = styleBody(read('components/CatalogueTab.tsx'), 'root');
+    expect(body).not.toMatch(/padding(Top|Vertical)?\s*:/);
+    expect(body).toMatch(/paddingHorizontal: Spacing\.md/);
+    expect(body).toMatch(/paddingBottom: Spacing\.md/);
+  });
+});
+
 describe('a card in a screen-level stack carries no vertical margin', () => {
   it.each(STACKED_CARDS)('$file — $style', ({ file, style }) => {
     const body = styleBody(read(file), style);

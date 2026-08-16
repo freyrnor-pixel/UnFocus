@@ -568,9 +568,19 @@ file owns which token.)
     into a lens of bare backdrop ("the parts in the corners"). Deleting the notch is the only
     answer that has neither failure. The chrome's OUTWARD corners — the header's top, the bar's
     bottom — keep `Radius.lg`; nothing faces content there, and squaring them turns two floating
-    cards into full-bleed bars. **Not covered by this**: a screen's own `content` container still
-    pads its first card by `Spacing.md`, so "flush at rest" today means the scaffold contributes
-    nothing, not that every screen's first card touches the glass.
+    cards into full-bleed bars.
+  - **...and the screens stopped re-adding the strip one level down (same day, maintainer:
+    *"Fix"*).** The first cut left every screen's own `content` wrapper on `padding: Spacing.md`,
+    so the gap the scaffold had just deleted was still being drawn by 21 files instead of one.
+    **The rule is about what the edge MEETS, not which tier the screen is**: a vertical edge that
+    lands on the header's or the bar's glass is flush, an edge that lands on the safe area is not
+    chrome and keeps its margin. So the five tab screens pad horizontally only, the pushed
+    sub-screens keep `paddingBottom` (they reserve no nav), and horizontal padding is untouched
+    everywhere — the gutters are backdrop by design, and that padding is what insets every card
+    from the screen edge. `components/CatalogueTab.tsx`'s `root` moved with them: its `paddingTop`
+    existed *to match* that wrapper, so it had to follow it rather than be forgotten beside it.
+    Pinned per file by `lib/__tests__/screenRhythm.test.ts`, which also bans the `padding:`
+    shorthand there — that shorthand is how the top gap comes back without anyone naming it.
 - **A field's halo is cut to the field's own shape — `getFieldGlow` (2026-08-19,
   `constants/theme.ts`; `lib/__tests__/chromeRhythm.test.ts` §5).** User report: *"The glow is
   squared, but the text-boxes inside are rounded. Do not just make them the same shape, link
