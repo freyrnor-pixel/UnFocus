@@ -704,13 +704,15 @@ export default function ScreenScaffold({
     // Rounding the window to the SAME radius lets the cut follow the chrome's corner instead
     // of crossing it, so a card tucks under the glass rather than being guillotined beside it.
     //
-    // The bottom pair is conditional because it is the only one that isn't always a chrome
-    // card: with no nav reserved, the window's bottom edge is the safe area, and a rounded
-    // corner there would clip content against nothing.
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
-    borderBottomLeftRadius: reserveBottomNav ? Radius.lg : 0,
-    borderBottomRightRadius: reserveBottomNav ? Radius.lg : 0,
+    // Both pairs are conditional, on the two separate things that can stop an edge from facing
+    // a rounded chrome card. `floatChrome` is the header: `plainBackground` (Settings) draws a
+    // flat edge-to-edge app-bar with square corners and no side margins, so a curve there would
+    // round content away from a straight edge — the mirror image of this bug. And with no nav
+    // reserved, the window's bottom edge is the safe area, i.e. nothing at all.
+    borderTopLeftRadius: floatChrome ? Radius.lg : 0,
+    borderTopRightRadius: floatChrome ? Radius.lg : 0,
+    borderBottomLeftRadius: floatChrome && reserveBottomNav ? Radius.lg : 0,
+    borderBottomRightRadius: floatChrome && reserveBottomNav ? Radius.lg : 0,
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
   // The one thing that is NOT clearance: the 8px resting gap between the header card and the

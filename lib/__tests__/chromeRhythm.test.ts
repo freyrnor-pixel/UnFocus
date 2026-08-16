@@ -315,12 +315,14 @@ describe('ScreenScaffold — the clipped viewport matches the floating chrome', 
     // cut against a Radius.lg card leaves the sliced card's own 90° corner sitting in the notch
     // the glass has curved away from: the maintainer's "upper corners… and lower corners of
     // header box", reported against the 2026-08-18 build.
-    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
-    expect(source).toMatch(/borderTopRightRadius: Radius\.lg/);
-    // The bottom pair is conditional, because it is the only one that isn't always chrome: with
-    // no nav reserved that edge is the safe area, and a radius there rounds against nothing.
-    expect(source).toMatch(/borderBottomLeftRadius: reserveBottomNav \? Radius\.lg : 0/);
-    expect(source).toMatch(/borderBottomRightRadius: reserveBottomNav \? Radius\.lg : 0/);
+    // Both pairs are conditional, on the two separate ways an edge can face something that is
+    // NOT a rounded chrome card: `plainBackground` (Settings) draws a flat, square, edge-to-edge
+    // app-bar, and with no nav reserved the bottom edge is the safe area. Rounding against
+    // either is the mirror image of the bug — content curved away from a straight edge.
+    expect(source).toMatch(/borderTopLeftRadius: floatChrome \? Radius\.lg : 0/);
+    expect(source).toMatch(/borderTopRightRadius: floatChrome \? Radius\.lg : 0/);
+    expect(source).toMatch(/borderBottomLeftRadius: floatChrome && reserveBottomNav \? Radius\.lg : 0/);
+    expect(source).toMatch(/borderBottomRightRadius: floatChrome && reserveBottomNav \? Radius\.lg : 0/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {
