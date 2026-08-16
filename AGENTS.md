@@ -545,6 +545,47 @@ file owns which token.)
     opposite answers, and this is both the later and the more general ruling. The surviving rule
     is unchanged: **one clearance each — the clip is margin on the wrapper, never also padding on
     the content.**
+- **The seam pass — 2026-08-19** (`components/ScreenScaffold.tsx` + `BottomNav.tsx` +
+  `TabSlider.tsx`, pinned by `lib/__tests__/chromeRhythm.test.ts` §3/§4). Maintainer: *"Bottom of
+  header and top of bottom nav should work the same. Cards behind the edges should show when
+  scrolling, and no blank space between"*, then, on where the clip should land: *"delete the
+  blank strip and the parts in the corners in header and bottom nav"*, and *flush at rest too*.
+  This finishes the clip window rather than reversing it — content is still cut at the glass, so
+  "only the backdrop" is intact. Two things changed and they only work together:
+  - **No gap at either end.** `headerFloatBottom` and both halves of `contentPad` are 0. The 8px
+    was a strip of bare backdrop under the header at rest AND the strip a card was sliced across
+    on the way past it — a card read as guillotined in open air instead of as passing under the
+    glass, which is what the report is about. **The one-clearance-each rule survives and is why
+    the two are still spelled separately**: the margin is where content is CUT, the padding is
+    where it RESTS. A future gap comes back on `contentPad` alone, never on the margin.
+  - **⚠️ An edge that faces content is SQUARE.** The header's bottom pair (`chromeFacingSquare`,
+    now unconditional rather than only when a sticky bar is attached), the nav bar's top pair,
+    and an `attachedTop` `TabSlider`'s corners — all 0; the viewport is square on all four to
+    meet them. **A rounded chrome edge cannot be met flush by anything**, which is why this was
+    reported twice from opposite directions inside one day: cut the content square against it and
+    the sliced card's 90° corner stands in the notch the glass curved away from ("upper corners…
+    and lower corners of header box"), cut it to a *matching* radius and the two arcs bow apart
+    into a lens of bare backdrop ("the parts in the corners"). Deleting the notch is the only
+    answer that has neither failure. The chrome's OUTWARD corners — the header's top, the bar's
+    bottom — keep `Radius.lg`; nothing faces content there, and squaring them turns two floating
+    cards into full-bleed bars. **Not covered by this**: a screen's own `content` container still
+    pads its first card by `Spacing.md`, so "flush at rest" today means the scaffold contributes
+    nothing, not that every screen's first card touches the glass.
+- **A field's halo is cut to the field's own shape — `getFieldGlow` (2026-08-19,
+  `constants/theme.ts`; `lib/__tests__/chromeRhythm.test.ts` §5).** User report: *"The glow is
+  squared, but the text-boxes inside are rounded. Do not just make them the same shape, link
+  them/merge them so it works universally."* A `boxShadow` is cut to the border-box of the view
+  it is set on, so a halo is round only if THAT view is round — and `components/AddRow.tsx` and
+  `FormControls`' `Input` set it on the input, which carries a radius, while
+  `components/PadTypeRow.tsx` hangs it on a wrapper View (a boxShadow on a TextInput renders
+  unreliably on Android, and that field needs the wrapper for its absolutely positioned submit
+  arrow) that carried none. So every Home card drew a square glow around a rounded well.
+  **The fix is the merge, not the fourth copy**: `getFieldGlow(hue, level, radiusScale?)` returns
+  `{ borderRadius: FIELD_RADIUS, ...getGlow(…) }`, so a caller cannot take the light without the
+  shape it is cast from, wherever it hangs it. All three composers go through it and none of them
+  restates `Radius.sm`. `getGlow` itself is untouched and still correct for anything that sets its
+  own radius on the same view (the checkbox box, the Switch track) — the rule is about the
+  field/halo PAIR, not a ban on the primitive.
   - **`components/IconButton.tsx` and `components/VoiceNoteFAB.tsx` finally got the 2026-08-17
     button treatment**, which had only reached `Button` and the ~18 hand-rolled action pills.
     Both dropped a `darken(fill, 0.22)` housing, a black cast shadow and (IconButton) a

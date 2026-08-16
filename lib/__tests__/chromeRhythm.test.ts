@@ -10,12 +10,16 @@
  *      natural content height, and no screen restates it as a literal. Four hand-copied copies
  *      of that number is exactly how the 2026-07-24 pill-inset bug happened.
  *   3. **Nothing peeks past the chrome.** `NAV_PEEK` is gone, the bottom reserve is the bar's
- *      full painted footprint, and ScreenScaffold clips its scroll viewport.
+ *      full painted footprint, and ScreenScaffold clips its scroll viewport — flush against two
+ *      SQUARE chrome edges, with no resting gap at either end (2026-08-19).
  *   4. **A Button has three states, and the right variants wear them** (added 2026-08-12).
  *      Popped out = primary/danger only, flat = secondary, pressed in = sink + shadow to zero
  *      + the matte-glass body it now has. Same reason as 1: a press state is invisible
  *      in a screenshot, and the web preview runs worklets on the JS thread so it can't see one
  *      either — a source scan plus the contrast arithmetic is the only guard that holds.
+ *   5. **A field's halo is cut to the field's own shape** (added 2026-08-19). `getFieldGlow`
+ *      hands out the radius WITH the shadow, so the two cannot be separate decisions at a call
+ *      site — which is how a square glow ended up around every rounded composer well.
  *
  * Precedent for reading source in a test: lib/__tests__/cardLayout.test.ts, and the "(b) Token
  * use" half of lib/__tests__/designTokens.test.ts. Same reasoning as both — the shape tests
@@ -135,14 +139,16 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
 // ── 3. Nothing above the header, nothing under the nav ───────────────────────
 
 describe('chrome edges — content is clipped, not merely padded', () => {
-  it('has no NAV_PEEK constant left, even though the peek itself is back', () => {
+  it('has no NAV_PEEK constant left, and no peek for it to describe', () => {
     // 2026-07-26 shaved Radius.lg off the clearance so a card edge showed in the bar's corner
     // notches. Reversed 2026-08-10: "Nothing should be visible ... above the header, or under
     // the bottom nav." Reversed BACK, partially, the same day: the peek was wanted after all —
     // "should be visible in the bottom nav's cut corners at the top ... same for the header but
-    // the opposite" — but the fixed-px-shave MECHANISM isn't what came back. The viewport's own
-    // square corners produce the same peek for free (see ScreenScaffold's square-corner test
-    // above), so there's still no `NAV_PEEK` name anywhere to reintroduce.
+    // the opposite" — and reversed AGAIN on 2026-08-18 ("only the backdrop" behind the chrome),
+    // which is where it stands: content is clipped at the glass, and since 2026-08-19 that edge
+    // is square, so there is no cut corner left for anything to peek through. Whatever the
+    // answer, the fixed-px-shave MECHANISM has never been the thing that came back — the window
+    // geometry decides it — so there is still no `NAV_PEEK` name anywhere to reintroduce.
     expect(code('components/BottomNav.tsx')).not.toMatch(/NAV_PEEK/);
     expect(code('components/ScreenScaffold.tsx')).not.toMatch(/NAV_PEEK/);
   });
@@ -171,13 +177,16 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // the resting gap as content padding; it is the chrome's INNER edge now, so a scrolled card
     // stops where the glass begins. `stickyBelowHeaderHeight` has to be in it — a screen's tab
     // row is chrome too, and content showing through THAT was the same defect one card lower.
-    //   **2026-08-19: the gap comes back OFF this number.** `contentTopClear` folds in
+    //   **2026-08-19 morning: the gap comes back OFF this number.** `contentTopClear` folded in
     // `headerFloatBottom`, the 8px between the header card and the first card — so the first cut
     // of the line above put the clip edge 8px BELOW the glass, and a card scrolling up was
     // guillotined in open air with a strip of backdrop between the cut and the header. Reported
-    // as "lower corners of header box". The clip is the chrome's edge; the resting gap is the
-    // content's padding (asserted in the next test). Screens with an attached sticky bar have no
-    // gap to subtract — `headerFloatBottom` is already 0 there.
+    // as "lower corners of header box".
+    //   **2026-08-19 afternoon: `headerFloatBottom` is 0 outright**, so the subtraction is a
+    // no-op that stays only because it is the load-bearing statement — the clip is the CHROME'S
+    // EDGE, whatever the resting gap happens to be, and a future gap must not silently move it.
+    // The gap is gone because the maintainer asked for it at rest as well ("flush at rest too"),
+    // which is asserted in the next test.
     const source = code('components/ScreenScaffold.tsx');
     expect(source).toMatch(
       /marginTop:\s*\n?\s*contentTopClear - headerFloatBottom \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\)/,
@@ -185,20 +194,22 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(source).not.toMatch(/paddingTop: contentTopClear/);
   });
 
-  it('clips the scroll viewport AND pads the content — one clearance each', () => {
+  it('clips the scroll viewport and leaves NO resting gap at either end', () => {
     const source = code('components/ScreenScaffold.tsx');
     // `overflow: hidden` is the mechanism; without it the margins are just a differently-spelled
     // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
     // `contentPad` reaches BOTH branches — the ScrollView's contentContainer and the
-    // non-scrollable (FlatList) wrapper. It was zero on both axes for one day (2026-08-18), when
-    // the margin carried the resting gap as well as the clip; 2026-08-19 split them again, and
-    // this is the half that must move WITH the subtraction in the test above. The two numbers
-    // are different things and are now spelled differently: the margin is where content is CUT
-    // (the chrome's edge), this is where it RESTS. Put `headerFloatBottom` on both and every
-    // screen grows a blank band; drop it from here and every first card sits on the glass.
-    expect(source).toMatch(/const contentPad = \{ paddingTop: headerFloatBottom, paddingBottom: 0 \}/);
+    // non-scrollable (FlatList) wrapper — and both numbers are 0 (2026-08-19). The resting gap
+    // is what the maintainer sees as a "blank strip": 8px of bare backdrop under the header at
+    // rest, and the strip a card gets sliced across on the way past it. Asked for flush at both
+    // ends, so the first card lands on the header's glass and the last on the bar's, which is
+    // what makes a card read as passing UNDER the chrome rather than stopping short of it.
+    //   If a resting gap ever comes back it comes back HERE and nowhere else — one clearance
+    // each, never both, is still the rule (see the margin assertions above); today's is zero.
+    expect(source).toMatch(/const contentPad = \{ paddingTop: 0, paddingBottom: 0 \}/);
+    expect(source).toMatch(/const headerFloatBottom = 0;/);
     expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
     expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
   });
@@ -303,26 +314,50 @@ describe('BottomNav — flat equality, no background shape', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins, and rounds the pairs that FACE a chrome card', () => {
+  it('takes the chrome\'s side margins, and is SQUARE on every corner', () => {
     // The margins close the 8px gutters beside the header/bar, where no chrome covers content.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    // **The radii are back on the OTHER pair (2026-08-19).** This assertion has flipped four
-    // times and every flip followed the WINDOW moving, never a taste change about corners. The
-    // 2026-08-11 radii covered the pairs where the viewport met a chrome card's OUTER corner
-    // (the header's top, the bar's bottom); 2026-08-18 moved the window into the gap between
-    // the two cards and dropped them, correctly — and missed that the window's edges had landed
-    // on the OPPOSITE pairs, the header's BOTTOM corners and the bar's TOP ones. A square window
-    // cut against a Radius.lg card leaves the sliced card's own 90° corner sitting in the notch
-    // the glass has curved away from: the maintainer's "upper corners… and lower corners of
-    // header box", reported against the 2026-08-18 build.
-    // Both pairs are conditional, on the two separate ways an edge can face something that is
-    // NOT a rounded chrome card: `plainBackground` (Settings) draws a flat, square, edge-to-edge
-    // app-bar, and with no nav reserved the bottom edge is the safe area. Rounding against
-    // either is the mirror image of the bug — content curved away from a straight edge.
-    expect(source).toMatch(/borderTopLeftRadius: floatChrome \? Radius\.lg : 0/);
-    expect(source).toMatch(/borderTopRightRadius: floatChrome \? Radius\.lg : 0/);
-    expect(source).toMatch(/borderBottomLeftRadius: floatChrome && reserveBottomNav \? Radius\.lg : 0/);
-    expect(source).toMatch(/borderBottomRightRadius: floatChrome && reserveBottomNav \? Radius\.lg : 0/);
+    // **All four are 0 (2026-08-19, afternoon), and this is the fifth flip of this assertion.**
+    // Every previous flip followed the WINDOW moving. This one follows the CHROME moving, which
+    // is why it should be the last: the two edges the window meets are square now (see the
+    // `chromeFacingSquare` test below), so there is no arc left to follow or to bow away from.
+    //   The morning's cut rounded the window to `Radius.lg` so the cut would trace the header's
+    // bottom corner instead of crossing it. It traced it the WRONG WAY: the glass curves up and
+    // away from the corner while a rounded window curves down and away from it, so the two arcs
+    // open a lens of bare backdrop at each end of the seam — the maintainer's "parts in the
+    // corners", reported against exactly that build. Squaring the chrome's facing edges deletes
+    // the notch at its source, and then the window has to be square to meet them flush.
+    expect(source).toMatch(/borderTopLeftRadius: 0/);
+    expect(source).toMatch(/borderTopRightRadius: 0/);
+    expect(source).toMatch(/borderBottomLeftRadius: 0/);
+    expect(source).toMatch(/borderBottomRightRadius: 0/);
+  });
+
+  it('squares the two chrome edges that face content, and only those two', () => {
+    // Maintainer, 2026-08-19: *"Bottom of header and top of bottom nav should work the same…
+    // No blank space between"*, and delete *"the parts in the corners"*. One rule, three files:
+    // an edge with content clipped against it is square; an edge with nothing behind it keeps
+    // `Radius.lg`. The header's TOP corners and the nav's BOTTOM corners are the "nothing
+    // behind it" half and must stay round — squaring those turns the floating cards into
+    // full-bleed bars, which is a different app.
+    expect(source).toMatch(/const chromeFacingSquare = floatChrome;/);
+    expect(source).toMatch(/floatChrome && \{ borderRadius: Radius\.lg \}/);
+    expect(source).toMatch(
+      /chromeFacingSquare && \{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 \}/,
+    );
+
+    // The bar at the other end: top square, bottom still round.
+    const bar = code('components/BottomNav.tsx').match(/bar: \{[\s\S]*?\n  \}/)?.[0] ?? '';
+    expect(bar).toMatch(/borderTopLeftRadius: 0/);
+    expect(bar).toMatch(/borderTopRightRadius: 0/);
+    expect(bar).toMatch(/borderBottomLeftRadius: Radius\.lg/);
+    expect(bar).toMatch(/borderBottomRightRadius: Radius\.lg/);
+
+    // ...and a sticky tab bar, which on the four screens that mount one IS the edge the content
+    // is clipped against, rather than the header's.
+    expect(code('components/TabSlider.tsx')).toMatch(
+      /attachedTop && \{\s*borderTopLeftRadius: 0,\s*borderTopRightRadius: 0,\s*borderBottomLeftRadius: 0,\s*borderBottomRightRadius: 0,\s*\}/,
+    );
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {
@@ -446,5 +481,53 @@ describe('Button — matte glass, not plastic', () => {
     // With the housing gone there is no wrapper to move it to. It was `housed ? null : style`,
     // and a stale conditional here silently drops every button's caller-supplied width/margin.
     expect(button).toMatch(/\s+style,\s+\]\}/);
+  });
+});
+
+// ── 5. A field's halo is the field's shape ───────────────────────────────────
+
+describe('getFieldGlow — the light and the corner are one decision', () => {
+  const theme = code('constants/theme.ts');
+
+  // 2026-08-19, user report: *"The glow is squared, but the text-boxes inside are rounded. Do not
+  // just make them the same shape, link them/merge them so it works universally."*
+  //   A `boxShadow` is cut to the border-box of the view it is set on, so a halo is round only if
+  // that exact view is round. Two of the three composers set the glow ON the input, which carries
+  // a radius, and were right by luck; `PadTypeRow` hangs it on a wrapper View (Android renders a
+  // boxShadow on a TextInput unreliably, and that field needs the wrapper for its absolutely
+  // positioned submit arrow) whose style was `{ flex: 1, minWidth: 0, justifyContent: 'center' }`
+  // — no radius, hence a square halo around every Home card's rounded well.
+  //   The fix is not "add the radius there too", which is a fourth copy of `Radius.sm` free to
+  // drift. It is that the helper returns BOTH, so a caller cannot take the light without the
+  // shape it is cast from, wherever it hangs it.
+  it('returns the radius together with the shadow', () => {
+    expect(theme).toMatch(/export const FIELD_RADIUS = Radius\.sm;/);
+    expect(theme).toMatch(
+      /export function getFieldGlow\([\s\S]*?return \{ borderRadius: FIELD_RADIUS \* radiusScale, \.\.\.getGlow\(color, level\) \};/,
+    );
+  });
+
+  it('is what every field-shaped surface draws its halo with', () => {
+    for (const file of ['components/PadTypeRow.tsx', 'components/AddRow.tsx', 'components/FormControls.tsx']) {
+      const s = code(file);
+      expect({ file, glows: /getFieldGlow\(/.test(s) }).toEqual({ file, glows: true });
+    }
+    // ...and none of them reaches past it to the raw halo for a FIELD. `FormControls` still calls
+    // `getGlow` directly for two non-field surfaces (the checkbox box, the Switch track), both of
+    // which set their own radius on the same view — the rule is about the field/halo PAIR, not a
+    // ban on the primitive.
+    expect(code('components/PadTypeRow.tsx')).not.toMatch(/getGlow\(/);
+    expect(code('components/AddRow.tsx')).not.toMatch(/getGlow\(/);
+  });
+
+  it('leaves no second copy of the field radius at a call site', () => {
+    // The whole point of merging them: one number, one place. A `borderRadius: Radius.sm` back on
+    // one of these fields is the drift this replaced — the halo would keep following the helper
+    // while the box followed the literal.
+    expect(code('components/PadTypeRow.tsx')).toMatch(/borderRadius: FIELD_RADIUS,/);
+    expect(code('components/FormControls.tsx')).toMatch(/borderRadius: FIELD_RADIUS \* shape\.radiusScale,/);
+    // AddRow's input takes its radius from the helper's spread alone — it has no style of its own
+    // to restate it in.
+    expect(code('components/AddRow.tsx')).not.toMatch(/borderRadius: Radius\.sm/);
   });
 });

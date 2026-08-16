@@ -60,7 +60,8 @@
  *   Imports → components/PressableScale (not used for the field itself — see edit notes),
  *             components/Button (the worded "More options" button — see the `onMore` note),
  *             components/ScreenScaffold (ScrollIntoViewContext), constants/theme
- *             (MIN_TAP_TARGET, PAD_ROW_MIN_HEIGHT, FontSize, Fonts, Radius, Shadow, Spacing,
+ *             (MIN_TAP_TARGET, PAD_ROW_MIN_HEIGHT, FontSize, Fonts, Radius, FIELD_RADIUS,
+ *             getFieldGlow, getRecessedField, Shadow, Spacing,
  *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
  *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
@@ -148,7 +149,8 @@ import {
   Radius,
   Spacing,
   contrastOn,
-  getGlow,
+  FIELD_RADIUS,
+  getFieldGlow,
   getRecessedField,
   HitSlop,
 } from '@/constants/theme';
@@ -362,7 +364,12 @@ export default function PadTypeRow({
     // widening this border to 5px magenta and re-shooting: the magenta rendered exactly where
     // it should, INSIDE the white. If a screenshot ever makes you doubt this border again, run
     // that probe rather than changing the colour.
-    <View style={[styles.field, getGlow(accent, focused ? 'strong' : 'soft')]}>
+    // `getFieldGlow` rather than `getGlow` (2026-08-19): the halo is cut to the border-box of
+    // whatever view carries it, and this one is a WRAPPER, not the input — so it used to be a
+    // square glow around a rounded well ("the glow is squared, but the text-boxes inside are
+    // rounded"). The helper hands out the radius with the light so the two cannot disagree here
+    // or at any other field; `styles.input` takes its radius from the same `FIELD_RADIUS`.
+    <View style={[styles.field, getFieldGlow(accent, focused ? 'strong' : 'soft')]}>
       <TextInput
         style={[
           styles.input,
@@ -518,7 +525,8 @@ const styles = StyleSheet.create({
     // focused state paints this same stroke, and a width that changes on focus reflows the
     // text under the user's caret. See getRecessedField's note.
     borderWidth: BORDER_WIDTH.field,
-    borderRadius: Radius.sm,
+    // The same constant the wrapper's halo is cut to — see getFieldGlow.
+    borderRadius: FIELD_RADIUS,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.md,
     fontFamily: Fonts.regular,

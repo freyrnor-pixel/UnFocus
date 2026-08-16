@@ -38,7 +38,9 @@
  *     maths here (`segW = (trackW - SEG_PAD*2)/n`) has no gap term — adding one means
  *     re-deriving it, not adding a style key.
  *   - Input border is the screen hue at the field rung normally, and since 2026-08-16 the same
- *     hue walked to legibility by `badgeGlyphFor` (plus a `getGlow` halo) while focused — it was
+ *     hue walked to legibility by `badgeGlyphFor` (plus a `getFieldGlow` halo, which carries the
+ *     field's own corner radius with it so the light can't be a different shape from the field —
+ *     see that helper) while focused — it was
  *     a flat `borderStrong` before. `bad` on error still beats both. The FILL is `surface`
  *     unless the caller passes `recessed`, which is opt-in and has a measured reason: see that
  *     prop's doc, and don't make it the default.
@@ -103,7 +105,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming, ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { computeBorderTone, FontSize, Fonts, getGlow, getRecessedField, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
+import { computeBorderTone, FIELD_RADIUS, FontSize, Fonts, getFieldGlow, getGlow, getRecessedField, OpticalCenter, Radius, Spacing, rgba, MIN_TAP_TARGET } from '@/constants/theme';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
@@ -718,19 +720,25 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           // the dark glass card it's inside. Scoped to `recessed` only — the ordinary bordered
           // Input (every editor: medicine-form, health-form, …) sits on the screen backdrop, not
           // inside a card, and keeps its resting stroke with no permanent glow, unchanged.
+          // `getFieldGlow` (2026-08-19) returns the halo together with the corner radius it is
+          // cut to — a `boxShadow` follows its view's border-box, so the two are one decision,
+          // not two (see that helper's doc for the square-halo bug on PadTypeRow's wrapper).
+          // The radius is applied unconditionally below so an un-glowed field is still the same
+          // shape as a glowing one; this spread only has to win on the glow itself, and does,
+          // being earlier in the array than the object that restates the radius.
           error
             ? null
             : recessed
-              ? getGlow(fieldHue, focused ? 'strong' : 'soft')
+              ? getFieldGlow(fieldHue, focused ? 'strong' : 'soft', shape.radiusScale)
               : focused
-                ? getGlow(fieldHue, 'soft')
+                ? getFieldGlow(fieldHue, 'soft', shape.radiusScale)
                 : null,
           {
             color: theme.text,
             borderColor,
             backgroundColor: fill,
             borderWidth: shape.borderFieldWidth * shape.borderScale,
-            borderRadius: Radius.sm * shape.radiusScale,
+            borderRadius: FIELD_RADIUS * shape.radiusScale,
             minHeight: shape.minTapTarget,
           },
           style,
