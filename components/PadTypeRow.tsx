@@ -337,11 +337,22 @@ export default function PadTypeRow({
   ) : null;
 
   const fieldAndPrompt = (
-    // The focus halo lives on this WRAPPER rather than on the TextInput. A `boxShadow` on a
-    // TextInput renders unreliably on Android, and a halo that silently doesn't paint would take
-    // half the focus cue with it; on a plain View it is the same shadow every Surface draws.
-    // The border below carries the focus state on its own, so if the glow ever fails to render
-    // the field still passes DESIGN_RULES.md rule 18 — the glow is reinforcement, not the cue.
+    // The halo lives on this WRAPPER rather than on the TextInput. A `boxShadow` on a TextInput
+    // renders unreliably on Android, and a halo that silently doesn't paint would take half the
+    // focus cue with it; on a plain View it is the same shadow every Surface draws. The border
+    // below still carries the FOCUS state on its own, so if the glow ever fails to render the
+    // field still passes DESIGN_RULES.md rule 18 — the glow is reinforcement, not the cue.
+    //
+    // **Always lit, not focus-only (2026-08-16, "tactile glow" polish pass)** — this used to be
+    // `focused ? getGlow(accent, 'soft') : null`, a bare well with no light of its own until
+    // tapped. The recessed composers were reading as flat/grey against the dark glass card even
+    // at rest, so the well now carries a resting `soft` glow in its own card's categorical
+    // colour always, and steps up to `strong` on focus — the same two-rung distinction
+    // `Button.tsx`'s halo makes between resting and pressed-adjacent states. This is a scoped
+    // exception to DESIGN_RULES.md rule 15 ("the purposeful halo is for the one active/focused
+    // surface, never decoration"): a card's ONE composer field earns it, the same way its one
+    // primary button does — see `components/AddRow.tsx`'s identical field for the sibling
+    // composer this stays in step with.
     //
     // ⚠️ **In `npm run preview` the focus ring looks WHITE, and it is not** (measured 2026-08-16,
     // don't re-investigate). Chromium paints its own `:focus-visible` outline on the underlying
@@ -351,7 +362,7 @@ export default function PadTypeRow({
     // widening this border to 5px magenta and re-shooting: the magenta rendered exactly where
     // it should, INSIDE the white. If a screenshot ever makes you doubt this border again, run
     // that probe rather than changing the colour.
-    <View style={[styles.field, focused ? getGlow(accent, 'soft') : null]}>
+    <View style={[styles.field, getGlow(accent, focused ? 'strong' : 'soft')]}>
       <TextInput
         style={[
           styles.input,

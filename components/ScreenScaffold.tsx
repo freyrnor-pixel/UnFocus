@@ -175,6 +175,11 @@
  *     can cancel an in-flight `FlightOverlay` animation on scroll (window-space coordinates
  *     go stale once the user scrolls); `scrollEventThrottle` only activates when a listener
  *     is passed, so screens that don't use it pay no extra event-bridge cost.
+ *   - **headerScrolled (2026-08-16, "header flush" polish pass)**: the same `handleScroll`
+ *     callback also derives whether the ScrollView has moved past `HEADER_SCROLL_THRESHOLD` and
+ *     hands it to `ScreenHeader` as `scrolled`. `ScreenHeader` no longer paints a pill background
+ *     behind the title/icons at rest (see that file's header) — this is what lets it show a
+ *     translucent backdrop instead, but only once there's real content to separate it from.
  *   - **scrollable (perf, 2026-07-15)**: default true. When false, children render in a plain
  *     flex View (chrome padding still applied) instead of the internal ScrollView, so a child
  *     can own scrolling with a virtualising FlatList. Used by app/catalogue.tsx (was
@@ -205,7 +210,7 @@
  *     own backgroundColor) now sits between them, and the sticky block + content's top padding
  *     shift down by the same amount. Zero-cost for screens that don't pass `stickyBelowHeader`.
  */
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
@@ -258,6 +263,10 @@ export const ScrollToNodeContext = React.createContext<((node: Measurable | null
 
 /** Extra gap left between the lifted row's bottom and the top of the keyboard. */
 const KEYBOARD_MARGIN = 16;
+
+/** How far the ScrollView has to move before ScreenHeader shows its scrolled-only backdrop —
+ *  a few px of slack so the bounce-scroll overshoot at rest doesn't flicker it. */
+const HEADER_SCROLL_THRESHOLD = 4;
 
 /** Breathing room between the header's bottom edge and a node scrolled to by `scrollToNode`. */
 const SCROLL_TO_MARGIN = 12;
@@ -490,9 +499,17 @@ export default function ScreenScaffold({
   // Live scroll offset, so scrollIntoView can convert a window-space overlap into an
   // absolute scrollTo target. Tracked on every scroll frame (cheap — a single ref write).
   const scrollY = useRef(0);
+  // Whether ScreenHeader should show its scrolled-only frosted backdrop (2026-08-16, "header
+  // flush" polish pass — see that file's header). A few px of slack rather than `> 0` so the
+  // iOS bounce-scroll overshoot at rest doesn't flicker the backdrop on and off. This is state
+  // (not just the `scrollY` ref) because it has to trigger a re-render of ScreenHeader; the
+  // setter no-ops when the boolean doesn't change, so scrolling within either "flat" zone or
+  // deep in the content costs nothing beyond the ref write every other scroll frame already did.
+  const [headerScrolled, setHeaderScrolled] = useState(false);
   const handleScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       scrollY.current = e.nativeEvent.contentOffset.y;
+      setHeaderScrolled(scrollY.current > HEADER_SCROLL_THRESHOLD);
       onScroll?.(e);
     },
     [onScroll],
@@ -825,6 +842,7 @@ export default function ScreenScaffold({
           onSharePress={onSharePress}
           onScanPress={onScanPress}
           onLayoutPress={onLayoutPress}
+          scrolled={headerScrolled}
         />
       </View>
 

@@ -711,10 +711,16 @@ export default function EnergyMeter() {
         // longest block of teaching on Home, standing above every piece of real content on the
         // first screen a new user sees. What is left is the one thing this state is FOR: the
         // way in to setting the day's energy. The full explanation still lives in the ⓘ.
+        // `variant="primary"` (2026-08-16, "no header pill / tactile glow" polish pass — was
+        // `secondary`): this button is the ONE action on this card, not a quiet alternative to
+        // a louder one beside it, so it earns the halo `isRaised` reserves for primary/danger
+        // (constants/theme.ts's getGlow, via Button.tsx). Home provides no screen hue, so it
+        // lights up `theme.accent` rather than a categorical colour — the same fallback every
+        // other primary button outside a hued screen already uses.
         <StarterCard stage="sapling">
           <Button
             label={t.starters.energy.action}
-            variant="secondary"
+            variant="primary"
             size="sm"
             onPress={() => setConfigOpen(true)}
             style={styles.tutorialAction}
