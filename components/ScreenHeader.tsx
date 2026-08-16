@@ -6,15 +6,25 @@
  * controls upper-right (gear outermost). Left-handed mirrors the whole row — controls
  * upper-left (gear outermost), title upper-right — so the controls stay thumb-reachable.
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
- * right slot for the screen-specific action (not mirrored). Wrapped in a Surface with
- * surfaceContext="overlay".
+ * right slot for the screen-specific action (not mirrored).
  *
- * **That prop no longer changes a pixel (corrected 2026-08-08).** This line used to say
- * "translucent… stronger blur… the ambient default let scrolled text read through it", which
- * was true until the 2026-08-05 card reset made every Surface a flat opaque page with one
- * border. There is no translucency left to tune, so nothing reads through this header either
- * way. `surfaceContext` survives as documentation and as somewhere a future
- * "sheets should differ from cards" decision can land — see Surface.tsx's own note.
+ * **No pill background at rest (2026-08-16, "header flush" polish pass).** This used to be
+ * wrapped in a `Surface` (`surfaceContext="overlay"`), which painted a card-shaped fill behind
+ * the title and icons even though nothing about a header needs the "this is a distinct panel"
+ * read a card gives — it just made the title look like it was floating in a pill. The title and
+ * icons now sit directly on `components/ScreenBackground.tsx`, flush with the rest of the
+ * screen, via a plain `View`.
+ *
+ * That leaves nothing to separate the header from content scrolled underneath it — content
+ * can't actually reach behind the header any more (`ScreenScaffold`'s clip window stops at the
+ * header's inner edge, 2026-08-18), so there's no leaking to prevent, but a hard cut from
+ * "chrome" to "content" reads better with *something* there once the screen has scrolled. So
+ * `scrolled` (passed by `ScreenScaffold`, true once the ScrollView's offset is past a few px)
+ * gates a translucent frosted backdrop — a `BlurView` plus the same `surfaceGlassStrong` wash
+ * `Surface`'s `overlay` context used to paint — behind the row. At rest (`scrolled` false) that
+ * layer doesn't mount at all: not just invisible, absent, so a screenshot at the top of any
+ * screen shows the header content on bare background. `settings.glassSurfaces` (reduce-
+ * transparency) still wins — off, the scrolled backdrop is `theme.surface` with no blur.
  *
  * Also owns the self-contained debug-mode controls (2026-07-13, expanded 2026-07-19): every
  * screen's title is long-press-annotatable via DebugNoteAnchor (the title anchor is keyed
@@ -33,13 +43,14 @@
  * Connections:
  *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
  *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
- *             store/useFeedbackStore, components/Surface, components/PressableScale,
- *             components/DebugNoteAnchor, components/AppModal (showAppModal), expo-router,
- *             expo-updates, expo-constants, react-native (Share, Linking, AppState, ActivityIndicator)
- *   Used by → ScreenScaffold (composition layer)
- *   Data    → reads `leftHanded`/`debugModeEnabled` + writes `debugModeEnabled` (bug toggle)
- *             on the settings store; reads/emails/clears useFeedbackStore's notes; reads
- *             expo-updates' isEnabled/checkForUpdateAsync
+ *             store/useFeedbackStore, components/PressableScale, components/DebugNoteAnchor,
+ *             components/AppModal (showAppModal), expo-router, expo-updates, expo-constants,
+ *             expo-blur (BlurView — the scrolled-only backdrop), react-native (Share, Linking,
+ *             AppState, ActivityIndicator)
+ *   Used by → ScreenScaffold (composition layer), which also passes `scrolled`
+ *   Data    → reads `leftHanded`/`debugModeEnabled`/`glassSurfaces` + writes `debugModeEnabled`
+ *             (bug toggle) on the settings store; reads/emails/clears useFeedbackStore's notes;
+ *             reads expo-updates' isEnabled/checkForUpdateAsync
  *
  * Edit notes:
  *   - tier='site' is for top-level screens (Shopping, Plans, Home, Health, Scan)
@@ -120,14 +131,14 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
+import { BlurView } from 'expo-blur';
 import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { buildDebugNotesMailUrl, formatDebugNotesMessage } from '@/lib/feedbackMail';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
-import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
@@ -149,12 +160,21 @@ type Props = {
   onScanPress?: () => void;
   /** Opens this surface's card-layout picker (components/LayoutPickerSheet.tsx). */
   onLayoutPress?: () => void;
+  /**
+   * True once the enclosing screen has scrolled past its top a few px (passed by
+   * `ScreenScaffold`). Gates the translucent frosted backdrop behind the title/icons — at rest
+   * the header has none and sits flush on the screen background. See the file header's
+   * "No pill background at rest" note.
+   */
+  scrolled?: boolean;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress, scrolled }: Props) {
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const router = useRouter();
+  const glassOn = useSettingsStore((s) => s.glassSurfaces);
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   const updateSettings = useSettingsStore((s) => s.update);
@@ -396,6 +416,28 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
+  // The scrolled-only backdrop (see the file header's "No pill background at rest" note): a
+  // BlurView plus the same translucent wash `Surface`'s `overlay` context used to paint, mounted
+  // ONLY while `scrolled`, so at rest there is nothing here at all — not just invisible. Off
+  // `glassSurfaces` (reduce-transparency), it's the opaque composite with no blur, matching how
+  // Surface itself degrades.
+  const headerBackdrop = scrolled ? (
+    <>
+      {glassOn ? (
+        <BlurView
+          intensity={HEADER_BLUR}
+          tint={isDark ? 'dark' : 'light'}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
+      <View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { backgroundColor: glassOn ? theme.surfaceGlassStrong : theme.surface }]}
+      />
+    </>
+  ) : null;
+
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`screen:${pathname}`} label={title} style={styles.titleWrap}>
       {/* allowFontScaling MUST stay false: fontSize + lineHeight below are already scaled
@@ -425,7 +467,8 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       </View>
     );
     return (
-      <Surface surfaceContext="overlay" style={[styles.header, style]}>
+      <View style={[styles.header, styles.headerClip, style]}>
+        {headerBackdrop}
         {leftHanded ? (
           <>
             {controlsGroup}
@@ -437,14 +480,15 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
             {controlsGroup}
           </>
         )}
-      </Surface>
+      </View>
     );
   }
 
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <Surface surfaceContext="overlay" style={[styles.header, style]}>
+    <View style={[styles.header, styles.headerClip, style]}>
+      {headerBackdrop}
       {Platform.OS === 'ios' && onBack ? (
         <PressableScale onPress={onBack} hitSlop={HitSlop.base} scaleTo={0.97}>
           <Text style={[styles.back, { color: theme.accent }]}>{t.back}</Text>
@@ -454,9 +498,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       {titleNode('left')}
 
       <View style={styles.rightSlot}>{headerRight}</View>
-    </Surface>
+    </View>
   );
 }
+
+/** How hard the scrolled-only backdrop blurs — matches Surface's `overlay`-tier `BLUR_STRONG`,
+ *  since this chrome plays the same role. */
+const HEADER_BLUR = 28;
 
 const styles = StyleSheet.create({
   header: {
@@ -478,11 +526,15 @@ const styles = StyleSheet.create({
     // padding stays Spacing.md (band-height math depends on it — do NOT change that one).
     gap: Spacing.sm,
     // Edge-to-edge top bar (no side margins), not a floating card — rounding here has
-    // no visual purpose and, since the glass Surface now fills the whole fixed-height
-    // header band flush against the first content row (2026-07-13 dead-band fix), a
-    // rounded bottom edge just collides with that content's square corner and reads as
-    // "cut off". Square corners match the conventional full-bleed app-bar look.
+    // no visual purpose against a flush background. `ScreenScaffold` overrides this to
+    // `Radius.lg` for floating screens, which `headerClip` (below) is what actually clips to.
     borderRadius: 0,
+  },
+  // `overflow: 'hidden'` so the scrolled-only backdrop (a BlurView + wash, both absoluteFill)
+  // clips to whatever `borderRadius` the caller's `style` sets, instead of squaring off past
+  // the rounded corners `ScreenScaffold` passes for a floating header.
+  headerClip: {
+    overflow: 'hidden',
   },
   controls: {
     flexDirection: 'row',

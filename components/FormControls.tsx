@@ -42,6 +42,12 @@
  *     a flat `borderStrong` before. `bad` on error still beats both. The FILL is `surface`
  *     unless the caller passes `recessed`, which is opt-in and has a measured reason: see that
  *     prop's doc, and don't make it the default.
+ *   - **A `recessed` field's halo stays lit at rest** (2026-08-16 "tactile glow" polish pass),
+ *     stepping `soft` → `strong` on focus — same as `components/PadTypeRow.tsx`/`AddRow.tsx`'s
+ *     identical wells, which this field's `recessed` prop is meant to match. The non-`recessed`
+ *     shape (every ordinary bordered Input, on the screen backdrop rather than inside a card)
+ *     keeps its old focus-only glow — a permanent halo there would be decoration with nothing
+ *     to justify it, per DESIGN_RULES.md rule 15.
  *     Active segment background is `surface` — a raised surface,
  *     not on-colour text. That raised surface is a single sliding pill (Reanimated
  *     translateX, ~150ms ease-out; snaps under reducedMotion, and snaps on its FIRST
@@ -705,7 +711,20 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
           // Reinforcement only — see AddRow's note on why a boxShadow on a bare TextInput is
           // acceptable here: `borderColor` above already carries the focus state, so rule 18
           // holds even where Android declines to paint this.
-          focused && !error ? getGlow(fieldHue, 'soft') : null,
+          //
+          // **`recessed` fields stay lit at rest, not just on focus (2026-08-16, "tactile glow"
+          // polish pass)** — the same change PadTypeRow/AddRow's identical wells got, and for
+          // the same reason: a sunken well with no light of its own reads as flat/grey against
+          // the dark glass card it's inside. Scoped to `recessed` only — the ordinary bordered
+          // Input (every editor: medicine-form, health-form, …) sits on the screen backdrop, not
+          // inside a card, and keeps its resting stroke with no permanent glow, unchanged.
+          error
+            ? null
+            : recessed
+              ? getGlow(fieldHue, focused ? 'strong' : 'soft')
+              : focused
+                ? getGlow(fieldHue, 'soft')
+                : null,
           {
             color: theme.text,
             borderColor,

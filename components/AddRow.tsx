@@ -274,11 +274,14 @@ export default function AddRow({
       ref={inputRef}
       style={[
         styles.input,
-        // The focus halo. Unlike PadTypeRow this field has no wrapper View of its own to hang
-        // it on, so it goes on the TextInput — where a `boxShadow` renders less reliably on
-        // Android. That is acceptable HERE and only because the border below carries the focus
-        // state on its own: the glow is reinforcement, and rule 18 is satisfied without it.
-        focused ? getGlow(fill, 'soft') : null,
+        // The halo. Unlike PadTypeRow this field has no wrapper View of its own to hang it on,
+        // so it goes on the TextInput — where a `boxShadow` renders less reliably on Android.
+        // That is acceptable HERE and only because the border below carries the FOCUS state on
+        // its own: the glow is reinforcement, and rule 18 is satisfied without it.
+        // Always lit (2026-08-16, "tactile glow" polish pass), stepping `soft` → `strong` on
+        // focus — see PadTypeRow's identical change for the one-composer-field-can-glow-at-rest
+        // reasoning; the two fields must stay in step, since they're the same control.
+        getGlow(fill, focused ? 'strong' : 'soft'),
         {
           color: theme.text,
           // ── Recessed, not raised (2026-08-16, brief §8) ────────────────────────────────
