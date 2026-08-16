@@ -79,6 +79,13 @@
  *     sheet or a nav surface.
  *     **It no longer decides WHETHER a BlurView mounts (2026-08-16, brief §2)** — every pane
  *     blurs now; see the comment at the BlurView itself for why the ambient exclusion lost.
+ *     **...except `overlay`, which is opaque (2026-08-18)**, maintainer: *"Cards that overlap
+ *     other cards should never be translucent."* A sheet is the only tier with the app's own
+ *     CARDS behind it — the chrome has only the backdrop, since the 2026-08-18 clip window
+ *     bounds content at the header's and the nav's inner edges, and an ambient card sits in a
+ *     vertical list that never overlaps itself. So this is a narrowing of the every-pane rule
+ *     by exactly one context, not a re-opening of the ambient argument. `theme.surfaceRaised`
+ *     is `surfaceGlassStrong` already composited, so a sheet over empty backdrop is unchanged.
  *   - **`settings.glassSurfaces` is LIVE again** (it was inert here from 2026-08-05, because
  *     everything was already opaque — the state that toggle asks for). Off ⇒ the opaque
  *     composite and no BlurView anywhere. It needs no new copy: the shipped EN/NO strings
@@ -296,11 +303,25 @@ export default function Surface({
   const glassPref = useSettingsStore((s) => s.glassSurfaces);
   const opaqueCards = useSettingsStore((s) => s.opaqueCards);
   const isAmbient = surfaceContext === 'ambient';
-  const glassOn = glassPref && !tint && !(isAmbient && opaqueCards);
+  // ── An overlay pane is OPAQUE (2026-08-18) ──────────────────────────────────────────────
+  // Maintainer, against a screenshot of the card menu: *"Cards that overlap other cards should
+  // never be translucent."* A sheet/modal is the only surface in this app guaranteed to have
+  // the app's own cards behind it — the 2026-08-18 clip window bounds content at the header's
+  // and the nav's INNER edges, so the chrome only ever has the backdrop behind it, and an
+  // ambient card sits in a vertical list that never overlaps itself. So frost on an overlay
+  // isn't depth, it's the card underneath showing through: the shot had "Handleliste" and its
+  // green badge legible twice over, and the nav's five labels reading through the Done key.
+  // `nav` deliberately keeps its frost — it has nothing but backdrop behind it to reveal.
+  const overlapsCards = surfaceContext === 'overlay';
+  const glassOn = glassPref && !tint && !overlapsCards && !(isAmbient && opaqueCards);
   const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
+  // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
+  // `glassSurfaces`) changes what is drawn and never how bright the surface reads. `nav`'s
+  // fallback used to be `surface` — one rung darker than the frost it replaced.
+  const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
   const fill = staticPressed
     ? theme.surfaceMuted
-    : tint ?? getGlassFill(glassFill, theme.surface, glassOn);
+    : tint ?? getGlassFill(glassFill, opaqueFill, glassOn);
   // ── Where the screen's colour went ──────────────────────────────────────────────────────
   // The 2026-08-15 ruling took the identity hue OFF the card edge, which is now neutral in
   // every screen. It did not delete lib/screenColor.ts: the hue moved into this faint
@@ -465,7 +486,7 @@ export default function Surface({
             },
           ]}
         >
-          {/* ── Blur, on every pane (2026-08-16, brief §2) ────────────────────────────────
+          {/* ── Blur, on every pane except an overlay (2026-08-16, narrowed 2026-08-18) ───
               *"All cards MUST be translucent. Use expo-blur as the absolute foundation for
               every card."* This REVERSES the 2026-08-15 decision to mount a BlurView only on
               `overlay`/`nav`, which this comment used to defend at length. That argument is
@@ -492,7 +513,14 @@ export default function Surface({
                 · `glassSurfaces` (the reduce-transparency toggle) still removes all of it, so
                   a user on a slow device has one switch that turns the whole effect off.
               Android below API 31 degrades a BlurView to a flat translucent overlay — i.e.
-              exactly the old ambient treatment — so the fallback is graceful, not broken. */}
+              exactly the old ambient treatment — so the fallback is graceful, not broken.
+
+              ⚠️ **`overlay` left this rule on 2026-08-18** (`overlapsCards` clears `glassOn`
+              above, which takes the fill AND this blur in one gate — an opaque fill with a live
+              BlurView over it would still smear the card behind onto the pane, i.e. the bug in
+              a form that looks half-fixed). That is a narrowing by one context, not the ambient
+              argument re-opened: what settles each tier is what is BEHIND it, and a sheet is
+              the only one with the app's own cards there. See the `overlapsCards` comment. */}
           {glassOn ? (
             <BlurView
               intensity={isAmbient ? BLUR_AMBIENT : BLUR_STRONG}

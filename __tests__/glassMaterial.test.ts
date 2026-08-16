@@ -47,6 +47,37 @@ jest.mock('@/lib/db', () => ({
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
+/**
+ * What a glass token actually lands on. Dark's ground is genuinely `#000000`
+ * (components/ScreenBackground.tsx's DARK.base is three black stops with both radial glows at
+ * opacity 0); light's is the backdrop gradient's DARKEST stop, so the real pane is never darker
+ * than the value these tests check.
+ */
+const GROUND = { light: '#e4ecfb', dark: '#000000' } as const;
+
+/** `rgba(…)` painted over that ground, as the uppercase hex the palette should carry. */
+function compositeOverGround(glass: string, mode: keyof typeof GROUND): string {
+  const m = glass.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  expect(m).toBeTruthy();
+  const [, r, g, b, a] = m!;
+  const under = GROUND[mode].replace('#', '');
+  const composite = [r, g, b].map((c, i) => {
+    const u = parseInt(under.slice(i * 2, i * 2 + 2), 16);
+    return Math.round(Number(c) * Number(a) + u * (1 - Number(a)));
+  });
+  return `#${composite.map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+/** WCAG relative luminance — only used here to assert which of two rungs is the brighter one. */
+function relativeLuminance(hex: string): number {
+  const v = hex.replace('#', '');
+  const [r, g, b] = [0, 1, 2].map((i) => {
+    const c = parseInt(v.slice(i * 2, i * 2 + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
 describe('filledEdge — the one surviving piece of the material recipe', () => {
   const base = '#3366CC';
 
@@ -106,11 +137,14 @@ describe('the material system stays deleted, and stays matte', () => {
   //     on every scrolling list for no visible difference.
   // That distinction is invisible to a screenshot and to the web preview alike (Chromium
   // renders `backdrop-filter` on both paths), which is exactly why it needs a source scan.
-  it('mounts a BlurView on every pane, at a lighter intensity for ambient cards', () => {
+  it('mounts a BlurView on every pane that is not an overlay, lighter for ambient cards', () => {
     // ⚠️ REVERSED on 2026-08-16 (brief §2: "use expo-blur as the absolute foundation for every
     // card"). This used to assert the OPPOSITE — that an ambient card is excluded by an
     // explicit `surfaceContext !== 'ambient'` gate — on the reasoning that blurring a black
     // backdrop returns black. See the BlurView comment in Surface.tsx for why that lost.
+    // ⚠️ NARROWED again on 2026-08-18: an `overlay` pane is opaque and mounts no blur. That is
+    // the one context with the app's own CARDS behind it rather than the backdrop — see the
+    // 'a sheet never lets the card behind it through' test below for the rule and the ruling.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/<BlurView/);
     // Not gated on context any more, but still gated on the reduce-transparency setting.
@@ -154,20 +188,56 @@ describe('the material system stays deleted, and stays matte', () => {
     // Dark's ground is genuinely #000000 (ScreenBackground's DARK.base is three black stops
     // with both glows at 0). Light's is the backdrop gradient's DARKEST stop, so the real pane
     // is never darker than the value the tests check.
-    const GROUND = { light: '#e4ecfb', dark: '#000000' } as const;
     (['light', 'dark'] as const).forEach((mode) => {
       const p = THEMES.default[mode];
-      const m = p.surfaceGlass.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
-      expect(m).toBeTruthy();
-      const [, r, g, b, a] = m!;
-      const under = GROUND[mode].replace('#', '');
-      const composite = [r, g, b].map((c, i) => {
-        const u = parseInt(under.slice(i * 2, i * 2 + 2), 16);
-        return Math.round(Number(c) * Number(a) + u * (1 - Number(a)));
-      });
-      const hex = `#${composite.map((c) => c.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
-      expect(hex).toBe(p.surface.toUpperCase());
+      expect(compositeOverGround(p.surfaceGlass, mode)).toBe(p.surface.toUpperCase());
     });
+  });
+
+  it('a sheet never lets the card behind it through', () => {
+    // Maintainer, 2026-08-18, against a screenshot of components/CardMenuSheet.tsx: *"Cards
+    // that overlap other cards should never be translucent."* The shot showed the Home
+    // shopping card's title and badge legible THROUGH the menu, and the bottom nav's five
+    // labels reading through the Done key on top of it.
+    //
+    // This narrows 2026-08-16's "every pane blurs" by exactly one context, and the boundary is
+    // what each tier has BEHIND it rather than taste:
+    //   · `overlay` — sheets and modals — is the only surface guaranteed to have the app's own
+    //     cards behind it. Opaque, no blur.
+    //   · `nav` keeps its frost: the 2026-08-18 clip window bounds content at the header's and
+    //     the nav's inner edges, so the chrome has nothing but backdrop behind it.
+    //   · `ambient` keeps its frost: a card sits in a vertical list that never overlaps itself.
+    // Invisible to a screenshot of any single surface and to the web preview alike, hence a
+    // source scan plus the arithmetic below.
+    const surface = read('components/Surface.tsx');
+    expect(surface).toMatch(/const overlapsCards = surfaceContext === 'overlay';/);
+    // The frost gate must include it, or the fill goes opaque while a BlurView still smears
+    // the card behind it over the top — the bug in a form that looks half-fixed.
+    expect(surface).toMatch(/const glassOn = .*!overlapsCards/);
+    expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
+    // The same pairing `surface`/`surfaceGlass` have one rung down: the opaque token is the
+    // translucent one already composited, so a sheet over empty backdrop is unchanged and the
+    // two cannot drift into being different colours.
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      expect(compositeOverGround(p.surfaceGlassStrong, mode)).toBe(p.surfaceRaised.toUpperCase());
+      // ...and it really is the brighter rung, or "raised" is a lie about which is on top.
+      expect(relativeLuminance(p.surfaceRaised)).toBeGreaterThan(relativeLuminance(p.surface));
+    });
+  });
+
+  it('an opaque sheet is still legible, and still under the halation ceiling', () => {
+    // `surfaceRaised` is a NEW measurable rung, so it owes the same promises `surface` does.
+    // The dark ceiling is DESIGN_RULES.md rule 10a's 16:1 — near-white text on a dark pane
+    // blooms for astigmatic readers, and the sheet is now the app's brightest dark surface.
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      expect(contrastRatio(p.text, p.surfaceRaised)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(p.textMuted, p.surfaceRaised)).toBeGreaterThanOrEqual(4.5);
+      // WCAG 1.4.11 — the rows inside a sheet draw their own borders on this fill.
+      expect(contrastRatio(p.border, p.surfaceRaised)).toBeGreaterThanOrEqual(3);
+    });
+    expect(contrastRatio(THEMES.default.dark.text, THEMES.default.dark.surfaceRaised)).toBeLessThanOrEqual(16);
   });
 
   // getGlassEdge's two sides do different jobs and only one of them is a contrast promise.
@@ -280,16 +350,21 @@ describe('glass settings', () => {
     // panes only, so sheets, the header and the nav stay frosted and the card material can be
     // judged on its own. Written as ONE boolean so the precedence is readable in one line:
     // glassSurfaces off ⇒ opaque everywhere regardless, and `tint` still wins over both.
+    // 2026-08-18 added a fourth term, `!overlapsCards`, in the same one-line boolean — the
+    // sheet rule (see 'a sheet never lets the card behind it through'). `opaqueCards` is still
+    // the only one of the four scoped to ambient panes, which is what this test is about.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
-      /const glassOn = glassPref && !tint && !\(isAmbient && opaqueCards\);/,
+      /const glassOn = glassPref && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
     );
     // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
     // turning the switch on would change what lib/__tests__/colors.test.ts measures rather
-    // than only what is drawn. getGlassFill's opaque arm is `theme.surface`, which is exactly
-    // that composite — asserted for real by 'the painted glass and the measured composite
-    // agree' above; this pins that the opaque path still routes through it.
-    expect(surface).toMatch(/getGlassFill\(glassFill, theme\.surface, glassOn\)/);
+    // than only what is drawn. getGlassFill's opaque arm is `opaqueFill`, which resolves to
+    // `theme.surface` for exactly the ambient population this switch reaches — and to the
+    // overlay tier's own composite otherwise. Both are asserted for real above; this pins that
+    // the opaque path still routes through the pairing rather than picking a colour.
+    expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
+    expect(surface).toMatch(/getGlassFill\(glassFill, opaqueFill, glassOn\)/);
   });
 });
 

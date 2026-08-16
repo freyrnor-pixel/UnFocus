@@ -126,6 +126,24 @@ export interface ThemePalette {
    * with content behind them worth blurring. See components/Surface.tsx's `surfaceContext`.
    */
   surfaceGlassStrong: string;
+  /**
+   * `surfaceGlassStrong` already COMPOSITED over the backdrop — the same pairing
+   * `surface`/`surfaceGlass` have one rung down, and what a sheet or modal actually paints.
+   *
+   * ⚠️ **An overlay pane is opaque, and that is a rule rather than a tuning** (2026-08-18,
+   * maintainer: *"Cards that overlap other cards should never be translucent."*). A sheet is
+   * the one surface in this app that is guaranteed to have the app's own cards behind it —
+   * the chrome only ever has the backdrop behind it, since the 2026-08-18 clip window bounds
+   * content at the header's and the nav's inner edges — so it is the one place frost stopped
+   * reading as depth and started reading as a second card bleeding through the first.
+   * `surfaceGlassStrong` is still the value it is DERIVED from, so the two cannot drift and
+   * a sheet over empty backdrop looks exactly as it did; `__tests__/glassMaterial.test.ts`
+   * asserts the composite the same way it asserts `surface`'s.
+   *
+   * This is also the reduce-transparency fallback for the `nav` tier, which used to fall back
+   * to `surface` — a rung too dark for a surface whose frost reads a rung brighter.
+   */
+  surfaceRaised: string;
 
   // ── Text ─────────────────────────────────────────────────────────────────
   text: string;            // Primary text (must be ≥ 4.5:1 contrast on bg AND surface)
@@ -482,6 +500,7 @@ const defaultLight: ThemePalette = {
   rule: '#D3DBE6',         // decorative row divider ONLY — never a control boundary
   surfaceGlass: 'rgba(255,255,255,0.78)',
   surfaceGlassStrong: 'rgba(255,255,255,0.88)',
+  surfaceRaised: '#FCFDFF',   // = surfaceGlassStrong composited over the backdrop's darkest stop
   text: '#1B2432',
   textMuted: '#5F6978',    // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg
   textInverse: '#FFFFFF',
@@ -679,6 +698,7 @@ const defaultDark: ThemePalette = {
   // bound rule 10a defends. Lowering this alpha makes the app LESS legible, not airier.
   surfaceGlass: 'rgba(255,255,255,0.118)',
   surfaceGlassStrong: 'rgba(255,255,255,0.16)',   // -> #292929, the overlay/nav tier
+  surfaceRaised: '#292929',   // that composite, painted flat — what a sheet/modal actually uses
   // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
   // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as
