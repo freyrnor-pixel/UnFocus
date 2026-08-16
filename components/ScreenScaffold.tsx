@@ -66,6 +66,13 @@
  *     is why the two are still spelled separately**: one clearance each, never both — the margin
  *     is where content is CUT, the padding is where it RESTS. Today both are nothing; if a gap
  *     ever comes back it comes back on `contentPad` alone.
+ *     ⚠️ **A caller can undo this from outside, and 21 of them were.** Zeroing the numbers here
+ *     is only half — every screen's own `content` wrapper was on `padding: Spacing.md`, i.e.
+ *     drawing the same strip one level down. They pad horizontally only now (the pushed
+ *     sub-screens keep `paddingBottom`, since with no nav reserved that edge is the safe area
+ *     rather than chrome), pinned per file by `lib/__tests__/screenRhythm.test.ts`. A NEW screen
+ *     that copies an old one's `padding: Spacing.md` reintroduces the gap on that screen alone
+ *     and nothing here will stop it — that test is what catches it.
  *   - **A clip edge has to LAND ON something opaque — that is the whole lesson of this file**
  *     (see `viewportInset`'s own comment for the attempts and why each failed). An edge in open
  *     air IS a card sliced across a blank strip: `marginTop: contentTopClear` puts the top edge

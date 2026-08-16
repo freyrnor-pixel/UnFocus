@@ -242,7 +242,10 @@ const baseStyles = StyleSheet.create({
   // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
-  content: { padding: Spacing.md, gap: SCREEN_GAP },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: SCREEN_GAP },
   // Spacing.sm below the header comes from this gap (header + note rows are the section's
   // only two "slots"). No vertical margin — the screen's content container owns the gap
   // between sections (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.

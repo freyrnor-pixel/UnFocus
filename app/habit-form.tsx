@@ -847,7 +847,10 @@ export default function HabitForm() {
 
 const baseStyles = StyleSheet.create({
   flex: { flex: 1 },
-  content: { padding: Spacing.md, gap: Spacing.lg },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   daysRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
   dayChip: { flex: 1, aspectRatio: AspectRatio.square, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },

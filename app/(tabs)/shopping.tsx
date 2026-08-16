@@ -2547,7 +2547,10 @@ const styles = StyleSheet.create({
   // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed
   // Collapsible) must be grouped or conditionally rendered, or it books a gap slot for nothing.
-  content: { padding: Spacing.md, gap: SCREEN_GAP },
+  // No vertical padding (2026-08-19): components/ScreenScaffold.tsx clips this content
+  // flush to the header's glass and the nav bar's, and a margin here is the blank strip
+  // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
+  content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
   // Link out to Settings → Personal, inside the intro card. The weekly-reset weekday row and
   // the monthly-reset date field used to live in this card's body; they are real settings and
   // they moved there (2026-08-13). This is a door, not a duplicate control — two live copies of

@@ -2042,7 +2042,10 @@ const baseStyles = StyleSheet.create({
   flex: { flex: 1 },
   // Was Spacing.xl (32) per Decision 043 rule 2 — read as too much dead air between cards
   // vs. every other screen's content gap (Spacing.md/lg); brought down to match (2026-07-21).
-  content: { padding: Spacing.md, gap: Spacing.lg },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
   section: { gap: Spacing.sm },
   // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg; below-spacing comes
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.

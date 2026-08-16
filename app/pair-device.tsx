@@ -272,7 +272,10 @@ export default function PairDeviceScreen() {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { padding: Spacing.md, gap: Spacing.md },
+  // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
+  // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
+  // this screen reserves no nav, so that edge is the safe area, not chrome.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
   explain: { fontSize: FontSize.sm, lineHeight: 20 },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

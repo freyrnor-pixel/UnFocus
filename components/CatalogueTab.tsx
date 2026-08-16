@@ -803,10 +803,14 @@ const baseStyles = StyleSheet.create({
   // root owns the horizontal inset (was on listContent) so the clipping `card` aligns with the
   // rows, plus a bottom gap so the notepad's rounded bottom clears the nav with the colourful
   // field showing beneath it — "rounded within the screen", not tucked under the nav bar.
-  // paddingTop matches shopping.tsx's `content` wrapper (padding: Spacing.md) used by the other
-  // 3 tabs, so the shared `header` chrome (incl. the Budget pill) starts the same distance below
-  // the sticky tab bar on every tab instead of sitting higher here (visual-audit 2026-07-20).
-  root: { flex: 1, paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md },
+  // **No paddingTop as of 2026-08-19**, and for the same reason it had one: it matches the
+  // `content` wrapper every screen uses, so this screen's header chrome starts the same distance
+  // below the bar as everywhere else. That distance is now zero — components/ScreenScaffold.tsx
+  // clips content flush to the chrome's glass, and a margin here is the blank strip that clip
+  // exists to delete (visual-audit 2026-07-20, revised). The bottom keeps its gap: this style is
+  // the non-embedded branch only, i.e. the pushed /catalogue screen, which reserves no bottom nav
+  // — that edge is the safe area, not chrome.
+  root: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
   // Outer shadow-casting layer (2026-07-24): border + shadow live here, NOT on `card` below —
   // `card`'s own overflow:hidden would otherwise clip the shadow (same reason Surface splits
   // border/shadow onto an outer view and clipping onto an inner mask). This is what makes the
