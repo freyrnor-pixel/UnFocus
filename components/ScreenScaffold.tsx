@@ -40,31 +40,33 @@
  *     that overlap — correct for its job, wrong for every case here. Both are provided by the
  *     scrollable branch and both are `null` on the non-scrollable one.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
- *   - **Content lives in a CLIPPED VIEWPORT that runs the chrome's FULL height (2026-08-11).**
- *     `styles.viewport` is an `overflow: 'hidden'` box whose edges sit on the chrome cards' OUTER
- *     edges — the header card's top, the nav card's bottom, and the 8px side margins both of them
- *     use — with `Radius.lg` on the two corner pairs that meet a chrome card's outer corner. So
- *     content scrolls all the way under the header and the nav and is hidden BY them (both are
- *     opaque cards), while nothing can render above the header, below the bar, or in the gutters.
- *     Maintainer's rule: "Nothing should be visible (cards, text, buttons and so on) above the
- *     header, or under the bottom nav." The resting gap is `contentPad` on the content. **One
- *     clearance each: clip on the wrapper's margin, resting gap on the content's padding.** Both
- *     on the same side double-counts and the screen grows a blank band; neither, and the first
- *     card renders under the header at rest.
+ *   - **Content lives in a CLIPPED VIEWPORT that fills the gap BETWEEN the two chrome cards
+ *     (2026-08-18, amended 2026-08-19).** `styles.viewport` is an `overflow: 'hidden'` box
+ *     running from the header card's (or an attached sticky bar's) BOTTOM edge to the nav card's
+ *     TOP edge, inset by the 8px side margins both cards use. Nothing renders above the header,
+ *     below the bar, in the gutters, or — since the glass became translucent — behind either
+ *     card: "things like header and bottom nav should still not show elements behind it when
+ *     user is scrolling. Only the backdrop." The header's own 8px resting gap is `contentPad` on
+ *     the content, NOT part of this margin. **One clearance each, and they are two different
+ *     numbers**: the margin is where content is CUT, the padding is where it RESTS. Both on the
+ *     margin and a card is sliced 8px below the glass in open air (the 2026-08-18 regression);
+ *     both on the padding and content scrolls behind the chrome again.
  *   - **A clip edge has to LAND ON something opaque — that is the whole lesson of this file**
- *     (see `viewportInset`'s own comment for the three attempts and why each failed). An edge in
- *     open air IS a card sliced across a blank strip: `marginTop: contentTopClear` put the top
- *     edge 8px below the header card (that constant folds in `headerFloatBottom`), and
- *     `marginBottom: bottomNavClearance` put the bottom edge on the bar's NEAR edge (that total is
- *     the whole nav overlay block). The second one also made the corner peek unreachable at any
- *     radius — the notch is *inside* the bar's rectangle — which is why the pass that un-rounded
- *     the viewport's corners to restore the peek changed nothing on screen. Don't reintroduce
- *     either number here.
- *   - **The peek is a mid-viewport artefact, not an edge treatment.** A scrolled card shows in the
- *     bar's TOP corner notches and the header's BOTTOM ones because those sit in the middle of
- *     this box; the viewport's own rounded corners cover the header's top pair and the bar's
- *     bottom pair, where nothing should show. Maintainer: "visible in the bottom nav's cut corners
- *     at the top, not the two bottom ones — same for the header but the opposite."
+ *     (see `viewportInset`'s own comment for the attempts and why each failed). An edge in open
+ *     air IS a card sliced across a blank strip: `marginTop: contentTopClear` puts the top edge
+ *     8px below the header card (that constant folds in `headerFloatBottom` — hence the
+ *     subtraction), and `marginBottom: bottomNavClearance` puts the bottom edge on the bar's NEAR
+ *     edge (that total is the whole nav overlay block). Don't reintroduce either number here.
+ *   - **A CORNER is an edge too, and it is the half that keeps being missed.** The window's
+ *     edges lie along the header's BOTTOM corners and the bar's TOP ones, both `Radius.lg`. A
+ *     square-cornered window cut against a rounded card leaves the sliced card's own 90° corner
+ *     standing in the notch the glass has already curved away from — the one point on that edge
+ *     with nothing over the cut, and the thing reported three times as "upper corners… and lower
+ *     corners of header box". So the viewport carries `Radius.lg` on both facing pairs (the
+ *     bottom pair only when a nav is actually reserved) and the cut follows the chrome's corner
+ *     instead of crossing it. This is NOT the 2026-08-11 radii, which were for the opposite
+ *     pairs — the header's top and the bar's bottom — back when the window ran the chrome's full
+ *     height. The corner peek that geometry allowed is gone and stays gone.
  *   - **`viewportBleed` is the inner scroll box's mirror-image negative margin and is
  *     load-bearing**: it keeps every card at the exact x it had before the inset — the 8px is
  *     clipped off empty backdrop, since every screen's content container already pads by
@@ -673,24 +675,52 @@ export default function ScreenScaffold({
     marginHorizontal: headerFloatH,
     // The header card's own height (plus a sticky bar's, when one is attached under it) —
     // the clip edge sits on the chrome's INNER edge, so content stops where the glass starts.
-    marginTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    //
+    // ⚠️ **`headerFloatBottom` is subtracted, and that subtraction is the whole point (2026-08-19).**
+    // `contentTopClear` folds in the 8px gap between the header card and content, so including it
+    // here put the top clip edge 8px BELOW the card — in open air. A card scrolling up was cut by
+    // a straight line with nothing over the cut and a strip of backdrop between it and the glass:
+    // the "guillotined mid-glyph" failure this file's 2026-08-10 note already recorded once, back
+    // for the same reason in a new place. The clip is the chrome's edge; the 8px is the RESTING
+    // gap and belongs on the content (`contentPad` below). One clearance each, still — but one
+    // each, not both on the margin. (A screen with an attached sticky bar has no gap to subtract:
+    // `headerFloatBottom` is already 0 there, and the bar's own bottom edge is the clip.)
+    marginTop:
+      contentTopClear - headerFloatBottom + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
     // The nav bar's whole footprint: its card, its float gap and the safe-area band below it.
     // Was split — the band as margin here, the card's height as content padding — which is
     // exactly what let content travel behind the glass. Summed, the clearance is unchanged;
     // what changed is that all of it now CLIPS rather than half of it merely padding.
     marginBottom:
       (pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0) + (reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0),
-    // **No corner radii any more.** They existed to cover the header's TOP corners and the
-    // bar's BOTTOM ones while content ran the chrome's full height behind both. The window no
-    // longer reaches either pair — it is a plain rectangle in the gap between the two cards,
-    // and every edge of it is now flush against something opaque enough to hide the cut.
+    // **The corners are back, and they are the OTHER pair (2026-08-19).** The 2026-08-11 radii
+    // covered the header's TOP corners and the bar's BOTTOM ones, and this comment said the
+    // window no longer reaches either — true, and it missed what the window reaches INSTEAD.
+    // Its top edge now lies along the header's BOTTOM corners and its bottom edge along the
+    // bar's TOP corners, i.e. exactly the two pairs the maintainer keeps reporting ("upper
+    // corners… and lower corners of header box"). A square-cornered window cut against a
+    // `Radius.lg` card leaves the sliced card's own 90° corner sitting in the notch where the
+    // glass has already curved away — the one place on that edge with nothing over the cut.
+    // Rounding the window to the SAME radius lets the cut follow the chrome's corner instead
+    // of crossing it, so a card tucks under the glass rather than being guillotined beside it.
+    //
+    // The bottom pair is conditional because it is the only one that isn't always a chrome
+    // card: with no nav reserved, the window's bottom edge is the safe area, and a rounded
+    // corner there would clip content against nothing.
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    borderBottomLeftRadius: reserveBottomNav ? Radius.lg : 0,
+    borderBottomRightRadius: reserveBottomNav ? Radius.lg : 0,
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
-  // Nothing left to pad: the viewport's own margins are the clearance now, and putting the same
-  // number on both would double-count it — every screen would grow a blank band the height of
-  // its own header. (This is the pair the 2026-08-11 note below warns about, resolved the other
-  // way round: the clip took over the resting gap rather than the gap taking over the clip.)
-  const contentPad = { paddingTop: 0, paddingBottom: 0 };
+  // The one thing that is NOT clearance: the 8px resting gap between the header card and the
+  // first card, which `viewportInset.marginTop` no longer carries (see the subtraction there).
+  // The margin is where the content is CUT, this is where it RESTS, and the two are different
+  // numbers for the first time — which is what "one clearance each, never both" always meant.
+  // Both halves of the pair must move together: put this number back on the margin as well and
+  // every screen grows a blank band the height of its own header, drop it from here and every
+  // screen's first card starts flush against the glass.
+  const contentPad = { paddingTop: headerFloatBottom, paddingBottom: 0 };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
   // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one

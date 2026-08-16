@@ -171,9 +171,16 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // the resting gap as content padding; it is the chrome's INNER edge now, so a scrolled card
     // stops where the glass begins. `stickyBelowHeaderHeight` has to be in it — a screen's tab
     // row is chrome too, and content showing through THAT was the same defect one card lower.
+    //   **2026-08-19: the gap comes back OFF this number.** `contentTopClear` folds in
+    // `headerFloatBottom`, the 8px between the header card and the first card — so the first cut
+    // of the line above put the clip edge 8px BELOW the glass, and a card scrolling up was
+    // guillotined in open air with a strip of backdrop between the cut and the header. Reported
+    // as "lower corners of header box". The clip is the chrome's edge; the resting gap is the
+    // content's padding (asserted in the next test). Screens with an attached sticky bar have no
+    // gap to subtract — `headerFloatBottom` is already 0 there.
     const source = code('components/ScreenScaffold.tsx');
     expect(source).toMatch(
-      /marginTop: contentTopClear \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\)/,
+      /marginTop:\s*\n?\s*contentTopClear - headerFloatBottom \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\)/,
     );
     expect(source).not.toMatch(/paddingTop: contentTopClear/);
   });
@@ -184,12 +191,14 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
-    // `contentPad` still exists and still reaches BOTH branches — the ScrollView's
-    // contentContainer and the non-scrollable (FlatList) wrapper — but it is zero on both axes
-    // since 2026-08-18: the viewport's own margins are the whole clearance now. It is kept as
-    // the one named place that decision is written down, so restoring a resting gap means
-    // editing a documented constant rather than sprinkling padding at two call sites.
-    expect(source).toMatch(/const contentPad = \{ paddingTop: 0, paddingBottom: 0 \}/);
+    // `contentPad` reaches BOTH branches — the ScrollView's contentContainer and the
+    // non-scrollable (FlatList) wrapper. It was zero on both axes for one day (2026-08-18), when
+    // the margin carried the resting gap as well as the clip; 2026-08-19 split them again, and
+    // this is the half that must move WITH the subtraction in the test above. The two numbers
+    // are different things and are now spelled differently: the margin is where content is CUT
+    // (the chrome's edge), this is where it RESTS. Put `headerFloatBottom` on both and every
+    // screen grows a blank band; drop it from here and every first card sits on the glass.
+    expect(source).toMatch(/const contentPad = \{ paddingTop: headerFloatBottom, paddingBottom: 0 \}/);
     expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
     expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
   });
@@ -294,18 +303,24 @@ describe('BottomNav — flat equality, no background shape', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins, and rounds no corner at all', () => {
+  it('takes the chrome\'s side margins, and rounds the pairs that FACE a chrome card', () => {
     // The margins close the 8px gutters beside the header/bar, where no chrome covers content.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    // **No corner radius any more (2026-08-18).** This assertion has now flipped three times,
-    // and each flip followed the WINDOW moving rather than a taste change about corners: the
-    // radii were for the two pairs where the viewport met a chrome card's OUTER corner (the
-    // header's top, the bar's bottom). The window no longer reaches either — it is a plain
-    // rectangle in the gap BETWEEN the two cards — so a radius here would round content's
-    // corners against nothing. Both halves are asserted, so restoring one without moving the
-    // window back fails.
-    expect(source).not.toMatch(/borderTopLeftRadius: Radius\.lg/);
-    expect(source).not.toMatch(/borderBottomLeftRadius: Radius\.lg/);
+    // **The radii are back on the OTHER pair (2026-08-19).** This assertion has flipped four
+    // times and every flip followed the WINDOW moving, never a taste change about corners. The
+    // 2026-08-11 radii covered the pairs where the viewport met a chrome card's OUTER corner
+    // (the header's top, the bar's bottom); 2026-08-18 moved the window into the gap between
+    // the two cards and dropped them, correctly — and missed that the window's edges had landed
+    // on the OPPOSITE pairs, the header's BOTTOM corners and the bar's TOP ones. A square window
+    // cut against a Radius.lg card leaves the sliced card's own 90° corner sitting in the notch
+    // the glass has curved away from: the maintainer's "upper corners… and lower corners of
+    // header box", reported against the 2026-08-18 build.
+    expect(source).toMatch(/borderTopLeftRadius: Radius\.lg/);
+    expect(source).toMatch(/borderTopRightRadius: Radius\.lg/);
+    // The bottom pair is conditional, because it is the only one that isn't always chrome: with
+    // no nav reserved that edge is the safe area, and a radius there rounds against nothing.
+    expect(source).toMatch(/borderBottomLeftRadius: reserveBottomNav \? Radius\.lg : 0/);
+    expect(source).toMatch(/borderBottomRightRadius: reserveBottomNav \? Radius\.lg : 0/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {
