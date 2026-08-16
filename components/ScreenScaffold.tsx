@@ -50,32 +50,40 @@
  *     scrollable branch and both are `null` on the non-scrollable one.
  *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
  *   - **Content lives in a CLIPPED VIEWPORT that fills the gap BETWEEN the two chrome cards
- *     (2026-08-18, amended 2026-08-19).** `styles.viewport` is an `overflow: 'hidden'` box
- *     running from the header card's (or an attached sticky bar's) BOTTOM edge to the nav card's
- *     TOP edge, inset by the 8px side margins both cards use. Nothing renders above the header,
- *     below the bar, in the gutters, or — since the glass became translucent — behind either
- *     card: "things like header and bottom nav should still not show elements behind it when
- *     user is scrolling. Only the backdrop." The header's own 8px resting gap is `contentPad` on
- *     the content, NOT part of this margin. **One clearance each, and they are two different
- *     numbers**: the margin is where content is CUT, the padding is where it RESTS. Both on the
- *     margin and a card is sliced 8px below the glass in open air (the 2026-08-18 regression);
- *     both on the padding and content scrolls behind the chrome again.
+ *     (2026-08-18, amended twice on 2026-08-19).** `styles.viewport` is an `overflow: 'hidden'`
+ *     box running from the header card's (or an attached sticky bar's) BOTTOM edge to the nav
+ *     card's TOP edge, inset by the 8px side margins both cards use. Nothing renders above the
+ *     header, below the bar, in the gutters, or — since the glass became translucent — behind
+ *     either card: "things like header and bottom nav should still not show elements behind it
+ *     when user is scrolling. Only the backdrop."
+ *   - **There is NO resting gap any more, at either end (2026-08-19).** `headerFloatBottom` and
+ *     both halves of `contentPad` are 0: the first card sits on the header's glass and the last
+ *     on the bar's. Maintainer: *"Bottom of header and top of bottom nav should work the same…
+ *     No blank space between"*, and, asked whether to keep the 8px at rest, *"flush at rest
+ *     too"*. That 8px was a strip of bare backdrop under the header at rest AND the strip a card
+ *     got sliced across on the way past it, which is what made a card read as guillotined in
+ *     open air rather than as passing under the glass. **The rule it came from still holds and
+ *     is why the two are still spelled separately**: one clearance each, never both — the margin
+ *     is where content is CUT, the padding is where it RESTS. Today both are nothing; if a gap
+ *     ever comes back it comes back on `contentPad` alone.
  *   - **A clip edge has to LAND ON something opaque — that is the whole lesson of this file**
  *     (see `viewportInset`'s own comment for the attempts and why each failed). An edge in open
  *     air IS a card sliced across a blank strip: `marginTop: contentTopClear` puts the top edge
  *     8px below the header card (that constant folds in `headerFloatBottom` — hence the
- *     subtraction), and `marginBottom: bottomNavClearance` puts the bottom edge on the bar's NEAR
- *     edge (that total is the whole nav overlay block). Don't reintroduce either number here.
- *   - **A CORNER is an edge too, and it is the half that keeps being missed.** The window's
- *     edges lie along the header's BOTTOM corners and the bar's TOP ones, both `Radius.lg`. A
- *     square-cornered window cut against a rounded card leaves the sliced card's own 90° corner
- *     standing in the notch the glass has already curved away from — the one point on that edge
- *     with nothing over the cut, and the thing reported three times as "upper corners… and lower
- *     corners of header box". So the viewport carries `Radius.lg` on both facing pairs (the
- *     bottom pair only when a nav is actually reserved) and the cut follows the chrome's corner
- *     instead of crossing it. This is NOT the 2026-08-11 radii, which were for the opposite
- *     pairs — the header's top and the bar's bottom — back when the window ran the chrome's full
- *     height. The corner peek that geometry allowed is gone and stays gone.
+ *     subtraction, kept as the load-bearing statement even now that it subtracts zero), and
+ *     `marginBottom: bottomNavClearance` puts the bottom edge on the bar's NEAR edge (that total
+ *     is the whole nav overlay block). Don't reintroduce either number here.
+ *   - **A CORNER is an edge too — and the answer is to DELETE the corner, not to follow it
+ *     (2026-08-19).** The window's edges lie along the header's BOTTOM corners and the bar's TOP
+ *     ones, so both of those pairs are square now (`chromeFacingSquare`, plus `BottomNav`'s
+ *     `bar` and `TabSlider`'s `attachedTop`), and the viewport is square on all four to meet
+ *     them flush. A ROUNDED chrome edge cannot be met flush by anything, which is why this was
+ *     reported twice from opposite directions: cut the content square against it and the sliced
+ *     card's 90° corner stands in the notch the glass curved away from ("upper corners… and
+ *     lower corners of header box"), cut it to a matching radius and the two arcs bow apart into
+ *     a lens of bare backdrop ("the parts in the corners"). Only the chrome's OUTWARD corners —
+ *     the header's top, the bar's bottom — are still `Radius.lg`; nothing faces content there.
+ *     The corner peek an earlier geometry allowed is gone and stays gone.
  *   - **`viewportBleed` is the inner scroll box's mirror-image negative margin and is
  *     load-bearing**: it keeps every card at the exact x it had before the inset — the 8px is
  *     clipped off empty backdrop, since every screen's content container already pads by
@@ -144,11 +152,14 @@
  *     (plainBackground) path. As of the floated-header pass the block is `transparent` when
  *     `floatChrome` so the ScreenBackground shows in the side/top gaps around the glass —
  *     the stretched glass still covers content under the header itself.
- *   - **Header + sticky bar are ONE card (2026-08-10)**: when `stickyBelowHeader` is passed,
- *     `headerFloatBottom` goes to 0 and `headerAttachedBelow` squares the header's bottom
- *     corners; the sticky bar (components/TabSlider.tsx's `attachedTop`) squares its top ones.
- *     Maintainer: "Tab slider should be under the header without dividing space." Screens with
- *     no sticky bar keep the 8px gap — there's nothing under them to attach to.
+ *   - **Header + sticky bar are ONE card (2026-08-10; generalised 2026-08-19)**: when
+ *     `stickyBelowHeader` is passed the header's bottom corners are squared against it and the
+ *     sticky bar (components/TabSlider.tsx's `attachedTop`) squares its top ones. Maintainer:
+ *     "Tab slider should be under the header without dividing space." Both halves of that are
+ *     now unconditional — every floating header squares its bottom pair and there is no gap on
+ *     any screen — because CONTENT turned out to want exactly what the sticky bar wanted. What
+ *     `headerAttachedBelow` still decides on its own is only which card the viewport's top edge
+ *     is measured from, and the seam hairline between the two.
  *   - **`HEADER_SEAM_OVERLAP` (2026-08-14)**: the two cards only ABUT (header's bottom edge ==
  *     sticky block's top edge), and that exact-abutment coordinate can round to two separate
  *     device pixels rather than one, leaving a hairline seam that showed scrolled content
@@ -157,14 +168,16 @@
  *     when attached, so the opaque header card overlaps the seam instead of relying on the two
  *     edges rounding identically. `contentTopClear` and the sticky block's own `top` are
  *     deliberately NOT bumped by this — only the header's paint extends, nothing else moves.
- *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25)**:
- *     `floatChrome` (= !plainBackground) insets the header with `headerFloatBottom` (gap before
- *     content) and `headerFloatH` (side margins), rounds the glass (Radius.lg, via the style
- *     prop), and makes the block transparent. `headerFloatTop` is 0 — the header's top now sits
- *     flush against `topInset` (the status/notification bar) instead of floating a further
- *     `Spacing.sm` below it (user report: the card should visually touch the notification line,
- *     not hover under it). `headerBlockHeight` folds the (now asymmetric) gaps into the block
- *     height so the glass Surface still fills exactly HEADER_HEIGHT; `contentTopClear` and the
+ *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25,
+ *     bottom gap dropped 2026-08-19)**: `floatChrome` (= !plainBackground) insets the header
+ *     with `headerFloatH` (side margins), rounds the glass's TOP corners (Radius.lg, via the
+ *     style prop — the bottom pair faces content and is square), and makes the block
+ *     transparent. Both float gaps are now 0: `headerFloatTop` since 2026-07-25 so the card
+ *     touches the notification line (user report: it should visually touch it, not hover under
+ *     it), `headerFloatBottom` since 2026-08-19 so content touches the card. `headerBlockHeight`
+ *     folds those gaps into the block height so the glass Surface still fills exactly
+ *     HEADER_HEIGHT — the arithmetic stays even at zero, because a gap coming back must move the
+ *     block and the clip together. `contentTopClear` and the
  *     sticky block/filler tops all derive from it so content and any stickyBelowHeader bar still
  *     clear the floated header. Pairs with the floated bottom nav in app/(tabs)/_layout.tsx.
  *   - **keyboardShouldPersistTaps (visual-audit, 2026-07-11)**: the in-flow ScrollView now
@@ -480,6 +493,21 @@ export default function ScreenScaffold({
   // header's bottom corners and the slider squares its top ones. Screens with no sticky bar
   // keep the gap — there is nothing under them for the header to attach to.
   const headerAttachedBelow = floatChrome && !!stickyBelowHeader;
+  // **The header's bottom edge and the nav's top edge are ONE kind of edge now (2026-08-19).**
+  // Maintainer: *"Bottom of header and top of bottom nav should work the same… no blank space
+  // between"*, and delete *"the parts in the corners"*. Both edges face the content, so both are
+  // drawn the same way: square (see the header's `style` below and `BottomNav`'s `bar`), full
+  // width of the card, with the content clipped flush against them.
+  //   The corners are the half that isn't obvious. A ROUNDED chrome edge cannot be met flush by
+  // anything: the glass curves away from the last 24px at each end, so whatever the content does
+  // there is wrong — cut square and its 90° corner stands in the notch (the 2026-08-18 report),
+  // cut to a matching curve and the two arcs bow away from each other into a lens of bare
+  // backdrop (what that fix produced instead). Squaring the two facing edges deletes the notch
+  // rather than trying to fill it, which is the same move `headerAttachedBelow` has always made
+  // where the header meets a sticky tab bar — this generalises it to every screen and to the bar
+  // at the other end. The chrome's OUTWARD corners (the header's top, the nav's bottom) are
+  // untouched and still `Radius.lg`; nothing there faces content.
+  const chromeFacingSquare = floatChrome;
   // A device-pixel seam between the header card and an attached sticky bar (2026-08-14): the
   // two are independently-positioned absolute views that only ABUT (header's bottom edge ==
   // sticky block's top edge), and on some pixel densities that shared coordinate rounds to two
@@ -488,8 +516,22 @@ export default function ScreenScaffold({
   // sticky block), so painting it a hairline TALLER — without moving `contentTopClear` or the
   // sticky block's own `top`, both still keyed to the un-overlapped `headerBlockHeight` — lets
   // the header's opaque card cover that seam from above instead of relying on exact abutment.
-  const HEADER_SEAM_OVERLAP = headerAttachedBelow ? StyleSheet.hairlineWidth : 0;
-  const headerFloatBottom = floatChrome && !headerAttachedBelow ? Spacing.sm : 0;
+  //   **Widened to every floating screen (2026-08-19)**, because the content viewport now abuts
+  // the header exactly the way an attached sticky bar always did — same two-independently-
+  // positioned-boxes-sharing-a-coordinate, same chance of it rounding to two device pixels, and
+  // a hairline of bare backdrop under the header is precisely the "blank strip" this pass exists
+  // to delete. It is a hairline of extra PAINT on a zIndex-100 card; nothing else moves.
+  const HEADER_SEAM_OVERLAP = floatChrome ? StyleSheet.hairlineWidth : 0;
+  // **The resting gap is gone (2026-08-19).** It was `Spacing.sm` between the header card and the
+  // first content card, and the maintainer's answer on whether to keep it was "flush at rest
+  // too": at rest that 8px was a strip of bare backdrop under the header, and while scrolling it
+  // was the strip a card was sliced across. Zero here means the header's footprint IS the glass,
+  // so `contentTopClear` (and with it the viewport's top edge) lands exactly on the glass's
+  // bottom edge and a card slides out from under the header instead of stopping short of it.
+  //   ⚠️ Deleting it here is only half — `contentPad` below is the other half and must stay 0
+  // with it. The two used to be "one clearance each" precisely because the numbers differed;
+  // they are the same number now, and that number is zero.
+  const headerFloatBottom = 0;
   // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
   // header and bottom-nav floating cards should read as the same width (2026-07-24).
   const headerFloatH = floatChrome ? Spacing.sm : 0;
@@ -735,7 +777,18 @@ export default function ScreenScaffold({
     // what changed is that all of it now CLIPS rather than half of it merely padding.
     marginBottom:
       (pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0) + (reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0),
-    // **The corners are back, and they are the OTHER pair (2026-08-19).** The 2026-08-11 radii
+    // **⚠️ SQUARE, and that is the current answer to the corner question (2026-08-19, later the
+    // same day than the block below).** Rounding the window to the chrome's own radius was the
+    // previous attempt at it and is the one this replaces: a window whose top edge curves DOWN
+    // and away meeting a header whose bottom edge curves UP and away leaves a lens of bare
+    // backdrop at each end — the "parts in the corners" the maintainer then asked to delete. The
+    // notch is deleted at its source instead: the two facing chrome edges are square now (see
+    // `chromeFacingSquare`), so a square window meets them along their whole width and there is
+    // no corner left for anything to sit in. The block below explains why a rounded window was
+    // reached for; it stops applying the moment the edge it was following stopped being round.
+    //
+    // ── (Historical, 2026-08-19 morning) The corners are back, and they are the OTHER pair ──
+    // The 2026-08-11 radii
     // covered the header's TOP corners and the bar's BOTTOM ones, and this comment said the
     // window no longer reaches either — true, and it missed what the window reaches INSTEAD.
     // Its top edge now lies along the header's BOTTOM corners and its bottom edge along the
@@ -751,20 +804,24 @@ export default function ScreenScaffold({
     // flat edge-to-edge app-bar with square corners and no side margins, so a curve there would
     // round content away from a straight edge — the mirror image of this bug. And with no nav
     // reserved, the window's bottom edge is the safe area, i.e. nothing at all.
-    borderTopLeftRadius: floatChrome ? Radius.lg : 0,
-    borderTopRightRadius: floatChrome ? Radius.lg : 0,
-    borderBottomLeftRadius: floatChrome && reserveBottomNav ? Radius.lg : 0,
-    borderBottomRightRadius: floatChrome && reserveBottomNav ? Radius.lg : 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
-  // The one thing that is NOT clearance: the 8px resting gap between the header card and the
-  // first card, which `viewportInset.marginTop` no longer carries (see the subtraction there).
-  // The margin is where the content is CUT, this is where it RESTS, and the two are different
-  // numbers for the first time — which is what "one clearance each, never both" always meant.
-  // Both halves of the pair must move together: put this number back on the margin as well and
-  // every screen grows a blank band the height of its own header, drop it from here and every
-  // screen's first card starts flush against the glass.
-  const contentPad = { paddingTop: headerFloatBottom, paddingBottom: 0 };
+  // **Zero on both edges (2026-08-19) — flush is the point.** This used to be the 8px resting gap
+  // (`headerFloatBottom`), the one number that was deliberately NOT clearance: the margin above
+  // was where content got CUT, this was where it RESTED, and they differed. The maintainer asked
+  // for the strip to go at rest as well as while scrolling, so they are the same number now and
+  // that number is 0 — the first card sits against the header's glass and the last card against
+  // the bar's, which is what makes a card read as passing UNDER the chrome rather than being
+  // sliced in mid-air short of it.
+  //   Kept as a named object rather than inlined because `scrollIndicatorInsets` reads it, and
+  // because a future resting gap has exactly one place to come back to. If it ever does, it must
+  // come back HERE and not on `viewportInset.marginTop` — one clearance each, never both, is
+  // still the rule; it is just that today's clearance is nothing.
+  const contentPad = { paddingTop: 0, paddingBottom: 0 };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
   // gets exactly the same edges as a ScrollView one — the Catalogue screen used to be the one
@@ -858,13 +915,17 @@ export default function ScreenScaffold({
         plainBackground && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border },
       ]}>
         <ScreenHeader
-          // Round the glass only when floating. When a sticky bar is attached directly below
-          // (Plans/Shopping/Settings' tab rows) the bottom corners go square so the two read as
-          // one card rather than two stacked ones — the slider squares its top corners to match.
+          // Round the glass only when floating — and only the TOP corners (2026-08-19). The
+          // bottom pair faces the content and is square on every floating screen now, not just
+          // the ones with a sticky bar attached below: a rounded edge cannot be met flush, and
+          // meeting the content flush is the whole ask. See `chromeFacingSquare`. This is the
+          // same treatment `headerAttachedBelow` already gave this edge — it just no longer
+          // depends on what happens to be under the header, since the answer is "content" either
+          // way. `BottomNav`'s `bar` squares its top corners for the identical reason.
           style={[
             styles.headerFill,
             floatChrome && { borderRadius: Radius.lg },
-            headerAttachedBelow && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+            chromeFacingSquare && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
           ]}
           title={title}
           tier={tier}

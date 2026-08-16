@@ -331,7 +331,17 @@ export default function TabSlider<T extends string | number>({
         // colours. `paddingTop` gives the px back, keeping the rendered height exactly
         // TAB_SLIDER_HEIGHT — the caller reserves that number, and a surplus/deficit is what
         // knocks the pill's vertical inset out of true (see that constant's doc).
-        attachedTop && { borderTopLeftRadius: 0, borderTopRightRadius: 0 },
+        // ...and the BOTTOM pair goes square with it (2026-08-19). When this bar is attached it
+        // IS the screen's chrome edge — the scroll viewport is clipped flush against its bottom,
+        // not the header's — so it inherits the rule the header and the bottom nav now share:
+        // an edge that faces content is square, because a rounded one leaves a notch the content
+        // can only be sliced into or curved away from. See ScreenScaffold's `chromeFacingSquare`.
+        attachedTop && {
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          borderBottomLeftRadius: 0,
+          borderBottomRightRadius: 0,
+        },
         style,
       ]}
     >

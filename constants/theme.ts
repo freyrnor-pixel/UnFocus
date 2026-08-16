@@ -1099,6 +1099,38 @@ export function getRecessedField(surface: string, isDark: boolean): { paint: str
 }
 
 /**
+ * The corner radius of a field/composer well — the one number, for every field in the app.
+ *
+ * It was `Radius.sm` written out at each of the four field call sites, which is not the same
+ * thing as being shared: the halo below has to agree with it, and one of those sites hung the
+ * halo on a wrapper View that carried no radius at all. See `getFieldGlow`.
+ */
+export const FIELD_RADIUS = Radius.sm;
+
+/**
+ * A field's halo AND the shape that halo is cut to, from one call.
+ *
+ * **This exists because the two cannot be allowed to be separate decisions** (2026-08-19, user
+ * report: *"the glow is squared, but the text-boxes inside are rounded... link them/merge them
+ * so it works universally"*). A `boxShadow` follows the border-box of the view it is set on, so
+ * a halo is round only if that exact view is round. `components/AddRow.tsx` and
+ * `components/FormControls.tsx` set the glow directly ON the input, which carries a radius, and
+ * were right by luck; `components/PadTypeRow.tsx` hangs it on a wrapper View (a `boxShadow` on
+ * a TextInput renders unreliably on Android, and that field needs the wrapper for its absolutely
+ * positioned submit arrow anyway) — and that wrapper had `{ flex: 1, justifyContent: 'center' }`
+ * and nothing else, so every Home card drew a square halo around a rounded well.
+ *
+ * Returning the radius WITH the shadow is what makes that unrepresentable: a caller cannot take
+ * the light without also taking the shape it is cast from, wherever it hangs it. Spread it into
+ * the style of whichever view is the field's visible box.
+ *
+ * @param radiusScale the design lab's `shape.radiusScale`, for the callers that run through it.
+ */
+export function getFieldGlow(color: string, level: 'soft' | 'strong' = 'soft', radiusScale = 1) {
+  return { borderRadius: FIELD_RADIUS * radiusScale, ...getGlow(color, level) };
+}
+
+/**
  * The edge of a FILLED control, derived from its own fill.
  *
  * A filled button/FAB can't wear the screen hue the way a `ghost` button or a card does — its

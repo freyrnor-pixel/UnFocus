@@ -19,8 +19,10 @@
  *     where an inline composer never quite fit.)
  * **The fields are ALREADY converged** — all three draw the same field, and since 2026-08-16
  * (brief §8) that is a RECESSED WELL: a translucent black wash sunk into the card, no stroke at
- * rest, and a focus ring in the card's own categorical colour plus a `getGlow` halo. This one
- * and `PadTypeRow` build it from `getRecessedField` directly; `InlineAddItem` gets it by passing
+ * rest, and a focus ring in the card's own categorical colour plus a `getFieldGlow` halo (which
+ * carries the field's corner radius with it, so the light is always cut to the field's shape —
+ * see that helper's doc). This one and `PadTypeRow` build the well from `getRecessedField`
+ * directly; `InlineAddItem` gets it by passing
  * `recessed` to `FormControls`' `Input`, which is opt-in there for a measured reason — see that
  * prop's doc before assuming every field in the app should look like this (it should not; an
  * editor's fields sit on the backdrop, where a black wash on near-black is invisible),
@@ -58,7 +60,7 @@
  * buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getGlow, …), lib/useAppTheme,
+ *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getFieldGlow, …), lib/useAppTheme,
  *             lib/domainColor (badgeGlyphFor — keeps the focus ring visible on the well),
  *             lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
@@ -103,7 +105,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { BORDER_WIDTH, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
@@ -281,7 +283,14 @@ export default function AddRow({
         // Always lit (2026-08-16, "tactile glow" polish pass), stepping `soft` → `strong` on
         // focus — see PadTypeRow's identical change for the one-composer-field-can-glow-at-rest
         // reasoning; the two fields must stay in step, since they're the same control.
-        getGlow(fill, focused ? 'strong' : 'soft'),
+        // `getFieldGlow` (2026-08-19) hands out the halo AND the radius it is cut to, so a
+        // field's light can never be a different shape from the field — see its doc for the
+        // square-halo bug that produced it. This site sets both on the input itself and was
+        // already correct; it goes through the helper so there is one field shape, not three
+        // copies of `Radius.sm` that only happen to agree. `styles.input`'s own borderRadius is
+        // gone with it — the helper's is the same number and appears earlier in the style array,
+        // so restating it would just be a second place to drift.
+        getFieldGlow(fill, focused ? 'strong' : 'soft'),
         {
           color: theme.text,
           // ── Recessed, not raised (2026-08-16, brief §8) ────────────────────────────────
@@ -448,7 +457,8 @@ const styles = StyleSheet.create({
     // Same weight as every other field-rung border (PadTypeRow's composer, PadSheet's row
     // boxes, QuickAddOptionRow's cells) — card design reset, 2026-08-05.
     borderWidth: BORDER_WIDTH.field,
-    borderRadius: Radius.sm,
+    // No borderRadius here — `getFieldGlow` supplies it inline with the halo, so the field and
+    // its light are cut to one shape by construction (2026-08-19).
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,

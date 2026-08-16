@@ -73,6 +73,13 @@
  *     a BlurView). Content can never show through it regardless — components/ScreenScaffold.tsx
  *     clips the scroll viewport at this bar's TOP edge as of 2026-08-18, so the only thing
  *     behind the glass is the screen backdrop. See that file's `viewportInset`.
+ *   - **That top edge is SQUARE as of 2026-08-19** (`bar`'s radii), and the header's bottom edge
+ *     is square for the same reason: an edge with content clipped flush against it cannot be
+ *     rounded, or the last `Radius.lg` at each end becomes a notch the content is either sliced
+ *     into or curved away from — reported at both ends of the screen as a blank strip and as
+ *     "the parts in the corners". The BOTTOM pair floats over the safe area with nothing behind
+ *     it and keeps its radius. Don't restore the top pair for symmetry with it; the two edges do
+ *     different jobs.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -217,8 +224,17 @@ const baseStyles = StyleSheet.create({
     // children of unequal width (two flex groups around a fixed 56px FAB) — and the gap was
     // itself a bug source, since the raw `Spacing.sm` token disagreed with the scaled one the
     // group actually rendered (2026-08-13).
-    borderTopLeftRadius: Radius.lg,
-    borderTopRightRadius: Radius.lg,
+    // **The TOP pair is square (2026-08-19).** That edge faces the scroll content, which is
+    // clipped flush against it by components/ScreenScaffold.tsx — and a rounded edge cannot be
+    // met flush: the glass curves away from the last `Radius.lg` at each end, leaving a notch
+    // where the content is either sliced square into it or curved away from it, which is the
+    // "blank strip / parts in the corners" the maintainer reported at both ends of the screen.
+    // Deleting the notch is what lets a card disappear UNDER the bar along its whole width.
+    // The header's bottom edge is square for exactly this reason (see `chromeFacingSquare`);
+    // the two edges facing the content are one kind of edge. The BOTTOM pair still floats over
+    // the safe area with nothing behind it, so it keeps the radius.
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     borderBottomLeftRadius: Radius.lg,
     borderBottomRightRadius: Radius.lg,
   },
