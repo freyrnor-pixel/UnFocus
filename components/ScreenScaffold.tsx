@@ -12,7 +12,9 @@
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
  *             debugModeEnabled — mounted once here so every screen gets it for free),
- *             lib/useAppTheme
+ *             lib/useAppTheme, store/useSettingsStore (tourProgress/setupComplete, read-only —
+ *             see the `tourLocksScroll` edit note), lib/tourSteps (nextStep/parseProgress, the
+ *             same pure helpers components/TourTarget.tsx uses)
  *             (2026-07-31 A.5: lib/screenColor's ScreenColorContext is NO LONGER imported/provided —
  *             the per-screen hue is retired, so an un-coded Surface draws a neutral edge)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
@@ -21,6 +23,13 @@
  *   Data    → none (presentational; all logic in child screens)
  *
  * Edit notes:
+ *   - **`tourLocksScroll` (2026-08-16)**: the internal ScrollView goes `scrollEnabled={false}` on
+ *     the 5 pager tab screens (`pagerTabScene`) for as long as components/TourSpotlight.tsx has a
+ *     step up. The tour's hole/ring track the target's rect via TourTarget's periodic remeasure
+ *     (on an interval, not the scroll frame), so scrolling the list moved the card out from under
+ *     an already-drawn hole and the ring visibly lagged behind it — the fix is to stop the source
+ *     of the drift rather than remeasure faster. Sub-tier screens (forms, Settings) are untouched;
+ *     the tour never targets one.
  *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
  *     L4.5 optional sticky-below-header block → L5 bottom block
  *   - **ScrollIntoViewContext (2026-07-13 keyboard fix; 2026-07-16 made row-relative)**:
@@ -201,6 +210,8 @@ import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
@@ -578,6 +589,20 @@ export default function ScreenScaffold({
   //   way). The Catalogue screen (`scrollable={false}`) is untouched — it self-scrolls and manages
   //   its own notepad bottom gap (protecting the 2026-07-17 fix).
   const pagerTabScene = tier === 'site' && !bottomNav && scrollable;
+  // **Scroll is locked on a tab screen while the guided tour has a step showing (2026-08-16,
+  // user report: "screens should not be scrollable while taking the introduction tour — messes
+  // up the focus boxes").** components/TourTarget.tsx re-measures its target on a cadence
+  // (Duration.card), not on the scroll frame, so scrolling the list out from under an
+  // already-drawn hole leaves the ring visibly lagging the card for a beat until the next pass
+  // catches up. Locking the ScrollView removes the mismatch instead of chasing it with a faster
+  // remeasure. Scoped to `pagerTabScene` — the tour only ever points at one of the five tab
+  // screens, never a sub-tier one, so Settings/forms/editors stay scrollable mid-tour. Reads the
+  // same tourProgress/setupComplete pair components/TourTarget.tsx derives `running` from,
+  // rather than exposing a new store selector for it.
+  const tourProgress = useSettingsStore((s) => s.tourProgress);
+  const tourSetupComplete = useSettingsStore((s) => s.setupComplete);
+  const tourStepShowing = tourSetupComplete && nextStep(parseProgress(tourProgress)) !== null;
+  const tourLocksScroll = pagerTabScene && tourStepShowing;
   // pagerFloatingNav reserves clearance for the pager's overlay bar (see that prop's doc)
   // without this scaffold rendering a second bar of its own — independent of `bottomNav`.
   const reserveBottomNav = tier === 'site' && scrollable && (bottomNav || pagerFloatingNav);
@@ -708,6 +733,7 @@ export default function ScreenScaffold({
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}
           scrollEventThrottle={16}
+          scrollEnabled={!tourLocksScroll}
         >
           <ScrollIntoViewContext.Provider value={scrollIntoView}>
             <ScrollToNodeContext.Provider value={scrollToNode}>{children}</ScrollToNodeContext.Provider>
