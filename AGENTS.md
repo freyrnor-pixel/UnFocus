@@ -1085,6 +1085,23 @@ file owns which token.)
     that blurs on a sheet but not in a list is two materials. Cost is bounded by
     `BLUR_AMBIENT` (15) being about half `BLUR_STRONG` (28), and `glassSurfaces` still kills
     all of it in one switch.
+    ⚠️ **Narrowed by exactly one context on 2026-08-18** (maintainer, against a screenshot of
+    `components/CardMenuSheet.tsx`: *"Cards that overlap other cards should never be
+    translucent."*). An **`overlay`** pane — every sheet and modal, ~24 call sites through the
+    one `Surface` — is OPAQUE and mounts no blur. What settles each tier is what is BEHIND it,
+    not taste: a sheet is the only surface guaranteed to have the app's own cards there, while
+    the chrome has only the backdrop (the 2026-08-18 clip window bounds content at the header's
+    and the nav's INNER edges) and an ambient card sits in a vertical list that never overlaps
+    itself. So this does not re-open the ambient argument above, and `nav` keeps its frost.
+    Two things worth knowing: the fill and the blur come off in ONE gate (`overlapsCards`
+    clearing `glassOn`) — an opaque fill under a live `BlurView` still smears the card behind
+    onto the pane, i.e. the bug in a form that looks half-fixed; and the opaque colour is the
+    new `surfaceRaised` token, which is `surfaceGlassStrong` **already composited over the
+    backdrop**, the same derived pairing `surface`/`surfaceGlass` have one rung down. So a
+    sheet over empty backdrop is unchanged, and `__tests__/glassMaterial.test.ts` asserts the
+    composite the same way it asserts `surface`'s. That token is also now the `nav` tier's
+    reduce-transparency fallback, which had been landing on `surface` — one rung too dark for
+    the frost it was replacing.
   - **`getGlow` alphas 0.34/0.55 → 0.55/0.8.** The old values were tuned against a PALE
     backdrop; on `#000000` what reaches the eye is just `alpha × colour`. The **radii stayed**
     at 15/22 rather than taking the brief's literal 12 — this is a two-pass halo and 12 would
