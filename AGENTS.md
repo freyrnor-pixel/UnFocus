@@ -1506,6 +1506,69 @@ file owns which token.)
     long-press is already the drag-reorder gesture (`lib/useDragReorder.ts`) and the app has no
     row context menu to add to. `card_type` syncs and is importable via the AI setup guide
     (`AI_SETUP_SCHEMA_VERSION` 4).
+- **The state-based reset — no overdue backlog** (2026-08-17, `lib/taskReset.ts` +
+  `store/useTaskStore.ts`'s `normalizeRecurringTasks`/`notToday`/`washedAwayTasks`/`bringBack`,
+  over the new `tasks.last_acted_at` column; pinned by `lib/__tests__/taskReset.test.ts` and
+  `__tests__/taskStateReset.test.ts`). Three rules with one thing in common: **a task has two
+  states, still to do or done, and there is nowhere for a third one to accumulate.**
+  - **Recurring normalization is state, not count.** A recurring daily/weekly task's row is
+    rolled forward to today on boot and on every foreground (`app/_layout.tsx`, both call
+    sites read `todayStr()` at the transition), and a completion belonging to the day it was
+    carrying is cleared in the same patch. Nothing is created and nothing is incremented —
+    the pre-existing bug this fixes is the opposite one: `done` was a bare row flag with no
+    per-date reset, so a daily task ticked once read "done" **forever**.
+    - ⚠️ **Weekly parity is why the roll target is not always literally today.**
+      `lib/taskRecurrence.ts` anchors a `weekInterval > 1` task's parity on `task.date` when
+      `hasStartDate` is set, so stamping today would move an every-other-week task onto the
+      other week. Those roll by WHOLE intervals; everything else lands on today.
+    - ⚠️ **Monthly is deliberately excluded**, and the gap is a decision: its occurrences are
+      weeks apart and the schema has no per-occurrence completion row, so a day-at-a-time
+      roll would make "done" mean "done since yesterday". A monthly reset needs a table
+      habits already have (`habit_logs`) and tasks do not.
+    - **The known cost**: `lib/dayLog.ts` files a completion under `task.date`, so once a
+      recurring task rolls forward its completion leaves the PAST day's log. Accepted — the
+      alternative is the forever-done bug above.
+  - **"Not today"** is a worded button beside `components/TaskCard.tsx`'s existing "Move to
+    Whenever/today" shortcut (same one-tap-persist convention, same `!isRecurring` exclusion —
+    a recurring task's `date` is a scheduling boundary, so writing tomorrow into it retimes a
+    series instead of skipping a day). It writes **two fields, `date` and `hasStartDate`, and
+    nothing else** — no skip counter, no streak break, no "postponed" flag, and no column
+    exists for one. The store test asserts the exact column list, because "we didn't add a
+    counter" is an absence no behavioural test would otherwise notice.
+  - **Washing away is a FILTER, never a move.** A non-recurring task nobody has touched for
+    `WASH_AWAY_HOURS` (72) stops being drawn in the active list and appears in the "Washed
+    away" `CollapsedSection` at the foot of the To-do tab; bringing it back is a fresh
+    `last_acted_at` and nothing else, because washing away wrote nothing in the first place.
+    Same derived-not-stored discipline as rotation's turn and a stepped card's current step.
+    - **`tasks.last_acted_at` exists because nothing else answers the question.**
+      `updated_at` is the sync LWW stamp and moves on any write by any device (including this
+      store's own normalization); `created_at` never moves. It is stamped by every USER write
+      (`add`, `update` and so `toggle`/`completeDirect`/`notToday`, `restore`, `bringBack`)
+      and deliberately NOT by `normalizeRecurringTasks` — get that backwards and the window
+      resets on every foreground, so nothing ever washes away and the archive sits empty with
+      no error anywhere. Not in `lib/liveSync`'s `TABLE_COLUMNS`, same reasoning as `done_at`.
+    - **Four exclusions, each a decision**: recurring (it comes back by itself), done, a
+      `'note'` card (parked information, not work), and anything dated today or later (a task
+      booked for next Thursday is not being ignored). An undated **Whenever** task DOES wash
+      away — that backlog is precisely the lingering pile the rule exists for, and the drawer
+      is one tap.
+    - **`isWashedAway` fails SAFE**: an unreadable or missing stamp keeps the task visible.
+      Hiding a row is the outcome that loses work.
+    - Gated on `settings.featureTaskDecay` (**on by default, still a real toggle**, Settings →
+      Advanced → Features). Deliberately **not** in `aiSetupApply`'s `SETTINGS_WHITELIST` — an
+      AI-authored file must not be able to hide the app's surfaces, the same carve-out
+      `collapsed_cards` and `design_lab` take — so **no `AI_SETUP_SCHEMA_VERSION` bump**.
+  - **Nothing anywhere counts how long.** No overdue copy (already CI-banned in
+    `lib/i18n.ts`), no red, no age on an archived row, no escalation — a washed-away task from
+    March renders identically to one from Tuesday, the same promise `lib/episodes.ts` makes
+    about a week-old episode. `lib/__tests__/taskReset.test.ts` bans the concept in the CODE
+    too (`skipCount`, `overdueDays`, `streak`), because a field like that would pass the copy
+    test and still be the thing this feature exists not to have.
+  - The screen half is one line in `app/(tabs)/plans.tsx`'s **`matchFilters`** — the predicate
+    every section selector already runs through, so an archived task leaves Today, This week,
+    Whenever and All at once — plus `DoneSplitList` wrapping its rows in
+    `components/AnimatedListItem.tsx`, so a row LEAVING a section slides away instead of
+    blinking out. That is what "Not today" needed and every other departure now gets.
 - **To-do sharing: People, tags, shared load, rotation** (2026-07-28, phases 1–4). Four
   pieces that together make a to-do list something two phones can actually divide.
   - **People registry** (`store/usePeopleStore.ts` + `lib/personColor.ts` +

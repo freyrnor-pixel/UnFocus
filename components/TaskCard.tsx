@@ -107,13 +107,15 @@
  *             store/usePeopleStore + components/PersonChip + lib/personColor (2026-07-28 —
  *             the "For" row's roster and the collapsed row's assignee dot),
  *             store/useTagStore + components/TagChip + components/TagPickerRow + lib/tags
- *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills)
+ *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills),
+ *             lib/taskReset (2026-08-17 — `canPostpone`, which gates the "Not today" button
+ *             beside the move shortcut; the rule lives there, not here)
  *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
  *             the full task list (useTaskStore, for the Then-follower picker's candidates/
  *             cycle-guard); writes via useTaskStore (update/steps/remove/setSharedOut/
- *             setFollower) for committed tasks; a new (draft) card writes nothing until
+ *             setFollower/notToday) for committed tasks; a new (draft) card writes nothing until
  *             onCommitNew fires.
  *
  * Edit notes:
@@ -257,6 +259,7 @@ import TagPickerRow from '@/components/TagPickerRow';
 import { resolveTags, toggleTagId } from '@/lib/tags';
 import { useTagStore } from '@/store/useTagStore';
 import { isRotating, rotationAssigneeFor, type RotationMode } from '@/lib/taskRotation';
+import { canPostpone } from '@/lib/taskReset';
 import { personColor } from '@/lib/personColor';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import NewSinceGlow from '@/components/NewSinceGlow';
@@ -402,6 +405,7 @@ function TaskCard({
   const anim = !reducedMotion;
   const t = useT();
   const update = useTaskStore((s) => s.update);
+  const notToday = useTaskStore((s) => s.notToday);
   const removeTask = useTaskStore((s) => s.remove);
   const addStep = useTaskStore((s) => s.addStep);
   const toggleStep = useTaskStore((s) => s.toggleStep);
@@ -739,6 +743,24 @@ function TaskCard({
     tap();
     const toDated = !task.hasStartDate;
     update(task.id, toDated ? { date: todayStr(), hasStartDate: true } : { hasStartDate: false });
+  }
+
+  /**
+   * "Not today" (2026-08-17, lib/taskReset.ts rule 2) — the second worded shortcut in the
+   * same block, and the same one-tap-persist convention as the move above.
+   *
+   * `todayStr()` is read HERE, at press time, rather than captured in the render body: this
+   * card stays mounted across midnight on a pager that never unmounts a screen, and a
+   * captured date would push the task to *yesterday's* tomorrow. Same trap
+   * lib/__tests__/todayFreshness.test.ts pins for the tab screens.
+   *
+   * The store owns the rest of the rule (`canPostpone` gates the button, the action writes a
+   * date and nothing else) — deliberately, so a second caller cannot invent a different
+   * meaning for the same action.
+   */
+  function handleNotToday() {
+    tap();
+    notToday(task.id, todayStr());
   }
 
   // Contact (reserve-only) — snapshot only, no live device-contact-id link (UnFocus is
@@ -1178,6 +1200,15 @@ function TaskCard({
                 size="sm"
                 onPress={handleMoveSection}
               />
+              {/* "Not today" (2026-08-17) sits beside the move shortcut because it is the same
+                  kind of thing: one tap, one field, no editor. It is a WORDED button for the
+                  same reason everything else in this block is — the 2026-08-04 report that a
+                  small unlabelled icon says nothing. `canPostpone` (lib/taskReset.ts) is what
+                  hides it for a recurring or finished task, and it is the store's own gate, so
+                  the button and the action cannot disagree about when this is legal. */}
+              {canPostpone(task) && (
+                <Button label={t.taskNotToday} variant="secondary" size="sm" onPress={handleNotToday} />
+              )}
             </View>
           </Collapsible>
         )}
@@ -1938,7 +1969,9 @@ const styles = StyleSheet.create({
   // The steps-variant "Move to Whenever/today" shortcut (2026-08-11, Wave B). Same paddingTop
   // as stepsWrap/steppedWrap so it sits at the same distance below the row whichever of the
   // three the card is showing; the Button itself sizes to its label, no width/margin needed.
-  moveWrap: { paddingTop: Spacing.sm },
+  // Two shortcuts now (move + "Not today"), so the row wraps rather than truncating either
+  // label — the same answer the task editor's three-button action row got at 327px.
+  moveWrap: { paddingTop: Spacing.sm, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
   stepCheckTap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   stepCheck: {

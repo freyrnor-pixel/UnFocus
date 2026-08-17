@@ -1308,6 +1308,33 @@ export function initDb() {
     // `surfaceContext === 'ambient'` panes, i.e. content cards, so the two effects can be
     // compared one at a time. See components/Surface.tsx's Edit notes.
     'ALTER TABLE settings ADD COLUMN opaque_cards INTEGER DEFAULT 0',
+    // ── The state-based reset (2026-08-17, lib/taskReset.ts) ──────────────────────────────
+    // When a task was last ACTED ON by the person using this phone — created, edited, ticked,
+    // pushed to tomorrow, or brought back out of the archive. ISO-8601 UTC, like every other
+    // `…_at` column that isn't a local `YYYY-MM-DD`.
+    //
+    // It exists because nothing else in this table answers the question. `updated_at` is the
+    // sync LWW stamp and moves on ANY write by ANY device (a peer's edit, a bulk migration,
+    // the calendar-id write-back); `created_at` never moves at all. The wash-away filter needs
+    // "how long has this been sitting there untouched", and reading either of those as if it
+    // meant that is exactly the false-claim trap AGENTS.md's 2026-08-10 gotcha describes.
+    //
+    // Deliberately NOT in lib/liveSync's TABLE_COLUMNS, same reasoning as `done_at`: the
+    // archive is a device-local view of what THIS user has been leaving alone, and a peer's
+    // clock should not decide what disappears from this screen.
+    "ALTER TABLE tasks ADD COLUMN last_acted_at TEXT DEFAULT ''",
+    // Back-fill from created_at so existing tasks have an honest starting point rather than
+    // an empty one. `created_at` is the SQLite `datetime('now')` shape (`YYYY-MM-DD HH:MM:SS`,
+    // UTC) — normalised to the ISO `T…Z` form here so the column has ONE shape from day one.
+    // (lib/taskReset.ts's `hoursSinceStamp` still reads the space form, for any row this
+    // misses; an unreadable stamp keeps the task visible rather than hiding it.)
+    "UPDATE tasks SET last_acted_at = REPLACE(COALESCE(created_at, ''), ' ', 'T') || 'Z' WHERE COALESCE(last_acted_at, '') = '' AND COALESCE(created_at, '') <> ''",
+    // The wash-away filter as a real toggle, ON by default (the "clean canvas" is the
+    // behaviour asked for; the switch is there because auto-hiding a row is the one part of
+    // the reset a user could reasonably disagree with). Gates the SURFACE only — nothing is
+    // deleted either way, and turning it off puts every archived task straight back in the
+    // active list. Settings → Advanced → Features.
+    'ALTER TABLE settings ADD COLUMN feature_task_decay INTEGER DEFAULT 1',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

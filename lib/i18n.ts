@@ -134,6 +134,14 @@ const en = {
   // meaning as the "When" block above, just a one-tap version of it for the steps-only variant.
   taskMoveToWhenever: 'Move to Whenever',
   taskMoveToToday: 'Move to today',
+  // "Not today" (2026-08-17, lib/taskReset.ts) — pushes a task to tomorrow and writes nothing
+  // else. The wording is the user's own decision about the day, not a verdict on it: it says
+  // where the task went, never that it was skipped, delayed or late.
+  taskNotToday: 'Not today',
+  // The washed-away archive. A NOUN for the place, and the row action says where the task
+  // goes rather than what it is being rescued from — nothing here names an absence.
+  tasksSectionWashedAway: 'Washed away',
+  washedAwayBringBack: 'Bring back',
   taskHowOftenLabel: 'How often',
   taskTimeOfDayLabel: 'Time of day',
   taskStartFromLabel: 'Start from',
@@ -1633,6 +1641,10 @@ const en = {
         label: 'The day as it happened',
         hint: 'Done above the now line, still to come below',
       },
+      taskDecay: {
+        label: 'Washed away',
+        hint: 'A to-do left alone for three days waits in its own drawer',
+      },
       /**
        * Energy is TWO NAMED PEER MODES now (2026-08-02), not a feature switched on and off.
        * `label`/`hint` stay for anything still rendering it as a plain FEATURE_ROWS row;
@@ -2397,6 +2409,9 @@ const no: typeof en = {
   taskWhenPickDay: 'Velg dag',
   taskMoveToWhenever: 'Flytt til Når som helst',
   taskMoveToToday: 'Flytt til i dag',
+  taskNotToday: 'Ikke i dag',
+  tasksSectionWashedAway: 'Skylt bort',
+  washedAwayBringBack: 'Hent tilbake',
   taskHowOftenLabel: 'Hvor ofte',
   taskTimeOfDayLabel: 'Klokkeslett',
   taskStartFromLabel: 'Starter fra',
@@ -3213,6 +3228,10 @@ const no: typeof en = {
       dayLog: {
         label: 'Dagen slik den skjedde',
         hint: 'Gjort over nå-linjen, resten under',
+      },
+      taskDecay: {
+        label: 'Skylt bort',
+        hint: 'Et gjøremål som har ligget i tre dager venter i sin egen skuff',
       },
       energy: {
         label: 'Energi',
@@ -4206,6 +4225,9 @@ const is: typeof en = {
   taskWhenPickDay: 'Velja dag',
   taskMoveToWhenever: 'Færa í Hvenær sem er',
   taskMoveToToday: 'Færa á í dag',
+  taskNotToday: 'Ekki í dag',
+  tasksSectionWashedAway: 'Skolað burt',
+  washedAwayBringBack: 'Sækja aftur',
   taskHowOftenLabel: 'Hversu oft',
   taskTimeOfDayLabel: 'Klukkan',
   taskStartFromLabel: 'Byrjar',
@@ -5024,6 +5046,12 @@ const is: typeof en = {
         label: 'Dagurinn eins og hann gerðist',
         /* Impersonal "þegar er búið" — the personal form would have to agree with gender. */
         hint: 'Búið fyrir ofan núlínuna, restin fyrir neðan',
+      },
+      taskDecay: {
+        label: 'Skolað burt',
+        /* "verkefni" is neuter and identical in singular and plural here, so the line needs
+           no isCount() — it names the rule, not a number of items. */
+        hint: 'Verkefni sem hefur legið óhreyft í þrjá daga bíður í eigin skúffu',
       },
       energy: {
         label: 'Orka',
