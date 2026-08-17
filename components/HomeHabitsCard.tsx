@@ -16,7 +16,9 @@
  * need Home's own cross-store aggregation (Habits doesn't touch any other store).
  *
  * Connections:
- *   Imports → components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
+ *   Imports → components/NarratorQuote (2026-08-19 — what the empty slot says, restored in step
+ *             with app/(tabs)/habits.tsx, which lost the same line in the same 2026-08-12 pass),
+ *             components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/StarterCard (2026-08-13 — `embedded collapsible`, so the suggestions
  *             sit in the same foldable box every other empty-state example does; this card's
  *             hand-rolled label-plus-bare-cloud is deleted),
@@ -122,6 +124,7 @@ import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
@@ -413,6 +416,12 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // the explainer line that used to sit above, and one card saying the same sentence twice with two
           // different lifespans is what StarterCard's optional-`text` note warns against.
           <View style={styles.emptyWrap}>
+            {/* The narrator (2026-08-19), above the fold — Home's habits card and the Habits
+                tab lost their "nothing here yet" lines in the same 2026-08-12 pass and for the
+                same reason, so they take the restoration together. Letting only the tab speak
+                is exactly the Home-vs-tab drift the row rule's note warns about. See
+                components/NarratorQuote.tsx. */}
+            <NarratorQuote category="habits" />
             <StarterCard embedded collapsible>
               {/* components/StarterSuggestionChip since 2026-08-12 — see the Habits tab's own
                   mount for why the five hand-rolled copies became one. Two chips, not four:
