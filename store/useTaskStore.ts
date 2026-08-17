@@ -59,6 +59,14 @@
  *     session is still restorable; app/_layout.tsx calls it on boot. The undo window is
  *     bounded by `pruneOldData()` (lib/db.ts), which hard-deletes old tombstones — nothing
  *     extra expires them here. UI: components/PlanTaskCard.tsx's "Recently deleted" zone.
+ *   - **`setTasksDated(ids, dated)` — "reset the day" (2026-08-20).** Parks a day's
+ *     unfinished leftovers in Whenever instead of deleting them, which is what lets the
+ *     button that calls it skip the confirm dialog entirely: nothing is destroyed, so a
+ *     mis-tap costs one Undo and no data. **It is NOT a bulk `remove()` and must not become
+ *     one**, and it is not `clearAll()` either — that one is a hard `DELETE FROM tasks` that
+ *     also clears `deletedTasks`, i.e. deliberately unrecoverable, and belongs to Settings'
+ *     "Reset tasks" alone. Recurring rows are refused (their `hasStartDate` is a start
+ *     boundary, not a per-day flag); see the implementation for the full contract.
  *   - **'task_completed' automation trigger — WIRED (Phase 6).** toggle() (only when the
  *     task transitions to done) and completeDirect() call
  *     `useAutomationStore.getState().fireTrigger('task_completed')`, matching the old store.
@@ -370,6 +378,11 @@ type TaskStore = {
   /** Mark a task done immediately — same write path as toggle(), kept distinct for callers with no toggle state. */
   completeDirect: (id: string) => void;
   remove: (id: string) => void;
+  /**
+   * "Reset the day" (2026-08-20) — park `ids` in Whenever (`dated: false`), or put them
+   * back on their day (`dated: true`). NOT a delete: see the implementation for why.
+   */
+  setTasksDated: (ids: string[], dated: boolean) => void;
   clearAll: () => void;
   tasksForDate: (date: string) => Task[];
   /** Per-weekday occurrences for the 7 days from `weekStartDate` (Mon), excluding undated Whenever tasks. */
@@ -766,6 +779,44 @@ export const useTaskStore = create<TaskStore>((set, get) => {
         : s.deletedTasks,
     }));
     scheduleWidgetSync();
+  },
+
+  /**
+   * "Reset the day" — park a whole day's leftovers in Whenever, or put them back.
+   *
+   * **It is not a delete, and that is the design.** The button this serves clears a day
+   * with no confirmation, so whatever it does has to be something a mis-tap can survive
+   * intact. Un-scheduling loses nothing: the task keeps its title, steps, time, energy,
+   * goal, tags and its own stored `date`, and lands in the Whenever backlog the To-do tab
+   * already draws under the day.
+   *
+   * **The patch is `hasStartDate` ALONE, and `date` is deliberately untouched** — the same
+   * shape components/TaskCard.tsx's "Move to Whenever" shortcut writes (see its
+   * `handleMoveSection`, which documents why the two directions aren't symmetrical). A task
+   * parked from next Thursday keeps Thursday, so putting it back restores the day rather
+   * than silently reading "today". `dated: true` is the undo, and for the same reason it
+   * writes no date either: every id passed here already had one.
+   *
+   * **Recurring tasks must never be passed in.** A recurring task is ONE row, not a row per
+   * day (lib/taskRecurrence.ts), so `hasStartDate` is its START BOUNDARY, not "is it on
+   * today" — flipping it would silently re-open every past occurrence of the series. The
+   * caller filters; this guards anyway, because the cost of getting it wrong is invisible
+   * until someone looks at last month.
+   *
+   * Routed through `update()` per id rather than one bulk UPDATE: that is what re-schedules
+   * each task's reminder for its new state, stamps the row for live-sync and mirrors the
+   * calendar event. A bulk SQL write would skip all three (see store/useShoppingStore.ts's
+   * header for what that cost the monthly reset), and a day's worth of tasks is ~10 rows —
+   * `scheduleWidgetSync()` is debounced, so the repeat is genuinely cheap.
+   */
+  setTasksDated(ids, dated) {
+    const byId = new Map(get().tasks.map((t) => [t.id, t]));
+    for (const id of ids) {
+      const task = byId.get(id);
+      if (!task || task.recurring !== 'none') continue;
+      if (task.hasStartDate === dated) continue;
+      get().update(id, { hasStartDate: dated });
+    }
   },
 
   reorderTasks(orderedIds) {
