@@ -1,8 +1,8 @@
-# VOICE.md — how the app talks, and the one place it breaks its own rule
+# VOICE.md — how the app talks, and where it breaks its own rule
 
 **Status:** the rules here are not new. They live in `DESIGN_RULES.md` §7 (rules 22–25) and
 are enforced in CI by `lib/__tests__/copyTone.test.ts`. This file exists for one reason: to
-record a **deliberate exception** so that a later session doesn't "fix" it.
+record the **deliberate exceptions** so that a later session doesn't "fix" one.
 
 Read `DESIGN_RULES.md` §7 first. This is a footnote to it, not a replacement.
 
@@ -26,6 +26,47 @@ read as failing. The reward backdrop's floor is exactly the art the app always h
 lapsed streak never returns you to a visibly worse screen.
 
 None of that is a stylistic preference. It is the product.
+
+---
+
+## ⚠️ 2026-08-19: the exception became a SYSTEM — the empty-state narrator
+
+**Read this before the section below, which is the still-correct argument for why the voice
+is allowed at all, and a table that is now three entries short of the whole picture.**
+
+Two days after this file was corrected from "one line" to "three surfaces", the maintainer
+asked for the narrator as a **system**: an empty-state narrator with a "witty,
+non-judgmental UnFocus narrator voice", replacing every generic empty-state placeholder
+(`Ingen oppgaver`, `Tom liste`) across To-do, Shopping, Health and Habits. The lines are
+first person by construction — the required Health line is *"did you take your meds, or think
+really hard about taking them? (no judgment — mine are still on the counter)"*.
+
+**This does not loosen the test below; it is the test's clearest case yet.** An empty list has
+nothing to instruct, and the app's ordinary register ("Nothing logged this week") delivers a
+verdict on the week. What changes is the SHAPE of the permission — from a short list of
+individual keys somebody has to remember to update, to one component and one data file:
+
+- **Where.** Only where there is nothing to instruct — an empty list, and nothing else. A
+  narrator line never appears beside content, only instead of it.
+- **What.** `lib/narratorQuotes.ts` holds every line; `components/NarratorQuote.tsx` is the
+  only thing that renders one. **No first-person string is hand-written any more** — which is
+  also the fix for why this file went wrong twice: there is no longer a count to keep, because
+  a new empty state mounts the component rather than authoring a key.
+- **Register.** *The narrator admits things; the user is never told what they did.* A joke
+  about the user's memory told by an app is a verdict. The same joke told about the narrator's
+  own memory is company. That distinction is the whole licence.
+- **Still bound by rule 23, harder than the rest of the app.** Nothing counts, compares, or
+  can tell how long the screen has been empty — no "still nothing here", no day counter, no
+  line that reads differently on an emptier screen. And nothing asks for anything: if a line
+  can be reworded as "you should…", it is the wrong line. Asserted structurally by
+  `lib/__tests__/narratorQuotes.test.ts`, not left to review.
+- **One carve-out, as a ratchet.** `glem*` / `forgot` / `gleym*` stay banned in `lib/i18n.ts`,
+  where they can only ever point at the user. Two narrator lines are *about* forgetting and
+  are the anti-shame content itself, so the test allows the stem only in an explicit set of
+  exact strings. Entries may be removed, never added.
+
+The three keyed surfaces below are unchanged and are NOT narrator quotes — they stay where
+they are, in `lib/i18n.ts`, for the reasons that section gives.
 
 ---
 
@@ -82,11 +123,17 @@ person. Saying why the record exists is the only thing an empty day can honestly
 
 ### The limits on the exception
 
-- **Three surfaces, and a fourth needs the maintainer.** The bar is the test above, not a
-  quota — but it is a high bar, and "this empty state feels flat" does not clear it. If a new
-  empty state needs explaining, it uses `StarterCard` and the app's normal voice (rule 25).
-  Whatever you decide, **update the table above in the same edit** — that is the step every
-  previous author skipped, which is why this file was wrong for two weeks.
+- **Three KEYED surfaces, and a fourth needs the maintainer — but an empty LIST does not
+  need a key at all.** The bar is the test above, not a quota, and it is a high bar: "this
+  empty state feels flat" does not clear it. Since 2026-08-19 the common case has its own
+  answer, so reach for it first: an empty list mounts `components/NarratorQuote.tsx` and
+  writes no string anywhere (see the narrator section at the top). An empty state that needs
+  *explaining* rather than narrating still uses `StarterCard` and the app's normal second
+  person (rule 25) — the two are different jobs and co-exist on the same card, with Habits
+  showing the narrator where its rows would be and StarterCard's "Forslag" drop-down under it.
+  Only a genuinely new keyed surface needs the maintainer, and **whatever you decide, update
+  the table above in the same edit** — that is the step every previous author skipped, which
+  is why this file was wrong for two weeks.
 - It is marked with a comment at the key in `lib/i18n.ts`. Keep that comment if you touch
   the surrounding block.
 - It is still bound by rule 23. It names a difficulty; it does not blame anyone for it, and

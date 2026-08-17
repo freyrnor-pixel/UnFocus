@@ -49,6 +49,7 @@
  *
  * Connections:
  *   Imports → components/MedicineTrayCard (the medicine-tray dose card — see below),
+ *             components/NarratorQuote (2026-08-19 — what a week with no entries says),
  *             components/ScreenScaffold, components/HintCard, components/StarterCard
  *             (first-run explainer, shown while nothing has ever been logged; `collapsible`
  *             as of 2026-08-06 v3 — its example row collapses to a trigger row rather than
@@ -109,6 +110,7 @@ import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import MedicineTrayCard from '@/components/MedicineTrayCard';
@@ -564,12 +566,16 @@ export default function HealthScreen() {
                 <View style={styles.healthCardBody}>
                   <View style={styles.section}>
                     {thisWeekIssues.length === 0 ? (
-                      // 2026-08-12: the "Nothing logged this week." line was removed — the
-                      // first-run explainer below (gated on the whole log being empty) and the
-                      // permanent tips line above it already cover an empty week, and a quiet
-                      // week deliberately gets no line of its own to avoid reading as either a
-                      // gap to fill or an achievement.
-                      null
+                      // ⚠️ **The narrator stands here as of 2026-08-19.** 2026-08-12 removed a
+                      // "Nothing logged this week." line, on the reasoning that a quiet week
+                      // must read as neither a gap to fill nor an achievement — and that line
+                      // failed the test, because naming the absence IS a verdict on the week.
+                      // That constraint is exactly what components/NarratorQuote.tsx's health
+                      // lines are written to satisfy: they count nothing, compare nothing, and
+                      // ask for nothing ("An empty log is not an empty week. It is an empty
+                      // log."). The rule did not change; a line that can honestly keep it now
+                      // exists. Don't put a "nothing logged" sentence back beside it.
+                      <NarratorQuote category="health" />
                     ) : (
                       thisWeekIssues.map((issue, i) => (
                         <IssueRow
@@ -605,7 +611,6 @@ export default function HealthScreen() {
                       <StarterCard
                         embedded
                         collapsible
-                        exampleHeaderLabel={t.starters.health.tapToAdd}
                         example={
                           <StarterExampleRow
                             icon="medical-outline"

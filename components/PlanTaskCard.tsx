@@ -84,6 +84,8 @@
  *             components/Surface, components/PressableScale, components/ProgressBar,
  *             components/DayGridLines (hour lines + compressed-gap bands + now-line),
  *             components/StarterExampleRow (the empty day's suggested-add row) wrapped in
+ *             components/NarratorQuote (2026-08-19 — what the empty day says where its rows
+ *             would be; unconditional, where the two blocks under it are each caller-gated),
  *             components/StarterCard (`embedded collapsible`, no `text` — the trigger row that
  *             folds the example away, 2026-08-12; the empty-day explainer LINE that used to sit
  *             above it was deleted with the whole bulb tier on 2026-08-17),
@@ -342,6 +344,7 @@ import { CardAccentBadge } from '@/components/CardAccent';
 import { Badge } from '@/components/Badge';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import { COLLAPSED_GRID_HEIGHT, GUTTER_WIDTH, GridEntryLayout, buildDayScale, layoutGridEntries } from '@/lib/dayGrid';
 import { DayEntry, formatEntryTime } from '@/lib/dayLog';
@@ -1557,11 +1560,16 @@ export default function PlanTaskCard({
                 with two different lifespans is what StarterCard's optional-`text` note warns
                 against — that reasoning outlived the note. The cost is
                 one extra line in the card that was the model for the others — accepted. */}
+            {/* The narrator (2026-08-19) — first, because this is where the day's rows would
+                be, and it is what the slot says now that the suggestions below it fold away by
+                default. Unconditional, unlike both blocks under it: `onAddExample` and the
+                ghost row are each absent on some caller, and an empty day must never render an
+                empty card. See components/NarratorQuote.tsx. */}
+            <NarratorQuote category="todo" />
             {onAddExample ? (
               <StarterCard
                 embedded
                 collapsible
-                exampleHeaderLabel={t.starters.plans.tapToAdd}
                 example={
                   <StarterExampleRow
                     icon="ellipse-outline"

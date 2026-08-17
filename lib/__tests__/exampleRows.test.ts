@@ -312,10 +312,14 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
       for (const mount of mounts) {
         expect({ file, mount, collapsible: mount.includes('collapsible') })
           .toEqual({ file, mount, collapsible: true });
-        // `exampleHeaderLabel` is required alongside it — StarterCard has no default copy, so
-        // a caller that forgets it renders a trigger row with an empty label.
-        expect({ file, mount, label: mount.includes('exampleHeaderLabel') })
-          .toEqual({ file, mount, label: true });
+        // ⚠️ **Inverted 2026-08-19 (Clean Reveal).** This asserted the OPPOSITE until then —
+        // that every mount passes an `exampleHeaderLabel`, because StarterCard had no default
+        // copy. The prop is gone and the trigger is one shared word, so what has to stay true
+        // now is that no caller reintroduces a label of its own: four per-surface sentences for
+        // one control is exactly the drift that produced "Tap one to start:" and "Examples:"
+        // labelling the same row on two screens.
+        expect({ file, mount, ownLabel: /exampleHeaderLabel|tapToAdd/.test(mount) })
+          .toEqual({ file, mount, ownLabel: false });
       }
     });
   }
@@ -330,7 +334,6 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     // The wrapper's OWN props — everything between its tag and the example row it wraps.
     const props = source.slice(source.indexOf('<StarterCard'), source.indexOf('<StarterExampleRow'));
     expect(props).toContain('collapsible');
-    expect(props).toContain('exampleHeaderLabel={t.starters.plans.tapToAdd}');
     expect(props).not.toMatch(/\btext=/);
     // The ghost add-row stays OUTSIDE it: on the `readOnly && !onAddTask` branch it is the
     // only way in, and a collapse must never take away the last "add something" affordance.
@@ -423,6 +426,68 @@ describe('the example sits in the list it is an example of, not above the list\'
  * ORDER inside one card is exactly what a screenshot cannot be diffed on reliably, and the
  * web preview lays both out fine either way.
  */
+// ── 6. The suggestions drop-down is a clean reveal ───────────────────────────
+
+describe('StarterCard — the suggestions drop-down starts shut and says one word', () => {
+  // 2026-08-19. The report was a specific broken state, not a preference: *"when collapsed, it
+  // displays instructional text ('Trykk på én for å komme i gang:') with nothing underneath
+  // it."* An instruction is only true while what it points at is visible, and the 2026-08-06
+  // pass had introduced a state where it was not. Every assertion here is invisible to a
+  // screenshot for the same reason section 5's fold is: the shut state is not the state a
+  // screenshot is taken in, and a label is a string in a prop.
+  const SRC = () => code('components/StarterCard.tsx');
+
+  it('opens shut, not shown', () => {
+    // The whole point of the pass. `useState(false)` on a variable named for EXPANSION —
+    // asserted on the name too, because the previous variable was named for COLLAPSE and the
+    // identical literal meant the opposite thing.
+    expect(SRC()).toMatch(/const \[isExpanded, setIsExpanded\] = useState\(false\);/);
+    expect(SRC()).not.toMatch(/const \[collapsed, setCollapsed\]/);
+  });
+
+  it('labels the trigger with the one shared word, and takes no label prop', () => {
+    const source = SRC();
+    expect(source).toContain('{t.starters.suggestionsLabel}');
+    // The prop is deleted, not defaulted — a caller cannot pass a sentence back in.
+    expect(source).not.toMatch(/exampleHeaderLabel\??:/);
+  });
+
+  it('points the chevron the way the row actually goes', () => {
+    // Down = there is more below; up = fold it away. It reads backwards if this is inverted
+    // together with the state rename, which is precisely the mistake the rename invites.
+    expect(SRC()).toMatch(/name=\{isExpanded \? 'chevron-up' : 'chevron-down'\}/);
+  });
+
+  it('reveals the suggestions and nothing else', () => {
+    // Zero-text affordance: *"Do NOT add any explanatory sentences inside the expanded view.
+    // Rely entirely on the `+` icon inside the matte chips."* The revealed body may hold the
+    // caller's `example` rows and its `children` chips — no third slot, and no <Text> of this
+    // component's own between the trigger and them.
+    const source = SRC();
+    // Bounded by the OUTER ternary's else-branch (`) : (`, the non-collapsible rendering),
+    // not by the first `) : null}` — the revealed body contains two of those itself, and
+    // stopping at the nearer one cut `{children}` out of the region being checked.
+    const open = source.indexOf('{isExpanded ? (');
+    expect(open).toBeGreaterThan(-1);
+    const body = source.slice(open, source.indexOf(') : (', open));
+    expect(body).toContain('{example}');
+    expect(body).toContain('{children}');
+    expect(body).not.toMatch(/<Text/);
+  });
+
+  it('keeps a full-size target under the small muted mark', () => {
+    // Rule 17. The row is one word and a 16px glyph, so without this it is ~31px tall — and a
+    // reveal nobody can hit is worse than one that was already open.
+    expect(SRC()).toMatch(/minHeight: MIN_TAP_TARGET/);
+  });
+
+  it('leaves no per-surface trigger copy in the dictionaries', () => {
+    // All four `starters.*.tapToAdd` strings are deleted in EN, NO and IS alike. Kept as a
+    // ratchet: the failure mode here is a new surface quietly authoring a fifth one.
+    expect(read('lib/i18n.ts').replace(/^\s*(\*|\/\/|\/\*).*$/gm, '')).not.toMatch(/tapToAdd:/);
+  });
+});
+
 describe('the composer comes after the examples, everywhere', () => {
   for (const [file, starterMarker, composerMarker, label] of [
     ['app/(tabs)/health.tsx', '<StarterCard', '<PadTypeRow', 'Health'],

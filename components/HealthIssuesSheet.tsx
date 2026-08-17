@@ -162,7 +162,6 @@ export default function HealthIssuesSheet({ visible, onClose, accent }: Props) {
             <StarterCard
               text={t.healthIssues.emptyList}
               collapsible
-              exampleHeaderLabel={t.starters.health.tapToAdd}
             >
               <View style={styles.starterChips}>
                 {starters.map((starter) => (
