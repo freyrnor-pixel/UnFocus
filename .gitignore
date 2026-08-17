@@ -19,6 +19,7 @@ package-lock.json
 dist/
 build/
 preview-shots/
+preview-shots2/
 # Generated design-review package (npm run review-bundle) — screenshots + collected
 # sources + the connection map. Regenerated on demand; never committed (14MB of PNGs
 # per run would sit in git history forever).
