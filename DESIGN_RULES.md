@@ -303,16 +303,43 @@ design, not the rule.
 
 22. **Plain, short, second person, present tense.** Say what a control does, not
     how the system works. "Save changes," not "Submit."
-22a. **…except the narrator, which is first person and speaks only where there is
-    nothing to instruct (2026-08-19).** An empty list gets a line from
-    `components/NarratorQuote.tsx` instead of a placeholder naming its own emptiness.
-    The licence is narrow and its register is the load-bearing half: *the narrator
-    admits things, the user is never told what they did* — a joke about the user's
-    memory told by an app is a verdict; the same joke about the narrator's own is
-    company. Every instruction and every label in the app stays second person, and no
-    first-person string is hand-written anywhere: a surface that wants this voice
-    mounts the component. **This lifted VOICE.md's "one line, there is not a second"
-    limit** — read that file's top section before writing copy near it.
+22a. **A sentence is the exception, not the default (2026-08-17).** Maintainer:
+    *"Too many places have sentences where simple words would be enough to convey the
+    message/meaning. Sentences should only be used when necessary."* The line under a
+    labelled row is a **fragment with no full stop** — the label already names the thing,
+    so a sentence there mostly restates it. `config.desc.*`, `config.features.*.hint`,
+    `config.layouts.*.hint` and every form/row hint follow this; ~119 keys were cut in the
+    pass that wrote this rule. Three places a real sentence still earns its keep, and they
+    are the whole exception:
+    - **The narrator voice.** `energyPause.*`, `energyMeter.boostHint`, `dayLog.empty` and —
+      since 2026-08-19 — every line in `lib/narratorQuotes.ts` speak as *me*, not as the
+      interface ("That's more than a day's worth. Mine usually is too."). These are the app's
+      reason for existing said in the voice of the person it was built for, and they are not
+      instructions — see `VOICE.md` and rule 22b. **Do not compress them.** *(This bullet said
+      "and do not add a fourth" until 2026-08-19, when the maintainer asked for the narrator as
+      a SYSTEM covering every empty list. The cap is retired; the TEST that replaced it is in
+      22b, and it is a higher bar than a quota was.)*
+    - **A consequence a user is about to accept.** A destructive confirm states what
+      happens, and rule 25 still governs errors — but one sentence, not two.
+    - **Teaching that is the surface's whole job**, i.e. the guided tour. Even there the
+      shape is one lead line + `\n• ` bullets, never a flowing paragraph: a bullet is the
+      shortest way to say "these are two separate things".
+    This is the copy half of the 2026-08-17 "no manual" pass (AGENTS.md), which deleted the
+    💡 explainer line and cut each ⓘ banner to one instruction — that pass trimmed the
+    *tiers*, this one trims the *grammar* inside what was left.
+22b. **First person is the narrator's, and it speaks only where there is nothing to
+    instruct (2026-08-19).** An empty list gets a line from `components/NarratorQuote.tsx`
+    instead of a placeholder naming its own emptiness — "Ingen oppgaver" is not direction,
+    it is the mood rule 25 bans, written in the app's flattest voice. The licence is narrow
+    and its register is the load-bearing half: *the narrator admits things, the user is never
+    told what they did* — a joke about the user's memory told by an app is a verdict; the same
+    joke about the narrator's own is company. Every instruction and every label stays second
+    person (rule 22), and **no first-person string is hand-written**: a surface that wants this
+    voice mounts the component, whose lines live in one data file. Rule 23 binds it HARDER than
+    the rest of the app — nothing counts, compares, or can tell how long the screen has been
+    empty, and nothing asks for anything. **This retired VOICE.md's "one line, there is not a
+    second"** (already corrected to three surfaces on 2026-08-17); read that file's narrator
+    section before writing copy near it.
 23. **No guilt, no urgency, no judgment.** Never "You missed…", never a
     countdown. This is a hard rule, not a stylistic preference — it's core to
     the app's purpose. The established precedent: a medicine tray is never
