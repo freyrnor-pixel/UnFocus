@@ -303,6 +303,27 @@ design, not the rule.
 
 22. **Plain, short, second person, present tense.** Say what a control does, not
     how the system works. "Save changes," not "Submit."
+22a. **A sentence is the exception, not the default (2026-08-17).** Maintainer:
+    *"Too many places have sentences where simple words would be enough to convey the
+    message/meaning. Sentences should only be used when necessary."* The line under a
+    labelled row is a **fragment with no full stop** — the label already names the thing,
+    so a sentence there mostly restates it. `config.desc.*`, `config.features.*.hint`,
+    `config.layouts.*.hint` and every form/row hint follow this; ~119 keys were cut in the
+    pass that wrote this rule. Three places a real sentence still earns its keep, and they
+    are the whole exception:
+    - **The narrator voice.** `energyPause.*`, `energyMeter.boostHint` and `dayLog.empty`
+      speak as *me*, not as the interface ("That's more than a day's worth. Mine usually
+      is too."). These are the app's reason for existing said in the voice of the person it
+      was built for, and they are not instructions — see `VOICE.md`. **Do not compress
+      them, and do not add a fourth.**
+    - **A consequence a user is about to accept.** A destructive confirm states what
+      happens, and rule 25 still governs errors — but one sentence, not two.
+    - **Teaching that is the surface's whole job**, i.e. the guided tour. Even there the
+      shape is one lead line + `\n• ` bullets, never a flowing paragraph: a bullet is the
+      shortest way to say "these are two separate things".
+    This is the copy half of the 2026-08-17 "no manual" pass (AGENTS.md), which deleted the
+    💡 explainer line and cut each ⓘ banner to one instruction — that pass trimmed the
+    *tiers*, this one trims the *grammar* inside what was left.
 23. **No guilt, no urgency, no judgment.** Never "You missed…", never a
     countdown. This is a hard rule, not a stylistic preference — it's core to
     the app's purpose. The established precedent: a medicine tray is never

@@ -15,6 +15,10 @@ works. **No guilt, no urgency, no judgment** — never "You missed…", never a 
 a verdict on a quiet day. An action keeps its name through the whole flow. Empty states give
 direction, not mood.
 
+**A sentence is the exception (rule 22a, 2026-08-17).** The line under a labelled row is a
+fragment with no full stop; a full sentence is reserved for a consequence the user is about to
+accept, for the guided tour (one lead line + bullets), and for the narrator voice below.
+
 The banned words are checked mechanically over both `en` and `no`: `missed`, `overdue`,
 `gikk glipp`, and their neighbours. A medicine tray is **still due**, never missed. Habits
 have no negative kind and no broken streak. A goal's strength floors at neutral and can never
@@ -25,9 +29,35 @@ None of that is a stylistic preference. It is the product.
 
 ---
 
-## The exception: one first-person line
+## The exception: the narrator voice
 
-**`t.dayLog.empty` in `lib/i18n.ts` is the only first-person sentence in the app.**
+**⚠️ This section said "the only first-person sentence in the app" until 2026-08-17, and had
+been wrong since 2026-08-02.** `energyPause.*` shipped that day with a header of its own
+declaring "Narrator voice: first person", and `energyMeter.boostHint` followed on 2026-08-03
+("tomorrow starts from **my** normal amount again"). Neither author came here to update the
+count. So the exception covers **three surfaces** (five keys), not one line — the correction is
+recorded rather than quietly applied, because "there is exactly one" was the load-bearing claim
+and it has to be visibly retired:
+
+| Key | Line |
+|---|---|
+| `dayLog.empty` | "I remember the big things…" (below) |
+| `energyPause.sheetLine` | "That's more than a day's worth. **Mine** usually is too." |
+| `energyPause.afterDecide` / `afterGood` | "The rest keeps. This is the one." / "Fair. Some days you just go." |
+| `energyMeter.boostHint` | "…tomorrow starts from **my** normal amount again." |
+
+All three meet the same test, and it is the test — not the count — that decides whether a
+fourth surface is ever allowed: **the app has nothing to instruct, and its ordinary register
+would deliver a verdict.** An empty day, an overspent day, a borrowed day. Everywhere else the
+app labels a control, and second person is right.
+
+These are also the one place rule 22a's "a sentence is the exception" does not apply — the
+narrator speaks in sentences, and compressing one to a fragment turns a person into an
+interface again.
+
+---
+
+### `t.dayLog.empty` — the original, and still the clearest case
 
 > **NO:** Jeg husker de store tingene. Det er alt imellom som forsvinner — særlig det som
 > skjedde midt i kaoset.
@@ -52,9 +82,11 @@ person. Saying why the record exists is the only thing an empty day can honestly
 
 ### The limits on the exception
 
-- **One line. There is not a second.** Do not add another first-person string anywhere in
-  this feature or elsewhere. If a new empty state needs explaining, it uses `StarterCard`
-  and the app's normal voice (rule 25).
+- **Three surfaces, and a fourth needs the maintainer.** The bar is the test above, not a
+  quota — but it is a high bar, and "this empty state feels flat" does not clear it. If a new
+  empty state needs explaining, it uses `StarterCard` and the app's normal voice (rule 25).
+  Whatever you decide, **update the table above in the same edit** — that is the step every
+  previous author skipped, which is why this file was wrong for two weeks.
 - It is marked with a comment at the key in `lib/i18n.ts`. Keep that comment if you touch
   the surrounding block.
 - It is still bound by rule 23. It names a difficulty; it does not blame anyone for it, and
