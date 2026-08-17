@@ -16,7 +16,8 @@
  *   Imports → react-native-reanimated, react-native-safe-area-context, constants/theme,
  *             lib/useAppTheme, components/PressableScale
  *   Used by → app/(tabs)/shopping.tsx (save/add confirmations), app/settings
- *             (rejected numeric input, variant='warn'), app/health-form
+ *             (rejected numeric input, variant='warn'), app/health-form,
+ *             app/(tabs)/plans.tsx (2026-08-20 — "Put the day away" + its Undo)
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -29,6 +30,14 @@
  *     doesn't trigger the message's dismiss-on-tap. Both optional; existing callers
  *     with neither are unaffected. First use: app/(tabs)/shopping.tsx's Monthly-tab
  *     "add to weekly" toast (undoes via putBackToInventory).
+ *   - **The action button carries `accessibilityRole="button"` (2026-08-20).** It had none,
+ *     so the only way to take back a just-completed action announced as plain text to a
+ *     screen reader — and was untargetable by `getByRole` in the preview harness, which is
+ *     how it surfaced. The message Pressable is deliberately left roleless: it is a
+ *     dismiss-on-tap convenience over a label, not a control with its own name.
+ *   - **`duration` is worth raising when you pass an action.** The 2200ms default is tuned
+ *     for a toast you only read; an Undo the user has to notice, aim at and hit wants more
+ *     (app/(tabs)/plans.tsx passes 5000, matching lib/useGhostTimeout.ts's undo window).
  */
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, Pressable, View } from 'react-native';
@@ -124,6 +133,11 @@ export default function ConfirmationBanner({ message, onDismiss, duration = 2200
             hitSlop={HitSlop.base}
             style={styles.actionBtn}
             scaleTo={0.97}
+            // Without a role this announces as plain text, so the one way to take back a
+            // just-completed action is invisible to a screen reader — and untargetable by
+            // the preview harness, which is how the gap surfaced.
+            accessibilityRole="button"
+            accessibilityLabel={actionLabel}
           >
             <Text style={[styles.actionText, { color: theme.textInverse }]}>{actionLabel}</Text>
           </PressableScale>

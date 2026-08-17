@@ -110,6 +110,16 @@ const en = {
   tasksTabAll: 'All tasks',
   tasksTabToday: 'Today',
   tasksTabWeek: 'This week',
+  /**
+   * "Reset the day" (2026-08-20) — moves today's unfinished one-offs into Whenever. The
+   * words carry the whole no-shame contract, so keep them on this side of it: the day is
+   * *put away*, never "cleared out" or "given up on", and the banner reports WHERE things
+   * went rather than counting what wasn't done. Nothing here may name the day as a failure
+   * (rule 23), and nothing may say "deleted" — the action doesn't delete.
+   */
+  dayResetAction: 'Put the day away',
+  dayResetDone: (n: number) => `${n} ${n === 1 ? 'task' : 'tasks'} moved to Whenever`,
+  dayResetUndo: 'Undo',
   tasksSectionShared: 'Shared',
   tasksSectionWhenever: 'Whenever',
   tasksSectionRecurring: 'Recurring',
@@ -2391,6 +2401,12 @@ const no: typeof en = {
   tasksTabAll: 'Alle',
   tasksTabToday: 'I dag',
   tasksTabWeek: 'Denne uka',
+  // Bevisst IKKE "Nullstill dagen": Innstillinger har allerede "Nullstill alle gjøremål",
+  // som sletter for godt. Denne flytter bare til Når som helst — samme ord ville lest som
+  // samme slags handling. "Legg bort" sier hva som faktisk skjer, og dømmer ikke dagen.
+  dayResetAction: 'Legg dagen bort',
+  dayResetDone: (n: number) => `${n} flyttet til Når som helst`,
+  dayResetUndo: 'Angre',
   tasksSectionShared: 'Delt',
   tasksSectionWhenever: 'Når som helst',
   tasksSectionRecurring: 'Gjentakende',
@@ -4207,6 +4223,11 @@ const is: typeof en = {
   tasksTabAll: 'Allt',
   tasksTabToday: 'Í dag',
   tasksTabWeek: 'Þessi vika',
+  dayResetAction: 'Leggja daginn til hliðar',
+  // "verkefni" er eins í eintölu og fleirtölu, svo það er SÖGNIN sem beygist — þess vegna
+  // fer allur frasinn gegnum isCount, ekki bara nafnorðið.
+  dayResetDone: (n: number) => `${n} ${isCount(n, 'verkefni fór', 'verkefni fóru')} í Hvenær sem er`,
+  dayResetUndo: 'Afturkalla',
   tasksSectionShared: 'Deilt',
   tasksSectionWhenever: 'Hvenær sem er',
   tasksSectionRecurring: 'Endurtekið',

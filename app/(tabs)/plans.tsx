@@ -34,6 +34,8 @@
  *             components/TabSlider,
  *             components/NarratorQuote (2026-08-19 — the line an empty section says, where
  *             the `sectionEmpty` box used to be),
+ *             components/Button + components/ConfirmationBanner (2026-08-20 — "Put the day
+ *             away" and its Undo toast; see the Edit note),
  *             components/StarterCard (first-run explainer, shown while there are no tasks at
  *             all; `collapsible` as of 2026-08-06 v3 — its example row collapses to a
  *             trigger row rather than always showing),
@@ -218,6 +220,31 @@
  *     `noPlansToday` until 2026-08-19 — three strings naming the absence the user is already
  *     looking at. All three are deleted along with the style and `DoneSplitList`'s
  *     `emptyText` prop.
+ *   - **"Put the day away" — the day reset (2026-08-20, Today tab only).** One tap parks
+ *     today's unfinished one-offs in the Whenever drawer, via `useTaskStore.setTasksDated`.
+ *     **It is the PLURAL of components/TaskCard.tsx's "Not today"**, which lands the day
+ *     before it: same predicate (`canPostpone`, shared so the two can't disagree about what
+ *     may be moved), different destination — "Not today" dates one card tomorrow, this
+ *     parks the lot undated. Both are distinct from the "Washed away" drawer at the foot of
+ *     the tab, which is automatic, writes nothing, and is a filter rather than a move. If a
+ *     later pass consolidates these, consolidate the DESTINATIONS, not the predicate.
+ *     Five things about it are decisions, not defaults:
+ *     1. **It MOVES, it does not delete.** That is the entire reason it can skip a confirm
+ *        dialog — the worst a mis-tap costs is one Undo, and nothing is ever unrecoverable.
+ *        If it is ever changed to delete, it needs the confirm back in the same edit.
+ *     2. **No `confirmDestructive()`, deliberately** — same precedent as
+ *        components/PlanTaskCard.tsx's per-row trash ("the undo is right there", 2026-07-27).
+ *        A gate on a reversible action only teaches people to tap through gates. Note this is
+ *        invisible to lib/__tests__/destructiveConfirm.test.ts, which only inspects
+ *        `showAppModal` calls — nothing mechanical will stop a later session adding one.
+ *     3. **Recurring tasks are excluded, at both ends.** `hasStartDate` on a recurring row is
+ *        the series' START BOUNDARY, not "is it on today" — parking one silently re-opens
+ *        every occurrence before that date. `dayResetTasks` filters and the store refuses.
+ *     4. **It reads `todayList`**, so it moves exactly the rows visible under it and never a
+ *        row the person/tag filters are hiding.
+ *     5. **The narrator re-rolls** through `DoneSplitList`'s `emptyQuoteKey`. That only shows
+ *        on the by-person and plain-section branches — the DEFAULT timeline branch draws
+ *        `PlanTaskCard`'s own empty state, which has no narrator line to refresh.
  *   - **Add affordance**: the shared `AddRow` (empty row + "+") sits in a plain bordered card
  *     (not a translucent Surface) at the bottom of Whenever, with the Whenever-blue rail so its
  *     full edge is visible over the particle background.
@@ -241,7 +268,7 @@ import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { useDayLog } from '@/lib/useDayLog';
 import { useCalendarEvents } from '@/lib/useCalendarEvents';
 import { useNowMinutes } from '@/lib/useNowMinutes';
-import { isWashedAway } from '@/lib/taskReset';
+import { isWashedAway, canPostpone } from '@/lib/taskReset';
 import PadRow from '@/components/PadRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Button from '@/components/Button';
@@ -252,6 +279,7 @@ import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
+import ConfirmationBanner from '@/components/ConfirmationBanner';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
@@ -272,7 +300,7 @@ import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { useEnergyPause } from '@/lib/useEnergyPause';
-import { tap, success } from '@/lib/haptics';
+import { tap, success, confirm } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -329,6 +357,7 @@ function DoneSplitList({
   renderCard,
   footer,
   focusMode,
+  emptyQuoteKey,
 }: {
   tasks: Task[];
   renderCard: (tk: Task) => React.ReactNode;
@@ -346,6 +375,14 @@ function DoneSplitList({
    * hidden tasks keep every reminder they already had.
    */
   focusMode?: boolean;
+  /**
+   * Bumped by "Put the day away" so the narrator re-rolls its line instead of keeping
+   * whichever one it happened to mount with. `components/NarratorQuote.tsx` picks its index
+   * in a lazy `useState` initialiser and exposes no imperative way in, so a changing React
+   * key — remounting it — is the only lever there is. Undefined everywhere else, which
+   * leaves the key stable and the component untouched.
+   */
+  emptyQuoteKey?: number;
 }) {
   const theme = useAppTheme();
   const t = useT();
@@ -393,7 +430,7 @@ function DoneSplitList({
     // the objection that restyled Shopping's twin on 2026-08-13.
     return (
       <>
-        <NarratorQuote category="todo" />
+        <NarratorQuote key={emptyQuoteKey} category="todo" />
         {footer}
       </>
     );
@@ -682,6 +719,7 @@ export default function TasksScreen() {
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
   const reorderTasks = useTaskStore((s) => s.reorderTasks);
+  const setTasksDated = useTaskStore((s) => s.setTasksDated);
   const washedAwayTasks = useTaskStore((s) => s.washedAwayTasks);
   const bringBack = useTaskStore((s) => s.bringBack);
   const addTaskStep = useTaskStore((s) => s.addStep);
@@ -980,6 +1018,57 @@ export default function TasksScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
   }, [tasksForDate, today, tasks, matchFilters, energyPause.pinnedTaskId]);
 
+  /**
+   * What "Put the day away" would actually move — today's unfinished, dated ONE-OFFS.
+   *
+   * **The predicate is `canPostpone` (lib/taskReset.ts), deliberately shared with "Not
+   * today".** The two actions are the singular and plural of the same gesture — that button
+   * moves one card off today, this one moves the lot — so "which tasks may be moved off
+   * today" has to be one answer. It was hand-rolled here as
+   * `!done && recurring === 'none' && isCompletable(…)` until the state-based reset landed
+   * the identical condition as a named helper; a second copy would drift the moment either
+   * side gained a case. Note the two DESTINATIONS stay different on purpose: "Not today"
+   * dates a task tomorrow, this parks it undated in Whenever — which is the drawer directly
+   * above the button, so the rows land where the eye already is.
+   *
+   * The recurring half of that predicate is the load-bearing one: a recurring task is ONE
+   * row whose `hasStartDate`/`date` pair is the series' SCHEDULING BOUNDARY, not the day it
+   * happens on, so moving it retimes the whole series. `useTaskStore.setTasksDated` refuses
+   * them as well — belt and braces are both wanted, because the damage is invisible until
+   * somebody scrolls back a month.
+   *
+   * It reads `todayList`, so it inherits the person/tag filters AND the washed-away
+   * exclusion: the button moves exactly the rows the user can see it sitting under.
+   */
+  const dayResetTasks = useMemo(() => todayList.filter(canPostpone), [todayList]);
+  // The ids of the last "put away", held for the banner's Undo. Local, not stored: the offer
+  // lasts as long as the banner and nothing about it is worth surviving a relaunch.
+  const [dayResetUndoIds, setDayResetUndoIds] = useState<string[] | null>(null);
+  const [dayResetMessage, setDayResetMessage] = useState<string | null>(null);
+  // Bumped on every put-away so the emptied section's narrator re-rolls (see DoneSplitList's
+  // `emptyQuoteKey`). A counter rather than a boolean — two resets in a row must both land.
+  const [dayResetNonce, setDayResetNonce] = useState(0);
+
+  const handleDayReset = useCallback(() => {
+    const ids = dayResetTasks.map((tk) => tk.id);
+    if (ids.length === 0) return;
+    // A firm tap, not the destructive heavy() beat: nothing is deleted here, and the
+    // haptic is part of how the user learns that.
+    confirm();
+    setTasksDated(ids, false);
+    setDayResetUndoIds(ids);
+    setDayResetMessage(t.dayResetDone(ids.length));
+    setDayResetNonce((n) => n + 1);
+  }, [dayResetTasks, setTasksDated, t]);
+
+  const handleDayResetUndo = useCallback(() => {
+    if (!dayResetUndoIds) return;
+    tap();
+    setTasksDated(dayResetUndoIds, true);
+    setDayResetUndoIds(null);
+    setDayResetMessage(null);
+  }, [dayResetUndoIds, setTasksDated]);
+
   // The pin only applies while the pinned card is actually on today's list. Nothing clears a
   // pin when its task is finished, rescheduled or filtered out by the person/tag rows, and a
   // pin with no visible badge would dim the whole day with no way back — so it simply stops
@@ -1235,6 +1324,7 @@ export default function TasksScreen() {
   );
 
   return (
+    <>
     <ScreenScaffold
       title={t.tasksTitle}
       tier="site"
@@ -1463,6 +1553,7 @@ export default function TasksScreen() {
                       <DoneSplitList
                         tasks={group.tasks}
                         focusMode={layoutSpec.focusMode}
+                        emptyQuoteKey={dayResetNonce}
                         footer={
                           <InlineTaskAdd
                             date={today}
@@ -1539,6 +1630,7 @@ export default function TasksScreen() {
                     <DoneSplitList
                       tasks={todayList}
                       focusMode={layoutSpec.focusMode}
+                      emptyQuoteKey={dayResetNonce}
                       footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                       renderCard={(tk) => (
                         <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
@@ -1568,6 +1660,35 @@ export default function TasksScreen() {
                   )}
                 />
               </CollapsedSection>
+            )}
+
+            {/* "Put the day away" — one tap parks today's unfinished one-offs in the Whenever
+                drawer directly above it, which is why it sits here rather than up by the day:
+                the button is immediately above the place its rows land.
+
+                **No confirmation dialog, deliberately.** It moves rows, it does not delete
+                them (store/useTaskStore.ts's `setTasksDated`), so the worst a mis-tap costs is
+                one tap of Undo on the banner — the same reasoning components/PlanTaskCard.tsx's
+                per-row trash has used since 2026-07-27 ("the undo is right there"). Do NOT
+                "harden" it with confirmDestructive(): a gate on a reversible action just
+                teaches people to tap through gates.
+
+                **Ghost, never `danger`.** A red key would read as a verdict on the day, which
+                is the one thing this feature exists not to deliver (DESIGN_RULES.md rule 23).
+                And it renders only when it can actually act — an always-present "put the day
+                away" under an empty day is an accusation with a button on it. */}
+            {dayResetTasks.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="archive-outline"
+                label={t.dayResetAction}
+                onPress={handleDayReset}
+                // Sized to its label, not stretched. At full width its ghost outline is the
+                // same shape as the cards above and below it, so it read as a fourth section
+                // of the screen rather than a footer action — measured in the preview.
+                style={styles.dayResetBtn}
+              />
             )}
           </>
         )}
@@ -1716,6 +1837,22 @@ export default function TasksScreen() {
       />
       <DayPickerSheet visible={dayPickerOpen} onClose={() => setDayPickerOpen(false)} accent={wheneverHue} />
     </ScreenScaffold>
+    {/* A SIBLING of ScreenScaffold, never a child — nested in the scaffold it lands inside the
+        clipped scroll viewport and is physically cut off at the header. See
+        lib/__tests__/toastPlacement.test.ts, which asserts exactly this for every caller.
+        Dismissing only clears the message: the undo ids stay, so the banner going away on its
+        own timer doesn't quietly retract the offer mid-tap. */}
+    <ConfirmationBanner
+      message={dayResetMessage}
+      onDismiss={() => setDayResetMessage(null)}
+      // 5s, not the banner's 2.2s default: this one carries an ACTION, and the default is
+      // tuned for a toast you only read. Matches lib/useGhostTimeout.ts's undo window, which
+      // is the app's other "you can still take that back" offer.
+      duration={5000}
+      actionLabel={t.dayResetUndo}
+      onAction={handleDayResetUndo}
+    />
+    </>
   );
 }
 
@@ -1728,6 +1865,7 @@ const styles = StyleSheet.create({
   // flush to the header's glass and the nav bar's, and a margin here is the blank strip
   // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
   content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
+  dayResetBtn: { alignSelf: 'center' },
   // ── "One thing at a time" (focusFirst) ──────────────────────────────────────
   // No SectionCard around any of it, deliberately: the whole point of this layout is that the
   // day stops looking like a stack of boxes. The hero, the Later chips and the Then list sit
