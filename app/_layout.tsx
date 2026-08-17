@@ -302,6 +302,14 @@ export default function RootLayout() {
     // first paint instead of rendering as nothing until the roster arrives.
     useTagStore.getState().load();
     useTaskStore.getState().load();
+    // The state-based reset (2026-08-17, lib/taskReset.ts rule 1) — roll every recurring
+    // daily/weekly task whose row still carries an earlier day forward to today, clearing a
+    // completion that belonged to it. Tier A, immediately after load(), because it changes
+    // what the FIRST paint says a task's state is; deferring it would show yesterday's
+    // answer and then correct it a beat later, which is worse than either alone. Writes
+    // nothing when the list is already current, so an app opened twice in a day pays a scan
+    // and no more.
+    useTaskStore.getState().normalizeRecurringTasks(todayStr());
     useShoppingStore.getState().load();
     useShoppingListStore.getState().load();
     useMonthlyListStore.getState().load();
@@ -487,6 +495,9 @@ export default function RootLayout() {
         // stores from the DB so the app reflects it AND the sync below re-pushes the
         // reconciled state instead of clobbering it with stale in-memory rows.
         useTaskStore.getState().load();
+        // ...and re-run the state-based reset, which is what makes a phone left open across
+        // midnight correct itself: `today` is read here, at the transition, never captured.
+        useTaskStore.getState().normalizeRecurringTasks(todayStr());
         useShoppingStore.getState().load();
         useNotesStore.getState().load();
         // Re-arm any monthly recurring task's reminder for its next occurrence

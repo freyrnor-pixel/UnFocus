@@ -434,6 +434,16 @@ export type Settings = {
    */
   featureDayLog: boolean;
   /**
+   * The washed-away archive (2026-08-17, lib/taskReset.ts rule 3): a non-recurring task
+   * nobody has touched for over 72 hours stops being drawn in the active list and moves to
+   * the "Washed away" drawer at the foot of the To-do tab. On by default — a clean canvas is
+   * the point of the reset — but a real toggle, because auto-hiding a row is the one part of
+   * it a user could reasonably disagree with. Gates the FILTER only: nothing is deleted,
+   * nothing is written when a task washes away, and turning this off puts every archived
+   * task straight back where it was.
+   */
+  featureTaskDecay: boolean;
+  /**
    * Design lab (2026-08-06): the workbench in Settings → Advanced where the maintainer can
    * turn the app's colour/geometry/control knobs live and export the result as a document an
    * agent can act on. Off by default and deliberately NOT taught anywhere — it is a tool for
@@ -653,6 +663,7 @@ function rowToSettings(row: Row): Settings {
     featureAutomations: readBool(row, 'feature_automations'),
     featureMedicine: readBool(row, 'feature_medicine'),
     featureDayLog: readBool(row, 'feature_day_log'),
+    featureTaskDecay: readBool(row, 'feature_task_decay'),
     featureDesignLab: readBool(row, 'feature_design_lab'),
     dayLogCalendarIds: readJson<string[]>(row, 'day_log_calendar_ids', []),
     medicineTrayTimes: normalizeTrayTimes(readJson<unknown>(row, 'medicine_tray_times', DEFAULT_TRAY_TIMES)),
@@ -745,6 +756,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   featureAutomations: { col: 'feature_automations', to: bool },
   featureMedicine: { col: 'feature_medicine', to: bool },
   featureDayLog: { col: 'feature_day_log', to: bool },
+  featureTaskDecay: { col: 'feature_task_decay', to: bool },
   featureDesignLab: { col: 'feature_design_lab', to: bool },
   dayLogCalendarIds: { col: 'day_log_calendar_ids', to: (v) => JSON.stringify(v ?? []) },
   medicineTrayTimes: { col: 'medicine_tray_times', to: (v) => JSON.stringify(v) },
@@ -856,6 +868,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   featureAutomations: false,
   featureMedicine: true,
   featureDayLog: true,
+  featureTaskDecay: true,
   featureDesignLab: false,
   dayLogCalendarIds: [],
   medicineTrayTimes: DEFAULT_TRAY_TIMES,

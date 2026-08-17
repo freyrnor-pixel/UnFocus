@@ -76,6 +76,25 @@
  *             internally for incoming shares + accepts the sharedOut tasks as its "sent" half
  *
  * Edit notes:
+ *   - **The state-based reset's screen half (2026-08-17, lib/taskReset.ts)**. Three things
+ *     live here and each is placed where it is on purpose:
+ *     (1) The wash-away filter is inside **`matchFilters`**, the predicate every section
+ *         selector on this screen already runs through — so an archived task leaves Today,
+ *         This week, Whenever and the All tab in one move and cannot linger in one list while
+ *         being archived in another. It is presentation only, exactly like the person/tag rows
+ *         it sits beside: an archived task keeps its date, its reminders and its counts.
+ *     (2) The **"Washed away" drawer** is the last section on the tab and renders ONLY when it
+ *         holds something — every other section here stays visible while empty because it is
+ *         somewhere tasks go; this one is somewhere they end up, and a permanently visible
+ *         empty archive is a standing reminder of a thing that has not happened. Nothing in it
+ *         draws an age, a date or a "days ago": a task from March must read exactly like one
+ *         from Tuesday, which is the whole reason it is allowed to exist.
+ *     (3) **`DoneSplitList` wraps its rows in `AnimatedListItem`**, so a row leaving a section
+ *         slides away instead of vanishing. "Not today" is what needed it — a card that blinks
+ *         out mid-tap reads as a deletion — but it covers every departure (ticking a task into
+ *         the Done zone, bringing one back out of the archive) rather than being special-cased.
+ *     Both clock-dependent memos take `nowMinutes` as their recompute signal and read
+ *     `Date.now()` at call time; the tick is the one this screen already subscribes to.
  *   - **The "I'll decide" pin, Today only (2026-08-02, lib/useEnergyPause.ts)**: when the day is
  *     over budget the user can settle on ONE card; it lifts to the head of `todayList` and every
  *     other card on the tab drops to secondary weight (`pinned`/`dimmed` on TaskCard). Four
@@ -205,7 +224,7 @@
  *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
  *     only seeds the first-run blank draft (see below).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -222,6 +241,10 @@ import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { useDayLog } from '@/lib/useDayLog';
 import { useCalendarEvents } from '@/lib/useCalendarEvents';
 import { useNowMinutes } from '@/lib/useNowMinutes';
+import { isWashedAway } from '@/lib/taskReset';
+import PadRow from '@/components/PadRow';
+import AnimatedListItem from '@/components/AnimatedListItem';
+import Button from '@/components/Button';
 import { DayEntry } from '@/lib/dayLog';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
@@ -341,6 +364,29 @@ function DoneSplitList({
   const focused = focusMode ? actionable.slice(0, FOCUS_VISIBLE) : unfinished;
   const rest = focusMode ? [...actionable.slice(FOCUS_VISIBLE), ...unfinishedNotes] : [];
 
+  /**
+   * A row that LEAVES this list slides away instead of blinking out (2026-08-17).
+   *
+   * "Not today" is what this is for — the task is still there, it is just somewhere else now,
+   * and a card that vanishes mid-tap reads as a deletion. `AnimatedListItem` is the app's
+   * existing answer (`FadeOutDown`, "things retreat somewhere, they don't just vanish" — see
+   * its own header), so this is the shared wrapper rather than a second exit animation, and
+   * reduced motion turns it off there for every caller at once.
+   *
+   * It covers every departure from a section, not only this one: ticking a task moves it into
+   * the "Done" zone, and bringing one back out of the archive puts it here. `hasMounted` gates
+   * the ENTRANCE only, so the list a screen opens on appears at once rather than cascading in.
+   */
+  const hasMounted = useRef(false);
+  useEffect(() => {
+    hasMounted.current = true;
+  }, []);
+  const renderAnimated = (tk: Task) => (
+    <AnimatedListItem key={tk.id} enabled={hasMounted.current}>
+      {renderCard(tk)}
+    </AnimatedListItem>
+  );
+
   if (tasks.length === 0) {
     // No box, no fill, no border — the narrator sits directly on the section's own card. The
     // filled+bordered placeholder this replaces was also the app's real-Input look, which is
@@ -355,7 +401,7 @@ function DoneSplitList({
 
   return (
     <>
-      {focused.length > 0 && <View style={styles.cardStack}>{focused.map(renderCard)}</View>}
+      {focused.length > 0 && <View style={styles.cardStack}>{focused.map(renderAnimated)}</View>}
       {rest.length > 0 && (
         <View style={styles.cardStack}>
           <PressableScale onPress={() => { tap(); setRestOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
@@ -367,7 +413,7 @@ function DoneSplitList({
             />
           </PressableScale>
           <Collapsible open={restOpen}>
-            <View style={styles.cardStack}>{rest.map(renderCard)}</View>
+            <View style={styles.cardStack}>{rest.map(renderAnimated)}</View>
           </Collapsible>
         </View>
       )}
@@ -387,7 +433,7 @@ function DoneSplitList({
             />
           </PressableScale>
           <Collapsible open={doneOpen}>
-            <View style={styles.cardStack}>{finished.map(renderCard)}</View>
+            <View style={styles.cardStack}>{finished.map(renderAnimated)}</View>
           </Collapsible>
         </View>
       )}
@@ -636,6 +682,8 @@ export default function TasksScreen() {
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
   const reorderTasks = useTaskStore((s) => s.reorderTasks);
+  const washedAwayTasks = useTaskStore((s) => s.washedAwayTasks);
+  const bringBack = useTaskStore((s) => s.bringBack);
   const addTaskStep = useTaskStore((s) => s.addStep);
   // Stable handler so the memoised TaskCards / SharedTasksSection don't get a fresh
   // onToggleDone closure every render (which would defeat their React.memo).
@@ -662,6 +710,7 @@ export default function TasksScreen() {
   // field already reads, so turning Goals off hides both at once.
   const featureGoals = useSettingsStore((s) => s.featureGoals);
   const featureDayLog = useSettingsStore((s) => s.featureDayLog);
+  const taskDecayOn = useSettingsStore((s) => s.featureTaskDecay);
 
   const [tab, setTab] = useState<Tab>('today');
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open, and the
@@ -846,13 +895,35 @@ export default function TasksScreen() {
   // `effectiveAssigneeId` rather than `assigneeId`: a rotating chore belongs to whoever
   // has the turn on that date, so filtering by the raw column would hide it from the
   // person who actually has to do it today and show it to someone who doesn't.
+  //
+  // The wash-away filter (2026-08-17, lib/taskReset.ts rule 3) rides in the SAME predicate
+  // deliberately: every section selector on this screen already goes through it, so a task
+  // that has washed away leaves all of them at once and cannot linger in one list while being
+  // archived in another. It is presentation only, exactly like the person/tag rows above and
+  // like a lib/cardLayout.ts layout — an archived task keeps its reminders, keeps its date and
+  // is one tap from coming back. `Date.now()` is read at CALL time, and `nowMinutes` (the
+  // shared 60s tick this screen already subscribes to) is what re-runs the memos that use it.
   const matchFilters = useCallback(
     (tk: Task) =>
       (!showPeople ||
         personFilter === null ||
         (effectiveAssigneeId(tk, tk.date || today) || selfPersonId) === personFilter) &&
-      matchesTagFilter(tk.tagIds, tagFilter),
-    [showPeople, personFilter, selfPersonId, tagFilter, today]
+      matchesTagFilter(tk.tagIds, tagFilter) &&
+      !(taskDecayOn && isWashedAway(tk, today, Date.now())),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `nowMinutes` is the recompute signal for the wash-away cutoff, which reads the clock at call time
+    [showPeople, personFilter, selfPersonId, tagFilter, today, taskDecayOn, nowMinutes]
+  );
+
+  /**
+   * The archive itself: everything the predicate above just took out of the active lists,
+   * longest untouched first. Unfiltered by person/tag on purpose — a drawer that hid rows
+   * behind a filter the user set on a DIFFERENT list would be a place tasks disappear into
+   * for good, which is the one thing an archive must not be.
+   */
+  const washedAway = useMemo(
+    () => (taskDecayOn ? washedAwayTasks(today, Date.now()) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks`/`nowMinutes` drive the recompute; washedAwayTasks reads the store and the clock at call time
+    [washedAwayTasks, taskDecayOn, today, tasks, nowMinutes]
   );
 
   const weekDates = useMemo(() => getWeekDates(today), [today]);
@@ -1585,6 +1656,56 @@ export default function TasksScreen() {
             onTitlePress={() => { tap(); setDayPickerOpen(true); }}
           >
             <RecentDaysList accent={wheneverHue} />
+          </CollapsedSection>
+        )}
+
+        {/* ── Washed away (2026-08-17, lib/taskReset.ts rule 3) ──────────────────────────
+            Where a non-recurring task goes after three days nobody touched it. Same drawer
+            shape as Whenever / Goals / Earlier days above, and deliberately the LAST thing on
+            the tab — it is the least urgent place on a screen about today.
+
+            Three things here are decisions, not omissions:
+              1. **It renders only when it holds something.** Every other section on this
+                 screen stays visible while empty because it is somewhere tasks GO; this one
+                 is somewhere they end up, and a permanently visible empty archive is a
+                 standing reminder of a thing that hasn't happened.
+              2. **No count of days, no date, no age on any row.** The rows are ordered
+                 longest-untouched-first and say nothing about it. A task from March has to
+                 read exactly like one from Tuesday — the same promise lib/episodes.ts makes
+                 about a week-old episode, and the reason this drawer can exist at all.
+              3. **`count` is a size, not a score** (the rule CollapsedSection's own callers
+                 already follow): how many rows are behind a door is fair; how far behind you
+                 are is not, and nothing here computes that. */}
+        {washedAway.length > 0 && (
+          <CollapsedSection
+            hue={wheneverHue}
+            domain="task"
+            icon="water-outline"
+            label={t.tasksSectionWashedAway}
+            count={washedAway.length}
+          >
+            <View style={styles.cardStack}>
+              {washedAway.map((tk) => (
+                <PadRow
+                  key={tk.id}
+                  title={tk.title}
+                  accent={wheneverHue}
+                  // A worded button rather than PadRow's ⋯ action slot: that slot draws an
+                  // ellipsis, which means "there is a menu here", and there isn't — there is
+                  // one thing to do with an archived task. It replaces the check for the same
+                  // reason (`trailing`): the row is here to come back, not to be ticked off
+                  // from a drawer the user had to go looking for.
+                  trailing={
+                    <Button
+                      label={t.washedAwayBringBack}
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => { tap(); bringBack(tk.id); }}
+                    />
+                  }
+                />
+              ))}
+            </View>
           </CollapsedSection>
         )}
       </View>
