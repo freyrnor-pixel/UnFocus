@@ -15,6 +15,8 @@
  *             lib/id, lib/date, lib/cardType (the per-item card type
  *             + the isCompletable rule a 'note' turns on), lib/notifications, lib/taskNotifications,
  *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
+ *             lib/taskReset (the state-based reset — recurringResetPatch/notTodayDate/
+ *             canPostpone/isWashedAway, all pure),
  *             lib/taskCalendar (reserve-only calendar mirroring), lib/liveSync, lib/syncService,
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/clearAll, so live widgets don't wait for foreground/background),
@@ -143,6 +145,20 @@
  *       3. **Stepped stores no current-step pointer.** The visible step is derived as the
  *          first not-done one (lib/cardType.ts's `currentStepIndex`), so it can't disagree
  *          with the done flags the widget, the cascade or a peer might have changed.
+ *   - **The state-based reset (2026-08-17, lib/taskReset.ts)** — three actions, one rule
+ *     each, and the rules themselves are pure functions in that file, not here:
+ *       1. `normalizeRecurringTasks(today)` rolls a recurring daily/weekly task's row
+ *          forward and clears a completion that belonged to an earlier day. It is the one
+ *          write path that deliberately does NOT stamp `lastActedAt` — the app tidying up
+ *          on its own is not the user touching the task — which is why it writes raw
+ *          instead of through `update()`. It DOES stamp `updated_at` and broadcast, because
+ *          `task_date`/`done` are both synced columns (the 2026-08-10 gotcha).
+ *       2. `notToday(id, today)` writes a date and nothing else. There is no counter to
+ *          increment and no place to record that it happened, deliberately —
+ *          `__tests__/taskStateReset.test.ts` asserts the write is exactly two fields.
+ *       3. `washedAwayTasks`/`bringBack` are a derived filter and a stamp. A task washing
+ *          out of the active list writes NOTHING, so bringing it back cannot need to undo
+ *          anything.
  *   - New columns (hint, follows_task_id, card_type, and everything else) go through the
  *     migrations array in lib/db.ts; never recreate tables.
  */
@@ -167,6 +183,13 @@ import { replaceById, updateById } from '@/lib/storeCrud';
 import { generateId } from '@/lib/id';
 import { dateStr, nowHHMM } from '@/lib/date';
 import { taskOccursOn } from '@/lib/taskRecurrence';
+import {
+  canPostpone,
+  hoursSinceStamp,
+  isWashedAway,
+  notTodayDate,
+  recurringResetPatch,
+} from '@/lib/taskReset';
 import { parseTagIds, serializeTagIds } from '@/lib/tags';
 import { sanitizeRotationMode, type RotationMode } from '@/lib/taskRotation';
 import { sanitizeCardType, isCompletable, type CardType } from '@/lib/cardType';
@@ -285,6 +308,15 @@ export type Task = {
    *  count that follows from that. Switching type never deletes anything: a stepped card
    *  turned simple keeps its task_steps rows, done flags included. Synced. */
   cardType: CardType;
+  /**
+   * State-based reset (2026-08-17, lib/taskReset.ts) — ISO-8601 UTC instant of the last time
+   * the person on THIS phone acted on the task: created it, edited it, ticked it, pushed it
+   * to tomorrow, or brought it back out of the archive. It is what the wash-away filter
+   * measures; `updated_at` cannot stand in for it (it moves on any write by any device,
+   * including this store's own automatic normalization) and `created_at` never moves.
+   * Deliberately not synced — see lib/db.ts's migration comment.
+   */
+  lastActedAt: string;
   steps: TaskStep[];
 };
 
@@ -377,6 +409,27 @@ type TaskStore = {
   toggle: (id: string) => void;
   /** Mark a task done immediately — same write path as toggle(), kept distinct for callers with no toggle state. */
   completeDirect: (id: string) => void;
+  /**
+   * State-based reset (2026-08-17, lib/taskReset.ts rule 1) — roll every recurring
+   * daily/weekly task whose row still carries an earlier day forward to `today`, clearing a
+   * completion that belonged to that earlier day. Idempotent: a list that is already current
+   * writes nothing, which is what lets app/_layout.tsx call it on boot and every foreground.
+   */
+  normalizeRecurringTasks: (today: string) => void;
+  /**
+   * "Not today" (lib/taskReset.ts rule 2) — push a task to tomorrow and nothing else. No
+   * skip count, no streak break, no metadata of any kind is written; the task simply has a
+   * different date. A no-op for a recurring or finished task (`canPostpone`).
+   */
+  notToday: (id: string, today: string) => void;
+  /**
+   * The washed-away archive (lib/taskReset.ts rule 3) — non-recurring tasks nobody has
+   * touched for over 72 hours. A derived FILTER over the same `tasks` array, oldest touch
+   * first; nothing was written when they washed away and nothing is written by asking.
+   */
+  washedAwayTasks: (today: string, nowMs?: number) => Task[];
+  /** Bring a washed-away task back into the active list — a fresh `lastActedAt`, nothing else. */
+  bringBack: (id: string) => void;
   remove: (id: string) => void;
   /**
    * "Reset the day" (2026-08-20) — park `ids` in Whenever (`dated: false`), or put them
@@ -437,6 +490,19 @@ function syncTaskRow(id: string): void {
 }
 
 /**
+ * Now, as the ISO-8601 UTC instant `tasks.last_acted_at` stores (lib/taskReset.ts).
+ *
+ * Every USER-driven write goes through it — add(), update() (and so toggle(),
+ * completeDirect(), notToday() and every editor field), restore() and bringBack(). The two
+ * automatic paths deliberately do NOT stamp it: `normalizeRecurringTasks` (the app tidying
+ * up on its own is not the user touching the task) and an inbound sync row (a peer's clock
+ * must not decide what disappears from this phone's archive).
+ */
+function actedNow(): string {
+  return new Date().toISOString();
+}
+
+/**
  * Adjust the all-time completed-task counter (settings.lifetimeCompletedTasks),
  * clamped at 0. Call sites: toggle() (+1/-1 either direction), completeDirect()
  * (+1), remove() (-1, only if the removed task was done). See the file header's
@@ -491,6 +557,7 @@ function rowToTask(row: Row): Task {
     // Total by design (sanitizeCardType): a row written by a newer build, or one an
     // out-of-band write left blank, reads back as an ordinary 'standard' card.
     cardType: sanitizeCardType(readStr(row, 'card_type', 'standard')),
+    lastActedAt: readStr(row, 'last_acted_at', ''),
     steps: [],
   };
 }
@@ -532,6 +599,7 @@ const TASK_COLUMNS: FieldMap<Task> = {
   locationLat: { col: 'location_lat', to: (v) => v ?? null },
   locationLng: { col: 'location_lng', to: (v) => v ?? null },
   cardType: { col: 'card_type', to: (v) => sanitizeCardType(v) },
+  lastActedAt: { col: 'last_acted_at', to: (v) => v ?? '' },
   // followsTaskId is deliberately ABSENT from this map — rowValues() only ever
   // serialises keys present in the map, so neither add()'s insertRow nor update()'s
   // patch can accidentally write follows_task_id. All writes to it go through
@@ -597,11 +665,13 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     // Clearing the tombstone is itself a synced mutation (a peer holding the delete must
     // learn the row is back), so stamp updated_at/origin_device_id exactly like touchRow
     // does and broadcast afterwards.
-    db.runSync('UPDATE tasks SET deleted_at = NULL, updated_at = ?, origin_device_id = ? WHERE id = ?', [
-      now,
-      useSettingsStore.getState().deviceId,
-      id,
-    ]);
+    // `last_acted_at` rides along: pulling a task back out of the bin is the user acting on
+    // it, and without this a restored task could wash straight back out of the active list
+    // (lib/taskReset.ts) for having been created four days ago.
+    db.runSync(
+      'UPDATE tasks SET deleted_at = NULL, updated_at = ?, last_acted_at = ?, origin_device_id = ? WHERE id = ?',
+      [now, now, useSettingsStore.getState().deviceId, id]
+    );
     // Full reload rather than splicing the row back into state by hand: the task's steps
     // have to be regrouped onto it anyway, and load() is one query for each.
     get().load();
@@ -661,6 +731,9 @@ export const useTaskStore = create<TaskStore>((set, get) => {
       // Always 'standard' unless a caller deliberately says otherwise. Creation never asks
       // for a card type — the type is changed afterwards, from the item's own editor.
       cardType: sanitizeCardType(t.cardType),
+      // Writing a task down IS acting on it, so the 72-hour wash-away window starts here
+      // rather than at whatever `created_at` the DB default happens to stamp.
+      lastActedAt: actedNow(),
       // duration_minutes is derived from Start→Finish so the Home day-view keeps working.
       durationMinutes: deriveDurationMinutes(t.time, t.finishTime) ?? t.durationMinutes,
       steps: [],
@@ -679,12 +752,18 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     // whatever this returns is both written and merged, so the duration in memory and the
     // duration in SQLite cannot come apart. See lib/storeCrud.ts.
     const next = updateById('tasks', TASK_COLUMNS, get().tasks, id, (task) => {
+      // Every edit through this action is the user acting on the task, which is what resets
+      // the wash-away window (lib/taskReset.ts). A caller that has already decided the stamp
+      // — bringBack() — keeps its own; the automatic paths bypass update() entirely rather
+      // than passing a flag, so there is no way to edit a task here without it counting.
+      const acted = { lastActedAt: patch.lastActedAt ?? actedNow() };
       // Re-derive duration whenever Start or Finish changed, and persist it alongside
       // the patch so the Home day-view's start–end rendering stays in sync.
-      if (!('time' in patch) && !('finishTime' in patch)) return patch;
+      if (!('time' in patch) && !('finishTime' in patch)) return { ...patch, ...acted };
       const merged = { ...task, ...patch };
       return {
         ...patch,
+        ...acted,
         durationMinutes: deriveDurationMinutes(merged.time, merged.finishTime) ?? merged.durationMinutes,
       };
     });
@@ -746,6 +825,55 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     bumpLifetimeCompletedTasks(1);
     useAutomationStore.getState().fireTrigger('task_completed');
     if (task.goalId) useGoalStore.getState().registerProgress(task.goalId);
+  },
+
+  normalizeRecurringTasks(today) {
+    // Two reasons this writes raw rather than going through update(): it must NOT stamp
+    // `lastActedAt` (the app tidying up is not the user touching the task), and it runs over
+    // every task on every foreground, where one set() per changed row would re-render the
+    // whole list n times. Only rows that actually move are written.
+    const changed: Task[] = [];
+    for (const task of get().tasks) {
+      const patch = recurringResetPatch(task, today);
+      if (!patch) continue;
+      updateRow('tasks', rowValues(patch, TASK_COLUMNS), 'id = ?', [task.id]);
+      changed.push({ ...task, ...patch });
+    }
+    if (changed.length === 0) return;
+    const byId = new Map(changed.map((t) => [t.id, t]));
+    set((s) => ({ tasks: s.tasks.map((t) => byId.get(t.id) ?? t) }));
+    // `task_date` and `done` are both on lib/liveSync's whitelist, so these rows MUST be
+    // stamped and broadcast — an unstamped bulk write leaves a paired phone's stale copy
+    // winning the LWW tiebreak and reverting the roll-forward, which is exactly the shape of
+    // the monthly-reset bug AGENTS.md's 2026-08-10 gotcha records. Both phones compute the
+    // same answer from the same rule, so the broadcast is a tiebreak, never a source of truth.
+    changed.forEach((t) => syncTaskRow(t.id));
+    scheduleWidgetSync();
+  },
+
+  notToday(id, today) {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task || !canPostpone(task)) return;
+    // The whole write. `hasStartDate` comes along because an undated Whenever task pushed to
+    // tomorrow has to actually BE dated tomorrow — otherwise it stays undated and the date it
+    // now carries means nothing (lib/taskRecurrence.ts ignores `date` for an undated row).
+    // Nothing else is recorded: no skip count, no "postponed" flag, no log entry. A task the
+    // user moved on from should leave no evidence that it was ever late.
+    get().update(id, { date: notTodayDate(today), hasStartDate: true });
+  },
+
+  washedAwayTasks(today, nowMs = Date.now()) {
+    return get()
+      .tasks.filter((t) => isWashedAway(t, today, nowMs))
+      // Longest untouched first — the order the list was already in, not a ranking. Nothing
+      // here counts how long that is, and nothing draws it.
+      .sort((a, b) => (hoursSinceStamp(b.lastActedAt, nowMs) ?? 0) - (hoursSinceStamp(a.lastActedAt, nowMs) ?? 0));
+  },
+
+  bringBack(id) {
+    // Un-washing is a stamp and nothing else: the task's date, steps, reminders and every
+    // other field are exactly as they were, because washing away never wrote anything.
+    get().update(id, { lastActedAt: actedNow() });
   },
 
   remove(id) {

@@ -11,7 +11,9 @@
  *   Used by → components/SharedRequestsSection.tsx, app/shopping.tsx, app/budget.tsx,
  *             app/shared.tsx, store/useShoppingListStore.ts
  *             (formatDisplayDate — Norwegian date display, code-only, no ledger number;
- *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO)
+ *             see Decision 028's numbering note — renders stored ISO keys as DD.MM.YYYY in NO),
+ *             lib/taskReset.ts (addDays — "Not today" is today + 1, and the weekly-parity
+ *             roll-forward walks whole weeks)
  *   Data    → none
  *
  * Edit notes:
@@ -52,6 +54,20 @@ export function dateStr(d: Date): string {
 export function parseDateStr(s: string): Date {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+/**
+ * `date` shifted by `days` (negative goes backwards), as a `YYYY-MM-DD` string.
+ *
+ * Noon-anchored like every other date walk in this file, so a DST boundary can't land the
+ * result on the previous or next day. Added 2026-08-17 for lib/taskReset.ts's "Not today"
+ * (today + 1) and its weekly-parity roll-forward; use this rather than hand-rolling a
+ * `setDate(getDate() + n)` at a call site.
+ */
+export function addDays(date: string, days: number): string {
+  const d = new Date(date + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  return dateStr(d);
 }
 
 /** Current local month as `YYYY-MM` (e.g. receipts/budget tracking). */
