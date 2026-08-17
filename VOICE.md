@@ -35,9 +35,9 @@ None of that is a stylistic preference. It is the product.
 been wrong since 2026-08-02.** `energyPause.*` shipped that day with a header of its own
 declaring "Narrator voice: first person", and `energyMeter.boostHint` followed on 2026-08-03
 ("tomorrow starts from **my** normal amount again"). Neither author came here to update the
-count. So the exception is a **family of three**, not one line — the correction is recorded
-rather than quietly applied, because "there is exactly one" was the load-bearing claim and it
-has to be visibly retired:
+count. So the exception covers **three surfaces** (five keys), not one line — the correction is
+recorded rather than quietly applied, because "there is exactly one" was the load-bearing claim
+and it has to be visibly retired:
 
 | Key | Line |
 |---|---|
@@ -46,8 +46,8 @@ has to be visibly retired:
 | `energyPause.afterDecide` / `afterGood` | "The rest keeps. This is the one." / "Fair. Some days you just go." |
 | `energyMeter.boostHint` | "…tomorrow starts from **my** normal amount again." |
 
-All three surfaces meet the same test, and it is the test — not the count — that decides
-whether a fourth is ever allowed: **the app has nothing to instruct, and its ordinary register
+All three meet the same test, and it is the test — not the count — that decides whether a
+fourth surface is ever allowed: **the app has nothing to instruct, and its ordinary register
 would deliver a verdict.** An empty day, an overspent day, a borrowed day. Everywhere else the
 app labels a control, and second person is right.
 
