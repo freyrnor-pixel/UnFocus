@@ -79,6 +79,10 @@
  *   - Honour reducedMotion: the fade is skipped, not shortened.
  *   - Copy tone: no exclamation marks and nothing that implies falling behind
  *     (lib/__tests__/copyTone.test.ts scans every string in lib/i18n.ts).
+ *   - **The closing card's experimental-build note has no left rule any more** (2026-08-19).
+ *     `cardNote` drew a `borderLeftWidth: 2` — a box-inside-a-card edge the 2026-08-18
+ *     blueprint pass's "no box inside a card" rule missed because it only touched the
+ *     StarterCard family. It's plain muted text now, same finish as `cardBody` above it.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PixelRatio, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -311,7 +315,7 @@ export default function TourSpotlight() {
           </View>
           <Text style={[styles.cardTitle, { color: theme.text }]}>{t.tour.finale.title}</Text>
           <Text style={[styles.cardBody, { color: theme.textMuted }]}>{t.tour.finale.body}</Text>
-          <Text style={[styles.cardNote, { color: theme.textMuted, borderColor: theme.border }]}>
+          <Text style={[styles.cardNote, { color: theme.textMuted }]}>
             {t.tour.finale.experimental}
           </Text>
           <Button
@@ -460,8 +464,6 @@ const baseStyles = StyleSheet.create({
   cardNote: {
     fontSize: FontSize.sm,
     lineHeight: 19,
-    borderLeftWidth: 2,
-    paddingLeft: Spacing.sm,
   },
   // The escape and the primary share one row since 2026-08-03 (the third button went). That
   // put the app's longest ghost label — Norwegian "Hopp over omvisningen" — beside "Got it"
