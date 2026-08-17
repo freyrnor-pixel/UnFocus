@@ -141,77 +141,73 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
 describe('chrome edges — content is clipped, not merely padded', () => {
   it('has no NAV_PEEK constant left, and no peek for it to describe', () => {
     // 2026-07-26 shaved Radius.lg off the clearance so a card edge showed in the bar's corner
-    // notches. Reversed 2026-08-10: "Nothing should be visible ... above the header, or under
-    // the bottom nav." Reversed BACK, partially, the same day: the peek was wanted after all —
-    // "should be visible in the bottom nav's cut corners at the top ... same for the header but
-    // the opposite" — and reversed AGAIN on 2026-08-18 ("only the backdrop" behind the chrome),
-    // which is where it stands: content is clipped at the glass, and since 2026-08-19 that edge
-    // is square, so there is no cut corner left for anything to peek through. Whatever the
-    // answer, the fixed-px-shave MECHANISM has never been the thing that came back — the window
-    // geometry decides it — so there is still no `NAV_PEEK` name anywhere to reintroduce.
+    // notches. Reversed 2026-08-10, restored the same day, reversed again 2026-08-18 ("only the
+    // backdrop" behind the chrome), and asked for once more on 2026-08-20 ("the corners should
+    // show content behind it"). The peek is BACK — but the fixed-px-shave MECHANISM has never
+    // been the thing that came back, in any of those five turns: the window geometry decides it,
+    // so there is still no `NAV_PEEK` name anywhere to reintroduce.
     expect(code('components/BottomNav.tsx')).not.toMatch(/NAV_PEEK/);
     expect(code('components/ScreenScaffold.tsx')).not.toMatch(/NAV_PEEK/);
   });
 
-  it('clips the WHOLE nav footprint, so nothing travels behind the glass', () => {
-    // 2026-08-18, reversing the 2026-08-11 split. That split (`marginBottom` = the band below
-    // the bar, `paddingBottom` = the bar's own height) deliberately let content scroll behind
-    // the card and be "hidden BY" it — correct while the bar was opaque, and false from
-    // 2026-08-15, when it became frosted glass with a real BlurView. Maintainer: *"things like
-    // header and bottom nav should still not show elements behind it when user is scrolling…
-    // Only the backdrop."* Summed, the clearance is identical; all of it now CLIPS.
+  it('clips only the band BELOW the nav card, so a card can pass behind the bar', () => {
+    // 2026-08-20, restoring the 2026-08-11 split: `marginBottom` is the band under the bar,
+    // `paddingBottom` is the bar's own card height. The 2026-08-18 pass summed them into the
+    // margin so nothing could travel behind the glass — right while the bar was frosted, and
+    // moot now that it is opaque (`Surface`'s `overlapsCards` covers `nav`). Maintainer:
+    // *"both header card and bottom nav should only have rounded corners. And yes, the corners
+    // should show content behind it"* — which cannot happen unless content gets behind the bar.
     const source = code('components/ScreenScaffold.tsx');
-    expect(source).toMatch(
-      /marginBottom:\s*\n?\s*\(pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0\) \+ \(reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0\)/,
-    );
-    // Not as content padding as well — that is the double-count that grows a blank band on
-    // every screen. This is the surviving half of the old rule: one clearance each, never both.
-    expect(source).not.toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0/);
-    // And still never spelled as the whole clearance constant, which is now only the
+    expect(source).toMatch(/marginBottom: pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0,/);
+    // The other half is the RESTING clearance, and it is padding, never a second margin — one
+    // clearance each, never both, is the one rule that has survived every one of these passes.
+    expect(source).toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0,/);
+    // And still never spelled as the whole clearance constant, which is only the
     // DebugGeneralNoteButton's offset from the screen edge.
     expect(source).not.toMatch(/(margin|padding)Bottom: bottomNavClearance/);
   });
 
-  it('starts the clip at the header card\'s BOTTOM edge, including any sticky bar', () => {
-    // Same reversal, top end. The clip used to sit on the header card's OUTER (top) edge with
-    // the resting gap as content padding; it is the chrome's INNER edge now, so a scrolled card
-    // stops where the glass begins. `stickyBelowHeaderHeight` has to be in it — a screen's tab
-    // row is chrome too, and content showing through THAT was the same defect one card lower.
-    //   **2026-08-19 morning: the gap comes back OFF this number.** `contentTopClear` folded in
-    // `headerFloatBottom`, the 8px between the header card and the first card — so the first cut
-    // of the line above put the clip edge 8px BELOW the glass, and a card scrolling up was
-    // guillotined in open air with a strip of backdrop between the cut and the header. Reported
-    // as "lower corners of header box".
-    //   **2026-08-19 afternoon: `headerFloatBottom` is 0 outright**, so the subtraction is a
-    // no-op that stays only because it is the load-bearing statement — the clip is the CHROME'S
-    // EDGE, whatever the resting gap happens to be, and a future gap must not silently move it.
-    // The gap is gone because the maintainer asked for it at rest as well ("flush at rest too"),
-    // which is asserted in the next test.
+  it('starts the clip at the header card\'s TOP edge — i.e. adds no marginTop at all', () => {
+    // Same restoration, top end. The box already begins at `topInset`, which is exactly where
+    // the header card's top edge is (`headerFloatTop` is 0), so the window runs the header's
+    // full height and a card travels behind it — hidden by the opaque fill everywhere except
+    // the two bottom-corner notches, which is the peek that was asked for.
+    //   The resting clearance is `contentPad.paddingTop`, and `stickyBelowHeaderHeight` belongs
+    // in THAT: a screen's sticky tab row is chrome too, and the first card has to clear it.
     const source = code('components/ScreenScaffold.tsx');
+    expect(source).not.toMatch(/marginTop: contentTopClear/);
     expect(source).toMatch(
-      /marginTop:\s*\n?\s*contentTopClear - headerFloatBottom \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\)/,
+      /paddingTop: contentTopClear \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\),/,
     );
-    expect(source).not.toMatch(/paddingTop: contentTopClear/);
   });
 
-  it('clips the scroll viewport and leaves NO resting gap at either end', () => {
+  it('clips the scroll viewport and still leaves NO resting gap at either end', () => {
     const source = code('components/ScreenScaffold.tsx');
     // `overflow: hidden` is the mechanism; without it the margins are just a differently-spelled
     // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
     // `contentPad` reaches BOTH branches — the ScrollView's contentContainer and the
-    // non-scrollable (FlatList) wrapper — and both numbers are 0 (2026-08-19). The resting gap
-    // is what the maintainer sees as a "blank strip": 8px of bare backdrop under the header at
-    // rest, and the strip a card gets sliced across on the way past it. Asked for flush at both
-    // ends, so the first card lands on the header's glass and the last on the bar's, which is
-    // what makes a card read as passing UNDER the chrome rather than stopping short of it.
-    //   If a resting gap ever comes back it comes back HERE and nowhere else — one clearance
-    // each, never both, is still the rule (see the margin assertions above); today's is zero.
-    expect(source).toMatch(/const contentPad = \{ paddingTop: 0, paddingBottom: 0 \}/);
+    // non-scrollable (FlatList) wrapper. It is the chrome's own footprint and nothing more: no
+    // 8px breathing strip at either end (2026-08-19 "flush at rest too", reaffirmed 2026-08-20
+    // "no gaps"), which is what `headerFloatBottom === 0` states on the top edge.
     expect(source).toMatch(/const headerFloatBottom = 0;/);
     expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
     expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
+  });
+
+  it('keeps the header card mounted at every scroll offset', () => {
+    // 2026-08-20, maintainer: *"Make top header card always visible"*. From 2026-08-16 the
+    // scaffold derived a `scrolled` boolean and ScreenHeader mounted its backdrop only past a
+    // few px — so a screenshot at the top of any screen showed a title floating on bare
+    // backdrop. Both halves are gone; a header that is only sometimes a card is the report.
+    expect(code('components/ScreenScaffold.tsx')).not.toMatch(/headerScrolled|HEADER_SCROLL_THRESHOLD/);
+    const header = code('components/ScreenHeader.tsx');
+    expect(header).not.toMatch(/scrolled\?:/);
+    // ...and the fill is opaque, with no BlurView: content passes behind this row now, and frost
+    // would make the app's own cards legible through the title (the 2026-08-18 card-menu lesson).
+    expect(header).toMatch(/backgroundColor: theme\.surfaceRaised/);
+    expect(header).not.toMatch(/BlurView/);
   });
 
   it('applies the floored top inset itself rather than letting SafeAreaView use the raw one', () => {
@@ -314,50 +310,57 @@ describe('BottomNav — flat equality, no background shape', () => {
 describe('ScreenScaffold — the clipped viewport matches the floating chrome', () => {
   const source = code('components/ScreenScaffold.tsx');
 
-  it('takes the chrome\'s side margins, and is SQUARE on every corner', () => {
+  it('takes the chrome\'s side margins, and follows the two corner pairs it MEETS', () => {
     // The margins close the 8px gutters beside the header/bar, where no chrome covers content.
     expect(source).toMatch(/marginHorizontal: headerFloatH/);
-    // **All four are 0 (2026-08-19, afternoon), and this is the fifth flip of this assertion.**
-    // Every previous flip followed the WINDOW moving. This one follows the CHROME moving, which
-    // is why it should be the last: the two edges the window meets are square now (see the
-    // `chromeFacingSquare` test below), so there is no arc left to follow or to bow away from.
-    //   The morning's cut rounded the window to `Radius.lg` so the cut would trace the header's
-    // bottom corner instead of crossing it. It traced it the WRONG WAY: the glass curves up and
-    // away from the corner while a rounded window curves down and away from it, so the two arcs
-    // open a lens of bare backdrop at each end of the seam — the maintainer's "parts in the
-    // corners", reported against exactly that build. Squaring the chrome's facing edges deletes
-    // the notch at its source, and then the window has to be square to meet them flush.
-    expect(source).toMatch(/borderTopLeftRadius: 0/);
-    expect(source).toMatch(/borderTopRightRadius: 0/);
-    expect(source).toMatch(/borderBottomLeftRadius: 0/);
-    expect(source).toMatch(/borderBottomRightRadius: 0/);
+    // **Sixth flip, and back to the 2026-08-11 answer (2026-08-20).** Five of the six followed
+    // the WINDOW moving; this one follows the window moving BACK, because the chrome went opaque
+    // instead. The window is the chrome's OUTER footprint again, so the corners it lands on are
+    // the header's TOP pair and the bar's BOTTOM pair — the two places the card curves away from
+    // the screen's own corner with nothing behind it, where a square window would show content
+    // OUTSIDE the card. The header's bottom pair and the bar's top pair are deliberately absent:
+    // they sit mid-viewport, and a card filling them as it scrolls past is the corner peek.
+    expect(source).toMatch(
+      /\.\.\.\(floatChrome \? \{ borderTopLeftRadius: Radius\.lg, borderTopRightRadius: Radius\.lg \} : null\)/,
+    );
+    expect(source).toMatch(/borderBottomLeftRadius: Radius\.lg, borderBottomRightRadius: Radius\.lg/);
   });
 
-  it('squares the two chrome edges that face content, and only those two', () => {
-    // Maintainer, 2026-08-19: *"Bottom of header and top of bottom nav should work the same…
-    // No blank space between"*, and delete *"the parts in the corners"*. One rule, three files:
-    // an edge with content clipped against it is square; an edge with nothing behind it keeps
-    // `Radius.lg`. The header's TOP corners and the nav's BOTTOM corners are the "nothing
-    // behind it" half and must stay round — squaring those turns the floating cards into
-    // full-bleed bars, which is a different app.
-    expect(source).toMatch(/const chromeFacingSquare = floatChrome;/);
+  it('rounds every corner of both chrome cards, squaring only the chrome-to-chrome seam', () => {
+    // Maintainer, 2026-08-20: *"both header card and bottom nav should only have rounded corners.
+    // And yes, the corners should show content behind it, no gaps like has been before."* This
+    // reverses the 2026-08-19 seam pass across three files at once. The rule that replaced it:
+    // an edge is squared only where it meets ANOTHER CHROME CARD (the header ↔ sticky tab bar
+    // seam, which is what makes the two read as one card); every edge that faces content is
+    // rounded, because content is no longer cut there — it passes behind and fills the notch.
+    expect(source).not.toMatch(/chromeFacingSquare/);
     expect(source).toMatch(/floatChrome && \{ borderRadius: Radius\.lg \}/);
     expect(source).toMatch(
-      /chromeFacingSquare && \{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 \}/,
+      /headerAttachedBelow && \{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 \}/,
     );
 
-    // The bar at the other end: top square, bottom still round.
+    // The bar at the other end: one radius, all four corners.
     const bar = code('components/BottomNav.tsx').match(/bar: \{[\s\S]*?\n  \}/)?.[0] ?? '';
-    expect(bar).toMatch(/borderTopLeftRadius: 0/);
-    expect(bar).toMatch(/borderTopRightRadius: 0/);
-    expect(bar).toMatch(/borderBottomLeftRadius: Radius\.lg/);
-    expect(bar).toMatch(/borderBottomRightRadius: Radius\.lg/);
+    expect(bar).toMatch(/borderRadius: Radius\.lg/);
+    expect(bar).not.toMatch(/borderTopLeftRadius: 0/);
 
-    // ...and a sticky tab bar, which on the four screens that mount one IS the edge the content
-    // is clipped against, rather than the header's.
+    // ...and a sticky tab bar keeps its top pair square (it abuts the header) while its bottom
+    // pair — the edge facing content — goes back to the caller's own radius.
     expect(code('components/TabSlider.tsx')).toMatch(
-      /attachedTop && \{\s*borderTopLeftRadius: 0,\s*borderTopRightRadius: 0,\s*borderBottomLeftRadius: 0,\s*borderBottomRightRadius: 0,\s*\}/,
+      /attachedTop && \{ borderTopLeftRadius: 0, borderTopRightRadius: 0 \}/,
     );
+  });
+
+  it('keeps both chrome cards OPAQUE, which is what makes the peek legible', () => {
+    // The peek and the 2026-08-18 "only the backdrop" ruling are compatible in exactly one
+    // configuration: content travels behind the chrome, and the chrome hides it. A frosted
+    // header over a moving card is that card read through the title — the same defect the card
+    // menu was reported for. So the nav bar joins `overlay` in `Surface`'s opaque set, and the
+    // header (which doesn't route through Surface) paints its own `surfaceRaised` fill.
+    expect(code('components/Surface.tsx')).toMatch(
+      /const overlapsCards = surfaceContext === 'overlay' \|\| surfaceContext === 'nav';/,
+    );
+    expect(code('components/ScreenHeader.tsx')).toMatch(/backgroundColor: theme\.surfaceRaised/);
   });
 
   it('bleeds the scroll box back out so no card is resized by the inset', () => {

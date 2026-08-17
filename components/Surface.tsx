@@ -79,13 +79,15 @@
  *     sheet or a nav surface.
  *     **It no longer decides WHETHER a BlurView mounts (2026-08-16, brief §2)** — every pane
  *     blurs now; see the comment at the BlurView itself for why the ambient exclusion lost.
- *     **...except `overlay`, which is opaque (2026-08-18)**, maintainer: *"Cards that overlap
- *     other cards should never be translucent."* A sheet is the only tier with the app's own
- *     CARDS behind it — the chrome has only the backdrop, since the 2026-08-18 clip window
- *     bounds content at the header's and the nav's inner edges, and an ambient card sits in a
- *     vertical list that never overlaps itself. So this is a narrowing of the every-pane rule
- *     by exactly one context, not a re-opening of the ambient argument. `theme.surfaceRaised`
- *     is `surfaceGlassStrong` already composited, so a sheet over empty backdrop is unchanged.
+ *     **...except `overlay` (2026-08-18) and `nav` (2026-08-20), which are opaque**, maintainer:
+ *     *"Cards that overlap other cards should never be translucent."* A sheet has the app's own
+ *     CARDS behind it by construction; the nav bar joined it when the clip window went back to
+ *     the chrome's OUTER footprint so a scrolled card could show in the bar's corner notches
+ *     (components/ScreenScaffold.tsx, 2026-08-20) — the same condition, so the same answer. An
+ *     ambient card still frosts: it sits in a vertical list that never overlaps itself. So this
+ *     is a narrowing of the every-pane rule by two named contexts, not a re-opening of the
+ *     ambient argument. `theme.surfaceRaised` is `surfaceGlassStrong` already composited, so a
+ *     sheet or a bar over empty backdrop is unchanged.
  *   - **`settings.glassSurfaces` is LIVE again** (it was inert here from 2026-08-05, because
  *     everything was already opaque — the state that toggle asks for). Off ⇒ the opaque
  *     composite and no BlurView anywhere. It needs no new copy: the shipped EN/NO strings
@@ -303,16 +305,21 @@ export default function Surface({
   const glassPref = useSettingsStore((s) => s.glassSurfaces);
   const opaqueCards = useSettingsStore((s) => s.opaqueCards);
   const isAmbient = surfaceContext === 'ambient';
-  // ── An overlay pane is OPAQUE (2026-08-18) ──────────────────────────────────────────────
+  // ── An overlay pane is OPAQUE (2026-08-18), and so is the nav bar (2026-08-20) ──────────
   // Maintainer, against a screenshot of the card menu: *"Cards that overlap other cards should
-  // never be translucent."* A sheet/modal is the only surface in this app guaranteed to have
-  // the app's own cards behind it — the 2026-08-18 clip window bounds content at the header's
-  // and the nav's INNER edges, so the chrome only ever has the backdrop behind it, and an
-  // ambient card sits in a vertical list that never overlaps itself. So frost on an overlay
-  // isn't depth, it's the card underneath showing through: the shot had "Handleliste" and its
-  // green badge legible twice over, and the nav's five labels reading through the Done key.
-  // `nav` deliberately keeps its frost — it has nothing but backdrop behind it to reveal.
-  const overlapsCards = surfaceContext === 'overlay';
+  // never be translucent."* A sheet/modal has the app's own cards behind it by construction, so
+  // frost there isn't depth, it's the card underneath showing through: the shot had "Handleliste"
+  // and its green badge legible twice over, and the nav's five labels reading through the Done key.
+  //   **`nav` joined it on 2026-08-20**, and the reason is that the sentence this comment used to
+  // end with expired. It said the chrome "has nothing but backdrop behind it to reveal" — true
+  // only while components/ScreenScaffold.tsx clipped content at the chrome's INNER edges. The
+  // maintainer then asked for the header and the bar to *"only have rounded corners"* with *"the
+  // corners show[ing] content behind it"*, which requires content to travel behind the chrome
+  // again — so the bar has the app's own cards behind it now, exactly like a sheet, and takes the
+  // same answer. (`components/ScreenHeader.tsx` doesn't route through Surface and paints its own
+  // opaque fill for the same reason.) An `ambient` card still frosts: it sits in a vertical list
+  // that never overlaps itself.
+  const overlapsCards = surfaceContext === 'overlay' || surfaceContext === 'nav';
   const glassOn = glassPref && !tint && !overlapsCards && !(isAmbient && opaqueCards);
   const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
   // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
