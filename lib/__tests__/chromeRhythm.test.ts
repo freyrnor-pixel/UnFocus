@@ -20,6 +20,11 @@
  *   5. **A field's halo is cut to the field's own shape** (added 2026-08-19). `getFieldGlow`
  *      hands out the radius WITH the shadow, so the two cannot be separate decisions at a call
  *      site — which is how a square glow ended up around every rounded composer well.
+ *   6. **The backdrop is the bottom layer, and it is orbs, not line art** (added 2026-08-17).
+ *      All three backdrop layers and their group wrapper declare `zIndex: -1`, ScreenBackground
+ *      draws no strokes, and — the one that carries weight elsewhere — no orb reaches the middle
+ *      of the canvas at any growth level, which is what keeps
+ *      `__tests__/glassMaterial.test.ts`'s `#000000` dark ground true.
  *
  * Precedent for reading source in a test: lib/__tests__/cardLayout.test.ts, and the "(b) Token
  * use" half of lib/__tests__/designTokens.test.ts. Same reasoning as both — the shape tests
@@ -29,6 +34,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { getGlow, mix } from '@/constants/theme';
 import { contrastRatio, IDENTITY_HUES, THEMES } from '@/constants/colors';
+import { GROWTH_LEVELS } from '@/lib/growth';
 
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
@@ -532,5 +538,90 @@ describe('getFieldGlow — the light and the corner are one decision', () => {
     // AddRow's input takes its radius from the helper's spread alone — it has no style of its own
     // to restate it in.
     expect(code('components/AddRow.tsx')).not.toMatch(/borderRadius: Radius\.sm/);
+  });
+});
+
+// ── 6. The backdrop is the bottom layer, and it is orbs ──────────────────────
+
+describe('the backdrop — under everything, and out of the middle', () => {
+  // 2026-08-17, maintainer: *"The current blue line-art background is causing severe visual
+  // interference. It is rendering ON TOP of the bottom navigation and text… Delete the sharp,
+  // chaotic vine/line art… place 2 or 3 large, absolutely positioned circles in the background
+  // corners… drop their opacity to 10-15%."*
+  //   Every property below is invisible to `tsc` (they are style values and SVG geometry), to a
+  // unit test that renders nothing, and largely to a screenshot — a z-order bug shows up only on
+  // the platform whose sorting rule you happened not to be looking at, and "does an orb reach the
+  // middle of the screen" is arithmetic nobody eyeballs correctly. Hence a source scan.
+
+  const LAYERS = [
+    'components/ScreenBackground.tsx',
+    'components/HomeHeroBackground.tsx',
+    'components/ParticleBackground.tsx',
+  ];
+
+  it('pins every backdrop layer under the chrome', () => {
+    // The old contract was "be the first child and hope" — but each of these mounts beside
+    // siblings that declare a z (ScreenScaffold's header/sticky/bottom blocks at 99-100, the
+    // pager layout's nav overlay at 100), and the moment any sibling declares one, Android sorts
+    // the whole group rather than drawing it in document order. Saying -1 out loud is what makes
+    // "the background drew over the nav" unreachable rather than merely unlikely.
+    for (const file of LAYERS) {
+      const s = code(file);
+      expect({ file, pinned: /zIndex: -1/.test(s) }).toEqual({ file, pinned: true });
+    }
+    // ...and the GROUP wrapper too, since a child's z only orders it among its own siblings —
+    // three pinned children inside an unpinned parent are still an unpinned parent.
+    expect(code('app/(tabs)/_layout.tsx')).toMatch(/bgLayer:\s*\{[^}]*zIndex: -1/);
+  });
+
+  it('draws no line art', () => {
+    const s = code('components/ScreenBackground.tsx');
+    // The vines and leaves are DELETED, not unmounted, so nothing can be quietly rewired back.
+    // A `<Path>` or a `stroke` in this file is the whole family returning.
+    expect(s).not.toMatch(/<Path/);
+    expect(s).not.toMatch(/stroke=/);
+    expect(s).not.toMatch(/BRANCHES|GROWTH_STROKES|GROWTH_LEAVES|leafD/);
+  });
+
+  it('is two or three orbs at the brief\'s opacity, in both themes', () => {
+    const s = code('components/ScreenBackground.tsx');
+    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*r:\s*([\d.]+),\s*tone:/g)];
+    // "2 or 3" is a cap, not a starting point: a fourth circle appearing at a growth tier would
+    // read as a new element rather than as the same field growing.
+    expect(orbs.length).toBeGreaterThanOrEqual(2);
+    expect(orbs.length).toBeLessThanOrEqual(3);
+
+    const peaks = [...s.matchAll(/orbOpacity:\s*([\d.]+)/g)].map((m) => Number(m[1]));
+    expect(peaks).toHaveLength(2); // one per theme, and neither may be forgotten
+    for (const peak of peaks) {
+      expect(peak).toBeGreaterThanOrEqual(0.1);
+      expect(peak).toBeLessThanOrEqual(0.15);
+    }
+  });
+
+  it('leaves the middle of the canvas at a true zero, at every growth level', () => {
+    // **This is the assertion `__tests__/glassMaterial.test.ts` leans on.** That file measures
+    // every glass token against a `#000000` dark ground, which is only honest while nothing
+    // lights the pixels a card sits on. Both of the full-canvas radial glows are held at opacity
+    // 0 for exactly that reason; the orbs are allowed a lift only because they are anchored at or
+    // outside a corner and reach zero before the middle. Move one inward and the composite
+    // assertions over there keep passing while measuring a colour the app no longer draws — the
+    // shape of the PR #540 bug, which is why the geometry is checked here rather than described
+    // in a comment there.
+    const s = code('components/ScreenBackground.tsx');
+    const step = Number(s.match(/const ORB_GROWTH_STEP = ([\d.]+);/)![1]);
+    // The widest an orb ever gets: the top growth tier lib/growth.ts can report.
+    const grow = step * (GROWTH_LEVELS.length - 1);
+
+    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*r:\s*([\d.]+),\s*tone:/g)];
+    expect(orbs.length).toBeGreaterThan(0); // a parse that silently matched nothing proves nothing
+    // The viewBox this file declares, and its centre — where cards and text live.
+    const [, vw, vh] = code('components/ScreenBackground.tsx').match(/viewBox="0 0 (\d+) (\d+)"/)!;
+    const mid = { x: Number(vw) / 2, y: Number(vh) / 2 };
+
+    for (const [, cx, cy, r] of orbs) {
+      const dist = Math.hypot(Number(cx) - mid.x, Number(cy) - mid.y);
+      expect({ cx, cy, reachesMiddle: dist <= Number(r) + grow }).toEqual({ cx, cy, reachesMiddle: false });
+    }
   });
 });

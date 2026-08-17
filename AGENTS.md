@@ -603,6 +603,62 @@ file owns which token.)
     documented exception to "flat and translucent": it floats over a scrolling list, so its
     glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
     in this pass, for the same reason.
+- **The backdrop is ambient orbs, and it is pinned under everything — 2026-08-17**
+  (`components/ScreenBackground.tsx` + `HomeHeroBackground.tsx` + `ParticleBackground.tsx` +
+  `app/(tabs)/_layout.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts` §6). Maintainer: *"The
+  current blue line-art background is causing severe visual interference. It is rendering ON TOP
+  of the bottom navigation and text… Delete the sharp, chaotic vine/line art."* Two instructions
+  that are two separate fixes — undoing either does not undo the other.
+  - **`zIndex: -1`, said out loud, on all three backdrop layers AND on the group wrapper.** The
+    old contract was "be the first child": true, and not a guarantee. Each of these mounts beside
+    siblings that DO declare a z (`ScreenScaffold`'s header/sticky/bottom blocks at 99–100, the
+    pager layout's nav overlay at 100), and the moment any sibling declares one Android sorts the
+    whole container instead of drawing it in document order. The wrapper needs its own -1 as well,
+    because a child's z only orders it among its own siblings — three pinned children inside an
+    unpinned parent is still an unpinned parent.
+  - **Three corner orbs replace the branch-and-leaf line art**, which is DELETED, not unmounted:
+    `BRANCHES`/`LEAVES`/`GROWTH_STROKES`/`GROWTH_LEAVES`/`leafD`/`Cluster` are gone, so nothing
+    can be quietly rewired back. Two orbs sit at the corners the brief names (top-right cyan,
+    bottom-left violet) and a quieter third at top-left; **bottom-right is deliberately empty**,
+    the one placement not taken from the brief — a second glow along the bottom edge would put
+    the brightest part of the field exactly where the interference was reported. The hues are
+    `IDENTITY_HUES.habits`/`.notes` taken far down toward black and hand-written rather than
+    derived, because this is scenery and must not move when a categorical hue is recalibrated.
+    The motif system (`constants/motifs.ts`, `components/Motif.tsx`) is untouched — only this
+    file's own vocabulary changed.
+  - ⚠️ **The blur is a radial falloff and that IS the implementation.** RN has no `filter: blur`
+    for a View on native and `expo-blur` blurs what is BEHIND a view, not the view — so the
+    brief's literal `blurRadius={90}` has nothing to attach to. A Gaussian blur of a flat disc is
+    a radial alpha falloff, so `ORB_STOPS` draws that curve directly; each orb's radius already
+    INCLUDES the blur spread, which is why the numbers are double the brief's 300px. Don't
+    "upgrade" it to `<FeGaussianBlur>`: react-native-svg's filter support is uneven on Android and
+    it would rasterise three full-screen layers on every frame the growth tint animates.
+  - ⚠️ **No orb may reach the middle of the canvas, and that is load-bearing OUTSIDE this file.**
+    `__tests__/glassMaterial.test.ts` measures every glass token against a `#000000` dark ground;
+    that is honest only while nothing lights the pixels a card sits on — which is also why the two
+    full-canvas radial glows are still held at opacity 0 rather than merely dimmed. The orbs earn
+    their lift by staying in the corners. Moving one inward would leave those composite assertions
+    passing while measuring a colour the app no longer draws, i.e. the PR #540 shape, so the
+    geometry is a CHECKED property (§6 computes centre-distance vs radius at the top growth tier),
+    not a promise in a comment.
+  - **Growth is re-expressed, not dropped.** `level` swells the orbs (`ORB_GROWTH_STEP` per tier,
+    from a high-water mark, so what grew stays grown — there is no fourth orb at a higher tier,
+    since "2 or 3" is the cap and a new circle appearing would read as a new element); `intensity`
+    still crossfades a second copy in green over the neutral pair. Neutral is still the floor and
+    the user still sees no number. `lib/growth.ts` did not change and its header now says why: the
+    arithmetic is about a streak, and how it is DRAWN belongs entirely to the backdrop.
+  - **`HomeHeroBackground` came along in DARK.** It was already the right shape (a big soft glow)
+    and wrong twice over: `rgb(90,150,255)` at a **0.32** peak — double the brief's ceiling, in a
+    bright blue, on the app's default tab — centred at 50%/**34%**, i.e. straight through the card
+    box. It was excluded from the true-black reasoning only by living in a different file. Now a
+    muted blue at 0.13 anchored off the TOP edge, so what reaches the cards is the tail. LIGHT is
+    untouched there; its field is a blue gradient with two broad ellipses already in it.
+  - **Light mode generally is the lower-confidence half of this pass.** Its base gradient and both
+    of its ellipses are unchanged and the orbs go on at a 0.10 peak in lifted (not darkened) hues,
+    since a dark orb on a pale field is a smudge. It was NOT verified in the preview:
+    `scripts/screenshot-states.mjs --theme=light` predates dark-becoming-the-default and only
+    means "don't force dark", which now lands on dark anyway. Worth a look on a device, and worth
+    fixing in that script.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
@@ -985,8 +1041,10 @@ file owns which token.)
   - **`components/ScreenBackground.tsx` is what dark mode actually looks like, not the
     palette.** It paints its own private gradient over `theme.bg` on every non-`plainBackground`
     screen, so its `DARK.base` is three `#000000` stops now and both blue radial glows are at
-    opacity 0 (a radial lift on pure black is exactly what destroys the OLED benefit). Change
-    the token without changing that file and nothing moves on screen.
+    opacity 0 (a full-canvas radial lift on pure black is exactly what destroys the OLED
+    benefit). Change the token without changing that file and nothing moves on screen. **The
+    ambient orbs added 2026-08-17 do not reopen this** — see the bullet below; they are allowed a
+    lift precisely because they never reach the middle.
   - **The review's `border.subtle` `#27272A` is `rule`, not `border`.** At 1.12:1 on `surface`
     it is a divider weight; `border` is a separately derived `#787882` that clears WCAG
     1.4.11's 3:1 on every rung.

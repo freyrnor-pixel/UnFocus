@@ -48,10 +48,15 @@ const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 
 /**
- * What a glass token actually lands on. Dark's ground is genuinely `#000000`
- * (components/ScreenBackground.tsx's DARK.base is three black stops with both radial glows at
- * opacity 0); light's is the backdrop gradient's DARKEST stop, so the real pane is never darker
- * than the value these tests check.
+ * What a glass token actually lands on. Dark's ground is genuinely `#000000` where a CARD sits —
+ * components/ScreenBackground.tsx's DARK.base is three black stops, both of its full-canvas radial
+ * glows are held at opacity 0, and its three ambient orbs (2026-08-17) are anchored at or outside
+ * the corners with radii that reach zero before the middle of the canvas, so nothing lifts the
+ * pixels under a pane. **That last clause is the load-bearing one and it is a claim about
+ * geometry, not a promise in prose**: moving an orb inward, or growing one past the arithmetic in
+ * that file's `ORBS` doc, would make this constant a fiction while every assertion below kept
+ * passing — the exact shape of the PR #540 bug AGENTS.md records. Light's ground is the backdrop
+ * gradient's DARKEST stop, so the real pane is never darker than the value these tests check.
  */
 const GROUND = { light: '#e4ecfb', dark: '#000000' } as const;
 
