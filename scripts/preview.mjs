@@ -647,9 +647,11 @@ async function main() {
       console.log('> Settings -> design lab (build a card from blank)');
       await page.getByText('Advanced', { exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
-      await page.getByRole('switch', { name: 'Design lab', exact: true }).first().click({ timeout: 10000 });
+      // Reached through DEBUG MODE since 2026-08-17: the lab's own `featureDesignLab` switch
+      // was removed in the settings-declutter pass and the link moved inside the Debug mode
+      // card, revealed once debug is on.
+      await page.getByRole('switch', { name: 'Debug mode', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
-      // The card title and the revealed link row share the same words, hence `.last()`.
       await page.getByText('Design lab', { exact: true }).last().click({ timeout: 10000 });
       await page.waitForTimeout(1600);
       await shot(page, 'design-lab');

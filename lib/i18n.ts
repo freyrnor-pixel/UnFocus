@@ -1502,18 +1502,6 @@ const en = {
       timelineHorizontal: 'Horizontal to-do timeline',
       timelineHorizontalHint: "Shows today's to-dos as a left-to-right timeline instead of top-to-bottom",
     },
-    cardStyle: {
-      title: 'Solid cards',
-      hint: 'Cards are frosted glass by default. Turn this on to draw them as solid panels instead. Sheets, the header and the menu bar stay frosted.',
-    },
-    photoFormat: {
-      title: 'Photo format',
-      fit: 'Fit',
-      square: '1:1',
-      classic: '4:3',
-      widescreen: '16:9',
-      golden: 'Golden',
-    },
     // Privacy hint card shown in settings (Proposal 3)
     privacy: {
       headline: 'Your data stays with you',
@@ -1663,13 +1651,6 @@ const en = {
         hint: 'Branches slowly grow in around the edges of the screen, and the colour warms, as the days you keep up add together.',
       },
     },
-    // Sample data (Advanced tab; key/column still named freyrMode) — one-tap
-    // seed/unseed of a starter set of shopping/task/habit/note rows
-    // (lib/freyrModeSeed.ts). Turning it off removes only the rows it added.
-    freyrMode: {
-      label: 'Sample data',
-      hint: 'Adds a starter set of shopping items, tasks, a habit, and notes. Turning this off removes only what it added.',
-    },
     // Auto-backup to a persistent, user-chosen location that survives uninstall
     autoBackup: {
       label: 'Auto-backup',
@@ -1719,15 +1700,14 @@ const en = {
   },
   // Local account (Decision 039) — device-only, user-held profile. No server, no
   // credentials, no cloud; the account is backed up via the local backup file above.
+  // Backup & restore (Settings → Advanced → Data). Named `account` from Decision 039, when
+  // this card also carried a device-only "local account" — a name plus a creation date that
+  // nothing in the app ever read. Those rows went on 2026-08-17 and the two strings left are
+  // the ones that describe the FILE, which is what the card was always for. The key keeps its
+  // old name so the diff stays readable; don't re-add an account here.
   account: {
-    title: 'Local account',
-    descNone: 'Create a local account to keep your data under one profile on this device. No sign-up, no password, no server — it lives only here, and you back it up yourself.',
-    descActive: 'Your local account lives only on this device. Back it up to a file you keep, or restore from one — nothing is ever uploaded.',
-    nameLabel: 'Account name',
-    namePlaceholder: 'Name your local account',
-    createButton: 'Create local account',
-    createdOn: (date: string) => `Local account · created ${date}`,
-    restoreButton: 'Restore local account',
+    title: 'Backup & restore',
+    restoreButton: 'Restore from a backup',
     deviceOnlyNote: 'Device-only. No sign-in, no password, no server — ever.',
   },
   // AI setup guide (download/upload) — lib/aiSetupGuide.ts + lib/aiSetupApply.ts. The
@@ -3113,18 +3093,6 @@ const no: typeof en = {
       timelineHorizontal: 'Horisontal gjøremålstidslinje',
       timelineHorizontalHint: 'Viser dagens gjøremål som en tidslinje fra venstre til høyre i stedet for ovenfra og ned',
     },
-    cardStyle: {
-      title: 'Heldekkende kort',
-      hint: 'Kort er frostet glass som standard. Slå på for å tegne dem som heldekkende paneler i stedet. Ark, toppfeltet og menylinja forblir frostet.',
-    },
-    photoFormat: {
-      title: 'Bildeformat',
-      fit: 'Tilpass',
-      square: '1:1',
-      classic: '4:3',
-      widescreen: '16:9',
-      golden: 'Gyllent',
-    },
     privacy: {
       headline: 'Dataene dine er hos deg',
       local: 'Alt lagres kun på denne enheten — ingenting sendes noe sted.',
@@ -3243,10 +3211,6 @@ const no: typeof en = {
         hint: 'Grener vokser sakte fram langs kantene av skjermen, og fargen blir varmere, etter hvert som dagene du holder følge legger seg sammen.',
       },
     },
-    freyrMode: {
-      label: 'Eksempeldata',
-      hint: 'Legger til en startpakke med handleliste-varer, oppgaver, en vane og notater. Slår du den av igjen, fjernes kun det den la til.',
-    },
     autoBackup: {
       label: 'Automatisk sikkerhetskopiering',
       hint: 'Holder én sikkerhetskopifil automatisk oppdatert. Det er denne filen du gjenoppretter fra på en ny telefon. Ingenting lastes opp — du velger hvor den lagres.',
@@ -3295,14 +3259,8 @@ const no: typeof en = {
   // Lokal konto (Decision 039) — kun på enheten, brukereid profil. Ingen server,
   // ingen pålogging, ingen sky; kontoen sikkerhetskopieres via backup-filen over.
   account: {
-    title: 'Lokal konto',
-    descNone: 'Opprett en lokal konto for å samle dataene dine i én profil på denne enheten. Ingen registrering, ingen passord, ingen server — den finnes bare her, og du sikkerhetskopierer den selv.',
-    descActive: 'Den lokale kontoen din finnes bare på denne enheten. Sikkerhetskopier den til en fil du beholder, eller gjenopprett fra en — ingenting lastes opp.',
-    nameLabel: 'Kontonavn',
-    namePlaceholder: 'Gi den lokale kontoen et navn',
-    createButton: 'Opprett lokal konto',
-    createdOn: (date: string) => `Lokal konto · opprettet ${date}`,
-    restoreButton: 'Gjenopprett lokal konto',
+    title: 'Sikkerhetskopi',
+    restoreButton: 'Gjenopprett fra sikkerhetskopi',
     deviceOnlyNote: 'Kun på enheten. Ingen innlogging, ingen passord, ingen server — aldri.',
   },
   // AI-oppsettsguide (last ned/last opp) — lib/aiSetupGuide.ts + lib/aiSetupApply.ts.
@@ -4950,18 +4908,6 @@ const is: typeof en = {
       timelineHorizontal: 'Lárétt tímalína verkefna',
       timelineHorizontalHint: 'Sýnir verkefni dagsins sem tímalínu frá vinstri til hægri í stað ofan frá og niður',
     },
-    cardStyle: {
-      title: 'Gegnheil kort',
-      hint: 'Kort eru frostað gler sjálfgefið. Kveiktu á þessu til að teikna þau sem gegnheil spjöld í staðinn. Blöð, hausinn og valmyndarslá haldast frostuð.',
-    },
-    photoFormat: {
-      title: 'Myndsnið',
-      fit: 'Passa',
-      square: '1:1',
-      classic: '4:3',
-      widescreen: '16:9',
-      golden: 'Gyllið',
-    },
     privacy: {
       headline: 'Gögnin þín eru hjá þér',
       local: 'Allt geymist eingöngu í þessu tæki — ekkert er sent neitt.',
@@ -5081,10 +5027,6 @@ const is: typeof en = {
         hint: 'Greinar vaxa hægt fram með jöðrum skjásins, og liturinn hlýnar, eftir því sem dagarnir sem þú heldur í horfinu leggjast saman.',
       },
     },
-    freyrMode: {
-      label: 'Sýnigögn',
-      hint: 'Bætir við byrjunarpakka af vörum á innkaupalista, verkefnum, einni venju og minnispunktum. Ef þú slekkur á þessu aftur hverfur aðeins það sem það bætti við.',
-    },
     autoBackup: {
       label: 'Sjálfvirkt öryggisafrit',
       hint: 'Heldur einni afritsskrá sjálfkrafa uppfærðri. Það er þessi skrá sem þú endurheimtir úr í nýjum síma. Ekkert er sent upp — þú velur hvar hún geymist.',
@@ -5132,14 +5074,8 @@ const is: typeof en = {
   // Staðbundinn aðgangur (Decision 039) — aðeins í tækinu, í eigu notandans. Enginn
   // netþjónn, engin innskráning, ekkert ský.
   account: {
-    title: 'Staðbundinn aðgangur',
-    descNone: 'Stofnaðu staðbundinn aðgang til að safna gögnunum þínum í eina skrá í þessu tæki. Engin skráning, engin lykilorð, enginn netþjónn — hann er aðeins hér, og þú tekur afrit af honum sjálf(ur).',
-    descActive: 'Staðbundni aðgangurinn þinn er aðeins í þessu tæki. Taktu afrit af honum í skrá sem þú heldur, eða endurheimtu úr einni — ekkert er sent upp.',
-    nameLabel: 'Heiti aðgangs',
-    namePlaceholder: 'Gefðu staðbundna aðgangnum nafn',
-    createButton: 'Stofna staðbundinn aðgang',
-    createdOn: (date: string) => `Staðbundinn aðgangur · stofnaður ${date}`,
-    restoreButton: 'Endurheimta staðbundinn aðgang',
+    title: 'Afrit og endurheimt',
+    restoreButton: 'Endurheimta úr afriti',
     deviceOnlyNote: 'Aðeins í tækinu. Engin innskráning, engin lykilorð, enginn netþjónn — aldrei.',
   },
   // Uppsetningarleiðbeiningar fyrir gervigreind — lib/aiSetupGuide.ts + lib/aiSetupApply.ts.
