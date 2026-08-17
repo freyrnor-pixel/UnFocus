@@ -3,12 +3,16 @@
  *
  * Holds the full English, Norwegian and Icelandic string tables (all typed off `en`) plus
  * helper functions to read the active language. useT() is the React hook for
- * components; getTranslations() is the non-hook accessor for stores/schedulers.
- * Language is sourced from the settings store.
+ * components; getTranslations() is the non-hook accessor for stores/schedulers;
+ * **useLang() (2026-08-19) returns the language CODE** for the one consumer whose strings
+ * live outside the dictionaries — see its own doc, and don't treat it as a general escape
+ * hatch. Language is sourced from the settings store.
  *
  * Connections:
  *   Imports → store/useSettingsStore
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *   Used by → lib/narratorQuotes.ts (the `Lang` TYPE only — it keys its own per-language table
+ *             off it; no dictionary, no hook), components/NarratorQuote.tsx (`useLang`),
+ *             app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
