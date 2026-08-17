@@ -290,16 +290,18 @@ function ScreenBackground(_props: Props) {
   const { level, intensity } = useGrowth();
   const p = isDark ? DARK : LIGHT;
 
-  // The green copy's opacity. Starts at its real value so a cold launch shows the earned
-  // tint immediately instead of fading up into it every time the app opens.
+  // The green copy's opacity, which IS `intensity` — the peak alpha lives in the gradient stops
+  // now, so both copies are drawn at the same strength and the crossfade is a plain 0→1. (It used
+  // to be `intensity * branchOpacity`, because the neutral copy sat inside a `<G opacity>` the
+  // green one had to match.) Starts at its real value so a cold launch shows the earned tint
+  // immediately instead of fading up into it every time the app opens.
   const tint = useSharedValue(intensity);
-  const target = intensity;
 
   useEffect(() => {
     tint.value = reducedMotion
-      ? target
-      : withTiming(target, { duration: Duration.ambient, easing: Ease.move });
-  }, [target, reducedMotion, tint]);
+      ? intensity
+      : withTiming(intensity, { duration: Duration.ambient, easing: Ease.move });
+  }, [intensity, reducedMotion, tint]);
 
   const tintProps = useAnimatedProps(() => ({ opacity: tint.value }));
 
