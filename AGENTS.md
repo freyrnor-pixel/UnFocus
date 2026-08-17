@@ -584,8 +584,12 @@ file owns which token.)
       reasoning that made the ban right is what makes the exception right — italic was banned as
       a way of marking teaching copy as an aside *beside* real content, and there is no real
       content here; this IS the empty slot. A test asserts the exception is exactly one file
-      wide. (Nunito ships no italic face, so the slant is whatever the platform synthesises —
-      real on web/iOS, often nothing on Android. Accepted: the opacity carries the reading.)
+      wide. **And it is a real FACE (`Fonts.italic` = `Nunito_400Regular_Italic`, loaded at the
+      font gate), NOT `fontStyle: 'italic'`** — RN does not map that style onto a named custom
+      family, so the property beside `Fonts.regular` is synthesised on web and iOS and does
+      **nothing on Android**. Every harness this repo can run (web preview, `npm run wraps`,
+      every screenshot, `tsc`) would have shown a perfect slant over an upright shipped build.
+      Same shape as the widget-palette lesson: a difference no local check can see.
     - **No container, and that is the instruction**: no Surface, no fill, no border, no radius.
       `plans.tsx`'s `sectionEmpty` box went with the strings it held — it was added 2026-07-11
       to give an empty section footing on the bare particle background, which stopped being the

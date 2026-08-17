@@ -150,6 +150,7 @@ import {
   Nunito_600SemiBold,
   Nunito_700Bold,
   Nunito_800ExtraBold,
+  Nunito_400Regular_Italic,
 } from '@expo-google-fonts/nunito';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
@@ -264,6 +265,13 @@ export default function RootLayout() {
     Nunito_600SemiBold,
     Nunito_700Bold,
     Nunito_800ExtraBold,
+    // The app's ONE italic (2026-08-19) — components/NarratorQuote.tsx, and nothing else; see
+    // DESIGN_RULES.md 22a. It is a REAL FACE rather than `fontStyle: 'italic'` because RN does
+    // not map a style onto a named custom family: with only the upright faces loaded, that
+    // property is synthesised on web and iOS and silently does NOTHING on Android, i.e. the
+    // instruction would have looked delivered in every harness this repo can run and been
+    // missing on the platform the app actually ships to first.
+    Nunito_400Regular_Italic,
     // Preload the icon glyph fonts alongside Nunito so icons render on the first
     // frame instead of loading their font on first mount and popping in a beat late
     // (the "icons appear when triggered" cold-load symptom). These are small,

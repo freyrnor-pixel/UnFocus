@@ -48,11 +48,13 @@
  *     content here; this IS the empty slot, and the slant is what stops it reading as a row.
  *     **Do not extend it to anything else**, and don't "finish the 2026-08-18 pass" by removing
  *     it. The test asserts the exception is exactly one file wide.
- *     ⚠️ Nunito ships no italic face in this app (constants/theme's `Fonts` are the five
- *     upright weights), so the slant is whatever the platform synthesises — real on web and
- *     iOS, often nothing on Android. That is accepted: the muting and the opacity carry the
- *     "subtle note" reading on their own, and loading a sixth font file for one line is not a
- *     trade worth making.
+ *     ⚠️ **It is `Fonts.italic` — a real FACE — and NOT `fontStyle: 'italic'`.** RN does not map
+ *     that style onto a named custom family, so the property beside `Fonts.regular` is
+ *     synthesised on web and iOS and does **nothing at all on Android**. Every harness this repo
+ *     can run — the web preview, `npm run wraps`, every screenshot in `review-bundle/`, `tsc` —
+ *     would have shown a perfect slant while the shipped Android build rendered upright. That is
+ *     why `Nunito_400Regular_Italic` is loaded at the font gate in app/_layout.tsx: one extra
+ *     TTF, for one line, which is also why the token is documented as having one caller.
  *   - **Opacity is a real 0.55 on the view, not a lightened colour token.** The brief asks for
  *     "50–60% opacity white", and in dark mode `theme.text` IS `#FFFFFF`, so 0.55 over the card
  *     is literally that. Doing it as opacity rather than as `theme.textMuted` also keeps light
@@ -195,9 +197,10 @@ const baseStyles = StyleSheet.create({
     minWidth: 0,
     fontSize: FontSize.sm,
     lineHeight: 20,
-    fontFamily: Fonts.regular,
-    // The app's one italic — see the header before removing it.
-    fontStyle: 'italic',
+    // The app's one italic — a real FACE, not `fontStyle: 'italic'`, which does nothing on
+    // Android beside a named custom family. See the header and constants/theme's `Fonts.italic`
+    // before removing or copying it.
+    fontFamily: Fonts.italic,
   },
   // Nudged down so a 14px glyph optically centres on the first line's cap height rather than
   // sitting on top of it. No fill and no ring: it is a mark, not a control surface.

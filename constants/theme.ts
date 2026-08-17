@@ -499,6 +499,20 @@ export const Fonts = {
   semibold: 'Nunito_600SemiBold',
   bold: 'Nunito_700Bold',
   extrabold: 'Nunito_800ExtraBold',
+  /**
+   * ⚠️ **The app's ONE italic, and it has exactly one caller** — components/NarratorQuote.tsx
+   * (2026-08-19). The 2026-08-18 blueprint pass deleted `fontStyle: 'italic'` from all 14 files
+   * that carried it; this is the narrow instructed exception the day after, for the empty-state
+   * narrator's line. See DESIGN_RULES.md 22a and that component's header before using it.
+   *
+   * A real FACE, not the `fontStyle` property, and that distinction is the point: RN does not
+   * map a style onto a named custom family, so `fontStyle: 'italic'` beside
+   * `fontFamily: Fonts.regular` is synthesised on web and iOS and does nothing at all on
+   * Android — invisible in the web preview, in every screenshot, and to `tsc`. This is the only
+   * way the slant is actually there on device. It costs one more TTF at the font gate
+   * (app/_layout.tsx), which is why it stays at one caller.
+   */
+  italic: 'Nunito_400Regular_Italic',
 } as const;
 
 /**

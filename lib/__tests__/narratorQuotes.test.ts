@@ -245,22 +245,35 @@ describe('NarratorQuote — a line on the card, not a card of its own', () => {
   });
 });
 
-describe('the italic exception is exactly one file wide', () => {
+describe('the italic exception is exactly one file wide, and is a real face', () => {
   // The 2026-08-18 blueprint pass deleted `fontStyle: 'italic'` from all 14 files that carried
   // it. This is a narrow, instructed exception the day after — *"muted, translucent italic
   // text… so it looks like a subtle note rather than primary UI"* — and the value of writing it
   // down is that the NEXT session can tell an exception from drift. If a second file wants
   // italic, that is a question for the maintainer, not a precedent already set.
   it('lives only in components/NarratorQuote.tsx', () => {
-    expect(code('components/NarratorQuote.tsx')).toMatch(/fontStyle: 'italic'/);
+    expect(code('components/NarratorQuote.tsx')).toMatch(/fontFamily: Fonts\.italic/);
     for (const file of [
       'components/StarterCard.tsx',
       'components/StarterExampleRow.tsx',
       'components/HintCard.tsx',
       'components/PlanTaskCard.tsx',
     ]) {
-      expect({ file, italic: /fontStyle: 'italic'/.test(code(file)) }).toEqual({ file, italic: false });
+      const source = code(file);
+      expect({ file, italic: /fontStyle: 'italic'|Fonts\.italic/.test(source) })
+        .toEqual({ file, italic: false });
     }
+  });
+
+  it('uses the loaded face, not the synthesised style', () => {
+    // ⚠️ The load-bearing half, and invisible to every harness in this repo. RN does not map
+    // `fontStyle` onto a named custom family, so `fontStyle: 'italic'` beside `Fonts.regular`
+    // is synthesised on web and iOS and does NOTHING on Android — a perfect slant in the web
+    // preview, in `npm run wraps`, and in every screenshot, over an upright shipped build.
+    expect(code('components/NarratorQuote.tsx')).not.toMatch(/fontStyle: 'italic'/);
+    // …which only works if the face is actually at the font gate. Both halves, or neither.
+    expect(code('constants/theme.ts')).toMatch(/italic: 'Nunito_400Regular_Italic'/);
+    expect(code('app/_layout.tsx')).toMatch(/Nunito_400Regular_Italic,[\s\S]*useFonts\(\{[\s\S]*Nunito_400Regular_Italic,/);
   });
 });
 
