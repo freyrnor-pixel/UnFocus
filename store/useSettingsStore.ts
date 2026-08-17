@@ -131,6 +131,28 @@
  *     inert either: `energyMode`, `energyDailyCapacity`, `energyWeeklyCapacity` and
  *     `energyCustomCapacities` are still live configuration, still in Settings, and still
  *     read by store/useEnergyStore.ts.
+ *   - **Five more joined the inert list on 2026-08-17 (the settings declutter pass)** —
+ *     `photoAspectRatio`, `opaqueCards`, `accountName`, `accountCreated`, `freyrModeEnabled`
+ *     /`freyrSeedIds` and `featureDesignLab`. Their rows came off app/settings.tsx and the
+ *     reason differs per column, which matters if one is ever revived:
+ *     - `photoAspectRatio` and `opaqueCards` are still READ (components/PhotoFrame.tsx and
+ *       components/Surface.tsx respectively) and still resolve correctly — they simply have
+ *       no control any more. PhotoFrame's only caller hard-codes `square` and documents that
+ *       it ignores the default, so the picker had never changed anything visible; `opaqueCards`
+ *       was the card-only half of `glassSurfaces`, which overrides it, so the app carried two
+ *       switches over one idea. Both stay in the AI-setup whitelist deliberately: removing a
+ *       key from it is a schema change (AI_SETUP_SCHEMA_VERSION), and neither value is wrong,
+ *       just unreachable from the UI.
+ *     - `accountName`/`accountCreated` are the classic flavour — written by a "Create local
+ *       account" button and read by NOTHING, ever. That button's whole effect was to replace
+ *       itself with the date it had just stamped.
+ *     - `freyrModeEnabled`/`freyrSeedIds` are the demo-seeding pair. lib/freyrModeSeed.ts
+ *       survives with no caller; reviving it means re-adding the toggle, not just the column.
+ *     - `featureDesignLab` is the "moved, not dropped" flavour: the design lab is still
+ *       reachable, from a link inside Settings' Debug mode card, so the SURFACE lives and only
+ *       its own switch is gone. lib/designLab.ts's header still names this flag — it no longer
+ *       gates anything.
+ *     Do NOT wire new UI to any of them without re-reading the call-site note that removed it.
  *   - **Fresh-install feature defaults were audited on 2026-07-31 (B1-1)**, when the
  *     onboarding feature picker was deleted and the defaults had to stand alone. The
  *     migration log was replayed from an empty DB and the resulting `settings` row read

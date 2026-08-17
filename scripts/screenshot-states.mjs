@@ -584,7 +584,7 @@ async function main() {
         await shot(page, 'settings-general', {
           title: 'Settings — General',
           screen: 'app/settings.tsx',
-          state: 'Neutral grey: Home and Settings are the only two screens with no hue of their own. Three tabs — General (profile, appearance, accessibility, backup, version, reset), Personal, Advanced — reorganised down from four.',
+          state: 'Neutral grey: Home and Settings are the only two screens with no hue of their own. Three tabs — General (profile, appearance, notifications, layout, feedback), Personal (accessibility, shopping, device features), Advanced (features, tags, backup, version, reset, debug). Reorganised 2026-08-17: what people actually come here to change is on the first tab.',
           components: 'TabSlider, FormControls, Surface, SectionCard',
         });
         if (await tryText(page, 'Personal', 4000)) {
@@ -611,7 +611,9 @@ async function main() {
         await page.waitForTimeout(1400);
         await tryText(page, 'Advanced', 4000);
         await page.waitForTimeout(900);
-        const labSwitch = page.getByRole('switch', { name: 'Design lab', exact: true }).first();
+        // Debug mode is the door since 2026-08-17 — the lab's own switch went in the
+        // settings-declutter pass and its link lives inside the Debug mode card now.
+        const labSwitch = page.getByRole('switch', { name: 'Debug mode', exact: true }).first();
         if (!(await labSwitch.isVisible({ timeout: 4000 }).catch(() => false))) return;
         await labSwitch.click({ timeout: 8000 });
         await page.waitForTimeout(900);

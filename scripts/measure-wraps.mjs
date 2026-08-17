@@ -140,7 +140,7 @@ const L = {
     // plus a colour row that puts a swatch, two nudges and a hex field on ONE line — the
     // densest horizontal case added to the app since the task editor, and the same shape that
     // broke that editor at 327px.
-    advancedTab: 'Advanced', designLab: 'Design lab',
+    advancedTab: 'Advanced', debugMode: 'Debug mode', designLab: 'Design lab',
     // The playground (empty, then with a card on it, then with a part's panel open), and the
     // token knobs on their own pushed screen. A tab this walk doesn't switch to is a tab it
     // doesn't measure — the same rule that made this five scans in the first place.
@@ -160,7 +160,7 @@ const L = {
     editGoals: 'Mål',
     expandList: 'Vis liste',
     logSymptom: 'Hva plager deg?',
-    advancedTab: 'Avansert', designLab: 'Designlab',
+    advancedTab: 'Avansert', debugMode: 'Feilsøkingsmodus', designLab: 'Designlab',
     labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
     labShelfGroup: 'Kontroller', labAddSlider: 'Legg til en skyvebryter',
     labTokensLink: 'Farger og former',
@@ -181,7 +181,7 @@ const L = {
     editGoals: 'Markmið',
     expandList: 'Sýna lista',
     logSymptom: 'Hvað er að angra þig?',
-    advancedTab: 'Ítarlegt', designLab: 'Hönnunarstofa',
+    advancedTab: 'Ítarlegt', debugMode: 'Villuleitarhamur', designLab: 'Hönnunarstofa',
     labAddCard: 'Bæta við korti', labBlankCard: 'Tómt kort',
     labShelfGroup: 'Stýringar', labAddSlider: 'Bæta við: sleði',
     labTokensLink: 'Litir og form',
@@ -612,7 +612,10 @@ async function main() {
     try {
       await clickText(page, L.advancedTab);
       await page.waitForTimeout(900);
-      await page.getByRole('switch', { name: L.designLab, exact: true }).first().click({ timeout: 10000 });
+      // The lab is reached through DEBUG MODE since 2026-08-17 — its own `featureDesignLab`
+      // switch was removed in the settings-declutter pass, and the link now sits inside the
+      // Debug mode card, revealed once debug is on.
+      await page.getByRole('switch', { name: L.debugMode, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await page.getByText(L.designLab, { exact: true }).last().click({ timeout: 10000 });
       await page.waitForTimeout(1500);
