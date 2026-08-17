@@ -69,17 +69,17 @@
  *     clips can never fade out") and `Shadow.fab` (2026-08-11, "a grey collar, not a float")
  *     were each deleted on their own report. The bar is a Surface that already casts one
  *     shadow for the whole cluster; nothing inside it needs a second light source.
- *   - The bar's own `surfaceContext="nav"` is a REAL switch again as of 2026-08-15 (it mounts
- *     a BlurView). Content can never show through it regardless — components/ScreenScaffold.tsx
- *     clips the scroll viewport at this bar's TOP edge as of 2026-08-18, so the only thing
- *     behind the glass is the screen backdrop. See that file's `viewportInset`.
- *   - **That top edge is SQUARE as of 2026-08-19** (`bar`'s radii), and the header's bottom edge
- *     is square for the same reason: an edge with content clipped flush against it cannot be
- *     rounded, or the last `Radius.lg` at each end becomes a notch the content is either sliced
- *     into or curved away from — reported at both ends of the screen as a blank strip and as
- *     "the parts in the corners". The BOTTOM pair floats over the safe area with nothing behind
- *     it and keeps its radius. Don't restore the top pair for symmetry with it; the two edges do
- *     different jobs.
+ *   - **The bar is OPAQUE as of 2026-08-20**, and that is what makes the corner rule below work.
+ *     `surfaceContext="nav"` mounted a BlurView from 2026-08-15; it now falls under `Surface`'s
+ *     `overlapsCards`, alongside `overlay`, because components/ScreenScaffold.tsx's clip window
+ *     runs this bar's full height again and the app's own cards genuinely pass behind it. Frost
+ *     over a moving card is that card read through the labels — the 2026-08-18 card-menu lesson,
+ *     one surface further out. Don't put the frost back without moving the clip window with it.
+ *   - **Every corner is `Radius.lg` as of 2026-08-20** (`bar`'s radii), matching the header card
+ *     at the other end of the screen. The top pair was square for one day (2026-08-19), while
+ *     content was clipped flush against that edge; with content passing behind the bar again, the
+ *     top-corner notches are where a scrolled card shows through, which is exactly what the
+ *     maintainer asked for. Keep this in step with `ScreenScaffold`'s header radii.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -224,19 +224,15 @@ const baseStyles = StyleSheet.create({
     // children of unequal width (two flex groups around a fixed 56px FAB) — and the gap was
     // itself a bug source, since the raw `Spacing.sm` token disagreed with the scaled one the
     // group actually rendered (2026-08-13).
-    // **The TOP pair is square (2026-08-19).** That edge faces the scroll content, which is
-    // clipped flush against it by components/ScreenScaffold.tsx — and a rounded edge cannot be
-    // met flush: the glass curves away from the last `Radius.lg` at each end, leaving a notch
-    // where the content is either sliced square into it or curved away from it, which is the
-    // "blank strip / parts in the corners" the maintainer reported at both ends of the screen.
-    // Deleting the notch is what lets a card disappear UNDER the bar along its whole width.
-    // The header's bottom edge is square for exactly this reason (see `chromeFacingSquare`);
-    // the two edges facing the content are one kind of edge. The BOTTOM pair still floats over
-    // the safe area with nothing behind it, so it keeps the radius.
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    borderBottomLeftRadius: Radius.lg,
-    borderBottomRightRadius: Radius.lg,
+    // **All four corners are rounded (2026-08-20), reversing the 2026-08-19 square top pair.**
+    // Maintainer: *"both header card and bottom nav should only have rounded corners. And yes,
+    // the corners should show content behind it, no gaps like has been before."* The top pair was
+    // squared while components/ScreenScaffold.tsx clipped the scroll content flush against this
+    // edge — a rounded edge cannot be met flush by a cut. The clip window runs the bar's full
+    // height again (the bar is opaque now, so content behind it is hidden rather than showing
+    // through), so nothing is cut here: a card slides UNDER the bar and fills the two top-corner
+    // notches on the way. Bare backdrop in those notches is the "gap"; a card in them is depth.
+    borderRadius: Radius.lg,
   },
   item: {
     flex: 1,

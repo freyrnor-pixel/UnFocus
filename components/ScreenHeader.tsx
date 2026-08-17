@@ -8,23 +8,27 @@
  * Tier 'sub': back link left (iOS only), title immediately right of it and left-aligned,
  * right slot for the screen-specific action (not mirrored).
  *
- * **No pill background at rest (2026-08-16, "header flush" polish pass).** This used to be
- * wrapped in a `Surface` (`surfaceContext="overlay"`), which painted a card-shaped fill behind
- * the title and icons even though nothing about a header needs the "this is a distinct panel"
- * read a card gives — it just made the title look like it was floating in a pill. The title and
- * icons now sit directly on `components/ScreenBackground.tsx`, flush with the rest of the
- * screen, via a plain `View`.
+ * **The card is ALWAYS there, and it is OPAQUE (2026-08-20).** Maintainer: *"Make top header
+ * card always visible"*, together with *"the corners should show content behind it"*. Those two
+ * are one decision, and the second is what forces the first:
+ * `components/ScreenScaffold.tsx`'s clip window runs the chrome's full height again, so cards
+ * genuinely scroll BEHIND this row — which means the row needs a fill at every scroll offset,
+ * and that fill has to hide what passes under it. `theme.surfaceRaised` is the same opaque rung
+ * `Surface`'s `overlay` context paints, and there is no `BlurView`: an opaque fill under a live
+ * blur still smears the card behind onto the pane (the 2026-08-18 lesson from the card menu),
+ * so the fill and the frost come off together or not at all.
  *
- * That leaves nothing to separate the header from content scrolled underneath it — content
- * can't actually reach behind the header any more (`ScreenScaffold`'s clip window stops at the
- * header's inner edge, 2026-08-18), so there's no leaking to prevent, but a hard cut from
- * "chrome" to "content" reads better with *something* there once the screen has scrolled. So
- * `scrolled` (passed by `ScreenScaffold`, true once the ScrollView's offset is past a few px)
- * gates a translucent frosted backdrop — a `BlurView` plus the same `surfaceGlassStrong` wash
- * `Surface`'s `overlay` context used to paint — behind the row. At rest (`scrolled` false) that
- * layer doesn't mount at all: not just invisible, absent, so a screenshot at the top of any
- * screen shows the header content on bare background. `settings.glassSurfaces` (reduce-
- * transparency) still wins — off, the scrolled backdrop is `theme.surface` with no blur.
+ * This reverses TWO shipped passes, deliberately, and neither comes back piecemeal:
+ *   - **2026-08-16, "no pill background at rest"** — the row sat directly on
+ *     `components/ScreenBackground.tsx` with nothing behind it, and a `scrolled` prop mounted a
+ *     frosted backdrop only once the ScrollView had moved. There is no `scrolled` prop any more;
+ *     a header that is only sometimes a card is exactly what the maintainer asked to end.
+ *   - **2026-08-15's frosted chrome** — the frost was correct while content could not reach
+ *     behind the glass. It can now, so frost here means reading the app's own cards through the
+ *     title. Same reasoning, same answer as `Surface`'s `overlapsCards`, which the nav bar now
+ *     takes for the identical reason.
+ * `settings.glassSurfaces` (reduce-transparency) needs no branch here — opaque is already what
+ * it would ask for.
  *
  * Also owns the self-contained debug-mode controls (2026-07-13, expanded 2026-07-19): every
  * screen's title is long-press-annotatable via DebugNoteAnchor (the title anchor is keyed
@@ -45,10 +49,10 @@
  *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
  *             store/useFeedbackStore, components/PressableScale, components/DebugNoteAnchor,
  *             components/AppModal (showAppModal), expo-router, expo-updates, expo-constants,
- *             expo-blur (BlurView — the scrolled-only backdrop), react-native (Share, Linking,
- *             AppState, ActivityIndicator)
- *   Used by → ScreenScaffold (composition layer), which also passes `scrolled`
- *   Data    → reads `leftHanded`/`debugModeEnabled`/`glassSurfaces` + writes `debugModeEnabled`
+ *             react-native (Share, Linking, AppState, ActivityIndicator)
+ *             (2026-08-20: expo-blur is NO LONGER imported — the card is opaque, see above)
+ *   Used by → ScreenScaffold (composition layer)
+ *   Data    → reads `leftHanded`/`debugModeEnabled` + writes `debugModeEnabled`
  *             (bug toggle) on the settings store; reads/emails/clears useFeedbackStore's notes;
  *             reads expo-updates' isEnabled/checkForUpdateAsync
  *
@@ -131,10 +135,9 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { BlurView } from 'expo-blur';
 import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { buildDebugNotesMailUrl, formatDebugNotesMessage } from '@/lib/feedbackMail';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -160,21 +163,12 @@ type Props = {
   onScanPress?: () => void;
   /** Opens this surface's card-layout picker (components/LayoutPickerSheet.tsx). */
   onLayoutPress?: () => void;
-  /**
-   * True once the enclosing screen has scrolled past its top a few px (passed by
-   * `ScreenScaffold`). Gates the translucent frosted backdrop behind the title/icons — at rest
-   * the header has none and sits flush on the screen background. See the file header's
-   * "No pill background at rest" note.
-   */
-  scrolled?: boolean;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress, scrolled }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress }: Props) {
   const t = useT();
   const theme = useAppTheme();
-  const isDark = useIsDark();
   const router = useRouter();
-  const glassOn = useSettingsStore((s) => s.glassSurfaces);
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
   const updateSettings = useSettingsStore((s) => s.update);
@@ -416,27 +410,15 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
-  // The scrolled-only backdrop (see the file header's "No pill background at rest" note): a
-  // BlurView plus the same translucent wash `Surface`'s `overlay` context used to paint, mounted
-  // ONLY while `scrolled`, so at rest there is nothing here at all — not just invisible. Off
-  // `glassSurfaces` (reduce-transparency), it's the opaque composite with no blur, matching how
-  // Surface itself degrades.
-  const headerBackdrop = scrolled ? (
-    <>
-      {glassOn ? (
-        <BlurView
-          intensity={HEADER_BLUR}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-      ) : null}
-      <View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFill, { backgroundColor: glassOn ? theme.surfaceGlassStrong : theme.surface }]}
-      />
-    </>
-  ) : null;
+  // The card itself (see the file header's "The card is ALWAYS there" note): one opaque
+  // absoluteFill wash on the same `surfaceRaised` rung `Surface`'s `overlay` context paints,
+  // mounted unconditionally. No scroll gate — a header that is only sometimes a card is what
+  // this replaced — and no `BlurView`, because content genuinely passes behind this row now and
+  // frost would make the app's own cards legible through the title. `styles.headerClip` is what
+  // keeps it inside whatever corner radius ScreenScaffold passes.
+  const headerBackdrop = (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
+  );
 
   const titleNode = (align: 'left' | 'right') => (
     <DebugNoteAnchor id={`screen:${pathname}`} label={title} style={styles.titleWrap}>
@@ -502,10 +484,6 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   );
 }
 
-/** How hard the scrolled-only backdrop blurs — matches Surface's `overlay`-tier `BLUR_STRONG`,
- *  since this chrome plays the same role. */
-const HEADER_BLUR = 28;
-
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
@@ -530,9 +508,11 @@ const styles = StyleSheet.create({
     // `Radius.lg` for floating screens, which `headerClip` (below) is what actually clips to.
     borderRadius: 0,
   },
-  // `overflow: 'hidden'` so the scrolled-only backdrop (a BlurView + wash, both absoluteFill)
-  // clips to whatever `borderRadius` the caller's `style` sets, instead of squaring off past
-  // the rounded corners `ScreenScaffold` passes for a floating header.
+  // `overflow: 'hidden'` so the card's absoluteFill wash clips to whatever `borderRadius` the
+  // caller's `style` sets, instead of squaring off past the rounded corners `ScreenScaffold`
+  // passes for a floating header. Load-bearing since 2026-08-20: the wash is opaque and always
+  // mounted, so an unclipped one would paint over the very corner notches that are supposed to
+  // show the content scrolling behind it.
   headerClip: {
     overflow: 'hidden',
   },

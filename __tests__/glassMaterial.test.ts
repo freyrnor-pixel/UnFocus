@@ -194,7 +194,7 @@ describe('the material system stays deleted, and stays matte', () => {
     });
   });
 
-  it('a sheet never lets the card behind it through', () => {
+  it('a sheet — and now the nav bar — never lets the card behind it through', () => {
     // Maintainer, 2026-08-18, against a screenshot of components/CardMenuSheet.tsx: *"Cards
     // that overlap other cards should never be translucent."* The shot showed the Home
     // shopping card's title and badge legible THROUGH the menu, and the bottom nav's five
@@ -202,15 +202,22 @@ describe('the material system stays deleted, and stays matte', () => {
     //
     // This narrows 2026-08-16's "every pane blurs" by exactly one context, and the boundary is
     // what each tier has BEHIND it rather than taste:
-    //   · `overlay` — sheets and modals — is the only surface guaranteed to have the app's own
-    //     cards behind it. Opaque, no blur.
-    //   · `nav` keeps its frost: the 2026-08-18 clip window bounds content at the header's and
-    //     the nav's inner edges, so the chrome has nothing but backdrop behind it.
+    //   · `overlay` — sheets and modals — has the app's own cards behind it by construction.
+    //     Opaque, no blur.
+    //   · `nav` JOINED IT on 2026-08-20. This bullet used to say the bar kept its frost because
+    //     the 2026-08-18 clip window bounded content at the chrome's inner edges — true then,
+    //     and the premise expired when the maintainer asked for the header and the bar to *"only
+    //     have rounded corners"* with *"the corners show[ing] content behind it"*. That requires
+    //     content to travel behind the bar, so the bar now has cards behind it exactly like a
+    //     sheet, and takes the same answer. (components/ScreenHeader.tsx doesn't route through
+    //     Surface and paints its own opaque fill; lib/__tests__/chromeRhythm.test.ts pins it.)
     //   · `ambient` keeps its frost: a card sits in a vertical list that never overlaps itself.
     // Invisible to a screenshot of any single surface and to the web preview alike, hence a
     // source scan plus the arithmetic below.
     const surface = read('components/Surface.tsx');
-    expect(surface).toMatch(/const overlapsCards = surfaceContext === 'overlay';/);
+    expect(surface).toMatch(
+      /const overlapsCards = surfaceContext === 'overlay' \|\| surfaceContext === 'nav';/,
+    );
     // The frost gate must include it, or the fill goes opaque while a BlurView still smears
     // the card behind it over the top — the bug in a form that looks half-fixed.
     expect(surface).toMatch(/const glassOn = .*!overlapsCards/);
@@ -347,12 +354,12 @@ describe('glass settings', () => {
   it('opaqueCards is scoped to CARDS, and glassSurfaces still wins over it', () => {
     // The two switches are deliberately different sizes and this is what keeps them that way.
     // `glassSurfaces` is the global reduce-transparency mode; `opaqueCards` reaches ambient
-    // panes only, so sheets, the header and the nav stay frosted and the card material can be
-    // judged on its own. Written as ONE boolean so the precedence is readable in one line:
-    // glassSurfaces off ⇒ opaque everywhere regardless, and `tint` still wins over both.
-    // 2026-08-18 added a fourth term, `!overlapsCards`, in the same one-line boolean — the
-    // sheet rule (see 'a sheet never lets the card behind it through'). `opaqueCards` is still
-    // the only one of the four scoped to ambient panes, which is what this test is about.
+    // panes only, so the card material can be judged on its own. Written as ONE boolean so the
+    // precedence is readable in one line: glassSurfaces off ⇒ opaque everywhere regardless, and
+    // `tint` still wins over both. 2026-08-18 added a fourth term, `!overlapsCards`, in the same
+    // one-line boolean — the sheet rule, which 2026-08-20 widened to the nav bar (see 'a sheet —
+    // and now the nav bar — never lets the card behind it through'). `opaqueCards` is still the
+    // only one of the four scoped to ambient panes, which is what this test is about.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
       /const glassOn = glassPref && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
