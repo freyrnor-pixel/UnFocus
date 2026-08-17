@@ -32,6 +32,8 @@
  *             shell), components/Collapsible + components/AnimatedChevron
  *             (animated "Finished (n)" done-zone reveal, and the collapsed Whenever drawer),
  *             components/TabSlider,
+ *             components/NarratorQuote (2026-08-19 — the line an empty section says, where
+ *             the `sectionEmpty` box used to be),
  *             components/StarterCard (first-run explainer, shown while there are no tasks at
  *             all; `collapsible` as of 2026-08-06 v3 — its example row collapses to a
  *             trigger row rather than always showing),
@@ -191,8 +193,12 @@
  *     undated tasks only, and shared tasks are tinted instead of getting their own section.
  *   - New tasks are always created in Whenever (undated, non-recurring); the editor can
  *     then promote them (date / repeat).
- *   - **Always-visible sections**: every named section always renders with a
- *     `styles.sectionEmpty` placeholder (i18n keys `tasksSection*Empty` / `tasksDayEmpty`).
+ *   - **Always-visible sections**: every named section always renders, drawing
+ *     `components/NarratorQuote.tsx` (`category="todo"`) where its rows would be. It was a
+ *     `styles.sectionEmpty` box holding one of `tasksSection*Empty` / `tasksDayEmpty` /
+ *     `noPlansToday` until 2026-08-19 — three strings naming the absence the user is already
+ *     looking at. All three are deleted along with the style and `DoneSplitList`'s
+ *     `emptyText` prop.
  *   - **Add affordance**: the shared `AddRow` (empty row + "+") sits in a plain bordered card
  *     (not a translucent Surface) at the bottom of Whenever, with the Whenever-blue rail so its
  *     full edge is visible over the particle background.
@@ -229,6 +235,7 @@ import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
 import DayPickerSheet, { RecentDaysList } from '@/components/DayPickerSheet';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
@@ -285,18 +292,22 @@ const FOCUS_THEN_VISIBLE = 2;
 /**
  * Splits a task list into unfinished (shown plainly) + finished (collapsed behind a
  * "Finished (n)" zone, same convention as PlanTaskCard's Home-preview done zone). Falls
- * back to `emptyText` only when the whole list is empty — an all-finished list still
- * shows the (collapsed) finished zone rather than the empty placeholder.
+ * back to the narrator only when the whole list is empty — an all-finished list still
+ * shows the (collapsed) finished zone rather than the empty state.
+ *
+ * ⚠️ **`emptyText` is gone (2026-08-19).** Every one of its five call sites passed one of
+ * `noPlansToday` / `tasksDayEmpty` / `tasksSectionWheneverEmpty` — three sentences naming the
+ * same absence the user is already looking at. components/NarratorQuote.tsx says something
+ * instead, and it needs no per-section copy, so the prop and all three strings are deleted
+ * rather than defaulted.
  */
 function DoneSplitList({
   tasks,
-  emptyText,
   renderCard,
   footer,
   focusMode,
 }: {
   tasks: Task[];
-  emptyText: string;
   renderCard: (tk: Task) => React.ReactNode;
   /**
    * Rendered right after the unfinished cards and *before* the collapsed "Done" zone
@@ -331,11 +342,12 @@ function DoneSplitList({
   const rest = focusMode ? [...actionable.slice(FOCUS_VISIBLE), ...unfinishedNotes] : [];
 
   if (tasks.length === 0) {
+    // No box, no fill, no border — the narrator sits directly on the section's own card. The
+    // filled+bordered placeholder this replaces was also the app's real-Input look, which is
+    // the objection that restyled Shopping's twin on 2026-08-13.
     return (
       <>
-        <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-          {emptyText}
-        </Text>
+        <NarratorQuote category="todo" />
         {footer}
       </>
     );
@@ -1201,7 +1213,6 @@ export default function TasksScreen() {
           <StarterCard
             text={t.starters.plans.text}
             collapsible
-            exampleHeaderLabel={t.starters.plans.tapToAdd}
             example={
               <StarterExampleRow
                 icon="ellipse-outline"
@@ -1337,7 +1348,7 @@ export default function TasksScreen() {
             <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
               <SectionCard hue={repeatingHue} domain="health" icon="repeat" label={t.tasksSectionRecurring} count={recurringAll.length} collapseKey="plansRecurring">
                 {recurringAll.length === 0 ? (
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted, backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>{t.tasksSectionRecurringEmpty}</Text>
+                  <NarratorQuote category="todo" />
                 ) : (
                   <View style={styles.cardStack}>
                     {recurringAll.map((tk) => (
@@ -1380,7 +1391,6 @@ export default function TasksScreen() {
                     >
                       <DoneSplitList
                         tasks={group.tasks}
-                        emptyText={t.noPlansToday}
                         focusMode={layoutSpec.focusMode}
                         footer={
                           <InlineTaskAdd
@@ -1457,7 +1467,6 @@ export default function TasksScreen() {
                         footer) so the active/white containers stay grouped and green "Done" is last. */}
                     <DoneSplitList
                       tasks={todayList}
-                      emptyText={t.noPlansToday}
                       focusMode={layoutSpec.focusMode}
                       footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                       renderCard={(tk) => (
@@ -1482,7 +1491,6 @@ export default function TasksScreen() {
               <CollapsedSection hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
                 <DoneSplitList
                   tasks={undatedWhenever}
-                  emptyText={t.tasksSectionWheneverEmpty}
                   focusMode={layoutSpec.focusMode}
                   renderCard={(tk) => (
                     <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
@@ -1501,7 +1509,6 @@ export default function TasksScreen() {
                 {/* Add row between tasks and the collapsed "Done" zone — same grouping as Today. */}
                 <DoneSplitList
                   tasks={[...group.tasks].sort(byTime)}
-                  emptyText={t.tasksDayEmpty}
                   focusMode={layoutSpec.focusMode}
                   footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
                   renderCard={(tk) => (
@@ -1516,7 +1523,6 @@ export default function TasksScreen() {
             <CollapsedSection hue={wheneverHue} domain="task" label={t.tasksSectionWhenever} count={undatedWhenever.length}>
               <DoneSplitList
                 tasks={undatedWhenever}
-                emptyText={t.tasksSectionWheneverEmpty}
                 focusMode={layoutSpec.focusMode}
                 renderCard={(tk) => (
                   <TaskCard key={tk.id} task={tk} variant="steps" spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
@@ -1633,19 +1639,12 @@ const styles = StyleSheet.create({
   // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and
   // vertically center it within the reserved sticky height.
   stickyBar: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
-  // Visual-audit 2026-07-11: was bare muted text floating on the particle background
-  // (low contrast in practice even though the token itself passes AA) — a card behind
-  // it, matching HomeNotesCard's empty-state treatment, gives it real footing. Every
-  // section (Today included, as of 2026-07-16) sits directly on the backdrop, so this
-  // card is what gives an empty section its footing.
-  sectionEmpty: {
-    fontSize: FontSize.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
+  // ⚠️ `sectionEmpty` is DELETED (2026-08-19). It was a fill + border + radius behind the
+  // "Ingenting planlagt i dag" line — added 2026-07-11 to give an empty section footing on the
+  // particle background, which was the right fix for a screen that no longer exists (sections
+  // sit inside `SectionCard` now, so the footing is already there and this was a box drawn
+  // inside a box). components/NarratorQuote.tsx replaced the line, and its brief forbids a
+  // container outright. Don't reintroduce one to "give the empty state footing".
   cardStack: { gap: Spacing.sm },
   // Frames the "Done" pill + its collapsed rows as one card (2026-07-16) — previously bare
   // spacing, so the header floated over the rows with nothing tying them together visually.

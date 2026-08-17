@@ -79,7 +79,6 @@ const en = {
   addNew: '+ New',
   backlog: 'Not started',
   // Plans widget (home preview + full /plans screen)
-  noPlansToday: 'Nothing to do today — enjoy your day',
   notesCollapse: 'Show less',
   timelineEmptyAdd: 'Add a plan',
   timelineNow: 'Now',
@@ -111,11 +110,8 @@ const en = {
   tasksSectionWhenever: 'Whenever',
   tasksSectionRecurring: 'Recurring',
   tasksSectionSharedEmpty: 'Nothing shared yet',
-  tasksSectionRecurringEmpty: 'No recurring tasks yet',
-  tasksSectionWheneverEmpty: 'Nothing here yet',
   tasksSharedSent: 'Sent',
   tasksSharedReceived: 'Received',
-  tasksDayEmpty: 'Nothing to do',
   tasksDoneLabel: 'Done',
   taskSave: 'Save',
   taskDiscard: 'Discard',
@@ -1869,10 +1865,20 @@ const en = {
    * Every example row (except Habits — see below) carries a real "+" add button
    * (StarterExampleRow's `onAdd`, 2026-07-27) that writes the example into the real store, so
    * it's an actual opt-in try-it, not just an illustration. Habits' row stays read-only because
-   * its four *real* one-tap add chips (`tapToAdd`/`suggestions` below, rendered separately in
+   * its four *real* one-tap add chips (`suggestions` below, rendered separately in
    * StarterCard's `children`) already cover that job for the exact same item — a second "+" on
    * the preview row would just be a redundant second way to do the same thing.
    */
+  /**
+   * The empty-state narrator (2026-08-19) — see components/NarratorQuote.tsx and
+   * lib/narratorQuotes.ts. The LINES are not here on purpose: they are a per-language list
+   * the user cycles through, and a numbered key family in three dictionaries cannot grow
+   * without three edits in lockstep. Only the control's accessibility label lives here.
+   */
+  narrator: {
+    /** The refresh glyph beside the quote. Named for what it does, not for what it shows. */
+    nextQuote: 'Show another line',
+  },
   starters: {
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
@@ -1883,8 +1889,16 @@ const en = {
      *  first pass (Habits) hand-rolled. */
     expandExamples: 'Show suggestions',
     collapseExamples: 'Hide suggestions',
+    /**
+     * The `collapsible` trigger row's own label — ONE word, the same on every surface
+     * (2026-08-19, "Clean Reveal"). It replaced four per-caller sentences
+     * (`starters.{habits,goals}.tapToAdd` "Tap one to start:" and
+     * `starters.{plans,health}.tapToAdd` "Examples:"), which were instructions for content
+     * that was not on screen while the drop-down was shut. A noun naming what is behind the
+     * chevron is not an instruction, so it reads correctly in both states.
+     */
+    suggestionsLabel: 'Suggestions',
     habits: {
-      tapToAdd: 'Tap one to start:',
       suggestions: {
         water: 'Drink 4 glasses of water',
         stretch: 'Morning stretch',
@@ -1894,8 +1908,6 @@ const en = {
     },
     plans: {
       text: 'Break it into smaller pieces.',
-      /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'Examples:',
       exampleTitle: 'Tidy up',
       exampleSteps: {
         trash: 'Take out the trash',
@@ -1918,8 +1930,6 @@ const en = {
       textMonthly: 'Monthly list for what the house needs.',
     },
     health: {
-      /** Trigger-row label for StarterCard's `collapsible` mode (2026-08-06 v3). */
-      tapToAdd: 'Examples:',
       exampleTitle: 'Headache',
     },
     /**
@@ -1940,7 +1950,6 @@ const en = {
     },
     goals: {
       text: 'What your to-dos and habits add up to.',
-      tapToAdd: 'Tap one to start:',
       suggestions: {
         rested: 'Be better rested',
         moving: 'Move every day',
@@ -2329,7 +2338,6 @@ const no: typeof en = {
   addNew: '+ Ny',
   backlog: 'Ikke startet',
   // Plans widget (home preview + full /plans screen)
-  noPlansToday: 'Ingen gjøremål i dag! Nyt dagen',
   notesCollapse: 'Vis mindre',
   timelineEmptyAdd: 'Legg til en plan',
   timelineNow: 'Nå',
@@ -2357,11 +2365,8 @@ const no: typeof en = {
   tasksSectionWhenever: 'Når som helst',
   tasksSectionRecurring: 'Gjentakende',
   tasksSectionSharedEmpty: 'Ingenting delt ennå',
-  tasksSectionRecurringEmpty: 'Ingen gjentakende oppgaver ennå',
-  tasksSectionWheneverEmpty: 'Ingenting her ennå',
   tasksSharedSent: 'Sendt',
   tasksSharedReceived: 'Mottatt',
-  tasksDayEmpty: 'Ingen gjøremål',
   tasksDoneLabel: 'Ferdig',
   taskSave: 'Lagre',
   taskDiscard: 'Forkast',
@@ -3734,13 +3739,18 @@ const no: typeof en = {
     notes: { text: 'Skriv det ned, og send det videre.' },
     goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
   },
+  /* Se den engelske tvillingen. Selve linjene ligger i lib/narratorQuotes.ts. */
+  narrator: {
+    nextQuote: 'Vis en annen linje',
+  },
   starters: {
     addExample: 'Legg til',
     dismiss: 'Lukk',
     expandExamples: 'Vis forslag',
     collapseExamples: 'Skjul forslag',
+    /* Se den engelske tvillingen: ett ord, likt på hver flate (2026-08-19). */
+    suggestionsLabel: 'Forslag',
     habits: {
-      tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         water: 'Drikk 4 glass vann',
         stretch: 'Morgenstrekk',
@@ -3750,7 +3760,6 @@ const no: typeof en = {
     },
     plans: {
       text: 'Del opp i mindre biter.',
-      tapToAdd: 'Eksempler:',
       exampleTitle: 'Rydde',
       exampleSteps: {
         trash: 'Kaste søppel',
@@ -3766,7 +3775,6 @@ const no: typeof en = {
       textMonthly: 'Månedlig liste for det huset trenger.',
     },
     health: {
-      tapToAdd: 'Eksempler:',
       exampleTitle: 'Hodepine',
     },
     /* Se den engelske tvillingen: energistripens opplæringstilstand (2026-08-03). */
@@ -3775,10 +3783,6 @@ const no: typeof en = {
     },
     goals: {
       text: 'Det gjøremålene og vanene dine går til sammen om.',
-      // Same Norwegian as starters.habits.tapToAdd — one English string had two translations
-      // ("Trykk på én for å komme i gang:" vs "Trykk på en for å starte:", the second also
-      // missing the accent on "én"). Both label the same gesture on the same kind of chip row.
-      tapToAdd: 'Trykk på én for å komme i gang:',
       suggestions: {
         rested: 'Bli mer uthvilt',
         // Norwegian is the long side of every pair here, and these draw as one-line rows —
@@ -4144,7 +4148,6 @@ const is: typeof en = {
   webPreview: { notAvailable: 'Ekki í boði í vafraútgáfunni.' },
   addNew: '+ Nýtt',
   backlog: 'Ekki byrjað',
-  noPlansToday: 'Engin verkefni í dag! Njóttu dagsins',
   notesCollapse: 'Sýna minna',
   timelineEmptyAdd: 'Bæta við plani',
   timelineNow: 'Núna',
@@ -4171,11 +4174,8 @@ const is: typeof en = {
   tasksSectionWhenever: 'Hvenær sem er',
   tasksSectionRecurring: 'Endurtekið',
   tasksSectionSharedEmpty: 'Ekkert deilt enn',
-  tasksSectionRecurringEmpty: 'Engin endurtekin verkefni enn',
-  tasksSectionWheneverEmpty: 'Ekkert hér enn',
   tasksSharedSent: 'Sent',
   tasksSharedReceived: 'Móttekið',
-  tasksDayEmpty: 'Engin verkefni',
   tasksDoneLabel: 'Búið',
   taskSave: 'Vista',
   taskDiscard: 'Henda',
@@ -5543,13 +5543,18 @@ const is: typeof en = {
     notes: { text: 'Skrifaðu það niður. Sendu það áfram.' },
     goals: { text: 'Það stærra sem verkefnin og venjurnar þínar eru fyrir.' },
   },
+  /* Sjá enska tvíburann. Línurnar sjálfar eru í lib/narratorQuotes.ts. */
+  narrator: {
+    nextQuote: 'Sýna aðra línu',
+  },
   starters: {
     addExample: 'Bæta við',
     dismiss: 'Loka',
     expandExamples: 'Sýna tillögur',
     collapseExamples: 'Fela tillögur',
+    /* Sjá enska tvíburann: eitt orð, það sama á öllum flötum (2026-08-19). */
+    suggestionsLabel: 'Tillögur',
     habits: {
-      tapToAdd: 'Ýttu á eina til að byrja:',
       suggestions: {
         water: 'Drekka 4 glös af vatni',
         stretch: 'Morgunteygjur',
@@ -5559,7 +5564,6 @@ const is: typeof en = {
     },
     plans: {
       text: 'Skiptu því í minni bita.',
-      tapToAdd: 'Dæmi:',
       exampleTitle: 'Taka til',
       exampleSteps: {
         trash: 'Henda rusli',
@@ -5575,7 +5579,6 @@ const is: typeof en = {
       textMonthly: 'Mánaðarlisti fyrir það sem heimilið þarf.',
     },
     health: {
-      tapToAdd: 'Dæmi:',
       exampleTitle: 'Höfuðverkur',
     },
     /* Sjá enska tvíburann: kennsluástand orkuræmunnar (2026-08-03). */
@@ -5584,8 +5587,6 @@ const is: typeof en = {
     },
     goals: {
       text: 'Það sem verkefnin og venjurnar þínar stefna öll að.',
-      /* Same string as starters.habits.tapToAdd — one gesture, one wording. */
-      tapToAdd: 'Ýttu á eitt til að byrja:',
       suggestions: {
         rested: 'Verða úthvíldari',
         /* These draw as one-line rows — keep them short, like the English twins. */
@@ -5937,4 +5938,19 @@ export function getTranslations(lang?: Lang): Translations {
 export function useT(): Translations {
   const lang = useSettingsStore((s) => s.language);
   return getTranslations(lang);
+}
+
+/**
+ * The active language CODE, for a consumer whose strings live outside the dictionaries
+ * (2026-08-19). There is exactly one: components/NarratorQuote.tsx, whose lines are a
+ * per-language data table in lib/narratorQuotes.ts rather than i18n keys — because they are a
+ * *list* the user cycles through, and a numbered `quote1`/`quote2`/`quote3` family in three
+ * dictionaries is a shape that cannot grow without editing three places in lockstep.
+ *
+ * Subscribes the same way useT() does, so a language change re-renders the caller. **Not a
+ * general-purpose escape hatch**: if you are reaching for this to pick a string, the string
+ * belongs in the dictionaries.
+ */
+export function useLang(): Lang {
+  return useSettingsStore((s) => s.language);
 }

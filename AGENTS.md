@@ -545,6 +545,63 @@ file owns which token.)
     opposite answers, and this is both the later and the more general ruling. The surviving rule
     is unchanged: **one clearance each — the clip is margin on the wrapper, never also padding on
     the content.**
+- **The clean reveal + the narrator — 2026-08-19** (`components/StarterCard.tsx`, and the new
+  `lib/narratorQuotes.ts` + `components/NarratorQuote.tsx`; pinned by
+  `lib/__tests__/exampleRows.test.ts` §6 and the new `lib/__tests__/narratorQuotes.test.ts`).
+  Two briefs that turn out to be one problem: **an empty surface was talking too much and
+  saying nothing.** Read them together — the second only works because the first freed the room.
+  - **The suggestions drop-down starts SHUT, and its label is one word.** The report was a
+    specific broken state: *"when collapsed, it displays instructional text ('Trykk på én for å
+    komme i gang:') with nothing underneath it."* Both halves of the fix are needed and neither
+    stands alone. An instruction is only true while what it points at is on screen, and the
+    2026-08-06 pass had introduced a state where it wasn't — opening-by-default hid that rather
+    than fixing it. So `exampleHeaderLabel` is **deleted** (not defaulted) in favour of one
+    shared `t.starters.suggestionsLabel` — a NOUN, which reads correctly in both states — and
+    the four per-caller strings `starters.{habits,goals,plans,health}.tapToAdd` are gone from
+    all three dictionaries. Six callers stopped passing a label; none may pass one again.
+    **Nothing explanatory goes inside the revealed body either** (*"Rely entirely on the `+`
+    icon inside the matte chips"*): the test asserts the expanded branch contains the caller's
+    example rows and chips and no `<Text>` of the component's own.
+  - **`Ingen oppgaver` / `Tom liste` are replaced by a narrator, not by a better placeholder.**
+    A line naming an absence the user is already looking at is, on a bad day, a verdict on the
+    day. `components/NarratorQuote.tsx` says something instead — a short, dry, first-person
+    aside, cycled by a refresh glyph beside it (random line on mount, sequential and wrapping
+    from there, faded out-swap-in with a `LinearTransition` so the height change doesn't snap).
+    Live on the four cards the brief names: To-do's section lists and Recurring, an unlocked
+    empty monthly Shopping list, Health's quiet week, Habits' day with nothing due.
+    - **⚠️ This lifts VOICE.md's "one line, there is not a second" limit on first person**, which
+      had stood since the day log shipped. Read VOICE.md's new top section before adding copy
+      anywhere near it — the licence is narrow and its register is the load-bearing half: *the
+      narrator admits things, the user is never told what they did.* Rule 23 binds it harder
+      than the rest of the app, not less: nothing counts, compares, or can tell how long the
+      screen has been empty, and nothing asks for anything.
+    - **The forgetting stems are a documented carve-out, as a ratchet.** `glem*`/`forgot`/
+      `gleym*` stay banned outright in `lib/i18n.ts`; two narrator lines are *about* forgetting
+      and are the anti-shame content itself, so the test allows the stem only in an explicit set
+      of exact strings. Entries removable, never addable.
+    - **⚠️ It is the app's ONE italic**, a narrow instructed exception the day after the
+      2026-08-18 blueprint pass deleted `fontStyle: 'italic'` from all 14 files that had it. The
+      reasoning that made the ban right is what makes the exception right — italic was banned as
+      a way of marking teaching copy as an aside *beside* real content, and there is no real
+      content here; this IS the empty slot. A test asserts the exception is exactly one file
+      wide. (Nunito ships no italic face, so the slant is whatever the platform synthesises —
+      real on web/iOS, often nothing on Android. Accepted: the opacity carries the reading.)
+    - **No container, and that is the instruction**: no Surface, no fill, no border, no radius.
+      `plans.tsx`'s `sectionEmpty` box went with the strings it held — it was added 2026-07-11
+      to give an empty section footing on the bare particle background, which stopped being the
+      situation when sections moved inside `SectionCard`.
+    - **Three empty states deliberately keep their copy**, so the gaps read as decisions: a
+      search that matched nothing (the honest answer is that the filter is too narrow), an empty
+      state that is itself a BUTTON (`WeekListCard`'s and Shopping's locked+empty rows — both
+      were made tappable on 2026-08-11 *because* the copy pointed at a control that wasn't
+      rendered, so replacing the copy takes the only way out with it), and a line that teaches
+      what a list will CONTAIN (`HealthIssuesPreviewList`).
+    - The lines live in a per-language data table rather than in `lib/i18n.ts`, because they are
+      a *list the user cycles through* and a `quote1`/`quote2`/`quote3` family in three
+      dictionaries cannot grow without three lockstep edits. `useLang()` (new, in `lib/i18n.ts`)
+      is how the component reads the active code; it has exactly one caller and is not a general
+      escape hatch. Norwegian is authored, EN and IS follow — **not** the "seed data stays
+      Norwegian" convention, because this is the app talking, not content read past.
 - **The seam pass — 2026-08-19** (`components/ScreenScaffold.tsx` + `BottomNav.tsx` +
   `TabSlider.tsx`, pinned by `lib/__tests__/chromeRhythm.test.ts` §3/§4). Maintainer: *"Bottom of
   header and top of bottom nav should work the same. Cards behind the edges should show when

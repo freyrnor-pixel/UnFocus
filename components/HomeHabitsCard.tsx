@@ -413,7 +413,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
           // the explainer line that used to sit above, and one card saying the same sentence twice with two
           // different lifespans is what StarterCard's optional-`text` note warns against.
           <View style={styles.emptyWrap}>
-            <StarterCard embedded collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
+            <StarterCard embedded collapsible>
               {/* components/StarterSuggestionChip since 2026-08-12 — see the Habits tab's own
                   mount for why the five hand-rolled copies became one. Two chips, not four:
                   `npm run wraps` had the four-chip row wrapping at every width tested. */}

@@ -71,8 +71,25 @@
  *     below). The mechanism is left in place rather than deleted: it's cheap to keep, and a
  *     future surface that genuinely wants a permanent one-way hide (rather than a reversible
  *     collapse) still has it available.
- *   - **`collapsible` (2026-08-06 v3)** — turns `example`/`children` into a drop-down: shown
- *     open by default, with a bordered trigger row (`exampleHeaderLabel` + a chevron) that
+ *   - **⚠️ `collapsible` is a CLEAN REVEAL as of 2026-08-19, and two things reversed.**
+ *     Maintainer: *"when collapsed, it displays instructional text ('Trykk på én for å komme i
+ *     gang:') with nothing underneath it… Replace it with a simple, muted, clickable row
+ *     directly above the input field containing the label 'Forslag' and a chevron."* So:
+ *     (a) **the drop-down starts SHUT**, where it had opened shown since 2026-08-06, and
+ *     (b) **`exampleHeaderLabel` is deleted** — the trigger is one shared word
+ *     (`t.starters.suggestionsLabel`), not four per-caller sentences.
+ *     The two are one fix, not two. The old labels were INSTRUCTIONS ("Tap one to start:",
+ *     "Examples:") and an instruction is only true while the thing it points at is on screen —
+ *     which, in the shut state the same pass had introduced, it was not. Opening by default
+ *     hid that; the honest options were to make the label a noun or to never allow the shut
+ *     state, and a noun naming what is behind the chevron reads correctly in BOTH states.
+ *     Nothing explanatory goes inside the revealed body either (see the call site): the chips'
+ *     own "+" is the affordance. The per-caller strings `starters.{habits,goals,plans,health}
+ *     .tapToAdd` are deleted from all three dictionaries — don't reintroduce one for a new
+ *     surface, and don't give this a `label` prop back.
+ *   - **(Historical) `collapsible` (2026-08-06 v3)** — turned `example`/`children` into a
+ *     drop-down: shown open by default, with a bordered trigger row (`exampleHeaderLabel` + a
+ *     chevron) that
  *     toggles them closed to just that one row, animated with `LayoutAnimation` (gated on
  *     `useAccessibility().reducedMotion`, same pattern components/HintCard.tsx's own pill
  *     uses). This is the mechanism app/(tabs)/habits.tsx hand-rolled locally in its
@@ -83,9 +100,10 @@
  *     being present**: components/EnergyMeter.tsx already passes `children` (a single config
  *     Button) that must NOT become collapsible — it isn't a suggestions list, and wrapping a
  *     lone action button in a "tap to reveal" trigger would just add a step to reach it.
- *     `exampleHeaderLabel` is required whenever `collapsible` is true (no default copy — every
+ *     `exampleHeaderLabel` was required whenever `collapsible` was true (no default copy — every
  *     caller's suggestions read differently, e.g. Habits/Goals' "Tap one to start:" vs.
- *     Plans/Health's "See an example:"). The collapse/expand accessibility labels
+ *     Plans/Health's "See an example:") — that half is what 2026-08-19 reversed, above. The
+ *     collapse/expand accessibility labels
  *     (`t.starters.expandExamples`/`collapseExamples`) are generic and shared by every caller
  *     — unlike Habits' first pass, there is no per-screen label pair to keep in sync.
  *     The **"disappears once everything's added" gating stays the caller's job**, exactly as
@@ -243,19 +261,12 @@ type Props = {
    */
   dismissKey?: string;
   /**
-   * Turns `example`/`children` into a drop-down: shown open by default, collapsible to a
-   * single normal-looking trigger row. See the "`collapsible` (2026-08-06 v3)" edit note
-   * above. Requires `exampleHeaderLabel`. Default `false` — unchanged behavior for every
-   * existing call site until it opts in.
+   * Turns `example`/`children` into a drop-down: **shut by default** since the 2026-08-19
+   * Clean Reveal pass, opened by a one-word "Suggestions" trigger row. Takes no label — the
+   * word is the same on every surface. See the "`collapsible`" edit note above. Default
+   * `false` — a caller that doesn't opt in renders its examples inline as before.
    */
   collapsible?: boolean;
-  /**
-   * The `collapsible` trigger row's always-visible label (already-localized, same contract
-   * as `text`). Required when `collapsible` is true — there is no generic default because
-   * each caller's suggestions read differently (e.g. "Tap one to start:" vs "See an
-   * example:").
-   */
-  exampleHeaderLabel?: string;
   /**
    * Drop the card's own Surface + padding + watermark and render as a plain block, for a
    * caller mounting this INSIDE another card. Presentation only — see the "`embedded`" edit
@@ -272,7 +283,6 @@ export default function StarterCard({
   stage,
   dismissKey,
   collapsible,
-  exampleHeaderLabel,
   embedded,
 }: Props) {
   const theme = useAppTheme();
@@ -284,9 +294,12 @@ export default function StarterCard({
   // never opts in can never be affected by another surface's dismissal.
   const dismissed = useSettingsStore((s) => (dismissKey ? s.dismissedStarters.includes(dismissKey) : false));
   const dismissStarter = useSettingsStore((s) => s.dismissStarter);
-  // Shown open by default ("examples are shown by default in a drop-down"). Local, not
-  // persisted — same as habits.tsx's first-pass `examplesCollapsed`, which this replaces.
-  const [collapsed, setCollapsed] = useState(false);
+  // **Shut by default (2026-08-19, "Clean Reveal")** — it opened SHOWN from 2026-08-06 until
+  // then. An empty surface's job is to say what goes here and offer the one line you type it
+  // on; a cloud of chips unfolded before anyone asked is the cognitive load this pass exists to
+  // take off. Local, not persisted: the card only ever renders while the surface is empty, so
+  // "expanded" is a decision about this glance, not a setting.
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Checked before anything else below: a dismissed card renders nothing, overriding
   // whatever emptiness gate the caller used to decide it should show one.
@@ -294,10 +307,10 @@ export default function StarterCard({
 
   const hasExampleContent = Boolean(example || children);
 
-  function toggleCollapsed() {
+  function toggleExpanded() {
     if (!reducedMotion) LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     tap();
-    setCollapsed((v) => !v);
+    setIsExpanded((v) => !v);
   }
 
   const body = (
@@ -355,26 +368,36 @@ export default function StarterCard({
         // pass was really protecting is preserved: the trigger and what it reveals still read
         // as one thing, now because nothing is drawn between them.
         <View style={styles.collapsibleBox}>
+          {/* The whole affordance, in one muted row: the word and the chevron sit together on
+              the left so the pair reads as "Suggestions ⌄" rather than a heading with a control
+              stranded at the far edge — it was `justifyContent: 'space-between'` until
+              2026-08-19. The ROW is still full width and MIN_TAP_TARGET tall, so the target is
+              generous even though the mark is small (rule 17). */}
           <PressableScale
-            onPress={toggleCollapsed}
+            onPress={toggleExpanded}
             style={styles.triggerRow}
             accessibilityRole="button"
-            accessibilityLabel={collapsed ? t.starters.expandExamples : t.starters.collapseExamples}
-            accessibilityState={{ expanded: !collapsed }}
+            accessibilityLabel={isExpanded ? t.starters.collapseExamples : t.starters.expandExamples}
+            accessibilityState={{ expanded: isExpanded }}
           >
             <Text style={[styles.triggerLabel, { color: theme.textMuted }]} numberOfLines={1}>
-              {exampleHeaderLabel}
+              {t.starters.suggestionsLabel}
             </Text>
-            <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={16} color={theme.textMuted} />
+            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
           </PressableScale>
-          {collapsed ? null : (
+          {/* Nothing but the suggestions themselves goes in here — no lead-in sentence, no
+              caption, no "tap one to…" line (2026-08-19: *"Rely entirely on the `+` icon inside
+              the matte chips to communicate their function."*). The chips carry their own verb;
+              a sentence telling you to tap what you are already looking at is the text this
+              pass deleted from the trigger, and it must not reappear one level down. */}
+          {isExpanded ? (
             <View style={styles.collapsibleContent}>
               {example ? (
                 <View style={[styles.exampleRows, compact && styles.exampleRowsCompact]}>{example}</View>
               ) : null}
               {children ? <View style={styles.actions}>{children}</View> : null}
             </View>
-          )}
+          ) : null}
         </View>
       ) : (
         <>
@@ -451,16 +474,17 @@ const baseStyles = StyleSheet.create({
   // radius, no clipping mask: the trigger and its content sit straight on the card, and the
   // only thing separating them from the copy above is space.
   collapsibleBox: {},
-  // The always-visible header of the drop-down. One row's height when collapsed, which is the
-  // whole point — "can't be disruptive or take up too much space when closed." No horizontal
-  // padding any more: with the box gone there is nothing to inset FROM, and the label has to
-  // line up with the card's own copy and with the example rows below it.
+  // The always-visible header of the drop-down, and — since 2026-08-19 — the ONLY thing this
+  // card shows of its suggestions until it is asked. One row's height when shut, which is the
+  // whole point: "can't be disruptive or take up too much space when closed." No horizontal
+  // padding: with the box gone there is nothing to inset FROM, and the label has to line up
+  // with the card's own copy and with the example rows below it. `minHeight` rather than more
+  // padding, so the small muted mark keeps a full-size target without pushing the composer down.
   triggerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+    minHeight: MIN_TAP_TARGET,
   },
   // The revealed body. Separated from the trigger by padding alone — the hairline that used to
   // split them was a `<Divider/>` line inside a card by another name.
@@ -468,8 +492,11 @@ const baseStyles = StyleSheet.create({
     paddingBottom: Spacing.xs,
     gap: Spacing.xs,
   },
+  // Not `flex: 1` any more — the label sizes to its one word so the chevron sits beside it
+  // rather than being pushed to the card's far edge. `flexShrink` keeps it safe at the large
+  // text sizes without letting it claim the row.
   triggerLabel: {
-    flex: 1,
+    flexShrink: 1,
     minWidth: 0,
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,

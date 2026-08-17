@@ -144,7 +144,6 @@ export default function GoalsEditor({ accent, prefill }: { accent: string; prefi
         <StarterCard
           embedded
           collapsible
-          exampleHeaderLabel={t.starters.goals.tapToAdd}
           text={t.hints.goals.text}
           // Full-width dashed ROWS, not the pill cloud this used to be (2026-08-13). The four
           // goal suggestions are sentences — "Mer tid med dem jeg er glad i" — so at

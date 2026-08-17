@@ -303,6 +303,16 @@ design, not the rule.
 
 22. **Plain, short, second person, present tense.** Say what a control does, not
     how the system works. "Save changes," not "Submit."
+22a. **…except the narrator, which is first person and speaks only where there is
+    nothing to instruct (2026-08-19).** An empty list gets a line from
+    `components/NarratorQuote.tsx` instead of a placeholder naming its own emptiness.
+    The licence is narrow and its register is the load-bearing half: *the narrator
+    admits things, the user is never told what they did* — a joke about the user's
+    memory told by an app is a verdict; the same joke about the narrator's own is
+    company. Every instruction and every label in the app stays second person, and no
+    first-person string is hand-written anywhere: a surface that wants this voice
+    mounts the component. **This lifted VOICE.md's "one line, there is not a second"
+    limit** — read that file's top section before writing copy near it.
 23. **No guilt, no urgency, no judgment.** Never "You missed…", never a
     countdown. This is a hard rule, not a stylistic preference — it's core to
     the app's purpose. The established precedent: a medicine tray is never
@@ -319,6 +329,13 @@ design, not the rule.
     interface's voice — never a vague apology. The implementation of this is
     `components/StarterCard.tsx` + `StarterExampleRow.tsx` — an explainer plus one
     concrete example row, gone once the user has their own.
+    *(Amended 2026-08-19: "direction, not mood" is about the SURFACE, not every line on
+    it. An empty card still gives direction — StarterCard's one sentence, its "Forslag"
+    drop-down and the composer under it are all still there — and the slot where the rows
+    would be now carries a narrator line (rule 22a) rather than a sentence naming the
+    absence. Naming the absence was never direction; it was the mood this rule bans,
+    written in the app's flattest voice. The three empty states that are a SEARCH result,
+    a BUTTON, or a teaching line keep their copy — see `NarratorQuote`'s header.)*
 25a. **An example must not be mistakable for content — but it may not draw a box to say
     so (amended 2026-08-18).** The example row keeps the GEOMETRY of the row it stands in
     for and says "provisional" in INK ALONE: muted title, muted glyph, a recessive

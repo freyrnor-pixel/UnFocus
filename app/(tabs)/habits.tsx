@@ -15,7 +15,8 @@
  * only its symptom-tracking content.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/StarterCard
+ *   Imports → components/NarratorQuote (2026-08-19 — what a day with no habits due says),
+ *             components/ScreenScaffold, components/HintCard, components/StarterCard
  *             (and components/StarterSuggestionChip, 2026-08-12 — the shared empty-state
  *             suggestion chip that replaced this screen's hand-rolled `starterChip`)
  *             (2026-08-06 v3 — back on this screen, now carrying its own `collapsible`
@@ -213,6 +214,7 @@ import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import CollapsedSection from '@/components/CollapsedSection';
@@ -944,12 +946,17 @@ export default function HabitsScreen() {
                     the shame/reward framing the app deliberately avoids. */}
                 <View style={styles.section}>
                   {visibleHabits.length === 0 ? (
-                    // 2026-08-12: the quiet "nothing here yet" one-liner was removed for BOTH
-                    // "no habits at all" and "habits exist but none occur today" — the
-                    // card-level tips line + suggested-habits card above already explain an
-                    // empty list, so this rendered nothing but a redundant line under them.
-                    // See components/HomeHabitsCard.tsx's matching removal.
-                    null
+                    // ⚠️ **The empty slot speaks again as of 2026-08-19, and it is not the line
+                    // that was removed.** 2026-08-12 deleted a quiet "nothing here yet"
+                    // one-liner from BOTH empty branches ("no habits at all" and "habits exist
+                    // but none occur today") because the tips line and the suggested-habits card
+                    // above already explained an empty list, so it was a redundant third
+                    // sentence. Both halves of that reasoning moved: the suggestions fold away
+                    // by default now (StarterCard's Clean Reveal, same day), so the slot is
+                    // genuinely blank, and this says something the other two never did —
+                    // components/NarratorQuote.tsx names no absence and asks for nothing, which
+                    // is the only register that fits a day with no habits due on it.
+                    <NarratorQuote category="habits" />
                   ) : (
                     draggedHabits.map((h, hi) => (
                       <AnimatedListItem key={h.id} enabled={hasMountedHabits.current}>
@@ -992,7 +999,7 @@ export default function HabitsScreen() {
                       list's own slot, above the composer that would create the real thing. See
                       components/StarterCard.tsx's `embedded` note. */}
                   {!allStartersAdded && (
-                    <StarterCard embedded collapsible exampleHeaderLabel={t.starters.habits.tapToAdd}>
+                    <StarterCard embedded collapsible>
                       {/* Two chips, not four (2026-07-30) — the same measured call
                           components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
                           had this row wrapping at every width tested: 4 chips on 2 lines at

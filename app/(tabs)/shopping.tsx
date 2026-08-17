@@ -30,6 +30,8 @@
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/HintSheet (the ⓘ explanation as a bottom sheet — this screen's
  *             body was a components/HintCard until 2026-08-13; see the edit note),
+ *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
+ *             in it; see that file's header for the three empty states it stays out of),
  *             components/StarterCard (first-run explainer, shown while
  *             there are no weekly lists and no items — text-only as of 2026-07-28, no example
  *             rows any more), components/AppModal (showAppModal),
@@ -483,6 +485,7 @@ import ShoppingStoreMode from '@/components/ShoppingStoreMode';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
+import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
@@ -1932,7 +1935,18 @@ export default function ShoppingScreen() {
                               <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
                             </PressableScale>
                           ) : view.catalogItems.length === 0 ? (
-                            <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyListEmpty}</Text>
+                            // The narrator (2026-08-19), where "Ingenting her ennå — legg til
+                            // din første faste vare." used to be. Unlocked-and-empty is the one
+                            // branch here that IS just an empty list: `InlineAddItem` renders
+                            // directly below it, so the way in is already on screen and the line
+                            // above it never had to point at anything.
+                            //
+                            // ⚠️ Deliberately NOT applied to the two branches either side. The
+                            // locked+empty one above is a BUTTON (tapping it unlocks — the
+                            // 2026-08-11 fix), and a quote would take away the only way out of
+                            // that state; the one below is a SEARCH that matched nothing, where
+                            // the honest answer is that your filter is too narrow, not a joke.
+                            <NarratorQuote category="shopping" />
                           ) : view.filteredCatalogItems.length === 0 ? (
                             <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
                           ) : (
