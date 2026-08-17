@@ -7,12 +7,17 @@
  * all. Two channels, deliberately different in kind:
  *
  *   - **Intensity** [0, 1] — a positive tint that rises with the current streak and fades
- *     back toward 0. 0 is NEUTRAL, not failure: it is exactly the blue backdrop the app has
+ *     back toward 0. 0 is NEUTRAL, not failure: it is exactly the backdrop the app has
  *     always had, so a lapsed streak returns you to the normal app rather than to a
  *     visibly-worse one. This is the same floor-at-neutral shape as lib/goalStrength.ts.
- *   - **Level** 0…GROWTH_LEVELS.length-1 — how many branches have grown in around the
- *     screen border. Driven by the user's BEST streak ever (a high-water mark), so it
- *     never recedes. Branches that grew stay grown.
+ *   - **Level** 0…GROWTH_LEVELS.length-1 — how far the backdrop's ambient glow has swelled.
+ *     Driven by the user's BEST streak ever (a high-water mark), so it never recedes: what
+ *     grew stays grown.
+ *
+ * **Neither channel names a shape, and that is on purpose.** The backdrop drew these as extra
+ * border branches and a green leaf tint until 2026-08-17, and as three swelling corner orbs
+ * after it; nothing in this file moved either time. Keep it that way — the arithmetic is about
+ * a streak, and how it is DRAWN belongs entirely to components/ScreenBackground.tsx.
  *
  * A day counts as "active" if any habit was met OR any task was completed on it. Both, not
  * just habits — the maintainer's call (2026-07-31), so the streak reflects the whole app

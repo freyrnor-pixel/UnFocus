@@ -132,7 +132,7 @@ function ParticleBackground() {
   const dotColor = isDark ? 'rgba(110,175,255,0.7)' : 'rgba(100,155,255,0.6)';
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={styles.backdrop} pointerEvents="none">
       {DOTS.map((spec, i) => (
         <RisingDot key={i} spec={spec} color={dotColor} />
       ))}
@@ -150,6 +150,18 @@ export default React.memo(ParticleBackground);
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  // Same absolute-bottom-layer contract as ScreenBackground — see the `zIndex` note in that
+  // file's `styles.backdrop`. This is the third member of the same backdrop group and mounts
+  // beside the same zIndex 99/100 chrome blocks, so it takes the same explicit -1: a drifting
+  // dot must never be able to draw over a nav icon or a line of text.
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
   dot: {
     position: 'absolute',
   },

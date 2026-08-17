@@ -505,5 +505,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: -MAX_PARALLAX,
     right: -MAX_PARALLAX,
+    // **The absolute bottom layer (2026-08-17).** This group's two siblings here are the pager
+    // and `PagerFloatingNav` (zIndex 100), and once ANY sibling declares a z, Android sorts the
+    // whole container instead of drawing it in document order — so "it is declared first" was
+    // never the guarantee it looked like. Each of the three layers inside carries its own -1 as
+    // well; this one is what keeps the GROUP under the nav overlay and the pager, and it has to
+    // be here because a child's z only orders it among its own siblings.
+    zIndex: -1,
   },
 });
