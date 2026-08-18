@@ -104,6 +104,8 @@ import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
+import CardExpandButton from '@/components/CardExpandButton';
+import { useCardExpand } from '@/lib/useCardExpand';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Badge } from '@/components/Badge';
@@ -140,6 +142,9 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
+  // Full-screen expansion (2026-08-20) — replaces the title's old push to /notes (see below);
+  // `ref` attaches to this card's outer Surface.
+  const cardExpand = useCardExpand('homeNotes');
   // The card's one hue (border + every content accent). This used to be lib/domainColor's
   // 'note' identity — IDENTITY_NEUTRAL grey, since Notes carries no badge identity hue — while
   // the card's border (below) is the screen's own yellow, so the badge pill/mic button/row
@@ -225,6 +230,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   }
 
   return (
+    <View ref={cardExpand.ref} collapsable={false}>
     <Surface
       surfaceContext="ambient"
       borderColor={screenColor.base}
@@ -234,7 +240,9 @@ export default function HomeNotesCard({ cardMenu }: Props) {
         {/* Header. Badge is a normal flex child — one left edge for the whole card. */}
         <View style={styles.header}>
           <PressableScale
-            onPress={() => router.push('/notes')}
+            // Full screen replaces the push (2026-08-20) — this used to push to /notes;
+            // nothing in the UI pushes there any more (see components/NotesSurface.tsx).
+            onPress={cardExpand.onExpand}
             style={styles.headerLeft}
             scaleTo={0.98}
           >
@@ -289,6 +297,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               />
             </View>
           </PressableScale>
+          <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
           {cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : null}
         </View>
 
@@ -412,6 +421,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
         onPick={handleSendTo}
       />
     </Surface>
+    </View>
   );
 }
 

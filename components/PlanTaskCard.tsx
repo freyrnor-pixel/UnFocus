@@ -309,7 +309,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown, LinearTransition } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
@@ -584,7 +583,6 @@ export default function PlanTaskCard({
   padState,
   onPadStateChange,
 }: Props) {
-  const router = useRouter();
   const theme = useAppTheme();
   const t = useT();
   const { reducedMotion } = useAccessibility();
@@ -1516,7 +1514,10 @@ export default function PlanTaskCard({
         {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
             child now, so the whole card sits on ONE left edge. */}
         {readOnly && (
-          <PressableScale onPress={() => router.push('/plans')} style={styles.headerRowPressable} scaleTo={0.98}>
+          // Full screen replaces the push (2026-08-20) — this used to push to /plans
+          // unconditionally; Home now passes `onSeeMore` (its expand-in-place handler) instead,
+          // so the same header press works whether the To-do tab route exists or not.
+          <PressableScale onPress={() => onSeeMore?.()} style={styles.headerRowPressable} scaleTo={0.98}>
             <View style={styles.headerTopRow}>
               <CardAccentBadge domain="plan" size={32} accentOverride={screenColor.base} />
               <View style={styles.headerText}>
@@ -1605,7 +1606,7 @@ export default function PlanTaskCard({
                 redundant deep-link ghost is suppressed. */}
             {readOnly && !onAddTask && (
               <PressableScale
-                onPress={() => router.push('/plans')}
+                onPress={() => onSeeMore?.()}
                 style={[styles.emptyAddRow, { borderColor: theme.border }]}
                 scaleTo={0.97}
                 accessibilityRole="button"

@@ -41,7 +41,7 @@ export type TourStep = {
   /** Router path of the tab this step lives on. Tabs ONLY — the tour navigates itself there
    *  by switching the pager, and a pushed sub-screen would leave the user somewhere the
    *  spotlight cannot follow them back from. */
-  route: '/' | '/shopping' | '/health';
+  route: '/' | '/shopping' | '/plans';
   /** Must match a <TourTarget id=…> rendered on that screen. */
   targetId: string;
 };
@@ -51,17 +51,22 @@ export type TourStep = {
  * where the day's tasks and habits now live together, then the two surfaces that need a first
  * entry to be worth anything.
  *
- * **It was five steps until the 2026-08-20 5→3 merge.** The `plans` and `habits` steps went
- * with their tabs — the surfaces they pointed at are pushed sub-screens now, and a tour step
- * is a spotlight on a TAB. Nobody is stranded by the removal: progress is a SET of ids, so a
- * stored `'plans'`/`'habits'` is simply ignored, and a user mid-tour on the old build resumes
- * on whichever of these three they had not reached. Their teaching did not vanish either —
- * the merged list is what the `home` step now points at.
+ * **It was five steps until the 2026-08-20 5→3 merge, then three (home/shopping/health) until
+ * the same-named "full-screen card expansion" pass swapped the Health tab for To-do.** The
+ * `plans` and `habits` steps went with their tabs at the first merge — the surfaces they
+ * pointed at became pushed sub-screens, and a tour step is a spotlight on a TAB. Health left
+ * the nav at the second pass (it's a Home card now, components/HomeHealthCard.tsx) and To-do
+ * took its slot, so the third step re-points there under a fresh id (`todo`, not the old
+ * `plans` — reusing that id would resurrect it as already-done for anyone who finished the
+ * OLD `plans` step years before it was retired, silently skipping the new one). Nobody is
+ * stranded by any of this: progress is a SET of ids, so a stored `'plans'`/`'habits'`/
+ * `'health'` is simply ignored, and a user mid-tour on an older build resumes on whichever
+ * step they had not reached.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
   { id: 'home', route: '/', targetId: 'tour.home.today' },
   { id: 'shopping', route: '/shopping', targetId: 'tour.shopping.list' },
-  { id: 'health', route: '/health', targetId: 'tour.health.log' },
+  { id: 'todo', route: '/plans', targetId: 'tour.plans.today' },
 ];
 
 /** Sentinel recorded when the whole tour is dismissed, so it never re-opens by itself. */

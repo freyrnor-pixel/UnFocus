@@ -95,6 +95,8 @@ import PadFooterToggle from '@/components/PadFooterToggle';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
+import CardExpandButton from '@/components/CardExpandButton';
+import { useCardExpand } from '@/lib/useCardExpand';
 import Stepper from '@/components/Stepper';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -188,6 +190,10 @@ export default function HomeShoppingCard({
   // read as a mismatch: a green-edged card with gold arrows/progress/checks. Content now pulls
   // from the same screenColor the border does, so the whole card is one colour family.
   const screenColor = getScreenColor(theme, 'shopping');
+  // Full-screen expansion (2026-08-20) — a separate control from the title, which still
+  // switches to the Shopping tab (`onNavigateToShopping`): that tab is a genuinely richer
+  // surface (three peer cards) than an expanded preview would be, so both stay live.
+  const cardExpand = useCardExpand('homeShopping');
   // Week-arrow buttons are ghost-style (transparent fill, thin border) rather than the old
   // solid-filled circle — a heavy solid-colour blob for a plain prev/next control read as
   // over-designed (user report). Border sits at the lightest "button" rung of the screen hue,
@@ -371,6 +377,7 @@ export default function HomeShoppingCard({
   ) : null;
 
   return (
+    <View ref={cardExpand.ref} collapsable={false}>
     <Surface
       surfaceContext="ambient"
       borderColor={screenColor.base}
@@ -407,6 +414,7 @@ export default function HomeShoppingCard({
               </Text>
             </View>
           )}
+          <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
           {cardMenu ? <CardMenuButton cardTitle={t.shoppingTitle} {...cardMenu} /> : null}
         </View>
 
@@ -529,6 +537,7 @@ export default function HomeShoppingCard({
         onClose={() => setDetailItem(null)}
       />
     </Surface>
+    </View>
   );
 }
 
