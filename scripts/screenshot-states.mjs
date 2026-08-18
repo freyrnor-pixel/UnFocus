@@ -19,7 +19,7 @@
  * pushed sub-screen costs a goBack and therefore costs the data. Hence the phases:
  *
  *   1. onboarding + guided tour
- *   2. the five tabs, empty
+ *   2. the three tabs, empty
  *   3. sheets and overlays (they close in place — data survives, but there isn't any yet)
  *   4. pushed sub-screens, each an independent excursion that seeds whatever it needs,
  *      shoots, goes back, and lets the wipe happen
@@ -27,7 +27,7 @@
  *   6. the one data-bearing push that can afford to be last
  *
  * Other web-preview constraints (see AGENTS.md): `lazy: false` on the tab pager means all
- * five tab screens are mounted at once, so a bare `.first()` on a shared label can resolve
+ * tab screens are mounted at once, so a bare `.first()` on a shared label can resolve
  * to an off-screen copy; and hold-and-drag cannot be driven at all here, so no shot needs one.
  */
 import { chromium } from '@playwright/test';
@@ -89,7 +89,7 @@ async function clickText(page, text, opts = {}) {
 
 /**
  * Click a text node that is genuinely on screen. `isVisible()` is not enough here: the pager
- * keeps all five tab screens mounted and moves them by transform, so a label that also exists
+ * keeps every tab screen mounted and moves them by transform, so a label that also exists
  * on another tab (every card has a "Show all") reports visible from off-screen and the click
  * lands on the wrong card.
  */
@@ -255,7 +255,7 @@ async function back(page) {
 async function ensureTabs(page) {
   await dismissTour(page);
   await closeOverlays(page);
-  if (await page.getByRole('button', { name: 'Home', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await page.getByRole('button', { name: 'Today', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
     return;
   }
   if (await page.getByText('Continue', { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false)) {
@@ -265,7 +265,7 @@ async function ensureTabs(page) {
     await page.waitForTimeout(1800);
     await walkTour(page, { capture: false });
     await dismissTour(page);
-    if (await page.getByRole('button', { name: 'Home', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await page.getByRole('button', { name: 'Today', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
       return;
     }
   }
@@ -291,7 +291,7 @@ async function excursion(page, label, fn) {
 // ---------------------------------------------------------------------------
 
 /**
- * The five tab screens are all mounted at once (`lazy: false`) and the pager moves pages by
+ * The tab screens are all mounted at once (`lazy: false`) and the pager moves pages by
  * transform, so an input on an off-screen tab still reports `isVisible()` — a bare `.first()`
  * on a shared label like "Type task" happily resolves to a card on a different tab and then
  * fails with "element is outside of the viewport". Ask for the one whose box is actually in
@@ -390,7 +390,7 @@ async function main() {
     await runOnboarding(page, { capture: FULL });
     await walkTour(page, { capture: FULL });
 
-    // ---- 2. the five tabs, empty ----------------------------------------
+    // ---- 2. the three tabs, empty ---------------------------------------
     console.log('> tabs, empty');
     await shot(page, 'home-empty', {
       title: 'Home — first run, nothing added yet',
@@ -403,13 +403,10 @@ async function main() {
       ['Shop', 'shopping-empty', 'Shopping — empty', 'app/(tabs)/shopping.tsx',
         'EMPTY. Green screen hue. Week lists / Monthly list / Whenever, with Food, Catalogue and Scan as buttons rather than tabs. A migration seeds one empty monthly list, which is why this surface\'s empty-state gate has to count items too, not just lists.',
         'WeekListCard, ShoppingRow, InlineAddItem, StarterCard, ShoppingFilterBar, NewMonthlyListRow'],
-      ['To-do', 'plans-empty', 'To-do — empty', 'app/plans.tsx',
-        'EMPTY. Blue screen hue. Today is the default tab and is drawn as the elastic timeline — real durations, visible gaps, gaps reading as room — split by a live now-line. The explainer draws inside the card rather than as a card above it (a Surface inside a Surface reads as a nested panel).',
-        'PlanTaskCard, TaskCard, SectionCard, AddRow, TabSlider, SubScreenLinkRow, DayGridLines'],
-      ['Habits', 'habits-empty', 'Habits — empty', 'app/habits.tsx',
-        'EMPTY. Sky screen hue. Offers four one-tap starter habits instead of an empty list. There is no negative habit, no slip log and no broken streak anywhere in the app.',
-        'PadRow, PadTypeRow, StarterCard, StageTree, HabitIcon, SubScreenLinkCard'],
-      ['Health', 'health-empty', 'Health — empty', 'app/(tabs)/health.tsx',
+      // To-do and Habits left this loop on 2026-08-20 (5 tabs → 3). They are pushed
+      // sub-screens now and are shot in phase 4 as their own excursions; their DAILY content
+      // is on Home, which 'home-empty' above already captures.
+      ['Me', 'health-empty', 'Health — empty', 'app/(tabs)/health.tsx',
         'EMPTY. Teal screen hue. Medicine trays (morning / midday / evening / night — windows, not clock times) sit above the symptom log.',
         'MedicineTrayCard, OpenEpisodeCard, AddRow, StarterCard, StarterExampleRow'],
     ]) {
@@ -420,7 +417,7 @@ async function main() {
     // ---- 3. sheets and overlays (close in place) -------------------------
     if (FULL) {
       console.log('> sheets and overlays');
-      await tab(page, 'Home');
+      await tab(page, 'Today');
       if (await tryButton(page, "Set the day's energy")) {
         await shot(page, 'energy-config-sheet', {
           title: 'The Energy config sheet',
@@ -440,7 +437,7 @@ async function main() {
         await closeOverlays(page);
       }
 
-      await tab(page, 'To-do');
+      await tab(page, 'Today');
       if (await tryButton(page, 'Goals')) {
         await shot(page, 'goals-drawer', {
           title: 'The Goals drawer, expanded (from To-do and from Habits)',
@@ -477,7 +474,7 @@ async function main() {
         await closeOverlays(page);
       }
 
-      await tab(page, 'Health');
+      await tab(page, 'Me');
       if (await tryButton(page, 'Reminder times')) {
         await shot(page, 'medicine-reminder-times', {
           title: 'Medicine tray reminder times',
@@ -491,6 +488,34 @@ async function main() {
     // ---- 4. pushed sub-screens (each excursion ends in a DB wipe) --------
     if (FULL) {
       console.log('> pushed sub-screens');
+
+      // To-do and Habits (2026-08-20, 5 tabs → 3). They were tabs until the merge and are
+      // pushed screens now, so they belong in this phase rather than in the tab loop above.
+      // Reached by their card headers on Home — the same route a user takes — rather than by
+      // a goto, so the walk also proves those doors still open.
+      await excursion(page, 'plans-empty', async () => {
+        await tab(page, 'Today');
+        await clickOnScreenText(page, "Today's list");
+        await page.waitForTimeout(1100);
+        await shot(page, 'plans-empty', {
+          title: 'To-do — empty (a pushed screen since the 3-tab merge)',
+          screen: 'app/plans.tsx',
+          state: 'EMPTY. Blue screen hue. This is the DEEP surface — This week, All tasks, Recurring, Washed away — that a daily list has no room for; the day itself now lives on Home. Today is the default tab and is drawn as the elastic timeline, real durations and visible gaps, split by a live now-line. The explainer draws inside the card rather than as a card above it (a Surface inside a Surface reads as a nested panel).',
+          components: 'PlanTaskCard, TaskCard, SectionCard, AddRow, TabSlider, CollapsedSection, DayGridLines',
+        });
+      });
+
+      await excursion(page, 'habits-empty', async () => {
+        await tab(page, 'Today');
+        await clickOnScreenText(page, 'Habits');
+        await page.waitForTimeout(1100);
+        await shot(page, 'habits-empty', {
+          title: 'Habits — empty (a pushed screen since the 3-tab merge)',
+          screen: 'app/habits.tsx',
+          state: 'EMPTY. Sky screen hue. Where a habit is SET UP and browsed; the day\'s due habits are a section of the merged card on Home. Offers one-tap starter habits instead of an empty list. There is no negative habit, no slip log and no broken streak anywhere in the app.',
+          components: 'PadRow, PadTypeRow, StarterCard, StageTree, HabitIcon, CollapsedSection',
+        });
+      });
 
       await excursion(page, 'food', async () => {
         await tab(page, 'Shop');
@@ -517,7 +542,7 @@ async function main() {
       });
 
       await excursion(page, 'notes-empty', async () => {
-        await tab(page, 'Home');
+        await tab(page, 'Today');
         await clickText(page, 'Notes');
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
@@ -529,7 +554,7 @@ async function main() {
       });
 
       await excursion(page, 'day-log', async () => {
-        await tab(page, 'To-do');
+        await tab(page, 'Today');
         await tryButton(page, 'Earlier days');
         await page.waitForTimeout(1000);
         await shot(page, 'day-log-screen', {
@@ -541,7 +566,7 @@ async function main() {
       });
 
       await excursion(page, 'health-form', async () => {
-        await tab(page, 'Health');
+        await tab(page, 'Me');
         await tryButton(page, "What's bothering you?");
         await page.waitForTimeout(1000);
         await shot(page, 'health-form', {
@@ -553,7 +578,7 @@ async function main() {
       });
 
       await excursion(page, 'health-log', async () => {
-        await tab(page, 'Health');
+        await tab(page, 'Me');
         await tryButton(page, 'Health log');
         await page.waitForTimeout(1000);
         await shot(page, 'health-log', {
@@ -564,7 +589,7 @@ async function main() {
       });
 
       await excursion(page, 'medicine-form', async () => {
-        await tab(page, 'Health');
+        await tab(page, 'Me');
         if (await seedMedicine(page, 'Vitamin D')) {
           await tryButton(page, 'Vitamin D');
           await page.waitForTimeout(1000);
@@ -578,7 +603,7 @@ async function main() {
       });
 
       await excursion(page, 'settings', async () => {
-        await tab(page, 'Home');
+        await tab(page, 'Today');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await shot(page, 'settings-general', {
@@ -606,7 +631,7 @@ async function main() {
       });
 
       await excursion(page, 'design-lab', async () => {
-        await tab(page, 'Home');
+        await tab(page, 'Today');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await tryText(page, 'Advanced', 4000);
@@ -658,7 +683,7 @@ async function main() {
 
     // ---- 5. seed for real, shoot the populated states --------------------
     console.log('> seeding + populated states');
-    await tab(page, 'To-do');
+    await tab(page, 'Today');
 
     const typeLine = (await onScreenField(page, 'Type task')) || page.getByLabel('Type task', { exact: true }).first();
     await typeLine.scrollIntoViewIfNeeded().catch(() => {});
@@ -687,8 +712,8 @@ async function main() {
       // collapses its log behind "Show all" on this tab; and the To-do tab's copy of the card
       // does not draw the newly-logged row until it REMOUNTS — Home's copy of the same card
       // updates live, which is why the gap is easy to miss. Round-trip the tab, then expand.
-      await tab(page, 'Home');
-      await tab(page, 'To-do');
+      await tab(page, 'Today');
+      await tab(page, 'Today');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-after-tick', {
         title: 'To-do — a ticked task crosses the now-line into the day log',
@@ -715,8 +740,8 @@ async function main() {
       });
       await page.getByLabel('What just happened?', { exact: true }).first().press('Enter');
       await page.waitForTimeout(900);
-      await tab(page, 'Home');
-      await tab(page, 'To-do');
+      await tab(page, 'Today');
+      await tab(page, 'Today');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-with-moment', {
         title: 'The day log with a captured moment in it',
@@ -752,7 +777,7 @@ async function main() {
     }
 
     console.log('> habits');
-    await tab(page, 'Habits');
+    await tab(page, 'Today');
     await seedHabit(page, 'Drink water');
     await seedHabit(page, 'Ten minutes outside');
     await shot(page, 'habits-populated', {
@@ -775,7 +800,7 @@ async function main() {
     }
 
     console.log('> health');
-    await tab(page, 'Health');
+    await tab(page, 'Me');
     if (await seedMedicine(page, 'Vitamin D')) {
       await shot(page, 'health-medicine-tray', {
         title: 'Health — a medicine in its tray',
@@ -863,7 +888,7 @@ async function main() {
     }
 
     console.log('> home, populated');
-    await tab(page, 'Home');
+    await tab(page, 'Today');
     await shot(page, 'home-populated', {
       title: 'Home — with everything seeded',
       screen: 'app/(tabs)/index.tsx',

@@ -59,8 +59,9 @@
  * step for it here rather than trusting a screenshot.
  *
  * Ordering is constrained by three facts, all verified rather than assumed — see main():
- *   - the run is TWO passes, because `settings` and `medicine-form` are dead ends (pushed
- *     screens with no BottomNav) and only one of them can end a pass;
+ *   - the run is THREE passes, because `settings`, `medicine-form` and — since the 2026-08-20
+ *     5→3 tab merge — the To-do screen are all dead ends (pushed screens with no BottomNav),
+ *     and only one of them can end a pass;
  *   - never page.goto()/goBack() mid-walk except for the standalone `basics-all-rows` route
  *     at the very end of a pass — both reload the document, resetting the in-memory sql.js
  *     DB and dropping you back into onboarding;
@@ -104,7 +105,10 @@ const L = {
     // Onboarding is two screens since 2026-08-03 (basics → privacy), so `newHere`/`guided`/
     // `next`/`go` are gone with the screens they advanced past. `start` finishes setup.
     start: 'Start', tourNext: 'Got it', skipTour: 'Skip the tour',
-    tabs: ['Shop', 'To-do', 'Health', 'Habits'], home: 'Home', settings: 'Settings',
+    // Three tabs since the 2026-08-20 5→3 merge; `home` is the middle one and is listed
+    // separately because several steps below need to return to it by name. `todoCard` is the
+    // merged card's title on Home, which is how the To-do SCREEN is reached now.
+    tabs: ['Shop', 'Me'], home: 'Today', todoCard: "Today's list", settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
@@ -125,7 +129,10 @@ const L = {
     // you back into onboarding. BottomNav stays mounted over a pushed screen (verified), so
     // a tab tap is the way back out — except `settings` and `medicine-form`, which render no
     // BottomNav at all and so end whichever pass reaches them (see main()).
-    editGoals: 'Goals',
+    // ⚠️ `t.goals.editLinkPractical`, not a bare "Goals" — the drawer on the To-do screen has
+    // been labelled "Practical goals" for a while and this locator had gone stale, so the
+    // goals-drawer scan was silently skipping alongside health-form's (both found 2026-08-20).
+    editGoals: 'Practical goals',
     // Shopping's Food and Catalogue drawers (2026-08-10). Their expanded body is no longer a
     // names-only preview — it is the real FoodTab / CatalogueTab, so the drawer now holds a
     // search field, an add composer and name·price·trash rows inside a card that is itself
@@ -133,7 +140,12 @@ const L = {
     // produced the task editor's findings, and neither drawer was measured before this.
     // The chevron, not the name: the name pushes the screen.
     expandList: 'Expand list',
-    logSymptom: "What's bothering you?",
+    // ⚠️ Was `logSymptomTrigger` ("What's bothering you?") until 2026-08-20, which has not been
+    // on the Health TAB since that screen was rebuilt on 2026-08-11 — it only survives on the
+    // pushed /health-log. So this step had been silently skipping ("health-form step skipped")
+    // and the app's second-densest form was going unmeasured. The tab's composer is a type LINE
+    // now, and `moreOptions` on it is the tier-3 route into /health-form.
+    logSymptom: 'Log something', logSymptomMore: 'More options',
     addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
     // The design lab (2026-08-06). Off by default, so the walk has to switch it on before the
     // link row exists. Its knob rows are "long label + fixed-width Stepper" thirty times over,
@@ -152,14 +164,14 @@ const L = {
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
     start: 'Start', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
-    tabs: ['Handle', 'Gjøremål', 'Helse', 'Vaner'], home: 'Hjem', settings: 'Innstillinger',
+    tabs: ['Handle', 'Meg'], home: 'I dag', todoCard: 'Dagens liste', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     tasksTabAll: 'Alle', newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
     typeHabit: 'Skriv vane',
-    editGoals: 'Mål',
+    editGoals: 'Praktiske mål',
     expandList: 'Vis liste',
-    logSymptom: 'Hva plager deg?',
+    logSymptom: 'Logg noe', logSymptomMore: 'Flere valg',
     advancedTab: 'Avansert', debugMode: 'Feilsøkingsmodus', designLab: 'Designlab',
     labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
     labShelfGroup: 'Kontroller', labAddSlider: 'Legg til en skyvebryter',
@@ -173,14 +185,14 @@ const L = {
     // below it is post-switch and genuinely Icelandic.
     langRow: /^Språk: Íslenska\./, basicsNext: 'Áfram',
     start: 'Byrja', tourNext: 'Ég skil', skipTour: 'Sleppa kynningunni',
-    tabs: ['Innkaup', 'Verkefni', 'Heilsa', 'Venjur'], home: 'Heim', settings: 'Stillingar',
+    tabs: ['Innkaup', 'Ég'], home: 'Í dag', todoCard: 'Listi dagsins', settings: 'Stillingar',
     dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
     tasksTabAll: 'Allt', newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
     energyTutorialAction: 'Stilla orku dagsins', energyDone: 'Búið',
     typeHabit: 'Skrifa venju',
-    editGoals: 'Markmið',
+    editGoals: 'Hagnýt markmið',
     expandList: 'Sýna lista',
-    logSymptom: 'Hvað er að angra þig?',
+    logSymptom: 'Skrá eitthvað', logSymptomMore: 'Fleiri valkostir',
     advancedTab: 'Ítarlegt', debugMode: 'Villuleitarhamur', designLab: 'Hönnunarstofa',
     labAddCard: 'Bæta við korti', labBlankCard: 'Tómt kort',
     labShelfGroup: 'Stýringar', labAddSlider: 'Bæta við: sleði',
@@ -402,14 +414,15 @@ async function scan(page, name) {
 
 /**
  * Load the app fresh, walk onboarding + the tour + the Energy config sheet, and land on
- * the tab bar. Extracted because the audit needs TWO passes over this same on-ramp (see
- * main()): `settings` and `medicine-form` are both dead ends — pushed screens that render
- * NO BottomNav, verified — so only one of them can end a pass, and getting back out of
- * either means reloading, which resets the in-memory sql.js DB and puts onboarding back in
- * front of you.
+ * the tab bar. Extracted because the audit needs THREE passes over this same on-ramp (see
+ * main()): `settings`, `medicine-form` and the To-do screen are all dead ends — pushed screens
+ * that render NO BottomNav, verified — so only one of them can end a pass, and getting back
+ * out of any means reloading, which resets the in-memory sql.js DB and puts onboarding back in
+ * front of you. The To-do screen joined that set on 2026-08-20, when the 5→3 tab merge moved
+ * it off the pager; it used to be walked mid-pass as a tab.
  *
- * `scanning` is false on the second pass: onboarding/tour/energy-sheet are identical both
- * times and would just duplicate every finding.
+ * `scanning` is false on every pass after the first: onboarding/tour/energy-sheet are identical
+ * each time and would just duplicate every finding.
  */
 async function walkToTabs(page, { scanning }) {
   await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
@@ -487,7 +500,7 @@ async function main() {
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 852 } });
   try {
-    // ── Pass 1: onboarding, the tabs, the task editor, the goals sheet, health-form, Settings.
+    // ── Pass 1: onboarding, the tabs, Shopping's drawers, health-form, Settings, design lab.
     await walkToTabs(page, { scanning: true });
 
     for (const tab of L.tabs) {
@@ -525,50 +538,6 @@ async function main() {
       console.error(`  (shopping-drawers step skipped: ${e.message.split('\n')[0]})`);
     }
 
-    // ── The task editor ──
-    // The densest form in the app, and invisible to this audit until 2026-08-01: it is only
-    // reachable by opening a task, and a fresh profile has none, so one is created here
-    // first. This is where the sliced voice mic (#465) lived. Best-effort — a failure here
-    // must not lose the tab/settings findings already collected, so it is wrapped rather
-    // than allowed to kill the run.
-    try {
-      await page.getByRole('button', { name: L.tabs[1], exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(700);
-      await dismissModalIfPresent(page);
-      await clickText(page, L.tasksTabAll);
-      await page.waitForTimeout(500);
-      await page.getByRole('button', { name: L.newTask, exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(400);
-      const field = page.getByPlaceholder(L.newTask).first();
-      await field.fill(L.probeTask);
-      await field.press('Enter');
-      await page.waitForTimeout(900);
-      // Tapping the row opens the inline editor (components/TaskCard.tsx, variant="full").
-      await clickText(page, L.probeTask);
-      await page.waitForTimeout(1000);
-      await scan(page, 'task-editor');
-    } catch (e) {
-      console.error(`  (task-editor step skipped: ${e.message.split('\n')[0]})`);
-    }
-
-    // ── Goals (an in-card drawer as of 2026-08-12, not a popup) ──
-    // components/GoalsEditor.tsx is mounted straight into the drawer body now —
-    // components/GoalsSheet.tsx, the popup this used to open, is deleted (maintainer: "This
-    // should not be a pop-up... making, editing and deleting in the card, not a pop up.").
-    // Clicking the label expands the drawer in place; clicking it again collapses it.
-    // Still on the To-do tab from the step above.
-    try {
-      const link = page.getByText(L.editGoals, { exact: true }).first();
-      await link.scrollIntoViewIfNeeded({ timeout: 5000 });
-      await link.click({ timeout: 10000 });
-      await page.waitForTimeout(900);
-      await scan(page, 'goals-drawer');
-      await link.click({ timeout: 10000 });
-      await page.waitForTimeout(600);
-    } catch (e) {
-      console.error(`  (goals-drawer step skipped: ${e.message.split('\n')[0]})`);
-    }
-
     // ── Health's symptom form ──
     // A pushed screen, but one that KEEPS BottomNav, so the walk can step back onto the
     // Health tab afterwards without a reload. (app/scan.tsx is deliberately never walked:
@@ -576,13 +545,19 @@ async function main() {
     // measuring it would report on a screen that does not exist on device. It needs a real
     // device, like the rest of the native-only surface.)
     try {
-      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: L.tabs[1], exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       await dismissModalIfPresent(page);
-      await clickText(page, L.logSymptom);
+      // The composer's option rows (and so "More options") only render once the field is
+      // focused or has text — the same tier-2 rule every quick-add follows.
+      const symptomLine = page.getByLabel(L.logSymptom, { exact: true }).first();
+      await symptomLine.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await symptomLine.click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await clickText(page, L.logSymptomMore);
       await page.waitForTimeout(1100);
       await scan(page, 'health-form');
-      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: L.tabs[1], exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     } catch (e) {
       console.error(`  (health-form step skipped: ${e.message.split('\n')[0]})`);
@@ -664,7 +639,7 @@ async function main() {
     // are identical to pass 1 and would only duplicate findings.
     try {
       await walkToTabs(page, { scanning: false });
-      await page.getByRole('button', { name: L.tabs[2], exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: L.tabs[1], exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       await dismissModalIfPresent(page);
       // The editor needs a medicine to open, and a fresh profile has none.
@@ -682,6 +657,54 @@ async function main() {
       await scan(page, 'medicine-form');
     } catch (e) {
       console.error(`  (medicine-form step skipped: ${e.message.split('\n')[0]})`);
+    }
+
+    // ── Pass 3: the To-do screen (task editor + Goals drawer) ──
+    // It stopped being a tab on 2026-08-20 (5 → 3) and is a pushed `tier="sub"` screen now,
+    // which means it draws no BottomNav and is a DEAD END exactly like Settings and the
+    // medicine editor — so it cannot sit mid-pass any more, and gets one of its own. Reached
+    // by tapping the merged card's title on Home, which is the route a user takes.
+    try {
+      await walkToTabs(page, { scanning: false });
+      await page.getByRole('button', { name: L.home, exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await dismissModalIfPresent(page);
+      await clickText(page, L.todoCard);
+      await page.waitForTimeout(1100);
+
+      // The task editor: the densest form in the app, and invisible to this audit until
+      // 2026-08-01. It is only reachable by opening a task, and a fresh profile has none, so
+      // one is created here first. This is where the sliced voice mic (#465) lived.
+      await clickText(page, L.tasksTabAll);
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: L.newTask, exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      const field = page.getByPlaceholder(L.newTask).first();
+      await field.fill(L.probeTask);
+      await field.press('Enter');
+      await page.waitForTimeout(900);
+      // Tapping the row opens the inline editor (components/TaskCard.tsx, variant="full").
+      await clickText(page, L.probeTask);
+      await page.waitForTimeout(1000);
+      await scan(page, 'task-editor');
+
+      // Goals (measured with the editor still open above it, as it always has been — the
+      // drawer sits at the foot of the scroll content, well below it): an in-card drawer as of 2026-08-12, not a popup — components/GoalsEditor.tsx is
+      // mounted straight into the drawer body and components/GoalsSheet.tsx is deleted
+      // (maintainer: "This should not be a pop-up... making, editing and deleting in the card,
+      // not a pop up."). Clicking the label expands it in place.
+      // `.last()`, not `.first()`: the task editor left open above carries its own Goal
+      // PICKER, whose label is the same word, and that copy sits inside a collapsed section
+      // that cannot be scrolled into view — which is what made this step time out and skip
+      // silently. The drawer is at the foot of the scroll content, after everything else, so
+      // the last match is the right one. Same trick the shopping-drawers step uses.
+      const link = page.getByText(L.editGoals, { exact: true }).last();
+      await link.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await link.click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      await scan(page, 'goals-drawer');
+    } catch (e) {
+      console.error(`  (todo-screen step skipped: ${e.message.split('\n')[0]})`);
     }
 
     // ── The six-row Basics form ──

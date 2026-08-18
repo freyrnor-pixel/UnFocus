@@ -23,13 +23,16 @@ jest.mock('@/lib/db', () => ({
 }));
 
 describe('homeCardOrder', () => {
-  it('defaults to plans/habits/notes/shopping when the settings row has no value', () => {
+  it('defaults to plans/notes/shopping when the settings row has no value', () => {
     // Order is deliberate: To-do first, then habits, then notes and shopping. Goals joined
     // the default set 2026-07-28 when it got a Home card, then left it again 2026-07-29
     // (too many lists on Home) — see app/goals.tsx's header for its new entry points.
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'habits', 'notes', 'shopping']);
+    // 'habits' left the default on 2026-08-20 (5 tabs → 3): habits are a SECTION inside the
+    // 'plans' card now, not a card of their own. A stored order that still names it is folded
+    // into 'plans' on read — see sanitizeHomeCardOrder in app/(tabs)/index.tsx.
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes', 'shopping']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

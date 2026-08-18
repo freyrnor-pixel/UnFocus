@@ -1219,7 +1219,12 @@ const en = {
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
-    todaysPlans: "Today's to-do",
+    // Titles the merged "I dag" card, which since the 2026-08-20 5→3 tab merge holds the day's
+    // TASKS and the day's HABITS (the habits section is inside it). "Today's to-do" named only
+    // half of it — the same name-vs-content mismatch that forced Habits back out of the Health
+    // tab in 2026-07-23. "List" covers both without enumerating them or wrapping at 327px, and
+    // is deliberately not the tab's own name ("Today"), which it sits inside.
+    todaysPlans: "Today's list",
     seeAllPlans: 'See all to-dos',
     more: 'More',
     quantityLabel: 'Quantity',
@@ -3577,7 +3582,7 @@ const no: typeof en = {
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
-    todaysPlans: 'Dagens gjøremål',
+    todaysPlans: 'Dagens liste',
     seeAllPlans: 'Se alle gjøremål',
     more: 'Mer',
     quantityLabel: 'Antall',
@@ -5399,7 +5404,7 @@ const is: typeof en = {
     shared: 'Deilt', settingsLabel: 'Stillingar',
   },
   home: {
-    todaysPlans: 'Verkefni dagsins',
+    todaysPlans: 'Listi dagsins',
     seeAllPlans: 'Sjá öll verkefni',
     more: 'Meira',
     quantityLabel: 'Fjöldi',

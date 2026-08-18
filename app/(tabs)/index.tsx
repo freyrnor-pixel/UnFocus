@@ -1,5 +1,5 @@
 /**
- * index.tsx — Home screen (the daily landing hub).
+ * index.tsx — "I dag", the app's centre tab and daily landing hub.
  *
  * The app's calm daily overview. Mounts via ScreenScaffold (Decision 001): the scaffold owns
  * the background, particles, header chrome (Settings gear + Focus eye), and BottomNav; this
@@ -11,21 +11,30 @@
  *   2. Energy STRIP (components/EnergyMeter.tsx) — fixed, and absent entirely when
  *      `settings.energySystemEnabled` is off. Not a card any more: one thin line, no surface.
  *   3. Shared card (components/HomeSharedCard.tsx) — fixed, and only present when something
- *      has actually arrived (`hasIncomingShared`). It sits ABOVE the four lists on purpose:
- *      it is transient, time-sensitive and from another person, so below four lists it would
+ *      has actually arrived (`hasIncomingShared`). It sits ABOVE the lists on purpose:
+ *      it is transient, time-sensitive and from another person, so below the lists it would
  *      be missed. Interruptive content goes high or it does not work. Don't demote it.
- *   4–7. To-do / Habits / Notes / Shopping — the ONLY reorderable, removable cards, driven by
+ *   4–6. To-do / Notes / Shopping — the ONLY reorderable, removable cards, driven by
  *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag,
  *      "Edit cards" for the ×/add chrome, floor of one card).
- *   8. The cumulative "you've done N things" line — fixed to the bottom, and the last child
+ *      ⚠️ **The To-do card is the MERGED "I dag" card as of 2026-08-20** (the 5→3 tab merge):
+ *      it draws the day's tasks AND, in components/PlanTaskCard.tsx's `extraSection` slot, the
+ *      day's habits as an embedded section. Habits was a fourth card here until then. Both
+ *      STORES are untouched and stay separate — a habit's per-day count, daily goal and rest
+ *      day have no equivalent on a task, and a task's single done flag has none on a habit, so
+ *      merging the storage would mean giving tasks a `habit_logs`-shaped table. That is written
+ *      up as a follow-up, not attempted here. See lib/homeCards.ts for how a stored order that
+ *      still names 'habits' is folded in.
+ *   7. The cumulative "you've done N things" line — fixed to the bottom, and the last child
  *      of `content` so it cannot be reordered into the stack.
- * Items 2, 3 and 8 are fixed *structurally*: they are siblings of `HomeCardManager`, not
+ * Items 2, 3 and 7 are fixed *structurally*: they are siblings of `HomeCardManager`, not
  * entries in `HOME_CARD_KINDS`, so there is no code path that can drag or delete them.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/EnergyMeter
  *             (the fixed Energy strip, gated on settings.energySystemEnabled), components/HomeHabitsCard
- *             (self-contained — reads useHabitStore directly, no props from this screen),
+ *             (self-contained — reads useHabitStore directly; mounted `embedded` into
+ *             PlanTaskCard's `extraSection`, so it draws as a section rather than a card),
  *             components/HomeNotesCard, components/HomeSharedCard (gated on
  *             settings.featureSharing; the shopping the spend-pace line is unconditional as
  *             of the 2026-07-25 defaults revision), components/HomeShoppingCard, components/HomeCardManager,
@@ -187,32 +196,12 @@ import { useCardState } from '@/lib/useCardState';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
 import { computeSpendPace } from '@/lib/budget';
+import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
 
-// Home preview card management (hold-to-manage, components/HomeCardManager.tsx). These
-// are the only kinds HomeCardManager knows about — HomeSharedCard is a separate,
-// automatic/data-driven inbox, not a discretionary card, so it stays outside this set.
-// 'habits' sits right after 'plans' (2026-07-28, user report: "Habits card must be added
-// to home screen under to-do") — this order is also the fallback default whenever a
-// persisted homeCardOrder is empty/corrupt (see sanitizeHomeCardOrder below).
-// 'goals' was dropped 2026-07-29 (user report: Home had too many lists) — Goals no
-// longer has a Home card at all; sanitizeHomeCardOrder below drops a leftover 'goals'
-// entry from anyone's already-persisted order for free (unknown kinds are filtered).
-// Goals has no screen of its own either as of 2026-08-12 — it is a drawer on Habits and
-// To-do, mounting components/GoalsEditor.tsx; see app/habits.tsx's header.
-const HOME_CARD_KINDS = ['plans', 'habits', 'notes', 'shopping'] as const;
-type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
-
-/** Defensive parse for the persisted order: drop unknown/duplicate kinds, fall back to the default order if the result is empty (corrupt/legacy row). */
-function sanitizeHomeCardOrder(order: string[]): HomeCardKind[] {
-  const seen = new Set<string>();
-  const clean = order.filter((k): k is HomeCardKind => {
-    if (seen.has(k) || !(HOME_CARD_KINDS as readonly string[]).includes(k)) return false;
-    seen.add(k);
-    return true;
-  });
-  return clean.length > 0 ? clean : [...HOME_CARD_KINDS];
-}
-
+// Home preview card management (hold-to-manage, components/HomeCardManager.tsx). The kinds
+// and the persisted-order parse moved to lib/homeCards.ts on 2026-08-20 so the 'habits' →
+// 'plans' fold-in could be unit-tested; HomeSharedCard is a separate, automatic/data-driven
+// inbox, not a discretionary card, so it stays outside that set either way.
 export default function HomeScreen() {
   const t = useT();
   const router = useRouter();
@@ -661,15 +650,16 @@ export default function HomeScreen() {
                 onPressEntry={handlePressLogEntry}
                 onRemoveMoment={removeMoment}
                 onCaptureMoment={addMoment}
+                // The habits half of "I dag" (2026-08-20, the 5→3 tab merge). A SECTION inside
+                // this card, not a card of its own — `embedded` drops HomeHabitsCard's Surface
+                // and badge and nothing else, so the rows, composer, starters, narrator line
+                // and footer toggle are the ones that shipped. The two STORES stay separate:
+                // a habit's per-day count, daily goal and rest day have no equivalent on a
+                // task, and merging them would mean giving tasks a habit_logs-shaped table.
+                extraSection={<HomeHabitsCard embedded />}
               />
             </DebugNoteAnchor>
           </TourTarget>
-        );
-      case 'habits':
-        return (
-          <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
-            <HomeHabitsCard cardMenu={buildCardMenu('habits')} />
-          </DebugNoteAnchor>
         );
       case 'shopping':
         return (
