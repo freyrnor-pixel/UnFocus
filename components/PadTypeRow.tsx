@@ -88,6 +88,18 @@
  *     confirm/"…" row, on the same focused-or-has-text gate as `extras`. A caller passes one or
  *     the other, not both — `extras` stays for the surfaces that haven't moved to the panel
  *     design (Notes, Shopping).
+ *   - **⚠️ "Focused or has text" is NOT the whole gate — see `engaged` (2026-08-18).** Three of
+ *     the option cells open a picker through `showAppModal`, i.e. a React Native `<Modal>`,
+ *     and a Modal takes window focus: the field blurs the instant the dialog appears. On an
+ *     untitled line that made `focused || hasText` false, so the entire panel unmounted BEHIND
+ *     the dialog — the user picked "Weekly", the dialog closed, and the cells it had just
+ *     configured (including the interval stepper the pick brings into existence) were gone.
+ *     Nothing looked broken; taps in that area simply landed on nothing, which is reported as
+ *     the screen having frozen. The pick itself was never lost — that state lives in the
+ *     caller's hook, not in the panel — only its UI was. The fix is `engaged`, set by the same
+ *     capture-phase responder that already answers "did this touch belong to my own controls".
+ *     **Any new control in `extras`/`panel` that opens a Modal, a bottom sheet or a route
+ *     depends on this**; don't reduce the gate back to two terms.
  *   - The commit button appears on the same terms. It's inert-looking (recessed
  *     `surfaceMuted`) until there's text, then fills with the domain accent — the same
  *     affordance grammar AddRow established, kept so the two don't read as different controls
@@ -230,11 +242,30 @@ export default function PadTypeRow({
   const focusHue = badgeGlyphFor(accent, recess.composite, isDark);
   const t = useT();
   const [focused, setFocused] = useState(false);
+  /**
+   * "This composer is in use", kept separately from `focused` because a control BELONGING to
+   * this row can take the focus away from the field (2026-08-18).
+   *
+   * The bug this exists for: three of the option cells open a picker through `showAppModal`,
+   * which mounts a React Native `<Modal>` — and a Modal takes window focus, so the field
+   * blurs the instant the dialog appears. On an untitled line `focused || hasText` was then
+   * false, so the WHOLE panel unmounted behind the dialog: the user picked "Weekly", the
+   * dialog closed, and the cells it had just configured were gone — including the interval
+   * stepper the pick had brought into existence. Every tap in that area landed on nothing,
+   * which reads as a frozen screen rather than as a disappearance.
+   *
+   * `internalPressRef` below already answers "did this touch belong to my own controls"; this
+   * is the same answer kept in state so it can hold the panel open. Cleared on a commit (the
+   * line is finished), on the tier-3 hand-off, and on a genuine blur from somewhere else —
+   * never by the picker's own blur, which is the whole point.
+   */
+  const [engaged, setEngaged] = useState(false);
 
   const hasText = value.trim().length > 0;
   const active = hasText && !disabled;
-  // An idle line is just a prompt; controls appear once you're actually writing on it.
-  const showControls = focused || hasText;
+  // An idle line is just a prompt; controls appear once you're actually writing on it — and
+  // stay while one of them is being used, even if the control took the field's focus.
+  const showControls = focused || hasText || engaged;
 
   const scrollIntoView = useContext(ScrollIntoViewContext);
   const rowRef = useRef<View>(null);
@@ -264,6 +295,10 @@ export default function PadTypeRow({
 
   function commit() {
     if (!active) return;
+    // The line is finished — the caller resets its draft, so the panel has nothing left to
+    // hold open. Without this a committed line would leave its cells on screen under a fresh
+    // empty prompt.
+    setEngaged(false);
     onSubmit();
     hapticConfirm();
   }
@@ -273,6 +308,9 @@ export default function PadTypeRow({
   const controlsResponderProps = {
     onStartShouldSetResponderCapture: () => {
       internalPressRef.current = true;
+      // …and hold the panel open through whatever this control does, including opening a
+      // <Modal> that steals the field's focus. See `engaged`.
+      setEngaged(true);
       return false;
     },
   };
@@ -284,7 +322,12 @@ export default function PadTypeRow({
     showControls && onMore ? (
       <Button
         label={moreLabel ?? t.pad.moreOptions}
-        onPress={onMore}
+        // The tier-3 hand-off leaves this surface for a full editor, so the line is done here
+        // — same reasoning as `commit`'s reset. See `engaged`.
+        onPress={() => {
+          setEngaged(false);
+          onMore();
+        }}
         variant="secondary"
         size="sm"
         icon="options-outline"
@@ -415,6 +458,12 @@ export default function PadTypeRow({
         onFocus={() => {
           setFocused(true);
           isFocusedRef.current = true;
+          // A fresh focus starts the "will the next blur be internal?" question over. Without
+          // this the flag leaks: a control pressed while the field was ALREADY blurred (which
+          // is the normal state once a picker has been through here) sets it and nothing ever
+          // consumes it, so the next genuine tap-away is swallowed and a typed line silently
+          // fails to commit.
+          internalPressRef.current = false;
           // Covers the keyboard-already-open case; the listener above covers it opening
           // fresh. Both are idempotent.
           scrollIntoView?.(rowRef.current);
@@ -429,6 +478,10 @@ export default function PadTypeRow({
             internalPressRef.current = false;
             return;
           }
+          // A genuine tap-away: the composer is no longer in use, so the panel may fold back
+          // to the bare prompt. Only reached when the blur was NOT caused by one of this
+          // row's own controls — see `engaged`.
+          setEngaged(false);
           // Don't lose a typed line to a stray tap elsewhere.
           if (hasText) commit();
         }}

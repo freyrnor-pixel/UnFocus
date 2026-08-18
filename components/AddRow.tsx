@@ -98,6 +98,15 @@
  *     input+confirm button silently become untappable. On focus (and on `keyboardDidShow`)
  *     this component hands the enclosing ScreenScaffold its OWN View node via
  *     ScrollIntoViewContext, which measures the row and lifts just it above the keyboard.
+ *   - **⚠️ An empty row collapses on blur, and its OWN controls can cause that blur
+ *     (2026-08-18) — see `internalPressRef`.** `app/plans.tsx`'s Whenever repeat cell opens a
+ *     `showAppModal` picker (a React Native `<Modal>` takes window focus) and
+ *     `components/FoodTab.tsx`'s `extras` are sibling TextInputs; either one blurred the name
+ *     field, and on an untitled line the whole composer folded back to the "+" bar under the
+ *     finger that was using it. A capture-phase responder on the `extras`/`panel`/button slots
+ *     marks those touches as internal so the collapse is skipped. **Any new control in one of
+ *     those slots relies on this** — keep new slots wrapped in a View that spreads
+ *     `controlsResponderProps`.
  */
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, TextInput, View, StyleProp, ViewStyle } from 'react-native';
@@ -236,6 +245,32 @@ export default function AddRow({
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [expandSignal]);
 
+  /**
+   * Set when a touch starts on one of this row's OWN controls, so the blur that touch causes
+   * doesn't collapse the row (2026-08-18). Same mechanism, and the same bug, as
+   * components/PadTypeRow.tsx's ref of the same name — read that one's note first.
+   *
+   * `onBlur` collapses an EMPTY row back to the "+" bar, deliberately, so a stray tap doesn't
+   * strand an open blank input. But pressing a control that belongs to this row is not a tap
+   * elsewhere: it is part of writing the line. Two of this component's own slots steal the
+   * field's focus and so hit that branch — `app/plans.tsx`'s Whenever repeat cell opens a
+   * picker through `showAppModal`, i.e. a React Native `<Modal>`, which takes window focus;
+   * and `components/FoodTab.tsx`'s `extras` are sibling TextInputs, so focusing one blurs the
+   * name. In both cases the whole composer folded away under the finger that was using it, and
+   * whatever the control did landed on a row that no longer existed.
+   *
+   * A capture-phase responder check gets the flag set before the blur fires on both platforms,
+   * and returning false leaves the child free to handle the touch as usual. `onFocus` clears
+   * it, so the flag can never leak into a later, genuine tap-away.
+   */
+  const internalPressRef = useRef(false);
+  const controlsResponderProps = {
+    onStartShouldSetResponderCapture: () => {
+      internalPressRef.current = true;
+      return false;
+    },
+  };
+
   function collapse() {
     onChangeText('');
     setExpanded(false);
@@ -315,6 +350,9 @@ export default function AddRow({
       onFocus={() => {
         setFocused(true);
         isFocusedRef.current = true;
+        // A fresh focus starts the "will the next blur be internal?" question over, so the
+        // flag can't leak from an earlier control press into a genuine tap-away.
+        internalPressRef.current = false;
         // Covers the keyboard-already-open case (switching focus to this input doesn't
         // re-fire keyboardDidShow); the listener above covers the keyboard-opening-fresh
         // case. Harmless to call both — scrollIntoView() is idempotent.
@@ -323,6 +361,13 @@ export default function AddRow({
       onBlur={() => {
         setFocused(false);
         isFocusedRef.current = false;
+        // A press on this row's own controls is part of writing the line, not a tap
+        // elsewhere — see internalPressRef. Consume the flag either way, so the next genuine
+        // blur still collapses.
+        if (internalPressRef.current) {
+          internalPressRef.current = false;
+          return;
+        }
         // Blurring an empty row backs out of the add — collapse to the "+" bar so we don't
         // strand an open empty input. A row with text stays open (the user is mid-entry).
         if (value.trim().length === 0) setExpanded(false);
@@ -378,8 +423,8 @@ export default function AddRow({
     return (
       <View ref={rowRef} style={[containerStyle, styles.column]} pointerEvents={disabled ? 'none' : 'auto'}>
         <View style={styles.row}>{inputField}</View>
-        <View style={styles.panelSlot}>{panel}</View>
-        <View style={styles.panelButtonRow}>
+        <View style={styles.panelSlot} {...controlsResponderProps}>{panel}</View>
+        <View style={styles.panelButtonRow} {...controlsResponderProps}>
           {discardButton}
           {confirmButton}
         </View>
@@ -395,9 +440,19 @@ export default function AddRow({
       pointerEvents={disabled ? 'none' : 'auto'}
     >
       {inputField}
-      {extras}
-      {discardButton}
-      {confirmButton}
+      {/* Wrapped so the capture-phase responder has something to sit on — the extras are
+          fixed-width siblings and the wrapper repeats the row's own direction/gap, so this is
+          layout-neutral. Without it, focusing one of FoodTab's amount/unit/price inputs blurs
+          the name field and folds the whole row away. See internalPressRef. */}
+      {extras !== undefined ? (
+        <View style={styles.extrasSlot} {...controlsResponderProps}>
+          {extras}
+        </View>
+      ) : null}
+      <View style={styles.trailingSlot} {...controlsResponderProps}>
+        {discardButton}
+        {confirmButton}
+      </View>
     </View>
   );
 }
@@ -482,6 +537,10 @@ const styles = StyleSheet.create({
   gated: { opacity: 0.45 },
   // Panel layout (`panel` prop): a column instead of the single inline expanded row.
   column: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.xs },
+  // Both repeat `row`'s own direction/gap so wrapping their children for the capture-phase
+  // responder (see internalPressRef) doesn't move anything.
+  extrasSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  trailingSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   panelSlot: { width: '100%' },
   panelButtonRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.xs },
 });
