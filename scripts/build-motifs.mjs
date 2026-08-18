@@ -262,10 +262,13 @@ const out = `/**
  * Edit notes:
  *   - Elements are painted back-to-front; \`els\` order is load-bearing.
  *   - Coordinates are in the motif's own viewBox (\`w\` × \`h\`), never screen pixels.
- *   - \`screen-bg-strip\` is the five tab backdrops as ONE continuous 1950×844 run (5 × 390),
+ *   - \`screen-bg-strip\` is the tab backdrops as ONE continuous run of 390-wide panels,
  *     slid with the pager rather than swapped per tab, so the branch never breaks at a seam.
- *     Panel k occupies x [390k, 390(k+1)) in bottom-nav order: shopping, plans, home, health,
- *     habits. \`screen-bg-calm\` is the standalone 390×844 backdrop for sub-tier screens.
+ *     Panel k occupies x [390k, 390(k+1)) in bottom-nav order — read \`STRIP_PANEL_ORDER\` at
+ *     the foot of this file for what that order actually is, never a prose list like this one:
+ *     it went 5 panels → 3 on 2026-08-20, and a stale prose ordering has already once put
+ *     every tab on its neighbour's art. \`screen-bg-calm\` is the standalone 390×844 backdrop
+ *     for sub-tier screens.
  *     lib/__tests__/motifs.test.ts pins the strip's geometry and the protected centre box
  *     (x 84–306, y 236–612 per panel) that cards live in.
  *   - Regenerate the strip with \`node scripts/author-screen-bgs.mjs\` — it is authored from a

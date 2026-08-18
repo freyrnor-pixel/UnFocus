@@ -12,7 +12,7 @@
  *   Imports → react-native-svg, constants/motifs, lib/useAppTheme (useIsDark)
  *   Used by → components/SectionDivider.tsx (trunk-divider), components/StageTree.tsx (the four
  *             tree-natural-* growth stages — and through it components/StarterCard.tsx and
- *             app/(tabs)/habits.tsx), components/TourSpotlight.tsx (halo-ring),
+ *             app/habits.tsx), components/TourSpotlight.tsx (halo-ring),
  *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx
  *             (leaf-icon corner accent, DESIGN_COMPARISON/04 option (b)),
  *             components/HabitLeading.tsx (leaf-icon as a habit row's leading mark,

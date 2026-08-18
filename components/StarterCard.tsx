@@ -33,8 +33,8 @@
  *             dismiss button's and the collapse trigger's accessibility labels — see below),
  *             store/useSettingsStore (dismissedStarters + dismissStarter, only when a
  *             caller passes `dismissKey`), @expo/vector-icons
- *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
- *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
+ *   Used by → app/habits.tsx (`collapsible`, starter chips in `children`,
+ *             `stage="sprout"`), app/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx (`collapsible`),
  *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
  *             day's example row, and deliberately NO `text` — that card had a head-mounted
@@ -92,7 +92,7 @@
  *     chevron) that
  *     toggles them closed to just that one row, animated with `LayoutAnimation` (gated on
  *     `useAccessibility().reducedMotion`, same pattern components/HintCard.tsx's own pill
- *     uses). This is the mechanism app/(tabs)/habits.tsx hand-rolled locally in its
+ *     uses). This is the mechanism app/habits.tsx hand-rolled locally in its
  *     2026-08-06 v2 pass (`examplesCollapsed`/`toggleExamples`, a floating bulb+chevron pill
  *     when closed) — moved here and reshaped (closed state is now a normal-looking row, not a
  *     pill) so every caller with real suggestion content shares one identical implementation
@@ -146,7 +146,7 @@
  *     bare at 33.5px. The To-do shape won. The rule now is that **an empty-state example is a
  *     row in the list it is an example of** — un-wrapped, in that list's own slot, at the same
  *     width as a real row and as the composer that would create one.
- *     Callers: app/(tabs)/health.tsx, app/(tabs)/habits.tsx, components/GoalsEditor.tsx (which
+ *     Callers: app/(tabs)/health.tsx, app/habits.tsx, components/GoalsEditor.tsx (which
  *     hand-rolled this block before the prop existed), components/PlanTaskCard.tsx (2026-08-12
  *     — the card the shape was taken FROM, which now wraps its own bare example so it gets the
  *     collapse trigger every other surface has). components/EnergyMeter.tsx deliberately
@@ -190,7 +190,7 @@
  *     streak or a focus session is declined by the design project *and* by lib/growth.ts.
  *   - **One tree per screen.** This card draws one whenever it is visible, so a screen that
  *     also wants an ambient tree of its own has to suppress one of them —
- *     app/(tabs)/habits.tsx is the worked example.
+ *     app/habits.tsx is the worked example.
  *   - **It takes no `color` prop, and that is not an omission.** Every stage is an
  *     ILLUSTRATION (each carries its own baked light/dark `pal`), and components/Motif ignores
  *     `color` for those — passing one would be a prop that silently does nothing. Its

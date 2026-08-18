@@ -26,7 +26,7 @@
  *             store/useGoalStore (registerProgress on toggle-to-done when a task has a goalId)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
  *             components/TaskCard.tsx (the one task editor — app/task-form.tsx retired
- *             2026-07-23, UX audit B1), app/(tabs)/plans.tsx, app/_layout.tsx
+ *             2026-07-23, UX audit B1), app/plans.tsx, app/_layout.tsx
  *             (syncMonthlyTaskNotifications, on boot + every foreground),
  *             store/usePeopleStore.ts (clearPerson, call-time only, when a person is removed),
  *             store/useTagStore.ts (clearTag, call-time only, when a tag is removed)
@@ -455,7 +455,7 @@ type TaskStore = {
   syncAllTaskCalendarEvents: () => void;
   /**
    * Commit a drag-reorder of the Whenever list: `orderedIds` is the rows the user could SEE,
-   * in their new order. Had no caller at all until 2026-08-01 (app/(tabs)/plans.tsx's drag) —
+   * in their new order. Had no caller at all until 2026-08-01 (app/plans.tsx's drag) —
    * see the implementation for why it slots rather than renumbering the subset 0…n-1.
    */
   reorderTasks: (orderedIds: string[]) => void;

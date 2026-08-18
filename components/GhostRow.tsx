@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/i18n, lib/useAppTheme
- *   Used by → app/(tabs)/habits.tsx, app/notes.tsx
+ *   Used by → app/habits.tsx, app/notes.tsx
  *   Data    → none
  */
 import React from 'react';

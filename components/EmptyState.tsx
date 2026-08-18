@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/Button
- *   Used by → app/shopping.tsx, app/health-log.tsx, app/(tabs)/habits.tsx (Week/Month
+ *   Used by → app/shopping.tsx, app/health-log.tsx, app/habits.tsx (Week/Month
  *             section's week/month views)
  *
  * Edit notes:

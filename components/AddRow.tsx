@@ -66,7 +66,7 @@
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
  *             (lib/screenColor left on 2026-08-16 — a recessed field has no resting stroke, so
  *             there is nothing left for the ambient screen hue to colour here)
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
+ *   Used by → app/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
  *             components/GoalsEditor.tsx, components/FoodTab.tsx,
  *             components/MedicineTrayCard.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
@@ -135,7 +135,7 @@ type Props = {
    * unbordered input read as floating over a rule) and the rest re-stated a card boundary the
    * 2026-08-05 reset had already given to borders. This one sits ABOVE a composer that draws
    * its own border, and it is already opt-IN in practice: of ten call sites, six pass
-   * `false`, and the two that keep it pass a CONDITION — `app/(tabs)/plans.tsx`'s `!wrapped`
+   * `false`, and the two that keep it pass a CONDITION — `app/plans.tsx`'s `!wrapped`
    * and `MedicineTrayCard`'s `medicines.length > 0` — i.e. it is drawn exactly when there is
    * a list above for the composer to be appended to, and suppressed when there isn't. That is
    * a working separator, not decoration, and neither of those two containers carries a `gap`

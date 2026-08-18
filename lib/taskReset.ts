@@ -35,7 +35,7 @@
  *   Imports → lib/date (addDays, dayOfWeekMon0), lib/cardType (isCompletable),
  *             store/useTaskStore (type-only — erased at compile time, so no runtime cycle)
  *   Used by → store/useTaskStore.ts (normalizeRecurringTasks / notToday / washedAwayTasks /
- *             bringBack), app/(tabs)/plans.tsx (the active-list filter + the "Washed away"
+ *             bringBack), app/plans.tsx (the active-list filter + the "Washed away"
  *             drawer), components/TaskCard.tsx (whether to draw "Not today")
  *   Data    → none (pure functions)
  *

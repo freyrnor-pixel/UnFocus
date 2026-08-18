@@ -16,7 +16,7 @@
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/increment/decrement/markRestDay, so live widgets don't wait for
  *             foreground/background)
- *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
+ *   Used by → app/habit-form.tsx, app/habits.tsx (its own bottom-nav tab again as of
  *             2026-07-23 — see that file's header for the fold-in/split-out history);
  *             app/_layout.tsx, app/settings.tsx, lib/useGhostTimeout.ts (indirectly, via
  *             habits.tsx's use of `lastDeleted`/`restoreLastDeleted`/`dismissLastDeleted`)
@@ -30,7 +30,7 @@
  *     `remove()` is a device-local soft-delete (tombstone) rather than a hard DELETE — habits
  *     aren't a SyncTable, so this is a plain column update, not lib/liveSync's touchRow/
  *     softDelete. habit_logs are left untouched (see remove()'s own comment for why that's
- *     safe). `lastDeleted` holds the removed habit in memory so app/(tabs)/habits.tsx can show
+ *     safe). `lastDeleted` holds the removed habit in memory so app/habits.tsx can show
  *     an inline "ghost" row (components/GhostRow.tsx) with a restore action for a few seconds
  *     (lib/useGhostTimeout.ts) — replaces the old confirm-then-irreversible-delete flow in
  *     app/habit-form.tsx, mirroring useTaskStore's tombstone-instead-of-confirm precedent.
@@ -38,7 +38,7 @@
  *   - User-facing notification strings go through getTranslations(useSettingsStore.getState().language), NOT useT.
  *   - New columns go through the migrations array in lib/db.ts; never recreate tables.
  *   - markRestDay() toggles the rest_day flag on a habit_logs row (upserting one if it doesn't
- *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/(tabs)/habits.tsx, never
+ *     exist yet) — a no-shame opt-out, framed as "Resting today" in app/habits.tsx, never
  *     "skipped". No streak system exists to protect (removed 2026-07-20) — a rest day is purely
  *     neutral: lib/habitRecurrence.ts's habitMetOn excludes it from that day's Energy delta entirely, so
  *     it's neither a reward nor a penalty, just a day the habit's energy sits still.
@@ -46,7 +46,7 @@
  *     When energyEnabled, MEETING the habit on a day (and not resting) applies the signed
  *     energyValue (positive restores energy, negative drains) to that day's/week's budget
  *     (lib/energy.ts, components/EnergyMeter.tsx). Also shown directly on the habit card as a
- *     small +/- pill (app/(tabs)/habits.tsx's EnergyBadge) — replaced the old streak badge.
+ *     small +/- pill (app/habits.tsx's EnergyBadge) — replaced the old streak badge.
  *     Always active — Energy stopped being a toggle (2026-07-26); a 0 value means no effect.
  *   - **This store awards nothing (2026-07-31).** A Bonsai/points counter briefly lived in
  *     increment() and was removed the same day along with the rest of that system. The
@@ -169,7 +169,7 @@ type HabitStore = {
   logs: HabitLog[];
   /**
    * The most recently removed habit, held in memory only — not persisted, not synced.
-   * Lets app/(tabs)/habits.tsx render an inline "ghost" row with a restore action for a few
+   * Lets app/habits.tsx render an inline "ghost" row with a restore action for a few
    * seconds after a delete made anywhere (the list itself, or the full-screen editor's
    * Delete button), via lib/useGhostTimeout.ts. Only one at a time: a second delete simply
    * replaces it, same as useTaskStore's `deletedTasks` zone holding a rolling set rather
@@ -395,7 +395,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
   },
 
   /**
-   * Drag-reorder commit (app/(tabs)/habits.tsx, via lib/useDragReorder).
+   * Drag-reorder commit (app/habits.tsx, via lib/useDragReorder).
    *
    * `orderedIds` is only what the screen was DRAWING — the Today list is filtered by person
    * and by whether the habit is due today, so most of the time it is a subset. The rows the

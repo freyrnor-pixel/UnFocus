@@ -38,21 +38,29 @@
 export type TourStep = {
   /** Stable, language-neutral id. Persisted — never rename one without a migration. */
   id: string;
-  /** Router path of the tab this step lives on. */
-  route: '/' | '/plans' | '/shopping' | '/habits' | '/health';
+  /** Router path of the tab this step lives on. Tabs ONLY — the tour navigates itself there
+   *  by switching the pager, and a pushed sub-screen would leave the user somewhere the
+   *  spotlight cannot follow them back from. */
+  route: '/' | '/shopping' | '/health';
   /** Must match a <TourTarget id=…> rendered on that screen. */
   targetId: string;
 };
 
 /**
- * The tour, in order. Home first because it is where the flow lands, then the two surfaces a
- * day actually starts from, then the two that need a first entry to be worth anything.
+ * The tour, in order: one step per tab. "I dag" first because it is where the flow lands and
+ * where the day's tasks and habits now live together, then the two surfaces that need a first
+ * entry to be worth anything.
+ *
+ * **It was five steps until the 2026-08-20 5→3 merge.** The `plans` and `habits` steps went
+ * with their tabs — the surfaces they pointed at are pushed sub-screens now, and a tour step
+ * is a spotlight on a TAB. Nobody is stranded by the removal: progress is a SET of ids, so a
+ * stored `'plans'`/`'habits'` is simply ignored, and a user mid-tour on the old build resumes
+ * on whichever of these three they had not reached. Their teaching did not vanish either —
+ * the merged list is what the `home` step now points at.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
   { id: 'home', route: '/', targetId: 'tour.home.today' },
-  { id: 'plans', route: '/plans', targetId: 'tour.plans.list' },
   { id: 'shopping', route: '/shopping', targetId: 'tour.shopping.list' },
-  { id: 'habits', route: '/habits', targetId: 'tour.habits.list' },
   { id: 'health', route: '/health', targetId: 'tour.health.log' },
 ];
 

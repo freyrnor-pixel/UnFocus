@@ -7,10 +7,10 @@
  *
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
- *   Used by → app/shopping.tsx, components/WeekListCard.tsx (dishGroupAllChecked),
+ *   Used by → app/shopping.tsx, components/WeekListCard.tsx (computeListGroups — all three
+ *             sections, including the `purchased` bucket, plus dishGroupAllChecked),
  *             components/HomeShoppingCard.tsx (listProgress), app/inventory-edit.tsx
- *             (catalogItemsForList), components/ShoppingStoreMode.tsx (computeListGroups —
- *             all three sections, including the `purchased` bucket)
+ *             (catalogItemsForList)
  *   Data    → none — pure functions over arrays passed in by the caller
  *
  * Edit notes:

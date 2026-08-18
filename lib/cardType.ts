@@ -38,7 +38,7 @@
  *   Imports → nothing (deliberate — see above)
  *   Used by → store/useTaskStore.ts, lib/energy.ts, lib/growth.ts, lib/widgets/sync.ts,
  *             lib/widgets/headlessSnapshot.ts, components/TaskCard.tsx,
- *             components/PlanTaskCard.tsx, app/(tabs)/plans.tsx, lib/aiSetupApply.ts,
+ *             components/PlanTaskCard.tsx, app/plans.tsx, lib/aiSetupApply.ts,
  *             lib/__tests__/cardType.test.ts
  *   Data    → none (pure functions; the column is `tasks.card_type`, see lib/db.ts)
  */

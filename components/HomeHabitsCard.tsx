@@ -8,7 +8,7 @@
  * fill is gone — a bordered box per row is the opposite of a ruled sheet.
  *
  * Shows habits due today (lib/habitRecurrence's habitOccursOn), each row a compact
- * title + −/+ log control (the same increment/decrement model app/(tabs)/habits.tsx's
+ * title + −/+ log control (the same increment/decrement model app/habits.tsx's
  * HabitCard uses — a habit's dailyGoal can be >1, so a plain checkbox can't always mean
  * "done"), collapsed to the first 5 with a "Show all/less" toggle, and a trailing
  * quick-add row. Tapping the title navigates to the full Habits tab. Self-contained
@@ -17,7 +17,7 @@
  *
  * Connections:
  *   Imports → components/NarratorQuote (2026-08-19 — what the empty slot says, restored in step
- *             with app/(tabs)/habits.tsx, which lost the same line in the same 2026-08-12 pass),
+ *             with app/habits.tsx, which lost the same line in the same 2026-08-12 pass),
  *             components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/StarterCard (2026-08-13 — `embedded collapsible`, so the suggestions
  *             sit in the same foldable box every other empty-state example does; this card's
@@ -33,7 +33,7 @@
  *             − 0 + control since 2026-08-05, replacing a tap-cycle),
  *             components/HabitRecurrenceCells + lib/useHabitRecurrenceDraft (2026-08-11 —
  *             the "every N days/weeks" repeat picker cells, rendered in the same panel as the
- *             energy row above; split out because app/(tabs)/habits.tsx mounts an IDENTICAL
+ *             energy row above; split out because app/habits.tsx mounts an IDENTICAL
  *             panel and the two are pinned against each other by
  *             lib/__tests__/energyModes.test.ts),
  *             components/AddRow,
@@ -51,7 +51,7 @@
  *     to-do")**: a full interactive mirror, not a read-only summary. Positioned right after
  *     'plans' in the default `settings.homeCardOrder` (see store/useSettingsStore.ts's
  *     default + lib/db.ts's back-fill migration for existing installs).
- *   - **Due-today filtering** mirrors app/(tabs)/habits.tsx's Today tab (`habitOccursOn`),
+ *   - **Due-today filtering** mirrors app/habits.tsx's Today tab (`habitOccursOn`),
  *     but WITHOUT that screen's People/family profile filter — this card always shows
  *     every due habit regardless of person; tap through to /habits for a person-filtered
  *     view. Kept simple on purpose: a Home preview card isn't the place for a second
@@ -562,7 +562,7 @@ const baseStyles = StyleSheet.create({
   // Both halves are the same recessed shape (2026-08-05) — the "+" used to carry a solid
   // domain-accent fill and drop its border. See components/Stepper.tsx's edit note: a −/+
   // pair is ONE control, and filling half of it in the action colour claims an emphasis the
-  // "+" hasn't got. The matching pair on app/(tabs)/habits.tsx changed with it.
+  // "+" hasn't got. The matching pair on app/habits.tsx changed with it.
   adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
 
 });

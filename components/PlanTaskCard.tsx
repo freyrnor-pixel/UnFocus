@@ -119,7 +119,7 @@
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
- *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
+ *             app/plans.tsx (the To-do tab, interactively, whenever the active layout
  *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
  *             and pass it down as the `horizontal` prop; this component stays
  *             store-free/presentational.

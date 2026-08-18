@@ -94,10 +94,12 @@ describe('invariant 2: no pick can produce an invalid state', () => {
   });
 
   test('every starting screen names a real tab route and a real path', () => {
-    // 'index' is app/(tabs)/index.tsx (Home); the other two are their own tab files.
+    // 'index' is app/(tabs)/index.tsx ("I dag"); the other two are their own tab files.
+    // These are ALL THREE tabs since the 2026-08-20 5→3 merge, not a subset — and 'plans' is
+    // deliberately absent, because a pushed sub-screen cannot be an `initialRouteName`.
     for (const s of START_SCREEN_CHOICES) {
-      expect(['index', 'plans', 'shopping']).toContain(START_SCREEN_ROUTES[s]);
-      expect(['/', '/plans', '/shopping']).toContain(START_SCREEN_PATHS[s]);
+      expect(['index', 'shopping', 'health']).toContain(START_SCREEN_ROUTES[s]);
+      expect(['/', '/shopping', '/health']).toContain(START_SCREEN_PATHS[s]);
     }
     // Distinct targets, or two options would silently do the same thing.
     expect(new Set(Object.values(START_SCREEN_ROUTES)).size).toBe(START_SCREEN_CHOICES.length);

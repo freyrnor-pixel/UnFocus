@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/useAppTheme
  *   Used by → components/TagPickerRow.tsx, components/TaskCard.tsx (row cue),
- *             app/(tabs)/plans.tsx (tag filter row), app/settings.tsx (Tags card)
+ *             app/plans.tsx (tag filter row), app/settings.tsx (Tags card)
  *   Data    → none — presentational; the caller passes the resolved tag
  *
  * Edit notes:

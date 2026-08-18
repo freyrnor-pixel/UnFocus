@@ -17,7 +17,7 @@
  *   Imports → components/TaskCard, components/SectionCard, components/PressableScale,
  *             constants/theme, lib/domainColor, lib/date, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useSharedStore, store/useTaskStore
- *   Used by → app/(tabs)/plans.tsx (All-tasks tab, last section)
+ *   Used by → app/plans.tsx (All-tasks tab, last section)
  *   Data    → reads/removes useSharedStore rows; creates/toggles useTaskStore tasks
  *
  * Edit notes:

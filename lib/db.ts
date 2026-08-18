@@ -1196,7 +1196,7 @@ export function initDb() {
     "ALTER TABLE settings ADD COLUMN design_lab TEXT DEFAULT '{}'",
     'ALTER TABLE settings ADD COLUMN design_lab_apply INTEGER DEFAULT 0',
     // ---- Health issues as a standing, curated list (2026-08-11) ----
-    // The Health tab was restructured to mirror app/(tabs)/habits.tsx: one card lists the
+    // The Health tab was restructured to mirror app/habits.tsx: one card lists the
     // issues that have actually been going on this week (with a "+" that logs another
     // incident, where a habit row has its −/+), and a components/CollapsedSection.tsx
     // "Health issues" drawer at the foot holds the standing list — the same shape, and the

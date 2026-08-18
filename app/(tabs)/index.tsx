@@ -198,7 +198,7 @@ import { computeSpendPace } from '@/lib/budget';
 // longer has a Home card at all; sanitizeHomeCardOrder below drops a leftover 'goals'
 // entry from anyone's already-persisted order for free (unknown kinds are filtered).
 // Goals has no screen of its own either as of 2026-08-12 — it is a drawer on Habits and
-// To-do, mounting components/GoalsEditor.tsx; see app/(tabs)/habits.tsx's header.
+// To-do, mounting components/GoalsEditor.tsx; see app/habits.tsx's header.
 const HOME_CARD_KINDS = ['plans', 'habits', 'notes', 'shopping'] as const;
 type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 
@@ -473,7 +473,7 @@ export default function HomeScreen() {
       hasStartDate: false,
     });
   }, [addTask, today, t]);
-  // Inline quick-add from the Home Plans preview — mirrors app/(tabs)/plans.tsx's Whenever
+  // Inline quick-add from the Home Plans preview — mirrors app/plans.tsx's Whenever
   // AddRow: an undated (hasStartDate:false) task dated today, so it shows in Today, the day's
   // list, and the All tab's Whenever without any extra sync. Lets a task be created without
   // leaving Home (was: force-navigate to /plans). `extra` carries whichever of PlanTaskCard's

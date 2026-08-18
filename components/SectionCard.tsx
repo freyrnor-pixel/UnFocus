@@ -13,7 +13,7 @@
  *   Imports → components/Surface, components/SectionRail, components/Collapsible,
  *             components/CardCollapseToggle, constants/theme, lib/collapsedCards,
  *             lib/useCollapsedCard
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx
+ *   Used by → app/plans.tsx, app/habits.tsx
  *   Data    → settings.collapsedCards, but ONLY when a caller passes `collapseKey` (the
  *             foldable variant is a separate component so the plain one reads no store)
  *

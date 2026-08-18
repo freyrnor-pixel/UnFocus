@@ -216,7 +216,7 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   });
 
   for (const file of [
-    'app/(tabs)/habits.tsx',
+    'app/habits.tsx',
     'components/HomeHabitsCard.tsx',
     // app/goals.tsx was a caller until it was retired (2026-08-12), and its successor
     // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
@@ -284,7 +284,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
 
   for (const [file, label] of [
     ['app/(tabs)/health.tsx', 'Health'],
-    ['app/(tabs)/habits.tsx', 'Habits'],
+    ['app/habits.tsx', 'Habits'],
     ['components/GoalsEditor.tsx', 'the Goals drawer'],
     // 2026-08-12: the day card joined this list when its bare example gained the shared
     // collapse trigger, and components/MedicineTrayCard left it — that card's explainer is a
@@ -399,7 +399,7 @@ describe('the example sits in the list it is an example of, not above the list\'
   });
 
   it('Habits puts its suggestions in the same place', () => {
-    const source = code('app/(tabs)/habits.tsx');
+    const source = code('app/habits.tsx');
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
     const composer = source.indexOf('<PadTypeRow');
@@ -491,7 +491,7 @@ describe('StarterCard — the suggestions drop-down starts shut and says one wor
 describe('the composer comes after the examples, everywhere', () => {
   for (const [file, starterMarker, composerMarker, label] of [
     ['app/(tabs)/health.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
-    ['app/(tabs)/habits.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
+    ['app/habits.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
     ['components/HomeHabitsCard.tsx', '<StarterCard', '<PadSheet', "Home's habits card"],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
     ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
@@ -547,7 +547,7 @@ describe('the bulb explainer line stays deleted', () => {
     'components/HomeShoppingCard.tsx',
     'components/MedicineTrayCard.tsx',
     'components/EnergyMeter.tsx',
-    'app/(tabs)/habits.tsx',
+    'app/habits.tsx',
     'app/(tabs)/health.tsx',
   ] as const) {
     it(`${file} mounts no explainer line`, () => {

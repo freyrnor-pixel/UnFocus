@@ -403,10 +403,10 @@ async function main() {
       ['Shop', 'shopping-empty', 'Shopping — empty', 'app/(tabs)/shopping.tsx',
         'EMPTY. Green screen hue. Week lists / Monthly list / Whenever, with Food, Catalogue and Scan as buttons rather than tabs. A migration seeds one empty monthly list, which is why this surface\'s empty-state gate has to count items too, not just lists.',
         'WeekListCard, ShoppingRow, InlineAddItem, StarterCard, ShoppingFilterBar, NewMonthlyListRow'],
-      ['To-do', 'plans-empty', 'To-do — empty', 'app/(tabs)/plans.tsx',
+      ['To-do', 'plans-empty', 'To-do — empty', 'app/plans.tsx',
         'EMPTY. Blue screen hue. Today is the default tab and is drawn as the elastic timeline — real durations, visible gaps, gaps reading as room — split by a live now-line. The explainer draws inside the card rather than as a card above it (a Surface inside a Surface reads as a nested panel).',
         'PlanTaskCard, TaskCard, SectionCard, AddRow, TabSlider, SubScreenLinkRow, DayGridLines'],
-      ['Habits', 'habits-empty', 'Habits — empty', 'app/(tabs)/habits.tsx',
+      ['Habits', 'habits-empty', 'Habits — empty', 'app/habits.tsx',
         'EMPTY. Sky screen hue. Offers four one-tap starter habits instead of an empty list. There is no negative habit, no slip log and no broken streak anywhere in the app.',
         'PadRow, PadTypeRow, StarterCard, StageTree, HabitIcon, SubScreenLinkCard'],
       ['Health', 'health-empty', 'Health — empty', 'app/(tabs)/health.tsx',
@@ -674,7 +674,7 @@ async function main() {
     for (const t of ['Ring the dentist', 'Water the plants', 'Pick up a parcel']) await seedTask(page, t);
     await shot(page, 'plans-today-populated', {
       title: 'To-do — Today, with tasks',
-      screen: 'app/(tabs)/plans.tsx',
+      screen: 'app/plans.tsx',
       state: 'POPULATED. The elastic timeline ahead of the now-line. Device-calendar events (read-only) draw here too, as structure rather than achievement, sharing one layout pass with tasks so an overlapping meeting and task go side by side rather than stacking.',
       components: 'PlanTaskCard, PadRow, DayGridLines',
     });
@@ -729,7 +729,7 @@ async function main() {
       await page.waitForTimeout(800);
       await shot(page, 'plans-all-tasks', {
         title: 'To-do — All tasks',
-        screen: 'app/(tabs)/plans.tsx',
+        screen: 'app/plans.tsx',
         state: 'POPULATED, grouped by kind. The undated "Whenever" backlog is one of the few lists with a manual drag order — Today and This week are ordered by the clock, and dragging a 09:00 task under a 14:00 one would either lie about the order or silently retime the task.',
         components: 'TaskCard, SectionCard, AddRow, DraggableTaskRow, CollapsedSection',
       });
@@ -757,7 +757,7 @@ async function main() {
     await seedHabit(page, 'Ten minutes outside');
     await shot(page, 'habits-populated', {
       title: 'Habits — with habits, none registered yet',
-      screen: 'app/(tabs)/habits.tsx',
+      screen: 'app/habits.tsx',
       state: 'POPULATED. Every habit registers through a −/+ pair rather than a check circle. A habit enters the day log on the FIRST log of the day, not on "met" — 5 of 7 glasses of water still leaves a trace, which is exactly the kind of day the log exists for.',
       components: 'PadRow, HabitIcon, HabitLeading, Stepper, StageTree',
     });
@@ -768,7 +768,7 @@ async function main() {
       await page.waitForTimeout(900);
       await shot(page, 'habits-registered', {
         title: 'Habits — one registered today',
-        screen: 'app/(tabs)/habits.tsx',
+        screen: 'app/habits.tsx',
         state: 'A rest day and a count still at 0 are simply excluded — there is no failed state to render. Reward for a streak is ambient and shows no number anywhere: the screen backdrop tints from blue toward green and grows extra branches from a high-water mark, so branches never un-grow and a lapsed streak returns the art to exactly what it always was.',
         components: 'ScreenBackground, Motif',
       });

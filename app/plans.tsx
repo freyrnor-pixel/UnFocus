@@ -70,7 +70,9 @@
  *             add/edit/delete happens in the drawer itself as of 2026-08-12;
  *             components/GoalsSheet.tsx, the popup its title used to open, is deleted),
  *             components/DayPickerSheet (`RecentDaysList` body + the pop-up its title opens)
- *   Used by → Expo Router route "/plans" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx;
+ *   Used by → Expo Router route "/plans" — a PUSHED sub-screen since 2026-08-20 (5 tabs → 3),
+ *             reached from "I dag" via components/PlanTaskCard.tsx's header and "See
+ *             everything" link, and from app/(tabs)/index.tsx's day-log rows;
  *             also reached with `?tab=all&expandTaskId=…` from app/notes.tsx's "Add to plans"
  *             (UX audit B1, 2026-07-23 — creates the task, then lands here with its editor open)
  *   Data    → reads/writes useTaskStore (tasks/steps); SharedTasksSection reads useSharedStore
@@ -257,7 +259,6 @@ import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import TourTarget from '@/components/TourTarget';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
@@ -1327,11 +1328,9 @@ export default function TasksScreen() {
     <>
     <ScreenScaffold
       title={t.tasksTitle}
-      tier="site"
+      tier="sub"
       screenKey="plans"
-      bottomNav={false}
-      pagerFloatingNav
-      ownBackground={false}
+      onBack={() => router.back()}
       stickyGapColor="transparent"
       stickyBelowHeader={stickyBelowHeader}
       stickyBelowHeaderHeight={STICKY_HEIGHT}
@@ -1535,7 +1534,6 @@ export default function TasksScreen() {
         {tab === 'today' && (
           <>
             {/* Debug notes: anchor the day-view section (not its inner task rows). */}
-            <TourTarget id="tour.plans.list">
               <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
                 {groupByPerson ? (
                   // "By person" layout — one section per person, in that person's own hue.
@@ -1639,7 +1637,6 @@ export default function TasksScreen() {
                   </SectionCard>
                 )}
               </DebugNoteAnchor>
-            </TourTarget>
 
             {/* Whenever, BELOW the day and collapsed (2026-08-01, DESIGN_RULES.md rule 7 —
                 previously the first thing on the tab). The undated backlog is the least
@@ -1864,7 +1861,10 @@ const styles = StyleSheet.create({
   // No vertical padding (2026-08-19): components/ScreenScaffold.tsx clips this content
   // flush to the header's glass and the nav bar's, and a margin here is the blank strip
   // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
-  content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
+  // A pushed sub-screen reserves no bottom nav, so its lower edge lands on the safe area
+  // rather than on chrome — and an edge that does not meet glass keeps its margin
+  // (lib/__tests__/screenRhythm.test.ts). It padded nothing here while it was a tab.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: SCREEN_GAP },
   dayResetBtn: { alignSelf: 'center' },
   // ── "One thing at a time" (focusFirst) ──────────────────────────────────────
   // No SectionCard around any of it, deliberately: the whole point of this layout is that the

@@ -12,8 +12,8 @@
  *   Imports → react, react-native (AppState), lib/date (localMinutesOf)
  *   Used by → components/PlanTaskCard.tsx (day-grid now-line),
  *             components/MedicineTrayCard.tsx (current/next tray, as-needed guard),
- *             app/(tabs)/plans.tsx + app/(tabs)/index.tsx (the day log's cutoff, and their
- *             own render-scope `today`), app/(tabs)/habits.tsx + app/(tabs)/health.tsx
+ *             app/plans.tsx + app/(tabs)/index.tsx (the day log's cutoff, and their
+ *             own render-scope `today`), app/habits.tsx + app/(tabs)/health.tsx
  *             (2026-08-13 — subscribed for the DATE, not the minute: see below),
  *             lib/__tests__/useNowMinutes.test.ts, lib/__tests__/todayFreshness.test.ts
  *   Data    → none — reads the system clock only

@@ -4,13 +4,13 @@
  * **FLAT EQUALITY (2026-08-18) — read this before restoring anything below it.** Maintainer:
  * *"Do not use massive asymmetrical background circles for the active Bottom Nav icon…
  * Bottom nav icons should have equal visual weight; the active state should just be a filled
- * icon in the active color with no background shape."* So this bar is now five identical
+ * icon in the active color with no background shape."* So this bar is now three identical
  * slots — icon + label, same size, same box, same weight — and the ONLY thing that marks the
  * current one is the glyph itself: the filled Ionicons variant, drawn in that section's
  * categorical colour, with its label to match. Nothing is drawn behind it.
  *
  * Three whole mechanisms went with that ruling, and none of them comes back piecemeal:
- *   - **The sliding pill/ring** (one shared `Animated.View` translating between five measured
+ *   - **The sliding pill/ring** (one shared `Animated.View` translating between the measured
  *     slots, morphing width/height/radius, wearing a hue-derived plate and a rim gradient).
  *     It was the selection cue from 2026-07-24; it is a background shape, which is the thing
  *     that was forbidden. With it went the three measured tracks, the `innerW`/`innerH` probe,
@@ -20,7 +20,7 @@
  *   - **The centre FAB.** Home was a 56px accent-filled circle with a `LinearGradient` rim
  *     (and, at various points, a shadow, a halo and a resting sink). "Equal visual weight"
  *     cannot survive one tab being a filled disc twice the size of its neighbours, so Home is
- *     an ordinary `NavTabItem` now, in its ordinary index-2 slot. `renderCentre` is gone.
+ *     an ordinary `NavTabItem` now, in its ordinary centre slot. `renderCentre` is gone.
  *   - **`glassSurfaces` branching inside the bar.** It only ever chose between the FAB's
  *     gradient rim and a flat accent fill; with no FAB and no gradient there is nothing for it
  *     to choose. The BAR itself still respects it — that lives in `Surface`.
@@ -44,12 +44,18 @@
  *   Data    → none (presentational; navigation only)
  *
  * Edit notes:
- *   - SITE_ITEMS (lib/siteNav.ts) defines the 5 items and their order (left to right):
- *     Shopping, Plans, Home, Habits, Health (Decision 036; Habits/Health order swapped
- *     2026-07-24). Notes, Food/Meals and Automations are NOT tabs — they are reached via
- *     Home's "More" links (Notes, Food) and Settings → Automations. **The bar no longer
+ *   - SITE_ITEMS (lib/siteNav.ts) defines the 3 items and their order (left to right):
+ *     Handle, I dag, Meg (2026-08-20, the 5→3 merge; it was Shopping/Plans/Home/Habits/Health
+ *     under Decision 036). To-do, Habits, Notes, Food/Meals and Automations are NOT tabs —
+ *     they are reached from "I dag" and from Settings → Automations. **The bar no longer
  *     slices SITE_ITEMS into left/right groups around a centre button** — it maps the array
- *     once — so adding or reordering an item needs no index arithmetic here at all.
+ *     once — so adding or reordering an item needs no index arithmetic here at all, which is
+ *     why going from five slots to three needed no code change in this file.
+ *   - ⚠️ **With three tabs the categorical hue is doing MORE work, not less.** It is still the
+ *     only channel marking the active tab (see the flat-equality ruling above), and 'index'
+ *     stopped being neutral in lib/screenColor.ts precisely so the middle tab has one — a
+ *     neutral key falls back to `theme.accent` in `navTabHue`, which would put the app's one
+ *     accent under the tab the user stands in most.
  *   - BOTTOM_NAV_HEIGHT is exported for screens needing to offset overlays. NAV_FLOAT_GAP is
  *     also exported — app/(tabs)/_layout.tsx (bar positioning) and ScreenScaffold
  *     (`pagerFloatingNav` content-clearance reserve) both need the exact same number or the

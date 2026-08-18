@@ -18,7 +18,7 @@
  *   Imports → constants/theme (contrastOn, rgba)
  *   Used by → store/usePeopleStore.ts (colour assignment at create + back-fill),
  *             components/PersonChip.tsx, app/settings.tsx (People card swatches),
- *             app/(tabs)/plans.tsx (person filter chips), lib/__tests__/personColor.test.ts
+ *             app/plans.tsx (person filter chips), lib/__tests__/personColor.test.ts
  *   Data    → none (pure functions over values the caller already has)
  *
  * Edit notes:

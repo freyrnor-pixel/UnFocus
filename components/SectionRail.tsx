@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/CardAccent (CardAccentBadge)
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx (via SectionCard),
+ *   Used by → app/plans.tsx, app/habits.tsx (via SectionCard),
  *             components/SharedTasksSection.tsx
  *   Data    → none — presentational
  *

@@ -8,7 +8,7 @@
  *
  * **Delete has no confirm dialog (2026-08-01)** — it used to open a modal ("This cannot
  * be undone."), which is no longer true: useHabitStore.remove() is a soft-delete and
- * app/(tabs)/habits.tsx shows an inline "ghost" row with a restore action for a few seconds
+ * app/habits.tsx shows an inline "ghost" row with a restore action for a few seconds
  * after landing back on the list (lib/useGhostTimeout.ts + components/GhostRow.tsx). Same
  * "undo, not confirm" call already made for tasks (see useTaskStore.remove()'s doc).
  *
@@ -65,7 +65,7 @@
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
  *             settings.featureGoals), components/OptionalTag,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
- *   Used by → Expo Router route "/habit-form"; reached from app/(tabs)/habits.tsx (its own
+ *   Used by → Expo Router route "/habit-form"; reached from app/habits.tsx (its own
  *             bottom-nav tab as of 2026-07-23 — was embedded in health.tsx before that;
  *             each habit card's settings-gear IconButton, 2026-07-21 — replaced the old
  *             long-press-to-edit gesture)
@@ -418,7 +418,7 @@ export default function HabitForm() {
   }
 
   // No confirm dialog (2026-08-01, matching useTaskStore's remove()/PlanTaskCard's "Recently
-  // deleted" precedent): removeHabit() is a soft-delete now, and app/(tabs)/habits.tsx shows
+  // deleted" precedent): removeHabit() is a soft-delete now, and app/habits.tsx shows
   // an inline "ghost" row with a restore action for a few seconds after landing back on the
   // list — the undo IS the safety net, so a confirm step here would just be a second one
   // (and its old copy, "This cannot be undone.", would now be false).

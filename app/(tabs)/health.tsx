@@ -4,7 +4,7 @@
  * **The Habits/Goals layout, applied here** (maintainer, 2026-08-11: *"In Health screen I want
  * the same logic as with Goals and habits. Health issues same as Goals, and habits the same as
  * logging incidents. Not practically the same, but the same layout, and adjusted where
- * needed."*). Two halves, exactly as app/(tabs)/habits.tsx has them:
+ * needed."*). Two halves, exactly as app/habits.tsx has them:
  *
  *   1. **One card you register on** — where Habits lists today's habits, this lists the issues
  *      that have actually been going on this week, each with a "+" that logs another incident
@@ -42,7 +42,7 @@
  * embed a full Habits section (today/week/month views, per-habit cards) below the
  * symptom summary — but "Health" as a tab name/icon only promises symptom tracking,
  * and a whole separate habit-building system living inside it was a name-vs-content
- * mismatch a user had to learn by accident. That section is now app/(tabs)/habits.tsx,
+ * mismatch a user had to learn by accident. That section is now app/habits.tsx,
  * its own bottom-nav tab (replacing Scan — see lib/siteNav.ts). This file is purely the
  * symptom-tracking half now — which is what made the 2026-08-11 pass above possible: the
  * two screens are finally the same kind of screen.
@@ -58,7 +58,7 @@
  *             components/OpenEpisodeCard + components/EpisodeCloseSheet (ongoing episodes),
  *             components/CollapsedSection + components/HealthIssuesPreviewList +
  *             components/HealthIssuesSheet (2026-08-11 — the "Health issues" drawer and its
- *             popup, the exact shape app/(tabs)/habits.tsx gives Goals),
+ *             popup, the exact shape app/habits.tsx gives Goals),
  *             components/Surface, components/CardAccent (CardAccentBadge),
  *             components/PadRow (2026-08-11 — the shared row shell each issue's header line is
  *             drawn through, the same conversion HabitCard got on 2026-08-01),
@@ -438,7 +438,7 @@ export default function HealthScreen() {
 
   /**
    * Tier 3 — "More options" (AGENTS.md's three-tier composer contract). Opens the full form
-   * carrying the typed name and saves nothing, the same call app/(tabs)/habits.tsx makes for
+   * carrying the typed name and saves nothing, the same call app/habits.tsx makes for
    * `/habit-form`: health-form is a real create-mode editor, so nothing is written until Save
    * there. It MUST work on an empty line — PadTypeRow's `onMore` shows as soon as the field is
    * focused, and a handler that early-returns on an empty draft is the exact bug that button
@@ -639,7 +639,7 @@ export default function HealthScreen() {
                     accent={screenHue}
                     onMore={openFormWithDraft}
                     // No check to preview: an issue row ends in a "+", never a check — the
-                    // same reason app/(tabs)/habits.tsx passes this.
+                    // same reason app/habits.tsx passes this.
                     noGhostCheck
                     panel={
                       <QuickAddOptionsPanel>

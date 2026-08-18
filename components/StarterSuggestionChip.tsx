@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/useAppTheme
- *   Used by → app/(tabs)/habits.tsx, components/HomeHabitsCard.tsx (both pass `leading`, a
+ *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both pass `leading`, a
  *             components/HabitIcon — a habit's glyph may be a legacy emoji, which Ionicons
  *             cannot draw) and components/HealthIssuesSheet.tsx (passes `icon`, an Ionicons
  *             name). Every caller renders these inside components/StarterCard's `children`

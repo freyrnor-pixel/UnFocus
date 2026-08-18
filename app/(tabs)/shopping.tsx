@@ -49,9 +49,9 @@
  *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
  *             unconditional as of the 2026-07-25 defaults revision),
  *             components/ShoppingFilterBar, components/ShoppingRow,
- *             components/ShoppingStoreMode (the full-screen in-the-store view of one week
- *             list — opened from each locked WeekListCard, mounted here as a sibling of
- *             ScreenScaffold alongside the other overlays), components/Surface,
+ *             components/KeepAwakeInStore (holds the screen awake while the in-store chip
+ *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
+ *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
  *             components/PressableScale, components/TabSlider, components/SectionDivider,
  *             constants/theme, react-native (AppState — the payday-boundary check also
@@ -262,7 +262,7 @@
  *   - **Tab bar (2026-07-23, shared component)**: the Weekly/Monthly switcher is
  *     `components/TabSlider.tsx` — a single accent pill SLIDES between the two content-sized
  *     segments, replacing the old per-tab `TabBoxHighlight` boxes. Same shared component as
- *     app/(tabs)/plans.tsx and app/settings.tsx's tab bars. Every tab's `accent` in
+ *     app/plans.tsx and app/settings.tsx's tab bars. Every tab's `accent` in
  *     `TAB_META` is the neutral brand
  *     `theme.accent` (blue), so the pill's hue matches Plans and the
  *     bottom nav — one consistent "selected" colour app-wide (visual-audit 2026-07-20: Weekly's
@@ -481,7 +481,7 @@ import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
-import ShoppingStoreMode from '@/components/ShoppingStoreMode';
+import KeepAwakeInStore from '@/components/KeepAwakeInStore';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import HintCard from '@/components/HintCard';
@@ -580,7 +580,6 @@ export default function ShoppingScreen() {
   const [resetReviewVisible, setResetReviewVisible] = useState(false);
   const [savedListsListId, setSavedListsListId] = useState<string | null>(null);
   const [listSettingsListId, setListSettingsListId] = useState<string | null>(null);
-  const [storeModeListId, setStoreModeListId] = useState<string | null>(null);
   // The row's detail sheet (components/ShoppingItemSheet.tsx). Holds the item itself rather
   // than an id so the sheet still has content to draw while it animates out; it re-reads the
   // live row from the store by id, so a stale object here can't be written back.
@@ -2312,7 +2311,6 @@ export default function ShoppingScreen() {
                               onRename={(name) => renameList(list.id, name)}
                               onOpenSavedLists={() => setSavedListsListId(list.id)}
                               onOpenListSettings={() => setListSettingsListId(list.id)}
-                              onOpenStoreMode={() => setStoreModeListId(list.id)}
                               onDelete={() => handleDeleteList(list.id)}
                               onSyncToTemplate={() => handleSyncListToTemplate(list)}
                               onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
@@ -2543,15 +2541,10 @@ export default function ShoppingScreen() {
         onClose={() => setDetailItem(null)}
       />
     </ScreenScaffold>
-    {/* A full-screen Modal, and a sibling of ScreenScaffold like the other overlays. Mounting
-        it here (rather than inside a list row) is what keeps its keep-awake lock tied to one
-        place — see components/ShoppingStoreMode.tsx's header. */}
-    <ShoppingStoreMode
-      visible={storeModeListId !== null}
-      listId={storeModeListId ?? ''}
-      listName={nonTemplateLists.find((l) => l.id === storeModeListId)?.name ?? ''}
-      onClose={() => setStoreModeListId(null)}
-    />
+    {/* Conditionally mounted, and that IS the lock's scope — see components/KeepAwakeInStore.tsx.
+        Once, at screen level: the layout is a per-surface setting, so every week list shares
+        this spec, and useKeepAwake's shared tag makes per-card mounts release each other's lock. */}
+    {layoutSpec.chips && <KeepAwakeInStore />}
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     <ConfirmationBanner
       message={confirmMessage}

@@ -437,7 +437,7 @@ export const IDENTITY_NEUTRAL = '#6B7280';
 //       L* gap to `shopping` (70.65) 25.84 → **22.33** (≫ the 15 floor two tests key off)
 //       L* gap to `health` (44.33) 0.48 → 4.00 — a side effect, not the goal; those two still
 //         separate by hue, not lightness.
-//   - **Recurring** (`app/(tabs)/plans.tsx`'s `repeatingHue`) is FIXED here. It resolves through
+//   - **Recurring** (`app/plans.tsx`'s `repeatingHue`) is FIXED here. It resolves through
 //     `getDomainColor(theme, 'meal')` — a domain the section has no real identity in, borrowed
 //     purely so it wouldn't look like Whenever's blue (see that file's inline note, pre-dating
 //     A.3). Since the 2026-07-31 collapse, `cardMeal` silently aliases onto `cardShop`'s exact

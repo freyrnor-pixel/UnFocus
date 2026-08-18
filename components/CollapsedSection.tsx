@@ -13,12 +13,12 @@
  *   Imports → components/Surface, components/SectionRail, components/AnimatedChevron,
  *             components/Collapsible, components/PressableScale, constants/theme,
  *             constants/motion (Spring.calm), lib/haptics, lib/i18n, lib/useAppTheme
- *   Used by → app/(tabs)/plans.tsx (Whenever, Goals, Earlier days),
- *             app/(tabs)/habits.tsx (Goals), app/(tabs)/shopping.tsx (Food, Catalogue)
+ *   Used by → app/plans.tsx (Whenever, Goals, Earlier days),
+ *             app/habits.tsx (Goals), app/(tabs)/shopping.tsx (Food, Catalogue)
  *   Data    → none — presentational; the caller owns the body and both press handlers.
  *
  * Edit notes:
- *   - **Lifted out of app/(tabs)/plans.tsx on 2026-08-10.** It was a local function component
+ *   - **Lifted out of app/plans.tsx on 2026-08-10.** It was a local function component
  *     there, used only for **Whenever** (2026-08-01, DESIGN_RULES.md rule 7: the undated backlog
  *     is by definition the least time-sensitive thing on a tab called "Today", so it moved below
  *     the day's own list — and once below, a drawer keeps its count in reach without spending a

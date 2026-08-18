@@ -1,7 +1,12 @@
 /**
- * (tabs)/_layout.tsx — swipeable pager for the 5 main sites (Decision 032 successor).
+ * (tabs)/_layout.tsx — swipeable pager for the 3 main sites (Decision 032 successor).
  *
- * Co-mounts Shopping/Plans/Home/Health/Habits in one react-native-pager-view-backed
+ * **5 tabs became 3 on 2026-08-20.** To-do and Habits stopped being tabs — their daily rows
+ * merged onto Home, which is the "I dag" tab now, and both screens live on as pushed
+ * sub-screens (app/plans.tsx, app/habits.tsx) holding the deep surfaces a daily list has no
+ * room for. Nothing about the pager mechanics below changed; there are simply three pages.
+ *
+ * Co-mounts Shopping/I dag/Meg in one react-native-pager-view-backed
  * material-top-tabs navigator (tabBarPosition="bottom") so swiping between sites is
  * one continuous native slide with no route remount — replacing the old separate-routes
  * + SiteSwipeView double-motion (native push/back + a second hand-rolled flick), which
@@ -12,7 +17,7 @@
  *
  * Also renders ONE shared L1/L2 background (ScreenBackground + a cross-faded
  * HomeHeroBackground + ParticleBackground) behind the whole pager, instead of each of the
- * 5 screens mounting its own via ScreenScaffold. react-native-pager-view slides each
+ * 3 screens mounting its own via ScreenScaffold. react-native-pager-view slides each
  * screen's whole subtree horizontally, so a per-screen background used to slide right
  * along with the content — reading as "each screen has its own picture" instead of a fixed
  * backdrop. Hoisting it here decouples it from the swipe: it sits behind TopTabs. Both L1
@@ -21,7 +26,7 @@
  * swipes). This replaced an earlier `isHomeActive ? <HomeHeroBackground/> : <ScreenBackground/>`
  * MOUNT SWAP, which created/destroyed react-native-svg + gradient views (and restarted the
  * hero's Animated loops) on the exact frame a swipe settled — a per-swipe hitch that read
- * as laggy swiping. The 5 tab screens pass ownBackground={false} to ScreenScaffold so they
+ * as laggy swiping. The 3 tab screens pass ownBackground={false} to ScreenScaffold so they
  * don't ALSO paint their own copy.
  *
  * Connections:
@@ -38,12 +43,12 @@
  *   Data    → none (pure navigation composition)
  *
  * Edit notes:
- *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, plans, index, habits,
- *     health) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
+ *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, index, health) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
- *     (2026-07-23, UX audit E1/E2: Scan swapped out for the new app/(tabs)/habits.tsx —
+ *     (2026-07-23, UX audit E1/E2: Scan swapped out for the new app/habits.tsx —
  *     Scan is now a pushed sub-screen at app/scan.tsx, reached from Shopping's header.)
- *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans", "/habits", "/health"
+ *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/health" ("/plans" and "/habits"
+ *     are still valid routes — they are pushed screens outside this group now)
  *     (was "/scan" before the 2026-07-23 E1/E2 swap — see the Screen-order note above).
  *   - As of SDK 56, expo-router's Metro resolver throws a build error if app code imports
  *     `@react-navigation/*` directly (https://docs.expo.dev/router/migrate/sdk-55-to-56/).
@@ -51,12 +56,12 @@
  *     `createMaterialTopTabNavigator` from `@react-navigation/material-top-tabs` — the
  *     latter breaks both `eas update` and `eas build` at the bundling step. `TopTabs`
  *     wraps the identical react-native-tab-view/-pager-view stack internally.
- *   - **`lazy: false` (2026-07-16, cold-start perf)**: all five sites mount up front when
+ *   - **`lazy: false` (2026-07-16, cold-start perf)**: all three sites mount up front when
  *     the pager mounts, so navigating Home → any tab reveals an ALREADY-RENDERED tree
  *     instead of mounting it fresh on first visit — that first-visit mount was the visible
  *     "things load in" hitch users reported. Pairs with app/_layout.tsx's cold-start
  *     hydration (Tier A stores + the settings render gate), so the pre-mounted screens mount
- *     with their data already in memory. Watch memory on low-end Android (5 screens mounted
+ *     with their data already in memory. Watch memory on low-end Android (3 screens mounted
  *     from launch) — the former Scan tab's camera-power-on caveat here no longer applies
  *     since Scan moved out to a pushed sub-screen (app/scan.tsx, 2026-07-23).
  *   - **`lazy: false` vs the REVERTED `lazyPreloadDistance` (2026-07-13)**: the earlier
@@ -108,7 +113,7 @@
  *     the swipe boundary rather than sliding with the drag. reducedMotion snaps instead.
  *   - **Background parallax (2026-07-23, mechanism reworked 2026-07-24 — see the next bullet)**:
  *     the shared L1/L2 background group is wrapped in an Animated.View that drifts horizontally
- *     with `bgIndexAnim` (0..4, our own node — see below) — a small ±MAX_PARALLAX px translate,
+ *     with `bgIndexAnim` (0..n-1, our own node — see below) — a small ±MAX_PARALLAX px translate,
  *     same direction as the content but far less, reading as depth rather than "each screen has
  *     its own picture" (the layer is oversized by MAX_PARALLAX per side so the drift never bares
  *     an edge). Null under reducedMotion, so the backdrop stays fixed exactly as before. It's a
@@ -172,7 +177,7 @@
  *     TabBarWithBackgroundSync via a latest-ref effect) — so tapping the overlay bar still calls
  *     the SAME real `navigate()`, hitting the exact native jumpTo/instant-snap path documented
  *     below, not expo-router's URL routing (which would remount instead of sliding). Each of the
- *     5 tab screens now ALSO passes `pagerFloatingNav` to ScreenScaffold, reserving scroll-content
+ *     3 tab screens now ALSO passes `pagerFloatingNav` to ScreenScaffold, reserving scroll-content
  *     clearance for the overlay bar (previously zero — the old flex-sibling layout provided the
  *     clearance structurally; see ScreenScaffold's own edit note) shaved by `NAV_PEEK` so the
  *     last scrolled card's edge can reach into the corner notch instead of stopping dead at the
@@ -181,7 +186,7 @@
  *   - **Scene background must stay transparent**: @react-navigation/material-top-tabs's
  *     MaterialTopTabView wraps every route in `sceneStyle: { backgroundColor: colors.background }`
  *     by default (react-navigation theme background, opaque) — that painted over this
- *     shared L1/L2 backdrop, which is why the 5 tab screens showed a flat colour instead
+ *     shared L1/L2 backdrop, which is why the 3 tab screens showed a flat colour instead
  *     of the blobs/hero. `screenOptions.sceneStyle` below forces it back to `'transparent'`
  *     so the shared background shows through; each tab screen's own SafeAreaView stays
  *     transparent too (see ScreenScaffold's ownBackground=false path). If the backdrop
@@ -203,16 +208,25 @@ import { START_SCREEN_ROUTES } from '@/lib/firstRunOptions';
 import { SITE_ITEMS, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 
-// Max horizontal drift (px) of the shared background as you swipe across the 5 tabs — a
+// Max horizontal drift (px) of the shared background as you swipe across the tabs — a
 // subtle parallax that adds depth without re-coupling the backdrop to the swipe the way a
 // per-screen background did (see file header). The layer is oversized by this much on each
 // side so the drift never reveals a bare edge.
 const MAX_PARALLAX = 14;
 // Route-name order matching the pager's registered screens (also SITE_ITEMS' visual left-to-
-// right order, lib/siteNav.ts) — used to turn the settled tab name into a 0..4 index for the
+// right order, lib/siteNav.ts) — used to turn the settled tab name into a 0..n-1 index for the
 // background-parallax animation below. Derived from SITE_ITEMS/TAB_ROUTE_NAME instead of a
 // second hardcoded array so the two orderings can't drift apart.
 const TAB_ROUTE_ORDER = SITE_ITEMS.map((item) => TAB_ROUTE_NAME[item.route]!);
+// One parallax stop per tab, spread evenly from +MAX_PARALLAX (leftmost) to -MAX_PARALLAX
+// (rightmost), so the backdrop drifts the same total distance however many tabs there are.
+// Both derived from TAB_ROUTE_ORDER — the count lives in exactly one place (SITE_ITEMS).
+const PARALLAX_INPUT = TAB_ROUTE_ORDER.map((_, i) => i);
+const PARALLAX_OUTPUT = TAB_ROUTE_ORDER.map((_, i) =>
+  TAB_ROUTE_ORDER.length === 1
+    ? 0
+    : MAX_PARALLAX - (2 * MAX_PARALLAX * i) / (TAB_ROUTE_ORDER.length - 1)
+);
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
   onActiveRouteChange: (routeName: string) => void;
@@ -330,7 +344,7 @@ export default function TabsLayout() {
   const startRouteName = useRef(activeRouteName).current;
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
-  // The pager's live scroll position (0..4 across the 5 tabs), lifted up from the tab bar
+  // The pager's live scroll position (0..n-1 across the tabs), lifted up from the tab bar
   // (see TabBarWithBackgroundSync). Null until the first tab-bar render sets it. We only ever
   // READ this to mirror live swipe motion (see bgIndexAnim below) — the background transform
   // itself is driven by our own node, not this one directly (see the file header's "Actual
@@ -399,8 +413,11 @@ export default function TabsLayout() {
         transform: [
           {
             translateX: bgIndexAnim.interpolate({
-              inputRange: [0, 1, 2, 3, 4],
-              outputRange: [MAX_PARALLAX, MAX_PARALLAX / 2, 0, -MAX_PARALLAX / 2, -MAX_PARALLAX],
+              // Derived from the tab count, never a hardcoded list of stops — it was
+              // `[0,1,2,3,4]`/`[+14,+7,0,-7,-14]` until the 2026-08-20 5→3 merge, and a
+              // stale stop list silently clamps the drift to the wrong end of the backdrop.
+              inputRange: PARALLAX_INPUT,
+              outputRange: PARALLAX_OUTPUT,
               extrapolate: 'clamp',
             }),
           },
@@ -478,11 +495,11 @@ export default function TabsLayout() {
           <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} navigationRef={navigationRef} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, plans, home, habits, health */}
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, index ("I dag"), health.
+            plans and habits stopped being tabs on 2026-08-20 (5 → 3) and are pushed
+            sub-screens now — app/plans.tsx and app/habits.tsx. */}
         <TopTabs.Screen name="shopping" />
-        <TopTabs.Screen name="plans" />
         <TopTabs.Screen name="index" />
-        <TopTabs.Screen name="habits" />
         <TopTabs.Screen name="health" />
         </TopTabs>
 

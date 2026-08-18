@@ -248,8 +248,11 @@ describe('screen-bg-strip is one continuous run of whole panels', () => {
   const strip = MOTIFS['screen-bg-strip'];
 
   test('is an exact whole number of panels, at panel height', () => {
+    // Derived from STRIP_PANEL_ORDER, not a literal: the panel COUNT is allowed to change
+    // (5 → 3 on 2026-08-20), but the strip must always be exactly that many whole panels
+    // wide — a fractional width slices a panel and the pager's index stops landing on a seam.
     expect(strip.w % PANEL_W).toBe(0);
-    expect(strip.w / PANEL_W).toBe(5);
+    expect(strip.w / PANEL_W).toBe(STRIP_PANEL_ORDER.length);
     expect(strip.h).toBe(PANEL_H);
   });
 
@@ -284,12 +287,12 @@ describe('screen-bg-strip is one continuous run of whole panels', () => {
   test('every panel gets its own art, so no two tabs look alike', () => {
     // Count only the per-panel interiors — the spine spans everything by design, so counting
     // it would make this pass even if four panels were empty.
-    const perPanel = new Array(5).fill(0);
+    const perPanel = new Array(STRIP_PANEL_ORDER.length).fill(0);
     for (const e of strip.els) {
       if (e.t === 'p' && e.d.startsWith('M0 660')) continue; // the shared spine
       const x = e.t === 'p' ? samplePath(e.d)[0].x : e.cx;
       const panel = Math.floor(x / PANEL_W);
-      if (panel >= 0 && panel < 5) perPanel[panel]++;
+      if (panel >= 0 && panel < STRIP_PANEL_ORDER.length) perPanel[panel]++;
     }
     for (const count of perPanel) expect(count).toBeGreaterThan(0);
   });

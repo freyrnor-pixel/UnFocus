@@ -531,7 +531,7 @@ async function main() {
     // log of the day, so this must hold for a partly-done counter habit too.
     //
     // **No more checkbox (2026-08-06)**: every habit registers through its −/+ pair now, not
-    // a check circle for dailyGoal===1 habits — see app/(tabs)/habits.tsx's HabitCard. Target
+    // a check circle for dailyGoal===1 habits — see app/habits.tsx's HabitCard. Target
     // the "+" button by its accessible name instead.
     console.log('> day log: a ticked habit appears in it');
     const habitCheck = page.getByRole('button', { name: `Increase quantity ${habitTitle}`, exact: true }).first();

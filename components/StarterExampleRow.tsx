@@ -7,12 +7,12 @@
  *
  * Connections:
  *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
- *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, components/PlanTaskCard.tsx and
+ *   Used by → app/plans.tsx, app/(tabs)/health.tsx, components/PlanTaskCard.tsx and
  *             components/GoalsEditor.tsx (2026-08-13 — its four goal suggestions moved off
  *             components/StarterSuggestionChip: sentence-length labels at Radius.full wrapped
  *             into a ragged staircase, and a row list's even left edge is worth more than the
  *             pill there). All four render it inside a components/StarterCard `example` slot.
- *             **Two corrections to what this line claimed until 2026-08-13**: app/(tabs)/habits.tsx
+ *             **Two corrections to what this line claimed until 2026-08-13**: app/habits.tsx
  *             has passed chips, not rows, since 2026-07-30, and components/HomeHabitsCard.tsx
  *             the same — its read-only row was deleted then for rendering the same suggestion
  *             twice. Neither has imported this since. (app/(tabs)/shopping.tsx dropped its own
@@ -74,7 +74,7 @@
  *     `children`, already cover the same item, so a second "+" here would just be a
  *     redundant second way to do the same thing). When provided, the caller owns the
  *     actual store write AND its own haptic (`success()`) — this component only calls
- *     it, matching the house pattern (see app/(tabs)/habits.tsx's createHabit).
+ *     it, matching the house pattern (see app/habits.tsx's createHabit).
  *   - `meta`/`metaVariant` reuse components/Badge — keep meta text short (a count,
  *     a signed number, a recurrence word) so it reads as a pill, not a second sentence.
  *   - **The "Example" chip is GONE (2026-08-13) — don't reintroduce it.** History, because it

@@ -47,7 +47,7 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme (useAppTheme, useAccessibility), lib/haptics,
  *             components/PressableScale, react-native-reanimated
- *   Used by → app/(tabs)/plans.tsx (Today/This week/All tasks), app/(tabs)/shopping.tsx
+ *   Used by → app/plans.tsx (Today/This week/All tasks), app/(tabs)/shopping.tsx
  *             (Weekly/Monthly), app/settings.tsx (category tabs)
  *   Data    → none (controlled; value/options/onChange from props)
  *

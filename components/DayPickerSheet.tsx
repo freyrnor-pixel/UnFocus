@@ -10,7 +10,7 @@
  *             components/PadRow, constants/theme, lib/date (dateStr, formatDisplayDate,
  *             parseDateStr, todayStr), lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useSettingsStore (language, for the date format)
- *   Used by → app/(tabs)/plans.tsx — both the "Earlier days" drawer's inline preview
+ *   Used by → app/plans.tsx — both the "Earlier days" drawer's inline preview
  *             (`RecentDaysList`) and the pop-up its title opens (`DayPickerSheet`)
  *   Data    → none of its own. It lists DATES, not entries: reading each day's log here would
  *             mean N `useDayLog` passes to render a menu, and the counts would turn a picker

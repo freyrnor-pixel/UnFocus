@@ -410,6 +410,18 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
+  // **List controls follow the LIST, not the tier (2026-08-20).** The layout and share icons
+  // are not site chrome — the gear, the update cloud and the debug trio are. They belong to
+  // whichever surface draws a list, and the whole reason the layout icon is on a header at all
+  // is that the choice is made while looking at the list it changes. That was indistinguishable
+  // from site chrome while every list lived on a tab; the 5→3 merge moved app/plans.tsx to a
+  // pushed screen, and gating these on `tier === 'site'` would have silently dropped the To-do
+  // screen's layout picker — the only way to reach the timeline and focus layouts — with no
+  // error anywhere, since a prop the header ignores looks exactly like a prop it honours.
+  const subListControls = tier === 'sub'
+    ? ([layoutButton, shareButton].filter(Boolean) as React.ReactNode[])
+    : [];
+
   // The card itself (see the file header's "The card is ALWAYS there" note): one opaque
   // absoluteFill wash on the same `surfaceRaised` rung `Surface`'s `overlay` context paints,
   // mounted unconditionally. No scroll gate — a header that is only sometimes a card is what
@@ -479,7 +491,12 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
       {titleNode('left')}
 
-      <View style={styles.rightSlot}>{headerRight}</View>
+      <View style={styles.rightSlot}>
+        {subListControls.map((node, i) => (
+          <React.Fragment key={`list-${i}`}>{node}</React.Fragment>
+        ))}
+        {headerRight}
+      </View>
     </View>
   );
 }
@@ -562,8 +579,13 @@ const styles = StyleSheet.create({
   },
   rightSlot: {
     minWidth: 32,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    // A row since 2026-08-20: a pushed LIST screen can carry its layout/share icons here
+    // alongside a headerRight action (see `subListControls`). A single-child slot laid them
+    // on top of each other.
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.md,
   },
   back: {
     fontSize: FontSize.md,

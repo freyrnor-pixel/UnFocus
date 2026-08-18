@@ -68,8 +68,10 @@
  *             lib/habitRecurrence, store/useHabitStore, store/useSettingsStore
  *   - The person filter row + habit-form "For" chips are gated on settings.peopleModeEnabled
  *     (People/family mode). Profile add/remove lives in app/settings.tsx, not here.
- *   Used by → Expo Router route "/habits" — one of 5 co-mounted pager tabs under
- *             app/(tabs)/_layout.tsx (BottomNav "Habits" tab)
+ *   Used by → Expo Router route "/habits" — a PUSHED sub-screen since 2026-08-20 (5 tabs → 3),
+ *             reached from "I dag" via components/HomeHabitsCard.tsx's header and its
+ *             "see all" row. It has no BottomNav seat any more; the day's due habits are
+ *             drawn on "I dag" itself and this screen is where a habit is set up and browsed.
  *   Data    → useHabitStore (habits + habit_logs) via increment/decrement/markRestDay/add;
  *             colour theme + language + child profiles + featureGoals from useSettingsStore
  *
@@ -220,7 +222,6 @@ import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import TourTarget from '@/components/TourTarget';
 import Surface from '@/components/Surface';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
@@ -843,11 +844,9 @@ export default function HabitsScreen() {
   return (
       <ScreenScaffold
         title={t.habitsTitle}
-        tier="site"
+        tier="sub"
         screenKey="habits"
-        bottomNav={false}
-        pagerFloatingNav
-        ownBackground={false}
+        onBack={() => router.back()}
       >
         <View style={styles.content}>
           {/* The reward system deliberately has NO card here (2026-07-31). The Bonsai card
@@ -865,7 +864,6 @@ export default function HabitsScreen() {
               and drops the duplicate heading; it also stops being a Surface wrapping a
               Surface wrapping every habit card. Debug notes: anchor the whole section,
               not the inner habit cards/add row. */}
-          <TourTarget id="tour.habits.list">
             <DebugNoteAnchor id="habits.section" label="Habits">
             {/* No `borderColor` (card design reset, 2026-08-05): this card sits ON the Habits
                 screen, so it inherits that screen's one hue like every other card. It used to
@@ -1075,7 +1073,6 @@ export default function HabitsScreen() {
               </Collapsible>
             </Surface>
             </DebugNoteAnchor>
-          </TourTarget>
 
           {/* Ambient stage tree (2026-08-04, design comparison task 03) — the `full` stage,
               standing on the backdrop at the foot of the column where the content ends. It is
@@ -1146,7 +1143,10 @@ const baseStyles = StyleSheet.create({
   // No vertical padding (2026-08-19): components/ScreenScaffold.tsx clips this content
   // flush to the header's glass and the nav bar's, and a margin here is the blank strip
   // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
-  content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
+  // A pushed sub-screen reserves no bottom nav, so its lower edge lands on the safe area
+  // rather than on chrome — and an edge that does not meet glass keeps its margin
+  // (lib/__tests__/screenRhythm.test.ts). It padded nothing here while it was a tab.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: SCREEN_GAP },
 
   // The bottom spacer this screen has always ended on, kept as its own style so the ambient
   // tree below can be swapped in for it without the two disagreeing about how much room the

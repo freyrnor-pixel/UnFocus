@@ -87,7 +87,15 @@
  *     Pinned by __tests__/shoppingResetSync.test.ts.
  *     mergeDuplicateItems' one-time self-heal DELETE is still a hard delete —
  *     it repairs pre-existing accidental dupes, not a user delete action.
- *   - **`unmarkPurchased()` (2026-08-11)** is the inverse of `markPurchased()`, added for
+ *   - **`markPurchased()` / `unmarkPurchased()` are INERT as of 2026-08-20**, and kept rather
+ *     than deleted. components/ShoppingStoreMode.tsx was their only caller and was retired
+ *     when the "In the store" chip layout became the single in-store surface, so no UI reaches
+ *     either one today. They stay because the `'purchased'` STATUS they move a row into is very
+ *     much alive — `doneShopping()` writes it on every completed trip, and app/(tabs)/shopping.tsx
+ *     plus components/ShoppingRow's `purchased` variant both read it — so this pair is the only
+ *     written-down definition of that transition and its inverse. Don't wire new UI to them
+ *     without re-reading the note below; do NOT "clean them up" as dead code.
+ *     **`unmarkPurchased()` (2026-08-11)** is the inverse of `markPurchased()`, added for
  *     store mode's third section so "bought" is not a one-way door. It lands the row back in
  *     the CART (`status:'inWeeklyList'`, `checked:true`) rather than the list, and clears
  *     `shoppingTripId` alongside `purchasedAt` — left set, `monthlyReset()`'s

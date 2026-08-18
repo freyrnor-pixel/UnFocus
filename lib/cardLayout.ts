@@ -23,7 +23,7 @@
  *             drag notification/DB code into a render path)
  *   Used by → components/ShoppingRow.tsx, components/ShoppingChip.tsx (the `chips` flag),
  *             components/WeekListCard.tsx, app/(tabs)/shopping.tsx,
- *             app/(tabs)/plans.tsx, components/PlanTaskCard.tsx, components/LayoutPickerSheet.tsx,
+ *             app/plans.tsx, components/PlanTaskCard.tsx, components/LayoutPickerSheet.tsx,
  *             app/settings.tsx, lib/__tests__/cardLayout.test.ts
  *   Data    → none — pure functions over values the caller already has. Reads no store,
  *             writes nothing, schedules nothing.

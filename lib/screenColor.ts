@@ -97,8 +97,17 @@ const SCREEN_TOKEN: Record<ScreenKey, keyof ThemePalette | null> = {
   // Kept because goals are still a domain with a colour, and this table is the one place that
   // is written down; don't wire it up to the drawer.
   goals: 'featPlan',
-  // No hue of their own — see the header. Home's preview cards borrow their source screen's.
-  index: null,
+  // 'index' IS the "I dag" tab as of the 2026-08-20 5→3 merge, and it takes the TO-DO hue —
+  // the same token `plans` reads, because the day's tasks and habits are what that screen is
+  // now. It was `null` (neutral) while Home was a hub of previews that each borrowed their
+  // source screen's hue. **This is load-bearing, not decorative**: since the 2026-08-18
+  // blueprint pass the bottom nav's active state is ONLY the filled glyph in the section's
+  // categorical colour, so a neutral tab is a tab with no selection cue at all
+  // (components/BottomNav.tsx's `navTabHue` falls back to `theme.accent` for a neutral key,
+  // which would put the app's one accent on the tab you are most often standing in).
+  index: 'featTask',
+  // Still neutral: 'home' is the legacy key for the same screen, kept for callers that pass
+  // it, and `settings` is chrome rather than a domain.
   home: null,
   settings: null,
 };

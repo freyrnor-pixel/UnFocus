@@ -15,8 +15,10 @@
  *      next ENTERS at y=660, so every seam steps 60px. Rendering five conforming panels side by
  *      side shows the step plainly.
  *
- * So the five tabs are authored as ONE continuous 1950×844 strip (5 × 390) and the app slides
- * it with the pager, exactly as onboarding slides the triptych. Continuity is then structural
+ * So the tabs are authored as ONE continuous 1170×844 strip (3 × 390) and the app slides
+ * it with the pager, exactly as onboarding slides the triptych. (It was 1950×844 / 5 × 390
+ * until the 2026-08-20 5→3 tab merge — the strip's width is derived from PANELS.length, so
+ * re-running this script is the whole migration.) Continuity is then structural
  * rather than a coordinate two files have to agree on, and the strip as a whole still enters at
  * y=660 and leaves at y=600 — the contract's endpoints, honoured across the whole run.
  * `screen-bg-calm` is left exactly as delivered for sub-tier/non-pager screens, where it stands
@@ -45,11 +47,12 @@ const H = 844;
 
 /**
  * Pager order — this MUST match the <TopTabs.Screen> order in app/(tabs)/_layout.tsx, because
- * the strip is slid by that navigator's index. Note it is shopping, plans, home, HABITS,
- * HEALTH: AGENTS.md's "Shopping/Plans/Home/Health/Habits" has the last two the wrong way
- * round, and trusting it put each of those tabs on its neighbour's panel.
+ * the strip is slid by that navigator's index. Getting it wrong shows each tab its neighbour's
+ * art, with no crash and nothing visible in a diff; it happened once already, when a stale
+ * prose ordering in AGENTS.md was trusted over the navigator.
+ * **Three panels since 2026-08-20** (was shopping, plans, home, habits, health).
  */
-const PANELS = ['shopping', 'plans', 'home', 'habits', 'health'];
+const PANELS = ['shopping', 'home', 'health'];
 const STRIP_W = PANEL_W * PANELS.length;
 
 /** Dark mode must read harder against a much darker field. Matches the ratios measured across
@@ -64,12 +67,20 @@ const OP = { spine: 0.45, limb: 0.4, dot: 0.28 };
 
 // ── The spine ────────────────────────────────────────────────────────────────────────────
 /**
- * Waypoints every half-panel. Every point that lands mid-panel (x mod 390 = 195, i.e. inside
- * the centre box's x-range) is held at y ≥ 685, well below the box's lower edge at 612; the
- * dips to 620–645 all occur at panel boundaries, which are outside the box. Starts at 660 and
- * ends at 600 — the contract's two edge values, across the whole strip.
+ * Waypoints every half-panel — so the length is `2 × PANELS.length + 1`, and it has to be
+ * re-cut whenever the panel count changes (7 for three panels; it was 11 for five). Every
+ * point that lands mid-panel (odd index, i.e. inside the centre box's x-range) is held at
+ * y ≥ 685, well below the box's lower edge at 612; the dips to 620–645 all occur at panel
+ * boundaries, which are outside the box. Starts at 660 and ends at 600 — the contract's two
+ * edge values, across the whole strip.
  */
-const SPINE_Y = [660, 690, 620, 690, 640, 700, 630, 685, 645, 690, 600];
+const SPINE_Y = [660, 690, 620, 690, 640, 700, 600];
+if (SPINE_Y.length !== 2 * PANELS.length + 1) {
+  throw new Error(
+    `SPINE_Y has ${SPINE_Y.length} waypoints; ${PANELS.length} panels need ${2 * PANELS.length + 1}. ` +
+      'Re-cut it keeping 660 first, 600 last, and every ODD index (mid-panel) at y >= 685.'
+  );
+}
 
 /** Catmull-Rom through the waypoints, converted to cubic Béziers — one smooth path, no joins. */
 function spinePath() {
@@ -113,6 +124,9 @@ function canopy(cx, cy, scale = 1) {
  * spine keeps the slide between any two of them unbroken.
  */
 const INTERIORS = {
+  // `plans` and `habits` are kept below though nothing renders them — the render loop iterates
+  // PANELS, so an unused key costs nothing, and hand-authored art is expensive to recover if
+  // either ever gets a panel back. Do not treat their presence as a claim that they are drawn.
   // Leftmost tab: weight gathers toward the top-left.
   shopping: [
     path('M0 182 C36 150 54 128 78 116'),

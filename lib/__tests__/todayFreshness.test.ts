@@ -1,8 +1,8 @@
 /**
- * todayFreshness.test.ts — a tab screen that derives `today` at render must also subscribe
+ * todayFreshness.test.ts — a screen that derives `today` at render must also subscribe
  * to the minute tick, or its date silently rots.
  *
- * The bug this pins (2026-08-13, app/(tabs)/habits.tsx): the Habits tab computed
+ * The bug this pins (2026-08-13, app/habits.tsx): the Habits tab computed
  * `const today = todayStr()` in its render body and threaded it into HabitCard, which is what
  * `increment`/`decrement`/`markRestDay` WRITE. Nothing re-derived it — the tab pager keeps all
  * five screens mounted (`lazy: false`), that screen subscribes to `habits` but not to `logs`
@@ -21,7 +21,18 @@
 import fs from 'fs';
 import path from 'path';
 
-const TABS_DIR = path.join(__dirname, '..', '..', 'app', '(tabs)');
+const ROOT = path.join(__dirname, '..', '..');
+const TABS_DIR = path.join(ROOT, 'app', '(tabs)');
+
+/**
+ * Pushed screens that are scanned alongside the tabs. app/plans.tsx and app/habits.tsx left the
+ * pager on 2026-08-20 (5 tabs → 3) — and the rule binds them MORE, not less: they are still
+ * long-lived (a pushed screen stays mounted while you work in it), they still capture a
+ * render-scope `today`, and app/habits.tsx is the screen the original bug was measured on. A
+ * scan keyed on the tabs directory alone would have stopped covering it the moment it moved,
+ * reporting green over exactly the file it was written for.
+ */
+const PUSHED_SCREENS = ['app/plans.tsx', 'app/habits.tsx'] as const;
 
 /**
  * Render scope is identified by INDENTATION — two spaces is a component body, deeper is inside
@@ -32,13 +43,20 @@ const TABS_DIR = path.join(__dirname, '..', '..', 'app', '(tabs)');
  */
 const RENDER_SCOPE_TODAY = /^ {2}const today = todayStr\(\);$/m;
 
-const tabScreens = fs
-  .readdirSync(TABS_DIR)
-  .filter((f) => f.endsWith('.tsx') && !f.startsWith('_'))
-  .map((f) => ({ file: f, source: fs.readFileSync(path.join(TABS_DIR, f), 'utf8') }));
+const tabScreens = [
+  ...fs
+    .readdirSync(TABS_DIR)
+    .filter((f) => f.endsWith('.tsx') && !f.startsWith('_'))
+    .map((f) => ({ file: f, source: fs.readFileSync(path.join(TABS_DIR, f), 'utf8') })),
+  ...PUSHED_SCREENS.map((rel) => ({
+    file: path.basename(rel),
+    source: fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+  })),
+];
 
 describe('a render-scope `today` is paired with the minute tick', () => {
-  it('finds the tab screens at all (guards against a silently empty scan)', () => {
+  it('finds the screens at all (guards against a silently empty scan)', () => {
+    // 3 tabs + the 2 pushed list screens.
     expect(tabScreens.length).toBeGreaterThanOrEqual(5);
   });
 

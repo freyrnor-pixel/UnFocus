@@ -36,7 +36,7 @@
  *   - **A quiet issue is not congratulated and an active one is not flagged.** There is
  *     deliberately no third band here the way components/GoalsEditor.tsx has three strength
  *     bands — a goal's momentum is something the user drives, a symptom is not.
- *   - The empty state is the quiet inset line, the same shape app/(tabs)/plans.tsx uses for an
+ *   - The empty state is the quiet inset line, the same shape app/plans.tsx uses for an
  *     empty section. It lives HERE rather than at the call site so this drawer and
  *     components/HealthIssuesSheet.tsx's own empty state can't drift apart — the same reason
  *     the now-deleted GoalsPreviewList.tsx kept its empty state in one place before Goals
@@ -150,7 +150,7 @@ export default function HealthIssuesPreviewList({
 }
 
 const styles = StyleSheet.create({
-  // The same quiet inset line app/(tabs)/plans.tsx draws for an empty section (`sectionEmpty`).
+  // The same quiet inset line app/plans.tsx draws for an empty section (`sectionEmpty`).
   empty: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,

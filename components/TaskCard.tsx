@@ -110,7 +110,7 @@
  *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills),
  *             lib/taskReset (2026-08-17 — `canPostpone`, which gates the "Not today" button
  *             beside the move shortcut; the rule lives there, not here)
- *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
+ *   Used by → app/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
  *             the full task list (useTaskStore, for the Then-follower picker's candidates/
@@ -207,7 +207,7 @@
  *   - **The move shortcut + "fields follow the section" (2026-08-11, Wave B — Blokk 2/3)**:
  *     `handleMoveSection` writes the SAME `{ date: todayStr(), hasStartDate: !task.hasStartDate }`
  *     pair every other write path here uses (commitWhenever/InlineTaskAdd in
- *     app/(tabs)/plans.tsx) — one way a task's date gets set, still. It bypasses the draft
+ *     app/plans.tsx) — one way a task's date gets set, still. It bypasses the draft
  *     and persists immediately, since the steps variant never opens a Save/Discard editor;
  *     it reads/writes `task` directly, never `draft` (the steps variant's `draft` is a static
  *     copy taken at mount and never re-seeded — see `openEditor`). In the FULL editor, the
@@ -353,7 +353,7 @@ type Props = {
   newFields?: { meta: boolean; price: boolean; extras: boolean };
   /**
    * Reports the editor opening and closing. Only a parent that has to KNOW needs it — today
-   * that is app/(tabs)/plans.tsx's drag-reorder, which stands the gesture down while a card's
+   * that is app/plans.tsx's drag-reorder, which stands the gesture down while a card's
    * editor is open (components/DraggableTaskRow's `isOpen`), so a long-press inside a text
    * field can't grab the row. The expand state itself stays this component's.
    */

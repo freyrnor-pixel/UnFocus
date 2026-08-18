@@ -256,7 +256,7 @@ describe('the promise: nothing here can grow a number', () => {
 /**
  * The screen half, as source scans.
  *
- * Neither `components/TaskCard.tsx` nor `app/(tabs)/plans.tsx` has a render-level test in this
+ * Neither `components/TaskCard.tsx` nor `app/plans.tsx` has a render-level test in this
  * repo (see lib/__tests__/taskCardMoveShortcut.test.ts's header for why), and none of the
  * headless harnesses can see any of this: `tsc` typechecks both wirings identically, and
  * `npm run preview` walks neither an expanded Today card nor a three-day-old task. So the
@@ -265,7 +265,7 @@ describe('the promise: nothing here can grow a number', () => {
  */
 describe('the screen half is wired where it has to be', () => {
   const card = readFileSync(join(ROOT, 'components/TaskCard.tsx'), 'utf8');
-  const plans = readFileSync(join(ROOT, 'app/(tabs)/plans.tsx'), 'utf8');
+  const plans = readFileSync(join(ROOT, 'app/plans.tsx'), 'utf8');
 
   it('TaskCard gates "Not today" on the STORE\'s own rule, not a local copy of it', () => {
     // The button and the action must not be able to disagree about when this is legal — a

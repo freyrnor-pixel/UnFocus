@@ -21,7 +21,7 @@
  *   Imports → expo-calendar, lib/date (dateStr)
  *   Used by → lib/useDayLog.ts is NOT a caller (calendar events are ahead of now, not
  *             behind it); components/PlanTaskCard.tsx receives them through
- *             app/(tabs)/plans.tsx, which owns the permission prompt
+ *             app/plans.tsx, which owns the permission prompt
  *   Data    → reads device calendars + events. Writes nothing, anywhere, ever.
  *
  * Edit notes:

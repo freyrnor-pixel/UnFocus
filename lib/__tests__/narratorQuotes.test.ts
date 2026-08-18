@@ -281,10 +281,10 @@ describe('the italic exception is exactly one file wide, and is a real face', ()
 
 describe('every empty card speaks, and none of them names its own emptiness', () => {
   for (const [file, category, label] of [
-    ['app/(tabs)/plans.tsx', 'todo', 'To-do'],
+    ['app/plans.tsx', 'todo', 'To-do'],
     ['app/(tabs)/shopping.tsx', 'shopping', 'Shopping'],
     ['app/(tabs)/health.tsx', 'health', 'Health'],
-    ['app/(tabs)/habits.tsx', 'habits', 'Habits'],
+    ['app/habits.tsx', 'habits', 'Habits'],
     // The day card is a To-do surface on two screens at once (Home's preview and the To-do
     // tab's default timeline layout), and it is the empty state most users see first — the
     // tab's Today card goes through this, not through `DoneSplitList`.
@@ -307,8 +307,8 @@ describe('every empty card speaks, and none of them names its own emptiness', ()
     for (const key of ['noPlansToday', 'tasksDayEmpty', 'tasksSectionWheneverEmpty', 'tasksSectionRecurringEmpty']) {
       expect({ key, present: new RegExp(`\\b${key}:`).test(i18n) }).toEqual({ key, present: false });
     }
-    expect(code('app/(tabs)/plans.tsx')).not.toMatch(/emptyText/);
+    expect(code('app/plans.tsx')).not.toMatch(/emptyText/);
     // …and the box it sat in went with it. See that file's style block.
-    expect(code('app/(tabs)/plans.tsx')).not.toMatch(/sectionEmpty:/);
+    expect(code('app/plans.tsx')).not.toMatch(/sectionEmpty:/);
   });
 });

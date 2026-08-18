@@ -22,7 +22,7 @@
  *             — the design lab's check shape and slot gates, see the last Edit note),
  *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx
- *             (the four HOME cards), and app/(tabs)/habits.tsx (2026-08-01).
+ *             (the four HOME cards), and app/habits.tsx (2026-08-01).
  *             **This line used to also claim app/(tabs)/{plans,shopping}.tsx and it was never
  *             true** — an audit (AUDIT.md §0.4.2e) found this file imported by the Home cards
  *             and by NO tab screen at all, which inverted a whole planned task (B2-3 was
