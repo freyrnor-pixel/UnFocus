@@ -1140,8 +1140,21 @@ export const FIELD_RADIUS = Radius.sm;
  *
  * @param radiusScale the design lab's `shape.radiusScale`, for the callers that run through it.
  */
+// getGlow's button-tuned bloom (15/22, blooming out to 27/40px including the outer pass) has
+// nowhere to go on a field: a field is contractually always mounted inside a card (see
+// PadTypeRow's header), and a card's Surface clips its content at `Spacing.md` (16px) padding
+// — `components/Surface.tsx`'s `mask` view is `overflow: 'hidden'`. A halo that wide hits that
+// boundary before it has faded, and because the boundary is a straight clip line (not another
+// radial falloff), what should read as a soft light instead reads as a hard-edged rectangle
+// behind the field — screenshotted on Health's composer, "Logg noe", 2026-08-2x. Kept well
+// inside that 16px on both rungs so the tail fades out on its own before the mask ever cuts it.
+const FIELD_GLOW_RADIUS = { soft: 5, strong: 8 };
+
 export function getFieldGlow(color: string, level: 'soft' | 'strong' = 'soft', radiusScale = 1) {
-  return { borderRadius: FIELD_RADIUS * radiusScale, ...getGlow(color, level) };
+  return {
+    borderRadius: FIELD_RADIUS * radiusScale,
+    ...getGlow(color, level, FIELD_GLOW_RADIUS[level]),
+  };
 }
 
 /**
@@ -1194,7 +1207,7 @@ export function filledEdge(base: string, isDark: boolean): string {
  * Soft colored halo — PURPOSEFUL indicator ONLY (primary action + the single active/focused
  * element on a screen). Not decoration; do not apply broadly. New-Arch boxShadow (iOS+Android).
  */
-export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
+export function getGlow(color: string, level: 'soft' | 'strong' = 'soft', radiusOverride?: number) {
   // ── Strengthened for the black canvas, 2026-08-16 (brief §4) ────────────────────────────
   // 0.34 / 0.55 were tuned in 2026-07-18 against a PALE backdrop, where a coloured halo only
   // has to tint a light surface slightly to read. On `#000000` the same alphas are close to
@@ -1211,8 +1224,13 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft') {
   // would make the outer pass a 22px near-duplicate of the inner one. Implement the states,
   // not the numbers (the same rule the 2026-08-12 button pass recorded for Travel/elevation).
   // Held at 15/22 so the bloom stays wider than the source it comes from.
+  //
+  // `radiusOverride` (2026-08-21) exists for `getFieldGlow` alone — see that function's note
+  // for why a field needs a smaller bloom than a button does. Every other caller leaves it
+  // unset and gets exactly the 15/22 pair above; don't pass it from a new call site without
+  // the same clearance reasoning that justifies it there.
   const alpha = level === 'strong' ? 0.8 : 0.55;
-  const radius = level === 'strong' ? 22 : 15;
+  const radius = radiusOverride ?? (level === 'strong' ? 22 : 15);
   return {
     boxShadow: [
       { offsetX: 0, offsetY: 0, blurRadius: radius, spreadDistance: 0, color: rgba(color, alpha) },
