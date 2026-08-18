@@ -59,6 +59,8 @@ import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
 import HealthSurface from '@/components/HealthSurface';
 import NotesSurface from '@/components/NotesSurface';
+import FoodTab from '@/components/FoodTab';
+import CatalogueTab from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
 import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { ExpandableCardId, ExpandRect } from '@/lib/expandableCards';
@@ -71,6 +73,21 @@ type CardBodyEntry = {
   /** Default true. Set false when the body already owns its own scrolling (a virtualised list). */
   scrollable?: boolean;
 };
+
+/**
+ * Full (non-embedded) FoodTab/CatalogueTab, for the `shopDishes`/`shopCatalogue` expansions.
+ *
+ * `onNotify` is a no-op here rather than a real toast: a ConfirmationBanner has to be a
+ * SIBLING of the surface it floats over (see components/TodoSurface.tsx's day-reset-banner
+ * note) and this body has no such sibling slot to reach — the underlying add/edit actions still
+ * work identically, only the confirmation toast is silently skipped in this one context.
+ */
+function FoodExpandedBody() {
+  return <FoodTab onNotify={() => {}} />;
+}
+function CatalogueExpandedBody() {
+  return <CatalogueTab onNotify={() => {}} onOpenFull={() => {}} />;
+}
 
 /** Placeholder shown for a body not wired up yet in this pass — never ships as final. */
 function ComingSoonBody() {
@@ -90,9 +107,17 @@ function ComingSoonBody() {
  * is built; `lib/__tests__/expandableCards.test.ts` fails the PR if the two lists ever diverge.
  */
 const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
+  // ⚠️ **Deferred, disclosed simplification (2026-08-20).** app/(tabs)/shopping.tsx's Weekly/
+  // Monthly list content is ~2000 lines of local state that is NOT extracted into a standalone
+  // component the way To-do's four cards and Health/Notes were — window-coordinate drag/merge
+  // registries, flight-animation refs, and half a dozen sibling modals make that a materially
+  // higher-risk extraction than the others in this pass. No `CardExpandButton` is mounted on
+  // the Lists card, so this entry is unreachable from the UI (nothing calls
+  // `expandCard('shopLists', …)`) rather than shipping a button that opens a placeholder. A
+  // future pass can extract `ShoppingListsSurface.tsx` the same way and wire it up here.
   shopLists: { title: (t) => t.nav.shop, Body: ComingSoonBody },
-  shopDishes: { title: (t) => t.nav.meals, Body: ComingSoonBody },
-  shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: ComingSoonBody, scrollable: false },
+  shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
+  shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
   homeTodo: { title: (t) => t.nav.plans, Body: ComingSoonBody },
   homeHabits: { title: (t) => t.nav.habits, Body: ComingSoonBody },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
