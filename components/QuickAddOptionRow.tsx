@@ -19,7 +19,7 @@
  *   Used by → components/QuickAddOptionsPanel.tsx (the grid), and through it
  *             components/PadTypeRow.tsx + components/AddRow.tsx, hence
  *             components/PlanTaskCard.tsx, components/HomeHabitsCard.tsx,
- *             app/(tabs)/habits.tsx, app/(tabs)/plans.tsx
+ *             app/habits.tsx, app/plans.tsx
  *   Data    → none — presentational; the caller owns the value and the press handler
  *
  * Edit notes:

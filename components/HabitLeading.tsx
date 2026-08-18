@@ -2,7 +2,7 @@
  * HabitLeading.tsx — what goes in a habit row's leading slot: the habit's chosen icon, or
  * the brand leaf when it hasn't got one.
  *
- * The four habit row-render sites (app/(tabs)/habits.tsx's Today/Week/Month lists and
+ * The four habit row-render sites (app/habits.tsx's Today/Week/Month lists and
  * components/HomeHabitsCard.tsx) each used to hand-roll `hasChosenHabitIcon(icon) ? <HabitIcon/>
  * : undefined`. That gate exists for a real bug — the neutral default glyph is a hollow circle,
  * and the row rule (2026-07-30) put a hollow *check* on the trailing edge, so rendering the
@@ -17,7 +17,7 @@
  * Connections:
  *   Imports → components/HabitIcon (the glyph renderer + `hasChosenHabitIcon`), components/Motif
  *             (the tintable `leaf-icon`)
- *   Used by → app/(tabs)/habits.tsx (Today PadRow leading at 22, Week grid label at 16,
+ *   Used by → app/habits.tsx (Today PadRow leading at 22, Week grid label at 16,
  *             Month grid label at 14), components/HomeHabitsCard.tsx (row leading at 16)
  *   Data    → none — pure presentation
  *

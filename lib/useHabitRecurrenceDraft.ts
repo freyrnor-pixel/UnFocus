@@ -1,7 +1,7 @@
 /**
  * useHabitRecurrenceDraft.ts — shared quick-add draft state for a habit's schedule.
  *
- * Both habit composers (app/(tabs)/habits.tsx and components/HomeHabitsCard.tsx) mount an
+ * Both habit composers (app/habits.tsx and components/HomeHabitsCard.tsx) mount an
  * IDENTICAL quick-add panel, pinned against each other by lib/__tests__/energyModes.test.ts.
  * The 2026-08-11 "every N days/weeks" feature adds a repeat picker plus up to three
  * conditional cells (weekday chips, day-of-month, weekly-goal) on top of that panel — five
@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → lib/date (dayOfWeekMon0), lib/haptics (tap), components/AppModal (showAppModal),
  *             store/useHabitStore (HabitRecurrence type only)
- *   Used by → app/(tabs)/habits.tsx, components/HomeHabitsCard.tsx (both via
+ *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both via
  *             components/HabitRecurrenceCells.tsx, which renders this hook's state)
  *   Data    → none — in-memory draft only; the caller's own createHabit() writes it via
  *             useHabitStore.add()/toHabitFields(), and openHabitFormWithDraft() via toParams()

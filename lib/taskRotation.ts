@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → lib/date (parseDateStr, getWeekDates), store type import (Task)
  *   Used by → store/useTaskStore.ts (rotation columns), components/TaskCard.tsx (the
- *             rotation editor + the row's "whose turn" cue), app/(tabs)/plans.tsx
+ *             rotation editor + the row's "whose turn" cue), app/plans.tsx
  *             (person filter/grouping resolve through effectiveAssigneeId),
  *             lib/__tests__/taskRotation.test.ts
  *   Data    → none (pure functions over values the caller already has)

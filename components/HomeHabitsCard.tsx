@@ -8,7 +8,7 @@
  * fill is gone — a bordered box per row is the opposite of a ruled sheet.
  *
  * Shows habits due today (lib/habitRecurrence's habitOccursOn), each row a compact
- * title + −/+ log control (the same increment/decrement model app/(tabs)/habits.tsx's
+ * title + −/+ log control (the same increment/decrement model app/habits.tsx's
  * HabitCard uses — a habit's dailyGoal can be >1, so a plain checkbox can't always mean
  * "done"), collapsed to the first 5 with a "Show all/less" toggle, and a trailing
  * quick-add row. Tapping the title navigates to the full Habits tab. Self-contained
@@ -17,7 +17,7 @@
  *
  * Connections:
  *   Imports → components/NarratorQuote (2026-08-19 — what the empty slot says, restored in step
- *             with app/(tabs)/habits.tsx, which lost the same line in the same 2026-08-12 pass),
+ *             with app/habits.tsx, which lost the same line in the same 2026-08-12 pass),
  *             components/Surface, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/StarterCard (2026-08-13 — `embedded collapsible`, so the suggestions
  *             sit in the same foldable box every other empty-state example does; this card's
@@ -33,7 +33,7 @@
  *             − 0 + control since 2026-08-05, replacing a tap-cycle),
  *             components/HabitRecurrenceCells + lib/useHabitRecurrenceDraft (2026-08-11 —
  *             the "every N days/weeks" repeat picker cells, rendered in the same panel as the
- *             energy row above; split out because app/(tabs)/habits.tsx mounts an IDENTICAL
+ *             energy row above; split out because app/habits.tsx mounts an IDENTICAL
  *             panel and the two are pinned against each other by
  *             lib/__tests__/energyModes.test.ts),
  *             components/AddRow,
@@ -51,7 +51,7 @@
  *     to-do")**: a full interactive mirror, not a read-only summary. Positioned right after
  *     'plans' in the default `settings.homeCardOrder` (see store/useSettingsStore.ts's
  *     default + lib/db.ts's back-fill migration for existing installs).
- *   - **Due-today filtering** mirrors app/(tabs)/habits.tsx's Today tab (`habitOccursOn`),
+ *   - **Due-today filtering** mirrors app/habits.tsx's Today tab (`habitOccursOn`),
  *     but WITHOUT that screen's People/family profile filter — this card always shows
  *     every due habit regardless of person; tap through to /habits for a person-filtered
  *     view. Kept simple on purpose: a Home preview card isn't the place for a second
@@ -165,9 +165,26 @@ const STARTER_PREVIEW_COUNT = 2;
 type Props = {
   /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
   cardMenu?: CardMenu;
+  /**
+   * Draw as a SECTION inside another card rather than as a card of its own (2026-08-20, the
+   * 5→3 tab merge). Home passes this into components/PlanTaskCard.tsx's `extraSection`, so
+   * "I dag" is one card holding the day's tasks and the day's habits.
+   *
+   * **Presentation only — no behaviour goes behind this flag**, the same contract
+   * components/FoodTab.tsx and components/CatalogueTab.tsx's `embedded` prop carries. It drops
+   * exactly two things, and both are chrome that assumes a card of one's own:
+   *   - the `<Surface>`. A Surface inside a Surface reads as a nested panel, which is the rule
+   *     the Goals/Food/Catalogue drawers already follow.
+   *   - the `CardAccentBadge` + the ⋮ menu. A section header inside a card is a LABEL; a badge
+   *     and a per-card menu belong to the card, and the host card already has both.
+   * Everything else is identical: the same rows, the same composer, the same starter card, the
+   * same narrator line, the same footer toggle sizing the same list. The count badge stays —
+   * it says how big the section is, which is exactly what a section header is for.
+   */
+  embedded?: boolean;
 };
 
-export default function HomeHabitsCard({ cardMenu }: Props) {
+export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -352,13 +369,8 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
     );
   }
 
-  return (
-    <Surface
-      surfaceContext="ambient"
-      borderColor={screenColor.base}
-      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
-    >
-      <View style={styles.cardContent}>
+  const body = (
+      <View style={embedded ? styles.embeddedContent : styles.cardContent}>
         {/* Badge is a normal flex child — one left edge for the whole card. */}
         <View style={styles.titleRowPressable}>
           <View style={styles.titleRow}>
@@ -366,9 +378,18 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                 children — a Badge inside a PressableScale reads as a button that isn't one,
                 and an icon button nested in a larger pressable makes its own tap ambiguous. */}
             <PressableScale onPress={handleTitlePress} style={styles.headerLeft} scaleTo={0.98}>
-              <CardAccentBadge domain="habit" size={32} accentOverride={screenColor.base} />
+              {/* No badge when embedded: a section header inside a card is a label, and the
+                  host card already carries the one badge (see the `embedded` prop's doc). */}
+              {!embedded && (
+                <CardAccentBadge domain="habit" size={32} accentOverride={screenColor.base} />
+              )}
               <View style={styles.headerText}>
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{t.habitsTitle}</Text>
+                <Text
+                  style={[embedded ? styles.sectionTitle : styles.title, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {t.habitsTitle}
+                </Text>
               </View>
             </PressableScale>
             {/* Count pill, not the old grey sentence (DESIGN_COMPARISON/09) — see
@@ -384,7 +405,7 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
-            {cardMenu ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
+            {cardMenu && !embedded ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
           </View>
           {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
           {dueTodayHabits.length > 0 && (
@@ -498,6 +519,18 @@ export default function HomeHabitsCard({ cardMenu }: Props) {
         />
 
       </View>
+  );
+
+  // Embedded: no Surface of our own — we are already inside the host card's one.
+  if (embedded) return body;
+
+  return (
+    <Surface
+      surfaceContext="ambient"
+      borderColor={screenColor.base}
+      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
+    >
+      {body}
     </Surface>
   );
 }
@@ -516,6 +549,11 @@ const baseStyles = StyleSheet.create({
   // ONE horizontal inset for the whole card (PAD_GUTTER). The height floor is `cardCollapsed`
   // above — applied while not open, see its comment.
   cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
+  // Embedded (2026-08-20): no horizontal padding, because the HOST card already applied its
+  // own gutter — padding here again would inset this section's rows from the task rows above
+  // and the two lists would not line up. Only a top gap, separating the section from the
+  // task list's footer toggle.
+  embeddedContent: { paddingTop: Spacing.lg },
   // Spacing.lg (was .md), matching HomeNotesCard/HomeShoppingCard/PlanTaskCard's header gap
   // (2026-07-30, user report: content below still read as crowding the colored badge at .md).
   titleRowPressable: { marginBottom: Spacing.lg },
@@ -527,6 +565,13 @@ const baseStyles = StyleSheet.create({
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
   title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
+  // A SECTION header INSIDE a card, which is a rung below the section headers the 2026-08-15
+  // pass set at `FontSize.xl` extrabold — those sit on a SCREEN, where the screen title is 24
+  // and a section may match it. Here the host card's own title is 20, so xl (24) made the
+  // subordinate label the biggest thing in the card and inverted the hierarchy — caught in the
+  // web preview, not by a test. `md` extrabold keeps the weight that carries the grouping while
+  // sitting clearly under the title it belongs to.
+  sectionTitle: { fontSize: FontSize.md, fontFamily: Fonts.extrabold, ...OpticalCenter },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   // Just the starter chips now — the explainer line that used to accompany them (2026-07-30 at the foot,
@@ -562,7 +607,7 @@ const baseStyles = StyleSheet.create({
   // Both halves are the same recessed shape (2026-08-05) — the "+" used to carry a solid
   // domain-accent fill and drop its border. See components/Stepper.tsx's edit note: a −/+
   // pair is ONE control, and filling half of it in the action colour claims an emphasis the
-  // "+" hasn't got. The matching pair on app/(tabs)/habits.tsx changed with it.
+  // "+" hasn't got. The matching pair on app/habits.tsx changed with it.
   adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
 
 });

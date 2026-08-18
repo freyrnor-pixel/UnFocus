@@ -658,7 +658,7 @@ export const CARD_KNOBS: readonly CardKnob[] = [
   },
   {
     id: 'habit',
-    source: 'app/(tabs)/habits.tsx HabitCard',
+    source: 'app/habits.tsx HabitCard',
     usedBy: 'every row on the Habits tab',
     domain: 'habit', screen: 'habits',
     defaultParts: [

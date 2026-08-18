@@ -92,7 +92,7 @@ import { Image, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSettingsStore, type StartScreen } from '@/store/useSettingsStore';
 import { getTranslations, type Translations } from '@/lib/i18n';
 import { selection } from '@/lib/haptics';
 import {
@@ -381,10 +381,10 @@ const FONT_SIZE_LABELS = {
 };
 
 /** Reused from the bottom nav rather than restated. */
-const START_SCREEN_LABELS = {
+const START_SCREEN_LABELS: Record<StartScreen, (t: Translations) => string> = {
   home: (t: Translations) => t.nav.home,
-  plans: (t: Translations) => t.nav.plans,
   shopping: (t: Translations) => t.nav.shop,
+  health: (t: Translations) => t.nav.health,
 };
 
 const baseStyles = StyleSheet.create({

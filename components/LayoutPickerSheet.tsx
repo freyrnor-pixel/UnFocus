@@ -11,7 +11,7 @@
  *   Imports → components/AnimatedBottomSheet, components/PressableScale, components/Surface,
  *             constants/theme, lib/cardLayout, lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useSettingsStore
- *   Used by → app/(tabs)/shopping.tsx, app/(tabs)/plans.tsx
+ *   Used by → app/(tabs)/shopping.tsx, app/plans.tsx
  *   Data    → settings.cardLayouts / settings.layoutDetail via useSettingsStore.update.
  *             Writes nothing else — picking a layout changes how rows are drawn and
  *             nothing about what the app does with them (no reminder is scheduled,

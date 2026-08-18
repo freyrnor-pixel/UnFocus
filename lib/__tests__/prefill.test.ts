@@ -78,7 +78,7 @@ describe('prefillIsFor', () => {
 });
 
 describe('the Habits tab hosts both consumers', () => {
-  const habits = read('app/(tabs)/habits.tsx');
+  const habits = read('app/habits.tsx');
 
   it('asks for the two prefills separately', () => {
     // The habit quick-add takes the unslotted one; the Goals drawer takes the `goals` slot.

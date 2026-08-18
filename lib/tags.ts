@@ -14,7 +14,7 @@
  *   Imports → nothing (deliberately dependency-free — see the edit note)
  *   Used by → store/useTagStore.ts, store/useTaskStore.ts (tag_ids read/write),
  *             components/TagChip.tsx, components/TagPickerRow.tsx,
- *             app/(tabs)/plans.tsx (tag filter), lib/__tests__/tags.test.ts
+ *             app/plans.tsx (tag filter), lib/__tests__/tags.test.ts
  *   Data    → none (pure functions over values the caller already has)
  *
  * Edit notes:

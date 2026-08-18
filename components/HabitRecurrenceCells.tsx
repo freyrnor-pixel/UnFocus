@@ -11,7 +11,7 @@
  * AGENTS.md's Wave A brief — tier 3 stays a push to /habit-form, this never grows an inline
  * "advanced view").
  *
- * Split out of app/(tabs)/habits.tsx / components/HomeHabitsCard.tsx rather than copy-pasted
+ * Split out of app/habits.tsx / components/HomeHabitsCard.tsx rather than copy-pasted
  * into both, because those two composers are pinned against each other
  * (lib/__tests__/energyModes.test.ts) and five pieces of local state plus a modal picker is
  * exactly the kind of thing that drifts if written twice. lib/useHabitRecurrenceDraft.ts owns
@@ -25,7 +25,7 @@
  *             components/Stepper, components/PressableScale, constants/theme (AspectRatio,
  *             FontSize, Fonts, Radius, Spacing), lib/useAppTheme, lib/i18n (useT),
  *             lib/haptics (tap), lib/useHabitRecurrenceDraft (HabitRecurrenceDraft type)
- *   Used by → app/(tabs)/habits.tsx, components/HomeHabitsCard.tsx (both inside their existing
+ *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both inside their existing
  *             `<QuickAddOptionsPanel>`, alongside the energy cell)
  *   Data    → none — presentational; all state lives in the `draft` prop
  *

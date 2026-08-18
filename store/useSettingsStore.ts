@@ -60,7 +60,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -87,7 +87,7 @@
  *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
- *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/(tabs)/habits.tsx dropped
+ *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/habits.tsx dropped
  *     its Today/Week/Month switcher entirely (a habit is set up once with a recurrence and
  *     an optional reminder time; the maintainer's call was that browsing by day/week/month
  *     is what a to-do is for, not a habit). The column, type (`HabitViewTab`) and field stay
@@ -221,7 +221,7 @@ export type EnergyMode = 'daily' | 'weekly' | 'custom';
  * → Layout). Presentation only — every tab is still one tap away, so no value here can
  * make anything unreachable. The id → route map lives in lib/firstRunOptions.ts.
  */
-export type StartScreen = 'home' | 'plans' | 'shopping';
+export type StartScreen = 'home' | 'shopping' | 'health';
 /** Habits' Today/Week/Month selector. Persisted so it survives a remount. */
 export type HabitViewTab = 'today' | 'week' | 'month';
 
@@ -590,7 +590,7 @@ function rowToSettings(row: Row): Settings {
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
     firstRunComplete: readBool(row, 'first_run_complete'),
-    startScreen: readEnum<StartScreen>(row, 'start_screen', ['home', 'plans', 'shopping'], 'home'),
+    startScreen: readEnum<StartScreen>(row, 'start_screen', ['home', 'shopping', 'health'], 'home'),
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -642,7 +642,11 @@ function rowToSettings(row: Row): Settings {
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
     dismissedStarters: readJson<string[]>(row, 'dismissed_starters', []),
     dismissedHints: readJson<string[]>(row, 'dismissed_hints', []),
-    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'habits', 'notes', 'shopping']),
+    // 'habits' left this list on 2026-08-20 (5 tabs → 3): habits are a SECTION inside the
+    // 'plans' card now, not a card of their own. A stored order that still names it is folded
+    // in on read by sanitizeHomeCardOrder in app/(tabs)/index.tsx — deliberately there rather
+    // than as a lib/db.ts migration, so a row written later by an older build is covered too.
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
@@ -846,7 +850,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   seenScreenHints: [],
   dismissedStarters: [],
   dismissedHints: [],
-  homeCardOrder: ['plans', 'habits', 'notes', 'shopping'],
+  homeCardOrder: ['plans', 'notes', 'shopping'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,

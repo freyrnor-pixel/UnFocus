@@ -131,17 +131,20 @@ export function handednessChoiceOf(s: { leftHanded: boolean }): HandednessChoice
 
 /* ── Starting screen ──────────────────────────────────────────────────────── */
 
-export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'plans', 'shopping'];
+export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'shopping', 'health'];
 
 /**
  * Setting id → the `app/(tabs)/` route name it opens, i.e. the navigator's
- * `initialRouteName`. Only ever three of the five tabs: these are the surfaces a day
- * plausibly starts on. Every other tab stays one tap away, so a "wrong" pick costs a tap.
+ * `initialRouteName`. **This is now all three tabs**, not a subset — the 2026-08-20 5→3
+ * merge left exactly three, and each is a surface a day plausibly starts on (the day's list,
+ * the shop, the morning's meds). `'plans'` was a choice here until that merge and is no
+ * longer a tab, so it cannot be an `initialRouteName`; a stored `start_screen='plans'` falls
+ * back to `'home'` through `readEnum`'s default, which lands on the screen its list moved to.
  */
 export const START_SCREEN_ROUTES: Record<StartScreen, string> = {
   home: 'index',
-  plans: 'plans',
   shopping: 'shopping',
+  health: 'health',
 };
 
 /**
@@ -149,10 +152,10 @@ export const START_SCREEN_ROUTES: Record<StartScreen, string> = {
  * only decides where a cold launch opens, and the pager is already mounted by the time
  * the first-run flow commits. Matches SITE_ITEMS' routes in lib/siteNav.ts.
  */
-export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/plans' | '/shopping'> = {
+export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/shopping' | '/health'> = {
   home: '/',
-  plans: '/plans',
   shopping: '/shopping',
+  health: '/health',
 };
 
 /* ── Picks ⇄ settings ────────────────────────────────────────────────────── */

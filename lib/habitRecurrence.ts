@@ -3,7 +3,7 @@
  *
  * Extracted (2026-07-22) so the "is this habit due on date X" and "has it been met"
  * logic exists in exactly one place, instead of duplicated across
- * app/(tabs)/habits.tsx, lib/widgets/sync.ts, and lib/energy.ts. Also the home of
+ * app/habits.tsx, lib/widgets/sync.ts, and lib/energy.ts. Also the home of
  * `weekly-flexible` support — a recurrence where the habit is due EVERY day of the
  * week (any day counts) and its goal (`dailyGoal`, reused as a per-week target in
  * this mode) is met once the week's cumulative logged count reaches it, rather than
@@ -34,7 +34,7 @@
  *
  * Connections:
  *   Imports → lib/date (getWeekDates), store/useHabitStore (Habit/HabitLog types)
- *   Used by → lib/energy.ts, app/(tabs)/habits.tsx, lib/widgets/sync.ts
+ *   Used by → lib/energy.ts, app/habits.tsx, lib/widgets/sync.ts
  *   Data    → none (pure functions)
  */
 import { dateStr, getWeekDates } from '@/lib/date';

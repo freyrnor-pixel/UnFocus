@@ -20,8 +20,8 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 /** Screens whose scroll content is a plain stack of cards. */
 const SCREENS = [
   'app/(tabs)/index.tsx',
-  'app/(tabs)/plans.tsx',
-  'app/(tabs)/habits.tsx',
+  'app/plans.tsx',
+  'app/habits.tsx',
   'app/(tabs)/health.tsx',
   'app/(tabs)/shopping.tsx',
   'app/notes.tsx',
@@ -88,18 +88,20 @@ describe('SCREEN_GAP', () => {
 
 /**
  * Every screen whose scroll content is a `content` style — the wrapper that sits directly
- * inside ScreenScaffold. The five tab screens are first; the rest are pushed sub-screens.
+ * inside ScreenScaffold. The three tab screens are first; the rest are pushed sub-screens.
  *
  * `app/catalogue.tsx` is deliberately absent: it passes `scrollable={false}` and its content is
  * `components/CatalogueTab.tsx`'s own `root`, which is asserted separately below.
  */
 const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
   { file: 'app/(tabs)/index.tsx', bottomIsChrome: true },
-  { file: 'app/(tabs)/plans.tsx', bottomIsChrome: true },
-  { file: 'app/(tabs)/habits.tsx', bottomIsChrome: true },
   { file: 'app/(tabs)/health.tsx', bottomIsChrome: true },
   { file: 'app/(tabs)/shopping.tsx', bottomIsChrome: true },
   ...[
+    // app/plans.tsx and app/habits.tsx moved OUT of the pager on 2026-08-20 (5 tabs → 3), so
+    // they crossed this list rather than left it: they reserve no nav now, and their bottom
+    // edge lands on the safe area. Both gained the `paddingBottom` a tab screen must not have.
+    'app/plans.tsx', 'app/habits.tsx',
     'app/notes.tsx', 'app/scan.tsx', 'app/food.tsx', 'app/shared.tsx', 'app/medicine-form.tsx',
     'app/health-form.tsx', 'app/inventory-edit.tsx', 'app/settings.tsx', 'app/day-log.tsx',
     'app/health-log.tsx', 'app/health-detail.tsx', 'app/habit-form.tsx', 'app/pair-device.tsx',

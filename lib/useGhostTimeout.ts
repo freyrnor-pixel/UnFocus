@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → expo-router (useFocusEffect)
- *   Used by → app/(tabs)/habits.tsx (useHabitStore.lastDeleted), app/notes.tsx
+ *   Used by → app/habits.tsx (useHabitStore.lastDeleted), app/notes.tsx
  *             (useNotesStore.lastDeleted)
  *   Data    → none — the caller's store holds the actual pending-ghost value; this hook
  *             only times how long it stays offered

@@ -103,7 +103,7 @@ const en = {
   dayViewDeletedZone: (n: number) => `Recently deleted (${n})`,
   dayViewRestore: 'Restore',
   dayViewDeleteTask: 'Delete',
-  // To-do list screen (app/(tabs)/plans.tsx + components/TaskCard.tsx) — the route
+  // To-do list screen (app/plans.tsx + components/TaskCard.tsx) — the route
   // key stays `plans` for history; the user-facing label is "To-do list" (short
   // form "To-do" in the bottom nav, see nav.plans).
   tasksTitle: 'To-do list',
@@ -609,9 +609,9 @@ const en = {
       // question would read oddly next to the other field labels.
       settingsLabel: 'Starting screen',
       sub: 'Every other tab stays one tap away.',
-      home: 'The day at a glance.',
-      plans: "The day's to-do list.",
+      home: "The day's list.",
       shopping: 'Your shopping lists.',
+      health: 'Meds and how you feel.',
     },
   },
   // The guided tour (components/TourSpotlight.tsx + lib/tourSteps.ts) — one step per feature,
@@ -637,20 +637,12 @@ const en = {
     skipAll: 'Skip the tour',
     steps: {
       home: {
-        title: 'Home is the day at a glance',
-        body: 'To-dos, shopping and habits, all on one screen.\n• Hold a card to move it to the top.',
-      },
-      plans: {
-        title: 'To-do holds what today needs',
-        body: 'Add one thing you want to get done.\n• Small beats perfect — a task you can finish.',
+        title: 'Today holds tasks and habits together',
+        body: 'One list for what today needs.\n• Small beats perfect — add one thing you can finish.\n• A quiet day is just a quiet day.',
       },
       shopping: {
         title: 'Shopping resets itself',
         body: 'Two lists, both clearing on their own.\n• Weekly, for groceries.\n• Monthly, for what the house needs.',
-      },
-      habits: {
-        title: 'Habits, one day at a time',
-        body: 'Pick one to start with.\n• No streak to lose — a quiet day is just a quiet day.',
       },
       health: {
         title: 'Health notices patterns',
@@ -891,17 +883,11 @@ const en = {
    * There the tick is the whole interaction and the drawer is where a ticked chip lands, so
    * "in cart" would be claiming something the surface never asked — you may be crossing items
    * off a list at home. It says what happened, not where the item now is.
-   * components/ShoppingStoreMode.tsx keeps "In cart"; that surface really is a trolley.
+   * `inCartSection` keeps the trolley wording for every other layout.
    */
   recentlyUsedSection: (n: number) => `Recently used (${n})`,
   purchasedSection: (n: number) => `Purchased (${n})`,
   fromMonthlySection: 'From monthly list',
-  // --- Store mode (2026-08-11) ---
-  storeModeBtn: 'Store mode',
-  storeModeTitle: 'In the store',
-  storeModeAwakeNote: 'The screen stays on while this is open.',
-  storeModeExitBtn: 'Leave store mode',
-  storeModeEmpty: 'Nothing on this list yet.',
   moveToCartBtn: 'Put in cart',
   moveToListBtn: 'Back to list',
   markBoughtBtn: 'Bought',
@@ -1228,12 +1214,17 @@ const en = {
   // Radial menu labels
   nav: {
     newTask: 'New task', plans: 'To-do', shop: 'Shop', habits: 'Habits',
-    meals: 'Food', health: 'Health', scan: 'Scan', settings: 'Settings',
-    capture: 'Quick note', home: 'Home', budget: 'Budget', automations: 'Automations',
+    meals: 'Food', health: 'Me', scan: 'Scan', settings: 'Settings',
+    capture: 'Quick note', home: 'Today', budget: 'Budget', automations: 'Automations',
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
-    todaysPlans: "Today's to-do",
+    // Titles the merged "I dag" card, which since the 2026-08-20 5→3 tab merge holds the day's
+    // TASKS and the day's HABITS (the habits section is inside it). "Today's to-do" named only
+    // half of it — the same name-vs-content mismatch that forced Habits back out of the Health
+    // tab in 2026-07-23. "List" covers both without enumerating them or wrapping at 327px, and
+    // is deliberately not the tab's own name ("Today"), which it sits inside.
+    todaysPlans: "Today's list",
     seeAllPlans: 'See all to-dos',
     more: 'More',
     quantityLabel: 'Quantity',
@@ -2417,7 +2408,7 @@ const no: typeof en = {
   dayViewDeletedZone: (n: number) => `Nylig slettet (${n})`,
   dayViewRestore: 'Gjenopprett',
   dayViewDeleteTask: 'Slett',
-  // Gjøremålsliste-skjerm (app/(tabs)/plans.tsx + components/TaskCard.tsx)
+  // Gjøremålsliste-skjerm (app/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Gjøremålsliste',
   tasksTabAll: 'Alle',
   tasksTabToday: 'I dag',
@@ -2762,9 +2753,9 @@ const no: typeof en = {
       title: 'Hvor skal appen åpne?',
       settingsLabel: 'Startskjerm',
       sub: 'De andre fanene er ett trykk unna.',
-      home: 'Dagen i et overblikk.',
-      plans: 'Dagens gjøremålsliste.',
+      home: 'Dagens liste.',
       shopping: 'Handlelistene dine.',
+      health: 'Medisiner og hvordan du har det.',
     },
   },
   tour: {
@@ -2774,20 +2765,12 @@ const no: typeof en = {
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
-        title: 'Hjem er dagen i et overblikk',
-        body: 'Gjøremål, handling og vaner, alt på én skjerm.\n• Hold på et kort for å flytte det øverst.',
-      },
-      plans: {
-        title: 'Gjøremål holder på det dagen trenger',
-        body: 'Legg inn én ting du vil få gjort.\n• Lite slår perfekt — et gjøremål du blir ferdig med.',
+        title: 'I dag samler gjøremål og vaner',
+        body: 'Én liste for det dagen trenger.\n• Lite slår perfekt — legg inn én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
       },
       shopping: {
         title: 'Handlelisten nullstiller seg selv',
         body: 'To lister, begge nullstiller seg selv.\n• Ukentlig, til dagligvarer.\n• Månedlig, til det huset trenger.',
-      },
-      habits: {
-        title: 'Vaner, én dag om gangen',
-        body: 'Velg én å begynne med.\n• Ingen rekke å miste — en rolig dag er bare en rolig dag.',
       },
       health: {
         title: 'Helse legger merke til mønstre',
@@ -2980,12 +2963,6 @@ const no: typeof en = {
   recentlyUsedSection: (n: number) => `Brukt nylig (${n})`,
   purchasedSection: (n: number) => `Kjøpt (${n})`,
   fromMonthlySection: 'Fra månedsliste',
-  // --- Store mode (2026-08-11) ---
-  storeModeBtn: 'Butikkmodus',
-  storeModeTitle: 'I butikken',
-  storeModeAwakeNote: 'Skjermen står på så lenge denne er åpen.',
-  storeModeExitBtn: 'Avslutt butikkmodus',
-  storeModeEmpty: 'Ingenting på denne lista ennå.',
   moveToCartBtn: 'Legg i handlekurv',
   moveToListBtn: 'Tilbake i lista',
   markBoughtBtn: 'Kjøpt',
@@ -3600,12 +3577,12 @@ const no: typeof en = {
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
-    meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
-    capture: 'Notér', home: 'Hjem', budget: 'Budsjett', automations: 'Automatisering',
+    meals: 'Mat', health: 'Meg', scan: 'Skann', settings: 'Innst.',
+    capture: 'Notér', home: 'I dag', budget: 'Budsjett', automations: 'Automatisering',
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
-    todaysPlans: 'Dagens gjøremål',
+    todaysPlans: 'Dagens liste',
     seeAllPlans: 'Se alle gjøremål',
     more: 'Mer',
     quantityLabel: 'Antall',
@@ -4247,7 +4224,7 @@ const is: typeof en = {
   dayViewDeletedZone: (n: number) => `Nýlega eytt (${n})`,
   dayViewRestore: 'Endurheimta',
   dayViewDeleteTask: 'Eyða',
-  // Verkefnalistaskjár (app/(tabs)/plans.tsx + components/TaskCard.tsx)
+  // Verkefnalistaskjár (app/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Verkefnalisti',
   tasksTabAll: 'Allt',
   tasksTabToday: 'Í dag',
@@ -4599,9 +4576,9 @@ const is: typeof en = {
       title: 'Hvar á appið að opnast?',
       settingsLabel: 'Upphafsskjár',
       sub: 'Hinir fliparnir eru einn smellur í burtu.',
-      home: 'Dagurinn í hnotskurn.',
-      plans: 'Verkefnalisti dagsins.',
+      home: 'Listi dagsins.',
       shopping: 'Innkaupalistarnir þínir.',
+      health: 'Lyf og hvernig þér líður.',
     },
   },
   tour: {
@@ -4611,20 +4588,12 @@ const is: typeof en = {
     skipAll: 'Sleppa kynningunni',
     steps: {
       home: {
-        title: 'Heim er dagurinn í hnotskurn',
-        body: 'Verkefni, innkaup og venjur, allt á einum skjá.\n• Haltu á korti til að færa það efst.',
-      },
-      plans: {
-        title: 'Verkefni halda utan um það sem dagurinn þarf',
-        body: 'Skráðu eitt sem þú vilt koma í verk.\n• Lítið slær fullkomið — verkefni sem þú klárar.',
+        title: 'Í dag heldur utan um verkefni og venjur',
+        body: 'Einn listi fyrir það sem dagurinn þarf.\n• Lítið slær fullkomið — skráðu eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
       },
       shopping: {
         title: 'Innkaupalistinn núllstillir sig sjálfur',
         body: 'Tveir listar, báðir núllstilla sig sjálfir.\n• Vikulega, fyrir matvöru.\n• Mánaðarlega, fyrir það sem heimilið þarf.',
-      },
-      habits: {
-        title: 'Venjur, einn dag í einu',
-        body: 'Veldu eina til að byrja á.\n• Engin röð til að missa — rólegur dagur er bara rólegur dagur.',
       },
       health: {
         title: 'Heilsa tekur eftir mynstrum',
@@ -4817,11 +4786,6 @@ const is: typeof en = {
   recentlyUsedSection: (n: number) => `Nýlega notað (${n})`,
   purchasedSection: (n: number) => `Keypt (${n})`,
   fromMonthlySection: 'Úr mánaðarlista',
-  storeModeBtn: 'Búðarhamur',
-  storeModeTitle: 'Í búðinni',
-  storeModeAwakeNote: 'Skjárinn helst kveiktur meðan þetta er opið.',
-  storeModeExitBtn: 'Loka búðarham',
-  storeModeEmpty: 'Ekkert á þessum lista enn.',
   moveToCartBtn: 'Setja í körfu',
   moveToListBtn: 'Aftur á listann',
   markBoughtBtn: 'Keypt',
@@ -5435,12 +5399,12 @@ const is: typeof en = {
   },
   nav: {
     newTask: 'Nýtt', plans: 'Verkefni', shop: 'Innkaup', habits: 'Venjur',
-    meals: 'Matur', health: 'Heilsa', scan: 'Skanna', settings: 'Still.',
-    capture: 'Skrá', home: 'Heim', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
+    meals: 'Matur', health: 'Ég', scan: 'Skanna', settings: 'Still.',
+    capture: 'Skrá', home: 'Í dag', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
     shared: 'Deilt', settingsLabel: 'Stillingar',
   },
   home: {
-    todaysPlans: 'Verkefni dagsins',
+    todaysPlans: 'Listi dagsins',
     seeAllPlans: 'Sjá öll verkefni',
     more: 'Meira',
     quantityLabel: 'Fjöldi',

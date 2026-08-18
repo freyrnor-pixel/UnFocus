@@ -162,7 +162,7 @@
  *     (TabSlider no longer has a fixed-equal-width mode — see its "No `sizing` prop" edit
  *     note), so a translation coming out longer than expected (Norwegian's "Generelt" vs.
  *     English's "General") no longer truncates one tab while the others sit with unused
- *     space. Same shared component as app/(tabs)/shopping.tsx and app/(tabs)/plans.tsx.
+ *     space. Same shared component as app/(tabs)/shopping.tsx and app/plans.tsx.
  *   - **Personal → Layout also owns first-run's permanent controls (2026-07-30)**: the
  *     "Starting screen" segmented row (settings.startScreen, applied at the next launch
  *     by app/(tabs)/_layout.tsx's initialRouteName) and a "Run setup again" link into
@@ -491,7 +491,7 @@ export default function SettingsScreen() {
    * correct tab still left the two shopping-cadence fields shut and off screen. A section both
    * opens its card and scrolls to it.
    *
-   * Shape copied from app/(tabs)/plans.tsx's `tab` + `expandTaskId` pair, the repo's existing
+   * Shape copied from app/plans.tsx's `tab` + `expandTaskId` pair, the repo's existing
    * precedent for arriving at one row of a screen.
    */
   const { tab: tabParam, section: sectionParam } = useLocalSearchParams<{
@@ -1168,7 +1168,7 @@ export default function SettingsScreen() {
                   onChange={(v) => settings.update({ startScreen: v as StartScreen })}
                   options={START_SCREEN_CHOICES.map((v) => ({
                     value: v,
-                    label: v === 'home' ? t.nav.home : v === 'plans' ? t.nav.plans : t.nav.shop,
+                    label: v === 'home' ? t.nav.home : v === 'shopping' ? t.nav.shop : t.nav.health,
                   }))}
                 />
                 <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>

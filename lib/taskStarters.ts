@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → none
- *   Used by → app/(tabs)/plans.tsx (empty-state example row's "+" add button)
+ *   Used by → app/plans.tsx (empty-state example row's "+" add button)
  *   Data    → none directly; a tap in plans.tsx feeds this into useTaskStore's
  *             add()/addStep()
  *

@@ -44,19 +44,26 @@ describe('getScreenColor', () => {
     expect(getScreenColor(dark, 'goals').base).toBe(dark.featPlan);
   });
 
-  it('Home and Settings deliberately have NO hue', () => {
-    // Home's preview cards wear their SOURCE screen's colour instead, so Home reads as an
-    // index of the other screens rather than as a sixth one. Settings is chrome, not a
-    // domain. Both must stay neutral — see lib/screenColor.ts's header.
-    for (const route of ['index', 'home', 'settings']) {
+  it("'index' wears the TO-DO hue, because it is the to-do screen now", () => {
+    // 2026-08-20, the 5→3 tab merge: app/(tabs)/index.tsx is the "I dag" tab and the day's
+    // tasks and habits live on it, so it reads the same token app/plans.tsx does. It was
+    // neutral while Home was an index of previews that each borrowed their source screen's
+    // hue — those previews still do, which is why Home's own SCAFFOLD passes no screenKey.
+    // The consumer that forced this is components/BottomNav.tsx: the active tab is marked by
+    // its categorical hue and nothing else, and a neutral key falls back to `theme.accent`.
+    expect(getScreenColor(light, 'index').base).toBe(light.featTask);
+    expect(getScreenColor(dark, 'index').base).toBe(dark.featTask);
+    expect(getScreenColor(light, 'index').neutral).toBeFalsy();
+  });
+
+  it("'home' and Settings deliberately have NO hue", () => {
+    // 'home' is the legacy alias kept for callers that still pass it, and it is NOT an alias
+    // for 'index' any more (it was until 2026-08-20 — both were null, so the distinction was
+    // invisible). Settings is chrome, not a domain.
+    for (const route of ['home', 'settings']) {
       expect(getScreenColor(light, route).base).toBe(light.border);
       expect(getScreenColor(light, route).neutral).toBe(true);
     }
-  });
-
-  it("'home' is an alias for 'index'", () => {
-    expect(getScreenColor(light, 'home').base).toBe(getScreenColor(light, 'index').base);
-    expect(getScreenColor(dark, 'home').base).toBe(getScreenColor(dark, 'index').base);
   });
 
   it('the eight hued screens are all distinct', () => {

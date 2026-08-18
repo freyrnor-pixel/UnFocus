@@ -17,7 +17,7 @@
  *             lib/useAppTheme, components/PressableScale
  *   Used by → app/(tabs)/shopping.tsx (save/add confirmations), app/settings
  *             (rejected numeric input, variant='warn'), app/health-form,
- *             app/(tabs)/plans.tsx (2026-08-20 — "Put the day away" + its Undo)
+ *             app/plans.tsx (2026-08-20 — "Put the day away" + its Undo)
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -37,7 +37,7 @@
  *     dismiss-on-tap convenience over a label, not a control with its own name.
  *   - **`duration` is worth raising when you pass an action.** The 2200ms default is tuned
  *     for a toast you only read; an Undo the user has to notice, aim at and hit wants more
- *     (app/(tabs)/plans.tsx passes 5000, matching lib/useGhostTimeout.ts's undo window).
+ *     (app/plans.tsx passes 5000, matching lib/useGhostTimeout.ts's undo window).
  */
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, Pressable, View } from 'react-native';

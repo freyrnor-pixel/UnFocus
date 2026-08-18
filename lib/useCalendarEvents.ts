@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → react, lib/deviceCalendar, store/useSettingsStore (featureDayLog,
  *             dayLogCalendarIds)
- *   Used by → app/(tabs)/plans.tsx (the timeline layout)
+ *   Used by → app/plans.tsx (the timeline layout)
  *   Data    → reads device calendars. Writes nothing.
  *
  * Edit notes:

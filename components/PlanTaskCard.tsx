@@ -119,7 +119,7 @@
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
- *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
+ *             app/plans.tsx (the To-do tab, interactively, whenever the active layout
  *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
  *             and pass it down as the `horizontal` prop; this component stays
  *             store-free/presentational.
@@ -353,6 +353,22 @@ import type { DeviceCalendarEvent } from '@/lib/deviceCalendar';
 type Props = {
   /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
   cardMenu?: CardMenu;
+  /**
+   * A second section rendered inside this card, below the task list and its footer toggle
+   * (2026-08-20, the 5→3 tab merge). Today its only caller is app/(tabs)/index.tsx, which
+   * passes an `embedded` components/HomeHabitsCard.tsx — so "I dag" is ONE card holding the
+   * day's tasks and the day's habits, rather than two cards that happened to be adjacent.
+   *
+   * It is a SLOT, not a habits prop: this card knows nothing about habits, does not import the
+   * habit store, and renders whatever it is handed. That is what keeps the merge presentational
+   * — the two stores stay entirely separate (a habit's per-day count, daily goal and rest day
+   * have no equivalent on a task, and a task's single done flag has none on a habit).
+   *
+   * ⚠️ It goes BELOW `PadFooterToggle`, and that placement is deliberate: the toggle sizes the
+   * TASK list, so anything between the rows and the toggle would look like it was being sized
+   * by it. The section brings its own header and its own footer for the same reason.
+   */
+  extraSection?: React.ReactNode;
   /** Tasks scheduled for the viewed date (already filtered by the caller). */
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
@@ -544,6 +560,7 @@ const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = 
 
 export default function PlanTaskCard({
   cardMenu,
+  extraSection,
   tasks,
   allTasks,
   readOnly = false,
@@ -1814,6 +1831,10 @@ export default function PlanTaskCard({
           onChange={setState}
           total={spec.timeline ? pendingCount : listTasks.length}
         />
+
+        {/* The merged card's second half — see `extraSection`'s doc. Below the toggle on
+            purpose, so the toggle unambiguously ends the task list above it. */}
+        {extraSection}
 
       </View>
     </Surface>

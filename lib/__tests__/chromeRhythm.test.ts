@@ -129,7 +129,7 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
 
   it('is imported by every screen that reserves a sticky tab row', () => {
     for (const file of [
-      'app/(tabs)/plans.tsx',
+      'app/plans.tsx',
       'app/(tabs)/shopping.tsx',
       'app/settings.tsx',
       'app/design-lab/tokens.tsx',

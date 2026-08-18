@@ -65,7 +65,7 @@
  *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
  *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
- *             app/(tabs)/habits.tsx
+ *             app/habits.tsx
  *             (re-measured 2026-08-08 — this line also named plans.tsx and shopping.tsx,
  *             neither of which imports this file: plans reaches it indirectly through
  *             PlanTaskCard's timeline, and shopping composes with InlineAddItem instead)
@@ -114,7 +114,7 @@
  *     surfaces differ: a habit has a real create-mode editor screen (`/habit-form`), so
  *     nothing is saved until Save there; a task's editor is an expanded `TaskCard` on a
  *     SAVED row (app/task-form.tsx was retired 2026-07-23), so that one still commits first.
- *   - **`noGhostCheck` (2026-08-06)**: app/(tabs)/habits.tsx passes this. Its original meaning
+ *   - **`noGhostCheck` (2026-08-06)**: app/habits.tsx passes this. Its original meaning
  *     was "this pad's rows never end in a check (always a −/+ pair, see HabitCard), so don't
  *     preview one". The thing it suppresses is now the SUBMIT ARROW rather than a preview ring
  *     (2026-08-16), so the prop's name is legacy — it is kept rather than renamed because it is

@@ -31,7 +31,7 @@
  *     that table doesn't sync, so no second device can disagree about who it means).
  *     Renaming a person therefore re-points their habits — acceptable here, and the reason
  *     `matchHabits` is one small function rather than being inlined in three places.
- *   - An empty `assigneeId` means "me", exactly as on app/(tabs)/plans.tsx's person filter:
+ *   - An empty `assigneeId` means "me", exactly as on app/plans.tsx's person filter:
  *     it covers rows written before the phase-1 back-fill, rows a peer created without
  *     assigning, and rows whose person was removed. None of those should silently vanish
  *     from the household total.

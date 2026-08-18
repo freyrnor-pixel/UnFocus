@@ -19,10 +19,13 @@
  * Edit notes:
  *   - Elements are painted back-to-front; `els` order is load-bearing.
  *   - Coordinates are in the motif's own viewBox (`w` × `h`), never screen pixels.
- *   - `screen-bg-strip` is the five tab backdrops as ONE continuous 1950×844 run (5 × 390),
+ *   - `screen-bg-strip` is the tab backdrops as ONE continuous run of 390-wide panels,
  *     slid with the pager rather than swapped per tab, so the branch never breaks at a seam.
- *     Panel k occupies x [390k, 390(k+1)) in bottom-nav order: shopping, plans, home, health,
- *     habits. `screen-bg-calm` is the standalone 390×844 backdrop for sub-tier screens.
+ *     Panel k occupies x [390k, 390(k+1)) in bottom-nav order — read `STRIP_PANEL_ORDER` at
+ *     the foot of this file for what that order actually is, never a prose list like this one:
+ *     it went 5 panels → 3 on 2026-08-20, and a stale prose ordering has already once put
+ *     every tab on its neighbour's art. `screen-bg-calm` is the standalone 390×844 backdrop
+ *     for sub-tier screens.
  *     lib/__tests__/motifs.test.ts pins the strip's geometry and the protected centre box
  *     (x 84–306, y 236–612 per panel) that cards live in.
  *   - Regenerate the strip with `node scripts/author-screen-bgs.mjs` — it is authored from a
@@ -259,10 +262,10 @@ const RAW = {
     ],
   },
   'screen-bg-strip': {
-    w: 1950,
+    w: 1170,
     h: 844,
     els: [
-      { t:'p', role:'stroke', d:'M0 660 C32.5 665 130 696.6667 195 690 C260 683.3333 325 620 390 620 C455 620 520 686.6667 585 690 C650 693.3333 715 638.3333 780 640 C845 641.6667 910 701.6667 975 700 C1040 698.3333 1105 632.5 1170 630 C1235 627.5 1300 682.5 1365 685 C1430 687.5 1495 644.1667 1560 645 C1625 645.8333 1690 697.5 1755 690 C1820 682.5 1917.5 615 1950 600', w:2.2, o:0.45, od:0.585 },
+      { t:'p', role:'stroke', d:'M0 660 C32.5 665 130 696.6667 195 690 C260 683.3333 325 620 390 620 C455 620 520 686.6667 585 690 C650 693.3333 715 638.3333 780 640 C845 641.6667 910 706.6667 975 700 C1040 693.3333 1137.5 616.6667 1170 600', w:2.2, o:0.45, od:0.585 },
       { t:'p', role:'stroke', d:'M0 182C36 150 54 128 78 116', w:1.8, o:0.4, od:0.52 },
       { t:'e', role:'canopy', cx:57.2, cy:114.1, rx:9.24, ry:5.355, rot:-18, o:0.14, od:0.182 },
       { t:'e', role:'canopy', cx:68.75, cy:106.75, rx:10.08, ry:5.88, rot:8, o:0.19, od:0.247 },
@@ -273,57 +276,37 @@ const RAW = {
       { t:'e', role:'canopy', cx:88.7, cy:122.5, rx:8.085, ry:4.725, rot:15, o:0.14, od:0.182 },
       { t:'c', role:'dot', cx:120, cy:78, r:3, o:0.28, od:0.364 },
       { t:'c', role:'dot', cx:30, cy:214, r:2.5, o:0.28, od:0.364 },
-      { t:'p', role:'stroke', d:'M780 196C742 166 726 142 704 130', w:1.8, o:0.4, od:0.52 },
-      { t:'e', role:'canopy', cx:683.2, cy:128.1, rx:9.24, ry:5.355, rot:-18, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:694.75, cy:120.75, rx:10.08, ry:5.88, rot:8, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:707.35, cy:121.8, rx:9.765, ry:5.67, rot:-10, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:717.85, cy:128.1, rx:8.4, ry:5.04, rot:20, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:689.5, cy:135.45, rx:8.4, ry:5.04, rot:-6, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:704.2, cy:133.35, rx:10.395, ry:6.09, rot:4, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:714.7, cy:136.5, rx:8.085, ry:4.725, rot:15, o:0.14, od:0.182 },
-      { t:'c', role:'dot', cx:658, cy:92, r:3, o:0.28, od:0.364 },
-      { t:'c', role:'dot', cx:750, cy:224, r:2.5, o:0.28, od:0.364 },
-      { t:'p', role:'stroke', d:'M780 150C820 118 842 100 872 96', w:1.8, o:0.4, od:0.52 },
-      { t:'p', role:'stroke', d:'M872 96C940 62 1016 70 1080 112', w:1.5, o:0.42, od:0.546 },
-      { t:'p', role:'stroke', d:'M1170 176C1132 150 1110 128 1080 112', w:1.8, o:0.4, od:0.52 },
-      { t:'p', role:'stroke', d:'M975 690C973 664 977 646 975 628', w:1.8, o:0.4, od:0.52 },
-      { t:'e', role:'canopy', cx:852, cy:94, rx:8.8, ry:5.1, rot:-18, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:863, cy:87, rx:9.6, ry:5.6, rot:8, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:875, cy:88, rx:9.3, ry:5.4, rot:-10, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:885, cy:94, rx:8, ry:4.8, rot:20, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:858, cy:101, rx:8, ry:4.8, rot:-6, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:872, cy:99, rx:9.9, ry:5.8, rot:4, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:882, cy:102, rx:7.7, ry:4.5, rot:15, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1069.28, cy:117.84, rx:8.096, ry:4.692, rot:-18, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1079.4, cy:111.4, rx:8.832, ry:5.152, rot:8, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1090.44, cy:112.32, rx:8.556, ry:4.968, rot:-10, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1099.64, cy:117.84, rx:7.36, ry:4.416, rot:20, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1074.8, cy:124.28, rx:7.36, ry:4.416, rot:-6, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1087.68, cy:122.44, rx:9.108, ry:5.336, rot:4, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1096.88, cy:125.2, rx:7.084, ry:4.14, rot:15, o:0.14, od:0.182 },
-      { t:'c', role:'dot', cx:975, cy:66, r:3.2, o:0.28, od:0.364 },
-      { t:'c', role:'dot', cx:930, cy:196, r:2.5, o:0.28, od:0.364 },
-      { t:'c', role:'dot', cx:1030, cy:188, r:2.5, o:0.28, od:0.364 },
-      { t:'p', role:'stroke', d:'M1560 452C1534 428 1524 400 1512 378', w:1.8, o:0.4, od:0.52 },
-      { t:'e', role:'canopy', cx:1500.8, cy:373.9, rx:8.36, ry:4.845, rot:-18, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1511.25, cy:367.25, rx:9.12, ry:5.32, rot:8, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1522.65, cy:368.2, rx:8.835, ry:5.13, rot:-10, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1532.15, cy:373.9, rx:7.6, ry:4.56, rot:20, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1506.5, cy:380.55, rx:7.6, ry:4.56, rot:-6, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1519.8, cy:378.65, rx:9.405, ry:5.51, rot:4, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1529.3, cy:381.5, rx:7.315, ry:4.275, rot:15, o:0.14, od:0.182 },
-      { t:'c', role:'dot', cx:1488, cy:316, r:2.8, o:0.28, od:0.364 },
-      { t:'c', role:'dot', cx:1544, cy:520, r:2.5, o:0.28, od:0.364 },
-      { t:'p', role:'stroke', d:'M1560 474C1584 448 1594 420 1608 398', w:1.8, o:0.4, od:0.52 },
-      { t:'e', role:'canopy', cx:1588.8, cy:393.9, rx:8.36, ry:4.845, rot:-18, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1599.25, cy:387.25, rx:9.12, ry:5.32, rot:8, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1610.65, cy:388.2, rx:8.835, ry:5.13, rot:-10, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1620.15, cy:393.9, rx:7.6, ry:4.56, rot:20, o:0.14, od:0.182 },
-      { t:'e', role:'canopy', cx:1594.5, cy:400.55, rx:7.6, ry:4.56, rot:-6, o:0.19, od:0.247 },
-      { t:'e', role:'canopy', cx:1607.8, cy:398.65, rx:9.405, ry:5.51, rot:4, o:0.25, od:0.325 },
-      { t:'e', role:'canopy', cx:1617.3, cy:401.5, rx:7.315, ry:4.275, rot:15, o:0.14, od:0.182 },
-      { t:'c', role:'dot', cx:1630, cy:336, r:2.8, o:0.28, od:0.364 },
-      { t:'c', role:'dot', cx:1576, cy:540, r:2.5, o:0.28, od:0.364 },
+      { t:'p', role:'stroke', d:'M390 150C430 118 452 100 482 96', w:1.8, o:0.4, od:0.52 },
+      { t:'p', role:'stroke', d:'M482 96C550 62 626 70 690 112', w:1.5, o:0.42, od:0.546 },
+      { t:'p', role:'stroke', d:'M780 176C742 150 720 128 690 112', w:1.8, o:0.4, od:0.52 },
+      { t:'p', role:'stroke', d:'M585 690C583 664 587 646 585 628', w:1.8, o:0.4, od:0.52 },
+      { t:'e', role:'canopy', cx:462, cy:94, rx:8.8, ry:5.1, rot:-18, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:473, cy:87, rx:9.6, ry:5.6, rot:8, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:485, cy:88, rx:9.3, ry:5.4, rot:-10, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:495, cy:94, rx:8, ry:4.8, rot:20, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:468, cy:101, rx:8, ry:4.8, rot:-6, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:482, cy:99, rx:9.9, ry:5.8, rot:4, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:492, cy:102, rx:7.7, ry:4.5, rot:15, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:679.28, cy:117.84, rx:8.096, ry:4.692, rot:-18, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:689.4, cy:111.4, rx:8.832, ry:5.152, rot:8, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:700.44, cy:112.32, rx:8.556, ry:4.968, rot:-10, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:709.64, cy:117.84, rx:7.36, ry:4.416, rot:20, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:684.8, cy:124.28, rx:7.36, ry:4.416, rot:-6, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:697.68, cy:122.44, rx:9.108, ry:5.336, rot:4, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:706.88, cy:125.2, rx:7.084, ry:4.14, rot:15, o:0.14, od:0.182 },
+      { t:'c', role:'dot', cx:585, cy:66, r:3.2, o:0.28, od:0.364 },
+      { t:'c', role:'dot', cx:540, cy:196, r:2.5, o:0.28, od:0.364 },
+      { t:'c', role:'dot', cx:640, cy:188, r:2.5, o:0.28, od:0.364 },
+      { t:'p', role:'stroke', d:'M780 474C804 448 814 420 828 398', w:1.8, o:0.4, od:0.52 },
+      { t:'e', role:'canopy', cx:808.8, cy:393.9, rx:8.36, ry:4.845, rot:-18, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:819.25, cy:387.25, rx:9.12, ry:5.32, rot:8, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:830.65, cy:388.2, rx:8.835, ry:5.13, rot:-10, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:840.15, cy:393.9, rx:7.6, ry:4.56, rot:20, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:814.5, cy:400.55, rx:7.6, ry:4.56, rot:-6, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:827.8, cy:398.65, rx:9.405, ry:5.51, rot:4, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:837.3, cy:401.5, rx:7.315, ry:4.275, rot:15, o:0.14, od:0.182 },
+      { t:'c', role:'dot', cx:850, cy:336, r:2.8, o:0.28, od:0.364 },
+      { t:'c', role:'dot', cx:796, cy:540, r:2.5, o:0.28, od:0.364 },
     ],
   },
   'tree-natural-full': {
@@ -1230,4 +1213,4 @@ export const SCREEN_BG_IDS = MOTIF_IDS.filter((id) => id.startsWith('screen-bg-'
  * slid by that navigator's index — if they disagree, every tab quietly shows its neighbour's
  * art. lib/__tests__/motifs.test.ts checks the two against each other.
  */
-export const STRIP_PANEL_ORDER = ["shopping","plans","home","habits","health"] as const;
+export const STRIP_PANEL_ORDER = ["shopping","home","health"] as const;

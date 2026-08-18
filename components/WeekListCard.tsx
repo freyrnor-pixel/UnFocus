@@ -43,8 +43,9 @@
  *        chip layout ONLY. Nothing new is stored: it is the same `checked` flag and the same
  *        `computeListGroups` buckets, so a paired phone sees it (lib/liveSync whitelists
  *        `checked`; `collected` and `status` are NOT whitelisted and a bucket keyed on either
- *        would silently fail to sync), and components/ShoppingStoreMode.tsx keeps its own
- *        "I handlekurv" wording for the surface that really is a trolley.
+ *        would silently fail to sync). This is now the app's ONLY in-store surface —
+ *        components/ShoppingStoreMode.tsx, which drew the same list as three worded sections,
+ *        was retired 2026-08-20; its keep-awake lock lives on in components/KeepAwakeInStore.tsx.
  *     2. **The tray sits ABOVE the list**, which is a deliberate exception to the
  *        bottom-of-list rule for "add a new row" triggers (AGENTS.md, from the FoodTab pass) —
  *        that rule is about a bare "+" whose row should appear where you pressed; this is a
@@ -253,9 +254,6 @@ type Props = {
    *  addToWeeklyFromCatalog and shows a single consolidated toast). */
   onAddMonthlyItemsToWeek: (items: ShoppingItem[]) => void;
   onDoneShopping: () => void;
-  /** Opens components/ShoppingStoreMode.tsx for this list. Optional: a caller that doesn't
-   *  pass it simply gets no store-mode button (the Home preview card has no use for one). */
-  onOpenStoreMode?: () => void;
   /** Opens the shared AddDishSheet targeted at this list (parent sets dishSheetTarget). */
   onOpenDishSheet: () => void;
   /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
@@ -321,7 +319,6 @@ export default function WeekListCard({
   monthlyLists,
   onAddMonthlyItemsToWeek,
   onDoneShopping,
-  onOpenStoreMode,
   onOpenDishSheet,
   renderReorderableRow,
   registerCartHeaderNode,
@@ -663,8 +660,7 @@ export default function WeekListCard({
               /* "In the store" (chip layout, 2026-08-20): the same aisle sections, drawn as a
                  wrapping grid of tap-to-tick chips instead of ruled rows. One tap ticks an
                  item and it moves to the "Brukt nylig" drawer below — that IS the existing
-                 In-cart bucket, relabelled for this layout only, so nothing new is stored and
-                 components/ShoppingStoreMode.tsx keeps its own "I handlekurv" wording.
+                 In-cart bucket, relabelled for this layout only, so nothing new is stored.
                  Deliberately no dividers: chips are separated by whitespace, and a rule
                  between them would be the border the blueprint pass took off. */
               aisleGroups.length > 0 && (
@@ -944,23 +940,6 @@ export default function WeekListCard({
         {/* ── Bottom slot: green "done" CTA while shopping; nothing while planning ──
             (the old "Plan mode active" status bar was removed 2026-07-22 — the
             Save/Discard buttons + lock icon already say everything it did). ── */}
-        {/* Store mode sits ABOVE the green CTA and is deliberately quiet (outlined, not
-            filled): both are "I'm shopping now" actions, but the screen keeps ONE obvious
-            filled action. Same `list.locked` gate — there is nothing to stand in a shop with
-            while the list is still being planned. */}
-        {list.locked && onOpenStoreMode && (
-          <PressableScale
-            style={[styles.storeModeBtn, { borderColor: theme.border }]}
-            onPress={onOpenStoreMode}
-            accessibilityRole="button"
-            accessibilityLabel={t.storeModeBtn}
-            scaleTo={0.95}
-          >
-            <Ionicons name="cart-outline" size={18} color={theme.text} />
-            <Text style={[styles.storeModeText, { color: theme.text }]}>{t.storeModeBtn}</Text>
-          </PressableScale>
-        )}
-
         {list.locked && (
           <PressableScale
             style={[
@@ -1075,18 +1054,6 @@ const baseStyles = StyleSheet.create({
   // deleted and this style carries only the flex that splits the row.
   addOptionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   addOptionBtn: { flex: 1, minWidth: 0 },
-  storeModeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.xs,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    paddingVertical: Spacing.sm,
-    minHeight: MIN_TAP_TARGET,
-    marginBottom: Spacing.sm,
-  },
-  storeModeText: { fontSize: FontSize.md, fontFamily: Fonts.medium },
   doneShoppingBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: MIN_TAP_TARGET },
   doneShoppingText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
 });

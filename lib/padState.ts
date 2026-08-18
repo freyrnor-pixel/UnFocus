@@ -19,7 +19,7 @@
  *             (LayoutSurface — type-only, so no runtime dependency)
  *   Used by → components/PadSheet.tsx, components/PadFooterToggle.tsx,
  *             components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
- *             app/(tabs)/plans.tsx, store/useSettingsStore.ts (sanitize on read),
+ *             app/plans.tsx, store/useSettingsStore.ts (sanitize on read),
  *             lib/__tests__/padRows.test.ts
  *   Data    → none — pure functions over values the caller already has. Reads no store,
  *             writes nothing. Persistence is settings.cardStates, owned by the store.

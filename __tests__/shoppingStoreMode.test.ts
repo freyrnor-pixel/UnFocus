@@ -1,8 +1,17 @@
 /**
- * shoppingStoreMode.test.ts — store mode's two load-bearing contracts (2026-08-11).
+ * shoppingStoreMode.test.ts — the two contracts that outlived store mode itself.
  *
- *   1. **`unmarkPurchased()` is a real inverse of `markPurchased()`.** Store mode's third
- *      section ("Kjøpt") has a back button, so "bought" must not be a one-way door. Undoing
+ * ⚠️ **The name is deliberately stale.** components/ShoppingStoreMode.tsx was retired
+ * 2026-08-20, when the "In the store" chip layout became the app's single in-store surface
+ * (the chips tick in one tap; store mode drew the same list as three worded, reversible
+ * sections, and two surfaces for one job was the conflict). The file keeps its name so the
+ * history stays findable — same convention as
+ * lib/widgets/__tests__/overviewSplit.test.ts. Both contracts below survive the deletion:
+ *
+ *   1. **`unmarkPurchased()` is a real inverse of `markPurchased()`.** Both are INERT as of
+ *      the retirement — store mode was their only caller — but they are kept, not deleted,
+ *      because `status='purchased'` is still written by `doneShopping()` (the trip + budget
+ *      flow) and a future surface that offers a way back needs this to still be true. Undoing
  *      has to clear `shopping_trip_id` as well as `purchased_at` — a row that is no longer
  *      purchased cannot keep claiming membership in the trip that bought it, or the monthly
  *      reset's `WHERE shopping_trip_id IS NOT NULL` predicate picks it up as though it had
@@ -11,15 +20,17 @@
  *      because `status` is NOT a whitelisted column while `checked` IS, and this transition
  *      moves both.
  *
- *   2. **The keep-awake lock cannot outlive the mode.** `useKeepAwake()` acquires on mount
- *      and releases on unmount, so it must sit in a body that is rendered only while store
- *      mode is open. Called at the top level of the exported component it would run for the
- *      whole life of the Shopping screen and hold the screen awake for someone who never
- *      opened store mode — a battery drain with no visible symptom, which is exactly the
- *      kind of bug no screenshot and no shape test can catch. A source scan for the same
- *      reason lib/__tests__/chromeRhythm.test.ts is one.
+ *   2. **The keep-awake lock cannot outlive the surface that needs it.** `useKeepAwake()`
+ *      acquires on mount and releases on unmount, so it must sit in a component that is
+ *      rendered only while the in-store layout is showing. Called at the top level of the
+ *      Shopping screen it would run for that screen's whole life and hold the phone awake for
+ *      someone who never opened the in-store layout — a battery drain with no visible symptom,
+ *      exactly the kind of bug no screenshot and no shape test can catch. The lock moved from
+ *      store mode's conditionally-rendered body to components/KeepAwakeInStore.tsx, whose
+ *      whole component IS the conditional; the assertions below moved with it. A source scan,
+ *      for the same reason lib/__tests__/chromeRhythm.test.ts is one.
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 
@@ -142,36 +153,46 @@ describe('unmarkPurchased', () => {
   });
 });
 
-// ── 2. The keep-awake lock is scoped to the mode ─────────────────────────────
+// ── 2. The keep-awake lock is scoped to the in-store layout ─────────────────
 
-describe('ShoppingStoreMode — the screen lock cannot outlive the mode', () => {
-  const source = readFileSync(
-    join(__dirname, '..', 'components', 'ShoppingStoreMode.tsx'),
-    'utf8'
-  )
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '')
-    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+describe('the screen lock cannot outlive the in-store layout', () => {
+  const strip = (src: string) =>
+    src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-  it('calls useKeepAwake exactly once', () => {
-    expect(source.match(/useKeepAwake\(/g) ?? []).toHaveLength(1);
+  const holder = strip(
+    readFileSync(join(__dirname, '..', 'components', 'KeepAwakeInStore.tsx'), 'utf8')
+  );
+  const screen = strip(
+    readFileSync(join(__dirname, '..', 'app', '(tabs)', 'shopping.tsx'), 'utf8')
+  );
+
+  it('store mode is gone, so nothing can quietly re-mount its copy of the lock', () => {
+    expect(existsSync(join(__dirname, '..', 'components', 'ShoppingStoreMode.tsx'))).toBe(false);
   });
 
-  it('calls it inside StoreModeBody, not in the exported component', () => {
-    const bodyAt = source.indexOf('function StoreModeBody');
-    const exportAt = source.indexOf('export default function ShoppingStoreMode');
-    const hookAt = source.indexOf('useKeepAwake(', source.indexOf('import'));
-
-    expect(bodyAt).toBeGreaterThan(-1);
-    expect(exportAt).toBeGreaterThan(-1);
-    // The body is declared before the export, so the hook must land between the two.
-    expect(bodyAt).toBeLessThan(exportAt);
-    expect(hookAt).toBeGreaterThan(bodyAt);
-    expect(hookAt).toBeLessThan(exportAt);
+  it('the holder calls useKeepAwake exactly once', () => {
+    expect(holder.match(/useKeepAwake\(/g) ?? []).toHaveLength(1);
   });
 
-  it('renders that body conditionally, which is what unmounts the lock', () => {
-    // `<Modal visible={...}>` alone is not enough — the body has to actually leave the tree.
-    expect(source).toMatch(/visible\s*\?\s*\(?\s*<StoreModeBody/);
+  it('the holder renders nothing, so its only effect is the lock', () => {
+    expect(holder).toMatch(/return null/);
+  });
+
+  it('the Shopping screen never calls the hook itself', () => {
+    // This is the whole point: at the top level of the screen the lock would be held for the
+    // life of the tab, which on a co-mounted pager (lazy: false) is the life of the app.
+    expect(screen).not.toMatch(/useKeepAwake/);
+  });
+
+  it('the screen mounts the holder CONDITIONALLY, gated on the in-store layout', () => {
+    // A mount that is not conditional is a lock that is never released.
+    expect(screen).toMatch(/layoutSpec\.chips\s*&&\s*<KeepAwakeInStore\s*\/>/);
+  });
+
+  it('mounts it exactly once — a per-card mount would release a shared tag early', () => {
+    expect(screen.match(/<KeepAwakeInStore/g) ?? []).toHaveLength(1);
   });
 });

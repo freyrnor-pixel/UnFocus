@@ -81,14 +81,15 @@ function tierOf(tag: string): string | null {
   return m ? m[1] : null;
 }
 
-// The five top-level tabs, in the real `<TopTabs.Screen>` order from app/(tabs)/_layout.tsx.
+// The three top-level tabs, in the real `<TopTabs.Screen>` order from app/(tabs)/_layout.tsx.
 // Order matters nowhere in these assertions, but keeping it means a reader can check this list
 // against the navigator without re-deriving it.
+// **It was five until 2026-08-20.** app/plans.tsx and app/habits.tsx left the pager and are
+// pushed sub-screens now, so they moved to SUB_SCREENS below — a screen cannot be in both, and
+// the tier assertion is what tells them apart.
 const TAB_SCREENS = [
   'app/(tabs)/shopping.tsx',
-  'app/(tabs)/plans.tsx',
   'app/(tabs)/index.tsx',
-  'app/(tabs)/habits.tsx',
   'app/(tabs)/health.tsx',
 ] as const;
 
@@ -97,6 +98,9 @@ const TAB_SCREENS = [
 // else. Not the whole sub-screen set — the form/editor screens legitimately carry a
 // `headerRight` save/delete action, which is a different contract.
 const SUB_SCREENS = [
+  // Left the pager on 2026-08-20 (5 tabs → 3), keeping every list they held.
+  'app/plans.tsx',
+  'app/habits.tsx',
   'app/food.tsx',
   'app/catalogue.tsx',
   'app/notes.tsx',
@@ -106,7 +110,14 @@ const SUB_SCREENS = [
 ] as const;
 
 /** Header chrome a sub-screen must not ask for. `tier` and `onBack` are legitimate. */
-const SITE_ONLY_PROPS = ['isHome', 'infoActive', 'onInfoToggle', 'onSharePress', 'onScanPress', 'onLayoutPress'] as const;
+// Props a PUSHED screen must not ask for, because ScreenHeader only honours them at site tier
+// and a prop the header ignores reads exactly like one it honours.
+// **`onLayoutPress`/`onSharePress` left this list on 2026-08-20** and moved to LIST_CONTROL_PROPS
+// below: they are controls belonging to a list, not chrome belonging to a tab, and the 5→3 merge
+// turned the app's biggest list screen into a pushed one. ScreenHeader renders them in the
+// sub-tier right slot now (`subListControls`).
+const SITE_ONLY_PROPS = ['isHome', 'infoActive', 'onInfoToggle', 'onScanPress'] as const;
+const LIST_CONTROL_PROPS = ['onLayoutPress', 'onSharePress'] as const;
 
 // ── (a) ScreenHeader's own gating ────────────────────────────────────────────────────────
 
@@ -225,10 +236,12 @@ describe('every top-level tab header is title + gear', () => {
     //   • the share icon is gated on `settings.featureSharing`, which is OFF for a fresh
     //     install — a default header never shows it.
     // Pinned here rather than deleted so the set can't quietly grow to a third screen.
+    // Shopping is the only TAB with them now — app/plans.tsx kept both when it became a
+    // pushed screen, which is why this filters the tab list rather than asserting a global set.
     const withLayout = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onLayoutPress'));
     const withShare = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onSharePress'));
-    expect(withLayout).toEqual(['app/(tabs)/shopping.tsx', 'app/(tabs)/plans.tsx']);
-    expect(withShare).toEqual(['app/(tabs)/shopping.tsx', 'app/(tabs)/plans.tsx']);
+    expect(withLayout).toEqual(['app/(tabs)/shopping.tsx']);
+    expect(withShare).toEqual(['app/(tabs)/shopping.tsx']);
   });
 
   test('no tab hand-rolls a headerRight slot', () => {
@@ -252,6 +265,24 @@ describe('pushed sub-screens are title only', () => {
       const asked = SITE_ONLY_PROPS.filter((p) => passes(tag, p));
       expect(asked).toEqual([]);
     }
+  });
+
+  test('only app/plans.tsx carries list controls into the sub tier', () => {
+    // The exception has exactly one member and should stay that way — a pushed screen with a
+    // layout picker is a LIST screen, and there is one of those below the tab tier. Pinned so
+    // the carve-out cannot quietly become "sub-tier headers may have icons".
+    const withListControls = SUB_SCREENS.filter((rel) =>
+      scaffoldTags(rel).some((tag) => LIST_CONTROL_PROPS.some((p) => passes(tag, p)))
+    );
+    expect(withListControls).toEqual(['app/plans.tsx']);
+  });
+
+  test('ScreenHeader actually renders those controls at sub tier', () => {
+    // Without this the props above are accepted and dropped on the floor, which is the exact
+    // silent-capability-loss the 5→3 merge nearly shipped.
+    const header = code('components/ScreenHeader.tsx');
+    expect(header).toMatch(/const subListControls = tier === 'sub'/);
+    expect(header).toMatch(/subListControls\.map\(/);
   });
 
   test.each(SUB_SCREENS)('%s adds no headerRight action either', (rel) => {

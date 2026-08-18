@@ -9,8 +9,8 @@
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme,
  *             lib/i18n (useT), components/PressableScale
- *   Used by → app/(tabs)/index.tsx, app/(tabs)/plans.tsx,
- *             app/(tabs)/health.tsx (this-week summary), app/(tabs)/habits.tsx,
+ *   Used by → app/(tabs)/index.tsx, app/plans.tsx,
+ *             app/(tabs)/health.tsx (this-week summary), app/habits.tsx,
  *             app/scan.tsx, app/meals.tsx, app/habit-form.tsx,
  *             app/notes.tsx, app/health-form.tsx, app/health-log.tsx
  *   Data    → reads colours from

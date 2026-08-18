@@ -20,7 +20,7 @@
  *   Imports → nothing (deliberately dependency-free, like lib/cardLayout.ts — it must be safe
  *             to read from any component without pulling a store in)
  *   Used by → app/settings.tsx (the People/family card, the paired-devices card, and the
- *             `featureSharing` row in FEATURE_ROWS), app/(tabs)/plans.tsx +
+ *             `featureSharing` row in FEATURE_ROWS), app/plans.tsx +
  *             app/(tabs)/shopping.tsx (the header share icon and the shared sections),
  *             app/(tabs)/index.tsx (Home's shared card)
  *   Data    → none

@@ -19,8 +19,8 @@
  *   Imports → components/Motif (the renderer), constants/motion (Duration, Ease),
  *             lib/useAppTheme (useAccessibility), react-native-reanimated
  *   Used by → components/StarterCard.tsx (its empty-state watermark — `seed` by default,
- *             `sprout` from app/(tabs)/habits.tsx and `sapling` from components/EnergyMeter.tsx),
- *             app/(tabs)/habits.tsx (the `full` stage as an ambient header watermark)
+ *             `sprout` from app/habits.tsx and `sapling` from components/EnergyMeter.tsx),
+ *             app/habits.tsx (the `full` stage as an ambient header watermark)
  *   Data    → none — pure presentation, and deliberately unable to reach a store
  *
  * Edit notes:
@@ -32,7 +32,7 @@
  *     lib/goalStrength.ts flooring at 0 and lib/growth.ts flooring at the neutral backdrop.
  *   - **One tree per screen** (the art's own rule). Before mounting a second one, check
  *     what components/StarterCard.tsx is already drawing on that screen — it carries a
- *     StageTree of its own whenever it is visible. app/(tabs)/habits.tsx is the worked
+ *     StageTree of its own whenever it is visible. app/habits.tsx is the worked
  *     example: its header tree is suppressed exactly while its StarterCard is up.
  *   - **Recolour, don't redraw.** These are ILLUSTRATIONS (each carries its own baked
  *     light/dark `pal` in constants/motifs.ts), so components/Motif ignores `color` for

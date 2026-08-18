@@ -22,7 +22,7 @@
  *
  * Connections:
  *   Imports → expo-router (useFocusEffect), lib/viewSnapshot
- *   Used by → app/(tabs)/shopping.tsx, app/(tabs)/plans.tsx, lib/__tests__/useNewSinceSeen.test.ts
+ *   Used by → app/(tabs)/shopping.tsx, app/plans.tsx, lib/__tests__/useNewSinceSeen.test.ts
  *   Data    → reads/writes only the `app_meta` snapshot row via lib/viewSnapshot.ts.
  *             Reads no entity table and writes none.
  *

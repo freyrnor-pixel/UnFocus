@@ -20,7 +20,7 @@
  *             components/TabSlider, constants/theme, lib/personColor, lib/personEnergy,
  *             lib/i18n, lib/useAppTheme, lib/haptics, store/usePeopleStore,
  *             store/useTaskStore, store/useHabitStore
- *   Used by → app/(tabs)/plans.tsx
+ *   Used by → app/plans.tsx
  *   Data    → reads only; no writes. Capacity is edited on the self row in Settings, since
  *             lib/liveSync's LWW can't tell "I corrected mine" from "I overwrote yours"
  *             (see store/usePeopleStore.ts's "Only edit your OWN capacity" note).

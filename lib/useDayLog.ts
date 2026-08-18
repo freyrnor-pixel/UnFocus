@@ -100,7 +100,7 @@ export function useDayLog(date: string, cutoffMinutes: number): DayEntry[] | und
       // isn't a rest day. Deliberately NOT habitMetOn() — see lib/dayLog.ts's header for
       // why a threshold has no place on this surface.
       //
-      // Person filter mirrors app/(tabs)/habits.tsx: only when People mode is on AND there
+      // Person filter mirrors app/habits.tsx: only when People mode is on AND there
       // is somebody else, because filtering while it's off would make a habit assigned to a
       // family member silently vanish — the exact trap that screen warns about. `''` is
       // "mine" and covers habits written before the People registry existed.

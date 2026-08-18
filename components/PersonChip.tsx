@@ -9,9 +9,9 @@
  *
  * Connections:
  *   Imports → components/PressableScale, constants/theme, lib/personColor, lib/useAppTheme
- *   Used by → components/TaskCard.tsx (row cue + the "For" picker), app/(tabs)/plans.tsx
+ *   Used by → components/TaskCard.tsx (row cue + the "For" picker), app/plans.tsx
  *             (person filter row), app/settings.tsx (People card), app/habit-form.tsx,
- *             app/medicine-form.tsx, components/MedicineTrayCard.tsx, app/(tabs)/habits.tsx
+ *             app/medicine-form.tsx, components/MedicineTrayCard.tsx, app/habits.tsx
  *   Data    → none — presentational; the caller passes the resolved person
  *
  * Edit notes:

@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → @expo/vector-icons
- *   Used by → app/habit-form.tsx (icon picker), app/(tabs)/habits.tsx + components/
+ *   Used by → app/habit-form.tsx (icon picker), app/habits.tsx + components/
  *             HomeHabitsCard.tsx (empty-state starter chips only — since 2026-08-04 both
  *             screens' ROWS go through components/HabitLeading.tsx instead),
  *             components/HabitLeading.tsx (the row-leading policy: this glyph, or the brand

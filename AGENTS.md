@@ -93,7 +93,7 @@ are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` un
 2026-08-01; neither export has ever existed. See `DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
 file owns which token.)
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Plans/Home/Habits/Health** — that is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; this line said Health/Habits for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not the prose. Decision 036, amended 2026-07-23 — UX audit E1/E2 swapped Scan out for Habits, its own tab again); other screens are reached via links/buttons from those 5. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Home/Health** — i.e. Handle · I dag · Meg — which is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line). **Five tabs became three on 2026-08-20**: To-do and Habits stopped being tabs and their DAILY rows merged onto Home, which is the "I dag" tab now — `app/plans.tsx` and `app/habits.tsx` are pushed sub-screens holding the deep surfaces (This week, All tasks, Recurring, Washed away, per-habit setup), reached from the merged card's two headers. Nothing was deleted. Energy deliberately did NOT move to Health with them: it is a planning budget computed from tasks and habits, and the Health tab's stated contract is that nothing on it is a scoreboard. Other screens are reached via links/buttons from those 3. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
 - **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →
   guided/explore → energy → index (name) → home**, then the guided tour. It was ~18
   screens, then 7, and is now **6** (B1-1 deleted the feature picker).
@@ -635,7 +635,7 @@ file owns which token.)
     so the gap the scaffold had just deleted was still being drawn by 21 files instead of one.
     **The rule is about what the edge MEETS, not which tier the screen is**: a vertical edge that
     lands on the header's or the bar's glass is flush, an edge that lands on the safe area is not
-    chrome and keeps its margin. So the five tab screens pad horizontally only, the pushed
+    chrome and keeps its margin. So the tab screens pad horizontally only, the pushed
     sub-screens keep `paddingBottom` (they reserve no nav), and horizontal padding is untouched
     everywhere — the gutters are backdrop by design, and that padding is what insets every card
     from the screen edge. `components/CatalogueTab.tsx`'s `root` moved with them: its `paddingTop`
@@ -2067,7 +2067,7 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 (small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
 
-**Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, the
+**Coverage.** The walk measures onboarding, the tour card, all three tabs, Settings, the
 **design lab** (2026-08-06 — pushed from Settings → Advanced, and scanned last because both it
 and Settings are dead ends; the walk has to throw its off-by-default switch first. **Since the
 playground rebuild that is SIX scans**: the playground empty, with a card on it, and with a
@@ -2091,9 +2091,16 @@ a mode this audit doesn't walk is not a mode it passes. When you add a surface w
 horizontal pressure, add a step for it.
 
 Three things constrain how steps can be ordered, all verified rather than assumed:
-- **The run is TWO passes.** `settings` and `medicine-form` are dead ends — pushed screens
-  that render no `BottomNav` — so only one of them can end a pass. `health-form` is a push
-  that *keeps* BottomNav, so it doesn't need one. The onboarding→tour→Energy-sheet on-ramp is
+- **The run is THREE passes.** `settings`, `medicine-form` and — since the 2026-08-20 5→3 tab
+  merge — **the To-do screen** are dead ends (pushed screens that render no `BottomNav`), so
+  only one of them can end a pass. `health-form` is a push that *keeps* BottomNav, so it
+  doesn't need one. ⚠️ **Two of this walk's locators had gone stale and were skipping silently**
+  (found 2026-08-20): `health-form` waited on `t.logSymptomTrigger`, which has not been on the
+  Health tab since that screen was rebuilt on 2026-08-11, and `goals-drawer` waited on a bare
+  "Goals" where the drawer is labelled `t.goals.editLinkPractical` ("Practical goals"). Both
+  printed a one-line "step skipped" and the run still reported totals, so the app's second- and
+  third-densest forms were simply not being measured. **A step that skips is not a step that
+  passes — check the "screens measured" list against the steps, not just the totals.** The onboarding→tour→Energy-sheet on-ramp is
   shared by both passes via `walkToTabs()`, scanned only on the first (the second re-walks it
   with scanning off, since it's identical and would double every finding).
 - **Never `page.goto()` or `page.goBack()` mid-walk**, except the standalone
