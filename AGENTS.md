@@ -2217,6 +2217,37 @@ Two things there are worth knowing before editing it:
 
 ## Known gotchas
 
+- **⚠️ A composer's OWN controls can take its field's focus, and "the user has left" is not the
+  same question as "the field blurred" (2026-08-18, from a user report on the habit quick-add:
+  *"when I pressed the one that chooses week, and I tried to change interval, it froze. Not
+  crashed, but froze"*).** Nothing had frozen. The "Hvor ofte?" picker goes through
+  `showAppModal`, which mounts a React Native `<Modal>` — and a Modal takes **window** focus, so
+  the composer's `TextInput` blurs the instant the dialog appears. Both quick-add composers read
+  that blur as a tap-away, and on an untitled line that meant the composer disposed of itself
+  *behind the open dialog*: `components/PadTypeRow.tsx` gated its whole options panel on
+  `focused || hasText`, so the panel unmounted; `components/AddRow.tsx` collapses an empty row to
+  its "+" bar, so `app/plans.tsx`'s Whenever composer folded away entirely. The user picked
+  "Weekly", the dialog closed, and the cells it had just configured — including the interval
+  stepper that the pick *brings into existence* — were gone. Every tap in that area then landed
+  on nothing, which is reported as a frozen screen, not as a disappearance.
+  - **The state was never lost, only its UI** — it lives in `lib/useHabitRecurrenceDraft.ts`, not
+    in the panel. That is exactly why it reads as a freeze: nothing looks wrong.
+  - **The guard already half-existed.** `PadTypeRow`'s capture-phase `internalPressRef` had been
+    answering "did this touch belong to my own controls" since 2026-08-02 — but only to protect
+    the *commit*, not the composer's own existence. Both files now branch on it for both, and
+    `PadTypeRow`'s gate has a third term (`engaged`). **A new control in an `extras`/`panel` slot
+    depends on the slot's wrapper spreading `controlsResponderProps`** — that is the one thing a
+    new slot silently misses; `lib/__tests__/composerFocusSteal.test.ts` pins it per slot.
+  - **The flag has to be re-armed on focus.** Once a picker has been through, the field is
+    blurred, so the next control press sets the flag with no blur to consume it — stale, it eats
+    the next genuine tap-away and a typed line silently fails to commit. Both `onFocus`
+    handlers clear it.
+  - **The general lesson**: a blur says the field lost focus, never *why*. Anything a surface
+    tears down on blur (a panel, an expansion, a draft) needs to know whether the focus went to
+    one of its own controls first — and `<Modal>`, bottom sheets and a pushed route all count as
+    "its own control" when the surface is what opened them. Invisible to `tsc`, and invisible to
+    a screenshot; `npm run preview` catches it only by accident (react-native-web blurs on
+    mousedown instead of on window focus), which is why the regression test is a source scan.
 - **⚠️ A header comment that ASSERTS a safety property is not evidence the property holds — verify it against the actual whitelist/schema/predicate it claims to satisfy (2026-08-10, from a stress-testing pass on PR #540).**
   `store/useShoppingStore.ts`'s header said `doneShopping`/`monthlyReset`/`resetMonthlyList`
   were "deliberately left untouched" by the live-sync stamp because they "don't write
