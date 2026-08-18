@@ -210,7 +210,9 @@ export default function AppModalHost() {
                     key={i}
                     style={[
                       styles.button,
-                      request.buttons.length !== 2 && styles.buttonColumnItem,
+                      // One or the other, never both, and neither is a `flex` shorthand —
+                      // see the note on `buttonColumnItem`.
+                      request.buttons.length === 2 ? styles.buttonRowItem : styles.buttonColumnItem,
                       keyStyle,
                     ]}
                     scaleTo={scaleTo}
@@ -263,19 +265,45 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   button: {
-    flex: 1,
+    // ⚠️ **NO `flex` HERE — see `buttonColumnItem`.** A `flex: N` shorthand alongside the
+    // longhands below is what collapsed every stacked dialog on device. Each layout states
+    // its own grow/shrink/basis, and neither states `flex`.
     paddingVertical: Spacing.sm,
     borderRadius: Radius.md,
     alignItems: 'center',
   },
+  // Two buttons sit side by side and split the row — the `flex: 1` this replaces, spelled out
+  // for the same reason the column's triple is (see below).
+  buttonRowItem: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+  },
   buttonColumnItem: {
-    // Spelled out rather than `flex: 0`, which means two different things on the two
-    // platforms: Yoga reads it as basis `auto` (the button sizes to its label, correct),
-    // CSS reads the shorthand as `0 1 0%` (basis 0 — the button collapses to its padding
-    // and the label spills out over the fill). Native was always fine; the stacked
-    // 3-button confirms were unreadable under react-native-web, which is what the preview
-    // and the wrap audit both run on, so every multi-button dialog in the app was
-    // invisible to them. Keep these three explicit.
+    // ⚠️ **These three must not be combined with a `flex` shorthand, and that is not a style
+    // preference — it silently deletes the label on device (2026-08-18).**
+    //
+    // Yoga's `Node::processFlexBasis()` (ReactCommon/yoga/yoga/node/Node.cpp): when
+    // `flexBasis` is `auto` it does NOT stop there — it falls through to `if (style.flex()
+    // isDefined && > 0) return useWebDefaults() ? auto : points(0)`, and React Native leaves
+    // `useWebDefaults_` false. So `flex: 1` + `flexBasis: 'auto'` resolves to **basis 0**, and
+    // with `flexGrow: 0` beside it the button can never grow back: Yoga clamps it to
+    // padding + border and the label is squeezed out of the box entirely. In a COLUMN
+    // container that basis is the HEIGHT, so a stacked dialog rendered as blank pills — the
+    // exact failure the header title had in 2026-07-16 (`HEADER_CLIP_DEBUG.md`; that file's
+    // subtree, re-run in yoga-layout@3, still reproduces both).
+    //
+    // **Two buttons were never affected**, which is why this survived: `confirmDestructive` is
+    // always Cancel + one red button, so it takes the ROW layout and never applies this style.
+    // Only a 3+-button dialog stacks — the recurrence pickers, the destination picker, the
+    // new-list chooser — and those are exactly the ones that shipped label-less.
+    //
+    // **react-native-web is the mirror image and cannot see it**, which is why the preview,
+    // the wrap audit and every screenshot in `review-bundle/` show these dialogs correctly:
+    // RNW emits the CSS `flex: 1` shorthand and then these longhands AFTER it, so
+    // `flex-basis: auto` wins and the button sizes to its content. The comment that used to
+    // sit here had it exactly backwards ("Native was always fine") because it was written from
+    // the web symptom alone.
     flexGrow: 0,
     flexShrink: 0,
     flexBasis: 'auto',

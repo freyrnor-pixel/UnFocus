@@ -2217,6 +2217,40 @@ Two things there are worth knowing before editing it:
 
 ## Known gotchas
 
+- **⚠️ A `flex: N` shorthand next to `flexBasis: 'auto'` resolves to basis ZERO on device and
+  silently deletes the content (2026-08-18, from a user screenshot of a habit's "Hvor ofte?"
+  picker rendering as four blank pills).** This is the SECOND time this exact Yoga trap has
+  shipped — the first was the 2026-07-16 header title (`HEADER_CLIP_DEBUG.md`) — so it is worth
+  knowing by mechanism rather than by symptom.
+  - **The mechanism, from Yoga's own source** (`ReactCommon/yoga/yoga/node/Node.cpp`,
+    `Node::processFlexBasis`): an `auto` basis does **not** stop there. It falls through to
+    `if (style_.flex().isDefined() && style_.flex().unwrap() > 0.0f) return
+    config_->useWebDefaults() ? ofAuto() : points(0);` — and React Native leaves
+    `useWebDefaults_` **false** (`config/Config.h`). So `flex: 1` + `flexBasis: 'auto'` is basis
+    **0**, and a `flexGrow: 0` beside it means the box can never grow back: Yoga clamps it to
+    padding + border and the content is squeezed out. In a COLUMN container that basis is the
+    HEIGHT. `components/AppModal.tsx`'s `styles.button` had `flex: 1` while its stacked-layout
+    companion set `flexBasis: 'auto'`, so **every dialog with 3+ buttons rendered as blank
+    pills, exactly `paddingVertical * 2 + borderWidth * 2` tall.**
+  - **Two reasons it survived.** A TWO-button dialog takes the row layout and never applies the
+    column style, so `confirmDestructive` — the app's most common dialog by far — always looked
+    right; only 3+ buttons stack (the recurrence pickers, the destination picker, the new-list
+    chooser). And **react-native-web is the mirror image**: RNW emits the CSS `flex` shorthand
+    and then the longhands after it, so `flex-basis: auto` wins and the button sizes to content.
+    The preview, `npm run wraps` and every screenshot in `review-bundle/` render these dialogs
+    perfectly. The comment on that style even asserted "Native was always fine" — written from
+    the web symptom alone, and exactly backwards.
+  - **Reproduce it headlessly instead of guessing** — `HEADER_CLIP_DEBUG.md`'s method still
+    works and is the only thing in this repo that can see this class of bug: `npm i
+    yoga-layout@3` in a scratch dir, model the subtree **from a definite-height ancestor down**
+    (the collapse does not manifest under an all-auto chain — a toy model will report green),
+    and toggle the one style. Validate the harness by re-running that file's header subtree as a
+    control first; if the control does not reproduce, the model is too shallow, not the theory
+    wrong. Here: 18dp with the `flex: 1`, 42dp without, against the web preview's measured 41dp.
+  - **The rule**: state `flexGrow`/`flexShrink`/`flexBasis` explicitly, or state `flex` — never
+    both in one composed style. A percentage or numeric basis is safe (it returns before `flex`
+    is consulted); `'auto'` is the dangerous one. `lib/__tests__/dialogButtonLayout.test.ts`
+    scans `app/`, `components/` and `lib/` for the pair.
 - **⚠️ A composer's OWN controls can take its field's focus, and "the user has left" is not the
   same question as "the field blurred" (2026-08-18, from a user report on the habit quick-add:
   *"when I pressed the one that chooses week, and I tried to change interval, it froze. Not
