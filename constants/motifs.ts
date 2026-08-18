@@ -1213,4 +1213,4 @@ export const SCREEN_BG_IDS = MOTIF_IDS.filter((id) => id.startsWith('screen-bg-'
  * slid by that navigator's index — if they disagree, every tab quietly shows its neighbour's
  * art. lib/__tests__/motifs.test.ts checks the two against each other.
  */
-export const STRIP_PANEL_ORDER = ["shopping","home","health"] as const;
+export const STRIP_PANEL_ORDER = ["shopping","home","plans"] as const;

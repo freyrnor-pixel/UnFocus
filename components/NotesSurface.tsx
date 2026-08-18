@@ -159,9 +159,12 @@ export default function NotesSurface({ embedded = false }: Props) {
 }
 
 const styles = StyleSheet.create({
-  // No horizontal padding — the caller supplies its own inset, same convention
-  // components/FoodTab.tsx's `root` follows.
-  content: { gap: SCREEN_GAP, paddingBottom: Spacing.md },
+  // No horizontal padding, and no paddingBottom either — both are the caller's job
+  // (app/notes.tsx's own `content` wrapper for the pushed route; CardExpandHost's
+  // `scrollContent` for the expanded body), same convention components/FoodTab.tsx's `root`
+  // follows. `gap` stays here: it is needed for this component's own internal card stack
+  // regardless of which caller mounts it.
+  content: { gap: SCREEN_GAP },
   section: { gap: Spacing.sm },
   sectionLabel: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   divider: { height: 2, borderRadius: 999 },

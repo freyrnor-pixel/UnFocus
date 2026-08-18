@@ -256,16 +256,20 @@ describe('the promise: nothing here can grow a number', () => {
 /**
  * The screen half, as source scans.
  *
- * Neither `components/TaskCard.tsx` nor `app/plans.tsx` has a render-level test in this
- * repo (see lib/__tests__/taskCardMoveShortcut.test.ts's header for why), and none of the
- * headless harnesses can see any of this: `tsc` typechecks both wirings identically, and
+ * Neither `components/TaskCard.tsx` nor `components/TodoSurface.tsx` has a render-level test
+ * in this repo (see lib/__tests__/taskCardMoveShortcut.test.ts's header for why), and none of
+ * the headless harnesses can see any of this: `tsc` typechecks both wirings identically, and
  * `npm run preview` walks neither an expanded Today card nor a three-day-old task. So the
  * property is asserted in the text — the same technique lib/__tests__/stableLayout.test.ts
  * and lib/__tests__/exampleRows.test.ts use.
+ *
+ * `plans` reads components/TodoSurface.tsx, not app/(tabs)/plans.tsx (2026-08-20 extraction) —
+ * that file is a thin ScreenScaffold wrapper now; the predicate/drawer this describes live in
+ * the extracted surface, unchanged.
  */
 describe('the screen half is wired where it has to be', () => {
   const card = readFileSync(join(ROOT, 'components/TaskCard.tsx'), 'utf8');
-  const plans = readFileSync(join(ROOT, 'app/plans.tsx'), 'utf8');
+  const plans = readFileSync(join(ROOT, 'components/TodoSurface.tsx'), 'utf8');
 
   it('TaskCard gates "Not today" on the STORE\'s own rule, not a local copy of it', () => {
     // The button and the action must not be able to disagree about when this is legal — a
@@ -296,8 +300,10 @@ describe('the screen half is wired where it has to be', () => {
   });
 
   it('the archive drawer renders only when it holds something, and shows no age', () => {
-    expect(plans).toMatch(/\{washedAway\.length > 0 && \(/);
-    const start = plans.indexOf('{washedAway.length > 0 && (');
+    // `full &&` (2026-08-20): the drawer is full-tab chrome, omitted when TodoSurface renders
+    // one expanded card's body — see that file's `section` prop doc.
+    expect(plans).toMatch(/\{full && washedAway\.length > 0 && \(/);
+    const start = plans.indexOf('{full && washedAway.length > 0 && (');
     const block = plans.slice(start, plans.indexOf('</CollapsedSection>', start));
     // A date, a "days ago" or a formatted stamp on one of these rows would re-introduce
     // exactly the escalation the whole feature exists to avoid.

@@ -56,5 +56,10 @@ export default function NotesScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: Spacing.md },
+  // A pushed sub-screen reserves no bottom nav, so its lower edge lands on the safe area
+  // rather than on chrome, and keeps its own paddingBottom (lib/__tests__/screenRhythm.test.ts)
+  // — the vertical rhythm (gap) itself lives in NotesSurface's own `content` style, since that
+  // component is also mounted inside CardExpandHost, which needs the same internal spacing
+  // regardless of caller.
+  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
 });

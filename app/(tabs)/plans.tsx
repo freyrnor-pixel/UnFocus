@@ -35,6 +35,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import TodoSurface from '@/components/TodoSurface';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
+import TourTarget from '@/components/TourTarget';
 import { useT } from '@/lib/i18n';
 import { useRouter } from 'expo-router';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -76,7 +77,9 @@ export default function TasksScreen() {
         onLayoutPress={() => setLayoutPickerOpen(true)}
       >
         <View style={styles.content}>
-          <TodoSurface onDayReset={handleDayReset} />
+          <TourTarget id="tour.plans.today">
+            <TodoSurface onDayReset={handleDayReset} />
+          </TourTarget>
         </View>
         <LayoutPickerSheet visible={layoutPickerOpen} surface="plans" onClose={() => setLayoutPickerOpen(false)} />
       </ScreenScaffold>

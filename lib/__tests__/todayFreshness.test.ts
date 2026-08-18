@@ -25,14 +25,23 @@ const ROOT = path.join(__dirname, '..', '..');
 const TABS_DIR = path.join(ROOT, 'app', '(tabs)');
 
 /**
- * Pushed screens that are scanned alongside the tabs. app/plans.tsx and app/habits.tsx left the
- * pager on 2026-08-20 (5 tabs → 3) — and the rule binds them MORE, not less: they are still
- * long-lived (a pushed screen stays mounted while you work in it), they still capture a
- * render-scope `today`, and app/habits.tsx is the screen the original bug was measured on. A
- * scan keyed on the tabs directory alone would have stopped covering it the moment it moved,
- * reporting green over exactly the file it was written for.
+ * Pushed screens that are scanned alongside the tabs. app/habits.tsx left the pager on
+ * 2026-08-20 (5 tabs → 3) — and the rule binds it MORE, not less: it is still long-lived (a
+ * pushed screen stays mounted while you work in it), it still captures a render-scope `today`,
+ * and it is the screen the original bug was measured on. A scan keyed on the tabs directory
+ * alone would have stopped covering it the moment it moved, reporting green over exactly the
+ * file it was written for. app/health.tsx crossed the SAME way hours later (the "full-screen
+ * card expansion" pass) and joined it.
  */
-const PUSHED_SCREENS = ['app/plans.tsx', 'app/habits.tsx'] as const;
+const PUSHED_SCREENS = ['app/habits.tsx', 'app/health.tsx'] as const;
+
+/**
+ * Extracted surface components (same pass) that carry the REAL `today` capture now — their
+ * thin route wrappers (app/(tabs)/plans.tsx, app/health.tsx) mount them but derive nothing
+ * themselves. Scanning only the wrapper would trivially pass ("nothing captured — fine") over
+ * exactly the file that actually needs the pairing.
+ */
+const EXTRACTED_SURFACES = ['components/TodoSurface.tsx', 'components/HealthSurface.tsx'] as const;
 
 /**
  * Render scope is identified by INDENTATION — two spaces is a component body, deeper is inside
@@ -52,12 +61,16 @@ const tabScreens = [
     file: path.basename(rel),
     source: fs.readFileSync(path.join(ROOT, rel), 'utf8'),
   })),
+  ...EXTRACTED_SURFACES.map((rel) => ({
+    file: path.basename(rel),
+    source: fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+  })),
 ];
 
 describe('a render-scope `today` is paired with the minute tick', () => {
   it('finds the screens at all (guards against a silently empty scan)', () => {
-    // 3 tabs + the 2 pushed list screens.
-    expect(tabScreens.length).toBeGreaterThanOrEqual(5);
+    // 3 tabs + the 2 pushed list screens + the 2 extracted surfaces.
+    expect(tabScreens.length).toBeGreaterThanOrEqual(7);
   });
 
   it.each(tabScreens.map((s) => s.file))('%s', (file) => {
@@ -71,9 +84,14 @@ describe('a render-scope `today` is paired with the minute tick', () => {
    * The rule is worth nothing if every screen happens to opt out. Assert the four that
    * genuinely do capture a render-scope date are still covered, so a future edit that drops
    * the capture (fine) is told apart from one that drops the tick (not fine).
+   *
+   * The membership changed with the 2026-08-20 extraction: app/(tabs)/plans.tsx and
+   * app/health.tsx are thin route wrappers now and capture nothing themselves —
+   * components/TodoSurface.tsx and components/HealthSurface.tsx are where the real capture
+   * (and its useNowMinutes pairing) live.
    */
-  it('covers the four screens that capture one', () => {
+  it('covers the four screens/surfaces that capture one', () => {
     const capturing = tabScreens.filter((s) => RENDER_SCOPE_TODAY.test(s.source)).map((s) => s.file);
-    expect(capturing.sort()).toEqual(['habits.tsx', 'health.tsx', 'index.tsx', 'plans.tsx']);
+    expect(capturing.sort()).toEqual(['HealthSurface.tsx', 'TodoSurface.tsx', 'habits.tsx', 'index.tsx']);
   });
 });

@@ -94,7 +94,6 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
-import TourTarget from '@/components/TourTarget';
 import DayPickerSheet, { RecentDaysList } from '@/components/DayPickerSheet';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
@@ -977,10 +976,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         </View>
       )}
 
-      {full && energySystemEnabled && showPeople && <EnergyBalanceCard date={today} />}
+      {energySystemEnabled && full && showPeople && <EnergyBalanceCard date={today} />}
 
       {wheneverCard}
-      {full ? <TourTarget id="tour.plans.today">{todayCard}</TourTarget> : todayCard}
+      {todayCard}
       {weekCard}
       {recurringCard}
 

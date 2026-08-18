@@ -86,6 +86,7 @@ import {
   Fonts,
   HitSlop,
   Radius,
+  SCREEN_GAP,
   Spacing,
   Type,
 } from '@/constants/theme';
@@ -541,11 +542,11 @@ export default function HealthSurface({ embedded = false }: Props) {
 }
 
 const baseStyles = StyleSheet.create({
-  content: { gap: Spacing.md },
+  content: { gap: SCREEN_GAP },
   // No horizontal padding either way — the caller supplies its own inset (screen content
   // wrapper, Home card padding, or CardExpandHost's), same convention components/FoodTab.tsx's
   // `root` follows.
-  embeddedContent: { gap: Spacing.md },
+  embeddedContent: { gap: SCREEN_GAP },
   healthCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   healthCardEmbedded: { gap: Spacing.md },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
