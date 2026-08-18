@@ -21,7 +21,8 @@
  * Connections:
  *   Imports → (none — deliberately dependency-free so it stays unit-testable and can't
  *             drag notification/DB code into a render path)
- *   Used by → components/ShoppingRow.tsx, components/WeekListCard.tsx, app/(tabs)/shopping.tsx,
+ *   Used by → components/ShoppingRow.tsx, components/ShoppingChip.tsx (the `chips` flag),
+ *             components/WeekListCard.tsx, app/(tabs)/shopping.tsx,
  *             app/(tabs)/plans.tsx, components/PlanTaskCard.tsx, components/LayoutPickerSheet.tsx,
  *             app/settings.tsx, lib/__tests__/cardLayout.test.ts
  *   Data    → none — pure functions over values the caller already has. Reads no store,
@@ -39,6 +40,13 @@
  *   - `DETAIL_LEVELS` are the three layouts every surface supports. A surface-specific
  *     layout (inStore, nowNext) is *additional*, never a replacement — so the global
  *     default is always valid for every surface and resolution can't dead-end.
+ *   - **A new SHAPE is a flag on an existing layout, not a new id, unless the two would
+ *     genuinely be offered side by side.** `chips` (2026-08-20) rides on `inStore` because
+ *     that layout already means "big targets, name only, no money, walked in aisle order" —
+ *     a second id meaning the same thing would need a name explaining the difference from it,
+ *     and the picker would ask the user a question with no good answer. Adding an id is right
+ *     when a user would choose BETWEEN them (`nowNext` vs `focusFirst`); a flag is right when
+ *     one is simply how the other is drawn.
  */
 
 /**
@@ -121,6 +129,21 @@ export type LayoutSpec = {
    */
   groupByAisle?: boolean;
   /**
+   * Draw the list as a wrapping grid of tap-to-tick CHIPS instead of ruled rows, and put the
+   * ticked ones in a "recently used" drawer under it.
+   *
+   * Rides on `inStore` rather than being its own layout id, deliberately: that layout already
+   * means "big targets, name only, no money, walked in aisle order", and a second id meaning
+   * the same thing would need a name that explained the difference from it. This flag says
+   * what SHAPE that intent takes; `bigTouch`/`showPrice`/`groupByAisle` still say what a row
+   * may draw, so the chip honours them rather than re-deciding.
+   *
+   * Like every flag here it can only SUBTRACT — a chip drops price and drag-reorder because
+   * one tap is already spent on ticking. Nothing is written: switching back to any other
+   * layout restores the dragged order and every field untouched.
+   */
+  chips?: boolean;
+  /**
    * Draw the day as a clock-time calendar grid (lib/dayGrid + components/DayGridLines)
    * instead of a ruled list. A surface asks for this flag, never for the `timeline` id — same
    * rule as every other flag here.
@@ -147,7 +170,11 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   everything: spec('everything', 'roomy', true, true, true),
   // "In the store" — big rows, name only, no money; read at arm's length in a shop, and
   // grouped by aisle because that's the order you physically walk it in.
-  inStore: { ...spec('inStore', 'roomy', false, false, false, false, true), groupByAisle: true },
+  inStore: {
+    ...spec('inStore', 'roomy', false, false, false, false, true),
+    groupByAisle: true,
+    chips: true,
+  },
   // "Now and next" — the current item large, the next one small, the rest behind a count.
   nowNext: spec('nowNext', 'normal', true, false, false, true, false),
   // "One thing at a time" (design-system v6's `Focus First (1c)`) — ONE task as a hero card,

@@ -24,7 +24,10 @@
  *             lib/cardLayout (LayoutSpec — what this row is allowed to draw),
  *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme, react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
- *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx (weekly rows +
+ *   Used by → components/WeekListCard.tsx (every layout EXCEPT the chip one — where
+ *             `spec.chips` is set that card draws components/ShoppingChip.tsx instead, which is
+ *             the same item in a different shape, not a different row),
+ *             app/(tabs)/shopping.tsx (weekly rows +
  *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
  *             preview — planned + cart rows, no drag reorder)
  *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onOpenDetail

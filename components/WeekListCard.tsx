@@ -23,7 +23,10 @@
  *             components/IconButton, components/Button (the two ghost secondary add paths),
  *             components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/CardAccent (CardAccentBadge),
- *             components/ShoppingRow (CHECKED_OPACITY), constants/theme, lib/cardLayout (LayoutSpec),
+ *             components/ShoppingRow (CHECKED_OPACITY), components/ShoppingChip (the chip
+ *             layout's row), lib/shoppingStarters (SHOPPING_STARTERS — the quick-add tray's
+ *             bundles), constants/theme (incl. getMatte, shared by the chips and the tray),
+ *             lib/cardLayout (LayoutSpec),
  *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets,
  *             categoryLabel — the "In the store" aisle headers),
  *             lib/shoppingGroups (listProgress, listTotal, groupByCategory), lib/useAppTheme, lib/haptics,
@@ -33,6 +36,28 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **The chip layout + the quick-add tray (2026-08-20).** Two changes that only appear
+ *     together, both on "In the store" (`spec.chips`, lib/cardLayout.ts):
+ *     1. **"In list" draws as a wrapping grid of chips**, still in aisle sections, and the
+ *        existing **In-cart** bucket is relabelled **"Brukt nylig"** — `t.recentlyUsedSection`,
+ *        chip layout ONLY. Nothing new is stored: it is the same `checked` flag and the same
+ *        `computeListGroups` buckets, so a paired phone sees it (lib/liveSync whitelists
+ *        `checked`; `collected` and `status` are NOT whitelisted and a bucket keyed on either
+ *        would silently fail to sync), and components/ShoppingStoreMode.tsx keeps its own
+ *        "I handlekurv" wording for the surface that really is a trolley.
+ *     2. **The tray sits ABOVE the list**, which is a deliberate exception to the
+ *        bottom-of-list rule for "add a new row" triggers (AGENTS.md, from the FoodTab pass) —
+ *        that rule is about a bare "+" whose row should appear where you pressed; this is a
+ *        labelled palette of named bundles, and it was asked for above the list, where it
+ *        reads as "start from one of these" on a list you haven't built yet.
+ *     Three things NOT to undo: the tray is **planning-mode only** (nothing to stock up on
+ *     while standing in the shop); its chips are **matte, never filled**, because
+ *     InlineAddItem's bar below is this screen's one primary (rule 6); and a bundle goes
+ *     through `onAddStarterBundle`, not a loop over `onAddInlineItem`, so one user action
+ *     fires one toast and one haptic instead of five of each.
+ *   - **The section totals follow `spec.showPrice` (2026-08-20).** They didn't until then, so
+ *     "In the store" — whose whole contract is "name only, no money" — still printed a running
+ *     total under the list. Caught in the web preview, not by a test.
  *   - **Shop-domain badge (2026-07-26, "bring the card colour back")**: a small
  *     `CardAccentBadge` (domain="shop") leads `nameWrap`, before the lock icon — the same
  *     gradient badge Home's preview cards use, added here for cross-tab consistency. Kept
@@ -137,8 +162,8 @@ import { useRouter } from 'expo-router';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
-import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, getMatte } from '@/constants/theme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
@@ -150,6 +175,8 @@ import Button from '@/components/Button';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
+import ShoppingChip from '@/components/ShoppingChip';
+import { SHOPPING_STARTERS, type StarterItem } from '@/lib/shoppingStarters';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
 import InlineAddItem from '@/components/InlineAddItem';
@@ -201,6 +228,13 @@ type Props = {
   onOpenItem: (item: ShoppingItem) => void;
   /** Inline add row submission — called when the user confirms adding a new item. */
   onAddInlineItem: (input: { name: string; price: number; qty: number; category?: string }) => void;
+  /**
+   * Quick-add tray (2026-08-20) — append a whole bundle from lib/shoppingStarters.ts in one
+   * tap. Separate from `onAddInlineItem` rather than looped over it because a bundle is ONE
+   * user action: routing it through the single-item callback would fire a toast and a haptic
+   * per item, which is five of each for "Basisvarer".
+   */
+  onAddStarterBundle: (items: readonly StarterItem[]) => void;
   /**
    * Open the inline add row expanded with this text in the name field (2026-07-30) — how a note
    * sent to the shopping list arrives. The screen passes it only to the CURRENT week's list, so
@@ -280,6 +314,7 @@ export default function WeekListCard({
   onRemoveItem,
   onOpenItem,
   onAddInlineItem,
+  onAddStarterBundle,
   addPrefill,
   onDecrementCartItem,
   monthlyItems,
@@ -299,6 +334,7 @@ export default function WeekListCard({
 }: Props) {
   const router = useRouter();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   // This screen's own green (2026-08-06) — was lib/domainColor's 'shop' identity, which the
   // 2026-07-31 hue collapse silently turned to gold (IDENTITY_HUES.shopping.hue), even though
@@ -559,6 +595,45 @@ export default function WeekListCard({
               />
             )}
 
+            {/* ── Quick-add tray (2026-08-20) ──────────────────────────────────────────────
+                One tap appends a short named bundle (lib/shoppingStarters.ts) to THIS list, so
+                a week can be started without typing anything.
+
+                **It sits ABOVE the list, which is a deliberate exception** to the
+                bottom-of-list placement rule for "add a new row" triggers (AGENTS.md, from the
+                FoodTab pass): that rule is about a bare "+" whose new row should appear where
+                you pressed. This is a labelled palette of named shortcuts rather than a row
+                trigger, and it was asked for above the list — where it reads as "start from
+                one of these" before you have a list, instead of as a footer you scroll past.
+
+                **Quiet matte chips, never a filled fill.** InlineAddItem's collapsed bar below
+                is this screen's ONE primary action (DESIGN_RULES.md rule 6); a tray of accent
+                buttons above it would be a second, louder one. Planning mode only — there is
+                nothing to stock up on while you are standing in the shop. */}
+            {!list.locked && (
+              <View style={styles.starterTray}>
+                <Text style={[styles.starterTrayLabel, { color: theme.textMuted }]}>
+                  {t.shoppingStarters.trayLabel}
+                </Text>
+                <View style={styles.starterTrayChips}>
+                  {SHOPPING_STARTERS.map((starter) => (
+                    <PressableScale
+                      key={starter.id}
+                      style={[styles.starterChip, { backgroundColor: getMatte(isDark) }]}
+                      onPress={() => onAddStarterBundle(starter.items)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t.shoppingStarters[starter.id as 'basics']}
+                    >
+                      <Text style={[styles.starterChipText, { color: theme.text }]}>
+                        {t.shoppingStarters[starter.id as 'basics']}
+                      </Text>
+                      <Ionicons name="add" size={16} color={theme.textMuted} />
+                    </PressableScale>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {filterActive ? (
               filteredInList.length > 0 && (
                 <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
@@ -580,6 +655,38 @@ export default function WeekListCard({
                       {idx < filteredInList.length - 1 && (
                         <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
                       )}
+                    </View>
+                  ))}
+                </View>
+              )
+            ) : spec.chips ? (
+              /* "In the store" (chip layout, 2026-08-20): the same aisle sections, drawn as a
+                 wrapping grid of tap-to-tick chips instead of ruled rows. One tap ticks an
+                 item and it moves to the "Brukt nylig" drawer below — that IS the existing
+                 In-cart bucket, relabelled for this layout only, so nothing new is stored and
+                 components/ShoppingStoreMode.tsx keeps its own "I handlekurv" wording.
+                 Deliberately no dividers: chips are separated by whitespace, and a rule
+                 between them would be the border the blueprint pass took off. */
+              aisleGroups.length > 0 && (
+                <View style={styles.chipSections}>
+                  {aisleGroups.map(([category, aisleItems]) => (
+                    <View key={category}>
+                      <Text style={[styles.aisleHeader, { color: theme.textMuted }]}>
+                        {categoryLabel(t, category)}
+                      </Text>
+                      <View style={styles.chipGrid}>
+                        {aisleItems.map((item) => (
+                          <ShoppingChip
+                            key={item.id}
+                            item={item}
+                            ticked={false}
+                            onToggle={() => onToggleItem(item)}
+                            onOpenDetail={() => onOpenItem(item)}
+                            locked={list.locked}
+                            spec={spec}
+                          />
+                        ))}
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -734,7 +841,10 @@ export default function WeekListCard({
               onClose={() => setMonthlyPreviewOpen(false)}
             />
 
-            {inListTotal > 0 && (
+            {/* The section totals follow `spec.showPrice` like every other money in this card.
+                They didn't until 2026-08-20, so "In the store" — a layout whose whole point is
+                "name only, no money" — still printed a running total under the list. */}
+            {inListTotal > 0 && spec.showPrice && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                 {t.weekListTotal(formatKr(inListTotal, 0))}
               </Text>
@@ -749,9 +859,29 @@ export default function WeekListCard({
               ref={(node) => registerCartHeaderNode?.(node)}
               style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}
             >
-              <Text style={[styles.sectionLabel, { color: theme.accent }]}>{t.inCartSection(totalInCart)}</Text>
+              <Text style={[styles.sectionLabel, { color: theme.accent }]}>
+                {spec.chips ? t.recentlyUsedSection(totalInCart) : t.inCartSection(totalInCart)}
+              </Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
+            {spec.chips ? (
+              /* The same bucket the rows branch below draws — ticked items — as chips. Tapping
+                 one puts it straight back in the list, so the drawer is a way back and not a
+                 dead end. */
+              <View style={styles.chipGrid}>
+                {(filterActive ? filteredInCart : allChecked).map((item) => (
+                  <ShoppingChip
+                    key={item.id}
+                    item={item}
+                    ticked
+                    onToggle={() => onToggleItem(item)}
+                    onOpenDetail={() => onOpenItem(item)}
+                    locked={list.locked}
+                    spec={spec}
+                  />
+                ))}
+              </View>
+            ) : (
             <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.accent }]}>
               {(filterActive ? filteredInCart : allChecked).map((item, idx, arr) => (
                 <View key={item.id}>
@@ -772,7 +902,8 @@ export default function WeekListCard({
                 </View>
               ))}
             </View>
-            {inCartTotal > 0 && (
+            )}
+            {inCartTotal > 0 && spec.showPrice && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                 {t.weekListTotal(formatKr(inCartTotal, 0))}
               </Text>
@@ -908,6 +1039,22 @@ const baseStyles = StyleSheet.create({
   // Inset past the check so the column of checks reads as one line down the card
   // Full-width now (2026-07-30): the check moved to the right margin, so there is no leading
   // column left to inset past, and a rule that crosses the whole line reads as ruled paper.
+  // Chip layout (2026-08-20). `gap` only — no border, no fill, no rule between chips; the
+  // whitespace IS the separation, same rule PadSheet's flush rows follow.
+  chipSections: { gap: Spacing.md },
+  starterTray: { gap: Spacing.xs },
+  starterTrayLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  starterTrayChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  starterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: MIN_TAP_TARGET,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+  },
+  starterChipText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   rowDivider: { height: 1 },
   // "In the store" aisle header. Quiet — it's a wayfinding label inside a card that already
   // has its own title, not a second section header competing with it.
