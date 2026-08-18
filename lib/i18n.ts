@@ -872,7 +872,28 @@ const en = {
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   toBuySection: (n: number) => `To buy (${n})`,
+  /**
+   * Quick-add tray (2026-08-20) — one-tap bundles that append to the list you are looking at,
+   * so a week list can be started without typing. Ids match `SHOPPING_STARTERS` in
+   * lib/shoppingStarters.ts and a test pins that the two sets agree; the ITEM names inside a
+   * bundle stay Norwegian in every language, per the catalogue's own convention.
+   */
+  shoppingStarters: {
+    trayLabel: 'Quick add',
+    basics: 'Basics',
+    fruitVeg: 'Fruit & veg',
+    cleaning: 'Cleaning',
+    added: (n: number) => `${n} ${n === 1 ? 'item' : 'items'} added`,
+  },
   inCartSection: (n: number) => `In cart (${n})`,
+  /**
+   * The same bucket `inCartSection` names, worded for the chip layout only ("In the store").
+   * There the tick is the whole interaction and the drawer is where a ticked chip lands, so
+   * "in cart" would be claiming something the surface never asked — you may be crossing items
+   * off a list at home. It says what happened, not where the item now is.
+   * components/ShoppingStoreMode.tsx keeps "In cart"; that surface really is a trolley.
+   */
+  recentlyUsedSection: (n: number) => `Recently used (${n})`,
   purchasedSection: (n: number) => `Purchased (${n})`,
   fromMonthlySection: 'From monthly list',
   // --- Store mode (2026-08-11) ---
@@ -2948,7 +2969,15 @@ const no: typeof en = {
   },
   // --- Session A2·2: WeekListCard chrome + sticky-header overflow (Decision 011) ---
   toBuySection: (n: number) => `Å kjøpe (${n})`,
+  shoppingStarters: {
+    trayLabel: 'Legg til raskt',
+    basics: 'Basisvarer',
+    fruitVeg: 'Frukt og grønt',
+    cleaning: 'Rengjøring',
+    added: (n: number) => `${n} ${n === 1 ? 'vare' : 'varer'} lagt til`,
+  },
   inCartSection: (n: number) => `I kurven (${n})`,
+  recentlyUsedSection: (n: number) => `Brukt nylig (${n})`,
   purchasedSection: (n: number) => `Kjøpt (${n})`,
   fromMonthlySection: 'Fra månedsliste',
   // --- Store mode (2026-08-11) ---
@@ -4776,7 +4805,16 @@ const is: typeof en = {
     other: 'Annað',
   },
   toBuySection: (n: number) => `Að kaupa (${n})`,
+  shoppingStarters: {
+    trayLabel: 'Bæta við hratt',
+    basics: 'Grunnvörur',
+    fruitVeg: 'Ávextir og grænmeti',
+    cleaning: 'Hreingerning',
+    // "vara" beygist, svo öll setningin fer gegnum isCount — sögnin beygist með.
+    added: (n: number) => `${n} ${isCount(n, 'vöru bætt við', 'vörum bætt við')}`,
+  },
   inCartSection: (n: number) => `Í körfu (${n})`,
+  recentlyUsedSection: (n: number) => `Nýlega notað (${n})`,
   purchasedSection: (n: number) => `Keypt (${n})`,
   fromMonthlySection: 'Úr mánaðarlista',
   storeModeBtn: 'Búðarhamur',

@@ -969,6 +969,45 @@ export default function ShoppingScreen() {
     ]);
   }
 
+  /**
+   * Quick-add tray (2026-08-20) — append one bundle from lib/shoppingStarters.ts to `listId`.
+   *
+   * Three things it leans on rather than reimplementing:
+   *   - **`add()` dedups.** Same status + listId + name bumps the existing row's amount rather
+   *     than inserting a second one (Decision 021), so tapping "Basisvarer" twice gives you
+   *     ×2 milk, not two milk rows — which is also why the tray needs no "already added"
+   *     state of its own.
+   *   - **The catalogue owns the price.** The bundle carries names and categories only; the
+   *     price is looked up from `store_items` by exact name, which is why
+   *     lib/__tests__/shoppingStarters.test.ts asserts every bundle name exists in the seed.
+   *     An unknown name is not an error — it lands at 0, exactly like a hand-typed item the
+   *     catalogue has never seen.
+   *   - **One user action, one confirmation.** The per-item `onAddInlineItem` path fires a
+   *     toast and a `success()` each time; a bundle fires one of each, with a count.
+   */
+  function handleAddStarterBundle(listId: string, starterItems: readonly { name: string; category: string }[]) {
+    const catalog = useCatalogStore.getState().items;
+    for (const starter of starterItems) {
+      const known = catalog.find((c) => c.name === starter.name);
+      add({
+        name: starter.name,
+        amount: '1',
+        unit: '',
+        listType: 'weekly',
+        store: '',
+        price: known?.price ?? 0,
+        inventoryQty: 0,
+        isTemporary: false,
+        targetQuantity: 1,
+        status: 'inWeeklyList',
+        listId,
+        category: starter.category,
+      });
+    }
+    success();
+    setConfirm(t.shoppingStarters.added(starterItems.length));
+  }
+
   function handleAddItem(listId: string, input: { name: string; price: number; targetQuantity: number; isTemporary: boolean; category?: string }) {
     add({ name: input.name, amount: '1', unit: '', listType: 'monthly', store: '', price: input.price, inventoryQty: 0, isTemporary: input.isTemporary, targetQuantity: input.targetQuantity, status: 'catalog', category: input.category, monthlyListId: listId });
     success();
@@ -2285,6 +2324,7 @@ export default function ShoppingScreen() {
                               // — the list whose date range contains today — so a prefill can
                               // never land on a week the user isn't looking at.
                               addPrefill={list.id === prefillListId ? prefill : undefined}
+                              onAddStarterBundle={(starterItems) => handleAddStarterBundle(list.id, starterItems)}
                               onAddInlineItem={(input) => {
                                 add({
                                   name: input.name,
