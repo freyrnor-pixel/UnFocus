@@ -512,8 +512,23 @@ describe('getFieldGlow — the light and the corner are one decision', () => {
   it('returns the radius together with the shadow', () => {
     expect(theme).toMatch(/export const FIELD_RADIUS = Radius\.sm;/);
     expect(theme).toMatch(
-      /export function getFieldGlow\([\s\S]*?return \{ borderRadius: FIELD_RADIUS \* radiusScale, \.\.\.getGlow\(color, level\) \};/,
+      /export function getFieldGlow\([\s\S]*?borderRadius: FIELD_RADIUS \* radiusScale,[\s\S]*?\.\.\.getGlow\(color, level, FIELD_GLOW_RADIUS\[level\]\),/,
     );
+  });
+
+  // 2026-08-21, screenshotted on Health's "Logg noe" composer: getGlow's button-tuned bloom
+  // (15/22, blooming to 27/40px with the outer pass) has nowhere to go once it's inside a
+  // field — a field is always mounted inside a card, and a card's Surface clips its content at
+  // `Spacing.md` (16px) padding. A halo that wide hit that clip line before it had faded, so
+  // what should have read as a soft light instead read as a hard-edged rectangle. The field's
+  // own radii stay well under that 16px on both rungs, so the tail fades out before the mask
+  // ever has to cut it.
+  it('uses a smaller bloom than getGlow, so a card at Spacing.md padding can still let it fade', () => {
+    expect(theme).toMatch(/const FIELD_GLOW_RADIUS = \{ soft: 5, strong: 8 \};/);
+    for (const level of ['soft', 'strong'] as const) {
+      const outer = Math.round((level === 'strong' ? 8 : 5) * 1.8);
+      expect(outer).toBeLessThan(16);
+    }
   });
 
   it('is what every field-shaped surface draws its halo with', () => {
