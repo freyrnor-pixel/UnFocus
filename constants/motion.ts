@@ -11,7 +11,8 @@
  *             components/BottomNav (tabSwitch), components/AppModal, AnimatedBottomSheet,
  *             AddDishSheet, AddFromMonthlyModal, ConfirmationBanner, DraggableTaskRow,
  *             EnergyMeter, FlightOverlay, FormControls, GlowPulse, PressableScale,
- *             ProgressBar, ShoppingRow, TabSlider, lib/useMountedTransition,
+ *             ProgressBar, ShoppingRow, TabSlider, CardExpandHost (cardExpand/cardExpandOut),
+ *             lib/useMountedTransition,
  *             app/scan.tsx, app/(tabs)/shopping.tsx — i.e. every animated surface
  *   Data    → none (pure constants)
  *
@@ -41,6 +42,14 @@ export const Duration = {
   card: 220,
   /** card/panel collapse (exit — faster than enter) */
   cardOut: 200,
+  /** a card GROWING to fill the screen (components/CardExpandHost.tsx). Deliberately above
+   *  `card`'s 200-300ms "expanding cards" band and inside §1's 300-400ms "hero transitions:
+   *  modals, screen navigation, full panels" one: this travels the whole viewport, and at
+   *  220ms the growth reads as a flash-cut to a new screen rather than as the card itself
+   *  getting bigger — which is the entire point of the mechanism. */
+  cardExpand: 320,
+  /** the same growth in reverse (exit — faster than enter, §1). */
+  cardExpandOut: 260,
   /** list row entrance */
   listIn: 250,
   /** a displayed number/bar travelling to a new value (ProgressBar's fill). Same 250 as

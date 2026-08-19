@@ -677,10 +677,22 @@ describe('an expanded card is an overlay-tier surface — no blur, opaque fill',
     expect(source).not.toMatch(/expo-blur|BlurView/);
   });
 
-  it('animates rect + radius with Duration.card/cardOut, never a raw literal', () => {
+  it('animates rect + radius with Duration.cardExpand/cardExpandOut, never a raw literal', () => {
+    // ⚠️ These were `Duration.card`/`cardOut` (220/200) until 2026-08-19. The rule this test
+    // owns is DESIGN_RULES.md 21 — the timing goes through a named token, never a millisecond
+    // literal — and the token NAMES were only ever incidental to it; they moved because this
+    // one animation travels the whole viewport, which ANIMATION_GUIDELINES.md §1 files under
+    // "hero transitions: modals, screen navigation, full panels" at 300-400ms rather than the
+    // 200-300ms "expanding cards" band `card` is named for. At 220 the growth was over before
+    // the eye could follow the pane's edges, which read as a cut to a new screen rather than as
+    // the card getting bigger — the whole point of the mechanism. So the assertion is now BOTH
+    // halves stated separately: the enter/exit pair by name, and the absence of a literal, so
+    // that a future retune has to come here and say what it is trading.
     const source = code('components/CardExpandHost.tsx');
-    expect(source).toMatch(/Duration\.card\b/);
-    expect(source).toMatch(/Duration\.cardOut\b/);
+    expect(source).toMatch(/Duration\.cardExpand\b/);
+    expect(source).toMatch(/Duration\.cardExpandOut\b/);
+    // No `duration: 320`-style literal anywhere in the file, whatever the token set becomes.
+    expect(source).not.toMatch(/duration:\s*\d/);
   });
 
   it('does not render BottomNav — an expanded card covers it, it does not sit above it', () => {
