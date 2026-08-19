@@ -17,14 +17,24 @@ import { SCREEN_GAP, Spacing } from '@/constants/theme';
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-/** Screens whose scroll content is a plain stack of cards. */
+/**
+ * Screens whose scroll content is a plain stack of cards.
+ *
+ * **Three of these are extracted-component files, not the route file, since the 2026-08-20
+ * "full-screen card expansion" pass** (components/TodoSurface.tsx, components/HealthSurface.tsx,
+ * components/NotesSurface.tsx): each is mounted by a thin route wrapper (app/(tabs)/plans.tsx,
+ * app/health.tsx, app/notes.tsx) AND by components/CardExpandHost.tsx's expanded-card overlay,
+ * and the card-stack gap is needed in BOTH contexts — so it lives on the shared component's own
+ * `content` style, not the thin wrapper's (which only carries the screen-edge padding; see
+ * SCAFFOLD_CONTENT below).
+ */
 const SCREENS = [
   'app/(tabs)/index.tsx',
-  'app/plans.tsx',
+  'components/TodoSurface.tsx',
   'app/habits.tsx',
-  'app/(tabs)/health.tsx',
+  'components/HealthSurface.tsx',
   'app/(tabs)/shopping.tsx',
-  'app/notes.tsx',
+  'components/NotesSurface.tsx',
   // app/goals.tsx was here until 2026-08-12, when the Goals screen was retired — its list,
   // add row and delete confirm were a second copy of components/GoalsEditor.tsx, which is
   // mounted in the Goals drawer on Habits and To-do. Both of those screens are already above.
@@ -95,13 +105,17 @@ describe('SCREEN_GAP', () => {
  */
 const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
   { file: 'app/(tabs)/index.tsx', bottomIsChrome: true },
-  { file: 'app/(tabs)/health.tsx', bottomIsChrome: true },
   { file: 'app/(tabs)/shopping.tsx', bottomIsChrome: true },
+  // app/(tabs)/plans.tsx crossed INTO the tab set on 2026-08-20 (the same-day "full-screen card
+  // expansion" pass, health → plans) — it reserves the bottom nav now, same as its two
+  // neighbours above.
+  { file: 'app/(tabs)/plans.tsx', bottomIsChrome: true },
   ...[
-    // app/plans.tsx and app/habits.tsx moved OUT of the pager on 2026-08-20 (5 tabs → 3), so
-    // they crossed this list rather than left it: they reserve no nav now, and their bottom
-    // edge lands on the safe area. Both gained the `paddingBottom` a tab screen must not have.
-    'app/plans.tsx', 'app/habits.tsx',
+    // app/habits.tsx moved OUT of the pager on 2026-08-20 (5 tabs → 3) and stayed out; it
+    // reserves no nav, and its bottom edge lands on the safe area. app/health.tsx crossed the
+    // SAME way hours later, in the "full-screen card expansion" pass (it left the nav for a
+    // Home card) — both gained the `paddingBottom` a tab screen must not have.
+    'app/habits.tsx', 'app/health.tsx',
     'app/notes.tsx', 'app/scan.tsx', 'app/food.tsx', 'app/shared.tsx', 'app/medicine-form.tsx',
     'app/health-form.tsx', 'app/inventory-edit.tsx', 'app/settings.tsx', 'app/day-log.tsx',
     'app/health-log.tsx', 'app/health-detail.tsx', 'app/habit-form.tsx', 'app/pair-device.tsx',

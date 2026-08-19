@@ -41,10 +41,11 @@ describe('the step list is coherent', () => {
   });
 
   test('every route is a real tab', () => {
-    // These are the three pager routes in app/(tabs)/ (5 → 3, 2026-08-20). A typo here sends
-    // the tour to a screen that never mounts the target, so the step waits forever — and a
-    // PUSHED route would be worse than a typo, since it mounts and then traps.
-    const tabPaths = ['/', '/shopping', '/health'];
+    // These are the three pager routes in app/(tabs)/ — health→plans, same-day "full-screen
+    // card expansion" pass. A typo here sends the tour to a screen that never mounts the
+    // target, so the step waits forever — and a PUSHED route would be worse than a typo,
+    // since it mounts and then traps.
+    const tabPaths = ['/', '/shopping', '/plans'];
     for (const s of TOUR_STEPS) expect(tabPaths).toContain(s.route);
   });
 

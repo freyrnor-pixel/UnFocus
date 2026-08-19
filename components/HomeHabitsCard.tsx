@@ -128,6 +128,8 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
+import CardExpandButton from '@/components/CardExpandButton';
+import { useCardExpand } from '@/lib/useCardExpand';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
@@ -193,6 +195,10 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
   // 'habit' identity, a different value from the screen border below — content now pulls
   // from the same screenColor the border does, so the whole card is one colour family.
   const screenColor = getScreenColor(theme, 'habits');
+  // Full-screen expansion (2026-08-20) — a separate control from the title, which still pushes
+  // to /habits: that pushed screen holds deeper per-habit setup and the Week/Month calendar
+  // views an expanded preview does not, so both stay live (see lib/siteNav.ts's note).
+  const cardExpand = useCardExpand('homeHabits');
   const today = todayStr();
 
   const habits = useHabitStore((s) => s.habits);
@@ -405,6 +411,9 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
+            {!embedded && (
+              <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
+            )}
             {cardMenu && !embedded ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
           </View>
           {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
@@ -525,13 +534,15 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
   if (embedded) return body;
 
   return (
-    <Surface
-      surfaceContext="ambient"
-      borderColor={screenColor.base}
-      style={[styles.card, state !== 'open' && styles.cardCollapsed]}
-    >
-      {body}
-    </Surface>
+    <View ref={cardExpand.ref} collapsable={false}>
+      <Surface
+        surfaceContext="ambient"
+        borderColor={screenColor.base}
+        style={[styles.card, state !== 'open' && styles.cardCollapsed]}
+      >
+        {body}
+      </Surface>
+    </View>
   );
 }
 

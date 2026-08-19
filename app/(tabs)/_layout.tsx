@@ -6,7 +6,7 @@
  * sub-screens (app/plans.tsx, app/habits.tsx) holding the deep surfaces a daily list has no
  * room for. Nothing about the pager mechanics below changed; there are simply three pages.
  *
- * Co-mounts Shopping/I dag/Meg in one react-native-pager-view-backed
+ * Co-mounts Shopping/I dag/Gjøremål in one react-native-pager-view-backed
  * material-top-tabs navigator (tabBarPosition="bottom") so swiping between sites is
  * one continuous native slide with no route remount — replacing the old separate-routes
  * + SiteSwipeView double-motion (native push/back + a second hand-rolled flick), which
@@ -43,11 +43,11 @@
  *   Data    → none (pure navigation composition)
  *
  * Edit notes:
- *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, index, health) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
+ *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, index, plans) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
- *     (2026-07-23, UX audit E1/E2: Scan swapped out for the new app/habits.tsx —
- *     Scan is now a pushed sub-screen at app/scan.tsx, reached from Shopping's header.)
- *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/health" ("/plans" and "/habits"
+ *     (2026-08-20: health swapped out for plans — see the file header's "full-screen card
+ *     expansion" note. Before that, 2026-07-23 UX audit E1/E2 swapped Scan out for habits.)
+ *   - `(tabs)` is a route group: URLs stay "/", "/shopping", "/plans" ("/health" and "/habits"
  *     are still valid routes — they are pushed screens outside this group now)
  *     (was "/scan" before the 2026-07-23 E1/E2 swap — see the Screen-order note above).
  *   - As of SDK 56, expo-router's Metro resolver throws a build error if app code imports
@@ -495,12 +495,14 @@ export default function TabsLayout() {
           <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} navigationRef={navigationRef} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, index ("I dag"), health.
-            plans and habits stopped being tabs on 2026-08-20 (5 → 3) and are pushed
-            sub-screens now — app/plans.tsx and app/habits.tsx. */}
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, index ("I dag"), plans
+            ("Gjøremål"). Health left the bottom nav on 2026-08-20 (the "full-screen card
+            expansion" pass) and became a Home card instead (components/HomeHealthCard.tsx) —
+            app/health.tsx stays for deep links/back-compat. habits is still a pushed
+            sub-screen (app/habits.tsx), reached from its own Home card now. */}
         <TopTabs.Screen name="shopping" />
         <TopTabs.Screen name="index" />
-        <TopTabs.Screen name="health" />
+        <TopTabs.Screen name="plans" />
         </TopTabs>
 
         <PagerFloatingNav activeRouteName={activeRouteName} insetsBottom={insets.bottom} navigationRef={navigationRef} />

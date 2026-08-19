@@ -182,7 +182,7 @@ describe('switching modes is lossless', () => {
  */
 const ENERGY_SURFACES: { what: string; file: string; token: string }[] = [
   { what: "Home's Energy strip", file: 'app/(tabs)/index.tsx', token: '<EnergyMeter' },
-  { what: 'the shared-load card', file: 'app/plans.tsx', token: '<EnergyBalanceCard' },
+  { what: 'the shared-load card', file: 'components/TodoSurface.tsx', token: '<EnergyBalanceCard' },
   { what: "the task editor's energy stepper", file: 'components/TaskCard.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit form's energy stepper", file: 'app/habit-form.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit quick-add's energy row", file: 'components/HomeHabitsCard.tsx', token: '<QuickAddOptionRow' },

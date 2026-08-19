@@ -164,6 +164,8 @@ import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
 import HomeHabitsCard from '@/components/HomeHabitsCard';
+import HomeHealthCard from '@/components/HomeHealthCard';
+import { useCardExpand } from '@/lib/useCardExpand';
 import HomeCardManager from '@/components/HomeCardManager';
 import type { CardMenu } from '@/components/CardMenuSheet';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
@@ -297,6 +299,11 @@ export default function HomeScreen() {
   // `spec` prop's comment at the PlanTaskCard mount below.
   const todoSpec = useSurfaceLayout('homeTodo');
   const [todoState, setTodoState] = useCardState('homeTodo');
+  // Full-screen expansion (2026-08-20) — PlanTaskCard is a "dumb", prop-driven card (unlike
+  // HomeHabitsCard/HomeShoppingCard/HomeNotesCard, which own their own useCardExpand), so Home
+  // owns the hook and threads its `onExpand` down as `onSeeMore` — the read-only header press
+  // this card already had, previously a hardcoded push to /plans.
+  const homeTodoExpand = useCardExpand('homeTodo');
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
@@ -314,6 +321,7 @@ export default function HomeScreen() {
       plans: t.home.manageCards.kinds.plans,
       shopping: t.home.manageCards.kinds.shopping,
       habits: t.home.manageCards.kinds.habits,
+      health: t.home.manageCards.kinds.health,
     }),
     [t]
   );
@@ -347,7 +355,10 @@ export default function HomeScreen() {
   const handlePressLogEntry = useCallback(
     (entry: DayEntry) => {
       if (entry.kind !== 'task' || !entry.sourceId) return;
-      router.push({ pathname: '/plans', params: { tab: 'all', expandTaskId: entry.sourceId } });
+      // `/plans` is a pager tab now (2026-08-20) — `navigate`, not `push`, or this stacks a
+      // second copy of the tab on top of itself. No `tab` param any more either: TodoSurface
+      // has no tabs left to select, `expandTaskId` alone reaches the right card.
+      router.navigate({ pathname: '/plans', params: { expandTaskId: entry.sourceId } });
     },
     [router]
   );
@@ -500,23 +511,25 @@ export default function HomeScreen() {
   );
 
   // "…" quick-add (2026-08-01): same create as handleAddTask, but also opens the new task's
-  // full editor (TaskCard, on /plans) pre-filled, via the expandTaskId param plans.tsx already
-  // wires for exactly this (built for a note's "Add to plans" flow, previously uncalled).
-  // `tab: 'all'` because expandTaskId's autoExpand lives on the Whenever section's TaskCard,
-  // not Today's — and an undated (hasStartDate:false) task like this always shows there too.
+  // full editor (TaskCard, on the To-do tab) pre-filled, via the expandTaskId param
+  // TodoSurface already wires for exactly this (built for a note's "Add to plans" flow,
+  // previously uncalled). `expandTaskId`'s autoExpand lives on the Whenever section's
+  // TaskCard — an undated (hasStartDate:false) task like this always shows there.
+  // `/plans` is a pager tab now (2026-08-20) — `navigate`, not `push`, or this stacks a
+  // second copy of the tab on top of itself.
   // An EMPTY title is a real case (2026-08-05): "More options" is pressable the moment the
   // quick-add line is focused, so it must always lead somewhere rather than silently doing
   // nothing. With nothing typed there is no task worth creating — an untitled row would be
-  // junk the user then has to clean up — so it just opens the To-do screen, which is the
+  // junk the user then has to clean up — so it just opens the To-do tab, which is the
   // "more options" the press was asking for.
   const handleAddTaskAndEdit = useCallback(
     (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
       if (!title) {
-        router.push({ pathname: '/plans', params: { tab: 'all' } });
+        router.navigate('/plans');
         return;
       }
       const task = addTask(buildQuickAddTaskInput(title, extra));
-      router.push({ pathname: '/plans', params: { tab: 'all', expandTaskId: task.id } });
+      router.navigate({ pathname: '/plans', params: { expandTaskId: task.id } });
     },
     [addTask, buildQuickAddTaskInput, router]
   );
@@ -621,45 +634,58 @@ export default function HomeScreen() {
         return (
           <TourTarget id="tour.home.today">
             <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
-              <PlanTaskCard
-                cardMenu={buildCardMenu('plans')}
-                tasks={todayTasks}
-                allTasks={tasks}
-                readOnly
-                onToggleTask={handleToggleTask}
-                onAddTask={handleAddTask}
-                onAddTaskAndEdit={handleAddTaskAndEdit}
-                onDeleteTask={handleDeleteTask}
-                deletedTasks={deletedTasks}
-                onRestoreTask={handleRestoreTask}
-                onAddExample={handleAddExampleTask}
-                horizontal={planTimelineHorizontal}
-                // Home's to-do card is its OWN layout surface, separate from the To-do tab
-                // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
-                // to be readable, while this card defaults to a plain ruled list like its three
-                // siblings. Both offer the other via the layout picker.
-                spec={todoSpec}
-                padState={todoState}
-                onPadStateChange={setTodoState}
-                // The day log (2026-08-02). This is what satisfies the feature's "a card on
-                // Home showing what happened today, plus a capture field" — the card is
-                // already here and already has a pad type-line, so there is no fifth Home
-                // card and no HOME_CARD_KINDS change. (HomeGoalsCard shipped as a fifth card
-                // on 2026-07-28 and was deleted the next day: "Home had too many lists".)
-                dayLog={dayLog}
-                onPressEntry={handlePressLogEntry}
-                onRemoveMoment={removeMoment}
-                onCaptureMoment={addMoment}
-                // The habits half of "I dag" (2026-08-20, the 5→3 tab merge). A SECTION inside
-                // this card, not a card of its own — `embedded` drops HomeHabitsCard's Surface
-                // and badge and nothing else, so the rows, composer, starters, narrator line
-                // and footer toggle are the ones that shipped. The two STORES stay separate:
-                // a habit's per-day count, daily goal and rest day have no equivalent on a
-                // task, and merging them would mean giving tasks a habit_logs-shaped table.
-                extraSection={<HomeHabitsCard embedded />}
-              />
+              <View ref={homeTodoExpand.ref} collapsable={false}>
+                <PlanTaskCard
+                  cardMenu={buildCardMenu('plans')}
+                  tasks={todayTasks}
+                  allTasks={tasks}
+                  readOnly
+                  onToggleTask={handleToggleTask}
+                  onAddTask={handleAddTask}
+                  onAddTaskAndEdit={handleAddTaskAndEdit}
+                  onDeleteTask={handleDeleteTask}
+                  deletedTasks={deletedTasks}
+                  onRestoreTask={handleRestoreTask}
+                  onAddExample={handleAddExampleTask}
+                  horizontal={planTimelineHorizontal}
+                  // Home's to-do card is its OWN layout surface, separate from the To-do tab
+                  // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
+                  // to be readable, while this card defaults to a plain ruled list like its three
+                  // siblings. Both offer the other via the layout picker.
+                  spec={todoSpec}
+                  padState={todoState}
+                  onPadStateChange={setTodoState}
+                  // The day log (2026-08-02). This is what satisfies the feature's "a card on
+                  // Home showing what happened today, plus a capture field" — the card is
+                  // already here and already has a pad type-line, so there is no fifth Home
+                  // card and no HOME_CARD_KINDS change. (HomeGoalsCard shipped as a fifth card
+                  // on 2026-07-28 and was deleted the next day: "Home had too many lists".)
+                  dayLog={dayLog}
+                  onPressEntry={handlePressLogEntry}
+                  onRemoveMoment={removeMoment}
+                  onCaptureMoment={addMoment}
+                  // Full screen replaces the push (2026-08-20) — the header's "See everything"
+                  // press used to push to /plans; now it expands this card in place. The habits
+                  // half of "I dag" that used to live here (`extraSection`, the 5→3 merge) moved
+                  // back OUT to its own card the same day — see the 'habits' case below and
+                  // lib/homeCards.ts's un-fold note.
+                  onSeeMore={homeTodoExpand.onExpand}
+                />
+              </View>
             </DebugNoteAnchor>
           </TourTarget>
+        );
+      case 'habits':
+        return (
+          <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
+            <HomeHabitsCard cardMenu={buildCardMenu('habits')} />
+          </DebugNoteAnchor>
+        );
+      case 'health':
+        return (
+          <DebugNoteAnchor id="home.healthPreview" label="Home — Health preview" style={styles.section}>
+            <HomeHealthCard cardMenu={buildCardMenu('health')} />
+          </DebugNoteAnchor>
         );
       case 'shopping':
         return (

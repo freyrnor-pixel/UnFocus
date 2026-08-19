@@ -2,18 +2,22 @@
  * shopping.tsx — Shopping hub with two in-place tabs (Weekly, Monthly) plus two
  * button-launched sub-screens (Food, Catalogue).
  *
- * **Down from four in-place tabs to two, plus buttons (UX audit F1, 2026-07-23)**: Food
- * and Catalogue used to be full sticky-tab peers of Weekly/Monthly, but they're opened
- * far less often — screen-overload candidate the audit flagged. They're now
- * `foodCatalogueLinks`, two `components/CollapsedSection.tsx` drawers (pushing `/food` and
- * `/catalogue`; a small two-button row until 2026-08-10) shown at the foot of the screen
- * on both remaining tabs, rather than their own tab-bar slots.
- * **Since 2026-08-10 those drawers MOUNT `components/FoodTab`/`components/CatalogueTab`
- * (in `embedded` mode) as their expanded body**, so the whole Food surface and a searchable,
- * addable, editable slice of the Catalogue are usable without leaving this screen; the name
- * press still pushes the full screen, which is where Catalogue's complete virtualised list and
- * A–Z scrubber live. Both components are otherwise unchanged — `embedded` only unwraps the
- * chrome that assumes a screen backdrop (see each file's own edit note).
+ * **Down from four in-place tabs to two, plus two peer cards (UX audit F1, 2026-07-23;
+ * reshaped again 2026-08-20)**: Food and Catalogue used to be full sticky-tab peers of Weekly/
+ * Monthly, but they're opened far less often — screen-overload candidate the audit flagged.
+ * They went through three shapes since: a small two-button row → two
+ * `components/CollapsedSection.tsx` fold-away drawers (2026-08-10) → their current shape,
+ * `foodCatalogueLinks`, two always-open `components/SectionCard.tsx`s at the standard card
+ * header (badge · title · count · expand), shown at the foot of the screen on both remaining
+ * tabs. **Since 2026-08-10 they MOUNT `components/FoodTab`/`components/CatalogueTab`
+ * (in `embedded` mode) as their body** — the whole Food surface and a searchable, addable,
+ * editable slice of the Catalogue, usable without leaving this screen. **Since 2026-08-20 the
+ * name press EXPANDS the card in place** (components/CardExpandHost.tsx's `shopDishes`/
+ * `shopCatalogue`, mounting the FULL non-embedded FoodTab/CatalogueTab) rather than pushing
+ * `/food`/`/catalogue` — those routes stay valid for deep links only. Catalogue's complete
+ * virtualised list and A–Z scrubber still need the non-embedded body; only where it renders
+ * changed. Both components are otherwise unchanged — `embedded` only unwraps the chrome that
+ * assumes a screen backdrop (see each file's own edit note).
  *
  * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
  * ingredients pushed to the week from the Food screen, sentinel listId UNALLOCATED_LIST_ID)
@@ -490,9 +494,11 @@ import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
-import CollapsedSection from '@/components/CollapsedSection';
+import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
+import CardExpandButton from '@/components/CardExpandButton';
+import { useCardExpand } from '@/lib/useCardExpand';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
@@ -553,6 +559,10 @@ export default function ShoppingScreen() {
   }, []);
 
   const [tab, setTab] = useState<Tab>('weekly');
+  // Full-screen expansion (2026-08-20) — Dishes and Catalogue are peer cards now, not
+  // CollapsedSection drawers; see the `foodCatalogueLinks` note below for the full shape.
+  const dishesExpand = useCardExpand('shopDishes');
+  const catalogueExpand = useCardExpand('shopCatalogue');
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
   const [hintOpen, dismissHint] = useFirstVisitHint('shopping');
@@ -1780,47 +1790,49 @@ export default function ShoppingScreen() {
   // Always on (2026-07-25 defaults revision) — Food & recipes used to be opt-in via
   // settings.featureFood, but that's now permanently true (see store/useSettingsStore.ts's
   // "Inert columns" note), so this row is unconditional like Weekly/Monthly above it.
-  // One drawer each (2026-08-10) — the same components/CollapsedSection.tsx the To-do and
-  // Habits tabs use, replacing a hand-rolled two-tile row that was a THIRD shape for "a surface
-  // this screen leads to" (alongside SubScreenLinkCard and SubScreenLinkRow, both now deleted).
-  // Pressing the name pushes the screen; the chevron opens it in place.
-  //   **The body IS the destination, mounted (2026-08-10, later the same day.)** It was a
-  // components/SubScreenPreviewList.tsx — the first five item NAMES in boxes, every row just
-  // re-opening the pushed screen. Maintainer: *"Shows no extra information or has the 'Add'
-  // button … I would rather just the expanded state be like the screens."* So Food expands to
-  // the real `FoodTab` and Catalogue to the real `CatalogueTab`, each in `embedded` mode
-  // (presentation only — it unwraps the `Surface`s that assume a screen backdrop, so the
-  // drawer's card isn't wrapping more cards). That file is deleted, and with it its "names
-  // only, and no per-row action — two copies of a list drift" rule: mounting the component is
-  // a stronger answer to drift than describing it was, and it is what makes the per-dish "+"
-  // ask week-or-monthly here exactly as it does on /food.
-  //   The push STAYS, as the way to the whole library: Catalogue's 280-odd rows need the
-  // virtualised list and the A–Z scrubber, neither of which can live inside this screen's
-  // ScrollView. Embedded, the drawer shows a capped run and its search narrows to the rest.
+  // **Peer cards, not drawers (2026-08-20, "full-screen card expansion")** — this used to be
+  // two components/CollapsedSection.tsx drawers (2026-08-10 → 2026-08-20); the fold chevron is
+  // gone, so both are always-open `SectionCard`s at the standard header shape (badge · title ·
+  // count · expand). The body IS the destination, mounted (unchanged since 2026-08-10): Food
+  // shows the real `FoodTab` and Catalogue the real `CatalogueTab`, each `embedded` (presentation
+  // only — it unwraps the `Surface`s that assume a screen backdrop, so the card isn't wrapping
+  // a second card). `embedded` mode's own "capped run" IS the collapsed preview now — no
+  // separate preview logic needed.
+  //   **The push became an expand.** Both title presses and CatalogueTab's own `onOpenFull`
+  // used to push /food / /catalogue; both now call `expandCard()` instead — see
+  // components/CardExpandHost.tsx's `shopDishes`/`shopCatalogue` registry entries, which mount
+  // the FULL (non-embedded) FoodTab/CatalogueTab, the same components app/food.tsx and
+  // app/catalogue.tsx (still valid back-compat routes) render — Catalogue's registry entry
+  // passes `scrollable: false` since CatalogueTab's non-embedded body is its own virtualising
+  // FlatList, which must not be nested inside a second ScrollView.
   //   `fast-food`, not `restaurant`: the crossed fork+knife read as a ✕ / cancel glyph at badge
   // size, and next to the word "Food" it looked like a close button (2026-07-28 design review).
   const foodCatalogueLinks = (
     <>
-      <CollapsedSection
-        hue={screenHue}
-        domain="meal"
-        icon="fast-food"
-        label={t.foodTabLabel}
-        count={dishCount}
-        onTitlePress={() => router.push('/food')}
-      >
-        <FoodTab embedded onNotify={setConfirm} />
-      </CollapsedSection>
-      <CollapsedSection
-        hue={screenHue}
-        domain="shop"
-        icon="list"
-        label={t.catalogueTabLabel}
-        count={catalogCount}
-        onTitlePress={() => router.push('/catalogue')}
-      >
-        <CatalogueTab embedded onNotify={setConfirm} onOpenFull={() => router.push('/catalogue')} />
-      </CollapsedSection>
+      <View ref={dishesExpand.ref} collapsable={false}>
+        <SectionCard
+          hue={screenHue}
+          domain="meal"
+          icon="fast-food"
+          label={t.foodTabLabel}
+          count={dishCount}
+          right={<CardExpandButton expanded={dishesExpand.expanded} onExpand={dishesExpand.onExpand} onCollapse={dishesExpand.onCollapse} />}
+        >
+          <FoodTab embedded onNotify={setConfirm} />
+        </SectionCard>
+      </View>
+      <View ref={catalogueExpand.ref} collapsable={false}>
+        <SectionCard
+          hue={screenHue}
+          domain="shop"
+          icon="list"
+          label={t.catalogueTabLabel}
+          count={catalogCount}
+          right={<CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />}
+        >
+          <CatalogueTab embedded onNotify={setConfirm} onOpenFull={catalogueExpand.onExpand} />
+        </SectionCard>
+      </View>
     </>
   );
 

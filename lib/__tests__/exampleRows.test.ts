@@ -283,7 +283,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
   });
 
   for (const [file, label] of [
-    ['app/(tabs)/health.tsx', 'Health'],
+    ['components/HealthSurface.tsx', 'Health'],
     ['app/habits.tsx', 'Habits'],
     ['components/GoalsEditor.tsx', 'the Goals drawer'],
     // 2026-08-12: the day card joined this list when its bare example gained the shared
@@ -389,7 +389,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
 
 describe('the example sits in the list it is an example of, not above the list\'s card', () => {
   it('Health puts it last in the section, above the composer', () => {
-    const source = code('app/(tabs)/health.tsx');
+    const source = code('components/HealthSurface.tsx');
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
     const composer = source.indexOf('<PadTypeRow');
@@ -490,7 +490,7 @@ describe('StarterCard — the suggestions drop-down starts shut and says one wor
 
 describe('the composer comes after the examples, everywhere', () => {
   for (const [file, starterMarker, composerMarker, label] of [
-    ['app/(tabs)/health.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
+    ['components/HealthSurface.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
     ['app/habits.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
     ['components/HomeHabitsCard.tsx', '<StarterCard', '<PadSheet', "Home's habits card"],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
@@ -548,7 +548,7 @@ describe('the bulb explainer line stays deleted', () => {
     'components/MedicineTrayCard.tsx',
     'components/EnergyMeter.tsx',
     'app/habits.tsx',
-    'app/(tabs)/health.tsx',
+    'components/HealthSurface.tsx',
   ] as const) {
     it(`${file} mounts no explainer line`, () => {
       // Matches a MOUNT or an import, never a mention — these files legitimately explain in

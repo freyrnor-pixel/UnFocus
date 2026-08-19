@@ -128,8 +128,12 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
   });
 
   it('is imported by every screen that reserves a sticky tab row', () => {
+    // app/plans.tsx (later app/(tabs)/plans.tsx) was here until 2026-08-20, when the To-do tab
+    // dropped its Today/This week/All tasks TabSlider for four always-stacked cards — see
+    // components/TodoSurface.tsx. It reserves no sticky row any more, so it left this list
+    // rather than being renamed within it (the assertion right below this one — no bare
+    // literal — would otherwise pass by accident on a file with no sticky row at all).
     for (const file of [
-      'app/plans.tsx',
       'app/(tabs)/shopping.tsx',
       'app/settings.tsx',
       'app/design-lab/tokens.tsx',
@@ -138,6 +142,12 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
       expect(s).toMatch(/TAB_SLIDER_HEIGHT/);
       // The literals these replaced: 46 (plans, shopping), 48 (settings), 56 (design lab).
       expect(s).not.toMatch(/const (STICKY_HEIGHT|STICKY_HEIGHT_TABS|TAB_BAR_HEIGHT) = \d+;/);
+    }
+  });
+
+  it('the To-do tab has no TabSlider left to reserve height for (2026-08-20)', () => {
+    for (const file of ['app/(tabs)/plans.tsx', 'components/TodoSurface.tsx']) {
+      expect(code(file)).not.toMatch(/TabSlider|TAB_SLIDER_HEIGHT/);
     }
   });
 });
@@ -638,5 +648,37 @@ describe('the backdrop — under everything, and out of the middle', () => {
       const dist = Math.hypot(Number(cx) - mid.x, Number(cy) - mid.y);
       expect({ cx, cy, reachesMiddle: dist <= Number(r) + grow }).toEqual({ cx, cy, reachesMiddle: false });
     }
+  });
+});
+
+describe('an expanded card is an overlay-tier surface — no blur, opaque fill', () => {
+  // 2026-08-20, "full-screen card expansion": components/CardExpandHost.tsx's pane sits over
+  // the app's own card stack by definition (that IS what it expanded from), so the 2026-08-18
+  // rule for anything that overlaps cards applies — same reasoning components/CardMenuSheet.tsx
+  // and every other `overlay`-tier Surface already follow (see this file's earlier
+  // `surfaceContext` assertions and __tests__/glassMaterial.test.ts).
+  it("passes surfaceContext=\"overlay\" to its Surface, never the ambient default", () => {
+    const source = code('components/CardExpandHost.tsx');
+    expect(source).toMatch(/surfaceContext="overlay"/);
+  });
+
+  it('mounts no BlurView of its own', () => {
+    // Surface itself decides whether `overlay` gets a BlurView (it does, via `nav`/`overlay`'s
+    // shared branch) — the guarantee this file owns is that CardExpandHost doesn't ALSO import
+    // expo-blur directly, the same discipline components/AppModal.tsx's header states for its
+    // own overlay Surface.
+    const source = code('components/CardExpandHost.tsx');
+    expect(source).not.toMatch(/expo-blur|BlurView/);
+  });
+
+  it('animates rect + radius with Duration.card/cardOut, never a raw literal', () => {
+    const source = code('components/CardExpandHost.tsx');
+    expect(source).toMatch(/Duration\.card\b/);
+    expect(source).toMatch(/Duration\.cardOut\b/);
+  });
+
+  it('does not render BottomNav — an expanded card covers it, it does not sit above it', () => {
+    const source = code('components/CardExpandHost.tsx');
+    expect(source).not.toMatch(/BottomNav|PagerFloatingNav/);
   });
 });

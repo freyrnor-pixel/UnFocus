@@ -17,22 +17,31 @@
  * Edit notes:
  *   - SITE_ITEMS order is the bottom menu's visual order (left to right) AND must match
  *     app/(tabs)/_layout.tsx's <MaterialTopTabs.Screen> order.
- *   - **Nav bar has 3 items: Handle, I dag (centre), Meg (2026-08-20).** The 3-tab merge:
- *     To-do and Habits stopped being tabs and their daily rows moved onto Home, which IS the
- *     "I dag" tab now — it already previewed both, so it absorbed the merge rather than
- *     competing with it. Health keeps its own tab under the broader name.
- *     History this replaced: 5 items — Shopping, Plans, Home (centre), Habits, Health
- *     (Decision 036, amended 2026-07-23 for the Scan→Habits swap, order tweaked 2026-07-24).
- *   - **`/plans` and `/habits` are PUSHED sub-screens now** (app/plans.tsx, app/habits.tsx —
- *     no longer under app/(tabs)/). Nothing was deleted: they still hold the deep surfaces a
- *     daily list has no room for (This week, All tasks, Recurring, Washed away, per-habit
- *     setup), reached from "I dag". They stay valid SiteRoutes and fall through goToSite() to
- *     a plain router.push, exactly like /notes, /scan and /settings.
+ *   - **Nav bar has 3 items: Handle, I dag (centre), Gjøremål (2026-08-20, "full-screen card
+ *     expansion" pass).** Health left the bottom nav and became a Home card
+ *     (components/HomeHealthCard.tsx) — it no longer needs a tab of its own now that every
+ *     card can grow to fill the screen in place, which was the whole point of trading pushed
+ *     screens for expansion. To-do (`/plans`) took its slot: the To-do tab dropped its
+ *     Today/This week/All tasks slider in favour of four cards (Whenever/Today/Week/
+ *     Recurring), each independently expandable, so the deep surface Home's To-do preview
+ *     couldn't show now has its own tab again.
+ *     History this replaced: Shopping/Plans/Home/Habits/Health (Decision 036) → Shopping/Home/
+ *     Health (the 2026-08-20 5→3 merge, To-do and Habits folded onto Home) → this.
+ *   - **`app/plans.tsx` moved to `app/(tabs)/plans.tsx`; `app/(tabs)/health.tsx` moved to
+ *     `app/health.tsx`.** `/health` and `/habits` stay valid SiteRoutes for back-compat (deep
+ *     links, and Habits is still a pushed sub-screen — see the Habits bullet below) and fall
+ *     through goToSite() to a plain router.push, exactly like /notes, /scan and /settings.
+ *     Nothing in the UI pushes to `/health` any more; Home's Health card expands in place
+ *     instead (components/HealthSurface.tsx, mounted both `embedded` there and — non-embedded,
+ *     for the back-compat route — by app/health.tsx).
+ *   - **`/habits` is still a PUSHED sub-screen** (app/habits.tsx, unchanged by this pass) —
+ *     Home's Habits card (components/HomeHabitsCard.tsx) is a first-class card again (it had
+ *     been demoted to a section inside the To-do card by the 5→3 merge; this pass reverses
+ *     that — see lib/homeCards.ts) and now expands in place too, but the deeper habit-setup
+ *     surfaces (per-habit config, Week/Month calendar views) still live on the pushed screen.
  *     ⚠️ **The 2026-07-23 E1 finding still binds**: Habits once lived INSIDE the Health tab and
  *     had to be split back out, because a tab whose name promised symptom tracking hid a whole
- *     habit system. That is not what this is — habits are merging into the surface that is
- *     literally called "today", where a recurring habit and a recurring task are the same
- *     sentence. Don't cite E1 to move habits back under Health.
+ *     habit system. Don't cite E1 to move habits back under Health.
  *   - **Scan drops off the bottom nav (2026-07-23, audit finding E2)**: "Scan" also did
  *     QR-share-import, not just receipt OCR, and a 5th always-visible tab for an
  *     occasional-use action was the screen-overload candidate the audit flagged. `/scan`
@@ -42,6 +51,11 @@
  *     its permanent nav-bar seat. `/scan` stays a valid `SiteRoute` for `router.push` but
  *     is no longer in `TAB_ROUTE_NAME` (goToSite() falls through to a plain push for it now).
  *   - Removed from nav (routes/screens kept), with their access points (all wired — Decision 036):
+ *       health    → Home's Health card (components/HomeHealthCard.tsx), expands in place;
+ *                   app/health.tsx stays for deep links/back-compat, nothing pushes to it
+ *       habits    → Home's Habits card (components/HomeHabitsCard.tsx), expands in place;
+ *                   its "See everything" link still opens the pushed app/habits.tsx for the
+ *                   deeper per-habit/calendar surfaces
  *       notes     → Home "More" link (app/(tabs)/index.tsx)
  *       meals     → NO route anymore. "Food" is now an in-place tab inside the Shopping
  *                   screen (components/FoodTab.tsx via app/(tabs)/shopping.tsx); the old
@@ -52,14 +66,12 @@
  *       shared    → app/share-modal.tsx "Done" + app/scan.tsx QR-scan result
  *       scan      → app/(tabs)/shopping.tsx header "Scan" button (see above)
  *       settings  → home screen header gear (and goToSite(..., '/settings') callers)
- *     plans also keeps its Home "See everything" link alongside its nav tab, same as
- *     shopping's preview link.
  *   - **goToSite() invariant (post-pager-migration):** a route in TAB_ROUTE_NAME is one
- *     of the 5 pager siblings — router.navigate() switches the pager tab in place, no
+ *     of the 3 pager siblings — router.navigate() switches the pager tab in place, no
  *     stack entry added. Everything else is a genuinely different screen — router.push()
  *     puts it on top of the (tabs) group; back() pops it and lands wherever the pager was
  *     left. The old push-from-Home/replace-between-sites shallow-stack hack (pre-pager,
- *     when the 5 sites were themselves separate stack routes) no longer applies now that
+ *     when the sites were themselves separate stack routes) no longer applies now that
  *     they aren't stack routes at all.
  */
 import type { ImperativeRouter } from 'expo-router';
@@ -92,7 +104,7 @@ export type SiteItem = {
 export const SITE_ITEMS: SiteItem[] = [
   { key: 'shop',   icon: 'cart-outline',   activeIcon: 'cart',   route: '/shopping' },
   { key: 'home',   icon: 'today-outline',  activeIcon: 'today',  route: '/'         },
-  { key: 'health', icon: 'heart-outline',  activeIcon: 'heart',  route: '/health'   },
+  { key: 'plans',  icon: 'checkbox-outline', activeIcon: 'checkbox', route: '/plans' },
 ];
 
 /**
@@ -104,7 +116,7 @@ export const SITE_ITEMS: SiteItem[] = [
 export const TAB_ROUTE_NAME: Partial<Record<SiteRoute, string>> = {
   '/': 'index',
   '/shopping': 'shopping',
-  '/health': 'health',
+  '/plans': 'plans',
 };
 
 /** Navigate to any site. The 3 tab sites switch the pager in place; everything else pushes. */

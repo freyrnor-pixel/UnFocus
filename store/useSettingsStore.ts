@@ -642,11 +642,13 @@ function rowToSettings(row: Row): Settings {
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
     dismissedStarters: readJson<string[]>(row, 'dismissed_starters', []),
     dismissedHints: readJson<string[]>(row, 'dismissed_hints', []),
-    // 'habits' left this list on 2026-08-20 (5 tabs → 3): habits are a SECTION inside the
-    // 'plans' card now, not a card of their own. A stored order that still names it is folded
-    // in on read by sanitizeHomeCardOrder in app/(tabs)/index.tsx — deliberately there rather
-    // than as a lib/db.ts migration, so a row written later by an older build is covered too.
-    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
+    // 'habits' left this list for one same-day window on 2026-08-20 (5 tabs → 3: it became a
+    // SECTION inside the 'plans' card), then rejoined it hours later in the "full-screen card
+    // expansion" pass as a first-class card again, alongside the new 'health' kind (Health left
+    // the bottom nav the same pass). A stored order from that window is un-folded on read by
+    // sanitizeHomeCardOrder in lib/homeCards.ts — deliberately there rather than as a lib/db.ts
+    // migration, so a row written later by an older build/paired device is covered too.
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'habits', 'notes', 'shopping', 'health']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
@@ -850,7 +852,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   seenScreenHints: [],
   dismissedStarters: [],
   dismissedHints: [],
-  homeCardOrder: ['plans', 'notes', 'shopping'],
+  homeCardOrder: ['plans', 'habits', 'notes', 'shopping', 'health'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,

@@ -644,14 +644,14 @@ const en = {
         title: 'Shopping resets itself',
         body: 'Two lists, both clearing on their own.\n• Weekly, for groceries.\n• Monthly, for what the house needs.',
       },
-      health: {
-        title: 'Health notices patterns',
-        body: 'Log a symptom or how you slept.\n• Medicine sits here too, in morning, midday, evening and night trays.',
+      todo: {
+        title: 'To-do holds the rest of the week',
+        body: 'Whenever, this week, and what repeats.\n• Each card grows to fill the screen when you need more room.',
       },
     },
     finale: {
       title: 'That is the tour',
-      body: 'Everything else lives behind these five tabs.\n• Each screen has an ⓘ button with its own tips and settings.',
+      body: 'Everything else lives behind these tabs.\n• Each screen has an ⓘ button with its own tips and settings.',
       experimental: 'UnFocus is a work in progress.\n• Things may change, move or arrive half-finished.\n• Everything stays on your phone.\n• Feedback shapes what comes next.',
       done: 'Start using the app',
     },
@@ -913,6 +913,13 @@ const en = {
   listMovedToWeek: (n: number) => `Moved to Week ${n}`,
   expandListLabel: 'Expand list',
   collapseListLabel: 'Collapse list',
+  // Full-screen card expansion (2026-08-20) — the header affordance every expandable card
+  // carries, and (with `expanded` flipped) the same button as the expanded pane's own close
+  // control. Reuses the shape of the pair above.
+  expandCardLabel: 'Expand card',
+  collapseCardLabel: 'Collapse card',
+  // The To-do tab's Week card (Mon–Sun), replacing the old "This week" tab.
+  todoWeekTitle: 'Week',
   listOptionsButtonLabel: 'List options',
   addFromMonthlyOption: 'From monthly',
   addFromDishOption: 'From a dish',
@@ -1227,6 +1234,9 @@ const en = {
     todaysPlans: "Today's list",
     seeAllPlans: 'See all to-dos',
     more: 'More',
+    // The Health card (2026-08-20) — Health left the bottom nav and became a Home card:
+    // today's medicine trays plus issues active this week.
+    healthCardTitle: 'Health',
     quantityLabel: 'Quantity',
     weeklyListChip: 'This week',
     // Names the quick-add's destination-list row, and titles its picker (2026-08-05). The
@@ -1241,7 +1251,7 @@ const en = {
       done: 'Done',
       add: 'Add a card',
       remove: (label: string) => `Remove ${label}`,
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health' },
     },
     // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
     // says "this card" rather than naming a screen — the sheet's title already names it.
@@ -2772,14 +2782,14 @@ const no: typeof en = {
         title: 'Handlelisten nullstiller seg selv',
         body: 'To lister, begge nullstiller seg selv.\n• Ukentlig, til dagligvarer.\n• Månedlig, til det huset trenger.',
       },
-      health: {
-        title: 'Helse legger merke til mønstre',
-        body: 'Loggfør et symptom eller hvordan du sov.\n• Medisiner ligger her også, i morgen-, midt på dagen-, kvelds- og nattrunder.',
+      todo: {
+        title: 'Gjøremål holder på resten av uken',
+        body: 'Når som helst, denne uken, og det som gjentar seg.\n• Hvert kort vokser til å fylle skjermen når du trenger mer plass.',
       },
     },
     finale: {
       title: 'Det var omvisningen',
-      body: 'Alt annet ligger bak disse fem fanene.\n• Hver skjerm har en ⓘ-knapp med egne tips og innstillinger.',
+      body: 'Alt annet ligger bak disse fanene.\n• Hver skjerm har en ⓘ-knapp med egne tips og innstillinger.',
       experimental: 'UnFocus er under arbeid.\n• Ting kan endre seg, flytte på seg eller komme halvferdig.\n• Alt blir på telefonen din.\n• Tilbakemeldinger former det som kommer.',
       done: 'Begynn å bruke appen',
     },
@@ -2988,6 +2998,9 @@ const no: typeof en = {
   listMovedToWeek: (n: number) => `Flyttet til uke ${n}`,
   expandListLabel: 'Vis liste',
   collapseListLabel: 'Skjul liste',
+  expandCardLabel: 'Vis kort i fullskjerm',
+  collapseCardLabel: 'Skjul fullskjerm',
+  todoWeekTitle: 'Uke',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
   addFromDishOption: 'Fra en rett',
@@ -3585,6 +3598,7 @@ const no: typeof en = {
     todaysPlans: 'Dagens liste',
     seeAllPlans: 'Se alle gjøremål',
     more: 'Mer',
+    healthCardTitle: 'Helse',
     quantityLabel: 'Antall',
     weeklyListChip: 'Denne uken',
     addToListLabel: 'Legg i',
@@ -3595,7 +3609,7 @@ const no: typeof en = {
       done: 'Ferdig',
       add: 'Legg til kort',
       remove: (label: string) => `Fjern ${label}`,
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse' },
     },
     cardMenu: {
       open: (card: string) => `Kortinnstillinger for ${card}`,
@@ -4595,14 +4609,14 @@ const is: typeof en = {
         title: 'Innkaupalistinn núllstillir sig sjálfur',
         body: 'Tveir listar, báðir núllstilla sig sjálfir.\n• Vikulega, fyrir matvöru.\n• Mánaðarlega, fyrir það sem heimilið þarf.',
       },
-      health: {
-        title: 'Heilsa tekur eftir mynstrum',
-        body: 'Skráðu einkenni eða hvernig þú svafst.\n• Lyfin eru hér líka, í morgun-, hádegis-, kvöld- og næturhólfum.',
+      todo: {
+        title: 'Verkefni geymir restina af vikunni',
+        body: 'Hvenær sem er, þessa viku, og það sem endurtekur sig.\n• Hvert kort stækkar til að fylla skjáinn þegar þú þarft meira pláss.',
       },
     },
     finale: {
       title: 'Þetta var kynningin',
-      body: 'Allt annað liggur á bak við þessa fimm flipa.\n• Hver skjár er með ⓘ-hnapp með eigin ábendingum og stillingum.',
+      body: 'Allt annað liggur á bak við þessa flipa.\n• Hver skjár er með ⓘ-hnapp með eigin ábendingum og stillingum.',
       experimental: 'UnFocus er í vinnslu.\n• Hlutir geta breyst, færst til eða komið hálfkláraðir.\n• Allt situr eftir í símanum þínum.\n• Viðbrögð móta það sem kemur næst.',
       done: 'Byrja að nota appið',
     },
@@ -4811,6 +4825,9 @@ const is: typeof en = {
   listMovedToWeek: (n: number) => `Fært í viku ${n}`,
   expandListLabel: 'Sýna lista',
   collapseListLabel: 'Fela lista',
+  expandCardLabel: 'Sýna kort í fullum skjá',
+  collapseCardLabel: 'Fela fullan skjá',
+  todoWeekTitle: 'Vika',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',
   addFromDishOption: 'Úr rétti',
@@ -5407,6 +5424,7 @@ const is: typeof en = {
     todaysPlans: 'Listi dagsins',
     seeAllPlans: 'Sjá öll verkefni',
     more: 'Meira',
+    healthCardTitle: 'Heilsa',
     quantityLabel: 'Fjöldi',
     weeklyListChip: 'Þessa viku',
     addToListLabel: 'Setja í',
@@ -5417,7 +5435,7 @@ const is: typeof en = {
       done: 'Búið',
       add: 'Bæta við korti',
       remove: (label: string) => `Fjarlægja: ${label}`,
-      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið' },
+      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa' },
     },
     cardMenu: {
       open: (card: string) => `Stillingar korts: ${card}`,

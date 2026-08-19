@@ -134,7 +134,7 @@ describe('the composers this protects are the ones that open a focus-stealing pi
     // shopping's destination-list picker, inside PadTypeRow's panel
     ['components/HomeShoppingCard.tsx', /function pickAddTarget\(\)[\s\S]{0,600}showAppModal\(/],
     // plans' Whenever repeat, inside AddRow's panel
-    ['app/plans.tsx', /function pickWheneverRecurring\(\)[\s\S]{0,600}showAppModal\(/],
+    ['components/TodoSurface.tsx', /function pickWheneverRecurring\(\)[\s\S]{0,600}showAppModal\(/],
   ];
 
   it.each(openers)('%s still opens its picker through showAppModal', (file, pattern) => {

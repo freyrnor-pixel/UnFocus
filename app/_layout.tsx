@@ -5,7 +5,9 @@
  * loads the settings store, then once settings are loaded fires the app-wide
  * startup loads for every other store, and defines the Expo Router Stack.
  * Redirects to the onboarding flow until setup is complete, mounts the global
- * AppModalHost (unconditionally).
+ * AppModalHost and CardExpandHost (both unconditionally, as Stack siblings — the position
+ * every card's full-screen expansion needs to cover the floating bottom nav for free; see
+ * components/CardExpandHost.tsx's header).
  *
  * Connections:
  *   Imports → expo-router, expo-status-bar, react-native (AppState), react-native-gesture-handler,
@@ -128,6 +130,9 @@
  *     abrupt fade+slide `default`, so sub-screens open with one calm horizontal slide on
  *     both platforms (smoother, not slower, no bob). Modal screens keep `slide_from_bottom`.
  *   - <AppModalHost/> mounted here (Session A2·2) so showAppModal() works from any screen.
+ *   - <CardExpandHost/> mounted here too (2026-08-20, full-screen card expansion), as a
+ *     <Stack> sibling for the same reason AppModalHost is: an absoluteFill overlay outside
+ *     the (tabs) group paints above PagerFloatingNav's zIndex:100 with no z-index arithmetic.
  *   - <WelcomeReveal/> (2026-07-19): animated tree brand-reveal overlaid above the Stack,
  *     gated on `showWelcome` (starts true, flipped off by its onDone). Plays once per cold
  *     launch — it bridges the native splash and the app (same themed bg → tree bloom →
@@ -193,6 +198,7 @@ import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
+import CardExpandHost from '@/components/CardExpandHost';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
 // app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
@@ -617,6 +623,7 @@ export default function RootLayout() {
         <Stack.Screen name="share-modal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
       <AppModalHost />
+      <CardExpandHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

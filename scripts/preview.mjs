@@ -207,11 +207,12 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    // Three tabs since the 2026-08-20 5→3 merge (Shop · Today · Me). To-do and Habits are
-    // pushed sub-screens now and are visited at the END of this walk, with Settings and the
-    // design lab — reaching one costs a goBack(), which reloads the document and wipes the
-    // in-memory sql.js DB, so they cannot sit in the middle of the write-path checks.
-    for (const [tab, shotName] of [['Shop', 'shopping'], ['Me', 'health']]) {
+    // Three tabs since the "full-screen card expansion" pass (2026-08-20): Shop · Today ·
+    // To-do. Health left the nav for a Home card the same pass; Habits is still a pushed
+    // sub-screen and is visited at the END of this walk, with Settings and the design lab —
+    // reaching one costs a goBack(), which reloads the document and wipes the in-memory
+    // sql.js DB, so it cannot sit in the middle of the write-path checks.
+    for (const [tab, shotName] of [['Shop', 'shopping'], ['To-do', 'todo']]) {
       console.log(`> ${tab} tab`);
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -219,32 +220,22 @@ async function main() {
       await shot(page, shotName);
     }
 
-    // Food and Catalogue are button-launched sub-screens off Shopping (UX audit F1,
-    // 2026-07-23), not tabs — click through each via in-app navigation (same in-memory-DB
-    // constraint as above) and back, confirming both render past onboarding's gate.
-    console.log('> Shopping -> Food button');
+    // Food and Catalogue are always-open peer SectionCards on Shopping now (2026-08-20,
+    // "full-screen card expansion" — they were button-launched pushed sub-screens, then
+    // CollapsedSection drawers, before this), so they need no navigation at all: both are
+    // already visible in the 'shopping' screenshot above. This just confirms neither card
+    // failed to mount (which a page/console error elsewhere in the walk would already catch,
+    // but the explicit text check pins the labels specifically).
+    console.log('> Shopping -> Food/Catalogue peer cards');
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
-    await page.getByRole('button', { name: 'Food', exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(800);
-    await shot(page, 'food');
-    // page.goBack() is the ONLY way back from a pushed sub-screen here: ScreenHeader renders
-    // its back link on iOS only, so on web there is no in-app affordance to click. But
-    // goBack() is a history navigation that reloads the document, and the web DB is in-memory
-    // sql.js (lib/sqlite.web.ts) — so every store resets, which revives the guided tour this
-    // walk already dismissed and lets its scrim swallow the next click. dismissTour() puts it
-    // back to sleep. Native is unaffected: there the DB is a real file.
-    await page.goBack();
-    await page.waitForTimeout(800);
-    await dismissTour(page);
-
-    console.log('> Shopping -> Catalogue button');
-    await page.getByRole('button', { name: 'Catalogue', exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(800);
-    await shot(page, 'catalogue');
-    await page.goBack();
-    await page.waitForTimeout(800);
-    await dismissTour(page);
+    const foodCardVisible = await page.getByText('Food', { exact: true }).first().isVisible().catch(() => false);
+    const catalogueCardVisible = await page.getByText('Catalogue', { exact: true }).first().isVisible().catch(() => false);
+    console.log(`  Food card rendered: ${foodCardVisible}`);
+    console.log(`  Catalogue card rendered: ${catalogueCardVisible}`);
+    if (!foodCardVisible) pageErrors.push('The Food peer card did not render on Shopping');
+    if (!catalogueCardVisible) pageErrors.push('The Catalogue peer card did not render on Shopping');
+    await shot(page, 'food-catalogue-cards');
 
     // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
     // surface-specific layout and then to the sparsest one, confirming both that the picker
@@ -338,12 +329,24 @@ async function main() {
       pageErrors.push(`No checkbox found for note "${noteTitle}" — PadRow's check may not be wired`);
     }
 
-    // The full Notes screen (2026-08-01). It was a blind spot in this walk — reachable only
-    // by tapping Home's Notes card header — and it is where the note rows are EDITABLE, which
-    // is the one thing the Home pad deliberately doesn't do. Checks three things the PadRow
-    // conversion touched: the header renders as a real text field seeded from the note, the
-    // row's ⋯ opens the send-to sheet, and that sheet carries this screen's delete row.
-    console.log('> Home -> Notes screen (editable rows + the ⋯ sheet)');
+    // The full Notes surface (2026-08-01; became an in-place EXPANSION on 2026-08-20 rather
+    // than a route push — Home's "Notes" title now calls useCardExpand's onExpand, which grows
+    // components/HomeNotesCard.tsx's card into components/CardExpandHost.tsx's overlay in place,
+    // never navigating). It was a blind spot in this walk — reachable only by tapping Home's
+    // Notes card header — and it is where the note rows are EDITABLE, which is the one thing the
+    // Home pad deliberately doesn't do. Checks three things the PadRow conversion touched: the
+    // header renders as a real text field seeded from the note, the row's ⋯ opens the send-to
+    // sheet, and that sheet carries this screen's delete row.
+    //
+    // ⚠️ Because this is an OVERLAY, not a route, Home's own NoteRow copy stays mounted
+    // (opaque-covered, not unmounted) underneath it — see lib/useCardExpand.ts's header note.
+    // That means two "Send it to…" buttons exist in the DOM at once: Home's card (mounted
+    // first) and the expanded overlay's copy (mounted last, as CardExpandHost is a later
+    // sibling of the tab stack in app/_layout.tsx, so it paints on top AND sits later in
+    // document order). `.first()` here would resolve to Home's occluded copy and get an
+    // "intercepts pointer events" failure — always take `.last()` for anything scoped to the
+    // expanded pane while it's open.
+    console.log('> Home -> Notes card, expanded in place (editable rows + the ⋯ sheet)');
     await clickText(page, 'Notes');
     await page.waitForTimeout(900);
     await shot(page, 'notes-screen');
@@ -354,26 +357,34 @@ async function main() {
       noteTitle
     );
     console.log(`  note header rendered as an editable field: ${noteFieldSeeded}`);
-    if (!noteFieldSeeded) pageErrors.push(`The Notes screen did not render "${noteTitle}" as an editable header field`);
+    if (!noteFieldSeeded) pageErrors.push(`The Notes card did not render "${noteTitle}" as an editable header field`);
 
-    const noteAction = page.getByRole('button', { name: 'Send it to…', exact: true }).first();
+    const noteAction = page.getByRole('button', { name: 'Send it to…', exact: true }).last();
     if (await noteAction.count()) {
       await noteAction.scrollIntoViewIfNeeded();
       await noteAction.click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await shot(page, 'notes-send-to-sheet');
-      const hasDelete = await page.getByText('Delete note', { exact: true }).first().isVisible().catch(() => false);
+      const hasDelete = await page.getByText('Delete note', { exact: true }).last().isVisible().catch(() => false);
       console.log(`  send-to sheet offers this screen's delete row: ${hasDelete}`);
-      if (!hasDelete) pageErrors.push("The Notes screen's ⋯ sheet is missing its delete row");
+      if (!hasDelete) pageErrors.push("The Notes card's ⋯ sheet is missing its delete row");
       // Close on the backdrop rather than picking a target: picking one navigates away with a
       // prefill that would seed the next leg's add row.
       await page.mouse.click(215, 60);
       await page.waitForTimeout(600);
     } else {
-      pageErrors.push('No ⋯ (Send it to…) button on the Notes screen — PadRow\'s action may not be wired');
+      pageErrors.push('No ⋯ (Send it to…) button on the expanded Notes card — PadRow\'s action may not be wired');
     }
-    await page.goBack();
-    await page.waitForTimeout(900);
+    // Collapse the card rather than page.goBack() — there is no route to go back FROM, since
+    // expansion never pushed history. goBack() here would navigate away from Home entirely
+    // (back to the tour/onboarding) and reload the document, wiping the in-memory DB.
+    const collapseNotesBtn = page.getByRole('button', { name: 'Collapse card', exact: true }).last();
+    if (await collapseNotesBtn.count()) {
+      await collapseNotesBtn.click({ timeout: 10000 });
+    } else {
+      pageErrors.push('No "Collapse card" button found to close the expanded Notes card');
+    }
+    await page.waitForTimeout(700);
     await dismissTour(page);
 
     // Step the Shopping card's week pager one week forward and back.
@@ -558,11 +569,15 @@ async function main() {
     await shot(page, 'day-log-habit-in-log');
 
     // Exercise the medicine store's two write paths (2026-07-27): quick-create a medicine
-    // from the Health tab's tray card, then LOG A DOSE by tapping its circle — the dose is
+    // from the Health card's tray card, then LOG A DOSE by tapping its circle — the dose is
     // the whole point of the feature, and it's a separate table (medicine_doses) from the
     // medicine row itself. Both are checked to survive a tab round-trip.
+    // **On Home, not a "Me" tab (2026-08-20)** — Health left the bottom nav for a Home card
+    // (components/HomeHealthCard.tsx), which mounts HealthSurface `embedded` with nothing
+    // truncated (MedicineTrayCard and the composer render unconditionally), so the flow below
+    // needs no tab switch at all.
     console.log('> add a medicine + log a dose (store logic check)');
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const medName = `Preview med ${Date.now()}`;
@@ -592,9 +607,11 @@ async function main() {
     if (!doseLogged) pageErrors.push(`Logging a dose of "${medName}" did not show a "Taken HH:MM" stamp`);
     await shot(page, 'medicine-dose-logged');
 
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    // Round-trip via Shop and back — Home stays mounted (lazy: false), but this still proves
+    // the dose survives leaving and returning to the tab, the property the check is for.
+    await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const dosePersisted = await page.getByText(/^Taken \d{2}:\d{2}$/).first().isVisible().catch(() => false);
@@ -614,6 +631,37 @@ async function main() {
     await page.goBack();
     await page.waitForTimeout(800);
     await dismissTour(page);
+
+    // app/habits.tsx — the one Home card whose title press still PUSHES to a genuinely deeper
+    // screen (its calendar/setup views have no expanded-card equivalent) rather than expanding
+    // in place. Reached and checked HERE, before Debug mode gets switched on for the design lab
+    // excursion below — components/DebugNoteAnchor.tsx wraps every Home card with its own
+    // "Add debug note" pill once debug mode is on, and that pill sits on top of the card's own
+    // title hit-target and intercepts the tap meant for it (found the hard way: moving this
+    // step after the design-lab excursion made `clickText(page, 'Habits')` fail with
+    // `<button aria-label="Note — Home — Habits preview"> intercepts pointer events`). Kept as
+    // its own try/catch (best-effort, matching the design-lab block below) since it is a render
+    // check, not one of the write-path proofs above it.
+    try {
+      console.log('> pushed sub-screen: /habits');
+      await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await dismissModalIfPresent(page);
+      await clickText(page, 'Habits');
+      await page.waitForTimeout(1500);
+      await shot(page, 'subscreen-habits');
+      // A marker that exists ONLY on the pushed screen (unlike "Habits", which is also the
+      // still-mounted Home card's own title and so would read true whether or not the push
+      // succeeded).
+      const onHabits = await anyVisibleText(page, 'Simple check-ins — no streaks, no scores.');
+      console.log(`  Habits screen rendered: ${onHabits}`);
+      if (!onHabits) pageErrors.push('Pushed /habits did not render the Habits screen');
+      await page.goBack();
+      await page.waitForTimeout(800);
+      await dismissTour(page);
+    } catch (e) {
+      console.log(`  (/habits skipped: ${e.message.split('\n')[0]})`);
+    }
 
     // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO
     // header at all on device, and this walk never visited a sub-tier screen before —
@@ -726,34 +774,10 @@ async function main() {
     }
   }
 
-  // ── The two screens that stopped being tabs (2026-08-20, 5 → 3) ────────────────────────
-  // LAST, because reaching them is a one-way trip: they are `tier="sub"` pushed screens and
-  // draw no BottomNav, so there is no way back without a goBack() — which reloads the bundle,
-  // wipes the in-memory sql.js DB and drops you into onboarding. Every write-path check above
-  // has already run by this point, so that costs nothing here.
-  //
-  // ⚠️ **Reached by IN-APP navigation, never `page.goto`.** A goto is a document load, so it
-  // wipes the DB the same way — and `setupComplete` goes with it, which means the app redirects
-  // straight to onboarding and the shot is of the language picker, not the screen. That is what
-  // the first cut of this step actually captured, and it looked like a pass.
-  try {
-    console.log('> pushed sub-screen: /plans');
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(700);
-    await dismissModalIfPresent(page);
-    await page.getByText("Today's list", { exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(1500);
-    await shot(page, 'subscreen-to-do');
-    const onPlans = await anyVisibleText(page, 'All tasks');
-    console.log(`  To-do screen rendered (its tab bar is present): ${onPlans}`);
-    if (!onPlans) pageErrors.push('Pushed /plans did not render the To-do screen');
-  } catch (e) {
-    console.log(`  (/plans skipped: ${e.message.split('\n')[0]})`);
-  }
-  // Only ONE of the two fits in a run, for the reason above — the first one visited is the
-  // last screen this session can reach. app/habits.tsx is covered by
-  // scripts/screenshot-states.mjs, whose `excursion` + `ensureTabs` pair can recover from the
-  // wipe and so can visit both.
+  // app/habits.tsx is exercised right after the medicine-form section above, while Debug mode
+  // is still off — see that block's comment for why it moved. app/(tabs)/plans.tsx (formerly a
+  // pushed `/plans` screen) is covered by the "To-do tab" screenshot near the top of this walk
+  // and needs no separate excursion, now that it's a tab rather than a pushed screen.
 
   console.log(`\n> page errors: ${pageErrors.length}`);
   pageErrors.forEach((e) => console.log('  [pageerror]', e));
