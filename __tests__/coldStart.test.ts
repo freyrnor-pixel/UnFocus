@@ -136,7 +136,8 @@ describe('boot work that first paint does not read is deferred', () => {
 
 describe('the tree watermark is gone', () => {
   // components/TreeWatermark.tsx was deleted on 2026-07-31. Its two callers both moved to the
-  // motif system: SectionDivider draws `trunk-divider`, and onboarding's backdrop became the
+  // motif system: SectionDivider drew `trunk-divider` (that component is itself gone as of
+  // 2026-08-19 — see lib/__tests__/screenRhythm.test.ts), and onboarding's backdrop became the
   // `onboarding-triptych` strip — which was itself retired on 2026-08-14 in favour of the
   // ordinary ScreenBackground (see app/onboarding/_layout.tsx). The old rule here was
   // "every call site must pass a

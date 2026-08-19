@@ -88,10 +88,13 @@ describe('a render-scope `today` is paired with the minute tick', () => {
    * The membership changed with the 2026-08-20 extraction: app/(tabs)/plans.tsx and
    * app/health.tsx are thin route wrappers now and capture nothing themselves —
    * components/TodoSurface.tsx and components/HealthSurface.tsx are where the real capture
-   * (and its useNowMinutes pairing) live.
+   * (and its useNowMinutes pairing) live. It changed again on 2026-08-19: app/(tabs)/index.tsx
+   * dropped out when Home became "Me" and stopped drawing the day's tasks — with the To-do
+   * preview card gone, nothing on that screen reads a date at all. Three is now the floor; if
+   * this list ever empties, the rule above has quietly stopped testing anything.
    */
-  it('covers the four screens/surfaces that capture one', () => {
+  it('covers the screens/surfaces that capture one', () => {
     const capturing = tabScreens.filter((s) => RENDER_SCOPE_TODAY.test(s.source)).map((s) => s.file);
-    expect(capturing.sort()).toEqual(['HealthSurface.tsx', 'TodoSurface.tsx', 'habits.tsx', 'index.tsx']);
+    expect(capturing.sort()).toEqual(['HealthSurface.tsx', 'TodoSurface.tsx', 'habits.tsx']);
   });
 });

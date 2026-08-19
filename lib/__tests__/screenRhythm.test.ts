@@ -53,7 +53,6 @@ const STACKED_CARDS: { file: string; style: string }[] = [
   { file: 'components/HintCard.tsx', style: 'wrap' },
   { file: 'components/HomeNotesCard.tsx', style: 'card' },
   { file: 'components/HomeHabitsCard.tsx', style: 'card' },
-  { file: 'components/HomeShoppingCard.tsx', style: 'card' },
   { file: 'components/HomeSharedCard.tsx', style: 'card' },
   { file: 'components/PlanTaskCard.tsx', style: 'card' },
   { file: 'components/CollapsedSection.tsx', style: 'section' },
@@ -164,5 +163,44 @@ describe('a card in a screen-level stack carries no vertical margin', () => {
     // marginTop / marginBottom / marginVertical / a `margin:` shorthand all set the gap this
     // card has to its neighbour, which is the screen's job now.
     expect(body).not.toMatch(/margin(Top|Bottom|Vertical)?\s*:/);
+  });
+});
+
+// ── The decorative divider is gone ────────────────────────────────────────────
+
+describe('nothing draws a branch between two sections', () => {
+  // 2026-08-19, maintainer: *"remove … the wavy lines that have been used as dividers."*
+  // `components/SectionDivider.tsx` — a full-width `trunk-divider` motif, i.e. a forking branch
+  // drawn across the screen between major sections — is DELETED, along with both of its call
+  // sites on the Shopping tab (above the Weekly rail, and between each UKE section). It is not
+  // replaced by a hairline: the gap between two cards is `SCREEN_GAP`, owned by the screen's own
+  // scroll container, which is the whole point of the 2026-08-08 spacing pass above. A rule
+  // drawn on top of that gap is a second answer to a question already settled.
+  //
+  // Deleted rather than unmounted, so nothing can be quietly rewired back — the same discipline
+  // the branch-and-leaf backdrop art and `components/CardHintNote.tsx` were removed under.
+  it('has no SectionDivider component', () => {
+    expect(fs.existsSync(path.join(ROOT, 'components', 'SectionDivider.tsx'))).toBe(false);
+  });
+
+  it('has no SectionDivider call sites, and nothing hand-rolls a replacement', () => {
+    const offenders: string[] = [];
+    for (const dir of ['app', 'components']) {
+      const walk = (abs: string): string[] =>
+        fs.readdirSync(abs, { withFileTypes: true }).flatMap((entry) => {
+          const next = path.join(abs, entry.name);
+          if (entry.isDirectory()) return walk(next);
+          return /\.tsx?$/.test(entry.name) ? [next] : [];
+        });
+      for (const file of walk(path.join(ROOT, dir))) {
+        const src = fs.readFileSync(file, 'utf8');
+        const rel = file.slice(ROOT.length + 1);
+        if (/<SectionDivider\b/.test(src)) offenders.push(`${rel}: <SectionDivider>`);
+        // The motif itself still exists in constants/motifs.ts (it is generated art), so the
+        // way this comes back is a caller drawing it directly rather than the component.
+        if (/id="trunk-divider"|'trunk-divider'/.test(src)) offenders.push(`${rel}: trunk-divider`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

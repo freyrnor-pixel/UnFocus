@@ -6,7 +6,7 @@
  * sub-screens (app/plans.tsx, app/habits.tsx) holding the deep surfaces a daily list has no
  * room for. Nothing about the pager mechanics below changed; there are simply three pages.
  *
- * Co-mounts Shopping/I dag/Gjøremål in one react-native-pager-view-backed
+ * Co-mounts Handle/Gjøremål/Meg in one react-native-pager-view-backed
  * material-top-tabs navigator (tabBarPosition="bottom") so swiping between sites is
  * one continuous native slide with no route remount — replacing the old separate-routes
  * + SiteSwipeView double-motion (native push/back + a second hand-rolled flick), which
@@ -22,8 +22,8 @@
  * along with the content — reading as "each screen has its own picture" instead of a fixed
  * backdrop. Hoisting it here decouples it from the swipe: it sits behind TopTabs. Both L1
  * layers stay mounted; the Home hero is overlaid in an Animated.View whose opacity
- * cross-fades in on Home / out elsewhere (Home is the centre tab, so this fires on most
- * swipes). This replaced an earlier `isHomeActive ? <HomeHeroBackground/> : <ScreenBackground/>`
+ * cross-fades in on Home / out elsewhere (Home is an END tab since 2026-08-19, so this fires
+ * on the last swipe of a run rather than on most of them). This replaced an earlier `isHomeActive ? <HomeHeroBackground/> : <ScreenBackground/>`
  * MOUNT SWAP, which created/destroyed react-native-svg + gradient views (and restarted the
  * hero's Animated loops) on the exact frame a swipe settled — a per-swipe hitch that read
  * as laggy swiping. The 3 tab screens pass ownBackground={false} to ScreenScaffold so they
@@ -43,7 +43,7 @@
  *   Data    → none (pure navigation composition)
  *
  * Edit notes:
- *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, index, plans) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
+ *   - Screen order MUST match lib/siteNav.ts's SITE_ITEMS (shopping, plans, index) — BottomNav maps each pager route's name to a SITE_ITEMS entry via
  *     lib/siteNav.ts's TAB_ROUTE_NAME, so a mismatch here shows the wrong icon/label active.
  *     (2026-08-20: health swapped out for plans — see the file header's "full-screen card
  *     expansion" note. Before that, 2026-07-23 UX audit E1/E2 swapped Scan out for habits.)
@@ -94,7 +94,7 @@
  *     point of this migration) is untouched. Set false to kill TWO issues: (1) native
  *     far-jump frame-skip — `animationEnabled:true` makes `jumpTo` call
  *     `ViewPager2.setCurrentItem(i, true)`, a smooth-scroll that sweeps through every
- *     intermediate page; in this centre-Home 5-tab bar most taps are far jumps (Shopping↔Health
+ *     intermediate page; in the old centre-Home 5-tab bar most taps were far jumps (Shopping↔Health
  *     is 4 pages), so the sweep skipped frames. `false` routes through
  *     `setPageWithoutAnimation(i)` = instant snap, no sweep. ViewPager2 has no JS-reachable
  *     "snap-adjacent-then-animate-last-step" mode, so this is a mitigation of a native
@@ -317,7 +317,9 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
   );
 }
 
-// Cold launch presents Home (the centre tab), not the first-declared tab (Shopping).
+// Cold launch presents Home, not the first-declared tab (Shopping). It stopped being the
+// CENTRE tab on 2026-08-19 (To-do took that slot) — this export is unchanged anyway, because
+// what it is for is the static deep-link back target, not "the middle one".
 // expo-router reads `initialRouteName` off this export for the (tabs) layout and hands it
 // to the navigator, which passes it to react-native-tab-view as the initial index — the
 // pager's `initialPage` mounts directly on Home with no settle/animation in from Shopping
@@ -475,7 +477,7 @@ export default function TabsLayout() {
           // untouched here. Two problems it fixes, one native, one web:
           //   • Native far-jump frame-skip (2026-07-24): with animationEnabled:true, jumpTo
           //     calls ViewPager2.setCurrentItem(index, true), a smooth-scroll that SWEEPS
-          //     through every intermediate page. In this centre-Home 5-tab layout most taps
+          //     through every intermediate page. In the old centre-Home 5-tab layout most taps
           //     ARE far jumps (Shopping↔Health is 4 pages; Home↔Shopping/Health is 2), so the
           //     sweep visibly skipped frames. animationEnabled:false routes jumpTo through
           //     setPageWithoutAnimation(index) — an instant snap, no intermediate render, no
@@ -495,14 +497,17 @@ export default function TabsLayout() {
           <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} navigationRef={navigationRef} />
         )}
       >
-        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts): shopping, index ("I dag"), plans
-            ("Gjøremål"). Health left the bottom nav on 2026-08-20 (the "full-screen card
-            expansion" pass) and became a Home card instead (components/HomeHealthCard.tsx) —
+        {/* Order MUST match SITE_ITEMS (lib/siteNav.ts) AND constants/motifs.ts's
+            STRIP_PANEL_ORDER: shopping, plans ("Gjøremål"), index ("Meg").
+            **`plans` and `index` swapped on 2026-08-19** — To-do is the centre tab now and
+            `/` is the personal tab (habits/notes/health); see lib/siteNav.ts's nav-bar note.
+            Health left the bottom nav on 2026-08-20 (the "full-screen card expansion" pass)
+            and is a card on that personal tab (components/HomeHealthCard.tsx) —
             app/health.tsx stays for deep links/back-compat. habits is still a pushed
-            sub-screen (app/habits.tsx), reached from its own Home card now. */}
+            sub-screen (app/habits.tsx), reached from its own card there. */}
         <TopTabs.Screen name="shopping" />
-        <TopTabs.Screen name="index" />
         <TopTabs.Screen name="plans" />
+        <TopTabs.Screen name="index" />
         </TopTabs>
 
         <PagerFloatingNav activeRouteName={activeRouteName} insetsBottom={insets.bottom} navigationRef={navigationRef} />

@@ -93,7 +93,7 @@ are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` un
 2026-08-01; neither export has ever existed. See `DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
 file owns which token.)
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/Home/To-do** (`Handle` · `I dag` · `Gjøremål`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **Five tabs became three on 2026-08-20** (the 5→3 merge: To-do and Habits stopped being tabs, folded onto Home), and **the SAME DAY, hours later, the "full-screen card expansion" pass reversed half of that and rebuilt the other half**: To-do is a real tab again (`app/(tabs)/plans.tsx`, now a thin `ScreenScaffold` wrapper mounting `components/TodoSurface.tsx` — the 1928-line `app/plans.tsx` this replaced is deleted), Habits is a first-class, independently-expandable Home card again (`components/HomeHabitsCard.tsx`, `embedded={false}` — no longer a section riding on the merged card), and **Health left the bottom nav ENTIRELY**, taking To-do's old tab slot's neighbour position — it is a Home card now (`components/HomeHealthCard.tsx` mounting `components/HealthSurface.tsx` `embedded`; `app/(tabs)/health.tsx`, 857 lines, is deleted, and `app/health.tsx` survives only as a back-compat pushed route nothing in the UI links to any more). Home is **5 cards** now: To-do, Habits, Notes, Shopping, Health (`lib/homeCards.ts`'s `HOME_CARD_KINDS`), and its `sanitizeHomeCardOrder()` on-read migration handles BOTH directions at once for a row written before this pass — a `habits`-less order gets it spliced back in next to `plans` (the un-fold), and a `health`-less order gets it appended at the end (simple append: health was never folded into anything, so there's no old position to restore it next to). Energy deliberately did NOT move to Health: it is a planning budget computed from tasks and habits, and the Health tab's stated contract is that nothing on it is a scoreboard. Notes and Food/Meals are NOT tabs — reached via Home's Notes card and Shopping's Food section. Scan is also not a tab — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/To-do/Me** (`Handle` · `Gjøremål` · `Meg`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **To-do is the CENTRE tab and `/` is "Meg" as of 2026-08-19** (*"Make 'To-do' middle screen, and the 'Home' can be the 'Me' for Health and notes. I think that makes things more tidy."*): the route is still `/` and the SiteKey is still `'home'` — only the label, the icon (`today` → `person`) and the position moved. Home is **3 cards** now: Habits, Notes, Health (`lib/homeCards.ts`'s `HOME_CARD_KINDS`). **'plans' and 'shopping' were DROPPED from it in the same pass** — each is a whole tab one swipe away, so a preview card for either was a shorter second copy of a neighbouring tab, and `components/HomeShoppingCard.tsx` was deleted with the card (its only mount site). `sanitizeHomeCardOrder()` handles a stored order on READ: unknown kinds are filtered (which is all a removal ever needs), while `habits` and `health` are APPENDED whenever missing, because neither has anywhere else to be — the consequence, worth knowing before debugging a card that "comes back", is that those two cannot be permanently hidden. History this replaced: five tabs → three on 2026-08-20 (To-do and Habits folded onto Home), then the same-day "full-screen card expansion" pass, which made To-do a real tab again (`app/(tabs)/plans.tsx`, a thin `ScreenScaffold` wrapper mounting `components/TodoSurface.tsx`), restored Habits as a first-class card, and took **Health off the bottom nav entirely** — it is a card now (`components/HomeHealthCard.tsx` mounting `components/HealthSurface.tsx` `embedded`; `app/health.tsx` survives only as a back-compat pushed route nothing in the UI links to). Energy deliberately did NOT move to Health: it is a planning budget computed from tasks and habits, and Health's stated contract is that nothing on it is a scoreboard — it stays a fixed strip on Me. Notes and Food/Meals are NOT tabs — reached via Me's Notes card and Shopping's Food section. Scan is also not a tab — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
   - **Cards expand to fill the screen IN PLACE, instead of pushing a route** — the mechanism
     this same pass introduced (`lib/expandableCards.ts` + `components/CardExpandHost.tsx` +
     `components/CardExpandButton.tsx` + `lib/useCardExpand.ts`), mirroring
@@ -106,15 +106,21 @@ file owns which token.)
     `<AppModalHost/>` — a single overlay, `zIndex: 100`, that every expandable card shares.
     `lib/expandableCards.ts`'s `EXPANDABLE_CARD_IDS` is the one list to keep in step with
     `CardExpandHost`'s own `CARD_BODIES` registry — `lib/__tests__/expandableCards.test.ts`
-    asserts they match. Twelve ids today: three Shop cards (`shopLists`/`shopDishes`/
-    `shopCatalogue`), Home's five (`homeTodo`/`homeHabits`/`homeNotes`/`homeShopping`/
-    `homeHealth`), and To-do's four (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`).
-    **`shopLists` is a deliberate, disclosed gap**: `app/(tabs)/shopping.tsx`'s Weekly/Monthly
-    list content is ~2000 lines of window-coordinate drag/merge state and flight-animation
-    refs — extracting it into a standalone `ShoppingListsSurface.tsx` the way To-do/Health/Notes
-    were is materially higher-risk than the others, so `CardExpandHost`'s `shopLists` entry is
-    a placeholder (`ComingSoonBody`) with no `CardExpandButton` wired to it anywhere in the UI —
-    unreachable rather than shipping a button that opens a stub. A future pass can finish it.
+    asserts they match. Ten ids today: three Shop cards (`shopLists`/`shopDishes`/
+    `shopCatalogue`), Me's three (`homeHabits`/`homeNotes`/`homeHealth`), and To-do's four
+    (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`). **`homeTodo` and `homeShopping`
+    were removed on 2026-08-19** — their cards left the Me tab, and an id whose card does not
+    exist keeps a `CARD_BODIES` entry alive that nothing can reach while the test that pins the
+    two lists together goes on passing over it.
+    **`shopLists` and `homeHabits` are deliberate, disclosed gaps**: `app/(tabs)/shopping.tsx`'s
+    Weekly/Monthly list content is ~2000 lines of window-coordinate drag/merge state and
+    flight-animation refs, and `app/habits.tsx` has never been extracted at all — neither has a
+    standalone surface component the way To-do/Health/Notes do, so both `CardExpandHost` entries
+    are placeholders (`ComingSoonBody`) with **no `CardExpandButton` wired to them anywhere in
+    the UI** — unreachable rather than shipping a button that opens a stub. ⚠️ Habits DID ship
+    that button, from 2026-08-20 until 2026-08-19, when it went from one of five cards on a busy
+    Home screen to one of three on the Me tab and stopped being easy to miss. A future pass can
+    extract `HabitsSurface.tsx`/`ShoppingListsSurface.tsx` and finish both.
     The underlying card stays mounted (not unmounted) behind the opaque overlay while expanded
     — `useCardExpand`'s `expanded` flag exists for a caller that wants to skip its own heavy
     content in that state, but nothing does yet; know this if you ever see a control's own
@@ -141,6 +147,66 @@ file owns which token.)
     driving this tab by role+name alone needs to disambiguate by position, not assume `.first()`
     is the Whenever composer (see `scripts/measure-wraps.mjs`'s To-do pass for the walk that
     found this the hard way).
+- **⚠️ A `useRef` read from inside a worklet is FROZEN at its first value — the dead-pane bug
+  (2026-08-19, `components/CardExpandHost.tsx` + `components/AppModal.tsx`, pinned by
+  `__tests__/workletSafety.test.ts`).** User report: *"Full screen bug that happens when you go
+  full screen, and back, full screen, and back."* On the SECOND collapse the expanded pane stayed
+  on screen at its pre-animation size — the card's original rect, its body at opacity 0, eating
+  every touch aimed at the card underneath, with its own close button equally dead.
+  - **The mechanism, from the library's own source.** Both hosts guarded their exit animation's
+    completion callback with `if (done && seq.current === mySeq) runOnJS(setRequest)(null)`, where
+    `seq` was a `useRef`. That callback is auto-workletized (no `'worklet'` directive in the
+    source — see the Reanimated gotcha below), so it reads `seq` on the UI thread — and
+    `react-native-worklets` serializes a captured plain object ONCE and caches the clone
+    (`serializableMappingCache`, keyed by the object). A ref is a plain object, so from the second
+    `dismiss()` onward the UI-thread copy still held `current: 1` while JS had incremented to 2:
+    the guard failed, `setRequest(null)` never ran, and nothing ever unmounted the overlay.
+  - **Every harness in this repo says the old code is fine, and that is the reusable half.** In
+    `__DEV__` the library FREEZES the captured object, so `seq.current += 1` is a silent no-op,
+    both sides stay at 1 and the guard passes; on web (`npm run preview`, `npm run wraps`, every
+    screenshot) worklets run on the JS thread and there is no clone at all. Only a release build
+    diverges. Same shape as the widget-palette and the `flex`-with-`flexBasis:'auto'` lessons: a
+    difference no local check can see, so the guard has to be a source scan.
+  - **The fix is `useSharedValue`, always** — the library's own comment on that freeze says so:
+    *"If the user really wants some objects to be mutable they should use shared values instead."*
+    `__tests__/workletSafety.test.ts` now scans every workletized body for a `X.current` read where
+    `X` is a `useRef` in the same file, alongside its existing runOnJS rule, and proves the
+    detector fires on the exact shape that shipped.
+  - ⚠️ **`AppModal` had the identical latent defect** and was fixed in the same pass. There it
+    would have left `<Modal visible>` mounted with an invisible card over a full-screen
+    `Pressable` — an app that reads as frozen rather than as a stuck card.
+- **The To-do tab's Week card folds as ONE thing, and every day starts folded (2026-08-19).**
+  Maintainer: *"Mon-sun in to-do should also be collapsable together, and the current day does not
+  need to be open. The days are just for an overview, while 'Today' and 'Whenever' at the top is
+  for use."* Two changes, on two different axes, and the split is the point:
+  - **The card**: a `CardCollapseToggle` in the Week header over the new `'plansWeek'` id in
+    `lib/collapsedCards.ts` — the third axis (is the body drawn at all), persisted in
+    `settings.collapsed_cards`. The Week card is not a `SectionCard`, so it wires the hook and the
+    chevron by hand rather than passing `collapseKey`.
+  - **The days**: `collapsedWeekdays` stays local, unpersisted state, and now starts with EVERY
+    date in it rather than every date except today's. Today is already on screen in full, in the
+    card directly above, with its own composer — auto-opening it here drew the same day twice and
+    made the one card meant to read as a seven-row overview open at whatever height today
+    happened to be. `lib/collapsedCards.ts`'s singleton rule is why the per-day folds can't be
+    persisted: a bag keyed by date grows forever.
+  - `components/TodoSurface.tsx`'s `cardHeaderTitle` took `flex: 1` + `minWidth: 0` in the same
+    edit, so the header's trailing controls stay clustered at the right edge instead of
+    `space-between` spreading the chevron into the middle of the line.
+- **The Energy tutorial card draws no tree, and the branch divider is gone (2026-08-19).**
+  Maintainer: *"remove the Tree in Energy, and the wavy lines that have been used as dividers."*
+  - `components/StarterCard.tsx` gained `noTree`, and `components/EnergyMeter.tsx` is its only
+    caller. It drops ONLY the watermark — `embedded` would have taken the Surface and the padding
+    with it, and a `stage` value cannot express "none" — so that card keeps everything else. Its
+    `stage="sapling"` went with the drawing rather than staying as a prop that does nothing.
+    `components/StageTree.tsx` is untouched and every other StarterCard keeps its tree.
+  - **`components/SectionDivider.tsx` is DELETED**, along with both of its call sites on the
+    Shopping tab (above the Weekly rail, and between each UKE section). It drew a `trunk-divider`
+    motif — a forking branch spanning the whole width — between major sections. Not replaced by a
+    hairline: the gap between two cards is `SCREEN_GAP`, owned by the screen's own scroll
+    container (the 2026-08-08 spacing pass), and a rule drawn on top of that gap is a second
+    answer to a settled question. `lib/__tests__/screenRhythm.test.ts` asserts the component is
+    gone AND that nothing draws the motif directly — the art itself still exists in
+    `constants/motifs.ts`, which is how it would come back.
 - **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →
   guided/explore → energy → index (name) → home**, then the guided tour. It was ~18
   screens, then 7, and is now **6** (B1-1 deleted the feature picker).
@@ -220,7 +286,7 @@ file owns which token.)
     pure-function tests in `lib/__tests__/tourSpotlight.test.ts`. Note also that the overlay's
     OUTERMOST view carries the `zIndex: 100` — `PagerFloatingNav` is a `zIndex: 100` sibling, so
     a wrapper without it lets the bar paint over the scrim and the coach card.
-- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`components/GoalsEditor.tsx`; it was `app/goals.tsx` until that screen was retired 2026-08-12) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and the shopping card (`components/HomeShoppingCard.tsx`) each render their own explainer + suggested-add row *inside* the card, never as a nested Surface (a Surface inside a Surface reads as a nested panel) — since 2026-08-12 that means `StarterCard`'s `embedded` prop rather than hand-rolling the block; see the placement paragraph at the end of this bullet. Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) is drawn as a **provisional sketch** — dashed neutral border, no fill, muted italic title, accent only on its "+" and its "Example" chip. **That reversed on 2026-08-10** ("Examples are not visible examples, they look like a part of the card or an active task, not as a temporary thing"); until then it deliberately DID copy the surrounding list's real row styling (accent wash + accent edge) on the opposite 2026-07-27 report, and succeeded so completely that a one-word chip was the only thing left telling the two apart. It keeps the row's GEOMETRY — an example has to be the same shape as the thing it's an example of — and changes only the finish. Read that file's Edit notes before restoring any of it. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
+- **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`components/GoalsEditor.tsx`; it was `app/goals.tsx` until that screen was retired 2026-08-12) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and — until it was deleted on 2026-08-19 — the shopping card each render their own explainer + suggested-add row *inside* the card, never as a nested Surface (a Surface inside a Surface reads as a nested panel) — since 2026-08-12 that means `StarterCard`'s `embedded` prop rather than hand-rolling the block; see the placement paragraph at the end of this bullet. Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) is drawn as a **provisional sketch** — dashed neutral border, no fill, muted italic title, accent only on its "+" and its "Example" chip. **That reversed on 2026-08-10** ("Examples are not visible examples, they look like a part of the card or an active task, not as a temporary thing"); until then it deliberately DID copy the surrounding list's real row styling (accent wash + accent edge) on the opposite 2026-07-27 report, and succeeded so completely that a one-word chip was the only thing left telling the two apart. It keeps the row's GEOMETRY — an example has to be the same shape as the thing it's an example of — and changes only the finish. Read that file's Edit notes before restoring any of it. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
   **The explainer LINE is deleted — the "no manual" pass (2026-08-17).** Maintainer: *"A native
   app should not read like a manual. You are placing way too much text on the screen. Delete all
   lightbulb (💡) sections entirely."* `components/CardHintNote.tsx` — the shared bulb + italic
@@ -369,7 +435,7 @@ file owns which token.)
     draw through it rather than hand-rolling a row. **Adoption is partial, and the gap ran
     the opposite way to what you'd guess** (measured 2026-07-31, AUDIT.md §0.4.2e): `PadRow`
     was imported by exactly four files — `HomeNotesCard`, `HomeHabitsCard`, `HomeShoppingCard`
-    and `PlanTaskCard`, i.e. the four **Home** cards — and by NO tab screen at all, which
+    (deleted 2026-08-19) and `PlanTaskCard`, i.e. the four **Home** cards of the day — and by NO tab screen at all, which
     inverted the conversion task written against it. **The Home cards are the newer code** —
     don't "fix" a Home card by converting it to match its tab; convert the tab.
     Two have been, so far: `app/(tabs)/habits.tsx`'s in-file `HabitCard` (2026-08-01) and

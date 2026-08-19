@@ -77,7 +77,7 @@
  *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
  *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
- *             components/PressableScale, components/SectionRail, components/SectionDivider,
+ *             components/PressableScale, components/SectionRail,
  *             constants/theme, react-native (AppState — the payday-boundary check also
  *             runs on app foreground now, not just navigation focus; see the edit note),
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
@@ -214,7 +214,7 @@
  *     period) under its header row, via lib/budget.ts's computeSpendPace() fed only that
  *     list's receipts (useReceiptStore rows tagged with its id) — same calculation/copy
  *     (`t.budget.perDaySpend`) as app/budget.tsx's own pace row for that list. The Home Shopping
- *     preview card (components/HomeShoppingCard.tsx) shows one AGGREGATE figure instead (summed
+ *     preview card showed one AGGREGATE figure instead (summed
  *     budget vs. every tagged receipt) — see app/(tabs)/index.tsx's shoppingPace memo. Hidden
  *     (returns null) for a list with no budget set or that's never been reset.
  *   - **Weekly redesign: week sections + per-list draft save/discard (2026-07-22)**: the
@@ -519,7 +519,6 @@ import CatalogueTab from '@/components/CatalogueTab';
 import CardExpandButton from '@/components/CardExpandButton';
 import { useCardExpand } from '@/lib/useCardExpand';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
-import SectionDivider from '@/components/SectionDivider';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
@@ -2088,7 +2087,6 @@ export default function ShoppingScreen() {
             </>
           )}
 
-          <SectionDivider />
           <SectionRail hue={screenHue} label={t.weeklyTabLabel} count={nonTemplateLists.length || undefined} />
 
           {true && (
@@ -2190,7 +2188,6 @@ export default function ShoppingScreen() {
 
                 return (
                   <React.Fragment key={week}>
-                    {week > 1 && <SectionDivider />}
                     <View
                       ref={(node) => handleRegisterWeekSectionNode(week, node)}
                       style={[

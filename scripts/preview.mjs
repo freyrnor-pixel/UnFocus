@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" and "add a habit" (both on the merged Today card) and
+// every main tab, and exercises "add a task" (To-do tab) and "add a habit" (Me tab) and
 // "add a medicine + log a dose" (Health) — each verified to survive a tab round-trip —
 // to prove three stores' write→read paths through the in-memory sql.js DB, not just
 // static render. Also renders the two pushed sub-screens reachable without data setup
@@ -207,8 +207,8 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    // Three tabs since the "full-screen card expansion" pass (2026-08-20): Shop · Today ·
-    // To-do. Health left the nav for a Home card the same pass; Habits is still a pushed
+    // Three tabs, reordered 2026-08-19: Shop · To-do (centre) · Me. Health left the nav for a
+    // card on Me (2026-08-20, "full-screen card expansion"); Habits is still a pushed
     // sub-screen and is visited at the END of this walk, with Settings and the design lab —
     // reaching one costs a goBack(), which reloads the document and wipes the in-memory
     // sql.js DB, so it cannot sit in the middle of the write-path checks.
@@ -264,8 +264,8 @@ async function main() {
     await clickText(page, 'Done');
     await page.waitForTimeout(500);
 
-    console.log('> back to the Today tab');
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    console.log('> back to the Me tab');
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1000);
     await shot(page, 'home-again');
 
@@ -297,11 +297,10 @@ async function main() {
     await shot(page, 'quick-add-focused-empty');
 
     // Home's pad cards (2026-07-30). Three things worth a regression check, all new surface
-    // area: writing on a card's own type line, ticking a note (which must stay IN PLACE,
-    // struck through, rather than vanishing into the checked zone until tomorrow), and
-    // stepping the Shopping card's week pager. The type line is an always-open input —
-    // target it by accessible name.
-    console.log('> Home pad cards (type line, tick-in-place, week pager)');
+    // area: writing on a card's own type line, and ticking a note (which must stay IN PLACE,
+    // struck through, rather than vanishing into the checked zone until tomorrow). The type
+    // line is an always-open input — target it by accessible name.
+    console.log('> Me pad cards (type line, tick-in-place)');
     const noteTitle = `Preview note ${Date.now()}`;
     const noteInput = page.getByLabel('Type note', { exact: true }).first();
     await noteInput.scrollIntoViewIfNeeded();
@@ -387,32 +386,28 @@ async function main() {
     await page.waitForTimeout(700);
     await dismissTour(page);
 
-    // Step the Shopping card's week pager one week forward and back.
-    const weekNext = page.getByRole('button', { name: 'Next week', exact: true }).first();
-    if (await weekNext.count()) {
-      await weekNext.scrollIntoViewIfNeeded();
-      await weekNext.click({ timeout: 10000 });
-      await page.waitForTimeout(600);
-      await shot(page, 'home-shopping-week-next');
-      await page.getByRole('button', { name: 'Previous week', exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(600);
-      console.log('  shopping week pager stepped both ways: true');
-    } else {
-      pageErrors.push('Shopping card week-pager arrows not found on Home');
-    }
+    // ⚠️ The Shopping card's week pager used to be stepped here. That card left this screen on
+    // 2026-08-19 (Home became "Me": habits, notes, health) along with the To-do preview card, so
+    // the arrows no longer exist anywhere in the app — the four-week pager was a feature of the
+    // preview card, not of the Shop tab. Deleted rather than re-pointed; there is nothing to
+    // re-point it at.
 
     // Exercise real store logic (not just static render): add a task from the merged "I dag"
     // card's type line, and confirm it round-trips through the in-memory sql.js DB by
     // reappearing after navigating away.
     //
-    // **On Home, not the To-do screen (2026-08-20).** The 5→3 merge made Home the surface that
-    // holds the day's tasks AND habits, so both composers this walk exercises are here — and
-    // the To-do screen is a push, which would cost a goBack() and the whole DB. It is also why
-    // the `.first()` locators below are now unambiguous: the note further down about "Type
-    // task" resolving to whichever card comes first in the DOM was about five co-mounted tab
-    // screens; with To-do off the pager, Home's card is the only one that carries that label.
+    // **On the To-do TAB (2026-08-19).** It was on Home from the 5→3 merge until then, because
+    // Home held the day's tasks; Home is "Me" now (habits/notes/health) and To-do is the centre
+    // tab, so the day's task composer is one tab over. It is still a TAB, not a push, so this
+    // costs no goBack() and the in-memory sql.js DB survives — which is the whole reason these
+    // write-path checks sit in the middle of the walk.
+    //
+    // ⚠️ `.first()` on "Type task" is safe again for a DIFFERENT reason than the note it
+    // replaces: all three tab screens are mounted (`lazy: false`), but with the To-do preview
+    // card gone from Home the To-do tab's day-view card is the only surface in the DOM carrying
+    // that label. Re-check this if a "Type task" line is ever added back to another tab.
     console.log('> add a task (store logic check)');
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const taskTitle = `Preview check ${Date.now()}`;
@@ -426,7 +421,7 @@ async function main() {
 
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     const persisted = await page.getByText(taskTitle, { exact: true }).first().isVisible().catch(() => false);
     console.log(`  task persisted after tab round-trip: ${persisted}`);
@@ -438,9 +433,9 @@ async function main() {
     // stamping a column. lib/__tests__/dayLog.test.ts covers the selector; this covers the
     // write → stamp → re-render → "it's above the line now" path end to end.
     console.log('> day log (tick a task, it crosses the now-line)');
-    // Home's type line makes a task dated TODAY (app/(tabs)/index.tsx's handleAddTask), which
-    // is what a day log needs — an undated Whenever row has no clock position and can never
-    // appear in one.
+    // The day card's type line makes a task dated TODAY, which is what a day log needs — an
+    // undated Whenever row has no clock position and can never appear in one. (This is the
+    // To-do tab's Today card since 2026-08-19; it was Home's preview card before that.)
     const logTitle = `Log check ${Date.now()}`;
     // The type line is an always-open input — target it by accessible name. (It also carries
     // a real `placeholder` since 2026-08-05, so getByPlaceholder would work too; the
@@ -467,11 +462,11 @@ async function main() {
     // Capture a moment through the SAME type line — the feature's "one field, one submit"
     // rule, and the reason there is no second input anywhere.
     //
-    // Stay on Home. Every tab screen is mounted at once (`lazy: false`), so a bare `.first()`
-    // on a shared label resolves to whichever card comes first in the DOM regardless of which
-    // tab is on screen — navigating away would leave the input filled but OFF-SCREEN, and
-    // every control in it would fail Playwright's visibility check. Since the 5→3 merge the
-    // day card exists only here, so there is no second "Type task" to be ambiguous about.
+    // Stay on the To-do tab. Every tab screen is mounted at once (`lazy: false`), so a bare
+    // `.first()` on a shared label resolves to whichever card comes first in the DOM regardless
+    // of which tab is on screen — navigating away would leave the input filled but OFF-SCREEN,
+    // and every control in it would fail Playwright's visibility check. The day card exists
+    // only on this tab, so there is no second "Type task" to be ambiguous about.
     const momentText = `Moment ${Date.now()}`;
     const typeLineAgain = page.getByLabel('Type task', { exact: true }).first();
     await typeLineAgain.scrollIntoViewIfNeeded();
@@ -509,20 +504,57 @@ async function main() {
     console.log(`  captured as a moment, not a task (no checkbox): ${!momentHasCheckbox}`);
     if (momentHasCheckbox) pageErrors.push(`Day log: "${momentText}" was committed as a task, not a moment`);
 
-    // Exercise a second store's write path: add a habit from the type line in the merged
-    // card's HABITS SECTION, then confirm it round-trips through the in-memory sql.js DB.
+    // The Week card folds as ONE thing, and the fold is PERSISTED (2026-08-19,
+    // lib/collapsedCards.ts's `plansWeek` over settings.collapsed_cards). Two properties no
+    // unit test can reach: the chevron actually removes the seven weekday sections from the
+    // screen, and the choice survives leaving the tab and coming back. The per-day folds beside
+    // it are local state and deliberately NOT persisted — every day starts folded, today's
+    // included, because the Today card above is already today in full.
+    console.log('> Week card folds as one, and remembers');
+    const weekFold = page.getByRole('button', { name: 'Week: Collapse list', exact: true }).first();
+    if (await weekFold.count()) {
+      const mondayBefore = await anyVisibleText(page, 'Monday');
+      console.log(`  weekdays drawn before folding: ${mondayBefore}`);
+      if (!mondayBefore) pageErrors.push('Week card: no weekday sections drawn before the fold');
+      await weekFold.scrollIntoViewIfNeeded();
+      await weekFold.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      const mondayAfter = await anyVisibleText(page, 'Monday');
+      console.log(`  weekdays gone after folding: ${!mondayAfter}`);
+      if (mondayAfter) pageErrors.push('Week card: folding it left the weekday sections on screen');
+      await shot(page, 'todo-week-folded');
+      await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(900);
+      const stillFolded = !(await anyVisibleText(page, 'Monday'));
+      console.log(`  fold survived a tab round-trip: ${stillFolded}`);
+      if (!stillFolded) pageErrors.push('Week card: the fold did not persist across a tab round-trip');
+      // Put it back, so the screenshots further down show the ordinary state.
+      await page.getByRole('button', { name: 'Week: Expand list', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+    } else {
+      pageErrors.push('No "Week: Collapse list" chevron on the To-do tab — the whole-week fold may not be wired');
+    }
+
+    // Exercise a second store's write path: add a habit from components/HomeHabitsCard.tsx's
+    // type line, then confirm it round-trips through the in-memory sql.js DB.
     //
-    // **This is the half of the 5→3 merge no unit test can see.** The habits section is
-    // components/HomeHabitsCard.tsx mounted `embedded` inside components/PlanTaskCard.tsx's
-    // `extraSection` — no Surface, no badge, everything else unchanged — and the property that
-    // matters is that its composer still WRITES from inside the host card. tsc cannot tell an
-    // embedded mount from a broken one, and a screenshot only shows that something rendered.
+    // **Back on the Me tab, and the hop is required** (2026-08-19). The habits card is a
+    // first-class card on `/` again; the walk is on the To-do tab at this point, and every tab
+    // screen stays mounted (`lazy: false`), so a bare `.first()` would resolve to a real input
+    // that is simply OFF SCREEN — scrollIntoViewIfNeeded cannot bring it into view from another
+    // page of the pager, and every subsequent visibility check would fail with a locator error
+    // rather than a useful message.
     //
     // **This is a text input, not a button** (2026-07-30): the collapsed "+ Add habit" AddRow
     // bar became components/PadTypeRow.tsx — an always-open line. There is no bar to tap open
     // any more. Target the input by its accessible name (the prompt string, t.pad.type.habit),
     // which is set explicitly and is also the `placeholder` since 2026-08-05.
-    console.log('> add a habit from the merged card (store logic check)');
+    console.log('> add a habit (store logic check)');
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
     const habitTitle = `Preview habit ${Date.now()}`;
     const habitInput = page.getByLabel('Type habit', { exact: true }).first();
     await habitInput.scrollIntoViewIfNeeded();
@@ -534,7 +566,7 @@ async function main() {
 
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitPersisted = await page.getByText(habitTitle, { exact: true }).first().isVisible().catch(() => false);
@@ -547,21 +579,23 @@ async function main() {
     // check the To-do tab's log. The stamp is habit_logs.first_at, written on the FIRST
     // log of the day, so this must hold for a partly-done counter habit too.
     //
-    // **The control depends on the SURFACE, and this walk changed surface on 2026-08-20.**
-    // app/habits.tsx's HabitCard registers every habit through a −/+ pair, which is what this
-    // step used to click. components/HomeHabitsCard.tsx — the card that is now the habits
-    // section of the merged "I dag" card — draws a −/+ pair only when `dailyGoal > 1`, and a
-    // plain check when the goal is 1, so the common case matches every other pad row in the
-    // app. A quick-added habit has a goal of 1, so the check is the control here.
+    // **The control depends on the SURFACE.** app/habits.tsx's HabitCard registers every habit
+    // through a −/+ pair. components/HomeHabitsCard.tsx — the card on the Me tab, which is what
+    // this walk clicks — draws a −/+ pair only when `dailyGoal > 1`, and a plain check when the
+    // goal is 1, so the common case matches every other pad row in the app. A quick-added habit
+    // has a goal of 1, so the check is the control here.
     console.log('> day log: a ticked habit appears in it');
     const habitCheck = page.getByRole('checkbox', { name: habitTitle, exact: true }).first();
     await habitCheck.scrollIntoViewIfNeeded();
     await habitCheck.click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await shot(page, 'day-log-habit-ticked');
-    // No tab hop: since the merge the habit's row and the day log it lands in are the same
-    // card, which is the clearest single check that the merge is presentational — the log is
-    // fed by lib/dayLog.ts reading habit_logs.first_at, not by anything the section owns.
+    // **The tab hop is the point of this check** (2026-08-19). The habit was ticked on the Me
+    // tab; the day log is drawn by the To-do tab's Today card. That the row shows up there is
+    // exactly what proves the log is fed by lib/dayLog.ts reading `habit_logs.first_at`, and
+    // not by anything the habits card owns. (Until this pass the two lived on one card, so the
+    // check could be made without moving — which also made it a weaker check.)
+    await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(900);
     const habitInLog = await anyVisibleText(page, habitTitle);
     console.log(`  ticked habit shows in the day log: ${habitInLog}`);
@@ -572,12 +606,11 @@ async function main() {
     // from the Health card's tray card, then LOG A DOSE by tapping its circle — the dose is
     // the whole point of the feature, and it's a separate table (medicine_doses) from the
     // medicine row itself. Both are checked to survive a tab round-trip.
-    // **On Home, not a "Me" tab (2026-08-20)** — Health left the bottom nav for a Home card
-    // (components/HomeHealthCard.tsx), which mounts HealthSurface `embedded` with nothing
-    // truncated (MedicineTrayCard and the composer render unconditionally), so the flow below
-    // needs no tab switch at all.
+    // **On the Me tab** — Health left the bottom nav for a card there (2026-08-20,
+    // components/HomeHealthCard.tsx), which mounts HealthSurface `embedded` with nothing
+    // truncated (MedicineTrayCard and the composer render unconditionally).
     console.log('> add a medicine + log a dose (store logic check)');
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const medName = `Preview med ${Date.now()}`;
@@ -611,7 +644,7 @@ async function main() {
     // the dose survives leaving and returning to the tab, the property the check is for.
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const dosePersisted = await page.getByText(/^Taken \d{2}:\d{2}$/).first().isVisible().catch(() => false);
@@ -644,7 +677,7 @@ async function main() {
     // check, not one of the write-path proofs above it.
     try {
       console.log('> pushed sub-screen: /habits');
-      await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await dismissModalIfPresent(page);
       await clickText(page, 'Habits');
@@ -670,7 +703,7 @@ async function main() {
     // a layout/positioning-level cause (band collapsed, title off-screen) would show up
     // here, even though Android-native font metrics don't reproduce on web.
     console.log('> Settings (sub-tier header check)');
-    await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
     // A title string can match other nodes too (the BottomNav label carries the same word), so
     // measure the TOPMOST visible match — the header title is the one at the top edge.
@@ -689,11 +722,11 @@ async function main() {
       });
       return { visible: true, box: best.box, ...css };
     };
-    // "Today" since the 5→3 merge — the screen's title is `t.nav.home`, and that string moved
+    // "Me" since 2026-08-19 — the screen's title is `t.nav.home`, and that string moved
     // with the tab's name. Measuring the old "Home" reported `visible: false` and read as a
     // collapsed header band, which is exactly the failure this check exists to catch.
-    const homeTitle = await measureTitle('Today');
-    console.log(`  Today (site) header title: ${JSON.stringify(homeTitle)}`);
+    const homeTitle = await measureTitle('Me');
+    console.log(`  Me (site) header title: ${JSON.stringify(homeTitle)}`);
     if (!homeTitle.visible) pageErrors.push('Home: the site-tier header title did not render');
     await page.getByRole('button', { name: 'Settings', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
@@ -755,7 +788,7 @@ async function main() {
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 8000 });
       await page.waitForTimeout(900);
       const awayCount = await page.getByRole('slider').count();
-      await page.getByRole('button', { name: 'Today', exact: true }).first().click({ timeout: 8000 });
+      await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 8000 });
       await page.waitForTimeout(900);
       const backCount = await page.getByRole('slider').count();
       console.log(`  sliders on the other screen: ${awayCount}; back on this one: ${backCount}`);

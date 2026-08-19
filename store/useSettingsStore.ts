@@ -221,7 +221,7 @@ export type EnergyMode = 'daily' | 'weekly' | 'custom';
  * → Layout). Presentation only — every tab is still one tap away, so no value here can
  * make anything unreachable. The id → route map lives in lib/firstRunOptions.ts.
  */
-export type StartScreen = 'home' | 'shopping' | 'health';
+export type StartScreen = 'home' | 'shopping' | 'plans';
 /** Habits' Today/Week/Month selector. Persisted so it survives a remount. */
 export type HabitViewTab = 'today' | 'week' | 'month';
 
@@ -590,7 +590,7 @@ function rowToSettings(row: Row): Settings {
     taskNotificationsEnabled: readBool(row, 'task_notifications_enabled'),
     setupComplete: readBool(row, 'setup_complete'),
     firstRunComplete: readBool(row, 'first_run_complete'),
-    startScreen: readEnum<StartScreen>(row, 'start_screen', ['home', 'shopping', 'health'], 'home'),
+    startScreen: readEnum<StartScreen>(row, 'start_screen', ['home', 'shopping', 'plans'], 'home'),
     workModeEnabled: readBool(row, 'work_mode_enabled'),
     workHoursStart: readStr(row, 'work_hours_start', '07:00'),
     workHoursEnd: readStr(row, 'work_hours_end', '17:00'),
@@ -648,7 +648,7 @@ function rowToSettings(row: Row): Settings {
     // the bottom nav the same pass). A stored order from that window is un-folded on read by
     // sanitizeHomeCardOrder in lib/homeCards.ts — deliberately there rather than as a lib/db.ts
     // migration, so a row written later by an older build/paired device is covered too.
-    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'habits', 'notes', 'shopping', 'health']),
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['habits', 'notes', 'health']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
@@ -852,7 +852,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   seenScreenHints: [],
   dismissedStarters: [],
   dismissedHints: [],
-  homeCardOrder: ['plans', 'habits', 'notes', 'shopping', 'health'],
+  homeCardOrder: ['habits', 'notes', 'health'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,

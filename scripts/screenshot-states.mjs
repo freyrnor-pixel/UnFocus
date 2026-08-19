@@ -255,7 +255,7 @@ async function back(page) {
 async function ensureTabs(page) {
   await dismissTour(page);
   await closeOverlays(page);
-  if (await page.getByRole('button', { name: 'Today', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await page.getByRole('button', { name: 'Me', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
     return;
   }
   if (await page.getByText('Continue', { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false)) {
@@ -265,7 +265,7 @@ async function ensureTabs(page) {
     await page.waitForTimeout(1800);
     await walkTour(page, { capture: false });
     await dismissTour(page);
-    if (await page.getByRole('button', { name: 'Today', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await page.getByRole('button', { name: 'Me', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
       return;
     }
   }
@@ -393,10 +393,10 @@ async function main() {
     // ---- 2. the three tabs, empty ---------------------------------------
     console.log('> tabs, empty');
     await shot(page, 'home-empty', {
-      title: 'Home — first run, nothing added yet',
+      title: 'Me — first run, nothing added yet',
       screen: 'app/(tabs)/index.tsx',
-      state: 'EMPTY. Home is the INDEX of the other screens and owns no data: each preview card wears the border hue of the tab it comes from (habits sky, notes yellow, shopping green), and Home itself is neutral grey. The Energy strip is replaced by its tutorial card while nothing carries an energy value — a full ten-pip bar with nothing able to spend it reads as a score.',
-      components: 'EnergyMeter, PlanTaskCard, HomeHabitsCard, HomeNotesCard, HomeShoppingCard, StarterCard, StarterExampleRow',
+      state: 'EMPTY. "Me" is the personal tab (2026-08-19) — habits, notes and health, and nothing else. It stopped previewing To-do and Shopping when To-do took the centre tab: a shorter second copy of a tab one swipe away is duplication, not a shortcut. It owns no data of its own; each card wears the border hue of the surface it comes from (habits cyan, notes violet, health rose) and the tab itself is neutral grey. The Energy strip is replaced by its tutorial card while nothing carries an energy value — a full ten-pip bar with nothing able to spend it reads as a score. That card draws no tree: the watermark was removed here by name (2026-08-19).',
+      components: 'EnergyMeter, HomeHabitsCard, HomeNotesCard, HomeHealthCard, StarterCard, StarterExampleRow',
     });
 
     for (const [btn, file, title, screen, state, components] of [
@@ -406,8 +406,11 @@ async function main() {
       // To-do and Habits left this loop on 2026-08-20 (5 tabs → 3). They are pushed
       // sub-screens now and are shot in phase 4 as their own excursions; their DAILY content
       // is on Home, which 'home-empty' above already captures.
-      ['Me', 'health-empty', 'Health — empty', 'app/(tabs)/health.tsx',
-        'EMPTY. Teal screen hue. Medicine trays (morning / midday / evening / night — windows, not clock times) sit above the symptom log.',
+      // Health is a CARD on the Me tab, not a tab of its own — it left the bottom nav on
+      // 2026-08-20. Clicking 'Me' lands on the screen that holds it; the card is below Habits
+      // and Notes, so this frame shows it in its stack rather than full-bleed.
+      ['Me', 'health-empty', 'Health — empty (a card on the Me tab)', 'components/HealthSurface.tsx',
+        'EMPTY. Rose card hue. Medicine trays (morning / midday / evening / night — windows, not clock times) sit above the symptom log. Nothing on this surface is a scoreboard: a count of migraines is not an achievement in either direction, so there is no streak, no total, no escalating colour, and — the trap specific to this domain — no congratulation for a quiet week.',
         'MedicineTrayCard, OpenEpisodeCard, AddRow, StarterCard, StarterExampleRow'],
     ]) {
       await tab(page, btn);
@@ -417,7 +420,7 @@ async function main() {
     // ---- 3. sheets and overlays (close in place) -------------------------
     if (FULL) {
       console.log('> sheets and overlays');
-      await tab(page, 'Today');
+      await tab(page, 'Me');
       if (await tryButton(page, "Set the day's energy")) {
         await shot(page, 'energy-config-sheet', {
           title: 'The Energy config sheet',
@@ -427,7 +430,9 @@ async function main() {
         });
         await closeOverlays(page);
       }
-      if (await tryButton(page, "Card settings for Today's to-do")) {
+      // The ⋯ on a Home card. It was the To-do preview's until 2026-08-19; Habits is the
+      // first card on the Me tab now, and the sheet it opens is identical.
+      if (await tryButton(page, 'Card settings for Habits')) {
         await shot(page, 'home-card-menu-sheet', {
           title: 'A Home card\'s ⋯ settings sheet',
           screen: 'components/CardMenuSheet.tsx',
@@ -437,7 +442,7 @@ async function main() {
         await closeOverlays(page);
       }
 
-      await tab(page, 'Today');
+      await tab(page, 'Me');
       if (await tryButton(page, 'Goals')) {
         await shot(page, 'goals-drawer', {
           title: 'The Goals drawer, expanded (from To-do and from Habits)',
@@ -494,7 +499,7 @@ async function main() {
       // Reached by their card headers on Home — the same route a user takes — rather than by
       // a goto, so the walk also proves those doors still open.
       await excursion(page, 'plans-empty', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await clickOnScreenText(page, "Today's list");
         await page.waitForTimeout(1100);
         await shot(page, 'plans-empty', {
@@ -506,7 +511,7 @@ async function main() {
       });
 
       await excursion(page, 'habits-empty', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await clickOnScreenText(page, 'Habits');
         await page.waitForTimeout(1100);
         await shot(page, 'habits-empty', {
@@ -542,7 +547,7 @@ async function main() {
       });
 
       await excursion(page, 'notes-empty', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await clickText(page, 'Notes');
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
@@ -554,7 +559,7 @@ async function main() {
       });
 
       await excursion(page, 'day-log', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await tryButton(page, 'Earlier days');
         await page.waitForTimeout(1000);
         await shot(page, 'day-log-screen', {
@@ -603,7 +608,7 @@ async function main() {
       });
 
       await excursion(page, 'settings', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await shot(page, 'settings-general', {
@@ -631,7 +636,7 @@ async function main() {
       });
 
       await excursion(page, 'design-lab', async () => {
-        await tab(page, 'Today');
+        await tab(page, 'Me');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await tryText(page, 'Advanced', 4000);
@@ -683,7 +688,7 @@ async function main() {
 
     // ---- 5. seed for real, shoot the populated states --------------------
     console.log('> seeding + populated states');
-    await tab(page, 'Today');
+    await tab(page, 'To-do');
 
     const typeLine = (await onScreenField(page, 'Type task')) || page.getByLabel('Type task', { exact: true }).first();
     await typeLine.scrollIntoViewIfNeeded().catch(() => {});
@@ -712,8 +717,8 @@ async function main() {
       // collapses its log behind "Show all" on this tab; and the To-do tab's copy of the card
       // does not draw the newly-logged row until it REMOUNTS — Home's copy of the same card
       // updates live, which is why the gap is easy to miss. Round-trip the tab, then expand.
-      await tab(page, 'Today');
-      await tab(page, 'Today');
+      await tab(page, 'To-do');
+      await tab(page, 'To-do');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-after-tick', {
         title: 'To-do — a ticked task crosses the now-line into the day log',
@@ -740,8 +745,8 @@ async function main() {
       });
       await page.getByLabel('What just happened?', { exact: true }).first().press('Enter');
       await page.waitForTimeout(900);
-      await tab(page, 'Today');
-      await tab(page, 'Today');
+      await tab(page, 'To-do');
+      await tab(page, 'To-do');
       await clickOnScreenText(page, 'Show all');
       await shot(page, 'day-log-with-moment', {
         title: 'The day log with a captured moment in it',
@@ -777,7 +782,7 @@ async function main() {
     }
 
     console.log('> habits');
-    await tab(page, 'Today');
+    await tab(page, 'Me');
     await seedHabit(page, 'Drink water');
     await seedHabit(page, 'Ten minutes outside');
     await shot(page, 'habits-populated', {
@@ -888,12 +893,12 @@ async function main() {
     }
 
     console.log('> home, populated');
-    await tab(page, 'Today');
+    await tab(page, 'Me');
     await shot(page, 'home-populated', {
-      title: 'Home — with everything seeded',
+      title: 'Me — with everything seeded',
       screen: 'app/(tabs)/index.tsx',
-      state: 'POPULATED. Every card here previews another tab and carries that tab\'s border hue — the one legitimate use of an explicit borderColor override in the whole app. Card order is user-draggable. Note the same day-view card as the To-do tab: that is why the day log needed no Home card of its own.',
-      components: 'PlanTaskCard, HomeHabitsCard, HomeNotesCard, HomeShoppingCard, EnergyMeter, HomeCardManager',
+      state: 'POPULATED. Three cards, each carrying the hue of the surface it comes from — the one legitimate use of an explicit borderColor override in the whole app. Card order is user-draggable, but Habits and Health are re-appended on read if a stored order does not name them: neither has anywhere else to be, so hiding one for good would take the surface with it.',
+      components: 'HomeHabitsCard, HomeNotesCard, HomeHealthCard, EnergyMeter, HomeCardManager',
     });
 
     if (await typeInto(page, 'Type note', 'Ask about the bike lock')) {
@@ -903,7 +908,7 @@ async function main() {
         await page.waitForTimeout(800);
       }
       await shot(page, 'home-note-ticked-in-place', {
-        title: 'Home — a note ticked today stays in place',
+        title: 'Me — a note ticked today stays in place',
         screen: 'components/HomeNotesCard.tsx',
         state: 'Struck through where it is, rather than vanishing into a checked zone until tomorrow. The row anatomy is fixed app-wide: [leading?] title → ONE meta line → ONE right-hand value → [⋯ action] → [○ check], with the check on the RIGHT like the ticks in the margin of a paper checklist.',
         components: 'HomeNotesCard, PadRow',

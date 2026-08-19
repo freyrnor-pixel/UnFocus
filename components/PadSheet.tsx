@@ -49,7 +49,7 @@
  *             PAD_ROW_MIN_HEIGHT, Radius, Spacing), components/Collapsible, lib/padState
  *             (PadState), lib/screenColor (useScreenColor), lib/useAppTheme,
  *             lib/useDesignLab (useLabControl, useLabShape — the `rowShape` knob below)
- *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
+ *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
  *   Data    → none (presentational; the caller slices rows via lib/padState's padVisibleRows)
  *

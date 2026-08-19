@@ -609,9 +609,9 @@ const en = {
       // question would read oddly next to the other field labels.
       settingsLabel: 'Starting screen',
       sub: 'Every other tab stays one tap away.',
-      home: "The day's list.",
+      home: 'Habits, notes and how you feel.',
       shopping: 'Your shopping lists.',
-      health: 'Meds and how you feel.',
+      plans: 'Everything to do.',
     },
   },
   // The guided tour (components/TourSpotlight.tsx + lib/tourSteps.ts) — one step per feature,
@@ -637,8 +637,8 @@ const en = {
     skipAll: 'Skip the tour',
     steps: {
       home: {
-        title: 'Today holds tasks and habits together',
-        body: 'One list for what today needs.\n• Small beats perfect — add one thing you can finish.\n• A quiet day is just a quiet day.',
+        title: 'Me is the personal side',
+        body: 'Habits, notes and how you feel.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
       },
       shopping: {
         title: 'Shopping resets itself',
@@ -1222,7 +1222,7 @@ const en = {
   nav: {
     newTask: 'New task', plans: 'To-do', shop: 'Shop', habits: 'Habits',
     meals: 'Food', health: 'Me', scan: 'Scan', settings: 'Settings',
-    capture: 'Quick note', home: 'Today', budget: 'Budget', automations: 'Automations',
+    capture: 'Quick note', home: 'Me', budget: 'Budget', automations: 'Automations',
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
@@ -2763,9 +2763,9 @@ const no: typeof en = {
       title: 'Hvor skal appen åpne?',
       settingsLabel: 'Startskjerm',
       sub: 'De andre fanene er ett trykk unna.',
-      home: 'Dagens liste.',
+      home: 'Vaner, notater og hvordan du har det.',
       shopping: 'Handlelistene dine.',
-      health: 'Medisiner og hvordan du har det.',
+      plans: 'Alt som skal gjøres.',
     },
   },
   tour: {
@@ -2775,8 +2775,8 @@ const no: typeof en = {
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
-        title: 'I dag samler gjøremål og vaner',
-        body: 'Én liste for det dagen trenger.\n• Lite slår perfekt — legg inn én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
+        title: 'Meg er den personlige siden',
+        body: 'Vaner, notater og hvordan du har det.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
       },
       shopping: {
         title: 'Handlelisten nullstiller seg selv',
@@ -3591,7 +3591,7 @@ const no: typeof en = {
   nav: {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
     meals: 'Mat', health: 'Meg', scan: 'Skann', settings: 'Innst.',
-    capture: 'Notér', home: 'I dag', budget: 'Budsjett', automations: 'Automatisering',
+    capture: 'Notér', home: 'Meg', budget: 'Budsjett', automations: 'Automatisering',
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
@@ -4590,9 +4590,9 @@ const is: typeof en = {
       title: 'Hvar á appið að opnast?',
       settingsLabel: 'Upphafsskjár',
       sub: 'Hinir fliparnir eru einn smellur í burtu.',
-      home: 'Listi dagsins.',
+      home: 'Venjur, minnispunktar og líðan.',
       shopping: 'Innkaupalistarnir þínir.',
-      health: 'Lyf og hvernig þér líður.',
+      plans: 'Allt sem á að gera.',
     },
   },
   tour: {
@@ -4602,8 +4602,8 @@ const is: typeof en = {
     skipAll: 'Sleppa kynningunni',
     steps: {
       home: {
-        title: 'Í dag heldur utan um verkefni og venjur',
-        body: 'Einn listi fyrir það sem dagurinn þarf.\n• Lítið slær fullkomið — skráðu eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
+        title: 'Ég er persónulega hliðin',
+        body: 'Venjur, minnispunktar og líðan.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
       },
       shopping: {
         title: 'Innkaupalistinn núllstillir sig sjálfur',
@@ -5417,7 +5417,7 @@ const is: typeof en = {
   nav: {
     newTask: 'Nýtt', plans: 'Verkefni', shop: 'Innkaup', habits: 'Venjur',
     meals: 'Matur', health: 'Ég', scan: 'Skanna', settings: 'Still.',
-    capture: 'Skrá', home: 'Í dag', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
+    capture: 'Skrá', home: 'Ég', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
     shared: 'Deilt', settingsLabel: 'Stillingar',
   },
   home: {

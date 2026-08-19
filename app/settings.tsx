@@ -94,9 +94,10 @@
  * now floats with the same side margins + Radius.lg rounding as the header's own floated card
  * (was edge-to-edge/square, mismatched once the header started floating — read as a glitchy seam);
  * `stickyGapColor` switched from an opaque `theme.surface` to `"transparent"` to match the
- * header's own transparent float gaps; the lone `SectionDivider` before the Data group now zeroes
+ * header's own transparent float gaps; the lone `SectionDivider` before the Data group zeroed
  * its own margin (content's `gap` was double-stacking with the divider's default margin, reading
- * as a huge blank band); and the tab labels pass `radius={Radius.md}` to TabSlider for a squarer
+ * as a huge blank band — that component was deleted app-wide on 2026-08-19, see below); and the
+ * tab labels pass `radius={Radius.md}` to TabSlider for a squarer
  * segmented-control shape instead of a full pill (Plans/Shopping keep the default pill).
  *
  * Connections:
@@ -104,7 +105,7 @@
  *             (ToggleRow + SettingLinkRow — every switch row and every "go to this screen" row
  *             on this screen; they were written out by hand 23 times, ~160 lines, until
  *             2026-08-12), components/ConfirmationBanner, components/FormControls,
- *             components/ScreenScaffold, components/SectionDivider, components/Surface,
+ *             components/ScreenScaffold, components/Surface,
  *             components/ExpandableCard, components/PressableScale, components/TabSlider,
  *             components/AiSetupPreviewModal, constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
@@ -1168,7 +1169,7 @@ export default function SettingsScreen() {
                   onChange={(v) => settings.update({ startScreen: v as StartScreen })}
                   options={START_SCREEN_CHOICES.map((v) => ({
                     value: v,
-                    label: v === 'home' ? t.nav.home : v === 'shopping' ? t.nav.shop : t.nav.health,
+                    label: v === 'home' ? t.nav.home : v === 'shopping' ? t.nav.shop : t.nav.plans,
                   }))}
                 />
                 <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>

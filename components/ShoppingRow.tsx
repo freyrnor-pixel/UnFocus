@@ -28,7 +28,7 @@
  *             `spec.chips` is set that card draws components/ShoppingChip.tsx instead, which is
  *             the same item in a different shape, not a different row),
  *             app/(tabs)/shopping.tsx (weekly rows +
- *             purchased-history rows), components/HomeShoppingCard.tsx (Home shopping
+ *             purchased-history rows), and — until 2026-08-19 — the Home shopping
  *             preview — planned + cart rows, no drag reorder)
  *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onOpenDetail
  *             callbacks (the parent screen calls toggleCheck/toggleCollected/
@@ -461,7 +461,7 @@ const baseStyles = StyleSheet.create({
 });
 
 // React.memo with a custom comparator (perf sweep 2026-07-15): compare only the DATA props
-// and ignore the callback props. Parents (WeekListCard, HomeShoppingCard, shopping.tsx) pass
+// and ignore the callback props. Parents (WeekListCard, shopping.tsx) pass
 // per-item inline closures like `() => onToggleItem(item)` that are recreated every render —
 // a default shallow compare would never bail. This is safe because each closure only ever
 // dispatches for THIS row's item: as long as `item` (and the other data props) are unchanged,

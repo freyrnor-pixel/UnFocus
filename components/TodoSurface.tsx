@@ -82,7 +82,9 @@ import PadRow from '@/components/PadRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Button from '@/components/Button';
 import CardExpandButton from '@/components/CardExpandButton';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import { useCardExpand } from '@/lib/useCardExpand';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { DayEntry } from '@/lib/dayLog';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
@@ -589,10 +591,16 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // "avoid always having 7 days showing"). Local and NOT persisted: a day's own SectionCard is
   // data-generated (one per date in the current week), and lib/collapsedCards.ts's singleton
   // rule is exactly why a per-day id can't take a `collapseKey` — see SectionCard.tsx's edit
-  // note. Every day starts folded except today's, so opening the Week card doesn't dump all
-  // seven days on screen at once but still lands on the one day that actually matters right now.
+  // note.
+  //
+  // **EVERY day starts folded, today's included** (2026-08-19, maintainer: *"the current day
+  // does not need to be open. The days are just for an overview, while 'Today' and 'Whenever'
+  // at the top is for use."*). The card above this one is already today, in full, with its own
+  // composer — so auto-opening today here drew the same day twice and made the one card that is
+  // meant to read as a seven-row overview open at whatever height today happens to be. This
+  // used to be `.filter((d) => d !== today)`; don't restore it.
   const [collapsedWeekdays, setCollapsedWeekdays] = useState<Set<string>>(
-    () => new Set(weekGroups.map((g) => g.date).filter((d) => d !== today))
+    () => new Set(weekGroups.map((g) => g.date))
   );
   const toggleWeekday = useCallback((date: string) => {
     setCollapsedWeekdays((prev) => {
@@ -721,6 +729,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const todayExpand = useCardExpand('todoToday');
   const weekExpand = useCardExpand('todoWeek');
   const recurringExpand = useCardExpand('todoRecurring');
+
+  // The Week card folds as ONE thing, remembered across launches (2026-08-19, maintainer:
+  // *"Mon-sun in to-do should also be collapsable together"*). Its seven weekday sections keep
+  // their own local per-day fold above — this is the third axis (lib/collapsedCards.ts), the
+  // card's body drawn at all, and the only one of the two that persists. Whenever/Today/
+  // Recurring get theirs from `SectionCard`'s `collapseKey`; this card isn't a SectionCard (it
+  // is a header row over a stack of seven), so it wires the same hook and chevron by hand.
+  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('plansWeek');
 
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
@@ -881,31 +897,36 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     <View ref={weekExpand.ref} key="week">
       <View style={styles.cardHeaderRow}>
         <Text style={[styles.cardHeaderTitle, { color: theme.text }]}>{t.todoWeekTitle}</Text>
+        {/* Chevron before the expand button, so the two read as "how much of this" then
+            "how big is this" — the same order every SectionCard header puts them in. */}
+        <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
         {full && (
           <CardExpandButton expanded={weekExpand.expanded} onExpand={weekExpand.onExpand} onCollapse={weekExpand.onCollapse} />
         )}
       </View>
-      <View style={styles.cardStack}>
-        {weekGroups.map((group, i) => (
-          <SectionCard
-            key={group.date}
-            hue={theme.accent}
-            label={t.dayFull[i]}
-            count={group.tasks.length}
-            collapsed={collapsedWeekdays.has(group.date)}
-            onToggleCollapse={() => toggleWeekday(group.date)}
-          >
-            <DoneSplitList
-              tasks={[...group.tasks].sort(byTime)}
-              focusMode={layoutSpec.focusMode}
-              footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
-              renderCard={(tk) => (
-                <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
-              )}
-            />
-          </SectionCard>
-        ))}
-      </View>
+      <Collapsible open={!weekCollapsed}>
+        <View style={styles.cardStack}>
+          {weekGroups.map((group, i) => (
+            <SectionCard
+              key={group.date}
+              hue={theme.accent}
+              label={t.dayFull[i]}
+              count={group.tasks.length}
+              collapsed={collapsedWeekdays.has(group.date)}
+              onToggleCollapse={() => toggleWeekday(group.date)}
+            >
+              <DoneSplitList
+                tasks={[...group.tasks].sort(byTime)}
+                focusMode={layoutSpec.focusMode}
+                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+                renderCard={(tk) => (
+                  <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
+                )}
+              />
+            </SectionCard>
+          ))}
+        </View>
+      </Collapsible>
     </View>
   );
 
@@ -1054,7 +1075,12 @@ const styles = StyleSheet.create({
   content: { gap: SCREEN_GAP },
   cardStack: { gap: Spacing.sm },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
-  cardHeaderTitle: { fontFamily: Type.title.fontFamily, fontSize: FontSize.lg },
+  // `flex: 1` + `minWidth: 0` so the title takes the slack and the header's trailing controls
+  // stay CLUSTERED at the right edge. Without it, `space-between` spreads two controls across
+  // the row and the Week card's chevron floats in the middle of the line, reading as unrelated
+  // to the expand button beside it. `minWidth: 0` is the half that does nothing on its own and
+  // is required anyway — see components/TaskCard.tsx's note on `flex: 1` not shrinking a child.
+  cardHeaderTitle: { flex: 1, minWidth: 0, fontFamily: Type.title.fontFamily, fontSize: FontSize.lg },
   dayResetBtn: { alignSelf: 'center', marginTop: Spacing.sm },
   focusWrap: { gap: Spacing.lg },
   focusHero: { gap: Spacing.xs },

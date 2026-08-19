@@ -20,7 +20,7 @@
  *             Decision 044b), components/PressableScale, components/Surface, constants/theme,
  *             lib/haptics, lib/i18n, lib/useAppTheme
  *   Used by → components/HomeNotesCard.tsx, components/HomeHabitsCard.tsx,
- *             components/HomeShoppingCard.tsx, components/PlanTaskCard.tsx (each renders a
+ *             components/HomeHealthCard.tsx, components/PlanTaskCard.tsx (each renders a
  *             CardMenuButton in its header when Home passes it a `cardMenu`). The menus
  *             themselves are BUILT in app/(tabs)/index.tsx — see below.
  *   Data    → none. This component writes nothing: every row is a label plus an `onPress` the

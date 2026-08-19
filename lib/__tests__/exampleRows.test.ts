@@ -274,7 +274,9 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
   it('drops the Surface, the padding and the watermark, and nothing else', () => {
     const source = code('components/StarterCard.tsx');
     expect(source).toMatch(/if \(embedded\) return <View style=\{styles\.embedded\}>\{body\}<\/View>;/);
-    expect(source).toMatch(/\{compact \|\| embedded \? null : \(/);
+    // `noTree` joined the gate on 2026-08-19 (Energy's card draws no watermark) — the
+    // assertion still pins that `embedded` is one of the terms that suppresses it.
+    expect(source).toMatch(/\{compact \|\| embedded \|\| noTree \? null : \(/);
     // Presentation only — the same contract FoodTab/CatalogueTab's `embedded` carries. The
     // body is built once and used by both branches, which is what makes that true structurally
     // rather than by review.
@@ -544,7 +546,6 @@ describe('the bulb explainer line stays deleted', () => {
     'components/PlanTaskCard.tsx',
     'components/HomeHabitsCard.tsx',
     'components/HomeNotesCard.tsx',
-    'components/HomeShoppingCard.tsx',
     'components/MedicineTrayCard.tsx',
     'components/EnergyMeter.tsx',
     'app/habits.tsx',

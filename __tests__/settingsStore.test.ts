@@ -29,12 +29,12 @@ describe('homeCardOrder', () => {
     // (too many lists on Home) — see app/goals.tsx's header for its new entry points.
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    // 'habits' left the default for one same-day window on 2026-08-20 (5 tabs → 3, folded into
-    // 'plans' as a section) and rejoined it hours later in the "full-screen card expansion"
-    // pass, alongside the new 'health' kind (Health left the bottom nav the same pass). A
-    // stored order from that brief window is un-folded on read — see sanitizeHomeCardOrder in
-    // lib/homeCards.ts.
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'habits', 'notes', 'shopping', 'health']);
+    // Three kinds since 2026-08-19, when To-do took the middle tab and Home became "Me":
+    // 'plans' and 'shopping' left because each is a whole tab one swipe away, so a preview card
+    // here was a second copy of it. Note this is the RAW column value — the Home screen reads it
+    // through sanitizeHomeCardOrder (lib/homeCards.ts), which is what handles a stored order
+    // written by an older build.
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['habits', 'notes', 'health']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

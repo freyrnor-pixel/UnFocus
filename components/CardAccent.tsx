@@ -18,7 +18,7 @@
  *   Imports → @expo/vector-icons (Ionicons), constants/theme (getBadgeFrost, Radius, rgba),
  *             lib/useAppTheme (useAppTheme, useIsDark), lib/domainColor (Domain,
  *             getDomainColor, badgeGlyphFor)
- *   Used by → components/HomeShoppingCard, components/HomeNotesCard, components/HomeHabitsCard,
+ *   Used by → components/HomeNotesCard, components/HomeHabitsCard,
  *             components/PlanTaskCard, components/WeekListCard, components/MedicineTrayCard,
  *             components/SectionRail, app/(tabs)/health.tsx,
  *             app/(tabs)/shopping.tsx (all import CardAccentBadge as a named export)

@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → lib/padState (PadState, resolveCardState, withCardState), lib/cardLayout
  *             (LayoutSurface type), store/useSettingsStore
- *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
+ *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
  *             app/plans.tsx
  *   Data    → reads + writes settings.cardStates (the only writer; the footer chevron drives it)
  *

@@ -16,17 +16,25 @@
  *
  * Edit notes:
  *   - SITE_ITEMS order is the bottom menu's visual order (left to right) AND must match
- *     app/(tabs)/_layout.tsx's <MaterialTopTabs.Screen> order.
- *   - **Nav bar has 3 items: Handle, I dag (centre), Gjøremål (2026-08-20, "full-screen card
- *     expansion" pass).** Health left the bottom nav and became a Home card
- *     (components/HomeHealthCard.tsx) — it no longer needs a tab of its own now that every
- *     card can grow to fill the screen in place, which was the whole point of trading pushed
- *     screens for expansion. To-do (`/plans`) took its slot: the To-do tab dropped its
- *     Today/This week/All tasks slider in favour of four cards (Whenever/Today/Week/
- *     Recurring), each independently expandable, so the deep surface Home's To-do preview
- *     couldn't show now has its own tab again.
+ *     app/(tabs)/_layout.tsx's <TopTabs.Screen> order — and constants/motifs.ts's
+ *     STRIP_PANEL_ORDER, which lib/__tests__/motifs.test.ts pins against the navigator.
+ *   - **Nav bar has 3 items: Handle, Gjøremål (CENTRE), Meg (2026-08-19).** Maintainer:
+ *     *"Make 'To-do' middle screen, and the 'Home' can be the 'Me' for Health and notes. I
+ *     think that makes things more tidy."* Two changes in one:
+ *       1. **To-do is the centre tab**, where "I dag" used to be. It is the surface the app is
+ *          most often opened for, and the one both neighbours are one swipe from.
+ *       2. **`/` is "Meg" — the personal tab**, not a daily hub: habits, notes and health
+ *          (lib/homeCards.ts). It stopped carrying To-do and Shopping preview cards in the same
+ *          pass, because both are now whole tabs one swipe away and a preview of a neighbouring
+ *          tab is the duplication this move exists to end. Its icon went `today` → `person` with
+ *          the name; `nav.home` reads Me / Meg / Ég.
+ *     ⚠️ **`'home'` is still the KEY and `/` is still the route** — only the label, the icon and
+ *     the position moved. Renaming the key would touch `settings.startScreen`, `homeCardOrder`'s
+ *     owner screen and every `TAB_ROUTE_NAME` consumer for a word.
  *     History this replaced: Shopping/Plans/Home/Habits/Health (Decision 036) → Shopping/Home/
- *     Health (the 2026-08-20 5→3 merge, To-do and Habits folded onto Home) → this.
+ *     Health (the 2026-08-20 5→3 merge, To-do and Habits folded onto Home) → Shopping/Home/
+ *     To-do (the same-day "full-screen card expansion" pass, which took Health off the bar and
+ *     gave To-do its tab back) → this.
  *   - **`app/plans.tsx` moved to `app/(tabs)/plans.tsx`; `app/(tabs)/health.tsx` moved to
  *     `app/health.tsx`.** `/health` and `/habits` stay valid SiteRoutes for back-compat (deep
  *     links, and Habits is still a pushed sub-screen — see the Habits bullet below) and fall
@@ -102,9 +110,9 @@ export type SiteItem = {
 };
 
 export const SITE_ITEMS: SiteItem[] = [
-  { key: 'shop',   icon: 'cart-outline',   activeIcon: 'cart',   route: '/shopping' },
-  { key: 'home',   icon: 'today-outline',  activeIcon: 'today',  route: '/'         },
-  { key: 'plans',  icon: 'checkbox-outline', activeIcon: 'checkbox', route: '/plans' },
+  { key: 'shop',   icon: 'cart-outline',     activeIcon: 'cart',     route: '/shopping' },
+  { key: 'plans',  icon: 'checkbox-outline', activeIcon: 'checkbox', route: '/plans'    },
+  { key: 'home',   icon: 'person-outline',   activeIcon: 'person',   route: '/'         },
 ];
 
 /**

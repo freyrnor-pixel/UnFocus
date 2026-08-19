@@ -64,7 +64,7 @@
  *             getFieldGlow, getRecessedField, Shadow, Spacing,
  *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
  *             @expo/vector-icons
- *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
+ *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
  *             app/habits.tsx
  *             (re-measured 2026-08-08 — this line also named plans.tsx and shopping.tsx,
  *             neither of which imports this file: plans reaches it indirectly through

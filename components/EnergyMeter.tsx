@@ -699,13 +699,15 @@ export default function EnergyMeter() {
           will stand, and the button is the same pop-up the ✏️ opens, so the first thing a new
           user can do here is the deliberate thing rather than a nudge. */}
       {!pause.paused && showTutorial && (
-        // `stage="sapling"` (2026-08-04, design comparison task 03): this card REPLACES the
-        // whole meter, so it is the tallest StarterCard in the app and has room for a fuller
-        // watermark than the default seed. Purely a size call — the stage is fixed art, bound
-        // to nothing, and specifically NOT to `current / capacity`, which is one of the three
-        // bindings the design project and lib/growth.ts both decline. See components/StageTree.tsx.
-        // It is also the only tree on Home: the other Home cards draw inline explainers rather
-        // than StarterCards, so "one tree per screen" holds without a suppression term here.
+        // **No watermark (2026-08-19, maintainer: *"remove the Tree in Energy"*).** This card
+        // stands where the meter will stand on the app's landing screen, so it was the tallest
+        // StarterCard in the app and drew the biggest tree in it — `stage="sapling"` since
+        // 2026-08-04, on the reasoning that a big empty card has room for a fuller drawing. It
+        // does; it just isn't wanted here. `noTree` drops only the watermark, keeping the card's
+        // Surface, padding and the one button (which `embedded` would have taken with it), and
+        // the flag is scoped to this one call site — every other StarterCard keeps its tree, and
+        // components/StageTree.tsx is untouched. With nothing drawn, `stage` would now be a prop
+        // that does nothing, so it is gone too rather than left as a decoy.
         // No explanatory paragraph any more (2026-08-17, "kill the text bloat"): the two
         // sentences that used to lead this card — "Energy is how much a day holds…" — were the
         // longest block of teaching on Home, standing above every piece of real content on the
@@ -717,7 +719,7 @@ export default function EnergyMeter() {
         // (constants/theme.ts's getGlow, via Button.tsx). Home provides no screen hue, so it
         // lights up `theme.accent` rather than a categorical colour — the same fallback every
         // other primary button outside a hued screen already uses.
-        <StarterCard stage="sapling">
+        <StarterCard noTree>
           <Button
             label={t.starters.energy.action}
             variant="primary"

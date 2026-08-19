@@ -71,6 +71,11 @@ export const CARD_IDS = [
   'plansToday',
   'plansWhenever',
   'plansRecurring',
+  // The Week card folds as ONE thing — the seven weekday sections inside it are the
+  // data-generated ones the rule above excludes, and folding them one at a time was the only
+  // way to put the week away (2026-08-19, maintainer: "Mon-sun should also be collapsable
+  // together"). This id is the card, never a day.
+  'plansWeek',
   // Habits — the whole list card, composer included.
   'habitsList',
   // Health

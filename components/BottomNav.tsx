@@ -20,7 +20,8 @@
  *   - **The centre FAB.** Home was a 56px accent-filled circle with a `LinearGradient` rim
  *     (and, at various points, a shadow, a halo and a resting sink). "Equal visual weight"
  *     cannot survive one tab being a filled disc twice the size of its neighbours, so Home is
- *     an ordinary `NavTabItem` now, in its ordinary centre slot. `renderCentre` is gone.
+ *     an ordinary `NavTabItem` now, in its ordinary slot — and since 2026-08-19 that slot is
+ *     the LAST one, not the centre (To-do took the middle). `renderCentre` is gone.
  *   - **`glassSurfaces` branching inside the bar.** It only ever chose between the FAB's
  *     gradient rim and a flat accent fill; with no FAB and no gradient there is nothing for it
  *     to choose. The BAR itself still respects it — that lives in `Surface`.

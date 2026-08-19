@@ -38,6 +38,22 @@
  *     from an animation completion callback (auto-workletized, no `'worklet'` directive in the
  *     source) crashes the app on device while rendering perfectly on web, where worklets run on
  *     the JS thread. `__tests__/workletSafety.test.ts` source-scans for exactly this.
+ *   - **⚠️ `seq` is a SHARED VALUE, and it must never go back to being a `useRef` (2026-08-19,
+ *     from a user report: expand → collapse → expand → collapse left a dead pane on screen).**
+ *     The exit animation's completion callback is workletized, so it reads `seq` on the UI
+ *     thread — and react-native-worklets serializes a captured plain object ONCE and caches the
+ *     clone (`serializableMappingCache`, keyed by the object). A `useRef` is a plain object, so
+ *     from the SECOND `dismiss()` onward the UI-thread copy still held `current: 1` while JS had
+ *     already incremented to 2: `seq.current === mySeq` was false, `setRequest(null)` never ran,
+ *     and the pane stayed mounted at `progress` 0 — drawn at the card's original rect, its body
+ *     at opacity 0, eating every touch aimed at the card underneath. **Every local harness this
+ *     repo has says the old code is fine**: in `__DEV__` the library FREEZES the captured object,
+ *     so `seq.current += 1` is a silent no-op, both sides stay at 1 and the guard passes; and the
+ *     web preview runs worklets on the JS thread, where there is no clone at all. Only a release
+ *     build diverges. The library's own comment on that freeze names the fix — *"If the user
+ *     really wants some objects to be mutable they should use shared values instead."*
+ *     `lib/__tests__/expandableCards.test.ts` pins it. The same defect was fixed in
+ *     components/AppModal.tsx in the same pass; it is a repo-wide rule, not a local patch.
  *   - The expanded pane is an `overlay`-tier Surface: opaque, no blur. Not a style choice —
  *     constants/colors.ts's 2026-08-18 rule is that a surface with the app's own cards behind it
  *     (which an expanded card, by definition, has) is never translucent.
@@ -118,10 +134,13 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   shopLists: { title: (t) => t.nav.shop, Body: ComingSoonBody },
   shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
-  homeTodo: { title: (t) => t.nav.plans, Body: ComingSoonBody },
+  // ⚠️ Same deliberate, disclosed gap as `shopLists` (2026-08-19): app/habits.tsx has never been
+  // extracted into a `HabitsSurface.tsx` the way To-do, Health and Notes were, so this body is
+  // still a placeholder — and components/HomeHabitsCard.tsx therefore mounts NO
+  // `CardExpandButton`, so nothing calls `expandCard('homeHabits', …)`. Unreachable beats a
+  // button that opens a stub. It was reachable, and shipping one, until that date.
   homeHabits: { title: (t) => t.nav.habits, Body: ComingSoonBody },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
-  homeShopping: { title: (t) => t.nav.shop, Body: ComingSoonBody },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
@@ -165,19 +184,22 @@ export default function CardExpandHost() {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [request, setRequest] = useState<ExpandRequest | null>(null);
   const progress = useSharedValue(0);
-  const seq = useRef(0);
+  // A SHARED value, not a `useRef` — see the "`seq` is a shared value" edit note. The exit
+  // animation's completion callback reads it on the UI thread, and a plain ref read there is
+  // frozen at the value it had the first time that callback was serialized.
+  const seq = useSharedValue(0);
   const overlayRef = useRef<View>(null);
   const [origin, setOrigin] = useState({ x: 0, y: 0 });
 
   function dismiss() {
-    const mySeq = seq.current;
+    const mySeq = seq.value;
     if (reducedMotion) {
       progress.value = 0;
       setRequest(null);
       return;
     }
     progress.value = withTiming(0, { duration: Duration.cardOut, easing: Ease.exit }, (done) => {
-      if (done && seq.current === mySeq) runOnJS(setRequest)(null);
+      if (done && seq.value === mySeq) runOnJS(setRequest)(null);
     });
   }
 
@@ -187,7 +209,7 @@ export default function CardExpandHost() {
         dismiss();
         return;
       }
-      seq.current += 1;
+      seq.value += 1;
       overlayRef.current?.measureInWindow((x, y) => setOrigin({ x, y }));
       setRequest(req);
       progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.card, easing: Ease.enter });

@@ -117,7 +117,7 @@ const L = {
     // off the bar entirely, becoming a Home card instead — see the health-form step below).
     // `home` is the middle tab and is listed separately because several steps need to return
     // to it by name.
-    tabs: ['Shop', 'To-do'], home: 'Today', settings: 'Settings',
+    tabs: ['Shop', 'To-do'], home: 'Me', settings: 'Settings',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
@@ -172,7 +172,7 @@ const L = {
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
     start: 'Start', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
-    tabs: ['Handle', 'Gjøremål'], home: 'I dag', settings: 'Innstillinger',
+    tabs: ['Handle', 'Gjøremål'], home: 'Meg', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
@@ -192,7 +192,7 @@ const L = {
     // below it is post-switch and genuinely Icelandic.
     langRow: /^Språk: Íslenska\./, basicsNext: 'Áfram',
     start: 'Byrja', tourNext: 'Ég skil', skipTour: 'Sleppa kynningunni',
-    tabs: ['Innkaup', 'Verkefni'], home: 'Í dag', settings: 'Stillingar',
+    tabs: ['Innkaup', 'Verkefni'], home: 'Ég', settings: 'Stillingar',
     dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
     newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
     energyTutorialAction: 'Stilla orku dagsins', energyDone: 'Búið',

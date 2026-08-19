@@ -52,7 +52,7 @@ const H = 844;
  * prose ordering in AGENTS.md was trusted over the navigator.
  * **Three panels since 2026-08-20** (was shopping, plans, home, habits, health).
  */
-const PANELS = ['shopping', 'home', 'health'];
+const PANELS = ['shopping', 'plans', 'home'];
 const STRIP_W = PANEL_W * PANELS.length;
 
 /** Dark mode must read harder against a much darker field. Matches the ratios measured across
@@ -124,7 +124,7 @@ function canopy(cx, cy, scale = 1) {
  * spine keeps the slide between any two of them unbroken.
  */
 const INTERIORS = {
-  // `plans` and `habits` are kept below though nothing renders them — the render loop iterates
+  // `habits` and `health` are kept below though nothing renders them — the render loop iterates
   // PANELS, so an unused key costs nothing, and hand-authored art is expensive to recover if
   // either ever gets a panel back. Do not treat their presence as a claim that they are drawn.
   // Leftmost tab: weight gathers toward the top-left.

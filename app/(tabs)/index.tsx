@@ -1,203 +1,133 @@
 /**
- * index.tsx — "I dag", the app's centre tab and daily landing hub.
+ * index.tsx — "Meg", the app's personal tab.
  *
- * The app's calm daily overview. Mounts via ScreenScaffold (Decision 001): the scaffold owns
- * the background, particles, header chrome (Settings gear + Focus eye), and BottomNav; this
- * screen only supplies content and wires Focus mode.
+ * Mounts via ScreenScaffold (Decision 001): the scaffold owns the background, particles, header
+ * chrome (Settings gear + Focus eye) and BottomNav; this screen only supplies content.
  *
- * **Render order, and which parts of it the user can move** (settled 2026-07-31, addendum
- * task B.2):
- *   1. Greeting + date — fixed (its own `header` block).
+ * **It was "I dag", the daily landing hub, until 2026-08-19.** Maintainer: *"Make 'To-do'
+ * middle screen, and the 'Home' can be the 'Me' for Health and notes. I think that makes things
+ * more tidy."* Two consequences, and the second is the bigger one:
+ *   - **It is an END tab now**, not the centre — To-do (app/(tabs)/plans.tsx) sits between this
+ *     and Shop. The route is still `/` and the SiteKey is still `'home'`; only the label, the
+ *     icon and the position moved (lib/siteNav.ts).
+ *   - **It stopped previewing the two tabs beside it.** The To-do preview card
+ *     (components/PlanTaskCard.tsx, read-only, with the day log, the quick-add, the deleted-task
+ *     drawer and the timeline layouts) and the Shopping preview card
+ *     (with its four-week pager, spend pace, flight animation and quick-add) are BOTH gone from
+ *     this file, along with every handler, memo and store selector that fed them — roughly 390
+ *     lines. ⚠️ `components/HomeShoppingCard.tsx` was DELETED with them: this screen was its only
+ *     mount site, and the repo's rule is that a retired surface goes rather than lingering
+ *     unimported where a later session can quietly rewire it. `PlanTaskCard` survives — the To-do
+ *     tab's timeline layout still mounts it. Neither surface lost anything: each is a whole
+ *     tab one swipe away, and a shorter second copy of a neighbouring tab is exactly the
+ *     duplication that pass set out to remove.
+ *
+ * **Render order, and which parts of it the user can move**:
+ *   1. Greeting + date — fixed (its own `header` block), and still a date: this is the screen
+ *      you land on from a cold launch by default, and "which day is it" is orienting rather than
+ *      a to-do list.
  *   2. Energy STRIP (components/EnergyMeter.tsx) — fixed, and absent entirely when
- *      `settings.energySystemEnabled` is off. Not a card any more: one thin line, no surface.
- *   3. Shared card (components/HomeSharedCard.tsx) — fixed, and only present when something
- *      has actually arrived (`hasIncomingShared`). It sits ABOVE the lists on purpose:
- *      it is transient, time-sensitive and from another person, so below the lists it would
- *      be missed. Interruptive content goes high or it does not work. Don't demote it.
- *   4–6. To-do / Notes / Shopping — the ONLY reorderable, removable cards, driven by
+ *      `settings.energySystemEnabled` is off. Not a card: one thin line, no surface. It stays
+ *      here rather than following To-do to its tab — Energy is a planning budget for the day,
+ *      which is a fact about the person, and the Health tab's no-scoreboard contract is what
+ *      keeps it off there too (see AGENTS.md).
+ *   3. Shared card (components/HomeSharedCard.tsx) — fixed, and only present when something has
+ *      actually arrived (`hasIncomingShared`). Above the cards on purpose: it is transient,
+ *      time-sensitive and from another person, so below them it would be missed. Interruptive
+ *      content goes high or it does not work. Don't demote it.
+ *   4–6. Habits / Notes / Health — the ONLY reorderable, removable cards, driven by
  *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag,
- *      "Edit cards" for the ×/add chrome, floor of one card).
- *      ⚠️ **The To-do card is the MERGED "I dag" card as of 2026-08-20** (the 5→3 tab merge):
- *      it draws the day's tasks AND, in components/PlanTaskCard.tsx's `extraSection` slot, the
- *      day's habits as an embedded section. Habits was a fourth card here until then. Both
- *      STORES are untouched and stay separate — a habit's per-day count, daily goal and rest
- *      day have no equivalent on a task, and a task's single done flag has none on a habit, so
- *      merging the storage would mean giving tasks a `habit_logs`-shaped table. That is written
- *      up as a follow-up, not attempted here. See lib/homeCards.ts for how a stored order that
- *      still names 'habits' is folded in.
- *   7. The cumulative "you've done N things" line — fixed to the bottom, and the last child
- *      of `content` so it cannot be reordered into the stack.
- * Items 2, 3 and 7 are fixed *structurally*: they are siblings of `HomeCardManager`, not
- * entries in `HOME_CARD_KINDS`, so there is no code path that can drag or delete them.
+ *      "Edit cards" for the ×/add chrome, floor of one card). ⚠️ Habits and Health are
+ *      re-appended on read if a stored order does not name them — see lib/homeCards.ts, which
+ *      also explains why 'notes' deliberately is not.
+ *   7. The cumulative "you've done N things" line — fixed to the bottom, and the last child of
+ *      `content` so it cannot be reordered into the stack. It counts tasks, which now live one
+ *      tab over; it stays because it is a lifetime figure about the user, not a view of that
+ *      tab's list.
+ * Items 1–3 and 7 are fixed *structurally*: they are siblings of `HomeCardManager`, not entries
+ * in `HOME_CARD_KINDS`, so no code path can drag or delete them.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/PlanTaskCard, components/EnergyMeter
- *             (the fixed Energy strip, gated on settings.energySystemEnabled), components/HomeHabitsCard
- *             (self-contained — reads useHabitStore directly; mounted `embedded` into
- *             PlanTaskCard's `extraSection`, so it draws as a section rather than a card),
- *             components/HomeNotesCard, components/HomeSharedCard (gated on
- *             settings.featureSharing; the shopping the spend-pace line is unconditional as
- *             of the 2026-07-25 defaults revision), components/HomeShoppingCard, components/HomeCardManager,
- *             components/FlightOverlay (FlightPill, Flight, FlightRect), components/DebugNoteAnchor,
- *             constants/theme, lib/db, lib/date, lib/i18n, lib/siteNav, lib/shoppingGroups,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/notifications, lib/reminders,
- *             lib/budget (computeSpendPace), lib/useDayLog + lib/dayLog (the day log — what
- *             already happened today, passed into PlanTaskCard so its now-line becomes the
- *             boundary; this card is why the feature needs no Home card of its own),
- *             lib/useNowMinutes, store/useMomentsStore (manual capture + delete),
- *             store/useTaskStore, store/useNotesStore, store/useSharedStore,
- *             store/useShoppingStore, store/useShoppingListStore, store/useMonthlyListStore, store/useSettingsStore, store/useReceiptStore
- *   Used by → Expo Router route "/" — one of 5 co-mounted pager tabs under app/(tabs)/_layout.tsx
- *   Data    → reads useTaskStore (tasks + deletedTasks, the restorable tombstones behind the
- *             day-view's "Recently deleted" drawer) + useNotesStore (notes) +
- *             useSharedStore (incoming shared tasks/shopping) + useShoppingStore (items) +
- *             useShoppingListStore (currentList(today)) + useReceiptStore (receipts, for the
- *             Shopping preview card's spend-pace line); mutates via toggle / toggleCheck /
- *             toggleCollected / adjustAmount / putBackToInventory / removeWithSource.
- *             Settings via useSettingsStore (monthlyResetDate) + useMonthlyListStore (each list's
- *             own budgetNok/lastReset — Shopping/Monthly redesign, 2026-07-22, replacing the old
- *             single global monthlyBudgetNok/lastMonthlyReset settings).
+ *   Imports → components/ScreenScaffold, components/EnergyMeter (the fixed Energy strip, gated
+ *             on settings.energySystemEnabled), components/HomeHabitsCard, components/HomeNotesCard,
+ *             components/HomeHealthCard (each self-contained — they read their own stores and
+ *             own their own useCardExpand), components/HomeSharedCard (gated on
+ *             settings.featureSharing + SHARING_VISIBLE), components/HomeCardManager,
+ *             components/CardMenuSheet (the CardMenu type), components/HintCard,
+ *             components/DebugNoteAnchor, components/TourTarget, components/PressableScale,
+ *             constants/theme, lib/i18n, lib/useAppTheme, lib/haptics, lib/homeCards,
+ *             lib/useFirstVisitHint, lib/notifications, lib/reminders, lib/sharingVisibility,
+ *             store/useSettingsStore, store/useSharedStore, store/useTaskStore (the ⓘ hint's
+ *             notification re-sync only — this screen reads no tasks)
+ *   Used by → Expo Router route "/" — one of 3 co-mounted pager tabs under app/(tabs)/_layout.tsx
+ *   Data    → reads useSharedStore (incoming shared tasks/shopping, for the self-hide check) and
+ *             a handful of useSettingsStore fields; writes settings.homeCardOrder and the two
+ *             notification toggles inside the ⓘ hint. The three preview cards own all their own
+ *             reads and writes — nothing is threaded down as props any more.
  *
  * Edit notes:
- *   - Store hydration happens once at startup in app/_layout.tsx; this screen's focus effect
- *     only resets the hint on blur — no per-screen initDb/load.
+ *   - Store hydration happens once at startup in app/_layout.tsx — no per-screen initDb/load.
  *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
  *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
  *     copy of the task-notification and weekly-reminder opt-ins (`hintSetting` rows below), so
- *     those are now reached by a deliberate ⓘ tap. They were deliberately left where they are:
- *     re-homing them is a separate design decision, not a side effect of this change.
- *   - **Plans preview = PlanTaskCard read-only (Decision 009a)**: the preview IS the
- *     day-view rendered read-only, with a "See everything →" link to /plans. Not a bespoke card.
- *     `readOnly` only disables row tap-through here (no `onPressTask`/`onSeeMore` passed) — the
- *     done-toggle stays live because `onToggleTask` is passed alongside `readOnly`, so tapping a
- *     task's checkbox toggles it done without opening the editor. `onAddTask` (handleAddTask) is
- *     likewise passed alongside `readOnly` so the preview's trailing AddRow can create an undated
- *     today task inline (mirrors plans.tsx's Whenever quick-add) — no trip to /plans needed.
- *     Same "gate on the callback, not on readOnly" rule covers the 2026-07-27 additions:
- *     `onDeleteTask`/`deletedTasks`/`onRestoreTask` (per-row trash + the "Recently deleted"
- *     restore drawer — the delete is a tombstone, so no confirm dialog; the drawer is the undo)
- *     and `onAddExample` (the empty day's one-tap suggested task).
- *     `allTasks` (full store) is passed so Decision 020 cross-date followers surface.
- *     `horizontal={settings.planTimelineHorizontal}` is threaded to the PlanTaskCard mount.
- *   - **Habits preview = HomeHabitsCard (2026-07-28)**: self-contained, unlike the other
- *     three previews — it reads useHabitStore directly rather than through props, since
- *     Habits needs no cross-store aggregation the way Shopping (budget/receipts) or Plans
- *     (cross-date followers) do. Positioned right after 'plans' in `HOME_CARD_KINDS` and the
- *     default `homeCardOrder` (store/useSettingsStore.ts + lib/db.ts's back-fill migration
- *     for pre-existing installs whose persisted order predates this card).
- *   - **Notes preview = HomeNotesCard**: reads useNotesStore, shows first 5 active notes with
- *     inline toggle-checked, a mic button for voice-capture notes, a trailing AddRow to type a
- *     new note's title directly (no navigation away from Home), and a title tap → /notes for
- *     the full screen / "See all →" when the list overflows. When empty it renders a short
- *     italic bulb explainer (`t.starters.notes.text`, 2026-07-28) at the compact resting height
- *     (does NOT self-hide).
- *   - **Shopping preview = HomeShoppingCard**: shows first 4 items flat when collapsed; full
- *     nested dish-group ExpandableCard structure when expanded. Tick-to-buy, cart-collect and
- *     catalog-vs-adhoc remove preserved; the row's inline qty stepper is gone (row rule,
- *     2026-07-28) — the card opens components/ShoppingItemSheet.tsx itself, so Home no longer
- *     threads increment/decrement handlers down. Also passed a `pace` prop (Decision 026,
- *     lib/budget.ts's computeSpendPace() over useReceiptStore + useMonthlyListStore) — an
- *     aggregate across every Monthly list (summed budget vs. every tagged receipt, paced
- *     against the most recently reset list — see the shoppingPace memo below), the same shape
- *     of figure shown on app/budget.tsx (there, one specific list) and the Shopping screen's
-
- *     Monthly tab (there, each list's own); null (card shows nothing extra) until at least one
- *     list has a budget set and has been through a reset. **Quick-add (2026-07-24)**: the card
- *     previously had no inline add at all — `handleAddShoppingItem` now backs its trailing
- *     AddRow, whose extras carry a quantity Stepper and a Weekly/Monthly-list target chip;
- *     `monthlyLists` (already read for `shoppingPace`) is passed straight through for that
- *     chip to cycle over.
- *   - **Task quick-add's essential settings (2026-07-24, energy dropped 2026-08-01)**:
- *     `handleAddTask`'s second argument carries whatever PlanTaskCard's extras row
- *     (time/recurring) the user touched — `buildQuickAddTaskInput` builds the shared
- *     `TaskInput` for both this and `handleAddTaskAndEdit` (the "…" path, which additionally
- *     navigates to the new task's full editor via `expandTaskId`). `monthDay` defaults to
- *     today's day-of-month (not a hardcoded 1) so picking 'monthly' from the chip is a valid
- *     occurrence immediately.
+ *     those are reached by a deliberate ⓘ tap. Left where they are deliberately: re-homing them
+ *     is a separate design decision. ⚠️ It is now the one reason this file touches
+ *     `useTaskStore` at all (`syncAllTaskNotifications`) — don't "tidy" that import away.
+ *   - **Every card here is self-contained**, which is what made the To-do/Shopping removal a
+ *     deletion rather than a refactor: HomeHabitsCard/HomeNotesCard/HomeHealthCard read their
+ *     own stores and mount their own lib/useCardExpand. PlanTaskCard was the exception — a
+ *     "dumb", prop-driven card — which is why ~390 lines of handlers and memos lived here to
+ *     feed it. Keep new cards on the self-contained side.
+ *   - **The guided tour's Home step spotlights the Habits card** (`tour.home.me`). It used to
+ *     ring the To-do preview; see the comment at that case, and lib/tourSteps.ts.
  *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
- *     2026-07-24)**: off-Focus, Notes/Plans/Shopping render via `HomeCardManager`
- *     (components/HomeCardManager.tsx) in `settings.homeCardOrder` order. Holding any card
- *     always drag-reorders it (long-press's one meaning here); a separate visible "Edit
- *     cards"/"Done" toggle drives the delete-badge + "Add a card" chrome — no longer a side
- *     effect of the long-press. The toggle's `editMode` state now lives here (`cardsEditMode`)
- *     and is rendered inline in the greeting header row (top-right), not as its own row above
- *     the stack — that extra row added a second `marginBottom`, doubling the gap between the
- *     greeting and the first card. `HomeCardManager` takes `editMode` as a controlled prop.
- *     The old "Reorder intentionally omitted, Decision 011 R1" note here no longer applies —
- *     that was about the full /shopping screen's cross-group hit-testing; this reuses
- *     DraggableTaskRow but not that complexity, since Home's cards are plain flat siblings.
- *     `renderHomeCard(kind)` is the per-kind render function passed to it;
+ *     2026-07-24)**: the cards render via `HomeCardManager` in `settings.homeCardOrder` order.
+ *     Holding any card always drag-reorders it (long-press's one meaning here); a separate
+ *     visible "Edit cards"/"Done" toggle drives the delete-badge + "Add a card" chrome. That
+ *     toggle's state lives here (`cardsEditMode`) and renders inline in the greeting header row
+ *     (top-right), not as its own row above the stack — an extra row added a second
+ *     `marginBottom`, doubling the gap between the greeting and the first card.
+ *     `renderHomeCard(kind)` is the per-kind render function passed down;
  *     `sanitizeHomeCardOrder` defends against a corrupt/legacy settings row.
- *   - **Deliberately NOT ported**: DayTimeline/TaskItem/NextTaskCard Plans stack, the old
- *     pre-rebuild Backlog preview (Habits WAS on this list until 2026-07-28 — see
- *     HomeHabitsCard above), SharedRequestsSection(kind='task'), update-ready banner,
- *     work-mode banner, CoverScreen / SiteSwipeView chrome, automation trigger
- *     ('shopping_opened').
- *   - **"More" links (Decision 036)**: chips to /notes and /meals. Reachability is
- *     data-independent — always shown, independent of whether the previews have any content.
- *   - All visible strings via useT(); today is todayStr() (YYYY-MM-DD).
- *   - **Bottom whitespace (visual-audit, 2026-07-11)**: `content`'s trailing padding was
- *     trimmed from `Spacing.xl` to `Spacing.md` to shrink the empty area below the last
- *     card (before the bottom nav) on short content — the ambient hero backdrop
- *     (HomeHeroBackground) itself is untouched, this only tightens the screen's own
- *     bottom padding.
- *   - **Flight animation (Phase 1, 2026-07-11)**: list→cart toggles inside HomeShoppingCard
- *     fly a `FlightPill` clone; this screen owns the `flights` state and mounts a single
- *     `<FlightOverlay>` as a sibling of `<ScreenScaffold>` (not inside it — scaffold children
- *     scroll inside its internal ScrollView). `handleScreenScroll` clears in-flight flights on
- *     scroll. See app/(tabs)/shopping.tsx's own note and ANIMATION_GUIDELINES.md for the
- *     full pattern.
- *   - **Debug notes (2026-07-13)**: each top-level section is wrapped in DebugNoteAnchor with
- *     a hand-picked stable id (`home.greeting`/`home.notesPreview`/`home.sharedPreview`/
- *     `home.plansPreview`/`home.habitsPreview`/`home.shoppingPreview`) — a no-op unless Debug mode is on
- *     (settings.debugModeEnabled). See that component's header for the long-press/bubble/edit
- *     mechanics; this screen is the one concrete "cards" usage alongside every screen's header.
+ *   - **The flight animation is gone from this screen** (2026-08-19) — only the shopping preview
+ *     card ever started one, so `flights`/`FlightOverlay`/`handleScreenScroll` went with it. The
+ *     pattern still lives on app/(tabs)/shopping.tsx; see ANIMATION_GUIDELINES.md.
+ *   - All visible strings via useT().
+ *   - **Debug notes (2026-07-13)**: each top-level section is wrapped in DebugNoteAnchor with a
+ *     hand-picked stable id (`home.greeting`/`home.habitsPreview`/`home.notesPreview`/
+ *     `home.healthPreview`/`home.sharedPreview`) — a no-op unless Debug mode is on
+ *     (settings.debugModeEnabled). ⚠️ `home.plansPreview` and `home.shoppingPreview` are RETIRED
+ *     ids; any note a tester left on them is orphaned rather than shown somewhere else.
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Switch, Text, View } from 'react-native';
-import { useRouter, usePathname, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
+
 import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import PlanTaskCard from '@/components/PlanTaskCard';
 import EnergyMeter from '@/components/EnergyMeter';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
-import HomeShoppingCard from '@/components/HomeShoppingCard';
 import HomeHabitsCard from '@/components/HomeHabitsCard';
 import HomeHealthCard from '@/components/HomeHealthCard';
-import { useCardExpand } from '@/lib/useCardExpand';
 import HomeCardManager from '@/components/HomeCardManager';
 import type { CardMenu } from '@/components/CardMenuSheet';
-import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import TourTarget from '@/components/TourTarget';
 import PressableScale from '@/components/PressableScale';
-import { goToSite } from '@/lib/siteNav';
-import { todayStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
+import TourTarget from '@/components/TourTarget';
+
 import { useT } from '@/lib/i18n';
-import { computeListGroups } from '@/lib/shoppingGroups';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { Fonts, FontSize, glassKey, HitSlop, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
-import { Task, Recurring, useTaskStore } from '@/store/useTaskStore';
+
+import { useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
-import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
-import { useShoppingListStore } from '@/store/useShoppingListStore';
-import { useMonthlyListStore } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
-import { useReceiptStore } from '@/store/useReceiptStore';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
-import { useDayLog } from '@/lib/useDayLog';
-import { useNowMinutes } from '@/lib/useNowMinutes';
-import { DayEntry } from '@/lib/dayLog';
-import { useMomentsStore } from '@/store/useMomentsStore';
-import { useCardState } from '@/lib/useCardState';
 import { requestPermissions } from '@/lib/notifications';
 import { syncReminders } from '@/lib/reminders';
-import { computeSpendPace } from '@/lib/budget';
 import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
 
 // Home preview card management (hold-to-manage, components/HomeCardManager.tsx). The kinds
@@ -206,61 +136,13 @@ import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
 // inbox, not a discretionary card, so it stays outside that set either way.
 export default function HomeScreen() {
   const t = useT();
-  const router = useRouter();
-  const pathname = usePathname();
   const theme = useAppTheme();
   const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
-  const today = todayStr();
 
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded notification settings, and lib/useFirstVisitHint.ts).
   const [hintOpen, dismissHint] = useFirstVisitHint('home');
-
-  // Flight animation (Phase 1, 2026-07-11) — mirrors app/(tabs)/shopping.tsx's screen-level
-  // plumbing at smaller scale (one card, no listId keying needed). See that file's own edit
-  // note and ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const flightCounter = useRef(0);
-  const lastScrollY = useRef(0);
-
-  function handleFlightStart(item: ShoppingItem, from: FlightRect, to: FlightRect) {
-    flightCounter.current += 1;
-    const key = `${item.id}-${flightCounter.current}`;
-    setFlights((prev) => [
-      ...prev.filter((f) => f.itemId !== item.id),
-      { key, itemId: item.id, from, to, content: <FlightPill label={item.name} /> },
-    ]);
-  }
-  function handleFlightEnd(key: string) {
-    setFlights((prev) => prev.filter((f) => f.key !== key));
-  }
-  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const y = e.nativeEvent.contentOffset.y;
-    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
-    lastScrollY.current = y;
-  }
-
-  const tasks = useTaskStore((s) => s.tasks);
-  const tasksForDate = useTaskStore((s) => s.tasksForDate);
-  const toggleTask = useTaskStore((s) => s.toggle);
-  const addTask = useTaskStore((s) => s.add);
-  const removeTask = useTaskStore((s) => s.remove);
-  const restoreTask = useTaskStore((s) => s.restore);
-  const deletedTasks = useTaskStore((s) => s.deletedTasks);
-
-  const shoppingItems = useShoppingStore((s) => s.items);
-  const toggleShoppingItem = useShoppingStore((s) => s.toggleCheck);
-  const toggleShoppingCollected = useShoppingStore((s) => s.toggleCollected);
-  const putBackToInventory = useShoppingStore((s) => s.putBackToInventory);
-  const removeWithSource = useShoppingStore((s) => s.removeWithSource);
-  const addShoppingItem = useShoppingStore((s) => s.add);
-
-  const shoppingLists = useShoppingListStore((s) => s.lists);
-  const currentListFn = useShoppingListStore((s) => s.currentList);
-  const addShoppingList = useShoppingListStore((s) => s.add);
-
-  const receipts = useReceiptStore((s) => s.receipts);
 
   // Mirrors HomeSharedCard's own self-hide check exactly — needed here too so this
   // screen doesn't mount an empty `section` wrapper (marginTop: Spacing.xl) around a
@@ -294,20 +176,7 @@ export default function HomeScreen() {
   const taskNotificationsEnabled = useSettingsStore((s) => s.taskNotificationsEnabled);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const userName = useSettingsStore((s) => s.userName);
-  const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
-  // Home's to-do card resolves its own layout + size, independently of the To-do tab — see the
-  // `spec` prop's comment at the PlanTaskCard mount below.
-  const todoSpec = useSurfaceLayout('homeTodo');
-  const [todoState, setTodoState] = useCardState('homeTodo');
-  // Full-screen expansion (2026-08-20) — PlanTaskCard is a "dumb", prop-driven card (unlike
-  // HomeHabitsCard/HomeShoppingCard/HomeNotesCard, which own their own useCardExpand), so Home
-  // owns the hook and threads its `onExpand` down as `onSeeMore` — the read-only header press
-  // this card already had, previously a hardcoded push to /plans.
-  const homeTodoExpand = useCardExpand('homeTodo');
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
-  const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
-  const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
-  const monthlyLists = useMonthlyListStore((s) => s.lists);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
   // clearAll) so it survives pruneOldData() pruning old completed tasks — see
@@ -318,112 +187,11 @@ export default function HomeScreen() {
   const homeCardLabels = useMemo(
     () => ({
       notes: t.home.manageCards.kinds.notes,
-      plans: t.home.manageCards.kinds.plans,
-      shopping: t.home.manageCards.kinds.shopping,
       habits: t.home.manageCards.kinds.habits,
       health: t.home.manageCards.kinds.health,
     }),
     [t]
   );
-
-  // These derived views used to recompute on EVERY render (each is a full-array filter/
-  // sort; computeListGroups also groups by dish). Memoise them on the store state they read
-  // — `tasksForDate`/`currentList` are stable store fn refs, so `tasks` /
-  // `shoppingLists` / `shoppingItems` are the real inputs that should drive recompute.
-  // `tasks` isn't read in the body but is the real recompute signal (tasksForDate closes
-  // over store state, not this variable).
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
-
-  // The day log (2026-08-02) — the same hook and the same 60s "now" tick the To-do tab's
-  // timeline uses, so Home's preview and the full day-view can never disagree about where
-  // the boundary is. Returns undefined when settings.featureDayLog is off, which is what
-  // PlanTaskCard's dayLog prop gates itself on below.
-  const nowMinutes = useNowMinutes();
-  const dayLog = useDayLog(today, nowMinutes);
-  const removeMoment = useMomentsStore((s) => s.remove);
-  const addMoment = useMomentsStore((s) => s.add);
-  // Only a task has an in-app editor to open. Doses and health entries live on the Health
-  // tab and a moment IS its own record, so those rows aren't pressable rather than
-  // navigating somewhere that isn't about them.
-  //
-  // A task's editor is an expanded TaskCard on a saved row, not a route — app/task-form.tsx
-  // was retired 2026-07-23 (UX audit B1, one canonical task editor). This pushed the dead
-  // route until 2026-08-08 and simply went nowhere. It now uses the same
-  // `?tab=all&expandTaskId=…` handoff as handleAddTaskAndEdit below, which the All tab's
-  // `autoExpand={tk.id === expandTaskId}` consumes.
-  const handlePressLogEntry = useCallback(
-    (entry: DayEntry) => {
-      if (entry.kind !== 'task' || !entry.sourceId) return;
-      // `/plans` is a pager tab now (2026-08-20) — `navigate`, not `push`, or this stacks a
-      // second copy of the tab on top of itself. No `tab` param any more either: TodoSurface
-      // has no tabs left to select, `expandTaskId` alone reaches the right card.
-      router.navigate({ pathname: '/plans', params: { expandTaskId: entry.sourceId } });
-    },
-    [router]
-  );
-
-  // currentList is a fn ref; `shoppingLists` is the real input, so memo on it (this also
-  // replaces the old `void shoppingLists` render-subscription hack).
-  const currentShoppingList = useMemo(
-    () => currentListFn(today),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentListFn, today, shoppingLists]
-  );
-  /**
-   * The Shopping card's four pages — Week 1–4 of the monthly cycle (2026-07-30, user report:
-   * "user can tap left/right button to go through different lists"). One entry per week
-   * whether or not a list exists for it: a week with no list is a real, visible state ("no
-   * list this week"), not a page the arrows skip over, or the pager's length would change
-   * under the user's finger.
-   *
-   * Week ↔ list resolution reuses `weekOfMonthlyCycle`/`dateRangeForCycleWeek` from lib/date —
-   * the same helpers app/(tabs)/shopping.tsx buckets its own Week 1–4 sections with, so the two
-   * surfaces can't disagree about which week a list belongs to.
-   */
-  const shoppingWeeks = useMemo(() => {
-    const active = shoppingLists.filter((l) => !l.isTemplate);
-    return [1, 2, 3, 4].map((week) => {
-      const list = active.find((l) => weekOfMonthlyCycle(l.startDate, monthlyResetDate) === week) ?? null;
-      const groups = list
-        ? computeListGroups(shoppingItems, list.id)
-        : { dishGroups: [], ungroupedUnchecked: [], checked: [] };
-      return {
-        week,
-        list,
-        range: dateRangeForCycleWeek(today, monthlyResetDate, week, weeklyResetDay),
-        ...groups,
-      };
-    });
-  }, [shoppingLists, shoppingItems, monthlyResetDate, weeklyResetDay, today]);
-
-  // Card size for the Shopping pager, persisted per surface like the other pad cards.
-  const [shoppingCardState, setShoppingCardState] = useCardState('shopping');
-  // Week-range labels are date-formatted, so they need the active language (lib/date's
-  // formatDateRange puts the month before/after the day depending on it).
-  const language = useSettingsStore((s) => s.language);
-
-  // Which page the pager opens on: the week that actually contains today.
-  const currentShoppingWeek = useMemo(
-    () => weekOfMonthlyCycle(today, monthlyResetDate),
-    [today, monthlyResetDate]
-  );
-
-  // Spend-vs-budget pace (Decision 026), shared with app/budget.tsx and the Shopping
-  // screen's Monthly tab via lib/budget.ts's computeSpendPace() — null when no budget
-  // is set yet, in which case HomeShoppingCard just omits the line. Shopping — Monthly
-  // redesign (2026-07-22): budget is per Monthly list now, so this ONE preview line
-  // aggregates across every list — total budget (sum of each list's budgetNok) vs. every
-  // receipt tagged to any Monthly list, paced against the most recently reset list's
-  // lastReset (in the common single-list case this is exactly that list's own boundary,
-  // unchanged from before). A per-list breakdown lives on the Shopping screen itself.
-  const shoppingPace = useMemo(() => {
-    const totalBudget = monthlyLists.reduce((sum, l) => sum + l.budgetNok, 0);
-    const listIds = new Set(monthlyLists.map((l) => l.id));
-    const taggedReceipts = receipts.filter((r) => r.monthlyListId && listIds.has(r.monthlyListId));
-    const latestReset = monthlyLists.map((l) => l.lastReset).filter(Boolean).sort().pop() ?? '';
-    return computeSpendPace(taggedReceipts, totalBudget, monthlyResetDate, latestReset);
-  }, [receipts, monthlyLists, monthlyResetDate]);
 
   // Home card edit mode (delete/add chrome for the Notes/Plans/Shopping stack) — lifted
   // up from HomeCardManager so its "Edit cards"/"Done" toggle can sit inline in the
@@ -441,145 +209,6 @@ export default function HomeScreen() {
   const now = new Date();
   const dateLabel = `${t.days[now.getDay()]} ${now.getDate()}. ${t.months[now.getMonth()]}`;
 
-  // Stable callbacks (store action refs are themselves stable), so the memoised list rows
-  // inside HomeShoppingCard / PlanTaskCard can actually bail out of re-rendering instead of
-  // getting a fresh closure every parent render.
-  const handleRemoveShoppingItem = useCallback(
-    (item: ShoppingItem) => {
-      if (item.fromCatalog) putBackToInventory(item.id);
-      else removeWithSource(item.id);
-    },
-    [putBackToInventory, removeWithSource]
-  );
-  const handleToggleTask = useCallback((task: Task) => toggleTask(task.id), [toggleTask]);
-  // Delete is a soft delete (store/useTaskStore's tombstone) and the day-view renders a
-  // "Recently deleted" restore drawer right below, so no confirmation dialog here — the undo
-  // IS the safety net (2026-07-27, user report: "no apparent way to delete and recover
-  // deleted tasks").
-  const handleDeleteTask = useCallback((task: Task) => removeTask(task.id), [removeTask]);
-  const handleRestoreTask = useCallback((task: Task) => restoreTask(task.id), [restoreTask]);
-  // Empty-day suggestion — a real task, not a placeholder: an undated (Whenever) task dated
-  // today, exactly the shape the quick-add AddRow produces, so nothing about it is special
-  // once it exists.
-  const handleAddExampleTask = useCallback(() => {
-    addTask({
-      title: t.starters.plans.exampleTitle,
-      date: today,
-      taskType: 'start-at',
-      done: false,
-      recurring: 'none',
-      recurringDays: [],
-      sortOrder: 0,
-      hasStartDate: false,
-    });
-  }, [addTask, today, t]);
-  // Inline quick-add from the Home Plans preview — mirrors app/plans.tsx's Whenever
-  // AddRow: an undated (hasStartDate:false) task dated today, so it shows in Today, the day's
-  // list, and the All tab's Whenever without any extra sync. Lets a task be created without
-  // leaving Home (was: force-navigate to /plans). `extra` carries whichever of PlanTaskCard's
-  // quick-add essential settings (time/recurring/energy) the user touched — monthDay defaults
-  // to today's day-of-month so a 'monthly' pick from the chip is a valid occurrence out of the
-  // gate (mirrors TaskCard's own defaulting for recurringDays/monthDay).
-  // Shared with handleAddTaskAndEdit below — building the TaskInput is the only part that's
-  // common; each caller decides what to do with the created Task afterward.
-  const buildQuickAddTaskInput = useCallback(
-    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => ({
-      title,
-      date: today,
-      time: extra.time,
-      taskType: 'start-at' as const,
-      done: false,
-      recurring: extra.recurring,
-      recurringDays: extra.recurringDays,
-      weekInterval: 1,
-      monthlyMode: 'day' as const,
-      monthDay: new Date().getDate(),
-      monthOrdinal: 'first' as const,
-      monthWeekday: 0,
-      sortOrder: 0,
-      hasStartDate: false,
-      assignee: '',
-    }),
-    [today]
-  );
-
-  const handleAddTask = useCallback(
-    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
-      addTask(buildQuickAddTaskInput(title, extra));
-    },
-    [addTask, buildQuickAddTaskInput]
-  );
-
-  // "…" quick-add (2026-08-01): same create as handleAddTask, but also opens the new task's
-  // full editor (TaskCard, on the To-do tab) pre-filled, via the expandTaskId param
-  // TodoSurface already wires for exactly this (built for a note's "Add to plans" flow,
-  // previously uncalled). `expandTaskId`'s autoExpand lives on the Whenever section's
-  // TaskCard — an undated (hasStartDate:false) task like this always shows there.
-  // `/plans` is a pager tab now (2026-08-20) — `navigate`, not `push`, or this stacks a
-  // second copy of the tab on top of itself.
-  // An EMPTY title is a real case (2026-08-05): "More options" is pressable the moment the
-  // quick-add line is focused, so it must always lead somewhere rather than silently doing
-  // nothing. With nothing typed there is no task worth creating — an untitled row would be
-  // junk the user then has to clean up — so it just opens the To-do tab, which is the
-  // "more options" the press was asking for.
-  const handleAddTaskAndEdit = useCallback(
-    (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
-      if (!title) {
-        router.navigate('/plans');
-        return;
-      }
-      const task = addTask(buildQuickAddTaskInput(title, extra));
-      router.navigate({ pathname: '/plans', params: { expandTaskId: task.id } });
-    },
-    [addTask, buildQuickAddTaskInput, router]
-  );
-
-  // Inline quick-add from the Home Shopping preview — new (2026-07-24), the card previously had
-  // no add affordance at all. `monthlyListId` present = a Monthly catalog item (mirrors
-  // shopping.tsx's own catalog add); absent = an ad-hoc item on the current week's list (mirrors
-  // shopping.tsx's handleDecrementCartItem ad-hoc add). A brand-new profile that's never opened
-  // /shopping has no week list yet (currentList() only reads, never creates) — auto-create one
-  // the same way shopping.tsx's own "+ New list" (handleCreateNewWeeklyList) does, so the quick
-  // add never silently no-ops. addShoppingList() returns the new id synchronously, so the item
-  // can be attached to it in the same call without waiting for a re-render.
-  const handleAddShoppingItem = useCallback(
-    (name: string, quantity: number, monthlyListId?: string) => {
-      if (monthlyListId) {
-        addShoppingItem({
-          name,
-          amount: String(quantity),
-          unit: '',
-          listType: 'monthly',
-          store: '',
-          price: 0,
-          inventoryQty: 0,
-          status: 'catalog',
-          targetQuantity: quantity,
-          monthlyListId,
-        });
-        return;
-      }
-      const listId = currentShoppingList?.id ?? addShoppingList(getWeekRangeContaining(today, weeklyResetDay));
-      addShoppingItem({
-        name,
-        amount: String(quantity),
-        unit: '',
-        listType: 'weekly',
-        store: '',
-        price: 0,
-        inventoryQty: 0,
-        status: 'inWeeklyList',
-        listId,
-      });
-    },
-    [addShoppingItem, currentShoppingList, addShoppingList, today, weeklyResetDay]
-  );
-  const handleToggleShopping = useCallback((id: string) => toggleShoppingItem(id), [toggleShoppingItem]);
-  const handleCollectShopping = useCallback((id: string) => toggleShoppingCollected(id), [toggleShoppingCollected]);
-  const handleNavigateToShopping = useCallback(
-    () => goToSite(router, pathname, '/shopping'),
-    [router, pathname]
-  );
 
   // The per-card "⋮" menu (components/CardMenuSheet.tsx, workstream A / the design project's
   // one un-filled component gap). Built HERE and passed down, never built by the card: every
@@ -630,83 +259,24 @@ export default function HomeScreen() {
             <HomeNotesCard cardMenu={buildCardMenu('notes')} />
           </DebugNoteAnchor>
         );
-      case 'plans':
-        return (
-          <TourTarget id="tour.home.today">
-            <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
-              <View ref={homeTodoExpand.ref} collapsable={false}>
-                <PlanTaskCard
-                  cardMenu={buildCardMenu('plans')}
-                  tasks={todayTasks}
-                  allTasks={tasks}
-                  readOnly
-                  onToggleTask={handleToggleTask}
-                  onAddTask={handleAddTask}
-                  onAddTaskAndEdit={handleAddTaskAndEdit}
-                  onDeleteTask={handleDeleteTask}
-                  deletedTasks={deletedTasks}
-                  onRestoreTask={handleRestoreTask}
-                  onAddExample={handleAddExampleTask}
-                  horizontal={planTimelineHorizontal}
-                  // Home's to-do card is its OWN layout surface, separate from the To-do tab
-                  // (2026-07-30): the tab defaults to the day timeline, which needs a whole screen
-                  // to be readable, while this card defaults to a plain ruled list like its three
-                  // siblings. Both offer the other via the layout picker.
-                  spec={todoSpec}
-                  padState={todoState}
-                  onPadStateChange={setTodoState}
-                  // The day log (2026-08-02). This is what satisfies the feature's "a card on
-                  // Home showing what happened today, plus a capture field" — the card is
-                  // already here and already has a pad type-line, so there is no fifth Home
-                  // card and no HOME_CARD_KINDS change. (HomeGoalsCard shipped as a fifth card
-                  // on 2026-07-28 and was deleted the next day: "Home had too many lists".)
-                  dayLog={dayLog}
-                  onPressEntry={handlePressLogEntry}
-                  onRemoveMoment={removeMoment}
-                  onCaptureMoment={addMoment}
-                  // Full screen replaces the push (2026-08-20) — the header's "See everything"
-                  // press used to push to /plans; now it expands this card in place. The habits
-                  // half of "I dag" that used to live here (`extraSection`, the 5→3 merge) moved
-                  // back OUT to its own card the same day — see the 'habits' case below and
-                  // lib/homeCards.ts's un-fold note.
-                  onSeeMore={homeTodoExpand.onExpand}
-                />
-              </View>
-            </DebugNoteAnchor>
-          </TourTarget>
-        );
       case 'habits':
         return (
-          <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
-            <HomeHabitsCard cardMenu={buildCardMenu('habits')} />
-          </DebugNoteAnchor>
+          // The guided tour's Home step spotlights this card (lib/tourSteps.ts, `tour.home.me`).
+          // It moved here on 2026-08-19 with the target it used to sit on: the To-do preview
+          // card, which left this screen when To-do became the middle tab. Habits is the first
+          // card in the default order and the one thing here that is unambiguously "you", which
+          // is what this tab is now for. A user who has dragged it elsewhere just gets the
+          // spotlight wherever they put it — the tour measures the target, not a position.
+          <TourTarget id="tour.home.me">
+            <DebugNoteAnchor id="home.habitsPreview" label="Home — Habits preview" style={styles.section}>
+              <HomeHabitsCard cardMenu={buildCardMenu('habits')} />
+            </DebugNoteAnchor>
+          </TourTarget>
         );
       case 'health':
         return (
           <DebugNoteAnchor id="home.healthPreview" label="Home — Health preview" style={styles.section}>
             <HomeHealthCard cardMenu={buildCardMenu('health')} />
-          </DebugNoteAnchor>
-        );
-      case 'shopping':
-        return (
-          <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
-            <HomeShoppingCard
-              cardMenu={buildCardMenu('shopping')}
-              // Four pages, one per cycle week (2026-07-30) — see the `shoppingWeeks` memo.
-              weeks={shoppingWeeks}
-              initialWeek={currentShoppingWeek}
-              formatRange={(startDate, endDate) => formatDateRange(startDate, endDate, t.monthsShort, language)}
-              pace={shoppingPace}
-              onToggle={handleToggleShopping}
-              onCollect={handleCollectShopping}
-              onRemove={handleRemoveShoppingItem}
-              onNavigateToShopping={handleNavigateToShopping}
-              onAddItem={handleAddShoppingItem}
-              monthlyLists={monthlyLists}
-              onFlightStart={handleFlightStart}
-              padState={shoppingCardState}
-              onPadStateChange={setShoppingCardState}
-            />
           </DebugNoteAnchor>
         );
       default:
@@ -729,7 +299,6 @@ export default function HomeScreen() {
         bottomNav={false}
         pagerFloatingNav
         ownBackground={false}
-        onScroll={handleScreenScroll}
       >
         <View style={styles.content}>
           <HintCard text={t.hints.home.text} open={hintOpen} noPill onDismiss={dismissHint}>
@@ -854,7 +423,6 @@ export default function HomeScreen() {
           )}
         </View>
       </ScreenScaffold>
-      <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     </>
   );
 }
