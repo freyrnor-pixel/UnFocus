@@ -131,20 +131,23 @@ export function handednessChoiceOf(s: { leftHanded: boolean }): HandednessChoice
 
 /* ── Starting screen ──────────────────────────────────────────────────────── */
 
-export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'shopping', 'health'];
+export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'shopping', 'plans'];
 
 /**
- * Setting id → the `app/(tabs)/` route name it opens, i.e. the navigator's
- * `initialRouteName`. **This is now all three tabs**, not a subset — the 2026-08-20 5→3
- * merge left exactly three, and each is a surface a day plausibly starts on (the day's list,
- * the shop, the morning's meds). `'plans'` was a choice here until that merge and is no
- * longer a tab, so it cannot be an `initialRouteName`; a stored `start_screen='plans'` falls
- * back to `'home'` through `readEnum`'s default, which lands on the screen its list moved to.
+ * Setting id → the `app/(tabs)/` route name it opens, i.e. the navigator's `initialRouteName`.
+ * **These are the three tabs, and this map must never name anything else** — an
+ * `initialRouteName` the navigator doesn't have is silently ignored, so the app opens on the
+ * FIRST tab (Shop) with no error anywhere.
+ *
+ * ⚠️ That is exactly what shipped between the 2026-08-20 tab passes and 2026-08-19: `'health'`
+ * stayed a choice here after Health stopped being a tab, so anyone who picked it landed on
+ * Shopping. `'plans'` replaces it — it is a tab again — and a stored `start_screen='health'` is
+ * migrated to `'home'` in lib/db.ts, which is where health's surface actually lives now.
  */
 export const START_SCREEN_ROUTES: Record<StartScreen, string> = {
   home: 'index',
   shopping: 'shopping',
-  health: 'health',
+  plans: 'plans',
 };
 
 /**
@@ -152,10 +155,10 @@ export const START_SCREEN_ROUTES: Record<StartScreen, string> = {
  * only decides where a cold launch opens, and the pager is already mounted by the time
  * the first-run flow commits. Matches SITE_ITEMS' routes in lib/siteNav.ts.
  */
-export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/shopping' | '/health'> = {
+export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/shopping' | '/plans'> = {
   home: '/',
   shopping: '/shopping',
-  health: '/health',
+  plans: '/plans',
 };
 
 /* ── Picks ⇄ settings ────────────────────────────────────────────────────── */

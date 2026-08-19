@@ -128,7 +128,6 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
-import CardExpandButton from '@/components/CardExpandButton';
 import { useCardExpand } from '@/lib/useCardExpand';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -411,9 +410,17 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
-            {!embedded && (
-              <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
-            )}
+            {/* ⚠️ **No CardExpandButton here (2026-08-19).** `homeHabits`'s registered body in
+                components/CardExpandHost.tsx is still `ComingSoonBody` — the real habits surface
+                has never been extracted out of app/habits.tsx the way To-do, Health and Notes
+                were — so this button opened a full-screen pane whose only content was the words
+                "Expand card". That was invisible while this card was one of five on a busy Home
+                screen; it is one of THREE on the Me tab now, and a stub is not something to ship
+                on a screen this small. Same call, and the same wording, as the `shopLists`
+                placeholder: unreachable rather than a button that opens a stub. The id stays in
+                lib/expandableCards.ts so a future pass can extract `HabitsSurface.tsx` and wire
+                it up; the way to the deep surface today is the header title → pushed
+                app/habits.tsx, which is unchanged. */}
             {cardMenu && !embedded ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
           </View>
           {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}

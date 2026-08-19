@@ -34,7 +34,7 @@
  *     stopPropagation-wrapped Pressable pattern as `rightAction`) — e.g. a severity badge
  *     needs to sit leading rather than trailing, where a checkbox lives on the right.
  *   - Decision 043 rule 1: every caller mounts this inside its own Surface-backed card
- *     region (WeekListCard, HomeShoppingCard, shopping.tsx's Monthly catalog card), so this
+ *     region (WeekListCard, shopping.tsx's Monthly catalog card), so this
  *     component does NOT render its own Surface — that would be Surface-inside-Surface.
  *     The row is a plain View with a hairline top divider (`theme.border`) for grouping;
  *     `accentColor` still tints the left accent bar only. Pass `first` on the first (or only)

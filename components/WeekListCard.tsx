@@ -62,7 +62,7 @@
  *   - **Shop-domain badge (2026-07-26, "bring the card colour back")**: a small
  *     `CardAccentBadge` (domain="shop") leads `nameWrap`, before the lock icon — the same
  *     gradient badge Home's preview cards use, added here for cross-tab consistency. Kept
- *     inline (not an absolutely-positioned corner badge like HomeShoppingCard's) because this
+ *     inline (not an absolutely-positioned corner badge, the way the retired Home shopping card did it) because this
  *     header's top-left corner is already occupied by the lock icon.
  *   - **"Save as template" moved into the kebab (2026-07-23)**: `openListOptions` gains a
  *     direct `t.saveListAsTemplateBtn` entry (`onSaveAsTemplate` prop) — was a button at

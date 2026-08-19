@@ -21,7 +21,7 @@
  *             lib/i18n, lib/useAppTheme, lib/useDesignLab (useLabControl/useLabShape/useLabSlot
  *             — the design lab's check shape and slot gates, see the last Edit note),
  *             @expo/vector-icons
- *   Used by → components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx
+ *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx
  *             (the four HOME cards), and app/habits.tsx (2026-08-01).
  *             **This line used to also claim app/(tabs)/{plans,shopping}.tsx and it was never
  *             true** — an audit (AUDIT.md §0.4.2e) found this file imported by the Home cards

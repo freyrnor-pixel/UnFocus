@@ -1335,6 +1335,20 @@ export function initDb() {
     // deleted either way, and turning it off puts every archived task straight back in the
     // active list. Settings → Advanced → Features.
     'ALTER TABLE settings ADD COLUMN feature_task_decay INTEGER DEFAULT 1',
+    // 2026-08-19, the "To-do in the middle, Home is Me" nav pass.
+    //
+    // `start_screen` could hold 'health' from before Health stopped being a tab, and an
+    // `initialRouteName` the navigator doesn't have is silently ignored — so those installs
+    // were cold-launching onto Shop (the first tab) rather than anywhere they chose. 'home' is
+    // where health's surface actually lives now (it is a card on the Me tab), so that is the
+    // honest landing. See lib/firstRunOptions.ts's START_SCREEN_ROUTES.
+    "UPDATE settings SET start_screen = 'home' WHERE start_screen = 'health'",
+    // NOTE — Home becoming "Me" in the same pass deliberately gets NO migration.
+    // 'plans' and 'shopping' leave `HOME_CARD_KINDS`, and lib/homeCards.ts's
+    // `sanitizeHomeCardOrder` already drops an unknown kind on READ — which is the shape that
+    // also covers a row written by an older build or restored from a backup, where a one-shot
+    // migration cannot reach. Rewriting the column here would additionally throw away whatever
+    // order the user had dragged the surviving three cards into, to fix nothing.
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

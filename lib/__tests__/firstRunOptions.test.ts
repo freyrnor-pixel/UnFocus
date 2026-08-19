@@ -12,6 +12,8 @@
  * 2026-07-31: the four wizard steps plus the separate language screen became six rows on one
  * screen, so the cross product these tests sweep grew from 81 to 324.
  */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   BASICS_ROWS,
   DARK_MODE_CHOICES,
@@ -94,12 +96,21 @@ describe('invariant 2: no pick can produce an invalid state', () => {
   });
 
   test('every starting screen names a real tab route and a real path', () => {
-    // 'index' is app/(tabs)/index.tsx ("I dag"); the other two are their own tab files.
-    // These are ALL THREE tabs since the 2026-08-20 5→3 merge, not a subset — and 'plans' is
-    // deliberately absent, because a pushed sub-screen cannot be an `initialRouteName`.
+    // 'index' is app/(tabs)/index.tsx ("Meg"); the other two are their own tab files. These
+    // are ALL THREE tabs, not a subset — an `initialRouteName` the navigator doesn't have is
+    // silently ignored and the app opens on the first tab instead, with no error anywhere.
+    // ⚠️ 'health' was in this list until 2026-08-19, months after Health stopped being a tab,
+    // and that is exactly the failure it shipped. Read the list off the navigator, never off
+    // a memory of which screens exist.
+    const layout = readFileSync(
+      join(__dirname, '..', '..', 'app', '(tabs)', '_layout.tsx'),
+      'utf8'
+    );
+    const tabs = [...layout.matchAll(/<TopTabs\.Screen\s+name="([^"]+)"/g)].map((m) => m[1]);
+    expect(tabs).toHaveLength(START_SCREEN_CHOICES.length);
     for (const s of START_SCREEN_CHOICES) {
-      expect(['index', 'shopping', 'health']).toContain(START_SCREEN_ROUTES[s]);
-      expect(['/', '/shopping', '/health']).toContain(START_SCREEN_PATHS[s]);
+      expect(tabs).toContain(START_SCREEN_ROUTES[s]);
+      expect(['/', '/shopping', '/plans']).toContain(START_SCREEN_PATHS[s]);
     }
     // Distinct targets, or two options would silently do the same thing.
     expect(new Set(Object.values(START_SCREEN_ROUTES)).size).toBe(START_SCREEN_CHOICES.length);

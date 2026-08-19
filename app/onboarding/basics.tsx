@@ -384,7 +384,7 @@ const FONT_SIZE_LABELS = {
 const START_SCREEN_LABELS: Record<StartScreen, (t: Translations) => string> = {
   home: (t: Translations) => t.nav.home,
   shopping: (t: Translations) => t.nav.shop,
-  health: (t: Translations) => t.nav.health,
+  plans: (t: Translations) => t.nav.plans,
 };
 
 const baseStyles = StyleSheet.create({

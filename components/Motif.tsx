@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → react-native-svg, constants/motifs, lib/useAppTheme (useIsDark)
- *   Used by → components/SectionDivider.tsx (trunk-divider), components/StageTree.tsx (the four
+ *   Used by → components/StageTree.tsx (the four
  *             tree-natural-* growth stages — and through it components/StarterCard.tsx and
  *             app/habits.tsx), components/TourSpotlight.tsx (halo-ring),
  *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx

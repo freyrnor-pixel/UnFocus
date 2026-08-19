@@ -40,10 +40,13 @@ export const EXPANDABLE_CARD_IDS = [
   'shopLists',
   'shopDishes',
   'shopCatalogue',
-  'homeTodo',
+  // The Me tab's three cards. `homeTodo` and `homeShopping` were here until 2026-08-19 and are
+  // GONE, not deferred: the To-do and Shopping preview cards left that screen when To-do took
+  // the middle tab, so there is no card left for either id to belong to. An id whose card does
+  // not exist is worse than no id — it keeps a `CARD_BODIES` entry alive that nothing can ever
+  // reach, and the test that pins the two lists together goes on passing over it.
   'homeHabits',
   'homeNotes',
-  'homeShopping',
   'homeHealth',
   'todoWhenever',
   'todoToday',

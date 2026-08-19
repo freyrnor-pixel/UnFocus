@@ -18,7 +18,6 @@
  *             lib/haptics, lib/i18n, lib/shoppingCategories, lib/useAppTheme,
  *             store/useShoppingStore (ShoppingItem type + update)
  *   Used by → components/WeekListCard.tsx, app/(tabs)/shopping.tsx,
- *             components/HomeShoppingCard.tsx
  *   Data    → writes shopping_items via useShoppingStore.update() (name/amount/unit/
  *             price/category). Schedules nothing, and touches no other table.
  *

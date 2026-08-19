@@ -443,7 +443,7 @@ const baseStyles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.sm,
     // Spacing.lg (was .md, was .sm before that), matching HomeHabitsCard/PlanTaskCard/
-    // HomeShoppingCard's header gap (2026-07-30, user report: "tips-text too close to color
+    // the Home shopping card's header gap (2026-07-30, user report: "tips-text too close to color
     // field... in notes it overlaps with color field") — this card's header carries a mic
     // button beside the badge, and content below still read as crowding both at .md.
     marginBottom: Spacing.lg,

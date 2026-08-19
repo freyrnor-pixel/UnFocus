@@ -75,7 +75,7 @@ describe('user-supplied text is never dropped into a case slot', () => {
 describe('the dictionary is wired up', () => {
   test('getTranslations("is") returns Icelandic, not the Norwegian fallback', () => {
     expect(t.settingsTitle).toBe('Stillingar');
-    expect(t.nav.home).toBe('Í dag');
+    expect(t.nav.home).toBe('Ég');
   });
 
   test('an unknown stored language still falls back to Norwegian', () => {

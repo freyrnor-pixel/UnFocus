@@ -234,15 +234,18 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // button.
     // `[^>]*` so a presentational prop can be added without failing this: what matters is that
     // the tutorial card is mounted at all, not the exact attribute list. It grew
-    // `stage="sapling"` on 2026-08-04 (design comparison task 03) — a call-site choice about
-    // how large a watermark this card has room for, deliberately NOT `current / capacity`,
-    // which is one of the tree bindings both the design project and lib/growth.ts decline.
+    // `stage="sapling"` on 2026-08-04 (design comparison task 03) and lost the watermark
+    // outright on 2026-08-19 (*"remove the Tree in Energy"*) — `noTree` now, and `stage` went
+    // with the drawing rather than staying as a prop that does nothing. Either way the tree
+    // was never bound to `current / capacity`, which is one of the bindings both the design
+    // project and lib/growth.ts decline.
     //
     // ⚠️ It LOST its `text` on 2026-08-17 (*"Remove the 'Energy is how much a day holds…'
     // block"*), and that half is asserted as an absence below. The card itself is what this test
     // is really about — the point was never the paragraph, it was that this spot must not draw a
     // full ten-pip bar before anything can spend it.
-    expect(src).toMatch(/<StarterCard[^>]*stage="sapling"[^>]*>/);
+    expect(src).toMatch(/<StarterCard[^>]*\bnoTree\b[^>]*>/);
+    expect(src).not.toMatch(/<StarterCard[^>]*stage=/);
     expect(src).not.toMatch(/<StarterCard[^>]*\btext=/);
     expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
     expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);

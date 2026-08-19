@@ -1,19 +1,20 @@
 /**
- * homeCards.test.ts — a card that was MERGED is not a card that was deleted, and reversing a
- * merge must not lose the same surface a second time.
+ * homeCards.test.ts — a card that was REMOVED is not a card that lost its only surface.
  *
- * The 5→3 tab merge (2026-08-20 morning) took 'habits' out of `HOME_CARD_KINDS` and folded a
- * stored 'habits' entry into 'plans' (the section rode on that card). The SAME-DAY "full-screen
- * card expansion" pass reversed it hours later: Habits is a first-class, independently
- * expandable card again, and 'health' joined the same day as a genuinely NEW kind (Health left
- * the bottom nav for a Home card). `sanitizeHomeCardOrder`'s plain unknown-kind filter, which is
- * exactly right for a card that was genuinely removed ('goals', 2026-07-29), gives the WRONG
- * answer for the UN-fold: a stored order from the folded window has no 'habits' entry at all, so
- * the filter alone leaves it silently absent — no error, no empty state, just a surface that
- * used to be there and now isn't, with nothing on screen saying where it went.
+ * `sanitizeHomeCardOrder` has to give two opposite answers to the same input shape (a stored
+ * order missing a kind), and which one is right depends entirely on whether the missing card is
+ * reachable anywhere else:
+ *
+ *   - **Removed** ('goals' 2026-07-29; 'plans' and 'shopping' 2026-08-19, when To-do took the
+ *     middle tab and Home became "Me"): the plain unknown-kind filter is exactly right. Nothing
+ *     is lost — each of those surfaces is a whole tab or its own screen.
+ *   - **Appended** ('habits', 'health'): a stored order not naming one of these means the
+ *     surface is simply gone from that install, with no error, no empty state and nothing on
+ *     screen saying where it went. Health has no screen of its own at all; Habits' card is the
+ *     only way to the pushed habits screen.
  *
  * That is the whole reason this parse lives in a module of its own rather than inside
- * app/(tabs)/index.tsx, and the reason the un-fold is on READ rather than a lib/db.ts migration:
+ * app/(tabs)/index.tsx, and the reason the append is on READ rather than a lib/db.ts migration:
  * a one-shot UPDATE runs once per install and would miss a row written afterwards by an older
  * build — a restored backup, or a paired device that has not updated yet.
  */
@@ -36,40 +37,31 @@ describe('the default order', () => {
     expect(store).toContain(`readJson<string[]>(row, 'home_card_order', ${literal})`);
   });
 
-  it('contains habits and health — both are first-class cards again', () => {
-    expect(HOME_CARD_KINDS).toContain('habits');
-    expect(HOME_CARD_KINDS).toContain('health');
+  it('is the personal three, and neither neighbouring tab', () => {
+    // 2026-08-19: a preview of a tab one swipe away is the duplication that pass removed.
+    expect([...HOME_CARD_KINDS]).toEqual(['habits', 'notes', 'health']);
   });
 });
 
 describe('an ordinary stored order', () => {
   it('is returned as-is when it already has every current kind', () => {
-    expect(sanitizeHomeCardOrder(['shopping', 'plans', 'habits', 'notes', 'health'])).toEqual([
-      'shopping',
-      'plans',
-      'habits',
+    expect(sanitizeHomeCardOrder(['notes', 'habits', 'health'])).toEqual([
       'notes',
+      'habits',
       'health',
+    ]);
+  });
+
+  it('keeps the order the user dragged the cards into', () => {
+    expect(sanitizeHomeCardOrder(['health', 'notes', 'habits'])).toEqual([
+      'health',
+      'notes',
+      'habits',
     ]);
   });
 
   it('drops duplicates, keeping the first position', () => {
-    // 'habits' and 'health' both included so neither append (their own describe blocks below)
-    // has anything to add here.
-    expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'plans', 'health'])).toEqual([
-      'plans',
-      'habits',
-      'notes',
-      'health',
-    ]);
-  });
-
-  it('drops a kind that was genuinely deleted, with no substitution', () => {
-    // 'goals' shipped as a fifth card on 2026-07-28 and was gone the next day. There is
-    // nowhere for it to fold into, and that is the correct outcome for a deletion — unlike
-    // 'health' below, 'goals' still has somewhere else to be (Habits/Plans' own drawer).
-    expect(sanitizeHomeCardOrder(['plans', 'habits', 'goals', 'notes', 'health'])).toEqual([
-      'plans',
+    expect(sanitizeHomeCardOrder(['habits', 'notes', 'habits', 'health'])).toEqual([
       'habits',
       'notes',
       'health',
@@ -80,87 +72,60 @@ describe('an ordinary stored order', () => {
     expect(sanitizeHomeCardOrder([])).toEqual([...HOME_CARD_KINDS]);
     expect(sanitizeHomeCardOrder(['goals', 'bonsai'])).toEqual([...HOME_CARD_KINDS]);
   });
+});
 
-  it('appends the new health kind to an order that predates it', () => {
-    // Health left the bottom nav ENTIRELY for this pass — unlike 'goals' (which had somewhere
-    // else to be), a stored order not naming 'health' yet means the surface is gone from every
-    // existing install with nothing on screen saying so. Every row in existence at ship time
-    // predates 'health' by definition, so this is the ordinary path, not an edge case.
-    expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'shopping'])).toEqual([
-      'plans',
+describe('the kinds that were removed rather than moved', () => {
+  it("drops 'plans' and 'shopping' with no substitution", () => {
+    // Both are whole tabs now (To-do is the CENTRE tab), so filtering them costs nobody a
+    // surface — the opposite of the 'health' case below. This is the shape EVERY stored row is
+    // in at the moment the 2026-08-19 pass ships.
+    expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'shopping', 'health'])).toEqual([
       'habits',
       'notes',
-      'shopping',
       'health',
     ]);
+  });
+
+  it("drops 'goals', which shipped for one day in 2026-07 and had somewhere else to be", () => {
+    expect(sanitizeHomeCardOrder(['habits', 'goals', 'notes', 'health'])).toEqual([
+      'habits',
+      'notes',
+      'health',
+    ]);
+  });
+
+  it('falls back to the default when the row named ONLY removed kinds', () => {
+    // A user who had hidden all three survivors before the pass. Returning `['habits','health']`
+    // out of the appends below would be a stranger answer than the full default.
+    expect(sanitizeHomeCardOrder(['plans', 'shopping'])).toEqual([...HOME_CARD_KINDS]);
   });
 });
 
-describe("the appended 'health' entry", () => {
-  it('is a no-op when health is already present, wherever it sits', () => {
-    expect(sanitizeHomeCardOrder(['health', 'plans', 'habits', 'notes'])).toEqual([
+describe('the appended kinds — the surfaces with nowhere else to be', () => {
+  it("appends 'health' to an order that predates it", () => {
+    expect(sanitizeHomeCardOrder(['habits', 'notes'])).toEqual(['habits', 'notes', 'health']);
+  });
+
+  it("appends 'habits' to an order that does not name it", () => {
+    expect(sanitizeHomeCardOrder(['notes', 'health'])).toEqual(['notes', 'health', 'habits']);
+  });
+
+  it('appends both when both are missing, habits first', () => {
+    expect(sanitizeHomeCardOrder(['notes'])).toEqual(['notes', 'habits', 'health']);
+  });
+
+  it('is a no-op when the kind is already present, wherever it sits', () => {
+    expect(sanitizeHomeCardOrder(['health', 'habits', 'notes'])).toEqual([
       'health',
-      'plans',
       'habits',
       'notes',
     ]);
-    expect(sanitizeHomeCardOrder(['plans', 'health', 'habits', 'notes'])).toEqual([
-      'plans',
-      'health',
-      'habits',
-      'notes',
-    ]);
   });
 
-  it('stacks with the habits un-fold — both missing at once', () => {
-    // The exact shape every real install's stored row is in right now: the pre-un-fold,
-    // pre-health chain terminates at ["plans","habits","goals","notes","shopping"], which
-    // filters to ["plans","habits","notes","shopping"] once 'goals' drops — habits already
-    // present, health missing, appended at the end.
-    expect(sanitizeHomeCardOrder(['plans', 'notes', 'shopping'])).toEqual([
-      'plans',
-      'habits',
-      'notes',
-      'shopping',
-      'health',
-    ]);
-  });
-
-  it('is appended even when the order is otherwise empty after filtering', () => {
-    expect(sanitizeHomeCardOrder(['goals'])).toEqual([...HOME_CARD_KINDS]);
-  });
-});
-
-describe("the un-folded 'habits' entry", () => {
-  it('is a no-op when habits is already present, wherever it sits', () => {
-    // Reordering post-un-fold must not be re-corrected back next to plans every time. 'health'
-    // included in each input so its own append has nothing to add here.
-    expect(sanitizeHomeCardOrder(['habits', 'plans', 'notes', 'health'])).toEqual([
-      'habits',
-      'plans',
-      'notes',
-      'health',
-    ]);
-    expect(sanitizeHomeCardOrder(['notes', 'habits', 'plans', 'health'])).toEqual([
-      'notes',
-      'habits',
-      'plans',
-      'health',
-    ]);
-  });
-
-  it('does nothing when plans is ALSO missing — nothing to splice it after', () => {
-    // If the user removed the To-do card too, there is no anchor position left to restore
-    // habits at without inventing one; the surface stays reachable via "Add a card" instead.
-    // 'health' still gets appended regardless — that append has no anchor requirement.
-    expect(sanitizeHomeCardOrder(['notes', 'shopping'])).toEqual(['notes', 'shopping', 'health']);
-  });
-
-  it('survives as the only entry once un-folded next to plans', () => {
-    expect(sanitizeHomeCardOrder(['plans'])).toEqual(['plans', 'habits', 'health']);
-  });
-
-  it('does not resurrect other dropped kinds while un-folding', () => {
-    expect(sanitizeHomeCardOrder(['goals', 'plans'])).toEqual(['plans', 'habits', 'health']);
+  it("leaves 'notes' out when the user has removed it", () => {
+    // The one card here that CAN be hidden for good: its content is a preview of a surface the
+    // card itself expands into, so losing it loses a shortcut, not a feature. The two appends
+    // above are deliberately asymmetric with this — see lib/homeCards.ts's warning.
+    expect(sanitizeHomeCardOrder(['habits', 'health'])).toEqual(['habits', 'health']);
   });
 });

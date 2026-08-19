@@ -39,7 +39,7 @@
  *     card would. Blur comes from Surface's BlurView; this file never imports expo-blur
  *     directly.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   runOnJS,
@@ -135,32 +135,39 @@ export default function AppModalHost() {
   const { reducedMotion } = useAccessibility();
   const [request, setRequest] = useState<AppModalRequest | null>(null);
   const progress = useSharedValue(0);
-  const seq = useRef(0);
+  // A SHARED value, not a `useRef` (2026-08-19) — `dismiss()`'s completion callback reads it on
+  // the UI thread, where a captured plain object is serialized once and cached, so a ref's later
+  // increments never arrive and the guard starts failing on the SECOND dismissal. Here that left
+  // `<Modal visible>` mounted with an invisible card over a full-screen Pressable, i.e. an app
+  // that reads as frozen. Full write-up in components/CardExpandHost.tsx's header.
+  const seq = useSharedValue(0);
 
   useEffect(() => {
     listener = (req) => {
-      seq.current += 1;
+      seq.value += 1;
       setRequest(req);
       progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.modalIn, easing: Ease.enter });
     };
     return () => {
       listener = null;
     };
-  }, [reducedMotion, progress]);
+    // `seq` is a shared value, so its identity is stable across renders — listed only to keep
+    // the exhaustive-deps rule quiet, exactly like `progress` beside it.
+  }, [reducedMotion, progress, seq]);
 
   function dismiss(onPress?: () => void) {
-    const mySeq = seq.current;
+    const mySeq = seq.value;
     onPress?.();
     // onPress may have called showAppModal() again (e.g. a menu option opening a
     // confirm dialog) — if so, don't run our own exit animation over its entrance.
-    if (seq.current !== mySeq) return;
+    if (seq.value !== mySeq) return;
     if (reducedMotion) {
       progress.value = 0;
       setRequest(null);
       return;
     }
     progress.value = withTiming(0, { duration: Duration.modalOut, easing: Ease.exit }, (done) => {
-      if (done && seq.current === mySeq) runOnJS(setRequest)(null);
+      if (done && seq.value === mySeq) runOnJS(setRequest)(null);
     });
   }
 

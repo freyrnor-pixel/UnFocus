@@ -109,7 +109,7 @@ export default function BudgetScreen() {
   const barColor = overBudget ? theme.warn : theme.good;
 
   // Daily spend vs. daily budget pace (Decision 026), shared with app/(tabs)/shopping.tsx
-  // and HomeShoppingCard's Home preview via lib/budget.ts's computeSpendPace(). Only
+  // and (until 2026-08-19) the Home shopping preview, via lib/budget.ts's computeSpendPace(). Only
   // shown when a budget is set and this list has a reset boundary (see that function's header).
   const pace = computeSpendPace(listReceipts, monthlyBudgetNok, monthlyResetDate, list?.lastReset ?? '');
 

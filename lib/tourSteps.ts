@@ -51,6 +51,12 @@ export type TourStep = {
  * where the day's tasks and habits now live together, then the two surfaces that need a first
  * entry to be worth anything.
  *
+ * **The `home` step's TARGET moved on 2026-08-19** — Home became "Me" (habits, notes, health)
+ * when To-do took the middle tab, so the To-do preview card the spotlight used to ring is not on
+ * that screen any more. It rings the Habits card now (`tour.home.me`). The STEP id is unchanged,
+ * deliberately: `tourProgress` stores step ids, so renaming `home` would re-run a step for
+ * everyone who has already done it. A target id is render-time only and safe to rename.
+ *
  * **It was five steps until the 2026-08-20 5→3 merge, then three (home/shopping/health) until
  * the same-named "full-screen card expansion" pass swapped the Health tab for To-do.** The
  * `plans` and `habits` steps went with their tabs at the first merge — the surfaces they
@@ -64,7 +70,7 @@ export type TourStep = {
  * step they had not reached.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
-  { id: 'home', route: '/', targetId: 'tour.home.today' },
+  { id: 'home', route: '/', targetId: 'tour.home.me' },
   { id: 'shopping', route: '/shopping', targetId: 'tour.shopping.list' },
   { id: 'todo', route: '/plans', targetId: 'tour.plans.today' },
 ];

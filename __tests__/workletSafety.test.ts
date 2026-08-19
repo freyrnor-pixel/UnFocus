@@ -191,6 +191,50 @@ function calledIdentifiers(body: string): string[] {
   return out;
 }
 
+/** Names the file binds with `useRef(...)` — plain `{current}` objects, not shared values. */
+function refNames(src: string): Set<string> {
+  const names = new Set<string>();
+  const pattern = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*useRef\s*[<(]/g;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(stripped(src))) !== null) names.add(match[1]);
+  return names;
+}
+
+/**
+ * Every `someRef.current` a workletized body reads. Empty is the passing state.
+ *
+ * **A `useRef` captured by a worklet is FROZEN IN TIME on the UI thread** (2026-08-19, from the
+ * expand → collapse → expand → collapse dead-pane report). `react-native-worklets` serializes a
+ * captured plain object once and caches the clone (`serializableMappingCache`, keyed by the
+ * object), so a later `ref.current = x` on the JS thread never reaches the UI-thread copy — the
+ * worklet keeps reading whatever the ref held the first time that body was serialized. A ref
+ * is a plain object, so it takes exactly that path.
+ *
+ * Nothing else in this repo can see it. In `__DEV__` the library FREEZES the captured object
+ * (its own comment: *"If the user really wants some objects to be mutable they should use
+ * shared values instead"*), so both sides stay at the first value and the code behaves; on web
+ * worklets run on the JS thread and there is no clone at all. Only a release build diverges,
+ * which is why this is a source scan next to the runOnJS one above.
+ *
+ * The fix is always the same: `useSharedValue`, which reads live on both threads.
+ */
+export function frozenRefReads(src: string): string[] {
+  const refs = refNames(src);
+  if (refs.size === 0) return [];
+  const offenders: string[] = [];
+  for (const body of workletBodies(src)) {
+    const locals = localNames(body.source);
+    const pattern = /([A-Za-z_$][\w$]*)\.current\b/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(stripped(body.source))) !== null) {
+      const name = match[1];
+      if (!refs.has(name) || locals.has(name)) continue;
+      offenders.push(`${body.context} at line ${body.line} reads ${name}.current (use a shared value)`);
+    }
+  }
+  return offenders;
+}
+
 /** Every direct JS call this file makes from the UI thread. Empty is the passing state. */
 export function unsafeCalls(src: string): string[] {
   const worklets = workletNames(src);
@@ -233,4 +277,27 @@ describe('UI-thread code calls nothing that lives on the JS thread', () => {
       expect(unsafeCalls(src)).toEqual([]);
     },
   );
+
+  it.each(SCANNED.map((entry) => [path.relative(ROOT, entry.file), entry.src] as const))(
+    '%s reads mutable state through a shared value, never a useRef',
+    (_name, src) => {
+      expect(frozenRefReads(src)).toEqual([]);
+    },
+  );
+
+  // The rule above is an absence too, so prove the detector actually fires on the exact shape
+  // that shipped — components/CardExpandHost.tsx's and components/AppModal.tsx's old `dismiss()`.
+  it('flags a useRef read from an animation completion callback', () => {
+    const shipped = `
+      const seq = useRef(0);
+      function dismiss() {
+        const mySeq = seq.current;
+        progress.value = withTiming(0, { duration: 200 }, (done) => {
+          if (done && seq.current === mySeq) runOnJS(setRequest)(null);
+        });
+      }
+    `;
+    expect(frozenRefReads(shipped)).toHaveLength(1);
+    expect(frozenRefReads(shipped.replace(/useRef\(0\)/, 'useSharedValue(0)'))).toEqual([]);
+  });
 });

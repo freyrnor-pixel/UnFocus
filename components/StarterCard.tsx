@@ -190,7 +190,9 @@
  *     streak or a focus session is declined by the design project *and* by lib/growth.ts.
  *   - **One tree per screen.** This card draws one whenever it is visible, so a screen that
  *     also wants an ambient tree of its own has to suppress one of them —
- *     app/habits.tsx is the worked example.
+ *     app/habits.tsx is the worked example. A card may also draw NO tree (`noTree`, 2026-08-19);
+ *     components/EnergyMeter.tsx is the only caller, and that is a removal asked for by name,
+ *     not a general opt-out to reach for whenever a card looks busy.
  *   - **It takes no `color` prop, and that is not an omission.** Every stage is an
  *     ILLUSTRATION (each carries its own baked light/dark `pal`), and components/Motif ignores
  *     `color` for those — passing one would be a prop that silently does nothing. Its
@@ -273,6 +275,18 @@ type Props = {
    * note above. Default `false`.
    */
   embedded?: boolean;
+  /**
+   * Draw the card WITHOUT its growth-tree watermark, keeping everything else (2026-08-19,
+   * maintainer: *"remove the Tree in Energy"*). One caller: components/EnergyMeter.tsx's
+   * tutorial state, which stands where the meter itself will stand on the app's landing
+   * screen — the biggest StarterCard in the app, and so the biggest tree.
+   *
+   * Deliberately a separate flag rather than a `stage: 'none'`: `stage` is a size choice among
+   * four drawings and "don't draw one" is a different question, and rather than `embedded`,
+   * which ALSO drops the Surface and the padding this card still wants. Everywhere else keeps
+   * its watermark — this is one call site's removal, not a retirement of components/StageTree.tsx.
+   */
+  noTree?: boolean;
 };
 
 export default function StarterCard({
@@ -284,6 +298,7 @@ export default function StarterCard({
   dismissKey,
   collapsible,
   embedded,
+  noTree,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -321,7 +336,7 @@ export default function StarterCard({
           carry a watermark without crowding its one line of text — and on `embedded`, where
           there is no card of ours for it to be a watermark ON, and the host screen already
           has its own tree ("one tree per screen"). */}
-      {compact || embedded ? null : (
+      {compact || embedded || noTree ? null : (
         <StageTree stage={stage} opacity={0.34} style={styles.branch} />
       )}
       {/* Corner-anchored, matching components/HintCard.tsx's (2026-08-14). It used to be the

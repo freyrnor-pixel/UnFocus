@@ -18,9 +18,10 @@
  * Connections:
  *   Imports → components/Motif (the renderer), constants/motion (Duration, Ease),
  *             lib/useAppTheme (useAccessibility), react-native-reanimated
- *   Used by → components/StarterCard.tsx (its empty-state watermark — `seed` by default,
- *             `sprout` from app/habits.tsx and `sapling` from components/EnergyMeter.tsx),
- *             app/habits.tsx (the `full` stage as an ambient header watermark)
+ *   Used by → components/StarterCard.tsx (its empty-state watermark — `seed` by default and
+ *             `sprout` from app/habits.tsx; components/EnergyMeter.tsx passed `sapling` until
+ *             2026-08-19, when that card was told to draw no tree at all — StarterCard's
+ *             `noTree`), app/habits.tsx (the `full` stage as an ambient header watermark)
  *   Data    → none — pure presentation, and deliberately unable to reach a store
  *
  * Edit notes:

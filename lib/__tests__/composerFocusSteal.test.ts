@@ -131,8 +131,12 @@ describe('the composers this protects are the ones that open a focus-stealing pi
     ['lib/useHabitRecurrenceDraft.ts', /showAppModal\(/],
     // a task's Repeat, inside PadTypeRow's panel
     ['components/PlanTaskCard.tsx', /function pickRecurring\(\)[\s\S]{0,600}showAppModal\(/],
-    // shopping's destination-list picker, inside PadTypeRow's panel
-    ['components/HomeShoppingCard.tsx', /function pickAddTarget\(\)[\s\S]{0,600}showAppModal\(/],
+    // ⚠️ Shopping's destination-list picker was the fourth entry here, in
+    // components/HomeShoppingCard.tsx. That component was DELETED on 2026-08-19 — the Home
+    // shopping preview card left the app when Home became "Me" and Shop stayed a tab of its
+    // own — so the picker it guarded no longer exists. Removed rather than re-pointed: the
+    // Shop tab's own composers do not open a modal picker from inside a PadTypeRow panel, so
+    // there is nothing on that screen for this entry to cover.
     // plans' Whenever repeat, inside AddRow's panel
     ['components/TodoSurface.tsx', /function pickWheneverRecurring\(\)[\s\S]{0,600}showAppModal\(/],
   ];
