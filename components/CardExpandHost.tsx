@@ -57,8 +57,29 @@
  *   - The expanded pane is an `overlay`-tier Surface: opaque, no blur. Not a style choice —
  *     constants/colors.ts's 2026-08-18 rule is that a surface with the app's own cards behind it
  *     (which an expanded card, by definition, has) is never translucent.
- *   - Body cross-fades in over the SECOND half of the growth only, so a heavy surface isn't
- *     visibly reflowing while the rect is still animating.
+ *   - **The growth is a container transform, and the pane's OWN cross-fade is the load-bearing
+ *     part of it (2026-08-19, maintainer: *"Make full screen animation look like the card
+ *     expands into full screen"*).** The rect arithmetic was already right — the pane starts at
+ *     the measured card rect and travels to the viewport — but the pane is an opaque `overlay`
+ *     Surface, so at full strength on frame 1 it REPLACED the card with a blank box before a
+ *     single pixel had moved: the card's rows blinked out, an empty rectangle travelled, and
+ *     different content faded in at the far end. That is a panel opening over a card, not a card
+ *     becoming a screen. Four things fix it, and they are staged rather than simultaneous:
+ *     the pane fades up over the first `PANE_FADE_IN` of the travel (so the first frames are
+ *     still the REAL card underneath, dissolving into what it is turning into — and, reversed,
+ *     dissolving back out of it on collapse); the title follows; the body follows that; and a
+ *     scrim takes the rest of the screen down so the middle frames read as one card lifting off
+ *     the stack. Don't restore any of these to a constant opacity to "simplify" the styles —
+ *     each one is a frame of the illusion, and the pane's is the whole illusion.
+ *   - **The travel is a LAYOUT animation (left/top/width/height), never `transform: scale`.**
+ *     A scaled pane stretches its title and its body's type on the way out and squashes them on
+ *     the way back, which reads as a picture of a card being zoomed. Scale is cheaper; it is
+ *     also the thing that would make this look like every other zoom transition instead of like
+ *     the card growing.
+ *   - **Timing is `Duration.cardExpand`/`cardExpandOut` (320/260), NOT `card`/`cardOut`
+ *     (220/200).** This travels the whole viewport, which ANIMATION_GUIDELINES.md §1 files under
+ *     "hero transitions: modals, screen navigation, full panels" at 300-400ms; at 220 the growth
+ *     is over before the eye can follow the edges and reads as a cut to a new screen.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -78,10 +99,18 @@ import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, getLayeredShadow } from '@/constants/theme';
 import { ExpandableCardId, ExpandRect } from '@/lib/expandableCards';
 import { useT, Translations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+
+/**
+ * How far into the growth the (opaque) pane has finished fading up over the real card beneath
+ * it. Small on purpose: long enough that the first frames are the card itself rather than a
+ * blank box, short enough that the pane is solid well before it has grown far enough for the
+ * page behind it to show through its own edges.
+ */
+const PANE_FADE_IN = 0.18;
 
 type CardBodyEntry = {
   title: (t: Translations) => string;
@@ -198,7 +227,7 @@ export default function CardExpandHost() {
       setRequest(null);
       return;
     }
-    progress.value = withTiming(0, { duration: Duration.cardOut, easing: Ease.exit }, (done) => {
+    progress.value = withTiming(0, { duration: Duration.cardExpandOut, easing: Ease.exit }, (done) => {
       if (done && seq.value === mySeq) runOnJS(setRequest)(null);
     });
   }
@@ -212,7 +241,9 @@ export default function CardExpandHost() {
       seq.value += 1;
       overlayRef.current?.measureInWindow((x, y) => setOrigin({ x, y }));
       setRequest(req);
-      progress.value = reducedMotion ? 1 : withTiming(1, { duration: Duration.card, easing: Ease.enter });
+      progress.value = reducedMotion
+        ? 1
+        : withTiming(1, { duration: Duration.cardExpand, easing: Ease.enter });
     };
     return () => {
       requestListener = null;
@@ -231,16 +262,40 @@ export default function CardExpandHost() {
 
   const startRect: ExpandRect = request?.rect ?? { x: 0, y: 0, width: screenW, height: screenH };
 
+  // The pane travels by LAYOUT (left/top/width/height), never by `transform: scale` — a scaled
+  // pane would stretch its title and its body's type on the way out and squash them on the way
+  // back, which reads as a picture of a card being zoomed rather than as a card growing.
   const rectStyle = useAnimatedStyle(() => ({
     left: interpolate(progress.value, [0, 1], [startRect.x - origin.x, 0]),
     top: interpolate(progress.value, [0, 1], [startRect.y - origin.y, 0]),
     width: interpolate(progress.value, [0, 1], [startRect.width, screenW]),
     height: interpolate(progress.value, [0, 1], [startRect.height, screenH]),
     borderRadius: interpolate(progress.value, [0, 1], [Radius.md, 0]),
+    // The cross-fade that makes this a card GROWING rather than a pane appearing over one.
+    // The pane is opaque, so at full strength on frame 1 it replaces the card's own content
+    // with a blank surface before a single pixel has moved — the card's rows blink out, an
+    // empty box travels, new content fades in. Coming up over the first sliver of the growth
+    // instead means what you see at the moment of the tap is still the real card underneath,
+    // dissolving into the pane it is turning into (and, on the way back, out of it).
+    opacity: interpolate(progress.value, [0, PANE_FADE_IN], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  // The chrome and the content arrive in the order they would if the card were really growing:
+  // the container first, then its title, then what it holds. A heavy body is also not visibly
+  // reflowing while the rect is still moving.
+  const headerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [PANE_FADE_IN, 0.55], [0, 1], Extrapolation.CLAMP),
   }));
 
   const bodyStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(progress.value, [0.5, 1], [0, 1], Extrapolation.CLAMP),
+    opacity: interpolate(progress.value, [0.45, 0.9], [0, 1], Extrapolation.CLAMP),
+  }));
+
+  // The rest of the screen recedes as the card lifts off it, so the middle frames read as one
+  // card rising out of a stack rather than as a rectangle inflating over a still page. Fully
+  // hidden behind the pane by the time the growth finishes, so it only ever does work in flight.
+  const scrimStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.7], [0, 1], Extrapolation.CLAMP),
   }));
 
   const entry = request ? CARD_BODIES[request.id] : null;
@@ -254,31 +309,47 @@ export default function CardExpandHost() {
       collapsable={false}
     >
       {request && entry && (
-        <Animated.View style={[styles.pane, rectStyle]}>
-          <Surface surfaceContext="overlay" style={styles.surface}>
-            <View style={[styles.header, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-                {entry.title(t)}
-              </Text>
-              <CardExpandButton expanded onExpand={() => {}} onCollapse={collapseCard} />
-            </View>
-            <Animated.View style={[styles.bodyOuter, bodyStyle]}>
-              {scrollable ? (
-                <ScrollView
-                  contentContainerStyle={styles.scrollContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
-                >
-                  <entry.Body />
-                </ScrollView>
-              ) : (
-                <View style={styles.bodyFlex}>
-                  <entry.Body />
-                </View>
-              )}
-            </Animated.View>
-          </Surface>
-        </Animated.View>
+        <>
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { backgroundColor: theme.overlay }, scrimStyle]}
+            pointerEvents="none"
+          />
+          {/* The lift, and it has to hang HERE rather than on the Surface: `styles.pane` is
+              `overflow: 'hidden'` (that clip is what gives the animated borderRadius something
+              to cut), so a shadow cast by any descendant — including the Surface's own
+              `elevated` one — is clipped away to nothing. A view's own boxShadow is outside its
+              border box and unaffected by its overflow, so the pane can carry it. `floating`
+              rather than the resting `raised` tier, because a card that is travelling should
+              read as being off the stack; it costs nothing once the growth finishes, when the
+              shadow is cast past every edge of the viewport. */}
+          <Animated.View
+            style={[styles.pane, { boxShadow: getLayeredShadow(theme.shadow, 'floating') }, rectStyle]}
+          >
+            <Surface surfaceContext="overlay" style={styles.surface}>
+              <Animated.View style={[styles.header, { borderBottomColor: theme.border }, headerStyle]}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                  {entry.title(t)}
+                </Text>
+                <CardExpandButton expanded onExpand={() => {}} onCollapse={collapseCard} />
+              </Animated.View>
+              <Animated.View style={[styles.bodyOuter, bodyStyle]}>
+                {scrollable ? (
+                  <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <entry.Body />
+                  </ScrollView>
+                ) : (
+                  <View style={styles.bodyFlex}>
+                    <entry.Body />
+                  </View>
+                )}
+              </Animated.View>
+            </Surface>
+          </Animated.View>
+        </>
       )}
     </View>
   );
