@@ -18,6 +18,13 @@
  *   Data    → none — presentational; the caller persists via settings.cardStates
  *
  * Edit notes:
+ *   - **Bottom-right corner, not centered full-width (card-element standardization pass,
+ *     2026-08-20)** — this used to stretch to the card's full width (the default cross-axis
+ *     stretch of a column flex parent) with its own content centered inside that width. That
+ *     put components/CardExpandButton.tsx and this control on OPPOSITE ends of a card (the
+ *     full-screen button top-right, this toggle bottom-center), reading as two unrelated
+ *     affordances rather than a matched pair. `alignSelf: 'flex-end'` shrink-wraps it to its
+ *     own content and pins that to the trailing edge, mirroring the full-screen button's corner.
  *   - The chevron points down while there's more to reveal and up on the last step, so one
  *     glyph covers a three-state cycle without a second control or a hidden long-press.
  *   - Renders nothing when `total === 0`: an empty pad has nothing to expand, and a dead
@@ -93,7 +100,7 @@ export default function PadFooterToggle({ state, onChange, total, style }: Props
 }
 
 const styles = StyleSheet.create({
-  footer: { alignItems: 'center', paddingTop: Spacing.sm },
+  footer: { alignSelf: 'flex-end', alignItems: 'center', paddingTop: Spacing.sm },
   inner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
 });

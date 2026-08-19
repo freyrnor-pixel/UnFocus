@@ -585,6 +585,24 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     [tasksForWeek, weekStart, tasks, matchFilters]
   );
 
+  // Per-weekday fold state for the Week card (2026-08-20, card-element standardization pass —
+  // "avoid always having 7 days showing"). Local and NOT persisted: a day's own SectionCard is
+  // data-generated (one per date in the current week), and lib/collapsedCards.ts's singleton
+  // rule is exactly why a per-day id can't take a `collapseKey` — see SectionCard.tsx's edit
+  // note. Every day starts folded except today's, so opening the Week card doesn't dump all
+  // seven days on screen at once but still lands on the one day that actually matters right now.
+  const [collapsedWeekdays, setCollapsedWeekdays] = useState<Set<string>>(
+    () => new Set(weekGroups.map((g) => g.date).filter((d) => d !== today))
+  );
+  const toggleWeekday = useCallback((date: string) => {
+    setCollapsedWeekdays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  }, []);
+
   const wheneverDrag = useDragReorder(
     useMemo(() => wheneverAll.map((tk) => tk.id), [wheneverAll]),
     reorderTasks
@@ -869,7 +887,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
       </View>
       <View style={styles.cardStack}>
         {weekGroups.map((group, i) => (
-          <SectionCard key={group.date} hue={theme.accent} label={t.dayFull[i]} count={group.tasks.length}>
+          <SectionCard
+            key={group.date}
+            hue={theme.accent}
+            label={t.dayFull[i]}
+            count={group.tasks.length}
+            collapsed={collapsedWeekdays.has(group.date)}
+            onToggleCollapse={() => toggleWeekday(group.date)}
+          >
             <DoneSplitList
               tasks={[...group.tasks].sort(byTime)}
               focusMode={layoutSpec.focusMode}

@@ -13,7 +13,8 @@
  *   Imports → components/Surface, components/SectionRail, components/Collapsible,
  *             components/CardCollapseToggle, constants/theme, lib/collapsedCards,
  *             lib/useCollapsedCard
- *   Used by → app/plans.tsx, app/habits.tsx
+ *   Used by → app/plans.tsx, app/habits.tsx, components/TodoSurface.tsx (Week card, local
+ *             per-weekday fold via `onToggleCollapse`)
  *   Data    → settings.collapsedCards, but ONLY when a caller passes `collapseKey` (the
  *             foldable variant is a separate component so the plain one reads no store)
  *
@@ -24,6 +25,13 @@
  *     per-group cards deliberately do not. Callers without the prop are untouched: no chevron,
  *     no `Collapsible`, and no subscription to the settings store (see
  *     `CollapsibleSectionCard`'s own note for why that split is a component and not an `if`).
+ *   - **`collapsed`/`onToggleCollapse` is the LOCAL sibling of `collapseKey` (card-element
+ *     standardization pass, 2026-08-20)** — same fold chevron and `Collapsible`, but the open/
+ *     closed state lives in the CALLER's own memory instead of `settings.collapsed_cards`, for
+ *     exactly the per-day/per-group sections `collapseKey` above says can't take a persisted id
+ *     (the To-do Week card's seven weekday sections are the first user of it — a week rolls
+ *     forward, so "Tuesday is folded" isn't a fact worth remembering past this render). Passing
+ *     both `collapseKey` and `onToggleCollapse` is not supported — `collapseKey` wins.
  *   - **The card edge is the SCREEN's hue, not the section's (card design reset, 2026-08-05).**
  *     This used to pass `hue` straight to `<Surface borderColor>`, which is now an override of
  *     the one-colour-per-screen border and shipped a maroon "Recurring" card next to a blue
@@ -96,6 +104,11 @@ type Props = {
    * per day or per group has nothing stable to store. See lib/collapsedCards.ts.
    */
   collapseKey?: CardId;
+  /** Locally-controlled fold state (not persisted) — see the edit note above. Ignored when
+   *  `collapseKey` is also passed. */
+  collapsed?: boolean;
+  /** Presence of this (not `collapsed`'s value) is what switches the card into foldable mode. */
+  onToggleCollapse?: () => void;
   children: React.ReactNode;
 };
 
@@ -109,25 +122,48 @@ export default function SectionCard({
   style,
   contentStyle,
   collapseKey,
+  collapsed,
+  onToggleCollapse,
   children,
 }: Props) {
   // No `borderColor` — the card inherits the SCREEN's hue (see the `hue` prop's doc). `hue`
   // still reaches the rail below, which is where a section's own identity lives now.
-  return collapseKey ? (
-    <CollapsibleSectionCard
-      hue={hue}
-      domain={domain}
-      icon={icon}
-      label={label}
-      count={count}
-      right={right}
-      style={style}
-      contentStyle={contentStyle}
-      collapseKey={collapseKey}
-    >
-      {children}
-    </CollapsibleSectionCard>
-  ) : (
+  if (collapseKey) {
+    return (
+      <PersistedFoldableSectionCard
+        hue={hue}
+        domain={domain}
+        icon={icon}
+        label={label}
+        count={count}
+        right={right}
+        style={style}
+        contentStyle={contentStyle}
+        collapseKey={collapseKey}
+      >
+        {children}
+      </PersistedFoldableSectionCard>
+    );
+  }
+  if (onToggleCollapse) {
+    return (
+      <FoldableSectionCard
+        hue={hue}
+        domain={domain}
+        icon={icon}
+        label={label}
+        count={count}
+        right={right}
+        style={style}
+        contentStyle={contentStyle}
+        collapsed={!!collapsed}
+        onToggle={onToggleCollapse}
+      >
+        {children}
+      </FoldableSectionCard>
+    );
+  }
+  return (
     <Surface style={[styles.card, style]}>
       <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
@@ -136,14 +172,24 @@ export default function SectionCard({
 }
 
 /**
- * The foldable variant, split out so the plain one calls no hook at all.
- *
- * A branch rather than a `collapseKey ?? ''` default because `useCollapsedCard` subscribes to
- * the settings store: every per-day and per-group SectionCard on the To-do tab would otherwise
- * re-render on any collapse anywhere, for a feature it does not have. Rules of hooks means the
- * split has to be a separate component, not an `if` inside one.
+ * Reads the persisted `collapseKey`, then hands off to the same rendering the local variant
+ * uses. Split out so the plain card calls no hook at all — `useCollapsedCard` subscribes to
+ * the settings store, and every per-day/per-group SectionCard would otherwise re-render on any
+ * collapse anywhere. Rules of hooks means the split has to be a separate component.
  */
-function CollapsibleSectionCard({
+function PersistedFoldableSectionCard({
+  collapseKey,
+  ...rest
+}: Omit<Props, 'collapseKey' | 'collapsed' | 'onToggleCollapse'> & { collapseKey: CardId }) {
+  const [collapsed, toggleCollapsed] = useCollapsedCard(collapseKey);
+  return (
+    <FoldableSectionCard {...rest} collapsed={collapsed} onToggle={toggleCollapsed} />
+  );
+}
+
+/** The actual foldable rendering, shared by the persisted (`collapseKey`) and local
+ *  (`onToggleCollapse`) variants — see SectionCard's edit notes for which one a caller wants. */
+function FoldableSectionCard({
   hue,
   domain,
   icon,
@@ -152,11 +198,10 @@ function CollapsibleSectionCard({
   right,
   style,
   contentStyle,
-  collapseKey,
+  collapsed,
+  onToggle,
   children,
-}: Props & { collapseKey: CardId }) {
-  const [collapsed, toggleCollapsed] = useCollapsedCard(collapseKey);
-
+}: Omit<Props, 'collapseKey' | 'onToggleCollapse'> & { collapsed: boolean; onToggle: () => void }) {
   return (
     <Surface style={[styles.card, style]}>
       <SectionRail
@@ -175,10 +220,10 @@ function CollapsibleSectionCard({
           right ? (
             <View style={styles.headerActions}>
               {right}
-              <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={label} />
+              <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
             </View>
           ) : (
-            <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={label} />
+            <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
           )
         }
       />
