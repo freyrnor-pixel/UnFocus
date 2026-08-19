@@ -1,6 +1,20 @@
 /**
- * shopping.tsx — Shopping hub with two in-place tabs (Weekly, Monthly) plus two
- * button-launched sub-screens (Food, Catalogue).
+ * shopping.tsx — Shopping hub. Four always-visible groups, no tab switch: Weekly lists,
+ * Monthly lists, then the Food and Catalogue peer cards.
+ *
+ * **No more tab switch (2026-08-20, card-element standardization pass).** Weekly and Monthly
+ * used to be two `components/TabSlider.tsx` tabs — pick one, the other's content is unmounted
+ * from view. Both now render unconditionally, one after the other, each under a plain
+ * `components/SectionRail.tsx` header (hue dot + label + count, no wrapping card — a card
+ * around a stack of cards reads as a nested panel, and each list is already its own Surface
+ * card). ⚠️ **Monthly renders first in the DOM, Weekly second** — that's leftover source order
+ * from when this was extracted, not a deliberate call; see the comment at the `SectionRail`s
+ * for why reordering was left as a follow-up rather than done in the same pass. The old
+ * cross-tab "item just landed in Weekly" tick cue is gone with the tab switch — there's no
+ * longer an other tab for it to have landed on unseen. Everything downstream of the tab
+ * bar — `WeekListCard`, the Monthly `catalogCard`s, the drag/merge/flight-animation state, the
+ * sheets/modals — is untouched; only the switch that hid one group while showing the other
+ * was removed.
  *
  * **Down from four in-place tabs to two, plus two peer cards (UX audit F1, 2026-07-23;
  * reshaped again 2026-08-20)**: Food and Catalogue used to be full sticky-tab peers of Weekly/
@@ -8,8 +22,8 @@
  * They went through three shapes since: a small two-button row → two
  * `components/CollapsedSection.tsx` fold-away drawers (2026-08-10) → their current shape,
  * `foodCatalogueLinks`, two always-open `components/SectionCard.tsx`s at the standard card
- * header (badge · title · count · expand), shown at the foot of the screen on both remaining
- * tabs. **Since 2026-08-10 they MOUNT `components/FoodTab`/`components/CatalogueTab`
+ * header (badge · title · count · expand), shown at the foot of the screen. **Since 2026-08-10
+ * they MOUNT `components/FoodTab`/`components/CatalogueTab`
  * (in `embedded` mode) as their body** — the whole Food surface and a searchable, addable,
  * editable slice of the Catalogue, usable without leaving this screen. **Since 2026-08-20 the
  * name press EXPANDS the card in place** (components/CardExpandHost.tsx's `shopDishes`/
@@ -18,17 +32,23 @@
  * virtualised list and A–Z scrubber still need the non-embedded body; only where it renders
  * changed. Both components are otherwise unchanged — `embedded` only unwraps the chrome that
  * assumes a screen backdrop (see each file's own edit note).
+ * ⚠️ **Weekly and Monthly did NOT get the same `embedded`/`CardExpandHost` full-screen
+ * treatment Food/Catalogue have** — that was deliberately scoped OUT of the 2026-08-20
+ * tabs-to-cards pass. Each list is ~2000 lines of window-coordinate drag/merge state and
+ * flight-animation refs shared across the whole screen closure, which is a materially
+ * higher-risk extraction than Food/Catalogue's — see `lib/expandableCards.ts`'s edit notes
+ * (the `shopLists` id is still a disclosed, unreachable placeholder). A future pass can finish
+ * it the same way; this pass only removed the tab SWITCH.
  *
- * Tabbed shopping screen. The "Week lists" tab renders an "Unallocated" card (dish
+ * The "Week lists" group renders an "Unallocated" card (dish
  * ingredients pushed to the week from the Food screen, sentinel listId UNALLOCATED_LIST_ID)
  * then one WeekListCard per non-template shopping_lists row plus an empty "create new
- * list" card. The "Monthly" tab (Shopping/Monthly redesign, 2026-07-22) renders one
+ * list" card. The "Monthly" group (Shopping/Monthly redesign, 2026-07-22) renders one
  * lock-gated card PER named Monthly list (store/useMonthlyListStore.ts) — each with its
  * own tap-to-rename name, own budget pill (→ app/budget.tsx, listId param), own manual
  * reset icon, dish-grouped + ungrouped curated items, add-to-list triggers, and
  * purchased-this-month history — plus a "+ New list" row and a small relocated "reset all
- * lists" link at the bottom. Replaces the old single global Katalog card. A screen-level
- * sticky bar (Decision 011 A2-1) holds the 2-tab switcher plus a per-tab summary line.
+ * lists" link at the bottom. Replaces the old single global Katalog card.
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
@@ -57,7 +77,7 @@
  *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
  *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
- *             components/PressableScale, components/TabSlider, components/SectionDivider,
+ *             components/PressableScale, components/SectionRail, components/SectionDivider,
  *             constants/theme, react-native (AppState — the payday-boundary check also
  *             runs on app foreground now, not just navigation focus; see the edit note),
  *             lib/date (todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle,
@@ -445,7 +465,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useShoppingStore, ShoppingItem, MonthlyResetSummary, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -493,7 +512,7 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
-import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
+import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab from '@/components/CatalogueTab';
@@ -507,7 +526,7 @@ import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRang
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { contrastOn, Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -515,16 +534,6 @@ import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
-import { Duration } from '@/constants/motion';
-
-type Tab = 'weekly' | 'monthly';
-
-// Reserved sticky-bar height — just the tab row now (the focused-list name + progress summary
-// row under the tabs was removed 2026-07-21). Comes FROM TabSlider since 2026-08-10; it used
-// to be a hand-copied 46 (and a 60 before that, a 14px surplus that gave the blue pill a
-// bigger vertical inset than horizontal — same bug as Plans', fixed 2026-07-24). Sharing the
-// constant is also what keeps the tab→first-card gap identical on the two list screens.
-const STICKY_HEIGHT_TABS = TAB_SLIDER_HEIGHT;
 
 type DragState = {
   listId: string;
@@ -558,7 +567,6 @@ export default function ShoppingScreen() {
     useAutomationStore.getState().fireTrigger('shopping_opened');
   }, []);
 
-  const [tab, setTab] = useState<Tab>('weekly');
   // Full-screen expansion (2026-08-20) — Dishes and Catalogue are peer cards now, not
   // CollapsedSection drawers; see the `foodCatalogueLinks` note below for the full shape.
   const dishesExpand = useCardExpand('shopDishes');
@@ -703,12 +711,15 @@ export default function ShoppingScreen() {
   // "Just the basics" to "Normal"/"Show everything" reveals quantities, steppers and prices
   // on rows that were already on screen, and those values glow. Rows still participate so
   // that a list which genuinely changed shape between visits is covered too.
+  // Fixed key, not `shopping:${tab}` (2026-08-20, tabs-to-cards pass) — Weekly no longer has
+  // an OTHER tab to be hidden behind, so there's only one surface identity for this glow to
+  // track now.
   const visibleItemIds = useMemo(
     () => items.filter((i) => i.status === 'inWeeklyList').map((i) => i.id),
     [items]
   );
   const { ids: newSinceIds, fields: newFields } = useNewSinceSeen(
-    `shopping:${tab}`,
+    'shopping:weekly',
     visibleItemIds,
     useMemo(
       () => ({ meta: layoutSpec.showMeta, price: layoutSpec.showPrice, extras: layoutSpec.showExtras }),
@@ -731,7 +742,6 @@ export default function ShoppingScreen() {
   const buildMonthlyResetSummary = useShoppingStore((s) => s.buildMonthlyResetSummary);
   const reorderItem = useShoppingStore((s) => s.reorder);
   const mergeItems = useShoppingStore((s) => s.mergeItems);
-  const recentlyAddedIds = useShoppingStore((s) => s.recentlyAddedIds);
   const monthlyResetDate = useSettingsStore((s) => s.monthlyResetDate);
   const weeklyResetDay = useSettingsStore((s) => s.weeklyResetDay);
   const receipts = useReceiptStore((s) => s.receipts);
@@ -913,27 +923,6 @@ export default function ShoppingScreen() {
    */
   const isWeeklyEmpty =
     nonTemplateLists.length === 0 && unallocatedItems.length === 0 && templateLists.length === 0;
-
-  const ukelisteBadge = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          i.status === 'inWeeklyList' &&
-          !i.checked &&
-          (i.listId === UNALLOCATED_LIST_ID || nonTemplateLists.some((l) => l.id === i.listId))
-      ).length,
-    [items, nonTemplateLists]
-  );
-
-  // Decision 044b — cross-tab cue: true while at least one item just landed in the weekly
-  // list (Monthly checkbox, Food "Add to week list") and the user isn't looking at Weekly
-  // already. Derived straight from the store's self-expiring recentlyAddedIds map, so it
-  // clears itself both on tab switch (this expression goes false) and after ~1.8s (the
-  // map entry expires) — no extra effect/timer needed here.
-  const weeklyAddCue = useMemo(
-    () => tab !== 'weekly' && items.some((i) => i.status === 'inWeeklyList' && recentlyAddedIds[i.id]),
-    [tab, items, recentlyAddedIds]
-  );
 
   // The list's purchased rows come from computeListGroups()'s own `purchased` bucket now
   // (2026-08-11) — this screen used to build a separate listId→purchased map here, which was
@@ -1629,106 +1618,23 @@ export default function ShoppingScreen() {
     setConfirm(t.listSavedAsTemplateToast);
   }
 
-  // Active-tab selection colour is the neutral brand accent (theme.accent) for EVERY tab,
-  // so this in-app tab bar's "selected" hue matches Plans AND the
-  // bottom nav (visual-audit 2026-07-20: Weekly's old green `theme.good` + Food's meal-domain
-  // accent read as a second, competing "selected" colour on the same screen as the blue nav).
-  // The Weekly cross-tab tick cue below stays `theme.good` — that's a status confirmation,
-  // not the selection colour.
-  const TAB_META: { value: Tab; label: string; accent: string; count: number }[] = [
-    { value: 'weekly', label: t.weeklyTabLabel, accent: theme.accent, count: ukelisteBadge },
-    { value: 'monthly', label: t.monthlyTabLabel, accent: theme.accent, count: 0 },
-  ];
-
-  // Decision 044b's cross-tab cue (a tick popping onto Weekly when an add from
-  // Monthly/Food lands there while the user is looking elsewhere) and the list-count
-  // badge are baked into each option's `accessory` node here, since TabSlider itself
-  // doesn't know about either — it just renders whatever node it's given after the label.
-  const tabSliderOptions = TAB_META.map(({ value, label, accent, count }) => {
-    const isActive = tab === value;
-    return {
-      value,
-      label,
-      color: accent,
-      accessory: (
-        <>
-          {/* The ACTIVE badge is inverted — `contrastOn(accent)` fill, accent number — not
-              another accent fill (2026-08-01, addendum B.1). It used to be `accent` on
-              `accent`, i.e. an accent-filled badge sitting inside TabSlider's accent pill,
-              so the badge had no visible edge at all and read as a bare number; it was also
-              a second solid accent fill within a few pixels of the first. Inverting it makes
-              the badge actually read as a badge AND leaves the sliding pill as the one accent
-              fill in this screen's chrome. `contrastOn` rather than `theme.accentInk` because
-              `accent` here is the option's own colour, which need not be theme.accent. */}
-          {count > 0 && (
-            <View style={[styles.tabBadge, { backgroundColor: isActive ? contrastOn(accent) : theme.surfaceMuted }]}>
-              <Text style={[styles.tabBadgeText, { color: isActive ? accent : theme.textMuted }]}>{count}</Text>
-            </View>
-          )}
-          {value === 'weekly' && weeklyAddCue && (
-            <Animated.View
-              entering={reducedMotion ? undefined : ZoomIn.duration(Duration.cardOut)}
-              exiting={reducedMotion ? undefined : ZoomOut.duration(Duration.control)}
-              style={[styles.tabCue, { backgroundColor: theme.good }]}
-            >
-              <Ionicons name="checkmark" size={10} color={theme.textInverse} />
-            </Animated.View>
-          )}
-        </>
-      ),
-    };
-  });
-
-  // Sticky strip is now just the tab row (debug-note 2026-07-21: the date + amount summary
-  // row under the tabs was removed), so it always reserves the tab-only height.
-  const stickyHeight = STICKY_HEIGHT_TABS;
-  const stickyBelowHeader = (
-    // No outer glass card (removed 2026-07-24): TabSlider already draws its own bordered/
-    // filled track, so wrapping it in a second Surface card stacked a third layer (outer
-    // card + TabSlider's own box + the sliding pill) that read as nested boxes. TabSlider
-    // now floats directly, styled with the same side margins as ScreenHeader's own card.
-    // (The focused-list name + live-progress summary row under the tabs was removed
-    // 2026-07-21 — the per-list card already carries its own name and progress, so the
-    // sticky strip is now just the tab row.)
-    // The tour points HERE (2026-08-05). Its Shopping step is about the weekly and monthly
-    // lists — "a weekly list for groceries and a monthly one for what the house needs; the
-    // weekly list starts fresh on the day you choose" — and these two tabs ARE that
-    // distinction, in the user's own words. It used to ring `foodCatalogueLinks` instead,
-    // which the copy never mentions, chosen because those buttons are small and always
-    // present. This row is both of those AND the thing being described. It also sits in the
-    // sticky block rather than the ScrollView, so it is the one target on any tab that cannot
-    // drift when content above it resizes.
-    //
-    // **`style={{ height: stickyHeight }}` on TourTarget is load-bearing, not decoration**
-    // (found 2026-08-05 from a real-device report — the pill AND the wrap's own border/
-    // background were invisible, not just the pill, which is what gave this away). Before
-    // this wrap, `<TabSlider style={styles.stickyBar}>` (`flex: 1`) was the DIRECT child of
-    // ScreenScaffold's `stickyBlock`, an absolutely-positioned View with an explicit
-    // `height: stickyBelowHeaderHeight` — so TabSlider's `flex: 1` had a definite parent
-    // height to resolve against and filled it. TourTarget's own View carries no style by
-    // default (correct for its other 4 call sites, which don't need one) and so is now the
-    // one in that position — an unstyled column-flex View with no explicit height, sized by
-    // Yoga to its CONTENT along the main axis, while ITS content (TabSlider) is a `flex: 1`
-    // item wanting to fill an ANCESTOR height that this new layer doesn't provide. That
-    // circular sizing resolved fine in the web preview (a different, more forgiving
-    // flexbox implementation) but collapsed the whole TabSlider box toward zero height on
-    // Android — border, fill AND the sliding accent pill all vanished, while the label
-    // TEXT still painted at roughly its old position since RN doesn't clip overflow by
-    // default. Restoring an explicit height here re-establishes the definite-size parent
-    // `flex: 1` needs, without touching TourTarget itself (whose other callers are fine).
-    // The side margin lives on the TourTarget rather than on TabSlider itself (2026-08-14), so
-    // the target's box is the tab bar's own footprint. It used to be the full-bleed sticky
-    // block, which made this the one tour step whose ring hung off BOTH screen edges instead
-    // of hugging the thing it points at. The height note above is unaffected: TabSlider's
-    // `flex: 1` still resolves against this View's explicit height, and stretching to the
-    // cross axis gives it exactly the width the margin used to.
-    <TourTarget id="tour.shopping.list" style={{ height: stickyHeight, marginHorizontal: Spacing.sm }}>
-      <TabSlider attachedTop value={tab} onChange={setTab} options={tabSliderOptions} style={styles.stickyBar} />
-    </TourTarget>
-  );
-
-  // Screen intro chrome (first-run explainer + incoming shared requests), shared by both tabs.
+  // Screen intro chrome (first-run explainer + incoming shared requests), shown once above
+  // both list groups now (2026-08-20, tabs-to-cards pass — see the header note at the top of
+  // this file). This used to be shared by two hidden-behind-a-tab sections; now it's just the
+  // top of a scrollable stack, same as any other screen's intro.
+  //
+  // **The tour target moved here from the old sticky tab row.** Its Shopping step is about the
+  // weekly and monthly lists — "a weekly list for groceries and a monthly one for what the
+  // house needs; the weekly list starts fresh on the day you choose" — and this card's own
+  // HintCard copy says exactly that. The old anchor (the TabSlider that switched between them)
+  // is gone along with the tab switch itself.
+  // ⚠️ `HintCard noPill` returns null once dismissed (`settings.dismissedHints`), so this is
+  // NOT unconditionally mounted for a returning user who has closed it — but the guided tour
+  // only ever runs once, immediately after onboarding on a fresh install, before that hint has
+  // had a chance to be dismissed, so it's a reliable target for the one visit that matters.
+  // Don't reuse this target id assuming it's always present later in the tree.
   const shoppingIntro = (
+    <TourTarget id="tour.shopping.list">
     <>
       {/* First-run explainer (2026-07-26, example rows dropped 2026-07-28): when to add
           something, and what the two reset cadences actually mean — the weekly/monthly
@@ -1781,6 +1687,7 @@ export default function ShoppingScreen() {
           reappears untouched if sharing is turned back on. */}
       {featureSharing && <SharedRequestsSection kind="shopping" />}
     </>
+    </TourTarget>
   );
 
   // Food and Catalogue moved off the sticky tab row to button-launched sub-screens
@@ -1838,17 +1745,27 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} stickyGapColor="transparent" stickyBelowHeader={stickyBelowHeader} stickyBelowHeaderHeight={stickyHeight} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
           {shoppingIntro}
-          {/* The tour's target moved OFF these links and onto the Weekly/Monthly tab row in
-              `stickyBelowHeader` (2026-08-05) — see the comment there. Note what stays true
-              either way: the spotlight must never wrap the `DebugNoteAnchor` region above,
-              which is the whole screen — a hole around everything highlights nothing. */}
 
-          {tab === 'monthly' && (
+          {/* Weekly and Monthly are two always-visible groups now, not a tab switch
+              (2026-08-20, tabs-to-cards pass — see this file's header note). No outer card
+              wraps either group: each already renders its own per-list Surface cards
+              (WeekListCard / the Monthly `catalogCard`s below), and a card around a stack of
+              cards reads as a nested panel. `SectionRail` alone (no `SectionCard`) gives each
+              group the same header language as everywhere else in the app without adding that
+              outer box.
+              ⚠️ **Monthly renders first, Weekly second — source order, not usage frequency.**
+              Weekly is opened on every trip and would read better first; the two blocks below
+              were kept in their existing textual position deliberately, to avoid relocating
+              ~600 lines of drag/merge/flight-animation-heavy JSX in the same pass that removed
+              the tab switch. Swapping the order is a follow-up, not a correctness issue. */}
+          <SectionRail hue={screenHue} label={t.monthlyTabLabel} count={monthlyLists.length || undefined} />
+
+          {true && (
             <>
               {/* Shared name+category filter — one search box narrows every list's visible
                   rows at once, rather than one filter bar per card (2026-07-22 redesign). */}
@@ -2171,7 +2088,10 @@ export default function ShoppingScreen() {
             </>
           )}
 
-          {tab === 'weekly' && (
+          <SectionDivider />
+          <SectionRail hue={screenHue} label={t.weeklyTabLabel} count={nonTemplateLists.length || undefined} />
+
+          {true && (
             <>
               {unsavedListCount > 0 && (
                 <View
@@ -2635,17 +2555,6 @@ const styles = StyleSheet.create({
   // Decision 043 rule 2: Spacing.xl above each of the Monthly tab's two named sections.
   bodyGap: { gap: Spacing.xl },
   dishGroupsWrap: { gap: Spacing.xs },
-
-  // Styles TabSlider directly (no wrapping card, see the 2026-07-24 stickyBelowHeader edit
-  // note) — side margin matches ScreenHeader's own floated card (headerFloatH, Spacing.sm as
-  // of the header/bottom-nav width-alignment pass); flex:1 + justifyContent:'center' fill and
-  // vertically center it within the reserved sticky height.
-  // No marginHorizontal — the TourTarget wrapping this carries it now, so the tour's ring
-  // measures the bar's real footprint rather than the full-bleed sticky block (2026-08-14).
-  stickyBar: { flex: 1, justifyContent: 'center' },
-  tabBadge: { minWidth: 18, height: 18, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  tabBadgeText: { fontSize: 10, fontFamily: Fonts.bold, ...OpticalCenter },
-  tabCue: { width: 16, height: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
 
   catalogCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   catalogHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

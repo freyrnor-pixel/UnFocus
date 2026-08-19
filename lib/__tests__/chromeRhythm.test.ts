@@ -133,8 +133,10 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
     // components/TodoSurface.tsx. It reserves no sticky row any more, so it left this list
     // rather than being renamed within it (the assertion right below this one — no bare
     // literal — would otherwise pass by accident on a file with no sticky row at all).
+    // app/(tabs)/shopping.tsx left the same way, same day, in the follow-up card-element
+    // standardization pass: Weekly/Monthly's TabSlider became two always-visible SectionRail
+    // groups (see that file's header note) — no more sticky row there either.
     for (const file of [
-      'app/(tabs)/shopping.tsx',
       'app/settings.tsx',
       'app/design-lab/tokens.tsx',
     ]) {
@@ -145,8 +147,12 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
     }
   });
 
-  it('the To-do tab has no TabSlider left to reserve height for (2026-08-20)', () => {
-    for (const file of ['app/(tabs)/plans.tsx', 'components/TodoSurface.tsx']) {
+  it('the To-do tab and Shopping have no TabSlider left to reserve height for (2026-08-20)', () => {
+    for (const file of [
+      'app/(tabs)/plans.tsx',
+      'components/TodoSurface.tsx',
+      'app/(tabs)/shopping.tsx',
+    ]) {
       expect(code(file)).not.toMatch(/TabSlider|TAB_SLIDER_HEIGHT/);
     }
   });

@@ -93,7 +93,7 @@
  *     "(copy)" name suffix so users can create edited variants without losing the original.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
@@ -104,7 +104,7 @@ import { Badge } from '@/components/Badge';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import Stepper from '@/components/Stepper';
-import { SegmentedControl } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import { useMealStore, MealType, Difficulty, Dish, Ingredient, dishTotalPrice } from '@/store/useMealStore';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
@@ -541,12 +541,12 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                                       suffix={ing.unit || undefined}
                                       accessibilityLabel={t.ingredientQuantityLabel}
                                     />
-                                    <TextInput
-                                      style={[styles.ingEditPrice, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                    <Input
+                                      recessed
+                                      containerStyle={styles.ingEditPriceContainer}
                                       value={editPriceDraft}
                                       onChangeText={(v) => setEditPriceDraft(v.replace(/[^0-9.,]/g, ''))}
                                       placeholder={t.catalogueItemPricePlaceholder}
-                                      placeholderTextColor={theme.textMuted}
                                       keyboardType="decimal-pad"
                                       onBlur={() => commitIngredientPrice(ing.id)}
                                       onSubmitEditing={() => commitIngredientPrice(ing.id)}
@@ -575,19 +575,19 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                             accessibilityLabel={t.ingredientPlaceholder}
                             extras={
                               <>
-                                <TextInput
-                                  style={[styles.ingAddQty, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                <Input
+                                  recessed
+                                  containerStyle={styles.ingAddQtyContainer}
                                   value={draft.amount}
                                   onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, amount: v } }))}
                                   placeholder="1"
-                                  placeholderTextColor={theme.textMuted}
                                 />
-                                <TextInput
-                                  style={[styles.ingAddPrice, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                                <Input
+                                  recessed
+                                  containerStyle={styles.ingAddPriceContainer}
                                   value={draft.price}
                                   onChangeText={(v) => setInlineIng((p) => ({ ...p, [dish.id]: { ...draft, price: v } }))}
                                   placeholder={t.catalogueItemPricePlaceholder}
-                                  placeholderTextColor={theme.textMuted}
                                   keyboardType="decimal-pad"
                                   onSubmitEditing={() => handleInlineAdd(dish)}
                                 />
@@ -734,12 +734,10 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
             </View>
 
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent}>
-              <TextInput
-                style={[styles.nameInput, { backgroundColor: theme.surfaceMuted, color: theme.text, borderColor: theme.accent }]}
+              <Input
                 value={dishName}
                 onChangeText={setDishName}
                 placeholder={t.dishNamePlaceholder}
-                placeholderTextColor={theme.textMuted}
               />
 
               <View style={styles.difficultyPicker}>
@@ -777,28 +775,26 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                 accessibilityLabel={t.ingredientPlaceholder}
                 extras={
                   <>
-                    <TextInput
-                      style={[styles.amountInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                    <Input
+                      containerStyle={styles.amountInputContainer}
+                      style={styles.amountInputField}
                       value={ingAmount}
                       onChangeText={setIngAmount}
                       keyboardType="decimal-pad"
                       placeholder="1"
-                      placeholderTextColor={theme.textMuted}
                     />
-                    <TextInput
-                      style={[styles.unitInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                    <Input
+                      containerStyle={styles.unitInputContainer}
                       value={ingUnit}
                       onChangeText={setIngUnit}
                       placeholder={t.shoppingUnitPlaceholder}
-                      placeholderTextColor={theme.textMuted}
                     />
-                    <TextInput
-                      style={[styles.priceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+                    <Input
+                      containerStyle={styles.priceInputContainer}
                       value={ingPrice}
                       onChangeText={setIngPrice}
                       keyboardType="decimal-pad"
                       placeholder={t.catalogueItemPricePlaceholder}
-                      placeholderTextColor={theme.textMuted}
                       onSubmitEditing={addDraftIngredient}
                     />
                   </>
@@ -879,13 +875,20 @@ const baseStyles = StyleSheet.create({
   // Edit line (2026-08-06): quantity stepper + numbers-only price field + "X" to remove —
   // revealed by tapping the view row above; this is where the per-ingredient delete now lives.
   ingEditRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingTop: Spacing.xs, paddingLeft: Spacing.md },
+  // Sizing only (2026-08-20) — these three plus amountInput/unitInput/priceInput below used
+  // to be bare TextInputs with a flat `theme.surfaceMuted` fill and no border/glow, unlike
+  // every other field in the app. The ambient-card ones (this trio) now go through
+  // FormControls' `Input` with `recessed` — the same recessed-well style
+  // components/InlineAddItem.tsx uses — since they live inside the dish card, same as that
+  // caller. Field look (fill/border/radius/glow) comes from `Input` now, not from here.
+  //
   // minWidth: 0 alongside flex: 1 (2026-08-06) — flex: 1 alone does not let a TextInput
   // shrink (same gotcha as TaskCard's titleInput/addStepInput, see AGENTS.md's wrap-audit
   // notes): without it this field refused to shrink below its content width and pushed the
   // trailing "X" remove button clean off the right edge of the card, clipped invisible.
-  ingEditPrice: { flex: 1, minWidth: 0, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
-  ingAddQty: { width: 40, borderRadius: Radius.sm, paddingHorizontal: 4, paddingVertical: 6, fontSize: FontSize.sm, textAlign: 'center' },
-  ingAddPrice: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
+  ingEditPriceContainer: { flex: 1, minWidth: 0 },
+  ingAddQtyContainer: { width: 52 },
+  ingAddPriceContainer: { width: 76 },
   dishFooterActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.xs },
   deleteDishRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   deleteDishText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, ...OpticalCenter },
@@ -909,14 +912,18 @@ const baseStyles = StyleSheet.create({
   sheetSave: { fontSize: FontSize.md, fontFamily: Fonts.bold, ...OpticalCenter },
   sheetScroll: { flexGrow: 0 },
   sheetScrollContent: { gap: Spacing.md },
-  nameInput: { borderWidth: 2, borderRadius: Radius.sm, padding: Spacing.md, fontSize: FontSize.md },
   difficultyPicker: { gap: Spacing.xs },
   difficultyLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   draftRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.xs, borderBottomWidth: StyleSheet.hairlineWidth },
   draftText: { flex: 1, fontSize: FontSize.sm, ...OpticalCenter },
-  amountInput: { width: 44, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm, textAlign: 'center' },
-  unitInput: { width: 52, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
-  priceInput: { width: 60, borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.sm },
+  // Sizing only (2026-08-20) — these three sit inside the New-dish overlay sheet, not an
+  // ambient card, so they go through the plain (non-recessed) `Input`, matching every other
+  // editor field in the app (medicine-form, health-form, …) rather than `recessed`, which is
+  // scoped to fields sunk into a card — see FormControls.tsx's `recessed` prop doc.
+  amountInputContainer: { width: 56 },
+  amountInputField: { textAlign: 'center' },
+  unitInputContainer: { width: 64 },
+  priceInputContainer: { width: 72 },
   suggestList: { maxHeight: 160, borderWidth: 1, borderRadius: Radius.sm },
   // alignItems is NOT optional here (2026-08-13): without it the row defaults to 'stretch',
   // so the FontSize.sm name and the FontSize.xs price top-aligned instead of sharing a centre

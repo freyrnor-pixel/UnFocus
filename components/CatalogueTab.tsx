@@ -167,7 +167,7 @@ import PressableScale from '@/components/PressableScale';
 import CatalogueAddSheet from '@/components/CatalogueAddSheet';
 import IconButton from '@/components/IconButton';
 import { useRouter } from 'expo-router';
-import { SegmentedControl } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import { sortByCategoryThenName } from '@/lib/shoppingCategories';
 import { collationLocale } from '@/lib/collate';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -498,20 +498,20 @@ export default function CatalogueTab({ onNotify, header, embedded = false, onOpe
             embedded && styles.rowEmbedded,
           ]}
         >
-          <TextInput
-            style={[styles.editNameInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+          <Input
+            recessed
+            containerStyle={styles.editNameInputContainer}
             value={editName}
             onChangeText={setEditName}
             placeholder={t.catalogueItemNamePlaceholder}
-            placeholderTextColor={theme.textMuted}
             autoFocus
           />
-          <TextInput
-            style={[styles.editPriceInput, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+          <Input
+            recessed
+            containerStyle={styles.editPriceInputContainer}
             value={editPrice}
             onChangeText={setEditPrice}
             placeholder={t.catalogueItemPricePlaceholder}
-            placeholderTextColor={theme.textMuted}
             keyboardType="decimal-pad"
             onSubmitEditing={commitEdit}
           />
@@ -906,8 +906,12 @@ const baseStyles = StyleSheet.create({
   itemNameTouch: { flex: 1, fontSize: FontSize.sm, fontFamily: Fonts.medium, ...OpticalCenter },
   itemPrice: { fontSize: FontSize.sm, ...OpticalCenter },
   editRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md },
-  editNameInput: { flex: 1, borderRadius: Radius.sm, paddingHorizontal: Spacing.sm, paddingVertical: 6, fontSize: FontSize.sm },
-  editPriceInput: { width: 64, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 6, fontSize: FontSize.sm },
+  // Sizing only — the field's own fill/border/glow now comes from FormControls' `Input`
+  // (`recessed`), the same recessed-well style every other in-card field uses. These two
+  // used to be bare TextInputs with a flat `theme.surfaceMuted` fill and no border/glow at
+  // all — the mismatch a 2026-08-20 pass fixed across Catalogue and Food.
+  editNameInputContainer: { flex: 1 },
+  editPriceInputContainer: { width: 76 },
   iconBtn: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   rowDivider: { height: 1 },
 });
