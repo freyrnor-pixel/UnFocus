@@ -93,7 +93,54 @@ are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` un
 2026-08-01; neither export has ever existed. See `DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
 file owns which token.)
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` (**Shopping/Home/Health** — i.e. Handle · I dag · Meg — which is the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line). **Five tabs became three on 2026-08-20**: To-do and Habits stopped being tabs and their DAILY rows merged onto Home, which is the "I dag" tab now — `app/plans.tsx` and `app/habits.tsx` are pushed sub-screens holding the deep surfaces (This week, All tasks, Recurring, Washed away, per-habit setup), reached from the merged card's two headers. Nothing was deleted. Energy deliberately did NOT move to Health with them: it is a planning budget computed from tasks and habits, and the Health tab's stated contract is that nothing on it is a scoreboard. Other screens are reached via links/buttons from those 3. Notes and Food/Meals are NOT tabs — reached via Home's "More" links (Notes) and Shopping's Food button (F1, 2026-07-23). Scan is also not a tab anymore — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/Home/To-do** (`Handle` · `I dag` · `Gjøremål`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **Five tabs became three on 2026-08-20** (the 5→3 merge: To-do and Habits stopped being tabs, folded onto Home), and **the SAME DAY, hours later, the "full-screen card expansion" pass reversed half of that and rebuilt the other half**: To-do is a real tab again (`app/(tabs)/plans.tsx`, now a thin `ScreenScaffold` wrapper mounting `components/TodoSurface.tsx` — the 1928-line `app/plans.tsx` this replaced is deleted), Habits is a first-class, independently-expandable Home card again (`components/HomeHabitsCard.tsx`, `embedded={false}` — no longer a section riding on the merged card), and **Health left the bottom nav ENTIRELY**, taking To-do's old tab slot's neighbour position — it is a Home card now (`components/HomeHealthCard.tsx` mounting `components/HealthSurface.tsx` `embedded`; `app/(tabs)/health.tsx`, 857 lines, is deleted, and `app/health.tsx` survives only as a back-compat pushed route nothing in the UI links to any more). Home is **5 cards** now: To-do, Habits, Notes, Shopping, Health (`lib/homeCards.ts`'s `HOME_CARD_KINDS`), and its `sanitizeHomeCardOrder()` on-read migration handles BOTH directions at once for a row written before this pass — a `habits`-less order gets it spliced back in next to `plans` (the un-fold), and a `health`-less order gets it appended at the end (simple append: health was never folded into anything, so there's no old position to restore it next to). Energy deliberately did NOT move to Health: it is a planning budget computed from tasks and habits, and the Health tab's stated contract is that nothing on it is a scoreboard. Notes and Food/Meals are NOT tabs — reached via Home's Notes card and Shopping's Food section. Scan is also not a tab — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+  - **Cards expand to fill the screen IN PLACE, instead of pushing a route** — the mechanism
+    this same pass introduced (`lib/expandableCards.ts` + `components/CardExpandHost.tsx` +
+    `components/CardExpandButton.tsx` + `lib/useCardExpand.ts`), mirroring
+    `components/AppModal.tsx`'s imperative-API shape: `expandCard(id, rect)`/`collapseCard()`
+    are plain exported functions (a module-level listener, no context/provider), and
+    `useCardExpand(id)` is what a card actually calls — it hands back a `ref` for the card's
+    OUTERMOST View (measure a wrong box otherwise), an `onExpand` that `measureInWindow`s that
+    ref and calls `expandCard`, and `expanded`/`onCollapse` for a `CardExpandButton` in the
+    card's header. `CardExpandHost` is mounted ONCE, in `app/_layout.tsx` beside
+    `<AppModalHost/>` — a single overlay, `zIndex: 100`, that every expandable card shares.
+    `lib/expandableCards.ts`'s `EXPANDABLE_CARD_IDS` is the one list to keep in step with
+    `CardExpandHost`'s own `CARD_BODIES` registry — `lib/__tests__/expandableCards.test.ts`
+    asserts they match. Twelve ids today: three Shop cards (`shopLists`/`shopDishes`/
+    `shopCatalogue`), Home's five (`homeTodo`/`homeHabits`/`homeNotes`/`homeShopping`/
+    `homeHealth`), and To-do's four (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`).
+    **`shopLists` is a deliberate, disclosed gap**: `app/(tabs)/shopping.tsx`'s Weekly/Monthly
+    list content is ~2000 lines of window-coordinate drag/merge state and flight-animation
+    refs — extracting it into a standalone `ShoppingListsSurface.tsx` the way To-do/Health/Notes
+    were is materially higher-risk than the others, so `CardExpandHost`'s `shopLists` entry is
+    a placeholder (`ComingSoonBody`) with no `CardExpandButton` wired to it anywhere in the UI —
+    unreachable rather than shipping a button that opens a stub. A future pass can finish it.
+    The underlying card stays mounted (not unmounted) behind the opaque overlay while expanded
+    — `useCardExpand`'s `expanded` flag exists for a caller that wants to skip its own heavy
+    content in that state, but nothing does yet; know this if you ever see a control's own
+    match count double while a card is expanded (Home's preview card and the expanded pane's
+    copy both exist in the DOM at once).
+  - **The `embedded` prop convention (established by `FoodTab`/`CatalogueTab`) is how the same
+    content mounts both as a full tab/screen and inside another card's expansion**:
+    `components/TodoSurface.tsx`, `components/HealthSurface.tsx` and `components/NotesSurface.tsx`
+    all follow it — unwrap only the chrome that assumes a screen backdrop (own `Surface`, own
+    ⓘ `HintCard`), never the content or its own scrolling. `TodoSurface` additionally takes a
+    `section?: 'whenever' | 'today' | 'week' | 'recurring'` prop for the single-card expansions
+    (render just that one card's content) versus `full` mode (all four, mounted by the tab
+    wrapper) — the Goals drawer and the washed-away/earlier-days drawers are gated on `full`
+    only, since they're chrome for the whole tab, not any one card.
+  - **Shop's Food and Catalogue are always-open peer `SectionCard`s now, not fold-away
+    `CollapsedSection` drawers** — `app/(tabs)/shopping.tsx`'s `foodCatalogueLinks` mounts the
+    real `FoodTab`/`CatalogueTab` unconditionally (same `embedded` idea) with a
+    `CardExpandButton` in each card's header rather than a chevron toggle.
+  - **The To-do tab dropped its Today/This week/All tasks `TabSlider`** for four
+    always-visible, independently-expandable cards — Whenever, Today, Week (new — Mon–Sun,
+    `t.todoWeekTitle`), Recurring — each its own `SectionCard` stack in `TodoSurface.tsx`. A
+    "New task" `InlineTaskAdd` composer exists on more than one of these cards (each day of the
+    Week card gets its own), all sharing the literal placeholder/label `t.newTask` — a script
+    driving this tab by role+name alone needs to disambiguate by position, not assume `.first()`
+    is the Whenever composer (see `scripts/measure-wraps.mjs`'s To-do pass for the walk that
+    found this the hard way).
 - **Onboarding** (`app/onboarding/*`, rebuilt 2026-07-31): **basics → restore → privacy →
   guided/explore → energy → index (name) → home**, then the guided tour. It was ~18
   screens, then 7, and is now **6** (B1-1 deleted the feature picker).
