@@ -54,14 +54,26 @@ describe('an ordinary stored order', () => {
   });
 
   it('drops duplicates, keeping the first position', () => {
-    // 'habits' included so the un-fold (its own describe block below) has nothing to add here.
-    expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'plans'])).toEqual(['plans', 'habits', 'notes']);
+    // 'habits' and 'health' both included so neither append (their own describe blocks below)
+    // has anything to add here.
+    expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'plans', 'health'])).toEqual([
+      'plans',
+      'habits',
+      'notes',
+      'health',
+    ]);
   });
 
   it('drops a kind that was genuinely deleted, with no substitution', () => {
     // 'goals' shipped as a fifth card on 2026-07-28 and was gone the next day. There is
-    // nowhere for it to fold into, and that is the correct outcome for a deletion.
-    expect(sanitizeHomeCardOrder(['plans', 'habits', 'goals', 'notes'])).toEqual(['plans', 'habits', 'notes']);
+    // nowhere for it to fold into, and that is the correct outcome for a deletion — unlike
+    // 'health' below, 'goals' still has somewhere else to be (Habits/Plans' own drawer).
+    expect(sanitizeHomeCardOrder(['plans', 'habits', 'goals', 'notes', 'health'])).toEqual([
+      'plans',
+      'habits',
+      'notes',
+      'health',
+    ]);
   });
 
   it('falls back to the default when nothing survives', () => {
@@ -69,52 +81,86 @@ describe('an ordinary stored order', () => {
     expect(sanitizeHomeCardOrder(['goals', 'bonsai'])).toEqual([...HOME_CARD_KINDS]);
   });
 
-  it('does not auto-add the new health kind to an order that predates it', () => {
-    // Unlike habits (which WAS on Home and would otherwise vanish), health is a genuinely NEW
-    // surface — an existing order simply not naming it yet is not a data-loss case, it is the
-    // same "removed with no substitution" shape 'goals' already covers. It reaches Home via
-    // "Add a card" like any other addable kind.
+  it('appends the new health kind to an order that predates it', () => {
+    // Health left the bottom nav ENTIRELY for this pass — unlike 'goals' (which had somewhere
+    // else to be), a stored order not naming 'health' yet means the surface is gone from every
+    // existing install with nothing on screen saying so. Every row in existence at ship time
+    // predates 'health' by definition, so this is the ordinary path, not an edge case.
     expect(sanitizeHomeCardOrder(['plans', 'habits', 'notes', 'shopping'])).toEqual([
       'plans',
       'habits',
       'notes',
       'shopping',
+      'health',
     ]);
   });
 });
 
-describe("the un-folded 'habits' entry", () => {
-  it('is spliced back in, directly after plans, when it is missing but plans is present', () => {
-    // The case the un-fold exists for: a row written during the brief 5→3-merge window (or by
-    // an older build, or restored from a backup, or synced from a paired device still on it).
-    // Without it this returns ['plans', 'notes'] and the habits list is gone from Home with
-    // nothing saying so.
+describe("the appended 'health' entry", () => {
+  it('is a no-op when health is already present, wherever it sits', () => {
+    expect(sanitizeHomeCardOrder(['health', 'plans', 'habits', 'notes'])).toEqual([
+      'health',
+      'plans',
+      'habits',
+      'notes',
+    ]);
+    expect(sanitizeHomeCardOrder(['plans', 'health', 'habits', 'notes'])).toEqual([
+      'plans',
+      'health',
+      'habits',
+      'notes',
+    ]);
+  });
+
+  it('stacks with the habits un-fold — both missing at once', () => {
+    // The exact shape every real install's stored row is in right now: the pre-un-fold,
+    // pre-health chain terminates at ["plans","habits","goals","notes","shopping"], which
+    // filters to ["plans","habits","notes","shopping"] once 'goals' drops — habits already
+    // present, health missing, appended at the end.
     expect(sanitizeHomeCardOrder(['plans', 'notes', 'shopping'])).toEqual([
       'plans',
       'habits',
       'notes',
       'shopping',
+      'health',
     ]);
   });
 
+  it('is appended even when the order is otherwise empty after filtering', () => {
+    expect(sanitizeHomeCardOrder(['goals'])).toEqual([...HOME_CARD_KINDS]);
+  });
+});
+
+describe("the un-folded 'habits' entry", () => {
   it('is a no-op when habits is already present, wherever it sits', () => {
-    // Reordering post-un-fold must not be re-corrected back next to plans every time.
-    expect(sanitizeHomeCardOrder(['habits', 'plans', 'notes'])).toEqual(['habits', 'plans', 'notes']);
-    expect(sanitizeHomeCardOrder(['notes', 'habits', 'plans'])).toEqual(['notes', 'habits', 'plans']);
+    // Reordering post-un-fold must not be re-corrected back next to plans every time. 'health'
+    // included in each input so its own append has nothing to add here.
+    expect(sanitizeHomeCardOrder(['habits', 'plans', 'notes', 'health'])).toEqual([
+      'habits',
+      'plans',
+      'notes',
+      'health',
+    ]);
+    expect(sanitizeHomeCardOrder(['notes', 'habits', 'plans', 'health'])).toEqual([
+      'notes',
+      'habits',
+      'plans',
+      'health',
+    ]);
   });
 
   it('does nothing when plans is ALSO missing — nothing to splice it after', () => {
     // If the user removed the To-do card too, there is no anchor position left to restore
-    // habits at without inventing one; the surface stays reachable via "Add a card" instead,
-    // the same answer a genuinely new kind gets.
-    expect(sanitizeHomeCardOrder(['notes', 'shopping'])).toEqual(['notes', 'shopping']);
+    // habits at without inventing one; the surface stays reachable via "Add a card" instead.
+    // 'health' still gets appended regardless — that append has no anchor requirement.
+    expect(sanitizeHomeCardOrder(['notes', 'shopping'])).toEqual(['notes', 'shopping', 'health']);
   });
 
   it('survives as the only entry once un-folded next to plans', () => {
-    expect(sanitizeHomeCardOrder(['plans'])).toEqual(['plans', 'habits']);
+    expect(sanitizeHomeCardOrder(['plans'])).toEqual(['plans', 'habits', 'health']);
   });
 
   it('does not resurrect other dropped kinds while un-folding', () => {
-    expect(sanitizeHomeCardOrder(['goals', 'plans'])).toEqual(['plans', 'habits']);
+    expect(sanitizeHomeCardOrder(['goals', 'plans'])).toEqual(['plans', 'habits', 'health']);
   });
 });

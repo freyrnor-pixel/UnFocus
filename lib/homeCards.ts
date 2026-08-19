@@ -25,9 +25,20 @@
  *     "full-screen card expansion" pass.** Habits is a first-class card again
  *     (components/HomeHabitsCard.tsx, `embedded={false}`) — it is no longer a section inside
  *     PlanTaskCard's `extraSection`. 'health' is NEW in the same pass: Health left the bottom
- *     nav and became a Home card too (components/HomeHealthCard.tsx). The fold-in logic below
- *     is now the MIRROR of what it was: a stored order that still has 'habits' folded away
- *     (i.e. 2 <= this build ago) needs it split back OUT, not merged further in.
+ *     nav ENTIRELY and became a Home card (components/HomeHealthCard.tsx) — unlike 'goals'
+ *     (2026-07-29), which had somewhere else to be (the app still worked without it), Health has
+ *     no other surface left once it drops off the tab bar, so a stored order that predates this
+ *     pass needs 'health' appended, the same way 'habits' needs splicing back in. Silently
+ *     dropping it would take medicine trays and symptom tracking off screen for every existing
+ *     install with no error and no empty state saying so. (An earlier version of this file
+ *     argued the opposite — "health is a genuinely new surface, reachable via Add a card" — and
+ *     shipped `sanitizeHomeCardOrder` withOUT the append. That did not hold: EVERY row in
+ *     existence at the time predates this pass, so "don't auto-add" meant "nobody sees the
+ *     Health card that used to be a whole tab" — caught by the web preview walk, not by the unit
+ *     tests, which had asserted the intended behaviour instead of checking it against the actual
+ *     all-installs-predate-it fact.) The fold-in logic below is now the MIRROR of what it was for
+ *     'habits': a stored order that still has 'habits' folded away needs it split back OUT, not
+ *     merged further in — and 'health' needs appending whenever it's missing, full stop.
  */
 
 /**
@@ -52,9 +63,11 @@ export type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
  * it still exists. So a 'habits'-less order that DOES contain 'plans' gets 'habits' spliced in
  * directly after it (mirroring how it read when it was a section of that card) — but only when
  * 'habits' is genuinely missing, never when the user has already reordered or removed it
- * themselves post-un-fold. 'health' needs no equivalent handling: it is simply a NEW kind, and
- * the unknown-kind filter already treats "never seen this key" as "append via the fallback",
- * which is the correct behaviour for something that didn't exist to lose.
+ * themselves post-un-fold. **'health' needs handling too, and it is simpler**: it has no old
+ * position to be spliced back next to (it was never part of another card), so a 'health'-less
+ * order just gets it APPENDED at the end. Every row that exists at the moment this pass ships
+ * predates 'health' by definition, so this is not an edge case — it is the ordinary path for
+ * every install, exactly like the 'habits' un-fold was on its own ship day.
  *
  * Doing it on READ (rather than a one-shot `lib/db.ts` migration) covers a row written by an
  * OLDER build after the migration would have run: a restored backup, or a paired device still
@@ -67,10 +80,15 @@ export function sanitizeHomeCardOrder(order: string[]): HomeCardKind[] {
     seen.add(k);
     return true;
   });
+  // Nothing survived the filter (empty, or every entry was a dropped/unknown kind) — the
+  // default order already contains both 'habits' and 'health', so there is nothing left to
+  // append below. Checking this BEFORE the append matters: appending onto an empty array would
+  // return `['health']` alone instead of falling back to the full default.
+  if (clean.length === 0) return [...HOME_CARD_KINDS];
   const withHabits = clean.includes('habits')
     ? clean
     : clean.includes('plans')
       ? clean.flatMap((k): HomeCardKind[] => (k === 'plans' ? ['plans', 'habits'] : [k]))
       : clean;
-  return withHabits.length > 0 ? withHabits : [...HOME_CARD_KINDS];
+  return withHabits.includes('health') ? withHabits : [...withHabits, 'health'];
 }
