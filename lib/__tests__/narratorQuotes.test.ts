@@ -215,33 +215,41 @@ describe('NarratorQuote — a line on the card, not a card of its own', () => {
     const alpha = Number(SRC.match(/const NARRATOR_OPACITY = ([\d.]+);/)![1]);
     expect(alpha).toBeGreaterThanOrEqual(0.5);
     expect(alpha).toBeLessThanOrEqual(0.6);
-    // Applied to the rendered opacity, not just declared — the constant is worthless if the
-    // animated style overwrites it, which is exactly what a naive fade would do.
-    expect(SRC).toMatch(/opacity: opacity\.value \* NARRATOR_OPACITY/);
+    // Applied to the rendered style, not just declared — the constant is worthless if nothing
+    // reads it.
+    expect(SRC).toMatch(/opacity: NARRATOR_OPACITY/);
   });
 
-  it('gives the cycle button a hit area past the 12px asked for', () => {
-    expect(SRC).toMatch(/hitSlop=\{HitSlop\.loose\}/);
+  it('has no control of any kind on it (2026-08-20)', () => {
+    // The refresh glyph that cycled the line was removed in the UI-consistency pass. This is
+    // the whole assertion for that: nothing here is pressable, so there is nothing to animate,
+    // nothing to hop off the UI thread and nothing to label. A later "let the user see another
+    // one" pass reintroducing a button is the expected failure.
+    for (const forbidden of [/PressableScale/, /onPress/, /accessibilityRole/, /Ionicons/, /hitSlop/]) {
+      expect({ forbidden: String(forbidden), hit: forbidden.test(SRC) })
+        .toEqual({ forbidden: String(forbidden), hit: false });
+    }
+    // ...and the a11y label that named it is gone from all three dictionaries with it.
+    const i18n = readFileSync(join(ROOT, 'lib/i18n.ts'), 'utf8');
+    expect(i18n).not.toMatch(/nextQuote:/);
   });
 
-  it('swaps the line off the JS thread, not from inside the worklet', () => {
-    // A `withTiming` completion callback is auto-workletized with nothing in the source saying
-    // so, and calling setState from the UI thread crashes on device while the web preview —
-    // where worklets run on the JS thread — renders it perfectly. See AGENTS.md's Reanimated
-    // gotcha; __tests__/workletSafety.test.ts is the general guard and this is the specific one.
-    expect(SRC).toMatch(/runOnJS\(advance\)\(\)/);
-    expect(SRC).not.toMatch(/\(finished\) => \{\s*if \(finished\) setIndex/);
+  it('animates nothing, because nothing changes', () => {
+    // With no cycle there is no fade to drive and no height change to smooth, so the whole
+    // Reanimated surface came off. Keeping it would leave a shared value and an animated style
+    // mounted under every empty card in the app for a transition that can never fire.
+    for (const forbidden of [/react-native-reanimated/, /useSharedValue/, /withTiming/, /runOnJS/, /LinearTransition/]) {
+      expect({ forbidden: String(forbidden), hit: forbidden.test(SRC) })
+        .toEqual({ forbidden: String(forbidden), hit: false });
+    }
   });
 
   it('picks its opening line once, not on every render', () => {
     // The lazy initialiser. Called in the argument position it would re-roll whenever the host
-    // card re-renders, and the quote would change under the user for unrelated reasons.
+    // card re-renders, and the quote would change under the user for unrelated reasons. This
+    // random MOUNT index is the half that SURVIVED the button's removal — several empty cards
+    // can share a screen, and all of them opening on the same line reads as one joke.
     expect(SRC).toMatch(/useState\(\(\) => randomQuoteIndex\(category, lang\)\)/);
-  });
-
-  it('respects reduced motion by not animating at all', () => {
-    expect(SRC).toMatch(/if \(reducedMotion\)/);
-    expect(SRC).toMatch(/layout=\{reducedMotion \? undefined :/);
   });
 });
 

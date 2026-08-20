@@ -1932,15 +1932,12 @@ const en = {
    * the preview row would just be a redundant second way to do the same thing.
    */
   /**
-   * The empty-state narrator (2026-08-19) — see components/NarratorQuote.tsx and
-   * lib/narratorQuotes.ts. The LINES are not here on purpose: they are a per-language list
-   * the user cycles through, and a numbered key family in three dictionaries cannot grow
-   * without three edits in lockstep. Only the control's accessibility label lives here.
+   * The empty-state narrator (2026-08-19) has NO keys here — see components/NarratorQuote.tsx
+   * and lib/narratorQuotes.ts. The LINES live in a per-language data table on purpose: a
+   * numbered key family in three dictionaries cannot grow without three edits in lockstep.
+   * `narrator.nextQuote` was the one exception (the refresh glyph's a11y label) and went with
+   * the button itself on 2026-08-20.
    */
-  narrator: {
-    /** The refresh glyph beside the quote. Named for what it does, not for what it shows. */
-    nextQuote: 'Show another line',
-  },
   starters: {
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
@@ -3812,10 +3809,6 @@ const no: typeof en = {
     notes: { text: 'Skriv det ned, og send det videre.' },
     goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
   },
-  /* Se den engelske tvillingen. Selve linjene ligger i lib/narratorQuotes.ts. */
-  narrator: {
-    nextQuote: 'Vis en annen linje',
-  },
   starters: {
     addExample: 'Legg til',
     dismiss: 'Lukk',
@@ -5629,10 +5622,6 @@ const is: typeof en = {
     automations: { text: 'Einfaldar reglur: þegar X gerist, gerðu Y sjálfkrafa.' },
     notes: { text: 'Skrifaðu það niður. Sendu það áfram.' },
     goals: { text: 'Það stærra sem verkefnin og venjurnar þínar eru fyrir.' },
-  },
-  /* Sjá enska tvíburann. Línurnar sjálfar eru í lib/narratorQuotes.ts. */
-  narrator: {
-    nextQuote: 'Sýna aðra línu',
   },
   starters: {
     addExample: 'Bæta við',

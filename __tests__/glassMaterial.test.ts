@@ -285,10 +285,16 @@ describe('the material system stays deleted, and stays matte', () => {
     // CARDS only. A field or a button identifies a CONTROL, so WCAG 1.4.11's 3:1 still applies
     // to it and its shaded side must survive. A card is a container, separated on black by its
     // own fill and its shadow.
+    // Derived from the palette rather than written out as literal channels: this asserted
+    // `rgba(120, 120, 130,` — `border`'s value at the time — and so failed the 2026-08-20
+    // contrast pass for lifting a token, which is not what it is here to catch. What it IS
+    // here to catch is the shaded side being dropped or faded, so it now says exactly that,
+    // against whatever `border` currently is.
+    const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(p.border.slice(i, i + 2), 16));
     (['field', 'button'] as const).forEach((weight) => {
       const w = getGlassEdge(p.border, true, weight);
       expect(w.colors).toHaveLength(2);
-      expect(w.colors[1]).toMatch(new RegExp(`^rgba\\(120, 120, 130,`));
+      expect(w.colors[1]).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, 0\\.`));
     });
   });
 });

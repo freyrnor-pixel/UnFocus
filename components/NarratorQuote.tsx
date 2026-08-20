@@ -8,11 +8,9 @@
  * file owns only how they are shown and how they are cycled.
  *
  * Connections:
- *   Imports → components/PressableScale (the cycle button), constants/theme, constants/motion,
- *             lib/narratorQuotes (the lines + the wrapping index), lib/useAppTheme
- *             (useAppTheme, useAccessibility for `reducedMotion`, useScaledStyles), lib/i18n
- *             (useT for the button's a11y label, and the active language), lib/haptics,
- *             react-native-reanimated, @expo/vector-icons
+ *   Imports → constants/theme, lib/narratorQuotes (the lines + the wrapping index),
+ *             lib/useAppTheme (useAppTheme, useScaledStyles), lib/i18n (useLang, for the
+ *             active language)
  *   Used by → app/plans.tsx (`DoneSplitList`'s empty branch — Today/This week/Whenever/
  *             a day group — and the Recurring section's own),
  *             app/(tabs)/shopping.tsx (an unlocked monthly list with nothing in it),
@@ -61,44 +59,25 @@
  *     mode honest — the same 55% of that mode's ink, rather than a token tuned for a different
  *     job. It sits BELOW the app's contrast floors on purpose; this is the one text in the app
  *     that is not meant to be read first, and it names nothing the user needs.
- *   - **The cycle is sequential, and the START is random.** A random pick per press repeats
- *     itself roughly a third of the time on a four-line category, which reads as a broken
- *     button. The counter only ever goes up and lib/narratorQuotes' `quoteAt` wraps it, so
- *     "next" can never run out. The random part is the mount index — several empty cards can
- *     be on one screen at once (Home), and all of them opening on the same line looks like the
- *     app has one joke.
- *   - **The swap fades through zero rather than crossfading two lines.** A crossfade needs both
- *     strings laid out at once, and they are different lengths, so the row would grow to the
- *     longer of the two mid-transition and settle back — the "jarring layout shift" this is
- *     supposed to avoid. Out, swap, in; the wrapper carries a `LinearTransition` so the height
- *     change itself is also animated rather than snapping.
- *   - **`runOnJS` around the state update is load-bearing, not ceremony.** A `withTiming`
- *     completion callback is auto-workletized by react-native-worklets with no directive in
- *     the source saying so (see AGENTS.md's Reanimated gotcha), and calling `setIndex` from the
- *     UI thread takes the app down on device while looking perfect in the web preview, where
- *     worklets run on the JS thread. `__tests__/workletSafety.test.ts` is what catches it.
- *   - The button's hit area is `HitSlop.loose` (18px) — comfortably past the brief's "at least
- *     12px", and the token that exists for exactly this case ("lifts a ≥12px glyph to target").
- *     Don't swap it for `HitSlop.base`: this is a 14px glyph, and 10px leaves it under target.
+ *   - **⚠️ There is no way to cycle the line, and that is deliberate (2026-08-20).** It shipped
+ *     with a refresh glyph beside it that advanced through the category's lines; the maintainer
+ *     removed it in the UI-consistency pass (*"Remove the refresh button for 'Quotes'"*). What
+ *     went with it: the `index` state's setter, the `withTiming` fade-through-zero and its
+ *     `runOnJS` hop, the `LinearTransition` on the wrapper (nothing changes height any more),
+ *     the `reducedMotion` branch, the `tap()` haptic and `t.narrator.nextQuote`. **The random
+ *     MOUNT index stays** — several empty cards can be on one screen at once (Me), and all of
+ *     them opening on the same line looks like the app has one joke. A caller that wants a
+ *     fresh line remounts the component with a new `key`, which is what
+ *     components/TodoSurface.tsx's `emptyQuoteKey` already does.
+ *   - `lib/narratorQuotes.ts` is UNCHANGED and still holds every line plus the wrapping
+ *     `quoteAt`. Nothing about the words was reduced here — only the control.
  */
-import React, { useCallback, useState } from 'react';
-// No plain `Text` — the quote is an `Animated.Text` so the fade can drive its opacity.
-import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import Animated, {
-  LinearTransition,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import PressableScale from '@/components/PressableScale';
-import { Duration, Ease } from '@/constants/motion';
-import { FontSize, Fonts, HitSlop, Spacing } from '@/constants/theme';
-import { tap } from '@/lib/haptics';
-import { useT, useLang } from '@/lib/i18n';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { FontSize, Fonts, Spacing } from '@/constants/theme';
+import { useLang } from '@/lib/i18n';
 import { quoteAt, randomQuoteIndex, type NarratorCategory } from '@/lib/narratorQuotes';
-import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 /**
  * How faint the line is. The brief's band is 50–60%; 0.55 is its middle, and in dark mode —
@@ -123,88 +102,39 @@ type Props = {
 
 export default function NarratorQuote({ category, style }: Props) {
   const theme = useAppTheme();
-  const t = useT();
   const lang = useLang();
   const styles = useScaledStyles(baseStyles);
-  const { reducedMotion } = useAccessibility();
 
   // Lazy initialiser, not a bare call: `randomQuoteIndex()` in the argument position would
   // re-roll on every render and the line would change under the user as the card re-renders
-  // for reasons that have nothing to do with them.
-  const [index, setIndex] = useState(() => randomQuoteIndex(category, lang));
-  const opacity = useSharedValue(1);
-
-  const textStyle = useAnimatedStyle(() => ({ opacity: opacity.value * NARRATOR_OPACITY }));
-
-  // Runs on the JS thread — see the header's `runOnJS` note. Advancing and fading back in are
-  // one step so the new line can never be shown at zero opacity if the fade-in is dropped.
-  const advance = useCallback(() => {
-    setIndex((i) => i + 1);
-    opacity.value = withTiming(1, { duration: Duration.control, easing: Ease.enter });
-  }, [opacity]);
-
-  function cycle() {
-    tap();
-    if (reducedMotion) {
-      // No fade at all, rather than a zero-duration one: a zero-duration timing still hands
-      // the swap to the UI thread and back, which is a round trip for nothing.
-      setIndex((i) => i + 1);
-      return;
-    }
-    opacity.value = withTiming(0, { duration: Duration.micro, easing: Ease.exit }, (finished) => {
-      if (finished) runOnJS(advance)();
-    });
-  }
+  // for reasons that have nothing to do with them. Picked ONCE, at mount, and never advanced
+  // — see the header's note on the deleted cycle button.
+  const [index] = useState(() => randomQuoteIndex(category, lang));
 
   return (
-    // No Surface, no fill, no edge — see the header. The only thing this View does is put the
-    // glyph beside the line and let the row reflow when a longer quote arrives.
-    <Animated.View
-      style={[styles.row, style]}
-      layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
-    >
-      <Animated.Text
-        style={[styles.quote, textStyle, { color: theme.text }]}
-        numberOfLines={NARRATOR_LINES}
-      >
+    // No Surface, no fill, no edge — see the header. The only thing this View does is give the
+    // line its own breathing room on whatever card is already there.
+    <View style={[styles.row, style]}>
+      <Text style={[styles.quote, { color: theme.text }]} numberOfLines={NARRATOR_LINES}>
         {quoteAt(category, lang, index)}
-      </Animated.Text>
-      <PressableScale
-        onPress={cycle}
-        hitSlop={HitSlop.loose}
-        accessibilityRole="button"
-        accessibilityLabel={t.narrator.nextQuote}
-        style={styles.cycle}
-      >
-        <Ionicons name="refresh" size={14} color={theme.textMuted} />
-      </PressableScale>
-    </Animated.View>
+      </Text>
+    </View>
   );
 }
 
 const baseStyles = StyleSheet.create({
-  // `alignItems: 'flex-start'` so the glyph sits beside the FIRST line of a wrapping quote
-  // rather than floating in the middle of a three-line block — the same defect StarterCard's
-  // dismiss × had before it was corner-anchored.
   row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
   quote: {
-    flex: 1,
-    minWidth: 0,
+    // The opacity is baked into the style rather than animated: with nothing to cycle there is
+    // nothing to fade, and a static 0.55 is the same "55% opacity white" the brief asked for.
+    opacity: NARRATOR_OPACITY,
     fontSize: FontSize.sm,
     lineHeight: 20,
     // The app's one italic — a real FACE, not `fontStyle: 'italic'`, which does nothing on
     // Android beside a named custom family. See the header and constants/theme's `Fonts.italic`
     // before removing or copying it.
     fontFamily: Fonts.italic,
-  },
-  // Nudged down so a 14px glyph optically centres on the first line's cap height rather than
-  // sitting on top of it. No fill and no ring: it is a mark, not a control surface.
-  cycle: {
-    marginTop: 2,
   },
 });

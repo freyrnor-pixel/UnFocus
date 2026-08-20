@@ -497,19 +497,29 @@ const defaultLight: ThemePalette = {
   surface: '#F9FBFE',      // = surfaceGlass composited over the backdrop's darkest stop
   surfaceMuted: '#E6EDF6',
   surfaceInset: '#D8E1EE',
-  rule: '#D3DBE6',         // decorative row divider ONLY — never a control boundary
+  // 2026-08-20 contrast pass: #D3DBE6 → #C7D1DF, 1.346:1 → 1.488:1 on `surface`. Decorative
+  // row divider ONLY — never a control boundary; the 3:1 upper bound is what stops it drifting
+  // into `border`'s job.
+  rule: '#C7D1DF',
   surfaceGlass: 'rgba(255,255,255,0.78)',
   surfaceGlassStrong: 'rgba(255,255,255,0.88)',
   surfaceRaised: '#FCFDFF',   // = surfaceGlassStrong composited over the backdrop's darkest stop
   text: '#1B2432',
-  textMuted: '#5F6978',    // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg
+  // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg. 2026-08-20 contrast
+  // pass: #5F6978 → #535D6B, 5.36:1 → 6.44:1 on `surface` and 4.58 → 5.51 on `bg`, which was
+  // the tighter of the two and sat closest to the AA floor.
+  textMuted: '#535D6B',
   textInverse: '#FFFFFF',
   // 2026-07-24 contrast pass: bumped from #D3DBE6 (1.25:1 on bg, 1.37:1 on surface — invisible,
   // well under WCAG 1.4.11's 3:1 non-text minimum) to a slate-blue that clears 3:1 against both
   // bg and surface while staying in the theme's cool-blue family (contrastRatio() above verifies).
   // 2026-07-31 (A.2): nudged #7689A8 → #7284A2 to hold ≥3:1 against the darker `bg` after the
   // ladder opened (3.128:1 on bg, 3.792:1 on surface).
-  border: '#7284A2',
+  // 2026-08-20 contrast pass: #7284A2 → #65768F, 3.658:1 → 4.461:1 on `surface` and
+  // 3.128 → 3.814 on `bg`. `bg` was the binding side and had barely a tenth of clearance over
+  // 1.4.11's 3:1; the card edge is the whole boundary in light mode under rule 10b, so that
+  // margin was too thin to be the thing the layout rests on.
+  border: '#65768F',
   borderStrong: '#2B5FD9',
   // accent = Save/primary action colour. Was the card-accent DS's --color-primary #2563EB;
   // darkened a hair to #235EE0 in the 2026-07-31 ladder pass — see the note below for why the
@@ -704,7 +714,13 @@ const defaultDark: ThemePalette = {
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as
   // a card/input/chip edge would erase the border-as-grouping-signal system the 2026-08-05
   // card reset is built on. See `border` below for the value that does that job.
-  rule: '#27272A',
+  // 2026-08-20 contrast pass, on the maintainer's *"a bit more contrast so it's easier to
+  // visually navigate between things"*: #27272A → #3A3A42, taking the divider from 1.119:1 on
+  // `surface` to 1.480:1. Still a HAIRLINE and still nowhere near a control boundary — the
+  // upper bound that keeps it from quietly becoming a second `border` is asserted at 3:1 and
+  // is what a further lift would run into. The value stops being the design review's supplied
+  // "border.subtle" verbatim; that was never the point of it, the WEIGHT was.
+  rule: '#3A3A42',
   // ⚠️ PURE WHITE, 16.67:1 on `surface` — outside the old 7–12 halation band, and now outside
   // the 16 ceiling that replaced it too. Both moves were by instruction, one after the other:
   // 2026-08-10 raised the ceiling 12 → 16 for the true-black palette's `#F3F4F6`, and
@@ -720,14 +736,20 @@ const defaultDark: ThemePalette = {
   // a pure-white primary reads as dirty rather than as silver. `#A1A1AA` is that value opened up
   // to 6.50:1 on `surface` / 8.19:1 on `bg`, with a faint cool cast so it belongs to the same
   // family as the white above it. Do not take it below ~#8E8E8E; that is the AA cliff.
-  textMuted: '#A1A1AA',
+  // 2026-08-20 contrast pass: #A1A1AA → #B0B0BA, 6.50:1 → 7.75:1 on `surface`. Still visibly
+  // secondary against a 16.67:1 pure-white primary, which is the only thing this token has to
+  // stay under. The AA cliff named above (~#8E8E8E) is in the other direction and untouched.
+  textMuted: '#B0B0BA',
   textInverse: '#0A0A0A',
   // NOT the supplied #27272A (1.41:1 on bg, 1.26:1 on surface — an invisible control edge).
   // Derived instead to clear WCAG 1.4.11's 3:1 on every rung it is ever drawn against:
   // 4.808:1 on bg, 3.817:1 on surface, 4.289:1 on surfaceMuted. Neutral rather than the old
   // slate-blue #5F7090, to match the greyed-out surfaces above.
-  border: '#787882',
-  borderStrong: '#9A9AA5',
+  // 2026-08-20 contrast pass: #787882 → #8A8A95, 3.817:1 → 4.882:1 on `surface` (6.150:1 on
+  // bg, 5.486:1 on surfaceMuted). This is the token `getGlassEdge`'s shade stop draws, so it is
+  // what actually says where a card ends now that the fill step is soft — see rule 10b.
+  border: '#8A8A95',
+  borderStrong: '#A8A8B4',
   // ── Vibrant pass, 2026-08-16 (brief §4: "highly saturated, vibrant jewel tones") ──────────
   // Dark mode only — light keeps its own accessible values, which are constrained by a pale
   // background these hues cannot survive.

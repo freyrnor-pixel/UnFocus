@@ -80,8 +80,11 @@ type Palette = {
  * left unused — `card` was declared and never referenced, which is how the frame ended up
  * drawn in the page colour in the first place.)
  */
-const LIGHT: Palette = { card: '#F9FBFE', text: '#1B2432', muted: '#5F6978', line: '#7284A2', dark: false };
-const DARK: Palette = { card: '#1E1E1E', text: '#FFFFFF', muted: '#A1A1AA', line: '#787882', dark: true };
+// `muted`/`line` lifted 2026-08-20 with constants/colors.ts's contrast pass — these are baked
+// copies, and lib/widgets/__tests__/widgetPalette.test.ts recomputes them from the real palette
+// and fails the PR on a drift. That is what caught this pair; keep them moving together.
+const LIGHT: Palette = { card: '#F9FBFE', text: '#1B2432', muted: '#535D6B', line: '#65768F', dark: false };
+const DARK: Palette = { card: '#1E1E1E', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95', dark: true };
 
 /**
  * A hue's light-mode ink. The five identity hues are tuned for a BLACK card — on the light
