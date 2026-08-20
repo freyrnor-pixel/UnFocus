@@ -1260,3 +1260,33 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
     { offsetX: 0, offsetY: Math.round(10 * k), blurRadius: Math.round(26 * k), spreadDistance: -2, color: rgba(shadowColor, 0.10) },
   ];
 }
+
+// ─── PREVIEW SCAFFOLDING (2026-08-20, "white glass" question) ───────────────────────────
+// Temporary three-way switch so the same build can be exported once per look and compared in
+// screenshots. NOT a shipped setting — whichever look wins is written into components/
+// Surface.tsx directly and this constant is deleted with the losers.
+//   'hue'        — what ships today: a 5% SCREEN_TINT wash of the screen's identity hue on the
+//                  pane, neutral edge. On the To-do tab that hue is gold, which is the yellow
+//                  the maintainer is objecting to.
+//   'white'      — no wash at all. The pane is the plain white glass; colour survives only in
+//                  the badge glyph, the composer's focus ring and the action keys.
+//   'white-edge' — 'white', plus the card's edge drawn in the screen's hue instead of the white
+//                  top-left lip, so the colour outlines the card rather than filling it.
+export type CardGlassVariant = 'hue' | 'white' | 'white-edge';
+export const CARD_GLASS_VARIANT: CardGlassVariant = 'hue';
+
+/**
+ * The coloured-card-edge recipe for the `'white-edge'` preview above. Same diagonal ring and
+ * same fade-to-nothing shape `getGlassEdge` draws for a dark card, with the hue standing in for
+ * the white lip — and at a much higher alpha, since 0.16 of a saturated hue on black reads as
+ * nothing where 0.16 of white reads as a lit edge.
+ */
+export function getHuedGlassEdge(hue: string, isDark: boolean, strength: number = 1): RimGradient {
+  const lit = (isDark ? 0.62 : 0.7) * strength;
+  return {
+    colors: [rgba(hue, lit), rgba(hue, lit * 0.45), rgba(hue, isDark ? 0 : lit * 0.2)],
+    locations: [0, 0.4, 1],
+    start: { x: 0, y: 0 },
+    end: { x: 1, y: 1 },
+  };
+}

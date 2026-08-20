@@ -153,6 +153,8 @@ import {
   getLayeredShadow,
   Radius,
   SCREEN_TINT,
+  CARD_GLASS_VARIANT,
+  rgba,
 } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLabShape } from '@/lib/useDesignLab';
@@ -335,7 +337,11 @@ export default function Surface({
   // `SCREEN_TINT` wash over the pane, and into the icon badge (lib/domainColor.ts), which is
   // the loud half. `borderColor`/`tint` still override, so Home's preview cards keep passing
   // their SOURCE screen's hue and still read as belonging to that screen.
-  const tintHue = borderColor ?? tint ?? screenHue;
+  const hueForCard = borderColor ?? tint ?? screenHue;
+  // PREVIEW SCAFFOLDING — see CARD_GLASS_VARIANT in constants/theme.ts. 'hue' is what ships;
+  // both white variants drop the wash so the pane is plain glass and the colour lives in the
+  // badge/keys only.
+  const tintHue = CARD_GLASS_VARIANT === 'hue' ? hueForCard : undefined;
   // The edge is neutral in every mode and on every screen — see getGlassEdge's doc. Its shade
   // stop is plain `border` at full strength, which is what carries WCAG 1.4.11's 3:1 now that
   // rule 10b has relaxed the bg↔surface fill step.
@@ -347,7 +353,18 @@ export default function Surface({
   // exactly what the card shipped with, so this is inert until the lab is used.
   const shape = useLabShape();
   const edgeWidth = shape.borderCardWidth * shape.borderScale;
-  const ramp = getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
+  // PREVIEW SCAFFOLDING. The ring is a full-area gradient sitting BEHIND a translucent mask, so
+  // a saturated hue in it bleeds through the whole pane rather than reading as an edge — which
+  // is exactly what the first 'white-edge' export showed. A single flat colour needs no gradient
+  // (that plumbing exists to blend TWO colours round a corner), so the hued edge is drawn as a
+  // real border on the ring view and the gradient underneath is left fully transparent.
+  const huedEdge = CARD_GLASS_VARIANT === 'white-edge' && hueForCard ? hueForCard : null;
+  const ramp = huedEdge
+    ? { colors: ['#00000000', '#00000000'] as const, locations: [0, 1] as const }
+    : getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
+  const huedEdgeStyle = huedEdge
+    ? { padding: 0, borderWidth: edgeWidth, borderColor: rgba(huedEdge, isDark ? 0.85 : 0.7) }
+    : null;
   const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
@@ -478,6 +495,7 @@ export default function Surface({
             borderBottomRightRadius: bottomRightRadius,
             padding: edgeWidth,
           },
+          huedEdgeStyle,
         ]}
       >
         <View
