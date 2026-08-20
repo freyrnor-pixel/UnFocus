@@ -42,10 +42,12 @@
  *     the vocabulary (a multi-select chip row, a stepper) belongs behind a `chevron` row in its
  *     own sheet, which is why components/ListSettingsSheet.tsx is NOT built on this — see the
  *     note at the end of this block.
- *   - **`onEditLayout` is the documented hand-off, not a second reorder implementation.** It
- *     renders the trailing "Rediger kort" row and should switch on the reorder mode that
- *     already exists (components/HomeCardManager.tsx's `editMode`), never start a drag of its
- *     own. It is optional — only a card that lives in a reorderable stack shows the row.
+ *   - **⚠️ `onEditLayout` is GONE (2026-08-20).** It rendered a trailing "Edit cards" row that
+ *     switched on components/HomeCardManager.tsx's `editMode`; that mode was deleted in the
+ *     UI-consistency pass, so the row's only destination went with it. Removed rather than left
+ *     as an unused optional prop, because an optional hand-off to nothing is exactly the sort
+ *     of thing a later session wires back up. Reordering is a long-press-drag on the card
+ *     itself and always has been — `cardMenu.arrangeHint` is where that is said now.
  *   - **No "delete" row on Home, by design.** The brief lists delete among the row shapes and
  *     `danger` implements it, but a Home card is HIDDEN (dropped from `settings.homeCardOrder`)
  *     and never deleted: its screen, its rows and its reminders are all untouched. Calling that
@@ -93,11 +95,9 @@ export type CardMenuOption = {
   onPress: () => void;
 };
 
-/** What a card needs to draw its ⋮: the rows, plus the optional reorder hand-off. */
+/** What a card needs to draw its ⋮: the rows, and nothing else. */
 export type CardMenu = {
   options: CardMenuOption[];
-  /** Renders the trailing "Rediger kort" row; omit for a card that isn't in a reorderable stack. */
-  onEditLayout?: () => void;
 };
 
 type SheetProps = CardMenu & {
@@ -107,7 +107,7 @@ type SheetProps = CardMenu & {
   cardTitle: string;
 };
 
-export default function CardMenuSheet({ open, onClose, cardTitle, options, onEditLayout }: SheetProps) {
+export default function CardMenuSheet({ open, onClose, cardTitle, options }: SheetProps) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
@@ -171,35 +171,6 @@ export default function CardMenuSheet({ open, onClose, cardTitle, options, onEdi
           );
         })}
 
-        {/* The hand-off row: it starts the reorder mode components/HomeCardManager.tsx already
-            owns, rather than a second drag path. Separated by a rule so it reads as "and now
-            leave this card" rather than as a fifth thing about this card. */}
-        {onEditLayout ? (
-          <>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            <PressableScale
-              style={[styles.option, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
-              onPress={() => {
-                selection();
-                onEditLayout();
-              }}
-              scaleTo={0.98}
-              accessibilityRole="button"
-              accessibilityLabel={t.home.manageCards.edit}
-              accessibilityHint={t.home.cardMenu.arrangeHint}
-            >
-              <Ionicons name="swap-vertical-outline" size={20} color={theme.accent} />
-              <View style={styles.optionText}>
-                <Text style={[styles.optionLabel, { color: theme.text }]}>{t.home.manageCards.edit}</Text>
-                <Text style={[styles.optionHint, { color: theme.textMuted }]}>
-                  {t.home.cardMenu.arrangeHint}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-            </PressableScale>
-          </>
-        ) : null}
-
         <PressableScale
           style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           onPress={onClose}
@@ -220,7 +191,7 @@ export default function CardMenuSheet({ open, onClose, cardTitle, options, onEdi
  * control there is exactly the horizontal pressure `npm run wraps`'s clipped-controls mode
  * exists to catch. `HitSlop.base` lifts the 28px box to target without costing layout width.
  */
-export function CardMenuButton({ cardTitle, options, onEditLayout }: CardMenu & { cardTitle: string }) {
+export function CardMenuButton({ cardTitle, options }: CardMenu & { cardTitle: string }) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -246,7 +217,6 @@ export function CardMenuButton({ cardTitle, options, onEditLayout }: CardMenu & 
         onClose={() => setOpen(false)}
         cardTitle={cardTitle}
         options={options}
-        onEditLayout={onEditLayout}
       />
     </>
   );

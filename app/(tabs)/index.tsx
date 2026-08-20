@@ -35,11 +35,12 @@
  *      actually arrived (`hasIncomingShared`). Above the cards on purpose: it is transient,
  *      time-sensitive and from another person, so below them it would be missed. Interruptive
  *      content goes high or it does not work. Don't demote it.
- *   4–6. Habits / Notes / Health — the ONLY reorderable, removable cards, driven by
- *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag,
- *      "Edit cards" for the ×/add chrome, floor of one card). ⚠️ Habits and Health are
- *      re-appended on read if a stored order does not name them — see lib/homeCards.ts, which
- *      also explains why 'notes' deliberately is not.
+ *   4–6. Habits / Notes / Health — the ONLY reorderable, retirable cards, driven by
+ *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag, the
+ *      card's own ⋮ → Hide to retire it, the Retired shelf at the foot to bring it back). There
+ *      is no floor of one card any more, and no edit mode — see the 2026-08-20 note below.
+ *      ⚠️ Habits and Health are re-appended on read if a stored order does not name them — see
+ *      lib/homeCards.ts, which also explains why 'notes' deliberately is not.
  *   7. The cumulative "you've done N things" line — fixed to the bottom, and the last child of
  *      `content` so it cannot be reordered into the stack. It counts tasks, which now live one
  *      tab over; it stays because it is a lifetime figure about the user, not a view of that
@@ -80,28 +81,34 @@
  *     feed it. Keep new cards on the self-contained side.
  *   - **The guided tour's Home step spotlights the Habits card** (`tour.home.me`). It used to
  *     ring the To-do preview; see the comment at that case, and lib/tourSteps.ts.
- *   - **Home preview card management (2026-07-19, A2/D1 split 2026-07-23, toggle relocated
- *     2026-07-24)**: the cards render via `HomeCardManager` in `settings.homeCardOrder` order.
- *     Holding any card always drag-reorders it (long-press's one meaning here); a separate
- *     visible "Edit cards"/"Done" toggle drives the delete-badge + "Add a card" chrome. That
- *     toggle's state lives here (`cardsEditMode`) and renders inline in the greeting header row
- *     (top-right), not as its own row above the stack — an extra row added a second
- *     `marginBottom`, doubling the gap between the greeting and the first card.
- *     `renderHomeCard(kind)` is the per-kind render function passed down;
- *     `sanitizeHomeCardOrder` defends against a corrupt/legacy settings row.
+ *   - **⚠️ No greeting and no edit mode (2026-08-20, UI-consistency pass).** Maintainer:
+ *     *"The top text box can be removed, same with the 'Good day' in home"*, *"remove the 'Edit
+ *     cards' button as well, and when a card is hidden it just goes to a totally collapsed state
+ *     at the bottom in a section called 'Retired'"*. Three things went, and the third is the one
+ *     worth knowing: the greeting + date line (with `t.greeting.*`), the `cardsEditMode` state
+ *     and both its buttons, and the **floor of one card** — hiding the last card was blocked
+ *     because it left "a screen with a greeting and nothing else, and no visible way back",
+ *     and BOTH halves of that reason expired in this same pass. `t.home.cardMenu.hideLastHint`
+ *     is deleted rather than left unused, so the guard cannot be quietly restored against a
+ *     reason that is gone.
+ *     What survives untouched: `renderHomeCard(kind)` is still the per-kind render function
+ *     passed down, `sanitizeHomeCardOrder` still defends against a corrupt/legacy settings row,
+ *     and holding any card still drag-reorders it — the drag was NEVER gated on the mode
+ *     (components/HomeCardManager.tsx documents that), which is why the mode could go without
+ *     taking a capability with it.
  *   - **The flight animation is gone from this screen** (2026-08-19) — only the shopping preview
  *     card ever started one, so `flights`/`FlightOverlay`/`handleScreenScroll` went with it. The
  *     pattern still lives on app/(tabs)/shopping.tsx; see ANIMATION_GUIDELINES.md.
  *   - All visible strings via useT().
  *   - **Debug notes (2026-07-13)**: each top-level section is wrapped in DebugNoteAnchor with a
- *     hand-picked stable id (`home.greeting`/`home.habitsPreview`/`home.notesPreview`/
- *     `home.healthPreview`/`home.sharedPreview`) — a no-op unless Debug mode is on
- *     (settings.debugModeEnabled). ⚠️ `home.plansPreview` and `home.shoppingPreview` are RETIRED
- *     ids; any note a tester left on them is orphaned rather than shown somewhere else.
+ *     hand-picked stable id (`home.habitsPreview`/`home.notesPreview`/`home.healthPreview`/
+ *     `home.sharedPreview`) — a no-op unless Debug mode is on (settings.debugModeEnabled).
+ *     ⚠️ `home.plansPreview`, `home.shoppingPreview` and — since 2026-08-20 — `home.greeting`
+ *     are RETIRED ids; any note a tester left on them is orphaned rather than shown somewhere
+ *     else.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 
-import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Switch, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import EnergyMeter from '@/components/EnergyMeter';
@@ -113,13 +120,11 @@ import HomeCardManager from '@/components/HomeCardManager';
 import type { CardMenu } from '@/components/CardMenuSheet';
 import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import PressableScale from '@/components/PressableScale';
 import TourTarget from '@/components/TourTarget';
 
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
-import { tap } from '@/lib/haptics';
-import { Fonts, FontSize, glassKey, HitSlop, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
+import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { Fonts, FontSize, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
 
 import { useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
@@ -137,7 +142,6 @@ import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
 export default function HomeScreen() {
   const t = useT();
   const theme = useAppTheme();
-  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
 
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
@@ -175,7 +179,6 @@ export default function HomeScreen() {
   const setupComplete = useSettingsStore((s) => s.setupComplete);
   const taskNotificationsEnabled = useSettingsStore((s) => s.taskNotificationsEnabled);
   const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
-  const userName = useSettingsStore((s) => s.userName);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
@@ -193,22 +196,14 @@ export default function HomeScreen() {
     [t]
   );
 
-  // Home card edit mode (delete/add chrome for the Notes/Plans/Shopping stack) — lifted
-  // up from HomeCardManager so its "Edit cards"/"Done" toggle can sit inline in the
-  // greeting header row instead of its own row above the stack (see the header comment
-  // below for why that matters for the greeting→first-card gap).
-  const [cardsEditMode, setCardsEditMode] = useState(false);
-
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 5) return t.greeting.night;
-    if (h < 10) return t.greeting.morning;
-    if (h < 17) return t.greeting.day;
-    return t.greeting.evening;
-  };
-  const now = new Date();
-  const dateLabel = `${t.days[now.getDay()]} ${now.getDate()}. ${t.months[now.getMonth()]}`;
-
+  // ⚠️ **No greeting and no edit mode here since 2026-08-20** (UI-consistency pass: *"remove
+  // the 'Good day' in home"*, *"remove the 'Edit cards' button as well"*). Both are DELETED,
+  // not hidden — the greeting helper, the date line and the `cardsEditMode` state that used to
+  // sit in that header row are gone, and the screen opens on its first card. Hiding a card is
+  // the ⋮ menu's "Hide" row (below) and un-hiding it is the Retired drawer at the foot of
+  // components/HomeCardManager.tsx; neither needs a mode. Drag-to-reorder never needed one
+  // either — lib/useDragReorder's long-press has always been live regardless of `editMode`,
+  // which is exactly why the mode could go without taking a capability with it.
 
   // The per-card "⋮" menu (components/CardMenuSheet.tsx, workstream A / the design project's
   // one un-filled component gap). Built HERE and passed down, never built by the card: every
@@ -225,23 +220,24 @@ export default function HomeScreen() {
   // control in two places with different scopes.
   const buildCardMenu = useCallback(
     (kind: HomeCardKind): CardMenu => {
-      // Home keeps at least one card — hiding the last one leaves a screen with a greeting
-      // and nothing else, and no visible way back (the add-picker lives inside edit mode).
-      const isLast = homeCardOrder.length <= 1;
+      // **The last card may now be hidden (2026-08-20), and that is a real reversal.** It was
+      // blocked because hiding everything left "a screen with a greeting and nothing else, and
+      // no visible way back — the add-picker lives inside edit mode". Both halves of that
+      // expired in the same pass: there is no greeting, and the Retired drawer is always on
+      // screen with every hidden card one tap from returning. A guard whose reason is gone is
+      // a control that refuses for no stated cause, which is worse than the state it prevents.
       return {
         options: [
           {
             key: 'hide',
             label: t.home.cardMenu.hide,
             icon: 'eye-off-outline',
-            hint: isLast ? t.home.cardMenu.hideLastHint : t.home.cardMenu.hideHint,
-            disabled: isLast,
+            hint: t.home.cardMenu.hideHint,
             onPress: () => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) }),
           },
         ],
-        // The hand-off to the drag mode HomeCardManager already owns — not a second
-        // reorder implementation. It only makes sense with something to reorder against.
-        onEditLayout: isLast ? undefined : () => setCardsEditMode(true),
+        // No `onEditLayout`: the mode it handed off to does not exist any more, and the drag
+        // it described is always available on a long-press. `arrangeHint` still says so.
       };
     },
     [homeCardOrder, updateSettings, t]
@@ -333,44 +329,6 @@ export default function HomeScreen() {
               </View>
           </HintCard>
 
-          {/* Greeting — also hosts the "Edit cards" / "Done" toggle inline (top-right) so it
-              doesn't add its own row/margin between the greeting and the first preview card. */}
-          <DebugNoteAnchor id="home.greeting" label="Home — Greeting">
-            <View style={styles.header}>
-              <View style={styles.headerTextCol}>
-                <Text style={[styles.greeting, { color: theme.text }]}>
-                  {greeting()}{userName ? `, ${userName}` : ''}!
-                </Text>
-                <Text style={[styles.dateLabel, { color: theme.textMuted }]}>{dateLabel}</Text>
-              </View>
-              {cardsEditMode ? (
-                <PressableScale
-                  style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
-                  onPress={() => {
-                    tap();
-                    setCardsEditMode(false);
-                  }}
-                >
-                  <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.home.manageCards.done}</Text>
-                </PressableScale>
-              ) : (
-                <PressableScale
-                  style={styles.editEntryBtn}
-                  onPress={() => {
-                    tap();
-                    setCardsEditMode(true);
-                  }}
-                  hitSlop={HitSlop.base}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.home.manageCards.edit}
-                >
-                  <Ionicons name="pencil-outline" size={14} color={theme.textMuted} />
-                  <Text style={[styles.editEntryBtnText, { color: theme.textMuted }]}>{t.home.manageCards.edit}</Text>
-                </PressableScale>
-              )}
-            </View>
-          </DebugNoteAnchor>
-
           {/* Energy STRIP (2026-07-31, addendum task B.2) — no longer a card: one thin line of
               pips + `n / n` + an edit glyph, with its permanent explainer under it. It is FIXED
               here: outside HOME_CARD_KINDS/HomeCardManager, so it can be neither dragged nor
@@ -406,9 +364,7 @@ export default function HomeScreen() {
           <HomeCardManager
             order={homeCardOrder}
             labels={homeCardLabels}
-            editMode={cardsEditMode}
             onReorder={(next) => updateSettings({ homeCardOrder: next })}
-            onRemove={(kind) => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) })}
             onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
             renderCard={renderHomeCard}
           />
@@ -441,36 +397,13 @@ const baseStyles = StyleSheet.create({
   hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
   hintSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
   hintSettingLabel: { flex: 1, fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
-  // marginBottom matches every card's own trailing marginBottom (Spacing.sm) so the
-  // greeting→first-preview gap equals the gaps between previews (each = card marginBottom
-  // + section marginTop). Without it the first gap was 8px short — the "uneven" rhythm.
-  // Row layout (2026-07-24): the "Edit cards"/"Done" toggle now lives inline here (top-right)
-  // instead of its own row above the card stack — that used to add a second marginBottom
-  // on top of this one, doubling the greeting→first-card gap.
-  header: { marginBottom: Spacing.sm, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  headerTextCol: { flex: 1 },
-  // Home's big "Hei, Name" greeting — the screen's title role (2026-07-18: was xxl/semibold,
-  // now Type.title for the refreshed hierarchy).
-  greeting: { fontFamily: Type.title.fontFamily, fontSize: Type.title.size, lineHeight: Math.round(Type.title.size * Type.title.line) },
-  dateLabel: { fontSize: FontSize.sm, marginTop: Spacing.xs, textTransform: 'capitalize', fontFamily: Fonts.regular },
   // A plain grouping wrapper now — the screen's content container owns the gap between
   // stacked cards (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
   section: {},
   // The Energy strip is chrome, not a card, so it gets a card-gap's worth of space BELOW it
-  // (the next section's own Spacing.xl) but only a hair above — the greeting's own
-  // marginBottom (Spacing.sm) is already the separation it needs.
+  // (the next section's own Spacing.xl) but only a hair above. It used to be leaning on the
+  // greeting's marginBottom for the separation above it; with the greeting gone (2026-08-20)
+  // what is above it is the scaffold's own top edge, and Spacing.xs is still the right hair.
   energyStrip: { marginTop: Spacing.xs },
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
-  // "Edit cards" / "Done" toggle for the Notes/Plans/Shopping stack (moved here from
-  // HomeCardManager's own row, 2026-07-24 — see the header comment above).
-  doneBtn: { paddingVertical: Spacing.xs, paddingHorizontal: Spacing.md, borderRadius: Radius.full },
-  doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
-  editEntryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-  },
-  editEntryBtnText: { fontFamily: Fonts.medium, fontSize: FontSize.xs },
 });

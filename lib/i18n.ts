@@ -57,7 +57,6 @@ export type Lang = 'en' | 'no' | 'is';
 
 const en = {
   // Greeting
-  greeting: { night: 'Good night', morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -1246,12 +1245,16 @@ const en = {
     // The row label the Details field sits on since it moved into the notes quick-add's
     // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
     extraInfoLabel: 'Details',
+    // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
+    // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
     manageCards: {
-      edit: 'Edit cards',
-      done: 'Done',
-      add: 'Add a card',
-      remove: (label: string) => `Remove ${label}`,
       kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health' },
+    },
+    // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
+    // "Removed": nothing is gone, it has just stopped being on duty here.
+    retired: {
+      title: 'Retired',
+      restore: (label: string) => `Bring ${label} back`,
     },
     // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
     // says "this card" rather than naming a screen — the sheet's title already names it.
@@ -1260,8 +1263,7 @@ const en = {
       subtitle: 'Settings for this card',
       close: 'Done',
       hide: 'Hide this card',
-      hideHint: 'It stays on its own screen — nothing is removed',
-      hideLastHint: 'Home keeps at least one card',
+      hideHint: 'It waits under Retired, at the foot of this screen',
       arrangeHint: 'Hold a card to drag it up or down',
     },
   },
@@ -1724,7 +1726,7 @@ const en = {
     // and `layouts.*.hint`. A full sentence is only correct where the line says something the
     // label cannot, which on this screen is nowhere.
     desc: {
-      name: 'Only a greeting — never leaves your phone',
+      name: 'Your name on this device — never leaves your phone',
       weeklyReminders: 'A nudge on your shopping day',
       holidays: 'Public holidays on your calendar',
       shoppingDefault: 'Which list opens first',
@@ -2377,7 +2379,6 @@ const en = {
 };
 
 const no: typeof en = {
-  greeting: { night: 'God natt', morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
@@ -3298,7 +3299,7 @@ const no: typeof en = {
       shareNote: 'En delt kopi utelater navnet ditt',
     },
     desc: {
-      name: 'Bare en hilsen — forlater aldri telefonen',
+      name: 'Navnet ditt på denne enheten — forlater aldri telefonen',
       weeklyReminders: 'En påminnelse på handledagen din',
       holidays: 'Helligdager i kalenderen',
       shoppingDefault: 'Hvilken liste som åpnes først',
@@ -3602,19 +3603,18 @@ const no: typeof en = {
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
     manageCards: {
-      edit: 'Rediger kort',
-      done: 'Ferdig',
-      add: 'Legg til kort',
-      remove: (label: string) => `Fjern ${label}`,
       kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse' },
+    },
+    retired: {
+      title: 'Satt bort',
+      restore: (label: string) => `Hent ${label} tilbake`,
     },
     cardMenu: {
       open: (card: string) => `Kortinnstillinger for ${card}`,
       subtitle: 'Innstillinger for dette kortet',
       close: 'Ferdig',
       hide: 'Skjul dette kortet',
-      hideHint: 'Det ligger fortsatt på sin egen skjerm — ingenting fjernes',
-      hideLastHint: 'Hjem beholder minst ett kort',
+      hideHint: 'Det venter under Satt bort, nederst på denne skjermen',
       arrangeHint: 'Hold på et kort for å dra det opp eller ned',
     },
   },
@@ -4193,7 +4193,6 @@ const isCount = (n: number, one: string, many: string): string =>
   Math.abs(n) % 10 === 1 && Math.abs(n) % 100 !== 11 ? one : many;
 
 const is: typeof en = {
-  greeting: { night: 'Góða nótt', morning: 'Góðan morgun', day: 'Góðan daginn', evening: 'Gott kvöld' },
   days: ['sunnudagur', 'mánudagur', 'þriðjudagur', 'miðvikudagur', 'fimmtudagur', 'föstudagur', 'laugardagur'],
   months: ['janúar', 'febrúar', 'mars', 'apríl', 'maí', 'júní', 'júlí', 'ágúst', 'september', 'október', 'nóvember', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des'],
@@ -5119,7 +5118,7 @@ const is: typeof en = {
       shareNote: 'Deilt afrit sleppir nafninu þínu',
     },
     desc: {
-      name: 'Bara kveðja — fer aldrei úr símanum',
+      name: 'Nafnið þitt í þessu tæki — fer aldrei úr símanum',
       weeklyReminders: 'Áminning á innkaupadeginum þínum',
       holidays: 'Frídagar í dagatalinu',
       shoppingDefault: 'Hvaða listi opnast fyrst',
@@ -5424,19 +5423,19 @@ const is: typeof en = {
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
     manageCards: {
-      edit: 'Breyta kortum',
-      done: 'Búið',
-      add: 'Bæta við korti',
-      remove: (label: string) => `Fjarlægja: ${label}`,
       kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa' },
+    },
+    /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
+    retired: {
+      title: 'Í hvíld',
+      restore: (label: string) => `Sækja „${label}“ aftur`,
     },
     cardMenu: {
       open: (card: string) => `Stillingar korts: ${card}`,
       subtitle: 'Stillingar fyrir þetta kort',
       close: 'Búið',
       hide: 'Fela þetta kort',
-      hideHint: 'Það er áfram á sínum eigin skjá — ekkert er fjarlægt',
-      hideLastHint: 'Heim heldur að minnsta kosti einu korti',
+      hideHint: 'Það bíður undir „Í hvíld“, neðst á þessum skjá',
       arrangeHint: 'Haltu á korti til að draga það upp eða niður',
     },
   },
