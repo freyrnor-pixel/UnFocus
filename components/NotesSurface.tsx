@@ -32,7 +32,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
-import HintCard from '@/components/HintCard';
+import StarterCard from '@/components/StarterCard';
 import NoteRow from '@/components/NoteRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -114,10 +114,14 @@ export default function NotesSurface({ embedded = false }: Props) {
 
   return (
     <View style={styles.content}>
-      {!embedded && <HintCard text={t.hints.notes.text} />}
-
       {notes.length === 0 && !lastDeletedNote ? (
-        <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.notes.emptyState}</Text>
+        /* The ⓘ banner that used to sit above this whole surface is gone (2026-08-20) and its
+           sentence is here instead, in the shared empty-state card — the maintainer's rule is
+           that a tip belongs to the empty state, not to a band above the screen. `embedded`
+           because this surface can be mounted inside another card (the Me tab's Notes card),
+           where a Surface inside a Surface reads as a nested panel. It replaces the bare
+           `notes.emptyState` line, which described the composer sitting visibly below it. */
+        <StarterCard embedded text={t.hints.notes.text} />
       ) : (
         <>
           {(activeNotes.length > 0 || (lastDeletedNote && !lastDeletedNote.checked)) && (

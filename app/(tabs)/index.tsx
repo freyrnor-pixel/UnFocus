@@ -54,26 +54,30 @@
  *             components/HomeHealthCard (each self-contained — they read their own stores and
  *             own their own useCardExpand), components/HomeSharedCard (gated on
  *             settings.featureSharing + SHARING_VISIBLE), components/HomeCardManager,
- *             components/CardMenuSheet (the CardMenu type), components/HintCard,
+ *             components/CardMenuSheet (the CardMenu type),
  *             components/DebugNoteAnchor, components/TourTarget, components/PressableScale,
  *             constants/theme, lib/i18n, lib/useAppTheme, lib/haptics, lib/homeCards,
- *             lib/useFirstVisitHint, lib/notifications, lib/reminders, lib/sharingVisibility,
- *             store/useSettingsStore, store/useSharedStore, store/useTaskStore (the ⓘ hint's
- *             notification re-sync only — this screen reads no tasks)
+ *             lib/sharingVisibility,
+ *             store/useSettingsStore, store/useSharedStore
  *   Used by → Expo Router route "/" — one of 3 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useSharedStore (incoming shared tasks/shopping, for the self-hide check) and
- *             a handful of useSettingsStore fields; writes settings.homeCardOrder and the two
- *             notification toggles inside the ⓘ hint. The three preview cards own all their own
- *             reads and writes — nothing is threaded down as props any more.
+ *             a handful of useSettingsStore fields; writes settings.homeCardOrder and nothing
+ *             else. The three preview cards own all their own reads and writes — nothing is
+ *             threaded down as props any more.
  *
  * Edit notes:
  *   - Store hydration happens once at startup in app/_layout.tsx — no per-screen initDb/load.
- *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
- *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
- *     copy of the task-notification and weekly-reminder opt-ins (`hintSetting` rows below), so
- *     those are reached by a deliberate ⓘ tap. Left where they are deliberately: re-homing them
- *     is a separate design decision. ⚠️ It is now the one reason this file touches
- *     `useTaskStore` at all (`syncAllTaskNotifications`) — don't "tidy" that import away.
+ *   - **⚠️ There is no ⓘ hint on this screen, or on any other (2026-08-20).** Maintainer:
+ *     *"The top text box can be removed"*, with the standing rule that *"tips/explanation goes
+ *     in the card for empty states"*. components/HintCard.tsx and lib/useFirstVisitHint.ts are
+ *     DELETED app-wide, not unmounted. This screen's banner was the awkward one, because its
+ *     body held the ONLY copy of the task-notification and weekly-reminder opt-ins — a panel
+ *     whose contents are settings, reached by a deliberate ⓘ tap, which is the same complaint
+ *     that moved Shopping's cadence pickers out on 2026-08-13. Both switches already exist in
+ *     app/settings.tsx's `NOTIF_SWITCHES`, and the Settings copies are strictly better: they
+ *     ask for the OS permission through `applyAndSync`, which the two hand-rolled ones here
+ *     only half did. So this deletes rather than re-homes, and with it goes the last reason
+ *     this file imported `useTaskStore`, lib/notifications and lib/reminders at all.
  *   - **Every card here is self-contained**, which is what made the To-do/Shopping removal a
  *     deletion rather than a refactor: HomeHabitsCard/HomeNotesCard/HomeHealthCard read their
  *     own stores and mount their own lib/useCardExpand. PlanTaskCard was the exception — a
@@ -109,7 +113,7 @@
  */
 import React, { useCallback, useMemo } from 'react';
 
-import { StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import EnergyMeter from '@/components/EnergyMeter';
 import HomeNotesCard from '@/components/HomeNotesCard';
@@ -118,21 +122,16 @@ import HomeHabitsCard from '@/components/HomeHabitsCard';
 import HomeHealthCard from '@/components/HomeHealthCard';
 import HomeCardManager from '@/components/HomeCardManager';
 import type { CardMenu } from '@/components/CardMenuSheet';
-import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { Fonts, FontSize, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, SCREEN_GAP, Spacing } from '@/constants/theme';
 
-import { useTaskStore } from '@/store/useTaskStore';
 import { SharedShoppingItem, SharedTask, useSharedStore } from '@/store/useSharedStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
-import { requestPermissions } from '@/lib/notifications';
-import { syncReminders } from '@/lib/reminders';
 import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
 
 // Home preview card management (hold-to-manage, components/HomeCardManager.tsx). The kinds
@@ -144,9 +143,6 @@ export default function HomeScreen() {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
-  // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
-  // hint's embedded notification settings, and lib/useFirstVisitHint.ts).
-  const [hintOpen, dismissHint] = useFirstVisitHint('home');
 
   // Mirrors HomeSharedCard's own self-hide check exactly — needed here too so this
   // screen doesn't mount an empty `section` wrapper (marginTop: Spacing.xl) around a
@@ -177,8 +173,6 @@ export default function HomeScreen() {
   // below. These select only the fields Home actually reads.
   const settingsLoaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
-  const taskNotificationsEnabled = useSettingsStore((s) => s.taskNotificationsEnabled);
-  const remindersEnabled = useSettingsStore((s) => s.remindersEnabled);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
@@ -297,38 +291,11 @@ export default function HomeScreen() {
         ownBackground={false}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.home.text} open={hintOpen} noPill onDismiss={dismissHint}>
-            <View style={[styles.hintSetting, { borderTopColor: theme.hintBorder }]}>
-                <View style={styles.hintSettingRow}>
-                  <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.taskNotifications}</Text>
-                  <Switch
-                    value={taskNotificationsEnabled}
-                    onValueChange={(v) => {
-                      updateSettings({ taskNotificationsEnabled: v });
-                      const resync = () => useTaskStore.getState().syncAllTaskNotifications();
-                      if (v) requestPermissions().finally(resync);
-                      else resync();
-                    }}
-                    trackColor={{ false: theme.border, true: theme.accentSoft }}
-                    thumbColor={taskNotificationsEnabled ? theme.accent : theme.textMuted}
-                  />
-                </View>
-                <View style={styles.hintSettingRow}>
-                  <Text style={[styles.hintSettingLabel, { color: theme.text }]}>{t.weeklyRemindersOnboarding}</Text>
-                  <Switch
-                    value={remindersEnabled}
-                    onValueChange={(v) => {
-                      updateSettings({ remindersEnabled: v });
-                      if (v) requestPermissions().finally(() => syncReminders());
-                      else syncReminders();
-                    }}
-                    trackColor={{ false: theme.border, true: theme.accentSoft }}
-                    thumbColor={remindersEnabled ? theme.accent : theme.textMuted}
-                  />
-                </View>
-              </View>
-          </HintCard>
-
+          {/* ⚠️ **The ⓘ hint banner is GONE (2026-08-20)** — see the header. Its BODY was two
+              notification switches (task reminders, the weekly nudge), and deleting them loses
+              nothing: both are in app/settings.tsx's `NOTIF_SWITCHES`, which is the inventory,
+              and the Settings copies additionally ask for the OS permission through
+              `applyAndSync` — which these two hand-rolled ones only half did. */}
           {/* Energy STRIP (2026-07-31, addendum task B.2) — no longer a card: one thin line of
               pips + `n / n` + an edit glyph, with its permanent explainer under it. It is FIXED
               here: outside HOME_CARD_KINDS/HomeCardManager, so it can be neither dragged nor
@@ -393,10 +360,6 @@ const baseStyles = StyleSheet.create({
   // flush to the header's glass and the nav bar's, and a margin here is the blank strip
   // that clip exists to delete. Horizontal padding stays — the side gutters are backdrop.
   content: { paddingHorizontal: Spacing.md, gap: SCREEN_GAP },
-  // Embedded first-run settings inside the ⓘ hint (notification opt-in).
-  hintSetting: { borderTopWidth: 1, paddingTop: Spacing.sm, gap: Spacing.sm },
-  hintSettingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md },
-  hintSettingLabel: { flex: 1, fontFamily: Type.label.fontFamily, fontSize: Type.label.size },
   // A plain grouping wrapper now — the screen's content container owns the gap between
   // stacked cards (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
   section: {},

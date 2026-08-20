@@ -200,7 +200,8 @@ export default function TourSpotlight() {
    * Keep the hole on the card (2026-08-05). A target's registered rect is measured on mount,
    * on focus and on its own onLayout — none of which fire when something ABOVE it resizes and
    * pushes it down the screen. On a fresh install that happens within a beat of the tour
-   * starting: the Shopping tab's first-visit HintCard reveals itself through
+   * starting: the Shopping tab's first-visit hint card (deleted 2026-08-20 — the mechanism
+   * this paragraph describes still applies to any animated sibling) revealed itself through
    * components/Collapsible.tsx, which animates its height from a Reanimated worklet, so every
    * sibling below it moves with no React layout pass of its own. The recorded rect stayed put
    * and the ring sat ~130px above the card it was pointing at, over blank space.

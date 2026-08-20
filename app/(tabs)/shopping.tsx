@@ -507,7 +507,6 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import KeepAwakeInStore from '@/components/KeepAwakeInStore';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import HintCard from '@/components/HintCard';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -523,7 +522,6 @@ import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
@@ -572,15 +570,13 @@ export default function ShoppingScreen() {
   const catalogueExpand = useCardExpand('shopCatalogue');
   // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
   // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
-  const [hintOpen, dismissHint] = useFirstVisitHint('shopping');
   // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
   // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
   // updates the setting, leaving it blank keeps the current value.
-  // (No useKeyboardLift here since 2026-08-13: this field moved into components/HintSheet.tsx,
-  // which is a <Modal> — outside the ScrollView that hook scrolls. The sheet's own
-  // KeyboardAvoidingView does the job instead. The Monthly rename field below still uses it;
+  // (The monthly-reset DATE field that used to live here is gone with the ⓘ banner, 2026-08-20
+  // — it had already moved to Settings → Personal on 2026-08-13, leaving this local draft state
+  // behind with nothing reading it. The Monthly rename field below still uses useKeyboardLift;
   // that one is genuinely in the scroll content.)
-  const [monthlyDateInput, setMonthlyDateInput] = useState('');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1647,39 +1643,18 @@ export default function ShoppingScreen() {
           install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
           would suppress this for every new user. Items covers the seeded list having been
           filled in. */}
-      {/* The screen's explanation, inline and closable (2026-08-13). Maintainer: "Having the
-          info button in the header section with settings showing when you press it makes No
-          sense. Instead the instructions should be in the screen with examples like a
-          introduction part (users can of course close the card)."
-          It has now been three shapes in three weeks — an auto-opening first-visit card, a
-          collapsed-until-you-tap-ⓘ card, and (for one day) a bottom sheet — and the thing that
-          changed with this one is that closing it STICKS (settings.dismissedHints). The two
-          reset-cadence controls it used to carry are gone to Settings → Personal: a panel
-          whose contents are settings is not an explanation, which is what the ⓘ complaint was
-          about. The link row below is how you get to them from here. */}
-      <HintCard
-        text={t.hints.shopping.text}
-        open={hintOpen}
-        noPill
-        onDismiss={dismissHint}
-      >
-        <PressableScale
-          // `section` as well as `tab` (2026-08-14): `tab` alone was being dropped outright —
-          // app/settings.tsx read no route params at all — and even once read, the right tab
-          // still leaves the two reset fields inside a collapsed card. `section` opens that
-          // card and scrolls to it.
-          onPress={() => router.push('/settings?tab=personal&section=shopping')}
-          style={styles.hintSettingsLink}
-          accessibilityRole="button"
-          accessibilityLabel={t.shoppingCadenceLink}
-          scaleTo={0.97}
-        >
-          <Ionicons name="options-outline" size={16} color={theme.accent} />
-          <Text style={[styles.hintSettingsLinkLabel, { color: theme.accent }]}>{t.shoppingCadenceLink}</Text>
-        </PressableScale>
-      </HintCard>
+      {/* ⚠️ **No ⓘ banner since 2026-08-20.** It had been four shapes in a month — an
+          auto-opening first-visit card, a collapsed-until-you-tap-ⓘ card, a bottom sheet, and a
+          closable inline card — and the maintainer ended the series rather than picking a fifth:
+          *"The top text box can be removed"*, with tips belonging to a card's empty state. Its
+          sentence is on the StarterCard directly below, which is what this screen says while it
+          has nothing on it. The cadence LINK went too, not just the pickers: Settings is one tap
+          away on this screen's own header gear, and a card whose whole body is a door to another
+          screen is the thing the original ⓘ complaint was about. */}
       {lists.length === 0 && items.length === 0 && (
-        <StarterCard text={`• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`} />
+        <StarterCard
+          text={`${t.hints.shopping.text}\n• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`}
+        />
       )}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and

@@ -264,7 +264,9 @@ describe('the italic exception is exactly one file wide, and is a real face', ()
     for (const file of [
       'components/StarterCard.tsx',
       'components/StarterExampleRow.tsx',
-      'components/HintCard.tsx',
+      // components/HintCard.tsx was the fourth entry until 2026-08-20, when the ⓘ banner was
+      // deleted app-wide. Its slot is not backfilled: the list names the files that carry
+      // teaching copy and could plausibly reach for italic again, not a count to keep at four.
       'components/PlanTaskCard.tsx',
     ]) {
       const source = code(file);

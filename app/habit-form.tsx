@@ -61,7 +61,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
- *             components/HintCard, components/HabitIcon,
+ *             components/HabitIcon,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
  *             settings.featureGoals), components/OptionalTag,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
@@ -154,7 +154,6 @@ import { tap, heavy } from '@/lib/haptics';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl } from '@/components/FormControls';
-import HintCard from '@/components/HintCard';
 import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
@@ -451,7 +450,6 @@ export default function HabitForm() {
       }
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.habitForm.text} />
 
         {/* Title */}
         <View style={styles.field}>

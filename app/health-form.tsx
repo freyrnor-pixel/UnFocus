@@ -15,7 +15,7 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/DateChipRow (the Mon–Sun chips + collapsible calendar, extracted from
  *             this file 2026-08-01 so components/EpisodeCloseSheet.tsx could share it),
- *             components/HintCard, components/ConfirmationBanner,
+ *             components/ConfirmationBanner,
  *             components/Button, components/AppModal, components/PressableScale,
  *             components/OptionalTag,
  *             lib/date, lib/episodes (backdatedStart), lib/haptics, lib/i18n, lib/severity,
@@ -89,7 +89,6 @@ import { severities, severityInk } from '@/lib/severity';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
-import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DateChipRow from '@/components/DateChipRow';
 import OptionalTag from '@/components/OptionalTag';
@@ -226,7 +225,6 @@ export default function HealthFormScreen() {
       }
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.health.text} />
 
         {/* Issue — catalog-backed symptom typeahead */}
         <View style={styles.field}>

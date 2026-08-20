@@ -10,7 +10,7 @@
  * how Tasks/Habits keep "add" on the full-list screen rather than the tab preview.
  *
  * Connections:
- *   Imports → components/ScreenScaffold, components/HintCard, components/EmptyState,
+ *   Imports → components/ScreenScaffold, components/EmptyState,
  *             components/Surface (its `onPress` key path), components/AnimatedListItem
  *             (symptom-section add/remove fade), lib/i18n,
  *             lib/severity, lib/useAppTheme, store/useHealthStore
@@ -39,7 +39,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import HintCard from '@/components/HintCard';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
 import AnimatedListItem from '@/components/AnimatedListItem';
@@ -114,7 +113,6 @@ export default function HealthLogScreen() {
   return (
     <ScreenScaffold title={t.healthLogTitle} tier="sub" screenKey="health" onBack={() => router.back()}>
       <View style={styles.content}>
-        <HintCard text={t.hints.health.text} />
 
         {/* Add-symptom affordance (2026-07-13 rows pass): the shared AddRow, matching the
             add-a-row shape used across Plans/Shopping/Habits. A symptom log is multi-field

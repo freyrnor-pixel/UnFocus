@@ -16,7 +16,7 @@
  *
  * Connections:
  *   Imports → components/NarratorQuote (2026-08-19 — what a day with no habits due says),
- *             components/ScreenScaffold, components/HintCard, components/StarterCard
+ *             components/ScreenScaffold, components/StarterCard
  *             (and components/StarterSuggestionChip, 2026-08-12 — the shared empty-state
  *             suggestion chip that replaced this screen's hand-rolled `starterChip`)
  *             (2026-08-06 v3 — back on this screen, now carrying its own `collapsible`
@@ -62,7 +62,7 @@
  *             lib/useNowMinutes (the tick that keeps `today` from going stale across
  *             midnight — see its call site; it is what the writes are dated by),
  *             lib/haptics, lib/habitStarters, lib/i18n,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/useDragReorder (drag-to-reorder),
+ *             lib/useAppTheme, lib/useDragReorder (drag-to-reorder),
  *             lib/useGhostTimeout (2026-08-01, the ghost row's timing),
  *             lib/prefill (usePrefill — a note sent here seeds the quick-add), lib/domainColor,
  *             lib/habitRecurrence, store/useHabitStore, store/useSettingsStore
@@ -215,7 +215,6 @@ import { usePeopleStore } from '@/store/usePeopleStore';
 import PersonChip from '@/components/PersonChip';
 import { personColor } from '@/lib/personColor';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import HintCard from '@/components/HintCard';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
@@ -247,7 +246,6 @@ import { useGhostTimeout } from '@/lib/useGhostTimeout';
 const HABIT_STARTER_CHIPS = 2;
 import PressableScale from '@/components/PressableScale';
 import { useT } from '@/lib/i18n';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { usePrefill } from '@/lib/prefill';
 import { todayStr, getWeekDates } from '@/lib/date';
@@ -636,7 +634,6 @@ export default function HabitsScreen() {
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); the card's own tips line + suggested-habits card already teach
   // this (2026-08-06 v2 — see the header's dated note; was StarterCard until then).
-  const [hintOpen, dismissHint] = useFirstVisitHint('habits');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -855,7 +852,9 @@ export default function HabitsScreen() {
               which is also why the 2026-07-21 debug note below, removing a plain "X / Y
               done" tally from this same screen, still holds: no score belongs on this
               screen. */}
-          <HintCard text={t.hints.habits.text} open={hintOpen} noPill onDismiss={dismissHint} />
+          {/* ⚠️ No ⓘ banner since 2026-08-20 — the StarterCard inside the card below is where
+              this screen explains itself now, which is also where its starter chips already
+              were. */}
 
           {/* Habits — one hue-edged card holding the filter · view tabs · rows · add line.
               This used to be a `SectionCard`, whose header label was the string "Habits"
@@ -997,7 +996,7 @@ export default function HabitsScreen() {
                       list's own slot, above the composer that would create the real thing. See
                       components/StarterCard.tsx's `embedded` note. */}
                   {!allStartersAdded && (
-                    <StarterCard embedded collapsible>
+                    <StarterCard embedded collapsible text={t.hints.habits.text}>
                       {/* Two chips, not four (2026-07-30) — the same measured call
                           components/HomeHabitsCard.tsx already made. `npm run wraps --lang=no`
                           had this row wrapping at every width tested: 4 chips on 2 lines at

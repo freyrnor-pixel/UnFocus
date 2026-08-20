@@ -68,8 +68,10 @@
  *     constant — the Habits TAB still offers all four). It also carried a one-line explainer
  *     under the header (`t.starters.habits.text`, a bulb + italic sentence); **that whole tier
  *     was deleted on 2026-08-17** — *"a native app should not read like a manual"* — so the card
- *     goes straight from its header to its content and the ⓘ banner is where a screen explains
- *     itself. See components/HintCard.tsx. The string is deleted too, not just unmounted.
+ *     goes straight from its header to its content. The string is deleted too, not just
+ *     unmounted. ⚠️ It said "the ⓘ banner is where a screen explains itself" — that stopped
+ *     being true on 2026-08-20, when the banner was deleted app-wide; the empty-state
+ *     components/StarterCard.tsx is where it happens now.
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
  *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled

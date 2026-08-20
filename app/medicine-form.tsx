@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls
  *             (Input/Switch), components/Stepper, components/PressableScale,
- *             components/HintCard, components/OptionalTag,
+ *             components/OptionalTag,
  *             components/AppModal (delete confirm), constants/theme,
  *             lib/date (todayStr/getWeekDates), lib/haptics, lib/i18n, lib/severity
  *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
@@ -51,7 +51,6 @@ import Surface from '@/components/Surface';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
-import HintCard from '@/components/HintCard';
 import OptionalTag from '@/components/OptionalTag';
 import { confirmDestructive } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
@@ -174,7 +173,6 @@ export default function MedicineFormScreen() {
         onBack={() => router.back()}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.medicineForm.text} />
 
           <View style={styles.field}>
             <Input

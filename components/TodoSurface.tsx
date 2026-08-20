@@ -66,7 +66,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
@@ -107,7 +106,6 @@ import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { useEnergyPause } from '@/lib/useEnergyPause';
@@ -386,7 +384,6 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const full = !section;
-  const [hintOpen, dismissHint] = useFirstVisitHint('plans');
 
   const wheneverHue = getScreenColor(theme, 'plans').base;
   const repeatingHue = getDomainColor(theme, 'health').accent;
@@ -969,8 +966,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   return (
     <View style={styles.content}>
-      {full && <HintCard text={t.hints.plans.text} open={hintOpen} noPill onDismiss={dismissHint} />}
-
+      {/* ⚠️ No ⓘ banner here since 2026-08-20 — see components/StarterCard.tsx below, which is
+          where this screen's explanation lives now. `hints.plans.text` ("Everything to do, by
+          day and week.") was not moved into it: `starters.plans.text` was already the same
+          sentence's job, one card lower, next to a real example row. */}
       {full && (tasks.length === 0 || planStarterAdded) && !layoutSpec.timeline && (
         <StarterCard
           text={t.starters.plans.text}

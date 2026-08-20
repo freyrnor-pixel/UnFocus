@@ -1896,19 +1896,22 @@ const en = {
    * "Whenever". `components/HintCard.tsx` clamps these to two lines, so a hint that grows past a
    * short sentence in Norwegian will be truncated rather than pushing the card's controls down.
    */
+  /**
+   * The six explanations that survived the ⓘ banner (2026-08-20). They are not banners any
+   * more — components/HintCard.tsx is deleted and each of these is now the `text` of the
+   * surface's own empty-state components/StarterCard.tsx, per the maintainer's rule that a tip
+   * belongs to the empty state. `automations` is the exception and always was: it is a row
+   * `hint` in Settings, not a screen banner.
+   * Nine keys went with the banners rather than being re-homed — `home`, `plans`, `taskForm`,
+   * `habitForm`, `medicineForm`, `meals`, `scan`, `settings`, `shared`. Each was either a
+   * duplicate of a starter card one card lower (`plans`), a manual over a form whose fields are
+   * already labelled (the three `*Form`s), or a line about a screen that says it better itself.
+   * The key name stays `hints` so the diff reads; don't add a banner back under it.
+   */
   hints: {
-    home: { text: 'Hold a card to move it.' },
-    taskForm: { text: 'Add a task with a title, date, and optional details.' },
-    habitForm: { text: 'How often it repeats and how many times a day it counts.' },
-    medicineForm: { text: 'Pick its trays, or set it as needed.' },
     shopping: { text: 'Add things as you run out — resets weekly.' },
-    meals: { text: 'Browse dishes and add their ingredients to your shopping list.' },
     health: { text: 'Log and track health issues over time.' },
-    scan: { text: 'Photo a receipt to add items, or scan a shared QR code.' },
-    settings: { text: 'Changes apply immediately.' },
-    shared: { text: 'Items shared with you — mark your part done.' },
     habits: { text: 'Tap to count it, gear to set it up.' },
-    plans: { text: 'Everything to do, by day and week.' },
     automations: { text: 'Simple rules: when X happens, do Y automatically.' },
     notes: { text: 'Write it down, then send it anywhere.' },
     goals: { text: 'The bigger thing your to-dos and habits are for.' },
@@ -3793,18 +3796,9 @@ const no: typeof en = {
     micErrorBody: 'Fikk ikke med det — prøv igjen.',
   },
   hints: {
-    home: { text: 'Hold et kort for å flytte.' },
-    taskForm: { text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.' },
-    habitForm: { text: 'Hvor ofte den gjentas og hvor mange ganger om dagen den teller.' },
-    medicineForm: { text: 'Velg runder, eller sett den til ved behov.' },
     shopping: { text: 'Legg til når du går tom — nullstilles ukentlig.' },
-    meals: { text: 'Bla gjennom retter og legg ingrediensene til handlelisten.' },
     health: { text: 'Logg og følg opp helseplager over tid.' },
-    scan: { text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.' },
-    settings: { text: 'Endringer trer i kraft umiddelbart.' },
-    shared: { text: 'Delt med deg — merk din del som utført.' },
     habits: { text: 'Trykk for å telle, tannhjul for å sette opp.' },
-    plans: { text: 'Alt som skal gjøres, etter dag og uke.' },
     automations: { text: 'Enkle regler: når X skjer, gjør Y automatisk.' },
     notes: { text: 'Skriv det ned, og send det videre.' },
     goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
@@ -5606,18 +5600,9 @@ const is: typeof en = {
     micErrorBody: 'Náði þessu ekki — reyndu aftur.',
   },
   hints: {
-    home: { text: 'Haltu á korti til að færa það.' },
-    taskForm: { text: 'Bættu við verkefni með heiti, dagsetningu og valfrjálsum atriðum.' },
-    habitForm: { text: 'Hversu oft hún endurtekst og hversu oft á dag hún telur.' },
-    medicineForm: { text: 'Veldu hólf, eða settu lyfið á „eftir þörfum“.' },
     shopping: { text: 'Bættu við þegar eitthvað klárast. Núllstillist vikulega.' },
-    meals: { text: 'Flettu í gegnum rétti og settu hráefnin á innkaupalistann.' },
     health: { text: 'Skráðu heilsuvanda og fylgdu honum eftir yfir tíma.' },
-    scan: { text: 'Mynd af kvittun til að bæta við vörum, eða skannaðu deildan QR-kóða.' },
-    settings: { text: 'Breytingar taka gildi strax.' },
-    shared: { text: 'Deilt með þér — merktu þinn hluta sem búinn.' },
     habits: { text: 'Ýttu til að telja, tannhjólið til að stilla.' },
-    plans: { text: 'Allt sem á að gera, eftir degi og viku.' },
     automations: { text: 'Einfaldar reglur: þegar X gerist, gerðu Y sjálfkrafa.' },
     notes: { text: 'Skrifaðu það niður. Sendu það áfram.' },
     goals: { text: 'Það stærra sem verkefnin og venjurnar þínar eru fyrir.' },
