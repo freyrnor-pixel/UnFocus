@@ -97,7 +97,7 @@ import TodoSurface from '@/components/TodoSurface';
 import HealthSurface from '@/components/HealthSurface';
 import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
-import CatalogueTab from '@/components/CatalogueTab';
+import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
 import { Fonts, FontSize, Radius, Spacing, getLayeredShadow } from '@/constants/theme';
 import { ExpandableCardId, ExpandRect } from '@/lib/expandableCards';
@@ -131,7 +131,24 @@ function FoodExpandedBody() {
   return <FoodTab onNotify={() => {}} />;
 }
 function CatalogueExpandedBody() {
-  return <CatalogueTab onNotify={() => {}} onOpenFull={() => {}} />;
+  // The lock is owned here rather than by CatalogueTab (2026-08-20) because its two buttons
+  // live in whatever header the list sits under. This pane's header is CardExpandHost's own
+  // title row, which takes no per-card controls — so they go through CatalogueTab's `header`
+  // slot instead, which renders directly above the search field, i.e. still the top of this
+  // surface. If a second expandable card ever wants header controls, THAT is the point to add
+  // a `Controls` entry to CARD_BODIES rather than growing a second convention here.
+  const [locked, setLocked] = useState(true);
+  return (
+    <CatalogueTab
+      onNotify={() => {}}
+      locked={locked}
+      header={
+        <View style={styles.expandedControls}>
+          <CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />
+        </View>
+      }
+    />
+  );
 }
 
 /** Placeholder shown for a body not wired up yet in this pass — never ships as final. */
@@ -368,6 +385,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { flex: 1, fontFamily: Fonts.bold, fontSize: FontSize.lg, marginRight: Spacing.sm },
+  // The catalogue's camera + lock inside the expanded pane. Right-aligned and boxless — the
+  // rule this pass established is that these two sit in the surface's top part, not in an edge
+  // of their own.
+  expandedControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   bodyOuter: { flex: 1 },
   bodyFlex: { flex: 1, paddingHorizontal: Spacing.md },
   scrollContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },

@@ -213,18 +213,14 @@ function FoldableSectionCard({
         // The chevron goes AFTER whatever the caller put in the header, so a section's own
         // control keeps the position it has always had and the fold sits outermost — the same
         // ordering components/MedicineTrayCard.tsx uses for its reminder bell.
-        // Wrapped in a row: SectionRail's own `right` slot is a bare View, so it is a COLUMN by
-        // default and two children would stack. Only wrapped when the caller supplied one —
-        // otherwise the chevron goes in alone and needs no row of its own.
+        // ⚠️ No row wrapper here since 2026-08-20: SectionRail's `right` slot lays its children
+        // out in a row itself now. It used to be a bare View (a COLUMN), so this had to wrap —
+        // and every OTHER caller that passed two controls stacked them silently.
         right={
-          right ? (
-            <View style={styles.headerActions}>
-              {right}
-              <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
-            </View>
-          ) : (
+          <>
+            {right}
             <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
-          )
+          </>
         }
       />
       {/* The count stays on the rail while collapsed, which is the point: a folded section still
@@ -253,8 +249,4 @@ const styles = StyleSheet.create({
   // sections used (Spacing.sm). SectionRail carries its own marginBottom, so no extra
   // top gap is added here.
   content: { gap: Spacing.sm },
-  // Caller's own header control + the fold chevron, side by side. `Spacing.xs` rather than `sm`
-  // because both children already carry a MIN_TAP_TARGET box, so the visible gap is wider than
-  // the number suggests.
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
 });

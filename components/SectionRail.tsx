@@ -206,6 +206,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.extrabold,
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
-  right: { marginLeft: 'auto' },
+  // ⚠️ **A ROW, not a bare View (2026-08-20).** This was `{ marginLeft: 'auto' }` alone, so a
+  // slot given more than one control stacked them vertically — a card header with the camera,
+  // the lock and ⤢ came out as a three-storey column with the title beside the top one.
+  // components/SectionCard.tsx had hit this already and worked around it locally, wrapping its
+  // fold chevron and the caller's control in a row of its own; that workaround is deleted now
+  // that the slot itself lays out correctly, and the fix reaches every other caller too.
+  // `alignItems: 'center'` so a short control lines up with a tall one rather than stretching.
+  right: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
 });

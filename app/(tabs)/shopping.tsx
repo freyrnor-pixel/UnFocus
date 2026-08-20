@@ -514,7 +514,7 @@ import TourTarget from '@/components/TourTarget';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
-import CatalogueTab from '@/components/CatalogueTab';
+import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import CardExpandButton from '@/components/CardExpandButton';
 import { useCardExpand } from '@/lib/useCardExpand';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
@@ -577,6 +577,11 @@ export default function ShoppingScreen() {
   // — it had already moved to Settings → Personal on 2026-08-13, leaving this local draft state
   // behind with nothing reading it. The Monthly rename field below still uses useKeyboardLift;
   // that one is genuinely in the scroll content.)
+  // The Katalog card's lock (2026-08-20). Owned here rather than inside components/
+  // CatalogueTab.tsx because the button that flips it is in that card's SectionCard header.
+  // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
+  // and it must never sync — a paired phone locking your catalogue is nonsense.
+  const [catalogueLocked, setCatalogueLocked] = useState(true);
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1709,9 +1714,19 @@ export default function ShoppingScreen() {
           icon="list"
           label={t.catalogueTabLabel}
           count={catalogCount}
-          right={<CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />}
+          // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
+          // buttons for camera and lock should be in the top part instead"*) — they were inside
+          // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
+          // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
+          // right-most thing in the header.
+          right={
+            <>
+              <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+              <CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />
+            </>
+          }
         >
-          <CatalogueTab embedded onNotify={setConfirm} onOpenFull={catalogueExpand.onExpand} />
+          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
         </SectionCard>
       </View>
     </>

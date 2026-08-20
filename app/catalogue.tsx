@@ -35,7 +35,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
-import CatalogueTab from '@/components/CatalogueTab';
+import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { useT } from '@/lib/i18n';
 
@@ -43,12 +43,26 @@ export default function CatalogueScreen() {
   const router = useRouter();
   const t = useT();
   const [confirmMessage, setConfirmMessage] = useState<string | null>(null);
+  // The lock lives here, not in CatalogueTab, because the buttons that drive it are in the
+  // screen HEADER (2026-08-20) — see CatalogueHeaderControls. Local and NOT persisted,
+  // deliberately, and not a settings column: it is a per-visit safety catch on a destructive
+  // one-tap action (`handleRemove` has never had a confirm dialog), not a preference. It must
+  // also never sync — a paired phone locking your catalogue is nonsense — which a settings
+  // column would invite.
+  const [locked, setLocked] = useState(true);
 
   return (
     <>
-      <ScreenScaffold title={t.catalogueTabLabel} tier="sub" screenKey="shopping" onBack={() => router.back()} scrollable={false}>
+      <ScreenScaffold
+        title={t.catalogueTabLabel}
+        tier="sub"
+        screenKey="shopping"
+        onBack={() => router.back()}
+        scrollable={false}
+        headerRight={<CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />}
+      >
         <ErrorBoundary>
-          <CatalogueTab onNotify={setConfirmMessage} />
+          <CatalogueTab onNotify={setConfirmMessage} locked={locked} />
         </ErrorBoundary>
       </ScreenScaffold>
       <ConfirmationBanner message={confirmMessage} onDismiss={() => setConfirmMessage(null)} />

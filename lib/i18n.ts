@@ -216,7 +216,6 @@ const en = {
    *  opens the full screen. Distinct from `home.andMore`, which is about TODAY
    *  specifically and can't be reused for a library screen. (Was SubScreenPreviewList's
    *  last row until that component was deleted, 2026-08-10.) */
-  andMoreItems: (n: number) => `and ${n} more`,
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
   // "One thing at a time" layout (lib/cardLayout.ts's focusFirst, design-system v6's
@@ -843,8 +842,6 @@ const en = {
   // Settings → General: brings back every intro card the user has closed.
   restoreHintsLabel: 'Show tips again',
   restoreHintsDone: 'Tips are back',
-  sortByType: 'By type',
-  sortByName: 'By name',
   sortLabel: 'Sort',
   categoryLabels: {
     produce: 'Produce',
@@ -2490,7 +2487,6 @@ const no: typeof en = {
   },
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
-  andMoreItems: (n: number) => `og ${n} til`,
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
   focusFirst: {
@@ -2943,8 +2939,6 @@ const no: typeof en = {
   shoppingCadenceLink: 'Nullstillingsdager',
   restoreHintsLabel: 'Vis tipsene igjen',
   restoreHintsDone: 'Tipsene er tilbake',
-  sortByType: 'Etter type',
-  sortByName: 'Etter navn',
   sortLabel: 'Sorter',
   categoryLabels: {
     produce: 'Frukt & grønt',
@@ -4299,7 +4293,6 @@ const is: typeof en = {
   },
   shoppingPreview: 'Kaupa fljótlega',
   seeAll: 'Sjá allt →',
-  andMoreItems: (n: number) => `og ${n} í viðbót`,
   emptyMonthlyList: 'Ekkert hér enn — bættu við fyrstu föstu vörunni.',
   smallThingsCount: (n: number) => `Þú hefur klárað ${n} ${isCount(n, 'hlut', 'hluti')} — smáatriðin telja!`,
   focusFirst: {
@@ -4755,8 +4748,6 @@ const is: typeof en = {
   restoreHintsDone: 'Ábendingarnar eru komnar aftur',
   /* The segment draws no "Raða" label of its own, so the two options carry the question.
      "Eftir tegund" overran its segment by 12px; the bare nouns fit and read the same. */
-  sortByType: 'Tegund',
-  sortByName: 'Heiti',
   sortLabel: 'Raða',
   categoryLabels: {
     produce: 'Ávextir og grænmeti',
