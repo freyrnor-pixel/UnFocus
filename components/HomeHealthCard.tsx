@@ -34,7 +34,7 @@ import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import CardExpandButton from '@/components/CardExpandButton';
 import HealthSurface from '@/components/HealthSurface';
 import { useCardExpand } from '@/lib/useCardExpand';
-import { Fonts, OpticalCenter, PAD_GUTTER, Radius, Spacing } from '@/constants/theme';
+import { Fonts, OpticalCenter, PAD_GUTTER, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { getScreenColor } from '@/lib/screenColor';
@@ -85,5 +85,11 @@ const baseStyles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.lg },
   headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
+  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
+  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
+  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
+  // no visual change. A literal here is invisible to the type scale and to the design lab's
+  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
+  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
+  title: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily, ...OpticalCenter },
 });

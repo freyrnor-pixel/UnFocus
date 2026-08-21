@@ -119,6 +119,7 @@ import {
   Spacing,
   rgba,
   HitSlop,
+  Type,
 } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
@@ -455,10 +456,16 @@ const baseStyles = StyleSheet.create({
   headerText: { flex: 1, minWidth: 0 },
   // OpticalCenter so the title optically centers against the round CardAccentBadge on Android
   // (same font-padding fix as TabSlider/ScreenHeader — see constants/theme.ts for why).
+  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
+  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
+  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
+  // no visual change. A literal here is invisible to the type scale and to the design lab's
+  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
+  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
   title: {
-    fontSize: 20,
-    lineHeight: 25,
-    fontFamily: Fonts.bold,
+    fontSize: Type.heading.size,
+    lineHeight: Type.heading.size * Type.heading.line,
+    fontFamily: Type.heading.fontFamily,
     ...OpticalCenter,
   },
   micButton: {

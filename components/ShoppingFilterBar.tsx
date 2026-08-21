@@ -79,8 +79,14 @@ export default function ShoppingFilterBar({ search, onSearchChange, category, on
           TextInput inside it). `minWidth: 0` alongside `flex: 1` is what actually lets it
           shrink; `flex: 1` on its own does not (AGENTS.md's wrap-audit lesson). */}
       <View style={styles.searchWrap}>
+        {/* `recessed` (consistency audit, 2026-08-21): all three of this bar's mount sites are
+            INSIDE a card — components/WeekListCard.tsx, app/(tabs)/shopping.tsx's monthly cards
+            and components/AddFromMonthlyModal.tsx — which is exactly the condition `recessed`
+            documents itself for. Without it this drew a bordered box beside `InlineAddItem`'s
+            recessed well in the same card, i.e. two field shapes one row apart. */}
         <Input
           ref={searchLift.ref}
+          recessed
           style={styles.search}
           value={search}
           onChangeText={onSearchChange}

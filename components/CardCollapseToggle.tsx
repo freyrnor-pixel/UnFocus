@@ -31,9 +31,14 @@
  *     control two ways on two cards.
  *   - `tap()`, not `selection()`. Selection is the haptic for picking one of several
  *     (`FormControls`, `TabSlider`); this is a plain state flip on one thing.
- *   - The 48px box aligns its glyph to `flex-end` so the chevron sits on the card's trailing
- *     edge while the target still extends inward — same shape as `CollapsedSection`'s
- *     `chevronBtn`, which is the control this is generalising.
+ *   - ⚠️ **The glyph is CENTRED in the 48px box (consistency audit, 2026-08-21).** It used to
+ *     align `flex-end`, so the chevron sat hard against the box's trailing edge while the target
+ *     extended inward — the maintainer's report names this shape exactly: *"Elements within
+ *     buttons must be centered in the middle, except for the box itself, which is located where
+ *     it is meant to be."* The box's POSITION is unchanged (`SectionRail`'s `right` slot still
+ *     pushes it to the card's trailing edge with `marginLeft: 'auto'`); only the glyph inside it
+ *     moved. `CollapsedSection`'s `chevronBtn` — the control this generalises, and which had a
+ *     byte-identical copy of the old style — moved in the same edit, so the two still agree.
  *   - No `Surface`, no border, no fill: this goes INSIDE a card header that already has all
  *     three. If it ever needs to stand alone, it needs a housing, not a variant here.
  */
@@ -82,7 +87,7 @@ const styles = StyleSheet.create({
   btn: {
     minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
   },
 });

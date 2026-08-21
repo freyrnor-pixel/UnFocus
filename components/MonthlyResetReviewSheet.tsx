@@ -43,7 +43,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { reorderByDrag } from '@/lib/reorder';
@@ -266,7 +266,8 @@ const baseStyles = StyleSheet.create({
   // 2026-08-01): a stepper is a paired control, so filling only the "+" in the app's action
   // colour made an increment button compete with this sheet's own primary button.
   stepBtn: { width: 28, height: 28, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21) — same 28px-circle case as components/Stepper.tsx's btnText.
+  stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold, ...OpticalCenter },
   qtyText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, minWidth: 20, textAlign: 'center' },
   footer: { flexDirection: 'row', gap: Spacing.sm },
   footerBtn: { flex: 1, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', minHeight: MIN_TAP_TARGET, justifyContent: 'center' },

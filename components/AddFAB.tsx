@@ -56,7 +56,7 @@ import React from 'react';
 import { StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { darken, filledEdge, Fonts, hitSlopFor, Radius, Shadow, Spacing } from '@/constants/theme';
+import { darken, filledEdge, Fonts, hitSlopFor, OpticalCenter, Radius, Shadow, Spacing } from '@/constants/theme';
 import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
 import { Travel } from '@/constants/motion';
@@ -179,7 +179,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.md,
   },
+  // `OpticalCenter` (2026-08-21): the FAB is a fixed-diameter circle, so the `+` sits in a box
+  // whose height it does not set — Android's asymmetric font padding rides it high otherwise.
+  // This is the app's most prominent circular button, so it is where it shows most.
   plus: {
     fontFamily: Fonts.bold,
+    ...OpticalCenter,
   },
 });

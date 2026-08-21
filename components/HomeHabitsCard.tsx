@@ -142,7 +142,7 @@ import HabitRecurrenceCells from '@/components/HabitRecurrenceCells';
 import Stepper from '@/components/Stepper';
 import { energyFieldsFromStepper } from '@/lib/energy';
 import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, Spacing, HitSlop, rgba } from '@/constants/theme';
+import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, Spacing, HitSlop, rgba, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -590,7 +590,13 @@ const baseStyles = StyleSheet.create({
   headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
+  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
+  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
+  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
+  // no visual change. A literal here is invisible to the type scale and to the design lab's
+  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
+  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
+  title: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily, ...OpticalCenter },
   // A SECTION header INSIDE a card, which is a rung below the section headers the 2026-08-15
   // pass set at `FontSize.xl` extrabold — those sit on a SCREEN, where the screen title is 24
   // and a section may match it. Here the host card's own title is 20, so xl (24) made the

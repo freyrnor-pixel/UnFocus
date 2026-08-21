@@ -1698,8 +1698,24 @@ export default function ShoppingScreen() {
   const foodCatalogueLinks = (
     <>
       <View ref={dishesExpand.ref} collapsable={false}>
+        {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
+            2026-08-21).** Maintainer: *"Dishes color coding is weak/pale"* and *"color coding
+            must be based on visual navigation."* Both were true, and the cause was not the
+            drawing — it was that Dishes had no colour of its own to draw. `domain="meal"`
+            resolves through lib/domainColor.ts to `cardMeal`, which constants/colors.ts aliases
+            onto `IDENTITY_HUES.shopping.hue` — the same emerald as `cardShop`, `cardBudget` and
+            `cardScan` — so every card on this tab was one colour and the badge glyph was the
+            only thing telling them apart.
+              An orange for food already exists (`featMeal`, `#FF7A1A` dark / `#EA580C` light).
+            Its own comment says food *"can't just take Shopping's green"*, and the justification
+            for letting it — that Food has no card sharing a screen with Shopping — stopped being
+            true on 2026-08-20, when Dishes and Catalogue became siblings on this scroll.
+              `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
+            rather than the aliased domain colour. The CARD's edge is untouched and still the
+            screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
         <SectionCard
-          hue={screenHue}
+          hue={getScreenColor(theme, 'food').base}
+          badgeHue
           domain="meal"
           icon="fast-food"
           label={t.foodTabLabel}
@@ -1790,12 +1806,13 @@ export default function ShoppingScreen() {
                           {/* Lock sits beside the name (2026-07-23 declutter pass) — same
                               relocation as WeekListCard's lock icon, out of the crowded
                               action row and next to the title it describes. */}
+                          {/* No `size` — the IconButton default (2026-08-21). Was `size={22}`;
+                              see components/CatalogueTab.tsx's `CatalogueHeaderControls`. */}
                           <IconButton
                             icon={locked ? 'lock-closed' : 'lock-open-outline'}
                             label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
                             onPress={() => toggleMonthlyListLocked(list.id)}
                             active={locked}
-                            size={22}
                           />
                           {editingMonthlyListId === list.id ? (
                             <TextInput

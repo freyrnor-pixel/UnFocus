@@ -363,10 +363,13 @@ const baseStyles = StyleSheet.create({
   // A plain grouping wrapper now — the screen's content container owns the gap between
   // stacked cards (SCREEN_GAP, constants/theme.ts). Was `marginTop: Spacing.xl`.
   section: {},
-  // The Energy strip is chrome, not a card, so it gets a card-gap's worth of space BELOW it
-  // (the next section's own Spacing.xl) but only a hair above. It used to be leaning on the
-  // greeting's marginBottom for the separation above it; with the greeting gone (2026-08-20)
-  // what is above it is the scaffold's own top edge, and Spacing.xs is still the right hair.
-  energyStrip: { marginTop: Spacing.xs },
+  // ⚠️ **No top margin (consistency audit, 2026-08-21).** This carried `marginTop: Spacing.xs`
+  // — a 4px hair kept from the days when the greeting sat above it. With the greeting gone
+  // (2026-08-20) what is above it is the scaffold's own top edge, which every other tab screen
+  // meets flush at 0, so Home was the ONE screen whose first child did not start at the header's
+  // glass — and, because the strip is gated on `energySystemEnabled`, the same screen measured
+  // 4px or 0px depending on a setting. The gap BELOW it is unaffected: the content container's
+  // `gap: SCREEN_GAP` owns that, as it does for every other pair of siblings here.
+  energyStrip: {},
   pointsText: { fontSize: FontSize.sm, fontFamily: Fonts.medium, textAlign: 'center' },
 });

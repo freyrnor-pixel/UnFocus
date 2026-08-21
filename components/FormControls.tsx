@@ -836,10 +836,15 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
   },
+  // ⚠️ **No `borderWidth`/`borderRadius` here (consistency audit, 2026-08-21).** Both were dead:
+  // the render overrides them inline from `shape.borderFieldWidth` and `FIELD_RADIUS *
+  // radiusScale`, so the values in this StyleSheet never reached a pixel — they were purely a
+  // second place for the field's shape to be written down, and so a second place for it to
+  // drift from `BORDER_WIDTH.field` / `FIELD_RADIUS`. `minHeight` is overridden the same way
+  // (by `shape.minTapTarget`) but is kept: it is the honest fallback if the shape object is ever
+  // made optional, and unlike the other two it cannot disagree with a token — it IS the token.
   input: {
     minHeight: MIN_TAP_TARGET,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm,
     fontSize: FontSize.md,
     fontFamily: Fonts.regular,

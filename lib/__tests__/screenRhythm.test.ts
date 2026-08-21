@@ -194,9 +194,19 @@ describe('a centre pop-up adds no padding of its own — the pane already padded
     // above, so it has to follow that wrapper rather than be forgotten beside it. Non-embedded
     // branch only (the Shopping drawer returns before this style), and that screen reserves no
     // nav, so the bottom margin stays.
+    //
+    // ⚠️ **`paddingHorizontal` is now BANNED here, where this test used to REQUIRE it**
+    // (consistency audit, 2026-08-21). The requirement was written on 2026-08-19, when
+    // /catalogue was a pushed `ScreenScaffold` screen that padded nothing for itself. It became
+    // a `CenterModalScreen` pane the next day, and a pane pads its own body — so from that
+    // moment this assertion was actively holding a 32px side inset in place, i.e. the test and
+    // the centre-modal rule 20 lines below contradicted each other and the test won. The other
+    // non-embedded host (`CardExpandHost`'s `bodyFlex`) insets by the same amount, so there is
+    // no caller left that wants this padding. Keep the two directions spelled out separately:
+    // if a future host stops padding, this is the line that has to move with it.
     const body = styleBody(read('components/CatalogueTab.tsx'), 'root');
     expect(body).not.toMatch(/padding(Top|Vertical)?\s*:/);
-    expect(body).toMatch(/paddingHorizontal: Spacing\.md/);
+    expect(body).not.toMatch(/paddingHorizontal\s*:/);
     expect(body).toMatch(/paddingBottom: Spacing\.md/);
   });
 });

@@ -475,12 +475,14 @@ export default function WeekListCard({
             {/* Lock sits beside the name (2026-07-23 declutter pass) — it describes this
                 list's edit state, so it reads naturally next to the title instead of
                 competing with Save/Discard/kebab/expand in the action row. */}
+            {/* No `size` — the IconButton default (2026-08-21). Was `size={22}`; see
+                components/CatalogueTab.tsx's `CatalogueHeaderControls` for why all three of the
+                app's locks now render at one diameter. */}
             <IconButton
               icon={list.locked ? 'lock-closed' : 'lock-open-outline'}
               label={list.locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
               onPress={onToggleLock}
               active={list.locked}
-              size={22}
             />
             {nameEditing ? (
               <TextInput

@@ -83,6 +83,7 @@ import {
   FontSize,
   Fonts,
   HitSlop,
+  OpticalCenter,
   Radius,
   SCREEN_GAP,
   Spacing,
@@ -567,7 +568,9 @@ const baseStyles = StyleSheet.create({
   quickTimeInput: { paddingVertical: Spacing.xs },
   quickSeverityChips: { flexDirection: 'row', gap: Spacing.xs },
   quickSevChip: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 0, borderColor: 'transparent' },
-  quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): a severity digit inside a 28px circle — a box whose height the
+  // text does not set, which is the condition Android's asymmetric font padding breaks.
+  quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   ailmentWeekStrip: { flexDirection: 'row', gap: 5, paddingLeft: 2 },
   ailmentDotCol: { alignItems: 'center', gap: 2 },
   ailmentDayAbbr: { fontSize: 7, fontFamily: Fonts.semibold },
