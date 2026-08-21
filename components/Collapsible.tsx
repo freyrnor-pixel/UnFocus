@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming/runOnJS),
  *             constants/motion (Duration, Ease), lib/useAppTheme (useAccessibility)
- *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/ExpandableCard.tsx,
+ *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/DisclosureRow.tsx,
  *             components/PadSheet.tsx, app/plans.tsx, app/health-form.tsx,
  *             app/habit-form.tsx, app/automations.tsx,
  *             app/habits.tsx (person-filter reveal AND, since 2026-08-08, HabitCard's
@@ -86,7 +86,7 @@
  *   - **Lazy mount preserved:** children render only while `open` OR while a close animation is
  *     still playing; the close `withTiming` completion callback unmounts them (`runOnJS`). A
  *     fully-collapsed instance renders no children (matters for long lists like WeekListCard
- *     history via ExpandableCard). `measured` persists across mounts, so a re-open animates
+ *     history via DisclosureRow). `measured` persists across mounts, so a re-open animates
  *     from the cached height.
  *   - Mount-already-open (e.g. an isNew task card that starts expanded) shows content
  *     immediately at natural height (the narrow mount-open `height: undefined` branch), no

@@ -13,7 +13,7 @@
  * `lib/__tests__/expandableCards.test.ts` source-scans it for exactly that.
  *
  * Connections:
- *   Imports → nothing
+ *   Imports → lib/cardRegistry (CARDS — the expand declarations)
  *   Used by → lib/useCardExpand.ts, components/CardExpandButton.tsx, components/CardExpandHost.tsx
  *   Data    → none — expansion is NOT persisted. See the edit note below.
  *
@@ -36,43 +36,27 @@
  *     list cards get no expand id of their own, only their parent card does.
  */
 
-export const EXPANDABLE_CARD_IDS = [
-  // 'shopLists' was here from 2026-08-20 until 2026-08-21 and is GONE, on the same rule
-  // 'homeTodo'/'homeShopping' went by: an id whose card cannot reach it is worse than no id,
-  // because it keeps a `CARD_BODIES` entry alive that nothing can open while the test pinning
-  // the two lists together goes on passing over it. It never had a `CardExpandButton` anywhere
-  // in the UI, and its registry entry was a `ComingSoonBody` — the audit's §10 finding.
-  //
-  // It is not deferred, it is declined. Shopping's lists ARE the Shop tab's primary content
-  // (they are its first group since the 2026-08-21 reorder), so a full-screen copy of them is
-  // a second rendering of the screen you are already looking at — and each list card already
-  // expands its own rows in place. What the group needed was a way to be put AWAY, which it has
-  // now: `lib/collapsedCards.ts`'s `shopLists` fold, same string, different axis.
-  //
-  // If a ⤢ is ever genuinely wanted here it needs `ShoppingListsSurface.tsx` extracted first —
-  // ~700 lines of window-coordinate drag/merge state and flight-animation refs, none of which
-  // any headless harness in this repo can exercise. Add the id back in THAT change, not before.
-  'shopDishes',
-  'shopCatalogue',
-  // The Me tab's four cards. `homeTodo` and `homeShopping` were here until 2026-08-19 and are
-  // GONE, not deferred: the To-do and Shopping preview cards left that screen when To-do took
-  // the middle tab, so there is no card left for either id to belong to. An id whose card does
-  // not exist is worse than no id — it keeps a `CARD_BODIES` entry alive that nothing can ever
-  // reach, and the test that pins the two lists together goes on passing over it.
-  'homeHabits',
-  'homeNotes',
-  'homeHealth',
-  // Fourth since 2026-08-21, when Medicine stopped being a card drawn inside the Health card
-  // and became a card of its own (CONSISTENCY_AUDIT.md §11, maintainer: *"Yes."*).
-  'homeMedicine',
-  'todoWhenever',
-  'todoToday',
-  'todoWeek',
-  'todoRecurring',
-] as const;
+import { CARDS, CARD_KEYS, CardKey, cardSpec } from '@/lib/cardRegistry';
 
-/** A card that can grow to fill the screen. See EXPANDABLE_CARD_IDS. */
-export type ExpandableCardId = (typeof EXPANDABLE_CARD_IDS)[number];
+/**
+ * Every card that can grow to fill the screen — **derived from lib/cardRegistry.ts**, not
+ * hand-maintained.
+ *
+ * It was a hand-written union until 2026-08-21. What that could never express is the card that
+ * simply never asked for a ⤢, which is how the app shipped ⤢ on 10 of ~30 cards with nothing
+ * failing. The registry makes `expand` a required field, and `'none'` demands a written reason
+ * (`expandDeclined`, asserted non-empty by lib/__tests__/cardRegistry.test.ts) — so a missing
+ * full-screen button is now a decision somebody made, and `expand: 'surface'` with no
+ * `CARD_BODIES` entry is a tsc error, because that record is keyed by this union.
+ */
+export const EXPANDABLE_CARD_IDS = CARD_KEYS.filter(
+  (k) => cardSpec(k).expand === 'surface',
+) as readonly ExpandableCardId[];
+
+/** A card that can grow to fill the screen. Derived: registry keys with `expand: 'surface'`. */
+export type ExpandableCardId = {
+  [K in CardKey]: (typeof CARDS)[K]['expand'] extends 'surface' ? K : never;
+}[CardKey];
 
 export function isExpandableCardId(raw: string): raw is ExpandableCardId {
   return (EXPANDABLE_CARD_IDS as readonly string[]).includes(raw);

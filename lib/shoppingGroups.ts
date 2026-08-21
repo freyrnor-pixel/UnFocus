@@ -47,7 +47,7 @@
  *     first, then splitting only the ungrouped remainder into ungroupedUnchecked/checked.
  *   - dishGroupAllChecked() is the Decision 011a/R4 "computed allChecked" — always derived
  *     from the group's own items at read time, never persisted (011a decision #2). Consumed
- *     by WeekListCard's dish-group ExpandableCard header checkbox.
+ *     by WeekListCard's dish-group DisclosureRow header checkbox.
  *   - listProgress() (Session A2·2, not in the old repo) — Decision 017 note 3 requires the
  *     sticky header (focused list, full) and WeekListCard's own header (non-focused lists,
  *     compact) to share ONE progress calculation, not fork it. Both app/shopping.tsx and

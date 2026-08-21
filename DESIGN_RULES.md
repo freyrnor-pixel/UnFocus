@@ -63,21 +63,25 @@ design, not the rule.
    With every gap equal, a difference in spacing carries no information, so the card boundary
    has to carry it instead. Worked example: the To-do tab's "Goals" and "Earlier days" were
    two separate full-width cards indistinguishable from the content section above them, and
-   were two rows in one card (`SubScreenLinkButton`), and since 2026-08-10 are one
-   `components/CollapsedSection.tsx` drawer each — the app's single shape for "a surface this
-   screen leads to", shared with Habits' Goals and Shopping's Food/Catalogue. The grouping
-   point stands either way: what says "these are not sections of this screen" is that they are
-   a different KIND of card, not that they sit further apart.
+   were two rows in one card (`SubScreenLinkButton`), then one `CollapsedSection` drawer each
+   (2026-08-10), and since 2026-08-21 are ordinary `<Card>`s under the tab's one group rail,
+   "Elsewhere". The grouping point stands through all three: what says "these are not sections
+   of this screen" used to be that they were a different KIND of card, and is now that a
+   heading over them says so in words — which is the same signal without a second card shape
+   to maintain.
    **A closed `Collapsible` still books a gap slot** — it stays mounted at zero height — so
    an always-mounted, sometimes-empty child must be grouped or conditionally rendered, or it
    pays for a gap it does not use.
 4. **One idea per row.** Never place two unrelated controls on the same
    horizontal line. The row anatomy that implements this is `components/PadRow.tsx`
    (see AGENTS.md "The row rule").
-   *(One instructed exception, 2026-08-10: `components/CollapsedSection.tsx`'s header carries
-   both a name that opens the surface and a chevron that expands a preview of it. They are the
-   same idea at two depths — look at it here / go to it — not two unrelated controls, and both
-   are ≥ `MIN_TAP_TARGET`. Don't generalise it into "section headers can carry a second
+   *(⚠️ **That instructed exception is RETIRED as of 2026-08-21**, with the component that
+   carried it. `CollapsedSection`'s header had two tap targets — a name that opened the surface
+   and a chevron that expanded a preview of it — justified as the same idea at two depths. Its
+   drawers are ordinary cards now: pressing the name opens the card full screen, which is what
+   pressing a card's name does everywhere, and Health issues' sheet became a header CONTROL. The
+   text below is kept as the reasoning that made it defensible, not as a live exception. Don't
+   generalise it into "section headers can carry a second
    control".)*
 5. **Whitespace over lines.** **RESTORED 2026-08-15 (Tactile Glass), after being
    overruled on 2026-08-05.** A row inside a card has no border, no fill and no rule
@@ -430,32 +434,43 @@ design, not the rule.
     they were given `constants/theme.ts`'s `TITLE_FIELD`; one had been a box, the other an
     underline, one card apart on the same screen.
 
-27. **A card header is a `SectionRail`**, which owns the title token, the badge and the hairline.
-    A card that cannot use one still takes its title from `Type.*` — never a literal. The app
-    shipped fourteen header variants at once, with title sizes 17 / 20 (spelled three ways) / 24
-    and the hairline on exactly one of them. **CI**: `cardAnatomy.test.ts` (title literals; the
-    header convergence itself is tracked as an allowlist that must shrink).
-    **The LADDER is three rungs since 2026-08-21**: a group heading over a stack of cards
-    (`SectionRail`'s 24), a card's own title (`Type.heading`, 20), a section heading over rows
-    inside a card (`Type.subheading`, 17 — chosen by counting, since two of the four sites were
-    already on it). To-do's Week and Today headers were 20px rows beside three 24px siblings,
-    stacked on one screen; both are `SectionRail`s now.
+27. **A card header is drawn by `components/Card.tsx` and by nothing else.** Not "should be a
+    `SectionRail`" — *is*, because a caller no longer describes a card, it names one:
+    `<Card id="todoToday">`. Hue, badge, glyph, title, whether it folds and whether it grows to
+    fill the screen are `lib/cardRegistry.ts`'s, and there is no prop for any of them.
+    ⚠️ **This REWRITES the rule as it stood, and the rewrite is the lesson.** The old wording
+    tracked header convergence as *"an allowlist that must shrink"* — i.e. it listed the cards
+    that were already right, so a new card was compliant by default and the suite stayed green
+    while the app went on shipping **13 distinct trailing-control orders across 7 components, 9
+    of them hand-rolled**. An allowlist cannot catch the card nobody wrote down. The registry
+    can: an unregistered card is a **tsc error**, and `expand: 'surface'` with no body in
+    `CardExpandHost`'s `CARD_BODIES` is a tsc error for free, because that record is keyed by
+    the derived union.
+    **The LADDER is three rungs, and they are `SectionRail` TIERS as of 2026-08-21**: `'group'`
+    (24, **no badge** — a heading over a stack of CARDS that carries one reads as a card itself),
+    `'card'` (20, with the card's badge — drawn only by `Card`), `'sub'` (17, a 6px dot, over
+    rows inside a card). It existed as prose in `SectionRail`'s own source while only two tiers
+    existed, so every card title actually rendered at 24.
+    **CI**: `cardAnatomy.test.ts` — title literals, the control order, and the ban in rule 28.
 
-28. **The fold control is `CardCollapseToggle`, and the full-screen control is
-    `CardExpandButton`.** Their order in a card header is: the caller's own controls → the fold
-    chevron → **⤢ last, always, on every surface**. ⤢ is what the eye looks for in a corner, so
-    it is the one that may never move. **CI**: `cardAnatomy.test.ts` asserts nothing follows a
-    `CardExpandButton` inside a header slot.
-    ⚠️ **`CardCollapseToggle` is one of TWO legitimate disclosure idioms, and which to use is
-    decided by the header rather than by taste** (written down 2026-08-21 in that component's
-    header). Use it when the header carries anything else tappable — a pressable inside a
-    pressable swallows the inner one. Use the other idiom, a `PressableScale` around the whole
-    naming row with a passive `AnimatedChevron`, when the chevron is the only thing to tap: it
-    gives a target the width of the card instead of a 48px box. Seven files use the second and
-    that is correct. What actually diverged was the GLYPH — 13/14/16/18px in three colours,
-    because `size` and `color` were required props — and both default now.
-    *(The `SectionCard` gap this note recorded was already closed: it renders the fold, then the
-    caller's slot, which is the right order.)*
+28. **No file outside `components/Card.tsx` may import `CardCollapseToggle` or
+    `CardExpandButton`.** The order in a card header is the caller's own controls → the fold
+    chevron → **⤢ last, always, on every surface**, and it is assembled in that one file, so a
+    fourteenth order is unspellable rather than merely discouraged.
+    ⚠️ **This rule was a description and is now a ban, which is the whole point of the
+    2026-08-21 pass.** It blessed *two* fold idioms and told you to pick by judgement; the
+    order it stated had been stated in five files since 2026-08-20 while `SectionCard`
+    implemented the opposite (chevron first, so the Catalogue card came out `fold → camera →
+    lock → ⤢`), and `cardAnatomy.test.ts` pinned the wrong order **on purpose** because
+    correcting it meant moving the chevron on every card at once. There is one place to correct
+    now, and it is corrected.
+    **The one door out is `SectionFoldToggle`**, exported from `Card.tsx` and named for what it
+    is: a SECTION drawn one-per-row-of-user-data (a weekly list's card, a monthly list's card)
+    has no stable storage key, so the registry cannot name it and its fold is local state.
+    There is deliberately **no matching export for the ⤢** — a section rides its parent's.
+    What diverged before any of this was the GLYPH — 13/14/16/18px in three colours, because
+    `size` and `color` were required props — and both default now.
+    **CI**: `cardAnatomy.test.ts` asserts the import ban and the cluster's order.
 
 29. **Content is centred inside a control; only the control's BOX is placed.** The maintainer's
     wording is the rule: *"Elements within buttons must be centered in the middle, except for the
@@ -476,21 +491,29 @@ design, not the rule.
     the Health TAB's first card before Health became a card, and the meal sections were a DRAWER's
     content on the backdrop, where an edge was the only thing separating one from the next.
 
-31. **Every content card can fold, and the default is the same across the app.** Five independent
-    collapse mechanisms with three different defaults is the state this rule replaces. A card with
-    a pad state uses the pad state; every other content card uses `collapsedCards`.
-    **BINDING since 2026-08-21**: the default is CLOSED, and the exceptions — To-do's Today, Me's
-    Notes, Shop's Shopping lists — are named once in `lib/cardDefaults.ts`, which both mechanisms
-    read. Neither carries a default of its own any more, and both bags store only what the user has
-    moved OFF a card's resting state. A fourth exception is a maintainer decision and costs a
-    failing test. **CI**: `collapsedCards.test.ts` pins the exception list against the real id
-    unions, and that it stays short.
+31. **Every card folds, on ONE axis, and closed is a bare header.**
+    ⚠️ **The "a card with a pad state uses the pad state" split is GONE (2026-08-21).** It was
+    the second mechanism owning open vs closed, with its own column and its own answer to what
+    the word means — a "closed" pad card drew its header, an empty rule, a Suggestions block and
+    a composer, about 400px, beside a 70px bare header one tab over. `PadState` lost `'closed'`;
+    it is `'preview' | 'open'` and answers only HOW MANY rows. `PadFooterToggle` survives because
+    it can say *"3 more"*, which a header chevron has nowhere to put, and the two can never both
+    be showing.
+    Open/closed is `collapsedCards` over the registry's `fold`, for every card. A card that does
+    not fold has to say so **in writing** (`foldDeclined`), which is what an allowlist could
+    never ask for. Closed is the header and nothing else, by construction rather than by each
+    caller remembering: the rail's hairline follows the body and the bottom inset matches the top.
+    The resting state is CLOSED, and the exceptions — To-do's Today, Me's Notes, Shop's Shopping
+    lists — are `openAtRest` in `lib/cardRegistry.ts` (`lib/cardDefaults.ts` is deleted). Both
+    bags store only what the user has moved OFF a card's resting state. A fourth exception is a
+    maintainer decision and costs a failing test.
+    **CI**: `collapsedCards.test.ts`, `cardRegistry.test.ts`.
 
 32. **A group of cards gets a sub-header; a screen does not get three header idioms.** Where a
     screen holds distinct KINDS of thing, say so once above them rather than leaving the reader to
     infer it from order. **BINDING since 2026-08-21**: `SectionRail` is the app's one section
-    header and has two TIERS — `'group'` (24, over a stack of cards) and `'sub'` (17, over a stack
-    of rows inside one). The Shop tab's third idiom is on the sub tier now. *(Deliberately NOT
+    header, on the three tiers rule 27 names. There is exactly ONE group heading in the app —
+    To-do's "Elsewhere", over Goals, Earlier days and Washed away — and it carries no badge. *(Deliberately NOT
     done: no "Inventory" header over Dishes + Catalogue. The maintainer answered §13 with an order
     — "Shopping lists, food and Catalogue, Monthly" — and neither grouping; a header over two
     cards would be a fourth idiom on the screen that just got down to one.)*

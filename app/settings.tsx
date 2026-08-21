@@ -44,7 +44,7 @@
  *   2. **Notifications and Layout moved to General**, Accessibility moved to Personal, and
  *      Data (backup, version, resets) moved to Advanced. Send Feedback stayed on General.
  *   3. **Three single-setting containers flattened.** The weekly reminder was its own
- *      ExpandableCard holding one switch beside a second card holding the other five, so
+ *      DisclosureRow holding one switch beside a second card holding the other five, so
  *      Notifications is one flat card now; Tags was the middle card of a panel whose other two
  *      cards are hidden with SHARING_VISIBLE, so it is its own card; and Energy's capacity
  *      steppers were a separate group from the picker that governs them, so they are inside it.
@@ -76,18 +76,18 @@
  *
  * **Layering pass (2026-07-13)**: related setting groups that used to each float in their own
  * bordered/shadowed Surface card are now merged into ONE shared Surface holding several
- * `ExpandableCard` rows (Profil+Utseende+Tilgjengelighet; Local account+Version & updates;
+ * `DisclosureRow` rows (Profil+Utseende+Tilgjengelighet; Local account+Version & updates;
  * Personer/familie+Paired devices; Ukentlig+Generelle) — fewer separate
  * floating "islands" reads as one cohesive panel instead of a stack of unrelated boxes. This
- * is exactly the grouping pattern ExpandableCard's own header already documents (Decision 043
- * rule 1 / WeekListCard's dish-group rows) — multiple ExpandableCards as siblings inside one
+ * is exactly the grouping pattern DisclosureRow's own header already documents (Decision 043
+ * rule 1 / WeekListCard's dish-group rows) — multiple DisclosureRows as siblings inside one
  * caller-owned Surface, each getting its own hairline top divider for separation. Destructive
  * (Reset data) and single-toggle cards with no accordion body (Debug mode, Sample data, the
  * Layout row) stay their own standalone card — folding a warning-red destructive card into a
  * neutral panel would bury its visual distinctiveness, and a plain toggle has nothing to
  * collapse.
  *
- * **Visual-audit pass (2026-07-23)**: the top-level merged-panel `ExpandableCard`s above now
+ * **Visual-audit pass (2026-07-23)**: the top-level merged-panel `DisclosureRow`s above now
  * pass `rounded` — each row gets its own rounded, sunken (theme.surfaceMuted) tile with a small
  * gap instead of the flush hairline divider, reading as a stack of rows rather than one flat
  * slab (screenshot feedback: "setting rows not rounded"). Also: the tab bar (`tabBar`/`tabsGlass`)
@@ -106,7 +106,7 @@
  *             on this screen; they were written out by hand 23 times, ~160 lines, until
  *             2026-08-12), components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/Surface,
- *             components/ExpandableCard, components/PressableScale, components/TabSlider,
+ *             components/DisclosureRow, components/PressableScale, components/TabSlider,
  *             components/AiSetupPreviewModal, constants/theme, lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
@@ -140,7 +140,7 @@
  *     `?tab=` had been passed by app/(tabs)/shopping.tsx's "Nullstillingsdager" link since that
  *     link was written and read by nobody — there was no `useLocalSearchParams` here at all, so
  *     every caller silently landed on General. Two things are worth knowing before adding a
- *     second target. (1) A tab is not enough: every group here is a collapsed `ExpandableCard`,
+ *     second target. (1) A tab is not enough: every group here is a collapsed `DisclosureRow`,
  *     so the right tab still leaves the control shut and usually off screen — a `section` opens
  *     its card AND scrolls to it, via `ScrollToNodeContext` (components/ScreenScaffold.tsx), and
  *     `?tab=` without `?section=` is a half-answer. (2) `tab` is seeded in the `useState`
@@ -230,7 +230,7 @@
  *     both chips are gone.** `langChip` (the Profil language picker) and `dayChip` (the
  *     weekly-reset-day picker) are `SegmentedControl`s now, so the problem that note described
  *     — an inactive chip filled `theme.surfaceMuted` with no border, invisible inside a
- *     `rounded` `ExpandableCard` that is also `surfaceMuted` — cannot recur: the track draws
+ *     `rounded` `DisclosureRow` that is also `surfaceMuted` — cannot recur: the track draws
  *     its own bordered surface. Kept in the log because it is the reason `peopleChip`/
  *     `peopleAddBtn` carry the borders they do, and those are still hand-rolled.
  *     Both were also exclusive pickers wearing the multi-select chip shape, and the day row
@@ -296,7 +296,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import ScreenScaffold, { ScrollToNodeContext } from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import { SettingLinkRow, ToggleRow } from '@/components/SettingRow';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
@@ -365,7 +365,7 @@ const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'personal', 'advanced'
  * A card on this screen that something else can link straight to, via `?section=`.
  *
  * Deliberately a short, hand-maintained list rather than "any card": a section has to open its
- * `ExpandableCard` AND hand a ref to `scrollToNode`, so each one is a couple of lines at the
+ * `DisclosureRow` AND hand a ref to `scrollToNode`, so each one is a couple of lines at the
  * call site. Add an entry when a screen genuinely needs to point at a setting; don't back-fill
  * the whole screen.
  */
@@ -486,7 +486,7 @@ export default function SettingsScreen() {
    * looking for."*
    *
    * `?section=` is the second half of the answer, because the right tab is not the same thing
-   * as the right control: every group on this screen is a collapsed `ExpandableCard`, so a
+   * as the right control: every group on this screen is a collapsed `DisclosureRow`, so a
    * correct tab still left the two shopping-cadence fields shut and off screen. A section both
    * opens its card and scrolls to it.
    *
@@ -925,8 +925,8 @@ export default function SettingsScreen() {
         {tab === 'general' && (
           <>
             {/* ===== YOU ===== */}
-            {/* Profile + Appearance — one panel of ExpandableCards (2026-07-13 layering pass;
-                the grouping pattern ExpandableCard's own header documents). Accessibility used
+            {/* Profile + Appearance — one panel of DisclosureRows (2026-07-13 layering pass;
+                the grouping pattern DisclosureRow's own header documents). Accessibility used
                 to be the panel's third card and moved to Personal in the 2026-08-17 pass: it is
                 a set of aids you configure once, and it was crowding out the rows this tab
                 exists for. Text size came the other way, out of Accessibility and into
@@ -935,7 +935,7 @@ export default function SettingsScreen() {
             <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.you}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
-                <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>
+                <DisclosureRow title={t.sectionProfile} accentColor={theme.accent} first rounded>
                   <Input
                     label={t.yourName}
                     value={name}
@@ -982,7 +982,7 @@ export default function SettingsScreen() {
                       { value: 'is', label: t.icelandic },
                     ]}
                   />
-                </ExpandableCard>
+                </DisclosureRow>
 
                 {/* UTSEENDE — same panel. Two controls, both about what the app LOOKS like:
                     light/dark and how big the text is.
@@ -1001,7 +1001,7 @@ export default function SettingsScreen() {
                     other. `glassSurfaces` is the survivor (Personal → Accessibility) because it
                     is the broader control and the one sheets and the nav bar obey. Column and
                     Settings field survive; see components/Surface.tsx's `opaqueCards` note. */}
-                <ExpandableCard title={t.config.sections.appearance} accentColor={theme.accent} rounded>
+                <DisclosureRow title={t.config.sections.appearance} accentColor={theme.accent} rounded>
                   <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
                   <SegmentedControl
                     value={settings.darkMode}
@@ -1023,14 +1023,14 @@ export default function SettingsScreen() {
                       { value: 'large', label: t.settings.accessibility.fontSizeLarge },
                     ]}
                   />
-                </ExpandableCard>
+                </DisclosureRow>
               </Surface>
             </View>
 
             {/* ===== NOTIFICATIONS ===== */}
             {/* Moved up from the Personal tab (2026-08-17). This is what a user opens Settings
                 to change, and it was two tabs and one closed accordion away.
-                It is a FLAT card under its own group header, not an ExpandableCard: the weekly
+                It is a FLAT card under its own group header, not an DisclosureRow: the weekly
                 reminder used to be a separate accordion holding one switch and its time field,
                 sitting beside a second accordion holding the other five switches — a container
                 per notification rather than a card per subject. One card, one header, every
@@ -1271,11 +1271,11 @@ export default function SettingsScreen() {
                 a "Nullstillingsdager" link that used to land on this screen's General tab with
                 this card shut. `ref` + `onLayout` are what let it be scrolled to; `open` is
                 controlled only while the deep link is live, and the first toggle hands the card
-                back to its own default-closed behaviour. It stays an ExpandableCard for exactly
+                back to its own default-closed behaviour. It stays an DisclosureRow for exactly
                 that reason — the deep link needs something to open. */}
           <View style={styles.section} ref={sectionNode} onLayout={onSectionLayout}>
             <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <ExpandableCard
+              <DisclosureRow
                 title={t.sectionShopping}
                 accentColor={theme.accent}
                 first
@@ -1321,7 +1321,7 @@ export default function SettingsScreen() {
                   maxLength={2}
                 />
                 <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
-              </ExpandableCard>
+              </DisclosureRow>
             </Surface>
           </View>
 
@@ -1564,7 +1564,7 @@ export default function SettingsScreen() {
             {SHARING_VISIBLE && (
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
-                <ExpandableCard title={t.peopleMode.label} accentColor={theme.accent} first rounded>
+                <DisclosureRow title={t.peopleMode.label} accentColor={theme.accent} first rounded>
                   <ToggleRow
                     label={t.peopleMode.label}
                     hint={t.peopleMode.hint}
@@ -1649,7 +1649,7 @@ export default function SettingsScreen() {
                       </View>
                     </>
                   )}
-                </ExpandableCard>
+                </DisclosureRow>
 
                 {/* LAN live sync (Decision 038) — the toggle, QR pairing wizard and
                     paired-device list all live on app/pair-device.tsx; this is just the entry
@@ -1657,20 +1657,20 @@ export default function SettingsScreen() {
                     copy — the link always shows, since the native transport isn't linked
                     outside a build. Live sync itself is NOT disabled while sharing is hidden:
                     an already-paired device keeps syncing, it just has no management screen. */}
-                <ExpandableCard title={t.peers.title} accentColor={theme.accent} rounded>
+                <DisclosureRow title={t.peers.title} accentColor={theme.accent} rounded>
                   <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
                     {syncAvailable ? t.peers.settingsCardDesc : t.peers.syncUnavailable}
                   </Text>
                   <PressableScale style={styles.dangerBtn} onPress={() => router.push('/pair-device')} scaleTo={0.97}>
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.peers.manageLink}</Text>
                   </PressableScale>
-                </ExpandableCard>
+                </DisclosureRow>
               </Surface>
             </View>
             )}
 
             {/* TAGS — the household's shared vocabulary. Its own card since 2026-08-17: it was
-                the middle ExpandableCard of the People/devices panel, whose other two cards are
+                the middle DisclosureRow of the People/devices panel, whose other two cards are
                 hidden while sharing is, so the screen drew a panel wrapper around a single
                 accordion. Tags are COINED from a task (components/TagPickerRow.tsx), because
                 that's where you discover you want one; this card is for the two things that
@@ -1736,7 +1736,7 @@ export default function SettingsScreen() {
             <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.data}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
-                <ExpandableCard title={t.account.title} accentColor={theme.accent} first rounded>
+                <DisclosureRow title={t.account.title} accentColor={theme.accent} first rounded>
                   {/* Auto-backup toggle */}
                   <ToggleRow
                     label={t.config.autoBackup.label}
@@ -1790,12 +1790,12 @@ export default function SettingsScreen() {
                     <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.aiSetup.uploadButton}</Text>
                   </PressableScale>
                   <Text style={[styles.descText, { color: theme.textMuted, marginBottom: 0 }]}>{t.aiSetup.deviceOnlyNote}</Text>
-                </ExpandableCard>
+                </DisclosureRow>
 
                 {/* Version & updates — lets the user see exactly which build/OTA is
                     running and force an OTA check. Runtime + updateId here are the
                     fastest way to diagnose "I haven't received the update". */}
-                <ExpandableCard title={t.version.title} accentColor={theme.accent} rounded>
+                <DisclosureRow title={t.version.title} accentColor={theme.accent} rounded>
                   {[
                     [t.version.appVersion, appVersion],
                     [t.version.runtime, runtimeVersion],
@@ -1828,7 +1828,7 @@ export default function SettingsScreen() {
                       {checkingUpdate ? t.version.checking : t.version.checkButton}
                     </Text>
                   </PressableScale>
-                </ExpandableCard>
+                </DisclosureRow>
               </Surface>
             </View>
 
@@ -1837,7 +1837,7 @@ export default function SettingsScreen() {
                 zone at the bottom". */}
             <View style={styles.section}>
               <Surface style={[styles.card, { borderWidth: 1, borderColor: theme.badSoft }]}>
-                <ExpandableCard title={t.sectionReset} accentColor={theme.bad} first>
+                <DisclosureRow title={t.sectionReset} accentColor={theme.bad} first>
                   <Text style={[styles.descText, { color: theme.bad, marginBottom: Spacing.sm, marginTop: 0 }]}>{t.config.desc.dataNote}</Text>
                   <PressableScale style={styles.dangerBtn} onPress={() => confirmReset(t.resetMonthly.toLowerCase(), monthlyReset)} scaleTo={0.93}>
                     <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetMonthly}</Text>
@@ -1859,7 +1859,7 @@ export default function SettingsScreen() {
                   >
                     <Text style={[styles.dangerBtnText, { color: theme.bad }]}>{t.resetOnboarding}</Text>
                   </PressableScale>
-                </ExpandableCard>
+                </DisclosureRow>
               </Surface>
             </View>
 
@@ -1948,7 +1948,7 @@ const baseStyles = StyleSheet.create({
   section: { gap: Spacing.sm },
   // Decision 043 rule 2 fixed anatomy: Fonts.semibold/FontSize.lg; below-spacing comes
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.
-  // (Most former sectionTitle/tabSectionLabel headers are now ExpandableCard's own title —
+  // (Most former sectionTitle/tabSectionLabel headers are now DisclosureRow's own title —
   // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
   // ⚠️ **No `marginTop` (consistency audit, 2026-08-21).** It carried `Spacing.sm`, and ALL
   // EIGHT call sites overrode it to 0 inline — so the value never reached a pixel, and what it

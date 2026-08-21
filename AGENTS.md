@@ -931,6 +931,69 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     `scripts/screenshot-states.mjs --theme=light` predates dark-becoming-the-default and only
     means "don't force dark", which now lands on dark anyway. Worth a look on a device, and worth
     fixing in that script.
+- **⚠️ One card shape — the card registry (2026-08-21)** (`lib/cardRegistry.ts` + `components/Card.tsx`;
+  pinned by `lib/__tests__/cardRegistry.test.ts` and `cardAnatomy.test.ts`). **Read this before
+  adding, moving or restyling any card — most of the card notes below it describe how things were
+  reached, not how a card is built now.** The maintainer's fourth pass on the same instruction:
+  *"Things are placed differently. Not all cards can be collapsed. Not all cards can be in full
+  screen. It just feels like a bunch of cards per screen. No order, no logic."* The ruling was to
+  fix the EXECUTION — three tabs and card stacks stay.
+  - **The cause was the guards, not the cards.** Every rule in `DESIGN_RULES.md` §8 was a source
+    scan over an ALLOWLIST — the cards that were already right — so **a new card was compliant by
+    default** and the suite stayed green through 13 distinct header-control orders, 7 components
+    drawing a card header (9 of them hand-rolled), 3 fold mechanisms, ⤢ on 10 of ~30 cards, and a
+    card whose fold id and expand id were different strings. §8 even wrote the escape hatches in:
+    rule 27 tracked convergence as *"an allowlist that must shrink"*, and `cardAnatomy.test.ts`
+    pinned the WRONG control order on purpose. **The generator was the target, not the instances.**
+  - **A caller no longer describes a card, it names one**: `<Card id="todoToday" count={n}>`.
+    Screen, position, hue, badge, glyph, title, fold, ⤢ and resting state are DATA in
+    `lib/cardRegistry.ts`; `components/Card.tsx` is the only thing that reads them and the only
+    thing that draws a card header. **There is no prop for any of it**, which is what makes a
+    fourteenth order unspellable rather than discouraged.
+  - **`CardId` and `ExpandableCardId` are DERIVED from the registry**, not hand-maintained. So an
+    unregistered card is a **tsc error**, and — because `CardExpandHost`'s `CARD_BODIES` is
+    `Record<ExpandableCardId, …>` — `expand: 'surface'` with no body is a tsc error for free.
+    Declining a fold or a ⤢ is supported and demands a written `foldDeclined`/`expandDeclined`,
+    asserted non-empty. `lib/cardDefaults.ts` is **deleted**: `openAtRest` replaces it.
+  - **The load-bearing guard is a BAN**: no file outside `components/Card.tsx` may import
+    `CardCollapseToggle` or `CardExpandButton`. One assertion, stronger than every list it
+    replaces. The single door is `SectionFoldToggle`, exported from `Card.tsx` for the one thing
+    the registry cannot key — see the boundary below. There is deliberately no ⤢ equivalent.
+  - **The boundary, and it is mechanical rather than a judgement call:** *a CARD is a thing the
+    registry names; a SECTION is drawn one-per-row-of-user-data.* A card gets a `Surface`, the
+    registry's rail, a persisted fold and a ⤢. A section gets no `Surface`, a `sub` rail, a LOCAL
+    fold and **no ⤢** — it rides its parent's. The test is "is this inside a `.map()` over user
+    data?". Consequence: Shop's per-list cards are sections, and that tab went from ~12 top-level
+    `Surface`s to **4** — "every card has a ⤢" is reached mostly by SHRINKING the set of cards.
+  - **One fold axis.** `PadState` lost `'closed'` and is `'preview' | 'open'` — how many ROWS,
+    nothing else. It was the second mechanism owning open/closed, and the two disagreed about what
+    the word means: a "closed" pad card drew header + empty rule + Suggestions + composer (~400px)
+    beside a 70px bare header one tab over. `PadFooterToggle` survives because it can say *"3
+    more"*, which a header chevron has nowhere to put; the two can never both show, because
+    **closed is a bare header** — by construction (the rail's hairline follows the body, the
+    bottom inset matches the top), not by each caller remembering.
+  - **The heading ladder is three real `SectionRail` tiers** (decision (a)): `'group'` 24 with
+    **no badge**, `'card'` 20 with the badge, `'sub'` 17 with a dot. It had existed as prose in
+    `SectionRail`'s own source while only two tiers existed, so every card title rendered at 24 —
+    and a badge on a heading over CARDS is what made every drawer read as a card itself.
+  - **Order is declared per screen.** To-do: Today → Week → Whenever → Recurring → the app's ONE
+    group rail, "Elsewhere" → Goals, Earlier days, Washed away. Shop: Shopping lists → Food +
+    Catalogue → Monthly, **no group headers** (declined). Me: Habits, Notes, Health, Medicine,
+    Retired — a DEFAULT only, since that tab keeps its drag-reorder.
+  - **Deleted or renamed, so nothing is quietly rewired**: `components/CollapsedSection.tsx` is
+    gone (its five drawers are cards; the two-tap-target header exception to rule 4 goes with it,
+    and Health issues' sheet became a header CONTROL). `ExpandableCard.tsx` is
+    `DisclosureRow.tsx` — it is a generic accordion inside cards and sheets, not a card, and two
+    things called "card" with two fold mechanisms is how the app came to have three.
+    `components/SectionCard.tsx` is a shim over `Card`'s `CardShell` with three callers left, all
+    sections; **do not add a prop to it.**
+  - **Deliberately out of the registry**: `HomeSharedCard`, `EnergyBalanceCard` and
+    `SharedTasksSection` are behind `SHARING_VISIBLE` and do not render at all today. Left
+    untouched rather than converted or deleted; they get entries when sharing returns.
+  - ⚠️ **Two `scripts/preview.mjs` steps had to follow the app** — the Habits composer does not
+    exist until its card is opened, and its `/habits` push became an in-place expansion. Same
+    trap as the wrap audit's silently-skipping steps: a step that can't find its target times out
+    thirty seconds later, nowhere near the cause.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).

@@ -49,20 +49,22 @@ const SCREENS = [
  * which is exactly why they are the list worth watching.
  */
 const STACKED_CARDS: { file: string; style: string }[] = [
-  { file: 'components/SectionCard.tsx', style: 'card' },
+  // components/SectionCard.tsx drew this style until 2026-08-21; it is a shim over
+  // components/Card.tsx's `CardShell` now and has no stylesheet of its own. The card geometry
+  // moved with it, so the assertion follows the pixels rather than the filename.
+  { file: 'components/Card.tsx', style: 'card' },
   { file: 'components/OpenEpisodeCard.tsx', style: 'card' },
   // components/MedicineTrayCard.tsx became the shell-less components/MedicineSurface.tsx on
   // 2026-08-21 and no longer draws a card at all; the card is HomeMedicineCard, below.
-  { file: 'components/HomeMedicineCard.tsx', style: 'card' },
+  // components/Home{Medicine,Notes,Habits,Health}Card.tsx drew their own `card` style until
+  // 2026-08-21; all four go through components/Card.tsx now, whose `card` style is asserted at
+  // the top of this list. A file with no card of its own has no margin to get wrong.
   { file: 'components/EnergyBalanceCard.tsx', style: 'card' },
   // components/HintCard.tsx was here until 2026-08-20, when the ⓘ banner was deleted app-wide.
   // Not backfilled: this list is the set of cards that actually sit in a screen-level stack,
   // not a count to keep.
-  { file: 'components/HomeNotesCard.tsx', style: 'card' },
-  { file: 'components/HomeHabitsCard.tsx', style: 'card' },
   { file: 'components/HomeSharedCard.tsx', style: 'card' },
   { file: 'components/PlanTaskCard.tsx', style: 'card' },
-  { file: 'components/CollapsedSection.tsx', style: 'section' },
 ];
 
 /**

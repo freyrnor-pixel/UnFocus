@@ -12,7 +12,7 @@
  *
  * Connections:
  *   Imports → components/AppModal (showAppModal), components/DraggableTaskRow,
- *             components/ExpandableCard, components/PressableScale, components/Surface,
+ *             components/DisclosureRow, components/PressableScale, components/Surface,
  *             constants/theme, lib/i18n, lib/useAppTheme, store/useShoppingListStore
  *             (ShoppingList type only)
  *   Used by → app/(tabs)/shopping.tsx (Weekly tab, above the week sections)
@@ -39,7 +39,7 @@ import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import PressableScale from '@/components/PressableScale';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import { showAppModal } from '@/components/AppModal';
@@ -84,7 +84,7 @@ export default function SavedListsSection({ templates, usedTemplateIds, onDragSt
           manual"*) and the 2026-08-20 deletion of components/HintCard.tsx. Drag-to-move is the
           same gesture every list in this app uses (lib/useDragReorder.ts), and tapping a row
           opens the week chooser, which is found by tapping it. */}
-      <ExpandableCard
+      <DisclosureRow
         title={t.savedListsTitle}
         badge={String(templates.length)}
         accentColor={theme.good}
@@ -117,7 +117,7 @@ export default function SavedListsSection({ templates, usedTemplateIds, onDragSt
             </View>
           );
         })}
-      </ExpandableCard>
+      </DisclosureRow>
     </Surface>
   );
 }

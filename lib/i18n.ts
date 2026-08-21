@@ -917,6 +917,9 @@ const en = {
   collapseCardLabel: 'Collapse card',
   // The To-do tab's Week card (Mon–Sun), replacing the old "This week" tab.
   todoWeekTitle: 'Week',
+  // The To-do tab's one group rail (2026-08-21): the three cards below it are not the day's
+  // work — what you're aiming at, what's behind you, what quietly stopped mattering.
+  todoElsewhereTitle: 'Elsewhere',
   listOptionsButtonLabel: 'List options',
   addFromMonthlyOption: 'From monthly',
   addFromDishOption: 'From a dish',
@@ -1412,13 +1415,6 @@ const en = {
   // Habits — shame-free labels (Proposal 5)
   habits: {
     notYetToday: 'Not yet today',
-    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording from
-     *  `hints.habits.text` on purpose, so the two don't say the same sentence twice on screen at
-     *  once. They are closer together than they were: since 2026-08-20 that string is the
-     *  StarterCard's `text` INSIDE this card rather than a banner above it, so an empty Habits
-     *  card shows this heading and that instruction one under the other. This one is the
-     *  standing promise ("no streaks, no scores"); that one is how to work the rows. */
-    cardSubtitle: 'Simple check-ins — no streaks, no scores.',
     // --- W-D additions ---
     moreOptions: 'More options',
     fewerOptions: 'Fewer options',
@@ -3003,6 +2999,7 @@ const no: typeof en = {
   expandCardLabel: 'Vis kort i fullskjerm',
   collapseCardLabel: 'Skjul fullskjerm',
   todoWeekTitle: 'Uke',
+  todoElsewhereTitle: 'Ellers',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
   addFromDishOption: 'Fra en rett',
@@ -3067,7 +3064,6 @@ const no: typeof en = {
   // Habits
   habits: {
     notYetToday: 'Ikke ennå i dag',
-    cardSubtitle: 'Enkle avkrysninger — ingen rekker, ingen poeng.',
     // --- W-D additions ---
     moreOptions: 'Flere valg',
     fewerOptions: 'Færre valg',
@@ -4810,6 +4806,7 @@ const is: typeof en = {
   expandCardLabel: 'Sýna kort í fullum skjá',
   collapseCardLabel: 'Fela fullan skjá',
   todoWeekTitle: 'Vika',
+  todoElsewhereTitle: 'Annað',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',
   addFromDishOption: 'Úr rétti',
@@ -4870,7 +4867,6 @@ const is: typeof en = {
   invalidMonthlyDateMsg: 'Þarf dag á milli 1 og 31 — fyrra gildi sett aftur.',
   habits: {
     notYetToday: 'Ekki enn í dag',
-    cardSubtitle: 'Einföld hök — engar raðir, engin stig.',
     moreOptions: 'Fleiri valkostir',
     fewerOptions: 'Færri valkostir',
     editButtonLabel: 'Breyta venju',

@@ -10,13 +10,18 @@
  * instead of a run of separated cards.
  *
  * Connections:
- *   Imports → components/Surface, components/SectionRail, components/Collapsible,
- *             components/CardCollapseToggle, constants/theme, lib/collapsedCards,
- *             lib/useCollapsedCard
+ *   Imports → components/Card (CardShell), lib/collapsedCards, lib/useCollapsedCard
  *   Used by → app/plans.tsx, app/habits.tsx, components/TodoSurface.tsx (Week card, local
  *             per-weekday fold via `onToggleCollapse`)
  *   Data    → settings.collapsedCards, but ONLY when a caller passes `collapseKey` (the
  *             foldable variant is a separate component so the plain one reads no store)
+ *
+ * ⚠️ **This is a shim as of 2026-08-21, and it is on its way out.** Every pixel it draws now
+ * comes from `CardShell` in components/Card.tsx; its own `Surface`, rail, `Collapsible`, fold
+ * chevron and stylesheet are gone. Its nine-prop surface *is* the defect the card registry
+ * exists to remove — three fold mechanisms and a free-form `right` slot that let each caller
+ * invent its own control order — so callers move to `<Card id="…">` screen by screen and this
+ * file dies with the last one. **Do not add a prop to it.**
  *
  * Edit notes:
  *   - **`collapseKey` makes a section foldable (2026-08-14), and only a singleton may take one.**
@@ -66,12 +71,9 @@
  *     that need to override the default gap between rows.
  */
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Surface from '@/components/Surface';
+import { StyleProp, ViewStyle } from 'react-native';
 import SectionRail from '@/components/SectionRail';
-import Collapsible from '@/components/Collapsible';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
-import { Radius, Spacing } from '@/constants/theme';
+import { CardShell } from '@/components/Card';
 import { Domain } from '@/lib/domainColor';
 import { CardId } from '@/lib/collapsedCards';
 import { useCollapsedCard } from '@/lib/useCollapsedCard';
@@ -180,32 +182,27 @@ export default function SectionCard({
       </PersistedFoldableSectionCard>
     );
   }
-  if (onToggleCollapse) {
-    return (
-      <FoldableSectionCard
-        hue={hue}
-        domain={domain}
-        icon={icon}
-        badgeHue={badgeHue}
-        label={label}
-        count={count}
-        right={right}
-        style={style}
-        contentStyle={contentStyle}
-        collapsed={!!collapsed}
-        onToggle={onToggleCollapse}
-        embedded={embedded}
-      >
-        {children}
-      </FoldableSectionCard>
-    );
-  }
-  const Shell = embedded ? View : Surface;
   return (
-    <Shell style={[styles.card, embedded && styles.cardEmbedded, style]}>
-      <SectionRail hue={hue} domain={domain} icon={icon} badgeHue={badgeHue} label={label} count={count} right={right} />
-      <View style={[styles.content, contentStyle]}>{children}</View>
-    </Shell>
+    <CardShell
+      // An `embedded` SectionCard is a section INSIDE a card — the To-do Week card's seven
+      // weekday sections, Today's per-person groups — so it takes the ladder's bottom rung.
+      // Standing on its own it is a card, and takes the middle one.
+      tier={embedded ? 'sub' : 'card'}
+      hue={hue}
+      domain={domain}
+      icon={icon}
+      badgeHue={badgeHue}
+      label={label}
+      count={count}
+      controls={right}
+      collapsed={onToggleCollapse ? !!collapsed : undefined}
+      onToggleCollapse={onToggleCollapse}
+      embedded={embedded}
+      style={style}
+      contentStyle={contentStyle}
+    >
+      {children}
+    </CardShell>
   );
 }
 
@@ -217,100 +214,17 @@ export default function SectionCard({
  */
 function PersistedFoldableSectionCard({
   collapseKey,
+  right,
   ...rest
 }: Omit<Props, 'collapseKey' | 'collapsed' | 'onToggleCollapse'> & { collapseKey: CardId }) {
   const [collapsed, toggleCollapsed] = useCollapsedCard(collapseKey);
   return (
-    <FoldableSectionCard {...rest} collapsed={collapsed} onToggle={toggleCollapsed} />
+    <CardShell
+      {...rest}
+      tier={rest.embedded ? 'sub' : 'card'}
+      controls={right}
+      collapsed={collapsed}
+      onToggleCollapse={toggleCollapsed}
+    />
   );
 }
-
-/** The actual foldable rendering, shared by the persisted (`collapseKey`) and local
- *  (`onToggleCollapse`) variants — see SectionCard's edit notes for which one a caller wants. */
-function FoldableSectionCard({
-  hue,
-  domain,
-  icon,
-  badgeHue,
-  label,
-  count,
-  right,
-  style,
-  contentStyle,
-  collapsed,
-  onToggle,
-  embedded = false,
-  children,
-}: Omit<Props, 'collapseKey' | 'onToggleCollapse'> & { collapsed: boolean; onToggle: () => void }) {
-  const Shell = embedded ? View : Surface;
-  return (
-    <Shell style={[styles.card, collapsed && styles.cardCollapsed, embedded && styles.cardEmbedded, style]}>
-      <SectionRail
-        hue={hue}
-        domain={domain}
-        icon={icon}
-        badgeHue={badgeHue}
-        label={label}
-        count={count}
-        // ⚠️ **The hairline follows the BODY (2026-08-21, CONSISTENCY_AUDIT.md §2's "the line").**
-        // The rule is what ties a header to the content under it, so a folded card drawing one
-        // draws it over nothing — and `components/CollapsedSection.tsx` had already settled that
-        // exact question with `divider={open}` on 2026-08-12. This component never followed, so a
-        // closed `SectionCard` shipped a stray rule plus 25px of dead card (the rule, the rail's
-        // own `marginBottom`, and the card's open-state `paddingBottom`) directly above a closed
-        // drawer that had none. That is the maintainer's *"some have a line and some don't"*,
-        // still on screen after the pass that claimed to close it.
-        divider={!collapsed}
-        // ⚠️ **The fold chevron goes FIRST, before the caller's own control (2026-08-20)** —
-        // a reversal. It used to sit outermost, on the reasoning that a section's own control
-        // should keep the position it had always had. The maintainer's rule for this pass is
-        // that ⤢ is in the card's top-right CORNER on every surface, and `right` is where a
-        // caller puts its CardExpandButton, so the chevron has to yield the outermost slot.
-        // The pair still reads "how much of this" then "how big is this".
-        // No row wrapper here: SectionRail's `right` slot lays its children out in a row itself
-        // now. It used to be a bare View (a COLUMN), so this had to wrap — and every OTHER
-        // caller that passed two controls stacked them silently.
-        right={
-          <>
-            <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
-            {right}
-          </>
-        }
-      />
-      {/* The count stays on the rail while collapsed, which is the point: a folded section still
-          says how much is in it. */}
-      <Collapsible open={!collapsed}>
-        <View style={[styles.content, contentStyle]}>{children}</View>
-      </Collapsible>
-    </Shell>
-  );
-}
-
-const styles = StyleSheet.create({
-  // **No vertical margin (2026-08-08).** This carried `marginTop: Spacing.xl` (Decision 043
-  // rule 2) until the spacing pass — the screen's content container owns the gap between
-  // stacked cards now (`SCREEN_GAP`, constants/theme.ts). A card declaring its own margin is
-  // what produced five different gaps down one column: a card that remembered got 32px, the
-  // ones that forgot (the sub-screen links) got 0. Padding is routed to the inner content
-  // view by Surface, so the header pill + rows sit inset from the card edge.
-  card: {
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
-    paddingTop: Spacing.sm,
-  },
-  // The rows/empty state stack below the header, with the same inter-row gap the loose
-  // sections used (Spacing.sm). SectionRail carries its own marginBottom, so no extra
-  // top gap is added here.
-  content: { gap: Spacing.sm },
-  // `embedded`: no card, so no card padding either — the OUTER card already inset this content
-  // from the screen edge, and a second horizontal inset is the "three stacked paddings" shape
-  // the wrap audit keeps finding. Vertical padding stays: it is what separates one weekday
-  // section from the next inside the shared card.
-  // Closed, the card is its header and nothing else, so the bottom inset matches the top one —
-  // the same tight closed box `components/CollapsedSection.tsx` draws (its `section` style pads
-  // `Spacing.sm` both ways and moves the open-state delta onto the body). Without this a folded
-  // card keeps the 16px it reserved for rows that are no longer drawn.
-  cardCollapsed: { paddingBottom: Spacing.sm },
-  cardEmbedded: { paddingHorizontal: 0 },
-});

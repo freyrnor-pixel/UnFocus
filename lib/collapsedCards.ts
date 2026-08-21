@@ -7,9 +7,8 @@
  *
  * **A card starts CLOSED as of 2026-08-21** (maintainer: *"All card start in closed state,
  * except 'Today' 'Notes' and 'Shopping' in middle screen"*). The exceptions are named in
- * lib/cardDefaults.ts, which is shared with lib/padState.ts because the three cards excepted
- * are drawn by both mechanisms — see that file's table. This module no longer decides a default
- * of its own.
+ * lib/cardRegistry.ts as `openAtRest`, alongside everything else that is true of a card.
+ * lib/cardDefaults.ts, which used to hold them, is deleted — the registry replaces it.
  *
  * Dependency-free on purpose, like lib/cardLayout.ts, lib/padState.ts and lib/growth.ts: this is
  * evaluated in the render path of every tab, so it must not be able to reach a store, the DB, the
@@ -18,7 +17,7 @@
  * chevron is components/CardCollapseToggle.tsx.
  *
  * Connections:
- *   Imports → lib/cardDefaults (CARDS_OPEN_AT_REST)
+ *   Imports → lib/cardRegistry (CARDS — types + the fold/openAtRest declarations)
  *   Used by → lib/useCollapsedCard.ts, store/useSettingsStore.ts (sanitize on read)
  *   Data    → none directly; the shape stored in settings.collapsedCards / the
  *             `collapsed_cards` column
@@ -56,7 +55,7 @@
  *     from an older build or a hand-edited backup falls back to that card's resting state rather
  *     than to a stored value nothing here understands. **This used to say a bad entry "can only
  *     ever leave a card OPEN", and that stopped being true when the default inverted** — a
- *     dropped entry now lands wherever lib/cardDefaults.ts puts that card, which for most cards
+ *     dropped entry now lands wherever lib/cardRegistry.ts puts that card, which for most cards
  *     is closed. What still holds is that nothing disappears: a folded card keeps its header,
  *     its count and its chevron, so it is one tap from its content either way.
  *   - Not in `lib/aiSetupGuide.ts`'s settings whitelist (an AI-authored file must not be able to
@@ -65,80 +64,36 @@
  *     keeps `app_meta`'s view snapshots out of it.
  */
 
-import { CARDS_OPEN_AT_REST } from '@/lib/cardDefaults';
+import { CARDS, CARD_KEYS, CardKey, cardSpec } from '@/lib/cardRegistry';
 
 /**
- * Every card that can be folded away, by id.
+ * Every card that can be folded away, by id — **derived from lib/cardRegistry.ts**, not
+ * hand-maintained.
+ *
+ * It was a hand-written union until 2026-08-21, on the reasoning that "the union IS the
+ * validation". It was, and it validated the wrong thing: it caught a typo and could not catch a
+ * card that simply never asked to be foldable, which is how the app ended up with three fold
+ * mechanisms and a tab of cards where only some folded. The registry declares `fold` per card,
+ * so a card that does not fold has to say so IN WRITING there.
  *
  * Ids are STORAGE KEYS — they are written into the settings column, so renaming one silently
- * re-opens that card for everyone who had collapsed it. Prefer adding to this list over
- * renaming; if a rename is unavoidable, it needs a migration like any other stored value.
- *
- * Grouped by the screen that draws them, which is also the order they appear on it.
+ * re-opens that card for everyone who had collapsed it. See the registry's own note about the
+ * `plans*` → `todo*` rename and the migration that came with it.
  */
-export const CARD_IDS = [
-  // To-do — the three named sections. The per-day and per-group SectionCards on the same screen
-  // are deliberately absent: they are generated from data, so they have no stable id to store,
-  // and a bag keyed by date would grow forever.
-  'plansToday',
-  'plansWhenever',
-  'plansRecurring',
-  // The Week card folds as ONE thing — the seven weekday sections inside it are the
-  // data-generated ones the rule above excludes, and folding them one at a time was the only
-  // way to put the week away (2026-08-19, maintainer: "Mon-sun should also be collapsable
-  // together"). This id is the card, never a day.
-  'plansWeek',
-  // Habits — the whole list card, composer included.
-  'habitsList',
-  // Shop — the two GROUPS (each a SectionRail over a stack of per-list cards) and the two
-  // library cards. Added 2026-08-21 for CONSISTENCY_AUDIT.md §10, *"All cards must be able to
-  // collapse and expand"*.
-  //
-  // ⚠️ The groups take an id; the per-list cards INSIDE them do not, and neither do the four
-  // week sections. That is the singleton rule below, not an oversight: a monthly list's card is
-  // drawn one per row of data, so an id built from its list id would accumulate entries for
-  // lists that no longer exist. Folding the group puts all of them away at once, which is what
-  // "collapse the Monthly lists" means anyway.
-  'shopLists',
-  'shopMonthly',
-  'shopDishes',
-  'shopCatalogue',
-  // Health
-  'healthWeek',
-  // Me — the Health card itself. The three cards beside it already have a size control (Habits
-  // and Notes are pad cards, which is the other mechanism; Medicine has its own fold), and this
-  // one had neither — CONSISTENCY_AUDIT.md §10. Note it is NOT the same fold as `healthWeek`
-  // one level in: this is the whole card, that is the "This week" section inside it.
-  'homeHealth',
-  // Me — the Medicine card. Named for where it lives, which since 2026-08-21 is the Me tab
-  // rather than inside the Health card (CONSISTENCY_AUDIT.md §11). It was 'healthMedicine'
-  // until then; renaming a storage key normally re-opens that card for everyone who had folded
-  // it, and here it costs nothing because the same pass empties the column outright — see
-  // lib/db.ts's "all cards start closed" migration. Don't take this as precedent for renaming
-  // an id without one.
-  //
-  // It is deliberately the same string as its lib/expandableCards.ts id: two different unions,
-  // one card, and 'shopLists' already sets that precedent. A card that folds and a card that
-  // expands are the same card.
-  'homeMedicine',
-] as const;
+export const CARD_IDS = CARD_KEYS.filter((k) => cardSpec(k).fold === 'persisted') as readonly CardId[];
 
-/** A card that can be folded away. See CARD_IDS. */
-export type CardId = (typeof CARD_IDS)[number];
+/** A card that can be folded away. Derived: the registry keys with `fold: 'persisted'`. */
+export type CardId = { [K in CardKey]: (typeof CARDS)[K]['fold'] extends 'persisted' ? K : never }[CardKey];
 
 /**
  * The stored shape: only cards the user has moved OFF their resting state are present, so an
- * absent id means "however lib/cardDefaults.ts draws this card".
- *
- * Both booleans are meaningful now. Before the default inverted this held `true` only, because
- * open was the default and so the absence of a key said it; with most cards resting closed, an
- * explicit `false` is the only way to record "I opened this one".
+ * absent id means "however the registry's `openAtRest` draws this card".
  */
 export type CollapsedCards = Partial<Record<CardId, boolean>>;
 
 /** Whether a card is folded away when the user has chosen nothing for it. */
 export function defaultCollapsed(id: CardId): boolean {
-  return !CARDS_OPEN_AT_REST.includes(id);
+  return !cardSpec(id).openAtRest;
 }
 
 function isCardId(raw: string): raw is CardId {

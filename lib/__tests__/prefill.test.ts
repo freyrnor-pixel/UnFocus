@@ -90,10 +90,13 @@ describe('the Habits tab hosts both consumers', () => {
     expect(habits).toMatch(/usePrefill\('goals'\)/);
   });
 
-  it('opens the drawer around the field it seeds', () => {
-    // Seeding a field two levels inside a closed drawer would put the note somewhere the user
-    // cannot see it — the same reason AddRow takes an `expandSignal`.
-    expect(habits).toMatch(/openSignal=\{goalPrefill\}/);
+  it('seeds the editor itself', () => {
+    // ⚠️ **`openSignal` is gone (2026-08-21).** The Goals drawer was a `CollapsedSection`, and
+    // the signal popped it open so a note routed here did not land two levels inside something
+    // closed. It is an ordinary `Card` now, and a card's fold is a stored user choice that an
+    // incoming navigation must not overwrite. What still has to be true — and is what this test
+    // was really about — is that the text reaches the editor, and that `AddRow`'s own
+    // `expandSignal` puts it on screen inside it.
     expect(habits).toMatch(/<GoalsEditor[^>]*prefill=\{goalPrefill\}/s);
   });
 });

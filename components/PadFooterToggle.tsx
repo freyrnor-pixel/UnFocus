@@ -1,7 +1,10 @@
 /**
  * PadFooterToggle.tsx — the one expandability affordance on a pad card.
  *
- * Cycles the card's three sizes (lib/padState): closed → preview → open → closed. Replaces
+ * Cycles the card's sizes (lib/padState): preview → open → preview. It was THREE sizes until
+ * 2026-08-21, when `'closed'` left that axis — open/closed is components/Card.tsx's header
+ * chevron now, for every card in the app. This control survives the unification because it can
+ * say something a header chevron cannot: *"3 more"*. Replaces
  * four separately-worded accent text links ("Show all notes" / "Show full list" / "Show all
  * habits" / "Show less"), which carried no affordance at all beyond being coloured
  * (2026-07-30, user report: "expandability still seems to be non-existent").
@@ -25,10 +28,10 @@
  *     full-screen button top-right, this toggle bottom-center), reading as two unrelated
  *     affordances rather than a matched pair. `alignSelf: 'flex-end'` shrink-wraps it to its
  *     own content and pins that to the trailing edge, mirroring the full-screen button's corner.
- *   - The chevron points down while there's more to reveal and up on the last step, so one
- *     glyph covers a three-state cycle without a second control or a hidden long-press.
- *   - Renders nothing when `total === 0`: an empty pad has nothing to expand, and a dead
- *     control on an empty card is exactly the kind of noise this pass is removing.
+ *   - The chevron points down while there's more to reveal and up when everything is shown.
+ *   - Renders nothing unless there are more rows than the preview draws (see the guard): with
+ *     every row already on screen the two remaining states are the same rendering, and a
+ *     control that promises a size change that isn't one is worse than no control.
  *   - **(2026-07-31, addendum A.4 rule 1) The label and chevron are `theme.accent`, the app's
  *     one action colour — NOT the card's identity hue.** They used to take an `accent` prop
  *     that every caller filled with `getDomainColor(...).accent`, i.e. an identity hue used as
@@ -49,7 +52,7 @@ import React from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, HitSlop, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HitSlop, MIN_TAP_TARGET, PAD_PREVIEW_ROWS, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -68,7 +71,12 @@ export default function PadFooterToggle({ state, onChange, total, style }: Props
   const theme = useAppTheme();
   const { reducedMotion } = useAccessibility();
 
-  if (total === 0) return null;
+  // Nothing to reveal, nothing to draw. `total === 0` was the old guard — an empty pad has
+  // nothing to expand — and it is not enough now that this control no longer closes the card:
+  // with every row already on screen the two remaining states render identically, so the button
+  // would sit there promising a size change that isn't one. A card with more rows than the
+  // preview shows keeps it, in both directions, so "3 more" always has its way back.
+  if (total <= PAD_PREVIEW_ROWS) return null;
 
   const hidden = padHiddenCount(total, state);
   const label =

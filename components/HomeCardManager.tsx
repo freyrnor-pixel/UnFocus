@@ -63,14 +63,13 @@
 import React from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import CollapsedSection from '@/components/CollapsedSection';
+import Card from '@/components/Card';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
 import { FontSize, Fonts, MIN_TAP_TARGET, SCREEN_GAP, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useScreenColor } from '@/lib/screenColor';
 import { useDragReorder } from '@/lib/useDragReorder';
 
 type Props = {
@@ -89,7 +88,6 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
   const t = useT();
   const styles = useScaledStyles(baseStyles);
   const { reducedMotion } = useAccessibility();
-  const screenHue = useScreenColor() ?? theme.border;
 
   // The shared long-press-drag mechanic (lib/useDragReorder) — the same one the notes screen,
   // the habit list and the Whenever list use. This file used to hold that logic itself.
@@ -120,12 +118,7 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
           open). It sits INSIDE the gapped list so the screen's own SCREEN_GAP separates it
           from the last card, rather than carrying a margin of its own. */}
       {retiredKinds.length > 0 && (
-        <CollapsedSection
-          hue={screenHue}
-          icon="archive-outline"
-          label={t.home.retired.title}
-          count={retiredKinds.length}
-        >
+        <Card id="homeRetired" count={retiredKinds.length}>
           {retiredKinds.map((kind) => (
             <PressableScale
               key={kind}
@@ -142,7 +135,7 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
               <Ionicons name="add" size={20} color={theme.textMuted} />
             </PressableScale>
           ))}
-        </CollapsedSection>
+        </Card>
       )}
     </View>
   );

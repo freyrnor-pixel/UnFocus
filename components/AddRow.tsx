@@ -86,7 +86,7 @@
  *     drawing an edge, which is what the 2026-08-18 blueprint pass asks of anything inside a
  *     card. Don't put the outline back; if the bar needs to read louder, it is the well's
  *     recess that moves, for every field at once.
- *   - Mount inside the section's Surface (like ExpandableCard) — do NOT wrap it in
+ *   - Mount inside the section's Surface (like DisclosureRow) — do NOT wrap it in
  *     its own card, or the add row detaches from its list. **A bordered wrapper View around
  *     it is the same mistake with an extra edge** — `components/TodoSurface.tsx` had one
  *     (`addRowCard`, a 1px box with a 4px accent left bar) and it is what the 2026-08-21

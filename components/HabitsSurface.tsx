@@ -65,10 +65,9 @@ import { personColor } from '@/lib/personColor';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
-import CollapsedSection from '@/components/CollapsedSection';
+import Card from '@/components/Card';
 import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
-import Surface from '@/components/Surface';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
@@ -80,7 +79,6 @@ import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import Collapsible from '@/components/Collapsible';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
@@ -101,7 +99,6 @@ import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, 
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
@@ -410,7 +407,7 @@ function HabitCard({
 
         {/* Clip-revealed, not a bare `{expanded && …}` (2026-08-08). This was the last habit
             surface that popped its body in with no transition while the rest of the app —
-            TaskCard, ExpandableCard, WeekListCard, habit-form, and this very file's own
+            TaskCard, DisclosureRow, WeekListCard, habit-form, and this very file's own
             person-filter reveal — all glide through `Collapsible`. It clips a measured height
             with NO opacity fade, deliberately: a folded row should read "still there, just
             folded". Don't swap in a fade; Collapsible's header says why. */}
@@ -546,10 +543,6 @@ export default function HabitsSurface() {
   // (management moved to Settings — this screen only *filters* by person now). The self
   // row always exists in the People registry, so >1 is the real "is there anyone else" test.
   const showHabitProfiles = peopleModeEnabled && people.length > 1;
-  // Folded away, remembered across launches (2026-08-14). Collapsing takes the composer with it,
-  // which is deliberate — the card is one thing, and a quick-add hanging under a folded list
-  // would be an orphan. The Goals drawer below the card is unaffected; it has its own.
-  const [habitsCollapsed, toggleHabitsCollapsed] = useCollapsedCard('habitsList');
   // Memoise the habit filter chain (perf sweep 2026-07-15): this used to re-filter the
   // full habits array on every render of this large screen. Only recompute on real input
   // changes. Only filter by person when the filter UI is actually shown; otherwise (People mode
@@ -719,31 +712,14 @@ export default function HabitsSurface() {
                 drawing that same dark green after the card edge was fixed — updated 2026-08-06
                 to `screenHue` too, so nothing on this card disagrees with its own header any
                 more. */}
-            <Surface style={styles.habitsCard}>
-              {/* Sub-header (2026-08-06, restyled after user feedback that the first pass —
-                  small muted italic-adjacent text — read as just another line of body copy,
-                  not a header). Bold, full-contrast, and its own row with real breathing room
-                  under it, so it reads as a heading FOR the card rather than a caption INSIDE
-                  it. Distinct wording from hints.habits.text (the collapsible ⓘ hint just
-                  above this card) on purpose — see lib/i18n.ts's habits.cardSubtitle doc. */}
-              {/* The sub-header doubles as this card's header ROW since 2026-08-14, because the
-                  fold-away chevron needs something to sit on and this card has never had a
-                  badge-and-title row of its own. The text is unchanged; it just no longer spans
-                  the full width. */}
-              <View style={styles.cardSubtitleRow}>
-                {/* Clamped (2026-08-17, brief section 3) — this is the card's only header line, so
-                    it must not be allowed to grow into a paragraph and push the list down. */}
-                <Text style={[styles.cardSubtitle, { color: theme.text }]} numberOfLines={2}>
-                  {t.habits.cardSubtitle}
-                </Text>
-                <CardCollapseToggle
-                  collapsed={habitsCollapsed}
-                  onToggle={toggleHabitsCollapsed}
-                  cardLabel={t.nav.habits}
-                />
-              </View>
-
-              <Collapsible open={!habitsCollapsed}>
+            {/* ⚠️ **A `Card`, not a `Surface` with a hand-rolled header (2026-08-21).** This card
+                had no badge-and-title row at all: its SUB-HEADER doubled as the header, because
+                that is where the fold chevron needed somewhere to sit when folding arrived in
+                2026-08-14. So it was a card whose heading was a sentence, sitting one screen
+                away from four cards whose heading was a name. It has the registry's title and
+                badge now, and the sentence goes back to being the first line of the body — which
+                is what `StarterCard`'s `text` already is on every other empty surface. */}
+            <Card id="habitsList">
 
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in
@@ -917,8 +893,7 @@ export default function HabitsSurface() {
                 />
 
               </View>
-              </Collapsible>
-            </Surface>
+            </Card>
             </DebugNoteAnchor>
 
           {/* Ambient stage tree (2026-08-04, design comparison task 03) — the `full` stage,
@@ -959,15 +934,15 @@ export default function HabitsSurface() {
               asked to make consistent. Same `featureGoals` gate — turning the feature off
               removes the drawer entirely, editor included. */}
           {featureGoals && (
-            <CollapsedSection
-              hue={screenHue}
-              domain="habit"
-              icon="flag"
-              label={t.goals.editLinkPersonal}
-              openSignal={goalPrefill}
-            >
+            /* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21)** — see
+               components/HealthSurface.tsx's equivalent note. `openSignal` goes with the
+               drawer: it existed so a note routed here through lib/prefill.ts could pop the
+               drawer open, and a card's fold is a stored user choice that an incoming
+               navigation should not overwrite. The prefill still reaches the editor, which is
+               what puts the text somewhere the user can see it. */
+            <Card id="habitsGoals">
               <GoalsEditor accent={screenHue} prefill={goalPrefill} />
-            </CollapsedSection>
+            </Card>
           )}
 
           {/* ⚠️ **The foot StageTree is gone (2026-08-20).** It was a watermark for the BOTTOM OF

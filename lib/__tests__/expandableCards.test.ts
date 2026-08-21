@@ -99,12 +99,16 @@ describe('components/CardExpandHost.tsx registry — every id has a body and vic
     expect(code).not.toMatch(/ComingSoon|Placeholder|NotYet|TodoBody/i);
   });
 
-  it.each(EXPANDABLE_CARD_IDS)('%s can actually be opened from somewhere in the UI', (id) => {
-    // A `useCardExpand('<id>')` call is what hands a card the ref and the onExpand its
-    // CardExpandButton needs, so it is the honest test of "reachable" — one grep across the
-    // screens and components, not a promise in a comment.
+  it.each(EXPANDABLE_CARD_IDS)('%s is mounted somewhere in the UI', (id) => {
+    // ⚠️ **This used to grep for `useCardExpand('<id>')`**, which was the honest test of
+    // "reachable" while every card wired its own ⤢. Since 2026-08-21 there is exactly one
+    // `useCardExpand` call in the app — components/Card.tsx's — and a card gets its ⤢ from its
+    // registry entry, so the old grep would have failed on every id at once while the app was
+    // more correct than it had ever been. What is worth checking now is that the id is drawn:
+    // an entry nothing mounts is the `shopLists` shape, a `CARD_BODIES` entry nothing can reach
+    // with a passing test over it.
     const callers = execSync(
-      `grep -rl "useCardExpand('${id}')" app components || true`,
+      `grep -rlw --exclude=CardExpandHost.tsx ${id} app components || true`,
       { cwd: join(__dirname, '..', '..'), encoding: 'utf8' }
     ).trim();
     expect(callers).not.toBe('');

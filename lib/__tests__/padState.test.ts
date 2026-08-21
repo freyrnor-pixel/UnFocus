@@ -27,10 +27,9 @@ import { PAD_PREVIEW_ROWS, PAD_SPARE_LINES } from '@/constants/theme';
 const rows = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
 
 describe('nextPadState', () => {
-  it('cycles closed → preview → open → closed, so one chevron covers all three', () => {
-    expect(nextPadState('closed')).toBe('preview');
+  it('cycles preview → open → preview, so one chevron covers both', () => {
     expect(nextPadState('preview')).toBe('open');
-    expect(nextPadState('open')).toBe('closed');
+    expect(nextPadState('open')).toBe('preview');
   });
 
   it('returns to the starting state after one full lap of every state', () => {
@@ -41,10 +40,6 @@ describe('nextPadState', () => {
 });
 
 describe('padVisibleRows', () => {
-  it('draws nothing when closed', () => {
-    expect(padVisibleRows(rows, 'closed')).toEqual([]);
-  });
-
   it('draws the first PAD_PREVIEW_ROWS in the middle state', () => {
     expect(padVisibleRows(rows, 'preview')).toEqual(rows.slice(0, PAD_PREVIEW_ROWS));
   });
@@ -67,10 +62,6 @@ describe('padVisibleRows', () => {
 });
 
 describe('padHiddenCount', () => {
-  it('reports the whole list as hidden when closed — the rows are still there', () => {
-    expect(padHiddenCount(rows.length, 'closed')).toBe(rows.length);
-  });
-
   it('reports what preview holds back', () => {
     expect(padHiddenCount(rows.length, 'preview')).toBe(rows.length - PAD_PREVIEW_ROWS);
   });
@@ -94,12 +85,6 @@ describe('padHiddenCount', () => {
 });
 
 describe('padSpareLines', () => {
-  it('draws no spare paper on a closed card', () => {
-    // A closed card is header + summary + the type line; spare rules there would undo the
-    // point of closing it.
-    expect(padSpareLines('closed')).toBe(0);
-  });
-
   it('draws the spare lines in both open states', () => {
     expect(padSpareLines('preview')).toBe(PAD_SPARE_LINES);
     expect(padSpareLines('open')).toBe(PAD_SPARE_LINES);
@@ -130,7 +115,7 @@ describe('isDoneRowStillInPlace', () => {
 
 describe('resolveCardState', () => {
   it('returns a surface`s stored state', () => {
-    expect(resolveCardState({ notes: 'closed' }, 'notes')).toBe('closed');
+    expect(resolveCardState({ notes: 'open' }, 'notes')).toBe('open');
   });
 
   // 2026-08-21: the default is per-surface now, not one constant. Both halves are asserted,
@@ -143,13 +128,19 @@ describe('resolveCardState', () => {
     expect(resolveCardState(undefined, 'plans')).toBe('preview');
   });
 
-  it('rests every other surface closed', () => {
-    expect(defaultPadState('habits')).toBe('closed');
-    expect(defaultPadState('shopping')).toBe('closed');
-    expect(defaultPadState('health')).toBe('closed');
-    expect(defaultPadState('homeTodo')).toBe('closed');
-    expect(resolveCardState({}, 'habits')).toBe('closed');
-    expect(resolveCardState(undefined, 'habits')).toBe('closed');
+  // ⚠️ **Every surface rests at 'preview' as of 2026-08-21, with no exception list.** This axis
+  // briefly rested at 'closed' for all but two surfaces, mirroring lib/collapsedCards.ts — two
+  // mechanisms owning open/closed with two columns and two answers to what the word means, which
+  // is the *"not all cards can be collapsed"* half of the report. `'closed'` is gone from
+  // `PadState`; a card's fold is lib/collapsedCards.ts over lib/cardRegistry.ts, for every card.
+  it('rests every surface at preview', () => {
+    expect(defaultPadState('habits')).toBe('preview');
+    expect(defaultPadState('shopping')).toBe('preview');
+    expect(defaultPadState('health')).toBe('preview');
+    expect(defaultPadState('homeTodo')).toBe('preview');
+    expect(defaultPadState('notes')).toBe('preview');
+    expect(resolveCardState({}, 'habits')).toBe('preview');
+    expect(resolveCardState(undefined, 'habits')).toBe('preview');
   });
 
   it('ignores another surface`s entry', () => {
@@ -158,7 +149,7 @@ describe('resolveCardState', () => {
 
   it('degrades an unknown value to that surface`s own resting state', () => {
     expect(resolveCardState({ notes: 'gigantic' }, 'notes')).toBe('preview');
-    expect(resolveCardState({ habits: 'gigantic' }, 'habits')).toBe('closed');
+    expect(resolveCardState({ habits: 'gigantic' }, 'habits')).toBe('preview');
   });
 });
 
@@ -171,32 +162,32 @@ describe('withCardState', () => {
   });
 
   it('overwrites the same surface', () => {
-    expect(withCardState({ notes: 'open' }, 'notes', 'closed')).toEqual({ notes: 'closed' });
+    expect(withCardState({ notes: 'preview' }, 'notes', 'open')).toEqual({ notes: 'open' });
   });
 
   // The bag is "what the user moved", never "what every surface is set to". Storing a value
   // that equals the default would freeze that surface if the default ever moved again.
   it('deletes the key when the chosen state IS the surface`s resting state', () => {
-    expect(withCardState({ notes: 'closed' }, 'notes', 'preview')).toEqual({});
-    expect(withCardState({ habits: 'open' }, 'habits', 'closed')).toEqual({});
+    expect(withCardState({ notes: 'open' }, 'notes', 'preview')).toEqual({});
+    expect(withCardState({ habits: 'open' }, 'habits', 'preview')).toEqual({});
   });
 
   it('keeps other surfaces while deleting one back to its default', () => {
-    expect(withCardState({ notes: 'closed', habits: 'open' }, 'notes', 'preview')).toEqual({
+    expect(withCardState({ notes: 'open', habits: 'open' }, 'notes', 'preview')).toEqual({
       habits: 'open',
     });
   });
 
   it('returns a new object, so the store sees a changed reference', () => {
     const before = { notes: 'open' };
-    expect(withCardState(before, 'notes', 'closed')).not.toBe(before);
+    expect(withCardState(before, 'notes', 'open')).not.toBe(before);
     expect(before).toEqual({ notes: 'open' });
   });
 
   it('does not mutate the input when deleting a key back to the default', () => {
-    const before = { notes: 'closed' };
+    const before = { notes: 'open' };
     expect(withCardState(before, 'notes', 'preview')).not.toBe(before);
-    expect(before).toEqual({ notes: 'closed' });
+    expect(before).toEqual({ notes: 'open' });
   });
 
   it('copes with no stored states at all', () => {
@@ -206,8 +197,8 @@ describe('withCardState', () => {
 
 describe('sanitizeCardStates', () => {
   it('keeps valid entries', () => {
-    expect(sanitizeCardStates({ notes: 'closed', plans: 'open' })).toEqual({
-      notes: 'closed',
+    expect(sanitizeCardStates({ notes: 'preview', plans: 'open' })).toEqual({
+      notes: 'preview',
       plans: 'open',
     });
   });

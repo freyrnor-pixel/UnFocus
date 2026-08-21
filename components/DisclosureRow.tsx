@@ -1,5 +1,12 @@
 /**
- * ExpandableCard.tsx — collapsible card with animated header chevron.
+ * DisclosureRow.tsx — a disclosure row: a naming row that toggles a body under it.
+ *
+ * ⚠️ **Renamed from `ExpandableCard.tsx` on 2026-08-21, and the rename is the point.** It is not
+ * a card and never was: a CARD is a thing lib/cardRegistry.ts names, drawn by
+ * components/Card.tsx, with a registry-owned header, a persisted fold and a ⤢. This is a
+ * generic accordion used inside cards and sheets — Settings' setting groups, a saved list's
+ * dish groups, the monthly reset review. Two things called "card" with two different fold
+ * mechanisms is how the app came to have three.
  *
  * Generic accordion container: shows a title/subtitle/badge row that toggles a
  * body section with a smooth reveal and a rotating arrow. Content, labels, and
@@ -13,11 +20,11 @@
  *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups),
  *             app/settings.tsx (merged setting-group panels — passes `rounded`, see that
  *             prop's doc below); later Phase 3/6 sessions may also wire this into meals/health
- *             per Decision 009. NOTE: PlanTaskCard does NOT wrap ExpandableCard — Decision
+ *             per Decision 009. NOTE: PlanTaskCard does NOT wrap DisclosureRow — Decision
  *             009a redesigned the Plans preview into a bespoke proportional-rail day-view
- *             (its collapsed state still shows content, which ExpandableCard's hide-all-body
+ *             (its collapsed state still shows content, which DisclosureRow's hide-all-body
  *             accordion shape can't express), superseding Decision 009 #2's original
- *             "PlanTaskCard wraps ExpandableCard" reference.
+ *             "PlanTaskCard wraps DisclosureRow" reference.
  *   Data    → driven by props; reads scaled fontSize via useScaledStyles()
  *
  * Edit notes:
@@ -76,7 +83,7 @@ type Props = {
   onToggle?: () => void;
   accentColor?: string;
   /**
-   * Pass true on the first (or only) ExpandableCard inside a Surface. The hairline top
+   * Pass true on the first (or only) DisclosureRow inside a Surface. The hairline top
    * divider exists to separate stacked cards from each other, but on the first one it has
    * nothing above it to separate from — flush against the Surface's rounded top edge it reads
    * as a flat, square-cornered line cutting across an otherwise rounded card (2026-07-21 fix).
@@ -95,7 +102,7 @@ type Props = {
   rounded?: boolean;
 };
 
-export default function ExpandableCard({
+export default function DisclosureRow({
   title,
   subtitle,
   badge,

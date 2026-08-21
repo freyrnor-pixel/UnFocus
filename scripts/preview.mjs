@@ -325,6 +325,20 @@ async function main() {
     // screenshot of an idle line. And a programmatic DOM focus() does not reliably drive
     // react-native-web's onFocus, which is what the panel and buttons hang off.
     console.log('> Home quick-add, focused and empty');
+    // ⚠️ **Open the Habits card first.** Every card rests CLOSED except the three
+    // lib/cardRegistry.ts marks `openAtRest`, and closed is a bare header as of 2026-08-21 — so
+    // the composer this step focuses does not EXIST until the card is opened. A step that can't
+    // find its target doesn't fail loudly here, it times out thirty seconds later; AGENTS.md's
+    // note about the wrap audit's silently-skipping steps is the same trap in the other script.
+    // Matched by prefix rather than by the exact string: this walk runs in English, the wrap
+    // audit's equivalent runs in three languages, and the chevron's accessible name is
+    // `<card title>: <action>` in whichever one is active.
+    const openHabits = page.getByRole('button', { name: /^Habits: / }).first();
+    if (await openHabits.count()) {
+      await openHabits.scrollIntoViewIfNeeded();
+      await openHabits.click();
+      await page.waitForTimeout(600);
+    }
     const focusProbe = page.getByLabel('Type habit', { exact: true }).first();
     await focusProbe.scrollIntoViewIfNeeded();
     await focusProbe.click({ timeout: 10000 });
@@ -730,35 +744,53 @@ async function main() {
     await page.waitForTimeout(800);
     await dismissTour(page);
 
-    // app/habits.tsx — the one Home card whose title press still PUSHES to a genuinely deeper
-    // screen (its calendar/setup views have no expanded-card equivalent) rather than expanding
-    // in place. Reached and checked HERE, before Debug mode gets switched on for the design lab
-    // excursion below — components/DebugNoteAnchor.tsx wraps every Home card with its own
-    // "Add debug note" pill once debug mode is on, and that pill sits on top of the card's own
-    // title hit-target and intercepts the tap meant for it (found the hard way: moving this
-    // step after the design-lab excursion made `clickText(page, 'Habits')` fail with
-    // `<button aria-label="Note — Home — Habits preview"> intercepts pointer events`). Kept as
-    // its own try/catch (best-effort, matching the design-lab block below) since it is a render
-    // check, not one of the write-path proofs above it.
+    // ⚠️ **The Habits card EXPANDS IN PLACE now; it does not push (2026-08-21).** This step used
+    // to follow `app/habits.tsx`, the one Me card whose title press still went to a genuinely
+    // deeper screen. Since components/Card.tsx wires every expandable card's naming cluster to
+    // its own ⤢, the title opens the full-screen pane instead — which mounts the same
+    // components/HabitsSurface.tsx that pushed route is a thin wrapper around, so nothing is
+    // lost and one behaviour replaced two.
+    //
+    // Run HERE, before Debug mode gets switched on for the design lab excursion below —
+    // components/DebugNoteAnchor.tsx wraps every Me card with its own "Add debug note" pill once
+    // debug mode is on, and that pill sits on top of the card's own title hit-target and
+    // intercepts the tap meant for it. Kept as its own try/catch (best-effort, matching the
+    // design-lab block below) since it is a render check, not one of the write-path proofs.
+    //
+    // **Closing the pane is not optional.** It is an opaque overlay at zIndex 100; leaving it up
+    // makes every later click land on it, which is exactly how this step failed when the
+    // behaviour changed under it — a thirty-second timeout four steps later, nowhere near the
+    // cause.
     try {
-      console.log('> pushed sub-screen: /habits');
+      console.log('> the Habits card, expanded in place');
       await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
       await dismissModalIfPresent(page);
       await clickText(page, 'Habits');
       await page.waitForTimeout(1500);
+      // The pane's own cards rest closed like every other card, so the marker below lives
+      // inside one that has to be opened first. `.last()` — the Me tab's Habits card is still
+      // mounted behind the overlay and carries the same accessible name.
+      const openInner = page.getByRole('button', { name: /^Habits: / }).last();
+      if (await openInner.count()) {
+        await openInner.click({ timeout: 10000 });
+        await page.waitForTimeout(600);
+      }
       await shot(page, 'subscreen-habits');
-      // A marker that exists ONLY on the pushed screen (unlike "Habits", which is also the
-      // still-mounted Home card's own title and so would read true whether or not the push
-      // succeeded).
-      const onHabits = await anyVisibleText(page, 'Simple check-ins — no streaks, no scores.');
-      console.log(`  Habits screen rendered: ${onHabits}`);
-      if (!onHabits) pageErrors.push('Pushed /habits did not render the Habits screen');
-      await page.goBack();
+      // A marker that exists ONLY inside the surface, unlike "Habits", which is also the still-
+      // mounted card's own title and so would read true whether or not the pane opened.
+      // ⚠️ The marker was `habits.cardSubtitle` ("Simple check-ins — no streaks, no scores.")
+      // until 2026-08-21, when that string was deleted: it was a SENTENCE standing in for the
+      // card's heading, because that card had no badge-and-title row until the registry gave it
+      // one. `hints.habits.text` is drawn by components/HabitsSurface.tsx's StarterCard and by
+      // nothing else, so it still separates the pane from the card that opened it.
+      const onHabits = await anyVisibleText(page, 'Tap to count it, gear to set it up.');
+      console.log(`  Habits surface rendered in the pane: ${onHabits}`);
+      if (!onHabits) pageErrors.push('The Habits card did not expand');
+      await page.getByRole('button', { name: 'Collapse card', exact: true }).last().click({ timeout: 10000 });
       await page.waitForTimeout(800);
-      await dismissTour(page);
     } catch (e) {
-      console.log(`  (/habits skipped: ${e.message.split('\n')[0]})`);
+      console.log(`  (Habits expansion skipped: ${e.message.split("\n")[0]})`);
     }
 
     // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO

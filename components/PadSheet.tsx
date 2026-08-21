@@ -91,7 +91,6 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Collapsible from '@/components/Collapsible';
 import { computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import { PadState } from '@/lib/padState';
@@ -171,23 +170,22 @@ export default function PadSheet({
 
   return (
     <View style={[styles.sheet, style]}>
-      {/* Clip-reveal rather than a mount/unmount pop, so folding a card away reads as the rows
-          being covered edge-by-edge — the same motion as the done zones. */}
-      <Collapsible open={state !== 'closed'}>
-        {rows.map((row, i) => (
-          <View key={i} style={[styles.line, gutter, { minHeight: shape.rowHeight }, box, i > 0 && stackGap]}>
-            {row}
-          </View>
-        ))}
-      </Collapsible>
+      {/* ⚠️ **No `Collapsible` here as of 2026-08-21.** It clip-revealed the rows when the pad
+          went to 'closed', and 'closed' is not a pad state any more — folding a card away is
+          components/Card.tsx's own `Collapsible`, one level up, for every card in the app. Two
+          of them on one card is two animations for one gesture. What is left is a plain list. */}
+      {rows.map((row, i) => (
+        <View key={i} style={[styles.line, gutter, { minHeight: shape.rowHeight }, box, i > 0 && stackGap]}>
+          {row}
+        </View>
+      ))}
 
       {/* The composer, at the foot of the list it appends to (2026-08-13 — see the header's
           `typeRow` note). The gap above it is the same one the rows stack at, and it is spent
-          only when there is actually a row above to be separated FROM: on a closed pad the
-          Collapsible is clipped to zero height, so an unconditional marginTop would hang the
-          field off a card with nothing over it. */}
+          only when there is actually a row above to be separated FROM — an unconditional
+          marginTop would hang the field off a card with nothing over it. */}
       {typeRow ? (
-        <View style={[styles.typeLine, rows.length > 0 && state !== 'closed' && stackGap]}>{typeRow}</View>
+        <View style={[styles.typeLine, rows.length > 0 && stackGap]}>{typeRow}</View>
       ) : null}
 
       {/* Below the composer: the done/checked zone belongs under the thing that creates rows,

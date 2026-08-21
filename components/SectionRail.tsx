@@ -79,8 +79,16 @@ type Props = {
    */
   icon?: React.ComponentProps<typeof CardAccentBadge>['icon'];
   label: string;
-  /** Optional item tally shown after the label. */
-  count?: number;
+  /**
+   * Optional item tally shown after the label — a SIZE, never a score (AGENTS.md).
+   *
+   * `{ left, total }` renders as `left/total`, which is what the Me tab's pad cards drew as a
+   * hand-rolled `Badge` beside their hand-rolled titles (2026-08-21). Folding it in here is what
+   * lets those cards go through components/Card.tsx with nothing left over: a tally is part of
+   * a header, not one of the card's controls, and putting it in the controls slot would have put
+   * a read-only pill inside the run of tap targets.
+   */
+  count?: number | { left: number; total: number };
   /** Optional control rendered flush-right (e.g. a toggle). */
   right?: React.ReactNode;
   /**
@@ -126,16 +134,24 @@ type Props = {
   /**
    * Which level of heading this is (2026-08-21). See the header.
    *
-   *   'group' (default) — over a stack of CARDS. 24px extrabold, a 24px badge or a 10px dot.
-   *   'sub'             — over a stack of ROWS inside one of those groups. Small, uppercase,
-   *                       a 6px dot; a badge here would be a second badge inside a card that
-   *                       already has one.
+   *   'group' (default) — over a stack of CARDS. 24px extrabold, and **no badge**: a heading
+   *                       over cards that carries one reads as a card itself, which is what
+   *                       every drawer and group header in the app did.
+   *   'card'            — a CARD's own title. 20px, with the card's badge. Drawn only by
+   *                       components/Card.tsx.
+   *   'sub'             — over a stack of ROWS inside a card. 17px, a 6px dot; a badge here
+   *                       would be a second badge inside a card that already has one.
+   *
+   * The three-rung ladder is decision (a) of the 2026-08-21 card pass. It existed as prose in
+   * `subLabel`'s own note — *"17 is the rung below the 20 a CARD title takes and the 24 a GROUP
+   * heading takes"* — while only two tiers existed, so every card title actually rendered at 24
+   * and a group heading was indistinguishable from the cards under it.
    *
    * The tier changes only the naming row's WEIGHT. Everything else — the hue, the count, the
    * right slot, the divider, `onLabelPress` — behaves identically, which is the point: a
    * sub-header that gains a control later gains it in the same place as its parent.
    */
-  tier?: 'group' | 'sub';
+  tier?: 'group' | 'card' | 'sub';
   style?: StyleProp<ViewStyle>;
 };
 
@@ -146,13 +162,17 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
   // at every hue, including the light Shopping gold. See the header note.
   const labelColor = theme.text;
   const sub = tier === 'sub';
+  const isCard = tier === 'card';
   const naming = (
     <>
-      {domain && !sub ? (
+      {/* A badge belongs to the CARD rung only — a group heading over a stack of cards that
+          carries one reads as a card itself, which is what every drawer in the app did. A `sub`
+          section takes a 6px dot; a group heading takes nothing at all. */}
+      {domain && isCard ? (
         <CardAccentBadge domain={domain} icon={icon} size={24} accentOverride={badgeHue ? hue : undefined} />
-      ) : (
-        <View style={[sub ? styles.subDot : styles.dot, { backgroundColor: hue }]} />
-      )}
+      ) : sub ? (
+        <View style={[styles.subDot, { backgroundColor: hue }]} />
+      ) : null}
       {/* ⚠️ **One line (2026-08-21), which REVERSES the "let it wrap" note that stood here.**
           The old reasoning was that a section's name must never be clipped, so it should wrap
           and let `flexShrink` keep it off the trailing controls. Measured against the Catalogue
@@ -166,11 +186,13 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
           `minWidth: 0` on the label style is still what lets it yield at all — without that pair
           it pushes the controls off the row instead of truncating (AGENTS.md's wrap-audit note:
           flexShrink alone does not do it). */}
-      <Text style={[sub ? styles.subLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
+      <Text style={[sub ? styles.subLabel : isCard ? styles.cardLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
         {label}
       </Text>
       {count != null && (
-        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
+        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>
+          {typeof count === 'number' ? count : `${count.left}/${count.total}`}
+        </Text>
       )}
     </>
   );
@@ -214,7 +236,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: MIN_TAP_TARGET,
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
+  // The 10px `dot` is gone (2026-08-21): it was the group tier's badge-less fallback, and the
+  // group tier draws no mark at all now. A card takes a badge, a section takes `subDot`.
   // Unified card/section header title (2026-07-19): sentence case, bold — reads unmistakably
   // as a header. Was a hardcoded 20/25 until 2026-08-15.
   //
@@ -247,6 +270,20 @@ const styles = StyleSheet.create({
     // joined. `flexShrink` alone does not do it; the `minWidth: 0` is what actually lets a
     // text box narrow below its content — AGENTS.md's wrap-audit note, learned on the task
     // editor's title field.
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  /**
+   * The card-title rung: `Type.heading` (20), with the card's badge beside it.
+   *
+   * It is the middle of the three, and it is the size four of the Me tab's cards were already
+   * hand-rolling at (`fontSize: 20, lineHeight: 25`, spelled out in five files) while the four
+   * `SectionCard`s on To-do drew 24 for the same job. Both are through here now.
+   */
+  cardLabel: {
+    fontSize: Type.heading.size,
+    lineHeight: Type.heading.size * Type.heading.line,
+    fontFamily: Type.heading.fontFamily,
     flexShrink: 1,
     minWidth: 0,
   },

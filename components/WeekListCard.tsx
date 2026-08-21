@@ -10,7 +10,7 @@
  * (name search + category dropdown) sits above In list/In cart — when active it flattens
  * both sections into plain filtered ShoppingRows (no drag reorder); inactive, everything
  * renders exactly as before. Each section shows a price total footer. Dish groups are no
- * longer rendered as nested ExpandableCards — no title/border/collapse — but (2026-07-24)
+ * longer rendered as nested DisclosureRows — no title/border/collapse — but (2026-07-24)
  * each dish's unchecked items ARE still wrapped in one plain `dishGroup` View per dish
  * (transparent border, invisible at rest) so drag-to-merge (Decision 022) has a real node
  * per dish to measure/highlight; visually indistinguishable from flat rows until dragged over.
@@ -18,7 +18,7 @@
  * Connections:
  *   Imports → @expo/vector-icons (Ionicons — the store-mode button's cart glyph),
  *             components/AddFromMonthlyModal, components/AppModal (showAppModal),
- *             components/Collapsible, components/ExpandableCard,
+ *             components/Collapsible, components/DisclosureRow,
  *             components/FlightOverlay (FlightRect type only),
  *             components/IconButton, components/Button (the two ghost secondary add paths),
  *             components/InlineAddItem, components/ShoppingFilterBar,
@@ -172,9 +172,9 @@ import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
+import { SectionFoldToggle } from '@/components/Card';
 import Button from '@/components/Button';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
 import ShoppingChip from '@/components/ShoppingChip';
@@ -544,12 +544,13 @@ export default function WeekListCard({
                 sat in the position that on every other card means "full screen". So the one
                 control here that reads loudest was the one doing the quietest job, and its
                 place said the opposite thing from its neighbours one card away.
-                  `CardCollapseToggle` carries the label, the haptic, the `expanded`
+                  `SectionFoldToggle` (components/Card.tsx's one export for a section drawn
+                one-per-row of data, since 2026-08-21) carries the label, the haptic, the `expanded`
                 accessibility state and the animated glyph, so nothing is lost by dropping the
                 cap; the list's own state stays local (`expanded`/`onToggleExpand`), since a
                 per-list fold is exactly what lib/collapsedCards.ts's singleton rule keeps out
                 of the persisted bag. */}
-            <CardCollapseToggle collapsed={!expanded} onToggle={onToggleExpand} cardLabel={list.name} />
+            <SectionFoldToggle collapsed={!expanded} onToggle={onToggleExpand} cardLabel={list.name} />
           </View>
         </View>
 
@@ -923,7 +924,7 @@ export default function WeekListCard({
         {/* ── PURCHASED section (collapsed) ── */}
         {purchased.length > 0 && (
           <View style={styles.section}>
-            <ExpandableCard
+            <DisclosureRow
               title={t.purchasedSection(purchased.length)}
               accentColor={theme.textMuted}
               defaultOpen={false}
@@ -946,7 +947,7 @@ export default function WeekListCard({
                   {t.weekListTotal(formatKr(purchasedTotal, 0))}
                 </Text>
               )}
-            </ExpandableCard>
+            </DisclosureRow>
           </View>
         )}
 

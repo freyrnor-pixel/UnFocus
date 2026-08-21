@@ -478,6 +478,13 @@ type Props = {
    */
   padState?: PadState;
   onPadStateChange?: (next: PadState) => void;
+  /**
+   * Drawn inside a components/Card.tsx card, so this draws no card and no padding of its own
+   * (2026-08-21). The To-do tab's Today card is one card with four possible bodies, and this is
+   * the timeline one; before the card registry it was the only body that WAS the card, which is
+   * why Today was the one card on that tab with no fold chevron.
+   */
+  embedded?: boolean;
 };
 
 // Horizontal-only proportional rail tuning (2026-07-26: the vertical/default rail moved to
@@ -597,6 +604,7 @@ export default function PlanTaskCard({
   spec,
   padState,
   onPadStateChange,
+  embedded = false,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -1517,13 +1525,13 @@ export default function PlanTaskCard({
     />
   ) : null;
 
+  const Shell = embedded ? View : Surface;
   return (
-    <Surface
-      surfaceContext="ambient"
-      elevated={expanded}
-      style={[styles.card, !expanded && styles.cardCollapsed]}
+    <Shell
+      {...(embedded ? {} : { surfaceContext: 'ambient' as const, elevated: expanded })}
+      style={embedded ? undefined : [styles.card, !expanded && styles.cardCollapsed]}
     >
-      <View style={styles.cardContent}>
+      <View style={embedded ? styles.embeddedContent : styles.cardContent}>
 
         {/* A caller-supplied header, drawn inside the card — see the `header` prop's doc. */}
         {header}
@@ -1767,7 +1775,9 @@ export default function PlanTaskCard({
             line is the pad's last rule now, everywhere, and this card is where the shape came
             from. Above the done zone below, never below it: this field adds to the day, and a
             completed task is not what it appends to. */}
-        {onAddTask ? <PadSheet state="closed" typeRow={typeRow} /> : null}
+        {/* `state` is immaterial here — this PadSheet has no rows, only the composer. It said
+            "closed" until that stopped being a pad state (2026-08-21). */}
+        {onAddTask ? <PadSheet state="preview" typeRow={typeRow} /> : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the
@@ -1855,11 +1865,16 @@ export default function PlanTaskCard({
         {extraSection}
 
       </View>
-    </Surface>
+    </Shell>
   );
 }
 
 const baseStyles = StyleSheet.create({
+  // `embedded`: no card of our own and no card padding — components/Card.tsx already drew both.
+  // Same convention FoodTab/CatalogueTab/TodoSurface follow: unwrap only the chrome that assumes
+  // a screen backdrop, never the content. `position: relative` stays — the timeline's now-line
+  // and its flight overlays are absolutely positioned against this box.
+  embeddedContent: { position: 'relative' },
   // No vertical margin (2026-08-08): the list that stacks these owns the gap
   // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
   card: { borderRadius: Radius.md },

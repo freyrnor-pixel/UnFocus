@@ -14,7 +14,7 @@
  * three panels move across unchanged.
  *
  * Connections:
- *   Imports → components/{ScreenScaffold,Surface,Button,ExpandableCard,PressableScale,TabSlider,
+ *   Imports → components/{ScreenScaffold,Surface,Button,DisclosureRow,PressableScale,TabSlider,
  *             Slider,DesignLabBench,ColorPickerSheet,FormControls,SettingRow,AppModal},
  *             constants/theme,
  *             lib/{designLab,designLabExport,useDesignLab,useAppTheme,i18n,haptics,date},
@@ -50,7 +50,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import PressableScale from '@/components/PressableScale';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 import Slider from '@/components/Slider';
@@ -229,7 +229,7 @@ export default function DesignLabTokensScreen() {
             <Text style={[styles.hint, { color: theme.textMuted }]}>{t.designLab.modeNote}</Text>
             <Surface style={styles.card}>
               {COLOR_GROUP_ORDER.map((group, i) => (
-                <ExpandableCard
+                <DisclosureRow
                   key={group}
                   title={t.designLab.colorGroups[group]}
                   accentColor={theme.accent}
@@ -245,7 +245,7 @@ export default function DesignLabTokensScreen() {
                       onChange={(hex) => setColor(knob.id as string, hex)}
                     />
                   ))}
-                </ExpandableCard>
+                </DisclosureRow>
               ))}
             </Surface>
           </>
