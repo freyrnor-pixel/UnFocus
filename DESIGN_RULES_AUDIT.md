@@ -246,16 +246,16 @@ Not part of the rules, but discovered while deciding where to point them — sev
 
 | Doc | Claims | Actual | Status |
 |---|---|---|---|
-| `SPACING_LAYOUT_LIBRARY.md` | `Radius.sm` 10, `md` 18, `lg` 26 | 12 / 16 / 24 | **Fixed 2026-08-01** |
-| `COLOR_THEME_LIBRARY.md` | 6 colour themes; `theme.orange`, `theme.cream` | `ThemeName = 'default'`; tokens are `accent`, `bg`, `surface` | **Rewritten 2026-08-01** (STALE_CODE_AUDIT.md) |
-| `TYPOGRAPHY_LIBRARY.md` | 7 sizes / 5 weights as the standard | Accurate, but conflicts with rules 14/16 (see #3/#4) | Open — not a factual error, a rule conflict |
+| `docs/archive/SPACING_LAYOUT_LIBRARY.md` | `Radius.sm` 10, `md` 18, `lg` 26 | 12 / 16 / 24 | **Fixed 2026-08-01** |
+| `docs/archive/COLOR_THEME_LIBRARY.md` | 6 colour themes; `theme.orange`, `theme.cream` | `ThemeName = 'default'`; tokens are `accent`, `bg`, `surface` | **Rewritten 2026-08-01** (docs/archive/STALE_CODE_AUDIT.md) |
+| `docs/archive/TYPOGRAPHY_LIBRARY.md` | 7 sizes / 5 weights as the standard | Accurate, but conflicts with rules 14/16 (see #3/#4) | Open — not a factual error, a rule conflict |
 | ~~`AGENTS.md` references `npm run wraps:all`~~ | — | This row was itself stale: current `AGENTS.md` only references `npm run wraps` | **Removed 2026-08-01** — no longer true |
-| `DESIGN_SYSTEM_IMPLEMENTATION.md` | already flagged frozen/stale by the index | Was still present 5+ weeks after being flagged | **Deleted 2026-08-01** (STALE_CODE_AUDIT.md) |
+| `DESIGN_SYSTEM_IMPLEMENTATION.md` | already flagged frozen/stale by the index | Was still present 5+ weeks after being flagged | **Deleted 2026-08-01** (docs/archive/STALE_CODE_AUDIT.md) |
 
 This is exactly why `DESIGN_RULES.md` points at `constants/` and at tests rather than
 restating numbers.
 
-**The five-library follow-up — done 2026-08-01** (full detail: STALE_CODE_AUDIT.md §5.8).
+**The five-library follow-up — done 2026-08-01** (full detail: docs/archive/STALE_CODE_AUDIT.md §5.8).
 The flagged count (62 occurrences of `theme.white`/`cream`/`orange`/`gray`) turned out to
 understate it: counting every `theme.*` access in those five files gives **88 dead of 102**,
 because `theme.textLight`, `theme.green`, `theme.danger`, `theme.dangerLight`, `theme.blue`
@@ -273,7 +273,7 @@ Outcome — **2 deleted, 3 reconciled**:
   wrong guidance and removed the ⚠️ banners currently warning readers off. Both had already
   been independently judged stale by two earlier sessions (PROGRESS_LOG.md:1391 records one
   of them consulting `Surface.tsx`'s docstring instead).
-- `BUTTON_LIBRARY.md`, `ICON_LIBRARY.md`, `FORM_PATTERNS_LIBRARY.md` **fixed in place** —
+- `docs/archive/BUTTON_LIBRARY.md`, `docs/archive/ICON_LIBRARY.md`, `docs/archive/FORM_PATTERNS_LIBRARY.md` **fixed in place** —
   their subject matter is real and their component APIs check out against source.
 
 (`PROGRESS_LOG.md` and `REBUILD_DECISIONS.md` also contain many of these names, but

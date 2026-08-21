@@ -327,7 +327,7 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop } from '@/constants/theme';
+import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop, Type } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
@@ -2060,7 +2060,13 @@ const baseStyles = StyleSheet.create({
   // OpticalCenter so the title optically centers against the round CardAccentBadge on Android
   // (same font-padding fix as TabSlider/ScreenHeader — see constants/theme.ts for why).
   // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
-  headerTitle: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold, ...OpticalCenter },
+  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
+  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
+  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
+  // no visual change. A literal here is invisible to the type scale and to the design lab's
+  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
+  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
+  headerTitle: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily, ...OpticalCenter },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
 });

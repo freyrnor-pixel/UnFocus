@@ -92,8 +92,7 @@ import {
   Spacing,
   TabularNums,
   MIN_TAP_TARGET,
-  HitSlop,
-} from '@/constants/theme';
+  HitSlop, OpticalCenter } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
@@ -463,7 +462,10 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22, ...OpticalCenter },
   qtyText: { fontSize: FontSize.md, fontFamily: Fonts.bold, minWidth: 28, textAlign: 'center' },
   toggleRow: {
     flexDirection: 'row',

@@ -357,12 +357,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
   },
-  icon: {
-    marginRight: Spacing.xs,
-  },
-  iconRight: {
-    marginLeft: Spacing.xs,
-  },
+  // ⚠️ **No margin — `content`'s `gap` is the whole spacing (consistency audit, 2026-08-21).**
+  // These carried `marginRight`/`marginLeft: Spacing.xs` ON TOP of the `gap: Spacing.xs` three
+  // lines above, so an icon+label button spaced its pair at 8px where every other icon+label row
+  // in the app uses 4. A leftover margin beside a gap is the same family as the negative nudge
+  // deleted from components/ShoppingChip.tsx in this pass: two owners for one distance. The
+  // styles stay (callers pass them positionally) — they are simply empty now.
+  icon: {},
+  iconRight: {},
   label: {
     fontFamily: Fonts.bold,
     // Centred, and centred by the TEXT as well as by the box (2026-08-17, brief §3: "Primary

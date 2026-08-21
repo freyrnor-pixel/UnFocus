@@ -138,7 +138,7 @@
  *     `SegmentedControl` now — it was always exclusive, and sharing a style with a
  *     multi-select row is what made a pick-one question look like a membership one. Don't
  *     re-point a new exclusive picker at `weekdayChip` to save a component.
- *   - **Field-level glow (2026-08-01, STALE_CODE_AUDIT.md)**: `newFields` drives `tight`
+ *   - **Field-level glow (2026-08-01, docs/archive/STALE_CODE_AUDIT.md)**: `newFields` drives `tight`
  *     `NewSinceGlow` wraps on the time label, the assignee cue, each tag pill, and the goal
  *     dot — mirroring `ShoppingRow`'s meta/price field glow so switching Plans into a richer
  *     layout marks exactly which values just appeared, not just that the row did. Callers

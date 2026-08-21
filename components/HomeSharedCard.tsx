@@ -27,7 +27,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Radius, Spacing, rgba, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, rgba, HitSlop, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -137,7 +137,13 @@ const baseStyles = StyleSheet.create({
   cardContent: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, paddingTop: Spacing.sm },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.sm, gap: Spacing.sm },
   // Sentence case (2026-07-28 design review): all-caps belongs on ≤13px labels, not 20px card titles.
-  title: { fontSize: 20, lineHeight: 25, fontFamily: Fonts.bold },
+  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
+  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
+  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
+  // no visual change. A literal here is invisible to the type scale and to the design lab's
+  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
+  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
+  title: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily },
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderWidth: 1 },
   badgeText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
   titleRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: Spacing.md },

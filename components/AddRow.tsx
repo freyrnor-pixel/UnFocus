@@ -532,7 +532,13 @@ const styles = StyleSheet.create({
     // No borderRadius here — `getFieldGlow` supplies it inline with the halo, so the field and
     // its light are cut to one shape by construction (2026-08-19).
     paddingHorizontal: Spacing.sm,
-    fontSize: FontSize.sm,
+    // ⚠️ **`FontSize.md`, matching the other two composers (consistency audit, 2026-08-21).**
+    // This was `FontSize.sm` (15) while components/PadTypeRow.tsx and FormControls' `Input` —
+    // the two fields this one is documented as converged with — both use `md` (17). On the
+    // To-do tab the two composers sit one card apart, so the app rendered the same control at
+    // two sizes on one screen. The fill, border, radius and glow were already shared; the type
+    // size was the last thing left disagreeing.
+    fontSize: FontSize.md,
     fontFamily: Fonts.regular,
     paddingVertical: Spacing.xs,
   },

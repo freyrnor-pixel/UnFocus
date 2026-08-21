@@ -3,8 +3,13 @@
 **Status:** Invariants. Treat these as build criteria, not suggestions.
 **Adopted:** 2026-07-30. **Audit:** `DESIGN_RULES_AUDIT.md` (rule-by-rule pass/fix/conflict).
 **Enforced by:** `lib/__tests__/designTokens.test.ts`, `lib/__tests__/copyTone.test.ts`,
-`lib/__tests__/colors.test.ts`, `lib/__tests__/screenRhythm.test.ts` — these run in CI on
+`lib/__tests__/colors.test.ts`, `lib/__tests__/screenRhythm.test.ts`, and — since 2026-08-21 —
+`lib/__tests__/fieldAnatomy.test.ts` + `lib/__tests__/cardAnatomy.test.ts`. These run in CI on
 every PR into `main`.
+
+⚠️ **§8 (Component identity) is the newest section and the one to read first for any new
+surface.** §1–7 govern values; §8 governs which component owns a thing, which is where the
+2026-08-21 audit found sixteen recurring defects hiding — see `CONSISTENCY_AUDIT.md`.
 
 These exist to fix recurring visual problems — spacing, placement, color, order,
 hierarchy — by removing the per-decision guesswork. When a rule gives a number,
@@ -24,7 +29,7 @@ design, not the rule.
 > **Numbers live in code, not in prose.** `constants/theme.ts`, `constants/colors.ts`
 > and `constants/motion.ts` are the source of truth for every value below. Where a
 > rule restates a number, the token wins. This doc points at tokens rather than
-> copying them, because copying is how `HANDOFF_SPACING_PASS.md`'s 18px phantom card
+> copying them, because copying is how `docs/archive/HANDOFF_SPACING_PASS.md`'s 18px phantom card
 > padding happened — a documented standard the code never had. Several of the older
 > `*_LIBRARY.md` files have drifted the same way (see the audit's "Stale docs" note);
 > trust `constants/` over any prose, including this file.
@@ -384,6 +389,80 @@ design, not the rule.
     thing left distinguishing it. Read `components/StarterExampleRow.tsx`'s Edit notes
     before restoring any of it.)*
 
+## 8. Component identity (words are not the only thing a rule can govern)
+
+> **This section exists because §1–7 govern VALUES and nothing governed COMPONENTS.**
+> Adopted 2026-08-21 after a maintainer report of sixteen recurring visual defects
+> (`CONSISTENCY_AUDIT.md`). Eight of the sixteen had no rule here at all — nothing said
+> which component draws a card header, a text field, or a collapse control — so each new
+> surface hand-rolled one, correctly by its own lights and differently from its neighbour.
+> The app shipped one `FIELD_RADIUS` and nine field shapes. **The token was never the problem.**
+>
+> Rules 26–33 are therefore about *which component owns a thing*, not about a number. That is
+> a property of the source, which is why most of them are CI-enforceable and are enforced:
+> `lib/__tests__/fieldAnatomy.test.ts` and `lib/__tests__/cardAnatomy.test.ts` are new;
+> `designTokens` and `screenRhythm` were extended.
+
+26. **A text field is drawn by a shared composer, never hand-rolled.** The four are
+    `FormControls`' `Input` (general) and `PadTypeRow` / `AddRow` / `InlineAddItem` (the three
+    tiered quick-adds — they differ in TIERING, not appearance). **Do not add a fifth.** A field
+    that genuinely cannot be one of them — a well holding a leading glyph and trailing controls —
+    still draws through `getRecessedField` / `getFieldGlow` / `FIELD_RADIUS`, so it is the same
+    shape by construction. **CI**: `fieldAnatomy.test.ts`. Colour may vary per card; nothing else may.
+
+27. **A card header is a `SectionRail`**, which owns the title token, the badge and the hairline.
+    A card that cannot use one still takes its title from `Type.*` — never a literal. The app
+    shipped fourteen header variants at once, with title sizes 17 / 20 (spelled three ways) / 24
+    and the hairline on exactly one of them. **CI**: `cardAnatomy.test.ts` (title literals; the
+    header convergence itself is tracked as an allowlist that must shrink).
+
+28. **The fold control is `CardCollapseToggle`, and the full-screen control is
+    `CardExpandButton`.** Their order in a card header is: the caller's own controls → the fold
+    chevron → **⤢ last, always, on every surface**. ⤢ is what the eye looks for in a corner, so
+    it is the one that may never move. **CI**: `cardAnatomy.test.ts` asserts nothing follows a
+    `CardExpandButton` inside a header slot.
+    *(Known gap, deliberate: `SectionCard` itself renders the chevron BEFORE the caller's slot.
+    Correcting it moves the chevron on every card at once, so it belongs with the header
+    convergence — see `CONSISTENCY_AUDIT.md` §8.)*
+
+29. **Content is centred inside a control; only the control's BOX is placed.** The maintainer's
+    wording is the rule: *"Elements within buttons must be centered in the middle, except for the
+    box/circle itself, which is located where it is meant to be."* An absolutely-positioned
+    corner ✕ still centres its glyph. A `Text` whose height is set by the box around it — any
+    pinned circle — spreads `OpticalCenter`, because Android's font padding is asymmetric and
+    neither iOS nor react-native-web shows it. **CI**: `designTokens.test.ts`, both directions —
+    the token is *required* where the condition holds, not merely the hand-written pair banned.
+    No optical fudging: a negative margin faking a position the row's centring already provides
+    is two owners for one distance.
+
+30. **One thing per card.** A card is not drawn inside another card — that is the "box in a box"
+    the 2026-08-18 blueprint pass banned, and `embedded` is the mechanism for content that mounts
+    both ways. If two things want their own header, badge and fold, they are two cards.
+    *(Open: Medicine is a full `Surface` inside Health's — `CONSISTENCY_AUDIT.md` §11.)*
+
+31. **Every content card can fold, and the default is the same across the app.** Five independent
+    collapse mechanisms with three different defaults is the state this rule replaces. A card with
+    a pad state uses the pad state; every other content card uses `collapsedCards`.
+    *(Open: which default — `CONSISTENCY_AUDIT.md` §3 needs a ruling before this binds.)*
+
+32. **A group of cards gets a sub-header; a screen does not get three header idioms.** Where a
+    screen holds distinct KINDS of thing, say so once above them rather than leaving the reader to
+    infer it from order. *(Open: the Shop tab has three idioms and no header at all over Dishes +
+    Catalogue — `CONSISTENCY_AUDIT.md` §13.)*
+
+33. **The same glyph means the same thing, in the same place, at the same size.** Three locks
+    shipped on one screen, in two positions, and the `active` highlight meant *unlocked* on one and
+    *locked* on the other two. An icon's meaning is not a per-call-site decision, and neither is
+    its diameter: a control that sits beside a default-size `IconButton` takes the default too.
+    **CI**: `cardAnatomy.test.ts` pins the lock's polarity and size across its three sites.
+
+> **How to add a rule to this section.** Ask "which component owns this?", not "what number is
+> this?". If the answer is "each caller decides", that is the defect — §8 rules exist to move an
+> answer from thirty call sites into one. And write the guard in the same change: a rule with no
+> scan is a rule the next session re-derives.
+
+---
+
 ---
 
 ## Open conflicts — pending maintainer decision
@@ -432,3 +511,11 @@ one of these in passing.
 - [ ] Nothing reflows or jumps after load.
 - [ ] Reduce-motion honored; durations come from `Duration.*`.
 - [ ] Copy is plain, reversible actions, no guilt or urgency.
+
+**§8 — which component owns it (added 2026-08-21):**
+- [ ] Every text field is a shared composer, or draws through the field helpers.
+- [ ] Every card header is a `SectionRail`; no title size is a literal.
+- [ ] The fold is `CardCollapseToggle`, the expand is `CardExpandButton`, and **⤢ is last**.
+- [ ] Every control centres its own content; only its box is placed.
+- [ ] One thing per card — no card inside a card.
+- [ ] A repeated glyph means the same thing, in the same place, at the same size.

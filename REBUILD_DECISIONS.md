@@ -308,7 +308,7 @@ own design decision is made) → Home phase (assembles 1+4 and the converged pre
   - Out of scope: Plans preview, Home screen assembly, Focus mode, Energy check-in, store
     changes. Flag — don't fix — anything outside these two components.
   - Reference docs only: CARD_CONTAINER_LIBRARY.md, ANIMATION_GUIDELINES.md,
-    SPACING_LAYOUT_LIBRARY.md.
+    docs/archive/SPACING_LAYOUT_LIBRARY.md.
 
 - **Session B — Plans phase:** full Plans "time now + rest of day" redesign + preview
   convergence (decisions 2+3), run as part of / immediately alongside the Plans screen

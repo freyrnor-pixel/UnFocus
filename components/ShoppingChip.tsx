@@ -148,9 +148,16 @@ const baseStyles = StyleSheet.create({
   // "In the store" asks for one-handed targets, so the chip grows with it rather than
   // carrying its own second size token.
   chipBig: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md },
-  tick: { marginRight: -2 },
+  // ⚠️ **No optical fudge (consistency audit, 2026-08-21).** This carried `marginRight: -2`,
+  // pulling the tick back into the chip's own `gap: Spacing.xs` — a hand-picked offset faking a
+  // position the row's centring already provides, and the shape the maintainer's report names
+  // ("elements within buttons must be centered"). A sub-token nudge here is also invisible to
+  // every check in the repo, so it can only ever be found by eye.
+  tick: {},
   name: { fontSize: FontSize.md, fontFamily: Fonts.semibold, flexShrink: 1 },
   nameBig: { fontSize: FontSize.lg },
-  qtyWrap: { justifyContent: 'flex-start' },
+  // Centred like every other cell on this row. It was `justifyContent: 'flex-start'` — the one
+  // container on the chip opting out of the row's `alignItems: 'center'`, for no stated reason.
+  qtyWrap: { justifyContent: 'center' },
   qty: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, ...TabularNums },
 });

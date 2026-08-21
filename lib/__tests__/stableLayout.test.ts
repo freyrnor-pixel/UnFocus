@@ -291,10 +291,14 @@ describe('TourSpotlight — one primary, one escape, and it puts you back where 
     expect(src).toMatch(/t\.tour\.skipAll/);
   });
 
-  it('navigates to the chosen start screen when the tour ends', () => {
+  it("navigates to the app's start screen when the tour ends", () => {
     // Without this the tour stops on whichever tab it walked to last (Health), which is
     // where a brand-new user landed after finishing it.
-    expect(src).toMatch(/START_SCREEN_PATHS\[startScreen\]/);
+    // It read `settings.startScreen` until 2026-08-21; that setting stopped being a choice
+    // (the app always opens on the centre tab — lib/siteNav.ts's START_TAB_ROUTE), so the tour
+    // hands off to exactly where a cold launch would have put them, which is the property that
+    // mattered here all along.
+    expect(src).toMatch(/START_TAB_ROUTE_PATH/);
     const body = src.slice(src.indexOf('const dismissAll'), src.indexOf('const handleAiGuide'));
     expect(body).toMatch(/router\.navigate/);
   });

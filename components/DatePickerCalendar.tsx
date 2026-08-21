@@ -24,7 +24,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, HitSlop, hitSlopFor } from '@/constants/theme';
+import { Fonts, FontSize, OpticalCenter, Radius, Spacing, HitSlop, hitSlopFor } from '@/constants/theme';
 import { todayStr } from '@/lib/date';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
@@ -234,5 +234,7 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayText: { fontSize: FontSize.sm },
+  // `OpticalCenter` (2026-08-21): a day number inside a 34px circle whose height it does not
+  // set. This is every date cell in the app, so it is the highest-count instance of the bug.
+  dayText: { fontSize: FontSize.sm, ...OpticalCenter },
 });

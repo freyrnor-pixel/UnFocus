@@ -288,10 +288,14 @@ const styles = StyleSheet.create({
   // in step with the Collapsible reveal. See the "one closed height" edit note for why this
   // margin exists at all (a dead strip under the hairline rule with the body clipped to 0).
   railClosed: { marginBottom: 0 },
+  // ⚠️ **Centred, not `flex-end` (consistency audit, 2026-08-21)** — moved in step with
+  // `components/CardCollapseToggle.tsx`, which generalised this control and had a byte-identical
+  // copy of the old style. The box still sits at the card's trailing edge (`SectionRail`'s
+  // `right` slot does that); only the glyph inside it is centred. Keep the two in step.
   chevronBtn: {
     minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
   },
   // paddingBottom carries the delta between the old closed (Spacing.sm) and open (Spacing.md)

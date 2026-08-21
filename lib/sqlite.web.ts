@@ -20,7 +20,7 @@
  * already exists — genuinely synchronous, no queuing/proxy tricks needed.
  *
  * In-memory only (no persistence across reloads) — fine for a preview harness
- * that needs no durability, per EMULATOR_TESTING_SPIKE.md's fallback plan.
+ * that needs no durability, per docs/archive/EMULATOR_TESTING_SPIKE.md's fallback plan.
  *
  * Connections:
  *   Imports → none (reads the sql.js global set by scripts/build-web.mjs's

@@ -83,6 +83,7 @@ import {
   FontSize,
   Fonts,
   HitSlop,
+  OpticalCenter,
   Radius,
   SCREEN_GAP,
   Spacing,
@@ -559,7 +560,10 @@ const baseStyles = StyleSheet.create({
   issueRowBox: { paddingHorizontal: Spacing.sm },
   issueRowStacked: { marginTop: Spacing.xs },
   logAgainBtn: { width: 30, height: 30, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  logAgainText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: FontSize.md + 4 },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  logAgainText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: FontSize.md + 4, ...OpticalCenter },
   weekStripWrap: { borderTopWidth: 1, paddingTop: Spacing.xs, paddingBottom: Spacing.sm },
   moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
   moreEpisodesText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
@@ -567,7 +571,9 @@ const baseStyles = StyleSheet.create({
   quickTimeInput: { paddingVertical: Spacing.xs },
   quickSeverityChips: { flexDirection: 'row', gap: Spacing.xs },
   quickSevChip: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 0, borderColor: 'transparent' },
-  quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): a severity digit inside a 28px circle — a box whose height the
+  // text does not set, which is the condition Android's asymmetric font padding breaks.
+  quickSevChipText: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   ailmentWeekStrip: { flexDirection: 'row', gap: 5, paddingLeft: 2 },
   ailmentDotCol: { alignItems: 'center', gap: 2 },
   ailmentDayAbbr: { fontSize: 7, fontFamily: Fonts.semibold },

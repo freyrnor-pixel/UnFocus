@@ -97,7 +97,7 @@ import { useNowMinutes } from '@/lib/useNowMinutes';
 import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 // TabularNums went with the hand-rolled `habitCount` style — PadRow's `rightValue` already
 // carries it, so the count still lines up column-wise without this file importing it.
-import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop } from '@/constants/theme';
+import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop, OpticalCenter } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -1110,7 +1110,10 @@ const baseStyles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.6)',
     ...Shadow.button,
   },
-  adjBtnText: { fontSize: FontSize.lg, lineHeight: 30 },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  adjBtnText: { fontSize: FontSize.lg, lineHeight: 30, ...OpticalCenter },
   // Both halves are the same recessed shape (2026-08-05). The "+" carried a solid accent
   // fill until now — the exact thing components/Stepper.tsx's edit note says not to
   // reinstate, and for the reason given there: a −/+ pair is ONE control, so filling half
@@ -1119,7 +1122,9 @@ const baseStyles = StyleSheet.create({
   // registration flash (2026-08-06, HabitCard's `flash` state) doesn't contradict this — it
   // clears itself a beat after the tap, unlike a static default fill, and both directions get
   // one (not just "+"), so neither half reads as the persistently "important" one.
-  adjBtnPlusText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 30 },
+  // `OpticalCenter` (2026-08-21) — same pinned-circle case as `adjBtnText` above. The two
+  // halves of one stepper pair had drifted: only the − carried the fix.
+  adjBtnPlusText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 30, ...OpticalCenter },
 
   // Expanded content
   expanded: { marginTop: Spacing.sm, gap: Spacing.xs },

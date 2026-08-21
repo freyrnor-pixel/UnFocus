@@ -183,7 +183,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -348,16 +348,30 @@ export function CatalogueHeaderControls({
       {/* Scan → 'catalogue' target (2026-08-13): add unknown names, update known prices, and
           write to no shopping list at all. The camera used to be a single header icon on
           Shopping with no idea what you meant by it. See lib/scanTarget.ts. */}
+      {/* ⚠️ **No `size` — the IconButton default (36) is deliberate (consistency audit,
+          2026-08-21).** Both of these were `size={22}`, which the maintainer reported as
+          *"some buttons are too small, like the lock and camera"*. The TOUCH target was never
+          the problem — components/IconButton.tsx floors the hit area at `MIN_TAP_TARGET`
+          whatever `size` says — so no test could see it. What the eye sees is the comparison:
+          these sit in a card header 8px from a `CardExpandButton`, which passes no `size` and
+          so renders at 36, and a 22px disc beside a 36px one reads as 61% of its neighbour.
+          Leave the `size` prop OFF rather than writing 36, so the pair tracks the default if it
+          ever moves. */}
       <IconButton
         icon="camera-outline"
         label={t.scanForCatalogueLabel}
         onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
       />
+      {/* ⚠️ **`active={locked}`, not `active={!locked}` (consistency audit, 2026-08-21).** The
+          app draws three of these locks and this one lit the button when the list was UNlocked
+          while app/(tabs)/shopping.tsx and components/WeekListCard.tsx both lit it when locked —
+          so on one screen the same glyph, lit, meant the opposite thing. `active` is a state
+          highlight, and the state this control names is "locked". */}
       <IconButton
         icon={locked ? 'lock-closed' : 'lock-open-outline'}
         label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
         onPress={() => { onToggleLock(); selection(); }}
-        active={!locked}
+        active={locked}
       />
     </>
   );
@@ -389,6 +403,16 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
   // (a hook can't sit behind a branch, and this is a plain call beside one).
   const isDark = useIsDark();
   const searchFieldEdge = computeBorderTone(screenHue, isDark, 'field');
+  // ⚠️ **The search well goes through the SHARED field helpers (consistency audit, 2026-08-21).**
+  // The 2026-08-20 pass got this field down to one box, which was the right call and is not
+  // being undone — but it hand-rolled that box: `theme.surfaceInset` for the fill (a token no
+  // other field in the app uses), a bare `Radius.sm`, and no halo at all, beside composers that
+  // are a `getRecessedField` wash at `FIELD_RADIUS` with a `getFieldGlow` halo. Its own comment
+  // claimed it "finally matches" `FormControls`' `recessed` Input; it did not, on all three
+  // counts. It cannot simply BE that Input — this well holds a leading search glyph, a clear
+  // button and the "+" key as well as the text — so it takes the same helpers instead, which is
+  // exactly what components/PadTypeRow.tsx does with its own wrapper for the same reason.
+  const searchRecess = getRecessedField(theme.surface, isDark);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -725,7 +749,16 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
           the app (PadTypeRow, InlineAddItem), so this field finally matches them. `shell` is
           not used here at all any more; the well IS the box. */}
       {(
-        <View style={[styles.searchRow, { borderColor: searchFieldEdge, backgroundColor: theme.surfaceInset }]}>
+        <View
+          style={[
+            styles.searchRow,
+            // The halo carries the radius it is cut to (getFieldGlow, 2026-08-19), so the well
+            // and its light are one decision — the same `soft` resting glow every other in-card
+            // field has worn since the 2026-08-16 tactile-glow pass.
+            getFieldGlow(screenHue, 'soft'),
+            { borderColor: searchFieldEdge, backgroundColor: searchRecess.paint },
+          ]}
+        >
           <Ionicons name="search" size={16} color={theme.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
@@ -919,7 +952,20 @@ const baseStyles = StyleSheet.create({
   // exists to delete (visual-audit 2026-07-20, revised). The bottom keeps its gap: this style is
   // the non-embedded branch only, i.e. the pushed /catalogue screen, which reserves no bottom nav
   // — that edge is the safe area, not chrome.
-  root: { flex: 1, paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
+  // ⚠️ **No `paddingHorizontal` (consistency audit, 2026-08-21).** It carried `Spacing.md`, and
+  // BOTH of the non-embedded hosts already inset their body by the same amount —
+  // `CenterModalScreen`'s `bodyContent` (`padding: Spacing.md`) on app/catalogue.tsx, and
+  // `CardExpandHost`'s `bodyFlex` (`paddingHorizontal: Spacing.md`) in the expanded pane — so
+  // the catalogue was the one surface in the app drawn at a 32px side inset. That is the
+  // "three stacked horizontal paddings" shape the wrap audit keeps finding, and it is what
+  // AGENTS.md's centre-modal rule already forbids ("a converted screen must NOT pad its own
+  // content"); this style predates that conversion by a day and was simply never revisited.
+  //   `paddingBottom` stays: `bodyFlex` has no bottom inset of its own, so removing it would
+  //   run the list into the pane's edge in the expanded view. It does still double at the foot
+  //   of the /catalogue pane — 16 from `bodyContent` plus this — which is a real but much
+  //   smaller divergence, recorded in CONSISTENCY_AUDIT.md rather than fixed by giving one
+  //   screen a bespoke prop.
+  root: { flex: 1, paddingBottom: Spacing.md },
   // Outer shadow-casting layer (2026-07-24): border + shadow live here, NOT on `card` below —
   // `card`'s own overflow:hidden would otherwise clip the shadow (same reason Surface splits
   // border/shadow onto an outer view and clipping onto an inner mask). This is what makes the
@@ -968,13 +1014,16 @@ const baseStyles = StyleSheet.create({
   // the rest of the app. `paddingRight` is smaller because the "+" key carries its own hit
   // padding out to MIN_TAP_TARGET. `sortCard`/`sortRow`/`sortControl` went with the sort
   // control itself.
+  // No `borderRadius` here (2026-08-21): `getFieldGlow` supplies `FIELD_RADIUS` inline together
+  // with the halo, so the well and its light cannot be cut to two different shapes — the same
+  // arrangement components/AddRow.tsx and FormControls' Input use. It was a bare `Radius.sm`,
+  // which happens to equal FIELD_RADIUS today and would not have followed it if it moved.
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     minHeight: MIN_TAP_TARGET,
     borderWidth: BORDER_WIDTH.field,
-    borderRadius: Radius.sm,
     paddingLeft: Spacing.md,
     paddingRight: Spacing.sm,
   },
@@ -983,13 +1032,18 @@ const baseStyles = StyleSheet.create({
   // shoved the new "+" 11px past the drawer's clip — caught by `npm run wraps -- --lang=no
   // --width=360` as a CLIPPED control, which is exactly the pair AGENTS.md's wrap-audit
   // lessons prescribe for an input sharing a row with a fixed-size control.
-  searchInput: { flex: 1, minWidth: 0, fontSize: FontSize.sm, padding: 0 },
+  // `FontSize.md`, matching every other field in the app (2026-08-21) — it was `sm`, the same
+  // divergence components/AddRow.tsx carried until this pass.
+  searchInput: { flex: 1, minWidth: 0, fontSize: FontSize.md, padding: 0 },
   // A–Z scrubber column: fills the card height so touch-Y ÷ height × letters maps uniformly.
   indexBar: { width: 22, justifyContent: 'space-evenly', alignItems: 'center', paddingVertical: Spacing.xs },
   indexLetter: { fontSize: 11, lineHeight: 13, fontFamily: Fonts.bold, textAlign: 'center' },
   // Centered floating letter shown while dragging the scrubber.
   scrubBubble: { position: 'absolute', alignSelf: 'center', top: '38%', width: 68, height: 68, borderRadius: Radius.full, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
-  scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold, ...OpticalCenter },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },

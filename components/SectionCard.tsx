@@ -87,6 +87,18 @@ type Props = {
   domain?: Domain;
   /** Override the badge glyph while keeping `domain`'s colour — forwarded to SectionRail. */
   icon?: React.ComponentProps<typeof SectionRail>['icon'];
+  /**
+   * Paint the badge in `hue` instead of `domain`'s own identity colour — a straight passthrough
+   * to `SectionRail`'s prop of the same name, added 2026-08-21 by the consistency audit.
+   *
+   * It exists because `lib/domainColor.ts` aliases FOUR domains (`shop`/`meal`/`budget`/`scan`)
+   * onto one emerald, so `domain="meal"` and `domain="shop"` resolve to the identical badge —
+   * which is what made every card on the Shop tab the same colour and left the Dishes card with
+   * no identity of its own (CONSISTENCY_AUDIT.md §15). A card that owns a real hue can now pass
+   * it and have the badge, the label's divider and the card agree. Leave it off wherever the
+   * badge is genuinely marking a domain.
+   */
+  badgeHue?: boolean;
   label: string;
   /** Optional item tally shown after the label. */
   count?: number;
@@ -128,6 +140,7 @@ export default function SectionCard({
   hue,
   domain,
   icon,
+  badgeHue,
   label,
   count,
   right,
@@ -147,6 +160,7 @@ export default function SectionCard({
         hue={hue}
         domain={domain}
         icon={icon}
+        badgeHue={badgeHue}
         label={label}
         count={count}
         right={right}
@@ -165,6 +179,7 @@ export default function SectionCard({
         hue={hue}
         domain={domain}
         icon={icon}
+        badgeHue={badgeHue}
         label={label}
         count={count}
         right={right}
@@ -181,7 +196,7 @@ export default function SectionCard({
   const Shell = embedded ? View : Surface;
   return (
     <Shell style={[styles.card, embedded && styles.cardEmbedded, style]}>
-      <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
+      <SectionRail hue={hue} domain={domain} icon={icon} badgeHue={badgeHue} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
     </Shell>
   );
@@ -209,6 +224,7 @@ function FoldableSectionCard({
   hue,
   domain,
   icon,
+  badgeHue,
   label,
   count,
   right,
@@ -226,6 +242,7 @@ function FoldableSectionCard({
         hue={hue}
         domain={domain}
         icon={icon}
+        badgeHue={badgeHue}
         label={label}
         count={count}
         // ⚠️ **The fold chevron goes FIRST, before the caller's own control (2026-08-20)** —

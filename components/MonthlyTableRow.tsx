@@ -52,7 +52,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { Fonts, FontSize, Radius, Spacing, TabularNums, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, TabularNums, HitSlop, OpticalCenter } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { formatKr } from '@/lib/money';
 import PressableScale from '@/components/PressableScale';
@@ -155,7 +155,10 @@ const baseStyles = StyleSheet.create({
   // 2026-08-01). The "+" carried a solid theme.accent fill here, once PER ROW, which made the
   // Monthly list the noisiest accent surface in the app. A ± pair reads fine unfilled.
   stepBtn: { width: 24, height: 24, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  stepText: { fontSize: FontSize.md, fontFamily: Fonts.bold, ...OpticalCenter },
   removeBtn: { paddingLeft: 4 },
 });
 

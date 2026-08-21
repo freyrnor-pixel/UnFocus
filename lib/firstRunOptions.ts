@@ -21,7 +21,7 @@
  * Connections:
  *   Imports → (types only) store/useSettingsStore
  *   Used by → app/onboarding/basics.tsx, app/settings.tsx,
- *             app/(tabs)/_layout.tsx (START_SCREEN_ROUTES), lib/__tests__/firstRunOptions.test.ts
+ *             lib/__tests__/firstRunOptions.test.ts
  *   Data    → none — pure data + pure functions, no store, no DB, no i18n
  *
  * Edit notes:
@@ -44,16 +44,28 @@
  *     thing goes to Settings, not here.
  *   - Adding a row means adding to BASICS_ROWS *and* to both mapping functions.
  */
-import type { DarkMode, FontSizePref, Language, StartScreen } from '@/store/useSettingsStore';
+import type { DarkMode, FontSizePref, Language } from '@/store/useSettingsStore';
 
-/** The six rows, in the order the Basics screen shows them. */
+/**
+ * The five rows, in the order the Basics screen shows them.
+ *
+ * ⚠️ **`startScreen` was REMOVED on 2026-08-21 (consistency audit).** It was a sixth row, and
+ * the app now always opens on the centre (To-do) tab — see `START_TAB_ROUTE` in
+ * `app/(tabs)/_layout.tsx`. Maintainer: *"Middle screen is to be the Main one where app always
+ * starts when opening it fresh."* There is nothing left to pick.
+ *
+ * That row was also the clearest case of the thing the audit is about: `app/onboarding/basics.tsx`
+ * renders only the LANGUAGE row on a fresh install, so the picker deciding where the app opened
+ * was one a new user was never shown — a setting with a default nobody chose, silently governing
+ * launch. The `StartScreen` type, `settings.startScreen` and the `start_screen` column all
+ * survive as inert (this repo never drops columns).
+ */
 export const BASICS_ROWS = [
   'language',
   'appearance',
   'textSize',
   'motion',
   'handedness',
-  'startScreen',
 ] as const;
 export type BasicsRow = (typeof BASICS_ROWS)[number];
 
@@ -129,37 +141,27 @@ export function handednessChoiceOf(s: { leftHanded: boolean }): HandednessChoice
   return s.leftHanded ? 'left' : 'right';
 }
 
-/* ── Starting screen ──────────────────────────────────────────────────────── */
-
-export const START_SCREEN_CHOICES: readonly StartScreen[] = ['home', 'shopping', 'plans'];
+/* ── Starting screen — REMOVED 2026-08-21 ────────────────────────────────── */
 
 /**
- * Setting id → the `app/(tabs)/` route name it opens, i.e. the navigator's `initialRouteName`.
- * **These are the three tabs, and this map must never name anything else** — an
- * `initialRouteName` the navigator doesn't have is silently ignored, so the app opens on the
- * FIRST tab (Shop) with no error anywhere.
+ * ⚠️ **There is no starting-screen choice any more.** `START_SCREEN_CHOICES`,
+ * `START_SCREEN_ROUTES` and `START_SCREEN_PATHS` lived here and are deleted; the app always
+ * opens on the centre (To-do) tab, which is `START_TAB_ROUTE` / `START_TAB_ROUTE_PATH` in
+ * `lib/siteNav.ts`. Maintainer, 2026-08-21: *"Middle screen is to be the Main one where app
+ * always starts when opening it fresh."*
  *
- * ⚠️ That is exactly what shipped between the 2026-08-20 tab passes and 2026-08-19: `'health'`
- * stayed a choice here after Health stopped being a tab, so anyone who picked it landed on
- * Shopping. `'plans'` replaces it — it is a tab again — and a stored `start_screen='health'` is
- * migrated to `'home'` in lib/db.ts, which is where health's surface actually lives now.
+ * Two things worth carrying forward from what was here, because both are still live traps:
+ *   - **A route name the navigator does not have is silently ignored**, and the app opens on the
+ *     FIRST tab (Shop) with no error anywhere. `'health'` sat in the old choice list for months
+ *     after Health stopped being a tab, and that is precisely what it shipped. The replacement
+ *     constant is pinned against the navigator's own `<TopTabs.Screen>` declarations in
+ *     `lib/__tests__/firstRunOptions.test.ts` — read the target off the navigator, never off a
+ *     memory of which screens exist.
+ *   - **`settings.startScreen` and the `start_screen` column still exist and are now inert.**
+ *     This repo never drops columns; see `store/useSettingsStore.ts`'s "Inert columns" note. A
+ *     test asserts no surface reads the field, because wiring a new control to it would
+ *     typecheck perfectly and quietly re-create a setting the user is never shown.
  */
-export const START_SCREEN_ROUTES: Record<StartScreen, string> = {
-  home: 'index',
-  shopping: 'shopping',
-  plans: 'plans',
-};
-
-/**
- * The same three tabs as router paths, for navigating there *now* — `initialRouteName`
- * only decides where a cold launch opens, and the pager is already mounted by the time
- * the first-run flow commits. Matches SITE_ITEMS' routes in lib/siteNav.ts.
- */
-export const START_SCREEN_PATHS: Record<StartScreen, '/' | '/shopping' | '/plans'> = {
-  home: '/',
-  shopping: '/shopping',
-  plans: '/plans',
-};
 
 /* ── Picks ⇄ settings ────────────────────────────────────────────────────── */
 
@@ -170,7 +172,6 @@ export type FirstRunPicks = {
   fontSize: FontSizePref;
   motion: MotionChoice;
   handedness: HandednessChoice;
-  startScreen: StartScreen;
 };
 
 /** The slice of the settings row this screen reads from and writes back to. */
@@ -179,7 +180,6 @@ export type FirstRunSettings = MotionSettings & {
   darkMode: DarkMode;
   fontSize: FontSizePref;
   leftHanded: boolean;
-  startScreen: StartScreen;
 };
 
 /**
@@ -194,12 +194,11 @@ export function picksFromSettings(s: FirstRunSettings): FirstRunPicks {
     fontSize: s.fontSize,
     motion: motionChoiceOf(s),
     handedness: handednessChoiceOf(s),
-    startScreen: s.startScreen,
   };
 }
 
 /**
- * The screen's one and only write. Returns every field for all six rows plus the gate, so
+ * The screen's one and only write. Returns every field for all five rows plus the gate, so
  * the caller's single `settings.update()` either lands the whole personalization or none
  * of it — there is no ordering in which `firstRunComplete` is set on its own.
  */
@@ -212,7 +211,6 @@ export function settingsPatchFromPicks(
     language: picks.language,
     darkMode: picks.darkMode,
     fontSize: picks.fontSize,
-    startScreen: picks.startScreen,
     firstRunComplete: true,
   };
 }

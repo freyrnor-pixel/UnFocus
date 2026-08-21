@@ -310,11 +310,9 @@ import {
   DarkMode,
   EnergyMode,
   Language,
-  StartScreen,
 } from '@/store/useSettingsStore';
 import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
-import { START_SCREEN_CHOICES } from '@/lib/firstRunOptions';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -934,7 +932,7 @@ export default function SettingsScreen() {
                 exists for. Text size came the other way, out of Accessibility and into
                 Appearance — it is the single most looked-for control on this screen and it is a
                 look preference before it is an aid. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.you}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.you}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.sectionProfile} accentColor={theme.accent} first rounded>
@@ -1037,7 +1035,7 @@ export default function SettingsScreen() {
                 sitting beside a second accordion holding the other five switches — a container
                 per notification rather than a card per subject. One card, one header, every
                 switch visible without opening anything. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.notifications}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.notifications}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ToggleRow
@@ -1128,7 +1126,7 @@ export default function SettingsScreen() {
             {/* Moved up from Personal with Notifications (2026-08-17) — how lists are drawn and
                 which tab the app opens on are decisions a user makes early and looks for again,
                 not power-user territory. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.layout}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.layout}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 {/* Global default for every list-bearing surface (2026-07-27). A surface can
@@ -1156,23 +1154,12 @@ export default function SettingsScreen() {
                   checked={settings.planTimelineHorizontal}
                   onChange={(v) => settings.update({ planTimelineHorizontal: v })}
                 />
-                {/* Starting screen — the permanent home of first-run step 4. Same three
-                    values from lib/firstRunOptions.ts and the same nav labels the flow
-                    uses, so a choice made there and a choice made here are the same thing.
-                    Applies from the next launch: app/(tabs)/_layout.tsx freezes the
-                    navigator's initialRouteName at mount rather than yanking the user to
-                    another tab mid-session. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.firstRun.startScreen.settingsLabel}</Text>
-                <SegmentedControl
-                  value={settings.startScreen}
-                  onChange={(v) => settings.update({ startScreen: v as StartScreen })}
-                  options={START_SCREEN_CHOICES.map((v) => ({
-                    value: v,
-                    label: v === 'home' ? t.nav.home : v === 'shopping' ? t.nav.shop : t.nav.plans,
-                  }))}
-                />
-                <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>
+                {/* ⚠️ **The starting-screen picker is GONE (consistency audit, 2026-08-21).**
+                    Maintainer: *"Middle screen is to be the Main one where app always starts
+                    when opening it fresh."* The app opens on the centre (To-do) tab now,
+                    unconditionally — `START_TAB_ROUTE` in lib/siteNav.ts. `settings.startScreen`
+                    and its column survive as inert; see store/useSettingsStore.ts's "Inert
+                    columns" note. Don't wire a new control to it. */}
                 {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
                     in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
                     settings the user has right now, which means walking through it and
@@ -1231,7 +1218,7 @@ export default function SettingsScreen() {
                 (they are the reason people open Settings); Accessibility came the other way,
                 out of General's opening panel. */}
             {/* ===== ACCESSIBILITY ===== */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.settings.accessibility.title}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.settings.accessibility.title}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ToggleRow
@@ -1348,7 +1335,7 @@ export default function SettingsScreen() {
                 to kick.
                 The group header sits OUTSIDE the card now (2026-08-17), like every other
                 group on the three tabs — it was the one heading drawn inside its own Surface. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.permissions.sectionTitle}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.permissions.sectionTitle}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <ToggleRow
@@ -1444,7 +1431,7 @@ export default function SettingsScreen() {
                 budget nothing could spend. The VALUES are untouched by hiding them — they live
                 in the settings row exactly as before — so a capacity set months ago is still
                 there, unchanged, the moment the picker goes back to Energy mode. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.features}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.features}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 {/* ENERGY / REWARDS — two peer modes over the one `energySystemEnabled`
@@ -1690,7 +1677,7 @@ export default function SettingsScreen() {
                 don't belong mid-edit: renaming (which follows every task, since tasks carry the
                 id) and removing. No add field here on purpose — a tag with no task on it is
                 just a word. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.tags.settingsTitle}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.tags.settingsTitle}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border }]}>
                 <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0, marginBottom: Spacing.sm }]}>
@@ -1746,7 +1733,7 @@ export default function SettingsScreen() {
                 untouched (this repo never drops columns) — see store/useSettingsStore.ts's
                 "Inert columns" note. What the card was actually FOR — the backup file, the
                 auto-backup location, and the AI setup guide — is all still here, unchanged. */}
-            <Text style={[styles.groupHeader, { color: theme.text, marginTop: 0 }]}>{t.config.sections.data}</Text>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.data}</Text>
             <View style={styles.section}>
               <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
                 <ExpandableCard title={t.account.title} accentColor={theme.accent} first rounded>
@@ -1963,7 +1950,13 @@ const baseStyles = StyleSheet.create({
   // from `section`'s own gap:Spacing.sm, so neither header style carries its own margin.
   // (Most former sectionTitle/tabSectionLabel headers are now ExpandableCard's own title —
   // tabSectionLabel survives for the few single-toggle cards that stayed plain, uncollapsed.)
-  groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line), marginTop: Spacing.sm },
+  // ⚠️ **No `marginTop` (consistency audit, 2026-08-21).** It carried `Spacing.sm`, and ALL
+  // EIGHT call sites overrode it to 0 inline — so the value never reached a pixel, and what it
+  // actually was is a trap: a ninth group header that forgot the override would silently gain
+  // 8px under the tab bar, which is the screen's top gap and so exactly the seam the 2026-08-19
+  // pass deleted everywhere else. The gap between groups is the content container's own
+  // `gap: Spacing.lg`, per DESIGN_RULES rule 3 — the screen owns it, not the child.
+  groupHeader: { fontFamily: Type.heading.fontFamily, fontSize: Type.heading.size, lineHeight: Math.round(Type.heading.size * Type.heading.line) },
   descText: { fontSize: FontSize.xs, marginTop: Spacing.sm, lineHeight: 18 },
   // Version card's "experimental build" note — icon + wrapped text on one row.
   experimentalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginTop: Spacing.md },

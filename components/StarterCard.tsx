@@ -526,11 +526,19 @@ const baseStyles = StyleSheet.create({
   textRowDismissable: {
     paddingRight: Spacing.lg,
   },
-  // Pinned to the card's top-right corner — see the comment at the call site. The glyph is
-  // pushed into the corner by flex-start/flex-end; the 48px target stays inside `card`, which
-  // is `overflow: 'hidden'` (Android clips touches to the parent's bounds, so a box that
-  // overhangs loses the overhanging part of its hit area). `card` already carries Spacing.md of
-  // padding, which is why this needs no inset of its own.
+  // Pinned to the card's top-right corner — see the comment at the call site. The 48px target
+  // stays inside `card`, which is `overflow: 'hidden'` (Android clips touches to the parent's
+  // bounds, so a box that overhangs loses the overhanging part of its hit area). `card` already
+  // carries Spacing.md of padding, which is why this needs no inset of its own.
+  //
+  // ⚠️ **The glyph is CENTRED in that box (consistency audit, 2026-08-21).** It was pushed into
+  // the corner by `alignItems: 'flex-end'` + `justifyContent: 'flex-start'`, which is the third
+  // instance of one shape the maintainer reported: *"Elements within buttons must be centered in
+  // the middle, EXCEPT for the box/circle itself, which is located where it is meant to be."*
+  // The box's placement is untouched — `position: absolute, top: 0, right: 0` is precisely the
+  // "where it is meant to be" half — and only the glyph inside it moved.
+  // `components/CardCollapseToggle.tsx` and `components/CollapsedSection.tsx` are the other two;
+  // `lib/__tests__/designTokens.test.ts` now fails on the pattern.
   dismiss: {
     position: 'absolute',
     top: 0,
@@ -538,8 +546,8 @@ const baseStyles = StyleSheet.create({
     zIndex: 1,
     minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   text: {
     flex: 1,

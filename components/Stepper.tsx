@@ -44,7 +44,7 @@
  */
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, FontSize, Radius, Spacing, HitSlop, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, OpticalCenter, Radius, Spacing, HitSlop, TabularNums } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useLabControl } from '@/lib/useDesignLab';
 import { tap } from '@/lib/haptics';
@@ -140,7 +140,10 @@ const styles = StyleSheet.create({
   // 2026-08-01 accent pass only the "−" needed it — the "+" defined its own edge with an
   // accent fill. See the edit note above for why that fill is gone.
   btn: { width: 28, height: 28, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'transparent' },
-  btnText: { fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): the box is a 28px circle, so its height is NOT set by the
+  // text — the condition under which Android's asymmetric font padding rides the − / + high
+  // inside it. See the token's own doc in constants/theme.ts.
+  btnText: { fontSize: FontSize.md, fontFamily: Fonts.bold, ...OpticalCenter },
   value: { minWidth: 36, textAlign: 'center', fontSize: FontSize.md, fontFamily: Fonts.semibold },
   disabled: { opacity: 0.4 },
   // The slider variant. `flex: 1` + `minWidth: 0` on the track so the readout keeps its width
