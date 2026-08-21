@@ -15,7 +15,7 @@
  * tap from anywhere on Home, which is most of why the card is there at all.
  *
  * Connections:
- *   Imports → constants/theme (PAD_PREVIEW_ROWS, PAD_SPARE_LINES), lib/cardDefaults
+ *   Imports → constants/theme (PAD_PREVIEW_ROWS, PAD_SPARE_LINES)
  *             (PAD_SURFACES_OPEN_AT_REST), lib/cardLayout (LayoutSurface — type-only, so no
  *             runtime dependency)
  *   Used by → components/PadSheet.tsx, components/PadFooterToggle.tsx,
@@ -33,7 +33,7 @@
  *   - `resolveCardState` falls back rather than throwing, so one bad row in the settings
  *     JSON (older build, hand-edited backup, AI-generated import) degrades to that surface's
  *     resting state instead of blanking a card.
- *   - **A surface rests at 'closed' as of 2026-08-21**, except the ones lib/cardDefaults.ts
+ *   - **A surface rests at 'closed' as of 2026-08-21**, except the ones PAD_SURFACES_OPEN_AT_REST
  *     names, which rest at 'preview' (maintainer: *"All card start in closed state, except
  *     'Today' 'Notes' and 'Shopping' in middle screen"*). It read 'preview' for everything
  *     until then, on the reasoning that an upgrading user should open the app to roughly the
@@ -43,7 +43,21 @@
  *     glance, not the whole list.
  */
 import { PAD_PREVIEW_ROWS, PAD_SPARE_LINES } from '@/constants/theme';
-import { PAD_SURFACES_OPEN_AT_REST } from '@/lib/cardDefaults';
+/**
+ * Pad surfaces drawn at 'preview' when the user has not chosen; every other surface starts
+ * 'closed'.
+ *
+ * These lived in lib/cardDefaults.ts, shared with lib/collapsedCards.ts, while both mechanisms
+ * needed a resting state and the three excepted cards were drawn by both. The card half moved
+ * into lib/cardRegistry.ts's `openAtRest` when the registry replaced every hand-maintained card
+ * list, so this is the only half left and it lives with its reader. Typed as plain strings for
+ * the reason cardDefaults always was: `PadSurface` is declared below, and importing it back
+ * would be a cycle if this were ever moved out again.
+ *
+ * 'preview' rather than 'open' is the same call the pad cards have always made: the point of a
+ * three-state card is that its resting size is a glance, not the whole list.
+ */
+const PAD_SURFACES_OPEN_AT_REST: readonly string[] = ['plans', 'notes'] as const;
 import type { LayoutSurface } from '@/lib/cardLayout';
 
 /** A pad card's three resting sizes, smallest first. */
@@ -56,7 +70,7 @@ export type PadSurface = LayoutSurface;
 
 /**
  * What a surface is drawn at when nothing has been chosen for it. Closed for everything except
- * the cards lib/cardDefaults.ts excepts — see this file's edit notes.
+ * the surfaces PAD_SURFACES_OPEN_AT_REST excepts — see this file's edit notes.
  */
 export function defaultPadState(surface: PadSurface): PadState {
   return PAD_SURFACES_OPEN_AT_REST.includes(surface) ? 'preview' : 'closed';

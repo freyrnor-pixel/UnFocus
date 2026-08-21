@@ -56,7 +56,7 @@
  *     plain list — see `layoutSpec`), and only the plain-list one is a `SectionCard` with a
  *     header to attach the expand button to. The other three get one uniform header row
  *     (title + CardExpandButton) ABOVE the branch content instead of threading the button
- *     through each shape — the same reasoning `collapseKey="plansToday"` already accepted
+ *     through each shape — the same reasoning `collapseKey="todoToday"` already accepted
  *     (it too only applies inside the plain-list branch).
  *   - **The Week card has NO `collapseKey` and its per-weekday sections get neither a
  *     `collapseKey` nor an expand id** (lib/collapsedCards.ts's / lib/expandableCards.ts's
@@ -760,7 +760,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // card's body drawn at all, and the only one of the two that persists. Whenever/Today/
   // Recurring get theirs from `SectionCard`'s `collapseKey`; this card isn't a SectionCard (it
   // is a header row over a stack of seven), so it wires the same hook and chevron by hand.
-  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('plansWeek');
+  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('todoWeek');
 
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
@@ -774,7 +774,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         domain="task"
         label={t.tasksSectionWhenever}
         count={wheneverAll.length}
-        collapseKey="plansWhenever"
+        collapseKey="todoWhenever"
         right={
           full ? (
             <CardExpandButton expanded={wheneverExpand.expanded} onExpand={wheneverExpand.onExpand} onCollapse={wheneverExpand.onCollapse} />
@@ -918,7 +918,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         ) : (
           // No `todayHeader` here — this card's OWN rail is the header, and it already says
           // "Today". The floating one above made this the single layout that said it twice.
-          <SectionCard hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
+          <SectionCard hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="todoToday" right={todayExpandButton}>
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}
@@ -1030,7 +1030,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           icon="repeat"
           label={t.tasksSectionRecurring}
           count={recurringAll.length}
-          collapseKey="plansRecurring"
+          collapseKey="todoRecurring"
           right={
             full ? (
               <CardExpandButton expanded={recurringExpand.expanded} onExpand={recurringExpand.onExpand} onCollapse={recurringExpand.onCollapse} />

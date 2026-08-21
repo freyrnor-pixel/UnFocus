@@ -1353,18 +1353,31 @@ export function initDb() {
     // 2026-08-21, "all cards start closed" (CONSISTENCY_AUDIT.md §3).
     //
     // Both columns store only the cards the user has moved OFF their resting state, so
-    // emptying them is exactly "put everyone on the new defaults" — see lib/cardDefaults.ts.
+    // emptying them is exactly "put everyone on the new defaults" — see lib/cardRegistry.ts.
     // This DOES discard folds and pad sizes people had chosen, which is normally the thing not
     // to do; it is instructed, and defensible only because the app is not released yet
     // (maintainer, on being asked whether to migrate or preserve: *"We're not live yet, so just
     // force."*). The same reasoning as the 2026-08-16 dark-mode default migration, and with the
     // same caveat: it is the LAST point at which either column can be reset this cheaply.
     //
-    // Deliberately NOT a rewrite to the new values — writing '{}' lets lib/cardDefaults.ts stay
+    // Deliberately NOT a rewrite to the new values — writing '{}' lets lib/cardRegistry.ts stay
     // the only place a resting state is decided. Baking today's answer into a migration would
     // freeze it for every install this runs on.
     "UPDATE settings SET collapsed_cards = '{}'",
     "UPDATE settings SET card_states = '{}'",
+    //
+    // 2026-08-21, the card registry (lib/cardRegistry.ts).
+    //
+    // A To-do card had a FOLD id (`plansToday`) and a different EXPAND id (`todoToday`) — two
+    // names for one card, which is exactly the divergence the registry exists to make
+    // impossible, and one card cannot have two keys there. All four To-do keys took the `todo*`
+    // spelling, which matches the tab. A key is a storage key, so a rename silently re-opens
+    // that card for everyone who had folded it; emptying the column instead puts every install
+    // on the registry's `openAtRest` and costs nothing extra, since the migration two lines up
+    // already did precisely that in the same release. Same "we're not live yet, so just force"
+    // ruling. Deliberately not a key-by-key rewrite: writing today's answer into a migration
+    // would freeze it for every install this runs on.
+    "UPDATE settings SET collapsed_cards = '{}'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

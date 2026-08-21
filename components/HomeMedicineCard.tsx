@@ -69,7 +69,7 @@ export default function HomeMedicineCard({ cardMenu }: Props) {
   const screenColor = getScreenColor(theme, 'health');
   const cardExpand = useCardExpand('homeMedicine');
   // Folded away, remembered across launches. Presentation only: a collapsed card still arms
-  // every tray reminder. Rests CLOSED like every card bar the three lib/cardDefaults.ts excepts.
+  // every tray reminder. Rests CLOSED like every card bar the three lib/cardRegistry.ts's openAtRest excepts.
   const [collapsed, toggleCollapsed] = useCollapsedCard('homeMedicine');
 
   return (

@@ -1732,7 +1732,7 @@ export default function ShoppingScreen() {
           puts all of them away at once, which is what "collapse the shopping lists" means.
             This is also the one Shop group that RESTS OPEN: it is the "Shopping" in the
           maintainer's *"All card start in closed state, except 'Today' 'Notes' and 'Shopping'"*
-          — see lib/cardDefaults.ts. */}
+          — see lib/cardRegistry.ts's openAtRest. */}
       {/* Badge + a rule that follows the fold, same as every other group header (2026-08-21,
           CONSISTENCY_AUDIT.md §2). Both Shop groups sit on the screen hue, so `badgeHue` keeps
           badge, divider and card agreeing and the GLYPH is what tells the two apart. */}

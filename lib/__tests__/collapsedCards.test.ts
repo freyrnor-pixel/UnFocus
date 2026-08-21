@@ -7,12 +7,12 @@
  * header, its count and its chevron, so the way back is on screen — and the maintainer has
  * since asked for closed to be the resting state (*"All card start in closed state, except
  * 'Today' 'Notes' and 'Shopping' in middle screen"*). What is guarded now is that the resting
- * state comes from ONE place (lib/cardDefaults.ts), that the bag stores only what the user has
+ * state comes from ONE place (lib/cardRegistry.ts's `openAtRest`), that the bag stores only what the user has
  * moved off it, and that the exception list names ids that really exist.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { CARDS_OPEN_AT_REST, PAD_SURFACES_OPEN_AT_REST } from '@/lib/cardDefaults';
+import { CARD_KEYS, cardSpec } from '@/lib/cardRegistry';
 import {
   CARD_IDS,
   CollapsedCards,
@@ -33,7 +33,7 @@ describe('isCollapsed — absent means the card`s resting state', () => {
   });
 
   it('reads an excepted card as open when unset', () => {
-    expect(isCollapsed({}, 'plansToday')).toBe(false);
+    expect(isCollapsed({}, 'todoToday')).toBe(false);
   });
 
   it('reads a stored value in both directions', () => {
@@ -41,37 +41,28 @@ describe('isCollapsed — absent means the card`s resting state', () => {
     // An explicit false is meaningful now: with closed as the default, it is the only way to
     // record "I opened this one". Before the inversion this case was legacy data.
     expect(isCollapsed({ healthWeek: false }, 'healthWeek')).toBe(false);
-    expect(isCollapsed({ plansToday: true }, 'plansToday')).toBe(true);
+    expect(isCollapsed({ todoToday: true }, 'todoToday')).toBe(true);
   });
 });
 
 describe('defaultCollapsed — one short exception list', () => {
   it('rests To-do`s Today open', () => {
-    expect(defaultCollapsed('plansToday')).toBe(false);
+    expect(defaultCollapsed('todoToday')).toBe(false);
   });
 
   it('rests every other card closed', () => {
     for (const id of CARD_IDS) {
-      if (CARDS_OPEN_AT_REST.includes(id)) continue;
+      if (cardSpec(id).openAtRest) continue;
       expect(defaultCollapsed(id)).toBe(true);
     }
   });
 
-  // The exception lists are typed as plain strings to avoid an import cycle, so nothing but
-  // this test stops a typo there from silently exempting nothing at all.
-  it('names only real card ids', () => {
-    for (const id of CARDS_OPEN_AT_REST) expect(CARD_IDS as readonly string[]).toContain(id);
-  });
-
-  it('names only real pad surfaces', () => {
-    const padSurfaces = ['shopping', 'plans', 'homeTodo', 'notes', 'habits', 'health'];
-    for (const id of PAD_SURFACES_OPEN_AT_REST) expect(padSurfaces).toContain(id);
-  });
-
   // "Everything starts closed" is only true as a sentence while this stays short. A fourth
-  // entry is a maintainer decision, and it should cost a failing test to make it.
+  // entry is a maintainer decision, and it should cost a failing test to make it. The pad
+  // surfaces' own two exceptions live in lib/padState.ts and are counted by its own test.
   it('excepts no more cards than the maintainer named', () => {
-    expect(CARDS_OPEN_AT_REST.length + PAD_SURFACES_OPEN_AT_REST.length).toBeLessThanOrEqual(4);
+    const excepted = CARD_KEYS.filter((k) => cardSpec(k).openAtRest);
+    expect(excepted.length).toBeLessThanOrEqual(2);
   });
 });
 
@@ -87,8 +78,8 @@ describe('withCollapsed — the bag holds only what the user moved', () => {
   });
 
   it('stores an excepted card the same way, in the other direction', () => {
-    expect(withCollapsed({}, 'plansToday', true)).toEqual({ plansToday: true });
-    expect(withCollapsed({ plansToday: true }, 'plansToday', false)).toEqual({});
+    expect(withCollapsed({}, 'todoToday', true)).toEqual({ todoToday: true });
+    expect(withCollapsed({ todoToday: true }, 'todoToday', false)).toEqual({});
   });
 
   it('leaves other cards alone', () => {
@@ -152,11 +143,11 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   // older build, where every stored value was a `true` that now agrees with the default.
   it('drops a value that matches the card`s resting state', () => {
     expect(sanitizeCollapsedCards({ habitsList: true, healthWeek: true })).toEqual({});
-    expect(sanitizeCollapsedCards({ plansToday: false })).toEqual({});
+    expect(sanitizeCollapsedCards({ todoToday: false })).toEqual({});
   });
 
   it('passes a clean bag through unchanged', () => {
-    const bag = { habitsList: false, homeMedicine: false, plansToday: true };
+    const bag = { habitsList: false, homeMedicine: false, todoToday: true };
     expect(sanitizeCollapsedCards(bag)).toEqual(bag);
   });
 });
@@ -165,11 +156,11 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
 // ASSERTS a safety property is not evidence the property holds" gotcha is about. It matters
 // more now that the module imports something: a card's resting state is read on every tab's
 // render path, so it must not be able to reach a store, the DB or the notification layer.
-describe('lib/cardDefaults.ts and lib/collapsedCards.ts stay dependency-free', () => {
+describe('lib/cardRegistry.ts and lib/collapsedCards.ts stay dependency-free', () => {
   const read = (f: string) => readFileSync(join(__dirname, '..', f), 'utf8');
   const banned = [/@\/store\//, /@\/lib\/db/, /@\/lib\/notifications/, /@\/lib\/reminders/, /@\/lib\/liveSync/, /expo-/];
 
-  it.each(['collapsedCards.ts', 'cardDefaults.ts', 'padState.ts'])('%s imports nothing heavy', (file) => {
+  it.each(['collapsedCards.ts', 'cardRegistry.ts', 'padState.ts'])('%s imports nothing heavy', (file) => {
     const imports = read(file)
       .split('\n')
       .filter((l) => /^import /.test(l))
@@ -177,8 +168,14 @@ describe('lib/cardDefaults.ts and lib/collapsedCards.ts stay dependency-free', (
     for (const pattern of banned) expect(imports).not.toMatch(pattern);
   });
 
-  it('cardDefaults imports nothing at all, so neither reader can cycle through it', () => {
-    expect(read('cardDefaults.ts')).not.toMatch(/^import /m);
+  // The registry is imported by both fold and expand and is evaluated on every tab's render
+  // path, so its own imports must be TYPE-only — an erased import cannot pull a store in.
+  it('cardRegistry imports only types', () => {
+    const imports = read('cardRegistry.ts')
+      .split('\n')
+      .filter((l) => /^import /.test(l));
+    expect(imports.length).toBeGreaterThan(0);
+    for (const line of imports) expect(line).toMatch(/^import type /);
   });
 });
 
