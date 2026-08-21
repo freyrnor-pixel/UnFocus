@@ -34,6 +34,10 @@ const TABS_DIR = path.join(ROOT, 'app', '(tabs)');
  * card expansion" pass) and joined it.
  */
 const PUSHED_SCREENS = ['app/habits.tsx', 'app/health.tsx'] as const;
+// ⚠️ Both entries above are thin route wrappers as of 2026-08-20 and capture nothing
+// themselves — app/habits.tsx joined app/health.tsx there when components/HabitsSurface.tsx was
+// extracted. They stay in the scan deliberately: the day one of them grows a `today` of its own
+// again, the rule should bind it without anyone remembering to re-add it here.
 
 /**
  * Extracted surface components (same pass) that carry the REAL `today` capture now — their
@@ -41,7 +45,15 @@ const PUSHED_SCREENS = ['app/habits.tsx', 'app/health.tsx'] as const;
  * themselves. Scanning only the wrapper would trivially pass ("nothing captured — fine") over
  * exactly the file that actually needs the pairing.
  */
-const EXTRACTED_SURFACES = ['components/TodoSurface.tsx', 'components/HealthSurface.tsx'] as const;
+const EXTRACTED_SURFACES = [
+  'components/TodoSurface.tsx',
+  'components/HealthSurface.tsx',
+  // components/HabitsSurface.tsx joined them on 2026-08-20, extracted so the Me tab's Habits
+  // card could have a real full-screen body. It carries the capture the original bug was
+  // measured on, so this is the entry that keeps that coverage rather than losing it to the
+  // move — exactly the failure mode the PUSHED_SCREENS note above describes.
+  'components/HabitsSurface.tsx',
+] as const;
 
 /**
  * Render scope is identified by INDENTATION — two spaces is a component body, deeper is inside
@@ -69,8 +81,8 @@ const tabScreens = [
 
 describe('a render-scope `today` is paired with the minute tick', () => {
   it('finds the screens at all (guards against a silently empty scan)', () => {
-    // 3 tabs + the 2 pushed list screens + the 2 extracted surfaces.
-    expect(tabScreens.length).toBeGreaterThanOrEqual(7);
+    // 3 tabs + the 2 pushed list screens + the 3 extracted surfaces.
+    expect(tabScreens.length).toBeGreaterThanOrEqual(8);
   });
 
   it.each(tabScreens.map((s) => s.file))('%s', (file) => {
@@ -95,6 +107,8 @@ describe('a render-scope `today` is paired with the minute tick', () => {
    */
   it('covers the screens/surfaces that capture one', () => {
     const capturing = tabScreens.filter((s) => RENDER_SCOPE_TODAY.test(s.source)).map((s) => s.file);
-    expect(capturing.sort()).toEqual(['HealthSurface.tsx', 'TodoSurface.tsx', 'habits.tsx']);
+    // `habits.tsx` was here until 2026-08-20; the capture moved into HabitsSurface.tsx with the
+    // rest of that screen's content. Still three, and still the same three surfaces.
+    expect(capturing.sort()).toEqual(['HabitsSurface.tsx', 'HealthSurface.tsx', 'TodoSurface.tsx']);
   });
 });

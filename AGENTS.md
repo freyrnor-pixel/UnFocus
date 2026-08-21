@@ -112,15 +112,19 @@ file owns which token.)
     were removed on 2026-08-19** — their cards left the Me tab, and an id whose card does not
     exist keeps a `CARD_BODIES` entry alive that nothing can reach while the test that pins the
     two lists together goes on passing over it.
-    **`shopLists` and `homeHabits` are deliberate, disclosed gaps**: `app/(tabs)/shopping.tsx`'s
-    Weekly/Monthly list content is ~2000 lines of window-coordinate drag/merge state and
-    flight-animation refs, and `app/habits.tsx` has never been extracted at all — neither has a
-    standalone surface component the way To-do/Health/Notes do, so both `CardExpandHost` entries
-    are placeholders (`ComingSoonBody`) with **no `CardExpandButton` wired to them anywhere in
-    the UI** — unreachable rather than shipping a button that opens a stub. ⚠️ Habits DID ship
-    that button, from 2026-08-20 until 2026-08-19, when it went from one of five cards on a busy
-    Home screen to one of three on the Me tab and stopped being easy to miss. A future pass can
-    extract `HabitsSurface.tsx`/`ShoppingListsSurface.tsx` and finish both.
+    **`shopLists` is the ONE remaining disclosed gap** (2026-08-20 — it was two until then):
+    `app/(tabs)/shopping.tsx`'s Weekly/Monthly list content is ~2000 lines of window-coordinate
+    drag/merge state and flight-animation refs, none of which any headless harness here can
+    exercise, so it has no standalone surface component the way To-do/Health/Notes do. Its
+    `CardExpandHost` entry stays a `ComingSoonBody` with **no `CardExpandButton` wired to it
+    anywhere in the UI** — unreachable rather than shipping a button that opens a stub.
+    **`homeHabits` was fixed rather than documented**: `components/HabitsSurface.tsx` was
+    extracted out of `app/habits.tsx` (which is now a thin `ScreenScaffold` wrapper, same shape
+    as `app/(tabs)/plans.tsx` around `TodoSurface`), the registry entry mounts it `embedded`,
+    and `components/HomeHabitsCard.tsx` draws a real `CardExpandButton` again — it had shipped
+    one from 2026-08-20 until 2026-08-19, when the stub behind it stopped being easy to miss on
+    a three-card Me tab. The maintainer's call on the split: extract Habits, leave Shopping.
+    A future pass can do `ShoppingListsSurface.tsx` the same way.
     The underlying card stays mounted (not unmounted) behind the opaque overlay while expanded
     — `useCardExpand`'s `expanded` flag exists for a caller that wants to skip its own heavy
     content in that state, but nothing does yet; know this if you ever see a control's own

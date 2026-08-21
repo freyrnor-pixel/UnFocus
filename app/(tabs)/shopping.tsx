@@ -52,8 +52,6 @@
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
- *             components/HintSheet (the ⓘ explanation as a bottom sheet — this screen's
- *             body was a components/HintCard until 2026-08-13; see the edit note),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
  *             in it; see that file's header for the three empty states it stays out of),
  *             components/StarterCard (first-run explainer, shown while
@@ -87,7 +85,7 @@
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme, lib/prefill (usePrefill — a note
  *             sent here seeds THIS week's add row),
- *             lib/useFirstVisitHint, lib/domainColor, lib/budget (computeSpendPace),
+ *             lib/domainColor, lib/budget (computeSpendPace),
  *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
  *             store/useReceiptStore, components/NewMonthlyListRow,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
@@ -454,14 +452,19 @@
  *     as `ConfirmationBanner`'s placement below). `handleScreenScroll` clears in-flight
  *     flights on scroll since window-space coords go stale. See
  *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
- *   - **Keyboard-avoidance (2026-07-31)**: the monthly-reset-date field (in the hint card) and
- *     the Monthly list rename field each get their own `lib/useKeyboardLift` — see that hook's
- *     doc / components/AddRow.tsx for the underlying Android `windowSoftInputMode=resize` fix.
- *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
- *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
- *     copy of the weekly-reset weekday and monthly-reset date pickers, so those are now reached
- *     by a deliberate ⓘ tap. They were deliberately left where they are: re-homing them is a
- *     separate design decision, not a side effect of this change.
+ *   - **Keyboard-avoidance (2026-07-31)**: the Monthly list rename field gets its own
+ *     `lib/useKeyboardLift` — see that hook's doc / components/AddRow.tsx for the underlying
+ *     Android `windowSoftInputMode=resize` fix. The monthly-reset-date field was the other
+ *     consumer until 2026-08-20; it lives in Settings → Personal now.
+ *   - **⚠️ There is no ⓘ hint on this screen (2026-08-20).** It had been four shapes in a
+ *     month — auto-opening first-visit card, collapsed-until-tapped card, bottom sheet, and
+ *     closable inline card — and the maintainer ended the series rather than picking a fifth:
+ *     *"The top text box can be removed"*, with tips belonging to a card's empty state. Its
+ *     sentence is on the StarterCard that renders while both list groups are empty. The two
+ *     reset-cadence pickers it used to carry had already gone to Settings → Personal on
+ *     2026-08-13; the LINK to them went with the banner, since Settings is one tap away on this
+ *     screen's own header gear and a card whose whole body is a door elsewhere is what the
+ *     original ⓘ complaint was about.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -568,15 +571,12 @@ export default function ShoppingScreen() {
   // CollapsedSection drawers; see the `foodCatalogueLinks` note below for the full shape.
   const dishesExpand = useCardExpand('shopDishes');
   const catalogueExpand = useCardExpand('shopCatalogue');
-  // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
-  // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
-  // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
-  // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
-  // updates the setting, leaving it blank keeps the current value.
-  // (The monthly-reset DATE field that used to live here is gone with the ⓘ banner, 2026-08-20
-  // — it had already moved to Settings → Personal on 2026-08-13, leaving this local draft state
-  // behind with nothing reading it. The Monthly rename field below still uses useKeyboardLift;
-  // that one is genuinely in the scroll content.)
+  // (The monthly-reset DATE field that used to live here, with its own local draft buffer and
+  // its own useKeyboardLift, is gone as of 2026-08-20 — it had already moved to Settings →
+  // Personal on 2026-08-13, and the ⓘ banner that still drew it went with the banner pass,
+  // leaving the state behind with nothing reading it. The Monthly list's RENAME field below is
+  // a different control and still uses useKeyboardLift; that one is genuinely in the scroll
+  // content.)
   // The Katalog card's lock (2026-08-20). Owned here rather than inside components/
   // CatalogueTab.tsx because the button that flips it is in that card's SectionCard header.
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
@@ -1625,14 +1625,16 @@ export default function ShoppingScreen() {
   //
   // **The tour target moved here from the old sticky tab row.** Its Shopping step is about the
   // weekly and monthly lists — "a weekly list for groceries and a monthly one for what the
-  // house needs; the weekly list starts fresh on the day you choose" — and this card's own
-  // HintCard copy says exactly that. The old anchor (the TabSlider that switched between them)
-  // is gone along with the tab switch itself.
-  // ⚠️ `HintCard noPill` returns null once dismissed (`settings.dismissedHints`), so this is
-  // NOT unconditionally mounted for a returning user who has closed it — but the guided tour
-  // only ever runs once, immediately after onboarding on a fresh install, before that hint has
-  // had a chance to be dismissed, so it's a reliable target for the one visit that matters.
-  // Don't reuse this target id assuming it's always present later in the tree.
+  // house needs; the weekly list starts fresh on the day you choose" — and the starter card
+  // below says the same thing. The old anchor (the TabSlider that switched between them) is
+  // gone along with the tab switch itself.
+  // ⚠️ **The target is CONDITIONAL, and it always was — only the condition changed
+  // (2026-08-20).** It used to hang off a dismissible intro banner that returned null once
+  // closed; that banner is deleted app-wide, and what is here now is the starter card, which
+  // renders only while the lists are empty. Either way the guided tour runs once, immediately
+  // after onboarding on a fresh install, when the lists ARE empty — so it is a reliable target
+  // for the one visit that matters. Don't reuse this target id assuming it's always present
+  // later in the tree; for a returning user with a full list there is nothing here to ring.
   const shoppingIntro = (
     <TourTarget id="tour.shopping.list">
     <>

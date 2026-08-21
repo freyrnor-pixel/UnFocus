@@ -94,6 +94,7 @@ import Animated, {
 import Surface from '@/components/Surface';
 import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
+import HabitsSurface from '@/components/HabitsSurface';
 import HealthSurface from '@/components/HealthSurface';
 import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
@@ -180,12 +181,12 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   shopLists: { title: (t) => t.nav.shop, Body: ComingSoonBody },
   shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
-  // ⚠️ Same deliberate, disclosed gap as `shopLists` (2026-08-19): app/habits.tsx has never been
-  // extracted into a `HabitsSurface.tsx` the way To-do, Health and Notes were, so this body is
-  // still a placeholder — and components/HomeHabitsCard.tsx therefore mounts NO
-  // `CardExpandButton`, so nothing calls `expandCard('homeHabits', …)`. Unreachable beats a
-  // button that opens a stub. It was reachable, and shipping one, until that date.
-  homeHabits: { title: (t) => t.nav.habits, Body: ComingSoonBody },
+  // Real since 2026-08-20 — components/HabitsSurface.tsx was extracted out of app/habits.tsx
+  // exactly the way To-do, Health and Notes had been, and components/HomeHabitsCard.tsx mounts a
+  // `CardExpandButton` again. This was a `ComingSoonBody` from 2026-08-19, and the card shipped
+  // with no button at all rather than one that opened a stub; `shopLists` above is now the only
+  // entry still in that state.
+  homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface embedded /> },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },

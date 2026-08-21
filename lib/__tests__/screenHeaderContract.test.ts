@@ -116,7 +116,11 @@ const SUB_SCREENS = [
   // the bottom nav for a Home card).
   'app/health.tsx',
   'app/food.tsx',
-  'app/catalogue.tsx',
+  // ⚠️ app/catalogue.tsx LEFT this list on 2026-08-20. It carries a real `headerRight` now —
+  // the camera + lock (`CatalogueHeaderControls`), which moved out of the list's own first box
+  // into the header the list sits under, on the maintainer's instruction. That makes it the
+  // same shape as an editor: a browse screen whose header holds its own controls. Its tier and
+  // back button are still asserted by the tests above.
   'app/notes.tsx',
   'app/budget.tsx',
   'app/scan.tsx',
@@ -204,14 +208,21 @@ describe('every top-level tab header is title + gear', () => {
     expect(headerSrc).not.toMatch(/onInfoToggle/);
   });
 
-  test.each(TAB_SCREENS)('%s renders a dismissible intro card instead', (rel) => {
-    // `noPill` + `onDismiss` together are the intro card; `noPill` alone was the old
-    // header-driven body, which had no way to close itself. Reads TAB_CONTENT_SOURCE's target
-    // when the tab is a thin wrapper (2026-08-20 extraction) — the HintCard moved with the
-    // real content, not the ScreenScaffold shell.
-    const src = read(TAB_CONTENT_SOURCE[rel] ?? rel);
-    expect(src).toMatch(/<HintCard[\s\S]{0,400}noPill/);
-    expect(src).toMatch(/<HintCard[\s\S]{0,400}onDismiss=\{dismissHint\}/);
+  // ⚠️ **Rewritten 2026-08-20: there is no intro card either.** This asserted that each tab
+  // rendered a dismissible `<HintCard noPill onDismiss>` — the thing that replaced the header ⓘ
+  // on 2026-08-13. The maintainer removed that too (*"The top text box can be removed"*), with
+  // the standing rule that a tip belongs to a card's EMPTY STATE, so components/HintCard.tsx and
+  // lib/useFirstVisitHint.ts are deleted. The assertion above (no ⓘ props on the header) still
+  // holds and is the half that matters; this one becomes its mirror: no tab may bring the
+  // banner back by either route.
+  test.each(TAB_SCREENS)('%s renders no intro banner at all', (rel) => {
+    // `code()` (comments stripped), not `read()`, for the same reason the ScreenHeader
+    // assertion above uses it: these screens carry notes SAYING the banner was deleted and
+    // naming both identifiers, and deleting an explanation must never be the cheapest way to
+    // green.
+    const src = code(TAB_CONTENT_SOURCE[rel] ?? rel);
+    expect(src).not.toMatch(/<HintCard/);
+    expect(src).not.toMatch(/useFirstVisitHint/);
   });
 
   // The camera left the header on 2026-08-13. Maintainer: "the camera for scanning should be

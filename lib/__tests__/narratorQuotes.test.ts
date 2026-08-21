@@ -294,7 +294,7 @@ describe('every empty card speaks, and none of them names its own emptiness', ()
     ['components/TodoSurface.tsx', 'todo', 'To-do'],
     ['app/(tabs)/shopping.tsx', 'shopping', 'Shopping'],
     ['components/HealthSurface.tsx', 'health', 'Health'],
-    ['app/habits.tsx', 'habits', 'Habits'],
+    ['components/HabitsSurface.tsx', 'habits', 'Habits'],
     // The day card is a To-do surface on two screens at once (Home's preview and the To-do
     // tab's default timeline layout), and it is the empty state most users see first — the
     // tab's Today card goes through this, not through `DoneSplitList`.

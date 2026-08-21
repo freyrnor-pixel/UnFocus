@@ -31,7 +31,10 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const SCREENS = [
   'app/(tabs)/index.tsx',
   'components/TodoSurface.tsx',
-  'app/habits.tsx',
+  // components/HabitsSurface.tsx since 2026-08-20 — app/habits.tsx became a thin wrapper when
+  // the Habits card on the Me tab needed a real full-screen body, exactly as To-do/Health/Notes
+  // did before it. The card-stack gap is needed in the card too, so it lives on the surface.
+  'components/HabitsSurface.tsx',
   'components/HealthSurface.tsx',
   'app/(tabs)/shopping.tsx',
   'components/NotesSurface.tsx',
