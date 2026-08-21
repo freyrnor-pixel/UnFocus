@@ -2381,7 +2381,7 @@ export default function ShoppingScreen() {
                                   same pair every other expander here uses. */}
                               <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
                                 <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
-                                <AnimatedChevron open={expanded} color={theme.textMuted} size={16} />
+                                <AnimatedChevron open={expanded} />
                               </PressableScale>
                               <Collapsible open={expanded}>
                                 {/* Decision 043 rule 1: this already sits inside the list's own

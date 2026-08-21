@@ -110,7 +110,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, rgba, Spacing, TabularNums } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -452,7 +452,7 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
                 <Ionicons name={icon} size={18} color={theme.text} />
               </View>
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.mealTypes[mealType]}</Text>
-              <AnimatedChevron open={sectionOpen} color={theme.textMuted} size={18} />
+              <AnimatedChevron open={sectionOpen} />
             </PressableScale>
 
             <Collapsible open={sectionOpen}>
@@ -843,7 +843,17 @@ const baseStyles = StyleSheet.create({
   // The meal hue's only expression — a round soft plate under the glyph (A.4 rule 1). Sized to
   // match CardAccentBadge's small form so a meal section and a card header read as one family.
   mealPlate: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  sectionTitle: { flex: 1, fontSize: FontSize.lg, fontFamily: Fonts.bold, ...OpticalCenter },
+  // `Type.subheading`, the app's one in-card section heading (2026-08-21) — see
+  // components/SectionRail.tsx's `subLabel` for why 17. This was `FontSize.lg` + bold (20),
+  // one of the four sizes CONSISTENCY_AUDIT.md §2 counted for the same job.
+  sectionTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+    fontFamily: Type.subheading.fontFamily,
+    ...OpticalCenter,
+  },
   sectionBody: { gap: Spacing.sm },
   sectionEmpty: { fontSize: FontSize.sm, opacity: 0.85, paddingVertical: Spacing.xs, ...OpticalCenter },
   dishList: { gap: Spacing.xs },

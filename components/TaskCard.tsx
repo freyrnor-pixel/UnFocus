@@ -1024,7 +1024,7 @@ function TaskCard({
 
           {canExpand && (
             <PressableScale hitSlop={HitSlop.snug} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
-              <AnimatedChevron open={expanded} size={18} color={theme.textMuted} />
+              <AnimatedChevron open={expanded} />
             </PressableScale>
           )}
         </View>

@@ -571,7 +571,15 @@ const baseStyles = StyleSheet.create({
   healthCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   healthCardEmbedded: { gap: Spacing.md },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  sectionLabel: { flex: 1, minWidth: 0, fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  // Already on the token this pass converged everything else onto — see SectionRail's
+  // `subLabel`. `lineHeight` added so the three agree completely.
+  sectionLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: Type.subheading.fontFamily,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+  },
   cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   healthCardBody: { gap: Spacing.md },
   section: { gap: Spacing.xs },

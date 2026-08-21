@@ -1022,7 +1022,15 @@ const baseStyles = StyleSheet.create({
   // `flex: 1` + `minWidth: 0` so the sentence takes the slack and yields rather than shoving the
   // fold chevron out of the card — this string is a full sentence, and longer in Norwegian.
   cardSubtitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  cardSubtitle: { flex: 1, minWidth: 0, fontSize: FontSize.md, fontFamily: Fonts.bold },
+  // `Type.subheading` (2026-08-21) — it was `FontSize.md` + bold, i.e. the right SIZE spelled
+  // without the token, which is how a size drifts. See SectionRail's `subLabel`.
+  cardSubtitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+    fontFamily: Type.subheading.fontFamily,
+  },
   profileRow: {
     paddingBottom: Spacing.sm,
     gap: Spacing.xs,

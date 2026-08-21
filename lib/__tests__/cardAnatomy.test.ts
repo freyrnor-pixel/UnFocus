@@ -90,20 +90,30 @@ const CHEVRON_ALLOWED: Record<string, string> = {
   'components/ShoppingFilterBar.tsx':
     'KEEP — the category chooser\'s `showsMore` affordance on a composer cell.',
 
-  // ── BACKLOG: the header variants CONSISTENCY_AUDIT.md §2 measured ──────────────────────
-  'components/WeekListCard.tsx':
-    'BACKLOG — a plated IconButton chevron sitting in the ⤢ slot; the only card whose fold '
-    + 'control is a key cap, and the only one whose fold is outermost.',
+  // ── KEEP: idiom 2 — the header IS the button, so the chevron inside it is passive ──────
+  //
+  // These were BACKLOG until 2026-08-21, i.e. listed as conversions still owed. They are not.
+  // Each is a `PressableScale` around the whole naming row with an `AnimatedChevron` in it,
+  // which is the right shape for a header carrying nothing else to tap: it gives a target the
+  // width of the card instead of a 48px box. Converting them would have made every one of them
+  // WORSE, and would have nested a pressable inside a pressable.
+  //
+  // What actually diverged was the GLYPH — 13/14/16/18px in three colours — and that is fixed
+  // at the source: `AnimatedChevron`'s `size` and `color` default to CardCollapseToggle's own
+  // values, and the block below fails on an override. See CardCollapseToggle's header for the
+  // two idioms and when each applies.
   'components/FoodTab.tsx':
-    'BACKLOG — two: a bare AnimatedChevron in the meal-section header, and a LEADING raw chevron '
-    + 'on dish rows (the only leading chevron in the app).',
+    'KEEP — idiom 2 on the meal-section headers. (Its LEADING raw chevron on dish rows is a '
+    + 'navigation affordance on a row, not a card fold.)',
   'components/ExpandableCard.tsx':
-    'BACKLOG — a bare AnimatedChevron with no tap box, in a header that also draws a top hairline.',
+    'KEEP — idiom 2; the whole header row is the button, badge and rightAction included.',
   'components/TodoSurface.tsx':
-    'BACKLOG — two bare AnimatedChevrons, one of them the app\'s only hue-coloured header chevron.',
-  'components/HomeNotesCard.tsx': 'BACKLOG — a bare AnimatedChevron beside the pad footer toggle.',
-  'components/PlanTaskCard.tsx': 'BACKLOG — two bare AnimatedChevrons in the day-view card.',
-  'app/(tabs)/shopping.tsx': 'BACKLOG — a bare AnimatedChevron on the monthly-list card headers.',
+    'KEEP — idiom 2 on "The rest" and the done zone. Its hue-coloured chevron is gone; both '
+    + 'take the default muted glyph now.',
+  'components/HomeNotesCard.tsx': 'KEEP — idiom 2 on the checked-off zone header.',
+  'components/PlanTaskCard.tsx': 'KEEP — idiom 2 on the done and deleted zone headers.',
+  'app/(tabs)/shopping.tsx':
+    'KEEP — idiom 2 on the purchased-this-month trip headers inside a monthly card.',
 };
 
 /** `<AnimatedChevron>` or a raw up/down Ionicons name — see CHEVRON_ALLOWED on the scoping. */
@@ -136,6 +146,62 @@ describe('the fold control is one component', () => {
     for (const [file, reason] of Object.entries(CHEVRON_ALLOWED)) {
       expect({ file, ok: /^(KEEP|BACKLOG) — .{20,}/.test(reason) }).toEqual({ file, ok: true });
     }
+  });
+});
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * 1b. …and it is drawn at one size, in one colour
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The two `AnimatedChevron` call sites allowed to override `size` or `color`.
+ *
+ * Both are a different CONTROL rather than a differently-sized fold, which is the only reason
+ * an exception can be justified here at all — the moment one is granted for "this one looks
+ * better a bit smaller", the guard is back to counting four sizes.
+ */
+const CHEVRON_STYLE_ALLOWED: Record<string, string> = {
+  'components/PadFooterToggle.tsx':
+    'KEEP — the pad cards` three-state SIZE cycle (closed/preview/open), not a fold. It is '
+    + 'accent-coloured because it is a live action with a count beside it ("3 more"), and it '
+    + 'sits at the card`s bottom-right rather than in the header.',
+  'components/TaskCard.tsx':
+    'KEEP — the "Advanced" disclosure inside the task editor, accent-coloured like the other '
+    + 'live controls in that form. Its own card-fold chevron above takes the default.',
+};
+
+describe('the fold chevron is one size, in one colour', () => {
+  // The defect CONSISTENCY_AUDIT.md §2 measured was not which component drew the chevron — two
+  // idioms are legitimate — it was that `size` and `color` were REQUIRED props, so thirteen
+  // call sites each answered the question alone and the app shipped 13/14/16/18px in three
+  // colours. Defaulting them is the fix; this is what stops the overrides coming back.
+  // ⚠️ A source scan, not an import of the constant: `components/AnimatedChevron.tsx` pulls in
+  // Reanimated, which cannot be evaluated in this environment — the same reason every check in
+  // this file reads source rather than rendering. Tried importing it; it throws in the worklets
+  // initializer before a single assertion runs.
+  it('the default is one exported constant, not a copy', () => {
+    const src = code('components/AnimatedChevron.tsx');
+    expect(src).toMatch(/export const CHEVRON_SIZE = 18;/);
+    expect(src).toMatch(/size = CHEVRON_SIZE/);
+    expect(src).toMatch(/color \?\? theme\.textMuted/);
+  });
+
+  it('no call site overrides size or color', () => {
+    const offenders = sourceFiles()
+      .filter((f) => !(f in CHEVRON_STYLE_ALLOWED))
+      .filter((f) => {
+        const calls = code(f).match(/<AnimatedChevron\b[^>]*>/g) ?? [];
+        return calls.some((c) => /\bsize=/.test(c) || /\bcolor=/.test(c));
+      });
+    expect(offenders).toEqual([]);
+  });
+
+  it('the style allowlist has no stale entries', () => {
+    const stale = Object.keys(CHEVRON_STYLE_ALLOWED).filter((f) => {
+      const calls = code(f).match(/<AnimatedChevron\b[^>]*>/g) ?? [];
+      return !calls.some((c) => /\bsize=/.test(c) || /\bcolor=/.test(c));
+    });
+    expect(stale).toEqual([]);
   });
 });
 
@@ -248,6 +314,50 @@ describe('a card title is a token, never a literal', () => {
     const heading = theme.slice(theme.indexOf('heading:'), theme.indexOf('subheading:'));
     expect(heading).toMatch(/size:\s*20/);
     expect(heading).toMatch(/line:\s*1\.25/);
+  });
+
+  /**
+   * The three heading tiers, and the files that draw each.
+   *
+   * ⚠️ **This is the half of §2 that a token substitution alone did not fix.** The previous
+   * pass moved five hardcoded `20/25` pairs onto `Type.heading` — right, and not enough,
+   * because the sizes that remained were spelled with tokens and still disagreed: an in-card
+   * section heading shipped at `FontSize.md` (17) in two files, `FontSize.lg` (20) in two more
+   * and `FontSize.sm` uppercase (13) on Shop's week sections, while To-do's Week and Today
+   * cards drew their titles at 20 next to three sibling cards drawing 24.
+   *
+   * So the guard is about the LADDER, not about literals:
+   *
+   *   group heading  (over a stack of CARDS) → SectionRail's `label`, FontSize.xl 24 extrabold
+   *   card title     (a card's own name)     → Type.heading, 20
+   *   section heading(over ROWS in a card)   → Type.subheading, 17
+   *
+   * A fourth size for one of these jobs is the defect, whether or not it is written as a
+   * literal — so this asserts the files that draw a section heading are ON the token, by name.
+   */
+  const SECTION_HEADING_FILES = [
+    'components/SectionRail.tsx',   // the `sub` tier — Shop's week sections
+    'components/FoodTab.tsx',       // the meal sections
+    'components/HabitsSurface.tsx',
+    'components/HealthSurface.tsx', // "This week"
+    'components/ExpandableCard.tsx',
+  ];
+
+  it.each(SECTION_HEADING_FILES)('%s draws its section heading from Type.subheading', (file) => {
+    expect(code(file)).toMatch(/fontSize:\s*Type\.subheading\.size/);
+  });
+
+  it('Type.subheading is 17 — the rung below a card title, above a caption', () => {
+    const theme = read('constants/theme.ts');
+    const sub = theme.slice(theme.indexOf('subheading:'), theme.indexOf('body:'));
+    expect(sub).toMatch(/size:\s*17/);
+  });
+
+  it('no card header draws its title at a bare FontSize', () => {
+    // The specific regression this closes: To-do's Week and Today headers were bare
+    // `<Text style={{ fontFamily: Type.title.fontFamily, fontSize: FontSize.lg }}>` rows beside
+    // three SectionCards. Both are SectionRails now, so nothing in that file spells a title.
+    expect(code('components/TodoSurface.tsx')).not.toMatch(/cardHeaderTitle/);
   });
 });
 

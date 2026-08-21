@@ -198,7 +198,7 @@ function DoneSplitList({
               hue={theme.textMuted}
               label={t.config.layouts.moreLabel}
               count={rest.length}
-              right={<AnimatedChevron open={restOpen} size={16} color={theme.textMuted} />}
+              right={<AnimatedChevron open={restOpen} />}
             />
           </PressableScale>
           <Collapsible open={restOpen}>
@@ -214,7 +214,7 @@ function DoneSplitList({
               hue={theme.good}
               label={t.tasksDoneLabel}
               count={finished.length}
-              right={<AnimatedChevron open={doneOpen} size={16} color={theme.good} />}
+              right={<AnimatedChevron open={doneOpen} />}
             />
           </PressableScale>
           <Collapsible open={doneOpen}>
@@ -803,13 +803,18 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   const todayCard = showToday && (
     <View ref={todayExpand.ref} key="today">
-      {/* One uniform header for all four Today shapes — see the header note. */}
-      <View style={styles.cardHeaderRow}>
-        <Text style={[styles.cardHeaderTitle, { color: theme.text }]}>{t.tasksTabToday}</Text>
-        {full && (
-          <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
-        )}
-      </View>
+      {/* One uniform header for all four Today shapes — see the header note. `SectionRail`
+          since 2026-08-21, for the same reason the Week card's is: this is a peer of three
+          SectionCards and was drawing its title four points smaller than all of them. */}
+      <SectionRail
+        hue={theme.accent}
+        label={t.tasksTabToday}
+        right={
+          full ? (
+            <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
+          ) : undefined
+        }
+      />
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
         {groupByPerson ? (
           <View style={styles.cardStack}>
@@ -899,17 +904,27 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // margin of its own, so the rect it measures is the card's own box.
     <View ref={weekExpand.ref} key="week" collapsable={false}>
       <Surface style={styles.weekCard}>
-      <View style={styles.cardHeaderRow}>
-        <Text style={[styles.cardHeaderTitle, { color: theme.text }]}>{t.todoWeekTitle}</Text>
-        {/* Chevron before the expand button, so the two read as "how much of this" then
-            "how big is this" — and ⤢ is LAST, which is the app-wide rule as of 2026-08-20:
-            whatever a card's own controls are, the full-screen button is the right-most thing
-            in the header. */}
-        <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
-        {full && (
-          <CardExpandButton expanded={weekExpand.expanded} onExpand={weekExpand.onExpand} onCollapse={weekExpand.onCollapse} />
-        )}
-      </View>
+      {/* ⚠️ **`SectionRail`, not a hand-rolled row (2026-08-21, CONSISTENCY_AUDIT.md §2).**
+          This drew its title at `Type.title.fontFamily` + `FontSize.lg` — extrabold 20 — while
+          Whenever, Today and Recurring are `SectionCard`s, whose rail draws 24. So four peer
+          cards on one screen shipped two title sizes, which is the report (*"some of them have
+          different text size"*) at its most visible: they are stacked one under another.
+            The controls are unchanged and still in the same order — chevron, then ⤢ — because
+          `SectionCard` puts the fold first in its own `right` slot too. This card cannot simply
+          BE a SectionCard: its body is seven embedded ones, and its `Collapsible` has to wrap
+          that stack rather than a single content view. */}
+      <SectionRail
+        hue={theme.accent}
+        label={t.todoWeekTitle}
+        right={
+          <>
+            <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
+            {full && (
+              <CardExpandButton expanded={weekExpand.expanded} onExpand={weekExpand.onExpand} onCollapse={weekExpand.onCollapse} />
+            )}
+          </>
+        }
+      />
       <Collapsible open={!weekCollapsed}>
         <View style={styles.weekDays}>
           {weekGroups.map((group, i) => (
@@ -1084,7 +1099,10 @@ const styles = StyleSheet.create({
   // horizontal inset, the same convention components/FoodTab.tsx's `root` follows.
   content: { gap: SCREEN_GAP },
   cardStack: { gap: Spacing.sm },
-  cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  // `cardHeaderRow`/`cardHeaderTitle` are DELETED (2026-08-21): both headers that used them are
+  // `SectionRail`s now, which owns the row, the title token and the trailing cluster. See the
+  // call sites. Their `flex: 1` + `minWidth: 0` note lives on SectionRail's `label` style, where
+  // it does the same job for every rail in the app rather than for these two.
   // The Week card's own box (2026-08-20). Same shape SectionCard draws for every other card on
   // this screen, spelled out here because this one's header is hand-rolled rather than a
   // SectionRail — the seven days inside supply their own rails.
@@ -1098,7 +1116,6 @@ const styles = StyleSheet.create({
   // the row and the Week card's chevron floats in the middle of the line, reading as unrelated
   // to the expand button beside it. `minWidth: 0` is the half that does nothing on its own and
   // is required anyway — see components/TaskCard.tsx's note on `flex: 1` not shrinking a child.
-  cardHeaderTitle: { flex: 1, minWidth: 0, fontFamily: Type.title.fontFamily, fontSize: FontSize.lg },
   dayResetBtn: { alignSelf: 'center', marginTop: Spacing.sm },
   focusWrap: { gap: Spacing.lg },
   focusHero: { gap: Spacing.xs },

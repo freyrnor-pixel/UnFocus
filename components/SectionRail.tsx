@@ -61,7 +61,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -242,14 +242,24 @@ const styles = StyleSheet.create({
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   subDot: { width: 6, height: 6, borderRadius: 3 },
-  // The sub tier's heading. Uppercase at this size is the app's own rule — the 2026-07-28
-  // design review moved ALL-CAPS back to ≤13px labels only, which is exactly this row and
-  // exactly not the one above it.
+  /**
+   * The sub tier's heading: `Type.subheading`, sentence case.
+   *
+   * ⚠️ **This is the ONE in-card section heading, and the value was picked by counting rather
+   * than by taste** (2026-08-21, CONSISTENCY_AUDIT.md §2). A heading over a stack of rows
+   * INSIDE a card shipped at four sizes — 17 in `HealthSurface`'s "This week" and
+   * `HabitsSurface`, 20 in `FoodTab`'s meal sections, 13 uppercase on Shop's week sections.
+   * 17 is the rung below the 20 a CARD title takes and the 24 a GROUP heading takes, and two
+   * of the four were already on it, so it is where the others come to rather than a fifth
+   * value invented to split the difference.
+   *
+   * Sentence case, not the uppercase the week sections had: the 2026-07-28 design review put
+   * ALL-CAPS back to ≤13px labels only, and this is 17.
+   */
   subLabel: {
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.bold,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+    fontFamily: Type.subheading.fontFamily,
     flexShrink: 1,
     minWidth: 0,
   },

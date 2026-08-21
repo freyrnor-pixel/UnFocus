@@ -5,6 +5,26 @@
  * chevron with its own tap target, its own accessibility wording and its own idea of which way
  * "open" points. Maintainer: *"Every card should be collapsable"*, remembered across launches.
  *
+ * ⚠️ **There are TWO disclosure idioms, both correct, and which one a card uses is decided by
+ * its header rather than by taste (written down 2026-08-21).**
+ *
+ *   1. **The chevron is the button** — this component. Use it when the header carries anything
+ *      ELSE that is tappable: a ⋯ menu, a ⤢, a reminder bell, a name that navigates. A header
+ *      with other controls cannot itself be one big button, because a pressable inside a
+ *      pressable swallows the inner one's touches.
+ *   2. **The header is the button** — a `PressableScale` around the whole naming row with a
+ *      passive `components/AnimatedChevron.tsx` in it. Use it when the chevron is the only
+ *      thing to tap. It gives a far bigger target than a 48px box, which is why it is not
+ *      merely tolerated. `FoodTab`'s meal sections, the done/checked zones on the pad cards and
+ *      To-do's "The rest" all take this shape.
+ *
+ * `CONSISTENCY_AUDIT.md` §2 counted fourteen collapsed-header variants, and the two idioms were
+ * NOT the reason — the sizes were. The same glyph shipped at 13, 14, 16 and 18px in three
+ * colours, because `AnimatedChevron` had a required `size` and a required `color`, so every
+ * call site answered the question separately. Both default now, to this component's values, and
+ * the guard fails on an override. Idiom 2 is not a second-class fallback; it is the right answer
+ * for a bare header, and it now looks identical to idiom 1.
+ *
  * Drop it in the card's existing header cluster, at the trailing edge, and wrap the card's body
  * in `components/Collapsible.tsx`:
  *
@@ -77,7 +97,7 @@ export default function CardCollapseToggle({ collapsed, onToggle, cardLabel }: P
       accessibilityState={{ expanded: !collapsed }}
     >
       <View pointerEvents="none">
-        <AnimatedChevron open={!collapsed} color={theme.textMuted} size={18} />
+        <AnimatedChevron open={!collapsed} />
       </View>
     </PressableScale>
   );

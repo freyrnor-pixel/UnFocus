@@ -370,7 +370,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                   <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
                     {t.notes.checkedLabel} ({sunkNotes.length})
                   </Text>
-                  <AnimatedChevron open={checkedOpen} size={14} color={theme.textMuted} />
+                  <AnimatedChevron open={checkedOpen} />
                 </PressableScale>
                 {/* Clip-reveal, not a fade: folded away, still there. */}
                 <Collapsible open={checkedOpen}>

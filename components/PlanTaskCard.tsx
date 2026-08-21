@@ -1764,7 +1764,7 @@ export default function PlanTaskCard({
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
-              <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
+              <AnimatedChevron open={doneOpen} />
             </PressableScale>
             <Collapsible open={doneOpen}>
               <View style={styles.doneRows}>
@@ -1788,7 +1788,7 @@ export default function PlanTaskCard({
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDeletedOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDeletedZone(deletedTasks.length)}</Text>
-              <AnimatedChevron open={deletedOpen} size={14} color={theme.textMuted} />
+              <AnimatedChevron open={deletedOpen} />
             </PressableScale>
             <Collapsible open={deletedOpen}>
               <View style={styles.doneRows}>
