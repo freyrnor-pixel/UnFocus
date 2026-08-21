@@ -144,7 +144,9 @@ component for exactly this — is bypassed by **nine** call sites.
 **Why:** `SectionCard`/`SectionRail` is the canonical header, but it is only reachable by cards
 that are `SectionCard`s. Every other collapsible builds its own, and nothing says it may not.
 
-**Fixed in this pass:** the four hardcoded `20/25` titles moved onto a token.
+**Fixed in this pass:** the five hardcoded `20/25` titles moved onto `Type.heading`, whose values
+are identical (20 × 1.25) — a substitution with no visual change, and a test pins that the token
+still holds those numbers so it cannot quietly become one.
 
 **Prevented by:** `lib/__tests__/cardAnatomy.test.ts` — a card header uses `SectionRail`; its
 title comes from a token; its fold control is `CardCollapseToggle`.
@@ -207,9 +209,16 @@ Two further problems:
   navigator's `initialRouteName` is dynamic — so back-navigation lands on Home even for a user
   who picked something else.
 
-**Fixed in this pass:** the app now always opens on the centre (To-do) tab; the picker is removed
-from Settings and from onboarding. `start_screen` survives as an inert column — this repo never
-drops columns.
+**Fixed in this pass:** the app now always opens on the centre (To-do) tab. `START_TAB_ROUTE`
+(`lib/siteNav.ts`) is the single answer for both the navigator's `initialRouteName` and the
+deep-link back target, which were separately-written values that disagreed. The picker is removed
+from Settings and from onboarding; `START_SCREEN_CHOICES`/`_ROUTES`/`_PATHS` are deleted; the tour
+hands off to the same tab when it ends. `start_screen` survives as an inert column — this repo
+never drops columns — and a test asserts no surface reads it, because wiring a new control to it
+would typecheck perfectly and quietly re-create a picker the user is never shown.
+Two guards replace the old "every choice names a real tab" check: the target must be the **middle**
+`<TopTabs.Screen>` declaration, derived from the navigator itself, so re-ordering the tabs without
+re-deciding the start screen fails rather than ships.
 
 ---
 
@@ -266,12 +275,19 @@ Then the outliers:
   **eight hand-written inline `marginTop: 0`** overrides. A ninth group that forgets the override
   silently gains 8px.
 
-**Fixed in this pass:** Home's 4px removed; `app/catalogue.tsx` mounts `CatalogueTab` embedded so
-the inset is not doubled; the `screenRhythm` contradiction resolved.
+**Fixed in this pass:** Home's 4px removed. `CatalogueTab.root` drops its `paddingHorizontal` —
+**both** of its non-embedded hosts already inset by the same amount, so the 32px was never
+wanted; the `screenRhythm` assertion that *required* it (written the day before /catalogue became
+a pane) is inverted to ban it. The residual bottom double at the foot of the /catalogue pane —
+16 from the pane plus 16 from `root`, which the expanded-card host genuinely needs — is left,
+rather than giving one screen a bespoke prop. Settings' dead `groupHeader` margin and its eight
+inline overrides are gone; **the new first-child guard found that one**, not the audit.
 
-**Prevented by:** extending `screenRhythm.test.ts` to (a) walk `app/` and fail on any scaffold
-caller not covered, and (b) reject a top margin on a screen's first child — the exact hole
-Home's 4px lives in today.
+**Prevented by:** `screenRhythm.test.ts` now (a) walks `app/` and fails on any scaffold or pane
+caller no list classifies — closing the hole structurally instead of by remembering — and (b)
+checks the first child of each content stack for a top margin, the exact blind spot Home's 4px
+lived in. Both landed in this pass, and (b) immediately found Settings' dead `groupHeader`
+margin, which the audit had only flagged as *latent*.
 
 ---
 
@@ -309,7 +325,12 @@ faking optical position inside a row that already has a `gap` — and `:154`
 `qtyWrap: { justifyContent: 'flex-start' }`, the only inner container on that chip opting out of
 centering.
 
-**Fixed in this pass:** all of the above.
+**Fixed in this pass:** all of the above — **plus nine more the new guard found**, once
+`OpticalCenter` became *required* rather than merely the hand-written pair being banned. Among
+them all three hand-rolled `Stepper` copies, and on one of those the fix was on the `−` and not
+on the `+`. And a **third** copy of the off-centre chevron, in `StarterCard`'s corner ✕
+(`:534`) — a 48px box correctly pinned to the card's corner with the glyph shoved into it,
+which is the reported shape exactly.
 
 **Prevented by:** extending `designTokens.test.ts`. It already bans hand-written
 `includeFontPadding` (`:280-285`); the guard becomes two-directional by *requiring* `OpticalCenter`
@@ -592,7 +613,7 @@ does), not minting a sixth rung.
 | 4 | Middle screen is main | ✅ done | — |
 | 5 | Tips in cards, when empty | — | scan.tsx's 3 items + the inverted tip |
 | 6 | Header→card spacing | ✅ done + guard | — |
-| 7 | Content centered | ✅ done + guard | — |
+| 7 | Content centered | ✅ done (14 sites) + guard | — |
 | 8 | Expand button placement | guard | `SectionCard` order, with #2 |
 | 9 | Nothing outside a card | — | tracked with #5 and #8 |
 | 10 | All cards collapse/expand | — | ~12 cards + `shopLists` extraction |
