@@ -17,7 +17,8 @@
  *     This line said "RETIRED 2026-07-31 addendum A.5, zero production consumers" until
  *     2026-08-10 — it had been stale for five days): featTask, featPlan,
  *     featHabit, featShop, featMeal, featBudget, featNote, featHealth, featScan
- *   Card identity hues (lib/domainColor.ts, drives the card badge + the pane's 5% wash —
+ *   Card identity hues (lib/domainColor.ts, drives the card badge; the pane's 5% wash was the
+ *   other consumer until 2026-08-20, when a card became plain white glass —
  *     COLLAPSED from nine hues to FOUR on 2026-07-31 (addendum A.3), then RETUNED to FIVE
  *     neon categoricals on 2026-08-16 (maintainer brief §7, which also gave Notes a hue of
  *     its own), then RECALIBRATED onto a lightness ladder on 2026-08-17 — same five
@@ -35,8 +36,9 @@
  * badge ink, which the nine card* token names alias onto. See the 2026-08-04 decision note
  * above `IDENTITY_NEUTRAL` for why this stays the ONLY live identity-hue system for CARDS
  * (DESIGN_COMPARISON/06 declined reviving feat* for card colour); the dark `feat*` octet is
- * aligned to the same five categoricals as of 2026-08-16 so a screen's 5% pane wash and its
- * badges agree, which is a different job, not a second system.
+ * aligned to the same five categoricals as of 2026-08-16 so a screen's wash and its badges
+ * agree, which is a different job, not a second system. (The 5% pane wash itself is gone as of
+ * 2026-08-20; the alignment still serves the badge, the nav tab and a primary key's halo.)
  *
  * Connections:
  *   Imports → constants/theme.ts (relLuminance only — the WCAG maths behind contrastRatio;
@@ -795,7 +797,8 @@ const defaultDark: ThemePalette = {
   // the drawn colour.)
   // ── ALIGNED TO THE FIVE CATEGORICALS, 2026-08-16 (brief §7) ─────────────────────────────
   // The dark octet no longer mirrors light's routine-sequence arc. It can't: `feat*` is what
-  // `lib/screenColor.ts` resolves for a screen's 5% pane wash, and `card*` is what the badge
+  // `lib/screenColor.ts` resolves for a screen's hue (its 5% pane wash until 2026-08-20), and
+  // `card*` is what the badge
   // on that same pane draws — so a teal Health wash under a neon-rose Health badge is one
   // screen wearing two identities. The brief's "distinct visual identity for each section"
   // means those two agree, so the five named categoricals are repeated here verbatim.

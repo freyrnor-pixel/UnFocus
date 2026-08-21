@@ -55,11 +55,13 @@ export default function OpenEpisodeCard({ symptom, onStillGoing, onItsOver, onOp
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
 
-  // Neutral border, flat elevation — see the header. Do not pass `elevated`.
+  // Flat elevation — see the header. Do not pass `elevated`. This card used to also pass an
+  // explicit neutral border to opt OUT of the screen hue every other card wore; every pane is
+  // neutral since 2026-08-20, so the opt-out is the default and the prop is gone.
   // The press is Surface's own key path (task 16, 2026-08-04): the card sinks onto a base
   // rather than shrinking, which is why there is no PressableScale wrapper here any more.
   return (
-    <Surface borderColor={theme.border} style={styles.card} onPress={onOpen} accessibilityRole="button">
+    <Surface style={styles.card} onPress={onOpen} accessibilityRole="button">
         <Text style={[styles.prompt, { color: theme.text }]}>{t.episodes.stillGoingPrompt(symptom)}</Text>
         <View style={styles.actions}>
           <Button

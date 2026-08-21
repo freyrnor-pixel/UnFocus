@@ -1505,7 +1505,6 @@ export default function PlanTaskCard({
   return (
     <Surface
       surfaceContext="ambient"
-      borderColor={screenColor.base}
       elevated={expanded}
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >

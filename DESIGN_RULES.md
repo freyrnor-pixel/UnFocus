@@ -238,7 +238,8 @@ design, not the rule.
 13. **Low-saturation backgrounds by default.** Reserve the highest contrast on a
     screen for the single thing you want looked at. *(Unaffected by 12's amendment: the
     saturation went onto FOREGROUND tokens — badges, glyphs, glows, active tabs. The
-    background is `#000000` and the pane wash is 5%, which is as low-saturation as it gets.)*
+    background is `#000000` and the card pane carries no hue at all since 2026-08-20 — it was a
+    5% wash before that — which is as low-saturation as it gets.)*
 
 ## 4. Visual hierarchy
 

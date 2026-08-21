@@ -206,9 +206,9 @@ function HabitCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   // `useIsDark()` and `useScreenColor()` were read here only to build the row's border, which
-  // came off in the 2026-08-15 de-boxing. The screen hue still reaches this row — via the
-  // pane's own SCREEN_TINT wash in components/Surface.tsx — it just isn't this component's job
-  // to fetch any more.
+  // came off in the 2026-08-15 de-boxing. The screen hue no longer reaches this row at all —
+  // the pane wash that carried it was deleted on 2026-08-20 (components/Surface.tsx) — and the
+  // card's badge is where the screen says which screen it is.
   const logs = useHabitStore((s) => s.logs);
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);

@@ -299,6 +299,77 @@ describe('the material system stays deleted, and stays matte', () => {
   });
 });
 
+describe('the pane carries no screen colour (2026-08-20)', () => {
+  // Maintainer, against three exported builds of the same screen: *"I do not like the yellow
+  // card glass look. White glass with color elements might be better."* The 5% identity-hue
+  // wash components/Surface.tsx painted over every pane is deleted — 5% of To-do's gold
+  // `#FFD700` over black composites to olive across the whole card, and an alpha shared by all
+  // five hues cannot be dropped far enough for the brightest rung without erasing the other
+  // four. See SCREEN_TINT's obituary in constants/theme.ts.
+  //
+  // Every assertion here is a SOURCE SCAN, and that is not laziness: a wash is one absolutely
+  // positioned View at 5% alpha. tsc cannot see it, no unit test measures a composited pixel,
+  // and in a screenshot it is the difference between two very dark greys — which is precisely
+  // how it survived a whole ladder recalibration while being the thing people disliked.
+
+  it('SCREEN_TINT is gone from the token layer and no file imports it', () => {
+    expect(/^export const SCREEN_TINT/m.test(read('constants/theme.ts'))).toBe(false);
+    const files = ['components/Surface.tsx', 'components/CardAccent.tsx', 'components/Button.tsx'];
+    const offenders = files.filter((f) => /\bSCREEN_TINT\b\s*[,;)]/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  // The wash's replacement would not have to be called SCREEN_TINT to be the same mistake, so
+  // this asks the structural question instead: does the pane read a screen hue at all? It must
+  // not — Surface stopped importing lib/screenColor entirely, which is what makes "no hue on
+  // the card" a property of the file rather than of one deleted constant.
+  it('Surface does not read the ambient screen hue', () => {
+    const src = read('components/Surface.tsx');
+    expect(/from '@\/lib\/screenColor'/.test(src)).toBe(false);
+    expect(/useScreenColor\(/.test(src)).toBe(false);
+  });
+
+  // The `borderColor` prop's only job was feeding that wash a hue from a caller. It went with
+  // it, and the scan covers the callers too: a prop passed to a component that no longer
+  // declares it is a tsc error today, but the same hue re-appearing as an inline style on the
+  // card is not.
+  it('Surface declares no borderColor prop, and no card passes a hue as one', () => {
+    expect(/^\s*borderColor\?: string;/m.test(read('components/Surface.tsx'))).toBe(false);
+    const callers = [
+      'components/PlanTaskCard.tsx', 'components/HomeNotesCard.tsx', 'components/HomeHabitsCard.tsx',
+      'components/HomeHealthCard.tsx', 'components/StarterCard.tsx', 'components/OpenEpisodeCard.tsx',
+      'components/WeekListCard.tsx', 'app/scan.tsx',
+    ];
+    // A <Surface …> opening tag with a borderColor in it, across line breaks. Badge and View
+    // both legitimately take a borderColor in these same files, so the tag has to be named.
+    const offenders = callers.filter((f) => /<Surface\b[^>]*\bborderColor=/.test(read(f)));
+    expect(offenders).toEqual([]);
+  });
+
+  // A hue-coloured EDGE was exported beside the white pane and rejected in the same pass, so
+  // the ramp stays neutral. Pinned because it is the cheap-looking thing to reach for next, and
+  // because it does not even work as a gradient: the ring is a full-area LinearGradient behind
+  // a translucent mask, so a saturated hue in it washes the pane instead of edging it — which
+  // is what the first export drew.
+  it('the card edge is theme.border, not a hue', () => {
+    const src = read('components/Surface.tsx');
+    expect(/const edgeHue = theme\.border;/.test(src)).toBe(true);
+    expect(/getGlassEdge\(edgeHue, isDark, 'card'/.test(src)).toBe(true);
+  });
+
+  // The trade this accepts, stated as an assertion so it is not quietly walked back: a card
+  // still says which screen it is on, via the badge glyph. That is the LOUD half of the
+  // 2026-08-15 two-part system, and it is now the only half.
+  it('the identity hue still reaches the badge', () => {
+    const src = read('components/CardAccent.tsx');
+    expect(/badgeGlyphFor\(/.test(src)).toBe(true);
+    for (const { hue } of Object.values(IDENTITY_HUES)) {
+      const glyph = badgeGlyphFor(hue, THEMES.default.dark.surface, true);
+      expect(contrastRatio(glyph, THEMES.default.dark.surface)).toBeGreaterThanOrEqual(3);
+    }
+  });
+});
+
 describe('getGlow', () => {
   const color = '#3366CC';
 
