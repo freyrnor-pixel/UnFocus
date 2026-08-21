@@ -250,9 +250,14 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
         // Light re-solved 2026-08-15 for the glass composite (`surface` #FFFFFF → #F9FBFE).
         // Dark is byte-identical to the true-black pass — its glass alpha was picked so the
         // composite lands on the `#1E1E1E` it already had, so nothing below it moved.
+        // ⚠️ The `rule` figures moved on 2026-08-20 (contrast pass) and NOTHING else did —
+        // light 1.347 → 1.488, dark 1.119 → 1.480. The three surface ratios are byte-identical
+        // because no surface token was touched: the pass lifted the two EDGE tokens (`rule`,
+        // `border`) and `textMuted`, deliberately leaving the ladder alone, since moving a
+        // surface is what re-opens the mutual exclusion the note above documents.
         const expected = mode === 'light'
-          ? { bgSurface: 1.170, ladderA: 1.138, ladderB: 1.118, rule: 1.347 }
-          : { bgSurface: 1.260, ladderA: 1.124, ladderB: 1.057, rule: 1.119 };
+          ? { bgSurface: 1.170, ladderA: 1.138, ladderB: 1.118, rule: 1.488 }
+          : { bgSurface: 1.260, ladderA: 1.124, ladderB: 1.057, rule: 1.480 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);
         expect(contrastRatio(p.surfaceMuted, p.surfaceInset)).toBeCloseTo(expected.ladderB, 2);

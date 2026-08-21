@@ -15,11 +15,25 @@
  * Deliberately source-level rather than a render test: the failure is a missing wire between
  * two files, and mounting either one proves nothing about the other.
  */
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
+
+/** Every .tsx under app/ and components/ — the places a link into Settings could be written. */
+function listSources(dir = '', acc: string[] = []): string[] {
+  for (const base of ['app', 'components']) {
+    if (dir === '') { listSources(base, acc); continue; }
+  }
+  if (dir === '') return acc;
+  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) listSources(rel, acc);
+    else if (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts')) acc.push(rel);
+  }
+  return acc;
+}
 
 /** Source with comments stripped — the header below DESCRIBES the params at length. */
 const codeOnly = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -58,23 +72,37 @@ describe('every /settings link is answered by app/settings.tsx', () => {
     expect(settings).toMatch(/scrollToNode\?\.\(sectionNode\.current\)/);
   });
 
-  // The senders. One row per link into Settings; add a row when you add a link.
-  it.each([
-    // Shopping's ⓘ → the weekly-reset weekday and monthly-reset date, which live in the
-    // Shopping card on the Personal tab.
-    ['app/(tabs)/shopping.tsx', 'personal', 'shopping'],
-  ])('%s links to a tab AND a section', (file, tab, section) => {
-    const src = codeOnly(read(file));
-    const links = [...src.matchAll(/'\/settings\?([^']*)'/g)].map((m) => m[1]);
-    expect(links).toContain(`tab=${tab}&section=${section}`);
-  });
-
-  it('has a reader for every section any screen links to', () => {
-    // The type is the list of what settings.tsx handles; anything a sender asks for that isn't
-    // in it lands on the right tab with the card still shut — the original bug, one level down.
+  // ⚠️ **There are currently NO senders (2026-08-20), and this is deliberately still here.**
+  // The one link — Shopping's ⓘ → the weekly-reset weekday and monthly-reset date on the
+  // Personal tab — went with the ⓘ banner itself when that was deleted app-wide. Settings is
+  // one tap away on Shopping's own header gear, and a card whose whole body is a door to
+  // another screen was the original complaint about the ⓘ.
+  //
+  // The reader half above still matters and still passes: the param plumbing in
+  // app/settings.tsx is live, and the next screen that wants to point at a setting depends on
+  // it. So instead of a hard-coded list of senders (which would now be empty, and would fail
+  // the moment someone added a link without editing this file), the check below is
+  // sender-AGNOSTIC: it finds every `/settings?…` link anywhere in the app and holds each one
+  // to the contract. Zero links passes vacuously; one wrong link fails.
+  it('every /settings link that names a section names one settings.tsx handles', () => {
     const declared = settings.match(/type SettingsSection =\s*([^;]+);/);
     expect(declared).not.toBeNull();
     const known = [...declared![1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // 'shopping' is the section the machinery was built for; it stays wired at the reader end
+    // even with no sender, so re-adding a link is a one-liner rather than a re-implementation.
     expect(known).toContain('shopping');
+
+    const files = listSources();
+    for (const rel of files) {
+      const src = codeOnly(read(rel));
+      for (const [, query] of src.matchAll(/['\`]\/settings\?([^'\`]*)['\`]/g)) {
+        const section = /(?:^|&)section=([^&]+)/.exec(query)?.[1];
+        if (!section) continue;
+        // A section without a tab lands on General with the card shut — the original bug.
+        expect({ rel, query, hasTab: /(?:^|&)tab=/.test(query) }).toEqual({ rel, query, hasTab: true });
+        expect({ rel, section, known: known.includes(section) })
+          .toEqual({ rel, section, known: true });
+      }
+    }
   });
 });

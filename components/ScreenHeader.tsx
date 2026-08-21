@@ -107,9 +107,11 @@
  *     scan/share only appear when their feature flags are on. **Since 2026-08-13 the ⓘ is gone
  *     too** (maintainer: "Having the info button in the header section with settings showing
  *     when you press it makes No sense") — a screen's explanation is an inline, closable intro
- *     card at the top of its content now (components/HintCard's `noPill` mode +
- *     lib/useFirstVisitHint). So a fresh install's Shopping header is just [scan] [gear], and
- *     `infoActive`/`onInfoToggle` no longer exist on this component or on ScreenScaffold.
+ *     card at the top of its content. ⚠️ **That card is gone too as of 2026-08-20** — the whole
+ *     ⓘ mechanism is deleted (components/HintCard.tsx, lib/useFirstVisitHint.ts), and a screen's
+ *     explanation is the `text` on its empty-state components/StarterCard.tsx. So a fresh
+ *     install's Shopping header is just [scan] [gear], and `infoActive`/`onInfoToggle` no longer
+ *     exist on this component or on ScreenScaffold.
  *   - **Debug notes (2026-07-13, replaces the old DebugOverlay)**: the title is wrapped in
  *     DebugNoteAnchor keyed off the (translated) `title` string — see that component's own
  *     edit note on the language-switch caveat this implies. The export icon (site-tier only)

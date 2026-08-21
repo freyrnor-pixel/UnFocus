@@ -78,7 +78,10 @@ describe('prefillIsFor', () => {
 });
 
 describe('the Habits tab hosts both consumers', () => {
-  const habits = read('app/habits.tsx');
+  // components/HabitsSurface.tsx since 2026-08-20 — app/habits.tsx is a thin ScreenScaffold
+  // wrapper now, and both prefill consumers moved with the content. Scanning the wrapper would
+  // pass vacuously over a file that has neither.
+  const habits = read('components/HabitsSurface.tsx');
 
   it('asks for the two prefills separately', () => {
     // The habit quick-add takes the unslotted one; the Goals drawer takes the `goals` slot.

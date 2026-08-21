@@ -112,15 +112,19 @@ file owns which token.)
     were removed on 2026-08-19** — their cards left the Me tab, and an id whose card does not
     exist keeps a `CARD_BODIES` entry alive that nothing can reach while the test that pins the
     two lists together goes on passing over it.
-    **`shopLists` and `homeHabits` are deliberate, disclosed gaps**: `app/(tabs)/shopping.tsx`'s
-    Weekly/Monthly list content is ~2000 lines of window-coordinate drag/merge state and
-    flight-animation refs, and `app/habits.tsx` has never been extracted at all — neither has a
-    standalone surface component the way To-do/Health/Notes do, so both `CardExpandHost` entries
-    are placeholders (`ComingSoonBody`) with **no `CardExpandButton` wired to them anywhere in
-    the UI** — unreachable rather than shipping a button that opens a stub. ⚠️ Habits DID ship
-    that button, from 2026-08-20 until 2026-08-19, when it went from one of five cards on a busy
-    Home screen to one of three on the Me tab and stopped being easy to miss. A future pass can
-    extract `HabitsSurface.tsx`/`ShoppingListsSurface.tsx` and finish both.
+    **`shopLists` is the ONE remaining disclosed gap** (2026-08-20 — it was two until then):
+    `app/(tabs)/shopping.tsx`'s Weekly/Monthly list content is ~2000 lines of window-coordinate
+    drag/merge state and flight-animation refs, none of which any headless harness here can
+    exercise, so it has no standalone surface component the way To-do/Health/Notes do. Its
+    `CardExpandHost` entry stays a `ComingSoonBody` with **no `CardExpandButton` wired to it
+    anywhere in the UI** — unreachable rather than shipping a button that opens a stub.
+    **`homeHabits` was fixed rather than documented**: `components/HabitsSurface.tsx` was
+    extracted out of `app/habits.tsx` (which is now a thin `ScreenScaffold` wrapper, same shape
+    as `app/(tabs)/plans.tsx` around `TodoSurface`), the registry entry mounts it `embedded`,
+    and `components/HomeHabitsCard.tsx` draws a real `CardExpandButton` again — it had shipped
+    one from 2026-08-20 until 2026-08-19, when the stub behind it stopped being easy to miss on
+    a three-card Me tab. The maintainer's call on the split: extract Habits, leave Shopping.
+    A future pass can do `ShoppingListsSurface.tsx` the same way.
     The underlying card stays mounted (not unmounted) behind the opaque overlay while expanded
     — `useCardExpand`'s `expanded` flag exists for a caller that wants to skip its own heavy
     content in that state, but nothing does yet; know this if you ever see a control's own
@@ -658,6 +662,73 @@ file owns which token.)
     opposite answers, and this is both the later and the more general ruling. The surviving rule
     is unchanged: **one clearance each — the clip is margin on the wrapper, never also padding on
     the content.**
+- **The UI-consistency pass — 2026-08-20** (a maintainer brief against the shipped app, with a
+  screenshot of the Shop tab). Seven instructions; the four with the longest reach are new
+  standing rules, so they are stated as rules rather than as history.
+  - **⚠️ There is no ⓘ banner anywhere, and a tip belongs to an EMPTY STATE.**
+    `components/HintCard.tsx` and `lib/useFirstVisitHint.ts` are DELETED, not unmounted, across
+    twelve call sites (*"The top text box can be removed"*, *"Tips/explanation goes in the card
+    for empty states"*). The surviving sentences are the `text` prop on that surface's
+    `components/StarterCard.tsx`, which is the slot the rule names — so an explanation is on
+    screen exactly while the surface it explains is empty, and needs no dismissing and no
+    restoring. Settings' "Show tips again" button went with it; `dismissedHints`/`restoreHints`
+    survive as inert columns. **Nine `hints.*` keys were deleted rather than re-homed** — a
+    duplicate of a starter card one card lower (`plans`), a manual over a form whose fields are
+    already labelled (the three `*Form`s), or a line about a screen that says it better itself.
+    Home's banner was the awkward one: its BODY held the only copy of two notification opt-ins,
+    and deleting them lost nothing because both are in `app/settings.tsx`'s `NOTIF_SWITCHES`,
+    where `applyAndSync` additionally asks for the OS permission that the hand-rolled pair only
+    half did.
+  - **⚠️ A card never navigates away — it opens a centre pop-up** (*"Never go to another page,
+    pop-up from the middle of the screen instead"*). `components/CenterModalScreen.tsx` is the
+    shell; twelve routes use it (`habit-form`, `medicine-form`, `health-form`, `health-detail`,
+    `health-log`, `day-log`, `notes`, `food`, `catalogue`, `habits`, `budget`,
+    `inventory-edit`), listed as `CENTRE_MODAL_ROUTES` in `app/_layout.tsx`.
+    **The route is unchanged; only its presentation is** — `presentation: 'transparentModal'`
+    keeps the screen underneath mounted and visible, `router.back()` still closes it, and
+    `useLocalSearchParams` still works, which is why this was a shell swap and not a refactor.
+    `animation: 'fade'`, because a pane already in the middle has nowhere to slide in from.
+    The pane is the **`overlay`** surface tier, so it is OPAQUE and mounts no blur — it is
+    guaranteed to have the app's own cards behind it (the 2026-08-18 rule), and it keeps each
+    screen's `screenKey`, so every editor still wears its domain hue through `ScreenColorContext`.
+    **Deliberately NOT converted**: `settings` (a destination you go to on purpose), `scan` (a
+    full-screen camera), `onboarding`, and `shared`/`pair-device`/`automations`.
+    ⚠️ **A converted screen must NOT pad its own content** — the pane pads its body, so a
+    screen-edge inset there is a second one stacked inside the first.
+    `lib/__tests__/screenRhythm.test.ts` asserts that inverted rule over `CENTRE_MODAL_SCREENS`,
+    and `screenHeaderContract`'s sub-screen list shrank to the two routes still genuinely pushed.
+  - **⚠️ The full-screen ⤢ is the RIGHT-MOST control in a card header, on every surface.** After
+    the caller's own controls AND after the fold chevron — which reverses `SectionCard`'s older
+    "the fold sits outermost". Two things followed from making that universal: `SectionRail`'s
+    `right` slot is a ROW now (it was a bare View, i.e. a COLUMN, so any caller passing two
+    controls stacked them silently — the Katalog card came out as a three-storey column), and
+    the To-do **Week** card is one outer `Surface` holding seven `embedded` `SectionCard`s, since
+    its header was previously a bare row on the backdrop and its ⤢ was in the corner of nothing.
+    `SectionCard`'s new `embedded` prop is what lets a section drop its own Surface — a Surface
+    inside a Surface is the nested panel the blueprint pass banned.
+  - **`components/HabitsSurface.tsx` exists** (extracted from `app/habits.tsx`, which is now a
+    thin wrapper), so `homeHabits` mounts a real body and its card has a ⤢ again.
+    **`shopLists` is the ONE remaining placeholder** — see the expandable-cards bullet above.
+    ⚠️ It has **no `embedded` prop**, unlike its three sibling surfaces: both of its callers are
+    panes, so the flag would vary nothing. Its foot `StageTree` went for the same reason — a
+    watermark sized for the bottom of a screen is blank space under the last card in a pane.
+  - **Shop's Katalog card**: the sort slider is gone (name-collated always), the camera and lock
+    are `CatalogueHeaderControls` in the card's HEADER (so `locked` is owned by each of the three
+    hosts), the search field is ONE recessed well in both modes rather than a box inside a box,
+    and the list is rounded and scrolls in place — which deleted the "and N more →" tail row,
+    this card's last navigate-away. A plain `ScrollView`, not a FlatList: nested same-axis
+    virtualization is what forced the old row cap in the first place.
+  - **The Me tab** has no greeting and no "Edit cards" mode; a hidden card falls to a **Retired**
+    `CollapsedSection` at the foot of the stack, one tap from coming back. The floor of one card
+    went with the mode — it existed because hiding the last card left "no visible way back", and
+    both halves of that reason expired in the same pass.
+  - **`components/NarratorQuote.tsx` has no refresh button**, and with nothing to cycle its whole
+    Reanimated surface came off. The random MOUNT index stays; a caller wanting a fresh line
+    remounts with a new `key`.
+  - **Contrast**: `rule`, `border` and `textMuted` up one step in both modes, and **no surface
+    moved** — lifting a surface is what re-opens rule 10b's mutual exclusion. The widget's baked
+    palette copies moved in step, caught by their own test exactly as designed.
+
 - **The clean reveal + the narrator — 2026-08-19** (`components/StarterCard.tsx`, and the new
   `lib/narratorQuotes.ts` + `components/NarratorQuote.tsx`; pinned by
   `lib/__tests__/exampleRows.test.ts` §6 and the new `lib/__tests__/narratorQuotes.test.ts`).

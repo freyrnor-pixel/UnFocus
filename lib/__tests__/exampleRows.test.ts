@@ -216,7 +216,7 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   });
 
   for (const file of [
-    'app/habits.tsx',
+    'components/HabitsSurface.tsx',
     'components/HomeHabitsCard.tsx',
     // app/goals.tsx was a caller until it was retired (2026-08-12), and its successor
     // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
@@ -286,7 +286,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
 
   for (const [file, label] of [
     ['components/HealthSurface.tsx', 'Health'],
-    ['app/habits.tsx', 'Habits'],
+    ['components/HabitsSurface.tsx', 'Habits'],
     ['components/GoalsEditor.tsx', 'the Goals drawer'],
     // 2026-08-12: the day card joined this list when its bare example gained the shared
     // collapse trigger, and components/MedicineTrayCard left it — that card's explainer is a
@@ -401,7 +401,7 @@ describe('the example sits in the list it is an example of, not above the list\'
   });
 
   it('Habits puts its suggestions in the same place', () => {
-    const source = code('app/habits.tsx');
+    const source = code('components/HabitsSurface.tsx');
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
     const composer = source.indexOf('<PadTypeRow');
@@ -493,7 +493,7 @@ describe('StarterCard — the suggestions drop-down starts shut and says one wor
 describe('the composer comes after the examples, everywhere', () => {
   for (const [file, starterMarker, composerMarker, label] of [
     ['components/HealthSurface.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
-    ['app/habits.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
+    ['components/HabitsSurface.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
     ['components/HomeHabitsCard.tsx', '<StarterCard', '<PadSheet', "Home's habits card"],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
     ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
@@ -548,7 +548,7 @@ describe('the bulb explainer line stays deleted', () => {
     'components/HomeNotesCard.tsx',
     'components/MedicineTrayCard.tsx',
     'components/EnergyMeter.tsx',
-    'app/habits.tsx',
+    'components/HabitsSurface.tsx',
     'components/HealthSurface.tsx',
   ] as const) {
     it(`${file} mounts no explainer line`, () => {
@@ -563,15 +563,18 @@ describe('the bulb explainer line stays deleted', () => {
     });
   }
 
-  it('leaves the ⓘ banner as the one place a screen explains itself', () => {
-    // The tier that survives, and the reason deleting the inline one is not a loss of teaching:
-    // it is opt-in, one short instruction, and clamped so it cannot grow back into a paragraph.
-    const source = code('components/HintCard.tsx');
-    expect(source).toMatch(/const HINT_LINES = \d;/);
-    expect(Number(source.match(/const HINT_LINES = (\d);/)![1])).toBeLessThanOrEqual(2);
-    expect(source).toMatch(/numberOfLines=\{HINT_LINES\}/);
-    // The italic second line went with the bulb — same ruling, same pass.
-    expect(source).not.toMatch(/example\?:/);
+  it('leaves the empty-state card as the one place a screen explains itself', () => {
+    // ⚠️ **Rewritten 2026-08-20.** This asserted the ⓘ banner's own clamp
+    // (components/HintCard.tsx's `HINT_LINES`) as "the tier that survives". That banner is
+    // deleted app-wide — the maintainer's rule is now that a tip belongs to a card's EMPTY
+    // STATE — so the surviving tier is components/StarterCard.tsx's one short line, and its
+    // clamp is what has to hold instead. Same property, one rung down: teaching copy is opt-in
+    // by being tied to emptiness, and cannot grow back into a paragraph.
+    const source = code('components/StarterCard.tsx');
+    expect(source).toMatch(/const STARTER_TEXT_LINES = \d;/);
+    expect(Number(source.match(/const STARTER_TEXT_LINES = (\d);/)![1])).toBeLessThanOrEqual(3);
+    expect(source).toMatch(/numberOfLines=\{STARTER_TEXT_LINES\}/);
+    // The italic went with the bulb in the 2026-08-18 blueprint pass — same ruling.
     expect(source).not.toMatch(/fontStyle: 'italic'/);
   });
 });

@@ -15,7 +15,7 @@
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/DateChipRow (the Mon–Sun chips + collapsible calendar, extracted from
  *             this file 2026-08-01 so components/EpisodeCloseSheet.tsx could share it),
- *             components/HintCard, components/ConfirmationBanner,
+ *             components/ConfirmationBanner,
  *             components/Button, components/AppModal, components/PressableScale,
  *             components/OptionalTag,
  *             lib/date, lib/episodes (backdatedStart), lib/haptics, lib/i18n, lib/severity,
@@ -86,10 +86,9 @@ import { todayStr } from '@/lib/date';
 import { backdatedStart, type BackdatePreset } from '@/lib/episodes';
 import { tap } from '@/lib/haptics';
 import { severities, severityInk } from '@/lib/severity';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import PressableScale from '@/components/PressableScale';
-import HintCard from '@/components/HintCard';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import DateChipRow from '@/components/DateChipRow';
 import OptionalTag from '@/components/OptionalTag';
@@ -214,11 +213,10 @@ export default function HealthFormScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-    <ScreenScaffold
+    <CenterModalScreen
       title={existing ? t.editHealthEntryTitle : t.newHealthEntryTitle}
-      tier="sub"
       screenKey="health"
-      onBack={() => router.back()}
+      onClose={() => router.back()}
       headerRight={
         <PressableScale onPress={save} hitSlop={HitSlop.base} accessibilityRole="button" accessibilityLabel={t.save} scaleTo={0.9}>
           <Ionicons name="checkmark" size={24} color={theme.accent} />
@@ -226,7 +224,6 @@ export default function HealthFormScreen() {
       }
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.health.text} />
 
         {/* Issue — catalog-backed symptom typeahead */}
         <View style={styles.field}>
@@ -437,7 +434,7 @@ export default function HealthFormScreen() {
         )}
       </View>
 
-    </ScreenScaffold>
+    </CenterModalScreen>
     <ConfirmationBanner message={confirm} onDismiss={() => setConfirm(null)} />
     </KeyboardAvoidingView>
   );
@@ -448,7 +445,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

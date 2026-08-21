@@ -18,8 +18,9 @@
  * Connections:
  *   Imports → lib/useAppTheme, react-native-reanimated
  *   Used by → components/ListSettingsSheet.tsx, components/SavedListsModal.tsx,
- *             components/MonthlyResetSummaryModal.tsx, components/UpdateSheet.tsx,
- *             components/HintSheet.tsx
+ *             components/MonthlyResetSummaryModal.tsx, components/UpdateSheet.tsx
+ *             (components/HintSheet.tsx was a fifth caller for one day in August 2026; that
+ *             component no longer exists)
  *   Data    → none — purely presentational shell; `children` renders the actual sheet
  *             Surface (bottom-pinned via its own `position:'absolute', bottom:0` style,
  *             unchanged from before this component existed)

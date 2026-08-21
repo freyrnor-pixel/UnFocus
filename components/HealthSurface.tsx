@@ -50,7 +50,6 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import HintCard from '@/components/HintCard';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
@@ -74,7 +73,6 @@ import PressableScale from '@/components/PressableScale';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
 import { success, tap } from '@/lib/haptics';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { todayStr, getWeekDates, addDurationToTime } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { openEpisodes } from '@/lib/episodes';
@@ -211,7 +209,6 @@ export default function HealthSurface({ embedded = false }: Props) {
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
   const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
-  const [hintOpen, dismissHint] = useFirstVisitHint('health');
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
   const [quickStartTime, setQuickStartTime] = useState('');
@@ -383,6 +380,10 @@ export default function HealthSurface({ embedded = false }: Props) {
           <StarterCard
             embedded
             collapsible
+            // The old ⓘ banner's line (2026-08-20). StarterCard's `text` had been empty here
+            // since the "no manual" pass took `starters.health.text`; the banner it deferred to
+            // is gone, so the one sentence lands in the card the maintainer's rule names.
+            text={t.hints.health.text}
             example={
               <StarterExampleRow
                 icon="medical-outline"
@@ -489,7 +490,8 @@ export default function HealthSurface({ embedded = false }: Props) {
 
   return (
     <View style={embedded ? styles.embeddedContent : styles.content}>
-      {!embedded && <HintCard text={t.hints.health.text} open={hintOpen} noPill onDismiss={dismissHint} />}
+      {/* ⚠️ No ⓘ banner since 2026-08-20 — its sentence moved into the StarterCard above,
+          which is what this screen says while it has nothing on it. */}
 
       {promptEpisodes.slice(0, OPEN_EPISODE_CARDS).map((episode) => (
         <OpenEpisodeCard

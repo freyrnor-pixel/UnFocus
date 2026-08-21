@@ -249,6 +249,34 @@ void SplashScreen.preventAutoHideAsync().catch(() => { /* already hidden / unsup
 // iOS gets a short cross-fade out; Android hides instantly (fade is iOS-only here).
 SplashScreen.setOptions({ duration: Duration.modalOut, fade: true });
 
+/**
+ * The routes that open as a centred pop-up rather than a pushed page (2026-08-20).
+ *
+ * Editors and the browse screens you reach FROM a card. Each still owns its route, its params
+ * and its `router.back()`; components/CenterModalScreen.tsx is the shell they render into. Add a
+ * route here in the same edit that switches it to that shell, or it opens as a bare transparent
+ * screen with no scrim and no way back.
+ */
+const CENTRE_MODAL_ROUTES = [
+  'habit-form',
+  'medicine-form',
+  'health-form',
+  'health-detail',
+  'health-log',
+  'day-log',
+  'notes',
+  'food',
+  'catalogue',
+  'habits',
+  'budget',
+  'inventory-edit',
+] as const;
+
+const CENTRE_MODAL_OPTIONS = {
+  presentation: 'transparentModal',
+  animation: 'fade',
+} as const;
+
 export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
@@ -606,20 +634,29 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="onboarding" />
-        <Stack.Screen name="inventory-edit" />
+        {/* ── Centre pop-ups (2026-08-20) ────────────────────────────────────────────────
+            Maintainer: *"Never go to another page, pop-up from the middle of the screen
+            instead."* Each of these is still a REAL ROUTE with its own params and its own
+            `router.back()`; only the presentation changed. `transparentModal` keeps the screen
+            underneath mounted and visible, and components/CenterModalScreen.tsx draws the scrim
+            and the centred pane on top of it. `animation: 'fade'` because a pane that is already
+            in the middle has nowhere to slide in from — a slide would read as a sheet.
+            This is why the conversion was a shell swap and not a refactor: nothing had to be
+            lifted into props, and `useLocalSearchParams` keeps working exactly as before. */}
+        {CENTRE_MODAL_ROUTES.map((name) => (
+          <Stack.Screen key={name} name={name} options={CENTRE_MODAL_OPTIONS} />
+        ))}
+        {/* ── Still real screens, deliberately ───────────────────────────────────────────
+            `scan` is a full-screen camera, `settings` is a destination you go to on purpose
+            rather than a step inside a task, and `shared`/`pair-device`/`automations` sit behind
+            SHARING_VISIBLE or Advanced. Note `settings` and `scan` are registered by Expo
+            Router's file convention rather than listed here — only a screen needing non-default
+            options needs an entry. */}
         <Stack.Screen name="scan" />
-        <Stack.Screen name="food" />
-        <Stack.Screen name="catalogue" />
-        <Stack.Screen name="budget" />
         <Stack.Screen name="shared" />
         <Stack.Screen name="pair-device" />
-        <Stack.Screen name="health-detail" />
-        <Stack.Screen name="health-form" />
-        <Stack.Screen name="health-log" />
         <Stack.Screen name="automations" />
-        <Stack.Screen name="notes" />
         <Stack.Screen name="capture" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="habit-form" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
         <Stack.Screen name="share-modal" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
       <AppModalHost />

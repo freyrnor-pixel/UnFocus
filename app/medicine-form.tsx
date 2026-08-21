@@ -15,7 +15,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls
  *             (Input/Switch), components/Stepper, components/PressableScale,
- *             components/HintCard, components/OptionalTag,
+ *             components/OptionalTag,
  *             components/AppModal (delete confirm), constants/theme,
  *             lib/date (todayStr/getWeekDates), lib/haptics, lib/i18n, lib/severity
  *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
@@ -46,12 +46,11 @@ import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
 import PressableScale from '@/components/PressableScale';
-import HintCard from '@/components/HintCard';
 import OptionalTag from '@/components/OptionalTag';
 import { confirmDestructive } from '@/components/AppModal';
 import { useMedicineStore } from '@/store/useMedicineStore';
@@ -167,14 +166,12 @@ export default function MedicineFormScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-      <ScreenScaffold
+      <CenterModalScreen
         title={isEdit ? t.medicine.formTitleEdit : t.medicine.formTitleNew}
-        tier="sub"
         screenKey="health"
-        onBack={() => router.back()}
+        onClose={() => router.back()}
       >
         <View style={styles.content}>
-          <HintCard text={t.hints.medicineForm.text} />
 
           <View style={styles.field}>
             <Input
@@ -428,7 +425,7 @@ export default function MedicineFormScreen() {
             </View>
           </View>
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
     </KeyboardAvoidingView>
   );
 }
@@ -438,7 +435,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -455,11 +457,21 @@ const baseStyles = StyleSheet.create({
   // it draws shared `PersonChip`s). `chip`/`chipText` deleted 2026-08-10 with the min-gap
   // picker, which is a `SegmentedControl` now.
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
-  trayRow: { flexDirection: 'row', gap: Spacing.xs },
+  // **Wraps, and the chips size to their words (2026-08-20).** This was a rigid four-up row of
+  // `flex: 1` chips with `paddingHorizontal: 2` — four equal slivers, which `npm run wraps
+  // --lang=no --width=360` reported as a CLIPPED control: "Midt på dagen" needs 85px and got 58.
+  // The row got tighter when this screen became a centre pop-up (the pane is 92% of the window,
+  // not all of it), but the shape was already at its floor.
+  // A row with a hard minimum width cannot be fixed by shortening copy — that is the wrap
+  // audit's own "wrapped control rows" case — and these are MULTI-select (a medicine can be in
+  // several trays), which rule 19a exempts from the one-shape-for-a-pick-one rule. So they wrap,
+  // exactly like `chipRow` directly above, rather than being squeezed. No `flex` and no
+  // `minWidth`: content-sized children wrap when they genuinely don't fit and pack four-up when
+  // they do, where a minWidth floor is what silently breaks on a smaller phone.
+  trayRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, rowGap: Spacing.xs },
   trayChip: {
-    flex: 1,
     paddingVertical: Spacing.sm,
-    paddingHorizontal: 2,
+    paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md,
     borderWidth: 1.5,
     alignItems: 'center',

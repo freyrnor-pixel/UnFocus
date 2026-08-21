@@ -57,7 +57,6 @@ export type Lang = 'en' | 'no' | 'is';
 
 const en = {
   // Greeting
-  greeting: { night: 'Good night', morning: 'Good morning', day: 'Good day', evening: 'Good evening' },
   days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
   months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   // Short month names for date-range labels (lib/date.ts's formatDateRange)
@@ -217,7 +216,6 @@ const en = {
    *  opens the full screen. Distinct from `home.andMore`, which is about TODAY
    *  specifically and can't be reused for a library screen. (Was SubScreenPreviewList's
    *  last row until that component was deleted, 2026-08-10.) */
-  andMoreItems: (n: number) => `and ${n} more`,
   emptyMonthlyList: 'Nothing here yet — add your first staple item.',
   smallThingsCount: (n: number) => `You've done ${n} thing${n !== 1 ? 's' : ''} — small things add up!`,
   // "One thing at a time" layout (lib/cardLayout.ts's focusFirst, design-system v6's
@@ -303,7 +301,9 @@ const en = {
   a11yDiscardRow: 'Discard new row',
   showHint: 'How this works',
   hideHint: 'Hide instructions',
-  /** Closes components/HintSheet.tsx — the ⓘ explanation as a bottom sheet (Shopping). */
+  /** Closes a pop-up. Named for the job, not for one caller — components/HintSheet.tsx was the
+   *  original one and has not existed since August 2026; components/CenterModalScreen.tsx's ×
+   *  is the main consumer now. */
   hintSheetDone: 'Done',
   /**
    * The pad (notepad) language, 2026-07-30 — shared by every list-bearing card so the four
@@ -651,7 +651,7 @@ const en = {
     },
     finale: {
       title: 'That is the tour',
-      body: 'Everything else lives behind these tabs.\n• Each screen has an ⓘ button with its own tips and settings.',
+      body: 'Everything else lives behind these tabs.\n• A card explains itself while it is still empty.',
       experimental: 'UnFocus is a work in progress.\n• Things may change, move or arrive half-finished.\n• Everything stays on your phone.\n• Feedback shapes what comes next.',
       done: 'Start using the app',
     },
@@ -844,8 +844,6 @@ const en = {
   // Settings → General: brings back every intro card the user has closed.
   restoreHintsLabel: 'Show tips again',
   restoreHintsDone: 'Tips are back',
-  sortByType: 'By type',
-  sortByName: 'By name',
   sortLabel: 'Sort',
   categoryLabels: {
     produce: 'Produce',
@@ -1246,12 +1244,16 @@ const en = {
     // The row label the Details field sits on since it moved into the notes quick-add's
     // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
     extraInfoLabel: 'Details',
+    // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
+    // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
     manageCards: {
-      edit: 'Edit cards',
-      done: 'Done',
-      add: 'Add a card',
-      remove: (label: string) => `Remove ${label}`,
       kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health' },
+    },
+    // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
+    // "Removed": nothing is gone, it has just stopped being on duty here.
+    retired: {
+      title: 'Retired',
+      restore: (label: string) => `Bring ${label} back`,
     },
     // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
     // says "this card" rather than naming a screen — the sheet's title already names it.
@@ -1260,8 +1262,7 @@ const en = {
       subtitle: 'Settings for this card',
       close: 'Done',
       hide: 'Hide this card',
-      hideHint: 'It stays on its own screen — nothing is removed',
-      hideLastHint: 'Home keeps at least one card',
+      hideHint: 'It waits under Retired, at the foot of this screen',
       arrangeHint: 'Hold a card to drag it up or down',
     },
   },
@@ -1412,9 +1413,12 @@ const en = {
   // Habits — shame-free labels (Proposal 5)
   habits: {
     notYetToday: 'Not yet today',
-    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording
-     *  from hints.habits.text (the collapsible ⓘ hint just above it) on purpose, so the
-     *  two don't say the same sentence twice on screen at once. */
+    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording from
+     *  `hints.habits.text` on purpose, so the two don't say the same sentence twice on screen at
+     *  once. They are closer together than they were: since 2026-08-20 that string is the
+     *  StarterCard's `text` INSIDE this card rather than a banner above it, so an empty Habits
+     *  card shows this heading and that instruction one under the other. This one is the
+     *  standing promise ("no streaks, no scores"); that one is how to work the rows. */
     cardSubtitle: 'Simple check-ins — no streaks, no scores.',
     // --- W-D additions ---
     moreOptions: 'More options',
@@ -1724,7 +1728,7 @@ const en = {
     // and `layouts.*.hint`. A full sentence is only correct where the line says something the
     // label cannot, which on this screen is nowhere.
     desc: {
-      name: 'Only a greeting — never leaves your phone',
+      name: 'Your name on this device — never leaves your phone',
       weeklyReminders: 'A nudge on your shopping day',
       holidays: 'Public holidays on your calendar',
       shoppingDefault: 'Which list opens first',
@@ -1862,7 +1866,6 @@ const en = {
   notes: {
     title: 'Notes',
     navLabel: 'Notes',
-    emptyState: 'Write on the first line, or tap the mic',
     addNote: 'Add a note',
     headerPlaceholder: 'Note title',
     bodyPlaceholder: 'Add more detail…',
@@ -1878,7 +1881,8 @@ const en = {
     micErrorBody: "Couldn't catch that — try again.",
   },
   /**
-   * The ⓘ banner copy — ONE short instruction per screen, and nothing else (2026-08-17).
+   * ⚠️ These were the ⓘ BANNER's copy until 2026-08-20; the banner is deleted and each of these
+   * is now the `text` on that surface's empty-state card. Still one short instruction each.
    *
    * **`example` is deleted.** Every entry used to carry a second, italic, muted line —
    * "Draining tasks get a minus, restoring ones a plus.", "e.g. milk weekly, washing powder
@@ -1894,19 +1898,22 @@ const en = {
    * "Whenever". `components/HintCard.tsx` clamps these to two lines, so a hint that grows past a
    * short sentence in Norwegian will be truncated rather than pushing the card's controls down.
    */
+  /**
+   * The six explanations that survived the ⓘ banner (2026-08-20). They are not banners any
+   * more — components/HintCard.tsx is deleted and each of these is now the `text` of the
+   * surface's own empty-state components/StarterCard.tsx, per the maintainer's rule that a tip
+   * belongs to the empty state. `automations` is the exception and always was: it is a row
+   * `hint` in Settings, not a screen banner.
+   * Nine keys went with the banners rather than being re-homed — `home`, `plans`, `taskForm`,
+   * `habitForm`, `medicineForm`, `meals`, `scan`, `settings`, `shared`. Each was either a
+   * duplicate of a starter card one card lower (`plans`), a manual over a form whose fields are
+   * already labelled (the three `*Form`s), or a line about a screen that says it better itself.
+   * The key name stays `hints` so the diff reads; don't add a banner back under it.
+   */
   hints: {
-    home: { text: 'Hold a card to move it.' },
-    taskForm: { text: 'Add a task with a title, date, and optional details.' },
-    habitForm: { text: 'How often it repeats and how many times a day it counts.' },
-    medicineForm: { text: 'Pick its trays, or set it as needed.' },
     shopping: { text: 'Add things as you run out — resets weekly.' },
-    meals: { text: 'Browse dishes and add their ingredients to your shopping list.' },
     health: { text: 'Log and track health issues over time.' },
-    scan: { text: 'Photo a receipt to add items, or scan a shared QR code.' },
-    settings: { text: 'Changes apply immediately.' },
-    shared: { text: 'Items shared with you — mark your part done.' },
     habits: { text: 'Tap to count it, gear to set it up.' },
-    plans: { text: 'Everything to do, by day and week.' },
     automations: { text: 'Simple rules: when X happens, do Y automatically.' },
     notes: { text: 'Write it down, then send it anywhere.' },
     goals: { text: 'The bigger thing your to-dos and habits are for.' },
@@ -1914,9 +1921,13 @@ const en = {
   /**
    * Empty-state explainers (components/StarterCard.tsx, 2026-07-26). Shown inline where the
    * content would be while a surface has nothing on it yet, and gone as soon as the user has
-   * their own — so a new user gets the *idea* behind a feature without having to find the ⓘ.
-   * Each one's core message also lives in the matching `hints.*.example` above, which is where
-   * it stays reachable once the starter card disappears.
+   * their own.
+   * ⚠️ Two things this block used to say are no longer true. There is no ⓘ to "find" instead —
+   * the banner is deleted (2026-08-20) and this IS where a screen explains itself now, which is
+   * also why several surfaces feed `hints.*.text` into StarterCard's own `text`. And
+   * `hints.*.example` has not existed since 2026-08-17, so a starter card's message is not
+   * "still reachable" anywhere after the card disappears; it is gone until the surface is empty
+   * again, which is the intended lifetime.
    *
    * `example*` fields (2026-07-27) are short item/label fragments, NOT sentences — each screen
    * feeds them into one or more components/StarterExampleRow so the "example" renders as an
@@ -1932,15 +1943,12 @@ const en = {
    * the preview row would just be a redundant second way to do the same thing.
    */
   /**
-   * The empty-state narrator (2026-08-19) — see components/NarratorQuote.tsx and
-   * lib/narratorQuotes.ts. The LINES are not here on purpose: they are a per-language list
-   * the user cycles through, and a numbered key family in three dictionaries cannot grow
-   * without three edits in lockstep. Only the control's accessibility label lives here.
+   * The empty-state narrator (2026-08-19) has NO keys here — see components/NarratorQuote.tsx
+   * and lib/narratorQuotes.ts. The LINES live in a per-language data table on purpose: a
+   * numbered key family in three dictionaries cannot grow without three edits in lockstep.
+   * `narrator.nextQuote` was the one exception (the refresh glyph's a11y label) and went with
+   * the button itself on 2026-08-20.
    */
-  narrator: {
-    /** The refresh glyph beside the quote. Named for what it does, not for what it shows. */
-    nextQuote: 'Show another line',
-  },
   starters: {
     /** Accessibility-label prefix for an example row's "+" add button, e.g. "Add Milk". */
     addExample: 'Add',
@@ -2380,7 +2388,6 @@ const en = {
 };
 
 const no: typeof en = {
-  greeting: { night: 'God natt', morning: 'God morgen', day: 'God dag', evening: 'God kveld' },
   days: ['søndag', 'mandag', 'tirsdag', 'onsdag', 'torsdag', 'fredag', 'lørdag'],
   months: ['januar', 'februar', 'mars', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'des'],
@@ -2489,7 +2496,6 @@ const no: typeof en = {
   },
   shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
-  andMoreItems: (n: number) => `og ${n} til`,
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
   focusFirst: {
@@ -2789,7 +2795,7 @@ const no: typeof en = {
     },
     finale: {
       title: 'Det var omvisningen',
-      body: 'Alt annet ligger bak disse fanene.\n• Hver skjerm har en ⓘ-knapp med egne tips og innstillinger.',
+      body: 'Alt annet ligger bak disse fanene.\n• Et kort forklarer seg selv så lenge det er tomt.',
       experimental: 'UnFocus er under arbeid.\n• Ting kan endre seg, flytte på seg eller komme halvferdig.\n• Alt blir på telefonen din.\n• Tilbakemeldinger former det som kommer.',
       done: 'Begynn å bruke appen',
     },
@@ -2942,8 +2948,6 @@ const no: typeof en = {
   shoppingCadenceLink: 'Nullstillingsdager',
   restoreHintsLabel: 'Vis tipsene igjen',
   restoreHintsDone: 'Tipsene er tilbake',
-  sortByType: 'Etter type',
-  sortByName: 'Etter navn',
   sortLabel: 'Sorter',
   categoryLabels: {
     produce: 'Frukt & grønt',
@@ -3301,7 +3305,7 @@ const no: typeof en = {
       shareNote: 'En delt kopi utelater navnet ditt',
     },
     desc: {
-      name: 'Bare en hilsen — forlater aldri telefonen',
+      name: 'Navnet ditt på denne enheten — forlater aldri telefonen',
       weeklyReminders: 'En påminnelse på handledagen din',
       holidays: 'Helligdager i kalenderen',
       shoppingDefault: 'Hvilken liste som åpnes først',
@@ -3605,19 +3609,18 @@ const no: typeof en = {
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
     manageCards: {
-      edit: 'Rediger kort',
-      done: 'Ferdig',
-      add: 'Legg til kort',
-      remove: (label: string) => `Fjern ${label}`,
       kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse' },
+    },
+    retired: {
+      title: 'Satt bort',
+      restore: (label: string) => `Hent ${label} tilbake`,
     },
     cardMenu: {
       open: (card: string) => `Kortinnstillinger for ${card}`,
       subtitle: 'Innstillinger for dette kortet',
       close: 'Ferdig',
       hide: 'Skjul dette kortet',
-      hideHint: 'Det ligger fortsatt på sin egen skjerm — ingenting fjernes',
-      hideLastHint: 'Hjem beholder minst ett kort',
+      hideHint: 'Det venter under Satt bort, nederst på denne skjermen',
       arrangeHint: 'Hold på et kort for å dra det opp eller ned',
     },
   },
@@ -3780,7 +3783,6 @@ const no: typeof en = {
   notes: {
     title: 'Notater',
     navLabel: 'Notater',
-    emptyState: 'Skriv på første linje, eller trykk på mikrofonen',
     addNote: 'Legg til et notat',
     headerPlaceholder: 'Notattittel',
     bodyPlaceholder: 'Legg til mer detaljer…',
@@ -3796,25 +3798,12 @@ const no: typeof en = {
     micErrorBody: 'Fikk ikke med det — prøv igjen.',
   },
   hints: {
-    home: { text: 'Hold et kort for å flytte.' },
-    taskForm: { text: 'Legg til en oppgave med tittel, dato og valgfrie detaljer.' },
-    habitForm: { text: 'Hvor ofte den gjentas og hvor mange ganger om dagen den teller.' },
-    medicineForm: { text: 'Velg runder, eller sett den til ved behov.' },
     shopping: { text: 'Legg til når du går tom — nullstilles ukentlig.' },
-    meals: { text: 'Bla gjennom retter og legg ingrediensene til handlelisten.' },
     health: { text: 'Logg og følg opp helseplager over tid.' },
-    scan: { text: 'Bilde av kvittering for å legge til varer, eller skann en delt QR-kode.' },
-    settings: { text: 'Endringer trer i kraft umiddelbart.' },
-    shared: { text: 'Delt med deg — merk din del som utført.' },
     habits: { text: 'Trykk for å telle, tannhjul for å sette opp.' },
-    plans: { text: 'Alt som skal gjøres, etter dag og uke.' },
     automations: { text: 'Enkle regler: når X skjer, gjør Y automatisk.' },
     notes: { text: 'Skriv det ned, og send det videre.' },
     goals: { text: 'Det større gjøremålene og vanene dine er til for.' },
-  },
-  /* Se den engelske tvillingen. Selve linjene ligger i lib/narratorQuotes.ts. */
-  narrator: {
-    nextQuote: 'Vis en annen linje',
   },
   starters: {
     addExample: 'Legg til',
@@ -4200,7 +4189,6 @@ const isCount = (n: number, one: string, many: string): string =>
   Math.abs(n) % 10 === 1 && Math.abs(n) % 100 !== 11 ? one : many;
 
 const is: typeof en = {
-  greeting: { night: 'Góða nótt', morning: 'Góðan morgun', day: 'Góðan daginn', evening: 'Gott kvöld' },
   days: ['sunnudagur', 'mánudagur', 'þriðjudagur', 'miðvikudagur', 'fimmtudagur', 'föstudagur', 'laugardagur'],
   months: ['janúar', 'febrúar', 'mars', 'apríl', 'maí', 'júní', 'júlí', 'ágúst', 'september', 'október', 'nóvember', 'desember'],
   monthsShort: ['jan', 'feb', 'mar', 'apr', 'maí', 'jún', 'júl', 'ágú', 'sep', 'okt', 'nóv', 'des'],
@@ -4313,7 +4301,6 @@ const is: typeof en = {
   },
   shoppingPreview: 'Kaupa fljótlega',
   seeAll: 'Sjá allt →',
-  andMoreItems: (n: number) => `og ${n} í viðbót`,
   emptyMonthlyList: 'Ekkert hér enn — bættu við fyrstu föstu vörunni.',
   smallThingsCount: (n: number) => `Þú hefur klárað ${n} ${isCount(n, 'hlut', 'hluti')} — smáatriðin telja!`,
   focusFirst: {
@@ -4616,7 +4603,7 @@ const is: typeof en = {
     },
     finale: {
       title: 'Þetta var kynningin',
-      body: 'Allt annað liggur á bak við þessa flipa.\n• Hver skjár er með ⓘ-hnapp með eigin ábendingum og stillingum.',
+      body: 'Allt annað liggur á bak við þessa flipa.\n• Kort útskýrir sig sjálft á meðan það er tómt.',
       experimental: 'UnFocus er í vinnslu.\n• Hlutir geta breyst, færst til eða komið hálfkláraðir.\n• Allt situr eftir í símanum þínum.\n• Viðbrögð móta það sem kemur næst.',
       done: 'Byrja að nota appið',
     },
@@ -4769,8 +4756,6 @@ const is: typeof en = {
   restoreHintsDone: 'Ábendingarnar eru komnar aftur',
   /* The segment draws no "Raða" label of its own, so the two options carry the question.
      "Eftir tegund" overran its segment by 12px; the bare nouns fit and read the same. */
-  sortByType: 'Tegund',
-  sortByName: 'Heiti',
   sortLabel: 'Raða',
   categoryLabels: {
     produce: 'Ávextir og grænmeti',
@@ -5126,7 +5111,7 @@ const is: typeof en = {
       shareNote: 'Deilt afrit sleppir nafninu þínu',
     },
     desc: {
-      name: 'Bara kveðja — fer aldrei úr símanum',
+      name: 'Nafnið þitt í þessu tæki — fer aldrei úr símanum',
       weeklyReminders: 'Áminning á innkaupadeginum þínum',
       holidays: 'Frídagar í dagatalinu',
       shoppingDefault: 'Hvaða listi opnast fyrst',
@@ -5431,19 +5416,19 @@ const is: typeof en = {
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
     manageCards: {
-      edit: 'Breyta kortum',
-      done: 'Búið',
-      add: 'Bæta við korti',
-      remove: (label: string) => `Fjarlægja: ${label}`,
       kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa' },
+    },
+    /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
+    retired: {
+      title: 'Í hvíld',
+      restore: (label: string) => `Sækja „${label}“ aftur`,
     },
     cardMenu: {
       open: (card: string) => `Stillingar korts: ${card}`,
       subtitle: 'Stillingar fyrir þetta kort',
       close: 'Búið',
       hide: 'Fela þetta kort',
-      hideHint: 'Það er áfram á sínum eigin skjá — ekkert er fjarlægt',
-      hideLastHint: 'Heim heldur að minnsta kosti einu korti',
+      hideHint: 'Það bíður undir „Í hvíld“, neðst á þessum skjá',
       arrangeHint: 'Haltu á korti til að draga það upp eða niður',
     },
   },
@@ -5598,7 +5583,6 @@ const is: typeof en = {
   notes: {
     title: 'Minnispunktar',
     navLabel: 'Minnispunktar',
-    emptyState: 'Skrifaðu á fyrstu línuna, eða ýttu á hljóðnemann',
     addNote: 'Bæta við minnispunkti',
     headerPlaceholder: 'Heiti minnispunkts',
     bodyPlaceholder: 'Bættu við nánari lýsingu…',
@@ -5614,25 +5598,12 @@ const is: typeof en = {
     micErrorBody: 'Náði þessu ekki — reyndu aftur.',
   },
   hints: {
-    home: { text: 'Haltu á korti til að færa það.' },
-    taskForm: { text: 'Bættu við verkefni með heiti, dagsetningu og valfrjálsum atriðum.' },
-    habitForm: { text: 'Hversu oft hún endurtekst og hversu oft á dag hún telur.' },
-    medicineForm: { text: 'Veldu hólf, eða settu lyfið á „eftir þörfum“.' },
     shopping: { text: 'Bættu við þegar eitthvað klárast. Núllstillist vikulega.' },
-    meals: { text: 'Flettu í gegnum rétti og settu hráefnin á innkaupalistann.' },
     health: { text: 'Skráðu heilsuvanda og fylgdu honum eftir yfir tíma.' },
-    scan: { text: 'Mynd af kvittun til að bæta við vörum, eða skannaðu deildan QR-kóða.' },
-    settings: { text: 'Breytingar taka gildi strax.' },
-    shared: { text: 'Deilt með þér — merktu þinn hluta sem búinn.' },
     habits: { text: 'Ýttu til að telja, tannhjólið til að stilla.' },
-    plans: { text: 'Allt sem á að gera, eftir degi og viku.' },
     automations: { text: 'Einfaldar reglur: þegar X gerist, gerðu Y sjálfkrafa.' },
     notes: { text: 'Skrifaðu það niður. Sendu það áfram.' },
     goals: { text: 'Það stærra sem verkefnin og venjurnar þínar eru fyrir.' },
-  },
-  /* Sjá enska tvíburann. Línurnar sjálfar eru í lib/narratorQuotes.ts. */
-  narrator: {
-    nextQuote: 'Sýna aðra línu',
   },
   starters: {
     addExample: 'Bæta við',

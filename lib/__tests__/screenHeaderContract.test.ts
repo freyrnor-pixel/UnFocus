@@ -110,17 +110,15 @@ const TAB_CONTENT_SOURCE: Partial<Record<(typeof TAB_SCREENS)[number], string>> 
 // else. Not the whole sub-screen set — the form/editor screens legitimately carry a
 // `headerRight` save/delete action, which is a different contract.
 const SUB_SCREENS = [
-  // Left the pager on 2026-08-20 (5 tabs → 3), keeping every list they held.
-  'app/habits.tsx',
-  // Crossed the SAME way hours later, in the "full-screen card expansion" pass (Health left
-  // the bottom nav for a Home card).
+  // ⚠️ **Nine routes LEFT this list on 2026-08-20** — habits, food, catalogue, notes, budget,
+  // health-log, health-detail, day-log, inventory-edit, plus the three editors that were never
+  // in it. They are components/CenterModalScreen.tsx panes now, not pushed scaffolds
+  // (maintainer: *"Never go to another page, pop-up from the middle of the screen instead."*),
+  // so the tier/back-arrow contract this file asserts does not apply to them: a pane has an ×,
+  // not a back arrow, and no tier at all. lib/__tests__/screenRhythm.test.ts carries their
+  // contract instead. What is left here is the screens that are still genuinely pushed.
   'app/health.tsx',
-  'app/food.tsx',
-  'app/catalogue.tsx',
-  'app/notes.tsx',
-  'app/budget.tsx',
   'app/scan.tsx',
-  'app/health-log.tsx',
 ] as const;
 
 /** Header chrome a sub-screen must not ask for. `tier` and `onBack` are legitimate. */
@@ -204,14 +202,21 @@ describe('every top-level tab header is title + gear', () => {
     expect(headerSrc).not.toMatch(/onInfoToggle/);
   });
 
-  test.each(TAB_SCREENS)('%s renders a dismissible intro card instead', (rel) => {
-    // `noPill` + `onDismiss` together are the intro card; `noPill` alone was the old
-    // header-driven body, which had no way to close itself. Reads TAB_CONTENT_SOURCE's target
-    // when the tab is a thin wrapper (2026-08-20 extraction) — the HintCard moved with the
-    // real content, not the ScreenScaffold shell.
-    const src = read(TAB_CONTENT_SOURCE[rel] ?? rel);
-    expect(src).toMatch(/<HintCard[\s\S]{0,400}noPill/);
-    expect(src).toMatch(/<HintCard[\s\S]{0,400}onDismiss=\{dismissHint\}/);
+  // ⚠️ **Rewritten 2026-08-20: there is no intro card either.** This asserted that each tab
+  // rendered a dismissible `<HintCard noPill onDismiss>` — the thing that replaced the header ⓘ
+  // on 2026-08-13. The maintainer removed that too (*"The top text box can be removed"*), with
+  // the standing rule that a tip belongs to a card's EMPTY STATE, so components/HintCard.tsx and
+  // lib/useFirstVisitHint.ts are deleted. The assertion above (no ⓘ props on the header) still
+  // holds and is the half that matters; this one becomes its mirror: no tab may bring the
+  // banner back by either route.
+  test.each(TAB_SCREENS)('%s renders no intro banner at all', (rel) => {
+    // `code()` (comments stripped), not `read()`, for the same reason the ScreenHeader
+    // assertion above uses it: these screens carry notes SAYING the banner was deleted and
+    // naming both identifiers, and deleting an explanation must never be the cheapest way to
+    // green.
+    const src = code(TAB_CONTENT_SOURCE[rel] ?? rel);
+    expect(src).not.toMatch(/<HintCard/);
+    expect(src).not.toMatch(/useFirstVisitHint/);
   });
 
   // The camera left the header on 2026-08-13. Maintainer: "the camera for scanning should be
@@ -312,8 +317,11 @@ describe('pushed sub-screens are title only', () => {
   test('app/notes.tsx does not drift back to site tier', () => {
     // It was tier='site' from Decision 001, kept it after Decision 036 dropped Notes as a tab,
     // and so carried a Settings gear + its own BottomNav while being reached by a router.push
-    // from Home — the violation that motivated this file. See that screen's edit notes.
-    expect(tierOf(scaffoldTags('app/notes.tsx')[0])).toBe('sub');
-    expect(scaffoldTags('app/notes.tsx')[0]).toMatch(/onBack=/);
+    // from Home — the violation that motivated this file.
+    // ⚠️ **It mounts no ScreenScaffold at all since 2026-08-20** — it is a centre pop-up. That
+    // settles the original violation more completely than a tier could: a pane has no tier, no
+    // gear and no BottomNav to drift back to. The assertion is now that it stays one.
+    expect(scaffoldTags('app/notes.tsx')).toEqual([]);
+    expect(read('app/notes.tsx')).toMatch(/<CenterModalScreen/);
   });
 });

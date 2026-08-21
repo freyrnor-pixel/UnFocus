@@ -61,7 +61,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/FormControls,
  *             components/Collapsible (animated "More options" disclosure),
- *             components/HintCard, components/HabitIcon,
+ *             components/HabitIcon,
  *             components/PressableScale, components/Stepper, components/GoalPicker (gated on
  *             settings.featureGoals), components/OptionalTag,
  *             lib/haptics, lib/i18n, lib/useAppTheme, store/useHabitStore, store/useSettingsStore
@@ -151,10 +151,9 @@ import { useT } from '@/lib/i18n';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { energyStepperValue, energyFieldsFromStepper } from '@/lib/energy';
 import { tap, heavy } from '@/lib/haptics';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl } from '@/components/FormControls';
-import HintCard from '@/components/HintCard';
 import { GoalPicker } from '@/components/GoalPicker';
 import HabitIcon, { HABIT_ICON_NAMES } from '@/components/HabitIcon';
 import PressableScale from '@/components/PressableScale';
@@ -433,11 +432,10 @@ export default function HabitForm() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-    <ScreenScaffold
+    <CenterModalScreen
       title={isEdit ? t.habitFormEdit : t.habitFormTitle}
-      tier="sub"
       screenKey="habits"
-      onBack={() => router.back()}
+      onClose={() => router.back()}
       headerRight={
         // Icon + text, not a bare ✓ (2026-07-26): a lone checkmark in a header doesn't say
         // what it does. The bottom Discard/Save row is the primary affordance; this stays
@@ -451,7 +449,6 @@ export default function HabitForm() {
       }
     >
       <View style={styles.content}>
-        <HintCard text={t.hints.habitForm.text} />
 
         {/* Title */}
         <View style={styles.field}>
@@ -840,7 +837,7 @@ export default function HabitForm() {
           </View>
         </View>
       </View>
-    </ScreenScaffold>
+    </CenterModalScreen>
     </KeyboardAvoidingView>
   );
 }
@@ -850,7 +847,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   daysRow: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.sm },
   dayChip: { flex: 1, aspectRatio: AspectRatio.square, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },

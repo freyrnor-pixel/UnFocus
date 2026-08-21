@@ -46,7 +46,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, type HealthLog } from '@/store/useHealthStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
@@ -114,7 +114,7 @@ export default function HealthDetailScreen() {
   }, [target.symptomId, target.ailment, logs, logsForSymptom]);
 
   return (
-    <ScreenScaffold title={t.symptomHistoryTitle(target.name)} tier="sub" screenKey="health" onBack={() => router.back()}>
+    <CenterModalScreen title={t.symptomHistoryTitle(target.name)} screenKey="health" onClose={() => router.back()}>
       <View style={styles.content}>
         <Text style={[styles.detailSub, { color: theme.textMuted }]}>{t.symptomEntriesCount(data.entries.length)}</Text>
 
@@ -194,7 +194,7 @@ export default function HealthDetailScreen() {
       </View>
 
       <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
-    </ScreenScaffold>
+    </CenterModalScreen>
   );
 }
 
@@ -202,7 +202,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.md },
   overviewCard: { borderRadius: Radius.md, padding: Spacing.md },
   sectionLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
   detailSub: { fontSize: FontSize.sm },

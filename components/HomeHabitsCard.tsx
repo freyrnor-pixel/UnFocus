@@ -68,8 +68,10 @@
  *     constant — the Habits TAB still offers all four). It also carried a one-line explainer
  *     under the header (`t.starters.habits.text`, a bulb + italic sentence); **that whole tier
  *     was deleted on 2026-08-17** — *"a native app should not read like a manual"* — so the card
- *     goes straight from its header to its content and the ⓘ banner is where a screen explains
- *     itself. See components/HintCard.tsx. The string is deleted too, not just unmounted.
+ *     goes straight from its header to its content. The string is deleted too, not just
+ *     unmounted. ⚠️ It said "the ⓘ banner is where a screen explains itself" — that stopped
+ *     being true on 2026-08-20, when the banner was deleted app-wide; the empty-state
+ *     components/StarterCard.tsx is where it happens now.
  *   - **Quick-add**: creates a daily/dailyGoal-1 habit with the same neutral default icon
  *     ('ellipse-outline') as habits.tsx's own `commitHabit`. As of 2026-08-01 the type line
  *     carries one essential setting — an Energy row (components/QuickAddOptionRow, labeled
@@ -128,6 +130,7 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
+import CardExpandButton from '@/components/CardExpandButton';
 import { useCardExpand } from '@/lib/useCardExpand';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
@@ -410,18 +413,24 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
-            {/* ⚠️ **No CardExpandButton here (2026-08-19).** `homeHabits`'s registered body in
-                components/CardExpandHost.tsx is still `ComingSoonBody` — the real habits surface
-                has never been extracted out of app/habits.tsx the way To-do, Health and Notes
-                were — so this button opened a full-screen pane whose only content was the words
-                "Expand card". That was invisible while this card was one of five on a busy Home
-                screen; it is one of THREE on the Me tab now, and a stub is not something to ship
-                on a screen this small. Same call, and the same wording, as the `shopLists`
-                placeholder: unreachable rather than a button that opens a stub. The id stays in
-                lib/expandableCards.ts so a future pass can extract `HabitsSurface.tsx` and wire
-                it up; the way to the deep surface today is the header title → pushed
-                app/habits.tsx, which is unchanged. */}
+            {/* The ⤢ is BACK (2026-08-20), and it opens something real. It was removed on
+                2026-08-19 because `homeHabits`'s registered body in components/CardExpandHost.tsx
+                was a `ComingSoonBody` — the habits surface had never been extracted out of
+                app/habits.tsx the way To-do, Health and Notes were, so the button opened a
+                full-screen pane whose only content was the words "Expand card". That extraction
+                is done (components/HabitsSurface.tsx), so the reason is gone.
+                It is LAST in this row, after the ⋮, per the app-wide rule this pass settled:
+                whatever a card's own controls are, the full-screen button is the right-most
+                thing in the header. Gated on `!embedded` with the ⋮ for the same reason — inside
+                an expanded pane there is nothing left to expand. */}
             {cardMenu && !embedded ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
+            {!embedded && (
+              <CardExpandButton
+                expanded={cardExpand.expanded}
+                onExpand={cardExpand.onExpand}
+                onCollapse={cardExpand.onCollapse}
+              />
+            )}
           </View>
           {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
           {dueTodayHabits.length > 0 && (

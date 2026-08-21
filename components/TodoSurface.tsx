@@ -66,11 +66,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
-import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
+import Surface from '@/components/Surface';
 import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
@@ -107,7 +107,6 @@ import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { usePrefill } from '@/lib/prefill';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { useEnergyPause } from '@/lib/useEnergyPause';
@@ -386,7 +385,6 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const full = !section;
-  const [hintOpen, dismissHint] = useFirstVisitHint('plans');
 
   const wheneverHue = getScreenColor(theme, 'plans').base;
   const repeatingHue = getDomainColor(theme, 'health').accent;
@@ -894,21 +892,35 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   );
 
   const weekCard = showWeek && (
-    <View ref={weekExpand.ref} key="week">
+    // **One card holding all seven days (2026-08-20)**, maintainer: *"The fullscreen button has
+    // to be in the top right corner for each card. To fix this for the week the cards themselves
+    // can be inside a larger card covering them all."* The header used to be a bare row sitting
+    // on the screen backdrop above seven loose cards, so its ⤢ was in the corner of nothing.
+    // Now the header is this card's own top-right corner and the days are `embedded`
+    // SectionCards — rails and folds, no Surface each — because a Surface inside a Surface
+    // reads as a nested panel.
+    // The ref goes on a plain wrapper, not on the Surface: components/Surface.tsx does not
+    // forward refs, and lib/useCardExpand needs a measurable OUTERMOST node. The wrapper has no
+    // margin of its own, so the rect it measures is the card's own box.
+    <View ref={weekExpand.ref} key="week" collapsable={false}>
+      <Surface style={styles.weekCard}>
       <View style={styles.cardHeaderRow}>
         <Text style={[styles.cardHeaderTitle, { color: theme.text }]}>{t.todoWeekTitle}</Text>
         {/* Chevron before the expand button, so the two read as "how much of this" then
-            "how big is this" — the same order every SectionCard header puts them in. */}
+            "how big is this" — and ⤢ is LAST, which is the app-wide rule as of 2026-08-20:
+            whatever a card's own controls are, the full-screen button is the right-most thing
+            in the header. */}
         <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
         {full && (
           <CardExpandButton expanded={weekExpand.expanded} onExpand={weekExpand.onExpand} onCollapse={weekExpand.onCollapse} />
         )}
       </View>
       <Collapsible open={!weekCollapsed}>
-        <View style={styles.cardStack}>
+        <View style={styles.weekDays}>
           {weekGroups.map((group, i) => (
             <SectionCard
               key={group.date}
+              embedded
               hue={theme.accent}
               label={t.dayFull[i]}
               count={group.tasks.length}
@@ -927,6 +939,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           ))}
         </View>
       </Collapsible>
+      </Surface>
     </View>
   );
 
@@ -969,8 +982,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   return (
     <View style={styles.content}>
-      {full && <HintCard text={t.hints.plans.text} open={hintOpen} noPill onDismiss={dismissHint} />}
-
+      {/* ⚠️ No ⓘ banner here since 2026-08-20 — see components/StarterCard.tsx below, which is
+          where this screen's explanation lives now. `hints.plans.text` ("Everything to do, by
+          day and week.") was not moved into it: `starters.plans.text` was already the same
+          sentence's job, one card lower, next to a real example row. */}
       {full && (tasks.length === 0 || planStarterAdded) && !layoutSpec.timeline && (
         <StarterCard
           text={t.starters.plans.text}
@@ -1075,6 +1090,14 @@ const styles = StyleSheet.create({
   content: { gap: SCREEN_GAP },
   cardStack: { gap: Spacing.sm },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  // The Week card's own box (2026-08-20). Same shape SectionCard draws for every other card on
+  // this screen, spelled out here because this one's header is hand-rolled rather than a
+  // SectionRail — the seven days inside supply their own rails.
+  weekCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
+  // Tighter than `cardStack`'s SCREEN_GAP: these seven are sections of ONE card, not seven
+  // cards on a screen, and the screen's rhythm between cards would make the card read as a
+  // list of cards again — the exact thing this wrapper exists to stop.
+  weekDays: { gap: Spacing.sm },
   // `flex: 1` + `minWidth: 0` so the title takes the slack and the header's trailing controls
   // stay CLUSTERED at the right edge. Without it, `space-between` spreads two controls across
   // the row and the Week card's chevron floats in the middle of the line, reading as unrelated

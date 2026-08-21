@@ -338,7 +338,7 @@ import { isSyncAvailable } from '@/lib/syncService';
 import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
-import { selection, heavy, success } from '@/lib/haptics';
+import { selection, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
@@ -1268,28 +1268,12 @@ export default function SettingsScreen() {
                     people come looking for, and it is a look preference before it is an aid.
                     The horizontal-plans-timeline switch left in the 2026-07-25 reorganization
                     and now sits in General → Layout with the other drawing preferences. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* "Show tips again" (2026-08-13) — the ONLY way back once a screen's intro
-                    card has been closed, so it has to exist somewhere findable. It lives with
-                    the accessibility controls rather than under Data because it is about what
-                    the app shows you, not about your rows.
-                    A button, not a toggle: `dismissedHints` is a SET of screen keys, and a
-                    switch would have to answer "on or off?" for five independent cards. Also
-                    why the confirmation is a transient message rather than a state change —
-                    after pressing it there is nothing here to look different.
-                    It used to carry a `switchLabel` heading above the button reading the same
-                    six words as the button itself — caught in a screenshot during the
-                    2026-08-17 declutter, not by any test. The button IS the label. */}
-                <PressableScale
-                  style={[styles.dangerBtn, settings.dismissedHints.length === 0 && { opacity: 0.4 }]}
-                  onPress={() => { settings.restoreHints(); success(); setInputWarning(t.restoreHintsDone); }}
-                  disabled={settings.dismissedHints.length === 0}
-                  accessibilityRole="button"
-                  accessibilityLabel={t.restoreHintsLabel}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.restoreHintsLabel}</Text>
-                </PressableScale>
+                {/* ⚠️ **"Show tips again" is gone (2026-08-20).** It was the only way back once a
+                    screen's ⓘ intro card had been closed — and there are no ⓘ cards any more
+                    (components/HintCard.tsx is deleted app-wide; a screen's explanation lives in
+                    its empty-state card now, which comes back whenever the surface is empty and
+                    needs no restoring). `settings.dismissedHints` and `restoreHints()` survive
+                    as inert, so an existing row's stored keys are simply never read again. */}
               </Surface>
             </View>
 

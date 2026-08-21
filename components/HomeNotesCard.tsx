@@ -296,8 +296,12 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               />
             </View>
           </PressableScale>
-          <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
+          {/* ⤢ LAST (2026-08-20). The app-wide rule the UI-consistency pass settled: whatever a
+              card's own controls are, the full-screen button is the right-most thing in the
+              header, so it lands in the card's actual top-right corner on every surface. This
+              pair used to be the other way round. */}
           {cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : null}
+          <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
         </View>
 
 

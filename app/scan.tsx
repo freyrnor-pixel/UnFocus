@@ -16,7 +16,7 @@
  * instead of a bottom tab.
  *
  * Connections:
- *   Imports → components/AppModal, components/HintCard, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
+ *   Imports → components/AppModal, components/ScreenScaffold, components/Surface, components/PressableScale, constants/theme, lib/date, lib/i18n, lib/receipt, lib/share, lib/siteNav, lib/photoStorage, store/useCatalogStore, store/useReceiptStore, store/useMonthlyListStore, store/useSharedStore, store/useShoppingStore, @expo/vector-icons (Ionicons)
  *   Used by → Expo Router route "/scan"; pushed from app/(tabs)/shopping.tsx's header
  *             "Scan" button, and its post-trip receipt pop-up (autoCapture param)
  *   Data    → confirmed items write to FOUR stores: useShoppingStore (shopping_items) + useReceiptStore.addReceipt (receipts, tagged with a monthlyListId — Shopping/Monthly redesign 2026-07-22, picked via renderMonthlyListSelector() when 2+ Monthly lists exist) + useCatalogStore.recordPurchases (purchase_log, linked via receipt_id, + store_items); QR import writes useSharedStore (shared_shopping_items / shared_tasks); scaled fontSize via useScaledStyles()
@@ -93,7 +93,6 @@ import { useT } from '@/lib/i18n';
 import { categoryPresets } from '@/lib/shoppingCategories';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
-import HintCard from '@/components/HintCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
@@ -740,7 +739,13 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.foundOnReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            <HintCard text={t.itemsSelectedCount(selectedCount, parsedItems.length)} />
+            {/* A live COUNT, not an explanation — it was a components/HintCard until that
+                component was deleted app-wide (2026-08-20), and it never belonged in one: an ⓘ
+                banner says the same thing every visit, and this changes with every tick. A
+                plain line above the list it counts. */}
+            <Text style={[styles.flowNote, { color: theme.textMuted }]}>
+              {t.itemsSelectedCount(selectedCount, parsedItems.length)}
+            </Text>
             {renderMonthlyListSelector()}
 
             {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
@@ -842,7 +847,9 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.manualEntryTitle} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            <HintCard text={t.manualEntryHint} />
+            {/* One instruction for one flow, on the line rather than in a banner — see the
+                note on the count above. */}
+            <Text style={[styles.flowNote, { color: theme.textMuted }]}>{t.manualEntryHint}</Text>
 
             {renderStoreSelector()}
             {renderMonthlyListSelector()}
@@ -912,6 +919,9 @@ const baseStyles = StyleSheet.create({
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
   content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
+  // A one-line status/instruction on this screen's own flow. No card, no edge, no glyph — it
+  // replaced two components/HintCard banners when that component was deleted (2026-08-20).
+  flowNote: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
 
   // IDLE MODE
   backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },

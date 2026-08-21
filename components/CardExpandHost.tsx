@@ -94,10 +94,11 @@ import Animated, {
 import Surface from '@/components/Surface';
 import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
+import HabitsSurface from '@/components/HabitsSurface';
 import HealthSurface from '@/components/HealthSurface';
 import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
-import CatalogueTab from '@/components/CatalogueTab';
+import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
 import { Fonts, FontSize, Radius, Spacing, getLayeredShadow } from '@/constants/theme';
 import { ExpandableCardId, ExpandRect } from '@/lib/expandableCards';
@@ -131,7 +132,24 @@ function FoodExpandedBody() {
   return <FoodTab onNotify={() => {}} />;
 }
 function CatalogueExpandedBody() {
-  return <CatalogueTab onNotify={() => {}} onOpenFull={() => {}} />;
+  // The lock is owned here rather than by CatalogueTab (2026-08-20) because its two buttons
+  // live in whatever header the list sits under. This pane's header is CardExpandHost's own
+  // title row, which takes no per-card controls — so they go through CatalogueTab's `header`
+  // slot instead, which renders directly above the search field, i.e. still the top of this
+  // surface. If a second expandable card ever wants header controls, THAT is the point to add
+  // a `Controls` entry to CARD_BODIES rather than growing a second convention here.
+  const [locked, setLocked] = useState(true);
+  return (
+    <CatalogueTab
+      onNotify={() => {}}
+      locked={locked}
+      header={
+        <View style={styles.expandedControls}>
+          <CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />
+        </View>
+      }
+    />
+  );
 }
 
 /** Placeholder shown for a body not wired up yet in this pass — never ships as final. */
@@ -163,12 +181,12 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   shopLists: { title: (t) => t.nav.shop, Body: ComingSoonBody },
   shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
-  // ⚠️ Same deliberate, disclosed gap as `shopLists` (2026-08-19): app/habits.tsx has never been
-  // extracted into a `HabitsSurface.tsx` the way To-do, Health and Notes were, so this body is
-  // still a placeholder — and components/HomeHabitsCard.tsx therefore mounts NO
-  // `CardExpandButton`, so nothing calls `expandCard('homeHabits', …)`. Unreachable beats a
-  // button that opens a stub. It was reachable, and shipping one, until that date.
-  homeHabits: { title: (t) => t.nav.habits, Body: ComingSoonBody },
+  // Real since 2026-08-20 — components/HabitsSurface.tsx was extracted out of app/habits.tsx
+  // exactly the way To-do, Health and Notes had been, and components/HomeHabitsCard.tsx mounts a
+  // `CardExpandButton` again. This was a `ComingSoonBody` from 2026-08-19, and the card shipped
+  // with no button at all rather than one that opened a stub; `shopLists` above is now the only
+  // entry still in that state.
+  homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
@@ -368,6 +386,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   title: { flex: 1, fontFamily: Fonts.bold, fontSize: FontSize.lg, marginRight: Spacing.sm },
+  // The catalogue's camera + lock inside the expanded pane. Right-aligned and boxless — the
+  // rule this pass established is that these two sit in the surface's top part, not in an edge
+  // of their own.
+  expandedControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
   bodyOuter: { flex: 1 },
   bodyFlex: { flex: 1, paddingHorizontal: Spacing.md },
   scrollContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },

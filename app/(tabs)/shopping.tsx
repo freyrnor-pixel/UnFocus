@@ -52,8 +52,6 @@
  *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
- *             components/HintSheet (the ⓘ explanation as a bottom sheet — this screen's
- *             body was a components/HintCard until 2026-08-13; see the edit note),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
  *             in it; see that file's header for the three empty states it stays out of),
  *             components/StarterCard (first-run explainer, shown while
@@ -87,7 +85,7 @@
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
  *             lib/reorder (reorderByDrag), lib/useAppTheme, lib/prefill (usePrefill — a note
  *             sent here seeds THIS week's add row),
- *             lib/useFirstVisitHint, lib/domainColor, lib/budget (computeSpendPace),
+ *             lib/domainColor, lib/budget (computeSpendPace),
  *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
  *             store/useReceiptStore, components/NewMonthlyListRow,
  *             store/useShoppingStore (incl. UNALLOCATED_LIST_ID), @expo/vector-icons (Ionicons)
@@ -454,14 +452,19 @@
  *     as `ConfirmationBanner`'s placement below). `handleScreenScroll` clears in-flight
  *     flights on scroll since window-space coords go stale. See
  *     ANIMATION_GUIDELINES.md's "Flight / Cross-Section Travel Animations" section.
- *   - **Keyboard-avoidance (2026-07-31)**: the monthly-reset-date field (in the hint card) and
- *     the Monthly list rename field each get their own `lib/useKeyboardLift` — see that hook's
- *     doc / components/AddRow.tsx for the underlying Android `windowSoftInputMode=resize` fix.
- *   - **The ⓘ hint no longer auto-opens on first visit (2026-07-31)** — it is collapsed until
- *     tapped, like every other screen (lib/useFirstVisitHint.ts). Its body still holds the ONLY
- *     copy of the weekly-reset weekday and monthly-reset date pickers, so those are now reached
- *     by a deliberate ⓘ tap. They were deliberately left where they are: re-homing them is a
- *     separate design decision, not a side effect of this change.
+ *   - **Keyboard-avoidance (2026-07-31)**: the Monthly list rename field gets its own
+ *     `lib/useKeyboardLift` — see that hook's doc / components/AddRow.tsx for the underlying
+ *     Android `windowSoftInputMode=resize` fix. The monthly-reset-date field was the other
+ *     consumer until 2026-08-20; it lives in Settings → Personal now.
+ *   - **⚠️ There is no ⓘ hint on this screen (2026-08-20).** It had been four shapes in a
+ *     month — auto-opening first-visit card, collapsed-until-tapped card, bottom sheet, and
+ *     closable inline card — and the maintainer ended the series rather than picking a fifth:
+ *     *"The top text box can be removed"*, with tips belonging to a card's empty state. Its
+ *     sentence is on the StarterCard that renders while both list groups are empty. The two
+ *     reset-cadence pickers it used to carry had already gone to Settings → Personal on
+ *     2026-08-13; the LINK to them went with the banner, since Settings is one tap away on this
+ *     screen's own header gear and a card whose whole body is a door elsewhere is what the
+ *     original ⓘ complaint was about.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, LayoutAnimation, Modal, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -507,7 +510,6 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import KeepAwakeInStore from '@/components/KeepAwakeInStore';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
-import HintCard from '@/components/HintCard';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -515,7 +517,7 @@ import TourTarget from '@/components/TourTarget';
 import SectionRail from '@/components/SectionRail';
 import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
-import CatalogueTab from '@/components/CatalogueTab';
+import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import CardExpandButton from '@/components/CardExpandButton';
 import { useCardExpand } from '@/lib/useCardExpand';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
@@ -523,7 +525,6 @@ import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
-import { useFirstVisitHint } from '@/lib/useFirstVisitHint';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
@@ -570,17 +571,17 @@ export default function ShoppingScreen() {
   // CollapsedSection drawers; see the `foodCatalogueLinks` note below for the full shape.
   const dishesExpand = useCardExpand('shopDishes');
   const catalogueExpand = useCardExpand('shopCatalogue');
-  // Collapsed until the header ⓘ is tapped (2026-07-31 — see this file's edit note on the
-  // hint's embedded reset-cadence pickers, and lib/useFirstVisitHint.ts).
-  const [hintOpen, dismissHint] = useFirstVisitHint('shopping');
-  // Local edit buffer for the monthly reset-date field embedded in the first-run hint.
-  // Starts empty (placeholder-preview per the input UX pass); committing a valid 1–31
-  // updates the setting, leaving it blank keeps the current value.
-  // (No useKeyboardLift here since 2026-08-13: this field moved into components/HintSheet.tsx,
-  // which is a <Modal> — outside the ScrollView that hook scrolls. The sheet's own
-  // KeyboardAvoidingView does the job instead. The Monthly rename field below still uses it;
-  // that one is genuinely in the scroll content.)
-  const [monthlyDateInput, setMonthlyDateInput] = useState('');
+  // (The monthly-reset DATE field that used to live here, with its own local draft buffer and
+  // its own useKeyboardLift, is gone as of 2026-08-20 — it had already moved to Settings →
+  // Personal on 2026-08-13, and the ⓘ banner that still drew it went with the banner pass,
+  // leaving the state behind with nothing reading it. The Monthly list's RENAME field below is
+  // a different control and still uses useKeyboardLift; that one is genuinely in the scroll
+  // content.)
+  // The Katalog card's lock (2026-08-20). Owned here rather than inside components/
+  // CatalogueTab.tsx because the button that flips it is in that card's SectionCard header.
+  // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
+  // and it must never sync — a paired phone locking your catalogue is nonsense.
+  const [catalogueLocked, setCatalogueLocked] = useState(true);
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1624,14 +1625,16 @@ export default function ShoppingScreen() {
   //
   // **The tour target moved here from the old sticky tab row.** Its Shopping step is about the
   // weekly and monthly lists — "a weekly list for groceries and a monthly one for what the
-  // house needs; the weekly list starts fresh on the day you choose" — and this card's own
-  // HintCard copy says exactly that. The old anchor (the TabSlider that switched between them)
-  // is gone along with the tab switch itself.
-  // ⚠️ `HintCard noPill` returns null once dismissed (`settings.dismissedHints`), so this is
-  // NOT unconditionally mounted for a returning user who has closed it — but the guided tour
-  // only ever runs once, immediately after onboarding on a fresh install, before that hint has
-  // had a chance to be dismissed, so it's a reliable target for the one visit that matters.
-  // Don't reuse this target id assuming it's always present later in the tree.
+  // house needs; the weekly list starts fresh on the day you choose" — and the starter card
+  // below says the same thing. The old anchor (the TabSlider that switched between them) is
+  // gone along with the tab switch itself.
+  // ⚠️ **The target is CONDITIONAL, and it always was — only the condition changed
+  // (2026-08-20).** It used to hang off a dismissible intro banner that returned null once
+  // closed; that banner is deleted app-wide, and what is here now is the starter card, which
+  // renders only while the lists are empty. Either way the guided tour runs once, immediately
+  // after onboarding on a fresh install, when the lists ARE empty — so it is a reliable target
+  // for the one visit that matters. Don't reuse this target id assuming it's always present
+  // later in the tree; for a returning user with a full list there is nothing here to ring.
   const shoppingIntro = (
     <TourTarget id="tour.shopping.list">
     <>
@@ -1647,39 +1650,18 @@ export default function ShoppingScreen() {
           install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
           would suppress this for every new user. Items covers the seeded list having been
           filled in. */}
-      {/* The screen's explanation, inline and closable (2026-08-13). Maintainer: "Having the
-          info button in the header section with settings showing when you press it makes No
-          sense. Instead the instructions should be in the screen with examples like a
-          introduction part (users can of course close the card)."
-          It has now been three shapes in three weeks — an auto-opening first-visit card, a
-          collapsed-until-you-tap-ⓘ card, and (for one day) a bottom sheet — and the thing that
-          changed with this one is that closing it STICKS (settings.dismissedHints). The two
-          reset-cadence controls it used to carry are gone to Settings → Personal: a panel
-          whose contents are settings is not an explanation, which is what the ⓘ complaint was
-          about. The link row below is how you get to them from here. */}
-      <HintCard
-        text={t.hints.shopping.text}
-        open={hintOpen}
-        noPill
-        onDismiss={dismissHint}
-      >
-        <PressableScale
-          // `section` as well as `tab` (2026-08-14): `tab` alone was being dropped outright —
-          // app/settings.tsx read no route params at all — and even once read, the right tab
-          // still leaves the two reset fields inside a collapsed card. `section` opens that
-          // card and scrolls to it.
-          onPress={() => router.push('/settings?tab=personal&section=shopping')}
-          style={styles.hintSettingsLink}
-          accessibilityRole="button"
-          accessibilityLabel={t.shoppingCadenceLink}
-          scaleTo={0.97}
-        >
-          <Ionicons name="options-outline" size={16} color={theme.accent} />
-          <Text style={[styles.hintSettingsLinkLabel, { color: theme.accent }]}>{t.shoppingCadenceLink}</Text>
-        </PressableScale>
-      </HintCard>
+      {/* ⚠️ **No ⓘ banner since 2026-08-20.** It had been four shapes in a month — an
+          auto-opening first-visit card, a collapsed-until-you-tap-ⓘ card, a bottom sheet, and a
+          closable inline card — and the maintainer ended the series rather than picking a fifth:
+          *"The top text box can be removed"*, with tips belonging to a card's empty state. Its
+          sentence is on the StarterCard directly below, which is what this screen says while it
+          has nothing on it. The cadence LINK went too, not just the pickers: Settings is one tap
+          away on this screen's own header gear, and a card whose whole body is a door to another
+          screen is the thing the original ⓘ complaint was about. */}
       {lists.length === 0 && items.length === 0 && (
-        <StarterCard text={`• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`} />
+        <StarterCard
+          text={`${t.hints.shopping.text}\n• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`}
+        />
       )}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and
@@ -1734,9 +1716,19 @@ export default function ShoppingScreen() {
           icon="list"
           label={t.catalogueTabLabel}
           count={catalogCount}
-          right={<CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />}
+          // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
+          // buttons for camera and lock should be in the top part instead"*) — they were inside
+          // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
+          // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
+          // right-most thing in the header.
+          right={
+            <>
+              <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+              <CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />
+            </>
+          }
         >
-          <CatalogueTab embedded onNotify={setConfirm} onOpenFull={catalogueExpand.onExpand} />
+          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
         </SectionCard>
       </View>
     </>
