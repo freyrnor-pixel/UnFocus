@@ -240,7 +240,6 @@ function InlineTaskAdd({
   assignee?: string;
   wrapped?: boolean;
 }) {
-  const theme = useAppTheme();
   const t = useT();
   const addTask = useTaskStore((s) => s.add);
   const [value, setValue] = useState('');
@@ -280,13 +279,9 @@ function InlineTaskAdd({
     />
   );
 
-  if (wrapped) {
-    return (
-      <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: accent }]}>
-        {row}
-      </View>
-    );
-  }
+  // `wrapped` = mounted as a list's footer rather than appended under a divider. It used to
+  // also mean "draw a card around it" — see styles.addRowSlot for why that card is gone.
+  if (wrapped) return <View style={styles.addRowSlot}>{row}</View>;
   return row;
 }
 
@@ -771,7 +766,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             ))}
           </View>
         )}
-        <View style={[styles.addRowCard, { backgroundColor: theme.surface, borderColor: theme.border, borderLeftColor: wheneverHue }]}>
+        <View style={styles.addRowSlot}>
           <AddRow
             placeholder={t.newTask}
             value={wheneverInput}
@@ -1121,5 +1116,12 @@ const styles = StyleSheet.create({
   },
   doneZone: { marginTop: Spacing.sm, borderWidth: 1, borderRadius: Radius.md, padding: Spacing.sm },
   personFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginBottom: Spacing.sm },
-  addRowCard: { marginTop: Spacing.sm, paddingHorizontal: Spacing.md, borderRadius: Radius.md, borderWidth: 1, borderLeftWidth: 4 },
+  // Spacing only. It was a `theme.surface` card with a 1px border and a 4px accent left bar
+  // (2026-08-21, user report + screenshot: "text-boxes have still not been fixed"). Inside a
+  // SectionCard that drew a box around a box — the composer's own well, an outline around it,
+  // and a coloured rail down its left edge, three edges for one control — which is exactly the
+  // "no borders or separate background boxes inside of main cards" the 2026-08-18 blueprint
+  // pass deleted everywhere else. The screen's hue is already on the card's badge, the field's
+  // focus ring and its halo; it does not also need a rail. Don't re-add either.
+  addRowSlot: { marginTop: Spacing.sm },
 });
