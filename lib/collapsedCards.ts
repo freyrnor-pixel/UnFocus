@@ -90,8 +90,26 @@ export const CARD_IDS = [
   'plansWeek',
   // Habits — the whole list card, composer included.
   'habitsList',
+  // Shop — the two GROUPS (each a SectionRail over a stack of per-list cards) and the two
+  // library cards. Added 2026-08-21 for CONSISTENCY_AUDIT.md §10, *"All cards must be able to
+  // collapse and expand"*.
+  //
+  // ⚠️ The groups take an id; the per-list cards INSIDE them do not, and neither do the four
+  // week sections. That is the singleton rule below, not an oversight: a monthly list's card is
+  // drawn one per row of data, so an id built from its list id would accumulate entries for
+  // lists that no longer exist. Folding the group puts all of them away at once, which is what
+  // "collapse the Monthly lists" means anyway.
+  'shopLists',
+  'shopMonthly',
+  'shopDishes',
+  'shopCatalogue',
   // Health
   'healthWeek',
+  // Me — the Health card itself. The three cards beside it already have a size control (Habits
+  // and Notes are pad cards, which is the other mechanism; Medicine has its own fold), and this
+  // one had neither — CONSISTENCY_AUDIT.md §10. Note it is NOT the same fold as `healthWeek`
+  // one level in: this is the whole card, that is the "This week" section inside it.
+  'homeHealth',
   // Me — the Medicine card. Named for where it lives, which since 2026-08-21 is the Me tab
   // rather than inside the Health card (CONSISTENCY_AUDIT.md §11). It was 'healthMedicine'
   // until then; renaming a storage key normally re-opens that card for everyone who had folded

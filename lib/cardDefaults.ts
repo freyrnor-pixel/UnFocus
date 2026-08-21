@@ -16,6 +16,10 @@
  * | Me's Notes | `lib/padState.ts` | `'notes'` |
  * | Shop's Shopping lists | `lib/collapsedCards.ts` | `'shopLists'` |
  *
+ * "Shopping" in the instruction is the Shop tab's **Shopping lists** group — the lists you open
+ * on a trip, which is what that tab is for and what the 2026-08-21 reorder put first on it. Not
+ * Monthly (the stock list those are built from), and not the Dishes or Catalogue libraries.
+ *
  * Dependency-free, like the two modules that read it: this is evaluated in the render path of
  * every tab, so it must not be able to reach a store, the DB or the notification layer.
  *
@@ -43,7 +47,7 @@
  * Cards that `lib/collapsedCards.ts` draws open when the user has not chosen. Every other
  * `CardId` starts folded.
  */
-export const CARDS_OPEN_AT_REST: readonly string[] = ['plansToday'] as const;
+export const CARDS_OPEN_AT_REST: readonly string[] = ['plansToday', 'shopLists'] as const;
 
 /**
  * Pad surfaces that `lib/padState.ts` draws at 'preview' when the user has not chosen. Every

@@ -47,7 +47,8 @@
  * tabs-to-cards pass. Each list is ~2000 lines of window-coordinate drag/merge state and
  * flight-animation refs shared across the whole screen closure, which is a materially
  * higher-risk extraction than Food/Catalogue's — see `lib/expandableCards.ts`'s edit notes
- * (the `shopLists` id is still a disclosed, unreachable placeholder). A future pass can finish
+ * (the `shopLists` EXPAND id was removed on 2026-08-21 — see lib/expandableCards.ts; the lists
+ * group folds instead, which is what it actually needed). A future pass can finish
  * it the same way; this pass only removed the tab SWITCH.
  *
  * The "Week lists" group renders an "Unallocated" card (dish
@@ -507,6 +508,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
@@ -525,6 +527,7 @@ import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import SectionRail from '@/components/SectionRail';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
@@ -592,6 +595,11 @@ export default function ShoppingScreen() {
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
   const [catalogueLocked, setCatalogueLocked] = useState(true);
+  // The two GROUP folds (2026-08-21). The library cards below get theirs from `SectionCard`'s
+  // `collapseKey`; these two are bare `SectionRail`s over a stack of per-list cards, so they
+  // wire the hook and the chevron by hand — the same shape To-do's Week card uses.
+  const [weeklyCollapsed, toggleWeeklyCollapsed] = useCollapsedCard('shopLists');
+  const [monthlyCollapsed, toggleMonthlyCollapsed] = useCollapsedCard('shopMonthly');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1716,7 +1724,21 @@ export default function ShoppingScreen() {
   // each group the same header language as the rest of the app without adding that box.
   const weeklyGroup = (
     <>
-      <SectionRail hue={screenHue} label={t.weeklyTabLabel} count={nonTemplateLists.length || undefined} />
+      {/* ⚠️ **The GROUP folds, not the cards inside it (2026-08-21, CONSISTENCY_AUDIT.md §10:
+          "All cards must be able to collapse and expand").** A weekly list's own card is drawn
+          one per row of data, so an id built from its list id would accumulate entries for
+          lists that no longer exist — lib/collapsedCards.ts's singleton rule. Folding the group
+          puts all of them away at once, which is what "collapse the shopping lists" means.
+            This is also the one Shop group that RESTS OPEN: it is the "Shopping" in the
+          maintainer's *"All card start in closed state, except 'Today' 'Notes' and 'Shopping'"*
+          — see lib/cardDefaults.ts. */}
+      <SectionRail
+        hue={screenHue}
+        label={t.weeklyTabLabel}
+        count={nonTemplateLists.length || undefined}
+        right={<CardCollapseToggle collapsed={weeklyCollapsed} onToggle={toggleWeeklyCollapsed} cardLabel={t.weeklyTabLabel} />}
+      />
+      <Collapsible open={!weeklyCollapsed}>
 
       {true && (
         <>
@@ -2055,12 +2077,19 @@ export default function ShoppingScreen() {
         </>
       )}
 
+      </Collapsible>
     </>
   );
 
   const monthlyGroup = (
     <>
-      <SectionRail hue={screenHue} label={t.monthlyTabLabel} count={monthlyLists.length || undefined} />
+      <SectionRail
+        hue={screenHue}
+        label={t.monthlyTabLabel}
+        count={monthlyLists.length || undefined}
+        right={<CardCollapseToggle collapsed={monthlyCollapsed} onToggle={toggleMonthlyCollapsed} cardLabel={t.monthlyTabLabel} />}
+      />
+      <Collapsible open={!monthlyCollapsed}>
 
       {true && (
         <>
@@ -2386,6 +2415,7 @@ export default function ShoppingScreen() {
         </>
       )}
 
+      </Collapsible>
     </>
   );
 
@@ -2414,6 +2444,7 @@ export default function ShoppingScreen() {
           icon="fast-food"
           label={t.foodTabLabel}
           count={dishCount}
+          collapseKey="shopDishes"
           right={<CardExpandButton expanded={dishesExpand.expanded} onExpand={dishesExpand.onExpand} onCollapse={dishesExpand.onCollapse} />}
         >
           <FoodTab embedded onNotify={setConfirm} />
@@ -2426,6 +2457,7 @@ export default function ShoppingScreen() {
           icon="list"
           label={t.catalogueTabLabel}
           count={catalogCount}
+          collapseKey="shopCatalogue"
           // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
           // buttons for camera and lock should be in the top part instead"*) — they were inside
           // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is

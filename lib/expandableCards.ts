@@ -37,7 +37,21 @@
  */
 
 export const EXPANDABLE_CARD_IDS = [
-  'shopLists',
+  // 'shopLists' was here from 2026-08-20 until 2026-08-21 and is GONE, on the same rule
+  // 'homeTodo'/'homeShopping' went by: an id whose card cannot reach it is worse than no id,
+  // because it keeps a `CARD_BODIES` entry alive that nothing can open while the test pinning
+  // the two lists together goes on passing over it. It never had a `CardExpandButton` anywhere
+  // in the UI, and its registry entry was a `ComingSoonBody` — the audit's §10 finding.
+  //
+  // It is not deferred, it is declined. Shopping's lists ARE the Shop tab's primary content
+  // (they are its first group since the 2026-08-21 reorder), so a full-screen copy of them is
+  // a second rendering of the screen you are already looking at — and each list card already
+  // expands its own rows in place. What the group needed was a way to be put AWAY, which it has
+  // now: `lib/collapsedCards.ts`'s `shopLists` fold, same string, different axis.
+  //
+  // If a ⤢ is ever genuinely wanted here it needs `ShoppingListsSurface.tsx` extracted first —
+  // ~700 lines of window-coordinate drag/merge state and flight-animation refs, none of which
+  // any headless harness in this repo can exercise. Add the id back in THAT change, not before.
   'shopDishes',
   'shopCatalogue',
   // The Me tab's four cards. `homeTodo` and `homeShopping` were here until 2026-08-19 and are

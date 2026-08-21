@@ -229,6 +229,16 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xl,
     lineHeight: 30,
     fontFamily: Fonts.extrabold,
+    // ⚠️ **`flexShrink` + `minWidth: 0`, or the right-hand controls get pushed off the row**
+    // (2026-08-21). The `naming` CLUSTER carries this pair when `onLabelPress` makes it a
+    // pressable, but without that prop the badge/label/count are bare children of `row` and
+    // nothing yielded — so the Catalogue card, whose header carries four controls (camera,
+    // lock, fold, ⤢), drew its ⤢ sliced off at the card's edge the moment the fold chevron
+    // joined. `flexShrink` alone does not do it; the `minWidth: 0` is what actually lets a
+    // text box narrow below its content — AGENTS.md's wrap-audit note, learned on the task
+    // editor's title field.
+    flexShrink: 1,
+    minWidth: 0,
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   subDot: { width: 6, height: 6, borderRadius: 3 },
@@ -240,6 +250,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bold,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+    flexShrink: 1,
+    minWidth: 0,
   },
   // ⚠️ **A ROW, not a bare View (2026-08-20).** This was `{ marginLeft: 'auto' }` alone, so a
   // slot given more than one control stacked them vertically — a card header with the camera,
@@ -248,6 +260,9 @@ const styles = StyleSheet.create({
   // fold chevron and the caller's control in a row of its own; that workaround is deleted now
   // that the slot itself lays out correctly, and the fix reaches every other caller too.
   // `alignItems: 'center'` so a short control lines up with a tall one rather than stretching.
-  right: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // `flexShrink: 0` so the control cluster keeps its size and the LABEL yields instead — a
+  // stepper/icon row has no width to give, which is the rule the 2026-07-28 wrap pass settled
+  // (let the label yield, never the fixed-size control).
+  right: { marginLeft: 'auto', flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
 });
