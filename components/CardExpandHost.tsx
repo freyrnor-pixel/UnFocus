@@ -96,6 +96,8 @@ import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
 import HabitsSurface from '@/components/HabitsSurface';
 import HealthSurface from '@/components/HealthSurface';
+import MedicineSurface from '@/components/MedicineSurface';
+import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
@@ -152,6 +154,23 @@ function CatalogueExpandedBody() {
   );
 }
 
+/**
+ * Medicine, with its reminder bell kept in reach. components/HomeMedicineCard.tsx draws the bell
+ * in the card's header; expanded, the pane owns the title bar, so it is mounted above the body
+ * instead rather than dropped — a control that disappears when a card grows is a control the
+ * user has to shrink the card to reach.
+ */
+function MedicineExpandedBody() {
+  return (
+    <>
+      <View style={styles.expandedControls}>
+        <MedicineReminderBell />
+      </View>
+      <MedicineSurface />
+    </>
+  );
+}
+
 /** Placeholder shown for a body not wired up yet in this pass — never ships as final. */
 function ComingSoonBody() {
   const t = useT();
@@ -189,6 +208,10 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
+  // The pane draws its own title bar, so this entry supplies the one header control the card
+  // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
+  // switch. Same `header` slot CatalogueExpandedBody uses for the lock and camera.
+  homeMedicine: { title: (t) => t.medicine.title, Body: MedicineExpandedBody },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },

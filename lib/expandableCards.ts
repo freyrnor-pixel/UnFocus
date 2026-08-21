@@ -40,7 +40,7 @@ export const EXPANDABLE_CARD_IDS = [
   'shopLists',
   'shopDishes',
   'shopCatalogue',
-  // The Me tab's three cards. `homeTodo` and `homeShopping` were here until 2026-08-19 and are
+  // The Me tab's four cards. `homeTodo` and `homeShopping` were here until 2026-08-19 and are
   // GONE, not deferred: the To-do and Shopping preview cards left that screen when To-do took
   // the middle tab, so there is no card left for either id to belong to. An id whose card does
   // not exist is worse than no id — it keeps a `CARD_BODIES` entry alive that nothing can ever
@@ -48,6 +48,9 @@ export const EXPANDABLE_CARD_IDS = [
   'homeHabits',
   'homeNotes',
   'homeHealth',
+  // Fourth since 2026-08-21, when Medicine stopped being a card drawn inside the Health card
+  // and became a card of its own (CONSISTENCY_AUDIT.md §11, maintainer: *"Yes."*).
+  'homeMedicine',
   'todoWhenever',
   'todoToday',
   'todoWeek',

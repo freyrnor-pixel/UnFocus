@@ -1247,7 +1247,7 @@ const en = {
     // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
     // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
     manageCards: {
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health', medicine: 'Medicine' },
     },
     // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
     // "Removed": nothing is gone, it has just stopped being on duty here.
@@ -3609,7 +3609,7 @@ const no: typeof en = {
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
     manageCards: {
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse', medicine: 'Medisin' },
     },
     retired: {
       title: 'Satt bort',
@@ -5416,7 +5416,7 @@ const is: typeof en = {
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
     manageCards: {
-      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa' },
+      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa', medicine: 'Lyf' },
     },
     /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
     retired: {

@@ -530,7 +530,7 @@ const defaultLight: ThemePalette = {
   accentSoft: '#CFE0FB',
   accentInk: '#FFFFFF',
   // ── Semantic trio, darkened 2026-07-30 for WCAG AA (DESIGN_RULES.md rule 10) ──────────
-  // All three are used as *small text*, not just as fills — `theme.good` on MedicineTrayCard's
+  // All three are used as *small text*, not just as fills — `theme.good` on MedicineSurface's
   // "Taken at 08:15" and ShoppingRow's in-stock meta, `theme.bad` on error/delete labels,
   // `theme.warn` on budget-over copy. At their previous values they measured 2.69 / 3.37 /
   // 3.13 against `bg` — `good` failed even the 3:1 non-text floor, and none of the three

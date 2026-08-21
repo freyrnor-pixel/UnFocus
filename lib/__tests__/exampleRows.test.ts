@@ -289,7 +289,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     ['components/HabitsSurface.tsx', 'Habits'],
     ['components/GoalsEditor.tsx', 'the Goals drawer'],
     // 2026-08-12: the day card joined this list when its bare example gained the shared
-    // collapse trigger, and components/MedicineTrayCard left it — that card's explainer is a
+    // collapse trigger, and components/MedicineSurface left it — that card's explainer is a
     // CardHintNote now, so it mounts no StarterCard at all (asserted separately below).
     ['components/PlanTaskCard.tsx', 'the day card'],
     // 2026-08-13: Home's habits card stopped hand-rolling a label-plus-bare-cloud stand-in
@@ -356,7 +356,7 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     // (2026-08-17). Nothing was lost that the card does not already say: its own add field sits
     // directly under the header, and a tray's "window, not a deadline" framing is carried by the
     // copy on the tray rows themselves.
-    const source = code('components/MedicineTrayCard.tsx');
+    const source = code('components/MedicineSurface.tsx');
     expect(source).not.toMatch(/<StarterCard/);
     expect(source).not.toMatch(/<CardHintNote/);
   });
@@ -546,7 +546,7 @@ describe('the bulb explainer line stays deleted', () => {
     'components/PlanTaskCard.tsx',
     'components/HomeHabitsCard.tsx',
     'components/HomeNotesCard.tsx',
-    'components/MedicineTrayCard.tsx',
+    'components/MedicineSurface.tsx',
     'components/EnergyMeter.tsx',
     'components/HabitsSurface.tsx',
     'components/HealthSurface.tsx',

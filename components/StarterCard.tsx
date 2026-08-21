@@ -168,7 +168,7 @@
  *   - `children` is the optional action slot (Habits/Goals put their starter chips there).
  *     Keep it to lightweight chips — this is an explainer, not a form.
  *   - `compact` (2026-07-27) is the note-sized variant: smaller padding + type and no
- *     "EXAMPLE" caption. **As of 2026-08-12 it is CALLER-LESS** — components/MedicineTrayCard,
+ *     "EXAMPLE" caption. **As of 2026-08-12 it is CALLER-LESS** — components/MedicineSurface,
  *     its last user, moved to the shared explainer line instead, and that line was itself
  *     deleted app-wide on 2026-08-17, so that card now carries no explainer at all.
  *     Energy's compact card, the other original caller, had already become a permanent inline

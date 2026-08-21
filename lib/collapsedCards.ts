@@ -92,7 +92,17 @@ export const CARD_IDS = [
   'habitsList',
   // Health
   'healthWeek',
-  'healthMedicine',
+  // Me — the Medicine card. Named for where it lives, which since 2026-08-21 is the Me tab
+  // rather than inside the Health card (CONSISTENCY_AUDIT.md §11). It was 'healthMedicine'
+  // until then; renaming a storage key normally re-opens that card for everyone who had folded
+  // it, and here it costs nothing because the same pass empties the column outright — see
+  // lib/db.ts's "all cards start closed" migration. Don't take this as precedent for renaming
+  // an id without one.
+  //
+  // It is deliberately the same string as its lib/expandableCards.ts id: two different unions,
+  // one card, and 'shopLists' already sets that precedent. A card that folds and a card that
+  // expands are the same card.
+  'homeMedicine',
 ] as const;
 
 /** A card that can be folded away. See CARD_IDS. */

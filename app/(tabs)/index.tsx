@@ -51,7 +51,7 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/EnergyMeter (the fixed Energy strip, gated
  *             on settings.energySystemEnabled), components/HomeHabitsCard, components/HomeNotesCard,
- *             components/HomeHealthCard (each self-contained — they read their own stores and
+ *             components/HomeHealthCard, components/HomeMedicineCard (each self-contained — they read their own stores and
  *             own their own useCardExpand), components/HomeSharedCard (gated on
  *             settings.featureSharing + SHARING_VISIBLE), components/HomeCardManager,
  *             components/CardMenuSheet (the CardMenu type),
@@ -120,6 +120,7 @@ import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeHabitsCard from '@/components/HomeHabitsCard';
 import HomeHealthCard from '@/components/HomeHealthCard';
+import HomeMedicineCard from '@/components/HomeMedicineCard';
 import HomeCardManager from '@/components/HomeCardManager';
 import type { CardMenu } from '@/components/CardMenuSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -174,6 +175,9 @@ export default function HomeScreen() {
   const settingsLoaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
   const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
+  // Gates the 'medicine' card only — see `renderHomeCard`'s note on why the gate is here and
+  // not in lib/homeCards.ts.
+  const featureMedicine = useSettingsStore((s) => s.featureMedicine);
   const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
   // clearAll) so it survives pruneOldData() pruning old completed tasks — see
@@ -186,8 +190,12 @@ export default function HomeScreen() {
       notes: t.home.manageCards.kinds.notes,
       habits: t.home.manageCards.kinds.habits,
       health: t.home.manageCards.kinds.health,
+      // Omitted while the feature is off, so the Retired shelf cannot offer a card that would
+      // render as nothing — components/HomeCardManager.tsx lists whatever is in `labels` and
+      // not in `order`, so an entry here IS an offer to restore it.
+      ...(featureMedicine ? { medicine: t.home.manageCards.kinds.medicine } : {}),
     }),
-    [t]
+    [t, featureMedicine]
   );
 
   // ⚠️ **No greeting and no edit mode here since 2026-08-20** (UI-consistency pass: *"remove
@@ -267,6 +275,21 @@ export default function HomeScreen() {
         return (
           <DebugNoteAnchor id="home.healthPreview" label="Home — Health preview" style={styles.section}>
             <HomeHealthCard cardMenu={buildCardMenu('health')} />
+          </DebugNoteAnchor>
+        );
+      case 'medicine':
+        // A fourth top-level card since 2026-08-21 (CONSISTENCY_AUDIT.md §11, maintainer:
+        // *"Yes."*) — it was drawn inside HomeHealthCard's own Surface until then.
+        //
+        // ⚠️ The ONLY kind with a feature gate, and the gate is here rather than in
+        // lib/homeCards.ts: that module is dependency-free and cannot read a setting, and more
+        // importantly the stored order must keep the kind while the flag is off, so turning
+        // medicine back on restores the card exactly where the user had dragged it. Hiding a
+        // surface must never edit the data behind it.
+        if (!featureMedicine) return null;
+        return (
+          <DebugNoteAnchor id="home.medicinePreview" label="Home — Medicine" style={styles.section}>
+            <HomeMedicineCard cardMenu={buildCardMenu('medicine')} />
           </DebugNoteAnchor>
         );
       default:

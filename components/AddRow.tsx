@@ -68,7 +68,7 @@
  *             there is nothing left for the ambient screen hue to colour here)
  *   Used by → app/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
  *             components/GoalsEditor.tsx, components/FoodTab.tsx,
- *             components/MedicineTrayCard.tsx
+ *             components/MedicineSurface.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx
  *             and automations.tsx, none of which import this file: shopping uses
  *             InlineAddItem, habits uses PadTypeRow, and app/automations.tsx still exists
@@ -152,7 +152,7 @@ type Props = {
    * 2026-08-05 reset had already given to borders. This one sits ABOVE a composer that draws
    * its own border, and it is already opt-IN in practice: of ten call sites, six pass
    * `false`, and the two that keep it pass a CONDITION — `app/plans.tsx`'s `!wrapped`
-   * and `MedicineTrayCard`'s `medicines.length > 0` — i.e. it is drawn exactly when there is
+   * and `MedicineSurface`'s `medicines.length > 0` — i.e. it is drawn exactly when there is
    * a list above for the composer to be appended to, and suppressed when there isn't. That is
    * a working separator, not decoration, and neither of those two containers carries a `gap`
    * to fall back on.

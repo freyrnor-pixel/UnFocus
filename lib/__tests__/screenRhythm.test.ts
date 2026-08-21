@@ -51,7 +51,9 @@ const SCREENS = [
 const STACKED_CARDS: { file: string; style: string }[] = [
   { file: 'components/SectionCard.tsx', style: 'card' },
   { file: 'components/OpenEpisodeCard.tsx', style: 'card' },
-  { file: 'components/MedicineTrayCard.tsx', style: 'card' },
+  // components/MedicineTrayCard.tsx became the shell-less components/MedicineSurface.tsx on
+  // 2026-08-21 and no longer draws a card at all; the card is HomeMedicineCard, below.
+  { file: 'components/HomeMedicineCard.tsx', style: 'card' },
   { file: 'components/EnergyBalanceCard.tsx', style: 'card' },
   // components/HintCard.tsx was here until 2026-08-20, when the ⓘ banner was deleted app-wide.
   // Not backfilled: this list is the set of cards that actually sit in a screen-level stack,

@@ -156,7 +156,7 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   });
 
   it('passes a clean bag through unchanged', () => {
-    const bag = { habitsList: false, healthMedicine: false, plansToday: true };
+    const bag = { habitsList: false, homeMedicine: false, plansToday: true };
     expect(sanitizeCollapsedCards(bag)).toEqual(bag);
   });
 });

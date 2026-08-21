@@ -52,23 +52,47 @@
  * habits is the third thing on this screen that is about the person rather than about a list —
  * and, like Health, it has no tab of its own to fall back to. Its card is still the way in to
  * the pushed app/habits.tsx.
+ *
+ * **'medicine' joined as a fourth on 2026-08-21** (maintainer, asked whether it should:
+ * *"Yes."*). It was a full `Surface` rendered INSIDE HomeHealthCard's `Surface` — the
+ * card-in-a-card the 2026-08-18 blueprint pass banned — which is what
+ * `CONSISTENCY_AUDIT.md` §11 measured against the report *"Each thing is its own card, like
+ * medicine and Health (which they currently are not)."* It is a peer now, not a child.
+ *
+ * ⚠️ **It is the one kind gated on a feature flag** (`settings.featureMedicine`). The gate is at
+ * the RENDER site in app/(tabs)/index.tsx, never here: this module is dependency-free and cannot
+ * read a setting, and more importantly a flag that hides a surface must not also edit the stored
+ * order — turning medicine back on has to restore the card exactly where the user had dragged it.
  */
-export const HOME_CARD_KINDS = ['habits', 'notes', 'health'] as const;
+export const HOME_CARD_KINDS = ['habits', 'notes', 'health', 'medicine'] as const;
 
 export type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
+
+/**
+ * Kinds `sanitizeHomeCardOrder` puts back when a stored order is missing them — see its doc for
+ * why each one, and for the consequence (they cannot be permanently hidden). 'notes' is
+ * deliberately absent: its card previews a surface the card itself expands into, so losing it
+ * loses a shortcut rather than a feature.
+ */
+const ALWAYS_PRESENT: readonly HomeCardKind[] = ['habits', 'health', 'medicine'] as const;
 
 /**
  * Defensive parse for the persisted order: drop unknown and duplicate kinds, fall back to the
  * default order if nothing survives (a corrupt or legacy row).
  *
- * **It also APPENDS 'habits' and 'health' whenever either is missing.** Both are cards a user
- * has no other way back to — Habits' card is the only entry to the pushed habits screen, and
- * Health has no screen of its own at all — and a row written by an older build, restored from a
- * backup, or synced from a paired device can be missing either. Filtering alone would leave such
- * a card simply absent, with nothing on screen suggesting it still exists.
+ * **It also APPENDS 'habits', 'health' and 'medicine' whenever any is missing.** All three are
+ * cards a user has no other way back to — Habits' card is the only entry to the pushed habits
+ * screen, Health has no screen of its own at all, and Medicine's only other home was inside the
+ * Health card it left on 2026-08-21 — and a row written by an older build, restored from a
+ * backup, or synced from a paired device can be missing any of them. Filtering alone would leave
+ * such a card simply absent, with nothing on screen suggesting it still exists.
  *
- * ⚠️ **The consequence is that a user cannot permanently remove those two from Home**: hiding
- * one lasts until the next read. That is the deliberate trade (a lost surface is worse than an
+ * Medicine's case is the strongest of the three, and it is the one this file's central lesson was
+ * written about: EVERY stored row in existence predates it being a kind at all, so without the
+ * append the decision to promote it would have reached nobody.
+ *
+ * ⚠️ **The consequence is that a user cannot permanently remove any of the three from Home**:
+ * hiding one lasts until the next read. That is the deliberate trade (a lost surface is worse than an
  * unwanted card), and it is worth knowing before debugging a card that "comes back". 'notes' has
  * no append and can be removed for good — the Notes card is a preview of a surface the Home card
  * itself expands into, so losing it loses a shortcut, not a feature.
@@ -85,8 +109,8 @@ export function sanitizeHomeCardOrder(order: string[]): HomeCardKind[] {
     return true;
   });
   // Nothing survived the filter (empty, or every entry was a dropped/unknown kind) — the
-  // default order already contains 'habits' and 'health', so there is nothing left to append
-  // below. Checking this BEFORE the append matters: appending onto an empty array would return
+  // default order already contains every ALWAYS_PRESENT kind, so there is nothing left to
+  // append below. Checking this BEFORE the append matters: appending onto an empty array would return
   // `['health']` alone instead of falling back to the full default. It is also the ordinary
   // path for a row written before the 2026-08-19 pass whose user had removed all three
   // survivors — 'plans' and 'shopping' alone now filter down to nothing.
@@ -95,6 +119,11 @@ export function sanitizeHomeCardOrder(order: string[]): HomeCardKind[] {
   // hours on 2026-08-20). With 'plans' no longer a kind at all there is no position left to
   // restore it NEXT TO, so it is appended like 'health' — the un-fold window is years of
   // installs behind us, and the two arms had already converged on "put it back somewhere".
-  const withHabits: HomeCardKind[] = clean.includes('habits') ? clean : [...clean, 'habits'];
-  return withHabits.includes('health') ? withHabits : [...withHabits, 'health'];
+  //
+  // Medicine appends LAST of the three, which is also where it sits in the default order: it
+  // is the one card here that a user can genuinely not have (featureMedicine), so pushing it
+  // to the end keeps the three unconditional cards in a stable position for everybody.
+  const out = [...clean];
+  for (const kind of ALWAYS_PRESENT) if (!out.includes(kind)) out.push(kind);
+  return out;
 }

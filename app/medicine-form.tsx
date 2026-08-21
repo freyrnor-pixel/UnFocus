@@ -5,7 +5,7 @@
  * which trays it belongs to (or "as needed" with a minimum gap + daily cap instead), who
  * it's for (People/family mode), a note, and an active switch. Presence of an `id` route
  * param switches it into edit mode. Reminders are NOT here — they're per-tray, shared by
- * every medicine in the tray, and edited on the card itself (components/MedicineTrayCard.tsx).
+ * every medicine in the tray, and edited on the card itself (components/MedicineSurface.tsx).
  *
  * In edit mode it also shows the two things a medicine's own page is for: how often it's
  * actually been taken this week, and everything logged as "possibly from" it — the
@@ -21,7 +21,7 @@
  *             (side-effect severity dots), lib/useAppTheme, lib/medicineSchedule (TRAY_IDS),
  *             store/useMedicineStore, store/useHealthStore (attributed symptom entries),
  *             store/useSettingsStore (People-mode profiles)
- *   Used by → Expo Router route "/medicine-form"; pushed from components/MedicineTrayCard.tsx
+ *   Used by → Expo Router route "/medicine-form"; pushed from components/MedicineSurface.tsx
  *             (tapping a medicine's name) with params { id }
  *   Data    → useMedicineStore (medicines) via add/update/remove; reads its `doses` for the
  *             7-day count and useHealthStore.logs for entries whose medicineId matches

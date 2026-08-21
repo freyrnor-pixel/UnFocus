@@ -109,7 +109,7 @@
  *             `containerLayout` LinearTransition so the whole card reflows together),
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useNowMinutes (the 60s "now" tick behind the grid's now-line — shared
- *             with components/MedicineTrayCard.tsx since 2026-07-27),
+ *             with components/MedicineSurface.tsx since 2026-07-27),
  *             lib/useEnergyPause (2026-08-02 — which card "I'll decide" pinned, and the
  *             un-pin action behind its badge; see the edit note below for why this one hook
  *             is read here instead of being threaded in as a prop),
