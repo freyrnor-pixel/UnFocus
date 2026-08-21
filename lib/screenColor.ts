@@ -78,7 +78,9 @@ export type ScreenKey =
  *
  * ⚠️ **The hue NAMES below are the LIGHT palette's (2026-08-16).** The dark `feat*` octet was
  * aligned onto `IDENTITY_HUES`' five neon categoricals so a screen's pane wash and the badge on
- * it stop disagreeing — so in dark mode `plans` is amber, `habits` cyan, `health` rose,
+ * it stopped disagreeing (that wash was deleted on 2026-08-20 — a card is white glass now — but
+ * the alignment still serves the badge, the nav tab and a primary key's halo) — so in dark mode
+ * `plans` is amber, `habits` cyan, `health` rose,
  * `shopping` green, `notes` amethyst. This table is unchanged: which TOKEN a screen reads is
  * the same in both modes, only the values behind them differ. See constants/colors.ts.
  */

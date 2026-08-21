@@ -3,9 +3,10 @@
  * badge flattened 2026-07-24, re-gradiented 2026-07-26, wash DELETED 2026-07-31 — see Edit notes).
  *
  * A card borrows its identity colour from the four-hue identity set (lib/domainColor.ts), keyed to
- * its life area, and expresses it as ONE colour move: the icon BADGE. Since Tactile Glass
- * (2026-08-15) that is the LOUD half of a two-part system — the card's edge is neutral now, and
- * the quiet half is the 5% `SCREEN_TINT` wash on the pane itself (components/Surface.tsx). Action colour
+ * its life area, and expresses it as ONE colour move: the icon BADGE. As of 2026-08-20 that is the
+ * ONLY colour move a card makes: the edge has been neutral since Tactile Glass (2026-08-15), and
+ * the 5% pane wash that was its quiet half is deleted (see SCREEN_TINT's obituary in
+ * constants/theme.ts — 5% of To-do's gold read as olive over the whole card). Action colour
  * (Save=primary, Delete=danger) is deliberately NOT here — it stays constant across every card so it
  * never competes with identity colour.
  *

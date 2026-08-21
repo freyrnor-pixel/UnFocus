@@ -233,7 +233,6 @@ export default function HomeNotesCard({ cardMenu }: Props) {
     <View ref={cardExpand.ref} collapsable={false}>
     <Surface
       surfaceContext="ambient"
-      borderColor={screenColor.base}
       style={[styles.card, state !== 'open' && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>

@@ -544,7 +544,6 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
     <View ref={cardExpand.ref} collapsable={false}>
       <Surface
         surfaceContext="ambient"
-        borderColor={screenColor.base}
         style={[styles.card, state !== 'open' && styles.cardCollapsed]}
       >
         {body}

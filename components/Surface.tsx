@@ -41,9 +41,9 @@
  *
  * Connections:
  *   Imports → constants/theme (BORDER_WIDTH, darken, getGlassEdge, getGlassFill,
- *             getLayeredShadow, Radius, SCREEN_TINT), constants/motion (Travel),
- *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility), lib/screenColor
- *             (useScreenColor), lib/useDesignLab (useLabShape — the design lab's geometry,
+ *             getLayeredShadow, Radius), constants/motion (Travel),
+ *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility),
+ *             lib/useDesignLab (useLabShape — the design lab's geometry,
  *             see Edit notes), store/useSettingsStore (glassSurfaces, opaqueCards),
  *             components/PressableScale, expo-linear-gradient, expo-blur
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
@@ -53,19 +53,23 @@
  *             press lives on the header's own PressableScale. (Its predecessor
  *             SubScreenLinkButton left this list on 2026-08-08 for the same reason, and was
  *             deleted on 2026-08-10.)
- *   Data    → reads `reducedMotion` via useAccessibility(); the ambient screen hue via
- *             useScreenColor() (provided by components/ScreenScaffold.tsx)
+ *   Data    → reads `reducedMotion` via useAccessibility(). It no longer reads the ambient
+ *             screen hue at all (useScreenColor left this file on 2026-08-20 with the wash).
  *
  * Edit notes:
- *   - **The EDGE is neutral on every screen; the screen's colour is a WASH on the pane.** This
- *     is the 2026-08-15 ruling and it inverts what this note said for the ten days before it.
- *     `theme.border` is the edge in every mode and on every screen. The identity hue resolves
- *     `borderColor` (an explicit override — Home's preview cards pass their source screen's
- *     hue this way) → `tint` → the ambient screen hue from lib/screenColor.ts, and is painted
- *     as a `SCREEN_TINT` (5%) layer inside the mask. Home and Settings supply no hue on
- *     purpose and get no wash at all. lib/screenColor.ts is NOT retired by this — it was
- *     retired once before, in 2026-07-31's addendum A.5, precisely for having no consumers,
- *     and it has two here (this wash and the icon badge).
+ *   - **A CARD IS WHITE GLASS. It carries no screen colour at all (2026-08-20).** The edge is
+ *     `theme.border` in every mode and on every screen (2026-08-15), and the 5% identity-hue
+ *     wash that ruling moved onto the pane is now deleted too — see the block at the fill, and
+ *     `SCREEN_TINT`'s obituary in constants/theme.ts, for why the ladder's brightest rung is
+ *     what killed it. The `borderColor` PROP went with it: its whole job was feeding that wash
+ *     a hue, and a prop that resolves to nothing drawn is worse than no prop. Home's preview
+ *     cards, which were its one legitimate caller, still read as belonging to their source
+ *     screen — they pass the same hue to `CardAccentBadge accentOverride` and to their count
+ *     Badge, which is where a card's identity has been loud since 2026-08-15.
+ *   - **A coloured card edge was exported and rejected in the same pass**, so it is not the
+ *     obvious next thing to try. It also cannot simply be a colour in the ramp: the ring is a
+ *     full-area gradient behind a translucent mask, so a saturated hue in it washes the pane
+ *     instead of edging it.
  *   - **The edge simulates a light source, deliberately.** That is the direct reversal of the
  *     2026-08-05 flat-rim pass, whose stated reason was that a border should not. It is the
  *     brief's central image ("an old UI trick… it perfectly simulates a light source hitting
@@ -152,15 +156,11 @@ import {
   getGlassFill,
   getLayeredShadow,
   Radius,
-  SCREEN_TINT,
-  CARD_GLASS_VARIANT,
-  rgba,
 } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLabShape } from '@/lib/useDesignLab';
 import { Travel } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
 import PressableScale from '@/components/PressableScale';
 
 /**
@@ -174,13 +174,6 @@ type Props = {
   surfaceContext?: SurfaceContext;
   /** Non-default FILL base (e.g. theme.offWhite for an empty state). Opaque. */
   tint?: string;
-  /**
-   * Overrides the border hue, winning over the ambient screen hue. The one legitimate use is
-   * a card that belongs to a DIFFERENT screen than the one it is drawn on — Home's preview
-   * cards, which wear their source screen's colour so Home reads as an index of the others.
-   * A card on its own screen should pass nothing and inherit.
-   */
-  borderColor?: string;
   /** Boosts this card's shadow to the `floating` tier — the focus/active pop. */
   elevated?: boolean;
   /**
@@ -269,7 +262,6 @@ const OWNED_KEYS = new Set([
 export default function Surface({
   surfaceContext = 'ambient',
   tint,
-  borderColor,
   elevated,
   onPress,
   onLongPress,
@@ -281,7 +273,6 @@ export default function Surface({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const screenHue = useScreenColor();
   const { reducedMotion } = useAccessibility();
   const isKey = !!onPress;
   // Reduced motion gets a static pressed COLOUR instead of a sink — travel is motion, and
@@ -331,17 +322,24 @@ export default function Surface({
   const fill = staticPressed
     ? theme.surfaceMuted
     : tint ?? getGlassFill(glassFill, opaqueFill, glassOn);
-  // ── Where the screen's colour went ──────────────────────────────────────────────────────
-  // The 2026-08-15 ruling took the identity hue OFF the card edge, which is now neutral in
-  // every screen. It did not delete lib/screenColor.ts: the hue moved into this faint
-  // `SCREEN_TINT` wash over the pane, and into the icon badge (lib/domainColor.ts), which is
-  // the loud half. `borderColor`/`tint` still override, so Home's preview cards keep passing
-  // their SOURCE screen's hue and still read as belonging to that screen.
-  const hueForCard = borderColor ?? tint ?? screenHue;
-  // PREVIEW SCAFFOLDING — see CARD_GLASS_VARIANT in constants/theme.ts. 'hue' is what ships;
-  // both white variants drop the wash so the pane is plain glass and the colour lives in the
-  // badge/keys only.
-  const tintHue = CARD_GLASS_VARIANT === 'hue' ? hueForCard : undefined;
+  // ── The pane carries NO screen colour (2026-08-20) ──────────────────────────────────────
+  // A card is plain white glass on every screen. What used to be here was the 2026-08-15
+  // ruling's other half: the identity hue, taken off the edge and repainted as a 5%
+  // `SCREEN_TINT` wash across the whole pane. It failed on the brightest rung of the ladder —
+  // 5% of To-do's gold `#FFD700` over `#000000` composites to olive, and it covers the card
+  // rather than marking it, so the tab whose hue is most visible was the tab whose cards
+  // looked dirtiest. Maintainer, against three exported builds: *"I do not like the yellow
+  // card glass look. White glass with color elements might be better."*
+  //   The hue is not gone from the screen, only from the pane: the icon badge
+  // (lib/domainColor.ts) was always the LOUD half and is untouched, and the composer's focus
+  // ring, the primary key's halo and the active nav tab all still wear it. What this gives up
+  // is the quiet half — a card no longer says which screen it is on when nothing else on it
+  // does — and that is the accepted trade, not an oversight.
+  //   A coloured card EDGE was exported beside this and rejected in the same pass. It is not
+  // the cheap version of this change to fall back on: the edge is a `LinearGradient` ring
+  // sitting BEHIND a translucent mask, so a saturated hue in it bleeds across the whole pane
+  // exactly like the wash did (measured, not reasoned about — the first export drew a fully
+  // gold card). Drawing it as a real border instead works, and was still a no.
   // The edge is neutral in every mode and on every screen — see getGlassEdge's doc. Its shade
   // stop is plain `border` at full strength, which is what carries WCAG 1.4.11's 3:1 now that
   // rule 10b has relaxed the bg↔surface fill step.
@@ -353,18 +351,7 @@ export default function Surface({
   // exactly what the card shipped with, so this is inert until the lab is used.
   const shape = useLabShape();
   const edgeWidth = shape.borderCardWidth * shape.borderScale;
-  // PREVIEW SCAFFOLDING. The ring is a full-area gradient sitting BEHIND a translucent mask, so
-  // a saturated hue in it bleeds through the whole pane rather than reading as an edge — which
-  // is exactly what the first 'white-edge' export showed. A single flat colour needs no gradient
-  // (that plumbing exists to blend TWO colours round a corner), so the hued edge is drawn as a
-  // real border on the ring view and the gradient underneath is left fully transparent.
-  const huedEdge = CARD_GLASS_VARIANT === 'white-edge' && hueForCard ? hueForCard : null;
-  const ramp = huedEdge
-    ? { colors: ['#00000000', '#00000000'] as const, locations: [0, 1] as const }
-    : getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
-  const huedEdgeStyle = huedEdge
-    ? { padding: 0, borderWidth: edgeWidth, borderColor: rgba(huedEdge, isDark ? 0.85 : 0.7) }
-    : null;
+  const ramp = getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
   const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
 
   const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
@@ -495,7 +482,6 @@ export default function Surface({
             borderBottomRightRadius: bottomRightRadius,
             padding: edgeWidth,
           },
-          huedEdgeStyle,
         ]}
       >
         <View
@@ -551,16 +537,6 @@ export default function Surface({
               intensity={isAmbient ? BLUR_AMBIENT : BLUR_STRONG}
               tint={isDark ? 'dark' : 'light'}
               style={StyleSheet.absoluteFill}
-              pointerEvents="none"
-            />
-          ) : null}
-          {/* The screen's identity, at the weight a pane can carry without competing with its
-              own content. Painted as its own layer rather than mixed into `fill` because a hue
-              cannot be mixed into an rgba() string — and because as a separate layer it
-              composites the same whether the fill under it is glass or opaque. */}
-          {tintHue ? (
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: tintHue, opacity: SCREEN_TINT }]}
               pointerEvents="none"
             />
           ) : null}

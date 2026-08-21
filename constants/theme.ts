@@ -1007,14 +1007,25 @@ export function getGlassFill(glass: string, opaque: string, enabled: boolean): s
 }
 
 /**
- * How much of the screen's identity hue a glass pane carries. 5% — enough to read as "this
- * screen is the green one" when two are compared, not enough to be seen as colour when one is
- * looked at alone. This is where `lib/screenColor.ts` went after the 2026-08-15 ruling took hue
- * off the card edge; it is the QUIET half of the screen's identity, and the icon badge
- * (lib/domainColor.ts) is the loud one. Raising it re-creates the exact problem the ruling
- * solved — a differently-coloured card on a single-colour screen.
+ * **`SCREEN_TINT` is DELETED (2026-08-20) and the pane carries no hue at all.**
+ *
+ * It was 5% of the screen's identity hue, painted over the whole glass pane by
+ * components/Surface.tsx — the QUIET half of the 2026-08-15 ruling that took colour off the
+ * card edge, with the icon badge (lib/domainColor.ts) as the loud half.
+ *
+ * What killed it is the 2026-08-17 lightness ladder, not the idea. The top rung is To-do's gold
+ * `#FFD700`, and 5% of it over `#000000` composites to a flat olive across the entire card, so
+ * the screen whose hue is the most visible in the set was the screen whose cards read as dirty:
+ * *"I do not like the yellow card glass look. White glass with color elements might be better."*
+ * A wash is the one place a hue's own lightness cannot be compensated for — the alpha is shared
+ * by all five, and dropping it far enough for gold leaves the other four invisible.
+ *
+ * lib/screenColor.ts is NOT retired by this, which is the trap worth naming: it was retired once
+ * before (2026-07-31, addendum A.5) precisely for having no consumers, and it still has several
+ * — the icon badge, a primary key's halo, the active nav tab, a field's focus ring. What it no
+ * longer has is a consumer that paints a whole surface. Don't re-add one at a lower alpha; the
+ * badge is where a screen says which screen it is.
  */
-export const SCREEN_TINT = 0.05;
 
 /**
  * **A key's FACE is deleted (2026-08-17, "no glossy plastic").** `KEY_FACE_STOPS`,
@@ -1261,32 +1272,3 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
   ];
 }
 
-// ─── PREVIEW SCAFFOLDING (2026-08-20, "white glass" question) ───────────────────────────
-// Temporary three-way switch so the same build can be exported once per look and compared in
-// screenshots. NOT a shipped setting — whichever look wins is written into components/
-// Surface.tsx directly and this constant is deleted with the losers.
-//   'hue'        — what ships today: a 5% SCREEN_TINT wash of the screen's identity hue on the
-//                  pane, neutral edge. On the To-do tab that hue is gold, which is the yellow
-//                  the maintainer is objecting to.
-//   'white'      — no wash at all. The pane is the plain white glass; colour survives only in
-//                  the badge glyph, the composer's focus ring and the action keys.
-//   'white-edge' — 'white', plus the card's edge drawn in the screen's hue instead of the white
-//                  top-left lip, so the colour outlines the card rather than filling it.
-export type CardGlassVariant = 'hue' | 'white' | 'white-edge';
-export const CARD_GLASS_VARIANT: CardGlassVariant = 'hue';
-
-/**
- * The coloured-card-edge recipe for the `'white-edge'` preview above. Same diagonal ring and
- * same fade-to-nothing shape `getGlassEdge` draws for a dark card, with the hue standing in for
- * the white lip — and at a much higher alpha, since 0.16 of a saturated hue on black reads as
- * nothing where 0.16 of white reads as a lit edge.
- */
-export function getHuedGlassEdge(hue: string, isDark: boolean, strength: number = 1): RimGradient {
-  const lit = (isDark ? 0.62 : 0.7) * strength;
-  return {
-    colors: [rgba(hue, lit), rgba(hue, lit * 0.45), rgba(hue, isDark ? 0 : lit * 0.2)],
-    locations: [0, 0.4, 1],
-    start: { x: 0, y: 0 },
-    end: { x: 1, y: 1 },
-  };
-}
