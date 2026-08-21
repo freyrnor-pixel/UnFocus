@@ -393,7 +393,19 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const t = useT();
   const full = !section;
 
-  const wheneverHue = getScreenColor(theme, 'plans').base;
+  // The To-do screen's own categorical hue — gold (`featTask`, IDENTITY_HUES.todo). EVERY rail
+  // on this surface takes it.
+  //
+  // ⚠️ **`theme.accent` is NOT this screen's colour and never was (2026-08-21).** It is the app's
+  // generic blue `#1E88FF`; the screen is `#FFD700`. Today, Week and the seven weekday sections
+  // passed the blue, so their dot and their hairline were blue on a gold screen — visible in the
+  // Today card as a blue rule sitting directly above its own gold-ringed composer, with a gold
+  // badge on the other side of it. Colour is this app's section-navigation channel
+  // (CONSISTENCY_AUDIT.md §16), so a card wearing the wrong one is not a small mismatch.
+  // `accent={...}` props passed to the rows and composers below are a different question and are
+  // deliberately untouched here.
+  const screenHue = getScreenColor(theme, 'plans').base;
+  const wheneverHue = screenHue;
   const repeatingHue = getDomainColor(theme, 'health').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
@@ -841,7 +853,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   ) : undefined;
   // Same badge/glyph pairing as Week and Whenever — see the Week card's rail below for why the
   // glyph carries the distinction and the hue does not.
-  const todayHeader = <SectionRail hue={theme.accent} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} right={todayExpandButton} />;
+  const todayHeader = <SectionRail hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} right={todayExpandButton} />;
 
   const todayCard = showToday && (
     <View ref={todayExpand.ref} key="today">
@@ -906,7 +918,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         ) : (
           // No `todayHeader` here — this card's OWN rail is the header, and it already says
           // "Today". The floating one above made this the single layout that said it twice.
-          <SectionCard hue={theme.accent} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
+          <SectionCard hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}
@@ -960,7 +972,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           BE a SectionCard: its body is seven embedded ones, and its `Collapsible` has to wrap
           that stack rather than a single content view. */}
       <SectionRail
-        hue={theme.accent}
+        hue={screenHue}
         // ⚠️ **A badge and a count, like its three peers (2026-08-21, CONSISTENCY_AUDIT.md §2's
         // *"some have icon while others not"*).** The rail conversion above fixed the ANATOMY
         // and left the arguments alone, so this card went on drawing a bare 10px dot and no
@@ -987,7 +999,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             <SectionCard
               key={group.date}
               embedded
-              hue={theme.accent}
+              hue={screenHue}
               label={t.dayFull[i]}
               count={group.tasks.length}
               collapsed={collapsedWeekdays.has(group.date)}

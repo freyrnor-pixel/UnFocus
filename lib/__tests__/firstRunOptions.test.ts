@@ -121,6 +121,22 @@ describe('invariant 2: no pick can produce an invalid state', () => {
     expect(layout).toMatch(/unstable_settings = \{ initialRouteName: START_TAB_ROUTE \}/);
   });
 
+  test('a cold start is redirected to the start tab, exactly once', () => {
+    // ⚠️ **`initialRouteName` does not decide where a launch lands, and the audit's §4 fix set
+    // only that.** expo-router builds navigation state from the URL; a cold start's URL is `/`,
+    // which is `app/(tabs)/index.tsx` — the Me tab. So the app went on opening on Me while both
+    // constants above said `plans`, and every test here passed. The redirect in `app/_layout.tsx`
+    // is what actually implements the requirement, and it has to be one-shot: `/` is also where
+    // the Me TAB navigates, so a standing redirect would bounce the user off it on every tap.
+    const root = readFileSync(join(__dirname, '..', '..', 'app', '_layout.tsx'), 'utf8');
+    const code = root.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).toMatch(/router\.replace\(START_TAB_ROUTE_PATH\)/);
+    // The one-shot latch, and the index-route test that scopes it to a launch rather than to
+    // every visit to `/`.
+    expect(code).toMatch(/landedOnStartTab\.current = true/);
+    expect(code).toMatch(/segments\.length > 1/);
+  });
+
   test('nothing reads settings.startScreen any more', () => {
     // The column and the Settings field survive (this repo never drops columns), but no surface
     // may consume them: a picker that governs launch while being hidden at first run is exactly
