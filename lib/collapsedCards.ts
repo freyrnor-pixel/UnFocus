@@ -80,9 +80,7 @@ import { CARDS, CARD_KEYS, CardKey, cardSpec } from '@/lib/cardRegistry';
  * re-opens that card for everyone who had collapsed it. See the registry's own note about the
  * `plans*` → `todo*` rename and the migration that came with it.
  */
-export const CARD_IDS = CARD_KEYS.filter((k) => cardSpec(k).fold === 'persisted') as ReadonlyArray<
-  Extract<CardKey, { [K in CardKey]: (typeof CARDS)[K]['fold'] extends 'persisted' ? K : never }[CardKey]>
->;
+export const CARD_IDS = CARD_KEYS.filter((k) => cardSpec(k).fold === 'persisted') as readonly CardId[];
 
 /** A card that can be folded away. Derived: the registry keys with `fold: 'persisted'`. */
 export type CardId = { [K in CardKey]: (typeof CARDS)[K]['fold'] extends 'persisted' ? K : never }[CardKey];

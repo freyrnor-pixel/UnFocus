@@ -106,13 +106,11 @@ export default function Card({ id, count, controls, embedded, contentStyle, chil
       // for exactly this since 2026-08-10; wiring it here means every expandable card gets it,
       // rather than the four that remembered.
       onLabelPress={expands ? expand.onExpand : undefined}
-      controls={
-        <>
-          {controls}
-          {expands && (
-            <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} />
-          )}
-        </>
+      controls={controls}
+      afterFold={
+        expands ? (
+          <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} />
+        ) : null
       }
     >
       {children}
@@ -137,11 +135,15 @@ type ShellProps = {
   label: string;
   count?: number | { left: number; total: number };
   onLabelPress?: () => void;
-  /** Everything that goes right of the title, in the order it should appear. */
+  /** The caller's own header controls — drawn first, before the fold. */
   controls?: React.ReactNode;
+  /** Drawn after the fold, i.e. outermost. The ⤢, and nothing else. */
+  afterFold?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   embedded?: boolean;
+  /** Which rung of the heading ladder this card's title is. See SectionRail's `tier`. */
+  tier?: 'card' | 'sub';
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   children: React.ReactNode;
@@ -163,9 +165,11 @@ export function CardShell({
   count,
   onLabelPress,
   controls,
+  afterFold,
   collapsed,
   onToggleCollapse,
   embedded = false,
+  tier = 'card',
   style,
   contentStyle,
   children,
@@ -182,22 +186,28 @@ export function CardShell({
       badgeHue={badgeHue}
       label={label}
       count={count}
+      // The middle rung of the heading ladder: 20 with a badge. A card is not a group heading
+      // (24, no badge) and not a section inside one (17, a dot) — see SectionRail's `tier`.
+      tier={tier}
       onLabelPress={onLabelPress}
       // The hairline follows the BODY: the rule is what ties a header to the content under it,
       // so a folded card drawing one draws it over nothing.
       divider={!isClosed}
       right={
-        folds ? (
-          <>
-            {/* Fold BEFORE the caller's own controls is what SectionCard shipped; the caller
-                passes ⤢ last, so the pair still reads "how much of this" then "how big is
-                this". Both are inserted here so no call site can reorder them. */}
+        <>
+          {/* ⚠️ **The caller's own controls, then the fold, then the ⤢ — always.** The rule has
+              been stated in five files since 2026-08-20 and `SectionCard` implemented the
+              opposite, putting the chevron first: the Katalog card came out `fold → camera →
+              lock → ⤢` where the rule asks for `camera → lock → fold → ⤢`. Correcting it used
+              to mean moving the chevron on every card at once, which is why it was pinned as-is
+              rather than fixed. There is one place to correct now. The pair reads "how much of
+              this", then "how big is this", and the ⤢ lands in the card's actual corner. */}
+          {controls}
+          {folds && (
             <CardCollapseToggle collapsed={!!collapsed} onToggle={onToggleCollapse!} cardLabel={label} />
-            {controls}
-          </>
-        ) : (
-          controls
-        )
+          )}
+          {afterFold}
+        </>
       }
     />
   );
@@ -211,6 +221,18 @@ export function CardShell({
     </Shell>
   );
 }
+
+/**
+ * The fold chevron, for the one thing that is NOT a card: a SECTION drawn one-per-row of user
+ * data (components/WeekListCard.tsx's per-list card, and the monthly-list card beside it).
+ *
+ * The registry cannot name those — an id built from a list id accumulates entries for lists that
+ * no longer exist, which is lib/collapsedCards.ts's singleton rule — so their fold is local
+ * state and they cannot go through `Card`. This is the one door out of the import ban, and it is
+ * named for what it is so a card header cannot reach for it by mistake. **There is deliberately
+ * no matching export for the ⤢**: a section rides its parent card's.
+ */
+export { default as SectionFoldToggle } from '@/components/CardCollapseToggle';
 
 const styles = StyleSheet.create({
   // No vertical margin: the screen's content container owns the gap between stacked cards

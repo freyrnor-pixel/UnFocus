@@ -57,12 +57,13 @@ describe('defaultCollapsed — one short exception list', () => {
     }
   });
 
-  // "Everything starts closed" is only true as a sentence while this stays short. A fourth
-  // entry is a maintainer decision, and it should cost a failing test to make it. The pad
-  // surfaces' own two exceptions live in lib/padState.ts and are counted by its own test.
+  // "Everything starts closed" is only true as a sentence while this stays short. THREE is the
+  // number the maintainer named — Today, Notes and Shopping — and a fourth is a decision that
+  // should cost a failing test to make. It briefly read 2 here, while Notes' exception was
+  // still spelled in lib/padState.ts's list rather than in the registry.
   it('excepts no more cards than the maintainer named', () => {
     const excepted = CARD_KEYS.filter((k) => cardSpec(k).openAtRest);
-    expect(excepted.length).toBeLessThanOrEqual(2);
+    expect(excepted.length).toBeLessThanOrEqual(3);
   });
 });
 

@@ -508,7 +508,6 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
-import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
@@ -526,13 +525,10 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
+import Card from '@/components/Card';
 import SectionRail from '@/components/SectionRail';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
-import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
-import CardExpandButton from '@/components/CardExpandButton';
-import { useCardExpand } from '@/lib/useCardExpand';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import { success, heavy, warning } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -582,8 +578,6 @@ export default function ShoppingScreen() {
 
   // Full-screen expansion (2026-08-20) — Dishes and Catalogue are peer cards now, not
   // CollapsedSection drawers; see the `foodCatalogueLinks` note below for the full shape.
-  const dishesExpand = useCardExpand('shopDishes');
-  const catalogueExpand = useCardExpand('shopCatalogue');
   // (The monthly-reset DATE field that used to live here, with its own local draft buffer and
   // its own useKeyboardLift, is gone as of 2026-08-20 — it had already moved to Settings →
   // Personal on 2026-08-13, and the ⓘ banner that still drew it went with the banner pass,
@@ -595,11 +589,6 @@ export default function ShoppingScreen() {
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
   const [catalogueLocked, setCatalogueLocked] = useState(true);
-  // The two GROUP folds (2026-08-21). The library cards below get theirs from `SectionCard`'s
-  // `collapseKey`; these two are bare `SectionRail`s over a stack of per-list cards, so they
-  // wire the hook and the chevron by hand — the same shape To-do's Week card uses.
-  const [weeklyCollapsed, toggleWeeklyCollapsed] = useCollapsedCard('shopLists');
-  const [monthlyCollapsed, toggleMonthlyCollapsed] = useCollapsedCard('shopMonthly');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -1724,29 +1713,20 @@ export default function ShoppingScreen() {
   // nested panel the 2026-08-18 blueprint pass banned. `components/SectionRail.tsx` alone gives
   // each group the same header language as the rest of the app without adding that box.
   const weeklyGroup = (
-    <>
-      {/* ⚠️ **The GROUP folds, not the cards inside it (2026-08-21, CONSISTENCY_AUDIT.md §10:
-          "All cards must be able to collapse and expand").** A weekly list's own card is drawn
-          one per row of data, so an id built from its list id would accumulate entries for
-          lists that no longer exist — lib/collapsedCards.ts's singleton rule. Folding the group
-          puts all of them away at once, which is what "collapse the shopping lists" means.
-            This is also the one Shop group that RESTS OPEN: it is the "Shopping" in the
-          maintainer's *"All card start in closed state, except 'Today' 'Notes' and 'Shopping'"*
-          — see lib/cardRegistry.ts's openAtRest. */}
-      {/* Badge + a rule that follows the fold, same as every other group header (2026-08-21,
-          CONSISTENCY_AUDIT.md §2). Both Shop groups sit on the screen hue, so `badgeHue` keeps
-          badge, divider and card agreeing and the GLYPH is what tells the two apart. */}
-      <SectionRail
-        hue={screenHue}
-        domain="shop"
-        badgeHue
-        label={t.weeklyTabLabel}
-        count={nonTemplateLists.length || undefined}
-        divider={!weeklyCollapsed}
-        right={<CardCollapseToggle collapsed={weeklyCollapsed} onToggle={toggleWeeklyCollapsed} cardLabel={t.weeklyTabLabel} />}
-      />
-      <Collapsible open={!weeklyCollapsed}>
-
+    // ⚠️ **A `Card`, not a bare rail over loose cards (2026-08-21).** Shop drew ~12 top-level
+    // `Surface`s: two group headers sitting on the backdrop with a stack of per-list cards under
+    // each, plus the two library cards. The registry's boundary settles it — a CARD is a thing
+    // the registry names, a SECTION is drawn one-per-row-of-user-data — so the group is the
+    // card and each list inside it is a section. That is also how "every card has a ⤢" is
+    // reached here: mostly by shrinking the set of cards, not by adding buttons.
+    //
+    // The GROUP folds, not the lists inside it: a list's card is drawn one per row of data, so
+    // an id built from its list id would accumulate entries for lists that no longer exist —
+    // lib/collapsedCards.ts's singleton rule.
+    //
+    // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
+    // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
+    <Card id="shopLists" count={nonTemplateLists.length || undefined}>
       {true && (
         <>
           {unsavedListCount > 0 && (
@@ -2084,23 +2064,11 @@ export default function ShoppingScreen() {
         </>
       )}
 
-      </Collapsible>
-    </>
+    </Card>
   );
 
   const monthlyGroup = (
-    <>
-      <SectionRail
-        hue={screenHue}
-        domain="plan"
-        icon="calendar"
-        badgeHue
-        label={t.monthlyTabLabel}
-        count={monthlyLists.length || undefined}
-        divider={!monthlyCollapsed}
-        right={<CardCollapseToggle collapsed={monthlyCollapsed} onToggle={toggleMonthlyCollapsed} cardLabel={t.monthlyTabLabel} />}
-      />
-      <Collapsible open={!monthlyCollapsed}>
+    <Card id="shopMonthly" count={monthlyLists.length || undefined}>
 
       {true && (
         <>
@@ -2426,13 +2394,12 @@ export default function ShoppingScreen() {
         </>
       )}
 
-      </Collapsible>
-    </>
+    </Card>
   );
 
   const foodCatalogueLinks = (
     <>
-      <View ref={dishesExpand.ref} collapsable={false}>
+      <View>
         {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
             2026-08-21).** Maintainer: *"Dishes color coding is weak/pale"* and *"color coding
             must be based on visual navigation."* Both were true, and the cause was not the
@@ -2448,20 +2415,11 @@ export default function ShoppingScreen() {
               `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
             rather than the aliased domain colour. The CARD's edge is untouched and still the
             screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
-        <SectionCard
-          hue={getScreenColor(theme, 'food').base}
-          badgeHue
-          domain="meal"
-          icon="fast-food"
-          label={t.foodTabLabel}
-          count={dishCount}
-          collapseKey="shopDishes"
-          right={<CardExpandButton expanded={dishesExpand.expanded} onExpand={dishesExpand.onExpand} onCollapse={dishesExpand.onCollapse} />}
-        >
+        <Card id="shopDishes" count={dishCount}>
           <FoodTab embedded onNotify={setConfirm} />
-        </SectionCard>
+        </Card>
       </View>
-      <View ref={catalogueExpand.ref} collapsable={false}>
+      <View>
         {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
             (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
             lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
@@ -2471,26 +2429,17 @@ export default function ShoppingScreen() {
             guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
               The count rule (AGENTS.md: *"a size yes, a score no"*) governs what a count may
             MEAN, not that every card owes one. */}
-        <SectionCard
-          hue={screenHue}
-          domain="shop"
-          icon="list"
-          label={t.catalogueTabLabel}
-          collapseKey="shopCatalogue"
+        <Card
+          id="shopCatalogue"
           // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
           // buttons for camera and lock should be in the top part instead"*) — they were inside
           // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
           // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
           // right-most thing in the header.
-          right={
-            <>
-              <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
-              <CardExpandButton expanded={catalogueExpand.expanded} onExpand={catalogueExpand.onExpand} onCollapse={catalogueExpand.onCollapse} />
-            </>
-          }
+          controls={<CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />}
         >
           <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
-        </SectionCard>
+        </Card>
       </View>
     </>
   );

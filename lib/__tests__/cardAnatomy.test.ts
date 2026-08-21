@@ -74,9 +74,9 @@ const CHEVRON_ALLOWED: Record<string, string> = {
   // ── KEEP: the shared implementations, and controls on a different axis ──────────────────
   'components/CardCollapseToggle.tsx': 'KEEP — the shared fold control itself.',
   'components/AnimatedChevron.tsx': 'KEEP — the glyph primitive CardCollapseToggle is built from.',
-  'components/CollapsedSection.tsx':
-    'KEEP — the sub-screen drawer, and the control CardCollapseToggle was generalised FROM. Its '
-    + 'header carries two tap targets by instruction (2026-08-10), so it owns its own chevron box.',
+  // components/CollapsedSection.tsx was here — the sub-screen drawer, and the control
+  // CardCollapseToggle was generalised FROM. It is DELETED (2026-08-21): its drawers are
+  // ordinary cards now, so the two-tap-target header exception it carried is gone with it.
   'components/PadFooterToggle.tsx':
     'KEEP — the pad-state control (closed/preview/open), which is a DIFFERENT axis from '
     + 'collapsedCards. It sits at the card foot with a count label — a documented divergence.',
@@ -120,12 +120,33 @@ const CHEVRON_ALLOWED: Record<string, string> = {
 const drawsFoldChevron = (rel: string) =>
   /<AnimatedChevron\b/.test(code(rel)) || /chevron-(up|down)\b/.test(code(rel));
 
+/**
+ * ⚠️ **The ban, and why it replaces every list in this file eventually (2026-08-21).**
+ *
+ * Everything else here scans an ALLOWLIST: the cards that are already right. That shape cannot
+ * catch the card nobody wrote down, which is how the app reached 13 trailing-control orders with
+ * a green suite. A card's fold and its ⤢ are now built in exactly one file, so this is one
+ * assertion and it makes a fourteenth order unspellable rather than merely discouraged.
+ */
+describe('the fold and the full-screen button are built in one file', () => {
+  it('nothing outside components/Card.tsx imports either control', () => {
+    const offenders = sourceFiles().filter((rel) => {
+      if (rel === 'components/Card.tsx') return false;
+      // CardExpandHost draws the expanded pane's own close button, which is the OTHER end of the
+      // same gesture rather than a card header control — it has no card to sit in.
+      if (rel === 'components/CardExpandHost.tsx') return false;
+      return /from '@\/components\/(CardCollapseToggle|CardExpandButton)'/.test(code(rel));
+    });
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe('the fold control is one component', () => {
   const files = sourceFiles();
 
   it('the walk reaches the app (guards against an empty pass)', () => {
     expect(files.length).toBeGreaterThan(100);
-    expect(files).toContain('components/SectionCard.tsx');
+    expect(files).toContain('components/Card.tsx');
   });
 
   it('no NEW file hand-rolls a fold chevron', () => {
@@ -238,7 +259,7 @@ describe('the full-screen button is last in the header', () => {
    * every surface. It is stated in five files. `SectionCard` is where it has to be TRUE, because
    * that is the component every conforming card inherits it from.
    */
-  it('the fold and the ⤢ are built in one file, and the caller\'s slot comes last', () => {
+  it('the cluster is the caller\'s controls, then the fold, then the ⤢', () => {
     // ⚠️ **This used to pin what `SectionCard` DID rather than what the rule says**, on the
     // reasoning that correcting it moved the chevron on every card at once and so belonged with
     // the header-convergence pass. This is that pass. The cluster is assembled in exactly one
@@ -248,7 +269,9 @@ describe('the full-screen button is last in the header', () => {
       slot.includes('CardCollapseToggle'),
     );
     expect(slots).toHaveLength(1);
-    expect(slots[0].indexOf('{controls}')).toBeGreaterThan(slots[0].indexOf('CardCollapseToggle'));
+    // The rule, not what SectionCard used to do: caller's own controls → fold → ⤢.
+    expect(slots[0].indexOf('{controls}')).toBeLessThan(slots[0].indexOf('CardCollapseToggle'));
+    expect(slots[0].indexOf('{afterFold}')).toBeGreaterThan(slots[0].indexOf('CardCollapseToggle'));
   });
 
   it('SectionRail lays its right slot out as a ROW, not a column', () => {
@@ -451,18 +474,31 @@ describe('a collapsed card draws no rule and reserves no room', () => {
   });
 
   /**
-   * §2's *"some have icon while others not"*. A group-tier rail heads a stack of cards and
-   * carries a badge; the `sub` tier deliberately draws a 6px dot instead (a badge there would be
-   * a second badge inside a card that already has one). So a rail is one or the other — what it
-   * may not be is a group heading with a bare dot standing beside one with a badge, which is
-   * what To-do's Week card and both Shop groups shipped.
+   * ⚠️ **The heading ladder, rewritten 2026-08-21 (decision (a)).** This test used to say every
+   * group-tier rail carries a badge, which was right while a card's own header WAS a group rail.
+   * There are three rungs now and they are told apart by what they head:
+   *
+   *   · **group** — 24, no badge. A heading over a stack of CARDS. There is exactly one in the
+   *     app (To-do's "Elsewhere"); Shop and Me have none, on instruction.
+   *   · **card title** — 20, with a badge. Drawn only by components/Card.tsx.
+   *   · **section** — 17, with a dot. `tier="sub"`, inside a card.
+   *
+   * So a bare `<SectionRail>` outside Card.tsx is either a group heading (no badge) or a `sub`
+   * section — and a badge on a group heading is the thing that made a heading over cards read
+   * as a card itself.
    */
-  it('every group-tier rail carries a badge', () => {
+  it('a rail declares which rung it is, and a group heading carries no badge', () => {
     const offenders: string[] = [];
     for (const abs of sourceFiles()) {
       for (const element of code(abs).match(/<SectionRail\b[\s\S]*?\/>/g) ?? []) {
+        // The card rung is components/Card.tsx's, and it passes `tier` through from `CardShell`
+        // rather than spelling a literal — so it is checked by the control-order assertions
+        // above instead.
+        if (/tier=\{/.test(element)) continue;
         if (/tier="sub"/.test(element)) continue;
-        if (!/\bdomain=/.test(element)) offenders.push(`${abs}: group rail with no domain badge`);
+        // What is left is a group heading: over a stack of CARDS, and therefore not a card. A
+        // badge here is what made every drawer and group header read as a card itself.
+        if (/\bdomain=/.test(element)) offenders.push(`${abs}: group heading with a card badge`);
       }
     }
     expect(offenders).toEqual([]);

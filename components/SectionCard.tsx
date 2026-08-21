@@ -184,6 +184,10 @@ export default function SectionCard({
   }
   return (
     <CardShell
+      // An `embedded` SectionCard is a section INSIDE a card — the To-do Week card's seven
+      // weekday sections, Today's per-person groups — so it takes the ladder's bottom rung.
+      // Standing on its own it is a card, and takes the middle one.
+      tier={embedded ? 'sub' : 'card'}
       hue={hue}
       domain={domain}
       icon={icon}
@@ -215,6 +219,12 @@ function PersistedFoldableSectionCard({
 }: Omit<Props, 'collapseKey' | 'collapsed' | 'onToggleCollapse'> & { collapseKey: CardId }) {
   const [collapsed, toggleCollapsed] = useCollapsedCard(collapseKey);
   return (
-    <CardShell {...rest} controls={right} collapsed={collapsed} onToggleCollapse={toggleCollapsed} />
+    <CardShell
+      {...rest}
+      tier={rest.embedded ? 'sub' : 'card'}
+      controls={right}
+      collapsed={collapsed}
+      onToggleCollapse={toggleCollapsed}
+    />
   );
 }

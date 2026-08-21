@@ -172,7 +172,7 @@ import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
+import { SectionFoldToggle } from '@/components/Card';
 import Button from '@/components/Button';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
@@ -544,12 +544,13 @@ export default function WeekListCard({
                 sat in the position that on every other card means "full screen". So the one
                 control here that reads loudest was the one doing the quietest job, and its
                 place said the opposite thing from its neighbours one card away.
-                  `CardCollapseToggle` carries the label, the haptic, the `expanded`
+                  `SectionFoldToggle` (components/Card.tsx's one export for a section drawn
+                one-per-row of data, since 2026-08-21) carries the label, the haptic, the `expanded`
                 accessibility state and the animated glyph, so nothing is lost by dropping the
                 cap; the list's own state stays local (`expanded`/`onToggleExpand`), since a
                 per-list fold is exactly what lib/collapsedCards.ts's singleton rule keeps out
                 of the persisted bag. */}
-            <CardCollapseToggle collapsed={!expanded} onToggle={onToggleExpand} cardLabel={list.name} />
+            <SectionFoldToggle collapsed={!expanded} onToggle={onToggleExpand} cardLabel={list.name} />
           </View>
         </View>
 

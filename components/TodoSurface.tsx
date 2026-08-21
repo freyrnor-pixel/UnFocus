@@ -69,8 +69,8 @@ import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
+import Card from '@/components/Card';
 import SectionCard from '@/components/SectionCard';
-import Surface from '@/components/Surface';
 import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
@@ -81,10 +81,6 @@ import { isWashedAway, canPostpone } from '@/lib/taskReset';
 import PadRow from '@/components/PadRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import Button from '@/components/Button';
-import CardExpandButton from '@/components/CardExpandButton';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
-import { useCardExpand } from '@/lib/useCardExpand';
-import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { DayEntry } from '@/lib/dayLog';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
@@ -94,9 +90,8 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import CollapsedSection from '@/components/CollapsedSection';
 import GoalsEditor from '@/components/GoalsEditor';
-import DayPickerSheet, { RecentDaysList } from '@/components/DayPickerSheet';
+import { RecentDaysList } from '@/components/DayPickerSheet';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
@@ -127,10 +122,9 @@ import { FontSize, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
-import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
 
-export type TodoSection = 'whenever' | 'today' | 'week' | 'recurring';
+export type TodoSection = 'whenever' | 'today' | 'week' | 'recurring' | 'washedAway';
 
 /** Time-order comparator: timed tasks first (by HH:MM), then untimed by title. */
 function byTime(a: Task, b: Task): number {
@@ -406,7 +400,6 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // deliberately untouched here.
   const screenHue = getScreenColor(theme, 'plans').base;
   const wheneverHue = screenHue;
-  const repeatingHue = getDomainColor(theme, 'health').accent;
 
   const tasks = useTaskStore((s) => s.tasks);
   const tasksLoaded = useTaskStore((s) => s.loaded);
@@ -414,7 +407,6 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const layoutSpec = useSurfaceLayout('plans');
   const [todayCardState, setTodayCardState] = useCardState('plans');
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
-  const [dayPickerOpen, setDayPickerOpen] = useState(false);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
@@ -746,21 +738,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     success();
   }
 
-  // Expansion — one hook per card. Each card's outer View carries the `ref`; the header (or,
-  // for Today's three non-SectionCard shapes, a small header row above the content) carries
-  // the button. See lib/useCardExpand.ts.
-  const wheneverExpand = useCardExpand('todoWhenever');
-  const todayExpand = useCardExpand('todoToday');
-  const weekExpand = useCardExpand('todoWeek');
-  const recurringExpand = useCardExpand('todoRecurring');
 
-  // The Week card folds as ONE thing, remembered across launches (2026-08-19, maintainer:
-  // *"Mon-sun in to-do should also be collapsable together"*). Its seven weekday sections keep
-  // their own local per-day fold above — this is the third axis (lib/collapsedCards.ts), the
-  // card's body drawn at all, and the only one of the two that persists. Whenever/Today/
-  // Recurring get theirs from `SectionCard`'s `collapseKey`; this card isn't a SectionCard (it
-  // is a header row over a stack of seven), so it wires the same hook and chevron by hand.
-  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('todoWeek');
+
+
+
 
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
@@ -768,19 +749,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const showRecurring = full || section === 'recurring';
 
   const wheneverCard = showWhenever && (
-    <View ref={wheneverExpand.ref} key="whenever">
-      <SectionCard
-        hue={wheneverHue}
-        domain="task"
-        label={t.tasksSectionWhenever}
-        count={wheneverAll.length}
-        collapseKey="todoWhenever"
-        right={
-          full ? (
-            <CardExpandButton expanded={wheneverExpand.expanded} onExpand={wheneverExpand.onExpand} onCollapse={wheneverExpand.onCollapse} />
-          ) : undefined
-        }
-      >
+    <View key="whenever">
+      <Card id="todoWhenever" count={wheneverAll.length}>
         {wheneverAll.length > 0 && (
           <View style={styles.cardStack}>
             {wheneverDragged.map((tk) => (
@@ -828,97 +798,76 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             }
           />
         </View>
-      </SectionCard>
+      </Card>
     </View>
   );
 
-  // The Today card's ⤢, and the header that carries it.
+  // ⚠️ **Today is ONE card with four possible bodies (2026-08-21).** It used to be four
+  // differently-shaped things that happened to be called Today: a `SectionCard` on the plain
+  // layout (the only one with a fold), a `PlanTaskCard` drawing its own card on the timeline
+  // layout, and two hand-wrapped `Surface`s — each with its own idea of where the header went.
+  // That is why this card had no fold chevron on the tab's DEFAULT layout while its three
+  // neighbours did, which is the *"not all cards can be collapsed"* report at its most visible.
   //
-  // ⚠️ **The header goes INSIDE whichever card the active layout draws (2026-08-21,
-  // CONSISTENCY_AUDIT.md §8/§9: *"Text and buttons must never be outside a card"* and *"The
-  // fullscreen button has to be in the top right corner for each card"*).** It used to sit on
-  // the screen backdrop ABOVE all four shapes — the exact defect the Week card's own note
-  // records as having been fixed for Week, still shipping here: its ⤢ was in the corner of
-  // nothing, and on the default (timeline) layout the word "Today" floated over a card that
-  // began below it.
-  //
-  // It is still ONE header for all four shapes — the same node, hosted differently, because
-  // each shape already draws a different container:
-  //   · timeline   → passed to PlanTaskCard, which IS the card
-  //   · default    → the SectionCard's OWN rail already says "Today"; it takes the ⤢ and there
-  //                  is no second header (there were two on this layout before)
-  //   · byPerson / focusFirst → wrapped in a Surface, the same shape the Week card uses
-  const todayExpandButton = full ? (
-    <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
-  ) : undefined;
-  // Same badge/glyph pairing as Week and Whenever — see the Week card's rail below for why the
-  // glyph carries the distinction and the hue does not.
-  const todayHeader = <SectionRail hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} right={todayExpandButton} />;
+  // `components/Card.tsx` draws the card, the rail, the fold and the ⤢ now; each shape supplies
+  // only its body, unwrapped. The per-shape header node is gone with the shapes.
 
   const todayCard = showToday && (
-    <View ref={todayExpand.ref} key="today">
+    <View key="today">
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
-        {groupByPerson ? (
-          <Surface style={styles.weekCard}>
-          {todayHeader}
-          <View style={styles.cardStack}>
-            {/* `embedded`: these sit inside the Today card's own Surface now, and a Surface
-                inside a Surface is the nested panel the blueprint pass banned. Same shape the
-                Week card's seven weekday sections take. */}
-            {todayByPerson.map((group) => (
-              <SectionCard key={group.personId || 'unassigned'} embedded hue={group.hue} label={group.label} count={group.tasks.length}>
-                <DoneSplitList
-                  tasks={group.tasks}
-                  focusMode={layoutSpec.focusMode}
-                  emptyQuoteKey={dayResetNonce}
-                  footer={
-                    <InlineTaskAdd date={today} accent={group.hue} assigneeId={group.personId} assignee={group.addName} wrapped />
-                  }
-                  renderCard={(tk) => (
-                    <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
-                  )}
-                />
-              </SectionCard>
-            ))}
-          </View>
-          </Surface>
-        ) : layoutSpec.timeline ? (
-          <PlanTaskCard
-            header={todayHeader}
-            tasks={todayList}
-            allTasks={tasks}
-            spec={layoutSpec}
-            padState={todayCardState}
-            onPadStateChange={setTodayCardState}
-            horizontal={planTimelineHorizontal}
-            onPressTask={(task: Task) => router.setParams({ expandTaskId: task.id })}
-            onToggleTask={handleToggleDone}
-            onAddTask={handleTimelineAddTask}
-            onAddTaskAndEdit={handleTimelineAddTaskAndEdit}
-            onAddExample={addPlanStarterTask}
-            dayLog={dayLog}
-            onPressEntry={handlePressLogEntry}
-            onRemoveMoment={removeMoment}
-            onCaptureMoment={addMoment}
-            calendarEvents={calendarEvents}
-          />
-        ) : layoutSpec.id === 'focusFirst' ? (
-          <Surface style={styles.weekCard}>
-          {todayHeader}
-          <FocusFirstToday
-            tasks={todayList}
-            onToggleDone={handleToggleDone}
-            spec={layoutSpec}
-            newSinceIds={newSinceIds}
-            newFields={newFields}
-            pinProps={pinProps}
-            footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
-          />
-          </Surface>
-        ) : (
-          // No `todayHeader` here — this card's OWN rail is the header, and it already says
-          // "Today". The floating one above made this the single layout that said it twice.
-          <SectionCard hue={screenHue} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="todoToday" right={todayExpandButton}>
+        <Card id="todoToday" count={todayList.length}>
+          {groupByPerson ? (
+            <View style={styles.cardStack}>
+              {/* `embedded`: these sit inside the Today card, and a Surface inside a Surface is
+                  the nested panel the blueprint pass banned. Same shape the Week card's seven
+                  weekday sections take. */}
+              {todayByPerson.map((group) => (
+                <SectionCard key={group.personId || 'unassigned'} embedded hue={group.hue} label={group.label} count={group.tasks.length}>
+                  <DoneSplitList
+                    tasks={group.tasks}
+                    focusMode={layoutSpec.focusMode}
+                    emptyQuoteKey={dayResetNonce}
+                    footer={
+                      <InlineTaskAdd date={today} accent={group.hue} assigneeId={group.personId} assignee={group.addName} wrapped />
+                    }
+                    renderCard={(tk) => (
+                      <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
+                    )}
+                  />
+                </SectionCard>
+              ))}
+            </View>
+          ) : layoutSpec.timeline ? (
+            <PlanTaskCard
+              embedded
+              tasks={todayList}
+              allTasks={tasks}
+              spec={layoutSpec}
+              padState={todayCardState}
+              onPadStateChange={setTodayCardState}
+              horizontal={planTimelineHorizontal}
+              onPressTask={(task: Task) => router.setParams({ expandTaskId: task.id })}
+              onToggleTask={handleToggleDone}
+              onAddTask={handleTimelineAddTask}
+              onAddTaskAndEdit={handleTimelineAddTaskAndEdit}
+              onAddExample={addPlanStarterTask}
+              dayLog={dayLog}
+              onPressEntry={handlePressLogEntry}
+              onRemoveMoment={removeMoment}
+              onCaptureMoment={addMoment}
+              calendarEvents={calendarEvents}
+            />
+          ) : layoutSpec.id === 'focusFirst' ? (
+            <FocusFirstToday
+              tasks={todayList}
+              onToggleDone={handleToggleDone}
+              spec={layoutSpec}
+              newSinceIds={newSinceIds}
+              newFields={newFields}
+              pinProps={pinProps}
+              footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+            />
+          ) : (
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}
@@ -928,8 +877,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                 <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
               )}
             />
-          </SectionCard>
-        )}
+          )}
+        </Card>
       </DebugNoteAnchor>
 
       {full && dayResetTasks.length > 0 && (
@@ -953,47 +902,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // Now the header is this card's own top-right corner and the days are `embedded`
     // SectionCards — rails and folds, no Surface each — because a Surface inside a Surface
     // reads as a nested panel.
-    // The ref goes on a plain wrapper, not on the Surface: components/Surface.tsx does not
-    // forward refs, and lib/useCardExpand needs a measurable OUTERMOST node. The wrapper has no
-    // margin of its own, so the rect it measures is the card's own box.
-    <View ref={weekExpand.ref} key="week" collapsable={false}>
-      {/* Closed, the card is its header and nothing else — the same tight box `SectionCard` and
-          `CollapsedSection` draw. This style is a hand-rolled copy of `SectionCard`'s `card`
-          (the Week card can't BE a SectionCard: its Collapsible has to wrap seven embedded
-          ones), so it needs the closed inset copied with it. */}
-      <Surface style={[styles.weekCard, weekCollapsed && styles.weekCardCollapsed]}>
-      {/* ⚠️ **`SectionRail`, not a hand-rolled row (2026-08-21, CONSISTENCY_AUDIT.md §2).**
-          This drew its title at `Type.title.fontFamily` + `FontSize.lg` — extrabold 20 — while
-          Whenever, Today and Recurring are `SectionCard`s, whose rail draws 24. So four peer
-          cards on one screen shipped two title sizes, which is the report (*"some of them have
-          different text size"*) at its most visible: they are stacked one under another.
-            The controls are unchanged and still in the same order — chevron, then ⤢ — because
-          `SectionCard` puts the fold first in its own `right` slot too. This card cannot simply
-          BE a SectionCard: its body is seven embedded ones, and its `Collapsible` has to wrap
-          that stack rather than a single content view. */}
-      <SectionRail
-        hue={screenHue}
-        // ⚠️ **A badge and a count, like its three peers (2026-08-21, CONSISTENCY_AUDIT.md §2's
-        // *"some have icon while others not"*).** The rail conversion above fixed the ANATOMY
-        // and left the arguments alone, so this card went on drawing a bare 10px dot and no
-        // tally directly above Recurring's badge and tally — the same divergence the pass was
-        // closing, one card lower. `domain="task"` is Whenever's badge; the glyph is what tells
-        // the three To-do cards apart (see CardAccent.tsx's DOMAIN_ICON note), never the hue.
-        domain="task"
-        icon="calendar"
-        label={t.todoWeekTitle}
-        count={weekTaskCount}
-        divider={!weekCollapsed}
-        right={
-          <>
-            <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
-            {full && (
-              <CardExpandButton expanded={weekExpand.expanded} onExpand={weekExpand.onExpand} onCollapse={weekExpand.onCollapse} />
-            )}
-          </>
-        }
-      />
-      <Collapsible open={!weekCollapsed}>
+    // ⚠️ **This is a `Card` like its three neighbours (2026-08-21).** It was the last hand-rolled
+    // card header on the tab — its own `Surface`, its own `SectionRail`, its own closed-state
+    // inset copied from `SectionCard`, its own fold chevron — kept that way on the reasoning
+    // that its `Collapsible` has to wrap SEVEN embedded sections rather than one content view.
+    // That was never a reason: `Card`'s body is whatever the caller passes, and seven embedded
+    // `SectionCard`s are one child like any other.
+    <View key="week">
+      <Card id="todoWeek" count={weekTaskCount}>
         <View style={styles.weekDays}>
           {weekGroups.map((group, i) => (
             <SectionCard
@@ -1016,26 +932,32 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             </SectionCard>
           ))}
         </View>
-      </Collapsible>
-      </Surface>
+      </Card>
+    </View>
+  );
+
+  // The washed-away rows, shared by the card on the tab and by the full-screen pane that
+  // mounts `section="washedAway"` — the same "one rendering, two hosts" contract the four
+  // section cards above already keep.
+  const washedAwayRows = (
+    <View style={styles.cardStack}>
+      {washedAway.map((tk) => (
+        <PadRow
+          key={tk.id}
+          title={tk.title}
+          accent={wheneverHue}
+          trailing={<Button label={t.washedAwayBringBack} variant="secondary" size="sm" onPress={() => { tap(); bringBack(tk.id); }} />}
+        />
+      ))}
     </View>
   );
 
   const recurringCard = showRecurring && (
-    <View ref={recurringExpand.ref} key="recurring">
+    <View key="recurring">
       <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-        <SectionCard
-          hue={repeatingHue}
-          domain="health"
-          icon="repeat"
-          label={t.tasksSectionRecurring}
+        <Card
+          id="todoRecurring"
           count={recurringAll.length}
-          collapseKey="todoRecurring"
-          right={
-            full ? (
-              <CardExpandButton expanded={recurringExpand.expanded} onExpand={recurringExpand.onExpand} onCollapse={recurringExpand.onCollapse} />
-            ) : undefined
-          }
         >
           {recurringAll.length === 0 ? (
             <NarratorQuote category="todo" />
@@ -1053,7 +975,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               ))}
             </View>
           )}
-        </SectionCard>
+        </Card>
       </DebugNoteAnchor>
     </View>
   );
@@ -1117,46 +1039,53 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
       {energySystemEnabled && full && showPeople && <EnergyBalanceCard date={today} />}
 
-      {wheneverCard}
+      {/* ⚠️ **The order is the registry's, and it is deliberate (2026-08-21).** Time horizon
+          narrowing to widening, then what repeats, then what is not the day's work at all:
+          Today → Week → Whenever → Recurring → "Elsewhere". It ran Whenever first for no reason
+          anyone recorded, which put the undated backlog above the day you are standing in.
+          lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent. */}
       {todayCard}
       {weekCard}
+      {wheneverCard}
       {recurringCard}
+
+      {/* The expanded Washed away card — rows only, no card of its own, exactly like the four
+          `section` modes above. */}
+      {section === 'washedAway' && washedAwayRows}
 
       {full && featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
 
+      {/* ⚠️ **"Elsewhere" — the tab's one group rail, and its three cards (2026-08-21).**
+          These were `CollapsedSection` drawers: a fourth card shape, with a fold of its own and
+          no ⤢, sitting under four cards that had both. They are ordinary cards now.
+            The rail is the top rung of the heading ladder — a group heading over a stack of
+          cards, no badge — and it is the only one in the app. Shop and Me have none on
+          instruction; see the registry's `group` field. */}
+      {full && (featureGoals || featureDayLog || washedAway.length > 0) && (
+        <SectionRail hue={wheneverHue} label={t.todoElsewhereTitle} divider={false} />
+      )}
+
       {full && featureGoals && (
-        <CollapsedSection hue={wheneverHue} domain="task" icon="flag" label={t.goals.editLinkPractical}>
+        <Card id="todoGoals">
           <GoalsEditor accent={wheneverHue} />
-        </CollapsedSection>
+        </Card>
       )}
       {full && featureDayLog && (
-        <CollapsedSection
-          hue={wheneverHue}
-          domain="task"
-          icon="time-outline"
-          label={t.dayLog.earlierDays}
-          onTitlePress={() => { tap(); setDayPickerOpen(true); }}
-        >
+        // ⚠️ **No `onTitlePress` and no `DayPickerSheet` any more.** The drawer's title opened a
+        // pop-up of the same rows its body already drew — the 2026-08-10 "a pop-up where one is
+        // cheap" ruling, made when the body was a read-only preview. It is not a preview now:
+        // the card's ⤢ shows the same list full screen, and every row navigates itself.
+        <Card id="todoEarlierDays">
           <RecentDaysList accent={wheneverHue} />
-        </CollapsedSection>
+        </Card>
       )}
 
       {full && washedAway.length > 0 && (
-        <CollapsedSection hue={wheneverHue} domain="task" icon="water-outline" label={t.tasksSectionWashedAway} count={washedAway.length}>
-          <View style={styles.cardStack}>
-            {washedAway.map((tk) => (
-              <PadRow
-                key={tk.id}
-                title={tk.title}
-                accent={wheneverHue}
-                trailing={<Button label={t.washedAwayBringBack} variant="secondary" size="sm" onPress={() => { tap(); bringBack(tk.id); }} />}
-              />
-            ))}
-          </View>
-        </CollapsedSection>
+        <Card id="todoWashedAway" count={washedAway.length}>
+          {washedAwayRows}
+        </Card>
       )}
 
-      {full && <DayPickerSheet visible={dayPickerOpen} onClose={() => setDayPickerOpen(false)} accent={wheneverHue} />}
     </View>
   );
 }

@@ -91,7 +91,6 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import Collapsible from '@/components/Collapsible';
 import { computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import { PadState } from '@/lib/padState';

@@ -67,19 +67,17 @@ import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
-import CollapsedSection from '@/components/CollapsedSection';
+import Card from '@/components/Card';
+import IconButton from '@/components/IconButton';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
 import HealthIssuesSheet from '@/components/HealthIssuesSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
-import Surface from '@/components/Surface';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import Collapsible from '@/components/Collapsible';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
-import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import { Input, SegmentedControl } from '@/components/FormControls';
 import { useT } from '@/lib/i18n';
@@ -103,7 +101,6 @@ import {
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { useCollapsedCard } from '@/lib/useCollapsedCard';
 
 /** The severity a one-gesture capture writes. See the file header's "+" edit note. */
 const DEFAULT_SEVERITY = 3;
@@ -231,7 +228,6 @@ export default function HealthSurface({ embedded = false }: Props) {
   const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState<HealthLog | null>(null);
   const [issuesSheetOpen, setIssuesSheetOpen] = useState(false);
-  const [weekCollapsed, toggleWeekCollapsed] = useCollapsedCard('healthWeek');
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -482,29 +478,17 @@ export default function HealthSurface({ embedded = false }: Props) {
     </View>
   );
 
-  // The header row and the fold are the SAME in both branches — only the Surface differs. They
-  // used to differ, and that was the §10 defect: the embedded branch drew neither, so the
-  // stored fold did nothing on Home. See the edit note.
-  const weekHeader = (
-    <View style={styles.sectionLabelRow}>
-      <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
-      <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
-      <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.thisWeekLabel} />
-    </View>
-  );
-
+  // ⚠️ **One `Card`, both branches (2026-08-21).** This drew a hand-rolled header — badge, a
+  // `sectionLabel`, a fold chevron — and the two branches differed only in whether a `Surface`
+  // wrapped it. That difference was the §10 defect: the embedded branch drew neither header nor
+  // `Collapsible`, so the stored fold did nothing on the Me tab. `Card` takes `embedded` for
+  // exactly this, so the branches now differ in one prop and cannot drift apart again.
   const weekCard = embedded ? (
-    <View style={styles.healthCardEmbedded}>
-      {weekHeader}
-      <Collapsible open={!weekCollapsed}>{cardBody}</Collapsible>
-    </View>
+    <Card id="healthWeek" embedded>{cardBody}</Card>
   ) : (
     <TourTarget id="tour.health.log">
       <DebugNoteAnchor id="health.quickLog" label="Health — This week">
-        <Surface style={styles.healthCard}>
-          {weekHeader}
-          <Collapsible open={!weekCollapsed}>{cardBody}</Collapsible>
-        </Surface>
+        <Card id="healthWeek">{cardBody}</Card>
       </DebugNoteAnchor>
     </TourTarget>
   );
@@ -531,14 +515,22 @@ export default function HealthSurface({ embedded = false }: Props) {
 
       {weekCard}
 
-      <CollapsedSection
-        hue={screenHue}
-        domain="health"
-        icon="medical-outline"
-        label={t.healthIssues.title}
+      {/* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21).** The drawer was a card
+          shape with a fold, a badge on a group-tier rail and no ⤢, and its two-tap-target header
+          (chevron previews, name opens the sheet) was a deliberate exception to DESIGN_RULES
+          rule 4. Both are gone: this is an ordinary card, and the sheet — the fuller surface,
+          where a symptom is added or untracked — is a header control, which is where a card's
+          own controls go. */}
+      <Card
+        id="healthIssues"
         count={trackedCount}
-        onTitlePress={() => setIssuesSheetOpen(true)}
-        titlePressHint={t.healthIssues.openLabel}
+        controls={
+          <IconButton
+            icon="open-outline"
+            label={t.healthIssues.openLabel}
+            onPress={() => setIssuesSheetOpen(true)}
+          />
+        }
       >
         <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
         <PressableScale
@@ -552,7 +544,7 @@ export default function HealthSurface({ embedded = false }: Props) {
           <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
           <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
         </PressableScale>
-      </CollapsedSection>
+      </Card>
 
       {!embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
       {!embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}

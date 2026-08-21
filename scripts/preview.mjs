@@ -768,10 +768,23 @@ async function main() {
       await dismissModalIfPresent(page);
       await clickText(page, 'Habits');
       await page.waitForTimeout(1500);
+      // The pane's own cards rest closed like every other card, so the marker below lives
+      // inside one that has to be opened first. `.last()` — the Me tab's Habits card is still
+      // mounted behind the overlay and carries the same accessible name.
+      const openInner = page.getByRole('button', { name: /^Habits: / }).last();
+      if (await openInner.count()) {
+        await openInner.click({ timeout: 10000 });
+        await page.waitForTimeout(600);
+      }
       await shot(page, 'subscreen-habits');
       // A marker that exists ONLY inside the surface, unlike "Habits", which is also the still-
       // mounted card's own title and so would read true whether or not the pane opened.
-      const onHabits = await anyVisibleText(page, 'Simple check-ins — no streaks, no scores.');
+      // ⚠️ The marker was `habits.cardSubtitle` ("Simple check-ins — no streaks, no scores.")
+      // until 2026-08-21, when that string was deleted: it was a SENTENCE standing in for the
+      // card's heading, because that card had no badge-and-title row until the registry gave it
+      // one. `hints.habits.text` is drawn by components/HabitsSurface.tsx's StarterCard and by
+      // nothing else, so it still separates the pane from the card that opened it.
+      const onHabits = await anyVisibleText(page, 'Tap to count it, gear to set it up.');
       console.log(`  Habits surface rendered in the pane: ${onHabits}`);
       if (!onHabits) pageErrors.push('The Habits card did not expand');
       await page.getByRole('button', { name: 'Collapse card', exact: true }).last().click({ timeout: 10000 });

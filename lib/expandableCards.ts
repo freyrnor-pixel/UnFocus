@@ -51,7 +51,7 @@ import { CARDS, CARD_KEYS, CardKey, cardSpec } from '@/lib/cardRegistry';
  */
 export const EXPANDABLE_CARD_IDS = CARD_KEYS.filter(
   (k) => cardSpec(k).expand === 'surface',
-) as ReadonlyArray<ExpandableCardId>;
+) as readonly ExpandableCardId[];
 
 /** A card that can grow to fill the screen. Derived: registry keys with `expand: 'surface'`. */
 export type ExpandableCardId = {

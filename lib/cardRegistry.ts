@@ -73,6 +73,15 @@ export type CardSpec = {
   order?: number;
   /** The CardKey of the card this one is drawn inside, if any. */
   nested?: string;
+  /**
+   * A group sub-header this card sits under. The screen draws the rail once, before the first
+   * card that names it; every card after it on that screen belongs to it.
+   *
+   * There is exactly one today — To-do's "Elsewhere" — and the two screens with none are that
+   * way on instruction: the maintainer declined an "Inventory" grouping on Shop and a "Health"
+   * grouping over Me's Health and Medicine cards. Recorded here so nobody adds one back.
+   */
+  group?: 'elsewhere';
   /** Screen hue the card's rail wears — resolved through lib/screenColor.ts at render. */
   hue: ScreenKey;
   /** Badge identity — resolved through lib/domainColor.ts at render. */
@@ -141,6 +150,44 @@ export const CARDS = {
     domain: 'health',
     icon: 'repeat',
     title: (t) => t.tasksSectionRecurring,
+    fold: 'persisted',
+    expand: 'surface',
+  },
+
+  // The three cards that are not the day's work — what you're aiming at, what's behind you, and
+  // what quietly stopped mattering. They were `CollapsedSection` drawers, a fourth card shape
+  // with its own fold and no ⤢; they are ordinary cards now, under the one group rail on this
+  // tab.
+  todoGoals: {
+    screen: 'todo',
+    order: 5,
+    group: 'elsewhere',
+    hue: 'plans',
+    domain: 'task',
+    icon: 'flag',
+    title: (t) => t.goals.editLinkPractical,
+    fold: 'persisted',
+    expand: 'surface',
+  },
+  todoEarlierDays: {
+    screen: 'todo',
+    order: 6,
+    group: 'elsewhere',
+    hue: 'plans',
+    domain: 'task',
+    icon: 'time-outline',
+    title: (t) => t.dayLog.earlierDays,
+    fold: 'persisted',
+    expand: 'surface',
+  },
+  todoWashedAway: {
+    screen: 'todo',
+    order: 7,
+    group: 'elsewhere',
+    hue: 'plans',
+    domain: 'task',
+    icon: 'water-outline',
+    title: (t) => t.tasksSectionWashedAway,
     fold: 'persisted',
     expand: 'surface',
   },
@@ -251,6 +298,20 @@ export const CARDS = {
     expand: 'surface',
   },
 
+  homeRetired: {
+    screen: 'me',
+    order: 5,
+    hue: 'home',
+    domain: 'task',
+    icon: 'archive-outline',
+    badgeHue: true,
+    title: (t) => t.home.retired.title,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined:
+      'The shelf a hidden card falls to. Its body is a short list of names, one tap from coming back — a full-screen copy of it is the same three names, larger.',
+  },
+
   // ── Nested ─────────────────────────────────────────────────────────────────────────────
   // Cards drawn inside another card. They hold a persisted fold of their own (they are
   // singletons, so they have a stable key), but they ride their host's ⤢ rather than carrying
@@ -264,6 +325,29 @@ export const CARDS = {
     fold: 'persisted',
     expand: 'none',
     expandDeclined: "Drawn inside the Habits card, which is what expands — it rides its host's ⤢.",
+  },
+  habitsGoals: {
+    screen: 'me',
+    nested: 'homeHabits',
+    hue: 'habits',
+    domain: 'habit',
+    icon: 'flag',
+    title: (t) => t.goals.editLinkPersonal,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined: "Drawn inside the Habits card, which is what expands — it rides its host's ⤢.",
+  },
+  healthIssues: {
+    screen: 'me',
+    nested: 'homeHealth',
+    hue: 'health',
+    domain: 'health',
+    icon: 'medical-outline',
+    title: (t) => t.healthIssues.title,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined:
+      "Drawn inside the Health card, which is what expands. Its fuller surface is the Health issues sheet — where a symptom is added or untracked — reached from this card's own header control.",
   },
   healthWeek: {
     screen: 'me',

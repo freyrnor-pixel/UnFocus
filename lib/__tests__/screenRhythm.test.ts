@@ -65,7 +65,6 @@ const STACKED_CARDS: { file: string; style: string }[] = [
   // not a count to keep.
   { file: 'components/HomeSharedCard.tsx', style: 'card' },
   { file: 'components/PlanTaskCard.tsx', style: 'card' },
-  { file: 'components/CollapsedSection.tsx', style: 'section' },
 ];
 
 /**
