@@ -301,7 +301,9 @@ const en = {
   a11yDiscardRow: 'Discard new row',
   showHint: 'How this works',
   hideHint: 'Hide instructions',
-  /** Closes components/HintSheet.tsx — the ⓘ explanation as a bottom sheet (Shopping). */
+  /** Closes a pop-up. Named for the job, not for one caller — components/HintSheet.tsx was the
+   *  original one and has not existed since August 2026; components/CenterModalScreen.tsx's ×
+   *  is the main consumer now. */
   hintSheetDone: 'Done',
   /**
    * The pad (notepad) language, 2026-07-30 — shared by every list-bearing card so the four
@@ -649,7 +651,7 @@ const en = {
     },
     finale: {
       title: 'That is the tour',
-      body: 'Everything else lives behind these tabs.\n• Each screen has an ⓘ button with its own tips and settings.',
+      body: 'Everything else lives behind these tabs.\n• A card explains itself while it is still empty.',
       experimental: 'UnFocus is a work in progress.\n• Things may change, move or arrive half-finished.\n• Everything stays on your phone.\n• Feedback shapes what comes next.',
       done: 'Start using the app',
     },
@@ -1411,9 +1413,12 @@ const en = {
   // Habits — shame-free labels (Proposal 5)
   habits: {
     notYetToday: 'Not yet today',
-    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording
-     *  from hints.habits.text (the collapsible ⓘ hint just above it) on purpose, so the
-     *  two don't say the same sentence twice on screen at once. */
+    /** Sub-header shown at the top of the Habits card (2026-08-06) — distinct wording from
+     *  `hints.habits.text` on purpose, so the two don't say the same sentence twice on screen at
+     *  once. They are closer together than they were: since 2026-08-20 that string is the
+     *  StarterCard's `text` INSIDE this card rather than a banner above it, so an empty Habits
+     *  card shows this heading and that instruction one under the other. This one is the
+     *  standing promise ("no streaks, no scores"); that one is how to work the rows. */
     cardSubtitle: 'Simple check-ins — no streaks, no scores.',
     // --- W-D additions ---
     moreOptions: 'More options',
@@ -1861,7 +1866,6 @@ const en = {
   notes: {
     title: 'Notes',
     navLabel: 'Notes',
-    emptyState: 'Write on the first line, or tap the mic',
     addNote: 'Add a note',
     headerPlaceholder: 'Note title',
     bodyPlaceholder: 'Add more detail…',
@@ -1877,7 +1881,8 @@ const en = {
     micErrorBody: "Couldn't catch that — try again.",
   },
   /**
-   * The ⓘ banner copy — ONE short instruction per screen, and nothing else (2026-08-17).
+   * ⚠️ These were the ⓘ BANNER's copy until 2026-08-20; the banner is deleted and each of these
+   * is now the `text` on that surface's empty-state card. Still one short instruction each.
    *
    * **`example` is deleted.** Every entry used to carry a second, italic, muted line —
    * "Draining tasks get a minus, restoring ones a plus.", "e.g. milk weekly, washing powder
@@ -1916,9 +1921,13 @@ const en = {
   /**
    * Empty-state explainers (components/StarterCard.tsx, 2026-07-26). Shown inline where the
    * content would be while a surface has nothing on it yet, and gone as soon as the user has
-   * their own — so a new user gets the *idea* behind a feature without having to find the ⓘ.
-   * Each one's core message also lives in the matching `hints.*.example` above, which is where
-   * it stays reachable once the starter card disappears.
+   * their own.
+   * ⚠️ Two things this block used to say are no longer true. There is no ⓘ to "find" instead —
+   * the banner is deleted (2026-08-20) and this IS where a screen explains itself now, which is
+   * also why several surfaces feed `hints.*.text` into StarterCard's own `text`. And
+   * `hints.*.example` has not existed since 2026-08-17, so a starter card's message is not
+   * "still reachable" anywhere after the card disappears; it is gone until the surface is empty
+   * again, which is the intended lifetime.
    *
    * `example*` fields (2026-07-27) are short item/label fragments, NOT sentences — each screen
    * feeds them into one or more components/StarterExampleRow so the "example" renders as an
@@ -2786,7 +2795,7 @@ const no: typeof en = {
     },
     finale: {
       title: 'Det var omvisningen',
-      body: 'Alt annet ligger bak disse fanene.\n• Hver skjerm har en ⓘ-knapp med egne tips og innstillinger.',
+      body: 'Alt annet ligger bak disse fanene.\n• Et kort forklarer seg selv så lenge det er tomt.',
       experimental: 'UnFocus er under arbeid.\n• Ting kan endre seg, flytte på seg eller komme halvferdig.\n• Alt blir på telefonen din.\n• Tilbakemeldinger former det som kommer.',
       done: 'Begynn å bruke appen',
     },
@@ -3774,7 +3783,6 @@ const no: typeof en = {
   notes: {
     title: 'Notater',
     navLabel: 'Notater',
-    emptyState: 'Skriv på første linje, eller trykk på mikrofonen',
     addNote: 'Legg til et notat',
     headerPlaceholder: 'Notattittel',
     bodyPlaceholder: 'Legg til mer detaljer…',
@@ -4595,7 +4603,7 @@ const is: typeof en = {
     },
     finale: {
       title: 'Þetta var kynningin',
-      body: 'Allt annað liggur á bak við þessa flipa.\n• Hver skjár er með ⓘ-hnapp með eigin ábendingum og stillingum.',
+      body: 'Allt annað liggur á bak við þessa flipa.\n• Kort útskýrir sig sjálft á meðan það er tómt.',
       experimental: 'UnFocus er í vinnslu.\n• Hlutir geta breyst, færst til eða komið hálfkláraðir.\n• Allt situr eftir í símanum þínum.\n• Viðbrögð móta það sem kemur næst.',
       done: 'Byrja að nota appið',
     },
@@ -5575,7 +5583,6 @@ const is: typeof en = {
   notes: {
     title: 'Minnispunktar',
     navLabel: 'Minnispunktar',
-    emptyState: 'Skrifaðu á fyrstu línuna, eða ýttu á hljóðnemann',
     addNote: 'Bæta við minnispunkti',
     headerPlaceholder: 'Heiti minnispunkts',
     bodyPlaceholder: 'Bættu við nánari lýsingu…',
