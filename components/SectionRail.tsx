@@ -153,12 +153,22 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
       ) : (
         <View style={[sub ? styles.subDot : styles.dot, { backgroundColor: hue }]} />
       )}
-      {/* No `numberOfLines` — a section's own NAME is the one thing on the row that must not be
-          clipped, so it wraps instead. `naming`'s `flexShrink: 1` + `minWidth: 0` is what keeps
-          it from pushing the right-hand control off the row, which is the job a 1-line cap
-          would otherwise be doing. (It was briefly capped at 1 line when `onLabelPress` landed
-          on 2026-08-10 — an unforced change, reverted the same day.) */}
-      <Text style={[sub ? styles.subLabel : styles.label, { color: labelColor }]}>{label}</Text>
+      {/* ⚠️ **One line (2026-08-21), which REVERSES the "let it wrap" note that stood here.**
+          The old reasoning was that a section's name must never be clipped, so it should wrap
+          and let `flexShrink` keep it off the trailing controls. Measured against the Catalogue
+          card — badge, title, count, camera, lock, fold and ⤢ in one row — wrapping is the
+          worse of the two failures: the header becomes two storeys and the card's rhythm breaks,
+          where an ellipsis costs a few characters of a name the card is already showing the
+          contents of.
+            It also makes this agree with the app's own card titles: HomeHealthCard,
+          HomeMedicineCard, HomeHabitsCard and HomeNotesCard all pass `numberOfLines={1}`, so
+          SectionRail was the one header that behaved differently. `flexShrink: 1` +
+          `minWidth: 0` on the label style is still what lets it yield at all — without that pair
+          it pushes the controls off the row instead of truncating (AGENTS.md's wrap-audit note:
+          flexShrink alone does not do it). */}
+      <Text style={[sub ? styles.subLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
+        {label}
+      </Text>
       {count != null && (
         <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
       )}

@@ -257,6 +257,27 @@ async function main() {
     if (!catalogueCardVisible) pageErrors.push('The Catalogue peer card did not render on Shopping');
     await shot(page, 'food-catalogue-cards');
 
+    // Open the Food card and check its meal sections actually draw. Both halves are new in
+    // 2026-08-21 and neither is incidental: every card rests CLOSED now (lib/cardDefaults.ts),
+    // so without the click this step photographs two headers and reports success; and the meal
+    // badge stopped being a private `rgba(hue, 0.16)` plate in the same pass, so the one thing
+    // worth confirming is that `CardAccentBadge` renders in its place with the section names
+    // beside it. A silent regression here would look exactly like a card that is simply shut.
+    const foodFold = page.getByRole('button', { name: 'Food: Expand list', exact: true }).first();
+    if (await foodFold.count()) {
+      await foodFold.scrollIntoViewIfNeeded();
+      await foodFold.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      const mealsDrawn = await page.getByText('Breakfast', { exact: true }).first().isVisible().catch(() => false);
+      console.log(`  meal sections drawn inside the Food card: ${mealsDrawn}`);
+      if (!mealsDrawn) pageErrors.push('Opening the Food card drew no meal sections');
+      await shot(page, 'food-card-open');
+      await page.getByRole('button', { name: 'Food: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+    } else {
+      pageErrors.push('No "Food: Expand list" chevron — the Food card may have lost its fold');
+    }
+
     // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
     // surface-specific layout and then to the sparsest one, confirming both that the picker
     // renders and that the rows actually redraw. The second switch is the one that matters —

@@ -719,7 +719,8 @@ export default function ShoppingScreen() {
   // `dishNames`/`catalogNames` arrays feeding a names-only preview; the drawers mount the real
   // FoodTab/CatalogueTab now, and each reads its own store.)
   const dishCount = useMealStore((s) => s.dishes).length;
-  const catalogCount = useCatalogStore((s) => s.items).length;
+  // `catalogCount` went with the Catalogue card's `count` prop (2026-08-21) — see the note at
+  // that card. Nothing else on this screen showed it.
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
   // watermark, so switching layout keeps the same rows marked and the user can find them
   // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
@@ -2451,12 +2452,20 @@ export default function ShoppingScreen() {
         </SectionCard>
       </View>
       <View ref={catalogueExpand.ref} collapsable={false}>
+        {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
+            (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
+            lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
+            top part"* and the 2026-08-21 pass gave every card a fold. Something had to yield,
+            and a tally of how many items the catalogue holds is the one thing in that row that
+            neither acts nor names: the list saying so is directly below it. Measured, not
+            guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
+              The count rule (AGENTS.md: *"a size yes, a score no"*) governs what a count may
+            MEAN, not that every card owes one. */}
         <SectionCard
           hue={screenHue}
           domain="shop"
           icon="list"
           label={t.catalogueTabLabel}
-          count={catalogCount}
           collapseKey="shopCatalogue"
           // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
           // buttons for camera and lock should be in the top part instead"*) — they were inside

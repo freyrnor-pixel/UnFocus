@@ -97,6 +97,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
+import { CardAccentBadge } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
 import AddRow from '@/components/AddRow';
@@ -110,7 +111,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, contrastOn, Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { useMountedTransition } from '@/lib/useMountedTransition';
@@ -177,18 +178,60 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
  * count pill, so this adds no new vocabulary — and it is why "redesigns the screen" turned out
  * to be a smaller cost than it looked.
  *
- * Values are Tailwind 700-family in light and lifted mirrors in dark. They clear 4.5:1 as TEXT
- * in their own mode even though nothing draws them as text any more — that headroom is what
- * makes them safe on a `soft` plate, and `lib/__tests__/colors.test.ts` pins it against the
- * live `surface` token, so a palette change (like the true-black pass) re-checks them for free.
- * Re-measure before changing one.
+ * ── 2026-08-21: ON A LIGHTNESS LADDER, AND DRAWN AT FULL OPACITY ────────────────────────────
+ *
+ * `CONSISTENCY_AUDIT.md` §15, from *"Dishes color coding is weak/pale"*. Two causes, and the
+ * second one mattered more than the hexes:
+ *
+ *  1. **The plate was the declined shape.** The badge was `rgba(hue, 0.16)` with a `theme.text`
+ *     glyph — a hue fill at a FIXED opacity under a neutral glyph, which is exactly what
+ *     `components/CardAccent.tsx`'s header records as DECLINED on 2026-08-10 and replaced
+ *     app-wide on 2026-08-15: *"one opacity cannot serve eight hues in two modes."* A 16% wash
+ *     of an already-pale hue was the whole of what reached the eye. It draws through
+ *     `CardAccentBadge` now — neutral frost, hue as a fully opaque glyph, contrast derived per
+ *     hue by `badgeGlyphFor` against the real composited plate — so this file has no private
+ *     badge left and the colour arrives at full strength.
+ *  2. **The values were pastels.** The dark set (`#D49B70`, `#79B2AE`, `#C8917F`, `#B27AE2`,
+ *     `#8E88DF`) sat at saturation 0.27–0.64 against a palette whose identity hues run C* 43–93.
+ *
+ * ⚠️ **The five sit on a LIGHTNESS LADDER, the same device `IDENTITY_HUES` uses, and that is
+ * the load-bearing half — saturating them alone makes the set WORSE for a colour-blind reader.**
+ * That was measured, not assumed. At full chroma with the hues where they were, the amber and
+ * the red — the two most saturated colours in the set — collapsed under deuteranopia to a
+ * worst-pair ΔE2000 of **4.0**, and a purple/indigo pair to **9.8**. Both are "these two are the
+ * same colour" territory.
+ *
+ * So the rung ORDER is not decorative and not alphabetical: it is the assignment that maximises
+ * the worst dichromat pair across BOTH deuteranopia and protanopia in BOTH modes, searched over
+ * rung permutations and a few degrees of hue either side of each family. Shipped worst pair:
+ * **16.8** (dark deutan; protan 23.8) and **18.3 / 18.9** in light — against the 4.0 that
+ * saturating alone produced.
+ *
+ *   L* rung   1 (darkest in dark mode) … 5        dark on #1E1E1E   light on #F9FBFE
+ *   dinner    1                                    56                18
+ *   snack     2                                    64                25
+ *   lunch     3                                    72                33
+ *   breakfast 4                                    80                40
+ *   kveldsmat 5                                    88                48
+ *
+ * Rung order is the same in both modes, so a meal's relative position does not flip when the
+ * theme does. Each value is the most chromatic sRGB colour at its hue and rung — nothing is
+ * desaturated to hit a number — and every one clears 4.5:1 on its own mode's `surface`, which is
+ * what makes it safe as a fully opaque glyph on the frost plate.
+ *
+ * `lib/__tests__/colors.test.ts` pins the contrast, the ≥7 L* ladder and the dichromat floor,
+ * and **reads these values out of this file rather than keeping a copy** — it held a hand-typed
+ * duplicate until 2026-08-21 that was already stale, so every assertion was green against five
+ * values the app had stopped drawing. Re-measure before changing one; the search script is
+ * ordinary CIEDE2000 plus a Viénot/Brettel/Mollon projection, the same two the identity ladder
+ * was picked with.
  */
 const MEAL_COLORS: Record<MealType, { light: string; dark: string }> = {
-  breakfast: { light: '#B45309', dark: '#D49B70' }, // morning amber
-  lunch:     { light: '#0F766E', dark: '#79B2AE' }, // teal (was collision-green)
-  dinner:    { light: '#9A3412', dark: '#C8917F' }, // terracotta (was collision-red)
-  snack:     { light: '#7E22CE', dark: '#B27AE2' }, // purple
-  kveldsmat: { light: '#4338CA', dark: '#8E88DF' }, // night indigo
+  breakfast: { light: '#795B00', dark: '#FBBC00' }, // morning amber   — rung 4
+  lunch:     { light: '#00594D', dark: '#00C6AC' }, // teal            — rung 3
+  dinner:    { light: '#511B00', dark: '#EE4F00' }, // terracotta      — rung 1 (darkest)
+  snack:     { light: '#600091', dark: '#D073FF' }, // purple          — rung 2
+  kveldsmat: { light: '#0068FA', dark: '#C7DEFF' }, // night blue      — rung 5 (lightest)
 };
 
 type DraftIngredient = { name: string; amount: string; unit: string; price: number };
@@ -445,12 +488,15 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
               scaleTo={0.99}
               releaseSpring={Spring.calm}
             >
-              {/* A.4 rule 1: the meal hue is a FILL. It plates the glyph and stops there — the
-                  word and the chevron are plain ink. See MEAL_COLORS' note for what this
-                  replaced (a title painted at 2.12:1 on white). */}
-              <View style={[styles.mealPlate, { backgroundColor: rgba(color, 0.16) }]}>
-                <Ionicons name={icon} size={18} color={theme.text} />
-              </View>
+              {/* ⚠️ **`CardAccentBadge`, not a private plate (2026-08-21).** This was a
+                  `rgba(color, 0.16)` disc with a `theme.text` glyph — a hue fill at a fixed
+                  opacity under a neutral glyph, i.e. the shape components/CardAccent.tsx
+                  declined in 2026-08-10 and the app inverted away from in 2026-08-15. The
+                  badge is neutral-plate-with-an-opaque-hue-glyph everywhere else; it is here
+                  now too, which is both what makes the colour arrive at full strength and the
+                  reason this file no longer owns a badge. `accentOverride` is how a meal hue
+                  reaches it — the same door Home's preview cards and the Dishes card use. */}
+              <CardAccentBadge domain="meal" icon={icon} size={32} accentOverride={color} />
               <Text style={[styles.sectionTitle, { color: theme.text }]}>{t.mealTypes[mealType]}</Text>
               <AnimatedChevron open={sectionOpen} />
             </PressableScale>
@@ -654,15 +700,17 @@ export default function FoodTab({ onNotify, onAddedToWeek, embedded = false }: P
         // the screen owns every edge — and this component now mounts in two places, so a meal
         // hue here drew five differently-coloured cards inside Shopping's green drawer. The
         // Surface below passes no borderColor at all and simply inherits.
+        // ⚠️ **No box when embedded (2026-08-21).** This drew each meal section as a bordered,
+        // filled box INSIDE the card that already contains all five — the nested panel the
+        // 2026-08-18 blueprint pass banned outright (*"Do NOT place borders … or separate
+        // background boxes inside of main cards"*), and visible as five outlined rectangles in
+        // the Food card's screenshot. It was right when it was written and the premise expired:
+        // this was a DRAWER's content then, sitting on the screen backdrop, where an edge was
+        // the only thing separating one meal from the next. Inside a card the gap does that.
+        //   Same shape `SectionCard embedded` takes for the Week card's seven days —
+        // `Shell = embedded ? View : Surface` — so nothing new is invented here.
         return embedded ? (
-          <View
-            key={mealType}
-            style={[
-              styles.section,
-              styles.sectionEmbedded,
-              { backgroundColor: theme.surface, borderColor: computeBorderTone(screenHue, isDark, 'card') },
-            ]}
-          >
+          <View key={mealType} style={[styles.section, styles.sectionEmbedded]}>
             {sectionInner}
           </View>
         ) : (
@@ -838,11 +886,15 @@ const baseStyles = StyleSheet.create({
   // padding + the section's + the dish card's, and the drawer adds its own Spacing.md pair on
   // top, which measurably chopped names ("Alt-i-ett-form med laks…" → "Alt-i-ett-form …").
   // Spacing.sm here buys back half of that; the drawer's own padding supplies the rest.
-  sectionEmbedded: { borderWidth: BORDER_WIDTH.card, paddingHorizontal: Spacing.sm },
+  // Spacing only since 2026-08-21 — the border and the fill came off with the box; see the map
+  // site. The tighter gutter stays and is the reason this style still exists: horizontal chrome
+  // stacks, and on /food a dish name is inset by the screen's padding + the section's + the dish
+  // card's, which measurably chopped names ("Alt-i-ett-form med laks…" → "Alt-i-ett-form …").
+  sectionEmbedded: { paddingHorizontal: Spacing.sm },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // The meal hue's only expression — a round soft plate under the glyph (A.4 rule 1). Sized to
   // match CardAccentBadge's small form so a meal section and a card header read as one family.
-  mealPlate: { width: 32, height: 32, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  // `mealPlate` is DELETED (2026-08-21) — components/CardAccent.tsx's CardAccentBadge draws it.
   // `Type.subheading`, the app's one in-card section heading (2026-08-21) — see
   // components/SectionRail.tsx's `subLabel` for why 17. This was `FontSize.lg` + bold (20),
   // one of the four sizes CONSISTENCY_AUDIT.md §2 counted for the same job.

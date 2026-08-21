@@ -23,6 +23,8 @@ import {
   IDENTITY_HUES,
   IDENTITY_NEUTRAL,
 } from '@/constants/colors';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { contrastOn, getBadgeFrost } from '@/constants/theme';
 import { getDomainColor, badgeGlyphFor, Domain } from '@/lib/domainColor';
 
@@ -669,13 +671,33 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
   // lib/__tests__/personColor.test.ts guards its own palette.
   describe('meal-type palette — contrast as text in its own mode', () => {
     const MODES = ['light', 'dark'] as const;
-    const MEAL_COLORS: Record<string, { light: string; dark: string }> = {
-      breakfast: { light: '#B45309', dark: '#D49B70' },
-      lunch: { light: '#0F766E', dark: '#79B2AE' },
-      dinner: { light: '#9A3412', dark: '#C8917F' },
-      snack: { light: '#7E22CE', dark: '#B27AE2' },
-      kveldsmat: { light: '#4338CA', dark: '#8E88DF' },
-    };
+
+    /**
+     * ⚠️ **Read from `components/FoodTab.tsx`, not copied (2026-08-21).** This block held a
+     * hand-typed duplicate of that file's `MEAL_COLORS` — the shape AGENTS.md names outright
+     * after the widget palette shipped a year-stale copy on the app's most-seen surface: *"a
+     * hand-copied constant with a comment telling you to keep it in step is not a mechanism."*
+     * It was already stale when this was written: every assertion below was green against five
+     * values the app had stopped drawing.
+     *
+     * A source parse rather than an import, because that module pulls in react-native.
+     */
+    const MEAL_COLORS: Record<string, { light: string; dark: string }> = (() => {
+      const src = readFileSync(join(__dirname, '..', '..', 'components', 'FoodTab.tsx'), 'utf8');
+      const block = src.slice(src.indexOf('const MEAL_COLORS'));
+      const body = block.slice(0, block.indexOf('};'));
+      const out: Record<string, { light: string; dark: string }> = {};
+      for (const m of body.matchAll(/(\w+):\s*\{\s*light:\s*'(#[0-9A-Fa-f]{6})',\s*dark:\s*'(#[0-9A-Fa-f]{6})'\s*\}/g)) {
+        out[m[1]] = { light: m[2], dark: m[3] };
+      }
+      return out;
+    })();
+
+    it('the parse found all five, so the assertions below are measuring the real values', () => {
+      expect(Object.keys(MEAL_COLORS).sort()).toEqual([
+        'breakfast', 'dinner', 'kveldsmat', 'lunch', 'snack',
+      ]);
+    });
 
     MODES.forEach((mode) => {
       const surface = THEMES.default[mode].surface;
@@ -690,6 +712,59 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       MODES.forEach((mode) => {
         const vals = Object.values(MEAL_COLORS).map((p) => p[mode]);
         expect(new Set(vals).size).toBe(vals.length);
+      });
+    });
+
+    /**
+     * ⚠️ **The set sits on a LIGHTNESS LADDER, for the reason `IDENTITY_HUES` does.**
+     *
+     * `CONSISTENCY_AUDIT.md` §15 asked for these to be less pale. Saturating them was tried
+     * first and measured: at full chroma the amber (breakfast) and the red (dinner) — the two
+     * most saturated colours in the set — collapsed under deuteranopia to a worst-pair ΔE of
+     * **4.0**, i.e. indistinguishable to a colour-blind reader. Spreading the five ~7.5 L*
+     * apart, with those two families at opposite ends of the ladder, is what fixes that; the
+     * chroma is a consequence, not the mechanism.
+     *
+     * So all three properties are pinned, and none implies the others: the ladder does not
+     * imply hue separation, ΔE2000 does not imply a lightness order, and neither implies
+     * contrast. Exactly the argument `IDENTITY_HUES`' own five assertions rest on.
+     */
+    test.each(MODES)('%s: the five are ≥7 L* apart', (mode) => {
+      const vals = Object.values(MEAL_COLORS).map((p) => p[mode]);
+      const rungs = vals.map(lstar).sort((a, b) => a - b);
+      for (let i = 1; i < rungs.length; i++) {
+        expect(`gap ${i}: ${(rungs[i] - rungs[i - 1] >= 7).toString()}`).toBe(`gap ${i}: true`);
+      }
+    });
+
+    it('the rung ORDER is the same in both modes', () => {
+      // A meal's position on the ladder must not flip when the theme does — otherwise the one
+      // thing a user could learn from the set ("dinner is the dark one") stops being true half
+      // the time. Not implied by anything above: each mode's contrast is checked against its own
+      // ground, and either could be reordered on its own without failing a single other test.
+      const order = (mode: 'light' | 'dark') =>
+        Object.entries(MEAL_COLORS)
+          .sort((a, b) => lstar(a[1][mode]) - lstar(b[1][mode]))
+          .map(([name]) => name);
+      expect(order('light')).toEqual(order('dark'));
+    });
+
+    test.each(MODES)('%s: no pair collapses for a dichromat', (mode) => {
+      // A lower floor than IDENTITY_HUES' 15/12: these five are one card's sections rather than
+      // the app's navigation, and they are read next to their own labels. The shipped worst
+      // pairs are 22.8 (deutan, dark) and 36.4 (light) against the 4.0 that saturating alone
+      // produced, so the margin is real either way.
+      const FLOORS = { deutan: 12, protan: 10 } as const;
+      (['deutan', 'protan'] as const).forEach((kind) => {
+        const entries = Object.entries(MEAL_COLORS);
+        for (let i = 0; i < entries.length; i++) {
+          for (let j = i + 1; j < entries.length; j++) {
+            const a = simulateDichromacy(entries[i][1][mode], kind);
+            const b = simulateDichromacy(entries[j][1][mode], kind);
+            const label = `${kind} ${entries[i][0]}/${entries[j][0]}`;
+            expect(`${label}: ${deltaE2000(a, b) >= FLOORS[kind]}`).toBe(`${label}: true`);
+          }
+        }
       });
     });
 
