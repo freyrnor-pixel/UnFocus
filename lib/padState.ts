@@ -33,52 +33,51 @@
  *   - `resolveCardState` falls back rather than throwing, so one bad row in the settings
  *     JSON (older build, hand-edited backup, AI-generated import) degrades to that surface's
  *     resting state instead of blanking a card.
- *   - **A surface rests at 'closed' as of 2026-08-21**, except the ones PAD_SURFACES_OPEN_AT_REST
- *     names, which rest at 'preview' (maintainer: *"All card start in closed state, except
- *     'Today' 'Notes' and 'Shopping' in middle screen"*). It read 'preview' for everything
- *     until then, on the reasoning that an upgrading user should open the app to roughly the
- *     card they already know — which was right while the app had users on the old default and
- *     is not what was asked for now. The excepted surfaces rest at 'preview' rather than
- *     'open' deliberately: the point of a three-state card is that its resting size is a
- *     glance, not the whole list.
+ *   - **This axis is no longer about open vs closed** (2026-08-21). It briefly rested at
+ *     'closed' with an exception list, mirroring lib/collapsedCards.ts; that was the second of
+ *     the two mechanisms owning one question, and the one that had to go. `'closed'` is deleted
+ *     from `PadState`, the exception list with it, and every card's fold — pad cards included —
+ *     is lib/collapsedCards.ts over lib/cardRegistry.ts's declarations.
  */
 import { PAD_PREVIEW_ROWS, PAD_SPARE_LINES } from '@/constants/theme';
-/**
- * Pad surfaces drawn at 'preview' when the user has not chosen; every other surface starts
- * 'closed'.
- *
- * These lived in lib/cardDefaults.ts, shared with lib/collapsedCards.ts, while both mechanisms
- * needed a resting state and the three excepted cards were drawn by both. The card half moved
- * into lib/cardRegistry.ts's `openAtRest` when the registry replaced every hand-maintained card
- * list, so this is the only half left and it lives with its reader. Typed as plain strings for
- * the reason cardDefaults always was: `PadSurface` is declared below, and importing it back
- * would be a cycle if this were ever moved out again.
- *
- * 'preview' rather than 'open' is the same call the pad cards have always made: the point of a
- * three-state card is that its resting size is a glance, not the whole list.
- */
-const PAD_SURFACES_OPEN_AT_REST: readonly string[] = ['plans', 'notes'] as const;
 import type { LayoutSurface } from '@/lib/cardLayout';
 
-/** A pad card's three resting sizes, smallest first. */
-export type PadState = 'closed' | 'preview' | 'open';
+/**
+ * How many of a pad card's rows are drawn. **Two values as of 2026-08-21 — `'closed'` is gone.**
+ *
+ * It used to be three, and the third one was a second fold: a "closed" pad card drew its header,
+ * its empty first rule, its Suggestions block and its composer — about 400px — while a card one
+ * tab over that called itself closed was 70px of bare header. Two mechanisms owned open/closed
+ * with two storage columns and two different answers to what the word means, which is the
+ * *"not all cards can be collapsed"* half of the report.
+ *
+ * Open/closed is `lib/collapsedCards.ts` for every card in the app now, pad cards included. This
+ * axis keeps only the question it is uniquely good at: HOW MANY rows, with a footer chevron that
+ * can say *"3 more"* — a count a header chevron has nowhere to put. The two can never both be
+ * showing, because closed is a bare header.
+ */
+export type PadState = 'preview' | 'open';
 
-export const PAD_STATES: readonly PadState[] = ['closed', 'preview', 'open'] as const;
+export const PAD_STATES: readonly PadState[] = ['preview', 'open'] as const;
 
 /** Surfaces that can carry their own state — the same set that can carry a layout. */
 export type PadSurface = LayoutSurface;
 
 /**
- * What a surface is drawn at when nothing has been chosen for it. Closed for everything except
- * the surfaces PAD_SURFACES_OPEN_AT_REST excepts — see this file's edit notes.
+ * What a surface is drawn at when nothing has been chosen for it.
+ *
+ * 'preview' for everything, and there is no exception list any more: the exceptions existed to
+ * say which pad cards rested OPEN, and that question moved to lib/cardRegistry.ts's `openAtRest`
+ * along with every other card's. 'preview' rather than 'open' is the same call the pad cards
+ * have always made — the point of a sized card is that its resting size is a glance.
  */
-export function defaultPadState(surface: PadSurface): PadState {
-  return PAD_SURFACES_OPEN_AT_REST.includes(surface) ? 'preview' : 'closed';
+export function defaultPadState(_surface: PadSurface): PadState {
+  return 'preview';
 }
 
 /**
- * The next size up, wrapping back to closed from open. One chevron cycles all three, so
- * there is a single expandability affordance per card instead of the old per-card text link.
+ * The next size up, wrapping back to preview from open. One chevron, two stops — it was three
+ * until 'closed' left this axis.
  */
 export function nextPadState(state: PadState): PadState {
   const i = PAD_STATES.indexOf(state);
@@ -137,24 +136,24 @@ export function sanitizeCardStates(raw: unknown): Record<string, string> {
  * visible" (e.g. lib/viewSnapshot's glow ids), never the full list.
  */
 export function padVisibleRows<T>(rows: readonly T[], state: PadState): T[] {
-  if (state === 'closed') return [];
   if (state === 'open') return [...rows];
   return rows.slice(0, PAD_PREVIEW_ROWS);
 }
 
 /** How many rows a state is holding back — the count on the footer chevron. */
 export function padHiddenCount(total: number, state: PadState): number {
-  if (state === 'closed') return total;
   if (state === 'open') return 0;
   return Math.max(0, total - PAD_PREVIEW_ROWS);
 }
 
 /**
- * Blank ruled lines to draw after the last row. A closed card gets none — it is header +
- * summary + type line, and spare rules there would undo the point of closing it.
+ * Blank ruled lines to draw after the last row.
+ *
+ * Both remaining states get them. The one state that did not was 'closed', which no longer
+ * exists here — a card with nothing to show draws no body at all now.
  */
-export function padSpareLines(state: PadState): number {
-  return state === 'closed' ? 0 : PAD_SPARE_LINES;
+export function padSpareLines(_state: PadState): number {
+  return PAD_SPARE_LINES;
 }
 
 /**

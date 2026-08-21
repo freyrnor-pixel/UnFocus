@@ -1767,7 +1767,9 @@ export default function PlanTaskCard({
             line is the pad's last rule now, everywhere, and this card is where the shape came
             from. Above the done zone below, never below it: this field adds to the day, and a
             completed task is not what it appends to. */}
-        {onAddTask ? <PadSheet state="closed" typeRow={typeRow} /> : null}
+        {/* `state` is immaterial here — this PadSheet has no rows, only the composer. It said
+            "closed" until that stopped being a pad state (2026-08-21). */}
+        {onAddTask ? <PadSheet state="preview" typeRow={typeRow} /> : null}
 
         {/* Done zone — dimmed, collapsed by default (Decision 009a). Always the flat-row
             layout, even in horizontal mode — this is a secondary dropdown list, not the

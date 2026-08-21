@@ -119,9 +119,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import { CardAccentBadge } from '@/components/CardAccent';
 import { Badge } from '@/components/Badge';
 import ProgressBar from '@/components/ProgressBar';
 import HabitIcon from '@/components/HabitIcon';
@@ -130,11 +128,10 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
-import CardExpandButton from '@/components/CardExpandButton';
-import { useCardExpand } from '@/lib/useCardExpand';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
+import Card from '@/components/Card';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -142,7 +139,7 @@ import HabitRecurrenceCells from '@/components/HabitRecurrenceCells';
 import Stepper from '@/components/Stepper';
 import { energyFieldsFromStepper } from '@/lib/energy';
 import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
-import { FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, Spacing, HitSlop, rgba, Type } from '@/constants/theme';
+import { FontSize, Fonts, OpticalCenter, Radius, Spacing, HitSlop, rgba } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -197,10 +194,6 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
   // 'habit' identity, a different value from the screen border below — content now pulls
   // from the same screenColor the border does, so the whole card is one colour family.
   const screenColor = getScreenColor(theme, 'habits');
-  // Full-screen expansion (2026-08-20) — a separate control from the title, which still pushes
-  // to /habits: that pushed screen holds deeper per-habit setup and the Week/Month calendar
-  // views an expanded preview does not, so both stay live (see lib/siteNav.ts's note).
-  const cardExpand = useCardExpand('homeHabits');
   const today = todayStr();
 
   const habits = useHabitStore((s) => s.habits);
@@ -377,32 +370,20 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
     );
   }
 
-  const body = (
-      <View style={embedded ? styles.embeddedContent : styles.cardContent}>
-        {/* Badge is a normal flex child — one left edge for the whole card. */}
+  // The card's own header is components/Card.tsx's now. What survives here is the EMBEDDED
+  // header — a section title inside a host card's pane, which is a label rather than a card
+  // header: no badge (the host carries the one badge), no ⋮ and no ⤢ (inside an expanded pane
+  // there is nothing left to expand).
+  const embeddedHeader = (
         <View style={styles.titleRowPressable}>
           <View style={styles.titleRow}>
-            {/* Only the badge + title navigate. The count pill and the ⋮ are siblings, not
-                children — a Badge inside a PressableScale reads as a button that isn't one,
-                and an icon button nested in a larger pressable makes its own tap ambiguous. */}
             <PressableScale onPress={handleTitlePress} style={styles.headerLeft} scaleTo={0.98}>
-              {/* No badge when embedded: a section header inside a card is a label, and the
-                  host card already carries the one badge (see the `embedded` prop's doc). */}
-              {!embedded && (
-                <CardAccentBadge domain="habit" size={32} accentOverride={screenColor.base} />
-              )}
               <View style={styles.headerText}>
-                <Text
-                  style={[embedded ? styles.sectionTitle : styles.title, { color: theme.text }]}
-                  numberOfLines={1}
-                >
+                <Text style={[styles.sectionTitle, { color: theme.text }]} numberOfLines={1}>
                   {t.habitsTitle}
                 </Text>
               </View>
             </PressableScale>
-            {/* Count pill, not the old grey sentence (DESIGN_COMPARISON/09) — see
-                HomeNotesCard's edit note for why it's a fixed-position row sibling rather than
-                inline after the title. */}
             {dueTodayHabits.length > 0 && (
               <Badge
                 label={`${pendingCount}/${dueTodayHabits.length}`}
@@ -413,36 +394,21 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
                 accessibilityLabel={t.pad.summary(pendingCount, dueTodayHabits.length)}
               />
             )}
-            {/* The ⤢ is BACK (2026-08-20), and it opens something real. It was removed on
-                2026-08-19 because `homeHabits`'s registered body in components/CardExpandHost.tsx
-                was a `ComingSoonBody` — the habits surface had never been extracted out of
-                app/habits.tsx the way To-do, Health and Notes were, so the button opened a
-                full-screen pane whose only content was the words "Expand card". That extraction
-                is done (components/HabitsSurface.tsx), so the reason is gone.
-                It is LAST in this row, after the ⋮, per the app-wide rule this pass settled:
-                whatever a card's own controls are, the full-screen button is the right-most
-                thing in the header. Gated on `!embedded` with the ⋮ for the same reason — inside
-                an expanded pane there is nothing left to expand. */}
-            {cardMenu && !embedded ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
-            {!embedded && (
-              <CardExpandButton
-                expanded={cardExpand.expanded}
-                onExpand={cardExpand.onExpand}
-                onCollapse={cardExpand.onCollapse}
-              />
-            )}
           </View>
-          {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
-          {dueTodayHabits.length > 0 && (
-            <ProgressBar
-              value={doneCount / dueTodayHabits.length}
-              color={screenColor.base}
-              height={4}
-              style={styles.progressBar}
-            />
-          )}
         </View>
+  );
 
+  const body = (
+      <>
+        {/* Outside the tap target on purpose: a progress bar is a readout, not a button. */}
+        {dueTodayHabits.length > 0 && (
+          <ProgressBar
+            value={doneCount / dueTodayHabits.length}
+            color={screenColor.base}
+            height={4}
+            style={styles.progressBar}
+          />
+        )}
 
         {habits.length === 0 ? (
           // No habits AT ALL — one-tap starters, and nothing else (2026-07-30). This block used
@@ -542,39 +508,40 @@ export default function HomeHabitsCard({ cardMenu, embedded = false }: Props) {
           onChange={setState}
           total={dueTodayHabits.length}
         />
-
-      </View>
+      </>
   );
 
-  // Embedded: no Surface of our own — we are already inside the host card's one.
-  if (embedded) return body;
+  // Embedded: no card of our own — we are already inside the host card's one, so this draws a
+  // section label and the body under it.
+  if (embedded) {
+    return (
+      <View style={styles.embeddedContent}>
+        {embeddedHeader}
+        {body}
+      </View>
+    );
+  }
 
   return (
-    <View ref={cardExpand.ref} collapsable={false}>
-      <Surface
-        surfaceContext="ambient"
-        style={[styles.card, state !== 'open' && styles.cardCollapsed]}
-      >
-        {body}
-      </Surface>
-    </View>
+    <Card
+      id="homeHabits"
+      count={dueTodayHabits.length > 0 ? { left: pendingCount, total: dueTodayHabits.length } : undefined}
+      controls={cardMenu ? <CardMenuButton cardTitle={t.habitsTitle} {...cardMenu} /> : null}
+    >
+      {body}
+    </Card>
   );
 }
 
+// ⚠️ **`card`, `cardCollapsed`, `cardContent` and `title` are gone (2026-08-21)** — they
+// described a hand-rolled card, and components/Card.tsx draws it now. What is left here is the
+// EMBEDDED rendering plus the row/pad internals. `cardCollapsed`'s HOME_PREVIEW_CARD_MIN_HEIGHT
+// floor is not coming back: it existed so the four Me cards read as one size at rest, and at
+// rest a card is now a bare header, which is already one size.
 const baseStyles = StyleSheet.create({
-  // No vertical margin (2026-08-08): the list that stacks these owns the gap
-  // (`SCREEN_GAP`, constants/theme.ts). Was `marginBottom: Spacing.sm`.
-  card: { borderRadius: Radius.md },
-  // Minimum height for the CLOSED and PREVIEW states, never for OPEN (maintainer's call,
-  // 2026-07-30): the four cards read as one intentional size at rest, and an open card is free
-  // to grow to whatever its content needs. Same constant, and the same "only while not fully
-  // open" gate, the pre-pad card used — `state !== 'open'` is what `!expanded` used to mean.
-  cardCollapsed: { minHeight: HOME_PREVIEW_CARD_MIN_HEIGHT },
-  // Collapsed-only floor so Habits reads the same size as its Notes/Plans/Shopping
-  // siblings regardless of how few habits are due — see constants/theme.ts.
-  // ONE horizontal inset for the whole card (PAD_GUTTER). The height floor is `cardCollapsed`
-  // above — applied while not open, see its comment.
-  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
+
+
+
   // Embedded (2026-08-20): no horizontal padding, because the HOST card already applied its
   // own gutter — padding here again would inset this section's rows from the task rows above
   // and the two lists would not line up. Only a top gap, separating the section from the
@@ -590,13 +557,7 @@ const baseStyles = StyleSheet.create({
   headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
-  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
-  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
-  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
-  // no visual change. A literal here is invisible to the type scale and to the design lab's
-  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
-  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
-  title: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily, ...OpticalCenter },
+
   // A SECTION header INSIDE a card, which is a rung below the section headers the 2026-08-15
   // pass set at `FontSize.xl` extrabold — those sit on a SCREEN, where the screen title is 24
   // and a section may match it. Here the host card's own title is 20, so xl (24) made the

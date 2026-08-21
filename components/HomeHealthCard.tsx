@@ -1,107 +1,47 @@
 /**
- * HomeHealthCard.tsx — Home-screen card for Health: today's medicine trays + issues active this
- * week, mirroring HomeHabitsCard/HomeNotesCard's Surface + domain-colored-border layout.
+ * HomeHealthCard.tsx — the Me tab's Health card.
  *
- * New (2026-08-20, "full-screen card expansion" pass) — Health left the bottom nav and moved
- * here. All of the real content lives in components/HealthSurface.tsx (`embedded`), the same
- * component app/health.tsx (the back-compat pushed route) and CardExpandHost's `homeHealth`
- * body mount — this file is only the card shell: badge, title, the expand/menu buttons, and the
- * Surface that gives it its one edge colour.
+ * All of the real content lives in components/HealthSurface.tsx (`embedded`), the same component
+ * app/health.tsx (the back-compat pushed route) and CardExpandHost's `homeHealth` body mount.
+ * This file is now only the mount point.
+ *
+ * ⚠️ **The card shell is gone as of 2026-08-21.** It used to hand-roll a header — badge, title,
+ * a PressableScale around the naming cluster, ⋮, fold, ⤢ — which was one of nine such headers,
+ * and the reason the app shipped 13 different trailing-control orders. Hue, badge, glyph, title,
+ * the fold and the ⤢ all come from lib/cardRegistry.ts's `homeHealth` entry now, drawn by
+ * components/Card.tsx. There is no prop here for any of them, deliberately.
  *
  * Connections:
- *   Imports → components/HealthSurface (`embedded`), components/Surface, components/CardAccent
- *             (CardAccentBadge), components/CardMenuSheet (CardMenuButton), components/PressableScale,
- *             components/CardExpandButton, components/CardCollapseToggle, components/Collapsible,
- *             lib/useCardExpand, lib/useCollapsedCard, lib/screenColor, lib/i18n,
- *             lib/useAppTheme, constants/theme
- *   Used by → app/(tabs)/index.tsx (Home's card stack, `HOME_CARD_KINDS` — 'health')
+ *   Imports → components/Card, components/CardMenuSheet (CardMenuButton), components/HealthSurface
+ *   Used by → app/(tabs)/index.tsx (Me's card stack, `HOME_CARD_KINDS` — 'health')
  *   Data    → none directly — HealthSurface drives store/useHealthStore
  *
  * Edit notes:
- *   - **The no-scoreboard rule is load-bearing here, same as the standalone screen**: no
- *     streak, no "better than last week", no total, no colour that escalates with a count, and
- *     no congratulation for a quiet week. Nothing in this shell adds a number HealthSurface
- *     doesn't already draw — see that file's own header before adding one.
- *   - **The title press expands** (`cardExpand.onExpand`), unlike Habits' or Shopping's, which
- *     still push/navigate to a genuinely deeper screen. There is no deeper Health destination
- *     any more: app/health.tsx is back-compat only, and nothing in the UI pushes to it.
+ *   - **The no-scoreboard rule is load-bearing here, same as the standalone screen**: no streak,
+ *     no "better than last week", no total, no colour that escalates with a count, and no
+ *     congratulation for a quiet week. Nothing in this shell adds a number HealthSurface doesn't
+ *     already draw — see that file's own header before adding one.
+ *   - **The title press expands**, unlike Habits' or Shopping's, which used to push to a
+ *     genuinely deeper screen. There is no deeper Health destination any more: app/health.tsx is
+ *     back-compat only, and nothing in the UI pushes to it. That behaviour is `Card`'s now, and
+ *     every expandable card has it rather than the ones that remembered.
  */
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Surface from '@/components/Surface';
-import PressableScale from '@/components/PressableScale';
-import { CardAccentBadge } from '@/components/CardAccent';
+import Card from '@/components/Card';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
-import CardExpandButton from '@/components/CardExpandButton';
-import CardCollapseToggle from '@/components/CardCollapseToggle';
-import Collapsible from '@/components/Collapsible';
 import HealthSurface from '@/components/HealthSurface';
-import { useCardExpand } from '@/lib/useCardExpand';
-import { useCollapsedCard } from '@/lib/useCollapsedCard';
-import { OpticalCenter, PAD_GUTTER, Radius, Spacing, Type } from '@/constants/theme';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { getScreenColor } from '@/lib/screenColor';
 
 type Props = {
-  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
+  /** Me's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
   cardMenu?: CardMenu;
 };
 
 export default function HomeHealthCard({ cardMenu }: Props) {
   const t = useT();
-  const theme = useAppTheme();
-  const styles = useScaledStyles(baseStyles);
-  const screenColor = getScreenColor(theme, 'health');
-  const cardExpand = useCardExpand('homeHealth');
-  // The whole card's fold (2026-08-21, CONSISTENCY_AUDIT.md §10). Not the same as the
-  // `healthWeek` fold inside HealthSurface — that one is the "This week" section; this is the
-  // card. Habits and Notes get their equivalent from the pad footer (the other mechanism), and
-  // Medicine has its own; this card had neither until now.
-  const [collapsed, toggleCollapsed] = useCollapsedCard('homeHealth');
-
   return (
-    <View ref={cardExpand.ref} collapsable={false}>
-      <Surface surfaceContext="ambient" style={styles.card}>
-        <View style={styles.cardContent}>
-          <View style={styles.header}>
-            <PressableScale onPress={cardExpand.onExpand} style={styles.headerLeft} scaleTo={0.98}>
-              <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenColor.base} />
-              <View style={styles.headerText}>
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-                  {t.home.healthCardTitle}
-                </Text>
-              </View>
-            </PressableScale>
-            {/* ⤢ LAST (2026-08-20). The app-wide rule the UI-consistency pass settled: whatever a
-                card's own controls are, the full-screen button is the right-most thing in the
-                header, so it lands in the card's actual top-right corner on every surface. This
-                pair used to be the other way round. */}
-            {cardMenu ? <CardMenuButton cardTitle={t.home.healthCardTitle} {...cardMenu} /> : null}
-            <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={t.home.healthCardTitle} />
-            <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
-          </View>
-
-          <Collapsible open={!collapsed}>
-            <HealthSurface embedded />
-          </Collapsible>
-        </View>
-      </Surface>
-    </View>
+    <Card id="homeHealth" controls={cardMenu ? <CardMenuButton cardTitle={t.home.healthCardTitle} {...cardMenu} /> : null}>
+      <HealthSurface embedded />
+    </Card>
   );
 }
-
-const baseStyles = StyleSheet.create({
-  card: { borderRadius: Radius.md },
-  cardContent: { paddingHorizontal: PAD_GUTTER, paddingTop: PAD_GUTTER, paddingBottom: PAD_GUTTER },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.lg },
-  headerLeft: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  headerText: { flex: 1, minWidth: 0 },
-  // ⚠️ **`Type.heading`, not a literal (consistency audit, 2026-08-21).** This was a
-  // hardcoded `fontSize: 20, lineHeight: 25`, repeated verbatim in five card files — the
-  // exact values `Type.heading` already holds (20 × 1.25), so this is a substitution with
-  // no visual change. A literal here is invisible to the type scale and to the design lab's
-  // font pass alike, and it is why the app shipped card titles at 17, 20 and 24 with three
-  // different ways of spelling 20. See CONSISTENCY_AUDIT.md §2.
-  title: { fontSize: Type.heading.size, lineHeight: Type.heading.size * Type.heading.line, fontFamily: Type.heading.fontFamily, ...OpticalCenter },
-});

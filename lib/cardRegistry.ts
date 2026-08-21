@@ -221,6 +221,12 @@ export const CARDS = {
     title: (t) => t.notes.title,
     fold: 'persisted',
     expand: 'surface',
+    // One of the maintainer's three named exceptions to "all cards start in closed state"
+    // (2026-08-21: *"except 'Today' 'Notes' and 'Shopping' in middle screen"*). It used to be
+    // spelled in lib/padState.ts's exception list, because Notes was a pad card and its pad
+    // state was its fold; that axis no longer carries open/closed, so the exception lives here
+    // with every other card's.
+    openAtRest: true,
   },
   homeHealth: {
     screen: 'me',

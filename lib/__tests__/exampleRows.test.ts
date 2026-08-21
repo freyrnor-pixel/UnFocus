@@ -513,7 +513,9 @@ describe('the composer comes after the examples, everywhere', () => {
     // pass `typeRow` and never position it themselves. Above the `footer` because that slot is
     // the done/checked zone — this field appends to the ACTIVE list, not to that one.
     const source = code('components/PadSheet.tsx');
-    const rows = source.indexOf('<Collapsible open={state !== \'closed\'}>');
+    // The rows were wrapped in a `<Collapsible>` until 2026-08-21, when 'closed' left the pad
+    // axis and folding became components/Card.tsx's job — so the anchor is the row map itself.
+    const rows = source.indexOf('{rows.map(');
     const typeLine = source.indexOf('styles.typeLine');
     const footer = source.indexOf("state === 'open' && footer");
     expect(rows).toBeGreaterThan(-1);

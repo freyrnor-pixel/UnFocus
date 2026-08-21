@@ -79,8 +79,16 @@ type Props = {
    */
   icon?: React.ComponentProps<typeof CardAccentBadge>['icon'];
   label: string;
-  /** Optional item tally shown after the label. */
-  count?: number;
+  /**
+   * Optional item tally shown after the label — a SIZE, never a score (AGENTS.md).
+   *
+   * `{ left, total }` renders as `left/total`, which is what the Me tab's pad cards drew as a
+   * hand-rolled `Badge` beside their hand-rolled titles (2026-08-21). Folding it in here is what
+   * lets those cards go through components/Card.tsx with nothing left over: a tally is part of
+   * a header, not one of the card's controls, and putting it in the controls slot would have put
+   * a read-only pill inside the run of tap targets.
+   */
+  count?: number | { left: number; total: number };
   /** Optional control rendered flush-right (e.g. a toggle). */
   right?: React.ReactNode;
   /**
@@ -170,7 +178,9 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
         {label}
       </Text>
       {count != null && (
-        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
+        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>
+          {typeof count === 'number' ? count : `${count.left}/${count.total}`}
+        </Text>
       )}
     </>
   );

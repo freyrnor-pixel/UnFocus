@@ -64,7 +64,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 type CardProps = {
   id: CardKey;
   /** Optional tally shown after the title. A size, never a score. */
-  count?: number;
+  count?: number | { left: number; total: number };
   /** The caller's OWN header controls — a bell, a lock, a ⋮. Never a fold or a ⤢. */
   controls?: React.ReactNode;
   /** Drawn inside another card, so this one draws no card of its own. */
@@ -101,6 +101,11 @@ export default function Card({ id, count, controls, embedded, contentStyle, chil
       contentStyle={contentStyle}
       collapsed={folds ? collapsed : undefined}
       onToggleCollapse={folds ? toggleCollapsed : undefined}
+      // Pressing a card's NAME opens it full screen, which is what the four Me cards did with a
+      // hand-rolled PressableScale around their badge-and-title cluster. The rail has had a slot
+      // for exactly this since 2026-08-10; wiring it here means every expandable card gets it,
+      // rather than the four that remembered.
+      onLabelPress={expands ? expand.onExpand : undefined}
       controls={
         <>
           {controls}
@@ -130,7 +135,8 @@ type ShellProps = {
   icon?: React.ComponentProps<typeof SectionRail>['icon'];
   badgeHue?: boolean;
   label: string;
-  count?: number;
+  count?: number | { left: number; total: number };
+  onLabelPress?: () => void;
   /** Everything that goes right of the title, in the order it should appear. */
   controls?: React.ReactNode;
   collapsed?: boolean;
@@ -155,6 +161,7 @@ export function CardShell({
   badgeHue,
   label,
   count,
+  onLabelPress,
   controls,
   collapsed,
   onToggleCollapse,
@@ -175,6 +182,7 @@ export function CardShell({
       badgeHue={badgeHue}
       label={label}
       count={count}
+      onLabelPress={onLabelPress}
       // The hairline follows the BODY: the rule is what ties a header to the content under it,
       // so a folded card drawing one draws it over nothing.
       divider={!isClosed}
