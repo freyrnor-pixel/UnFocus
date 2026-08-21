@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/DraggableTaskRow,
- *             components/ExpandableCard, components/PressableScale, components/Surface,
+ *             components/DisclosureRow, components/PressableScale, components/Surface,
  *             components/FormControls (Switch), constants/theme, lib/i18n, lib/reorder
  *             (reorderByDrag), lib/useAppTheme, store/useShoppingListStore (ShoppingList
  *             type), store/useShoppingStore (ShoppingItem type)
@@ -50,7 +50,7 @@ import { reorderByDrag } from '@/lib/reorder';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import { Switch } from '@/components/FormControls';
 import { ShoppingList } from '@/store/useShoppingListStore';
@@ -159,7 +159,7 @@ export default function MonthlyResetReviewSheet({
         <Text style={[styles.intro, { color: theme.textMuted }]}>{t.monthlyResetReviewIntro}</Text>
 
         <View style={styles.scroll}>
-          <ExpandableCard title={t.monthlyResetReviewListsSection} badge={String(lists.length)} defaultOpen>
+          <DisclosureRow title={t.monthlyResetReviewListsSection} badge={String(lists.length)} defaultOpen>
             {orderedLists.length === 0 ? (
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.monthlyResetReviewEmptyLists}</Text>
             ) : (
@@ -187,9 +187,9 @@ export default function MonthlyResetReviewSheet({
                 </DraggableTaskRow>
               ))
             )}
-          </ExpandableCard>
+          </DisclosureRow>
 
-          <ExpandableCard title={t.monthlyResetReviewInventorySection} badge={String(catalogItems.length)} defaultOpen>
+          <DisclosureRow title={t.monthlyResetReviewInventorySection} badge={String(catalogItems.length)} defaultOpen>
             <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.monthlyResetReviewInventoryHint}</Text>
             {catalogItems.length === 0 ? (
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>{t.monthlyResetReviewEmptyInventory}</Text>
@@ -219,7 +219,7 @@ export default function MonthlyResetReviewSheet({
                 </View>
               ))
             )}
-          </ExpandableCard>
+          </DisclosureRow>
         </View>
 
         <View style={styles.footer}>

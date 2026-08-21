@@ -105,7 +105,7 @@ const CHEVRON_ALLOWED: Record<string, string> = {
   'components/FoodTab.tsx':
     'KEEP — idiom 2 on the meal-section headers. (Its LEADING raw chevron on dish rows is a '
     + 'navigation affordance on a row, not a card fold.)',
-  'components/ExpandableCard.tsx':
+  'components/DisclosureRow.tsx':
     'KEEP — idiom 2; the whole header row is the button, badge and rightAction included.',
   'components/TodoSurface.tsx':
     'KEEP — idiom 2 on "The rest" and the done zone. Its hue-coloured chevron is gone; both '
@@ -359,7 +359,7 @@ describe('a card title is a token, never a literal', () => {
     'components/FoodTab.tsx',       // the meal sections
     'components/HabitsSurface.tsx',
     'components/HealthSurface.tsx', // "This week"
-    'components/ExpandableCard.tsx',
+    'components/DisclosureRow.tsx',
   ];
 
   it.each(SECTION_HEADING_FILES)('%s draws its section heading from Type.subheading', (file) => {

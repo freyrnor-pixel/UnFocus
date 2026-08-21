@@ -7,7 +7,7 @@
  * Connections:
  *   Imports → react-native-reanimated, @expo/vector-icons, constants/motion (Duration, Ease),
  *             lib/useAppTheme (useAccessibility)
- *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/ExpandableCard.tsx,
+ *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/DisclosureRow.tsx,
  *             components/FoodTab.tsx, app/(tabs)/shopping.tsx (the Monthly tab's
  *             purchased-this-month trip headers — they drew a bold ▲/▼ TEXT glyph and
  *             hard-swapped it until 2026-08-08, the last such affordance in the app)

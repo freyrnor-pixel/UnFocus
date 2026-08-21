@@ -70,7 +70,7 @@
  *             rows any more), components/AppModal (showAppModal),
  *             components/CardAccent (CardAccentBadge),
  *             components/ConfirmationBanner, components/DraggableTaskRow,
- *             components/ExpandableCard, components/Collapsible + components/AnimatedChevron
+ *             components/DisclosureRow, components/Collapsible + components/AnimatedChevron
  *             (the purchased-this-month trip groups — see that block's own note),
  *             components/FlightOverlay (FlightPill, Flight, FlightRect),
  *             components/IconButton,
@@ -449,7 +449,7 @@
  *     dish groups as "read-only... no parent/child checkbox binding attempted." Closed
  *     now — toggleDish() here is the bulk roll-up/roll-down action R4 calls for, reusing
  *     the existing per-item toggleCheck (no new store action); WeekListCard's dish-group
- *     ExpandableCard calls it via the new onToggleDish prop. Required loosening
+ *     DisclosureRow calls it via the new onToggleDish prop. Required loosening
  *     computeListGroups()'s dish grouping to include checked items too (previously
  *     unchecked-only, which made the "dish shows checked" roll-up unobservable) — see
  *     lib/shoppingGroups.ts's own header note.
@@ -506,7 +506,7 @@ import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
-import ExpandableCard from '@/components/ExpandableCard';
+import DisclosureRow from '@/components/DisclosureRow';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
@@ -2227,7 +2227,7 @@ export default function ShoppingScreen() {
                           {view.catalogDishGroups.length > 0 && (
                             <View style={styles.dishGroupsWrap}>
                               {view.catalogDishGroups.map(([dishName, groupItems]) => (
-                                <ExpandableCard key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
+                                <DisclosureRow key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
                                   {groupItems.map((item, idx) => (
                                     <View key={item.id}>
                                       <MonthlyTableRow
@@ -2242,7 +2242,7 @@ export default function ShoppingScreen() {
                                       {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
                                     </View>
                                   ))}
-                                </ExpandableCard>
+                                </DisclosureRow>
                               ))}
                             </View>
                           )}

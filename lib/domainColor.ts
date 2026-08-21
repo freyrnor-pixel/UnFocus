@@ -5,7 +5,7 @@
  * note, health) to a triad {accent, soft, ink} + two gradient primitives, derived from
  * the palette's `card*` tokens (constants/colors.ts), plus a per-status mapping
  * (done/overdue/soon/default) onto the semantic good/bad/warn tokens. Every screen's section
- * headers, AddRow accent, badges, ExpandableCard.accentColor, and CardAccentBadge pull
+ * headers, AddRow accent, badges, DisclosureRow.accentColor, and CardAccentBadge pull
  * their hue from here so a domain reads the same color everywhere (design criteria 1, 4, 8).
  *
  * ⚠️ **AN IDENTITY HUE IS A FILL. IT IS NEVER TEXT AND NEVER AN ICON COLOUR** (2026-07-31,

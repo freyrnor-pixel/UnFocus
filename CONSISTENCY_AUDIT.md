@@ -5,6 +5,37 @@
 plus the 115 test files and the 41 markdown docs. Every claim below carries a `file:line`.
 **Result: all 16 confirmed.** Nothing on the list was a misreading of the shipped app.
 
+> ## ⚠️ Third pass, 2026-08-21 — the registry. Read this before anything below.
+>
+> The same instruction came back a fourth time (*"Things are placed differently. Not all cards
+> can be collapsed. Not all cards can be in full screen. It just feels like a bunch of cards per
+> screen, no order, no logic"*), and the reason is in this document rather than in the app:
+> **every guard here is a source scan over an allowlist**, so a new card was compliant by
+> default and the suite stayed green while the screen stayed wrong. §8's own rules wrote the
+> escape hatches in — rule 27 tracked header convergence as *"an allowlist that must shrink"*,
+> rule 28 blessed two fold idioms, and `cardAnatomy.test.ts` pinned the WRONG control order on
+> purpose. The measured state after the second pass was still 13 distinct header-control orders,
+> 7 components drawing a card header (9 hand-rolled), 3 fold mechanisms, ⤢ on 10 of ~30 cards,
+> and a card whose fold id and expand id were different strings (`plansToday`/`todoToday`).
+>
+> **What changed is the generator.** `lib/cardRegistry.ts` declares every card once; `CardId`
+> and `ExpandableCardId` are derived from it; `components/Card.tsx` is the only thing that draws
+> a card, and no other file may import the fold or the ⤢. An unregistered card is a **tsc
+> error**, not a test finding. Declining a fold or a ⤢ is supported and requires a written
+> reason. So the sections below are still the evidence, and several of their fixes have been
+> superseded by something stronger:
+>
+> | Section | Then | Now |
+> |---|---|---|
+> | §2 (header anatomy) | converge on `SectionCard`/`SectionRail`, tracked as a shrinking allowlist | one component draws every card header; the ladder is three real `SectionRail` tiers |
+> | §3 (five collapse mechanisms) | two mechanisms, one shared default list | one axis; `PadState` lost `'closed'`, `lib/cardDefaults.ts` is deleted |
+> | §8 (control order) | pinned as-shipped, deferred to "the header-convergence pass" | this is that pass; the order is the rule and the imports are banned |
+> | §10 (fold + ⤢ coverage) | per-card, card by card | declared per card, and a `'none'` needs a reason |
+> | §13 (Shop's idioms) | a third header idiom moved to the sub tier | Shop is four cards; each list is a section inside one |
+>
+> `components/CollapsedSection.tsx` is deleted and `ExpandableCard.tsx` is renamed
+> `DisclosureRow.tsx` — it is not a card and never was.
+>
 > **This file is the record.** It exists so the next session reads the evidence instead of
 > re-deriving it — which is how several of these defects came back after a pass that had
 > already fixed them. Every section says where its fix landed.

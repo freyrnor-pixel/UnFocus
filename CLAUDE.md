@@ -42,6 +42,11 @@ see AGENTS.md.)
 
 - **For ANY copy change:** `DESIGN_RULES.md` §7 (rules 22–25) is the rulebook, CI-enforced by `lib/__tests__/copyTone.test.ts`. `VOICE.md` records the app's one deliberate exception (the day log's first-person empty state) — read it before "correcting" that string or adding first-person copy anywhere.
 - **For ANY screen or visual change:** Read `DESIGN_RULES.md` first — **33** numbered invariants plus the open conflicts where a rule is *not* yet binding. Its "Quick self-check" list is the ship gate. `DESIGN_RULES_AUDIT.md` says which violations are deliberate and why.
+  - ⚠️ **For a CARD, read AGENTS.md's "One card shape — the card registry" entry FIRST.** A card is
+    declared in `lib/cardRegistry.ts` and drawn by `components/Card.tsx`; a caller names one
+    (`<Card id="todoToday">`) rather than describing it, an unregistered card is a tsc error, and
+    no other file may import the fold or the ⤢. Most of the older card prose describes how that
+    was reached, not how a card is built.
   - ⚠️ **§8 "Component identity" (rules 26–33, added 2026-08-21) is the one to read first for a new surface.** §1–7 govern VALUES — spacing, contrast, targets, durations — and until §8 existed nothing governed which COMPONENT owns a thing. That gap is where a maintainer audit found sixteen recurring defects hiding: the app shipped one `FIELD_RADIUS` and nine field shapes, one canonical card header and fourteen variants. The token was never the problem. `CONSISTENCY_AUDIT.md` is the evidence, with a `file:line` per finding and a list of what is deferred and on which decision.
   - **The 41 root markdown docs are now 18**; the rest are in `docs/archive/` with an index saying what superseded each. Don't reach for a `*_LIBRARY.md` — `constants/` is the source of truth for every number.
 - **For ANY build, version bump, or APK work:** Read `OTA_BUILD_WORKFLOW.md` first. It documents the exact sequence to avoid runtime mismatches and broken OTA updates.
