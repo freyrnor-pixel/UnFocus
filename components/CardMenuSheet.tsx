@@ -71,7 +71,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
-import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, Radius, Spacing, rgba } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, HitSlop, IconSize, MIN_TAP_TARGET, Radius, rgba, Spacing } from '@/constants/theme';
 import { selection, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
@@ -267,5 +267,12 @@ const baseStyles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   doneBtnText: { fontFamily: Fonts.bold, fontSize: FontSize.md },
-  kebab: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  // ⚠️ **`IconSize.action`, not a bare 28 (2026-08-21, CONSISTENCY_AUDIT.md §14).** This is a
+  // card-header control that sits beside components/CardExpandButton.tsx, which is an
+  // `IconButton` at the default 36 — so the ⋯ was rendering at 78% of the diameter of the
+  // button next to it, on every card that draws both. The touch target was already fine
+  // (`HitSlop.base` at the call site); it is purely what the eye compares, which is why no test
+  // saw it. It stays a hand-rolled box rather than becoming an IconButton: it must not draw a
+  // key cap, since a ⋯ opens a sheet rather than acting.
+  kebab: { width: IconSize.action, height: IconSize.action, alignItems: 'center', justifyContent: 'center' },
 });

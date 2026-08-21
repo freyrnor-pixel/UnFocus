@@ -50,7 +50,7 @@ import React from 'react';
 import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { glassKey, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { glassKey, IconSize, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
@@ -60,6 +60,14 @@ type Props = {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
+  /**
+   * Visual diameter. Prefer `IconSize.*` (constants/theme.ts) — and prefer passing NOTHING for
+   * the ordinary case, so this control tracks the default if it ever moves. Six diameters
+   * shipped at once before that token existed; see its doc.
+   *
+   * ⚠️ It does not affect the TOUCH target, which is floored at `MIN_TAP_TARGET` below whatever
+   * this says. That is why the six were invisible to every tap-target test in the repo.
+   */
   size?: number;
   tint?: string;
   color?: string;
@@ -82,7 +90,7 @@ export default function IconButton({
   icon,
   label,
   onPress,
-  size = 36,
+  size = IconSize.action,
   tint,
   color,
   active = false,

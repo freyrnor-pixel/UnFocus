@@ -249,6 +249,53 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * ⚠️ **An icon button's DIAMETER is a token too (2026-08-21, CONSISTENCY_AUDIT.md §14).**
+   *
+   * Six shipped at once — 16, 18, 22, 26, 30, 36 — and not one of them was a tap-target bug:
+   * `components/IconButton.tsx` floors its hit area at `MIN_TAP_TARGET` whatever `size` says.
+   * That is exactly why it survived every guard in this file. The defect is a comparison, and
+   * the worst case was the Catalogue card's lock and camera at 22 sitting eight pixels from a
+   * `CardExpandButton` at 36 — 61% of the diameter and 61% of the glyph of its neighbour.
+   *
+   * `IconSize` is three values for three jobs (action / compact / inline); see its doc. A
+   * literal here means somebody picked a fourth size for a job that already has one.
+   */
+  test('no bare numeric IconButton size — use IconSize.*', () => {
+    const offenders: string[] = [];
+    for (const f of SCANNED) {
+      for (const tag of readCode(f).match(/<IconButton\b[^>]*?>/gs) ?? []) {
+        const m = tag.match(/size=\{(\d+)\}/);
+        if (m) offenders.push(`${rel(f)}: size={${m[1]}}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  test('IconSize is a small set, and IconButton defaults to the action rung', () => {
+    // The point of the token is that there are FEW of them. A fourth rung is a design decision
+    // about a fourth job, and it should cost a failing test to add one silently.
+    const theme = readCode(join(ROOT, 'constants/theme.ts'));
+    const block = theme.slice(theme.indexOf('export const IconSize'));
+    const values = [...block.slice(0, block.indexOf('}')).matchAll(/:\s*(\d+)/g)].map((m) => m[1]);
+    expect(values).toEqual(['36', '30', '26']);
+    // A caller passing nothing must land on `action`, so "pass no size" and "pass
+    // IconSize.action" cannot drift apart.
+    expect(readCode(join(ROOT, 'components/IconButton.tsx'))).toMatch(/size = IconSize\.action/);
+  });
+
+  /**
+   * The one genuine tap-target violation §14 found, and the shape of it is worth keeping: a
+   * control smaller than MIN_TAP_TARGET must pay for its size EITHER with a minHeight/minWidth
+   * OR with a hitSlop. `components/PadFooterToggle.tsx` had neither — ≈28px tall, and it is the
+   * size control on all four pad cards.
+   */
+  test('PadFooterToggle pays for being short', () => {
+    const src = readCode(join(ROOT, 'components/PadFooterToggle.tsx'));
+    expect(src).toMatch(/minHeight: MIN_TAP_TARGET/);
+    expect(src).toMatch(/hitSlop=\{HitSlop\.base\}/);
+  });
+
   test('no bare numeric hitSlop — use HitSlop.* or hitSlopFor(size)', () => {
     // 10 and 12 survive because rounding them to a token would change the touch area, and
     // whether that is a fix or a regression needs each call site's visual size measured.

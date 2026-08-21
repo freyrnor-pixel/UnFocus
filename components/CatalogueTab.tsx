@@ -183,7 +183,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, HitSlop, IconSize, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -792,7 +792,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
             label={t.catalogueAddNewBtn}
             onPress={() => setAddOpen(true)}
             tint={screenHue}
-            size={30}
+            size={IconSize.compact}
           />
         </View>
       )}

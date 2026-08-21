@@ -109,18 +109,7 @@ import { useCardExpand } from '@/lib/useCardExpand';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Badge } from '@/components/Badge';
-import {
-  FontSize,
-  Fonts,
-  HOME_PREVIEW_CARD_MIN_HEIGHT,
-  OpticalCenter,
-  PAD_GUTTER,
-  Radius,
-  Spacing,
-  rgba,
-  HitSlop,
-  Type,
-} from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, HOME_PREVIEW_CARD_MIN_HEIGHT, IconSize, OpticalCenter, PAD_GUTTER, Radius, rgba, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -469,8 +458,10 @@ const baseStyles = StyleSheet.create({
     ...OpticalCenter,
   },
   micButton: {
-    width: 28,
-    height: 28,
+    // `IconSize.action` (2026-08-21) — see CardMenuSheet's kebab note. This sits in the same
+    // header cluster as that ⋯ and the ⤢, and was the third diameter in a row of three controls.
+    width: IconSize.action,
+    height: IconSize.action,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',

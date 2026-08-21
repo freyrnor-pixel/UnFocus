@@ -44,7 +44,7 @@ import { Input } from '@/components/FormControls';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
 import OptionalTag from '@/components/OptionalTag';
-import { Spacing, Radius, FontSize, Fonts } from '@/constants/theme';
+import { Fonts, FontSize, IconSize, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { selection, tap } from '@/lib/haptics';
@@ -135,7 +135,7 @@ export function GoalPicker({ value, onChange }: Props) {
           </Text>
         </PressableScale>
         {selected ? (
-          <IconButton icon="close-circle" label={t.goals.remove} onPress={() => onChange(null)} size={26} />
+          <IconButton icon="close-circle" label={t.goals.remove} onPress={() => onChange(null)} size={IconSize.inline} />
         ) : null}
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
@@ -181,7 +181,7 @@ export function GoalPicker({ value, onChange }: Props) {
                   icon="trash-outline"
                   label={t.goals.deleteLabel}
                   onPress={() => confirmDelete(g.id, g.title)}
-                  size={26}
+                  size={IconSize.inline}
                 />
               </View>
             ))

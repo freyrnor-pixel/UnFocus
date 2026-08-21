@@ -163,7 +163,7 @@ import { useRouter } from 'expo-router';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
-import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, getMatte } from '@/constants/theme';
+import { Fonts, FontSize, getMatte, IconSize, MIN_TAP_TARGET, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
@@ -509,12 +509,17 @@ export default function WeekListCard({
                 </Text>
               </PressableScale>
             )}
+            {/* `IconSize.inline` — it was a bare 18, the smallest IconButton in the app and one
+                of the six diameters CONSISTENCY_AUDIT.md §14 counted. It sits ON the name row
+                beside the list's title, which is the `inline` job exactly. The touch target does
+                not change either way: IconButton floors it at MIN_TAP_TARGET whatever the
+                diameter, which is why the spread was invisible to every test. */}
             {list.isRecurring && (
               <IconButton
                 icon="repeat"
                 label={t.listRecurringToggleLabel}
                 onPress={onOpenListSettings}
-                size={18}
+                size={IconSize.inline}
                 tint="transparent"
                 color={theme.good}
                 style={styles.repeatIcon}
@@ -528,11 +533,11 @@ export default function WeekListCard({
                 the old always-visible Planning/Shopping mode pill. */}
             {dirty && (
               <>
-                <IconButton icon="checkmark-circle-outline" label={t.listSaveButtonLabel} onPress={onSaveChanges} color={theme.good} size={30} />
-                <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={30} />
+                <IconButton icon="checkmark-circle-outline" label={t.listSaveButtonLabel} onPress={onSaveChanges} color={theme.good} size={IconSize.compact} />
+                <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={IconSize.compact} />
               </>
             )}
-            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={30} />
+            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={IconSize.compact} />
             {/* ⚠️ **The shared fold control, not a plated `IconButton` (2026-08-21,
                 CONSISTENCY_AUDIT.md §2/§8).** This was an `IconButton size={30}` — a glass key
                 cap, where every other card in the app folds with a bare chevron glyph — and it
