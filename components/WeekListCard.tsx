@@ -451,13 +451,12 @@ export default function WeekListCard({
   const totalInCart = allChecked.length;
   const showInListSection = totalInList > 0 || !list.locked;
 
-  // Card edge is always shopping green now (2026-07-22) — the old amber-while-unlocked/
-  // green-while-locked coding read as "not appealing" and was dropped; lock state is carried
-  // entirely by the lock icon + Save/Discard buttons below.
-  const edgeColor = screenColor.base;
-
+  // The card wears no hue at all as of 2026-08-20 (components/Surface.tsx). It was shopping
+  // green from 2026-07-22 — the amber-while-unlocked/green-while-locked coding before that read
+  // as "not appealing" and was dropped — and lock state has been carried entirely by the lock
+  // icon + Save/Discard buttons below ever since, which is why nothing here needed replacing.
   return (
-    <Surface borderColor={edgeColor} style={styles.cardRow}>
+    <Surface style={styles.cardRow}>
       <View style={styles.cardContent}>
       {/* ── Card header: tap-to-edit name + expand/collapse + save/discard/lock/settings ── */}
       <View style={styles.header}>

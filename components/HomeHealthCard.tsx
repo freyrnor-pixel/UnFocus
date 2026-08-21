@@ -53,7 +53,7 @@ export default function HomeHealthCard({ cardMenu }: Props) {
 
   return (
     <View ref={cardExpand.ref} collapsable={false}>
-      <Surface surfaceContext="ambient" borderColor={screenColor.base} style={styles.card}>
+      <Surface surfaceContext="ambient" style={styles.card}>
         <View style={styles.cardContent}>
           <View style={styles.header}>
             <PressableScale onPress={cardExpand.onExpand} style={styles.headerLeft} scaleTo={0.98}>

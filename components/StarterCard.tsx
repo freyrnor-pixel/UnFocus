@@ -432,8 +432,10 @@ export default function StarterCard({
   // edit note): the trigger row, the example rows and the chips are the same nodes either way.
   if (embedded) return <View style={styles.embedded}>{body}</View>;
 
+  // No hue: this card's own opt-out from the screen tint became the app-wide default on
+  // 2026-08-20, so it passes nothing where it used to pass an explicit neutral.
   return (
-    <Surface borderColor={theme.border} style={[styles.card, compact && styles.cardCompact]}>
+    <Surface style={[styles.card, compact && styles.cardCompact]}>
       {body}
     </Surface>
   );

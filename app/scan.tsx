@@ -642,11 +642,10 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            {/* Tip — subtle bordered card with an info glyph, not a flat colour block.
-                Edge tinted to the inner accent (theme.good) so border matches content
-                (debug-note 2026-07-21: it used to inherit the violet screen hue — that whole
-                per-screen hue layer is retired as of 2026-07-31, A.5). */}
-            <Surface borderColor={theme.good} style={styles.tipCardRow}>
+            {/* Tip — a card with an info glyph, not a flat colour block. Its colour is the
+                accent BAR and the glyph beside the text (theme.good), never the card itself:
+                a pane carries no hue as of 2026-08-20 (see components/Surface.tsx). */}
+            <Surface style={styles.tipCardRow}>
               <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
               {/* `information-circle-outline`, not a bulb (2026-08-17): this is an info banner
                   in the same family as components/HintCard.tsx, and the 💡 belonged to the
@@ -697,7 +696,6 @@ export default function ScanScreen() {
               ].map((opt) => (
                   <Surface
                     key={opt.label}
-                    borderColor={opt.color}
                     style={styles.optionCardRow}
                     onPress={opt.onPress}
                     accessibilityRole="button"
@@ -747,7 +745,7 @@ export default function ScanScreen() {
 
             {/* Debug notes: anchor the found-items card (not each row/checkbox inside). */}
             <DebugNoteAnchor id="scan.items" label="Scan — Found items">
-            <Surface borderColor={theme.accent} style={styles.itemsCard}>
+            <Surface style={styles.itemsCard}>
               {parsedItems.map((item, i) => (
                 <View key={i}>
                   <PressableScale style={[styles.itemRow, { borderBottomColor: theme.border }]} onPress={() => toggleItem(i)} scaleTo={0.97}>

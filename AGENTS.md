@@ -1261,9 +1261,26 @@ file owns which token.)
     It needed no new copy — the shipped EN/NO strings already describe exactly this.
   - **Colour left the card EDGE and went two places.** The edge is neutral on every screen now.
     `lib/screenColor.ts` is NOT retired by this (it was retired once, in 2026-07-31's A.5, for
-    having no consumers): the hue is a 5% `SCREEN_TINT` wash on the pane — the quiet half — and the
-    icon BADGE is the loud half. `borderColor`/`tint` still override, so Home's preview cards keep
-    passing their source screen's hue. Don't put a hue back on the edge.
+    having no consumers): the hue was a 5% `SCREEN_TINT` wash on the pane — the quiet half — and
+    the icon BADGE is the loud half. Don't put a hue back on the edge.
+    ⚠️ **The wash half is DELETED as of 2026-08-20 — a card is plain white glass, and the badge is
+    the only colour move it makes** (maintainer, against three exported builds: *"I do not like
+    the yellow card glass look. White glass with color elements might be better."*). The idea was
+    sound and the 2026-08-17 lightness ladder is what broke it: 5% of To-do's gold `#FFD700` over
+    `#000000` composites to olive across the WHOLE pane, so the screen whose hue is most visible
+    in the set was the screen whose cards read as dirtiest — and one alpha shared by five hues
+    cannot be dropped far enough for the brightest rung without erasing the other four. What this
+    knowingly gives up is a card saying which screen it is on when nothing else on it does; the
+    badge, the composer's focus ring, a primary key's halo and the active nav tab all still wear
+    the hue. **`Surface`'s `borderColor` prop went with the wash** — feeding it a hue was the
+    prop's only job — so Home's preview cards pass their source screen's hue to
+    `CardAccentBadge accentOverride` and their count `Badge` instead, which is where a preview
+    card's identity has been loud since this pass. **A coloured card EDGE was exported beside the
+    white pane and rejected in the same decision**, so it is not the fallback: besides being a
+    no, it cannot be a colour in the ramp at all — the ring is a full-area gradient behind a
+    translucent mask, so a saturated hue in it washes the pane instead of edging it (measured;
+    the first export drew a fully gold card). `__tests__/glassMaterial.test.ts` pins the absence,
+    because a 5% layer is invisible to tsc and nearly invisible in a screenshot.
   - **The badge is INVERTED**: a neutral frosted disc with the identity hue as a fully-opaque
     glyph, via `badgeGlyphFor(hue, plate, isDark)`. This inverts `lib/domainColor.ts`'s A.4 rule 1
     ("an identity hue is a FILL, never an icon colour") — legitimately, because that rule's real
@@ -1341,7 +1358,9 @@ file owns which token.)
       pairwise ΔE2000 ≥ 25. None is redundant: the ladder doesn't imply hue separation, and
       ΔE2000 doesn't imply either lightness order or contrast.
     - **The dark `feat*` octet is aligned onto the same five** (it moves whenever they do), so a
-      screen's 5% pane wash and the badge sitting on it stop disagreeing. The three non-category
+      screen's wash and the badge sitting on it stop disagreeing. (The pane wash itself is gone
+      as of 2026-08-20 — see the Tactile Glass bullet — but the alignment still matters: the same
+      tokens drive the badge, the nav tab and a primary key's halo.) The three non-category
       entries (`featMeal`/`featBudget`/`featScan`) are deliberately NOT on the ladder — `feat*`
       is a per-screen wash and only Home shows several at once, whose cards are four of the five
       categories. **Light's octet is untouched** and still the 2026-08-10 cinematic set — these
@@ -1392,7 +1411,9 @@ file owns which token.)
     numbers, exactly as the 2026-08-12 button pass recorded for `Travel`/elevation.
   - **Where the categorical colour is actually drawn** (brief §7: *"an icon, a badge, or the
     glowing shadow of a button associated with a specific category"*): the badge glyph
-    (already, via `badgeGlyphFor`), the pane wash, a **primary Button's halo** (`Button.tsx`
+    (already, via `badgeGlyphFor`), the pane wash (**deleted 2026-08-20**, see the Tactile Glass
+    bullet — a card is white glass and the badge is its one colour move), a **primary Button's
+    halo** (`Button.tsx`
     resolves it from `useScreenColor()`; `danger` opts out so a destructive action never
     borrows its screen's colour), and the **active bottom-nav tab** — icon, label and the
     sliding pill, which share `navTabHue()` so a rose icon can't land on a blue plate.

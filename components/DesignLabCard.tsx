@@ -24,7 +24,7 @@
  *   Imports → components/{Surface,PadSheet,PadRow,Button,Slider,Stepper,ProgressBar,
  *             FormControls,PressableScale,Badge,TagChip,PersonChip}, constants/theme,
  *             lib/designLab (the spec + part model), lib/designLabPlace (the body grid),
- *             lib/domainColor, lib/screenColor, lib/haptics, lib/i18n, lib/useAppTheme,
+ *             lib/domainColor, lib/haptics, lib/i18n, lib/useAppTheme,
  *             react-native-gesture-handler, react-native-reanimated (runOnJS),
  *             @expo/vector-icons
  *   Used by → app/design-lab/index.tsx (every card on a playground screen)
@@ -100,7 +100,6 @@ import {
 } from '@/lib/designLab';
 import { layoutBodyParts } from '@/lib/designLabPlace';
 import { getDomainColor, type Domain } from '@/lib/domainColor';
-import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
 import { selection as selectionHaptic, tap as tapHaptic } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -120,7 +119,8 @@ type Props = {
    * skeleton or a blank card names no real card and gets the neutral default.
    */
   origin?: CardOrigin;
-  /** The playground screen it sits on (a lib/screenColor key) — decides the border hue. */
+  /** The playground screen it sits on (a lib/screenColor key). No longer a hue: a card
+   *  has worn no screen colour since 2026-08-20, so this only decides WHICH screen holds it. */
   screen?: string;
   spec: CardSpec;
   /** Parts become tap-to-select and hold-to-drag instead of live controls. */
@@ -180,10 +180,10 @@ export default function DesignLabCard({
   const t = useT();
   const knob = cardKnob(origin as CardId);
   const domain = getDomainColor(theme, (knob?.domain ?? 'task') as Domain);
-  // The SCREEN owns the edge hue, not the card — that is the whole rule `lib/screenColor.ts`
-  // was revived for. A card started from a real card keeps its badge hue (`domain`) but wears
-  // the hue of wherever it has been put, exactly as a real card does.
-  const edge = getScreenColor(theme, (screen ?? '') as ScreenKey);
+  // A lab card wears no screen hue, because a REAL card doesn't as of 2026-08-20 — the pane
+  // wash `lib/screenColor.ts` fed is deleted (components/Surface.tsx). It keeps its badge hue
+  // (`domain`), which is now a card's one colour move here exactly as it is in the app. The
+  // `screen` prop stays: it still decides which playground screen a card belongs to.
 
   // Sample state, keyed by part id — local, never persisted. See the Edit notes.
   const [ticked, setTicked] = useState(false);
@@ -368,7 +368,7 @@ export default function DesignLabCard({
   const hasRow = parts.some((p) => ROW_SLOTS.includes(p.slot));
 
   return (
-    <Surface style={styles.card} borderColor={edge.base}>
+    <Surface style={styles.card}>
       {bySlot('header').map((part) => (
         <Block
           key={part.id}

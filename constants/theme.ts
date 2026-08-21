@@ -1007,14 +1007,25 @@ export function getGlassFill(glass: string, opaque: string, enabled: boolean): s
 }
 
 /**
- * How much of the screen's identity hue a glass pane carries. 5% — enough to read as "this
- * screen is the green one" when two are compared, not enough to be seen as colour when one is
- * looked at alone. This is where `lib/screenColor.ts` went after the 2026-08-15 ruling took hue
- * off the card edge; it is the QUIET half of the screen's identity, and the icon badge
- * (lib/domainColor.ts) is the loud one. Raising it re-creates the exact problem the ruling
- * solved — a differently-coloured card on a single-colour screen.
+ * **`SCREEN_TINT` is DELETED (2026-08-20) and the pane carries no hue at all.**
+ *
+ * It was 5% of the screen's identity hue, painted over the whole glass pane by
+ * components/Surface.tsx — the QUIET half of the 2026-08-15 ruling that took colour off the
+ * card edge, with the icon badge (lib/domainColor.ts) as the loud half.
+ *
+ * What killed it is the 2026-08-17 lightness ladder, not the idea. The top rung is To-do's gold
+ * `#FFD700`, and 5% of it over `#000000` composites to a flat olive across the entire card, so
+ * the screen whose hue is the most visible in the set was the screen whose cards read as dirty:
+ * *"I do not like the yellow card glass look. White glass with color elements might be better."*
+ * A wash is the one place a hue's own lightness cannot be compensated for — the alpha is shared
+ * by all five, and dropping it far enough for gold leaves the other four invisible.
+ *
+ * lib/screenColor.ts is NOT retired by this, which is the trap worth naming: it was retired once
+ * before (2026-07-31, addendum A.5) precisely for having no consumers, and it still has several
+ * — the icon badge, a primary key's halo, the active nav tab, a field's focus ring. What it no
+ * longer has is a consumer that paints a whole surface. Don't re-add one at a lower alpha; the
+ * badge is where a screen says which screen it is.
  */
-export const SCREEN_TINT = 0.05;
 
 /**
  * **A key's FACE is deleted (2026-08-17, "no glossy plastic").** `KEY_FACE_STOPS`,
@@ -1260,3 +1271,4 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
     { offsetX: 0, offsetY: Math.round(10 * k), blurRadius: Math.round(26 * k), spreadDistance: -2, color: rgba(shadowColor, 0.10) },
   ];
 }
+
