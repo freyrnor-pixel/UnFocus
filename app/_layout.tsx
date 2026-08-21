@@ -145,6 +145,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, InteractionManager, Platform, Text as RNText, TextInput as RNTextInput } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { START_TAB_ROUTE_PATH } from '@/lib/siteNav';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -563,6 +564,37 @@ export default function RootLayout() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, setupComplete, firstRunComplete]);
+
+  /**
+   * ⚠️ **A cold start lands on the CENTRE tab, and `initialRouteName` is not what decides that
+   * (2026-08-21, follow-up to CONSISTENCY_AUDIT.md §4).** Maintainer: *"Middle screen is to be
+   * the Main one where app always starts when opening it fresh"* — reported again after the
+   * audit's fix, because that fix set the tab navigator's `initialRouteName` (and the matching
+   * `unstable_settings` back target) to `plans` and nothing else. Neither governs a cold start:
+   * expo-router builds its navigation state from the URL, a cold start's URL is `/`, and `/` is
+   * `app/(tabs)/index.tsx` — the Me tab. `initialRouteName` only settles which screen a
+   * navigator shows when it is entered WITHOUT a specific route, so it was a true statement
+   * about a case that never happens on launch, and the app went on opening on Me.
+   *
+   * So the redirect has to be explicit, and exactly ONCE per process: `/` is also the route the
+   * Me tab itself navigates to, and a standing redirect would bounce the user off Me every time
+   * they tapped it. `landedOnStartTab` is what makes this a launch rule rather than a trap.
+   *
+   * It deliberately runs AFTER the onboarding guard's conditions rather than beside them: a
+   * fresh install sits at `segments[0] === 'onboarding'` while it finishes, so the one shot is
+   * still unspent when onboarding replaces onto `/`, and that first arrival is redirected too.
+   */
+  const landedOnStartTab = useRef(false);
+  useEffect(() => {
+    if (!loaded || !setupComplete || !firstRunComplete) return;
+    if (landedOnStartTab.current) return;
+    // `['(tabs)']` with nothing after it IS the group's index route, i.e. `/`. A deep link to a
+    // real screen has a second segment and must be left alone.
+    if (segments[0] !== '(tabs)' || segments.length > 1) return;
+    landedOnStartTab.current = true;
+    router.replace(START_TAB_ROUTE_PATH);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, setupComplete, firstRunComplete, segments]);
 
   // Gate rendering on fonts AND settings hydration. The boot effect finishes every
   // Tier A store load before it flips `loaded`, so once this gate passes all five
