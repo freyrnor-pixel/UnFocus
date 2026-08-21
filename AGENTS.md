@@ -93,7 +93,11 @@ are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` un
 2026-08-01; neither export has ever existed. See `docs/archive/DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
 file owns which token.)
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/To-do/Me** (`Handle` · `Gjøremål` · `Meg`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **To-do is the CENTRE tab and `/` is "Meg" as of 2026-08-19** (*"Make 'To-do' middle screen, and the 'Home' can be the 'Me' for Health and notes. I think that makes things more tidy."*): the route is still `/` and the SiteKey is still `'home'` — only the label, the icon (`today` → `person`) and the position moved. Home is **3 cards** now: Habits, Notes, Health (`lib/homeCards.ts`'s `HOME_CARD_KINDS`). **'plans' and 'shopping' were DROPPED from it in the same pass** — each is a whole tab one swipe away, so a preview card for either was a shorter second copy of a neighbouring tab, and `components/HomeShoppingCard.tsx` was deleted with the card (its only mount site). `sanitizeHomeCardOrder()` handles a stored order on READ: unknown kinds are filtered (which is all a removal ever needs), while `habits` and `health` are APPENDED whenever missing, because neither has anywhere else to be — the consequence, worth knowing before debugging a card that "comes back", is that those two cannot be permanently hidden. History this replaced: five tabs → three on 2026-08-20 (To-do and Habits folded onto Home), then the same-day "full-screen card expansion" pass, which made To-do a real tab again (`app/(tabs)/plans.tsx`, a thin `ScreenScaffold` wrapper mounting `components/TodoSurface.tsx`), restored Habits as a first-class card, and took **Health off the bottom nav entirely** — it is a card now (`components/HomeHealthCard.tsx` mounting `components/HealthSurface.tsx` `embedded`; `app/health.tsx` survives only as a back-compat pushed route nothing in the UI links to). Energy deliberately did NOT move to Health: it is a planning budget computed from tasks and habits, and Health's stated contract is that nothing on it is a scoreboard — it stays a fixed strip on Me. Notes and Food/Meals are NOT tabs — reached via Me's Notes card and Shopping's Food section. Scan is also not a tab — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/To-do/Me** (`Handle` · `Gjøremål` · `Meg`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **To-do is the CENTRE tab and `/` is "Meg" as of 2026-08-19** (*"Make 'To-do' middle screen, and the 'Home' can be the 'Me' for Health and notes. I think that makes things more tidy."*): the route is still `/` and the SiteKey is still `'home'` — only the label, the icon (`today` → `person`) and the position moved. Home is **4 cards** now: Habits, Notes, Health, **Medicine** (`lib/homeCards.ts`'s
+`HOME_CARD_KINDS`). Medicine joined on 2026-08-21 (`CONSISTENCY_AUDIT.md` §11, maintainer: *"Yes."*)
+— it had been a full `Surface` drawn INSIDE `HomeHealthCard`'s `Surface`, the card-in-a-card the
+blueprint pass banned. It is the one kind behind a feature flag (`featureMedicine`), gated at the
+render site so the stored order keeps it while the flag is off. **'plans' and 'shopping' were DROPPED from it in the same pass** — each is a whole tab one swipe away, so a preview card for either was a shorter second copy of a neighbouring tab, and `components/HomeShoppingCard.tsx` was deleted with the card (its only mount site). `sanitizeHomeCardOrder()` handles a stored order on READ: unknown kinds are filtered (which is all a removal ever needs), while `habits` and `health` are APPENDED whenever missing, because neither has anywhere else to be — the consequence, worth knowing before debugging a card that "comes back", is that those two cannot be permanently hidden. History this replaced: five tabs → three on 2026-08-20 (To-do and Habits folded onto Home), then the same-day "full-screen card expansion" pass, which made To-do a real tab again (`app/(tabs)/plans.tsx`, a thin `ScreenScaffold` wrapper mounting `components/TodoSurface.tsx`), restored Habits as a first-class card, and took **Health off the bottom nav entirely** — it is a card now (`components/HomeHealthCard.tsx` mounting `components/HealthSurface.tsx` `embedded`; `app/health.tsx` survives only as a back-compat pushed route nothing in the UI links to). Energy deliberately did NOT move to Health: it is a planning budget computed from tasks and habits, and Health's stated contract is that nothing on it is a scoreboard — it stays a fixed strip on Me. Notes and Food/Meals are NOT tabs — reached via Me's Notes card and Shopping's Food section. Scan is also not a tab — it's a pushed sub-screen (`app/scan.tsx`) reached via a "Scan" button on Shopping's header; its idle screen still offers both receipt OCR and QR import. A radial-FAB `BubbleMenu` was planned in the pre-rebuild spec but was **dropped** (Decision 008 #5) before ever being ported — `components/BubbleMenu.tsx` does not exist in this repo; don't hunt for it or treat it as disabled-but-present code.
   - **Cards expand to fill the screen IN PLACE, instead of pushing a route** — the mechanism
     this same pass introduced (`lib/expandableCards.ts` + `components/CardExpandHost.tsx` +
     `components/CardExpandButton.tsx` + `lib/useCardExpand.ts`), mirroring
@@ -106,13 +110,20 @@ file owns which token.)
     `<AppModalHost/>` — a single overlay, `zIndex: 100`, that every expandable card shares.
     `lib/expandableCards.ts`'s `EXPANDABLE_CARD_IDS` is the one list to keep in step with
     `CardExpandHost`'s own `CARD_BODIES` registry — `lib/__tests__/expandableCards.test.ts`
-    asserts they match. Ten ids today: three Shop cards (`shopLists`/`shopDishes`/
-    `shopCatalogue`), Me's three (`homeHabits`/`homeNotes`/`homeHealth`), and To-do's four
-    (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`). **`homeTodo` and `homeShopping`
+    asserts they match. **Ten ids today** (2026-08-21): two Shop cards (`shopDishes`/
+    `shopCatalogue`), Me's four (`homeHabits`/`homeNotes`/`homeHealth`/`homeMedicine`), and To-do's
+    four (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`). `shopLists` left and `homeMedicine`
+    arrived in the same pass — see below and the Medicine bullet. **`homeTodo` and `homeShopping`
     were removed on 2026-08-19** — their cards left the Me tab, and an id whose card does not
     exist keeps a `CARD_BODIES` entry alive that nothing can reach while the test that pins the
     two lists together goes on passing over it.
-    **`shopLists` is the ONE remaining disclosed gap** (2026-08-20 — it was two until then):
+    **`shopLists` is GONE from `EXPANDABLE_CARD_IDS` as of 2026-08-21** — declined, not deferred:
+    Shopping's lists are the Shop tab's primary content, so a full-screen copy of them is a second
+    rendering of the screen you are already on. What that group needed was a way to be put AWAY,
+    which `lib/collapsedCards.ts`'s `shopLists` fold now gives it (same string, different axis).
+    `ComingSoonBody` is deleted with it, so there are no placeholder bodies left, and
+    `lib/__tests__/expandableCards.test.ts` fails on a new one and on any id with no
+    `useCardExpand` caller. The paragraph that follows is the reasoning that made it a gap:
     `app/(tabs)/shopping.tsx`'s Weekly/Monthly list content is ~2000 lines of window-coordinate
     drag/merge state and flight-animation refs, none of which any headless harness here can
     exercise, so it has no standalone surface component the way To-do/Health/Notes do. Its
@@ -319,7 +330,7 @@ file owns which token.)
   that was the model for the others is not the one surface whose example can't be folded away.
   Its ghost add-row stays OUTSIDE that wrapper: on the `readOnly && !onAddTask` branch it is the
   only way in, and a collapse must never take away the last "add something" affordance.
-- **Medicine trays** (2026-07-27, `components/MedicineTrayCard.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): the Health tab's first card. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
+- **Medicine trays** (2026-07-27; `components/MedicineSurface.tsx` + `components/HomeMedicineCard.tsx` + `components/MedicineReminderBell.tsx` + `app/medicine-form.tsx` + `store/useMedicineStore.ts` + `lib/medicineSchedule.ts` + `lib/medicineNotifications.ts`): **its own top-level card on the Me tab since 2026-08-21** — it was the Health tab's first card, then a card drawn inside the Health card, which is the card-in-a-card `CONSISTENCY_AUDIT.md` §11 measured. Medicine is organised into four **trays** — morning/midday/evening/night — deliberately NOT exact per-medicine clock times: a tray is a *window*, so a dose taken at 11:40 is still a morning dose and an untaken one reads "still due", never "missed" (the same no-shame framing as habits' rest days; keep any new copy on that side of it). One reminder per tray, shared by its medicines, with a **Taken** action button that logs the whole tray from the notification shade (`'medicine-reminder'` category, next to the existing `'task-reminder'` one). As-needed (PRN) medicines belong to no tray and are guarded by a minimum gap + optional daily cap instead (`asNeededState`) — nothing ever nudges you to take one. Per-person via People/family mode (`child_name`, same convention as tasks/habits). `health_logs.medicine_id` optionally attributes a symptom entry to a medicine ("this ADHD med gives me stomach issues"), picked in `app/health-form.tsx`'s "Possibly from" row and surfaced on that medicine's own page. Gated on `settings.featureMedicine` (on by default, still a real toggle). **Deliberately NOT in the AI setup guide** — medicine names/doses are the most sensitive rows in the DB, and the guide already refuses health-log data. Stock/refill tracking is a known follow-up, not built.
   **The reminder bell is `components/ReminderBell.tsx` (2026-08-10), shared with
   `app/habit-form.tsx`, and it IS the switch.** It used to open the times panel while drawing
   `settings.medicineRemindersEnabled` — a *different* value, flipped by a `Switch` inside that
@@ -723,7 +734,8 @@ file owns which token.)
     inside a Surface is the nested panel the blueprint pass banned.
   - **`components/HabitsSurface.tsx` exists** (extracted from `app/habits.tsx`, which is now a
     thin wrapper), so `homeHabits` mounts a real body and its card has a ⤢ again.
-    **`shopLists` is the ONE remaining placeholder** — see the expandable-cards bullet above.
+    **There are no placeholders left** — `shopLists`' expand id was deleted on 2026-08-21 rather
+    than given a surface; see the expandable-cards bullet above.
     ⚠️ It has **no `embedded` prop**, unlike its three sibling surfaces: both of its callers are
     panes, so the flag would vary nothing. Its foot `StageTree` went for the same reason — a
     watermark sized for the bottom of a screen is blank space under the last card in a pane.
@@ -924,6 +936,17 @@ file owns which token.)
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
   Maintainer: *"Every card should be collapsable"*, remembered across launches. A folded card
   keeps its header, its badge and its count and draws nothing else.
+  - ⚠️ **A card RESTS CLOSED as of 2026-08-21** (maintainer: *"All card start in closed state,
+    except 'Today' 'Notes' and 'Shopping' in middle screen"*), and the exceptions are stated ONCE
+    in **`lib/cardDefaults.ts`** — shared with `lib/padState.ts`, because the three cards excepted
+    are drawn by both mechanisms and "Today" is reachable through either depending on the active
+    layout. Neither module carries a default of its own any more.
+      Both bags now store **only what the user has moved OFF a card's resting state**, so `{}`
+    keeps meaning "the app as designed" and a card whose default later moves follows it for
+    everyone who never had an opinion. That makes an explicit `false` meaningful for the first
+    time. Existing installs were FORCED onto the new defaults (*"We're not live yet, so just
+    force"*) by a migration that EMPTIES both columns rather than writing the new values —
+    `cardDefaults` stays the only place a resting state is decided.
   - **It is a THIRD axis, not a rival to the two that already exist**, and the names are close
     enough to be worth stating: `lib/cardLayout.ts` is how much DETAIL a row shows (per surface,
     a user setting); `lib/padState.ts` is HOW MANY rows are drawn (closed/preview/open, per
@@ -932,15 +955,20 @@ file owns which token.)
     its own `CardId` union and its own column, deliberately — widening `LayoutSurface` so the
     medicine tray could be folded would imply the medicine tray has a layout too.
   - **The rule for which mechanism a card uses**: a card with a pad state uses the pad state
-    (the four Home cards and the To-do timeline already collapse, via `PadFooterToggle`); every
-    other content card uses `collapsedCards`. Two affordances with two storage backings on one
-    card is the thing to avoid.
+    (Habits' and Notes' Home cards and the To-do timeline, via `PadFooterToggle`); every other
+    content card uses `collapsedCards`. Two affordances with two storage backings on one card is
+    the thing to avoid — which is why `homeHealth` and `homeMedicine` take a `CardId` (neither has
+    a pad state) and Habits/Notes do not.
   - **`CARD_IDS` is hand-maintained, and every entry is a SINGLETON.** The union IS the
     validation — a typo is a compile error rather than a card that silently never remembers —
     and that property stops holding the moment an id is built at runtime, which is why there is
-    no per-list or per-day collapse (Shopping's monthly cards, To-do's day groups). Six ids
-    today: To-do's Today/Whenever/Recurring, the Habits list card, Health's This week and
-    Medicine.
+    no per-list or per-day collapse (Shopping's monthly cards, To-do's day groups; folding the
+    GROUP is what "collapse the monthly lists" means). **Twelve ids today** (2026-08-21):
+    To-do's Today/Whenever/Recurring/Week, the Habits list card, Health's This week, Shop's two
+    groups (`shopLists`/`shopMonthly`) and two library cards (`shopDishes`/`shopCatalogue`), and
+    Me's `homeHealth` and `homeMedicine`. `healthMedicine` was renamed to `homeMedicine` when that
+    card moved screens — normally a rename re-opens the card for everyone who had folded it, and
+    it cost nothing here only because the same pass empties the column.
   - **Absent on purpose, so the gaps read as decisions**: `HintCard`/`StarterCard` (one
     glanceable block each, both already have an ×), rows (`TaskCard` expands in place),
     `OpenEpisodeCard` (a two-button prompt with no body, and folding it must not be mistakable
@@ -2259,16 +2287,23 @@ Finds the "why is that on two lines when it nearly fits?" class of bug by measur
 instead of eyeballing. `scripts/measure-wraps.mjs` walks the same preview build and, for
 every text node, forces `white-space: nowrap` to compare natural width against the box it
 actually got. Reports four separate failure modes:
-- **Clipped controls** (added 2026-08-01) — a NON-text element (icon button, chip, avatar)
+- **Clipped controls** (added 2026-08-01; the filter tightened 2026-08-21) — a NON-text element (icon button, chip, avatar)
   whose box runs past the horizontal edge of the nearest overflow-clipping ancestor, so part
   of it is physically sliced off. Added after the task editor's voice mic shipped cut in half
   at 360px (#465) and was found *by eye in a screenshot* — none of the three modes below can
   see it, since the mic has no text to wrap or truncate and its row has only two children
   (under the ≥3 that wrapped-rows needs). Two filters keep it honest, and don't remove
   either: anything inside an `<svg>` is skipped (the backdrop motifs are *supposed* to bleed
-  past their mask), and a child WIDER than its clipper is skipped as a sliding track (the tab
-  pager is 1800px of five screens in a 360px window — being clipped is the design). What's
-  left is the real shape of the bug: something that would fit comfortably, shoved out anyway.
+  past their mask), and a child **as wide as or wider than** its clipper is skipped as a sliding
+  track. ⚠️ **That second filter was `>` until 2026-08-21 and should have been `>=`**: it skipped
+  the pager's 1080px TRACK but not its PAGES, which are each exactly one window wide — so two of
+  the three were "clipped" by whatever mid-settle offset the screenshot caught, and six of eight
+  findings on every run named the Shop page's intro text while the audit was looking at another
+  tab. Equality is the honest cut, on the principle the mode rests on: a control that had room
+  and was shoved out is by definition SMALLER than its clipper (the sliced mic was 28px in a
+  257px box). `WRAP_DEBUG=1` prints each finding's clipper and offsets, which is how that was
+  diagnosed rather than guessed. What's left is the real shape of the bug: something that would
+  fit comfortably, shoved out anyway.
 - **Near-miss wrapped text** — `+Npx` = how much more width would collapse it to one line.
   A small N means the *container* is the problem, not the copy.
 - **Truncated single-line text** — how tabs/chips fail instead of wrapping. **⚠️ Confirm
@@ -2320,7 +2355,13 @@ Three things constrain how steps can be ordered, all verified rather than assume
   "Goals" where the drawer is labelled `t.goals.editLinkPractical` ("Practical goals"). Both
   printed a one-line "step skipped" and the run still reported totals, so the app's second- and
   third-densest forms were simply not being measured. **A step that skips is not a step that
-  passes — check the "screens measured" list against the steps, not just the totals.** The onboarding→tour→Energy-sheet on-ramp is
+  passes — check the "screens measured" list against the steps, not just the totals.**
+  ⚠️ **It happened again on 2026-08-21, from a change nowhere near this script**: every card
+  rests CLOSED now (`lib/cardDefaults.ts`), so the To-do walk's `.first()` "New task" composer
+  lives inside a folded card and does not exist — and the whole `task-editor` + `goals-drawer`
+  leg went back to skipping silently. Both walks open the card they need first. **Any pass that
+  changes what a surface draws by default should re-read this list**, because the failure is a
+  step that stops running rather than one that fails. The onboarding→tour→Energy-sheet on-ramp is
   shared by both passes via `walkToTabs()`, scanned only on the first (the second re-walks it
   with scanning off, since it's identical and would double every finding).
 - **Never `page.goto()` or `page.goBack()` mid-walk**, except the standalone
@@ -2331,6 +2372,18 @@ Three things constrain how steps can be ordered, all verified rather than assume
   exist on device. Like the rest of the native-only surface, it needs a real device.
 
 Known-benign findings, don't "fix" them:
+- ⚠️ **Anything the `tour-step` scan reports about a card on ANOTHER TAB.** The pager keeps all
+  three screens mounted (`lazy: false`), so that scan measures Shop's and To-do's cards as well
+  as the one the spotlight is on — at whatever transient width they happen to have while the
+  overlay is up. At 360px it reported "Katalog" truncated by 11px while the `Handle` scan, which
+  measures that card on its own settled page, reported nothing for it. **Trust the per-screen
+  scans (`home`, `Handle`, `Gjøremål`) over `tour-step` for anything that is not the tour's own
+  coach card.** Verified at 327/360/430 in Norwegian: no card title truncates on a directly
+  measured screen.
+- Two **`[y]` findings on `tour-step`** (2026-08-21): the Me tab's content and its last card,
+  reported as cut off at the bottom. The tour locks scrolling while the spotlight is up, so
+  ordinary below-the-fold content has no scroller to be reachable through and the walk records it
+  as clipped. Nothing is wrong with the cards; the run is clean at 2 findings.
 - The **goals sheet** reports 1 wrapped control row at every width. That's `starterChips` — a
   `flexWrap` cloud of four sentence-length goal suggestions, which is *supposed* to wrap. The
   detector can't be taught to ignore it without also blinding it to the weekday-chip row, which

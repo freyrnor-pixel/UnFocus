@@ -57,7 +57,7 @@
  */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Fonts, Radius, Spacing, FontSize } from '@/constants/theme';
+import { Fonts, Radius, Spacing, FontSize, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
@@ -152,7 +152,7 @@ export default function ExpandableCard({
               </View>
             ) : null}
             {rightAction ? <PressableScale onPress={(e) => e.stopPropagation()} scaleTo={0.97}>{rightAction}</PressableScale> : null}
-            <AnimatedChevron open={open} size={16} color={theme.textMuted} />
+            <AnimatedChevron open={open} />
           </View>
         </PressableScale>
         <Collapsible open={open}>
@@ -192,9 +192,13 @@ const baseStyles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
+  // `Type.subheading` (2026-08-21). Identical values to the `FontSize.md` + semibold pair this
+  // replaces — a substitution with no visual change, so that the size is visible to the type
+  // scale and to the design lab's font pass. Same move the five hardcoded 20/25 card titles made.
   title: {
-    fontSize: FontSize.md,
-    fontFamily: Fonts.semibold,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+    fontFamily: Type.subheading.fontFamily,
   },
   subtitle: {
     fontSize: FontSize.sm,

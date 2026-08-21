@@ -9,7 +9,8 @@
  * Connections:
  *   Imports → components/IconButton
  *   Used by → app/habit-form.tsx (a habit's daily reminder),
- *             components/MedicineTrayCard.tsx (the medicine tray reminders)
+ *             components/MedicineReminderBell.tsx (the medicine tray reminders — a wrapper,
+ *             because that card's header is drawn in two places since 2026-08-21)
  *   Data    → none — the caller owns the boolean and the write.
  *
  * Edit notes:
@@ -17,7 +18,7 @@
  *     states")**. There were two bells, drawn identically as a bare `PressableScale` + glyph,
  *     and one of them was lying. `app/habit-form.tsx`'s toggled its own boolean, so it did
  *     change — just faintly, on two channels (glyph + colour) with no plate and no depth.
- *     `components/MedicineTrayCard.tsx`'s DIDN'T: its press opened a panel while its icon
+ *     the medicine card's DIDN'T: its press opened a panel while its icon
  *     rendered `settings.medicineRemindersEnabled`, a different value flipped by a `Switch`
  *     inside that panel — so tapping the bell genuinely changed nothing about the bell. One
  *     component, one behaviour: **the bell is the switch, everywhere.**

@@ -7,6 +7,7 @@
  * body component, so this scans its SOURCE rather than importing it — the same discipline
  * lib/__tests__/cardLayout.test.ts and designLab.test.ts use for exactly this reason.
  */
+import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EXPANDABLE_CARD_IDS, isExpandableCardId } from '@/lib/expandableCards';
@@ -80,6 +81,33 @@ describe('components/CardExpandHost.tsx registry — every id has a body and vic
     const entry = nextKey === -1 ? rest : rest.slice(0, nextKey);
     expect(entry).toMatch(/title:/);
     expect(entry).toMatch(/Body:/);
+  });
+
+  /**
+   * ⚠️ **The gap this whole describe block used to have** (CONSISTENCY_AUDIT.md §10, fixed
+   * 2026-08-21). Everything above only checks the two lists agree with EACH OTHER. `shopLists`
+   * satisfied every assertion here for a day while being unreachable and opening a placeholder:
+   * it was declared, it had an entry, that entry had a title and a Body — and the Body was
+   * `ComingSoonBody`, and no `CardExpandButton` for it existed anywhere in the UI.
+   *
+   * So two more things are checked, and neither can be satisfied by bookkeeping.
+   */
+  it('registers no placeholder body — a stub is worse than no id', () => {
+    // `ComingSoonBody` is deleted; this fails on it being reintroduced under any name that
+    // says what it is. The honest fix for a card with no surface yet is to leave its id out
+    // (as `shopLists`, `homeTodo` and `homeShopping` all did) rather than to register a stub.
+    expect(code).not.toMatch(/ComingSoon|Placeholder|NotYet|TodoBody/i);
+  });
+
+  it.each(EXPANDABLE_CARD_IDS)('%s can actually be opened from somewhere in the UI', (id) => {
+    // A `useCardExpand('<id>')` call is what hands a card the ref and the onExpand its
+    // CardExpandButton needs, so it is the honest test of "reachable" — one grep across the
+    // screens and components, not a promise in a comment.
+    const callers = execSync(
+      `grep -rl "useCardExpand('${id}')" app components || true`,
+      { cwd: join(__dirname, '..', '..'), encoding: 'utf8' }
+    ).trim();
+    expect(callers).not.toBe('');
   });
 });
 

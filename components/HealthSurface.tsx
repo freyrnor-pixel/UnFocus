@@ -8,7 +8,7 @@
  * mount inside both a full screen and a drawer/card.
  *
  * Connections:
- *   Imports → components/MedicineTrayCard, components/NarratorQuote, components/HintCard,
+ *   Imports → components/NarratorQuote, components/HintCard,
  *             components/StarterCard, components/StarterExampleRow, components/OpenEpisodeCard
  *             + components/EpisodeCloseSheet, components/CollapsedSection +
  *             components/HealthIssuesPreviewList + components/HealthIssuesSheet,
@@ -26,12 +26,24 @@
  *   Data    → useHealthStore — reads `logs`/`symptoms`, calls `add()`/`ensureSymptom()`
  *
  * Edit notes:
- *   - **`embedded` drops the outer card's own Surface + header row, not its content.** A caller
- *     mounting this inside its own card (HomeHealthCard) owes it two things per the established
- *     convention: no Surface of its own (a Surface inside the caller's Surface reads as a
- *     nested panel) and no scroll of its own. `embedded` unwraps exactly that — the "This week"
- *     label row, the fold chevron and the Surface fill/border all come off; the rows, the
- *     narrator, the starter card and the composer are unchanged.
+ *   - **`embedded` drops the outer card's own Surface, not its content, and NOT its fold.** A
+ *     caller mounting this inside its own card (HomeHealthCard) owes it two things per the
+ *     established convention: no Surface of its own (a Surface inside the caller's Surface reads
+ *     as a nested panel) and no scroll of its own. `embedded` unwraps exactly that; the rows,
+ *     the narrator, the starter card and the composer are unchanged.
+ *   - **⚠️ The "This week" fold used to be DEAD when embedded (fixed 2026-08-21,
+ *     CONSISTENCY_AUDIT.md §10).** The embedded branch rendered `cardBody` bare — no chevron and
+ *     no `Collapsible` — while `weekCollapsed` was computed and read only by the other branch.
+ *     So a user who folded that card on the Health screen found the setting silently ignored on
+ *     Home: same card, same stored id, two different answers. Both branches honour it now; the
+ *     embedded one keeps its label row and chevron and drops only the `Surface`, which is the
+ *     `SectionCard embedded` shape (`Shell = embedded ? View : Surface`) TodoSurface's Week card
+ *     established. A fold that is stored is a fold every mount site has to draw.
+ *   - **Medicine is NOT here any more (2026-08-21).** It was `<MedicineTrayCard />`, a full
+ *     `Surface` mounted unconditionally with respect to `embedded` — so on Home it was a card
+ *     inside HomeHealthCard's card. It is components/HomeMedicineCard.tsx now, a peer on the Me
+ *     tab (maintainer, asked whether it should be: *"Yes."*). Don't mount it back in: this
+ *     surface is about symptoms and episodes, and the `featureMedicine` gate moved with it.
  *   - **`IssueRow` takes `screenHue` as a PROP now, not `useScreenColor()`.** The pre-extraction
  *     screen could read the context hook safely because `IssueRow` was always a descendant of
  *     ITS OWN ScreenScaffold (health's teal). Embedded inside Home, the nearest
@@ -53,7 +65,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import MedicineTrayCard from '@/components/MedicineTrayCard';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
 import CollapsedSection from '@/components/CollapsedSection';
@@ -208,7 +219,6 @@ export default function HealthSurface({ embedded = false }: Props) {
   const symptoms = useHealthStore((s) => s.symptoms);
   const addLog = useHealthStore((s) => s.add);
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
-  const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
@@ -472,17 +482,27 @@ export default function HealthSurface({ embedded = false }: Props) {
     </View>
   );
 
+  // The header row and the fold are the SAME in both branches — only the Surface differs. They
+  // used to differ, and that was the §10 defect: the embedded branch drew neither, so the
+  // stored fold did nothing on Home. See the edit note.
+  const weekHeader = (
+    <View style={styles.sectionLabelRow}>
+      <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
+      <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
+      <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.thisWeekLabel} />
+    </View>
+  );
+
   const weekCard = embedded ? (
-    <View style={styles.healthCardEmbedded}>{cardBody}</View>
+    <View style={styles.healthCardEmbedded}>
+      {weekHeader}
+      <Collapsible open={!weekCollapsed}>{cardBody}</Collapsible>
+    </View>
   ) : (
     <TourTarget id="tour.health.log">
       <DebugNoteAnchor id="health.quickLog" label="Health — This week">
         <Surface style={styles.healthCard}>
-          <View style={styles.sectionLabelRow}>
-            <CardAccentBadge domain="health" icon="pulse" size={32} accentOverride={screenHue} />
-            <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.thisWeekLabel}</Text>
-            <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.thisWeekLabel} />
-          </View>
+          {weekHeader}
           <Collapsible open={!weekCollapsed}>{cardBody}</Collapsible>
         </Surface>
       </DebugNoteAnchor>
@@ -510,8 +530,6 @@ export default function HealthSurface({ embedded = false }: Props) {
       )}
 
       {weekCard}
-
-      {featureMedicine && <MedicineTrayCard />}
 
       <CollapsedSection
         hue={screenHue}
@@ -553,7 +571,15 @@ const baseStyles = StyleSheet.create({
   healthCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.md },
   healthCardEmbedded: { gap: Spacing.md },
   sectionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  sectionLabel: { flex: 1, minWidth: 0, fontFamily: Type.subheading.fontFamily, fontSize: Type.subheading.size },
+  // Already on the token this pass converged everything else onto — see SectionRail's
+  // `subLabel`. `lineHeight` added so the three agree completely.
+  sectionLabel: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: Type.subheading.fontFamily,
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+  },
   cardSubtitle: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   healthCardBody: { gap: Spacing.md },
   section: { gap: Spacing.xs },

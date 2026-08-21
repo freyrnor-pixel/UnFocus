@@ -101,6 +101,7 @@ import PadRow from '@/components/PadRow';
 import PadTypeRow from '@/components/PadTypeRow';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import { Input } from '@/components/FormControls';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
@@ -109,18 +110,7 @@ import { useCardExpand } from '@/lib/useCardExpand';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Badge } from '@/components/Badge';
-import {
-  FontSize,
-  Fonts,
-  HOME_PREVIEW_CARD_MIN_HEIGHT,
-  OpticalCenter,
-  PAD_GUTTER,
-  Radius,
-  Spacing,
-  rgba,
-  HitSlop,
-  Type,
-} from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, HOME_PREVIEW_CARD_MIN_HEIGHT, IconSize, OpticalCenter, PAD_GUTTER, Radius, rgba, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -328,25 +318,23 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                     icon="document-text-outline"
                     label={t.home.extraInfoLabel}
                     value={
-                      <TextInput
+                      /* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** This
+                         was a hand-rolled bordered box that had been tuned twice to LOOK like
+                         the shared field — a plain surface fill "matching PadTypeRow's field
+                         above it", a 1px border, `Radius.sm` — which is the whole mechanism
+                         that section is about: every hand-rolled field is somebody carefully
+                         reproducing the real one, and the copies drift the moment the original
+                         moves. components/HealthSurface.tsx already mounts `Input` in this
+                         exact slot (a QuickAddOptionRow's `value`), so this is converging on a
+                         sibling rather than on a theory. */
+                      <Input
                         ref={extraInfoLift.ref}
-                        style={[
-                          styles.extraInfoInput,
-                          {
-                            // Plain surface fill, matching PadTypeRow's field above it
-                            // (2026-08-06, "text-boxes are too grey") — a grey well here would
-                            // look like a different, disabled-looking control right under it.
-                            backgroundColor: theme.surface,
-                            color: theme.text,
-                            borderColor: theme.border,
-                          },
-                        ]}
+                        style={styles.extraInfoInput}
                         value={extraInfoDraft}
                         onChangeText={setExtraInfoDraft}
                         onFocus={extraInfoLift.onFocus}
                         onBlur={extraInfoLift.onBlur}
                         placeholder={t.home.extraInfoPlaceholder}
-                        placeholderTextColor={theme.textMuted}
                         onSubmitEditing={commitNoteDraft}
                       />
                     }
@@ -370,7 +358,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
                   <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>
                     {t.notes.checkedLabel} ({sunkNotes.length})
                   </Text>
-                  <AnimatedChevron open={checkedOpen} size={14} color={theme.textMuted} />
+                  <AnimatedChevron open={checkedOpen} />
                 </PressableScale>
                 {/* Clip-reveal, not a fade: folded away, still there. */}
                 <Collapsible open={checkedOpen}>
@@ -469,8 +457,10 @@ const baseStyles = StyleSheet.create({
     ...OpticalCenter,
   },
   micButton: {
-    width: 28,
-    height: 28,
+    // `IconSize.action` (2026-08-21) — see CardMenuSheet's kebab note. This sits in the same
+    // header cluster as that ⋯ and the ⤢, and was the third diameter in a row of three controls.
+    width: IconSize.action,
+    height: IconSize.action,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -484,16 +474,11 @@ const baseStyles = StyleSheet.create({
   // on its own row it takes the width the row gives it, with a floor so a one-word label
   // can't squeeze it back to nothing. Bordered like every other field in the app now — see
   // components/PadTypeRow.tsx's header.
-  extraInfoInput: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: FontSize.sm,
-    fontFamily: Fonts.regular,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-  },
+  // Layout only now (2026-08-21) — the FILL, the border, the radius and the focus ring belong
+  // to components/FormControls.tsx's `Input`. What survives is the one thing that is about this
+  // row rather than about fields: it has to take the width the QuickAddOptionRow gives it, with
+  // a floor so a one-word label can't squeeze it back to nothing.
+  extraInfoInput: { flex: 1, minWidth: 0 },
   doneHeader: {
     flexDirection: 'row',
     alignItems: 'center',

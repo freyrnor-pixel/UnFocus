@@ -813,7 +813,6 @@ const en = {
   savedListsEmpty: 'No saved lists yet.',
   templateAppliedToast: 'Template added to your list',
   listSavedAsTemplateToast: 'List saved as template',
-  savedListsSectionHint: 'Drag into a week below, or tap to choose one',
   savedListsChooseWeekBody: 'Add this saved list to:',
   savedListInUseLabel: 'In use',
   templateAlreadyInWeek: (n: number) => `Already in Week ${n}`,
@@ -1247,7 +1246,7 @@ const en = {
     // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
     // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
     manageCards: {
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health' },
+      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health', medicine: 'Medicine' },
     },
     // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
     // "Removed": nothing is gone, it has just stopped being on duty here.
@@ -2929,7 +2928,6 @@ const no: typeof en = {
   savedListsEmpty: 'Ingen lagrede lister ennå.',
   templateAppliedToast: 'Malen ble lagt til listen din',
   listSavedAsTemplateToast: 'Listen ble lagret som mal',
-  savedListsSectionHint: 'Dra inn i en uke under, eller trykk for å velge',
   savedListsChooseWeekBody: 'Legg denne lagrede listen til:',
   savedListInUseLabel: 'I bruk',
   templateAlreadyInWeek: (n: number) => `Allerede i uke ${n}`,
@@ -3609,7 +3607,7 @@ const no: typeof en = {
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
     manageCards: {
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse' },
+      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse', medicine: 'Medisin' },
     },
     retired: {
       title: 'Satt bort',
@@ -4735,7 +4733,6 @@ const is: typeof en = {
   savedListsEmpty: 'Engir vistaðir listar enn.',
   templateAppliedToast: 'Sniðmátið bættist við listann þinn',
   listSavedAsTemplateToast: 'Listinn var vistaður sem sniðmát',
-  savedListsSectionHint: 'Dragðu inn í viku hér að neðan, eða ýttu til að velja',
   savedListsChooseWeekBody: 'Bæta þessum vistaða lista við:',
   savedListInUseLabel: 'Í notkun',
   templateAlreadyInWeek: (n: number) => `Þegar í viku ${n}`,
@@ -5416,7 +5413,7 @@ const is: typeof en = {
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
     manageCards: {
-      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa' },
+      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa', medicine: 'Lyf' },
     },
     /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
     retired: {

@@ -15,7 +15,21 @@
  *   Data    → none (controlled via `open`)
  *
  * Edit notes:
- *   - reducedMotion snaps (duration 0). Rotation only — colour/size are static props.
+ *   - **⚠️ `size` and `color` DEFAULT, and a caller should almost never pass either
+ *     (2026-08-21).** Both were required props, and the app shipped this glyph at **13, 14, 16
+ *     and 18px** in three colours — `CONSISTENCY_AUDIT.md` §2, from the report *"Now some of
+ *     them have different text size, some have icon while others not"*. The sizes were not
+ *     chosen against each other; each call site picked one that looked right in isolation,
+ *     which is what a required prop with no default asks every caller to do. Now: 18px in
+ *     `theme.textMuted`, the same values `components/CardCollapseToggle.tsx` was already using,
+ *     so a fold chevron is one glyph whichever of the two disclosure idioms draws it (see that
+ *     file's header for the two).
+ *       `lib/__tests__/cardAnatomy.test.ts` fails on a `size=` or `color=` passed here outside
+ *     a named exception. There are two, both deliberate and both a different CONTROL rather
+ *     than a differently-sized fold: `PadFooterToggle`'s (the pad cards' three-state size
+ *     cycle, which is accent-coloured because it is a live action with a count beside it) and
+ *     `TaskCard`'s "Advanced" disclosure inside the editor.
+ *   - reducedMotion snaps (duration 0). Rotation only.
  *   - **It runs on the BODY's clock, not the control clock (2026-08-14).** This was
  *     `Duration.control` (150) with `Ease.enter` in both directions, while the thing it points
  *     at — `components/Collapsible.tsx` — runs 220/`Ease.enter` open and 200/`Ease.exit` close.
@@ -37,16 +51,26 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Duration, Ease } from '@/constants/motion';
-import { useAccessibility } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+
+/**
+ * The one size a fold chevron is drawn at. Exported so the guard in
+ * `lib/__tests__/cardAnatomy.test.ts` can assert against the real value rather than a copy.
+ */
+export const CHEVRON_SIZE = 18;
 
 type Props = {
   open: boolean;
-  color: string;
+  /** Defaults to `theme.textMuted`. See the edit notes before passing one. */
+  color?: string;
+  /** Defaults to 18. See the edit notes before passing one. */
   size?: number;
 };
 
-export default function AnimatedChevron({ open, color, size = 18 }: Props) {
+export default function AnimatedChevron({ open, color, size = CHEVRON_SIZE }: Props) {
   const { reducedMotion } = useAccessibility();
+  const theme = useAppTheme();
+  const glyphColor = color ?? theme.textMuted;
   const progress = useSharedValue(open ? 1 : 0);
 
   useEffect(() => {
@@ -65,7 +89,7 @@ export default function AnimatedChevron({ open, color, size = 18 }: Props) {
 
   return (
     <Animated.View style={style}>
-      <Ionicons name="chevron-down" size={size} color={color} />
+      <Ionicons name="chevron-down" size={size} color={glyphColor} />
     </Animated.View>
   );
 }

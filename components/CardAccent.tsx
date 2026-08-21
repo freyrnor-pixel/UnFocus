@@ -20,7 +20,7 @@
  *             lib/useAppTheme (useAppTheme, useIsDark), lib/domainColor (Domain,
  *             getDomainColor, badgeGlyphFor)
  *   Used by → components/HomeNotesCard, components/HomeHabitsCard,
- *             components/PlanTaskCard, components/WeekListCard, components/MedicineTrayCard,
+ *             components/PlanTaskCard, components/WeekListCard, components/HomeMedicineCard,
  *             components/SectionRail, app/(tabs)/health.tsx,
  *             app/(tabs)/shopping.tsx (all import CardAccentBadge as a named export)
  *   Data    → none (presentational; colour derived from the active palette)
@@ -145,7 +145,7 @@ type BadgeProps = {
    * still wrong color"). Domain identity survives as the GLYPH silhouette (DOMAIN_ICON) even
    * when its colour is overridden, so same-hue domains (e.g. shop/meal/budget on the Shopping
    * hue) are still told apart. Omit to keep the default domain-hue badge (health.tsx,
-   * shopping.tsx, MedicineTrayCard, SectionRail).
+   * shopping.tsx, HomeMedicineCard, SectionRail).
    */
   accentOverride?: string;
 };

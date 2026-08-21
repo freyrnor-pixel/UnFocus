@@ -122,6 +122,9 @@ const L = {
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
     newTask: 'New task', probeTask: 'Wrap audit probe',
+    // The Whenever card's fold chevron. Every card rests CLOSED since 2026-08-21
+    // (lib/cardDefaults.ts), so this walk has to open the card before its composer exists.
+    expandWhenever: 'Whenever: Expand list',
     // The Energy config sheet (2026-08-03). On a fresh profile the strip is in its tutorial
     // state, so its StarterCard button is the way in; the ✏️ ("Adjust energy") opens the same
     // sheet once anything has an energy value. Three label+stepper rows plus a hint line each,
@@ -175,6 +178,7 @@ const L = {
     tabs: ['Handle', 'Gjøremål'], home: 'Meg', settings: 'Innstillinger',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     newTask: 'Ny oppgave', probeTask: 'Bredde-test',
+    expandWhenever: 'Når som helst: Vis liste',
     energyTutorialAction: 'Sett dagens energi', energyDone: 'Ferdig',
     typeHabit: 'Skriv vane',
     editGoals: 'Praktiske mål',
@@ -195,6 +199,7 @@ const L = {
     tabs: ['Innkaup', 'Verkefni'], home: 'Ég', settings: 'Stillingar',
     dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
     newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
+    expandWhenever: 'Hvenær sem er: Sýna lista',
     energyTutorialAction: 'Stilla orku dagsins', energyDone: 'Búið',
     typeHabit: 'Skrifa venju',
     editGoals: 'Hagnýt markmið',
@@ -327,6 +332,22 @@ const SCAN = () => {
         // dominated by carousels and the one real finding is lost in them.
         const record = (axis, c, size) => {
           if (!c || c.over <= 2 || size > c.clipperSize) return;
+          // ⚠️ **A page OF a sliding track is the track (2026-08-21), and `>` was one character
+          // short.** The rule above skips a child BIGGER than its clipper — the pager's 1080px
+          // track inside a 360px window — but not that track's own PAGES, which are each
+          // exactly one window wide. Six of eight findings on every run were those: a 360px
+          // page inside the 360px app root, reported at 33px, 64px or 326px past the edge
+          // depending purely on where the pager happened to be when the screenshot was taken.
+          // (Diagnosed rather than guessed — `WRAP_DEBUG=1` prints each finding's clipper and
+          // offsets, which is what showed the clipper was the app root and the offsets were
+          // mid-settle transforms rather than the clean multiples a laid-out page would give.)
+          //
+          // Equality is the honest cut, not a modulo: this mode is about **a control that had
+          // room and was shoved out anyway** — the sliced mic that motivated it was 28px inside
+          // a 257px box. Something exactly as wide as the thing clipping it never had room, so
+          // it is a page, a track or a full-bleed layer, and being off to the side is what it
+          // IS. Anything genuinely smaller than its clipper is still reported.
+          if (size >= c.clipperSize - 2) return;
           clipped.push({
             kind: 'clipped',
             axis,
@@ -338,6 +359,7 @@ const SCAN = () => {
             // The clipper's own text is the most useful way to say WHERE this is.
             near: (c.clipper.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44),
             text: axis === 'y' ? (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44) : '',
+            _dbg: `elx=${Math.round(rect.left)} clipx=${Math.round(c.clipper.getBoundingClientRect().left)} clipTag=${c.clipper.tagName.toLowerCase()} clipCls=${(c.clipper.className || '').toString().slice(0, 60)} elCls=${(el.className || '').toString().slice(0, 60)}`,
           });
         };
         // Horizontally, text leaves are the TRUNCATED category's job — reporting them here
@@ -700,6 +722,15 @@ async function main() {
       // Today, Week, Recurring; components/TodoSurface.tsx). `.first()` on the "New task"
       // composer takes whichever card's AddRow comes first in the layout — any of them opens
       // the same editor once a task exists, which is all this step needs.
+      // ⚠️ **Open the Whenever card first (2026-08-21).** Every card rests closed now, so its
+      // `AddRow` composer — the `.first()` "New task" button below — is not drawn at all until
+      // the card is unfolded. Without this the whole step timed out and SKIPPED, which is the
+      // silent failure mode AGENTS.md warns about: the run still prints totals, and the app's
+      // densest form simply stops being measured.
+      const whenever = page.getByRole('button', { name: L.expandWhenever, exact: true }).first();
+      await whenever.scrollIntoViewIfNeeded({ timeout: 5000 });
+      await whenever.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
       await page.getByRole('button', { name: L.newTask, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(400);
       const field = page.getByPlaceholder(L.newTask).first();
@@ -785,6 +816,7 @@ async function main() {
     const what = c.label || c.text;
     console.log(`  [${c.axis}] ${c.over}px past the edge | ${c.tag} ${dim}=${c.size} inside a ${c.clipperSize}px box `
       + `[${c.screen}]${what ? ` "${what}"` : ''} near ${JSON.stringify(c.near)}`);
+    if (process.env.WRAP_DEBUG) console.log(`      ${c._dbg}`);
   }
 
   const rowsWrapped = uniq(allRows, (r) => r.sample);

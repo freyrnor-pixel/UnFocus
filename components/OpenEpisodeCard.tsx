@@ -19,7 +19,8 @@
  * Connections:
  *   Imports → components/Surface (its `onPress` key path — no PressableScale wrapper), components/Button,
  *             constants/theme, lib/haptics (tap), lib/i18n, lib/useAppTheme
- *   Used by → app/(tabs)/health.tsx (above MedicineTrayCard, below the StarterCard)
+ *   Used by → components/HealthSurface.tsx (below the StarterCard; Medicine left this screen
+ *             for its own Me-tab card on 2026-08-21)
  *   Data    → none — presentational. The caller owns dismissal and calls closeEpisode.
  *
  * Edit notes:

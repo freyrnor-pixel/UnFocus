@@ -234,7 +234,7 @@ import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanim
 import { Ionicons } from '@expo/vector-icons';
 import { Contact, ContactField } from 'expo-contacts';
 import * as Contacts from 'expo-contacts';
-import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums, Type, contrastOn, getElevation, rgba, HitSlop } from '@/constants/theme';
+import { contrastOn, DONE_ROW_OPACITY, Fonts, FontSize, getElevation, HitSlop, IconSize, Radius, rgba, RowTrailing, Spacing, TabularNums, Type } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -1024,7 +1024,7 @@ function TaskCard({
 
           {canExpand && (
             <PressableScale hitSlop={HitSlop.snug} onPress={openEditor} style={styles.chevronBtn} scaleTo={0.9}>
-              <AnimatedChevron open={expanded} size={18} color={theme.textMuted} />
+              <AnimatedChevron open={expanded} />
             </PressableScale>
           )}
         </View>
@@ -1419,7 +1419,7 @@ function TaskCard({
                 returnKeyType="done"
                 onSubmitEditing={handleAddStep}
               />
-              <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={30} />
+              <IconButton icon="add" label={t.stepPlaceholder} onPress={handleAddStep} size={IconSize.compact} />
             </View>
 
 
@@ -1675,7 +1675,7 @@ function TaskCard({
                             {draft.contactPhone ? ` · ${draft.contactPhone}` : ''}
                           </Text>
                         </PressableScale>
-                        <IconButton icon="close-circle" label={t.taskContactRemove} onPress={handleRemoveContact} size={26} />
+                        <IconButton icon="close-circle" label={t.taskContactRemove} onPress={handleRemoveContact} size={IconSize.inline} />
                       </View>
                     ) : (
                       <>
@@ -1701,7 +1701,7 @@ function TaskCard({
                           <Ionicons name="location" size={16} color={theme.accent} />
                           <Text style={[styles.thenRowText, { color: theme.text }]}>{t.taskLocationTagged}</Text>
                         </View>
-                        <IconButton icon="close-circle" label={t.taskLocationRemove} onPress={handleRemoveLocation} size={26} />
+                        <IconButton icon="close-circle" label={t.taskLocationRemove} onPress={handleRemoveLocation} size={IconSize.inline} />
                       </View>
                     ) : (
                       <>
@@ -1744,7 +1744,7 @@ function TaskCard({
                         <Text style={[styles.thenRowText, { color: theme.text }]} numberOfLines={1}>
                           {currentFollower.title}
                         </Text>
-                        <IconButton icon="close-circle" label={t.thenTaskRemove} onPress={removeFollower} size={26} />
+                        <IconButton icon="close-circle" label={t.thenTaskRemove} onPress={removeFollower} size={IconSize.inline} />
                       </View>
                     ) : (
                       <>

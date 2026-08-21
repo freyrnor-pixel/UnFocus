@@ -71,9 +71,21 @@ export default function SavedListsSection({ templates, usedTemplateIds, onDragSt
 
   return (
     <Surface style={styles.card}>
+      {/* ⚠️ **No subtitle since 2026-08-21 (CONSISTENCY_AUDIT.md §5 item 4).** It was
+          `t.savedListsSectionHint` — *"Drag into a week below, or tap to choose one"* — and this
+          component returns null when `templates` is empty, so the one sentence on the card
+          appeared ONLY while the card had content: the exact inverse of *"tips only when
+          they're empty"*.
+            Deleted rather than re-gated, and the key is gone from all three dictionaries. Gating
+          it on emptiness would have been worse than leaving it, because it explains a gesture on
+          ROWS — so it would have shown up precisely when there were none to drag. And a
+          permanent instruction over working content is the tier two passes have already removed
+          app-wide: the 2026-08-17 "no manual" pass (*"A native app should not read like a
+          manual"*) and the 2026-08-20 deletion of components/HintCard.tsx. Drag-to-move is the
+          same gesture every list in this app uses (lib/useDragReorder.ts), and tapping a row
+          opens the week chooser, which is found by tapping it. */}
       <ExpandableCard
         title={t.savedListsTitle}
-        subtitle={t.savedListsSectionHint}
         badge={String(templates.length)}
         accentColor={theme.good}
         first

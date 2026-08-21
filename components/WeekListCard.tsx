@@ -163,7 +163,7 @@ import { useRouter } from 'expo-router';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
-import { Fonts, FontSize, Radius, Spacing, Type, MIN_TAP_TARGET, getMatte } from '@/constants/theme';
+import { Fonts, FontSize, getMatte, IconSize, MIN_TAP_TARGET, Radius, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
@@ -172,6 +172,7 @@ import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import Button from '@/components/Button';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
@@ -508,12 +509,17 @@ export default function WeekListCard({
                 </Text>
               </PressableScale>
             )}
+            {/* `IconSize.inline` — it was a bare 18, the smallest IconButton in the app and one
+                of the six diameters CONSISTENCY_AUDIT.md §14 counted. It sits ON the name row
+                beside the list's title, which is the `inline` job exactly. The touch target does
+                not change either way: IconButton floors it at MIN_TAP_TARGET whatever the
+                diameter, which is why the spread was invisible to every test. */}
             {list.isRecurring && (
               <IconButton
                 icon="repeat"
                 label={t.listRecurringToggleLabel}
                 onPress={onOpenListSettings}
-                size={18}
+                size={IconSize.inline}
                 tint="transparent"
                 color={theme.good}
                 style={styles.repeatIcon}
@@ -527,17 +533,23 @@ export default function WeekListCard({
                 the old always-visible Planning/Shopping mode pill. */}
             {dirty && (
               <>
-                <IconButton icon="checkmark-circle-outline" label={t.listSaveButtonLabel} onPress={onSaveChanges} color={theme.good} size={30} />
-                <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={30} />
+                <IconButton icon="checkmark-circle-outline" label={t.listSaveButtonLabel} onPress={onSaveChanges} color={theme.good} size={IconSize.compact} />
+                <IconButton icon="arrow-undo-outline" label={t.listDiscardButtonLabel} onPress={onDiscardChanges} color={theme.bad} size={IconSize.compact} />
               </>
             )}
-            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={30} />
-            <IconButton
-              icon={expanded ? 'chevron-up' : 'chevron-down'}
-              label={expanded ? t.collapseListLabel : t.expandListLabel}
-              onPress={onToggleExpand}
-              size={30}
-            />
+            <IconButton icon="ellipsis-vertical" label={t.listOptionsButtonLabel} onPress={openListOptions} size={IconSize.compact} />
+            {/* ⚠️ **The shared fold control, not a plated `IconButton` (2026-08-21,
+                CONSISTENCY_AUDIT.md §2/§8).** This was an `IconButton size={30}` — a glass key
+                cap, where every other card in the app folds with a bare chevron glyph — and it
+                sat in the position that on every other card means "full screen". So the one
+                control here that reads loudest was the one doing the quietest job, and its
+                place said the opposite thing from its neighbours one card away.
+                  `CardCollapseToggle` carries the label, the haptic, the `expanded`
+                accessibility state and the animated glyph, so nothing is lost by dropping the
+                cap; the list's own state stays local (`expanded`/`onToggleExpand`), since a
+                per-list fold is exactly what lib/collapsedCards.ts's singleton rule keeps out
+                of the persisted bag. */}
+            <CardCollapseToggle collapsed={!expanded} onToggle={onToggleExpand} cardLabel={list.name} />
           </View>
         </View>
 
@@ -971,15 +983,12 @@ const baseStyles = StyleSheet.create({
   // Fixed-size leading badge (2026-07-26) — never let the name/lock/repeat row squeeze it.
   domainBadge: { flexShrink: 0 },
   repeatIcon: {},
-  nameInput: {
-    fontFamily: Type.heading.fontFamily,
-    fontSize: Type.heading.size,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    flex: 1,
-  },
+  // ⚠️ **`TITLE_FIELD` (2026-08-21, CONSISTENCY_AUDIT.md §1).** These exact values were also
+  // written out in app/(tabs)/shopping.tsx for the MONTHLY list's rename — except there they
+  // were an underline rather than a box, so the same control in the same kind of card header,
+  // one card away on the same screen, had two shapes. The recipe lives in constants/theme.ts
+  // now so the two cannot disagree again.
+  nameInput: TITLE_FIELD,
   // Tap-to-edit preview (2026-07-22) — same padding footprint as nameInput but no
   // border/background, so swapping between preview Text and TextInput doesn't jump layout.
   namePreviewBtn: {

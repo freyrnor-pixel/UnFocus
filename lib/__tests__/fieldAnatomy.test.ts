@@ -109,16 +109,41 @@ const BARE_INPUT_ALLOWED: Record<string, string> = {
   'components/DebugGeneralNoteButton.tsx':
     'KEEP — the same debug-only note composer, reached from the header rather than a long-press.',
 
-  // BACKLOG — hand-rolled fields the audit found. CONSISTENCY_AUDIT.md §1.
-  'components/NoteRow.tsx': 'BACKLOG — draws THREE distinct field shapes in one card.',
-  'components/HomeNotesCard.tsx': 'BACKLOG — extraInfoInput sits under a recessed well and is a bordered box.',
-  'components/WeekListCard.tsx': 'BACKLOG — nameInput is a box where shopping.tsx draws the same control as an underline.',
-  'app/(tabs)/shopping.tsx': 'BACKLOG — monthlyNameInput is an underline field (borderBottomWidth only).',
-  'components/TagPickerRow.tsx': 'BACKLOG — the app\'s only stadium-shaped text field.',
-  'app/scan.tsx': 'BACKLOG — three field recipes, one of which renders differently at its two mount sites.',
-  'app/budget.tsx': 'BACKLOG — a byte-identical copy of scan.tsx\'s sheetInput recipe.',
-  'components/UpdateSheet.tsx': 'BACKLOG — the only field in the app with no border at all.',
-  'app/automations.tsx': 'BACKLOG — borderWidth 1.5 (card weight) on a field.',
+  // ── KEEP: a field that is a HEADING or a ROW, not a form field ─────────────────────────
+  //
+  // These were BACKLOG until 2026-08-21. Three of the nine converted to `Input` outright and
+  // left this list; two more converged onto shared recipes; these are what remains, and each is
+  // a control that would be made WORSE by being boxed like a form field. The distinction is
+  // DESIGN_RULES.md §8's: what a component IS, not what it accepts.
+  'components/NoteRow.tsx':
+    'KEEP — both inputs are unboxed on purpose: the header stands in for PadRow\'s title Text (a '
+    + 'ROW, flush since the 2026-08-15 PadSheet pass) and the body IS the note. Boxing either is '
+    + 'the boxed-rows design DESIGN_COMPARISON/10 rejected, on the one card you write on. Its '
+    + '`borderTopWidth` is a divider and now takes `theme.rule`, not `theme.border`.',
+  'components/WeekListCard.tsx':
+    'KEEP — a card TITLE edited in place, at the title\'s type size, inline in a header row. It '
+    + 'draws through constants/theme.ts\'s TITLE_FIELD, shared with shopping.tsx so the two '
+    + 'cannot diverge again. Not FormControls\' Input: that owns a label, an error line and its '
+    + 'own padding, and would change the header\'s height when you tap the name.',
+  'app/(tabs)/shopping.tsx':
+    'KEEP — the monthly list\'s rename, the same control as WeekListCard\'s and now the same '
+    + 'TITLE_FIELD. It was an underline where that one was a box; the box won.',
+  'components/TagPickerRow.tsx':
+    'KEEP — it is a CHIP you can type in, rendered in the slot the "+ New" chip occupies in a '
+    + 'wrapping chip cloud. Stadium-shaped because a chip is; a rectangular field in that row '
+    + 'would be the odd one out rather than the consistent one.',
+  'app/scan.tsx':
+    'KEEP — one bare input left: a parsed receipt line\'s NAME, typable in place inside the '
+    + 'row\'s own PressableScale. Same shape as NoteRow\'s header above — a row title, not a '
+    + 'form field — and boxing it would box one cell of a ruled list. This file\'s three actual '
+    + 'FIELDS (custom store, manual entry, manual price) are `Input` as of 2026-08-21; '
+    + '`sheetInput`, the recipe that rendered two different ways at its two mount sites, is '
+    + 'deleted.',
+
+  // BACKLOG — hand-rolled fields still owed. CONSISTENCY_AUDIT.md §1.
+  //
+  // (Empty as of 2026-08-21. Keep the heading: the next hand-rolled field belongs here with a
+  // reason, not in the KEEP block above.)
 };
 
 describe('every text field comes from a shared composer', () => {

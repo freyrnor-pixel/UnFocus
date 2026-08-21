@@ -96,6 +96,8 @@ import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
 import HabitsSurface from '@/components/HabitsSurface';
 import HealthSurface from '@/components/HealthSurface';
+import MedicineSurface from '@/components/MedicineSurface';
+import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
@@ -152,16 +154,20 @@ function CatalogueExpandedBody() {
   );
 }
 
-/** Placeholder shown for a body not wired up yet in this pass — never ships as final. */
-function ComingSoonBody() {
-  const t = useT();
-  const theme = useAppTheme();
+/**
+ * Medicine, with its reminder bell kept in reach. components/HomeMedicineCard.tsx draws the bell
+ * in the card's header; expanded, the pane owns the title bar, so it is mounted above the body
+ * instead rather than dropped — a control that disappears when a card grows is a control the
+ * user has to shrink the card to reach.
+ */
+function MedicineExpandedBody() {
   return (
-    <View style={styles.placeholder}>
-      <Text style={{ color: theme.textMuted, fontFamily: Fonts.regular, fontSize: FontSize.md }}>
-        {t.expandCardLabel}
-      </Text>
-    </View>
+    <>
+      <View style={styles.expandedControls}>
+        <MedicineReminderBell />
+      </View>
+      <MedicineSurface />
+    </>
   );
 }
 
@@ -170,25 +176,24 @@ function ComingSoonBody() {
  * is built; `lib/__tests__/expandableCards.test.ts` fails the PR if the two lists ever diverge.
  */
 const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
-  // ⚠️ **Deferred, disclosed simplification (2026-08-20).** app/(tabs)/shopping.tsx's Weekly/
-  // Monthly list content is ~2000 lines of local state that is NOT extracted into a standalone
-  // component the way To-do's four cards and Health/Notes were — window-coordinate drag/merge
-  // registries, flight-animation refs, and half a dozen sibling modals make that a materially
-  // higher-risk extraction than the others in this pass. No `CardExpandButton` is mounted on
-  // the Lists card, so this entry is unreachable from the UI (nothing calls
-  // `expandCard('shopLists', …)`) rather than shipping a button that opens a placeholder. A
-  // future pass can extract `ShoppingListsSurface.tsx` the same way and wire it up here.
-  shopLists: { title: (t) => t.nav.shop, Body: ComingSoonBody },
   shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
   // Real since 2026-08-20 — components/HabitsSurface.tsx was extracted out of app/habits.tsx
   // exactly the way To-do, Health and Notes had been, and components/HomeHabitsCard.tsx mounts a
-  // `CardExpandButton` again. This was a `ComingSoonBody` from 2026-08-19, and the card shipped
-  // with no button at all rather than one that opened a stub; `shopLists` above is now the only
-  // entry still in that state.
+  // `CardExpandButton` again. It was a `ComingSoonBody` from 2026-08-19.
+  //
+  // ⚠️ **There are no placeholder bodies left, and there must not be another** (2026-08-21).
+  // `shopLists` was the last one; it left lib/expandableCards.ts rather than getting a body —
+  // see the note there for why declined rather than deferred. `ComingSoonBody` is deleted, so
+  // the only way to register a stub now is to write a new one, and
+  // lib/__tests__/expandableCards.test.ts fails on a body that renders nothing real.
   homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
+  // The pane draws its own title bar, so this entry supplies the one header control the card
+  // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
+  // switch. Same `header` slot CatalogueExpandedBody uses for the lock and camera.
+  homeMedicine: { title: (t) => t.medicine.title, Body: MedicineExpandedBody },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },
@@ -393,5 +398,4 @@ const styles = StyleSheet.create({
   bodyOuter: { flex: 1 },
   bodyFlex: { flex: 1, paddingHorizontal: Spacing.md },
   scrollContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },
-  placeholder: { padding: Spacing.lg, alignItems: 'center' },
 });

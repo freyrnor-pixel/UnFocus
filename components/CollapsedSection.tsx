@@ -194,7 +194,7 @@ export default function CollapsedSection({
   }, [open, reducedMotion, railProgress]);
   const railAnimStyle = useAnimatedStyle(() => ({ marginBottom: railProgress.value * Spacing.sm }));
 
-  const chevron = <AnimatedChevron open={open} size={16} color={theme.textMuted} />;
+  const chevron = <AnimatedChevron open={open} />;
   const header = (
     <SectionRail
       hue={hue}

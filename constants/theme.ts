@@ -325,6 +325,36 @@ export const DONE_ROW_OPACITY = 0.55;
 export const MIN_TAP_TARGET = 48;
 
 /**
+ * The diameters an `components/IconButton.tsx` may be drawn at — a named set of three, because
+ * the app shipped **six** (16, 18, 22, 26, 30, 36).
+ *
+ * ⚠️ **This is a VISUAL size, and it never touches the touch target.** `IconButton` floors its
+ * hit area at `MIN_TAP_TARGET` whichever of these it is given, which is exactly why nothing
+ * caught the spread: every one of the six was accessible, and the defect was only ever visible
+ * as a comparison. `CONSISTENCY_AUDIT.md` §14 has the worst case — the Catalogue card's lock and
+ * camera at 22 sitting eight pixels from a `CardExpandButton` at 36, i.e. 61% of the diameter
+ * and 61% of the glyph of the control beside them.
+ *
+ * The three answer three different jobs, so a fourth value means a fourth job:
+ *
+ *   `action`  — a control in a card header, a screen header or a toolbar. IconButton's default,
+ *               and what a caller gets by passing no `size` at all. Prefer passing nothing over
+ *               writing `IconSize.action`, so the pair tracks the default if it ever moves.
+ *   `compact` — one of several controls in a dense cluster, where three at `action` would push
+ *               the card's title off the line (WeekListCard's save/discard/⋯ trio).
+ *   `inline`  — a control INSIDE a row or beside a field, where an action-sized disc would
+ *               dominate the line it sits on (the ✕ that clears a picked contact or goal).
+ *
+ * `lib/__tests__/designTokens.test.ts` fails on a numeric literal passed as an IconButton
+ * `size`, the same way it fails on a bare `48`/`44`.
+ */
+export const IconSize = {
+  action: 36,
+  compact: 30,
+  inline: 26,
+} as const;
+
+/**
  * The slop needed to lift a `visualSize`-px control up to MIN_TAP_TARGET of touch area.
  * **Prefer this over a hand-picked `HitSlop.*` constant** — it takes the one number you
  * actually know (how big the icon/glyph is) and does the arithmetic, so the target can't
@@ -1131,6 +1161,37 @@ export function getRecessedField(surface: string, isDark: boolean): { paint: str
  * halo on a wrapper View that carried no radius at all. See `getFieldGlow`.
  */
 export const FIELD_RADIUS = Radius.sm;
+
+/**
+ * The shape of a title that is EDITED IN PLACE — a card's own name, turned into a field by
+ * tapping it, at the card-title type size.
+ *
+ * ⚠️ **It exists because two cards drew the same control two different ways** (2026-08-21,
+ * `CONSISTENCY_AUDIT.md` §1): `components/WeekListCard.tsx` renamed a weekly list with a
+ * BORDERED BOX and `app/(tabs)/shopping.tsx` renamed a monthly list with an UNDERLINE
+ * (`borderBottomWidth: 1`) — the same job, in the same kind of card header, one card apart on
+ * the same screen.
+ *
+ * The box wins: an underline is a second field shape, and `FIELD_RADIUS` is *"the one number,
+ * for every field in the app"* (above). The caller supplies `borderColor` and `color`, since
+ * this module holds no colours.
+ *
+ * ⚠️ **Deliberately NOT `components/FormControls.tsx`'s `Input`.** That control owns a label, an
+ * error line, its own vertical padding and a container — it is a field in a FORM. This is a
+ * heading that has become typable, inline in a header row, and it has to keep the header's
+ * height and the title's typography or the card jumps when you tap its name. Two different
+ * things that happen to both accept text; see DESIGN_RULES.md §8 on component identity.
+ */
+export const TITLE_FIELD = {
+  flex: 1,
+  minWidth: 0,
+  fontFamily: Type.heading.fontFamily,
+  fontSize: Type.heading.size,
+  borderWidth: 1,
+  borderRadius: FIELD_RADIUS,
+  paddingVertical: Spacing.xs,
+  paddingHorizontal: Spacing.sm,
+} as const;
 
 /**
  * A field's halo AND the shape that halo is cut to, from one call.

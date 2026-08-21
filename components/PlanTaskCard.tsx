@@ -109,7 +109,7 @@
  *             `containerLayout` LinearTransition so the whole card reflows together),
  *             constants/theme, constants/motion, lib/haptics, lib/i18n,
  *             lib/useNowMinutes (the 60s "now" tick behind the grid's now-line — shared
- *             with components/MedicineTrayCard.tsx since 2026-07-27),
+ *             with components/MedicineSurface.tsx since 2026-07-27),
  *             lib/useEnergyPause (2026-08-02 — which card "I'll decide" pinned, and the
  *             un-pin action behind its badge; see the edit note below for why this one hook
  *             is read here instead of being threaded in as a prop),
@@ -372,6 +372,20 @@ type Props = {
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
   allTasks?: Task[];
+  /**
+   * A header drawn INSIDE the card, above everything (2026-08-21).
+   *
+   * ⚠️ **This exists so a caller's title stops floating above the card.** On the To-do tab this
+   * card IS the Today card on the default (timeline) layout, and its title and ⤢ were drawn by
+   * components/TodoSurface.tsx as a bare row on the screen backdrop — so the full-screen button
+   * sat in the corner of nothing and the word "Today" hung over a card that started below it
+   * (CONSISTENCY_AUDIT.md §8/§9). Passing the node in is what makes the card's own top-right
+   * corner the corner that button is in.
+   *
+   * Mutually exclusive with the `readOnly` header below in practice, not by type: Home draws
+   * its own (it needs the press-to-expand and the count pill), the To-do tab passes one.
+   */
+  header?: React.ReactNode;
   /** Home preview: disables row tap-through only (Decision 009a). Done-toggle is
    *  independently gated on whether `onToggleTask` is passed — pass it to keep the
    *  checkbox interactive even when `readOnly` is set. */
@@ -560,6 +574,7 @@ const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = 
 export default function PlanTaskCard({
   cardMenu,
   extraSection,
+  header,
   tasks,
   allTasks,
   readOnly = false,
@@ -1510,6 +1525,9 @@ export default function PlanTaskCard({
     >
       <View style={styles.cardContent}>
 
+        {/* A caller-supplied header, drawn inside the card — see the `header` prop's doc. */}
+        {header}
+
         {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
             child now, so the whole card sits on ONE left edge. */}
         {readOnly && (
@@ -1764,7 +1782,7 @@ export default function PlanTaskCard({
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDoneZone(doneTasks.length)}</Text>
-              <AnimatedChevron open={doneOpen} size={14} color={theme.textMuted} />
+              <AnimatedChevron open={doneOpen} />
             </PressableScale>
             <Collapsible open={doneOpen}>
               <View style={styles.doneRows}>
@@ -1788,7 +1806,7 @@ export default function PlanTaskCard({
           <Animated.View style={[styles.doneZone, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]} layout={containerLayout}>
             <PressableScale style={styles.doneHeader} onPress={() => { tap(); setDeletedOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
               <Text style={[styles.doneHeaderText, { color: theme.textMuted }]}>{t.dayViewDeletedZone(deletedTasks.length)}</Text>
-              <AnimatedChevron open={deletedOpen} size={14} color={theme.textMuted} />
+              <AnimatedChevron open={deletedOpen} />
             </PressableScale>
             <Collapsible open={deletedOpen}>
               <View style={styles.doneRows}>

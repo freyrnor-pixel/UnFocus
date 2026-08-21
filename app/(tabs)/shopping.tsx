@@ -1,15 +1,25 @@
 /**
- * shopping.tsx — Shopping hub. Four always-visible groups, no tab switch: Weekly lists,
- * Monthly lists, then the Food and Catalogue peer cards.
+ * shopping.tsx — Shopping hub. Four always-visible groups, no tab switch, in the order the
+ * maintainer settled on 2026-08-21: **Shopping lists → Food → Catalogue → Monthly.**
+ *
+ * That order is an answer to a question, so it is worth not re-deriving. `CONSISTENCY_AUDIT.md`
+ * §13 asked whether Dishes and Catalogue should sit under one "Inventory" header, and whether
+ * Monthly should move directly ABOVE the lists it feeds (it renders the items a weekly list is
+ * built from). The answer named the order and neither of the groupings: *"Shopping lists, food
+ * and Catalogue, Monthly."* So the lists you open on a trip come first, the two libraries next,
+ * and Monthly last — and there is deliberately no "Inventory" header over Dishes and Catalogue,
+ * and nothing presenting Monthly as a parent of the shopping list.
  *
  * **No more tab switch (2026-08-20, card-element standardization pass).** Weekly and Monthly
  * used to be two `components/TabSlider.tsx` tabs — pick one, the other's content is unmounted
  * from view. Both now render unconditionally, one after the other, each under a plain
  * `components/SectionRail.tsx` header (hue dot + label + count, no wrapping card — a card
  * around a stack of cards reads as a nested panel, and each list is already its own Surface
- * card). ⚠️ **Monthly renders first in the DOM, Weekly second** — that's leftover source order
- * from when this was extracted, not a deliberate call; see the comment at the `SectionRail`s
- * for why reordering was left as a follow-up rather than done in the same pass. The old
+ * card). Monthly used to render FIRST in the DOM, which that pass admitted was *"leftover
+ * source order from when this was extracted, not a deliberate call"* and left as a follow-up;
+ * this is that follow-up. The three groups are `weeklyGroup` / `foodCatalogueLinks` /
+ * `monthlyGroup` consts now, composed in one readable line in the return, so the next change of
+ * mind about the order costs a line rather than relocating ~700 lines of drag/merge JSX. The old
  * cross-tab "item just landed in Weekly" tick cue is gone with the tab switch — there's no
  * longer an other tab for it to have landed on unseen. Everything downstream of the tab
  * bar — `WeekListCard`, the Monthly `catalogCard`s, the drag/merge/flight-animation state, the
@@ -37,7 +47,8 @@
  * tabs-to-cards pass. Each list is ~2000 lines of window-coordinate drag/merge state and
  * flight-animation refs shared across the whole screen closure, which is a materially
  * higher-risk extraction than Food/Catalogue's — see `lib/expandableCards.ts`'s edit notes
- * (the `shopLists` id is still a disclosed, unreachable placeholder). A future pass can finish
+ * (the `shopLists` EXPAND id was removed on 2026-08-21 — see lib/expandableCards.ts; the lists
+ * group folds instead, which is what it actually needed). A future pass can finish
  * it the same way; this pass only removed the tab SWITCH.
  *
  * The "Week lists" group renders an "Unallocated" card (dish
@@ -497,6 +508,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import ExpandableCard from '@/components/ExpandableCard';
 import Collapsible from '@/components/Collapsible';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
 import Button from '@/components/Button';
@@ -515,6 +527,7 @@ import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import SectionRail from '@/components/SectionRail';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
 import SectionCard from '@/components/SectionCard';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
@@ -526,7 +539,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -582,6 +595,11 @@ export default function ShoppingScreen() {
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
   const [catalogueLocked, setCatalogueLocked] = useState(true);
+  // The two GROUP folds (2026-08-21). The library cards below get theirs from `SectionCard`'s
+  // `collapseKey`; these two are bare `SectionRail`s over a stack of per-list cards, so they
+  // wire the hook and the chevron by hand — the same shape To-do's Week card uses.
+  const [weeklyCollapsed, toggleWeeklyCollapsed] = useCollapsedCard('shopLists');
+  const [monthlyCollapsed, toggleMonthlyCollapsed] = useCollapsedCard('shopMonthly');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -701,7 +719,8 @@ export default function ShoppingScreen() {
   // `dishNames`/`catalogNames` arrays feeding a names-only preview; the drawers mount the real
   // FoodTab/CatalogueTab now, and each reads its own store.)
   const dishCount = useMealStore((s) => s.dishes).length;
-  const catalogCount = useCatalogStore((s) => s.items).length;
+  // `catalogCount` went with the Catalogue card's `count` prop (2026-08-21) — see the note at
+  // that card. Nothing else on this screen showed it.
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
   // watermark, so switching layout keeps the same rows marked and the user can find them
   // again in the new arrangement. `itemsLoaded` (not `items.length`) is the readiness gate —
@@ -1695,6 +1714,712 @@ export default function ShoppingScreen() {
   // FlatList, which must not be nested inside a second ScrollView.
   //   `fast-food`, not `restaurant`: the crossed fork+knife read as a ✕ / cancel glyph at badge
   // size, and next to the word "Food" it looked like a close button (2026-07-28 design review).
+  // The three groups this screen stacks, as consts rather than inline JSX, so the ORDER is one
+  // readable line in the return instead of ~700 lines of drag/merge/flight-animation JSX that
+  // has to be physically relocated to change it. `foodCatalogueLinks` below was already written
+  // this way; these two follow it.
+  //
+  // **No outer card wraps a group.** Each already renders its own per-list Surface cards
+  // (WeekListCard, the Monthly `catalogCard`s), and a card around a stack of cards reads as the
+  // nested panel the 2026-08-18 blueprint pass banned. `components/SectionRail.tsx` alone gives
+  // each group the same header language as the rest of the app without adding that box.
+  const weeklyGroup = (
+    <>
+      {/* ⚠️ **The GROUP folds, not the cards inside it (2026-08-21, CONSISTENCY_AUDIT.md §10:
+          "All cards must be able to collapse and expand").** A weekly list's own card is drawn
+          one per row of data, so an id built from its list id would accumulate entries for
+          lists that no longer exist — lib/collapsedCards.ts's singleton rule. Folding the group
+          puts all of them away at once, which is what "collapse the shopping lists" means.
+            This is also the one Shop group that RESTS OPEN: it is the "Shopping" in the
+          maintainer's *"All card start in closed state, except 'Today' 'Notes' and 'Shopping'"*
+          — see lib/cardDefaults.ts. */}
+      <SectionRail
+        hue={screenHue}
+        label={t.weeklyTabLabel}
+        count={nonTemplateLists.length || undefined}
+        right={<CardCollapseToggle collapsed={weeklyCollapsed} onToggle={toggleWeeklyCollapsed} cardLabel={t.weeklyTabLabel} />}
+      />
+      <Collapsible open={!weeklyCollapsed}>
+
+      {true && (
+        <>
+          {unsavedListCount > 0 && (
+            <View
+              style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
+              accessibilityLabel={t.unsavedShoppingBanner(unsavedListCount)}
+            >
+              <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
+              <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unsavedListCount}</Text>
+            </View>
+          )}
+
+          {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ──
+              Decision 043 rule 3: featMeal lives on the 4px accent bar only, not the whole
+              card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
+          {unallocatedItems.length > 0 && (
+            <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
+              <View style={[styles.unallocatedAccent, { backgroundColor: mealDomainColor.accent }]} />
+              <View style={styles.unallocatedContent}>
+              <View style={styles.unallocatedHeader}>
+                <Ionicons name="fast-food-outline" size={18} color={theme.text} />
+                <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
+              </View>
+              <Text style={[styles.unallocatedHint, { color: theme.textMuted }]}>{t.unallocatedHint}</Text>
+
+              {unallocatedDishGroups.map(([dishName, groupItems]) => (
+                <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                  <View style={styles.unallocatedGroupHeader}>
+                    <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
+                    <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={HitSlop.snug} scaleTo={0.97}>
+                      <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                      <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
+                    </PressableScale>
+                  </View>
+                  {groupItems.map((item, idx) => (
+                    <View key={item.id}>
+                      <View style={[styles.unallocatedRow, { borderTopColor: theme.border }, idx > 0 && styles.unallocatedRowBorder]}>
+                        <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                          {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                        </Text>
+                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                          <Ionicons name="close" size={18} color={theme.textMuted} />
+                        </PressableScale>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              {unallocatedUngrouped.length > 0 && (
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                  {unallocatedUngrouped.map((item, idx) => (
+                    <View key={item.id} style={[styles.unallocatedRow, idx > 0 && styles.unallocatedRowBorder, { borderTopColor: theme.border }]}>
+                      <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                      <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                        {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                      </Text>
+                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={HitSlop.snug} scaleTo={0.97}>
+                        <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                      </PressableScale>
+                      <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                        <Ionicons name="close" size={18} color={theme.textMuted} />
+                      </PressableScale>
+                    </View>
+                  ))}
+                </View>
+              )}
+              </View>
+            </Surface>
+          )}
+
+          {/* ── Saved lists: expandable accordion, drag (or tap-to-choose-week) a saved
+              list into a week section below to instantiate it there. ── */}
+          <SavedListsSection
+            templates={templateLists}
+            usedTemplateIds={usedTemplateIds}
+            onDragStart={handleSavedListDragStart}
+            onDragMove={handleSavedListDragMove}
+            onDragEnd={handleSavedListDragEnd}
+            onQuickAdd={addTemplateToWeek}
+          />
+
+          {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
+              All 4 sections always render (each registers itself as a drag-drop target
+              via handleRegisterWeekSectionNode) once at least one list OR saved list
+              exists — a saved list needs somewhere to be dropped even before the first
+              live list is created. With neither, there's nothing to drag yet, so the big
+              empty card below covers that case instead of 4 redundant "no lists here"
+              sections. */}
+          {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
+            const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
+            const weekLists = listsByWeek[week] ?? [];
+            const isDropTarget =
+              (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
+              (savedListDrag != null && savedListDrag.targetWeek === week);
+
+            return (
+              <React.Fragment key={week}>
+                <View
+                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
+                  style={[
+                    styles.weekSection,
+                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+                  ]}
+                >
+                {/* ⚠️ **The app's one section header, at its smaller tier (2026-08-21).** This
+                    was a hand-rolled `<Text>` pair — the THIRD header idiom on a screen that has
+                    two `SectionRail` groups above it, which is what `CONSISTENCY_AUDIT.md` §13
+                    measured against *"Use of sub-headers to show user what is what"*. Its SIZE
+                    was never the problem (a heading inside a group should be smaller than the
+                    group's); being hand-rolled was, because nothing tied its anatomy to the
+                    header one level up.
+                      `divider={false}`: these four sections sit in their own bordered
+                    `weekSection` box, so a hairline under the name would be a second line inside
+                    one edge. The date range moves to the `right` slot, which is where a section
+                    header's trailing value sits on every other rail in the app. */}
+                <SectionRail
+                  hue={screenHue}
+                  tier="sub"
+                  divider={false}
+                  label={t.weekNumberChip(week)}
+                  right={
+                    <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
+                      {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
+                    </Text>
+                  }
+                />
+
+                {weekLists.length === 0 ? (
+                  <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
+                ) : (
+                  weekLists.map((list) => {
+                    const groups = computeListGroups(items, list.id);
+                    const groupsProgress = listProgress(groups);
+                    const order = groups.ungroupedUnchecked.map((i) => i.id);
+                    const displayUngrouped =
+                      drag && drag.listId === list.id
+                        ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
+                        : groups.ungroupedUnchecked;
+                    const expanded = !!expandedListIds[list.id];
+
+                    return (
+                      <DraggableTaskRow
+                        key={list.id}
+                        isOpen={expanded}
+                        onDragStart={() => handleWeekDragStart(list)}
+                        onDragMove={(centerY) => handleWeekDragMove(list.id, centerY)}
+                        onDragEnd={() => handleWeekDragEnd(list.id)}
+                      >
+                        <WeekListCard
+                          list={list}
+                          focused={focusedList?.id === list.id}
+                          onFocus={() => setFocusedListId(list.id)}
+                          expanded={expanded}
+                          onToggleExpand={() => toggleListExpanded(list.id)}
+                          dirty={!!dirtyByListId[list.id]}
+                          onSaveChanges={() => handleSaveListChanges(list)}
+                          onDiscardChanges={() => handleDiscardListChanges(list)}
+                          dishGroups={groups.dishGroups}
+                          ungroupedUnchecked={displayUngrouped}
+                          checked={groups.checked}
+                          purchased={groups.purchased}
+                          onToggleLock={() => handleToggleLock(list)}
+                          onRename={(name) => renameList(list.id, name)}
+                          onOpenSavedLists={() => setSavedListsListId(list.id)}
+                          onOpenListSettings={() => setListSettingsListId(list.id)}
+                          onDelete={() => handleDeleteList(list.id)}
+                          onSyncToTemplate={() => handleSyncListToTemplate(list)}
+                          onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
+                          onToggleItem={(item) => toggle(item.id)}
+                          onRemoveItem={handleRemoveWeeklyItem}
+                          onOpenItem={setDetailItem}
+                          onDecrementCartItem={handleDecrementCartItem}
+                          // A note sent here (lib/prefill.ts) seeds THIS week's add row only
+                          // — the list whose date range contains today — so a prefill can
+                          // never land on a week the user isn't looking at.
+                          addPrefill={list.id === prefillListId ? prefill : undefined}
+                          onAddStarterBundle={(starterItems) => handleAddStarterBundle(list.id, starterItems)}
+                          onAddInlineItem={(input) => {
+                            add({
+                              name: input.name,
+                              amount: String(input.qty),
+                              unit: '',
+                              listType: 'weekly',
+                              store: '',
+                              price: input.price,
+                              inventoryQty: 0,
+                              isTemporary: false,
+                              targetQuantity: input.qty,
+                              status: 'inWeeklyList',
+                              listId: list.id,
+                              category: input.category,
+                            });
+                            success();
+                            setConfirm(t.itemAddedToList(input.name));
+                          }}
+                          monthlyItems={allCatalogItems}
+                          monthlyLists={monthlyLists}
+                          onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
+                            for (const item of monthlyItemsToAdd) {
+                              addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
+                            }
+                            success();
+                            setConfirm(
+                              monthlyItemsToAdd.length === 1
+                                ? t.itemAddedToList(monthlyItemsToAdd[0].name)
+                                : t.itemsAddedToList(monthlyItemsToAdd.length)
+                            );
+                          }}
+                          onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                          onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
+                          registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
+                          onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
+                          registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
+                          mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
+                          spec={layoutSpec}
+                          newSinceIds={newSinceIds}
+                          newFields={newFields}
+                          renderReorderableRow={(item) => (
+                            <DraggableTaskRow
+                              isOpen={false}
+                              registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
+                              onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
+                              onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
+                              onDragEnd={() => handleDragEnd(list.id, item.id)}
+                            >
+                              <ShoppingRow
+                                item={item}
+                                variant="planned"
+                                onToggle={() => toggle(item.id)}
+                                onRemove={() => handleRemoveWeeklyItem(item)}
+                                onOpenDetail={() => setDetailItem(item)}
+                                inStockLabel={t.inStockLabel}
+                                locked={list.locked}
+                                spec={layoutSpec}
+                                isNewSince={newSinceIds.has(item.id)}
+                                newFields={newFields}
+                                onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
+                              />
+                            </DraggableTaskRow>
+                          )}
+                        />
+                      </DraggableTaskRow>
+                    );
+                  })
+                )}
+                </View>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Creating a new list has no single text field to fill (it's auto-named by
+              date range, then offers a start-empty/from-saved choice), so it genuinely
+              doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
+              "tap to open a chooser" trigger, and that difference is real rather than an
+              inconsistency to iron out.
+              What WAS an inconsistency: it carried no visible label. The 2026-08-03
+              walkthrough hit this on an empty Shopping tab — a big empty box and an
+              unexplained "+" — and it was the only primary add in the app that didn't say
+              what it does. The label is back (same change, same reasoning, as the Monthly
+              tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
+              trigger's hardest moment is an empty tab where there is nothing to declutter
+              and everything to explain).
+
+              **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
+              "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
+              that creating the first just looks like editing the default card that is there
+              when there are No lists. When there are lists, we can use the make New list
+              button." They used to stack — an `EmptyState` card saying "Make a new list
+              below to get started", then the thing it pointed at — so an empty tab spent
+              two cards saying one thing, and the card was inert while the real affordance
+              was somewhere else.
+              Empty: one card whose body IS the two choices, so the first list is made by
+              filling in the card already on screen. Not empty: the trigger alone, exactly
+              as before.
+              The chooser modal is skipped on the empty path deliberately — with only two
+              options and a whole card to hold them, putting them behind a dialog is one tap
+              and one context switch for nothing. It stays on the not-empty path, where the
+              trigger is a single row with no room to spell them out. */}
+          {isWeeklyEmpty ? (
+            // Neutral edge (theme.border) instead of the default screen-hue edge, so this
+            // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
+            // placeholder cards).
+            <Surface style={styles.weekEmptyCard}>
+              <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
+              <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
+              <PressableScale
+                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                onPress={handleCreateNewWeeklyList}
+                accessibilityRole="button"
+                accessibilityLabel={t.startEmptyList}
+                scaleTo={0.97}
+              >
+                <Ionicons name="add" size={22} color={theme.accent} />
+                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                  {t.startEmptyList}
+                </Text>
+              </PressableScale>
+              <PressableScale
+                style={styles.weekEmptySecondary}
+                onPress={() => setSavedListsListId('__new__')}
+                accessibilityRole="button"
+                accessibilityLabel={t.savedListsTitle}
+                scaleTo={0.97}
+              >
+                <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
+                  {t.savedListsTitle}
+                </Text>
+              </PressableScale>
+            </Surface>
+          ) : (
+            <PressableScale
+              // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
+              // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
+              // the two triggers are deliberately kept identical.
+              style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+              onPress={() =>
+                showAppModal(t.newWeeklyListTitle, '', [
+                  { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
+                  { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
+                  { text: t.cancel, style: 'cancel' },
+                ])
+              }
+              accessibilityRole="button"
+              accessibilityLabel={t.newWeeklyListTitle}
+              scaleTo={0.97}
+            >
+              <Ionicons name="add" size={22} color={theme.accent} />
+              <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                {t.newWeeklyListTitle}
+              </Text>
+            </PressableScale>
+          )}
+        </>
+      )}
+
+      </Collapsible>
+    </>
+  );
+
+  const monthlyGroup = (
+    <>
+      <SectionRail
+        hue={screenHue}
+        label={t.monthlyTabLabel}
+        count={monthlyLists.length || undefined}
+        right={<CardCollapseToggle collapsed={monthlyCollapsed} onToggle={toggleMonthlyCollapsed} cardLabel={t.monthlyTabLabel} />}
+      />
+      <Collapsible open={!monthlyCollapsed}>
+
+      {true && (
+        <>
+          {/* Shared name+category filter — one search box narrows every list's visible
+              rows at once, rather than one filter bar per card (2026-07-22 redesign). */}
+          {anyMonthlyItems && (
+            <ShoppingFilterBar
+              search={monthlyTabSearch}
+              onSearchChange={setMonthlyTabSearch}
+              category={monthlyTabCategory}
+              onCategoryChange={setMonthlyTabCategory}
+              placeholder={t.monthlyPreviewSearchPlaceholder}
+            />
+          )}
+
+          {monthlyListViews.length === 0 ? (
+            <Surface style={styles.catalogCard}>
+              <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>
+                {t.monthlyListsEmpty}
+              </Text>
+            </Surface>
+          ) : (
+            monthlyListViews.map((view) => {
+              const list = view.list;
+              const locked = list.locked;
+              return (
+                <Surface key={list.id} style={styles.catalogCard}>
+                  {/* Title on the left groups with the reset/lock actions on the right
+                      (space-between) — the previous right-aligned-only layout left a big empty
+                      gap between the tab label and the icons (2026-07-12 redesign). */}
+                  <View style={styles.catalogHeaderRow}>
+                    <View style={styles.monthlyNameWrap}>
+                      {/* Lock sits beside the name (2026-07-23 declutter pass) — same
+                          relocation as WeekListCard's lock icon, out of the crowded
+                          action row and next to the title it describes. */}
+                      {/* No `size` — the IconButton default (2026-08-21). Was `size={22}`;
+                          see components/CatalogueTab.tsx's `CatalogueHeaderControls`. */}
+                      <IconButton
+                        icon={locked ? 'lock-closed' : 'lock-open-outline'}
+                        label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
+                        onPress={() => toggleMonthlyListLocked(list.id)}
+                        active={locked}
+                      />
+                      {editingMonthlyListId === list.id ? (
+                        <TextInput
+                          ref={monthlyNameLift.ref}
+                          style={[styles.monthlyNameInput, { color: theme.text, borderColor: theme.border }]}
+                          value={monthlyListNameInput}
+                          onChangeText={setMonthlyListNameInput}
+                          placeholder={t.newMonthlyListNamePlaceholder}
+                          placeholderTextColor={theme.textMuted}
+                          onSubmitEditing={() => commitMonthlyListRename(list)}
+                          onFocus={monthlyNameLift.onFocus}
+                          onBlur={() => { monthlyNameLift.onBlur(); commitMonthlyListRename(list); }}
+                          returnKeyType="done"
+                          autoFocus
+                        />
+                      ) : (
+                        <PressableScale
+                          onPress={() => !locked && startMonthlyListNameEdit(list)}
+                          style={styles.monthlyNamePreviewBtn}
+                          scaleTo={0.98}
+                          disabled={locked}
+                        >
+                          <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{monthlyListLabel(list, t.defaultMonthlyListName)}</Text>
+                        </PressableScale>
+                      )}
+                    </View>
+                    <View style={styles.catalogHeaderActions}>
+                      {/* Budget is always available (2026-07-25 defaults revision — Scan &
+                          receipts is no longer an opt-in, so neither is the screen that reads
+                          its spend figures). */}
+                      {/* 2026-07-31 (A.5): was theme.featBudget (the retired amber "money"
+                          screen hue) on the border, icon and label. This is the one LABELLED
+                          call-to-action in a header row of otherwise unlabelled ancillary
+                          IconButtons, so it takes `accent` rather than a neutral — a neutral
+                          outline would sink the Budget entry point into the chrome beside it. */}
+                      <PressableScale
+                        style={[styles.budgetPill, { borderColor: theme.accent }]}
+                        onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
+                        accessibilityRole="button"
+                        accessibilityLabel={t.budget.title}
+                        hitSlop={HitSlop.snug}
+                        scaleTo={0.97}
+                      >
+                        <Ionicons name="wallet-outline" size={14} color={theme.accent} />
+                        <Text style={[styles.budgetPillText, { color: theme.accent }]}>{t.budget.title}</Text>
+                      </PressableScale>
+                      {/* "Manage inventory" moved into the ⋮ menu (2026-08-13) — see
+                          openMonthlyListOptions. It was an archive-box glyph in a row that
+                          also holds Budget and ⋮, and nothing about the glyph said
+                          "inventory"; the menu says it in words. */}
+                      <IconButton
+                        icon="ellipsis-vertical"
+                        label={t.listOptionsButtonLabel}
+                        onPress={() => openMonthlyListOptions(list)}
+                      />
+                    </View>
+                  </View>
+
+                  {view.pace && (
+                    <Text style={[styles.spendPaceText, { color: view.pace.overPace ? theme.warn : theme.good }]}>
+                      {t.budget.perDaySpend(String(Math.round(view.pace.actualPerDay)), String(Math.round(view.pace.budgetedPerDay)))}
+                    </Text>
+                  )}
+
+                  <View style={styles.bodyGap}>
+                    {/* SECTION 1 — this list's items (things the user has added). No separate
+                        "Monthly list" sub-header (2026-07-23 declutter pass) — the card already
+                        shows this list's own name above, and it being a Monthly list is implied
+                        by living in the Monthly tab, so the extra label was pure redundancy. */}
+                    <View style={styles.section}>
+                      {view.catalogItems.length === 0 && locked ? (
+                        // Locked + empty is the one case InlineAddItem (below, gated on
+                        // `!locked`) never renders — the real fix is unlocking, via the
+                        // padlock icon up in the header, which carries no cue that it's the
+                        // way out. Tapping this row unlocks directly instead (2026-08-11 fix
+                        // — the Goals drawer had the same "empty line points at a control it
+                        // doesn't render" bug at the time; see components/WeekListCard.tsx's
+                        // matching note). Unlocking never confirms (unlike
+                        // locking-while-dirty), so this can call the toggle straight.
+                        // ⚠️ Restyled the same day: the first cut copied sectionEmpty's solid
+                        // filled+bordered look, which is also this app's real-Input look —
+                        // reads as a text field, and this is a button. Dashed + unfilled +
+                        // the same lock-open-outline glyph the header's own unlock IconButton
+                        // uses (line ~1746), so the row's icon matches the action it performs
+                        // instead of borrowing the "+" ghost-add glyph for something that
+                        // isn't an add. Maintainer: "buttons should look like buttons and
+                        // text fields like text fields."
+                        <PressableScale
+                          onPress={() => toggleMonthlyListLocked(list.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={t.monthlyListEmptyLocked}
+                          style={[styles.monthlyEmptyLocked, { borderColor: theme.border }]}
+                        >
+                          <Ionicons name="lock-open-outline" size={16} color={theme.accent} />
+                          <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
+                        </PressableScale>
+                      ) : view.catalogItems.length === 0 ? (
+                        // The narrator (2026-08-19), where "Ingenting her ennå — legg til
+                        // din første faste vare." used to be. Unlocked-and-empty is the one
+                        // branch here that IS just an empty list: `InlineAddItem` renders
+                        // directly below it, so the way in is already on screen and the line
+                        // above it never had to point at anything.
+                        //
+                        // ⚠️ Deliberately NOT applied to the two branches either side. The
+                        // locked+empty one above is a BUTTON (tapping it unlocks — the
+                        // 2026-08-11 fix), and a quote would take away the only way out of
+                        // that state; the one below is a SEARCH that matched nothing, where
+                        // the honest answer is that your filter is too narrow, not a joke.
+                        <NarratorQuote category="shopping" />
+                      ) : view.filteredCatalogItems.length === 0 ? (
+                        <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
+                      ) : (
+                        <>
+                          {view.catalogDishGroups.length > 0 && (
+                            <View style={styles.dishGroupsWrap}>
+                              {view.catalogDishGroups.map(([dishName, groupItems]) => (
+                                <ExpandableCard key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
+                                  {groupItems.map((item, idx) => (
+                                    <View key={item.id}>
+                                      <MonthlyTableRow
+                                        item={item}
+                                        onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                        onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                        onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                        onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                        onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                        temporaryLabel={t.temporaryBadge}
+                                      />
+                                      {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                    </View>
+                                  ))}
+                                </ExpandableCard>
+                              ))}
+                            </View>
+                          )}
+                          {view.ungroupedRestItems.length > 0 && (
+                            // More than one category present → cluster with a quiet caption divider
+                            // per category; otherwise (the common case — nobody's categorised
+                            // anything yet) render flat, same as before, with no extra chrome.
+                            view.ungroupedCategoryGroups.length > 1 ? (
+                              view.ungroupedCategoryGroups.map(([catKey, catItems]) => (
+                                <View key={catKey}>
+                                  <Text style={[styles.categoryClusterLabel, { color: theme.textMuted }]}>
+                                    {categoryLabel(t, catKey)}
+                                  </Text>
+                                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                    {catItems.map((item, idx) => (
+                                      <View key={item.id}>
+                                        <MonthlyTableRow
+                                          item={item}
+                                          onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                          onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                          onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                          onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                          onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                          temporaryLabel={t.temporaryBadge}
+                                        />
+                                        {idx < catItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                      </View>
+                                    ))}
+                                  </View>
+                                </View>
+                              ))
+                            ) : (
+                              <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                {view.ungroupedRestItems.map((item, idx) => (
+                                  <View key={item.id}>
+                                    <MonthlyTableRow
+                                      item={item}
+                                      onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
+                                      onPress={!locked ? () => setUpdateItem(item) : undefined}
+                                      onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
+                                      onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
+                                      onRemove={!locked ? () => removeWithSource(item.id) : undefined}
+                                      temporaryLabel={t.temporaryBadge}
+                                    />
+                                    {idx < view.ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                  </View>
+                                ))}
+                              </View>
+                            )
+                          )}
+                          {view.monthlyTotal > 0 && (
+                            <Text style={[styles.totalLine, { color: theme.text }]}>{t.monthlyListTotal(formatKr(view.monthlyTotal, 0))}</Text>
+                          )}
+                        </>
+                      )}
+                      {/* Add an item straight to this list. The full item catalogue now
+                          lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
+                          add-to-monthly affordance where the catalogue section used to sit.
+                          Design-consistency pass: a bordered trigger pill (opens the AddItemSheet)
+                          matching WeekListCard's "Add from monthly list" trigger — one shared shape
+                          for "tap to open a fuller add flow", instead of the old circular AddFAB
+                          bubble that read as a third, different add affordance on this screen. */}
+                      {!locked && (
+                        <>
+                          {/* "+ Add item" collapses to a bar and expands into the full add form IN
+                              PLACE (no modal) — the multi-field counterpart to components/AddRow, so
+                              adding to Monthly uses the same "+ makes a new row, with Add/Discard"
+                              affordance as everywhere else. Replaced the AddItemSheet modal
+                              (2026-07-19). */}
+                          <InlineAddItem
+                            label={t.catalogueAddNewBtn}
+                            onAdd={(input) => handleAddItem(list.id, input)}
+                            categories={categoryPresets(t)}
+                            style={styles.addItemSpacing}
+                          />
+                          {/* Add a whole dish (its ingredients) to this list in place — the
+                              in-tab counterpart to the Food tab's "Add to monthly list", so meals can
+                              be planned for the month without leaving this tab. Styled to match
+                              InlineAddItem's "Add item" bar above (2026-07-23) — same shape,
+                              background, and text treatment, so the two add actions read as one
+                              consistent affordance instead of two different-looking buttons. */}
+                          {/* `Button variant="secondary"` since 2026-08-10 — the accentSoft
+                              fill the 2026-08-09 pass deliberately left it at, now drawn by
+                              the shared component instead of hand-rolled. Note this is a
+                              RUNG ABOVE FoodTab's "Add dish", which is ghost: there it is
+                              one of five repeated per-meal-section triggers, here it is the
+                              screen's single secondary action under InlineAddItem's solid
+                              primary. Same label, different weight, because weight is
+                              relative to the screen it sits on. */}
+                          <Button
+                            label={t.addDishBtn}
+                            icon="restaurant-outline"
+                            variant="secondary"
+                            onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
+                            style={styles.addItemSpacing}
+                          />
+                        </>
+                      )}
+                    </View>
+
+                    {view.purchasedByTrip.length > 0 && (
+                      <View style={styles.section}>
+                        <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
+                          <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.purchasedThisMonthSection}</Text>
+                        </View>
+                        {view.purchasedByTrip.map(({ trip, tripItems }) => {
+                          const expanded = purchasedExpanded === trip.id;
+                          return (
+                            <View key={trip.id}>
+                              {/* One expand affordance, one reveal (2026-08-08). This header
+                                  drew its own ▲/▼ as a bold text glyph and hard-swapped it,
+                                  and popped the rows in with no transition — the only place
+                                  in the app still doing either. `AnimatedChevron` rotates the
+                                  shared Ionicon and `Collapsible` clip-reveals the body, the
+                                  same pair every other expander here uses. */}
+                              <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
+                                <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
+                                <AnimatedChevron open={expanded} />
+                              </PressableScale>
+                              <Collapsible open={expanded}>
+                                {/* Decision 043 rule 1: this already sits inside the list's own
+                                    outer Surface (catalogCard) — plain View + theme.surface fill,
+                                    matching every sibling rowsCard, instead of a second glass layer. */}
+                                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                                  {tripItems.map((item, idx) => (
+                                    <View key={item.id}>
+                                      <ShoppingRow item={item} variant="purchased" onToggle={() => {}} onRemove={() => removeWithSource(item.id)} />
+                                      {idx < tripItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
+                                    </View>
+                                  ))}
+                                </View>
+                              </Collapsible>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                </Surface>
+              );
+            })
+          )}
+
+          <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
+          {/* "Reset all monthly lists now" moved into every card's ⋮ (2026-08-13) — see
+              openMonthlyListOptions. It was a small muted icon+label row floating under the
+              last card with no card of its own, which read as a caption on the tab rather
+              than a control, while being the most far-reaching action on the screen. */}
+        </>
+      )}
+
+      </Collapsible>
+    </>
+  );
+
   const foodCatalogueLinks = (
     <>
       <View ref={dishesExpand.ref} collapsable={false}>
@@ -1720,18 +2445,28 @@ export default function ShoppingScreen() {
           icon="fast-food"
           label={t.foodTabLabel}
           count={dishCount}
+          collapseKey="shopDishes"
           right={<CardExpandButton expanded={dishesExpand.expanded} onExpand={dishesExpand.onExpand} onCollapse={dishesExpand.onCollapse} />}
         >
           <FoodTab embedded onNotify={setConfirm} />
         </SectionCard>
       </View>
       <View ref={catalogueExpand.ref} collapsable={false}>
+        {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
+            (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
+            lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
+            top part"* and the 2026-08-21 pass gave every card a fold. Something had to yield,
+            and a tally of how many items the catalogue holds is the one thing in that row that
+            neither acts nor names: the list saying so is directly below it. Measured, not
+            guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
+              The count rule (AGENTS.md: *"a size yes, a score no"*) governs what a count may
+            MEAN, not that every card owes one. */}
         <SectionCard
           hue={screenHue}
           domain="shop"
           icon="list"
           label={t.catalogueTabLabel}
-          count={catalogCount}
+          collapseKey="shopCatalogue"
           // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
           // buttons for camera and lock should be in the top part instead"*) — they were inside
           // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
@@ -1758,666 +2493,19 @@ export default function ShoppingScreen() {
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
           {shoppingIntro}
 
-          {/* Weekly and Monthly are two always-visible groups now, not a tab switch
-              (2026-08-20, tabs-to-cards pass — see this file's header note). No outer card
-              wraps either group: each already renders its own per-list Surface cards
-              (WeekListCard / the Monthly `catalogCard`s below), and a card around a stack of
-              cards reads as a nested panel. `SectionRail` alone (no `SectionCard`) gives each
-              group the same header language as everywhere else in the app without adding that
-              outer box.
-              ⚠️ **Monthly renders first, Weekly second — source order, not usage frequency.**
-              Weekly is opened on every trip and would read better first; the two blocks below
-              were kept in their existing textual position deliberately, to avoid relocating
-              ~600 lines of drag/merge/flight-animation-heavy JSX in the same pass that removed
-              the tab switch. Swapping the order is a follow-up, not a correctness issue. */}
-          <SectionRail hue={screenHue} label={t.monthlyTabLabel} count={monthlyLists.length || undefined} />
-
-          {true && (
-            <>
-              {/* Shared name+category filter — one search box narrows every list's visible
-                  rows at once, rather than one filter bar per card (2026-07-22 redesign). */}
-              {anyMonthlyItems && (
-                <ShoppingFilterBar
-                  search={monthlyTabSearch}
-                  onSearchChange={setMonthlyTabSearch}
-                  category={monthlyTabCategory}
-                  onCategoryChange={setMonthlyTabCategory}
-                  placeholder={t.monthlyPreviewSearchPlaceholder}
-                />
-              )}
-
-              {monthlyListViews.length === 0 ? (
-                <Surface style={styles.catalogCard}>
-                  <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>
-                    {t.monthlyListsEmpty}
-                  </Text>
-                </Surface>
-              ) : (
-                monthlyListViews.map((view) => {
-                  const list = view.list;
-                  const locked = list.locked;
-                  return (
-                    <Surface key={list.id} style={styles.catalogCard}>
-                      {/* Title on the left groups with the reset/lock actions on the right
-                          (space-between) — the previous right-aligned-only layout left a big empty
-                          gap between the tab label and the icons (2026-07-12 redesign). */}
-                      <View style={styles.catalogHeaderRow}>
-                        <View style={styles.monthlyNameWrap}>
-                          {/* Lock sits beside the name (2026-07-23 declutter pass) — same
-                              relocation as WeekListCard's lock icon, out of the crowded
-                              action row and next to the title it describes. */}
-                          {/* No `size` — the IconButton default (2026-08-21). Was `size={22}`;
-                              see components/CatalogueTab.tsx's `CatalogueHeaderControls`. */}
-                          <IconButton
-                            icon={locked ? 'lock-closed' : 'lock-open-outline'}
-                            label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
-                            onPress={() => toggleMonthlyListLocked(list.id)}
-                            active={locked}
-                          />
-                          {editingMonthlyListId === list.id ? (
-                            <TextInput
-                              ref={monthlyNameLift.ref}
-                              style={[styles.monthlyNameInput, { color: theme.text, borderColor: theme.border }]}
-                              value={monthlyListNameInput}
-                              onChangeText={setMonthlyListNameInput}
-                              placeholder={t.newMonthlyListNamePlaceholder}
-                              placeholderTextColor={theme.textMuted}
-                              onSubmitEditing={() => commitMonthlyListRename(list)}
-                              onFocus={monthlyNameLift.onFocus}
-                              onBlur={() => { monthlyNameLift.onBlur(); commitMonthlyListRename(list); }}
-                              returnKeyType="done"
-                              autoFocus
-                            />
-                          ) : (
-                            <PressableScale
-                              onPress={() => !locked && startMonthlyListNameEdit(list)}
-                              style={styles.monthlyNamePreviewBtn}
-                              scaleTo={0.98}
-                              disabled={locked}
-                            >
-                              <Text style={[styles.catalogHeaderTitle, { color: theme.text }]} numberOfLines={1}>{monthlyListLabel(list, t.defaultMonthlyListName)}</Text>
-                            </PressableScale>
-                          )}
-                        </View>
-                        <View style={styles.catalogHeaderActions}>
-                          {/* Budget is always available (2026-07-25 defaults revision — Scan &
-                              receipts is no longer an opt-in, so neither is the screen that reads
-                              its spend figures). */}
-                          {/* 2026-07-31 (A.5): was theme.featBudget (the retired amber "money"
-                              screen hue) on the border, icon and label. This is the one LABELLED
-                              call-to-action in a header row of otherwise unlabelled ancillary
-                              IconButtons, so it takes `accent` rather than a neutral — a neutral
-                              outline would sink the Budget entry point into the chrome beside it. */}
-                          <PressableScale
-                            style={[styles.budgetPill, { borderColor: theme.accent }]}
-                            onPress={() => router.push({ pathname: '/budget', params: { listId: list.id } })}
-                            accessibilityRole="button"
-                            accessibilityLabel={t.budget.title}
-                            hitSlop={HitSlop.snug}
-                            scaleTo={0.97}
-                          >
-                            <Ionicons name="wallet-outline" size={14} color={theme.accent} />
-                            <Text style={[styles.budgetPillText, { color: theme.accent }]}>{t.budget.title}</Text>
-                          </PressableScale>
-                          {/* "Manage inventory" moved into the ⋮ menu (2026-08-13) — see
-                              openMonthlyListOptions. It was an archive-box glyph in a row that
-                              also holds Budget and ⋮, and nothing about the glyph said
-                              "inventory"; the menu says it in words. */}
-                          <IconButton
-                            icon="ellipsis-vertical"
-                            label={t.listOptionsButtonLabel}
-                            onPress={() => openMonthlyListOptions(list)}
-                          />
-                        </View>
-                      </View>
-
-                      {view.pace && (
-                        <Text style={[styles.spendPaceText, { color: view.pace.overPace ? theme.warn : theme.good }]}>
-                          {t.budget.perDaySpend(String(Math.round(view.pace.actualPerDay)), String(Math.round(view.pace.budgetedPerDay)))}
-                        </Text>
-                      )}
-
-                      <View style={styles.bodyGap}>
-                        {/* SECTION 1 — this list's items (things the user has added). No separate
-                            "Monthly list" sub-header (2026-07-23 declutter pass) — the card already
-                            shows this list's own name above, and it being a Monthly list is implied
-                            by living in the Monthly tab, so the extra label was pure redundancy. */}
-                        <View style={styles.section}>
-                          {view.catalogItems.length === 0 && locked ? (
-                            // Locked + empty is the one case InlineAddItem (below, gated on
-                            // `!locked`) never renders — the real fix is unlocking, via the
-                            // padlock icon up in the header, which carries no cue that it's the
-                            // way out. Tapping this row unlocks directly instead (2026-08-11 fix
-                            // — the Goals drawer had the same "empty line points at a control it
-                            // doesn't render" bug at the time; see components/WeekListCard.tsx's
-                            // matching note). Unlocking never confirms (unlike
-                            // locking-while-dirty), so this can call the toggle straight.
-                            // ⚠️ Restyled the same day: the first cut copied sectionEmpty's solid
-                            // filled+bordered look, which is also this app's real-Input look —
-                            // reads as a text field, and this is a button. Dashed + unfilled +
-                            // the same lock-open-outline glyph the header's own unlock IconButton
-                            // uses (line ~1746), so the row's icon matches the action it performs
-                            // instead of borrowing the "+" ghost-add glyph for something that
-                            // isn't an add. Maintainer: "buttons should look like buttons and
-                            // text fields like text fields."
-                            <PressableScale
-                              onPress={() => toggleMonthlyListLocked(list.id)}
-                              accessibilityRole="button"
-                              accessibilityLabel={t.monthlyListEmptyLocked}
-                              style={[styles.monthlyEmptyLocked, { borderColor: theme.border }]}
-                            >
-                              <Ionicons name="lock-open-outline" size={16} color={theme.accent} />
-                              <Text style={[styles.monthlyEmptyLockedText, { color: theme.textMuted }]}>{t.monthlyListEmptyLocked}</Text>
-                            </PressableScale>
-                          ) : view.catalogItems.length === 0 ? (
-                            // The narrator (2026-08-19), where "Ingenting her ennå — legg til
-                            // din første faste vare." used to be. Unlocked-and-empty is the one
-                            // branch here that IS just an empty list: `InlineAddItem` renders
-                            // directly below it, so the way in is already on screen and the line
-                            // above it never had to point at anything.
-                            //
-                            // ⚠️ Deliberately NOT applied to the two branches either side. The
-                            // locked+empty one above is a BUTTON (tapping it unlocks — the
-                            // 2026-08-11 fix), and a quote would take away the only way out of
-                            // that state; the one below is a SEARCH that matched nothing, where
-                            // the honest answer is that your filter is too narrow, not a joke.
-                            <NarratorQuote category="shopping" />
-                          ) : view.filteredCatalogItems.length === 0 ? (
-                            <Text style={[styles.sectionEmpty, { color: theme.textMuted }]}>{t.monthlyPreviewEmpty}</Text>
-                          ) : (
-                            <>
-                              {view.catalogDishGroups.length > 0 && (
-                                <View style={styles.dishGroupsWrap}>
-                                  {view.catalogDishGroups.map(([dishName, groupItems]) => (
-                                    <ExpandableCard key={dishName} title={dishName} subtitle={t.ingredientsCount(groupItems.length)} accentColor={theme.accent} defaultOpen={false}>
-                                      {groupItems.map((item, idx) => (
-                                        <View key={item.id}>
-                                          <MonthlyTableRow
-                                            item={item}
-                                            onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                            onPress={!locked ? () => setUpdateItem(item) : undefined}
-                                            onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
-                                            onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
-                                            onRemove={!locked ? () => removeWithSource(item.id) : undefined}
-                                            temporaryLabel={t.temporaryBadge}
-                                          />
-                                          {idx < groupItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                                        </View>
-                                      ))}
-                                    </ExpandableCard>
-                                  ))}
-                                </View>
-                              )}
-                              {view.ungroupedRestItems.length > 0 && (
-                                // More than one category present → cluster with a quiet caption divider
-                                // per category; otherwise (the common case — nobody's categorised
-                                // anything yet) render flat, same as before, with no extra chrome.
-                                view.ungroupedCategoryGroups.length > 1 ? (
-                                  view.ungroupedCategoryGroups.map(([catKey, catItems]) => (
-                                    <View key={catKey}>
-                                      <Text style={[styles.categoryClusterLabel, { color: theme.textMuted }]}>
-                                        {categoryLabel(t, catKey)}
-                                      </Text>
-                                      <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                                        {catItems.map((item, idx) => (
-                                          <View key={item.id}>
-                                            <MonthlyTableRow
-                                              item={item}
-                                              onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                              onPress={!locked ? () => setUpdateItem(item) : undefined}
-                                              onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
-                                              onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
-                                              onRemove={!locked ? () => removeWithSource(item.id) : undefined}
-                                              temporaryLabel={t.temporaryBadge}
-                                            />
-                                            {idx < catItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                                          </View>
-                                        ))}
-                                      </View>
-                                    </View>
-                                  ))
-                                ) : (
-                                  <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                                    {view.ungroupedRestItems.map((item, idx) => (
-                                      <View key={item.id}>
-                                        <MonthlyTableRow
-                                          item={item}
-                                          onCheckboxPress={() => handleAddToWeeklyFromMonthly(item)}
-                                          onPress={!locked ? () => setUpdateItem(item) : undefined}
-                                          onIncrement={!locked ? () => handleMonthlyQty(item, 1) : undefined}
-                                          onDecrement={!locked ? () => handleMonthlyQty(item, -1) : undefined}
-                                          onRemove={!locked ? () => removeWithSource(item.id) : undefined}
-                                          temporaryLabel={t.temporaryBadge}
-                                        />
-                                        {idx < view.ungroupedRestItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                                      </View>
-                                    ))}
-                                  </View>
-                                )
-                              )}
-                              {view.monthlyTotal > 0 && (
-                                <Text style={[styles.totalLine, { color: theme.text }]}>{t.monthlyListTotal(formatKr(view.monthlyTotal, 0))}</Text>
-                              )}
-                            </>
-                          )}
-                          {/* Add an item straight to this list. The full item catalogue now
-                              lives in its own "Catalogue" tab (CatalogueTab); this keeps a direct
-                              add-to-monthly affordance where the catalogue section used to sit.
-                              Design-consistency pass: a bordered trigger pill (opens the AddItemSheet)
-                              matching WeekListCard's "Add from monthly list" trigger — one shared shape
-                              for "tap to open a fuller add flow", instead of the old circular AddFAB
-                              bubble that read as a third, different add affordance on this screen. */}
-                          {!locked && (
-                            <>
-                              {/* "+ Add item" collapses to a bar and expands into the full add form IN
-                                  PLACE (no modal) — the multi-field counterpart to components/AddRow, so
-                                  adding to Monthly uses the same "+ makes a new row, with Add/Discard"
-                                  affordance as everywhere else. Replaced the AddItemSheet modal
-                                  (2026-07-19). */}
-                              <InlineAddItem
-                                label={t.catalogueAddNewBtn}
-                                onAdd={(input) => handleAddItem(list.id, input)}
-                                categories={categoryPresets(t)}
-                                style={styles.addItemSpacing}
-                              />
-                              {/* Add a whole dish (its ingredients) to this list in place — the
-                                  in-tab counterpart to the Food tab's "Add to monthly list", so meals can
-                                  be planned for the month without leaving this tab. Styled to match
-                                  InlineAddItem's "Add item" bar above (2026-07-23) — same shape,
-                                  background, and text treatment, so the two add actions read as one
-                                  consistent affordance instead of two different-looking buttons. */}
-                              {/* `Button variant="secondary"` since 2026-08-10 — the accentSoft
-                                  fill the 2026-08-09 pass deliberately left it at, now drawn by
-                                  the shared component instead of hand-rolled. Note this is a
-                                  RUNG ABOVE FoodTab's "Add dish", which is ghost: there it is
-                                  one of five repeated per-meal-section triggers, here it is the
-                                  screen's single secondary action under InlineAddItem's solid
-                                  primary. Same label, different weight, because weight is
-                                  relative to the screen it sits on. */}
-                              <Button
-                                label={t.addDishBtn}
-                                icon="restaurant-outline"
-                                variant="secondary"
-                                onPress={() => setDishSheetTarget({ mode: 'monthly', listId: list.id })}
-                                style={styles.addItemSpacing}
-                              />
-                            </>
-                          )}
-                        </View>
-
-                        {view.purchasedByTrip.length > 0 && (
-                          <View style={styles.section}>
-                            <View style={[styles.sectionTitleCard, { backgroundColor: theme.surfaceMuted }]}>
-                              <Text style={[styles.sectionLabel, { color: theme.text }]}>{t.purchasedThisMonthSection}</Text>
-                            </View>
-                            {view.purchasedByTrip.map(({ trip, tripItems }) => {
-                              const expanded = purchasedExpanded === trip.id;
-                              return (
-                                <View key={trip.id}>
-                                  {/* One expand affordance, one reveal (2026-08-08). This header
-                                      drew its own ▲/▼ as a bold text glyph and hard-swapped it,
-                                      and popped the rows in with no transition — the only place
-                                      in the app still doing either. `AnimatedChevron` rotates the
-                                      shared Ionicon and `Collapsible` clip-reveals the body, the
-                                      same pair every other expander here uses. */}
-                                  <PressableScale style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]} onPress={() => setPurchasedExpanded(expanded ? null : trip.id)} scaleTo={0.97}>
-                                    <Text style={[styles.weekLabel, { color: theme.textMuted }]}>{trip.label}</Text>
-                                    <AnimatedChevron open={expanded} color={theme.textMuted} size={16} />
-                                  </PressableScale>
-                                  <Collapsible open={expanded}>
-                                    {/* Decision 043 rule 1: this already sits inside the list's own
-                                        outer Surface (catalogCard) — plain View + theme.surface fill,
-                                        matching every sibling rowsCard, instead of a second glass layer. */}
-                                    <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                                      {tripItems.map((item, idx) => (
-                                        <View key={item.id}>
-                                          <ShoppingRow item={item} variant="purchased" onToggle={() => {}} onRemove={() => removeWithSource(item.id)} />
-                                          {idx < tripItems.length - 1 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
-                                        </View>
-                                      ))}
-                                    </View>
-                                  </Collapsible>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        )}
-                      </View>
-                    </Surface>
-                  );
-                })
-              )}
-
-              <NewMonthlyListRow onCreate={(name) => addMonthlyList({ name })} />
-              {/* "Reset all monthly lists now" moved into every card's ⋮ (2026-08-13) — see
-                  openMonthlyListOptions. It was a small muted icon+label row floating under the
-                  last card with no card of its own, which read as a caption on the tab rather
-                  than a control, while being the most far-reaching action on the screen. */}
-            </>
-          )}
-
-          <SectionRail hue={screenHue} label={t.weeklyTabLabel} count={nonTemplateLists.length || undefined} />
-
-          {true && (
-            <>
-              {unsavedListCount > 0 && (
-                <View
-                  style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
-                  accessibilityLabel={t.unsavedShoppingBanner(unsavedListCount)}
-                >
-                  <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
-                  <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unsavedListCount}</Text>
-                </View>
-              )}
-
-              {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ──
-                  Decision 043 rule 3: featMeal lives on the 4px accent bar only, not the whole
-                  card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
-              {unallocatedItems.length > 0 && (
-                <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
-                  <View style={[styles.unallocatedAccent, { backgroundColor: mealDomainColor.accent }]} />
-                  <View style={styles.unallocatedContent}>
-                  <View style={styles.unallocatedHeader}>
-                    <Ionicons name="fast-food-outline" size={18} color={theme.text} />
-                    <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
-                  </View>
-                  <Text style={[styles.unallocatedHint, { color: theme.textMuted }]}>{t.unallocatedHint}</Text>
-
-                  {unallocatedDishGroups.map(([dishName, groupItems]) => (
-                    <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                      <View style={styles.unallocatedGroupHeader}>
-                        <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
-                        <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={HitSlop.snug} scaleTo={0.97}>
-                          <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
-                          <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
-                        </PressableScale>
-                      </View>
-                      {groupItems.map((item, idx) => (
-                        <View key={item.id}>
-                          <View style={[styles.unallocatedRow, { borderTopColor: theme.border }, idx > 0 && styles.unallocatedRowBorder]}>
-                            <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                            <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
-                              {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
-                            </Text>
-                            <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
-                              <Ionicons name="close" size={18} color={theme.textMuted} />
-                            </PressableScale>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-
-                  {unallocatedUngrouped.length > 0 && (
-                    <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                      {unallocatedUngrouped.map((item, idx) => (
-                        <View key={item.id} style={[styles.unallocatedRow, idx > 0 && styles.unallocatedRowBorder, { borderTopColor: theme.border }]}>
-                          <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                          <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
-                            {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
-                          </Text>
-                          <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={HitSlop.snug} scaleTo={0.97}>
-                            <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
-                          </PressableScale>
-                          <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
-                            <Ionicons name="close" size={18} color={theme.textMuted} />
-                          </PressableScale>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  </View>
-                </Surface>
-              )}
-
-              {/* ── Saved lists: expandable accordion, drag (or tap-to-choose-week) a saved
-                  list into a week section below to instantiate it there. ── */}
-              <SavedListsSection
-                templates={templateLists}
-                usedTemplateIds={usedTemplateIds}
-                onDragStart={handleSavedListDragStart}
-                onDragMove={handleSavedListDragMove}
-                onDragEnd={handleSavedListDragEnd}
-                onQuickAdd={addTemplateToWeek}
-              />
-
-              {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
-                  All 4 sections always render (each registers itself as a drag-drop target
-                  via handleRegisterWeekSectionNode) once at least one list OR saved list
-                  exists — a saved list needs somewhere to be dropped even before the first
-                  live list is created. With neither, there's nothing to drag yet, so the big
-                  empty card below covers that case instead of 4 redundant "no lists here"
-                  sections. */}
-              {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
-                const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
-                const weekLists = listsByWeek[week] ?? [];
-                const isDropTarget =
-                  (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
-                  (savedListDrag != null && savedListDrag.targetWeek === week);
-
-                return (
-                  <React.Fragment key={week}>
-                    <View
-                      ref={(node) => handleRegisterWeekSectionNode(week, node)}
-                      style={[
-                        styles.weekSection,
-                        isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-                      ]}
-                    >
-                    <View style={styles.weekSectionHeaderRow}>
-                      <Text style={[styles.weekSectionLabel, { color: theme.text }]}>{t.weekNumberChip(week)}</Text>
-                      <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
-                        {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
-                      </Text>
-                    </View>
-
-                    {weekLists.length === 0 ? (
-                      <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
-                    ) : (
-                      weekLists.map((list) => {
-                        const groups = computeListGroups(items, list.id);
-                        const groupsProgress = listProgress(groups);
-                        const order = groups.ungroupedUnchecked.map((i) => i.id);
-                        const displayUngrouped =
-                          drag && drag.listId === list.id
-                            ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
-                            : groups.ungroupedUnchecked;
-                        const expanded = !!expandedListIds[list.id];
-
-                        return (
-                          <DraggableTaskRow
-                            key={list.id}
-                            isOpen={expanded}
-                            onDragStart={() => handleWeekDragStart(list)}
-                            onDragMove={(centerY) => handleWeekDragMove(list.id, centerY)}
-                            onDragEnd={() => handleWeekDragEnd(list.id)}
-                          >
-                            <WeekListCard
-                              list={list}
-                              focused={focusedList?.id === list.id}
-                              onFocus={() => setFocusedListId(list.id)}
-                              expanded={expanded}
-                              onToggleExpand={() => toggleListExpanded(list.id)}
-                              dirty={!!dirtyByListId[list.id]}
-                              onSaveChanges={() => handleSaveListChanges(list)}
-                              onDiscardChanges={() => handleDiscardListChanges(list)}
-                              dishGroups={groups.dishGroups}
-                              ungroupedUnchecked={displayUngrouped}
-                              checked={groups.checked}
-                              purchased={groups.purchased}
-                              onToggleLock={() => handleToggleLock(list)}
-                              onRename={(name) => renameList(list.id, name)}
-                              onOpenSavedLists={() => setSavedListsListId(list.id)}
-                              onOpenListSettings={() => setListSettingsListId(list.id)}
-                              onDelete={() => handleDeleteList(list.id)}
-                              onSyncToTemplate={() => handleSyncListToTemplate(list)}
-                              onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
-                              onToggleItem={(item) => toggle(item.id)}
-                              onRemoveItem={handleRemoveWeeklyItem}
-                              onOpenItem={setDetailItem}
-                              onDecrementCartItem={handleDecrementCartItem}
-                              // A note sent here (lib/prefill.ts) seeds THIS week's add row only
-                              // — the list whose date range contains today — so a prefill can
-                              // never land on a week the user isn't looking at.
-                              addPrefill={list.id === prefillListId ? prefill : undefined}
-                              onAddStarterBundle={(starterItems) => handleAddStarterBundle(list.id, starterItems)}
-                              onAddInlineItem={(input) => {
-                                add({
-                                  name: input.name,
-                                  amount: String(input.qty),
-                                  unit: '',
-                                  listType: 'weekly',
-                                  store: '',
-                                  price: input.price,
-                                  inventoryQty: 0,
-                                  isTemporary: false,
-                                  targetQuantity: input.qty,
-                                  status: 'inWeeklyList',
-                                  listId: list.id,
-                                  category: input.category,
-                                });
-                                success();
-                                setConfirm(t.itemAddedToList(input.name));
-                              }}
-                              monthlyItems={allCatalogItems}
-                              monthlyLists={monthlyLists}
-                              onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
-                                for (const item of monthlyItemsToAdd) {
-                                  addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
-                                }
-                                success();
-                                setConfirm(
-                                  monthlyItemsToAdd.length === 1
-                                    ? t.itemAddedToList(monthlyItemsToAdd[0].name)
-                                    : t.itemsAddedToList(monthlyItemsToAdd.length)
-                                );
-                              }}
-                              onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
-                              onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
-                              registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
-                              onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
-                              registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
-                              mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
-                              spec={layoutSpec}
-                              newSinceIds={newSinceIds}
-                              newFields={newFields}
-                              renderReorderableRow={(item) => (
-                                <DraggableTaskRow
-                                  isOpen={false}
-                                  registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
-                                  onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
-                                  onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
-                                  onDragEnd={() => handleDragEnd(list.id, item.id)}
-                                >
-                                  <ShoppingRow
-                                    item={item}
-                                    variant="planned"
-                                    onToggle={() => toggle(item.id)}
-                                    onRemove={() => handleRemoveWeeklyItem(item)}
-                                    onOpenDetail={() => setDetailItem(item)}
-                                    inStockLabel={t.inStockLabel}
-                                    locked={list.locked}
-                                    spec={layoutSpec}
-                                    isNewSince={newSinceIds.has(item.id)}
-                                    newFields={newFields}
-                                    onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
-                                  />
-                                </DraggableTaskRow>
-                              )}
-                            />
-                          </DraggableTaskRow>
-                        );
-                      })
-                    )}
-                    </View>
-                  </React.Fragment>
-                );
-              })}
-
-              {/* Creating a new list has no single text field to fill (it's auto-named by
-                  date range, then offers a start-empty/from-saved choice), so it genuinely
-                  doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
-                  "tap to open a chooser" trigger, and that difference is real rather than an
-                  inconsistency to iron out.
-                  What WAS an inconsistency: it carried no visible label. The 2026-08-03
-                  walkthrough hit this on an empty Shopping tab — a big empty box and an
-                  unexplained "+" — and it was the only primary add in the app that didn't say
-                  what it does. The label is back (same change, same reasoning, as the Monthly
-                  tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
-                  trigger's hardest moment is an empty tab where there is nothing to declutter
-                  and everything to explain).
-
-                  **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
-                  "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
-                  that creating the first just looks like editing the default card that is there
-                  when there are No lists. When there are lists, we can use the make New list
-                  button." They used to stack — an `EmptyState` card saying "Make a new list
-                  below to get started", then the thing it pointed at — so an empty tab spent
-                  two cards saying one thing, and the card was inert while the real affordance
-                  was somewhere else.
-                  Empty: one card whose body IS the two choices, so the first list is made by
-                  filling in the card already on screen. Not empty: the trigger alone, exactly
-                  as before.
-                  The chooser modal is skipped on the empty path deliberately — with only two
-                  options and a whole card to hold them, putting them behind a dialog is one tap
-                  and one context switch for nothing. It stays on the not-empty path, where the
-                  trigger is a single row with no room to spell them out. */}
-              {isWeeklyEmpty ? (
-                // Neutral edge (theme.border) instead of the default screen-hue edge, so this
-                // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
-                // placeholder cards).
-                <Surface style={styles.weekEmptyCard}>
-                  <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
-                  <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
-                  <PressableScale
-                    style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                    onPress={handleCreateNewWeeklyList}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.startEmptyList}
-                    scaleTo={0.97}
-                  >
-                    <Ionicons name="add" size={22} color={theme.accent} />
-                    <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                      {t.startEmptyList}
-                    </Text>
-                  </PressableScale>
-                  <PressableScale
-                    style={styles.weekEmptySecondary}
-                    onPress={() => setSavedListsListId('__new__')}
-                    accessibilityRole="button"
-                    accessibilityLabel={t.savedListsTitle}
-                    scaleTo={0.97}
-                  >
-                    <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
-                      {t.savedListsTitle}
-                    </Text>
-                  </PressableScale>
-                </Surface>
-              ) : (
-                <PressableScale
-                  // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
-                  // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
-                  // the two triggers are deliberately kept identical.
-                  style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                  onPress={() =>
-                    showAppModal(t.newWeeklyListTitle, '', [
-                      { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
-                      { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
-                      { text: t.cancel, style: 'cancel' },
-                    ])
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={t.newWeeklyListTitle}
-                  scaleTo={0.97}
-                >
-                  <Ionicons name="add" size={22} color={theme.accent} />
-                  <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                    {t.newWeeklyListTitle}
-                  </Text>
-                </PressableScale>
-              )}
-            </>
-          )}
+          {/* ⚠️ **Order settled 2026-08-21 by the maintainer**, asked whether Dishes and
+              Catalogue should sit under one "Inventory" header and whether Monthly should move
+              above the lists it feeds: *"Shopping lists, food and Catalogue, Monthly."* So —
+              the lists you open on a trip first, the two libraries next, and Monthly last.
+              Two things that answer names by NOT doing them, so the gaps read as decisions:
+              there is no "Inventory" grouping header (Dishes and Catalogue are each their own
+              card, and a header over two cards would be a fourth header idiom on a screen that
+              just got down to one), and Monthly is not presented as the basis the shopping list
+              is built from — it is simply last. `CONSISTENCY_AUDIT.md` §13 has the question.
+                This REPLACES the old source-order arrangement (Monthly, then Weekly, then the
+              libraries), which the file's own comment admitted was *"leftover source order from
+              when this was extracted, not a deliberate call"*. */}
+          {weeklyGroup}
 
           {/* Doors out of this screen go at the FOOT of it (2026-08-10). They sat above the
               lists while they were a compact two-tile row; as full drawers that would put the
@@ -2425,6 +2513,8 @@ export default function ShoppingScreen() {
               to do (DESIGN_RULES.md rule 7). Bottom-of-screen is also where To-do and Habits
               put theirs, so the placement matches the shape. */}
           {foodCatalogueLinks}
+
+          {monthlyGroup}
 
         </DebugNoteAnchor>
 
@@ -2600,14 +2690,11 @@ const styles = StyleSheet.create({
   // Row layout (2026-07-23) so the lock icon sits inline right before the name.
   monthlyNameWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   monthlyNamePreviewBtn: { flex: 1, minWidth: 0, paddingVertical: 2 },
-  monthlyNameInput: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: Type.heading.fontFamily,
-    fontSize: Type.heading.size,
-    borderBottomWidth: 1,
-    paddingVertical: 2,
-  },
+  // ⚠️ **`TITLE_FIELD` (2026-08-21, CONSISTENCY_AUDIT.md §1).** This was an UNDERLINE
+  // (`borderBottomWidth: 1`) for the same job components/WeekListCard.tsx drew as a box —
+  // renaming a list in its own card header — so the Shop tab shipped both shapes at once.
+  // The box won: an underline is a second field shape, and FIELD_RADIUS is the one number.
+  monthlyNameInput: TITLE_FIELD,
   // Relocated global "reset every list" entry point — a quiet text row under the list
   // cards + "+ New list", not a prominent icon (each list's own reset icon is the primary
   // affordance now).
@@ -2740,8 +2827,8 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  weekSectionHeaderRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.sm, paddingHorizontal: Spacing.xs },
-  weekSectionLabel: { fontFamily: Fonts.bold, fontSize: FontSize.sm, textTransform: 'uppercase', letterSpacing: 0.5 },
+  // `weekSectionHeaderRow` and `weekSectionLabel` moved into components/SectionRail.tsx's `sub`
+  // tier on 2026-08-21 — see the call site. The date range survives as that rail's `right` slot.
   weekSectionRange: { fontSize: FontSize.xs },
   weekSectionEmptyText: { fontSize: FontSize.sm, paddingHorizontal: Spacing.xs, paddingVertical: Spacing.xs },
   // Big-ish plain white/surface "+ Create a new list" button — primary action on the Weekly

@@ -49,7 +49,7 @@ import React from 'react';
 import { LayoutAnimation, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
-import { FontSize, Fonts, Spacing } from '@/constants/theme';
+import { FontSize, Fonts, HitSlop, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -77,6 +77,7 @@ export default function PadFooterToggle({ state, onChange, total, style }: Props
   return (
     <PressableScale
       style={[styles.footer, style]}
+      hitSlop={HitSlop.base}
       onPress={() => {
         tap();
         // The card's own size change (grid height, the cardCollapsed floor, the anytime-list
@@ -100,7 +101,21 @@ export default function PadFooterToggle({ state, onChange, total, style }: Props
 }
 
 const styles = StyleSheet.create({
-  footer: { alignSelf: 'flex-end', alignItems: 'center', paddingTop: Spacing.sm },
+  // ⚠️ **`minHeight` + `hitSlop`, or this is the app's one real tap-target violation**
+  // (2026-08-21, CONSISTENCY_AUDIT.md §14). It had neither, so the control came out ≈28px tall
+  // with nothing compensating — and it is the size control on all four pad cards, i.e. the
+  // most-pressed thing on the Me tab. Every other under-48 control in the app pays for its
+  // size one of these two ways; this one just didn't.
+  //   The VISUAL row is deliberately still short (it is a label and a chevron tucked into a
+  // card's bottom-right corner, not a key), which is exactly the case constants/theme.ts's
+  // MIN_TAP_TARGET note describes: don't grow the art, expand the touch area.
+  footer: {
+    alignSelf: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: MIN_TAP_TARGET,
+    paddingTop: Spacing.sm,
+  },
   inner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
 });

@@ -94,6 +94,7 @@ import { categoryPresets } from '@/lib/shoppingCategories';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import { Input } from '@/components/FormControls';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { goToSite } from '@/lib/siteNav';
@@ -568,6 +569,13 @@ export default function ScanScreen() {
                 <Text style={[styles.qrTitle, { color: QR_FG }]}>{t.qrScanMode}</Text>
                 <View style={{ width: 60 }} />
               </View>
+              {/* ⚠️ **A documented exception to "tips only in cards" (2026-08-21,
+                  CONSISTENCY_AUDIT.md §5 item 3).** This is camera chrome, inside a full-screen
+                  `Modal` with its own fixed dark palette (`QR_BG`/`QR_FG`/`QR_HINT`) — there are
+                  no cards on a viewfinder, and putting one here would mean painting an app
+                  surface over a live camera feed. The rule is about the app's card surfaces.
+                  The line is also aiming instruction for an action in progress, not an
+                  explanation of an empty surface, which is the tier that rule governs. */}
               <Text style={[styles.qrHint, { color: QR_HINT }]}>{t.qrScanInstructions}</Text>
               {qrScanVisible && (
                 <CameraView
@@ -591,12 +599,15 @@ export default function ScanScreen() {
             <Surface surfaceContext="overlay" style={styles.manualSheet}>
               <View style={[styles.sheetHandle, { backgroundColor: theme.surfaceMuted }]} />
               <Text style={[styles.sheetTitle, { color: theme.text }]}>{t.otherStore}</Text>
-              <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.customStoreLabel}</Text>
-              <TextInput
+              {/* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** `sheetInput`
+                  was the recipe that *"renders differently at its two mount sites"* — here it
+                  took a `surfaceMuted` fill and no border, and in manual mode a `surface` fill
+                  plus `borderWidth: 1.5`. One style constant, two appearances, in one file. It
+                  was also copied byte-for-byte into app/budget.tsx. Both are `Input` now. */}
+              <Input
                 ref={customStoreRef}
-                style={[styles.sheetInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                label={t.customStoreLabel}
                 placeholder={t.customStorePlaceholder}
-                placeholderTextColor={theme.textMuted}
                 value={customStoreName}
                 onChangeText={setCustomStoreName}
                 returnKeyType="done"
@@ -641,20 +652,26 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.scanReceipt} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            {/* Tip — a card with an info glyph, not a flat colour block. Its colour is the
-                accent BAR and the glyph beside the text (theme.good), never the card itself:
-                a pane carries no hue as of 2026-08-20 (see components/Surface.tsx). */}
+            {/* ⚠️ **A plain card, not the accent-barred banner (2026-08-21,
+                CONSISTENCY_AUDIT.md §5).** Its own previous comment admitted this was *"an info
+                banner in the same family as components/HintCard.tsx"* — i.e. the tier the
+                2026-08-20 pass DELETED app-wide, re-implemented locally here after the
+                deletion. The accent bar and the glyph are what made it that tier;
+                components/StarterCard.tsx, which is where an explanation lives now, is
+                deliberately a NEUTRAL card for exactly this reason (on a first visit both would
+                be on screen and twins read as a duplicate).
+                  The sentence itself stays, and does not need an emptiness gate: this screen IS
+                the empty state of scanning. There is no version of it with content on it — the
+                moment anything is scanned you are on the confirm screen — so "only when empty"
+                is satisfied by construction rather than by a condition. */}
             <Surface style={styles.tipCardRow}>
-              <View style={[styles.tipAccent, { backgroundColor: theme.good }]} />
-              {/* `information-circle-outline`, not a bulb (2026-08-17): this is an info banner
-                  in the same family as components/HintCard.tsx, and the 💡 belonged to the
-                  explainer tier deleted in that pass. */}
-              <Ionicons name="information-circle-outline" size={18} color={theme.good} style={styles.tipIcon} />
               <View style={styles.tipTextWrap}>
                 <Text style={[styles.tipText, { color: theme.text }]}>{t.scanHintBanner}</Text>
                 {/* Which list this scan will act on (2026-08-13). The screen is reached from
                     three different places now and does three different things; saying so is
-                    the difference between "scan" meaning something and meaning anything. */}
+                    the difference between "scan" meaning something and meaning anything.
+                    This is a FACT about the next action, not a tip — it would stay even if the
+                    sentence above ever goes. */}
                 <Text style={[styles.tipTarget, { color: theme.textMuted }]}>{scanTargetLabel}</Text>
               </View>
             </Surface>
@@ -847,31 +864,37 @@ export default function ScanScreen() {
       <>
         <ScreenScaffold title={t.manualEntryTitle} tier="sub" screenKey="scan" onBack={() => router.back()}>
           <View style={styles.content}>
-            {/* One instruction for one flow, on the line rather than in a banner — see the
-                note on the count above. */}
-            <Text style={[styles.flowNote, { color: theme.textMuted }]}>{t.manualEntryHint}</Text>
-
             {renderStoreSelector()}
             {renderMonthlyListSelector()}
 
-            <TextInput
+            {/* ⚠️ **The instruction is INSIDE the card with the field it describes (2026-08-21,
+                CONSISTENCY_AUDIT.md §5/§9: *"Text and buttons must never be outside a card"*).**
+                It was a bare `<Text>` on the screen backdrop above the whole form, and its own
+                style comment said so plainly — *"No card, no edge, no glyph."* One line about
+                one field belongs with that field, which is also what stops it reading as a
+                caption on the screen. */}
+            <Surface style={styles.manualCard}>
+            <Text style={[styles.flowNote, { color: theme.textMuted }]}>{t.manualEntryHint}</Text>
+
+            {/* The big multiline capture box. `Input` with a height floor rather than a
+                fourth local recipe — the fill, the border weight, the radius and the focus ring
+                are the field's, and what stays local is the one thing about THIS field: it is
+                eight lines tall and grows from the top. */}
+            <Input
               ref={manualInputRef}
               multiline
               numberOfLines={8}
-              style={[styles.manualInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
+              style={styles.manualInput}
               placeholder={t.manualEntryPlaceholder}
-              placeholderTextColor={theme.textMuted}
               value={manualText}
               onChangeText={setManualText}
             />
 
             {manualLineCount === 1 && (
               <View>
-                <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.estimertPrisLabel}</Text>
-                <TextInput
-                  style={[styles.sheetInput, { color: theme.text, backgroundColor: theme.surface, borderWidth: 1.5, borderColor: theme.border }]}
+                <Input
+                  label={t.estimertPrisLabel}
                   placeholder="0.00"
-                  placeholderTextColor={theme.textMuted}
                   value={manualPrice}
                   onChangeText={setManualPrice}
                   keyboardType="decimal-pad"
@@ -879,7 +902,12 @@ export default function ScanScreen() {
                 />
               </View>
             )}
+            </Surface>
 
+            {/* The confirm/cancel pair stays OUTSIDE the form card, deliberately: they are the
+                screen's actions, not part of the field, and both already carry their own key
+                treatment (`glassKey`, a bordered cancel). Putting them inside would stack a
+                second padding inside the card's own and make two keys read as list rows. */}
             <PressableScale
               style={[styles.confirmButton, glassKey(theme.accent, isDark), manualLineCount === 0 && { opacity: 0.5 }]}
               onPress={addManualItems}
@@ -922,12 +950,17 @@ const baseStyles = StyleSheet.create({
   // A one-line status/instruction on this screen's own flow. No card, no edge, no glyph — it
   // replaced two components/HintCard banners when that component was deleted (2026-08-20).
   flowNote: { fontSize: FontSize.sm, fontFamily: Fonts.regular },
+  // The manual-entry form card (2026-08-21) — the instruction and the field it describes, in
+  // one card, so neither sits on the screen backdrop. `gap` rather than margins on the children,
+  // the same rhythm every other card in the app uses.
+  manualCard: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },
 
   // IDLE MODE
   backLink: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md, paddingLeft: Spacing.lg },
-  tipAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderTopLeftRadius: Radius.md, borderBottomLeftRadius: Radius.md },
-  tipIcon: {},
+  // ⚠️ `tipAccent` (a 4px accent bar) and `tipIcon` are DELETED, not unused (2026-08-21): they
+  // were what made this the components/HintCard.tsx tier the 2026-08-20 pass removed app-wide.
+  // Padding is symmetric again now that there is no bar to clear on the left.
+  tipCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md },
   tipTextWrap: { flex: 1, gap: 2 },
   tipTarget: { fontSize: FontSize.xs },
   tipText: { fontSize: FontSize.sm, lineHeight: 20 },
@@ -1039,14 +1072,9 @@ const baseStyles = StyleSheet.create({
   cancelButtonText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // MANUAL MODE
-  manualInput: {
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-    padding: Spacing.md,
-    fontSize: FontSize.md,
-    lineHeight: 24,
-    textAlignVertical: 'top',
-  },
+  // Layout only (2026-08-21) — the fill/border/radius/focus ring belong to
+  // components/FormControls.tsx's `Input`. It was `borderWidth: 1.5`, card weight on a field.
+  manualInput: { minHeight: 160, lineHeight: 24, textAlignVertical: 'top' },
 
   // Custom store / category picker sheets
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },
@@ -1061,8 +1089,11 @@ const baseStyles = StyleSheet.create({
   },
   sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full },
   sheetTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  sheetLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
-  sheetInput: { borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.lg },
+  // `sheetLabel` is DELETED with `sheetInput` (2026-08-21): components/FormControls.tsx's
+  // `Input` owns the label, so a field and its name can no longer be styled apart.
+  // `sheetInput` is DELETED (2026-08-21): it was one style constant that rendered two
+  // different ways at its two mount sites in this file, and was also duplicated byte-for-byte
+  // in app/budget.tsx. Both sites use `Input`, which owns the label too.
   sheetButtons: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   sheetCancelBtn: {
     flex: 1, borderRadius: Radius.md, padding: Spacing.md,

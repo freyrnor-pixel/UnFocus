@@ -72,6 +72,26 @@ async function anyVisibleText(page, text) {
 // button) is deliberately equivalent to any other way of leaving that sheet —
 // see components/MonthlyResetReviewSheet.tsx's header — so clicking it here
 // is exactly the same "just get past this" behavior as "Got it" below.
+/**
+ * Open the first pad card on the current tab, whatever size it is resting at.
+ *
+ * The footer chevron (components/PadFooterToggle.tsx) cycles closed → preview → open → closed,
+ * and every pad card rests closed since 2026-08-21, so one click is enough to reveal rows —
+ * this tries both labels rather than assuming which, and is a no-op if neither is on screen.
+ * Returns whether it clicked anything, so a caller can tell "already open" from "no card here".
+ */
+async function openFirstPadCard(page) {
+  for (const name of [/^\d+ more$/, /^Show all$/]) {
+    const toggle = page.getByRole('button', { name }).first();
+    if (await toggle.isVisible().catch(() => false)) {
+      await toggle.click({ timeout: 10000 });
+      await page.waitForTimeout(600);
+      return true;
+    }
+  }
+  return false;
+}
+
 async function dismissModalIfPresent(page) {
   // Bounded loop, not a single dismiss: Skip on the review sheet immediately opens the
   // follow-up read-only summary modal (Got it) in the same tick — so a fresh profile's
@@ -236,6 +256,27 @@ async function main() {
     if (!foodCardVisible) pageErrors.push('The Food peer card did not render on Shopping');
     if (!catalogueCardVisible) pageErrors.push('The Catalogue peer card did not render on Shopping');
     await shot(page, 'food-catalogue-cards');
+
+    // Open the Food card and check its meal sections actually draw. Both halves are new in
+    // 2026-08-21 and neither is incidental: every card rests CLOSED now (lib/cardDefaults.ts),
+    // so without the click this step photographs two headers and reports success; and the meal
+    // badge stopped being a private `rgba(hue, 0.16)` plate in the same pass, so the one thing
+    // worth confirming is that `CardAccentBadge` renders in its place with the section names
+    // beside it. A silent regression here would look exactly like a card that is simply shut.
+    const foodFold = page.getByRole('button', { name: 'Food: Expand list', exact: true }).first();
+    if (await foodFold.count()) {
+      await foodFold.scrollIntoViewIfNeeded();
+      await foodFold.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      const mealsDrawn = await page.getByText('Breakfast', { exact: true }).first().isVisible().catch(() => false);
+      console.log(`  meal sections drawn inside the Food card: ${mealsDrawn}`);
+      if (!mealsDrawn) pageErrors.push('Opening the Food card drew no meal sections');
+      await shot(page, 'food-card-open');
+      await page.getByRole('button', { name: 'Food: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+    } else {
+      pageErrors.push('No "Food: Expand list" chevron — the Food card may have lost its fold');
+    }
 
     // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
     // surface-specific layout and then to the sparsest one, confirming both that the picker
@@ -506,35 +547,40 @@ async function main() {
 
     // The Week card folds as ONE thing, and the fold is PERSISTED (2026-08-19,
     // lib/collapsedCards.ts's `plansWeek` over settings.collapsed_cards). Two properties no
-    // unit test can reach: the chevron actually removes the seven weekday sections from the
-    // screen, and the choice survives leaving the tab and coming back. The per-day folds beside
-    // it are local state and deliberately NOT persisted — every day starts folded, today's
-    // included, because the Today card above is already today in full.
-    console.log('> Week card folds as one, and remembers');
-    const weekFold = page.getByRole('button', { name: 'Week: Collapse list', exact: true }).first();
-    if (await weekFold.count()) {
+    // unit test can reach: the chevron actually adds/removes the seven weekday sections, and the
+    // choice survives leaving the tab and coming back. The per-day folds beside it are local
+    // state and deliberately NOT persisted.
+    //
+    // **This runs the other way round since 2026-08-21**, and the inversion is the point rather
+    // than an adaptation. Every card rests CLOSED now (lib/cardDefaults.ts), so what gets stored
+    // when the user acts here is an explicit `false` — "I opened this one" — which is a value
+    // the bag could not hold at all while open was the default. Round-tripping an OPENED card is
+    // therefore the case worth walking: it is the one the storage rewrite introduced.
+    console.log('> Week card unfolds as one, and remembers');
+    const weekUnfold = page.getByRole('button', { name: 'Week: Expand list', exact: true }).first();
+    if (await weekUnfold.count()) {
       const mondayBefore = await anyVisibleText(page, 'Monday');
-      console.log(`  weekdays drawn before folding: ${mondayBefore}`);
-      if (!mondayBefore) pageErrors.push('Week card: no weekday sections drawn before the fold');
-      await weekFold.scrollIntoViewIfNeeded();
-      await weekFold.click({ timeout: 10000 });
+      console.log(`  weekdays absent while the card rests closed: ${!mondayBefore}`);
+      if (mondayBefore) pageErrors.push('Week card: weekday sections drawn while the card rests collapsed');
+      await weekUnfold.scrollIntoViewIfNeeded();
+      await weekUnfold.click({ timeout: 10000 });
       await page.waitForTimeout(700);
       const mondayAfter = await anyVisibleText(page, 'Monday');
-      console.log(`  weekdays gone after folding: ${!mondayAfter}`);
-      if (mondayAfter) pageErrors.push('Week card: folding it left the weekday sections on screen');
-      await shot(page, 'todo-week-folded');
+      console.log(`  weekdays drawn after unfolding: ${mondayAfter}`);
+      if (!mondayAfter) pageErrors.push('Week card: unfolding it drew no weekday sections');
+      await shot(page, 'todo-week-unfolded');
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
-      const stillFolded = !(await anyVisibleText(page, 'Monday'));
-      console.log(`  fold survived a tab round-trip: ${stillFolded}`);
-      if (!stillFolded) pageErrors.push('Week card: the fold did not persist across a tab round-trip');
-      // Put it back, so the screenshots further down show the ordinary state.
-      await page.getByRole('button', { name: 'Week: Expand list', exact: true }).first().click({ timeout: 10000 });
+      const stillOpen = await anyVisibleText(page, 'Monday');
+      console.log(`  the opened state survived a tab round-trip: ${stillOpen}`);
+      if (!stillOpen) pageErrors.push('Week card: an explicit open did not persist across a tab round-trip');
+      // Put it back, so the screenshots further down show the ordinary resting state.
+      await page.getByRole('button', { name: 'Week: Collapse list', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     } else {
-      pageErrors.push('No "Week: Collapse list" chevron on the To-do tab — the whole-week fold may not be wired');
+      pageErrors.push('No "Week: Expand list" chevron on the To-do tab — the whole-week fold may not be wired');
     }
 
     // Exercise a second store's write path: add a habit from components/HomeHabitsCard.tsx's
@@ -569,6 +615,17 @@ async function main() {
     await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
+    // **The card rests CLOSED since 2026-08-21** (lib/cardDefaults.ts — "all cards start in
+    // closed state" bar To-do's Today and Me's Notes), so the row this walk is looking for is
+    // not drawn until the pad is opened. That is the designed resting state, not a regression:
+    // a closed pad still draws its header, its "n/n left" summary and its type line, which is
+    // why the quick-add above still worked with the card shut.
+    //
+    // `.first()` is the HABITS card's toggle specifically: Habits is first in
+    // `HOME_CARD_KINDS`, and this walk never reorders the stack. The toggle only exists once a
+    // card has at least one row (PadFooterToggle returns null at `total === 0`), which is
+    // exactly the state the habit above just created.
+    await openFirstPadCard(page);
     const habitPersisted = await page.getByText(habitTitle, { exact: true }).first().isVisible().catch(() => false);
     console.log(`  habit persisted after tab round-trip: ${habitPersisted}`);
     if (!habitPersisted) pageErrors.push(`Habit "${habitTitle}" did not persist after navigating away and back`);
@@ -606,13 +663,21 @@ async function main() {
     // from the Health card's tray card, then LOG A DOSE by tapping its circle — the dose is
     // the whole point of the feature, and it's a separate table (medicine_doses) from the
     // medicine row itself. Both are checked to survive a tab round-trip.
-    // **On the Me tab** — Health left the bottom nav for a card there (2026-08-20,
-    // components/HomeHealthCard.tsx), which mounts HealthSurface `embedded` with nothing
-    // truncated (MedicineTrayCard and the composer render unconditionally).
+    // **On the Me tab, in its OWN card since 2026-08-21** — Medicine used to be a card drawn
+    // inside HomeHealthCard's card (CONSISTENCY_AUDIT.md §11); it is a fourth top-level card
+    // now, components/HomeMedicineCard.tsx around components/MedicineSurface.tsx.
+    //
+    // It rests COLLAPSED, like every card bar the three lib/cardDefaults.ts excepts, so this
+    // walk has to open it before its composer exists — unlike a pad card, a collapsed
+    // `Collapsible` card draws none of its body, type line included.
     console.log('> add a medicine + log a dose (store logic check)');
     await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
+    const medCardToggle = page.getByRole('button', { name: 'Medicine: Expand list', exact: true }).first();
+    await medCardToggle.scrollIntoViewIfNeeded();
+    await medCardToggle.click({ timeout: 10000 });
+    await page.waitForTimeout(600);
     const medName = `Preview med ${Date.now()}`;
     const medAddBar = page.getByRole('button', { name: 'Add a medicine', exact: true }).first();
     await medAddBar.scrollIntoViewIfNeeded();

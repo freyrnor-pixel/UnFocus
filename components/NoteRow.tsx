@@ -118,7 +118,7 @@ function NoteRow({ note, accent, onToggleChecked, onHeaderCommit, onBodyCommit, 
       <View style={note.checked && styles.bodyDone}>
         <TextInput
           ref={bodyLift.ref}
-          style={[styles.bodyInput, { color: theme.text, borderTopColor: theme.border }]}
+          style={[styles.bodyInput, { color: theme.text, borderTopColor: theme.rule }]}
           value={bodyInput}
           onChangeText={setBodyInput}
           onFocus={bodyLift.onFocus}
@@ -139,6 +139,20 @@ const styles = StyleSheet.create({
   headerInput: { fontSize: FontSize.md, fontFamily: Fonts.semibold, paddingVertical: 2 },
   headerInputDone: { textDecorationLine: 'line-through' },
   bodyDone: { opacity: DONE_ROW_OPACITY },
+  /**
+   * ⚠️ **Neither of this card's two inputs is a boxed field, and that is deliberate**
+   * (2026-08-21). `CONSISTENCY_AUDIT.md` §1 counted this file as drawing *"three distinct field
+   * shapes in one card"* — a bare line, a `borderTopWidth: 1` rule and the row's title input.
+   * Two of those three are the inputs and the third is a DIVIDER, which is why its colour moved
+   * from `theme.border` (a control edge) to `theme.rule` (a hairline between parts of a card) in
+   * the same pass: at `border` weight it read as the top edge of a box that had no other sides.
+   *
+   * The inputs stay unboxed because this card IS a piece of paper. Its header input stands in
+   * for `components/PadRow.tsx`'s title `Text` — a row, and rows have been flush and unboxed
+   * since the 2026-08-15 PadSheet pass — and its body is the note. Boxing either would be the
+   * boxed-ROWS design `DESIGN_COMPARISON/10` rejected, applied to the one surface in the app
+   * whose whole point is that you write on it.
+   */
   bodyInput: {
     fontSize: FontSize.sm,
     fontFamily: Fonts.regular,

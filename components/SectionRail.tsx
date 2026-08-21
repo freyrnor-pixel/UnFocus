@@ -1,6 +1,16 @@
 /**
- * SectionRail.tsx — section header: a hue dot (or domain gradient badge) + ALL-CAPS label
+ * SectionRail.tsx — section header: a hue dot (or domain gradient badge) + label
  * (+ optional count / right slot), underlined by a hue hairline rule.
+ *
+ * **Two tiers since 2026-08-21, and that is what makes it the only section header in the app.**
+ * `tier="group"` (the default) is the 24px extrabold heading over a stack of cards;
+ * `tier="sub"` is the small uppercase heading over a stack of rows INSIDE such a group. The sub
+ * tier exists because the Shop tab had a third header idiom — a bare `<Text>` pair over each of
+ * the four week sections (`CONSISTENCY_AUDIT.md` §13, from the report *"Use of sub-headers to
+ * show user what is what, and to seperate different things"*). It was not wrong about its SIZE
+ * — a heading inside a group genuinely should be smaller than the group's — it was wrong about
+ * being hand-rolled, so nothing tied its anatomy to the header one level up. Two tiers of one
+ * component, rather than two components or one size.
  *
  * The header half of the 2026-07-13 "color rail" list redesign (Tasks screen first, meant as
  * the reusable section primitive for the other list screens too). Pairs with a stack of cards
@@ -11,7 +21,8 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/CardAccent (CardAccentBadge)
- *   Used by → app/plans.tsx, app/habits.tsx (via SectionCard),
+ *   Used by → app/plans.tsx, app/habits.tsx (via SectionCard), app/(tabs)/shopping.tsx
+ *             (both tiers — the two group headers and the four week sub-headers),
  *             components/SharedTasksSection.tsx
  *   Data    → none — presentational
  *
@@ -50,7 +61,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
@@ -112,28 +123,52 @@ type Props = {
    * own closed-state padding, which read as a stray line under a header with no card below it.
    */
   divider?: boolean;
+  /**
+   * Which level of heading this is (2026-08-21). See the header.
+   *
+   *   'group' (default) — over a stack of CARDS. 24px extrabold, a 24px badge or a 10px dot.
+   *   'sub'             — over a stack of ROWS inside one of those groups. Small, uppercase,
+   *                       a 6px dot; a badge here would be a second badge inside a card that
+   *                       already has one.
+   *
+   * The tier changes only the naming row's WEIGHT. Everything else — the hue, the count, the
+   * right slot, the divider, `onLabelPress` — behaves identically, which is the point: a
+   * sub-header that gains a control later gains it in the same place as its parent.
+   */
+  tier?: 'group' | 'sub';
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, tier = 'group', style }: Props) {
   const theme = useAppTheme();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
   // at every hue, including the light Shopping gold. See the header note.
   const labelColor = theme.text;
+  const sub = tier === 'sub';
   const naming = (
     <>
-      {domain ? (
+      {domain && !sub ? (
         <CardAccentBadge domain={domain} icon={icon} size={24} accentOverride={badgeHue ? hue : undefined} />
       ) : (
-        <View style={[styles.dot, { backgroundColor: hue }]} />
+        <View style={[sub ? styles.subDot : styles.dot, { backgroundColor: hue }]} />
       )}
-      {/* No `numberOfLines` — a section's own NAME is the one thing on the row that must not be
-          clipped, so it wraps instead. `naming`'s `flexShrink: 1` + `minWidth: 0` is what keeps
-          it from pushing the right-hand control off the row, which is the job a 1-line cap
-          would otherwise be doing. (It was briefly capped at 1 line when `onLabelPress` landed
-          on 2026-08-10 — an unforced change, reverted the same day.) */}
-      <Text style={[styles.label, { color: labelColor }]}>{label}</Text>
+      {/* ⚠️ **One line (2026-08-21), which REVERSES the "let it wrap" note that stood here.**
+          The old reasoning was that a section's name must never be clipped, so it should wrap
+          and let `flexShrink` keep it off the trailing controls. Measured against the Catalogue
+          card — badge, title, count, camera, lock, fold and ⤢ in one row — wrapping is the
+          worse of the two failures: the header becomes two storeys and the card's rhythm breaks,
+          where an ellipsis costs a few characters of a name the card is already showing the
+          contents of.
+            It also makes this agree with the app's own card titles: HomeHealthCard,
+          HomeMedicineCard, HomeHabitsCard and HomeNotesCard all pass `numberOfLines={1}`, so
+          SectionRail was the one header that behaved differently. `flexShrink: 1` +
+          `minWidth: 0` on the label style is still what lets it yield at all — without that pair
+          it pushes the controls off the row instead of truncating (AGENTS.md's wrap-audit note:
+          flexShrink alone does not do it). */}
+      <Text style={[sub ? styles.subLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
+        {label}
+      </Text>
       {count != null && (
         <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>{count}</Text>
       )}
@@ -204,8 +239,40 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xl,
     lineHeight: 30,
     fontFamily: Fonts.extrabold,
+    // ⚠️ **`flexShrink` + `minWidth: 0`, or the right-hand controls get pushed off the row**
+    // (2026-08-21). The `naming` CLUSTER carries this pair when `onLabelPress` makes it a
+    // pressable, but without that prop the badge/label/count are bare children of `row` and
+    // nothing yielded — so the Catalogue card, whose header carries four controls (camera,
+    // lock, fold, ⤢), drew its ⤢ sliced off at the card's edge the moment the fold chevron
+    // joined. `flexShrink` alone does not do it; the `minWidth: 0` is what actually lets a
+    // text box narrow below its content — AGENTS.md's wrap-audit note, learned on the task
+    // editor's title field.
+    flexShrink: 1,
+    minWidth: 0,
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  subDot: { width: 6, height: 6, borderRadius: 3 },
+  /**
+   * The sub tier's heading: `Type.subheading`, sentence case.
+   *
+   * ⚠️ **This is the ONE in-card section heading, and the value was picked by counting rather
+   * than by taste** (2026-08-21, CONSISTENCY_AUDIT.md §2). A heading over a stack of rows
+   * INSIDE a card shipped at four sizes — 17 in `HealthSurface`'s "This week" and
+   * `HabitsSurface`, 20 in `FoodTab`'s meal sections, 13 uppercase on Shop's week sections.
+   * 17 is the rung below the 20 a CARD title takes and the 24 a GROUP heading takes, and two
+   * of the four were already on it, so it is where the others come to rather than a fifth
+   * value invented to split the difference.
+   *
+   * Sentence case, not the uppercase the week sections had: the 2026-07-28 design review put
+   * ALL-CAPS back to ≤13px labels only, and this is 17.
+   */
+  subLabel: {
+    fontSize: Type.subheading.size,
+    lineHeight: Type.subheading.size * Type.subheading.line,
+    fontFamily: Type.subheading.fontFamily,
+    flexShrink: 1,
+    minWidth: 0,
+  },
   // ⚠️ **A ROW, not a bare View (2026-08-20).** This was `{ marginLeft: 'auto' }` alone, so a
   // slot given more than one control stacked them vertically — a card header with the camera,
   // the lock and ⤢ came out as a three-storey column with the title beside the top one.
@@ -213,6 +280,9 @@ const styles = StyleSheet.create({
   // fold chevron and the caller's control in a row of its own; that workaround is deleted now
   // that the slot itself lays out correctly, and the fix reaches every other caller too.
   // `alignItems: 'center'` so a short control lines up with a tall one rather than stretching.
-  right: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  // `flexShrink: 0` so the control cluster keeps its size and the LABEL yields instead — a
+  // stepper/icon row has no width to give, which is the rule the 2026-07-28 wrap pass settled
+  // (let the label yield, never the fixed-size control).
+  right: { marginLeft: 'auto', flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
 });

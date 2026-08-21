@@ -11,7 +11,8 @@
  * Connections:
  *   Imports → components/HealthSurface (`embedded`), components/Surface, components/CardAccent
  *             (CardAccentBadge), components/CardMenuSheet (CardMenuButton), components/PressableScale,
- *             components/CardExpandButton, lib/useCardExpand, lib/screenColor, lib/i18n,
+ *             components/CardExpandButton, components/CardCollapseToggle, components/Collapsible,
+ *             lib/useCardExpand, lib/useCollapsedCard, lib/screenColor, lib/i18n,
  *             lib/useAppTheme, constants/theme
  *   Used by → app/(tabs)/index.tsx (Home's card stack, `HOME_CARD_KINDS` — 'health')
  *   Data    → none directly — HealthSurface drives store/useHealthStore
@@ -32,8 +33,11 @@ import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import CardExpandButton from '@/components/CardExpandButton';
+import CardCollapseToggle from '@/components/CardCollapseToggle';
+import Collapsible from '@/components/Collapsible';
 import HealthSurface from '@/components/HealthSurface';
 import { useCardExpand } from '@/lib/useCardExpand';
+import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import { OpticalCenter, PAD_GUTTER, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -50,6 +54,11 @@ export default function HomeHealthCard({ cardMenu }: Props) {
   const styles = useScaledStyles(baseStyles);
   const screenColor = getScreenColor(theme, 'health');
   const cardExpand = useCardExpand('homeHealth');
+  // The whole card's fold (2026-08-21, CONSISTENCY_AUDIT.md §10). Not the same as the
+  // `healthWeek` fold inside HealthSurface — that one is the "This week" section; this is the
+  // card. Habits and Notes get their equivalent from the pad footer (the other mechanism), and
+  // Medicine has its own; this card had neither until now.
+  const [collapsed, toggleCollapsed] = useCollapsedCard('homeHealth');
 
   return (
     <View ref={cardExpand.ref} collapsable={false}>
@@ -69,10 +78,13 @@ export default function HomeHealthCard({ cardMenu }: Props) {
                 header, so it lands in the card's actual top-right corner on every surface. This
                 pair used to be the other way round. */}
             {cardMenu ? <CardMenuButton cardTitle={t.home.healthCardTitle} {...cardMenu} /> : null}
+            <CardCollapseToggle collapsed={collapsed} onToggle={toggleCollapsed} cardLabel={t.home.healthCardTitle} />
             <CardExpandButton expanded={cardExpand.expanded} onExpand={cardExpand.onExpand} onCollapse={cardExpand.onCollapse} />
           </View>
 
-          <HealthSurface embedded />
+          <Collapsible open={!collapsed}>
+            <HealthSurface embedded />
+          </Collapsible>
         </View>
       </Surface>
     </View>
