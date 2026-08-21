@@ -198,6 +198,19 @@ const SCANNED = [join(ROOT, 'components'), join(ROOT, 'app')].flatMap(sourceFile
 /** Report as repo-relative paths so a failure message is clickable. */
 const rel = (f: string) => f.slice(ROOT.length + 1);
 
+/** Body of a named `StyleSheet.create` entry, brace-counted so a nested object can't truncate it. */
+function styleBodyOf(source: string, name: string): string {
+  const start = source.indexOf(`\n  ${name}: {`);
+  if (start === -1) return '';
+  const from = source.indexOf('{', start);
+  let depth = 0;
+  for (let i = from; i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}') { depth -= 1; if (depth === 0) return source.slice(from, i + 1); }
+  }
+  return '';
+}
+
 /**
  * A file's source with its leading JSDoc header stripped.
  *
@@ -277,6 +290,75 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
     // property exists on iOS or react-native-web, so `npm run preview` and `npm run wraps` are
     // both blind to it. It only shows on a device, which is exactly how it kept coming back.
     const offenders = SCANNED.filter((f) => /includeFontPadding/.test(readCode(f))).map(rel);
+    expect(offenders).toEqual([]);
+  });
+
+  test('a Text inside a height-pinned round box spreads OpticalCenter', () => {
+    // ⚠️ **The other direction of the test above, added 2026-08-21 by the consistency audit.**
+    // That one BANS the hand-written pair; nothing REQUIRED the token. So five call sites passed
+    // it for years by simply never writing the banned string — they omitted the fix, and a
+    // one-directional guard cannot tell "done properly" from "not done at all":
+    // `components/Stepper.tsx`, `components/AddFAB.tsx` (the app's most prominent circular
+    // button), Health's severity chip, `components/MonthlyResetReviewSheet.tsx`, and every date
+    // cell in `components/DatePickerCalendar.tsx`.
+    //
+    // Maintainer: *"Elements within for example buttons (like text or icons) must be centered in
+    // the middle, except for the box/circle itself which is located where it is meant to be."*
+    //
+    // **The condition is a box whose height the TEXT does not set** — that is when Android's
+    // asymmetric font padding rides the glyph high inside it. So the detector needs both halves:
+    // a style that pins a height and rounds to a circle, AND a `<Text>` actually rendered inside
+    // that box in the JSX.
+    //
+    // ⚠️ A first draft asked only whether the FILE contained a `<Text>` anywhere, and flagged 43
+    // sites — every bottom-sheet drag handle and icon-only round button in the app, none of which
+    // has any text in it at all. A rule that wrong gets exemptions written for it until it means
+    // nothing, so the correlation is done properly here instead: find `styles.<circle>` in the
+    // JSX, and require a `<Text` within the element that follows it.
+    const offenders: string[] = [];
+    for (const f of SCANNED) {
+      const src = readCode(f);
+      const circles = [...src.matchAll(
+        /(\w+):\s*\{[^{}]*\bheight:\s*\d+[^{}]*borderRadius:\s*Radius\.full[^{}]*\}/g,
+      )].map((m) => m[1]);
+      for (const circle of circles) {
+        for (const use of src.matchAll(new RegExp(`styles\\.${circle}\\b`, 'g'))) {
+          // Walk to the end of the box's OPENING tag. A self-closing one has no children at all
+          // — that is every bottom-sheet drag handle in the app, and the whole of the second
+          // false-positive wave the first draft produced.
+          const rest = src.slice(use.index!);
+          const tagEnd = rest.search(/\/?>/);
+          if (tagEnd === -1 || rest[tagEnd] === '/') continue;
+          // The first child, and only the first: a `<Text>` further down is a sibling of the
+          // box, not its content.
+          const firstChild = rest.slice(tagEnd + 1).match(/<(\w+)/);
+          if (!firstChild || firstChild[1] !== 'Text') continue;
+          const textStyle = rest.slice(tagEnd + 1).match(/<Text[^>]*styles\.(\w+)/)?.[1];
+          const body = textStyle ? styleBodyOf(src, textStyle) : '';
+          if (!/OpticalCenter/.test(body)) {
+            offenders.push(`${rel(f)}: <Text> inside ${circle} (a pinned circle) lacks OpticalCenter`);
+          }
+        }
+      }
+    }
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
+  test('no pressable pins its content away from centre', () => {
+    // `components/CardCollapseToggle.tsx` and `components/CollapsedSection.tsx` both drew their
+    // chevron `alignItems: 'flex-end'` inside a correct 48px box — the maintainer's report names
+    // this shape exactly: the BOX is where it should be, the glyph inside it is not. Both were
+    // centred 2026-08-21. The box's position is unaffected either way; `SectionRail`'s `right`
+    // slot is what pushes it to the card's trailing edge.
+    const offenders: string[] = [];
+    for (const f of SCANNED) {
+      const src = readCode(f);
+      for (const m of src.matchAll(/(\w+):\s*\{[^{}]*MIN_TAP_TARGET[^{}]*\}/g)) {
+        if (/alignItems:\s*'flex-(end|start)'/.test(m[0])) {
+          offenders.push(`${rel(f)}: ${m[1]} pins its content off-centre in a MIN_TAP_TARGET box`);
+        }
+      }
+    }
     expect(offenders).toEqual([]);
   });
 

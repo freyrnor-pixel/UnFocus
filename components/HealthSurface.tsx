@@ -560,7 +560,10 @@ const baseStyles = StyleSheet.create({
   issueRowBox: { paddingHorizontal: Spacing.sm },
   issueRowStacked: { marginTop: Spacing.xs },
   logAgainBtn: { width: 30, height: 30, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  logAgainText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: FontSize.md + 4 },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  logAgainText: { fontSize: FontSize.md, fontFamily: Fonts.bold, lineHeight: FontSize.md + 4, ...OpticalCenter },
   weekStripWrap: { borderTopWidth: 1, paddingTop: Spacing.xs, paddingBottom: Spacing.sm },
   moreEpisodesRow: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs },
   moreEpisodesText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

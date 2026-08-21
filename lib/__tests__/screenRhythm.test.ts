@@ -259,3 +259,131 @@ describe('nothing draws a branch between two sections', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Coverage completeness — added 2026-08-21 by the consistency audit.
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * ⚠️ **The single highest-value assertion in this file, and it is about the file itself.**
+ *
+ * Every check above runs over a HAND-MAINTAINED list: six screens for the gap, ten for the
+ * padding, nine panes, nine cards. So a screen that is in none of them is not "passing" — it is
+ * unmeasured, and it passes by not being looked at. At the time this block was written, FOUR
+ * screens were in no list at all: `app/catalogue.tsx` (which was doubly padded at 32px — exactly
+ * the defect this file exists to prevent, while this file was green), `app/scan.web.tsx`, and
+ * both design-lab screens, which are additionally invisible to `styleBody` because they name
+ * their wrapper `page` rather than `content`.
+ *
+ * That is the general shape of why the maintainer's 2026-08-21 report could list sixteen defects
+ * against an app with 115 test files and ~40 source scans: **the guards pin what was fixed last
+ * time, not the rule.** A new file arrives outside every list and is compliant by default.
+ *
+ * This closes it the only way that scales — walk the tree, and fail on a screen nobody has
+ * classified. An entry in `UNMEASURED` is a deliberate exemption with a written reason, so the
+ * cost of not covering a screen is a sentence someone has to be willing to write.
+ */
+const UNMEASURED: Record<string, string> = {
+  'app/catalogue.tsx':
+    'Its body is components/CatalogueTab.tsx, whose `root` is asserted separately above — this '
+    + 'screen has no content wrapper of its own to measure.',
+  'app/notes.tsx':
+    'A pane whose whole body is components/NotesSurface.tsx (which IS in SCREENS). That it really '
+    + 'mounts the pane, and keeps no content style, is asserted in the centre-modal block above.',
+  'app/habits.tsx':
+    'A pane whose whole body is components/HabitsSurface.tsx (which IS in SCREENS). Same shape as '
+    + 'app/notes.tsx above, and asserted the same way.',
+  'app/scan.web.tsx':
+    'The web sibling of a native-only OCR screen: it renders an "OCR not available" placeholder '
+    + 'and no card stack at all, so there is no rhythm here to measure. app/scan.tsx is covered.',
+  'app/design-lab/index.tsx':
+    'The design lab is a workbench, not a product surface — it deliberately does not follow the '
+    + 'card rhythm, which is why its wrapper is named `page`. Behind featureDesignLab, off by default.',
+  'app/design-lab/tokens.tsx':
+    'The token knobs screen, pushed from the lab. Not a product surface — see index.tsx above.',
+};
+
+describe('every screen is measured by one of the lists above', () => {
+  /** Walk `app/` for real route files — the same crawler the SectionDivider block uses. */
+  function routeFiles(): string[] {
+    const walk = (abs: string): string[] =>
+      fs.readdirSync(abs, { withFileTypes: true }).flatMap((entry) => {
+        const next = path.join(abs, entry.name);
+        if (entry.isDirectory()) return walk(next);
+        return /\.tsx$/.test(entry.name) ? [next] : [];
+      });
+    return walk(path.join(ROOT, 'app'))
+      .map((f) => f.slice(ROOT.length + 1))
+      .filter((f) => !f.endsWith('_layout.tsx'))
+      .sort();
+  }
+
+  it('the walk reaches app/ (guards against an empty pass)', () => {
+    // A scan that silently matches nothing reports green forever. This file had no such check,
+    // which is part of why four uncovered screens went unnoticed for a day short of a week.
+    const files = routeFiles();
+    expect(files.length).toBeGreaterThan(20);
+    expect(files).toContain('app/(tabs)/shopping.tsx');
+  });
+
+  it('no screen mounts a scaffold or a pane without being classified', () => {
+    const classified = new Set<string>([
+      ...SCREENS,
+      ...SCAFFOLD_CONTENT.map((s) => s.file),
+      ...CENTRE_MODAL_SCREENS,
+      ...Object.keys(UNMEASURED),
+    ]);
+    const offenders = routeFiles()
+      .filter((f) => /<ScreenScaffold|<CenterModalScreen/.test(read(f)))
+      .filter((f) => !classified.has(f));
+    expect(offenders).toEqual([]);
+  });
+
+  it('every exemption states a reason, and none is stale', () => {
+    for (const [file, reason] of Object.entries(UNMEASURED)) {
+      expect({ file, exists: fs.existsSync(path.join(ROOT, file)) }).toEqual({ file, exists: true });
+      expect({ file, ok: reason.length > 40 }).toEqual({ file, ok: true });
+    }
+  });
+});
+
+/**
+ * The FIRST CHILD of a screen's content stack carries no top margin.
+ *
+ * The `content` assertions above look only INSIDE the `content` style body, so a margin declared
+ * three lines lower in the same StyleSheet is invisible to them. `app/(tabs)/index.tsx`'s
+ * `energyStrip: { marginTop: Spacing.xs }` lived in exactly that blind spot and made Home the one
+ * scaffold screen whose first card did not meet the header's glass flush — and, because the strip
+ * is gated on `energySystemEnabled`, the same screen measured 4px or 0px depending on a setting.
+ *
+ * ⚠️ **Scoped to the first child, not to the stylesheet.** A first draft banned `marginTop`
+ * anywhere in a screen's StyleSheet and immediately flagged seven of the ten screens — every one
+ * of them a margin between two blocks *inside* a card, which is nobody's business but that card's
+ * and has nothing to do with the header seam. A rule that broad gets exemptions written for it
+ * until it means nothing; this one asks the single question the defect was.
+ */
+function firstChildStyle(src: string): string | null {
+  // The JSX right after the content wrapper opens, then the first `styles.X` it references.
+  const at = src.indexOf('style={styles.content}');
+  if (at === -1) return null;
+  const after = src.slice(at + 'style={styles.content}'.length);
+  return after.match(/styles\.(\w+)/)?.[1] ?? null;
+}
+
+describe('no screen re-adds a top gap below the header', () => {
+  it.each(SCAFFOLD_CONTENT)("$file — its first child declares no marginTop", ({ file }) => {
+    const src = read(file);
+    const first = firstChildStyle(src);
+    if (first === null) return; // screens whose content wrapper takes an inline style
+    expect({ file, style: first, body: styleBody(src, first) })
+      .toEqual({ file, style: first, body: expect.not.stringMatching(/marginTop/) });
+  });
+
+  it('the first-child extractor finds the style it is meant to', () => {
+    // Pinned because a null return makes the assertion above pass vacuously — the exact way a
+    // scan stops guarding without going red.
+    expect(firstChildStyle('<View style={styles.content}>\n<View style={styles.energyStrip}>'))
+      .toBe('energyStrip');
+    expect(firstChildStyle('<View style={styles.page}>')).toBeNull();
+  });
+});

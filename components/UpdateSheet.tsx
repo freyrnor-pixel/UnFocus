@@ -39,7 +39,7 @@ import React, { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingItem } from '@/store/useShoppingStore';
-import { Fonts, FontSize, glassKey, HitSlop, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, glassKey, HitSlop, Radius, Spacing, OpticalCenter } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
@@ -207,7 +207,10 @@ const baseStyles = StyleSheet.create({
   // 2026-08-01): a stepper is a paired control, so filling only the "+" in the app's action
   // colour made an increment button compete with this sheet's own primary button.
   stepBtn: { width: 34, height: 34, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22 },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  stepText: { fontSize: FontSize.lg, fontFamily: Fonts.bold, lineHeight: 22, ...OpticalCenter },
   qtyText: { fontSize: FontSize.md, fontFamily: Fonts.bold, minWidth: 28, textAlign: 'center' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },
   actionsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },

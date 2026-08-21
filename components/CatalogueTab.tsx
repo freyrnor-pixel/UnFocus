@@ -933,7 +933,10 @@ const baseStyles = StyleSheet.create({
   indexLetter: { fontSize: 11, lineHeight: 13, fontFamily: Fonts.bold, textAlign: 'center' },
   // Centered floating letter shown while dragging the scrubber.
   scrubBubble: { position: 'absolute', alignSelf: 'center', top: '38%', width: 68, height: 68, borderRadius: Radius.full, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
-  scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  scrubBubbleText: { fontSize: 34, fontFamily: Fonts.extrabold, ...OpticalCenter },
   empty: { fontSize: FontSize.sm, paddingVertical: Spacing.md, textAlign: 'center' },
   itemRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, minHeight: MIN_TAP_TARGET },
   rowFirst: { borderTopLeftRadius: Radius.md, borderTopRightRadius: Radius.md },

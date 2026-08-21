@@ -640,6 +640,9 @@ const baseStyles = StyleSheet.create({
   // domain-accent fill and drop its border. See components/Stepper.tsx's edit note: a −/+
   // pair is ONE control, and filling half of it in the action colour claims an emphasis the
   // "+" hasn't got. The matching pair on app/habits.tsx changed with it.
-  adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  adjBtnText: { fontSize: FontSize.sm, fontFamily: Fonts.bold, lineHeight: FontSize.sm, ...OpticalCenter },
 
 });

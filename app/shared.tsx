@@ -41,7 +41,7 @@ import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import TabSlider from '@/components/TabSlider';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, OpticalCenter } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 type Tab = 'tasks' | 'shopping';
@@ -267,7 +267,10 @@ const baseStyles = StyleSheet.create({
     width: 24, height: 24, borderRadius: Radius.full, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  doneMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  doneMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   rowContent: { flex: 1 },
   rowLabel: { fontSize: FontSize.md },
   rowMeta: { fontSize: FontSize.xs, marginTop: 1 },

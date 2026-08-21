@@ -53,7 +53,7 @@ import Button from '@/components/Button';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import PressableScale from '@/components/PressableScale';
 import { todayStr, formatDisplayDate } from '@/lib/date';
-import { Fonts, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, OpticalCenter } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
 export default function ShareModal() {
@@ -294,7 +294,10 @@ const baseStyles = StyleSheet.create({
     width: 22, height: 22, borderRadius: Radius.full, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  // `OpticalCenter` (2026-08-21): a Text whose box height is pinned by the circle around it,
+  // which is the condition Android's asymmetric font padding breaks. Guarded by
+  // lib/__tests__/designTokens.test.ts.
+  checkMark: { fontSize: FontSize.xs, fontFamily: Fonts.bold, ...OpticalCenter },
   itemText: { flex: 1 },
   itemLabel: { fontSize: FontSize.md },
   itemSub: { fontSize: FontSize.xs, marginTop: 1 },
