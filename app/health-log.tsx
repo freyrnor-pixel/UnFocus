@@ -38,7 +38,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useHealthStore, HealthLog } from '@/store/useHealthStore';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import EmptyState from '@/components/EmptyState';
 import Surface from '@/components/Surface';
 import AnimatedListItem from '@/components/AnimatedListItem';
@@ -111,7 +111,7 @@ export default function HealthLogScreen() {
   }
 
   return (
-    <ScreenScaffold title={t.healthLogTitle} tier="sub" screenKey="health" onBack={() => router.back()}>
+    <CenterModalScreen title={t.healthLogTitle} screenKey="health" onClose={() => router.back()}>
       <View style={styles.content}>
 
         {/* Add-symptom affordance (2026-07-13 rows pass): the shared AddRow, matching the
@@ -160,7 +160,7 @@ export default function HealthLogScreen() {
             })
         )}
       </View>
-    </ScreenScaffold>
+    </CenterModalScreen>
   );
 }
 
@@ -168,7 +168,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.sm },
   // Inline add-symptom row card (shared AddRow shape).
   addRowCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   emptyCard: { borderRadius: Radius.md, padding: Spacing.md },

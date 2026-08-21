@@ -20,14 +20,12 @@
  *     mount. This is the one behaviour that still needs this screen to exist at all.
  */
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNotesStore } from '@/store/useNotesStore';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import NotesSurface from '@/components/NotesSurface';
 import VoiceNoteFAB from '@/components/VoiceNoteFAB';
 import { useT } from '@/lib/i18n';
-import { Spacing } from '@/constants/theme';
 
 export default function NotesScreen() {
   const router = useRouter();
@@ -38,11 +36,11 @@ export default function NotesScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.notes.title} tier="sub" screenKey="notes" onBack={() => router.back()}>
-        <View style={styles.content}>
-          <NotesSurface />
-        </View>
-      </ScreenScaffold>
+      {/* No padding wrapper: components/CenterModalScreen.tsx pads its own body, and this
+          screen has no blocks of its own to space apart — NotesSurface is the whole content. */}
+      <CenterModalScreen title={t.notes.title} screenKey="notes" onClose={() => router.back()}>
+        <NotesSurface />
+      </CenterModalScreen>
 
       <VoiceNoteFAB
         autoStart={capture === 'voice'}
@@ -55,11 +53,3 @@ export default function NotesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  // A pushed sub-screen reserves no bottom nav, so its lower edge lands on the safe area
-  // rather than on chrome, and keeps its own paddingBottom (lib/__tests__/screenRhythm.test.ts)
-  // — the vertical rhythm (gap) itself lives in NotesSurface's own `content` style, since that
-  // component is also mounted inside CardExpandHost, which needs the same internal spacing
-  // regardless of caller.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
-});

@@ -46,7 +46,7 @@ import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import Surface from '@/components/Surface';
 import { Input, SegmentedControl, Switch } from '@/components/FormControls';
 import Stepper from '@/components/Stepper';
@@ -166,11 +166,10 @@ export default function MedicineFormScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
-      <ScreenScaffold
+      <CenterModalScreen
         title={isEdit ? t.medicine.formTitleEdit : t.medicine.formTitleNew}
-        tier="sub"
         screenKey="health"
-        onBack={() => router.back()}
+        onClose={() => router.back()}
       >
         <View style={styles.content}>
 
@@ -426,7 +425,7 @@ export default function MedicineFormScreen() {
             </View>
           </View>
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
     </KeyboardAvoidingView>
   );
 }
@@ -436,7 +435,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.lg },
   field: { gap: Spacing.xs, paddingVertical: Spacing.sm },
   label: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },

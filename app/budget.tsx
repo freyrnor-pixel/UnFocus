@@ -60,7 +60,7 @@ import { currentMonthStr, formatDisplayDate } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import Surface from '@/components/Surface';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import PressableScale from '@/components/PressableScale';
 import PhotoFrame from '@/components/PhotoFrame';
 import { Fonts, FontSize, glassKey, Radius, Shadow, Spacing, TabularNums } from '@/constants/theme';
@@ -122,19 +122,19 @@ export default function BudgetScreen() {
 
   if (!list) {
     return (
-      <ScreenScaffold title={t.budget.title} tier="sub" screenKey="shopping" onBack={() => router.back()}>
+      <CenterModalScreen title={t.budget.title} screenKey="shopping" onClose={() => router.back()}>
         <View style={styles.content}>
           <Surface style={styles.card}>
             <Text style={[styles.hintText, { color: theme.textMuted }]}>{t.monthlyListsEmpty}</Text>
           </Surface>
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
     );
   }
 
   return (
     <>
-      <ScreenScaffold title={t.budget.titleForList(monthlyListLabel(list, t.defaultMonthlyListName))} tier="sub" screenKey="shopping" onBack={() => router.back()}>
+      <CenterModalScreen title={t.budget.titleForList(monthlyListLabel(list, t.defaultMonthlyListName))} screenKey="shopping" onClose={() => router.back()}>
         <View style={styles.content}>
           {/* Month selector */}
           {months.length > 1 && (
@@ -246,7 +246,7 @@ export default function BudgetScreen() {
             </View>
           )}
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
 
       {/* Budget editor modal */}
       <Modal visible={budgetEditorVisible} transparent animationType="slide" onRequestClose={() => setBudgetEditorVisible(false)}>
@@ -285,7 +285,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.md },
   card: { borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, ...Shadow.card },
   spentText: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   track: { height: 10, borderRadius: Radius.full, overflow: 'hidden' },

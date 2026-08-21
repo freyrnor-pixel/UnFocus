@@ -115,17 +115,34 @@ const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
   // neighbours above.
   { file: 'app/(tabs)/plans.tsx', bottomIsChrome: true },
   ...[
-    // app/habits.tsx moved OUT of the pager on 2026-08-20 (5 tabs → 3) and stayed out; it
-    // reserves no nav, and its bottom edge lands on the safe area. app/health.tsx crossed the
-    // SAME way hours later, in the "full-screen card expansion" pass (it left the nav for a
-    // Home card) — both gained the `paddingBottom` a tab screen must not have.
-    'app/habits.tsx', 'app/health.tsx',
-    'app/notes.tsx', 'app/scan.tsx', 'app/food.tsx', 'app/shared.tsx', 'app/medicine-form.tsx',
-    'app/health-form.tsx', 'app/inventory-edit.tsx', 'app/settings.tsx', 'app/day-log.tsx',
-    'app/health-log.tsx', 'app/health-detail.tsx', 'app/habit-form.tsx', 'app/pair-device.tsx',
-    'app/budget.tsx', 'app/share-modal.tsx', 'app/automations.tsx',
+    // app/health.tsx left the bottom nav for a Home card in the "full-screen card expansion"
+    // pass and gained the `paddingBottom` a tab screen must not have.
+    'app/health.tsx',
+    'app/scan.tsx', 'app/shared.tsx', 'app/settings.tsx', 'app/pair-device.tsx',
+    'app/share-modal.tsx', 'app/automations.tsx',
   ].map((file) => ({ file, bottomIsChrome: false })),
 ];
+
+/**
+ * The centre pop-ups (2026-08-20) — twelve routes that stopped being pushed pages and became
+ * components/CenterModalScreen.tsx panes, on the maintainer's *"Never go to another page,
+ * pop-up from the middle of the screen instead."*
+ *
+ * **The rule inverts for them, which is why they are a separate list rather than deletions.**
+ * A scaffolded screen MUST pad horizontally (its content sits against the screen edge) and must
+ * pad the bottom only when its lower edge lands on the safe area rather than on chrome. A pane's
+ * body is already padded by CenterModalScreen itself, so any padding here is a SECOND inset
+ * stacked inside the first — the "three stacked horizontal paddings" shape the wrap audit keeps
+ * finding. What a converted screen may still own is the gap between its own blocks.
+ *
+ * Two of the twelve (app/notes.tsx, app/habits.tsx) have no `content` style left at all: their
+ * whole body is one extracted surface that owns its own spacing, so the wrapper View went too.
+ */
+const CENTRE_MODAL_SCREENS = [
+  'app/habit-form.tsx', 'app/medicine-form.tsx', 'app/health-form.tsx', 'app/health-detail.tsx',
+  'app/health-log.tsx', 'app/day-log.tsx', 'app/food.tsx', 'app/budget.tsx',
+  'app/inventory-edit.tsx',
+] as const;
 
 describe('content meets the chrome flush — no screen re-adds the blank strip', () => {
   // 2026-08-19, the other half of the seam pass. `ScreenScaffold` stopped contributing any gap
@@ -148,6 +165,29 @@ describe('content meets the chrome flush — no screen re-adds the blank strip',
     expect(body).toMatch(/paddingHorizontal:\s*Spacing\.md/);
     expect(`${file}: ${/paddingBottom\s*:/.test(body)}`).toBe(`${file}: ${!bottomIsChrome}`);
   });
+
+describe('a centre pop-up adds no padding of its own — the pane already padded it', () => {
+  it.each(CENTRE_MODAL_SCREENS)('%s', (file) => {
+    const src = read(file);
+    // It really is a pane, not a scaffold. Without this the padding assertions below would pass
+    // vacuously on a screen that had quietly gone back to being pushed.
+    expect(src).toMatch(/<CenterModalScreen/);
+    expect(src).not.toMatch(/<ScreenScaffold/);
+    const body = styleBody(src, 'content');
+    if (body === '') return; // no content wrapper at all — see the list's doc
+    expect(body).not.toMatch(/padding\s*:/);
+    expect(body).not.toMatch(/paddingHorizontal\s*:/);
+    expect(body).not.toMatch(/paddingBottom\s*:/);
+  });
+
+  it('the two that kept no content style at all still mount the pane', () => {
+    for (const file of ['app/notes.tsx', 'app/habits.tsx']) {
+      const src = read(file);
+      expect({ file, pane: /<CenterModalScreen/.test(src) }).toEqual({ file, pane: true });
+      expect({ file, content: styleBody(src, 'content') }).toEqual({ file, content: '' });
+    }
+  });
+});
 
   it('components/CatalogueTab.tsx — the one screen whose content is a component', () => {
     // Its `root` carried a paddingTop whose stated purpose was to match the `content` wrapper

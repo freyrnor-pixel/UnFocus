@@ -186,7 +186,7 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // `CardExpandButton` again. This was a `ComingSoonBody` from 2026-08-19, and the card shipped
   // with no button at all rather than one that opened a stub; `shopLists` above is now the only
   // entry still in that state.
-  homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface embedded /> },
+  homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
   homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },

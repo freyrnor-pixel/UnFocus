@@ -110,21 +110,15 @@ const TAB_CONTENT_SOURCE: Partial<Record<(typeof TAB_SCREENS)[number], string>> 
 // else. Not the whole sub-screen set — the form/editor screens legitimately carry a
 // `headerRight` save/delete action, which is a different contract.
 const SUB_SCREENS = [
-  // Left the pager on 2026-08-20 (5 tabs → 3), keeping every list they held.
-  'app/habits.tsx',
-  // Crossed the SAME way hours later, in the "full-screen card expansion" pass (Health left
-  // the bottom nav for a Home card).
+  // ⚠️ **Nine routes LEFT this list on 2026-08-20** — habits, food, catalogue, notes, budget,
+  // health-log, health-detail, day-log, inventory-edit, plus the three editors that were never
+  // in it. They are components/CenterModalScreen.tsx panes now, not pushed scaffolds
+  // (maintainer: *"Never go to another page, pop-up from the middle of the screen instead."*),
+  // so the tier/back-arrow contract this file asserts does not apply to them: a pane has an ×,
+  // not a back arrow, and no tier at all. lib/__tests__/screenRhythm.test.ts carries their
+  // contract instead. What is left here is the screens that are still genuinely pushed.
   'app/health.tsx',
-  'app/food.tsx',
-  // ⚠️ app/catalogue.tsx LEFT this list on 2026-08-20. It carries a real `headerRight` now —
-  // the camera + lock (`CatalogueHeaderControls`), which moved out of the list's own first box
-  // into the header the list sits under, on the maintainer's instruction. That makes it the
-  // same shape as an editor: a browse screen whose header holds its own controls. Its tier and
-  // back button are still asserted by the tests above.
-  'app/notes.tsx',
-  'app/budget.tsx',
   'app/scan.tsx',
-  'app/health-log.tsx',
 ] as const;
 
 /** Header chrome a sub-screen must not ask for. `tier` and `onBack` are legitimate. */
@@ -323,8 +317,11 @@ describe('pushed sub-screens are title only', () => {
   test('app/notes.tsx does not drift back to site tier', () => {
     // It was tier='site' from Decision 001, kept it after Decision 036 dropped Notes as a tab,
     // and so carried a Settings gear + its own BottomNav while being reached by a router.push
-    // from Home — the violation that motivated this file. See that screen's edit notes.
-    expect(tierOf(scaffoldTags('app/notes.tsx')[0])).toBe('sub');
-    expect(scaffoldTags('app/notes.tsx')[0]).toMatch(/onBack=/);
+    // from Home — the violation that motivated this file.
+    // ⚠️ **It mounts no ScreenScaffold at all since 2026-08-20** — it is a centre pop-up. That
+    // settles the original violation more completely than a tier could: a pane has no tier, no
+    // gear and no BottomNav to drift back to. The assertion is now that it stays one.
+    expect(scaffoldTags('app/notes.tsx')).toEqual([]);
+    expect(read('app/notes.tsx')).toMatch(/<CenterModalScreen/);
   });
 });

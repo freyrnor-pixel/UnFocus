@@ -23,7 +23,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import FoodTab from '@/components/FoodTab';
 import { useT } from '@/lib/i18n';
@@ -36,11 +36,11 @@ export default function FoodScreen() {
 
   return (
     <>
-      <ScreenScaffold title={t.foodTabLabel} tier="sub" screenKey="food" onBack={() => router.back()}>
+      <CenterModalScreen title={t.foodTabLabel} screenKey="food" onClose={() => router.back()}>
         <View style={styles.content}>
           <FoodTab onNotify={setConfirmMessage} />
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
       <ConfirmationBanner message={confirmMessage} onDismiss={() => setConfirmMessage(null)} />
     </>
   );
@@ -50,5 +50,10 @@ const styles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.md },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.md },
 });

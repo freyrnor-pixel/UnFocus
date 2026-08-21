@@ -23,7 +23,7 @@
  *             components/NarratorQuote (a day with nothing due), components/CollapsedSection +
  *             components/GoalsEditor (the "Goals" drawer), components/Surface,
  *             components/Collapsible, components/CardCollapseToggle, components/GlowPulse,
- *             components/HabitIcon, components/HabitLeading, components/StageTree,
+ *             components/HabitIcon, components/HabitLeading,
  *             components/GhostRow, components/AnimatedListItem, components/DraggableTaskRow,
  *             components/PersonChip, components/DebugNoteAnchor, components/PressableScale,
  *             lib/habitRecurrence, lib/habitStarters, lib/useHabitRecurrenceDraft,
@@ -31,17 +31,18 @@
  *             lib/personColor, lib/screenColor, lib/useCollapsedCard, lib/useNowMinutes,
  *             lib/sharingVisibility, lib/haptics, lib/i18n, lib/useAppTheme, constants/theme,
  *             constants/motion, store/useHabitStore, store/useSettingsStore, store/usePeopleStore
- *   Used by → app/habits.tsx (non-embedded — the pushed screen), components/HomeHabitsCard.tsx's
- *             expansion and components/CardExpandHost.tsx's `homeHabits` registry entry
- *             (`embedded` — its pane already supplies the title bar)
+ *   Used by → app/habits.tsx (the centre pop-up route) and components/CardExpandHost.tsx's
+ *             `homeHabits` registry entry (the Me tab's Habits card, grown to fill the screen).
+ *             ⚠️ BOTH are panes that supply their own title bar — see the note on the missing
+ *             `embedded` prop below.
  *   Data    → useHabitStore (habits, logs, reorder, the ghost-undo trio), useSettingsStore
  *             (language, peopleModeEnabled, featureGoals), usePeopleStore
  *
  * Edit notes:
- *   - **`embedded` drops the screen-edge padding and the foot StageTree, and nothing else.**
- *     That is the whole flag; see its prop doc. A caller mounting this in a card owes it no
- *     scroll of its own and no Surface of its own — the same contract FoodTab/CatalogueTab
- *     established and HealthSurface repeats.
+ *   - **There is no `embedded` flag here**, unlike the three sibling surfaces — both callers are
+ *     panes, so nothing would vary. See the note above the component. A caller mounting this
+ *     owes it no scroll of its own and no Surface of its own, the same contract
+ *     FoodTab/CatalogueTab established and HealthSurface repeats.
  *   - ⚠️ **Sheets and modals must render in BOTH branches.** components/HealthSurface.tsx got
  *     this wrong once in a way that is invisible to tsc: a `<Modal>` left behind a `!embedded`
  *     gate simply never opens inside a card, and nothing errors. This surface's own overlays
@@ -83,7 +84,6 @@ import CardCollapseToggle from '@/components/CardCollapseToggle';
 import GlowPulse from '@/components/GlowPulse';
 import HabitIcon from '@/components/HabitIcon';
 import HabitLeading from '@/components/HabitLeading';
-import StageTree from '@/components/StageTree';
 import GhostRow from '@/components/GhostRow';
 import { HABIT_STARTERS, HabitStarter } from '@/lib/habitStarters';
 import { useGhostTimeout } from '@/lib/useGhostTimeout';
@@ -452,21 +452,16 @@ function HabitCard({
       </View>
   );
 }
-type Props = {
-  /**
-   * Drawn inside another card (the Me tab's Habits card, and its full-screen expansion)
-   * rather than as its own screen.
-   *
-   * Per the convention components/HealthSurface.tsx documents, this unwraps ONLY the chrome
-   * that assumes a screen backdrop, never the content: the screen-edge padding, and the
-   * StageTree foot decoration (a full-height watermark at the bottom of a card is a second
-   * card's worth of blank space). The habits card, the filters, the quick-add, the Goals
-   * drawer and every sheet render identically in both modes.
-   */
-  embedded?: boolean;
-};
-
-export default function HabitsSurface({ embedded = false }: Props) {
+/**
+ * ⚠️ **No `embedded` prop, unlike its three sibling surfaces — and that is a decision, not an
+ * omission.** components/HealthSurface.tsx, NotesSurface and TodoSurface each take one because
+ * each has a caller that is still a real pushed SCREEN. This one does not: both of its callers
+ * are panes (app/habits.tsx became a centre pop-up in the same 2026-08-20 pass, and
+ * components/CardExpandHost.tsx was always one), so a flag distinguishing them would be true at
+ * every call site — the "optional prop nothing varies" shape this pass deleted elsewhere.
+ * If Habits is ever a pushed screen again, add the flag back with the caller that needs it.
+ */
+export default function HabitsSurface() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
   const reorderHabits = useHabitStore((s) => s.reorder);
@@ -975,16 +970,14 @@ export default function HabitsSurface({ embedded = false }: Props) {
             </CollapsedSection>
           )}
 
-          {/* Foot decoration — screen only. Inside a card there is no leftover viewport for a
-              watermark to sit in, and a full-height tree under the Goals drawer would read as a
-              second card's worth of blank space. */}
-          {!embedded && (profileHabits.length === 0 ? (
-            <View style={styles.footSpacer} />
-          ) : (
-            <View style={styles.footTreeRow}>
-              <StageTree stage="full" opacity={0.3} style={styles.footTree} />
-            </View>
-          ))}
+          {/* ⚠️ **The foot StageTree is gone (2026-08-20).** It was a watermark for the BOTTOM OF
+              A SCREEN — a full-height tree soaking up whatever viewport was left below the Goals
+              drawer. There is no screen bottom any more: both callers draw this inside a pane,
+              where the same element is simply ~150px of blank space under the last card, which
+              is exactly the emptiness this pass was asked to remove. `footSpacer`, `footTreeRow`
+              and `footTree` went with it. The ambient growth backdrop
+              (lib/growth.ts + components/ScreenBackground.tsx) is untouched and is where the
+              reward system actually lives; this was decoration on top of it. */}
         </View>
   );
 }
@@ -1007,30 +1000,7 @@ const baseStyles = StyleSheet.create({
   // halves — the gap on this file, the padding on the wrapper.
   content: { gap: SCREEN_GAP },
 
-  // The bottom spacer this screen has always ended on, kept as its own style so the ambient
-  // tree below can be swapped in for it without the two disagreeing about how much room the
-  // foot of the list needs.
-  footSpacer: { height: Spacing.xl + Spacing.xxl },
 
-  // The ambient stage tree (design comparison task 03) standing at the foot of the column.
-  // Right-aligned and allowed to run past the screen edge (`marginRight` is negative) for the
-  // same reason ScreenBackground's branches are corners-only: the middle is where content
-  // lives. It carries footSpacer's height itself, so nothing is lost by replacing it.
-  // `pointerEvents` is already 'none' inside both StageTree and Motif, so it can never eat a
-  // tap on whatever ends up scrolled under it.
-  // Height is the tree's own, not footSpacer's — a fixed-height row with a taller child would
-  // let the canopy spill over BottomNav (RN doesn't clip by default). It is ~50px more scroll
-  // than the bare spacer was, on a screen that already ends in open backdrop.
-  footTreeRow: {
-    height: 150,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-  },
-  footTree: {
-    width: 132,
-    height: 150,
-    marginRight: -Spacing.sm,
-  },
 
   // ─── Habits section ───────────────────────────────────────────────────────
   // Boxed in a <SectionCard> (2026-07-17): the section's inner controls stack with a

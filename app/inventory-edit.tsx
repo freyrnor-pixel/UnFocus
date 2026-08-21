@@ -42,7 +42,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useShoppingStore, ShoppingItem } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { catalogItemsForList } from '@/lib/shoppingGroups';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import MonthlyTableRow from '@/components/MonthlyTableRow';
 import AnimatedListItem from '@/components/AnimatedListItem';
 import UpdateSheet from '@/components/UpdateSheet';
@@ -113,7 +113,7 @@ export default function InventoryEditScreen() {
 
   return (
     <>
-      <ScreenScaffold title={list ? t.inventoryEditTitle + ' — ' + monthlyListLabel(list, t.defaultMonthlyListName) : t.inventoryEditTitle} tier="sub" screenKey="shopping" onBack={() => router.back()}>
+      <CenterModalScreen title={list ? t.inventoryEditTitle + ' — ' + monthlyListLabel(list, t.defaultMonthlyListName) : t.inventoryEditTitle} screenKey="shopping" onClose={() => router.back()}>
         <View style={styles.content}>
           {/* "+ Add item" collapses to a bar and expands into the full add form IN PLACE
               (no modal) — the multi-field catalog-add counterpart to components/AddRow. */}
@@ -140,7 +140,7 @@ export default function InventoryEditScreen() {
           )}
           <View style={styles.bottomSpacer} />
         </View>
-      </ScreenScaffold>
+      </CenterModalScreen>
 
       <UpdateSheet
         visible={updateItem !== null}
@@ -157,7 +157,12 @@ const baseStyles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.sm },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.sm },
   card: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, ...Shadow.card },
   rowDivider: { height: 1 },
   bottomSpacer: { height: 24 },

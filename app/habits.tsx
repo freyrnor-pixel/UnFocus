@@ -213,34 +213,24 @@
  *     long-press) to edit the rest in /habit-form. This
  *     replaced the old header "+" AddFAB (which navigated straight to the form).
  */import React from 'react';
-import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import HabitsSurface from '@/components/HabitsSurface';
 import { useT } from '@/lib/i18n';
-import { Spacing } from '@/constants/theme';
 
 export default function HabitsScreen() {
   const router = useRouter();
   const t = useT();
   return (
-    <ScreenScaffold
+    <CenterModalScreen
       title={t.habitsTitle}
-      tier="sub"
       screenKey="habits"
-      onBack={() => router.back()}
+      onClose={() => router.back()}
     >
-      <View style={styles.content}>
-        <HabitsSurface />
-      </View>
-    </ScreenScaffold>
+      {/* No padding wrapper: components/CenterModalScreen.tsx pads its own body, and the
+          card-stack gap belongs to HabitsSurface itself (see its `content` style). */}
+      <HabitsSurface />
+    </CenterModalScreen>
   );
 }
 
-const styles = StyleSheet.create({
-  // Screen-edge padding only; the gap between the surface's cards is the surface's own (see
-  // components/HabitsSurface.tsx's `content`). `paddingBottom` because this is a PUSHED screen
-  // that reserves no bottom nav — its bottom edge lands on the safe area, not on chrome, which
-  // is the rule the 2026-08-19 seam pass settled and lib/__tests__/screenRhythm.test.ts pins.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md },
-});

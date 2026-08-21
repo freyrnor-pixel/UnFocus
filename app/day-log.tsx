@@ -47,7 +47,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import PressableScale from '@/components/PressableScale';
@@ -126,7 +126,7 @@ export default function DayLogScreen() {
   }, [date, today]);
 
   return (
-    <ScreenScaffold title={t.dayLog.earlierDays} tier="site" screenKey="plans" onBack={() => router.back()}>
+    <CenterModalScreen title={t.dayLog.earlierDays} screenKey="plans" onClose={() => router.back()}>
       <View style={styles.content}>
         {/* Date stepper. Deliberately a plain back/forward pair rather than a calendar
             picker or a week strip — a grid of days invites comparing them, and this
@@ -193,7 +193,7 @@ export default function DayLogScreen() {
           </PadSheet>
         )}
       </View>
-    </ScreenScaffold>
+    </CenterModalScreen>
   );
 }
 
@@ -201,7 +201,12 @@ const styles = StyleSheet.create({
   // No paddingTop (2026-08-19): the first card meets the header's glass flush, the way
   // components/ScreenScaffold.tsx now clips every screen. The BOTTOM keeps its margin —
   // this screen reserves no nav, so that edge is the safe area, not chrome.
-  content: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.md, gap: Spacing.lg },
+  // **No screen-edge padding since 2026-08-20.** This screen is a centre pop-up now
+  // (components/CenterModalScreen.tsx), and that pane already pads its body by Spacing.md — the
+  // padding here would be a second inset stacked inside it, which is the "three stacked
+  // horizontal paddings" shape the wrap audit keeps finding. Only the gap between this screen's
+  // own blocks belongs to the screen.
+  content: { gap: Spacing.lg },
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',

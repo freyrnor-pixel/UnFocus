@@ -33,7 +33,7 @@
  */
 import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
-import ScreenScaffold from '@/components/ScreenScaffold';
+import CenterModalScreen from '@/components/CenterModalScreen';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -53,18 +53,17 @@ export default function CatalogueScreen() {
 
   return (
     <>
-      <ScreenScaffold
+      <CenterModalScreen
         title={t.catalogueTabLabel}
-        tier="sub"
         screenKey="shopping"
-        onBack={() => router.back()}
+        onClose={() => router.back()}
         scrollable={false}
         headerRight={<CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />}
       >
         <ErrorBoundary>
           <CatalogueTab onNotify={setConfirmMessage} locked={locked} />
         </ErrorBoundary>
-      </ScreenScaffold>
+      </CenterModalScreen>
       <ConfirmationBanner message={confirmMessage} onDismiss={() => setConfirmMessage(null)} />
     </>
   );
