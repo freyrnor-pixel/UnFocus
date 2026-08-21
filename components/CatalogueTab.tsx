@@ -5,28 +5,42 @@
  * flat list sorted alphabetically by name (Decision, visual-audit 2026-07-11 —
  * previously sectioned by item type; flattened since a single glance-sorted list is
  * faster to scan than hunting through category headers). Each existing row shows name + price,
- * is tappable to edit in place (name/price/save), and has a delete button. The catalogue is the
- * single basis both the week lists and the Food screen draw item names/prices from
- * (autocomplete), so edits here flow everywhere.
+ * a "+" that pushes the item onto a shopping list, is tappable to edit in place
+ * (name/price/save), and has a delete button. The catalogue is the single basis both the week
+ * lists and the Food screen draw item names/prices from (autocomplete), so edits here flow
+ * everywhere.
  *
  * **The header is ONE box, and it is the search field (2026-08-20).** A "+" at its right opens
- * components/CatalogueAddSheet.tsx. The camera and the lock are `CatalogueHeaderControls`,
- * exported from this file and drawn by whichever HEADER the list sits under. A vertical A–Z
- * scrubber down the right edge (hold-and-drag, contacts-style) jumps the list to the first item
- * under the touched letter — see the "Search + A–Z scrubber" edit note below.
+ * components/CatalogueAddSheet.tsx (adds a NEW catalogue item — distinct from a row's own "+",
+ * which adds an EXISTING one to a list). The camera and the lock are `CatalogueHeaderControls`,
+ * exported from this file and drawn by whichever HEADER the list sits under, at the same size
+ * as every other header icon (2026-08-21 — they used to pass `size={22}` against the header's
+ * other icons' default 36, which read as undersized next to the ⤢ expand button beside them).
+ * A vertical A–Z scrubber down the right edge (hold-and-drag, contacts-style) jumps the list to
+ * the first item under the touched letter — see the "Search + A–Z scrubber" edit note below.
+ *
+ * **A row's "+" (2026-08-21)** opens the same two-destination choice FoodTab's per-dish "+"
+ * offers — "Add to week list" (the weekly Unallocated bucket) or "Add to monthly list" (asks
+ * which list if there's more than one) — via `showAppModal` rather than a bespoke popup: this
+ * is a one-off choice, not a composer, so the app's existing action-sheet control is the right
+ * size for it. `pushItemToWeek`/`pushItemToMonthlyList` mirror FoodTab's
+ * `handleAddToWeek`/`pushDishToMonthlyList` field-for-field (see that file for the shape).
  *
  * Connections:
  *   Imports → constants/theme (tokens), lib/useAppTheme, lib/i18n, lib/haptics (success/heavy/
  *             selection), lib/money (formatKr), lib/screenColor, components/Surface,
  *             components/PressableScale, components/IconButton, components/FormControls
- *             (Input), components/CatalogueAddSheet, store/useCatalogStore, @expo/vector-icons
+ *             (Input), components/CatalogueAddSheet, components/AppModal (showAppModal),
+ *             store/useCatalogStore, store/useShoppingStore (add + UNALLOCATED_LIST_ID),
+ *             store/useMonthlyListStore (lists + monthlyListLabel), @expo/vector-icons
  *   Used by → app/catalogue.tsx (its own button-launched sub-screen as of 2026-07-23, UX
  *             audit F1 — was app/(tabs)/shopping.tsx's in-place "Catalogue" tab before that),
  *             with ScreenScaffold in scrollable={false} mode so THIS FlatList owns scrolling;
  *             app/(tabs)/shopping.tsx (the Katalog card, `embedded` — 2026-08-10);
  *             components/CardExpandHost.tsx (the same card grown to fill the screen).
  *             ⚠️ **All three own the `locked` state and pass it back down** — see that prop.
- *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list)
+ *   Data    → useCatalogStore.addItem/updateItem/removeItem (+ items list); useShoppingStore.add
+ *             + useMonthlyListStore.lists (a row's "+")
  *
  * Edit notes:
  *   - **⚠️ ONE box now, not two (2026-08-20).** The 2026-08-14 pass made the header two boxes
@@ -166,6 +180,9 @@ import IconButton from '@/components/IconButton';
 import { useRouter } from 'expo-router';
 import { Input } from '@/components/FormControls';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
+import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
+import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
+import { showAppModal } from '@/components/AppModal';
 import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
@@ -232,9 +249,12 @@ const CatalogueRow = React.memo(function CatalogueRow({
   locked,
   onStartEdit,
   onRemove,
+  onAddToList,
   theme,
   styles,
   deleteLabel,
+  addLabel,
+  screenHue,
 }: {
   item: StoreItem;
   isFirst: boolean;
@@ -242,9 +262,12 @@ const CatalogueRow = React.memo(function CatalogueRow({
   locked: boolean;
   onStartEdit: (item: StoreItem) => void;
   onRemove: (id: string) => void;
+  onAddToList: (item: StoreItem) => void;
   theme: ThemePalette;
   styles: Styles;
   deleteLabel: string;
+  addLabel: string;
+  screenHue: string;
 }) {
   return (
     <View
@@ -268,6 +291,19 @@ const CatalogueRow = React.memo(function CatalogueRow({
           {formatKr(item.price, 0)}
         </Text>
       )}
+      {/* Add this item to a shopping list — the row's own action, distinct from the header
+          "+" (which creates a brand-new catalogue item). Plain Pressable, same reasoning as
+          the trash button below: a per-row Reanimated node is real mount cost at list scale.
+          Not gated on `locked` — that guard is about editing the CATALOGUE, and pushing a
+          known item onto a shopping list doesn't touch it. */}
+      <Pressable
+        onPress={() => onAddToList(item)}
+        hitSlop={HitSlop.base}
+        accessibilityLabel={addLabel}
+        style={({ pressed }) => (pressed ? { opacity: 0.5 } : null)}
+      >
+        <Ionicons name="add-circle-outline" size={20} color={screenHue} />
+      </Pressable>
       {/* Plain Pressable (opacity feedback), NOT PressableScale: at list scale a per-row
           Reanimated shared-value/animated-style node + AccessibilityInfo listener per trash
           button is real mount cost across the ~10 rows built on first paint — the second half
@@ -316,14 +352,12 @@ export function CatalogueHeaderControls({
         icon="camera-outline"
         label={t.scanForCatalogueLabel}
         onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
-        size={22}
       />
       <IconButton
         icon={locked ? 'lock-closed' : 'lock-open-outline'}
         label={locked ? t.unlockListButtonLabel : t.lockListButtonLabel}
         onPress={() => { onToggleLock(); selection(); }}
         active={!locked}
-        size={22}
       />
     </>
   );
@@ -338,6 +372,12 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
   const addItem = useCatalogStore((s) => s.addItem);
   const updateItem = useCatalogStore((s) => s.updateItem);
   const removeItem = useCatalogStore((s) => s.removeItem);
+
+  // Per-row "add to list" — pushes a known catalogue item onto the weekly Unallocated
+  // bucket or a monthly list, same two destinations + same store calls as FoodTab's
+  // per-dish "+" popup (see that file's handleAddToWeek/handleAddToMonthly).
+  const shoppingAdd = useShoppingStore((s) => s.add);
+  const monthlyLists = useMonthlyListStore((s) => s.lists);
 
   /** The "+" beside the search field opens components/CatalogueAddSheet.tsx (2026-08-14). */
   const [addOpen, setAddOpen] = useState(false);
@@ -479,6 +519,68 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
     onNotify(t.catalogueItemAdded(name));
   }
 
+  function pushItemToWeek(item: StoreItem) {
+    shoppingAdd({
+      name: item.name,
+      amount: '1',
+      unit: '',
+      listType: 'weekly',
+      store: '',
+      price: item.price,
+      inventoryQty: 0,
+      status: 'inWeeklyList',
+      listId: UNALLOCATED_LIST_ID,
+      category: item.category,
+    });
+    success();
+    onNotify(t.dishAddedToWeek(item.name));
+  }
+
+  function pushItemToMonthlyList(item: StoreItem, monthlyListId: string) {
+    shoppingAdd({
+      name: item.name,
+      amount: '1',
+      unit: '',
+      listType: 'monthly',
+      store: '',
+      price: item.price,
+      inventoryQty: 0,
+      status: 'catalog',
+      targetQuantity: 1,
+      monthlyListId,
+      category: item.category,
+    });
+    success();
+    onNotify(t.dishAddedToMonthly(item.name));
+  }
+
+  function handleAddToMonthly(item: StoreItem) {
+    if (monthlyLists.length === 0) {
+      onNotify(t.monthlyListsEmpty);
+      return;
+    }
+    if (monthlyLists.length === 1) {
+      pushItemToMonthlyList(item, monthlyLists[0].id);
+      return;
+    }
+    showAppModal(t.allocateToListTitle, '', [
+      ...monthlyLists.map((l) => ({ text: monthlyListLabel(l, t.defaultMonthlyListName), onPress: () => pushItemToMonthlyList(item, l.id) })),
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
+  }
+
+  // The row's "+" — same two destinations FoodTab's per-dish popup offers, as a plain
+  // showAppModal action sheet rather than a bespoke popup: this is a one-off choice, not a
+  // composer, and the app already has a control for exactly that shape.
+  const handleAddToList = useCallback((item: StoreItem) => {
+    showAppModal(t.addDishPopupTitle(item.name), '', [
+      { text: t.addToWeekListBtn, onPress: () => pushItemToWeek(item) },
+      { text: t.addToMonthlyListBtn, onPress: () => handleAddToMonthly(item) },
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthlyLists, t]);
+
   // Lets startEdit find the tapped row's current index without depending on `displayItems`
   // (which would change its identity — and every memoized CatalogueRow's onStartEdit prop
   // with it — on every search keystroke).
@@ -577,9 +679,12 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
         locked={locked}
         onStartEdit={startEdit}
         onRemove={handleRemove}
+        onAddToList={handleAddToList}
         theme={theme}
         styles={styles}
         deleteLabel={t.catalogueDeleteItemLabel}
+        addLabel={t.addDishPopupTitle(item.name)}
+        screenHue={screenHue}
       />
     );
   };
