@@ -563,6 +563,35 @@ describe('the bulb explainer line stays deleted', () => {
     });
   }
 
+  /**
+   * ⚠️ **The HintCard tier stays deleted at the SITE too, not only as a component** (2026-08-21,
+   * CONSISTENCY_AUDIT.md §5). The 2026-08-20 pass deleted `components/HintCard.tsx`, and
+   * `app/scan.tsx` then re-implemented it locally — a `Surface` with a 4px accent bar and an
+   * information glyph around a permanent sentence — with a comment saying out loud that it was
+   * *"an info banner in the same family as components/HintCard.tsx"*. Deleting a component does
+   * not delete an idea; this is what stops the idea being rebuilt one screen at a time.
+   *
+   * The two ingredients ARE the tier: `components/StarterCard.tsx`, which is where an
+   * explanation lives now, is deliberately a neutral card with no bar and no glyph, precisely
+   * so the two never read as twins on a first visit.
+   */
+  it('no screen rebuilds the accent-barred info banner around a tip', () => {
+    const source = code('app/scan.tsx');
+    expect(source).not.toMatch(/tipAccent/);
+    expect(source).not.toMatch(/name="information-circle-outline"[^>]*color=\{theme\.good\}/);
+  });
+
+  /**
+   * A tip that appears only when the surface is NOT empty is the rule stood on its head, and it
+   * is the shape that survives review longest — every screenshot of a working screen shows it
+   * doing something reasonable. `components/SavedListsSection.tsx` returned `null` when empty,
+   * so its `subtitle` was visible exactly when the card had content.
+   */
+  it('SavedListsSection carries no subtitle, and the key is gone from every dictionary', () => {
+    expect(code('components/SavedListsSection.tsx')).not.toMatch(/subtitle=/);
+    expect(read('lib/i18n.ts')).not.toMatch(/savedListsSectionHint/);
+  });
+
   it('leaves the empty-state card as the one place a screen explains itself', () => {
     // ⚠️ **Rewritten 2026-08-20.** This asserted the ⓘ banner's own clamp
     // (components/HintCard.tsx's `HINT_LINES`) as "the tier that survives". That banner is

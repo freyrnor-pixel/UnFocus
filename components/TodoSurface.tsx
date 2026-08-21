@@ -801,25 +801,39 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     </View>
   );
 
+  // The Today card's ⤢, and the header that carries it.
+  //
+  // ⚠️ **The header goes INSIDE whichever card the active layout draws (2026-08-21,
+  // CONSISTENCY_AUDIT.md §8/§9: *"Text and buttons must never be outside a card"* and *"The
+  // fullscreen button has to be in the top right corner for each card"*).** It used to sit on
+  // the screen backdrop ABOVE all four shapes — the exact defect the Week card's own note
+  // records as having been fixed for Week, still shipping here: its ⤢ was in the corner of
+  // nothing, and on the default (timeline) layout the word "Today" floated over a card that
+  // began below it.
+  //
+  // It is still ONE header for all four shapes — the same node, hosted differently, because
+  // each shape already draws a different container:
+  //   · timeline   → passed to PlanTaskCard, which IS the card
+  //   · default    → the SectionCard's OWN rail already says "Today"; it takes the ⤢ and there
+  //                  is no second header (there were two on this layout before)
+  //   · byPerson / focusFirst → wrapped in a Surface, the same shape the Week card uses
+  const todayExpandButton = full ? (
+    <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
+  ) : undefined;
+  const todayHeader = <SectionRail hue={theme.accent} label={t.tasksTabToday} right={todayExpandButton} />;
+
   const todayCard = showToday && (
     <View ref={todayExpand.ref} key="today">
-      {/* One uniform header for all four Today shapes — see the header note. `SectionRail`
-          since 2026-08-21, for the same reason the Week card's is: this is a peer of three
-          SectionCards and was drawing its title four points smaller than all of them. */}
-      <SectionRail
-        hue={theme.accent}
-        label={t.tasksTabToday}
-        right={
-          full ? (
-            <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
-          ) : undefined
-        }
-      />
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
         {groupByPerson ? (
+          <Surface style={styles.weekCard}>
+          {todayHeader}
           <View style={styles.cardStack}>
+            {/* `embedded`: these sit inside the Today card's own Surface now, and a Surface
+                inside a Surface is the nested panel the blueprint pass banned. Same shape the
+                Week card's seven weekday sections take. */}
             {todayByPerson.map((group) => (
-              <SectionCard key={group.personId || 'unassigned'} hue={group.hue} label={group.label} count={group.tasks.length}>
+              <SectionCard key={group.personId || 'unassigned'} embedded hue={group.hue} label={group.label} count={group.tasks.length}>
                 <DoneSplitList
                   tasks={group.tasks}
                   focusMode={layoutSpec.focusMode}
@@ -834,8 +848,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               </SectionCard>
             ))}
           </View>
+          </Surface>
         ) : layoutSpec.timeline ? (
           <PlanTaskCard
+            header={todayHeader}
             tasks={todayList}
             allTasks={tasks}
             spec={layoutSpec}
@@ -854,6 +870,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             calendarEvents={calendarEvents}
           />
         ) : layoutSpec.id === 'focusFirst' ? (
+          <Surface style={styles.weekCard}>
+          {todayHeader}
           <FocusFirstToday
             tasks={todayList}
             onToggleDone={handleToggleDone}
@@ -863,8 +881,11 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             pinProps={pinProps}
             footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
           />
+          </Surface>
         ) : (
-          <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday">
+          // No `todayHeader` here — this card's OWN rail is the header, and it already says
+          // "Today". The floating one above made this the single layout that said it twice.
+          <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}

@@ -372,6 +372,20 @@ type Props = {
   tasks: Task[];
   /** Full store list — lets cross-date followers surface into this view (Decision 020). Defaults to `tasks`. */
   allTasks?: Task[];
+  /**
+   * A header drawn INSIDE the card, above everything (2026-08-21).
+   *
+   * ⚠️ **This exists so a caller's title stops floating above the card.** On the To-do tab this
+   * card IS the Today card on the default (timeline) layout, and its title and ⤢ were drawn by
+   * components/TodoSurface.tsx as a bare row on the screen backdrop — so the full-screen button
+   * sat in the corner of nothing and the word "Today" hung over a card that started below it
+   * (CONSISTENCY_AUDIT.md §8/§9). Passing the node in is what makes the card's own top-right
+   * corner the corner that button is in.
+   *
+   * Mutually exclusive with the `readOnly` header below in practice, not by type: Home draws
+   * its own (it needs the press-to-expand and the count pill), the To-do tab passes one.
+   */
+  header?: React.ReactNode;
   /** Home preview: disables row tap-through only (Decision 009a). Done-toggle is
    *  independently gated on whether `onToggleTask` is passed — pass it to keep the
    *  checkbox interactive even when `readOnly` is set. */
@@ -560,6 +574,7 @@ const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = 
 export default function PlanTaskCard({
   cardMenu,
   extraSection,
+  header,
   tasks,
   allTasks,
   readOnly = false,
@@ -1509,6 +1524,9 @@ export default function PlanTaskCard({
       style={[styles.card, !expanded && styles.cardCollapsed]}
     >
       <View style={styles.cardContent}>
+
+        {/* A caller-supplied header, drawn inside the card — see the `header` prop's doc. */}
+        {header}
 
         {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
             child now, so the whole card sits on ONE left edge. */}
