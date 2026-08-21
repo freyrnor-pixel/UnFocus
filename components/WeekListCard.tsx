@@ -163,7 +163,7 @@ import { useRouter } from 'expo-router';
 import { ShoppingList } from '@/store/useShoppingListStore';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { MonthlyList } from '@/store/useMonthlyListStore';
-import { Fonts, FontSize, getMatte, IconSize, MIN_TAP_TARGET, Radius, Spacing, Type } from '@/constants/theme';
+import { Fonts, FontSize, getMatte, IconSize, MIN_TAP_TARGET, Radius, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
@@ -983,15 +983,12 @@ const baseStyles = StyleSheet.create({
   // Fixed-size leading badge (2026-07-26) — never let the name/lock/repeat row squeeze it.
   domainBadge: { flexShrink: 0 },
   repeatIcon: {},
-  nameInput: {
-    fontFamily: Type.heading.fontFamily,
-    fontSize: Type.heading.size,
-    borderWidth: 1,
-    borderRadius: Radius.sm,
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    flex: 1,
-  },
+  // ⚠️ **`TITLE_FIELD` (2026-08-21, CONSISTENCY_AUDIT.md §1).** These exact values were also
+  // written out in app/(tabs)/shopping.tsx for the MONTHLY list's rename — except there they
+  // were an underline rather than a box, so the same control in the same kind of card header,
+  // one card away on the same screen, had two shapes. The recipe lives in constants/theme.ts
+  // now so the two cannot disagree again.
+  nameInput: TITLE_FIELD,
   // Tap-to-edit preview (2026-07-22) — same padding footprint as nameInput but no
   // border/background, so swapping between preview Text and TextInput doesn't jump layout.
   namePreviewBtn: {

@@ -539,7 +539,7 @@ import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-import { Fonts, FontSize, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, Type, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
 import { reorderByDrag } from '@/lib/reorder';
@@ -2681,14 +2681,11 @@ const styles = StyleSheet.create({
   // Row layout (2026-07-23) so the lock icon sits inline right before the name.
   monthlyNameWrap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   monthlyNamePreviewBtn: { flex: 1, minWidth: 0, paddingVertical: 2 },
-  monthlyNameInput: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: Type.heading.fontFamily,
-    fontSize: Type.heading.size,
-    borderBottomWidth: 1,
-    paddingVertical: 2,
-  },
+  // ⚠️ **`TITLE_FIELD` (2026-08-21, CONSISTENCY_AUDIT.md §1).** This was an UNDERLINE
+  // (`borderBottomWidth: 1`) for the same job components/WeekListCard.tsx drew as a box —
+  // renaming a list in its own card header — so the Shop tab shipped both shapes at once.
+  // The box won: an underline is a second field shape, and FIELD_RADIUS is the one number.
+  monthlyNameInput: TITLE_FIELD,
   // Relocated global "reset every list" entry point — a quiet text row under the list
   // cards + "+ New list", not a prominent icon (each list's own reset icon is the primary
   // affordance now).

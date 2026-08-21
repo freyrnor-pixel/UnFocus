@@ -94,6 +94,7 @@ import { categoryPresets } from '@/lib/shoppingCategories';
 import { todayStr } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
+import { Input } from '@/components/FormControls';
 import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { goToSite } from '@/lib/siteNav';
@@ -598,12 +599,15 @@ export default function ScanScreen() {
             <Surface surfaceContext="overlay" style={styles.manualSheet}>
               <View style={[styles.sheetHandle, { backgroundColor: theme.surfaceMuted }]} />
               <Text style={[styles.sheetTitle, { color: theme.text }]}>{t.otherStore}</Text>
-              <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.customStoreLabel}</Text>
-              <TextInput
+              {/* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** `sheetInput`
+                  was the recipe that *"renders differently at its two mount sites"* — here it
+                  took a `surfaceMuted` fill and no border, and in manual mode a `surface` fill
+                  plus `borderWidth: 1.5`. One style constant, two appearances, in one file. It
+                  was also copied byte-for-byte into app/budget.tsx. Both are `Input` now. */}
+              <Input
                 ref={customStoreRef}
-                style={[styles.sheetInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                label={t.customStoreLabel}
                 placeholder={t.customStorePlaceholder}
-                placeholderTextColor={theme.textMuted}
                 value={customStoreName}
                 onChangeText={setCustomStoreName}
                 returnKeyType="done"
@@ -872,24 +876,25 @@ export default function ScanScreen() {
             <Surface style={styles.manualCard}>
             <Text style={[styles.flowNote, { color: theme.textMuted }]}>{t.manualEntryHint}</Text>
 
-            <TextInput
+            {/* The big multiline capture box. `Input` with a height floor rather than a
+                fourth local recipe — the fill, the border weight, the radius and the focus ring
+                are the field's, and what stays local is the one thing about THIS field: it is
+                eight lines tall and grows from the top. */}
+            <Input
               ref={manualInputRef}
               multiline
               numberOfLines={8}
-              style={[styles.manualInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
+              style={styles.manualInput}
               placeholder={t.manualEntryPlaceholder}
-              placeholderTextColor={theme.textMuted}
               value={manualText}
               onChangeText={setManualText}
             />
 
             {manualLineCount === 1 && (
               <View>
-                <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.estimertPrisLabel}</Text>
-                <TextInput
-                  style={[styles.sheetInput, { color: theme.text, backgroundColor: theme.surface, borderWidth: 1.5, borderColor: theme.border }]}
+                <Input
+                  label={t.estimertPrisLabel}
                   placeholder="0.00"
-                  placeholderTextColor={theme.textMuted}
                   value={manualPrice}
                   onChangeText={setManualPrice}
                   keyboardType="decimal-pad"
@@ -1067,14 +1072,9 @@ const baseStyles = StyleSheet.create({
   cancelButtonText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 
   // MANUAL MODE
-  manualInput: {
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-    padding: Spacing.md,
-    fontSize: FontSize.md,
-    lineHeight: 24,
-    textAlignVertical: 'top',
-  },
+  // Layout only (2026-08-21) — the fill/border/radius/focus ring belong to
+  // components/FormControls.tsx's `Input`. It was `borderWidth: 1.5`, card weight on a field.
+  manualInput: { minHeight: 160, lineHeight: 24, textAlignVertical: 'top' },
 
   // Custom store / category picker sheets
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.35)' },
@@ -1089,8 +1089,11 @@ const baseStyles = StyleSheet.create({
   },
   sheetHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full },
   sheetTitle: { fontSize: FontSize.xl, fontFamily: Fonts.bold },
-  sheetLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
-  sheetInput: { borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.lg },
+  // `sheetLabel` is DELETED with `sheetInput` (2026-08-21): components/FormControls.tsx's
+  // `Input` owns the label, so a field and its name can no longer be styled apart.
+  // `sheetInput` is DELETED (2026-08-21): it was one style constant that rendered two
+  // different ways at its two mount sites in this file, and was also duplicated byte-for-byte
+  // in app/budget.tsx. Both sites use `Input`, which owns the label too.
   sheetButtons: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   sheetCancelBtn: {
     flex: 1, borderRadius: Radius.md, padding: Spacing.md,

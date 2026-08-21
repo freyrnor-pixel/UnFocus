@@ -50,7 +50,7 @@
  *     live in a header row at the top (matching app/task-form.tsx's pattern).
  */
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, Text, View, Pressable, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
@@ -60,6 +60,7 @@ import { currentMonthStr, formatDisplayDate } from '@/lib/date';
 import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import Surface from '@/components/Surface';
+import { Input } from '@/components/FormControls';
 import CenterModalScreen from '@/components/CenterModalScreen';
 import PressableScale from '@/components/PressableScale';
 import PhotoFrame from '@/components/PhotoFrame';
@@ -263,11 +264,18 @@ export default function BudgetScreen() {
                 <Text style={[styles.sheetSave, { color: theme.accent }]}>{t.save}</Text>
               </PressableScale>
             </View>
-            <Text style={[styles.sheetLabel, { color: theme.textMuted }]}>{t.budget.monthlyBudgetLabel}</Text>
-            <TextInput
-              style={[styles.sheetInput, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+            {/* ⚠️ **The shared `Input`, not a hand-rolled box (2026-08-21,
+                CONSISTENCY_AUDIT.md §1).** This was a bare `<TextInput>` over a `sheetInput`
+                style that was a byte-identical COPY of app/scan.tsx's — the same recipe
+                duplicated rather than shared, which is the mechanism the whole section is
+                about. `Input` also owns the label, so the separate `<Text>` above it goes: a
+                label that is a sibling rather than part of the field is how the two drift apart.
+                  Not `recessed`: that well is for a composer contractually inside a CARD, and
+                this sits in a bottom sheet's own form. See FormControls' note on the medicine
+                form, where recessing a backdrop field made it vanish. */}
+            <Input
+              label={t.budget.monthlyBudgetLabel}
               placeholder="0"
-              placeholderTextColor={theme.textMuted}
               value={budgetInput}
               onChangeText={setBudgetInput}
               keyboardType="decimal-pad"
@@ -336,6 +344,6 @@ const baseStyles = StyleSheet.create({
   sheetHeaderTitle: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   sheetCancel: { fontSize: FontSize.md },
   sheetSave: { fontSize: FontSize.md, fontFamily: Fonts.bold },
-  sheetLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginTop: Spacing.xs },
-  sheetInput: { borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.lg },
+  // `sheetLabel`/`sheetInput` are DELETED (2026-08-21): components/FormControls.tsx's `Input`
+  // owns both the label and the box now — see the call site.
 });

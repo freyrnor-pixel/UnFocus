@@ -45,7 +45,7 @@ import { useT } from '@/lib/i18n';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
-import { Switch } from '@/components/FormControls';
+import { Input, Switch } from '@/components/FormControls';
 
 type Props = {
   visible: boolean;
@@ -118,16 +118,16 @@ export default function UpdateSheet({ visible, item, onClose, onSave, onDelete }
           <View style={[styles.handle, { backgroundColor: theme.border }]} />
           <Text style={[styles.title, { color: theme.text }]}>{t.updateSheetTitle}</Text>
 
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.varenavnLabel}</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
-            value={name}
-            onChangeText={setName}
-          />
+          {/* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** These were the only
+              fields in the app with NO BORDER AT ALL — a `surfaceMuted` fill and nothing else —
+              which on the opaque overlay this sheet paints is a boundary the WCAG 1.4.11 rule
+              for a control requires and this had dropped. `Input` also owns the label, so the
+              `<Text>` above each one goes with it: a label that is a sibling of its field rather
+              than part of it is how the two drift. */}
+          <Input label={t.varenavnLabel} value={name} onChangeText={setName} />
 
-          <Text style={[styles.label, { color: theme.textMuted }]}>{t.estimertPrisLabel}</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.surfaceMuted, color: theme.text }]}
+          <Input
+            label={t.estimertPrisLabel}
             value={price}
             onChangeText={setPrice}
             keyboardType="decimal-pad"
@@ -201,7 +201,8 @@ const baseStyles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: Radius.full, marginBottom: Spacing.sm },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold, marginBottom: Spacing.sm },
   label: { fontSize: FontSize.xs, fontFamily: Fonts.semibold, marginTop: Spacing.sm, marginBottom: 4 },
-  input: { borderRadius: Radius.sm, padding: Spacing.sm, fontSize: FontSize.md },
+  // `input` is DELETED (2026-08-21) — components/FormControls.tsx's `Input` draws the two text
+  // fields. `label` survives: the quantity stepper below still needs one, and it is not a field.
   stepperRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   // Both halves muted + bordered — see components/Stepper.tsx's edit note (addendum B.1,
   // 2026-08-01): a stepper is a paired control, so filling only the "+" in the app's action

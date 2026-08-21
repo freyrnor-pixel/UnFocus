@@ -34,7 +34,7 @@ import Surface from '@/components/Surface';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import { confirmDestructive } from '@/components/AppModal';
 import PressableScale from '@/components/PressableScale';
-import { SegmentedControl } from '@/components/FormControls';
+import { Input, SegmentedControl } from '@/components/FormControls';
 import Collapsible from '@/components/Collapsible';
 import { useT } from '@/lib/i18n';
 import { FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
@@ -138,27 +138,30 @@ function NewRuleForm({ onSave, onCancel }: { onSave: (triggerType: TriggerType, 
         onChange={setActionType}
       />
 
+      {/* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** These were bare
+          `<TextInput>`s over a local `input` style at `borderWidth: 1.5` — CARD weight on a
+          field, where the shared control uses the field weight. One of the sixteen hand-rolled
+          field recipes that section counted, and the reason it existed is the reason all of them
+          did: nothing said a text field had to come from a component.
+            `Input` forwards its ref, so `useKeyboardLift` still measures the real input, and it
+          owns focus/blur — the lift's handlers are passed through rather than replaced. */}
       {actionType === 'show_message' ? (
-        <TextInput
+        <Input
           ref={fieldLift.ref}
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
           value={message}
           onChangeText={setMessage}
           onFocus={fieldLift.onFocus}
           onBlur={fieldLift.onBlur}
           placeholder={t.automations.messagePlaceholder}
-          placeholderTextColor={theme.textMuted}
         />
       ) : (
-        <TextInput
+        <Input
           ref={fieldLift.ref}
-          style={[styles.input, { borderColor: theme.border, color: theme.text }]}
           value={itemName}
           onChangeText={setItemName}
           onFocus={fieldLift.onFocus}
           onBlur={fieldLift.onBlur}
           placeholder={t.automations.itemNamePlaceholder}
-          placeholderTextColor={theme.textMuted}
         />
       )}
 
@@ -275,12 +278,8 @@ const baseStyles = StyleSheet.create({
   // `SegmentedControl` now (form tier). They were 2-option EXCLUSIVE pickers drawn as two
   // independent accent-filled `Radius.full` pills, which is the membership shape
   // (DESIGN_RULES.md 19a's multi-select exemption) applied to a pick-one question.
-  input: {
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    fontSize: FontSize.sm,
-  },
+  // `input` is DELETED (2026-08-21) — components/FormControls.tsx's `Input` draws these two
+  // fields now. It was `borderWidth: 1.5`, i.e. card weight on a field.
   formActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.md, marginTop: Spacing.xs },
   formCancelBtn: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
   formCancelText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },

@@ -1163,6 +1163,37 @@ export function getRecessedField(surface: string, isDark: boolean): { paint: str
 export const FIELD_RADIUS = Radius.sm;
 
 /**
+ * The shape of a title that is EDITED IN PLACE — a card's own name, turned into a field by
+ * tapping it, at the card-title type size.
+ *
+ * ⚠️ **It exists because two cards drew the same control two different ways** (2026-08-21,
+ * `CONSISTENCY_AUDIT.md` §1): `components/WeekListCard.tsx` renamed a weekly list with a
+ * BORDERED BOX and `app/(tabs)/shopping.tsx` renamed a monthly list with an UNDERLINE
+ * (`borderBottomWidth: 1`) — the same job, in the same kind of card header, one card apart on
+ * the same screen.
+ *
+ * The box wins: an underline is a second field shape, and `FIELD_RADIUS` is *"the one number,
+ * for every field in the app"* (above). The caller supplies `borderColor` and `color`, since
+ * this module holds no colours.
+ *
+ * ⚠️ **Deliberately NOT `components/FormControls.tsx`'s `Input`.** That control owns a label, an
+ * error line, its own vertical padding and a container — it is a field in a FORM. This is a
+ * heading that has become typable, inline in a header row, and it has to keep the header's
+ * height and the title's typography or the card jumps when you tap its name. Two different
+ * things that happen to both accept text; see DESIGN_RULES.md §8 on component identity.
+ */
+export const TITLE_FIELD = {
+  flex: 1,
+  minWidth: 0,
+  fontFamily: Type.heading.fontFamily,
+  fontSize: Type.heading.size,
+  borderWidth: 1,
+  borderRadius: FIELD_RADIUS,
+  paddingVertical: Spacing.xs,
+  paddingHorizontal: Spacing.sm,
+} as const;
+
+/**
  * A field's halo AND the shape that halo is cut to, from one call.
  *
  * **This exists because the two cannot be allowed to be separate decisions** (2026-08-19, user
