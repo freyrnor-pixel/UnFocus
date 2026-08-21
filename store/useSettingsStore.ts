@@ -87,6 +87,18 @@
  *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`startScreen` joined the inert list on 2026-08-21** (the consistency audit). The app
+ *     always opens on the CENTRE tab now — `START_TAB_ROUTE` in lib/siteNav.ts — so there is no
+ *     choice to store. Maintainer: *"Middle screen is to be the Main one where app always starts
+ *     when opening it fresh."* The picker is gone from Settings and from onboarding's Basics
+ *     screen; the `start_screen` column, the `StartScreen` type and this field all stay, per the
+ *     never-drop rule above.
+ *     ⚠️ **This one is worth not reviving casually.** It was not merely unused, it was
+ *     UNREACHABLE-but-live: app/onboarding/basics.tsx renders only the language row on a fresh
+ *     install, so the value governing where the app opened was one a new user was never shown —
+ *     a default nobody chose, deciding the first thing they saw. `lib/__tests__/firstRunOptions.test.ts`
+ *     asserts no surface reads the field, because wiring a new control to it would typecheck
+ *     perfectly and quietly re-create exactly that.
  *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/habits.tsx dropped
  *     its Today/Week/Month switcher entirely (a habit is set up once with a recurrence and
  *     an optional reminder time; the maintainer's call was that browsing by day/week/month

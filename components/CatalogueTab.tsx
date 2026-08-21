@@ -166,7 +166,7 @@ import IconButton from '@/components/IconButton';
 import { useRouter } from 'expo-router';
 import { Input } from '@/components/FormControls';
 import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
-import { BORDER_WIDTH, computeBorderTone, FIELD_RADIUS, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, OpticalCenter, Radius, Spacing, TabularNums, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';

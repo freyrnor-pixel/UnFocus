@@ -24,15 +24,13 @@ import {
   LANGUAGE_CHOICES,
   MOTION_CHOICES,
   MOTION_SETTINGS,
-  START_SCREEN_CHOICES,
-  START_SCREEN_PATHS,
-  START_SCREEN_ROUTES,
   motionChoiceOf,
   picksFromSettings,
   settingsPatchFromPicks,
 } from '@/lib/firstRunOptions';
+import { START_TAB_ROUTE, START_TAB_ROUTE_PATH, TAB_ROUTE_NAME } from '@/lib/siteNav';
 
-/** Every pick the screen can possibly hold — 2 × 3 × 3 × 3 × 2 × 3 = 324 combinations. */
+/** Every pick the screen can possibly hold — 2 × 3 × 3 × 3 × 2 = 108 combinations. */
 function everyPick(): FirstRunPicks[] {
   const out: FirstRunPicks[] = [];
   for (const language of LANGUAGE_CHOICES)
@@ -40,17 +38,17 @@ function everyPick(): FirstRunPicks[] {
       for (const fontSize of FONT_SIZE_CHOICES)
         for (const darkMode of DARK_MODE_CHOICES)
           for (const handedness of HANDEDNESS_CHOICES)
-            for (const startScreen of START_SCREEN_CHOICES)
-              out.push({ language, motion, fontSize, darkMode, handedness, startScreen });
+            out.push({ language, motion, fontSize, darkMode, handedness });
   return out;
 }
 
 describe('anti-overwhelm: one screen, each row with 2–4 options', () => {
-  test('six rows, no more, and no duplicates', () => {
+  test('at most six rows, no more, and no duplicates', () => {
     // The old cap was four WIZARD STEPS; the rule it encoded — don't make getting started a
     // long walk — is now "one screen". Six rows of pills fit one; a seventh thing goes to
     // Settings. Raising this number should mean re-checking the screen still fits, not just
-    // editing the assertion.
+    // editing the assertion. (There are FIVE rows since 2026-08-21 — `startScreen` left when
+    // the app stopped offering a choice about where it opens. The cap is unchanged.)
     expect(BASICS_ROWS.length).toBeLessThanOrEqual(6);
     expect(new Set(BASICS_ROWS).size).toBe(BASICS_ROWS.length);
   });
@@ -59,7 +57,7 @@ describe('anti-overwhelm: one screen, each row with 2–4 options', () => {
     // A row with no options renders an empty pill strip; a choice list with no row is dead
     // code. Neither shows up in a typecheck.
     expect([...BASICS_ROWS].sort()).toEqual(
-      ['appearance', 'handedness', 'language', 'motion', 'startScreen', 'textSize'].sort(),
+      ['appearance', 'handedness', 'language', 'motion', 'textSize'].sort(),
     );
   });
 
@@ -69,7 +67,6 @@ describe('anti-overwhelm: one screen, each row with 2–4 options', () => {
     ['text size', FONT_SIZE_CHOICES],
     ['appearance', DARK_MODE_CHOICES],
     ['handedness', HANDEDNESS_CHOICES],
-    ['starting screen', START_SCREEN_CHOICES],
   ])('%s offers 2–4 distinct options', (_name, choices) => {
     expect(choices.length).toBeGreaterThanOrEqual(2);
     expect(choices.length).toBeLessThanOrEqual(4);
@@ -95,25 +92,47 @@ describe('invariant 2: no pick can produce an invalid state', () => {
     expect(weight('reduced')).toBeLessThan(weight('none'));
   });
 
-  test('every starting screen names a real tab route and a real path', () => {
-    // 'index' is app/(tabs)/index.tsx ("Meg"); the other two are their own tab files. These
-    // are ALL THREE tabs, not a subset — an `initialRouteName` the navigator doesn't have is
-    // silently ignored and the app opens on the first tab instead, with no error anywhere.
-    // ⚠️ 'health' was in this list until 2026-08-19, months after Health stopped being a tab,
-    // and that is exactly the failure it shipped. Read the list off the navigator, never off
-    // a memory of which screens exist.
+  test('the fixed start tab names a real tab route and a real path', () => {
+    // ⚠️ **This used to check all three CHOICES; there is no choice since 2026-08-21.** The app
+    // always opens on the centre tab (`START_TAB_ROUTE`, lib/siteNav.ts) — see that constant's
+    // doc and CONSISTENCY_AUDIT.md §4. What the assertion is FOR is unchanged, and is the more
+    // important half: an `initialRouteName` the navigator doesn't have is silently ignored and
+    // the app opens on the first tab (Shop) instead, with no error anywhere.
+    // ⚠️ 'health' sat in the old list until 2026-08-19, months after Health stopped being a tab,
+    // and that is exactly the failure it shipped. Read the target off the navigator, never off a
+    // memory of which screens exist.
     const layout = readFileSync(
       join(__dirname, '..', '..', 'app', '(tabs)', '_layout.tsx'),
       'utf8'
     );
     const tabs = [...layout.matchAll(/<TopTabs\.Screen\s+name="([^"]+)"/g)].map((m) => m[1]);
-    expect(tabs).toHaveLength(START_SCREEN_CHOICES.length);
-    for (const s of START_SCREEN_CHOICES) {
-      expect(tabs).toContain(START_SCREEN_ROUTES[s]);
-      expect(['/', '/shopping', '/plans']).toContain(START_SCREEN_PATHS[s]);
+    expect(tabs).toContain(START_TAB_ROUTE);
+    expect(TAB_ROUTE_NAME[START_TAB_ROUTE_PATH]).toBe(START_TAB_ROUTE);
+
+    // **It is the MIDDLE one, and that is the whole requirement** ("Middle screen is to be the
+    // Main one where app always starts"). Derived from the navigator's own declaration order, so
+    // re-ordering the tabs without re-deciding the start screen fails here rather than shipping.
+    expect(tabs).toHaveLength(3);
+    expect(tabs[1]).toBe(START_TAB_ROUTE);
+
+    // The deep-link back target and the navigator's initial route must be the SAME tab. They
+    // were two separately-written values until 2026-08-21, so a back press landed on Home even
+    // for a user who opened elsewhere.
+    expect(layout).toMatch(/unstable_settings = \{ initialRouteName: START_TAB_ROUTE \}/);
+  });
+
+  test('nothing reads settings.startScreen any more', () => {
+    // The column and the Settings field survive (this repo never drops columns), but no surface
+    // may consume them: a picker that governs launch while being hidden at first run is exactly
+    // what this pass removed. A future session wiring a new control to the inert field is the
+    // realistic regression, and it would typecheck perfectly.
+    const files = ['app/(tabs)/_layout.tsx', 'app/settings.tsx', 'app/onboarding/basics.tsx',
+                   'components/TourSpotlight.tsx', 'lib/firstRunOptions.ts'];
+    for (const f of files) {
+      const src = readFileSync(join(__dirname, '..', '..', ...f.split('/')), 'utf8');
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+      expect({ file: f, hit: /\bstartScreen\b/.test(code) }).toEqual({ file: f, hit: false });
     }
-    // Distinct targets, or two options would silently do the same thing.
-    expect(new Set(Object.values(START_SCREEN_ROUTES)).size).toBe(START_SCREEN_CHOICES.length);
   });
 });
 
@@ -127,7 +146,7 @@ describe('invariant 5: the commit is one atomic, complete patch', () => {
       expect(Object.keys(patch).sort()).toEqual(
         [
           'darkMode', 'firstRunComplete', 'fontSize', 'language', 'leftHanded',
-          'particlesEnabled', 'reducedMotion', 'startScreen',
+          'particlesEnabled', 'reducedMotion',
         ].sort(),
       );
       expect(patch.firstRunComplete).toBe(true);
@@ -151,8 +170,7 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
         for (const fontSize of FONT_SIZE_CHOICES)
           for (const darkMode of DARK_MODE_CHOICES)
             for (const language of LANGUAGE_CHOICES)
-              for (const leftHanded of [false, true])
-                for (const startScreen of START_SCREEN_CHOICES) {
+              for (const leftHanded of [false, true]) {
               const current: FirstRunSettings = {
                 reducedMotion,
                 particlesEnabled,
@@ -160,7 +178,6 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
                 darkMode,
                 language,
                 leftHanded,
-                startScreen,
               };
               const { firstRunComplete, ...writtenBack } = settingsPatchFromPicks(picksFromSettings(current));
               expect(firstRunComplete).toBe(true);
@@ -168,7 +185,6 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
               expect(writtenBack.darkMode).toBe(current.darkMode);
               expect(writtenBack.language).toBe(current.language);
               expect(writtenBack.leftHanded).toBe(current.leftHanded);
-              expect(writtenBack.startScreen).toBe(current.startScreen);
               // Motion is the one lossy axis: reducedMotion=true with particles on isn't a
               // state the three cards can express, so it normalises to 'none' (particles
               // off). That direction is deliberate — it removes movement, never adds it.

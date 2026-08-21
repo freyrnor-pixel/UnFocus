@@ -34,7 +34,7 @@ import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import CardExpandButton from '@/components/CardExpandButton';
 import HealthSurface from '@/components/HealthSurface';
 import { useCardExpand } from '@/lib/useCardExpand';
-import { Fonts, OpticalCenter, PAD_GUTTER, Radius, Spacing, Type } from '@/constants/theme';
+import { OpticalCenter, PAD_GUTTER, Radius, Spacing, Type } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { getScreenColor } from '@/lib/screenColor';

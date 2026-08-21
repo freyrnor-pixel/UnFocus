@@ -310,11 +310,9 @@ import {
   DarkMode,
   EnergyMode,
   Language,
-  StartScreen,
 } from '@/store/useSettingsStore';
 import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
-import { START_SCREEN_CHOICES } from '@/lib/firstRunOptions';
 import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useHabitStore } from '@/store/useHabitStore';
@@ -1156,23 +1154,12 @@ export default function SettingsScreen() {
                   checked={settings.planTimelineHorizontal}
                   onChange={(v) => settings.update({ planTimelineHorizontal: v })}
                 />
-                {/* Starting screen — the permanent home of first-run step 4. Same three
-                    values from lib/firstRunOptions.ts and the same nav labels the flow
-                    uses, so a choice made there and a choice made here are the same thing.
-                    Applies from the next launch: app/(tabs)/_layout.tsx freezes the
-                    navigator's initialRouteName at mount rather than yanking the user to
-                    another tab mid-session. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.firstRun.startScreen.settingsLabel}</Text>
-                <SegmentedControl
-                  value={settings.startScreen}
-                  onChange={(v) => settings.update({ startScreen: v as StartScreen })}
-                  options={START_SCREEN_CHOICES.map((v) => ({
-                    value: v,
-                    label: v === 'home' ? t.nav.home : v === 'shopping' ? t.nav.shop : t.nav.plans,
-                  }))}
-                />
-                <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.firstRun.startScreen[settings.startScreen]}</Text>
+                {/* ⚠️ **The starting-screen picker is GONE (consistency audit, 2026-08-21).**
+                    Maintainer: *"Middle screen is to be the Main one where app always starts
+                    when opening it fresh."* The app opens on the centre (To-do) tab now,
+                    unconditionally — `START_TAB_ROUTE` in lib/siteNav.ts. `settings.startScreen`
+                    and its column survive as inert; see store/useSettingsStore.ts's "Inert
+                    columns" note. Don't wire a new control to it. */}
                 {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
                     in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
                     settings the user has right now, which means walking through it and

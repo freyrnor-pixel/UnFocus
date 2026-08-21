@@ -18,10 +18,11 @@
  * comparing "Skip this" to "Skip the tour" for a difference that wasn't there. Two buttons,
  * one primary, per rule 6.
  *
- * **Leaving the tour returns you to your chosen start screen** (2026-08-03). The tour walks
- * tab to tab and used to just stop, so finishing it left a new user on Health — the last tab
- * it visited, not one they picked — and skipping from step 2 left them on Shopping. `dismissAll`
- * now navigates to `settings.startScreen`. See its own comment.
+ * **Leaving the tour returns you to the app's start screen** (2026-08-03). The tour walks tab
+ * to tab and used to just stop, so finishing it left a new user on Health — the last tab it
+ * visited — and skipping from step 2 left them on Shopping. `dismissAll` navigates to
+ * `START_TAB_ROUTE_PATH` now (it read `settings.startScreen` until 2026-08-21, when that setting
+ * stopped existing as a choice). See its own comment.
  *
  * The last panel is not a spotlight but a plain centred card: it carries the "this is an
  * experimental build" note and the AI setup guide download, both of which used to live on the
@@ -112,7 +113,7 @@ import { getTargetRect, remeasureTargets, subscribeTargets, type TargetRect } fr
 import { tabChromeBand } from '@/components/ScreenScaffold';
 // Where to leave the user when the tour ends — see dismissAll. Same map app/(tabs)/_layout.tsx
 // uses for `initialRouteName`, in its navigate-there-now form.
-import { START_SCREEN_PATHS } from '@/lib/firstRunOptions';
+import { START_TAB_ROUTE_PATH } from '@/lib/siteNav';
 // The hole/ring arithmetic, pure and unit-tested — see lib/tourSpotlight.ts's header for why
 // it does not live inline here.
 import { hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
@@ -140,7 +141,6 @@ export default function TourSpotlight() {
 
   const tourProgress = useSettingsStore((s) => s.tourProgress);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
-  const startScreen = useSettingsStore((s) => s.startScreen);
   const update = useSettingsStore((s) => s.update);
 
   const done = useMemo(() => parseProgress(tourProgress), [tourProgress]);
@@ -264,8 +264,11 @@ export default function TourSpotlight() {
    * tab and simply STOPPED on whichever one the last step visited, so finishing it dropped a
    * brand-new user on Health — a tab they had not chosen, holding a symptom log they had no
    * reason to want first. Skipping from step 2 stranded them on Shopping just as arbitrarily.
-   * The user already told us where they want to start (`settings.startScreen`, the Basics
-   * screen's last row); this honours it at the one moment the app is deciding for them.
+   * It lands on the app's own start screen — the centre (To-do) tab, `START_TAB_ROUTE_PATH`.
+   * This read `settings.startScreen` until 2026-08-21; that setting is gone (the app always
+   * opens on the centre tab now — see `app/(tabs)/_layout.tsx`'s `START_TAB_ROUTE`), so the
+   * tour hands the user off to exactly where a cold launch would have put them, which is the
+   * property that mattered here all along.
    * `navigate`, not `push`, for the same reason the step walker uses it: these are tabs.
    */
   const dismissAll = useCallback(() => {
@@ -273,8 +276,8 @@ export default function TourSpotlight() {
     const next = new Set(done);
     next.add(TOUR_DISMISSED);
     update({ tourProgress: formatProgress(next) });
-    router.navigate(START_SCREEN_PATHS[startScreen] ?? '/');
-  }, [done, update, router, startScreen]);
+    router.navigate(START_TAB_ROUTE_PATH);
+  }, [done, update, router]);
 
   const handleAiGuide = useCallback(async () => {
     selection();

@@ -127,6 +127,29 @@ export const TAB_ROUTE_NAME: Partial<Record<SiteRoute, string>> = {
   '/plans': 'plans',
 };
 
+/**
+ * ⚠️ **Where the app starts — the CENTRE tab, always (consistency audit, 2026-08-21).**
+ *
+ * Maintainer: *"Middle screen is to be the Main one where app always starts when opening it
+ * fresh."* Both halves of that were untrue before this: the app opened on `index` (the RIGHT-hand
+ * tab, because `settings.startScreen` defaulted to `'home'`), and which tab it opened on was a
+ * user setting, which "always" rules out. The setting and its column survive as inert; the
+ * picker is gone from Settings and from onboarding's Basics screen.
+ *
+ * It lives HERE, beside `SITE_ITEMS`, rather than in `app/(tabs)/_layout.tsx`, because two very
+ * different callers need the same answer and neither should import a route component to get it:
+ * the pager's `initialRouteName` (and its `unstable_settings` deep-link back target, which used
+ * to be a SEPARATE hard-coded value and so disagreed) and `components/TourSpotlight.tsx`, which
+ * hands the user off to the start screen when the tour ends.
+ *
+ * The two constants are the same tab in the navigator's two vocabularies — a registered
+ * `TopTabs.Screen` NAME and a router PATH. Keep them in step: an `initialRouteName` the
+ * navigator does not have is silently ignored and the app opens on the first tab (Shop) with no
+ * error anywhere. `lib/__tests__/firstRunOptions.test.ts` pins both against `SITE_ITEMS`.
+ */
+export const START_TAB_ROUTE_PATH = '/plans' as const;
+export const START_TAB_ROUTE = TAB_ROUTE_NAME[START_TAB_ROUTE_PATH]!;
+
 /** Navigate to any site. The 3 tab sites switch the pager in place; everything else pushes. */
 export function goToSite(router: ImperativeRouter, pathname: string, route: SiteRoute) {
   if (route === pathname) return;

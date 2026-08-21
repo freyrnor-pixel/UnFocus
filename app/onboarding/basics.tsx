@@ -92,7 +92,7 @@ import { Image, ScrollView, StyleSheet, Text, View, useColorScheme } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useSettingsStore, type StartScreen } from '@/store/useSettingsStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { getTranslations, type Translations } from '@/lib/i18n';
 import { selection } from '@/lib/haptics';
 import {
@@ -103,7 +103,6 @@ import {
   HANDEDNESS_CHOICES,
   LANGUAGE_CHOICES,
   MOTION_CHOICES,
-  START_SCREEN_CHOICES,
   picksFromSettings,
   settingsPatchFromPicks,
 } from '@/lib/firstRunOptions';
@@ -359,17 +358,6 @@ function rowContent(
         options: HANDEDNESS_CHOICES.map((v) => ({ value: v, ...t.basics.handedness[v] })),
         selected: picks.handedness,
       };
-    case 'startScreen':
-      return {
-        label: t.firstRun.startScreen.settingsLabel,
-        // Each tab is named exactly as the bottom nav names it.
-        options: START_SCREEN_CHOICES.map((v) => ({
-          value: v,
-          label: START_SCREEN_LABELS[v](t),
-          desc: t.firstRun.startScreen[v],
-        })),
-        selected: picks.startScreen,
-      };
   }
 }
 
@@ -378,13 +366,6 @@ const FONT_SIZE_LABELS = {
   small: (t: Translations) => t.settings.accessibility.fontSizeSmall,
   default: (t: Translations) => t.settings.accessibility.fontSizeDefault,
   large: (t: Translations) => t.settings.accessibility.fontSizeLarge,
-};
-
-/** Reused from the bottom nav rather than restated. */
-const START_SCREEN_LABELS: Record<StartScreen, (t: Translations) => string> = {
-  home: (t: Translations) => t.nav.home,
-  shopping: (t: Translations) => t.nav.shop,
-  plans: (t: Translations) => t.nav.plans,
 };
 
 const baseStyles = StyleSheet.create({

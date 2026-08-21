@@ -35,7 +35,7 @@
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
  *             components/HomeHeroBackground, components/ParticleBackground, lib/siteNav
  *   Note    → the navigator's `initialRouteName` is the user's chosen starting tab
- *             (settings.startScreen → lib/firstRunOptions.ts's START_SCREEN_ROUTES),
+ *             (fixed at the centre tab since 2026-08-21 — see START_TAB_ROUTE below),
  *             frozen at mount. That is NOT the same thing as `unstable_settings.
  *             initialRouteName` below it, which is the static deep-link back target.
  *   Used by → Expo Router route group "(tabs)" — app/_layout.tsx's single
@@ -203,9 +203,7 @@ import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { START_SCREEN_ROUTES } from '@/lib/firstRunOptions';
-import { SITE_ITEMS, TAB_ROUTE_NAME } from '@/lib/siteNav';
+import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 
 // Max horizontal drift (px) of the shared background as you swipe across the tabs — a
@@ -317,32 +315,41 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
   );
 }
 
-// Cold launch presents Home, not the first-declared tab (Shopping). It stopped being the
-// CENTRE tab on 2026-08-19 (To-do took that slot) — this export is unchanged anyway, because
-// what it is for is the static deep-link back target, not "the middle one".
-// expo-router reads `initialRouteName` off this export for the (tabs) layout and hands it
-// to the navigator, which passes it to react-native-tab-view as the initial index — the
-// pager's `initialPage` mounts directly on Home with no settle/animation in from Shopping
-// (PagerViewAdapter uses `initialPage={navigationState.index}`). Must be a registered
-// TopTabs.Screen name — 'index' is app/(tabs)/index.tsx (Home); TAB_ROUTE_NAME['/'] === 'index'.
-// Static back-behaviour target for deep links. NOT the same thing as the navigator's
-// `initialRouteName` prop below, which is the user's chosen starting tab and is dynamic —
-// this one has to be a constant, and Home is the right place for a back press to land.
-export const unstable_settings = { initialRouteName: 'index' };
+/**
+ * ⚠️ **The app always opens on the CENTRE tab, and there is no longer a setting
+ * (consistency audit, 2026-08-21).** Maintainer: *"Middle screen is to be the Main one where
+ * app always starts when opening it fresh."*
+ *
+ * Two separate things were wrong, and both are fixed here. The app opened on **`index`** — the
+ * RIGHT-hand tab — because `settings.startScreen` defaulted to `'home'`. And which tab it opened
+ * on was a user setting at all, which "always" rules out. Worse, `app/onboarding/basics.tsx`
+ * renders only the language row on a fresh install, so the picker governing where the app opened
+ * was one the user had never been shown.
+ *
+ * `START_TAB_ROUTE` is now the single answer, used for BOTH the static deep-link back target
+ * (this export) and the navigator's own `initialRouteName` below — which used to be two
+ * different values, so back-navigation landed on Home even for someone who had chosen otherwise.
+ *
+ * It must stay a registered `TopTabs.Screen` name: an `initialRouteName` the navigator does not
+ * have is silently ignored and the app opens on the FIRST tab (Shop) with no error anywhere —
+ * see `lib/firstRunOptions.ts` for the version of that bug which actually shipped.
+ *
+ * `settings.startScreen` and its `start_screen` column survive as inert (this repo never drops
+ * columns) — see `store/useSettingsStore.ts`'s "Inert columns" note.
+ *
+ * The constant itself lives in `lib/siteNav.ts`, beside `SITE_ITEMS` — see its doc for why.
+ */
+export const unstable_settings = { initialRouteName: START_TAB_ROUTE };
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { reducedMotion } = useAccessibility();
-  // Which tab the app opens on (first-run step 4 / Settings → Personal → Layout). Read
-  // once, at mount: app/_layout.tsx gates rendering on settings being loaded, so this is
-  // the real value by the time we get here, and a later change should NOT yank the user to
-  // another tab mid-session — it applies from the next launch. Falls back to Home for any
-  // value the enum doesn't cover. Every tab stays reachable regardless; this only picks
-  // which one is focused first.
-  const [activeRouteName, setActiveRouteName] = useState<string>(
-    () => START_SCREEN_ROUTES[useSettingsStore.getState().startScreen] ?? TAB_ROUTE_NAME['/']!,
-  );
-  // Frozen at mount so a settings change mid-session can't re-key the navigator.
+  // Which tab is currently showing. It STARTS on the centre tab, always — see
+  // `START_TAB_ROUTE` above for why this stopped reading `settings.startScreen` on 2026-08-21.
+  // This is still state because the pager writes the live tab back into it (the backdrop and
+  // the hero glow both key off it); it is only the INITIAL value that is now fixed.
+  const [activeRouteName, setActiveRouteName] = useState<string>(START_TAB_ROUTE);
+  // Frozen at mount so nothing can re-key the navigator mid-session.
   const startRouteName = useRef(activeRouteName).current;
   const isHomeActive = activeRouteName === TAB_ROUTE_NAME['/'];
 
