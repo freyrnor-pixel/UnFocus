@@ -109,6 +109,18 @@ type Props = {
   collapsed?: boolean;
   /** Presence of this (not `collapsed`'s value) is what switches the card into foldable mode. */
   onToggleCollapse?: () => void;
+  /**
+   * Drawn INSIDE another card, so this one draws no card of its own (2026-08-20) — a plain
+   * View in place of the `Surface`, keeping the rail, the fold and the content exactly as they
+   * are. Same convention as `FoodTab`/`CatalogueTab`/`TodoSurface`'s `embedded`: it unwraps
+   * only the chrome that assumes a screen backdrop, never the content.
+   *
+   * It exists for the To-do Week card, whose seven weekday sections moved inside one outer card
+   * so the ⤢ has a single header to sit in the corner of. A Surface inside a Surface reads as a
+   * nested panel, which is the thing the blueprint pass banned outright ("do NOT place borders,
+   * dividers, or separate background boxes inside of main cards").
+   */
+  embedded?: boolean;
   children: React.ReactNode;
 };
 
@@ -124,6 +136,7 @@ export default function SectionCard({
   collapseKey,
   collapsed,
   onToggleCollapse,
+  embedded = false,
   children,
 }: Props) {
   // No `borderColor` — the card inherits the SCREEN's hue (see the `hue` prop's doc). `hue`
@@ -140,6 +153,7 @@ export default function SectionCard({
         style={style}
         contentStyle={contentStyle}
         collapseKey={collapseKey}
+        embedded={embedded}
       >
         {children}
       </PersistedFoldableSectionCard>
@@ -158,16 +172,18 @@ export default function SectionCard({
         contentStyle={contentStyle}
         collapsed={!!collapsed}
         onToggle={onToggleCollapse}
+        embedded={embedded}
       >
         {children}
       </FoldableSectionCard>
     );
   }
+  const Shell = embedded ? View : Surface;
   return (
-    <Surface style={[styles.card, style]}>
+    <Shell style={[styles.card, embedded && styles.cardEmbedded, style]}>
       <SectionRail hue={hue} domain={domain} icon={icon} label={label} count={count} right={right} />
       <View style={[styles.content, contentStyle]}>{children}</View>
-    </Surface>
+    </Shell>
   );
 }
 
@@ -200,26 +216,31 @@ function FoldableSectionCard({
   contentStyle,
   collapsed,
   onToggle,
+  embedded = false,
   children,
 }: Omit<Props, 'collapseKey' | 'onToggleCollapse'> & { collapsed: boolean; onToggle: () => void }) {
+  const Shell = embedded ? View : Surface;
   return (
-    <Surface style={[styles.card, style]}>
+    <Shell style={[styles.card, embedded && styles.cardEmbedded, style]}>
       <SectionRail
         hue={hue}
         domain={domain}
         icon={icon}
         label={label}
         count={count}
-        // The chevron goes AFTER whatever the caller put in the header, so a section's own
-        // control keeps the position it has always had and the fold sits outermost — the same
-        // ordering components/MedicineTrayCard.tsx uses for its reminder bell.
-        // ⚠️ No row wrapper here since 2026-08-20: SectionRail's `right` slot lays its children
-        // out in a row itself now. It used to be a bare View (a COLUMN), so this had to wrap —
-        // and every OTHER caller that passed two controls stacked them silently.
+        // ⚠️ **The fold chevron goes FIRST, before the caller's own control (2026-08-20)** —
+        // a reversal. It used to sit outermost, on the reasoning that a section's own control
+        // should keep the position it had always had. The maintainer's rule for this pass is
+        // that ⤢ is in the card's top-right CORNER on every surface, and `right` is where a
+        // caller puts its CardExpandButton, so the chevron has to yield the outermost slot.
+        // The pair still reads "how much of this" then "how big is this".
+        // No row wrapper here: SectionRail's `right` slot lays its children out in a row itself
+        // now. It used to be a bare View (a COLUMN), so this had to wrap — and every OTHER
+        // caller that passed two controls stacked them silently.
         right={
           <>
-            {right}
             <CardCollapseToggle collapsed={collapsed} onToggle={onToggle} cardLabel={label} />
+            {right}
           </>
         }
       />
@@ -228,7 +249,7 @@ function FoldableSectionCard({
       <Collapsible open={!collapsed}>
         <View style={[styles.content, contentStyle]}>{children}</View>
       </Collapsible>
-    </Surface>
+    </Shell>
   );
 }
 
@@ -249,4 +270,9 @@ const styles = StyleSheet.create({
   // sections used (Spacing.sm). SectionRail carries its own marginBottom, so no extra
   // top gap is added here.
   content: { gap: Spacing.sm },
+  // `embedded`: no card, so no card padding either — the OUTER card already inset this content
+  // from the screen edge, and a second horizontal inset is the "three stacked paddings" shape
+  // the wrap audit keeps finding. Vertical padding stays: it is what separates one weekday
+  // section from the next inside the shared card.
+  cardEmbedded: { paddingHorizontal: 0 },
 });

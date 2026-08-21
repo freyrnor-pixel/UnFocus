@@ -50,7 +50,9 @@ const STACKED_CARDS: { file: string; style: string }[] = [
   { file: 'components/OpenEpisodeCard.tsx', style: 'card' },
   { file: 'components/MedicineTrayCard.tsx', style: 'card' },
   { file: 'components/EnergyBalanceCard.tsx', style: 'card' },
-  { file: 'components/HintCard.tsx', style: 'wrap' },
+  // components/HintCard.tsx was here until 2026-08-20, when the ⓘ banner was deleted app-wide.
+  // Not backfilled: this list is the set of cards that actually sit in a screen-level stack,
+  // not a count to keep.
   { file: 'components/HomeNotesCard.tsx', style: 'card' },
   { file: 'components/HomeHabitsCard.tsx', style: 'card' },
   { file: 'components/HomeSharedCard.tsx', style: 'card' },
