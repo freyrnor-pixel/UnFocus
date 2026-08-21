@@ -400,7 +400,7 @@
  *     (autoCapture camera/library); Skip commits the trip in place.
  *   - **Share pill restored (2026-07-23)**: re-wired via `ScreenScaffold`'s new optional
  *     `onSharePress` (site-tier header controls), pushing `/share-modal?kind=s` — see
- *     SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans got the same `onSharePress` wiring
+ *     docs/archive/SCREEN_FUNCTIONS_AUDIT.md finding C1. Plans got the same `onSharePress` wiring
  *     (`kind=t`) on 2026-07-28 once share-modal grew a "Send as text" export
  *     (`lib/shareText.ts`) alongside its QR code; Plans' per-task "Shared out" switch
  *     (`components/TaskCard.tsx`) is unrelated — that still writes directly to

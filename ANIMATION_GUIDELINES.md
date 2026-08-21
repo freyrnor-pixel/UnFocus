@@ -211,7 +211,7 @@ Haptics are **not** gated by `reducedMotion` — that flag is about visual motio
 ## 8. Flight / Cross-Section Travel Animations
 
 Real implementation: **`components/FlightOverlay.tsx`**, first used by Shopping's list→cart
-toggle (Phase 1 — see `FLIGHT_ANIMATION_HANDOFF.md`). Use this whenever an item visibly moves
+toggle (Phase 1 — see `docs/archive/FLIGHT_ANIMATION_HANDOFF.md`). Use this whenever an item visibly moves
 between two sections/lists instead of just unmounting from one and mounting in another.
 
 - **The pattern (FLIP-style, no new dependency)**: measure the source in window space at the

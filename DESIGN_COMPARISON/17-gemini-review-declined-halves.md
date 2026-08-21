@@ -67,7 +67,7 @@ pass reached independently.
 ## What was acted on, for completeness
 
 - **Dark palette** → adopted, and it is the largest change in the set. See
-  `COLOR_THEME_LIBRARY.md`'s "Dark mode is TRUE BLACK" section and `DESIGN_RULES.md` rule 10a.
+  `docs/archive/COLOR_THEME_LIBRARY.md`'s "Dark mode is TRUE BLACK" section and `DESIGN_RULES.md` rule 10a.
   The review's LIGHT values were declined on measurement: its border is 1.18:1 and its
   `bg`↔card 1.05:1, which would have erased the very border system item 2 above protects.
 - **One segmented control** → the three toggles it named were already consolidated

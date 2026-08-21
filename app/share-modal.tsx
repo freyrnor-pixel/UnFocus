@@ -13,7 +13,7 @@
  *             store/useSharedStore, store/useShoppingStore, store/useTaskStore
  *   Used by → Expo Router route "/share-modal"; app/(tabs)/shopping.tsx pushes it with
  *             `kind=s` and app/plans.tsx with `kind=t`, both from the header share
- *             icon (Shopping restored 2026-07-23, SCREEN_FUNCTIONS_AUDIT.md finding C1;
+ *             icon (Shopping restored 2026-07-23, docs/archive/SCREEN_FUNCTIONS_AUDIT.md finding C1;
  *             Plans wired the same way once the plain-text export landed). Plans' per-task
  *             "Shared out" switch still shares directly without going through this screen.
  *   Data    → reads useShoppingStore (shopping_items) / useTaskStore (tasks) / useSettingsStore

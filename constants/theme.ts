@@ -14,7 +14,7 @@
  * `Fonts` holds the rounded Nunito family tokens. Card padding across the app is `Spacing.md`
  * (16) — there is no separate `Layout` token; a prior `Layout.cardPadding/cardGap/maxVisible`
  * export was removed 2026-07-12 (zero call sites, docs disagreed with it — see
- * HANDOFF_SPACING_PASS.md).
+ * docs/archive/HANDOFF_SPACING_PASS.md).
  * `Type` (2026-07-18 typography pass) is an additive role map (display/title/heading/
  * subheading/body/bodyStrong/label/caption) — `size` still goes through `getFontSize`, `line`
  * is a lineHeight ratio. `FontSize.*` stays the base scale; not every call site is migrated

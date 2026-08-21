@@ -11,7 +11,7 @@
  * as the number changed and cost the money column its clean right edge — and the inline
  * −/badge/+ stepper moved out entirely into components/ShoppingItemSheet.tsx, which a tap on
  * the row's name/price area opens. The old inline move-chevrons are retired (Ripple R1). **UX audit A1 (2026-07-23,
- * SCREEN_FUNCTIONS_AUDIT.md finding A1):** swipe-left-to-remove was dropped —
+ * docs/archive/SCREEN_FUNCTIONS_AUDIT.md finding A1):** swipe-left-to-remove was dropped —
  * it was the only place in the app using swipe for delete (everywhere else
  * uses a trailing icon), so a user who learned it here found it didn't work
  * on Monthly/Catalogue/Plans/Notes/Health/Shared. Removal is now the same
@@ -117,7 +117,7 @@
  *     row's window-space rect right before `onToggle`, letting the parent kick off a
  *     `FlightOverlay` clone (see ANIMATION_GUIDELINES.md). Only wired for the forward
  *     'planned'-and-unchecked → 'In cart' direction (`willFly`) — reverse toggles keep
- *     today's fade-only behavior, matching FLIGHT_ANIMATION_HANDOFF.md's stated Phase 1
+ *     today's fade-only behavior, matching docs/archive/FLIGHT_ANIMATION_HANDOFF.md's stated Phase 1
  *     scope. The ref for measuring lives on the outer `styles.wrap` Animated.View.
  *   - **Category tag removed (2026-07-22)**: line 2 used to show a small bordered
  *     `categoryLabel(t, item.category)` tag — a pure display "marking" with no functional

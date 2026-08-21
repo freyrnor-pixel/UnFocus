@@ -299,7 +299,7 @@ export function initDb() {
     "ALTER TABLE settings ADD COLUMN pet_color TEXT DEFAULT '#A78BFA'",
     // Left-handed mode
     "ALTER TABLE settings ADD COLUMN left_handed INTEGER DEFAULT 0",
-    // ORPHANED (found 2026-08-01, STALE_CODE_AUDIT.md): 1.1.0 — custom theme colors. The
+    // ORPHANED (found 2026-08-01, docs/archive/STALE_CODE_AUDIT.md): 1.1.0 — custom theme colors. The
     // pre-rebuild custom-theme system these fed was never ported; nothing reads/writes them
     // and they never got a TS field in store/useSettingsStore.ts. Left in place per the
     // never-drop-columns invariant — see that store's "Orphaned columns" edit note.
@@ -309,7 +309,7 @@ export function initDb() {
     "ALTER TABLE shopping_items ADD COLUMN inventory_qty REAL DEFAULT 0",
     // Track whether a catalog item's price came from the seed list or a real purchase
     "ALTER TABLE store_items ADD COLUMN price_source TEXT DEFAULT 'seed'",
-    // ORPHANED (found 2026-08-01, STALE_CODE_AUDIT.md): bubble menu surface finish. The
+    // ORPHANED (found 2026-08-01, docs/archive/STALE_CODE_AUDIT.md): bubble menu surface finish. The
     // radial BubbleMenu this configured was dropped before porting (Decision 008 #5) before
     // its settings ever reached store/useSettingsStore.ts — never drop, never wire new UI here.
     "ALTER TABLE settings ADD COLUMN bubble_material TEXT DEFAULT 'glass'",

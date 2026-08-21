@@ -181,14 +181,14 @@
  *     subsystem it gated no longer exists). Its `glass_blur` SQLite column is intentionally
  *     left orphaned (never drop columns) — see lib/db.ts's migration comment.
  *   - **Orphaned columns that never even had a TS field (found 2026-08-01,
- *     STALE_CODE_AUDIT.md)** — one step past "inert": these were never mapped into this
+ *     docs/archive/STALE_CODE_AUDIT.md)** — one step past "inert": these were never mapped into this
  *     store at all, so there's no `update()` path and no way to set them from the app.
  *     `bubble_material`/`bubble_size`/`bubble_spacing`/`bubble_spring_intensity`/
  *     `bubble_anim_speed` were the radial `BubbleMenu`'s tuning knobs — that feature was
  *     dropped before porting (Decision 008 #5) before its settings ever reached this file.
  *     `custom_primary_color`/`custom_secondary_color` were the pre-rebuild custom-theme
  *     system's two colour pickers — no custom theme exists any more (see
- *     COLOR_THEME_LIBRARY.md's rewrite the same day). Never drop the columns; never wire
+ *     docs/archive/COLOR_THEME_LIBRARY.md's rewrite the same day). Never drop the columns; never wire
  *     new UI to them without building the feature they imply.
  *   - **`energySystemEnabled` history**: defaulted `false`, flipped to `true` 2026-07-21 so
  *     the Home Energy meter was visible out of the box, stopped being a toggle at all on

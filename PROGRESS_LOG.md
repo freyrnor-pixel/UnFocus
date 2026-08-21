@@ -1158,7 +1158,7 @@ the established Phase 3c/3d convention.
 **Design-system verification (per this session's brief):** checked
 ANIMATION_GUIDELINES.md (haptics timing/contract — no real swipe-gesture
 code exists to mirror, so the SiteSwipeView precedent + the documented
-haptics rules were used instead, noted above), SPACING_LAYOUT_LIBRARY.md
+haptics rules were used instead, noted above), docs/archive/SPACING_LAYOUT_LIBRARY.md
 (row's own `Spacing.sm` vertical padding matches the old row and doesn't
 conflict with the "space between list items" `Spacing.md` guidance, which
 governs the *list's* inter-row gap, not this row's internal padding), and

@@ -20,7 +20,7 @@
  *
  * Edit notes:
  *   - `content` is a generic ReactNode (not hardcoded to Shopping) so this stays reusable
- *     for a future Tasks/habit-completion phase — see FLIGHT_ANIMATION_HANDOFF.md.
+ *     for a future Tasks/habit-completion phase — see docs/archive/FLIGHT_ANIMATION_HANDOFF.md.
  *   - Each flight is keyed independently (not a single shared animated value), so
  *     concurrent/rapid toggles animate without interfering with each other. The owner
  *     (screen) is responsible for replacing a stale flight for the same item on

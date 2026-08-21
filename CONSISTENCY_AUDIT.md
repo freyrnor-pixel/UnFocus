@@ -55,7 +55,7 @@ problem.
 
 `DESIGN_RULES.md:27-30` says it out loud: *"Several of the older `*_LIBRARY.md` files have
 drifted the same way… trust `constants/` over any prose, including this file."* A session that
-reads `SPACING_LAYOUT_LIBRARY.md` and a session that reads `DESIGN_RULES.md` get different
+reads `docs/archive/SPACING_LAYOUT_LIBRARY.md` and a session that reads `DESIGN_RULES.md` get different
 answers. Eight rules are additionally marked "open conflict — not binding", so even the current
 rulebook is partly advisory.
 
