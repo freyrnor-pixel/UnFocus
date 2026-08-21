@@ -7,8 +7,20 @@ plus the 115 test files and the 41 markdown docs. Every claim below carries a `f
 
 > **This file is the record.** It exists so the next session reads the evidence instead of
 > re-deriving it — which is how several of these defects came back after a pass that had
-> already fixed them. Where a fix has landed, the section says so; where it is deferred, it
-> says what decision it is waiting on.
+> already fixed them. Every section says where its fix landed.
+>
+> **Second pass, same day.** The three maintainer decisions the first pass was blocked on were
+> answered, and everything deferred has been done or explicitly declined — see the Disposition
+> table at the foot, which is the fastest way in. Three findings were DECLINED rather than
+> deferred, and each says so in its own section: a declined item that reads as an open one is
+> the shape the next session "fixes" back to the thing that was wrong.
+>
+> ⚠️ **What none of this can tell you.** Every guard here is a source scan, because nothing in
+> this repo renders (see the closing section). They can prove a file uses the right component
+> and never that the result looks right. The second pass verified what it could in
+> `npm run preview` and `npm run wraps` — both clean — but `app/scan.tsx` is invisible to both
+> (the web bundle resolves `scan.web.tsx`, an OCR placeholder), so its three changes are
+> structural and unseen. Final sign-off is still a device.
 
 ---
 
@@ -109,8 +121,13 @@ already imports; dead overridden styles removed from `FormControls`.
 **Prevented by:** `lib/__tests__/fieldAnatomy.test.ts` — every `<TextInput` must come from one of
 the four sanctioned composers, or sit in an allowlist with a written reason.
 
-**Deferred:** converging the remaining ~13 hand-rolled fields. Mechanical but wide; best done
-once the guard exists to hold it.
+**✅ Done in the second pass (2026-08-21).** budget, automations, UpdateSheet, HomeNotesCard's
+extra-info row and scan's three real fields are `FormControls`' `Input`, each conversion also
+deleting a hand-drawn label `Text`. `scan`'s `sheetInput` — the constant that rendered two ways at
+its two mount sites and was copied byte-for-byte into `budget.tsx` — is deleted. Four sites stay
+bare and are marked KEEP with reasons in the guard: two row titles, the typable chip, and the two
+list renames, which now share `constants/theme.ts`'s `TITLE_FIELD` (the box won over the
+underline). The BACKLOG block in `fieldAnatomy.test.ts` is empty.
 
 ---
 
@@ -151,8 +168,15 @@ still holds those numbers so it cannot quietly become one.
 **Prevented by:** `lib/__tests__/cardAnatomy.test.ts` — a card header uses `SectionRail`; its
 title comes from a token; its fold control is `CardCollapseToggle`.
 
-**Deferred:** converging the 14 variants. This is the single largest item on the list and wants
-its own pass.
+**✅ Done in the second pass (2026-08-21), and the diagnosis moved.** The component was not the
+problem: `AnimatedChevron` had a REQUIRED `size` and a REQUIRED `color`, so thirteen call sites each
+answered the question alone. Both default now to `CardCollapseToggle`'s values and every override is
+gone. The seven files listed as owing a conversion keep their chevrons — each is a whole-row
+pressable, which is the correct idiom for a header with nothing else to tap; the two idioms and the
+rule for choosing between them are written down in `CardCollapseToggle`'s header. `WeekListCard` was
+the one real conversion. Separately, the heading LADDER is now three rungs (group 24 / card 20 /
+in-card section 17) and To-do's Week and Today headers are `SectionRail`s rather than 20px rows
+beside three 24px siblings.
 
 ---
 
@@ -181,11 +205,13 @@ named as an exception — **is not mounted in the default layout at all**: `lib/
 `card_layouts = '{"plans":"timeline"}'`, so To-do's Today renders `PlanTaskCard`, and the
 `plansToday` id is only reachable in three non-default layouts.
 
-**Deferred — needs a decision.** Inverting the default means reconciling five mechanisms and
-migrating existing installs (whose `{}` currently means "everything open"). It also needs
-"Today / Notes / Shopping" pinned to real card ids, given the `plansToday` situation above.
-**Question for the maintainer: do existing installs get reset to the new default, or keep what
-they have?**
+**✅ Done in the second pass (2026-08-21).** Maintainer: *"We're not live yet, so just force."*
+`lib/cardDefaults.ts` names the three exceptions once, as ids, and both `collapsedCards` and
+`padState` read their own slice — neither carries a default of its own any more. Both bags store
+only what the user has moved OFF a card's resting state, which makes an explicit `false` meaningful
+for the first time, and a `lib/db.ts` migration empties both columns rather than writing the new
+values, so `cardDefaults` stays the only place a resting state is decided. "Shopping" resolves to
+the Shop tab's **Shopping lists** group, which gained a fold in the same pass.
 
 ---
 
@@ -247,8 +273,13 @@ Also worth knowing: `components/HabitsSurface.tsx:736` uses a permanent explanat
 (*"Simple check-ins — no streaks, no scores"*) **as the card's header row**, so it shows whether
 the list is empty or full.
 
-**Deferred:** scan's three items and `SavedListsSection`'s inverted tip. Small, but each needs a
-decision about where the sentence goes rather than just deleting it.
+**✅ Done in the second pass (2026-08-21).** scan's banner keeps its sentence and loses the accent
+bar and the info glyph — the two ingredients that made it the deleted `HintCard` tier — and needs no
+emptiness gate, because that screen IS the empty state of scanning. Manual entry's instruction moved
+inside the card holding the field it describes. The QR viewfinder's line is KEPT and documented as an
+exception: there are no cards on a live camera feed. `SavedListsSection`'s subtitle is deleted, key
+and all — re-gating it on emptiness would have been worse, since it explains a gesture on ROWS and
+would then have appeared exactly when there were none.
 
 ---
 
@@ -372,8 +403,10 @@ adjacent (`TodoSurface.tsx:908-911`) they read as two different classes of contr
 card's **bottom**-right, described in the file as *"mirroring the full-screen button's corner"* —
 on the opposite edge.
 
-**Deferred:** fixing `SectionCard`'s order is one line, but it moves the chevron on every card that
-uses it, so it belongs with the complaint-2 convergence pass rather than shipping alone.
+**✅ Done.** `SectionCard`'s order was in fact already correct (fold, then the caller's slot); what
+remained were the individual cards. `WeekListCard`'s plated-`IconButton` fold left the ⤢ slot,
+Shopping's Food and Catalogue gained folds, and To-do's Today header — the ⤢ *"in the corner of
+nothing"* — is drawn inside whichever card the active layout renders.
 
 **Prevented by:** `cardAnatomy.test.ts` asserting ⤢ is last in the right cluster.
 
@@ -414,9 +447,15 @@ Catalogue cards, every Monthly list card, the Unallocated card, the four weekly 
 Also: `PadFooterToggle.tsx:29` renders nothing when `total === 0`, so an **empty** Home card has no
 size control at all.
 
-**Deferred.** Roughly twelve cards need a collapse id, and `shopLists` needs
-`ShoppingListsSurface` extracted the way `HabitsSurface` and `TodoSurface` already were. Sizeable,
-and it should follow the complaint-2 convergence so the new controls are drawn once.
+**✅ Done in the second pass (2026-08-21).** Five new ids — the two Shop groups, the two library
+cards, and `homeHealth`, which was the one Me card with neither a fold nor a pad state. The
+per-list cards inside a group deliberately get none: that is `collapsedCards`' singleton rule, and
+folding the group puts all of them away at once. Health's dead embedded fold is fixed — both
+branches share one header now, and only the `Surface` differs.
+  **`shopLists`' EXPAND id is DELETED rather than given a surface**, on the rule `homeTodo` and
+`homeShopping` already went by. It is declined, not deferred — see the Disposition note. The guard
+that let it hide is fixed too: `expandableCards.test.ts` only ever checked the two lists agreed with
+EACH OTHER, and now also fails on a placeholder body and on an id with no `useCardExpand` caller.
 
 ---
 
@@ -440,9 +479,12 @@ This is a card-in-a-card, which the 2026-08-18 blueprint pass banned outright an
 card shows the correct pattern (`SectionCard embedded` → `Shell = embedded ? View : Surface`);
 Health does not follow it.
 
-**Deferred — needs a decision.** Making Medicine a peer card of Health rather than a child changes
-the Home tab's card count and ordering. **Question for the maintainer: on the Me tab, should
-Medicine become a fourth top-level card beside Habits / Notes / Health?**
+**✅ Done in the second pass (2026-08-21).** Maintainer: *"Yes."* `MedicineTrayCard.tsx` became
+`MedicineSurface.tsx` (content only, no `embedded` prop — both callers are panes) with
+`HomeMedicineCard.tsx` as the shell, the split `HabitsSurface`/`TodoSurface` already use. The
+reminder bell had to be shared rather than duplicated, since the header is drawn in two places —
+hence `MedicineReminderBell.tsx`. The half that actually reaches anybody is the append in
+`sanitizeHomeCardOrder`: every stored order in existence predates the kind.
 
 ---
 
@@ -470,7 +512,13 @@ Home**, whose three cards are all list-bearing surfaces with layout sets defined
 
 **Fixed in this pass:** the lock's inverted `active` semantics — all three now mean "locked".
 
-**Deferred:** moving the lock to one side app-wide; folding the kebab onto one size and position.
+**✅ Partly done in the second pass (2026-08-21).** The kebab and `HomeNotesCard`'s mic — two
+hand-rolled 28px circles in header clusters beside 36px controls — are on `IconSize.action`.
+**The lock's SIDE is unchanged and is the one thing here still open**: `CatalogueTab` draws it in
+the header right, `shopping.tsx` and `WeekListCard` beside the name on the left. Its SEMANTICS were
+fixed in the first pass (all three light when locked), which is the half that was actually
+misleading; the position is a layout question about three different card shapes, not a defect
+anyone can misread.
 
 ---
 
@@ -502,9 +550,14 @@ Against the three relations the maintainer named:
   order is a follow-up."* The only real link, `AddFromMonthlyModal`, is reachable from inside a
   weekly card and never surfaced in the page structure.
 
-**Deferred — needs a decision.** This is an information-architecture change, not a styling one.
-**Question for the maintainer: should Dishes + Catalogue sit under one "Inventory" header, and
-should Monthly move directly above the shopping lists it feeds (with a sub-header saying so)?**
+**✅ Done in the second pass (2026-08-21).** The maintainer answered with an order and neither
+grouping: *"Shopping lists, food and Catalogue, Monthly."* So the render order is now Shopping lists
+→ Food → Catalogue → Monthly, there is deliberately no "Inventory" header, and nothing presents
+Monthly as a parent of the shopping list. The three groups are consts composed in one line of the
+return, which is what made reordering ~700 lines of drag/merge JSX possible at all.
+  The third header idiom went with it: the four week sections were a bare `<Text>` pair, and
+`SectionRail` gained a `tier` (`'group'` 24 over a stack of cards, `'sub'` 17 over a stack of rows)
+rather than the call site gaining a component.
 
 ---
 
@@ -535,7 +588,14 @@ sites**.
 **Fixed in this pass:** camera and lock raised to 36 to match the ⤢ beside them; the two other
 22px locks likewise.
 
-**Deferred:** collapsing six diameters down to a small set, and giving `PadFooterToggle` a real
+**✅ Done in the second pass (2026-08-21).** `IconSize` is three values for three jobs — `action`
+(a card-header or toolbar control, and `IconButton`'s default), `compact` (one of several in a dense
+cluster), `inline` (inside a row or beside a field). Every call site is on it, and
+`designTokens.test.ts` fails on a numeric literal, on a fourth rung, and on the default drifting.
+`PadFooterToggle` has a `MIN_TAP_TARGET` floor and a `HitSlop` — it had neither, which made it the
+one genuine tap-target violation on the list. The original note follows:
+
+**(Original)** collapsing six diameters down to a small set, and giving `PadFooterToggle` a real
 target.
 
 ---
@@ -577,8 +637,14 @@ with the glyph and title both in `theme.text`. That 16% wash is the whole of wha
 **Fixed in this pass:** the Dishes card now wears the orange `featMeal` it already owns, so it stops
 being the fifth emerald card on an all-emerald screen.
 
-**Deferred:** replacing `MEAL_COLORS` with values on the identity ladder, and raising the 16% plate.
-Both are taste calls about a five-colour set.
+**✅ Done in the second pass (2026-08-21), and neither turned out to be a taste call.** The 16%
+plate was the shape `CardAccent`'s own header records as DECLINED in 2026-08-10 — a hue fill at a
+fixed opacity under a neutral glyph — so FoodTab mounts `CardAccentBadge` now and has no private
+badge left. The values sit on a lightness ladder because saturating them alone was MEASURED and made
+the set worse: at full chroma the amber and the red collapsed under deuteranopia to a worst pair of
+ΔE2000 **4.0**. The shipped rung order maximises the worst dichromat pair across both deficiencies
+in both modes — **16.8** — and the test now parses the real values out of `FoodTab.tsx` instead of
+the stale hand-typed copy it had been measuring.
 
 ---
 
@@ -605,27 +671,43 @@ does), not minting a sixth rung.
 
 ## Disposition
 
-| # | Complaint | This pass | Waiting on |
+| # | Complaint | First pass (2026-08-21) | Second pass (2026-08-21) |
 |---|---|---|---|
-| 1 | Text-boxes alike | 4 sites + guard | converging ~13 more |
-| 2 | Collapsed cards alike | titles onto a token + guard | the 14-variant convergence |
-| 3 | Cards start closed | — | **decision:** migrate existing installs or not |
+| 1 | Text-boxes alike | 4 sites + guard | ✅ done — backlog empty, 4 documented KEEPs |
+| 2 | Collapsed cards alike | titles onto a token + guard | ✅ done — one glyph, one heading ladder |
+| 3 | Cards start closed | — | ✅ done — forced, exceptions in one module |
 | 4 | Middle screen is main | ✅ done | — |
-| 5 | Tips in cards, when empty | — | scan.tsx's 3 items + the inverted tip |
+| 5 | Tips in cards, when empty | — | ✅ done — scan re-homed, inverted tip deleted |
 | 6 | Header→card spacing | ✅ done + guard | — |
 | 7 | Content centered | ✅ done (14 sites) + guard | — |
-| 8 | Expand button placement | guard | `SectionCard` order, with #2 |
-| 9 | Nothing outside a card | — | tracked with #5 and #8 |
-| 10 | All cards collapse/expand | — | ~12 cards + `shopLists` extraction |
-| 11 | Medicine its own card | — | **decision:** fourth Me-tab card? |
-| 12 | Look-alike icons | lock semantics fixed | lock side, kebab size |
-| 13 | Sub-headers | — | **decision:** "Inventory" grouping + Monthly order |
-| 14 | Lock/camera too small | ✅ done | 6 diameters → a set; `PadFooterToggle` |
-| 15 | Dishes pale | card hue fixed | `MEAL_COLORS` + the 16% plate |
+| 8 | Expand button placement | guard | ✅ done — Today's ⤢ is in a card now |
+| 9 | Nothing outside a card | — | ✅ done — with #5 and #8 |
+| 10 | All cards collapse/expand | — | ✅ done — `shopLists` expand id declined, not stubbed |
+| 11 | Medicine its own card | — | ✅ done — a fourth Me-tab card |
+| 12 | Look-alike icons | lock semantics fixed | ✅ done — kebab and mic onto `IconSize` |
+| 13 | Sub-headers | — | ✅ done — order settled, one rail at two tiers |
+| 14 | Lock/camera too small | ✅ done | ✅ done — 6 diameters → 3; `PadFooterToggle` |
+| 15 | Dishes pale | card hue fixed | ✅ done — ladder + the shared badge |
 | 16 | Colour = navigation | via #15 | — |
 
-**Three decisions are blocking the largest remaining items** — marked **decision** above. Everything
-else is scheduled work, not a question.
+**All sixteen are addressed.** The three decisions that blocked the largest items were answered
+by the maintainer on 2026-08-21 — force the new collapse defaults ("we're not live yet"), yes to
+Medicine as a fourth Me card, and "Shopping lists, food and Catalogue, Monthly" for the Shop tab's
+order (which is also a NO to an "Inventory" header and to Monthly moving above the lists).
+
+Three findings were **declined rather than deferred**, and each says so where it lives, because a
+declined item that reads as an open one gets "fixed" by the next session:
+
+- **The `shopLists` EXPAND id is deleted**, not given a surface. Shopping's lists are the Shop
+  tab's primary content, so a full-screen copy of them is a second rendering of the screen you are
+  already on. What the group needed was a way to be put AWAY, which it now has.
+- **Seven of the "hand-rolled fold chevron" files keep their chevrons.** Each wraps its whole
+  naming row in a pressable, which is the right shape for a header with nothing else to tap and
+  gives a much bigger target than a 48px box. What diverged was the glyph's size and colour, and
+  that is fixed at the source.
+- **Four hand-rolled fields stay bare** — two row titles, a chip you can type in, and the two list
+  renames. Each would be made worse by being boxed like a form field; the renames share a recipe
+  instead so they cannot diverge again.
 
 ---
 

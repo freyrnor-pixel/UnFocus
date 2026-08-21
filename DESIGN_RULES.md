@@ -402,6 +402,19 @@ design, not the rule.
 > a property of the source, which is why most of them are CI-enforceable and are enforced:
 > `lib/__tests__/fieldAnatomy.test.ts` and `lib/__tests__/cardAnatomy.test.ts` are new;
 > `designTokens` and `screenRhythm` were extended.
+>
+> ⚠️ **All eight BIND as of the second pass (2026-08-21).** Four shipped with an *(Open: …)* note
+> because they contradicted the app as it stood; those notes are resolved in place, and where a
+> rule was deliberately NOT applied to something the audit named, it says so rather than going
+> quiet — a rule with an unexplained exception is a rule the next session either breaks or
+> over-applies. One thing is genuinely still open (the lock's SIDE, rule 33).
+>
+> **The lesson from doing them, worth more than the rules:** in three of the eight the component
+> was not what had diverged. The fold chevron shipped at four sizes because `size` and `color`
+> were REQUIRED props, so every call site answered separately; the heading ladder was wrong even
+> where the sizes were spelled with tokens; the meal badge's problem was a fixed 16% opacity, not
+> which component drew it. **Ask what the call site was forced to decide** — a required prop with
+> no default is a design question asked thirty times.
 
 26. **A text field is drawn by a shared composer, never hand-rolled.** The four are
     `FormControls`' `Input` (general) and `PadTypeRow` / `AddRow` / `InlineAddItem` (the three
@@ -409,21 +422,40 @@ design, not the rule.
     that genuinely cannot be one of them — a well holding a leading glyph and trailing controls —
     still draws through `getRecessedField` / `getFieldGlow` / `FIELD_RADIUS`, so it is the same
     shape by construction. **CI**: `fieldAnatomy.test.ts`. Colour may vary per card; nothing else may.
+    **BINDING since 2026-08-21** — the backlog is empty. Four sites stay bare and are KEEP with
+    reasons, because they are not form fields: two ROW TITLES (a row has been flush and unboxed
+    since the PadSheet pass, so boxing one boxes a row), a typable CHIP in a chip cloud, and a
+    parsed receipt line. A card TITLE edited in place is its own thing again — it keeps the
+    header's height and the title's typography — and the two that existed shared nothing until
+    they were given `constants/theme.ts`'s `TITLE_FIELD`; one had been a box, the other an
+    underline, one card apart on the same screen.
 
 27. **A card header is a `SectionRail`**, which owns the title token, the badge and the hairline.
     A card that cannot use one still takes its title from `Type.*` — never a literal. The app
     shipped fourteen header variants at once, with title sizes 17 / 20 (spelled three ways) / 24
     and the hairline on exactly one of them. **CI**: `cardAnatomy.test.ts` (title literals; the
     header convergence itself is tracked as an allowlist that must shrink).
+    **The LADDER is three rungs since 2026-08-21**: a group heading over a stack of cards
+    (`SectionRail`'s 24), a card's own title (`Type.heading`, 20), a section heading over rows
+    inside a card (`Type.subheading`, 17 — chosen by counting, since two of the four sites were
+    already on it). To-do's Week and Today headers were 20px rows beside three 24px siblings,
+    stacked on one screen; both are `SectionRail`s now.
 
 28. **The fold control is `CardCollapseToggle`, and the full-screen control is
     `CardExpandButton`.** Their order in a card header is: the caller's own controls → the fold
     chevron → **⤢ last, always, on every surface**. ⤢ is what the eye looks for in a corner, so
     it is the one that may never move. **CI**: `cardAnatomy.test.ts` asserts nothing follows a
     `CardExpandButton` inside a header slot.
-    *(Known gap, deliberate: `SectionCard` itself renders the chevron BEFORE the caller's slot.
-    Correcting it moves the chevron on every card at once, so it belongs with the header
-    convergence — see `CONSISTENCY_AUDIT.md` §8.)*
+    ⚠️ **`CardCollapseToggle` is one of TWO legitimate disclosure idioms, and which to use is
+    decided by the header rather than by taste** (written down 2026-08-21 in that component's
+    header). Use it when the header carries anything else tappable — a pressable inside a
+    pressable swallows the inner one. Use the other idiom, a `PressableScale` around the whole
+    naming row with a passive `AnimatedChevron`, when the chevron is the only thing to tap: it
+    gives a target the width of the card instead of a 48px box. Seven files use the second and
+    that is correct. What actually diverged was the GLYPH — 13/14/16/18px in three colours,
+    because `size` and `color` were required props — and both default now.
+    *(The `SectionCard` gap this note recorded was already closed: it renders the fold, then the
+    caller's slot, which is the right order.)*
 
 29. **Content is centred inside a control; only the control's BOX is placed.** The maintainer's
     wording is the rule: *"Elements within buttons must be centered in the middle, except for the
@@ -438,23 +470,44 @@ design, not the rule.
 30. **One thing per card.** A card is not drawn inside another card — that is the "box in a box"
     the 2026-08-18 blueprint pass banned, and `embedded` is the mechanism for content that mounts
     both ways. If two things want their own header, badge and fold, they are two cards.
-    *(Open: Medicine is a full `Surface` inside Health's — `CONSISTENCY_AUDIT.md` §11.)*
+    **BINDING since 2026-08-21**: Medicine is its own top-level card on Me (maintainer: *"Yes."*),
+    and `FoodTab`'s five meal sections stopped drawing a bordered filled box each inside the card
+    that contains all five. Both were right when written and both premises expired — Medicine was
+    the Health TAB's first card before Health became a card, and the meal sections were a DRAWER's
+    content on the backdrop, where an edge was the only thing separating one from the next.
 
 31. **Every content card can fold, and the default is the same across the app.** Five independent
     collapse mechanisms with three different defaults is the state this rule replaces. A card with
     a pad state uses the pad state; every other content card uses `collapsedCards`.
-    *(Open: which default — `CONSISTENCY_AUDIT.md` §3 needs a ruling before this binds.)*
+    **BINDING since 2026-08-21**: the default is CLOSED, and the exceptions — To-do's Today, Me's
+    Notes, Shop's Shopping lists — are named once in `lib/cardDefaults.ts`, which both mechanisms
+    read. Neither carries a default of its own any more, and both bags store only what the user has
+    moved OFF a card's resting state. A fourth exception is a maintainer decision and costs a
+    failing test. **CI**: `collapsedCards.test.ts` pins the exception list against the real id
+    unions, and that it stays short.
 
 32. **A group of cards gets a sub-header; a screen does not get three header idioms.** Where a
     screen holds distinct KINDS of thing, say so once above them rather than leaving the reader to
-    infer it from order. *(Open: the Shop tab has three idioms and no header at all over Dishes +
-    Catalogue — `CONSISTENCY_AUDIT.md` §13.)*
+    infer it from order. **BINDING since 2026-08-21**: `SectionRail` is the app's one section
+    header and has two TIERS — `'group'` (24, over a stack of cards) and `'sub'` (17, over a stack
+    of rows inside one). The Shop tab's third idiom is on the sub tier now. *(Deliberately NOT
+    done: no "Inventory" header over Dishes + Catalogue. The maintainer answered §13 with an order
+    — "Shopping lists, food and Catalogue, Monthly" — and neither grouping; a header over two
+    cards would be a fourth idiom on the screen that just got down to one.)*
 
 33. **The same glyph means the same thing, in the same place, at the same size.** Three locks
     shipped on one screen, in two positions, and the `active` highlight meant *unlocked* on one and
     *locked* on the other two. An icon's meaning is not a per-call-site decision, and neither is
-    its diameter: a control that sits beside a default-size `IconButton` takes the default too.
-    **CI**: `cardAnatomy.test.ts` pins the lock's polarity and size across its three sites.
+    its diameter: **a diameter is a token** — `IconSize.action` / `.compact` / `.inline`
+    (`constants/theme.ts`), three values for three jobs, replacing the six that shipped.
+    ⚠️ **A visual size is not a tap target**: `IconButton` floors its hit area at `MIN_TAP_TARGET`
+    whatever `size` says, which is exactly why six diameters passed every tap-target test in the
+    repo. A control that IS smaller than the target pays for it with a `minHeight` or a `hitSlop`.
+    **CI**: `cardAnatomy.test.ts` pins the lock's polarity and the chevron's one size;
+    `designTokens.test.ts` bans a numeric `IconButton` size and a fourth `IconSize` rung.
+    *(Still open, and the only part of §8 that is: the lock's SIDE. `CatalogueTab` draws it in the
+    header right; `shopping.tsx` and `WeekListCard` beside the name on the left. Its semantics —
+    the half that could actually mislead — were fixed first.)*
 
 > **How to add a rule to this section.** Ask "which component owns this?", not "what number is
 > this?". If the answer is "each caller decides", that is the defect — §8 rules exist to move an
