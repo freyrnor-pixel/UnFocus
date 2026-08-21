@@ -49,7 +49,10 @@ const SCREENS = [
  * which is exactly why they are the list worth watching.
  */
 const STACKED_CARDS: { file: string; style: string }[] = [
-  { file: 'components/SectionCard.tsx', style: 'card' },
+  // components/SectionCard.tsx drew this style until 2026-08-21; it is a shim over
+  // components/Card.tsx's `CardShell` now and has no stylesheet of its own. The card geometry
+  // moved with it, so the assertion follows the pixels rather than the filename.
+  { file: 'components/Card.tsx', style: 'card' },
   { file: 'components/OpenEpisodeCard.tsx', style: 'card' },
   // components/MedicineTrayCard.tsx became the shell-less components/MedicineSurface.tsx on
   // 2026-08-21 and no longer draws a card at all; the card is HomeMedicineCard, below.

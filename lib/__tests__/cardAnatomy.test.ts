@@ -238,21 +238,17 @@ describe('the full-screen button is last in the header', () => {
    * every surface. It is stated in five files. `SectionCard` is where it has to be TRUE, because
    * that is the component every conforming card inherits it from.
    */
-  it('SectionCard puts the caller\'s slot after the fold chevron', () => {
-    // ⚠️ **This pins what SectionCard does, which is not yet what the rule says**, and the gap is
-    // deliberate — see CONSISTENCY_AUDIT.md §8. SectionCard renders
-    // `<><CardCollapseToggle/>{right}</>`, i.e. the chevron FIRST, so a caller passing two
-    // controls (the Katalog card's camera + lock) gets `chevron → camera → lock → ⤢` where the
-    // rule asks for `camera → lock → chevron → ⤢`. Correcting it moves the chevron on every
-    // SectionCard at once, so it belongs with the header-convergence pass, not in passing.
-    //
-    // What IS true and must not regress: `{right}` comes last within the slot, which is what
-    // keeps a caller-supplied CardExpandButton right-most. That is the half the maintainer's
-    // report is actually about.
-    const slots = rightSlots(code('components/SectionCard.tsx'))
-      .filter((slot) => slot.includes('CardCollapseToggle'));
+  it('the fold and the ⤢ are built in one file, and the caller\'s slot comes last', () => {
+    // ⚠️ **This used to pin what `SectionCard` DID rather than what the rule says**, on the
+    // reasoning that correcting it moved the chevron on every card at once and so belonged with
+    // the header-convergence pass. This is that pass. The cluster is assembled in exactly one
+    // place now — components/Card.tsx — so there is no second file for a fourteenth order to
+    // appear in, and the import ban below is what keeps it that way.
+    const slots = rightSlots(code('components/Card.tsx')).filter((slot) =>
+      slot.includes('CardCollapseToggle'),
+    );
     expect(slots).toHaveLength(1);
-    expect(slots[0].indexOf('{right}')).toBeGreaterThan(slots[0].indexOf('CardCollapseToggle'));
+    expect(slots[0].indexOf('{controls}')).toBeGreaterThan(slots[0].indexOf('CardCollapseToggle'));
   });
 
   it('SectionRail lays its right slot out as a ROW, not a column', () => {
@@ -426,12 +422,14 @@ describe('the lock means the same thing on every card', () => {
  * the narrow part of "does it look right" that a source scan can actually hold.
  * ────────────────────────────────────────────────────────────────────────────── */
 describe('a collapsed card draws no rule and reserves no room', () => {
-  it('SectionCard ties its rail hairline and its bottom inset to the fold', () => {
-    const src = code('components/SectionCard.tsx');
-    expect(src).toMatch(/divider=\{!collapsed\}/);
+  it('the card shell ties its rail hairline and its bottom inset to the fold', () => {
+    // components/SectionCard.tsx until 2026-08-21; it is a shim over `CardShell` now, so the
+    // property is asserted where it is actually implemented.
+    const src = code('components/Card.tsx');
+    expect(src).toMatch(/divider=\{!isClosed\}/);
     // The closed card's bottom inset matches its top one, so it is the header and nothing else.
     expect(src).toMatch(/cardCollapsed:\s*\{\s*paddingBottom:\s*Spacing\.sm\s*\}/);
-    expect(src).toMatch(/collapsed\s*&&\s*styles\.cardCollapsed/);
+    expect(src).toMatch(/isClosed\s*&&\s*styles\.cardCollapsed/);
   });
 
   /**
