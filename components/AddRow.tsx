@@ -76,15 +76,22 @@
  *   Data    → none — presentational; fires onSubmit
  *
  * Edit notes:
- *   - **Bordered "+" pill (2026-07-25, user report)**: the collapsed bar now carries a real
- *     `theme.border` outline + `Radius.md` corners (was borderless, just an icon chip + muted
- *     text), so it reads as one contained control sitting close to the list above it instead of
- *     bare text floating in blank space. Border color is neutral (`theme.border`), not `accent`
- *     — this component is used both inside domain-colored cards and on plain screens
- *     (automations, health-log), so a neutral edge is the one choice that's always correct;
- *     the "+" chip itself still carries the accent fill.
+ *   - **The collapsed "+" bar IS the field (2026-08-21, user report: the To-do tab's two
+ *     composers, one card apart, were two different controls).** It carries the same recessed
+ *     well, the same resting `getFieldGlow` halo and the same `FIELD_RADIUS` as the expanded
+ *     input and as `components/PadTypeRow.tsx`, so tapping it changes only what is inside the
+ *     box. It used to be a 1.5px `theme.border` outlined pill at `Radius.md` and 32px tall
+ *     (2026-07-25, when the bar was bare text beside an icon and needed *a* container) — that
+ *     report is still answered, by a stronger container: a well reads as contained without
+ *     drawing an edge, which is what the 2026-08-18 blueprint pass asks of anything inside a
+ *     card. Don't put the outline back; if the bar needs to read louder, it is the well's
+ *     recess that moves, for every field at once.
  *   - Mount inside the section's Surface (like ExpandableCard) — do NOT wrap it in
- *     its own card, or the add row detaches from its list.
+ *     its own card, or the add row detaches from its list. **A bordered wrapper View around
+ *     it is the same mistake with an extra edge** — `components/TodoSurface.tsx` had one
+ *     (`addRowCard`, a 1px box with a 4px accent left bar) and it is what the 2026-08-21
+ *     report was actually pointing at: two nested boxes and a coloured rail around a control
+ *     that draws its own shape.
  *   - `accent` should come from lib/domainColor.getDomainColor(theme, domain).accent
  *     so the "+" bar glyph and the confirm fill match the screen's identity color.
  *   - Confirm/Delete targets are padded to ≥44px; the row itself is minHeight 44.
@@ -288,7 +295,17 @@ export default function AddRow({
     return (
       <View ref={rowRef} style={containerStyle} pointerEvents={disabled ? 'none' : 'auto'}>
         <PressableScale
-          style={[styles.addBar, { borderColor: theme.border }]}
+          // The SAME well the expanded field is (2026-08-21). It was a 1.5px outlined pill on
+          // `theme.border`, so a composer changed shape the moment you tapped it — an outlined
+          // box before, a recessed glowing field after — and inside a card that outline was a
+          // second edge around a control the card already contained. One recess, one halo, one
+          // radius, from the same helpers the field uses, so the two states differ only by what
+          // is inside them. See the header's "the fields are ALREADY converged" note.
+          style={[
+            styles.addBar,
+            getFieldGlow(fill, 'soft'),
+            { backgroundColor: recess.paint, borderColor: 'transparent' },
+          ]}
           onPress={expand}
           disabled={disabled}
           scaleTo={0.97}
@@ -472,14 +489,14 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
-    minHeight: 32,
-    // Bordered pill (2026-07-25, user report: the "+ New task"/"Add a note" row read as
-    // floating text next to an icon, disconnected from the card around it) — a visible edge
-    // frames the affordance as one contained control instead of bare text sitting in blank
-    // space, matching the 1.5 borderWidth every other bordered chip in this app (quickChip,
-    // taskChip, AddRow's own confirm button) already uses.
-    borderWidth: 1.5,
-    borderRadius: Radius.md,
+    // The expanded field's height, not 32 — the two states share this container, so a shorter
+    // bar made the row jump on every tap. Also the tap-target rung.
+    minHeight: MIN_TAP_TARGET,
+    // Field weight, resting colour transparent, radius from `getFieldGlow` — i.e. exactly
+    // `styles.input` below. The 2026-07-25 report this replaces ("the + row read as floating
+    // text next to an icon") is still answered: the affordance is contained by the WELL now,
+    // which is a stronger container than the outline was, and the same one the field uses.
+    borderWidth: BORDER_WIDTH.field,
   },
   addBarChip: {
     width: 24,

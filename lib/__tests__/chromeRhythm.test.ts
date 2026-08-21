@@ -570,6 +570,37 @@ describe('getFieldGlow — the light and the corner are one decision', () => {
     // to restate it in.
     expect(code('components/AddRow.tsx')).not.toMatch(/borderRadius: Radius\.sm/);
   });
+
+  // 2026-08-21, user report + screenshot of the To-do tab: *"Text-boxes have still not been
+  // fixed. Even with 2 or 3 tries."* The two composers one card apart were two different
+  // controls — "I dag" drew the recessed, haloed well every field in the app draws, while
+  // "Når som helst" drew a 1.5px outlined pill at `Radius.md`, sitting inside a wrapper card
+  // with a 4px accent bar down its left edge. Three edges around one control, and a shape that
+  // changed the moment you tapped it. Both halves are asserted, because either one alone still
+  // reads as "the text boxes are wrong".
+  it('draws the collapsed "+" bar as the same well as the expanded field', () => {
+    const s = code('components/AddRow.tsx');
+    // The halo, at rest, on the bar itself.
+    expect(s).toMatch(/styles\.addBar,\s*\n\s*getFieldGlow\(fill, 'soft'\),/);
+    // The well, and no resting stroke — the same pair the input below it applies.
+    expect(s).toMatch(/\{ backgroundColor: recess\.paint, borderColor: 'transparent' \}/);
+    // No outlined-pill leftovers: the bar takes the field's border weight and the helper's
+    // radius, so it cannot be a different shape from the thing it becomes.
+    const addBar = s.slice(s.indexOf('  addBar: {'), s.indexOf('  addBarChip: {'));
+    expect(addBar).toMatch(/borderWidth: BORDER_WIDTH\.field,/);
+    expect(addBar).not.toMatch(/borderRadius/);
+    expect(addBar).toMatch(/minHeight: MIN_TAP_TARGET,/);
+  });
+
+  it('mounts a composer with nothing drawn around it', () => {
+    // A wrapper that paints a fill, an edge or an accent rail re-creates the box-inside-a-card
+    // the 2026-08-18 blueprint pass deleted, and puts a second (and third) shape around a
+    // control that already draws its own. The slot may carry spacing and nothing else.
+    const s = code('components/TodoSurface.tsx');
+    expect(s).toMatch(/addRowSlot: \{ marginTop: Spacing\.sm \},/);
+    expect(s).not.toMatch(/addRowCard/);
+    expect(s).not.toMatch(/borderLeftWidth/);
+  });
 });
 
 // ── 6. The backdrop is the bottom layer, and it is orbs ──────────────────────

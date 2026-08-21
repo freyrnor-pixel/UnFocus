@@ -512,6 +512,21 @@ file owns which token.)
     focus ring in the card's own categorical colour plus a `getGlow` halo. `PadTypeRow` also
     carries the one trailing SUBMIT arrow, inside the field's right edge, muted until there is
     text and then filled with that same hue.
+    ⚠️ **A composer's COLLAPSED state is that same well, and nothing may be drawn around it**
+    (2026-08-21, user report + screenshot of the To-do tab: *"Text-boxes have still not been
+    fixed. Even with 2 or 3 tries."*). The field had been converged for months and the report was
+    still right, because two things sat outside it. `AddRow`'s collapsed "+ label" bar was a
+    1.5px `theme.border` pill at `Radius.md` and 32px tall — its own 2026-07-25 fix, from back
+    when the bar was bare text — so the To-do tab's two composers, one card apart, were an
+    outlined pill and a recessed well; it takes `getFieldGlow` + `getRecessedField` now, so
+    tapping it changes only what is inside the box. And `components/TodoSurface.tsx` wrapped it
+    in `addRowCard`, a `theme.surface` box with a 1px border and a **4px accent left rail** —
+    three edges around one control, i.e. the box-inside-a-card the 2026-08-18 blueprint pass
+    deleted everywhere else, with the screen's hue restated on a rail when it is already on the
+    badge, the focus ring and the halo. The slot is spacing-only now. Both halves are pinned by
+    `lib/__tests__/chromeRhythm.test.ts` §5, because a wrapper `View` is invisible to `tsc` and
+    a resting outline reads as intentional in isolation — it is only wrong beside the other
+    composer, which no unit test looks at.
     ⚠️ **The recess is scoped to composers that are contractually inside a card**, which is why
     `FormControls`' `recessed` is opt-in and `InlineAddItem` is its only caller. An editor's
     fields sit on the screen backdrop, and there a black wash on near-black with no resting
