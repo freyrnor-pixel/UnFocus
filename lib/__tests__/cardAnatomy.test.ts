@@ -409,3 +409,64 @@ describe('the lock means the same thing on every card', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * 5. A folded card is its header and nothing else
+ *
+ * Maintainer, 2026-08-21: *"some have a line and some don't"* — and after the pass that
+ * claimed to close §2, the To-do tab still shipped it: `components/CollapsedSection.tsx` had
+ * settled the question on 2026-08-12 (`divider={open}`, plus a closed bottom inset matching its
+ * top one), and `SectionCard` — the component §2 names as canonical — never followed. A folded
+ * card drew a hue hairline over nothing plus 25px of dead space (the rail's own `marginBottom`
+ * and the card's open-state `paddingBottom`), directly above a closed drawer that had neither.
+ *
+ * ⚠️ **This is the class of defect §1–§4 cannot see, and that is the point of adding it.** Those
+ * scans ask which COMPONENT draws a header; every offender here passed them, because the
+ * component was right and the argument handed to it was missing. A scan over call-site PROPS is
+ * the narrow part of "does it look right" that a source scan can actually hold.
+ * ────────────────────────────────────────────────────────────────────────────── */
+describe('a collapsed card draws no rule and reserves no room', () => {
+  it('SectionCard ties its rail hairline and its bottom inset to the fold', () => {
+    const src = code('components/SectionCard.tsx');
+    expect(src).toMatch(/divider=\{!collapsed\}/);
+    // The closed card's bottom inset matches its top one, so it is the header and nothing else.
+    expect(src).toMatch(/cardCollapsed:\s*\{\s*paddingBottom:\s*Spacing\.sm\s*\}/);
+    expect(src).toMatch(/collapsed\s*&&\s*styles\.cardCollapsed/);
+  });
+
+  /**
+   * Every `<SectionRail>` whose own `right` slot holds a fold control is a foldable header, so
+   * its rule has to follow that fold. Scoped to the rail ELEMENT (up to its `/>`), so a fold
+   * control elsewhere in the file cannot make an unrelated rail look guilty.
+   */
+  it('every foldable rail passes an explicit `divider`', () => {
+    const offenders: string[] = [];
+    for (const abs of sourceFiles()) {
+      for (const element of code(abs).match(/<SectionRail\b[\s\S]*?\/>/g) ?? []) {
+        const foldable = /<CardCollapseToggle\b|<AnimatedChevron\b/.test(element);
+        if (foldable && !/\bdivider=/.test(element)) {
+          offenders.push(`${abs}: foldable rail with no divider prop`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  /**
+   * §2's *"some have icon while others not"*. A group-tier rail heads a stack of cards and
+   * carries a badge; the `sub` tier deliberately draws a 6px dot instead (a badge there would be
+   * a second badge inside a card that already has one). So a rail is one or the other — what it
+   * may not be is a group heading with a bare dot standing beside one with a badge, which is
+   * what To-do's Week card and both Shop groups shipped.
+   */
+  it('every group-tier rail carries a badge', () => {
+    const offenders: string[] = [];
+    for (const abs of sourceFiles()) {
+      for (const element of code(abs).match(/<SectionRail\b[\s\S]*?\/>/g) ?? []) {
+        if (/tier="sub"/.test(element)) continue;
+        if (!/\bdomain=/.test(element)) offenders.push(`${abs}: group rail with no domain badge`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
