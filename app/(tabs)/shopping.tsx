@@ -1733,10 +1733,16 @@ export default function ShoppingScreen() {
             This is also the one Shop group that RESTS OPEN: it is the "Shopping" in the
           maintainer's *"All card start in closed state, except 'Today' 'Notes' and 'Shopping'"*
           — see lib/cardDefaults.ts. */}
+      {/* Badge + a rule that follows the fold, same as every other group header (2026-08-21,
+          CONSISTENCY_AUDIT.md §2). Both Shop groups sit on the screen hue, so `badgeHue` keeps
+          badge, divider and card agreeing and the GLYPH is what tells the two apart. */}
       <SectionRail
         hue={screenHue}
+        domain="shop"
+        badgeHue
         label={t.weeklyTabLabel}
         count={nonTemplateLists.length || undefined}
+        divider={!weeklyCollapsed}
         right={<CardCollapseToggle collapsed={weeklyCollapsed} onToggle={toggleWeeklyCollapsed} cardLabel={t.weeklyTabLabel} />}
       />
       <Collapsible open={!weeklyCollapsed}>
@@ -2086,8 +2092,12 @@ export default function ShoppingScreen() {
     <>
       <SectionRail
         hue={screenHue}
+        domain="plan"
+        icon="calendar"
+        badgeHue
         label={t.monthlyTabLabel}
         count={monthlyLists.length || undefined}
+        divider={!monthlyCollapsed}
         right={<CardCollapseToggle collapsed={monthlyCollapsed} onToggle={toggleMonthlyCollapsed} cardLabel={t.monthlyTabLabel} />}
       />
       <Collapsible open={!monthlyCollapsed}>

@@ -178,6 +178,37 @@ the one real conversion. Separately, the heading LADDER is now three rungs (grou
 in-card section 17) and To-do's Week and Today headers are `SectionRail`s rather than 20px rows
 beside three 24px siblings.
 
+**⚠️ Reopened and closed again in a third pass (2026-08-21), from a maintainer screenshot of the
+To-do tab.** The two passes above fixed which COMPONENT draws a header and pinned that with source
+scans — and every one of the following passed those scans while still shipping the reported
+defect, because the component was right and the argument handed to it was missing. This is the
+ceiling in the closing section, met in practice on the first surface anyone looked at:
+
+- **"Some have a line and some don't", still literally true.** `components/CollapsedSection.tsx`
+  settled it on 2026-08-12 (`divider={open}`, plus a closed bottom inset matching its top one);
+  `SectionCard` — named canonical right here — never followed. A folded card drew a hue hairline
+  over nothing plus 25px of dead space (the rule, the rail's `marginBottom`, and the card's
+  open-state `paddingBottom`) directly above a closed drawer that had neither. Fixed on
+  `SectionCard`, on To-do's Week card (a hand-rolled copy of `SectionCard`'s style, so it needed
+  the closed inset copied with it) and on both Shop groups.
+- **"Some have icon while others not", still literally true, in one column.** The Week card was
+  converted to a real `SectionRail` and left passing no `domain` and no `count`, so it drew a bare
+  10px dot and no tally directly above Recurring's badge and tally. Same for Today and for both
+  Shop group headers. All four carry a badge now; the GLYPH is what tells same-hue cards apart.
+- **The heading ladder was introduced and not applied.** `DoneSplitList`'s "The rest" and "Done"
+  rails head rows INSIDE a card whose own header is already a 24px group rail — two 24px
+  extrabolds in one card. Both are `tier="sub"` now.
+
+**Prevented by:** three new scans in `lib/__tests__/cardAnatomy.test.ts` §5, over call-site PROPS
+rather than component identity — a foldable rail passes an explicit `divider`, a group-tier rail
+carries a badge, and `SectionCard` ties both its hairline and its bottom inset to the fold. That
+is the narrow part of "does it look right" a source scan can hold; it caught one offender this
+pass that the fix had missed by hand.
+
+**Still open on that screenshot, and NOT fixed here:** on the default (timeline) layout To-do's
+Today card has no fold control at all, because that layout draws `PlanTaskCard` rather than the
+`plansToday` `SectionCard` — the mounting gap §3 already records. It belongs with §10, not §2.
+
 ---
 
 ### 3. All cards start closed, except Today / Notes / Shopping on the middle screen

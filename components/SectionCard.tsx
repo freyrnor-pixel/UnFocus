@@ -32,6 +32,13 @@
  *     (the To-do Week card's seven weekday sections are the first user of it — a week rolls
  *     forward, so "Tuesday is folded" isn't a fact worth remembering past this render). Passing
  *     both `collapseKey` and `onToggleCollapse` is not supported — `collapseKey` wins.
+ *   - **A CLOSED card is its header and nothing else (2026-08-21, CONSISTENCY_AUDIT.md §2).**
+ *     The rail's hairline is passed `divider={!collapsed}` and the card's bottom inset drops to
+ *     `Spacing.sm` to match its top one. Both are what `components/CollapsedSection.tsx` already
+ *     did; this component didn't follow, so a folded `SectionCard` drew a rule over nothing plus
+ *     25px of empty card — visibly unlike the closed drawer sitting right under it on the To-do
+ *     tab. Don't reintroduce either: the rule ties a header to content, and padding reserved for
+ *     rows that aren't drawn is just a gap.
  *   - **The card edge is the SCREEN's hue, not the section's (card design reset, 2026-08-05).**
  *     This used to pass `hue` straight to `<Surface borderColor>`, which is now an override of
  *     the one-colour-per-screen border and shipped a maroon "Recurring" card next to a blue
@@ -237,7 +244,7 @@ function FoldableSectionCard({
 }: Omit<Props, 'collapseKey' | 'onToggleCollapse'> & { collapsed: boolean; onToggle: () => void }) {
   const Shell = embedded ? View : Surface;
   return (
-    <Shell style={[styles.card, embedded && styles.cardEmbedded, style]}>
+    <Shell style={[styles.card, collapsed && styles.cardCollapsed, embedded && styles.cardEmbedded, style]}>
       <SectionRail
         hue={hue}
         domain={domain}
@@ -245,6 +252,15 @@ function FoldableSectionCard({
         badgeHue={badgeHue}
         label={label}
         count={count}
+        // ⚠️ **The hairline follows the BODY (2026-08-21, CONSISTENCY_AUDIT.md §2's "the line").**
+        // The rule is what ties a header to the content under it, so a folded card drawing one
+        // draws it over nothing — and `components/CollapsedSection.tsx` had already settled that
+        // exact question with `divider={open}` on 2026-08-12. This component never followed, so a
+        // closed `SectionCard` shipped a stray rule plus 25px of dead card (the rule, the rail's
+        // own `marginBottom`, and the card's open-state `paddingBottom`) directly above a closed
+        // drawer that had none. That is the maintainer's *"some have a line and some don't"*,
+        // still on screen after the pass that claimed to close it.
+        divider={!collapsed}
         // ⚠️ **The fold chevron goes FIRST, before the caller's own control (2026-08-20)** —
         // a reversal. It used to sit outermost, on the reasoning that a section's own control
         // should keep the position it had always had. The maintainer's rule for this pass is
@@ -291,5 +307,10 @@ const styles = StyleSheet.create({
   // from the screen edge, and a second horizontal inset is the "three stacked paddings" shape
   // the wrap audit keeps finding. Vertical padding stays: it is what separates one weekday
   // section from the next inside the shared card.
+  // Closed, the card is its header and nothing else, so the bottom inset matches the top one —
+  // the same tight closed box `components/CollapsedSection.tsx` draws (its `section` style pads
+  // `Spacing.sm` both ways and moves the open-state delta onto the body). Without this a folded
+  // card keeps the 16px it reserved for rows that are no longer drawn.
+  cardCollapsed: { paddingBottom: Spacing.sm },
   cardEmbedded: { paddingHorizontal: 0 },
 });

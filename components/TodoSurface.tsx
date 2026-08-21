@@ -194,10 +194,20 @@ function DoneSplitList({
       {rest.length > 0 && (
         <View style={styles.cardStack}>
           <PressableScale onPress={() => { tap(); setRestOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
+            {/* ⚠️ **`tier="sub"`, and the rule follows the fold (2026-08-21,
+                CONSISTENCY_AUDIT.md §2/§13).** These two are headings over ROWS inside a card
+                whose own header is already a 24px group rail, so drawing them at the group tier
+                put two 24px extrabolds in one card — the heading ladder (group 24 / card 20 /
+                in-card section 17) that §2's second pass introduced and then did not apply
+                here. And both are collapsible, so their hairline is subject to the same rule
+                `SectionCard` and `CollapsedSection` follow: a closed section's rule ties its
+                header to nothing. */}
             <SectionRail
+              tier="sub"
               hue={theme.textMuted}
               label={t.config.layouts.moreLabel}
               count={rest.length}
+              divider={restOpen}
               right={<AnimatedChevron open={restOpen} />}
             />
           </PressableScale>
@@ -211,9 +221,11 @@ function DoneSplitList({
         <View style={[styles.doneZone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <PressableScale onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
             <SectionRail
+              tier="sub"
               hue={theme.good}
               label={t.tasksDoneLabel}
               count={finished.length}
+              divider={doneOpen}
               right={<AnimatedChevron open={doneOpen} />}
             />
           </PressableScale>
@@ -580,6 +592,13 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     [tasksForWeek, weekStart, tasks, matchFilters]
   );
 
+  // The Week card's own tally — the seven days' filtered tasks, so the count on the rail is the
+  // count of what the card would draw, exactly as `count={group.tasks.length}` is per day.
+  const weekTaskCount = useMemo(
+    () => weekGroups.reduce((n, g) => n + g.tasks.length, 0),
+    [weekGroups]
+  );
+
   // Per-weekday fold state for the Week card (2026-08-20, card-element standardization pass —
   // "avoid always having 7 days showing"). Local and NOT persisted: a day's own SectionCard is
   // data-generated (one per date in the current week), and lib/collapsedCards.ts's singleton
@@ -820,7 +839,9 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const todayExpandButton = full ? (
     <CardExpandButton expanded={todayExpand.expanded} onExpand={todayExpand.onExpand} onCollapse={todayExpand.onCollapse} />
   ) : undefined;
-  const todayHeader = <SectionRail hue={theme.accent} label={t.tasksTabToday} right={todayExpandButton} />;
+  // Same badge/glyph pairing as Week and Whenever — see the Week card's rail below for why the
+  // glyph carries the distinction and the hue does not.
+  const todayHeader = <SectionRail hue={theme.accent} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} right={todayExpandButton} />;
 
   const todayCard = showToday && (
     <View ref={todayExpand.ref} key="today">
@@ -885,7 +906,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         ) : (
           // No `todayHeader` here — this card's OWN rail is the header, and it already says
           // "Today". The floating one above made this the single layout that said it twice.
-          <SectionCard hue={theme.accent} label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
+          <SectionCard hue={theme.accent} domain="task" icon="today" label={t.tasksTabToday} count={todayList.length} collapseKey="plansToday" right={todayExpandButton}>
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}
@@ -924,7 +945,11 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // forward refs, and lib/useCardExpand needs a measurable OUTERMOST node. The wrapper has no
     // margin of its own, so the rect it measures is the card's own box.
     <View ref={weekExpand.ref} key="week" collapsable={false}>
-      <Surface style={styles.weekCard}>
+      {/* Closed, the card is its header and nothing else — the same tight box `SectionCard` and
+          `CollapsedSection` draw. This style is a hand-rolled copy of `SectionCard`'s `card`
+          (the Week card can't BE a SectionCard: its Collapsible has to wrap seven embedded
+          ones), so it needs the closed inset copied with it. */}
+      <Surface style={[styles.weekCard, weekCollapsed && styles.weekCardCollapsed]}>
       {/* ⚠️ **`SectionRail`, not a hand-rolled row (2026-08-21, CONSISTENCY_AUDIT.md §2).**
           This drew its title at `Type.title.fontFamily` + `FontSize.lg` — extrabold 20 — while
           Whenever, Today and Recurring are `SectionCard`s, whose rail draws 24. So four peer
@@ -936,7 +961,17 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           that stack rather than a single content view. */}
       <SectionRail
         hue={theme.accent}
+        // ⚠️ **A badge and a count, like its three peers (2026-08-21, CONSISTENCY_AUDIT.md §2's
+        // *"some have icon while others not"*).** The rail conversion above fixed the ANATOMY
+        // and left the arguments alone, so this card went on drawing a bare 10px dot and no
+        // tally directly above Recurring's badge and tally — the same divergence the pass was
+        // closing, one card lower. `domain="task"` is Whenever's badge; the glyph is what tells
+        // the three To-do cards apart (see CardAccent.tsx's DOMAIN_ICON note), never the hue.
+        domain="task"
+        icon="calendar"
         label={t.todoWeekTitle}
+        count={weekTaskCount}
+        divider={!weekCollapsed}
         right={
           <>
             <CardCollapseToggle collapsed={weekCollapsed} onToggle={toggleWeekCollapsed} cardLabel={t.todoWeekTitle} />
@@ -1128,6 +1163,7 @@ const styles = StyleSheet.create({
   // this screen, spelled out here because this one's header is hand-rolled rather than a
   // SectionRail — the seven days inside supply their own rails.
   weekCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
+  weekCardCollapsed: { paddingBottom: Spacing.sm },
   // Tighter than `cardStack`'s SCREEN_GAP: these seven are sections of ONE card, not seven
   // cards on a screen, and the screen's rhythm between cards would make the card read as a
   // list of cards again — the exact thing this wrapper exists to stop.
