@@ -2372,6 +2372,14 @@ Three things constrain how steps can be ordered, all verified rather than assume
   exist on device. Like the rest of the native-only surface, it needs a real device.
 
 Known-benign findings, don't "fix" them:
+- ⚠️ **Anything the `tour-step` scan reports about a card on ANOTHER TAB.** The pager keeps all
+  three screens mounted (`lazy: false`), so that scan measures Shop's and To-do's cards as well
+  as the one the spotlight is on — at whatever transient width they happen to have while the
+  overlay is up. At 360px it reported "Katalog" truncated by 11px while the `Handle` scan, which
+  measures that card on its own settled page, reported nothing for it. **Trust the per-screen
+  scans (`home`, `Handle`, `Gjøremål`) over `tour-step` for anything that is not the tour's own
+  coach card.** Verified at 327/360/430 in Norwegian: no card title truncates on a directly
+  measured screen.
 - Two **`[y]` findings on `tour-step`** (2026-08-21): the Me tab's content and its last card,
   reported as cut off at the bottom. The tour locks scrolling while the spotlight is up, so
   ordinary below-the-fold content has no scroller to be reachable through and the walk records it

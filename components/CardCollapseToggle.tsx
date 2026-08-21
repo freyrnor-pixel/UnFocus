@@ -64,9 +64,9 @@
  */
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import AnimatedChevron from '@/components/AnimatedChevron';
+import AnimatedChevron, { CHEVRON_SIZE } from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
-import { HitSlop, MIN_TAP_TARGET } from '@/constants/theme';
+import { hitSlopFor, MIN_TAP_TARGET } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -90,7 +90,7 @@ export default function CardCollapseToggle({ collapsed, onToggle, cardLabel }: P
   return (
     <PressableScale
       onPress={() => { tap(); onToggle(); }}
-      hitSlop={HitSlop.base}
+      hitSlop={hitSlopFor(CHEVRON_SIZE)}
       style={styles.btn}
       accessibilityRole="button"
       accessibilityLabel={cardLabel ? `${cardLabel}: ${action}` : action}
@@ -104,8 +104,32 @@ export default function CardCollapseToggle({ collapsed, onToggle, cardLabel }: P
 }
 
 const styles = StyleSheet.create({
+  /**
+   * ⚠️ **The BOX is glyph-sized; the TARGET comes from `hitSlopFor` (2026-08-21).**
+   *
+   * It was `minWidth: MIN_TAP_TARGET` **and** a `HitSlop.base` — belt and braces, and the belt
+   * cost 30px of every card header's width for an 18px glyph. `MIN_TAP_TARGET`'s own doc says
+   * to pick one: *"don't grow the art — expand the touch area instead, either with a
+   * minHeight/minWidth of MIN_TAP_TARGET **or** with a HitSlop token."*
+   *
+   * That 30px was measurable, not theoretical. With it, To-do's "Når som helst" header had 136px
+   * for a 159px title at 360px in Norwegian, and Shop's Catalogue card truncated to "Catal…" —
+   * a card header spent half its width on controls. `hitSlopFor(CHEVRON_SIZE)` derives the pad
+   * from the glyph rather than naming a token that happens to suit, so the target stays exactly
+   * 48 if the glyph ever moves.
+   *
+   * The HEIGHT keeps `MIN_TAP_TARGET`: vertical room in a header row is free, and it is what
+   * keeps a folded card's header the same height as an open one's.
+   *
+   * ⚠️ **Known and accepted: the right half of the slop overlaps the ⤢ beside it.** `HitSlop`'s
+   * own doc warns not to put a loose slop on two controls sitting 8px apart, because their touch
+   * areas overlap and the wrong one wins. Here only ONE of the pair is slop-heavy — a
+   * `CardExpandButton` is a 36px `IconButton` whose hit area extends 6px past its cap — and the
+   * later sibling takes the overlap, so what is lost is part of this control's RIGHT slop, not
+   * any of the ⤢'s target. The chevron keeps its own 18px plus a full left slop. It was worse
+   * before: a 48px box plus 10px of slop spanned 58px into the same 4px gap.
+   */
   btn: {
-    minWidth: MIN_TAP_TARGET,
     minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
