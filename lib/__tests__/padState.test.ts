@@ -10,7 +10,6 @@
  *     build, a hand-edited backup, or an AI-generated import can put anything into.
  */
 import {
-  DEFAULT_PAD_STATE,
   PAD_STATES,
   isDoneRowStillInPlace,
   isPadState,
@@ -18,6 +17,7 @@ import {
   padHiddenCount,
   padSpareLines,
   padVisibleRows,
+  defaultPadState,
   resolveCardState,
   sanitizeCardStates,
   withCardState,
@@ -133,26 +133,40 @@ describe('resolveCardState', () => {
     expect(resolveCardState({ notes: 'closed' }, 'notes')).toBe('closed');
   });
 
-  it('defaults to preview, so an upgrading user sees roughly the card they already had', () => {
-    expect(DEFAULT_PAD_STATE).toBe('preview');
+  // 2026-08-21: the default is per-surface now, not one constant. Both halves are asserted,
+  // because "everything starts closed" is only true as a sentence while the exception list is
+  // short — a third surface resting open would need this test changed, which is the point.
+  it('rests the excepted surfaces at preview — To-do`s Today and Me`s Notes', () => {
+    expect(defaultPadState('plans')).toBe('preview');
+    expect(defaultPadState('notes')).toBe('preview');
     expect(resolveCardState({}, 'notes')).toBe('preview');
-    expect(resolveCardState(undefined, 'notes')).toBe('preview');
+    expect(resolveCardState(undefined, 'plans')).toBe('preview');
+  });
+
+  it('rests every other surface closed', () => {
+    expect(defaultPadState('habits')).toBe('closed');
+    expect(defaultPadState('shopping')).toBe('closed');
+    expect(defaultPadState('health')).toBe('closed');
+    expect(defaultPadState('homeTodo')).toBe('closed');
+    expect(resolveCardState({}, 'habits')).toBe('closed');
+    expect(resolveCardState(undefined, 'habits')).toBe('closed');
   });
 
   it('ignores another surface`s entry', () => {
     expect(resolveCardState({ shopping: 'open' }, 'notes')).toBe('preview');
   });
 
-  it('degrades an unknown value instead of resolving to nothing', () => {
+  it('degrades an unknown value to that surface`s own resting state', () => {
     expect(resolveCardState({ notes: 'gigantic' }, 'notes')).toBe('preview');
+    expect(resolveCardState({ habits: 'gigantic' }, 'habits')).toBe('closed');
   });
 });
 
 describe('withCardState', () => {
   it('merges rather than replacing — one card`s chevron must not clear another`s', () => {
-    expect(withCardState({ notes: 'open' }, 'shopping', 'closed')).toEqual({
+    expect(withCardState({ notes: 'open' }, 'shopping', 'open')).toEqual({
       notes: 'open',
-      shopping: 'closed',
+      shopping: 'open',
     });
   });
 
@@ -160,10 +174,29 @@ describe('withCardState', () => {
     expect(withCardState({ notes: 'open' }, 'notes', 'closed')).toEqual({ notes: 'closed' });
   });
 
+  // The bag is "what the user moved", never "what every surface is set to". Storing a value
+  // that equals the default would freeze that surface if the default ever moved again.
+  it('deletes the key when the chosen state IS the surface`s resting state', () => {
+    expect(withCardState({ notes: 'closed' }, 'notes', 'preview')).toEqual({});
+    expect(withCardState({ habits: 'open' }, 'habits', 'closed')).toEqual({});
+  });
+
+  it('keeps other surfaces while deleting one back to its default', () => {
+    expect(withCardState({ notes: 'closed', habits: 'open' }, 'notes', 'preview')).toEqual({
+      habits: 'open',
+    });
+  });
+
   it('returns a new object, so the store sees a changed reference', () => {
     const before = { notes: 'open' };
     expect(withCardState(before, 'notes', 'closed')).not.toBe(before);
     expect(before).toEqual({ notes: 'open' });
+  });
+
+  it('does not mutate the input when deleting a key back to the default', () => {
+    const before = { notes: 'closed' };
+    expect(withCardState(before, 'notes', 'preview')).not.toBe(before);
+    expect(before).toEqual({ notes: 'closed' });
   });
 
   it('copes with no stored states at all', () => {

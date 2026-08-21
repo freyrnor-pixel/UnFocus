@@ -895,11 +895,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // upgrading user sees no change until they pick one.
   layoutDetail: 'normal' as DetailLevel,
   cardLayouts: {},
-  // Empty = every surface follows 'preview' (lib/padState's DEFAULT_PAD_STATE), which is
-  // roughly the card an upgrading user already has.
+  // Empty = every surface rests where lib/cardDefaults.ts puts it, which since 2026-08-21 is
+  // 'closed' for all but To-do's Today and Me's Notes. Only a surface the user has moved OFF
+  // its resting state is stored, so this stays `{}` however much they fold and unfold.
   cardStates: {},
-  // Empty = nothing is folded away. Every existing install reads as this, which is the point:
-  // the feature adds an affordance and changes no card's resting state.
+  // Empty = every card rests where lib/cardDefaults.ts puts it — closed, bar the exceptions.
+  // Same "only what the user moved" storage rule as cardStates above.
   collapsedCards: {},
   // The lab starts empty and preview-only every time — see the field docs above.
   designLab: EMPTY_OVERRIDES,

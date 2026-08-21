@@ -5,6 +5,12 @@
  * A collapsed card keeps its header and its chevron and draws nothing else; nothing about it is
  * unloaded, disabled or deferred — same presentation-only contract lib/cardLayout.ts has.
  *
+ * **A card starts CLOSED as of 2026-08-21** (maintainer: *"All card start in closed state,
+ * except 'Today' 'Notes' and 'Shopping' in middle screen"*). The exceptions are named in
+ * lib/cardDefaults.ts, which is shared with lib/padState.ts because the three cards excepted
+ * are drawn by both mechanisms — see that file's table. This module no longer decides a default
+ * of its own.
+ *
  * Dependency-free on purpose, like lib/cardLayout.ts, lib/padState.ts and lib/growth.ts: this is
  * evaluated in the render path of every tab, so it must not be able to reach a store, the DB, the
  * notification layer or the sync layer. `lib/__tests__/collapsedCards.test.ts` source-scans it for
@@ -12,7 +18,7 @@
  * chevron is components/CardCollapseToggle.tsx.
  *
  * Connections:
- *   Imports → nothing
+ *   Imports → lib/cardDefaults (CARDS_OPEN_AT_REST)
  *   Used by → lib/useCollapsedCard.ts, store/useSettingsStore.ts (sanitize on read)
  *   Data    → none directly; the shape stored in settings.collapsedCards / the
  *             `collapsed_cards` column
@@ -47,13 +53,19 @@
  *     date accumulates entries for rows that no longer exist, and the "the union IS the
  *     validation" property below stops holding the moment ids are built at runtime.
  *   - Sanitized on read, never trusted: an unknown id or a non-boolean value is dropped, so a bag
- *     from an older build or a hand-edited backup can only ever leave a card OPEN. Failing toward
- *     visible is the point — a card the user cannot find is worse than one they must re-collapse.
+ *     from an older build or a hand-edited backup falls back to that card's resting state rather
+ *     than to a stored value nothing here understands. **This used to say a bad entry "can only
+ *     ever leave a card OPEN", and that stopped being true when the default inverted** — a
+ *     dropped entry now lands wherever lib/cardDefaults.ts puts that card, which for most cards
+ *     is closed. What still holds is that nothing disappears: a folded card keeps its header,
+ *     its count and its chevron, so it is one tap from its content either way.
  *   - Not in `lib/aiSetupGuide.ts`'s settings whitelist (an AI-authored file must not be able to
  *     hide the app's surfaces), so no `AI_SETUP_SCHEMA_VERSION` bump. Not in `lib/liveSync.ts`'s
  *     `SyncTable` either: how you folded your own cards is device-local, the same reasoning that
  *     keeps `app_meta`'s view snapshots out of it.
  */
+
+import { CARDS_OPEN_AT_REST } from '@/lib/cardDefaults';
 
 /**
  * Every card that can be folded away, by id.
@@ -86,27 +98,41 @@ export const CARD_IDS = [
 /** A card that can be folded away. See CARD_IDS. */
 export type CardId = (typeof CARD_IDS)[number];
 
-/** The stored shape: only collapsed cards are present, so an absent id means open. */
+/**
+ * The stored shape: only cards the user has moved OFF their resting state are present, so an
+ * absent id means "however lib/cardDefaults.ts draws this card".
+ *
+ * Both booleans are meaningful now. Before the default inverted this held `true` only, because
+ * open was the default and so the absence of a key said it; with most cards resting closed, an
+ * explicit `false` is the only way to record "I opened this one".
+ */
 export type CollapsedCards = Partial<Record<CardId, boolean>>;
+
+/** Whether a card is folded away when the user has chosen nothing for it. */
+export function defaultCollapsed(id: CardId): boolean {
+  return !CARDS_OPEN_AT_REST.includes(id);
+}
 
 function isCardId(raw: string): raw is CardId {
   return (CARD_IDS as readonly string[]).includes(raw);
 }
 
 /**
- * Whether a card is currently folded away. Absent → open, which is what makes `{}` (the
- * column's default, and every existing install) mean "everything as it was".
+ * Whether a card is currently folded away. Absent → that card's resting state, which is what
+ * makes `{}` (the column's default) mean "the app as it is designed to open".
  */
 export function isCollapsed(collapsed: CollapsedCards | undefined, id: CardId): boolean {
-  return collapsed?.[id] === true;
+  const stored = collapsed?.[id];
+  return typeof stored === 'boolean' ? stored : defaultCollapsed(id);
 }
 
 /**
  * Set one card's state, returned as a new object for `settings.update`.
  *
- * Expanding DELETES the key rather than storing `false`. The bag is then exactly "the cards that
- * are folded away" at all times — so it stays small, `{}` keeps meaning "nothing is collapsed"
- * however much the user has fiddled, and a future id can never collide with a stale `false`.
+ * Returning a card to its RESTING state deletes the key rather than storing the value. The bag
+ * is then exactly "the cards the user has moved" at all times — so it stays small, `{}` keeps
+ * meaning "the app as designed" however much the user has fiddled, and a card whose default
+ * later changes follows the new one for everybody who never had an opinion about it.
  */
 export function withCollapsed(
   collapsed: CollapsedCards | undefined,
@@ -114,21 +140,25 @@ export function withCollapsed(
   next: boolean,
 ): CollapsedCards {
   const out: CollapsedCards = { ...(collapsed ?? {}) };
-  if (next) out[id] = true;
-  else delete out[id];
+  if (next === defaultCollapsed(id)) delete out[id];
+  else out[id] = next;
   return out;
 }
 
 /**
- * Drop anything unrecognised. Applied when reading the column, so a bad entry can only ever
- * leave a card open — see the edit notes on why that is the safe direction.
+ * Drop anything unrecognised. Applied when reading the column, so a bad entry falls back to that
+ * card's resting state — see the edit notes.
+ *
+ * A stored value that MATCHES the resting state is dropped too, which keeps the invariant
+ * `withCollapsed` maintains true for a bag that reached us from an older build or a backup.
  */
 export function sanitizeCollapsedCards(raw: unknown): CollapsedCards {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: CollapsedCards = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (value !== true || !isCardId(key)) continue;
-    out[key] = true;
+    if (typeof value !== 'boolean' || !isCardId(key)) continue;
+    if (value === defaultCollapsed(key)) continue;
+    out[key] = value;
   }
   return out;
 }

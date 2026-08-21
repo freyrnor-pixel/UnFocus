@@ -15,8 +15,9 @@
  * tap from anywhere on Home, which is most of why the card is there at all.
  *
  * Connections:
- *   Imports → constants/theme (PAD_PREVIEW_ROWS, PAD_SPARE_LINES), lib/cardLayout
- *             (LayoutSurface — type-only, so no runtime dependency)
+ *   Imports → constants/theme (PAD_PREVIEW_ROWS, PAD_SPARE_LINES), lib/cardDefaults
+ *             (PAD_SURFACES_OPEN_AT_REST), lib/cardLayout (LayoutSurface — type-only, so no
+ *             runtime dependency)
  *   Used by → components/PadSheet.tsx, components/PadFooterToggle.tsx,
  *             components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
  *             app/plans.tsx, store/useSettingsStore.ts (sanitize on read),
@@ -30,12 +31,19 @@
  *     state doesn't draw is still a live row — it keeps its reminders and still counts in
  *     the summary. If you need store state here, pass it in.
  *   - `resolveCardState` falls back rather than throwing, so one bad row in the settings
- *     JSON (older build, hand-edited backup, AI-generated import) degrades to 'preview'
- *     instead of blanking a card.
- *   - Default is 'preview', NOT 'closed': existing users should open the app to roughly
- *     the card they already know, and discover 'closed' by tapping.
+ *     JSON (older build, hand-edited backup, AI-generated import) degrades to that surface's
+ *     resting state instead of blanking a card.
+ *   - **A surface rests at 'closed' as of 2026-08-21**, except the ones lib/cardDefaults.ts
+ *     names, which rest at 'preview' (maintainer: *"All card start in closed state, except
+ *     'Today' 'Notes' and 'Shopping' in middle screen"*). It read 'preview' for everything
+ *     until then, on the reasoning that an upgrading user should open the app to roughly the
+ *     card they already know — which was right while the app had users on the old default and
+ *     is not what was asked for now. The excepted surfaces rest at 'preview' rather than
+ *     'open' deliberately: the point of a three-state card is that its resting size is a
+ *     glance, not the whole list.
  */
 import { PAD_PREVIEW_ROWS, PAD_SPARE_LINES } from '@/constants/theme';
+import { PAD_SURFACES_OPEN_AT_REST } from '@/lib/cardDefaults';
 import type { LayoutSurface } from '@/lib/cardLayout';
 
 /** A pad card's three resting sizes, smallest first. */
@@ -43,11 +51,16 @@ export type PadState = 'closed' | 'preview' | 'open';
 
 export const PAD_STATES: readonly PadState[] = ['closed', 'preview', 'open'] as const;
 
-/** What a card is drawn at when nothing has been chosen for it. */
-export const DEFAULT_PAD_STATE: PadState = 'preview';
-
 /** Surfaces that can carry their own state — the same set that can carry a layout. */
 export type PadSurface = LayoutSurface;
+
+/**
+ * What a surface is drawn at when nothing has been chosen for it. Closed for everything except
+ * the cards lib/cardDefaults.ts excepts — see this file's edit notes.
+ */
+export function defaultPadState(surface: PadSurface): PadState {
+  return PAD_SURFACES_OPEN_AT_REST.includes(surface) ? 'preview' : 'closed';
+}
 
 /**
  * The next size up, wrapping back to closed from open. One chevron cycles all three, so
@@ -58,13 +71,13 @@ export function nextPadState(state: PadState): PadState {
   return PAD_STATES[(i + 1) % PAD_STATES.length];
 }
 
-/** The effective state for a surface; anything unrecognised becomes the default. */
+/** The effective state for a surface; anything unrecognised becomes that surface's default. */
 export function resolveCardState(
   cardStates: Record<string, string> | undefined,
   surface: PadSurface
 ): PadState {
   const raw = cardStates?.[surface];
-  return isPadState(raw) ? raw : DEFAULT_PAD_STATE;
+  return isPadState(raw) ? raw : defaultPadState(surface);
 }
 
 export function isPadState(raw: string | undefined): raw is PadState {
@@ -74,13 +87,21 @@ export function isPadState(raw: string | undefined): raw is PadState {
 /**
  * Set a surface's state, returned as a new object for `settings.update`. Same storage
  * shape as home_card_order / card_layouts.
+ *
+ * Choosing a surface's RESTING state deletes the key rather than storing it, which is what
+ * `lib/collapsedCards.ts`'s `withCollapsed` does for the other mechanism and for the same
+ * reason: `{}` keeps meaning "the app as designed", and a surface whose default later moves
+ * follows it for everyone who never had an opinion about that card.
  */
 export function withCardState(
   cardStates: Record<string, string> | undefined,
   surface: PadSurface,
   state: PadState
 ): Record<string, string> {
-  return { ...(cardStates ?? {}), [surface]: state };
+  const out = { ...(cardStates ?? {}) };
+  if (state === defaultPadState(surface)) delete out[surface];
+  else out[surface] = state;
+  return out;
 }
 
 /** Drop unknown values. Applied when reading the column so a bad entry can't wedge a card. */
