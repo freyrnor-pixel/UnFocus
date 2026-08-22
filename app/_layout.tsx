@@ -76,13 +76,29 @@
  *     doesn't appear on Home, so that cost bought nothing on the launch path. (Every backdrop
  *     is pure SVG — components/ScreenBackground and components/Motif — so there is no
  *     backdrop image to decode at all.)
- *   - **Launch is ONE screen, not two (2026-07-28).** Cold start is: held native splash →
+ *   - **The launch field is the LOGO's colour, and the app name arrives under it
+ *     (2026-08-22).** Maintainer: *"Make the open app animation look smooth, natural, matches
+ *     the color of the app logo (now it's just black) and the app name under."* Two halves:
+ *     app.json's splash background went `#000000` → `#FFFFFF` (assets/icon.png is a blue tree
+ *     on a white card, so on black the card read as a sticker; on white its edges vanish) —
+ *     a NATIVE change, hence the 1.7.0 runtime/version bump — and <LaunchReveal/> below
+ *     continues that exact frame in JS. Both read constants/splash.ts, and
+ *     lib/__tests__/splashHandoff.test.ts fails if app.json and that file drift apart.
+ *     ⚠️ The two must ship TOGETHER: the JS half on a build whose native splash is still
+ *     black is a black-to-white cut on every launch, i.e. worse than what it replaces. And
+ *     it reverses dfa6619's "the splash flashed light into a dark app" — see
+ *     constants/splash.ts for why the reveal's exit is what makes that safe.
+ *   - **Launch is ONE screen, not two (2026-07-28), and <LaunchReveal/> does not reopen
+ *     that.** Cold start is: held native splash →
  *     the app. It used to be splash → a full-screen WelcomeReveal overlay (the same tree
  *     logo the splash had just shown, plus name + tagline, on a fixed ~1.5s timeline) →
  *     the app, which the maintainer reported as "two screens before I land in home".
  *     That component is deleted, along with its `welcomeHeading`/`welcomeTagline` keys.
  *     Don't reintroduce a JS-rendered launch screen: the native splash already shows the
  *     brand, so a second one is a duplicate the user waits through on every single launch.
+ *     LaunchReveal is deliberately not one — it opens on the frame the splash was already
+ *     holding (same field, same logo, same size, same position) and is on screen only while
+ *     it is moving. See its header for the line that must not be crossed.
  *   - Native splash "one clean reveal" (2026-07-16, needs the 1.4.0 build): the native
  *     splash is HELD via SplashScreen.preventAutoHideAsync() at module scope and hidden by
  *     `revealApp` once fonts + settings are ready AND the destination route is settled.
@@ -133,11 +149,11 @@
  *   - <CardExpandHost/> mounted here too (2026-08-20, full-screen card expansion), as a
  *     <Stack> sibling for the same reason AppModalHost is: an absoluteFill overlay outside
  *     the (tabs) group paints above PagerFloatingNav's zIndex:100 with no z-index arithmetic.
- *   - <WelcomeReveal/> (2026-07-19): animated tree brand-reveal overlaid above the Stack,
- *     gated on `showWelcome` (starts true, flipped off by its onDone). Plays once per cold
- *     launch — it bridges the native splash and the app (same themed bg → tree bloom →
- *     dissolve). OTA-safe (pure JS/Reanimated); the native splash it hands off from is
- *     tuned separately in app.json (build-gated).
+ *   - <LaunchReveal/> (2026-08-22, replacing the WelcomeReveal this bullet used to describe
+ *     — that component was deleted on 2026-07-28, see above): mounted above the Stack and
+ *     gated on `canReveal && !launchDone`, so it appears in the same render that hides the
+ *     native splash and unmounts itself via onDone. Pure JS/Reanimated, so the reveal itself
+ *     ships OTA; the field colour it hands off FROM is app.json's, i.e. build-gated.
  *   - useFeedbackStore (debug notes) loads here like every other store; the debug-mode
  *     gate now lives per-anchor in components/DebugNoteAnchor.tsx / ScreenHeader instead
  *     of a single global overlay mount.
@@ -200,6 +216,7 @@ import { useShoppingStore } from '@/store/useShoppingStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import AppModalHost from '@/components/AppModal';
 import CardExpandHost from '@/components/CardExpandHost';
+import LaunchReveal from '@/components/LaunchReveal';
 
 // Cap OS-level font scaling (Dynamic Type / Android font size) so it can't overflow the
 // app's chrome — BottomNav, FAB, chips, etc. (MAX_FONT_SCALE lives in constants/theme.ts,
@@ -628,6 +645,13 @@ export default function RootLayout() {
     segments[0] === 'onboarding';
   const canReveal = appReady && (routeSettled || failsafeElapsed);
 
+  // The JS half of the launch (components/LaunchReveal.tsx) — it picks up the native splash's
+  // exact frame, writes the app name under the logo and dissolves the field into theme.bg.
+  // Mounted only once `canReveal` is true, i.e. in the same render that hides the splash, so
+  // the two surfaces never disagree about what is on screen.
+  const [launchDone, setLaunchDone] = useState(false);
+  const finishLaunch = useCallback(() => setLaunchDone(true), []);
+
   const revealApp = useCallback(() => {
     if (canReveal) {
       void SplashScreen.hideAsync().catch(() => { /* already hidden */ });
@@ -693,6 +717,7 @@ export default function RootLayout() {
       </Stack>
       <AppModalHost />
       <CardExpandHost />
+      {canReveal && !launchDone ? <LaunchReveal onDone={finishLaunch} /> : null}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

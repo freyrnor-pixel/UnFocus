@@ -8,6 +8,7 @@
  * Connections:
  *   Imports → react-native-reanimated (Easing)
  *   Used by → components/Collapsible, components/AnimatedChevron, lib/useToggleProgress,
+ *             components/LaunchReveal (launchName/launchHold/launchOut),
  *             components/BottomNav (tabSwitch), components/AppModal, AnimatedBottomSheet,
  *             AddDishSheet, AddFromMonthlyModal, ConfirmationBanner, DraggableTaskRow,
  *             EnergyMeter, FlightOverlay, FormControls, GlowPulse, PressableScale,
@@ -63,6 +64,17 @@ export const Duration = {
   modalOut: 220,
   /** celebration bloom */
   celebration: 650,
+  /** the launch handoff — the app name rising in under the logo the native splash was already
+   *  showing (components/LaunchReveal.tsx). §1's 300-400ms "hero transitions" band: this is the
+   *  whole viewport introducing the app, and under ~250ms the name reads as popping in. */
+  launchName: 360,
+  /** how long the finished brand mark holds before the field starts dissolving. Deliberately
+   *  short — it is a beat that lets the name be READ, not a wait. */
+  launchHold: 100,
+  /** the launch field dissolving into the app's own background colour. Faster than
+   *  `launchName` per §1 (exits are faster than entrances) and the reason the reveal reads as
+   *  one screen: the field ENDS on theme.bg, so the unmount has nothing left to show. */
+  launchOut: 340,
   /** a cap sinking under the finger in PressableScale's *scale* mode — 80, not
    *  PRESS_DURATION's 90, which is the `travel` mode's curve. Both are tester-validated
    *  (2026-07-21, "buttons don't feel animated" resolved as press-in duration); don't
