@@ -1,9 +1,9 @@
 /**
- * HomeCardManager.tsx — reorderable wrapper for the Me tab's preview cards, plus the
+ * HomeCardManager.tsx — reorderable wrapper for the Home tab's preview cards, plus the
  * "Retired" shelf that every hidden one falls to.
  *
  * **This component defines what "reorderable" means on Me, by omission.** Only the kinds
- * Home passes in `order` (`HOME_CARD_KINDS` in app/(tabs)/index.tsx — habits/notes/health)
+ * Home passes in `order` (`HOME_CARD_KINDS` in lib/homeCards.ts — plans/notes/shopping)
  * can be dragged or retired. The Energy strip, the incoming-Shared card and the cumulative
  * "you've done N things" line are rendered as SIBLINGS of this component, never as entries in
  * it, which is exactly what makes them fixed — there is no flag to check and no way for a
@@ -22,7 +22,7 @@
  *             components/PressableScale, constants/theme, lib/haptics, lib/i18n,
  *             lib/screenColor (the drawer wears the host screen's hue), lib/useDragReorder,
  *             lib/useAppTheme
- *   Used by → app/(tabs)/index.tsx (the Me tab's Habits/Notes/Health preview stack)
+ *   Used by → app/(tabs)/index.tsx (the Home tab's Today/Notes/Shopping preview stack)
  *   Data    → none — pure presentational, all mutations bubbled up via callbacks
  *
  * Edit notes:
@@ -43,14 +43,16 @@
  *     nothing about reordering: a long-press-drag committed via `onReorder` whether or not the
  *     delete/add chrome was showing. Don't reintroduce a mode to "protect" the drag.
  *   - **The shelf is absent, not empty, when nothing is retired.** A permanently visible
- *     "Retired (0)" card at the foot of every Me tab is a row of furniture about a state the
+ *     "Retired (0)" card at the foot of every Home tab is a row of furniture about a state the
  *     user is not in. It appears the moment the first card is hidden and leaves with the last
  *     restore.
- *   - ⚠️ **`habits` and `health` cannot STAY retired**, and that is not a bug here.
- *     `sanitizeHomeCardOrder()` (app/(tabs)/index.tsx) APPENDS those two whenever they are
- *     missing on read, because neither has anywhere else to live. Hiding one puts it in the
- *     shelf for this render and the next read brings it back. If that is ever to change it
- *     changes in the sanitizer, not by special-casing a kind in this file.
+ *   - **Every kind can now STAY retired** (2026-08-23). `sanitizeHomeCardOrder()`
+ *     (lib/homeCards.ts) used to APPEND some kinds on every read — correct while those were
+ *     cards with no other surface in the app ('habits', 'health'), and wrong the moment the
+ *     list held cards that preview a TAB, because then hiding one only moved it to the bottom
+ *     of the stack and this shelf never saw it. The repair is scoped to legacy rows now. If a
+ *     kind ever again has nowhere else to live, that changes in the sanitizer, not by
+ *     special-casing a kind in this file.
  *   - Drag is always enabled per row (no `isOpen` lift from the wrapped cards' own internal
  *     expand/collapse state — the cards manage that privately). Dragging a card while it is
  *     expanded works but reflows a larger block; accepted trade-off vs. threading expand state
@@ -142,7 +144,7 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
 }
 
 const baseStyles = StyleSheet.create({
-  // The one rhythm between the Me tab's preview cards (2026-08-08). Each card used to carry
+  // The one rhythm between the Home tab's preview cards (2026-08-08). Each card used to carry
   // its own `marginBottom: Spacing.sm`, which is how this screen ended up at an 8px rhythm
   // while the list screens ran at 32 — see SCREEN_GAP in constants/theme.ts.
   cardList: { gap: SCREEN_GAP },

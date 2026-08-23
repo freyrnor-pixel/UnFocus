@@ -23,6 +23,12 @@
  *             `tasks.tag_ids`
  *
  * Edit notes:
+ *   - ⚠️ **`remove()` rewrites rows in ANOTHER table, and those need the stamp too.** It clears
+ *     the tag out of `tasks.tag_ids`, which is a whitelisted synced column — so those rows go
+ *     through `syncRows('tasks', …)`, not a bare `broadcastRow` loop. It shipped as the loop:
+ *     the delta carried the task's OLD `updated_at`, `incomingWins` rejected it on the tie, and
+ *     the tag stayed on the paired phone (then came home in that phone's next full-row
+ *     snapshot). See __tests__/relatedRowSync.test.ts.
  *   - Every mutation goes through `syncTagRow`/`softDelete`. A raw `updateRow` here
  *     changes local state without the peer ever hearing about it. `syncTagRow` is a
  *     one-line wrapper naming this store's table; the stamp+broadcast body it used to
@@ -55,7 +61,7 @@ import { generateId } from '@/lib/id';
 import { findTagByName, normalizeTagName, parseTagIds, serializeTagIds } from '@/lib/tags';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
-import { syncRow } from '@/lib/syncRow';
+import { syncRow, syncRows } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
 // Link cleanup only, used inside remove() at call time — never at module-eval time.
 import { useTaskStore } from '@/store/useTaskStore';
@@ -171,7 +177,15 @@ export const useTagStore = create<TagStore>((set, get) => ({
     // Mirror the column change into the task store's in-memory state, and push each
     // rewritten task to peers — see the edit note on why the tombstone alone isn't enough.
     useTaskStore.getState().clearTag(id);
-    for (const row of affected) broadcastRow('tasks', row.id);
+    // ⚠️ **`syncRows`, not a bare `broadcastRow` loop.** `tag_ids` is a whitelisted synced
+    // column (lib/liveSync.ts's TABLE_COLUMNS), and the UPDATE above does not touch
+    // `updated_at` — so a broadcast alone ships the rewritten row under its OLD stamp, which
+    // `incomingWins` rejects outright (equal timestamp, equal origin device → the peer keeps
+    // its copy). The tag came back on the other phone, and the peer's next edit to any field
+    // on that task carried the deleted tag home in its full-row snapshot. Exactly the
+    // useShoppingStore bulk-transition bug of 2026-08-10, in a store that had the fix
+    // available and was still doing it by hand.
+    syncRows('tasks', affected.map((row) => row.id));
   },
 
   byId(id) {

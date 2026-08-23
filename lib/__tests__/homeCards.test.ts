@@ -1,28 +1,31 @@
 /**
- * homeCards.test.ts — a card that was REMOVED is not a card that lost its only surface.
+ * homeCards.test.ts — a card that was REMOVED is not a card that lost its only surface, and a
+ * card the USER hid is neither.
  *
- * `sanitizeHomeCardOrder` has to give two opposite answers to the same input shape (a stored
- * order missing a kind), and which one is right depends entirely on whether the missing card is
- * reachable anywhere else:
+ * `sanitizeHomeCardOrder` has to give three different answers to the same input shape (a stored
+ * order missing a kind), and which one is right depends on why it is missing:
  *
  *   - **Removed** ('goals' 2026-07-29; 'habits', 'health' and 'medicine' 2026-08-22, when the
  *     bottom nav went back to five tabs): the plain unknown-kind filter is exactly right.
  *     Nothing is lost — Habits and Health are tabs, and Medicine is a card on the Health tab.
- *   - **Appended** ('plans', 'shopping'): a stored order not naming one of these means the card
- *     is simply absent from that install, with no error and nothing on screen saying so. Every
- *     stored row in existence was written while both were DROPPED kinds (2026-08-19 → 2026-08-22),
- *     so a filter-only change would have restored them for nobody.
+ *   - **Not yet nameable** ('plans', 'shopping' in a row written between 2026-08-19 and
+ *     2026-08-22, when neither was a kind): repaired by appending, because that install would
+ *     otherwise simply not have the card, with no error and nothing on screen saying so.
+ *   - **Hidden on purpose** (any kind, in a row this build wrote): left out. Both restored kinds
+ *     preview a whole TAB, so hiding one costs a shortcut rather than a surface, and the Retired
+ *     shelf at the foot of Home is the way back.
  *
- * ⚠️ **The two lists swapped places in the same pass**, which is the sharpest illustration of why
- * this parse exists at all: nothing about a kind's NAME says which treatment it gets, only
- * whether the surface behind it has anywhere else to live today.
+ * ⚠️ **The middle and the last case are the same input**, which is why the parse looks at what
+ * the row DOES name: a legacy kind is the evidence that its author never had the chance to name
+ * the missing one. Shipping the repair without that test made the ⋮ menu's "Hide" move Today and
+ * Shopping to the bottom of Home instead of retiring them (2026-08-23).
  *
  * That is the reason this parse lives in a module of its own rather than inside
- * app/(tabs)/index.tsx, and the reason the append is on READ rather than only a lib/db.ts
+ * app/(tabs)/index.tsx, and the reason the repair is on READ rather than only a lib/db.ts
  * migration: a one-shot UPDATE runs once per install and would miss a row written afterwards by
  * an older build — a restored backup, or a paired device that has not updated yet. (There IS
  * such a migration in the 2026-08-22 release, because appending puts the returning kinds at the
- * END and the maintainer named an order; the append is the safety net under it, not the plan.)
+ * END and the maintainer named an order; the repair is the safety net under it, not the plan.)
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -112,33 +115,62 @@ describe('the kinds that were removed rather than moved', () => {
   });
 });
 
-describe('the appended kinds — the cards a stored row cannot name yet', () => {
-  it("appends 'plans' to an order that does not name it", () => {
-    expect(sanitizeHomeCardOrder(['notes', 'shopping'])).toEqual(['notes', 'shopping', 'plans']);
+describe('the repair — a LEGACY row gets the kinds it could not have named', () => {
+  // Every order written between 2026-08-19 and 2026-08-22 named 'habits'/'health'/'medicine'
+  // and could not name 'plans' or 'shopping', which were not kinds at all in that window. A
+  // lib/db.ts migration empties the column for installs that take the update in order; this
+  // covers the row that arrives afterwards — a restored backup, or a device left behind.
+  it("puts 'plans' back for a row that names a kind from the old card set", () => {
+    expect(sanitizeHomeCardOrder(['notes', 'shopping', 'habits'])).toEqual([
+      'notes',
+      'shopping',
+      'plans',
+    ]);
   });
 
-  // Every stored row in existence was written while 'shopping' was a dropped kind, so this is
-  // not an edge case — it is the shape EVERY install is in the moment the restore ships.
-  it("appends 'shopping' to every order written while it was dropped", () => {
-    expect(sanitizeHomeCardOrder(['plans', 'notes'])).toEqual(['plans', 'notes', 'shopping']);
+  it('puts both back, in RESTORED_KINDS order', () => {
+    expect(sanitizeHomeCardOrder(['notes', 'health', 'medicine'])).toEqual([
+      'notes',
+      'plans',
+      'shopping',
+    ]);
   });
 
-  it('appends both when both are missing, in ALWAYS_PRESENT order', () => {
-    expect(sanitizeHomeCardOrder(['notes'])).toEqual(['notes', 'plans', 'shopping']);
-  });
-
-  it('is a no-op when the kind is already present, wherever it sits', () => {
-    expect(sanitizeHomeCardOrder(['shopping', 'notes', 'plans'])).toEqual([
+  it('is a no-op when the legacy row already names them', () => {
+    expect(sanitizeHomeCardOrder(['shopping', 'notes', 'plans', 'goals'])).toEqual([
       'shopping',
       'notes',
       'plans',
     ]);
   });
+});
 
-  it("leaves 'notes' out when the user has removed it", () => {
-    // The one card here that CAN be hidden for good: its content is a preview of a surface the
-    // card itself expands into, so losing it loses a shortcut, not a feature. The two appends
-    // above are deliberately asymmetric with this — see lib/homeCards.ts's warning.
+describe('a row this build wrote is left alone — hiding a card sticks', () => {
+  // ⚠️ The regression this pair exists for (2026-08-23). The append ran on EVERY order, carried
+  // over from when it held cards with no other surface in the app — so hiding Today or Shopping
+  // from the ⋮ menu wrote an order the very next read undid, and the card reappeared at the
+  // BOTTOM of Home instead of in the Retired shelf. Both kinds preview a whole TAB now, so
+  // hiding one costs a shortcut, not a surface.
+  it("keeps 'plans' hidden when the user hid it", () => {
+    expect(sanitizeHomeCardOrder(['notes', 'shopping'])).toEqual(['notes', 'shopping']);
+  });
+
+  it("keeps 'shopping' hidden when the user hid it", () => {
+    expect(sanitizeHomeCardOrder(['plans', 'notes'])).toEqual(['plans', 'notes']);
+  });
+
+  it('keeps a single surviving card single, rather than refilling the screen', () => {
+    expect(sanitizeHomeCardOrder(['notes'])).toEqual(['notes']);
+  });
+
+  it("leaves 'notes' out when the user has removed it, as it always has", () => {
     expect(sanitizeHomeCardOrder(['plans', 'shopping'])).toEqual(['plans', 'shopping']);
+  });
+
+  it('still falls back to the default when the user hid every card', () => {
+    // The one case where a choice is overruled, and it predates this pass: an empty result is
+    // indistinguishable from a corrupt row, and a Home tab with nothing on it is not a state
+    // worth reproducing faithfully. The Retired shelf is how the other hides are undone.
+    expect(sanitizeHomeCardOrder([])).toEqual([...HOME_CARD_KINDS]);
   });
 });

@@ -95,7 +95,7 @@ file owns which token.)
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **five tabs since 2026-08-22**: Shop · To-do · **Home (CENTRE)** · Habits · Health (`Handle` · `Gjøremål` · `Hjem` · `Vaner` · `Helse`). The real `<TopTabs.Screen>` order is in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so **trust the navigator, not this line**. Maintainer: *"The logic was sound before. 'Home' had easy access to todays tasks, Notes, and shopping. I think 5 screens might be needed again, so we can split at least into Shopping, To-do, Home, Habits and Health."*
   - **This REVERSES both the 2026-08-20 5→3 merge and the 2026-08-19 "To-do to the middle, Home becomes Meg" pass**, which rested on one argument — *a preview card for a neighbouring tab is a second, shorter copy of that tab*. It is **overruled for Home's three cards** (seeing three surfaces at once without swiping to any of them is what a hub is FOR) and **kept for Habits and Health** (a card AND a tab for one surface is the duplication worth avoiding). Full lineage: Shopping/Plans/Home/Habits/Health (Decision 036) → Shopping/Home/Health (5→3 merge) → Shopping/Home/To-do → Shopping/To-do/Home → **this, which is Decision 036 again**.
-  - **Home is 3 cards: Today, Notes, Shopping** (`lib/homeCards.ts`'s `HOME_CARD_KINDS` = `['plans','notes','shopping']`), and they are the app's only three `openAtRest` cards — so the maintainer's rule *"All card start in closed state, except 'Today' 'Notes' and 'Shopping' in middle screen"* is now literally true rather than approximately. `sanitizeHomeCardOrder()` FILTERS the three departed kinds and APPENDS the two returning ones; a `lib/db.ts` migration additionally empties `home_card_order` and `collapsed_cards`, because appending would land Today and Shopping *after* Notes. `components/HomeShoppingCard.tsx` is restored (from `7ad9e9d^`) and now goes through `components/Card.tsx`; `HomeHabitsCard.tsx` and `HomeHealthCard.tsx` are **deleted** — their content is `HabitsSurface`/`HealthSurface`, mounted by a screen.
+  - **Home is 3 cards: Today, Notes, Shopping** (`lib/homeCards.ts`'s `HOME_CARD_KINDS` = `['plans','notes','shopping']`), and they are the app's only three `openAtRest` cards — so the maintainer's rule *"All card start in closed state, except 'Today' 'Notes' and 'Shopping' in middle screen"* is now literally true rather than approximately. `sanitizeHomeCardOrder()` FILTERS the three departed kinds and REPAIRS a legacy row by appending the two returning ones; a `lib/db.ts` migration additionally empties `home_card_order` and `collapsed_cards`, because appending would land Today and Shopping *after* Notes. ⚠️ **That append is scoped to rows naming a `LEGACY_KIND` since 2026-08-23, and the scoping is the fix for a real bug.** It ran on EVERY order — inherited from 2026-08-20, when the list held `habits`/`health`/`medicine`, cards with no other surface in the app, where "it comes back" was the deliberate trade. Every kind here previews a TAB now, so the unconditional append meant the ⋮ menu's **Hide** on Today or Shopping wrote an order the next read undid: the card reappeared at the BOTTOM of Home instead of in the Retired shelf, i.e. two of the three cards had a menu row that visibly did the wrong thing. The rule to carry forward is that *put it back* and *leave it where the user put it* are two questions, and the answer turns on whether the kind has another home — not on the kind's name. `components/HomeShoppingCard.tsx` is restored (from `7ad9e9d^`) and now goes through `components/Card.tsx`; `HomeHabitsCard.tsx` and `HomeHealthCard.tsx` are **deleted** — their content is `HabitsSurface`/`HealthSurface`, mounted by a screen.
   - ⚠️ **`'home'` is still the KEY and `/` is still the route.** Only the label, the icon and the position have ever moved. Because `/` is the CENTRE tab again, `START_TAB_ROUTE_PATH` (`lib/siteNav.ts`) is `/` — but for the opposite reason it used to be: not because `settings.startScreen` says so (still inert, still no picker), but because the centre tab happens to be Home. The cold-start redirect in `app/_layout.tsx` is now a no-op and is kept deliberately.
   - **`app/habits.tsx` and `app/health.tsx` moved into `app/(tabs)/`** as thin `tier="site"` `ScreenScaffold` wrappers around `HabitsSurface`/`HealthSurface` — the same shape `app/(tabs)/plans.tsx` has around `TodoSurface`. Those surfaces exist BECAUSE of the merge (they were extracted when the tabs were folded away), which is most of why restoring the tabs cost so little. **Medicine moved to the Health tab** as a peer card (`components/MedicineCard.tsx`, was `HomeMedicineCard`), never inside Health's own `Surface`.
   - ⚠️ **The 2026-07-23 E1 finding is live again**: Habits once lived INSIDE the Health tab and had to be split back out, because a tab whose name promised symptom tracking hid a whole habit system. Don't fold either into the other for tidiness. Medicine on Health is not that case — it is health, and it is a visible peer card.
@@ -2430,7 +2430,19 @@ the 2026-07-28 pass. Widths worth checking: 430 (Pro Max), 393 (iPhone 15/Pixel 
 (small Android), and 327 as a proxy for the `large` font setting (1.2x) at 393. Set
 `FORCE_BUILD=1` to rebuild `dist/` first; otherwise it reuses the existing bundle.
 
-**Coverage.** The walk measures onboarding, the tour card, all three tabs, Settings, the
+⚠️ **The whole run DIED on the 2026-08-22 nav restructure, and three more steps were pointing
+at the old geography behind it (fixed 2026-08-23).** `goHome` waited on a "Meg" tab that no
+longer exists, so `npm run wraps` exited 1 at the first tab loop and measured nothing. Once that
+was fixed: `tabs` still held two entries, so **Habits and Health were not measured at all**; the
+habit quick-add, the symptom form and the medicine editor were each reached "via Home", where
+none of them lives any more; and every card outside Home's three rests closed, so a locator
+aimed inside one waits 30s and the step skips. There is an `openCard(page, title)` helper for
+that now, keyed on `CardCollapseToggle`'s `<card title>: <expandListLabel>` accessible name.
+**A nav or resting-state change is what breaks this audit**, and it breaks it by un-measuring
+screens rather than by failing — read the "screens measured" line, which is 22 screens in both
+`no` and `en`.
+
+**Coverage.** The walk measures onboarding, the tour card, all five tabs, Settings, the
 **design lab** (2026-08-06 — pushed from Settings → Advanced, and scanned last because both it
 and Settings are dead ends; the walk has to throw its off-by-default switch first. **Since the
 playground rebuild that is SIX scans**: the playground empty, with a card on it, and with a
@@ -2454,7 +2466,7 @@ a mode this audit doesn't walk is not a mode it passes. When you add a surface w
 horizontal pressure, add a step for it.
 
 Three things constrain how steps can be ordered, all verified rather than assumed:
-- **The run is THREE passes.** `settings`, `medicine-form` and — since the 2026-08-20 5→3 tab
+- **The run is FOUR passes.** `settings`, `medicine-form` and — since the 2026-08-20 5→3 tab
   merge — **the To-do screen** are dead ends (pushed screens that render no `BottomNav`), so
   only one of them can end a pass. `health-form` is a push that *keeps* BottomNav, so it
   doesn't need one. ⚠️ **Two of this walk's locators had gone stale and were skipping silently**
@@ -2488,7 +2500,7 @@ Known-benign findings, don't "fix" them:
   scans (`home`, `Handle`, `Gjøremål`) over `tour-step` for anything that is not the tour's own
   coach card.** Verified at 327/360/430 in Norwegian: no card title truncates on a directly
   measured screen.
-- Two **`[y]` findings on `tour-step`** (2026-08-21): the Me tab's content and its last card,
+- Two **`[y]` findings on `tour-step`** (2026-08-21): the Home tab's content and its last card,
   reported as cut off at the bottom. The tour locks scrolling while the spotlight is up, so
   ordinary below-the-fold content has no scroller to be reachable through and the walk records it
   as clipped. Nothing is wrong with the cards; the run is clean at 2 findings.
@@ -2516,6 +2528,18 @@ Known-benign findings, don't "fix" them:
   `minimumFontScale` 0.85, which react-native-web implements neither of — the exact artifact
   this audit's own TRUNCATED warning describes. A few px against a 15% shrink floor is
   comfortable; don't shorten the words for it.
+
+**The Delete·Discard·Save row was fixed in the task editor and nowhere else, and that showed
+up as a sliced Save button (2026-08-23).** `npm run wraps --lang=no --width=360` reported the
+medicine editor's Discard/Save pair 7px past the pop-up pane's own overflow mask — a CLIPPED
+control, the same category as the voice mic. `justifyContent: 'space-between'` shrinks nothing:
+Slett (84) + Forkast·Lagre (205) needs 289px in the 267 a 92%-wide `CenterModalScreen` pane
+leaves at 360, so the surplus simply hung off the end. `components/TaskCard.tsx` had carried the
+fix (`flexWrap` + `rowGap`, `marginLeft: 'auto'` on the right cluster) since 2026-08-01;
+`app/medicine-form.tsx` and `app/habit-form.tsx` — which copied the row and whose header even
+says "same row as habit-form" — never got it. All three now agree, gap included. ⚠️ The finding
+only names an unlabelled `<div>`, so the audit's CLIPPED entries carry the element's own TEXT on
+both axes now ("ForkastLagre" is what made it findable); it used to be y-axis only.
 
 The task editor's own `--width=327` findings (Energy stepper, add-step button,
 Delete·Discard·Save) were **fixed** the same day; the audit is clean at 327/360/393/430 in
@@ -2597,6 +2621,28 @@ Two things there are worth knowing before editing it:
   no-op on several screens.
 
 ## Known gotchas
+
+- **⚠️ A delete that rewrites rows in ANOTHER table has to STAMP them, not just broadcast them
+  (2026-08-23, `__tests__/relatedRowSync.test.ts`).** Three deletes clear a column on rows they
+  do not own, with raw SQL rather than the owning store's `update()`: `useTagStore.remove()`
+  → `tasks.tag_ids`, `useTaskStore.remove()` → the follower's `follows_task_id`, and
+  `usePeopleStore.remove()` → `tasks.assignee_id`. **All three columns are in `lib/liveSync.ts`'s
+  `tasks` whitelist and none of the three UPDATEs moved `updated_at`** — the 2026-08-10 shopping
+  bug (below) in three more places, found by grepping every raw `UPDATE <synced table>` against
+  `TABLE_COLUMNS` rather than by anything failing.
+  - **The tag one is the instructive shape: it DID broadcast.** A `broadcastRow` with no
+    `touchRow` ships the rewritten row under its OLD stamp, and `incomingWins` rejects it on the
+    spot (equal `updated_at`, equal `origin_device_id` → the peer keeps its copy). So the
+    deleted tag stayed on the other phone, and that phone's next edit to any field on the task
+    carried it home in the full-row snapshot. **A broadcast without a stamp is not "most of the
+    fix", it is none of it** — which is why the test asserts the PAIR.
+  - `useTaskStore.setFollower()` had been doing it correctly since it was written, one function
+    away from `remove()`, which nulled the same column and told nobody. Diff the copies: the odd
+    one out is the finding, exactly as the 2026-08-12 `update()`-guard survey found.
+  - The fix at each site is the same two lines: read the affected ids BEFORE the tx (the UPDATE
+    is what makes the predicate stop matching), then `syncRows('tasks', ids)` after it.
+    `store/useShoppingListStore.ts`'s orphan back-fill is the one deliberate non-case — it
+    writes `list_id` on load to repair a local row, and `shopping_lists` is not a synced table.
 
 - **⚠️ A `flex: N` shorthand next to `flexBasis: 'auto'` resolves to basis ZERO on device and
   silently deletes the content (2026-08-18, from a user screenshot of a habit's "Hvor ofte?"

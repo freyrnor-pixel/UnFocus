@@ -53,6 +53,11 @@
  *     NULL`. `clearAll()` (bulk local reset) is deliberately NOT broadcast — see its
  *     own comment. Both no-op safely when sync isn't running (broadcastRow) or a
  *     peer isn't connected.
+ *   - ⚠️ **`remove()` also nulls SOMEONE ELSE'S `follows_task_id`, and that row needs the pair
+ *     as well.** `setFollower()` has stamped both ends of that link since it was written;
+ *     `remove()` nulled the same synced column with raw SQL and told nobody, so a peer kept a
+ *     link to a deleted task and handed it back on its next edit. The orphaned follower ids are
+ *     read before the tx and pushed with `syncRows` after it — __tests__/relatedRowSync.test.ts.
  *   - **Undoable delete (2026-07-27, user report: "no apparent way to delete and recover
  *     deleted tasks").** The tombstone above was already the whole mechanism — `restore(id)`
  *     just clears `deleted_at` (stamping updated_at/origin_device_id and broadcasting, since
@@ -202,7 +207,7 @@ import { syncTaskNotification as scheduleTaskReminder } from '@/lib/taskNotifica
 import { syncTaskCalendarEvent, cancelTaskCalendarEvent } from '@/lib/taskCalendar';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
-import { syncRow } from '@/lib/syncRow';
+import { syncRow, syncRows } from '@/lib/syncRow';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
 
 export type TaskType = 'start-at' | 'time-box';
@@ -878,6 +883,15 @@ export const useTaskStore = create<TaskStore>((set, get) => {
 
   remove(id) {
     const task = get().tasks.find((t) => t.id === id);
+    // Whoever follows this task loses the link in the tx below. `follows_task_id` is a
+    // whitelisted synced column, so those rows have to be STAMPED and broadcast, not just
+    // mutated — collected here because the UPDATE is what makes the predicate stop matching.
+    // setFollower() has done exactly this since it was written; remove() nulled the same
+    // column and told nobody, so a peer kept the dangling link and handed it back on its next
+    // edit to that row.
+    const orphanedFollowerIds = get()
+      .tasks.filter((t) => t.followsTaskId === id)
+      .map((t) => t.id);
     tx(() => {
       // Decision 020 ON DELETE SET NULL, enforced here since SQLite can't ALTER
       // TABLE to add a real FK: any row that followed this task loses the link.
@@ -894,6 +908,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     void cancelTaskNotification(id);
     if (task?.calendarEventId) void cancelTaskCalendarEvent(task.calendarEventId);
     broadcastRow('tasks', id);
+    syncRows('tasks', orphanedFollowerIds);
     if (task?.done) bumpLifetimeCompletedTasks(-1);
     set((s) => ({
       tasks: s.tasks
