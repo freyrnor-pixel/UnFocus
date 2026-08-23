@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // preview.mjs — Playwright driver for the web preview: walks onboarding, screenshots
-// every main tab, and exercises "add a task" (To-do tab) and "add a habit" (Me tab) and
-// "add a medicine + log a dose" (Health) — each verified to survive a tab round-trip —
+// every main tab, and exercises "add a task" (To-do tab) and "add a habit" (Habits tab) and
+// "add a medicine + log a dose" (Health tab) — each verified to survive a tab round-trip —
 // to prove three stores' write→read paths through the in-memory sql.js DB, not just
 // static render. Also renders the two pushed sub-screens reachable without data setup
 // (Settings, the medicine editor). Chromium is pre-installed under
@@ -72,6 +72,32 @@ async function anyVisibleText(page, text) {
 // button) is deliberately equivalent to any other way of leaving that sheet —
 // see components/MonthlyResetReviewSheet.tsx's header — so clicking it here
 // is exactly the same "just get past this" behavior as "Got it" below.
+/**
+ * Open a card by its title, if it is resting closed.
+ *
+ * ⚠️ **Every card rests CLOSED except the three lib/cardRegistry.ts marks `openAtRest`** (Today,
+ * Notes and Shopping, all on the Home tab), and closed is a bare header — so a composer or a row
+ * inside any other card simply does not exist until it is opened. A step that reaches for one
+ * without opening it does not fail where the mistake is: it either times out thirty seconds
+ * later, or, worse, resolves `.first()` to a same-named element on another mounted pager page
+ * and passes vacuously. Both have happened in this walk.
+ *
+ * Matched by PREFIX rather than the exact string: the chevron's accessible name is
+ * `<card title>: <action>`, and the action half is localised.
+ */
+async function openCardByTitle(page, title) {
+  const toggle = page.getByRole('button', { name: new RegExp(`^${title}: `) }).first();
+  if (!(await toggle.count())) return false;
+  // The chevron is present in both states, so ask which one it is: an expanded card's toggle
+  // offers "Collapse". Re-opening an open card would close it, which is the failure this guards.
+  const name = (await toggle.getAttribute('aria-label')) ?? '';
+  if (/collapse/i.test(name)) return true;
+  await toggle.scrollIntoViewIfNeeded();
+  await toggle.click({ timeout: 10000 });
+  await page.waitForTimeout(600);
+  return true;
+}
+
 /**
  * Open the first pad card on the current tab, whatever size it is resting at.
  *
@@ -227,12 +253,13 @@ async function main() {
     // Navigate via the in-app BottomNav (client-side route change), NOT page.goto() —
     // the DB is in-memory (sql.js fallback, see lib/sqlite.web.ts); a full page
     // navigation reloads the bundle and wipes it, bouncing back to onboarding.
-    // Three tabs, reordered 2026-08-19: Shop · To-do (centre) · Me. Health left the nav for a
-    // card on Me (2026-08-20, "full-screen card expansion"); Habits is still a pushed
-    // sub-screen and is visited at the END of this walk, with Settings and the design lab —
-    // reaching one costs a goBack(), which reloads the document and wipes the in-memory
-    // sql.js DB, so it cannot sit in the middle of the write-path checks.
-    for (const [tab, shotName] of [['Shop', 'shopping'], ['To-do', 'todo']]) {
+    // ⚠️ **Five tabs again since 2026-08-22**: Shop · To-do · Home (CENTRE) · Habits · Health.
+    // Habits and Health are back on the bar, so neither needs the goBack() excursion this walk
+    // used to spend on them — which matters, because a goBack() reloads the document and wipes
+    // the in-memory sql.js DB, so it can never sit in the middle of the write-path checks. The
+    // walk starts on Home (the app opens on the centre tab), so Home is shot above and the loop
+    // covers the other four.
+    for (const [tab, shotName] of [['Shop', 'shopping'], ['To-do', 'todo'], ['Habits', 'habits'], ['Health', 'health']]) {
       console.log(`> ${tab} tab`);
       await page.getByRole('button', { name: tab, exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(1000);
@@ -305,8 +332,8 @@ async function main() {
     await clickText(page, 'Done');
     await page.waitForTimeout(500);
 
-    console.log('> back to the Me tab');
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    console.log('> back to the Home tab');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1000);
     await shot(page, 'home-again');
 
@@ -318,13 +345,20 @@ async function main() {
     // below it, and a worded "More options" button. If a regression ever un-boxes the
     // composer, this screenshot is where it shows up.
     //
-    // It runs HERE, on Home, and clicks rather than focus()es, for two reasons that bit
-    // during the 2026-08-05 pass: all five tab screens are mounted (`lazy: false`), so a bare
-    // .first() on a shared label resolves to Home's card no matter which tab is on screen —
-    // focusing it from the Habits tab silently focused an off-screen input and produced a
-    // screenshot of an idle line. And a programmatic DOM focus() does not reliably drive
+    // It CLICKS rather than focus()es, for two reasons that bit during the 2026-08-05 pass: all
+    // five tab screens are mounted (`lazy: false`), so a bare .first() on a shared label can
+    // resolve to a card on a screen that is not the one showing — focusing it silently focused
+    // an off-screen input and produced a screenshot of an idle line. And a programmatic DOM
+    // focus() does not reliably drive
     // react-native-web's onFocus, which is what the panel and buttons hang off.
-    console.log('> Home quick-add, focused and empty');
+    // ⚠️ **This runs on the HABITS TAB since 2026-08-22, not on Home.** The habit composer moved
+    // with its card: Habits is a bottom-nav tab again and Home carries Today/Notes/Shopping, so
+    // there is no habits quick-add on Home to focus. The state being checked is unchanged — see
+    // below — and the tab is one click away, no goBack(), so the in-memory sql.js DB survives it.
+    console.log('> habit quick-add, focused and empty');
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    await dismissModalIfPresent(page);
     // ⚠️ **Open the Habits card first.** Every card rests CLOSED except the three
     // lib/cardRegistry.ts marks `openAtRest`, and closed is a bare header as of 2026-08-21 — so
     // the composer this step focuses does not EXIST until the card is opened. A step that can't
@@ -350,12 +384,14 @@ async function main() {
     await page.mouse.wheel(0, 260);
     await page.waitForTimeout(400);
     await shot(page, 'quick-add-focused-empty');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
 
     // Home's pad cards (2026-07-30). Three things worth a regression check, all new surface
     // area: writing on a card's own type line, and ticking a note (which must stay IN PLACE,
     // struck through, rather than vanishing into the checked zone until tomorrow). The type
     // line is an always-open input — target it by accessible name.
-    console.log('> Me pad cards (type line, tick-in-place)');
+    console.log('> Home pad cards (type line, tick-in-place)');
     const noteTitle = `Preview note ${Date.now()}`;
     const noteInput = page.getByLabel('Type note', { exact: true }).first();
     await noteInput.scrollIntoViewIfNeeded();
@@ -457,14 +493,19 @@ async function main() {
     // costs no goBack() and the in-memory sql.js DB survives — which is the whole reason these
     // write-path checks sit in the middle of the walk.
     //
-    // ⚠️ `.first()` on "Type task" is safe again for a DIFFERENT reason than the note it
-    // replaces: all three tab screens are mounted (`lazy: false`), but with the To-do preview
-    // card gone from Home the To-do tab's day-view card is the only surface in the DOM carrying
-    // that label. Re-check this if a "Type task" line is ever added back to another tab.
+    // ⚠️ **`.first()` on "Type task" is NOT safe on its own any more (2026-08-22), and the way
+    // it failed is the one worth remembering.** Home carries a Today card again, so two screens
+    // in the mounted pager (`lazy: false`) draw that label — and To-do's Today card rests CLOSED
+    // while Home's is one of the three `openAtRest` cards, so `.first()` resolved to HOME's
+    // composer: the task was created on the wrong screen, and the persistence check that follows
+    // passed vacuously, because Playwright reads an off-screen pager page as visible. The step
+    // did not fail until four lines later, looking for a checkbox that was never on this screen.
+    // Opening the card first is what makes the locator mean what it says.
     console.log('> add a task (store logic check)');
     await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
+    await openCardByTitle(page, 'Today');
     const taskTitle = `Preview check ${Date.now()}`;
     const taskInput = page.getByLabel('Type task', { exact: true }).first();
     await taskInput.scrollIntoViewIfNeeded();
@@ -494,7 +535,9 @@ async function main() {
     const logTitle = `Log check ${Date.now()}`;
     // The type line is an always-open input — target it by accessible name. (It also carries
     // a real `placeholder` since 2026-08-05, so getByPlaceholder would work too; the
-    // accessible name is the stable locator either way.)
+    // accessible name is the stable locator either way.) The card was opened by the step above
+    // and stays open; re-opening is a no-op guarded inside the helper.
+    await openCardByTitle(page, 'Today');
     const todayTypeLine = page.getByLabel('Type task', { exact: true }).first();
     await todayTypeLine.scrollIntoViewIfNeeded();
     await todayTypeLine.focus();
@@ -597,22 +640,22 @@ async function main() {
       pageErrors.push('No "Week: Expand list" chevron on the To-do tab — the whole-week fold may not be wired');
     }
 
-    // Exercise a second store's write path: add a habit from components/HomeHabitsCard.tsx's
+    // Exercise a second store's write path: add a habit from components/HabitsSurface.tsx's
     // type line, then confirm it round-trips through the in-memory sql.js DB.
     //
-    // **Back on the Me tab, and the hop is required** (2026-08-19). The habits card is a
-    // first-class card on `/` again; the walk is on the To-do tab at this point, and every tab
-    // screen stays mounted (`lazy: false`), so a bare `.first()` would resolve to a real input
-    // that is simply OFF SCREEN — scrollIntoViewIfNeeded cannot bring it into view from another
-    // page of the pager, and every subsequent visibility check would fail with a locator error
-    // rather than a useful message.
+    // **On the HABITS TAB since 2026-08-22, and the hop is required.** Habits is a bottom-nav
+    // tab again; the walk is on the To-do tab at this point, and every tab screen stays mounted
+    // (`lazy: false`), so a bare `.first()` would resolve to a real input that is simply OFF
+    // SCREEN — scrollIntoViewIfNeeded cannot bring it into view from another page of the pager,
+    // and every subsequent visibility check would fail with a locator error rather than a
+    // useful message.
     //
     // **This is a text input, not a button** (2026-07-30): the collapsed "+ Add habit" AddRow
     // bar became components/PadTypeRow.tsx — an always-open line. There is no bar to tap open
     // any more. Target the input by its accessible name (the prompt string, t.pad.type.habit),
     // which is set explicitly and is also the `placeholder` since 2026-08-05.
     console.log('> add a habit (store logic check)');
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const habitTitle = `Preview habit ${Date.now()}`;
@@ -626,17 +669,17 @@ async function main() {
 
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
-    // **The card rests CLOSED since 2026-08-21** (lib/cardDefaults.ts — "all cards start in
-    // closed state" bar To-do's Today and Me's Notes), so the row this walk is looking for is
+    // **The card rests CLOSED** (lib/cardRegistry.ts's `openAtRest` — Today, Notes and Shopping
+    // on the middle screen, and nothing else), so the row this walk is looking for is
     // not drawn until the pad is opened. That is the designed resting state, not a regression:
     // a closed pad still draws its header, its "n/n left" summary and its type line, which is
     // why the quick-add above still worked with the card shut.
     //
-    // `.first()` is the HABITS card's toggle specifically: Habits is first in
-    // `HOME_CARD_KINDS`, and this walk never reorders the stack. The toggle only exists once a
+    // `.first()` is the HABITS card's toggle specifically: it is the first card on the Habits
+    // tab, and this walk never reorders anything. The toggle only exists once a
     // card has at least one row (PadFooterToggle returns null at `total === 0`), which is
     // exactly the state the habit above just created.
     await openFirstPadCard(page);
@@ -650,19 +693,24 @@ async function main() {
     // check the To-do tab's log. The stamp is habit_logs.first_at, written on the FIRST
     // log of the day, so this must hold for a partly-done counter habit too.
     //
-    // **The control depends on the SURFACE.** app/habits.tsx's HabitCard registers every habit
-    // through a −/+ pair. components/HomeHabitsCard.tsx — the card on the Me tab, which is what
-    // this walk clicks — draws a −/+ pair only when `dailyGoal > 1`, and a plain check when the
-    // goal is 1, so the common case matches every other pad row in the app. A quick-added habit
-    // has a goal of 1, so the check is the control here.
+    // ⚠️ **The control is a +/− STEPPER here, not a checkbox** — and this walk asserted the
+    // opposite until 2026-08-22. components/HomeHabitsCard.tsx drew a plain check at
+    // `dailyGoal === 1` and a −/+ pair above it; that file is deleted, and
+    // components/HabitsSurface.tsx — the Habits tab's content, and now the only habits surface —
+    // registers EVERY habit through the pair regardless of goal. So the locator is the "+"
+    // button, named `<increaseQty> <title>`, not a checkbox named after the row.
+    //
+    // Incrementing is the right verb either way: lib/dayLog.ts stamps `habit_logs.first_at` on
+    // the first log of the day, so one press is what puts the habit in the log whether its goal
+    // is 1 or 5 — which is exactly the property the check below is for.
     console.log('> day log: a ticked habit appears in it');
-    const habitCheck = page.getByRole('checkbox', { name: habitTitle, exact: true }).first();
+    const habitCheck = page.getByRole('button', { name: `Increase quantity ${habitTitle}`, exact: true }).first();
     await habitCheck.scrollIntoViewIfNeeded();
     await habitCheck.click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await shot(page, 'day-log-habit-ticked');
-    // **The tab hop is the point of this check** (2026-08-19). The habit was ticked on the Me
-    // tab; the day log is drawn by the To-do tab's Today card. That the row shows up there is
+    // **The tab hop is the point of this check.** The habit was ticked on the Habits tab; the
+    // day log is drawn by the To-do tab's Today card. That the row shows up there is
     // exactly what proves the log is fed by lib/dayLog.ts reading `habit_logs.first_at`, and
     // not by anything the habits card owns. (Until this pass the two lived on one card, so the
     // check could be made without moving — which also made it a weaker check.)
@@ -677,15 +725,15 @@ async function main() {
     // from the Health card's tray card, then LOG A DOSE by tapping its circle — the dose is
     // the whole point of the feature, and it's a separate table (medicine_doses) from the
     // medicine row itself. Both are checked to survive a tab round-trip.
-    // **On the Me tab, in its OWN card since 2026-08-21** — Medicine used to be a card drawn
-    // inside HomeHealthCard's card (CONSISTENCY_AUDIT.md §11); it is a fourth top-level card
-    // now, components/HomeMedicineCard.tsx around components/MedicineSurface.tsx.
+    // **On the HEALTH TAB since 2026-08-22** — Medicine was a card drawn inside the Health
+    // card (CONSISTENCY_AUDIT.md §11), then a top-level card on the then-Me tab, and is now a peer
+    // card on the Health tab: components/MedicineCard.tsx around components/MedicineSurface.tsx.
     //
-    // It rests COLLAPSED, like every card bar the three lib/cardDefaults.ts excepts, so this
-    // walk has to open it before its composer exists — unlike a pad card, a collapsed
+    // It rests COLLAPSED, like every card bar the three lib/cardRegistry.ts marks `openAtRest`,
+    // so this walk has to open it before its composer exists — unlike a pad card, a collapsed
     // `Collapsible` card draws none of its body, type line included.
     console.log('> add a medicine + log a dose (store logic check)');
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const medCardToggle = page.getByRole('button', { name: 'Medicine: Expand list', exact: true }).first();
@@ -719,11 +767,11 @@ async function main() {
     if (!doseLogged) pageErrors.push(`Logging a dose of "${medName}" did not show a "Taken HH:MM" stamp`);
     await shot(page, 'medicine-dose-logged');
 
-    // Round-trip via Shop and back — Home stays mounted (lazy: false), but this still proves
+    // Round-trip via Shop and back — Health stays mounted (lazy: false), but this still proves
     // the dose survives leaving and returning to the tab, the property the check is for.
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
     await dismissModalIfPresent(page);
     const dosePersisted = await page.getByText(/^Taken \d{2}:\d{2}$/).first().isVisible().catch(() => false);
@@ -744,54 +792,13 @@ async function main() {
     await page.waitForTimeout(800);
     await dismissTour(page);
 
-    // ⚠️ **The Habits card EXPANDS IN PLACE now; it does not push (2026-08-21).** This step used
-    // to follow `app/habits.tsx`, the one Me card whose title press still went to a genuinely
-    // deeper screen. Since components/Card.tsx wires every expandable card's naming cluster to
-    // its own ⤢, the title opens the full-screen pane instead — which mounts the same
-    // components/HabitsSurface.tsx that pushed route is a thin wrapper around, so nothing is
-    // lost and one behaviour replaced two.
-    //
-    // Run HERE, before Debug mode gets switched on for the design lab excursion below —
-    // components/DebugNoteAnchor.tsx wraps every Me card with its own "Add debug note" pill once
-    // debug mode is on, and that pill sits on top of the card's own title hit-target and
-    // intercepts the tap meant for it. Kept as its own try/catch (best-effort, matching the
-    // design-lab block below) since it is a render check, not one of the write-path proofs.
-    //
-    // **Closing the pane is not optional.** It is an opaque overlay at zIndex 100; leaving it up
-    // makes every later click land on it, which is exactly how this step failed when the
-    // behaviour changed under it — a thirty-second timeout four steps later, nowhere near the
-    // cause.
-    try {
-      console.log('> the Habits card, expanded in place');
-      await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
-      await page.waitForTimeout(700);
-      await dismissModalIfPresent(page);
-      await clickText(page, 'Habits');
-      await page.waitForTimeout(1500);
-      // The pane's own cards rest closed like every other card, so the marker below lives
-      // inside one that has to be opened first. `.last()` — the Me tab's Habits card is still
-      // mounted behind the overlay and carries the same accessible name.
-      const openInner = page.getByRole('button', { name: /^Habits: / }).last();
-      if (await openInner.count()) {
-        await openInner.click({ timeout: 10000 });
-        await page.waitForTimeout(600);
-      }
-      await shot(page, 'subscreen-habits');
-      // A marker that exists ONLY inside the surface, unlike "Habits", which is also the still-
-      // mounted card's own title and so would read true whether or not the pane opened.
-      // ⚠️ The marker was `habits.cardSubtitle` ("Simple check-ins — no streaks, no scores.")
-      // until 2026-08-21, when that string was deleted: it was a SENTENCE standing in for the
-      // card's heading, because that card had no badge-and-title row until the registry gave it
-      // one. `hints.habits.text` is drawn by components/HabitsSurface.tsx's StarterCard and by
-      // nothing else, so it still separates the pane from the card that opened it.
-      const onHabits = await anyVisibleText(page, 'Tap to count it, gear to set it up.');
-      console.log(`  Habits surface rendered in the pane: ${onHabits}`);
-      if (!onHabits) pageErrors.push('The Habits card did not expand');
-      await page.getByRole('button', { name: 'Collapse card', exact: true }).last().click({ timeout: 10000 });
-      await page.waitForTimeout(800);
-    } catch (e) {
-      console.log(`  (Habits expansion skipped: ${e.message.split("\n")[0]})`);
-    }
+    // ⚠️ **The "Habits card, expanded in place" excursion is DELETED (2026-08-22).** Habits is a
+    // bottom-nav tab again, so its surface is shot directly by the tab loop near the top of this
+    // walk — there is no Home card to expand, and the step's marker text now renders on a tab
+    // screen rather than inside an overlay. It is not a coverage loss: the same
+    // components/HabitsSurface.tsx is rendered and asserted, one screen earlier and without the
+    // opaque-overlay trap that made this step's failures land thirty seconds away from the cause.
+    // The card-expansion mechanism itself is still exercised — by the Notes card, above.
 
     // Sub-tier header check (HEADER_CLIP_DEBUG.md): Settings was reported to show NO
     // header at all on device, and this walk never visited a sub-tier screen before —
@@ -800,7 +807,7 @@ async function main() {
     // a layout/positioning-level cause (band collapsed, title off-screen) would show up
     // here, even though Android-native font metrics don't reproduce on web.
     console.log('> Settings (sub-tier header check)');
-    await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(500);
     // A title string can match other nodes too (the BottomNav label carries the same word), so
     // measure the TOPMOST visible match — the header title is the one at the top edge.
@@ -819,11 +826,13 @@ async function main() {
       });
       return { visible: true, box: best.box, ...css };
     };
-    // "Me" since 2026-08-19 — the screen's title is `t.nav.home`, and that string moved
-    // with the tab's name. Measuring the old "Home" reported `visible: false` and read as a
-    // collapsed header band, which is exactly the failure this check exists to catch.
-    const homeTitle = await measureTitle('Me');
-    console.log(`  Me (site) header title: ${JSON.stringify(homeTitle)}`);
+    // ⚠️ **"Home" again since 2026-08-22.** The screen's title is `t.nav.home`, which read "Me"
+    // from 2026-08-19 while this tab was the personal shelf and is "Home" now that it is the
+    // middle tab and the daily hub. This locator has to follow that string: measuring the wrong
+    // one reports `visible: false` and reads as a collapsed header band — which is exactly the
+    // failure this check exists to catch, so a stale literal here manufactures the bug it hunts.
+    const homeTitle = await measureTitle('Home');
+    console.log(`  Home (site) header title: ${JSON.stringify(homeTitle)}`);
     if (!homeTitle.visible) pageErrors.push('Home: the site-tier header title did not render');
     await page.getByRole('button', { name: 'Settings', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(1200);
@@ -885,7 +894,7 @@ async function main() {
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 8000 });
       await page.waitForTimeout(900);
       const awayCount = await page.getByRole('slider').count();
-      await page.getByRole('button', { name: 'Me', exact: true }).first().click({ timeout: 8000 });
+      await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 8000 });
       await page.waitForTimeout(900);
       const backCount = await page.getByRole('slider').count();
       console.log(`  sliders on the other screen: ${awayCount}; back on this one: ${backCount}`);

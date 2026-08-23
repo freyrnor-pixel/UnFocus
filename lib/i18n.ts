@@ -1219,10 +1219,14 @@ const en = {
     trayProgress: (taken: number, total: number) => `${taken} of ${total}`,
   },
   // Radial menu labels
+  // ⚠️ **`home` and `health` both read "Me" from 2026-08-19 to 2026-08-22**, when Home was the
+  // personal tab and Health was a card on it. The bottom nav has five slots again and each names
+  // its own surface: Home is the daily hub, Health is the symptom/medicine tab. Two nav entries
+  // sharing one word was survivable only while one of them was not on the bar.
   nav: {
     newTask: 'New task', plans: 'To-do', shop: 'Shop', habits: 'Habits',
-    meals: 'Food', health: 'Me', scan: 'Scan', settings: 'Settings',
-    capture: 'Quick note', home: 'Me', budget: 'Budget', automations: 'Automations',
+    meals: 'Food', health: 'Health', scan: 'Scan', settings: 'Settings',
+    capture: 'Quick note', home: 'Home', budget: 'Budget', automations: 'Automations',
     shared: 'Shared', settingsLabel: 'Settings',
   },
   home: {
@@ -3588,8 +3592,8 @@ const no: typeof en = {
   },
   nav: {
     newTask: 'Ny oppgave', plans: 'Gjøremål', shop: 'Handle', habits: 'Vaner',
-    meals: 'Mat', health: 'Meg', scan: 'Skann', settings: 'Innst.',
-    capture: 'Notér', home: 'Meg', budget: 'Budsjett', automations: 'Automatisering',
+    meals: 'Mat', health: 'Helse', scan: 'Skann', settings: 'Innst.',
+    capture: 'Notér', home: 'Hjem', budget: 'Budsjett', automations: 'Automatisering',
     shared: 'Delt', settingsLabel: 'Innstillinger',
   },
   home: {
@@ -5394,8 +5398,8 @@ const is: typeof en = {
   },
   nav: {
     newTask: 'Nýtt', plans: 'Verkefni', shop: 'Innkaup', habits: 'Venjur',
-    meals: 'Matur', health: 'Ég', scan: 'Skanna', settings: 'Still.',
-    capture: 'Skrá', home: 'Ég', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
+    meals: 'Matur', health: 'Heilsa', scan: 'Skanna', settings: 'Still.',
+    capture: 'Skrá', home: 'Heim', budget: 'Fjárhagur', automations: 'Sjálfvirkni',
     shared: 'Deilt', settingsLabel: 'Stillingar',
   },
   home: {

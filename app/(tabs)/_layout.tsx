@@ -505,16 +505,16 @@ export default function TabsLayout() {
         )}
       >
         {/* Order MUST match SITE_ITEMS (lib/siteNav.ts) AND constants/motifs.ts's
-            STRIP_PANEL_ORDER: shopping, plans ("Gjøremål"), index ("Meg").
-            **`plans` and `index` swapped on 2026-08-19** — To-do is the centre tab now and
-            `/` is the personal tab (habits/notes/health); see lib/siteNav.ts's nav-bar note.
-            Health left the bottom nav on 2026-08-20 (the "full-screen card expansion" pass)
-            and is a card on that personal tab (components/HomeHealthCard.tsx) —
-            app/health.tsx stays for deep links/back-compat. habits is still a pushed
-            sub-screen (app/habits.tsx), reached from its own card there. */}
+            STRIP_PANEL_ORDER: shopping, plans, index, habits, health.
+            **Five tabs again as of 2026-08-22**, with `index` ("Hjem") in the CENTRE — see
+            lib/siteNav.ts's nav-bar note for the full reversal and why the preview-card
+            argument that took Habits and Health off the bar is overruled for Home's three
+            cards but still holds for these two. */}
         <TopTabs.Screen name="shopping" />
         <TopTabs.Screen name="plans" />
         <TopTabs.Screen name="index" />
+        <TopTabs.Screen name="habits" />
+        <TopTabs.Screen name="health" />
         </TopTabs>
 
         <PagerFloatingNav activeRouteName={activeRouteName} insetsBottom={insets.bottom} navigationRef={navigationRef} />

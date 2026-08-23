@@ -253,25 +253,56 @@ function rightSlots(src: string): string[] {
   return out;
 }
 
-describe('the full-screen button is last in the header', () => {
+describe('the fold is last in the header, and no card header has a ⤢', () => {
   /**
-   * The rule (2026-08-20): a caller's own controls → the fold chevron → ⤢, with ⤢ outermost on
-   * every surface. It is stated in five files. `SectionCard` is where it has to be TRUE, because
-   * that is the component every conforming card inherits it from.
+   * The rule (2026-08-22): a caller's own controls → the fold chevron, with the FOLD outermost on
+   * every surface. It was `controls → fold → ⤢` from 2026-08-20 until the ⤢ was deleted app-wide
+   * (maintainer: *"Remove all full screen buttons, instead user just presses the title."*); the
+   * fold inherits the corner it used to yield.
    */
-  it('the cluster is the caller\'s controls, then the fold, then the ⤢', () => {
+  it("the cluster is the caller's controls, then the fold, and nothing after it", () => {
     // ⚠️ **This used to pin what `SectionCard` DID rather than what the rule says**, on the
     // reasoning that correcting it moved the chevron on every card at once and so belonged with
-    // the header-convergence pass. This is that pass. The cluster is assembled in exactly one
+    // the header-convergence pass. That pass happened. The cluster is assembled in exactly one
     // place now — components/Card.tsx — so there is no second file for a fourteenth order to
     // appear in, and the import ban below is what keeps it that way.
     const slots = rightSlots(code('components/Card.tsx')).filter((slot) =>
       slot.includes('CardCollapseToggle'),
     );
     expect(slots).toHaveLength(1);
-    // The rule, not what SectionCard used to do: caller's own controls → fold → ⤢.
     expect(slots[0].indexOf('{controls}')).toBeLessThan(slots[0].indexOf('CardCollapseToggle'));
-    expect(slots[0].indexOf('{afterFold}')).toBeGreaterThan(slots[0].indexOf('CardCollapseToggle'));
+    // Nothing may follow the fold. Asserting the ABSENCE is the point: the old assertion was
+    // that `{afterFold}` came after it, so deleting the slot and deleting the whole cluster
+    // would both have failed the same way. This one only passes when the fold is genuinely the
+    // last thing in the row.
+    const after = slots[0].slice(slots[0].indexOf('CardCollapseToggle'));
+    expect(after).not.toMatch(/<[A-Z][A-Za-z]*\b/);
+  });
+
+  it('no card header anywhere mounts a CardExpandButton', () => {
+    // The button survives for ONE job: the expanded pane's own close control
+    // (components/CardExpandHost.tsx). A card header may not have one — pressing the title is
+    // the way in, and a second control for it is what was removed. Scoped to `right={…}` slots,
+    // i.e. header clusters, so the pane's own chrome is out of scope by construction.
+    const offenders: string[] = [];
+    for (const file of sourceFiles()) {
+      const src = code(file);
+      if (!src.includes('CardExpandButton')) continue;
+      for (const slot of rightSlots(src)) {
+        if (slot.includes('CardExpandButton')) offenders.push(`${file}: ⤢ in a header slot`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('an expandable card gives its pressable title an accessible name that says what it does', () => {
+    // With the button gone, the title is the only control — and a bare card name does not read
+    // as one. `labelPressHint` is what SectionRail puts on the PressableScale's
+    // accessibilityLabel; without it a screen reader announces the card's name as a button with
+    // no hint that it opens anything.
+    const src = code('components/Card.tsx');
+    expect(src).toMatch(/labelPressHint=\{expands \?/);
+    expect(src).toContain('t.expandCardLabel');
   });
 
   it('SectionRail lays its right slot out as a ROW, not a column', () => {
@@ -284,28 +315,7 @@ describe('the full-screen button is last in the header', () => {
       .toContain("flexDirection: 'row'");
   });
 
-  it('nothing follows a CardExpandButton inside a header slot', () => {
-    // Scoped to `right={...}` expressions — the header cluster — rather than to the whole file.
-    // Outside a slot, "what follows the ⤢" is just the card's body, and an earlier draft that
-    // scanned freely flagged exactly that: `<FoodTab>` (the card's CONTENT) and CardExpandHost's
-    // own pane chrome. A scan that has to be taught which siblings are innocent is a scan that
-    // will be widened until it means nothing.
-    const offenders: string[] = [];
-    for (const file of sourceFiles()) {
-      const src = code(file);
-      if (!src.includes('CardExpandButton')) continue;
-      for (const slot of rightSlots(src)) {
-        const at = slot.indexOf('<CardExpandButton');
-        if (at === -1) continue;
-        const after = slot.slice(at + 1);
-        const next = after.match(/<([A-Z][A-Za-z]*)\b/);
-        if (next) offenders.push(`${file}: <${next[1]}> follows <CardExpandButton> in a header slot`);
-      }
-    }
-    expect(offenders).toEqual([]);
-  });
-
-  it('the slot extractor brace-matches (guards the scan above)', () => {
+  it('the slot extractor brace-matches (guards the scans above)', () => {
     // A `right={<><A/><B/></>}` slot contains braces of its own once any child takes a prop.
     expect(rightSlots('right={<><A x={1} /><B /></>}')).toEqual(['<><A x={1} /><B /></>']);
     expect(rightSlots('right={right}')).toEqual(['right']);

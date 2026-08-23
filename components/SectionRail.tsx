@@ -63,6 +63,7 @@ import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
 import { CardAccentBadge } from '@/components/CardAccent';
 import { Domain } from '@/lib/domainColor';
@@ -115,6 +116,13 @@ type Props = {
   /** a11y label for `onLabelPress`. Defaults to `label`. */
   labelPressHint?: string;
   /**
+   * Ref onto the rendered `count`, so a caller can MEASURE it (2026-08-22). One caller:
+   * components/HomeShoppingCard.tsx flies a ticked row to this figure. It is not a styling or
+   * content hook and nothing else should reach for it — a card's header is drawn from the
+   * registry, and this hands out a node, not a decision.
+   */
+  countRef?: React.Ref<Text>;
+  /**
    * Floor for the naming row's height (2026-08-10). Without it the row is only as tall as its
    * content, which made a rail whose name IS a tap target (`onLabelPress`, so the cluster
    * carries `MIN_TAP_TARGET`) permanently taller than one whose name is inert — visible as
@@ -155,8 +163,9 @@ type Props = {
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, tier = 'group', style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, countRef, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, tier = 'group', style }: Props) {
   const theme = useAppTheme();
+  const t = useT();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
   // hairline rule below already carry it; the heading itself is plain `text` so it is legible
   // at every hue, including the light Shopping gold. See the header note.
@@ -190,7 +199,18 @@ export default function SectionRail({ hue, domain, icon, label, count, right, ba
         {label}
       </Text>
       {count != null && (
-        <Text style={[styles.count, TabularNums, { color: theme.textMuted }]}>
+        // `countRef` is a MEASUREMENT hook, not anatomy — the one caller that needs it is
+        // components/HomeShoppingCard.tsx, whose tick animation flies the row to this figure.
+        // Nothing may style or replace the count through it.
+        <Text
+          ref={countRef}
+          style={[styles.count, TabularNums, { color: theme.textMuted }]}
+          // A sighted reader takes the noun from the title beside it; a screen reader
+          // announcing a bare "3/7" has lost it. `t.pad.summary` is the wording the count
+          // pills carried before they moved into the card header, kept for exactly this.
+          // A plain total needs no gloss — it is a size, and the title says of what.
+          accessibilityLabel={typeof count === 'number' ? undefined : t.pad.summary(count.left, count.total)}
+        >
           {typeof count === 'number' ? count : `${count.left}/${count.total}`}
         </Text>
       )}

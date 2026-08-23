@@ -75,7 +75,11 @@ describe('user-supplied text is never dropped into a case slot', () => {
 describe('the dictionary is wired up', () => {
   test('getTranslations("is") returns Icelandic, not the Norwegian fallback', () => {
     expect(t.settingsTitle).toBe('Stillingar');
-    expect(t.nav.home).toBe('Ég');
+    // 'Heim', not 'Ég', since 2026-08-22: the nav went back to five tabs, so Home is the daily
+    // hub in the middle rather than the personal shelf it was for three days. What this line is
+    // FOR is unchanged — a word that exists only in the Icelandic table, proving the lookup
+    // reached it rather than falling through to Norwegian ('Hjem') or English ('Home').
+    expect(t.nav.home).toBe('Heim');
   });
 
   test('an unknown stored language still falls back to Norwegian', () => {

@@ -336,8 +336,11 @@ describe('the pane carries no screen colour (2026-08-20)', () => {
   it('Surface declares no borderColor prop, and no card passes a hue as one', () => {
     expect(/^\s*borderColor\?: string;/m.test(read('components/Surface.tsx'))).toBe(false);
     const callers = [
-      'components/PlanTaskCard.tsx', 'components/HomeNotesCard.tsx', 'components/HomeHabitsCard.tsx',
-      'components/HomeHealthCard.tsx', 'components/StarterCard.tsx', 'components/OpenEpisodeCard.tsx',
+      // HomeHabitsCard and HomeHealthCard left this list on 2026-08-22 — they were DELETED when
+      // Habits and Health became bottom-nav tabs again, so their content is HabitsSurface and
+      // HealthSurface, mounted by a screen instead of wrapped in a Home preview card.
+      'components/PlanTaskCard.tsx', 'components/HomeNotesCard.tsx',
+      'components/HomeShoppingCard.tsx', 'components/StarterCard.tsx', 'components/OpenEpisodeCard.tsx',
       'components/WeekListCard.tsx', 'app/scan.tsx',
     ];
     // A <Surface …> opening tag with a borderColor in it, across line breaks. Badge and View

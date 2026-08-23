@@ -185,7 +185,6 @@ const ENERGY_SURFACES: { what: string; file: string; token: string }[] = [
   { what: 'the shared-load card', file: 'components/TodoSurface.tsx', token: '<EnergyBalanceCard' },
   { what: "the task editor's energy stepper", file: 'components/TaskCard.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit form's energy stepper", file: 'app/habit-form.tsx', token: 't.energyGiveTakeLabel' },
-  { what: "the habit quick-add's energy row", file: 'components/HomeHabitsCard.tsx', token: '<QuickAddOptionRow' },
   // components/HabitsSurface.tsx since the 2026-08-20 extraction; app/habits.tsx is a wrapper.
   { what: "the Habits tab's own quick-add energy row", file: 'components/HabitsSurface.tsx', token: '<QuickAddOptionRow' },
 ];

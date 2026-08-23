@@ -45,13 +45,17 @@
  *     non-empty by `lib/__tests__/cardRegistry.test.ts`. The repo banned stub full-screen panes
  *     on 2026-08-21 (`ComingSoonBody` is deleted), so declining is the supported answer and a
  *     placeholder is not — but it has to be a decision somebody wrote down, not a gap.
- *   - **`order` is the screen's deliberate sequence.** On Me it is the DEFAULT only: that tab
+ *   - **`order` is the screen's deliberate sequence.** On Home it is the DEFAULT only: that tab
  *     keeps its drag-reorder (`settings.homeCardOrder`), so this decides where a card lands for
  *     a user who has never dragged one.
  *   - **`nested` marks a card drawn INSIDE another card** rather than at screen level. Those
  *     take no `order` (they have no position on the screen to hold) and are excluded from the
  *     per-screen ordering assertion. It is not an escape hatch for a SECTION: a section is
  *     drawn one-per-row-of-user-data, has no stable storage key, and is not in this file at all.
+ *     ⚠️ **Nothing is nested today (2026-08-22).** The four that were — Habits' list and goals,
+ *     Health's week and issues — were nested because Habits and Health were CARDS on the Me tab.
+ *     Both are tabs again, so those four are ordinary top-level cards on them. The field stays
+ *     because the shape is still legal and still meaningful; it is simply unused.
  *   - **Flag-dead surfaces are deliberately absent** — `HomeSharedCard`, `EnergyBalanceCard` and
  *     `SharedTasksSection` are behind `SHARING_VISIBLE` and do not render at all today. They are
  *     left untouched rather than converted or deleted; when sharing returns, they get entries.
@@ -64,12 +68,18 @@ import type { ScreenKey } from '@/lib/screenColor';
 
 type IoniconsName = keyof typeof Ionicons.glyphMap;
 
-/** Which tab's stack a card belongs to. */
-export type CardScreen = 'me' | 'todo' | 'shop';
+/**
+ * Which tab's stack a card belongs to.
+ *
+ * ⚠️ **Five since 2026-08-22**, when the bottom nav went back to five tabs. `'me'` is `'home'`
+ * again — the tab is the daily hub rather than a personal shelf — and `'habits'`/`'health'` are
+ * screens of their own instead of two cards on it. See lib/siteNav.ts for the reversal.
+ */
+export type CardScreen = 'shop' | 'todo' | 'home' | 'habits' | 'health';
 
 export type CardSpec = {
   screen: CardScreen;
-  /** Position within the screen. Absent for a `nested` card. A default on Me — see the notes. */
+  /** Position within the screen. Absent for a `nested` card. A default on Home — see the notes. */
   order?: number;
   /** The CardKey of the card this one is drawn inside, if any. */
   nested?: string;
@@ -79,7 +89,7 @@ export type CardSpec = {
    *
    * There is exactly one today — To-do's "Elsewhere" — and the two screens with none are that
    * way on instruction: the maintainer declined an "Inventory" grouping on Shop and a "Health"
-   * grouping over Me's Health and Medicine cards. Recorded here so nobody adds one back.
+   * grouping over the Health and Medicine cards. Recorded here so nobody adds one back.
    */
   group?: 'elsewhere';
   /** Screen hue the card's rail wears — resolved through lib/screenColor.ts at render. */
@@ -119,8 +129,10 @@ export const CARDS = {
     title: (t) => t.tasksTabToday,
     fold: 'persisted',
     expand: 'surface',
-    // The one card on this tab whose content is the reason to open the app at all.
-    openAtRest: true,
+    // ⚠️ **No `openAtRest` since 2026-08-22.** It had one because this was the only "Today" the
+    // app had while Home was the Me tab; Home has its own Today card again (`homeToday`), which
+    // is the one the maintainer's exception names. Two Todays resting open, one tab apart, is
+    // the duplication the exception was never about.
   },
   todoWeek: {
     screen: 'todo',
@@ -208,7 +220,10 @@ export const CARDS = {
     // full-screen copy of them is a second rendering of the screen you are already on.
     expandDeclined:
       "Shopping's lists are the Shop tab's primary content — a full-screen copy of them is a second rendering of the screen you are already looking at, and each list card already expands its rows in place.",
-    openAtRest: true,
+    // ⚠️ **No `openAtRest` since 2026-08-22.** The maintainer's exception is *"'Today' 'Notes'
+    // and 'Shopping' in middle screen"* — the middle screen is Home, and all three of those
+    // cards live there now. This is the Shop tab's own lists card, which the exception never
+    // named; it was carrying the flag only because Home had no Shopping card to carry it.
   },
   shopDishes: {
     screen: 'shop',
@@ -244,63 +259,64 @@ export const CARDS = {
     fold: 'persisted',
     expand: 'none',
     expandDeclined:
-      "Monthly is the stock list the weekly lists are built FROM, drawn one card per list; the group has no single body to grow, and the per-list cards are sections (drawn one per row of data), which never carry a ⤢ of their own.",
+      "Monthly is the stock list the weekly lists are built FROM, drawn one card per list; the group has no single body to grow, and the per-list cards are sections (drawn one per row of data), which never grow to fill the screen on their own.",
   },
 
-  // ── Me ─────────────────────────────────────────────────────────────────────────────────
-  // Order is this tab's DEFAULT; drag-reorder still owns the stored one.
-  homeHabits: {
-    screen: 'me',
+  // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
+  // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*
+  // Exactly those three, in that order, and nothing else. Habits and Health were cards here
+  // until this pass and are tabs again — a card AND a tab for one surface is the duplication
+  // worth avoiding, which is the surviving half of the argument that took them OFF the bar.
+  // Order is this tab's DEFAULT; drag-reorder still owns the stored one (settings.homeCardOrder).
+  homeToday: {
+    screen: 'home',
     order: 1,
-    hue: 'habits',
-    domain: 'habit',
-    title: (t) => t.nav.habits,
-    // A pad card: how many rows it draws lives in lib/padState.ts. Open/closed became this
-    // axis in the fold-unification commit; until then padState's 'closed' was the fold.
+    hue: 'plans',
+    domain: 'task',
+    icon: 'today',
+    title: (t) => t.tasksTabToday,
     fold: 'persisted',
     expand: 'surface',
+    // One of the maintainer's three named exceptions to "all cards start closed"
+    // (*"except 'Today' 'Notes' and 'Shopping' in middle screen"*). All three are on this tab
+    // for the first time, so that sentence is now literally true rather than approximately.
+    openAtRest: true,
   },
   homeNotes: {
-    screen: 'me',
+    screen: 'home',
     order: 2,
     hue: 'notes',
     domain: 'note',
     title: (t) => t.notes.title,
     fold: 'persisted',
     expand: 'surface',
-    // One of the maintainer's three named exceptions to "all cards start in closed state"
-    // (2026-08-21: *"except 'Today' 'Notes' and 'Shopping' in middle screen"*). It used to be
-    // spelled in lib/padState.ts's exception list, because Notes was a pad card and its pad
-    // state was its fold; that axis no longer carries open/closed, so the exception lives here
-    // with every other card's.
     openAtRest: true,
   },
-  homeHealth: {
-    screen: 'me',
+  homeShopping: {
+    screen: 'home',
     order: 3,
-    hue: 'health',
-    domain: 'health',
-    icon: 'pulse',
-    title: (t) => t.home.healthCardTitle,
+    hue: 'shopping',
+    domain: 'shop',
+    badgeHue: true,
+    title: (t) => t.shoppingTitle,
     fold: 'persisted',
-    expand: 'surface',
-  },
-  homeMedicine: {
-    screen: 'me',
-    order: 4,
-    hue: 'health',
-    domain: 'health',
-    // `medkit`, not the domain default heart — Health's cards all fell back to DOMAIN_ICON.health
-    // and read as the same badge repeated.
-    icon: 'medkit',
-    title: (t) => t.medicine.title,
-    fold: 'persisted',
-    expand: 'surface',
+    expand: 'none',
+    // ⚠️ The ONE card on this tab that does not grow to fill the screen, and it is the same
+    // refusal `shopLists` makes one tab over, for the same measured reason: the Shop tab's
+    // weekly/monthly list content is ~2000 lines of window-coordinate drag/merge state and
+    // flight-animation refs inside app/(tabs)/shopping.tsx, with no standalone surface
+    // component the way To-do, Health, Habits and Notes have. There is nothing to mount in a
+    // pane that would not be a second implementation of that screen. The full-screen version
+    // of this card is the Shop tab, two swipes away; a `ShoppingListsSurface.tsx` extraction
+    // is what would change this answer.
+    expandDeclined:
+      "Shopping's list content has no standalone surface component — it is ~2000 lines of drag/merge and flight-animation state inside app/(tabs)/shopping.tsx — so a pane for it would be a second implementation of the Shop tab rather than the same code at a different size. Extracting ShoppingListsSurface.tsx is what would change this.",
+    openAtRest: true,
   },
 
   homeRetired: {
-    screen: 'me',
-    order: 5,
+    screen: 'home',
+    order: 4,
     hue: 'home',
     domain: 'task',
     icon: 'archive-outline',
@@ -312,34 +328,54 @@ export const CARDS = {
       'The shelf a hidden card falls to. Its body is a short list of names, one tap from coming back — a full-screen copy of it is the same three names, larger.',
   },
 
-  // ── Nested ─────────────────────────────────────────────────────────────────────────────
-  // Cards drawn inside another card. They hold a persisted fold of their own (they are
-  // singletons, so they have a stable key), but they ride their host's ⤢ rather than carrying
-  // one — a full-screen button inside a full-screen pane opens the pane you are already in.
+  // ── Habits ─────────────────────────────────────────────────────────────────────────────
+  // Top-level cards on their own tab again since 2026-08-22. They were `nested` under the Me
+  // tab's Habits card and rode its ⤢; with that card gone there is no host to ride, and a card
+  // on a tab of its own is simply a card. Neither expands: this tab IS the full-screen version
+  // of both, so a pane would be the screen you are already looking at.
   habitsList: {
-    screen: 'me',
-    nested: 'homeHabits',
+    screen: 'habits',
+    order: 1,
     hue: 'habits',
     domain: 'habit',
     title: (t) => t.nav.habits,
     fold: 'persisted',
     expand: 'none',
-    expandDeclined: "Drawn inside the Habits card, which is what expands — it rides its host's ⤢.",
+    expandDeclined:
+      "Today's habits are the Habits tab's primary content, so a full-screen copy of them is a second rendering of the screen you are already on — the same refusal shopLists makes on Shop.",
   },
   habitsGoals: {
-    screen: 'me',
-    nested: 'homeHabits',
+    screen: 'habits',
+    order: 2,
     hue: 'habits',
     domain: 'habit',
     icon: 'flag',
     title: (t) => t.goals.editLinkPersonal,
     fold: 'persisted',
     expand: 'none',
-    expandDeclined: "Drawn inside the Habits card, which is what expands — it rides its host's ⤢.",
+    expandDeclined:
+      'A short list of what the habits above are aiming at, with its own add and delete rows inside the card. Full screen it is the same handful of lines with more air around them; the fold is the control that matters here.',
+  },
+
+  // ── Health ─────────────────────────────────────────────────────────────────────────────
+  // Also top-level and also on their own tab again. Medicine joins them: it was its own card on
+  // the Me tab from 2026-08-21, and a tray of pills is health. It is a PEER card here, never a
+  // card drawn inside Health's Surface — that was the card-in-a-card CONSISTENCY_AUDIT.md §11
+  // measured, and moving screens is not a reason to rebuild it.
+  healthWeek: {
+    screen: 'health',
+    order: 1,
+    hue: 'health',
+    domain: 'health',
+    title: (t) => t.thisWeekLabel,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined:
+      "This week's issues are the Health tab's primary content — a pane for them is a second rendering of the screen you are already on.",
   },
   healthIssues: {
-    screen: 'me',
-    nested: 'homeHealth',
+    screen: 'health',
+    order: 2,
     hue: 'health',
     domain: 'health',
     icon: 'medical-outline',
@@ -347,17 +383,19 @@ export const CARDS = {
     fold: 'persisted',
     expand: 'none',
     expandDeclined:
-      "Drawn inside the Health card, which is what expands. Its fuller surface is the Health issues sheet — where a symptom is added or untracked — reached from this card's own header control.",
+      "A standing list of what is being kept an eye on. Its fuller surface is the Health issues sheet — where a symptom is added or untracked — reached from this card's own header control, so a pane would be a third way to see the same names.",
   },
-  healthWeek: {
-    screen: 'me',
-    nested: 'homeHealth',
+  healthMedicine: {
+    screen: 'health',
+    order: 3,
     hue: 'health',
     domain: 'health',
-    title: (t) => t.thisWeekLabel,
+    // `medkit`, not the domain default heart — Health's cards all fell back to DOMAIN_ICON.health
+    // and read as the same badge repeated.
+    icon: 'medkit',
+    title: (t) => t.medicine.title,
     fold: 'persisted',
-    expand: 'none',
-    expandDeclined: "Drawn inside the Health card, which is what expands — it rides its host's ⤢.",
+    expand: 'surface',
   },
 } as const satisfies Record<string, CardSpec>;
 

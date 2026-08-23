@@ -117,7 +117,11 @@ const SUB_SCREENS = [
   // so the tier/back-arrow contract this file asserts does not apply to them: a pane has an ×,
   // not a back arrow, and no tier at all. lib/__tests__/screenRhythm.test.ts carries their
   // contract instead. What is left here is the screens that are still genuinely pushed.
-  'app/health.tsx',
+  // ⚠️ **app/health.tsx left on 2026-08-22** — it is app/(tabs)/health.tsx, a site-tier pager
+  // sibling, so the pushed-screen contract (a back arrow, no site chrome) is the opposite of
+  // what it must now satisfy. `app/scan.tsx` is the only genuinely pushed screen left; the list
+  // is kept as a list rather than collapsed to a constant because the next screen to be pushed
+  // should land in it without anyone rebuilding the block.
   'app/scan.tsx',
 ] as const;
 

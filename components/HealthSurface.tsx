@@ -68,6 +68,7 @@ import StarterExampleRow from '@/components/StarterExampleRow';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
 import Card from '@/components/Card';
+import MedicineCard from '@/components/MedicineCard';
 import IconButton from '@/components/IconButton';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
 import HealthIssuesSheet from '@/components/HealthIssuesSheet';
@@ -216,6 +217,8 @@ export default function HealthSurface({ embedded = false }: Props) {
   const symptoms = useHealthStore((s) => s.symptoms);
   const addLog = useHealthStore((s) => s.add);
   const ensureSymptom = useHealthStore((s) => s.ensureSymptom);
+  // The gate for the Medicine card at the foot of this surface — see its mount site.
+  const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
   const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
@@ -545,6 +548,17 @@ export default function HealthSurface({ embedded = false }: Props) {
           <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
         </PressableScale>
       </Card>
+
+      {/* ⚠️ **Medicine is a PEER card here, not a card drawn inside Health's** (2026-08-22). It
+          moved from the Me tab when the nav went back to five tabs; it had been drawn inside
+          HomeHealthCard's Surface until 2026-08-21, which is the card-in-a-card
+          CONSISTENCY_AUDIT.md §11 measured, and changing screens is not a reason to rebuild it.
+          The `featureMedicine` gate lives HERE, at the mount site — a flag that hides a surface
+          has to hide it wherever it is mounted, and components/MedicineCard.tsx deliberately
+          does not check its own flag.
+          It is skipped while `embedded` for the same reason it is a peer: inside the expanded
+          Health pane it would be a card inside the card you just opened. */}
+      {featureMedicine && !embedded && <MedicineCard />}
 
       {!embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
       {!embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}

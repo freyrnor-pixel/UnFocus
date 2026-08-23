@@ -70,7 +70,7 @@ export type TourStep = {
  * step they had not reached.
  */
 export const TOUR_STEPS: readonly TourStep[] = [
-  { id: 'home', route: '/', targetId: 'tour.home.me' },
+  { id: 'home', route: '/', targetId: 'tour.home.today' },
   { id: 'shopping', route: '/shopping', targetId: 'tour.shopping.list' },
   { id: 'todo', route: '/plans', targetId: 'tour.plans.today' },
 ];

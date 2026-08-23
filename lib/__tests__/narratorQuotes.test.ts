@@ -301,7 +301,6 @@ describe('every empty card speaks, and none of them names its own emptiness', ()
     ['components/PlanTaskCard.tsx', 'todo', "the day card"],
     // Home's habits card and the Habits tab lost their "nothing here yet" lines in the same
     // 2026-08-12 pass; they take the restoration together, or Home and the tab drift.
-    ['components/HomeHabitsCard.tsx', 'habits', "Home's habits card"],
   ] as const) {
     it(`${label} mounts the narrator in its own category`, () => {
       const source = code(file);

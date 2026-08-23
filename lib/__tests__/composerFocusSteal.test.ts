@@ -127,7 +127,7 @@ describe('the composers this protects are the ones that open a focus-stealing pi
   // A map of the surfaces the fix covers, asserted so that a caller moving its picker
   // somewhere else shows up here rather than as another "it froze" report.
   const openers: Array<[string, RegExp]> = [
-    // habits — the reported one; mounted by app/habits.tsx and components/HomeHabitsCard.tsx
+    // habits — the reported one; mounted by app/(tabs)/habits.tsx via components/HabitsSurface.tsx
     ['lib/useHabitRecurrenceDraft.ts', /showAppModal\(/],
     // a task's Repeat, inside PadTypeRow's panel
     ['components/PlanTaskCard.tsx', /function pickRecurring\(\)[\s\S]{0,600}showAppModal\(/],

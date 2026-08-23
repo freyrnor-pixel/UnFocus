@@ -1378,6 +1378,31 @@ export function initDb() {
     // ruling. Deliberately not a key-by-key rewrite: writing today's answer into a migration
     // would freeze it for every install this runs on.
     "UPDATE settings SET collapsed_cards = '{}'",
+    // ── 2026-08-22: five tabs again, and Home is the daily hub ───────────────────────────
+    //
+    // `HOME_CARD_KINDS` went from ['habits','notes','health','medicine'] to
+    // ['plans','notes','shopping']: Habits and Health are bottom-nav tabs again, Medicine moved
+    // onto the Health tab, and To-do and Shopping came BACK as Home preview cards.
+    //
+    // `sanitizeHomeCardOrder` handles both halves on read — it filters the three departed kinds
+    // and appends the two returning ones — but appending puts them at the END, so a stored
+    // ['habits','notes','health','medicine'] resolves to ['notes','plans','shopping'] and every
+    // existing install would open with Notes above the day's tasks. Emptying the column instead
+    // puts everyone on lib/homeCards.ts's default order, which is the order the maintainer
+    // named ("todays tasks, Notes, and shopping"). Same "we're not live yet, so just force"
+    // ruling as the two collapsed_cards lines above, and for the same reason: it costs a
+    // drag-reorder nobody has had a chance to make against the new set of cards.
+    //
+    // Deliberately NOT a rewrite to today's literal array — writing the answer into a migration
+    // freezes it for every install this ever runs on, which is exactly what `home_card_order`
+    // defaulting to a stale list caused the last two times the card set moved.
+    "UPDATE settings SET home_card_order = ''",
+    // `collapsed_cards` follows for the same reason it did in the registry pass: `homeHabits`,
+    // `homeHealth` and `homeMedicine` are not CardIds any more and `homeToday`/`homeShopping`
+    // are new, so a stored bag is half stale keys and half missing ones. Emptying it puts every
+    // card back on the registry's `openAtRest` — which is now literally the maintainer's
+    // sentence: Today, Notes and Shopping open, on the middle screen, everything else closed.
+    "UPDATE settings SET collapsed_cards = '{}'",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

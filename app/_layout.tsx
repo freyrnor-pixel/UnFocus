@@ -285,7 +285,8 @@ const CENTRE_MODAL_ROUTES = [
   'notes',
   'food',
   'catalogue',
-  'habits',
+  // 'habits' left on 2026-08-22 — it is a bottom-nav tab again (app/(tabs)/habits.tsx), and a
+  // tab cannot also be a transparent-modal route.
   'budget',
   'inventory-edit',
 ] as const;
@@ -589,22 +590,32 @@ export default function RootLayout() {
    * audit's fix, because that fix set the tab navigator's `initialRouteName` (and the matching
    * `unstable_settings` back target) to `plans` and nothing else. Neither governs a cold start:
    * expo-router builds its navigation state from the URL, a cold start's URL is `/`, and `/` is
-   * `app/(tabs)/index.tsx` — the Me tab. `initialRouteName` only settles which screen a
-   * navigator shows when it is entered WITHOUT a specific route, so it was a true statement
-   * about a case that never happens on launch, and the app went on opening on Me.
+   * `app/(tabs)/index.tsx` — which was then the Me tab, on the right-hand end.
+   * `initialRouteName` only settles which screen a navigator shows when it is entered WITHOUT a
+   * specific route, so it was a true statement about a case that never happens on launch, and the
+   * app went on opening on Me.
    *
-   * So the redirect has to be explicit, and exactly ONCE per process: `/` is also the route the
-   * Me tab itself navigates to, and a standing redirect would bounce the user off Me every time
-   * they tapped it. `landedOnStartTab` is what makes this a launch rule rather than a trap.
+   * So the redirect has to be explicit, and exactly ONCE per process: the start path is also a
+   * route the user can tap to, and a standing redirect would bounce them off it every time.
+   * `landedOnStartTab` is what makes this a launch rule rather than a trap.
    *
    * It deliberately runs AFTER the onboarding guard's conditions rather than beside them: a
    * fresh install sits at `segments[0] === 'onboarding'` while it finishes, so the one shot is
    * still unspent when onboarding replaces onto `/`, and that first arrival is redirected too.
+   *
+   * ⚠️ **Since the 5-tab restore (2026-08-22) this is a NO-OP, and it is kept on purpose.** The
+   * centre tab is `index` again, so `/` — where a cold start already lands — IS the start tab,
+   * and the `replace` below is skipped. Deleting the effect would work today and quietly stop
+   * working the next time the centre tab is not `index`, which is a thing that has now happened
+   * three times. It costs one comparison per launch.
    */
   const landedOnStartTab = useRef(false);
   useEffect(() => {
     if (!loaded || !setupComplete || !firstRunComplete) return;
     if (landedOnStartTab.current) return;
+    // Already where we want to be. A `replace` onto the current route is not visibly harmful,
+    // but it is a navigation dispatch during the first frames of every launch for nothing.
+    if (START_TAB_ROUTE_PATH === '/') return;
     // `['(tabs)']` with nothing after it IS the group's index route, i.e. `/`. A deep link to a
     // real screen has a second segment and must be left alone.
     if (segments[0] !== '(tabs)' || segments.length > 1) return;
