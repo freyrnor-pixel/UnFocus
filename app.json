@@ -3,13 +3,13 @@
     "name": "UnFocus",
     "slug": "unfocus",
     "owner": "freyrnor-pixel",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "scheme": "unfocus",
-    "runtimeVersion": "1.6.0",
+    "runtimeVersion": "1.7.0",
     "updates": {
       "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
@@ -29,12 +29,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "dark": {
-            "backgroundColor": "#000000",
+            "backgroundColor": "#FFFFFF",
             "image": "./assets/icon.png"
           }
         }
