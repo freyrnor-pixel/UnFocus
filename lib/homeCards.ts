@@ -40,31 +40,26 @@
 /**
  * The reorderable, removable Home cards, in default order.
  *
- * **Three, not five, as of 2026-08-19** (maintainer: *"Make 'To-do' middle screen, and the
- * 'Home' can be the 'Me' for Health and notes. I think that makes things more tidy."*). To-do
- * and Shop are each their own tab, one swipe away, so a preview card for either was a second,
- * shorter copy of a whole tab — exactly the duplication the tab move was meant to end. 'plans'
- * and 'shopping' are therefore DROPPED kinds, in the same sense 'goals' has been since
- * 2026-07-29: the filter in `sanitizeHomeCardOrder` removes them from a stored order for free,
- * and neither loses a surface by going (unlike 'health', which had nowhere else to be).
+ * ⚠️ **Today, Notes, Shopping — as of 2026-08-22** (maintainer: *"The logic was sound before.
+ * 'Home' had easy access to todays tasks, Notes, and shopping."*). Exactly those three, in that
+ * order, and the order is the sentence.
  *
- * Habits stays, and is the one judgement call here: the maintainer named Health and Notes, and
- * habits is the third thing on this screen that is about the person rather than about a list —
- * and, like Health, it has no tab of its own to fall back to. Its card is still the way in to
- * the pushed app/habits.tsx.
+ * This REVERSES the 2026-08-19 pass, whose reasoning was that a preview card for a neighbouring
+ * tab is a second, shorter copy of that tab. Overruled: seeing three surfaces at once without
+ * swiping to any of them is what a hub is FOR, and it is the whole reason this screen exists.
  *
- * **'medicine' joined as a fourth on 2026-08-21** (maintainer, asked whether it should:
- * *"Yes."*). It was a full `Surface` rendered INSIDE HomeHealthCard's `Surface` — the
- * card-in-a-card the 2026-08-18 blueprint pass banned — which is what
- * `CONSISTENCY_AUDIT.md` §11 measured against the report *"Each thing is its own card, like
- * medicine and Health (which they currently are not)."* It is a peer now, not a child.
+ * The surviving half of that argument is why `'habits'`, `'health'` and `'medicine'` left in the
+ * same pass: Habits and Health are bottom-nav tabs again and Medicine is a card on the Health
+ * tab, so each already has a home. A card AND a tab for one surface is the duplication worth
+ * avoiding; a card that PREVIEWS a tab is not, which is the distinction the 2026-08-19 pass
+ * collapsed.
  *
- * ⚠️ **It is the one kind gated on a feature flag** (`settings.featureMedicine`). The gate is at
- * the RENDER site in app/(tabs)/index.tsx, never here: this module is dependency-free and cannot
- * read a setting, and more importantly a flag that hides a surface must not also edit the stored
- * order — turning medicine back on has to restore the card exactly where the user had dragged it.
+ * ⚠️ **No kind is behind a feature flag any more.** `'medicine'` was the one, and it left with
+ * the card; `settings.featureMedicine` now gates the mount site inside
+ * components/HealthSurface.tsx. Nothing here reads a setting — this module is dependency-free
+ * and evaluated on every Home render.
  */
-export const HOME_CARD_KINDS = ['habits', 'notes', 'health', 'medicine'] as const;
+export const HOME_CARD_KINDS = ['plans', 'notes', 'shopping'] as const;
 
 export type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
 
@@ -73,8 +68,15 @@ export type HomeCardKind = (typeof HOME_CARD_KINDS)[number];
  * why each one, and for the consequence (they cannot be permanently hidden). 'notes' is
  * deliberately absent: its card previews a surface the card itself expands into, so losing it
  * loses a shortcut rather than a feature.
+ *
+ * ⚠️ **It is 'plans' and 'shopping' since 2026-08-22, i.e. the exact inverse of what it held.**
+ * Both were DROPPED kinds from 2026-08-19 until this pass, so every stored row in existence
+ * predates them being kinds again — which is this file's central lesson pointing the other way:
+ * without the append, restoring them would reach nobody. (A `lib/db.ts` migration empties the
+ * column in the same release, so most installs never exercise this path; the append is what
+ * covers a row written by an older build, a restored backup, or a paired device.)
  */
-const ALWAYS_PRESENT: readonly HomeCardKind[] = ['habits', 'health', 'medicine'] as const;
+const ALWAYS_PRESENT: readonly HomeCardKind[] = ['plans', 'shopping'] as const;
 
 /**
  * Defensive parse for the persisted order: drop unknown and duplicate kinds, fall back to the

@@ -112,8 +112,12 @@ describe('invariant 2: no pick can produce an invalid state', () => {
     // **It is the MIDDLE one, and that is the whole requirement** ("Middle screen is to be the
     // Main one where app always starts"). Derived from the navigator's own declaration order, so
     // re-ordering the tabs without re-deciding the start screen fails here rather than shipping.
-    expect(tabs).toHaveLength(3);
-    expect(tabs[1]).toBe(START_TAB_ROUTE);
+    // ⚠️ **Five tabs since 2026-08-22, so the middle index is 2, not 1.** Derived rather than
+    // written down: `Math.floor(n / 2)` is "the middle one" for any odd tab count, so the day the
+    // nav changes size again this keeps asserting the requirement instead of a stale index. An
+    // EVEN count has no middle, which is why that is a failure here rather than a rounded guess.
+    expect(tabs.length % 2).toBe(1);
+    expect(tabs[Math.floor(tabs.length / 2)]).toBe(START_TAB_ROUTE);
 
     // The deep-link back target and the navigator's initial route must be the SAME tab. They
     // were two separately-written values until 2026-08-21, so a back press landed on Home even

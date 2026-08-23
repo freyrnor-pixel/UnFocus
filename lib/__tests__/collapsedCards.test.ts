@@ -33,7 +33,7 @@ describe('isCollapsed — absent means the card`s resting state', () => {
   });
 
   it('reads an excepted card as open when unset', () => {
-    expect(isCollapsed({}, 'todoToday')).toBe(false);
+    expect(isCollapsed({}, 'homeToday')).toBe(false);
   });
 
   it('reads a stored value in both directions', () => {
@@ -41,13 +41,13 @@ describe('isCollapsed — absent means the card`s resting state', () => {
     // An explicit false is meaningful now: with closed as the default, it is the only way to
     // record "I opened this one". Before the inversion this case was legacy data.
     expect(isCollapsed({ healthWeek: false }, 'healthWeek')).toBe(false);
-    expect(isCollapsed({ todoToday: true }, 'todoToday')).toBe(true);
+    expect(isCollapsed({ homeToday: true }, 'homeToday')).toBe(true);
   });
 });
 
 describe('defaultCollapsed — one short exception list', () => {
-  it('rests To-do`s Today open', () => {
-    expect(defaultCollapsed('todoToday')).toBe(false);
+  it('rests Home`s Today open', () => {
+    expect(defaultCollapsed('homeToday')).toBe(false);
   });
 
   it('rests every other card closed', () => {
@@ -79,8 +79,8 @@ describe('withCollapsed — the bag holds only what the user moved', () => {
   });
 
   it('stores an excepted card the same way, in the other direction', () => {
-    expect(withCollapsed({}, 'todoToday', true)).toEqual({ todoToday: true });
-    expect(withCollapsed({ todoToday: true }, 'todoToday', false)).toEqual({});
+    expect(withCollapsed({}, 'homeToday', true)).toEqual({ homeToday: true });
+    expect(withCollapsed({ homeToday: true }, 'homeToday', false)).toEqual({});
   });
 
   it('leaves other cards alone', () => {
@@ -144,11 +144,11 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   // older build, where every stored value was a `true` that now agrees with the default.
   it('drops a value that matches the card`s resting state', () => {
     expect(sanitizeCollapsedCards({ habitsList: true, healthWeek: true })).toEqual({});
-    expect(sanitizeCollapsedCards({ todoToday: false })).toEqual({});
+    expect(sanitizeCollapsedCards({ homeToday: false })).toEqual({});
   });
 
   it('passes a clean bag through unchanged', () => {
-    const bag = { habitsList: false, homeMedicine: false, todoToday: true };
+    const bag = { habitsList: false, healthMedicine: false, homeToday: true };
     expect(sanitizeCollapsedCards(bag)).toEqual(bag);
   });
 });

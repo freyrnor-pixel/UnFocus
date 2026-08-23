@@ -117,28 +117,36 @@ describe('PlanTaskCard — the Home header reserves its space', () => {
     expect(src).toMatch(/value=\{countableTasks\.length > 0 \? doneTasks\.length \/ countableTasks\.length : 0\}/);
   });
 
-  it('lets the count pill gate itself, because its row cannot change height', () => {
+  it('lets the count gate itself, because its row cannot change height', () => {
     // Replaces "keeps the summary line mounted, blank rather than absent". That grey
     // `{left}/{total} left` sentence had its OWN line, so an absent node collapsed it and the
-    // card jumped — hence the blank-string trick. Task 09 replaced it with a Badge that shares
-    // the TITLE's line, where appearing changes the row's width and not its height, so the
-    // blank-string trick has nothing left to protect and `t.pad.summary(...)` survives only as
-    // the pill's accessibilityLabel.
+    // card jumped — hence the blank-string trick. Task 09 replaced it with a Badge sharing the
+    // TITLE's line, where appearing changes the row's width and not its height.
     //
-    // What has to stay true is the reason that is safe: the row reserves its height whether
-    // the pill is there or not. If this minHeight ever goes, the gate below becomes the 2026-08-03
-    // pop-in bug again and the pill has to go back to being always-mounted.
-    expect(src).toMatch(/headerTopRow: \{[^}]*minHeight: 32/);
-    expect(src).toMatch(/\{countableTasks\.length > 0 && \(\s*<Badge/);
+    // ⚠️ **The count left this file entirely on 2026-08-22.** PlanTaskCard's non-embedded shell
+    // is components/Card.tsx now, so the tally is `count={{ left, total }}` on the card and is
+    // drawn by components/SectionRail.tsx — this was the fourteenth hand-rolled card header and
+    // the last one outside the registry. The gate survives the move (`countableTasks.length > 0
+    // ? {...} : undefined`), so rule 9 still has to hold, and it holds HARDER: the rail's row is
+    // floored at `MIN_TAP_TARGET` by Card for every card in the app, where this file floored one
+    // row at 32 by hand. Assert both halves at their new addresses.
+    expect(src).toMatch(/count=\{countableTasks\.length > 0 \? \{ left: pendingCount, total: countableTasks\.length \} : undefined\}/);
+    const card = read('components/Card.tsx');
+    expect(card).toMatch(/rowMinHeight=\{MIN_TAP_TARGET\}/);
   });
 
-  it('keeps the summary wording as the pill\'s accessible name', () => {
+  it('keeps the summary wording as the count\'s accessible name', () => {
     // The sentence was deleted from the SCREEN, not from the app. Sighted users read the
     // fraction off a two-number pill in context; a screen reader announcing a bare "3/7" has
     // lost the noun. `t.pad.summary` is the whole of what survived task 09's deletion, so it
     // is worth pinning — a visual review cannot see this one go missing, which is exactly the
     // class of regression the rest of this file exists to catch.
-    expect(src).toMatch(/accessibilityLabel=\{t\.pad\.summary\(pendingCount, countableTasks\.length\)\}/);
+    //
+    // It moved with the count (2026-08-22): SectionRail glosses ONE shape, `{left, total}`, and
+    // deliberately leaves a plain number bare — a total is a size and the title says of what.
+    // That makes this assertion cover every card in the app rather than this one card.
+    expect(read('components/SectionRail.tsx'))
+      .toMatch(/accessibilityLabel=\{typeof count === 'number' \? undefined : t\.pad\.summary\(count\.left, count\.total\)\}/);
   });
 });
 

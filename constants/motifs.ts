@@ -262,10 +262,10 @@ const RAW = {
     ],
   },
   'screen-bg-strip': {
-    w: 1170,
+    w: 1950,
     h: 844,
     els: [
-      { t:'p', role:'stroke', d:'M0 660 C32.5 665 130 696.6667 195 690 C260 683.3333 325 620 390 620 C455 620 520 686.6667 585 690 C650 693.3333 715 638.3333 780 640 C845 641.6667 910 706.6667 975 700 C1040 693.3333 1137.5 616.6667 1170 600', w:2.2, o:0.45, od:0.585 },
+      { t:'p', role:'stroke', d:'M0 660 C32.5 665 130 696.6667 195 690 C260 683.3333 325 620 390 620 C455 620 520 686.6667 585 690 C650 693.3333 715 638.3333 780 640 C845 641.6667 910 701.6667 975 700 C1040 698.3333 1105 632.5 1170 630 C1235 627.5 1300 682.5 1365 685 C1430 687.5 1495 644.1667 1560 645 C1625 645.8333 1690 697.5 1755 690 C1820 682.5 1917.5 615 1950 600', w:2.2, o:0.45, od:0.585 },
       { t:'p', role:'stroke', d:'M0 182C36 150 54 128 78 116', w:1.8, o:0.4, od:0.52 },
       { t:'e', role:'canopy', cx:57.2, cy:114.1, rx:9.24, ry:5.355, rot:-18, o:0.14, od:0.182 },
       { t:'e', role:'canopy', cx:68.75, cy:106.75, rx:10.08, ry:5.88, rot:8, o:0.19, od:0.247 },
@@ -307,6 +307,26 @@ const RAW = {
       { t:'c', role:'dot', cx:975, cy:66, r:3.2, o:0.28, od:0.364 },
       { t:'c', role:'dot', cx:930, cy:196, r:2.5, o:0.28, od:0.364 },
       { t:'c', role:'dot', cx:1030, cy:188, r:2.5, o:0.28, od:0.364 },
+      { t:'p', role:'stroke', d:'M1560 452C1534 428 1524 400 1512 378', w:1.8, o:0.4, od:0.52 },
+      { t:'e', role:'canopy', cx:1500.8, cy:373.9, rx:8.36, ry:4.845, rot:-18, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:1511.25, cy:367.25, rx:9.12, ry:5.32, rot:8, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:1522.65, cy:368.2, rx:8.835, ry:5.13, rot:-10, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:1532.15, cy:373.9, rx:7.6, ry:4.56, rot:20, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:1506.5, cy:380.55, rx:7.6, ry:4.56, rot:-6, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:1519.8, cy:378.65, rx:9.405, ry:5.51, rot:4, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:1529.3, cy:381.5, rx:7.315, ry:4.275, rot:15, o:0.14, od:0.182 },
+      { t:'c', role:'dot', cx:1488, cy:316, r:2.8, o:0.28, od:0.364 },
+      { t:'c', role:'dot', cx:1544, cy:520, r:2.5, o:0.28, od:0.364 },
+      { t:'p', role:'stroke', d:'M1560 474C1584 448 1594 420 1608 398', w:1.8, o:0.4, od:0.52 },
+      { t:'e', role:'canopy', cx:1588.8, cy:393.9, rx:8.36, ry:4.845, rot:-18, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:1599.25, cy:387.25, rx:9.12, ry:5.32, rot:8, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:1610.65, cy:388.2, rx:8.835, ry:5.13, rot:-10, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:1620.15, cy:393.9, rx:7.6, ry:4.56, rot:20, o:0.14, od:0.182 },
+      { t:'e', role:'canopy', cx:1594.5, cy:400.55, rx:7.6, ry:4.56, rot:-6, o:0.19, od:0.247 },
+      { t:'e', role:'canopy', cx:1607.8, cy:398.65, rx:9.405, ry:5.51, rot:4, o:0.25, od:0.325 },
+      { t:'e', role:'canopy', cx:1617.3, cy:401.5, rx:7.315, ry:4.275, rot:15, o:0.14, od:0.182 },
+      { t:'c', role:'dot', cx:1630, cy:336, r:2.8, o:0.28, od:0.364 },
+      { t:'c', role:'dot', cx:1576, cy:540, r:2.5, o:0.28, od:0.364 },
     ],
   },
   'tree-natural-full': {
@@ -1213,4 +1233,4 @@ export const SCREEN_BG_IDS = MOTIF_IDS.filter((id) => id.startsWith('screen-bg-'
  * slid by that navigator's index — if they disagree, every tab quietly shows its neighbour's
  * art. lib/__tests__/motifs.test.ts checks the two against each other.
  */
-export const STRIP_PANEL_ORDER = ["shopping","plans","home"] as const;
+export const STRIP_PANEL_ORDER = ["shopping","plans","home","habits","health"] as const;

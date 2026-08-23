@@ -14,9 +14,17 @@
  * Scan — see lib/siteNav.ts's Edit notes for the full E1/E2 rationale). Health keeps
  * only its symptom-tracking content.
  *
+ * ⚠️ **It is a bottom-nav tab AGAIN as of 2026-08-22** (maintainer: *"5 screens might be needed
+ * again, so we can split at least into Shopping, To-do, Home, Habits and Health"*). It was a tab
+ * until the 2026-08-20 5→3 merge, then a card on the Me tab, then — when every card-in-a-card
+ * pass needed a real full-screen body — a `CenterModalScreen` pop-up route reached from that
+ * card. It is a `<TopTabs.Screen>` again now, and its Home card is gone: a card AND a tab for one
+ * surface is the duplication worth avoiding. The deeper habit surfaces (per-habit config, the
+ * calendar views) are still their own pushed routes.
+ *
  * ⚠️ **The CONTENT of this screen lives in components/HabitsSurface.tsx as of 2026-08-20.**
  * This file is a thin ScreenScaffold wrapper around it, the same shape app/(tabs)/plans.tsx has
- * around TodoSurface and app/health.tsx has around HealthSurface. Everything below this line is
+ * around TodoSurface and app/(tabs)/health.tsx has around HealthSurface. Everything below this line is
  * the screen's own history and still describes what that surface draws — read it there, and
  * read that file's header for what the extraction itself changed (nothing visible: the split is
  * a move, and `embedded` only unwraps the screen-edge padding and the foot tree).
@@ -212,25 +220,37 @@
  *     AddRow → addTask flow; tap a habit card's settings-gear icon (2026-07-21, replaced
  *     long-press) to edit the rest in /habit-form. This
  *     replaced the old header "+" AddFAB (which navigated straight to the form).
- */import React from 'react';
-import { useRouter } from 'expo-router';
-import CenterModalScreen from '@/components/CenterModalScreen';
+ */
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import ScreenScaffold from '@/components/ScreenScaffold';
 import HabitsSurface from '@/components/HabitsSurface';
 import { useT } from '@/lib/i18n';
+import { Spacing } from '@/constants/theme';
 
 export default function HabitsScreen() {
-  const router = useRouter();
   const t = useT();
   return (
-    <CenterModalScreen
+    <ScreenScaffold
       title={t.habitsTitle}
+      tier="site"
       screenKey="habits"
-      onClose={() => router.back()}
+      bottomNav={false}
+      pagerFloatingNav
+      ownBackground={false}
     >
-      {/* No padding wrapper: components/CenterModalScreen.tsx pads its own body, and the
-          card-stack gap belongs to HabitsSurface itself (see its `content` style). */}
-      <HabitsSurface />
-    </CenterModalScreen>
+      <View style={styles.content}>
+        <HabitsSurface />
+      </View>
+    </ScreenScaffold>
   );
 }
+
+const styles = StyleSheet.create({
+  // Tab-tier content pads horizontally only (2026-08-19 seam pass): the first card meets the
+  // header's glass flush, and the bottom is the nav bar's, which the scaffold reserves.
+  // HabitsSurface adds no horizontal inset of its own — it is mounted a second way, inside
+  // CardExpandHost, which supplies its own.
+  content: { paddingHorizontal: Spacing.md },
+});
 

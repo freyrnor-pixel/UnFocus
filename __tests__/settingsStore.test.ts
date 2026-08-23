@@ -23,27 +23,21 @@ jest.mock('@/lib/db', () => ({
 }));
 
 describe('homeCardOrder', () => {
-  it('defaults to habits/notes/health/medicine when the settings row has no value', () => {
-    // Goals joined the default set 2026-07-28 when it got a Home card, then left it again
-    // 2026-07-29 (too many lists on Home).
+  it('defaults to plans/notes/shopping when the settings row has no value', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
     useSettingsStore.getState().load();
-    // Three kinds from 2026-08-19, when To-do took the middle tab and Home became "Me":
-    // 'plans' and 'shopping' left because each is a whole tab one swipe away, so a preview card
-    // here was a second copy of it. FOUR since 2026-08-21, when Medicine stopped being a card
-    // drawn inside the Health card and became a peer (CONSISTENCY_AUDIT.md §11) — it is last
-    // because it is the one card here a user can genuinely not have (settings.featureMedicine),
-    // so the three unconditional ones keep a stable position.
+    // ⚠️ **The maintainer's sentence, in order** (2026-08-22): *"'Home' had easy access to todays
+    // tasks, Notes, and shopping."* Home is the middle tab of five again, and the three cards it
+    // carries are the three that sentence names. 'habits', 'health' and 'medicine' left in the
+    // same pass — Habits and Health are tabs, Medicine is a card on the Health tab, so a preview
+    // here would be a second copy of a surface that already has a home. That is the exact
+    // argument the 2026-08-19 pass used to remove 'plans' and 'shopping'; what changed is which
+    // surfaces it applies to, not the rule.
     //
     // Note this is the RAW column value — the Home screen reads it through
     // sanitizeHomeCardOrder (lib/homeCards.ts), which is what handles a stored order written by
     // an older build, and which is where the append that reaches existing installs lives.
-    expect(useSettingsStore.getState().homeCardOrder).toEqual([
-      'habits',
-      'notes',
-      'health',
-      'medicine',
-    ]);
+    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes', 'shopping']);
   });
 
   it('reads a persisted order back from the JSON column', () => {

@@ -23,7 +23,7 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
  * **Three of these are extracted-component files, not the route file, since the 2026-08-20
  * "full-screen card expansion" pass** (components/TodoSurface.tsx, components/HealthSurface.tsx,
  * components/NotesSurface.tsx): each is mounted by a thin route wrapper (app/(tabs)/plans.tsx,
- * app/health.tsx, app/notes.tsx) AND by components/CardExpandHost.tsx's expanded-card overlay,
+ * app/(tabs)/health.tsx, app/notes.tsx) AND by components/CardExpandHost.tsx's expanded-card overlay,
  * and the card-stack gap is needed in BOTH contexts — so it lives on the shared component's own
  * `content` style, not the thin wrapper's (which only carries the screen-edge padding; see
  * SCAFFOLD_CONTENT below).
@@ -31,7 +31,7 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const SCREENS = [
   'app/(tabs)/index.tsx',
   'components/TodoSurface.tsx',
-  // components/HabitsSurface.tsx since 2026-08-20 — app/habits.tsx became a thin wrapper when
+  // components/HabitsSurface.tsx since 2026-08-20 — app/(tabs)/habits.tsx became a thin wrapper when
   // the Habits card on the Me tab needed a real full-screen body, exactly as To-do/Health/Notes
   // did before it. The card-stack gap is needed in the card too, so it lives on the surface.
   'components/HabitsSurface.tsx',
@@ -118,10 +118,14 @@ const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
   // expansion" pass, health → plans) — it reserves the bottom nav now, same as its two
   // neighbours above.
   { file: 'app/(tabs)/plans.tsx', bottomIsChrome: true },
+  // ⚠️ Habits and Health crossed BACK into the tab set on 2026-08-22, when the bottom nav went
+  // to five again. Both reserve the nav bar now, so neither may carry the `paddingBottom` it had
+  // as a pushed screen (Health) or as a pane (Habits) — which is the whole thing this list
+  // checks, and the exact assertion that would have gone silently missing had they simply been
+  // dropped from it when their paths changed.
+  { file: 'app/(tabs)/habits.tsx', bottomIsChrome: true },
+  { file: 'app/(tabs)/health.tsx', bottomIsChrome: true },
   ...[
-    // app/health.tsx left the bottom nav for a Home card in the "full-screen card expansion"
-    // pass and gained the `paddingBottom` a tab screen must not have.
-    'app/health.tsx',
     'app/scan.tsx', 'app/shared.tsx', 'app/settings.tsx', 'app/pair-device.tsx',
     'app/share-modal.tsx', 'app/automations.tsx',
   ].map((file) => ({ file, bottomIsChrome: false })),
@@ -139,8 +143,9 @@ const SCAFFOLD_CONTENT: { file: string; bottomIsChrome: boolean }[] = [
  * stacked inside the first — the "three stacked horizontal paddings" shape the wrap audit keeps
  * finding. What a converted screen may still own is the gap between its own blocks.
  *
- * Two of the twelve (app/notes.tsx, app/habits.tsx) have no `content` style left at all: their
- * whole body is one extracted surface that owns its own spacing, so the wrapper View went too.
+ * One of them (app/notes.tsx) has no `content` style left at all: its whole body is one
+ * extracted surface that owns its own spacing, so the wrapper View went too. app/habits.tsx was
+ * the other until 2026-08-22, when it became a tab again and moved into SCAFFOLD_CONTENT above.
  */
 const CENTRE_MODAL_SCREENS = [
   'app/habit-form.tsx', 'app/medicine-form.tsx', 'app/health-form.tsx', 'app/health-detail.tsx',
@@ -185,7 +190,7 @@ describe('a centre pop-up adds no padding of its own — the pane already padded
   });
 
   it('the two that kept no content style at all still mount the pane', () => {
-    for (const file of ['app/notes.tsx', 'app/habits.tsx']) {
+    for (const file of ['app/notes.tsx']) {
       const src = read(file);
       expect({ file, pane: /<CenterModalScreen/.test(src) }).toEqual({ file, pane: true });
       expect({ file, content: styleBody(src, 'content') }).toEqual({ file, content: '' });
@@ -294,9 +299,6 @@ const UNMEASURED: Record<string, string> = {
   'app/notes.tsx':
     'A pane whose whole body is components/NotesSurface.tsx (which IS in SCREENS). That it really '
     + 'mounts the pane, and keeps no content style, is asserted in the centre-modal block above.',
-  'app/habits.tsx':
-    'A pane whose whole body is components/HabitsSurface.tsx (which IS in SCREENS). Same shape as '
-    + 'app/notes.tsx above, and asserted the same way.',
   'app/scan.web.tsx':
     'The web sibling of a native-only OCR screen: it renders an "OCR not available" placeholder '
     + 'and no card stack at all, so there is no rhythm here to measure. app/scan.tsx is covered.',

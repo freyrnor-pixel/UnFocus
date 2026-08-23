@@ -66,7 +66,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import AnimatedChevron, { CHEVRON_SIZE } from '@/components/AnimatedChevron';
 import PressableScale from '@/components/PressableScale';
-import { hitSlopFor, MIN_TAP_TARGET } from '@/constants/theme';
+import { hitSlopFor, IconSize, MIN_TAP_TARGET } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -121,15 +121,22 @@ const styles = StyleSheet.create({
    * The HEIGHT keeps `MIN_TAP_TARGET`: vertical room in a header row is free, and it is what
    * keeps a folded card's header the same height as an open one's.
    *
-   * ⚠️ **Known and accepted: the right half of the slop overlaps the ⤢ beside it.** `HitSlop`'s
-   * own doc warns not to put a loose slop on two controls sitting 8px apart, because their touch
-   * areas overlap and the wrong one wins. Here only ONE of the pair is slop-heavy — a
-   * `CardExpandButton` is a 36px `IconButton` whose hit area extends 6px past its cap — and the
-   * later sibling takes the overlap, so what is lost is part of this control's RIGHT slop, not
-   * any of the ⤢'s target. The chevron keeps its own 18px plus a full left slop. It was worse
-   * before: a 48px box plus 10px of slop spanned 58px into the same 4px gap.
+   * ⚠️ **The WIDTH came back as `IconSize.action` on 2026-08-22, and it is an alignment fix, not
+   * a target fix** (maintainer: *"Move other buttons to fit, and make sure they are aligned
+   * (they are not now)."*). A caller's header controls are `IconButton`s, whose visible cap is
+   * `IconSize.action` wide; this glyph is 18. Flush-right in the same row, the button's centre
+   * sat 18px from the card's edge and the chevron's sat 9 — so the trailing control landed in a
+   * different place depending on whether the card had one, and a column of cards had a ragged
+   * right margin. Matching the cap width puts every trailing glyph on one vertical line.
+   *
+   * This does NOT reopen the 2026-08-21 width argument, because that pass was paying 30px for a
+   * `MIN_TAP_TARGET` (48) box on a header that also carried a 36px ⤢. The ⤢ is deleted, which
+   * gave back more than this costs: a header with a fold and no caller controls is ~40px wider
+   * than it was, not narrower. The target still comes from `hitSlopFor`, per `MIN_TAP_TARGET`'s
+   * "pick one" rule — 36 is a cap width, not a tap target, and the slop is what makes it 48.
    */
   btn: {
+    minWidth: IconSize.action,
     minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',

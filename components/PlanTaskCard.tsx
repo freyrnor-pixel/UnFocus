@@ -310,7 +310,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown, LinearTransition } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import Surface from '@/components/Surface';
+import Card from '@/components/Card';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
@@ -1525,31 +1525,29 @@ export default function PlanTaskCard({
     />
   ) : null;
 
-  const Shell = embedded ? View : Surface;
-  return (
-    <Shell
-      {...(embedded ? {} : { surfaceContext: 'ambient' as const, elevated: expanded })}
-      style={embedded ? undefined : [styles.card, !expanded && styles.cardCollapsed]}
-    >
+  // ⚠️ **The non-embedded shell is `components/Card.tsx` since 2026-08-22.** This file drew its
+  // own `Surface`, badge, title, count pill and ⋮ — the FOURTEENTH card header, and the last one
+  // left outside the registry after the 2026-08-21 convergence. It showed: on Home, "Today's
+  // list" was the one card in the stack with no fold chevron, because a hand-rolled header has
+  // whatever controls its author remembered. Everything the registry owns now comes from
+  // `homeToday`; what stays here is the card's BODY, which is the part that is genuinely its own.
+  //
+  // `embedded` is unchanged and still a bare `View`: inside CardExpandHost's pane or
+  // TodoSurface's timeline the surrounding card is already drawn, and a Card here would be the
+  // card-in-a-card the blueprint pass banned.
+  const body = (
       <View style={embedded ? styles.embeddedContent : styles.cardContent}>
 
         {/* A caller-supplied header, drawn inside the card — see the `header` prop's doc. */}
         {header}
 
-        {/* Section header — only in read-only (Home preview) mode. The badge is a normal flex
-            child now, so the whole card sits on ONE left edge. */}
+        {/* The progress bar is what survives of the hand-rolled header: it is CONTENT (how much
+            of the day is done), not chrome, and rule 9 requires it to stay always-mounted so
+            writing the day's first task cannot make it appear out of nothing and push the card
+            down. The badge, title, count and ⋮ above it went to Card/the registry. */}
         {readOnly && (
-          // Full screen replaces the push (2026-08-20) — this used to push to /plans
-          // unconditionally; Home now passes `onSeeMore` (its expand-in-place handler) instead,
-          // so the same header press works whether the To-do tab route exists or not.
-          <PressableScale onPress={() => onSeeMore?.()} style={styles.headerRowPressable} scaleTo={0.98}>
+          <View style={styles.headerRowPressable}>
             <View style={styles.headerTopRow}>
-              <CardAccentBadge domain="plan" size={32} accentOverride={screenColor.base} />
-              <View style={styles.headerText}>
-                <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-                  {t.home.todaysPlans}
-                </Text>
-              </View>
               {/* Count pill, not the old grey sentence (2026-08-04, DESIGN_COMPARISON/09) — see
                   HomeNotesCard's edit note for why it's a header-row sibling, not inline after
                   the title. Rule 9 — the bar below stays ALWAYS mounted (unchanged): it used to
@@ -1560,17 +1558,6 @@ export default function PlanTaskCard({
                   one: `headerTopRow`'s `minHeight: 32` already covers both the pill's and the
                   title's height, so its row never changes height whether the pill is there or
                   not — only its width does, which isn't the jump rule 9 was written against. */}
-              {countableTasks.length > 0 && (
-                <Badge
-                  label={`${pendingCount}/${countableTasks.length}`}
-                  bg={screenColor.soft}
-                  fg={theme.textMuted}
-                  borderColor={rgba(screenColor.base, 0.3)}
-                  tabularNums
-                  accessibilityLabel={t.pad.summary(pendingCount, countableTasks.length)}
-                />
-              )}
-              {cardMenu ? <CardMenuButton cardTitle={t.home.todaysPlans} {...cardMenu} /> : null}
             </View>
             <ProgressBar
               value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}
@@ -1578,7 +1565,7 @@ export default function PlanTaskCard({
               height={4}
               style={styles.progressBar}
             />
-          </PressableScale>
+          </View>
         )}
 
         {showEmpty ? (
@@ -1865,7 +1852,17 @@ export default function PlanTaskCard({
         {extraSection}
 
       </View>
-    </Shell>
+  );
+
+  if (embedded) return body;
+  return (
+    <Card
+      id="homeToday"
+      count={countableTasks.length > 0 ? { left: pendingCount, total: countableTasks.length } : undefined}
+      controls={cardMenu ? <CardMenuButton cardTitle={t.home.todaysPlans} {...cardMenu} /> : null}
+    >
+      {body}
+    </Card>
   );
 }
 

@@ -185,7 +185,7 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
   });
 
   it('takes no colour prop, so an edge cannot be hued at one call site and not another', () => {
-    // Habits/HomeHabitsCard hued their chip's edge with the screen colour while Goals, the
+    // Habits hued its chip's edge with the screen colour while Goals, the
     // Goals drawer and the health sheet used theme.border — half of why five copies never
     // matched. The edge is neutral everywhere now; the hue reaches it through the card.
     // Since 2026-08-18 the chip has no edge at all, so the stronger form of the same claim is
@@ -217,7 +217,6 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
 
   for (const file of [
     'components/HabitsSurface.tsx',
-    'components/HomeHabitsCard.tsx',
     // app/goals.tsx was a caller until it was retired (2026-08-12), and its successor
     // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
     // is the two habit surfaces and the health sheet, all of them short-label clouds that
@@ -294,7 +293,6 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     ['components/PlanTaskCard.tsx', 'the day card'],
     // 2026-08-13: Home's habits card stopped hand-rolling a label-plus-bare-cloud stand-in
     // for the trigger row and mounts the real thing.
-    ['components/HomeHabitsCard.tsx', "Home's habits card"],
   ] as const) {
     it(`${label} mounts it embedded`, () => {
       const source = code(file);
@@ -494,7 +492,6 @@ describe('the composer comes after the examples, everywhere', () => {
   for (const [file, starterMarker, composerMarker, label] of [
     ['components/HealthSurface.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
     ['components/HabitsSurface.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
-    ['components/HomeHabitsCard.tsx', '<StarterCard', '<PadSheet', "Home's habits card"],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
     ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
   ] as const) {
@@ -546,7 +543,6 @@ describe('the bulb explainer line stays deleted', () => {
 
   for (const file of [
     'components/PlanTaskCard.tsx',
-    'components/HomeHabitsCard.tsx',
     'components/HomeNotesCard.tsx',
     'components/MedicineSurface.tsx',
     'components/EnergyMeter.tsx',

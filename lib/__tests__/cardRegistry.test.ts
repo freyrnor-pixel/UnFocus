@@ -57,7 +57,7 @@ describe('every declaration is honest', () => {
 });
 
 describe('each screen has a deliberate order', () => {
-  it.each(['me', 'todo', 'shop'] as const)('%s numbers its cards uniquely', (screen) => {
+  it.each(['home', 'todo', 'shop', 'habits', 'health'] as const)('%s numbers its cards uniquely', (screen) => {
     const keys = cardsForScreen(screen);
     expect(keys.length).toBeGreaterThan(0);
     const orders = keys.map((k) => cardSpec(k).order);

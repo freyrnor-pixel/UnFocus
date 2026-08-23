@@ -94,8 +94,6 @@ import Animated, {
 import Surface from '@/components/Surface';
 import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
-import HabitsSurface from '@/components/HabitsSurface';
-import HealthSurface from '@/components/HealthSurface';
 import MedicineSurface from '@/components/MedicineSurface';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
@@ -196,22 +194,25 @@ function EarlierDaysExpandedBody() {
 const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
-  // Real since 2026-08-20 — components/HabitsSurface.tsx was extracted out of app/habits.tsx
-  // exactly the way To-do, Health and Notes had been, and components/HomeHabitsCard.tsx mounts a
-  // `CardExpandButton` again. It was a `ComingSoonBody` from 2026-08-19.
-  //
   // ⚠️ **There are no placeholder bodies left, and there must not be another** (2026-08-21).
   // `shopLists` was the last one; it left lib/expandableCards.ts rather than getting a body —
   // see the note there for why declined rather than deferred. `ComingSoonBody` is deleted, so
   // the only way to register a stub now is to write a new one, and
   // lib/__tests__/expandableCards.test.ts fails on a body that renders nothing real.
-  homeHabits: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
+  //
+  // ⚠️ **`homeHabits` and `homeHealth` left on 2026-08-22**, when Habits and Health became tabs
+  // again: their cards no longer exist, and an id whose card is gone keeps an entry alive that
+  // nothing can reach while the test pinning the two lists together goes on passing over it.
+  // Their surfaces are unchanged — they are simply mounted by a screen now, not by a pane.
   homeNotes: { title: (t) => t.notes.title, Body: () => <NotesSurface embedded /> },
-  homeHealth: { title: (t) => t.home.healthCardTitle, Body: () => <HealthSurface embedded /> },
+  // Home's own "Today" card. Same body as `todoToday` one tab over, and deliberately so: the
+  // card on Home is a PREVIEW of that card, so its full-screen version has to be the same
+  // surface, not a second rendering of it.
+  homeToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   // The pane draws its own title bar, so this entry supplies the one header control the card
   // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
   // switch. Same `header` slot CatalogueExpandedBody uses for the lock and camera.
-  homeMedicine: { title: (t) => t.medicine.title, Body: MedicineExpandedBody },
+  healthMedicine: { title: (t) => t.medicine.title, Body: MedicineExpandedBody },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },

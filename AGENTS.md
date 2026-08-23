@@ -93,7 +93,16 @@ are separate modules. (This line read `constants/theme.ts (getTheme, Colors)` un
 2026-08-01; neither export has ever existed. See `docs/archive/DESIGN_SYSTEM_LIBRARY_INDEX.md` for which
 file owns which token.)
 
-- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **Shop/To-do/Me** (`Handle` · `Gjøremål` · `Meg`), the real `<TopTabs.Screen>` order in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so trust the navigator, not this line. **To-do is the CENTRE tab and `/` is "Meg" as of 2026-08-19** (*"Make 'To-do' middle screen, and the 'Home' can be the 'Me' for Health and notes. I think that makes things more tidy."*): the route is still `/` and the SiteKey is still `'home'` — only the label, the icon (`today` → `person`) and the position moved. Home is **4 cards** now: Habits, Notes, Health, **Medicine** (`lib/homeCards.ts`'s
+- **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **five tabs since 2026-08-22**: Shop · To-do · **Home (CENTRE)** · Habits · Health (`Handle` · `Gjøremål` · `Hjem` · `Vaner` · `Helse`). The real `<TopTabs.Screen>` order is in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so **trust the navigator, not this line**. Maintainer: *"The logic was sound before. 'Home' had easy access to todays tasks, Notes, and shopping. I think 5 screens might be needed again, so we can split at least into Shopping, To-do, Home, Habits and Health."*
+  - **This REVERSES both the 2026-08-20 5→3 merge and the 2026-08-19 "To-do to the middle, Home becomes Meg" pass**, which rested on one argument — *a preview card for a neighbouring tab is a second, shorter copy of that tab*. It is **overruled for Home's three cards** (seeing three surfaces at once without swiping to any of them is what a hub is FOR) and **kept for Habits and Health** (a card AND a tab for one surface is the duplication worth avoiding). Full lineage: Shopping/Plans/Home/Habits/Health (Decision 036) → Shopping/Home/Health (5→3 merge) → Shopping/Home/To-do → Shopping/To-do/Home → **this, which is Decision 036 again**.
+  - **Home is 3 cards: Today, Notes, Shopping** (`lib/homeCards.ts`'s `HOME_CARD_KINDS` = `['plans','notes','shopping']`), and they are the app's only three `openAtRest` cards — so the maintainer's rule *"All card start in closed state, except 'Today' 'Notes' and 'Shopping' in middle screen"* is now literally true rather than approximately. `sanitizeHomeCardOrder()` FILTERS the three departed kinds and APPENDS the two returning ones; a `lib/db.ts` migration additionally empties `home_card_order` and `collapsed_cards`, because appending would land Today and Shopping *after* Notes. `components/HomeShoppingCard.tsx` is restored (from `7ad9e9d^`) and now goes through `components/Card.tsx`; `HomeHabitsCard.tsx` and `HomeHealthCard.tsx` are **deleted** — their content is `HabitsSurface`/`HealthSurface`, mounted by a screen.
+  - ⚠️ **`'home'` is still the KEY and `/` is still the route.** Only the label, the icon and the position have ever moved. Because `/` is the CENTRE tab again, `START_TAB_ROUTE_PATH` (`lib/siteNav.ts`) is `/` — but for the opposite reason it used to be: not because `settings.startScreen` says so (still inert, still no picker), but because the centre tab happens to be Home. The cold-start redirect in `app/_layout.tsx` is now a no-op and is kept deliberately.
+  - **`app/habits.tsx` and `app/health.tsx` moved into `app/(tabs)/`** as thin `tier="site"` `ScreenScaffold` wrappers around `HabitsSurface`/`HealthSurface` — the same shape `app/(tabs)/plans.tsx` has around `TodoSurface`. Those surfaces exist BECAUSE of the merge (they were extracted when the tabs were folded away), which is most of why restoring the tabs cost so little. **Medicine moved to the Health tab** as a peer card (`components/MedicineCard.tsx`, was `HomeMedicineCard`), never inside Health's own `Surface`.
+  - ⚠️ **The 2026-07-23 E1 finding is live again**: Habits once lived INSIDE the Health tab and had to be split back out, because a tab whose name promised symptom tracking hid a whole habit system. Don't fold either into the other for tidiness. Medicine on Health is not that case — it is health, and it is a visible peer card.
+  - The backdrop strip is **1950×844 / 5 panels** again (`scripts/author-screen-bgs.mjs`; `PANELS` and the 11-waypoint `SPINE_Y` are the pre-merge values verbatim). Regenerate with that script then `scripts/build-motifs.mjs`; `lib/__tests__/motifs.test.ts` pins panel order against the navigator.
+  - **`nav.home` and `nav.health` both read "Me"** from 2026-08-19 to 2026-08-22 and now name their own surfaces. Two nav entries sharing one word was survivable only while one of them was off the bar.
+
+  *History below this line describes the 3-tab era and is kept for its reasoning, not as current state.* Home was **4 cards**: Habits, Notes, Health, **Medicine** (`lib/homeCards.ts`'s
 `HOME_CARD_KINDS`). Medicine joined on 2026-08-21 (`CONSISTENCY_AUDIT.md` §11, maintainer: *"Yes."*)
 — it had been a full `Surface` drawn INSIDE `HomeHealthCard`'s `Surface`, the card-in-a-card the
 blueprint pass banned. It is the one kind behind a feature flag (`featureMedicine`), gated at the
@@ -931,6 +940,42 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     `scripts/screenshot-states.mjs --theme=light` predates dark-becoming-the-default and only
     means "don't force dark", which now lands on dark anyway. Worth a look on a device, and worth
     fixing in that script.
+- **⚠️ There is no full-screen ⤢ button anywhere — the TITLE opens a card (2026-08-22)**
+  (`components/Card.tsx`; pinned by `lib/__tests__/cardAnatomy.test.ts`). Maintainer: *"Remove
+  all full screen buttons, instead user just presses the title."* `SectionRail` has carried
+  `onLabelPress` since 2026-08-10 and `Card` has wired every expandable card's title to
+  `expand.onExpand` since the registry landed, so the button was a SECOND control for a thing the
+  title already did — and the widest item in the cluster. Deleting it is the whole change: the
+  measure ref, the animation geometry and `useCardExpand` are untouched, because none of them
+  care which control fires.
+  - **The trailing cluster is `{controls}` → fold, and the fold is outermost**, inheriting the
+    corner the ⤢ used to occupy. The test asserts the ABSENCE (nothing follows the fold, no
+    header slot anywhere mounts a `CardExpandButton`) rather than an ordering — the old assertion
+    was that `{afterFold}` came *after* the fold, which deleting the whole cluster would also
+    have satisfied.
+  - **`components/CardExpandButton.tsx` still exists**, for exactly one job: the expanded pane's
+    own close control in `components/CardExpandHost.tsx`. The import ban is what keeps a card
+    header from reaching for it again.
+  - The title carries `labelPressHint` (`<card title> — <t.expandCardLabel>`), because the one
+    control left is otherwise a name that does not announce itself as a control.
+  - **Alignment came with it** (*"Move other buttons to fit, and make sure they are aligned"*).
+    `CardCollapseToggle` took back a `minWidth: IconSize.action` so the chevron's optical centre
+    matches the `IconButton`s beside it — flush-right, an 18px glyph sat 9px from the card edge
+    where a 36px cap sat 18px, so the trailing control landed differently depending on whether a
+    card had caller controls. This does NOT reopen the 2026-08-21 width argument: that pass was
+    paying 30px for a 48px box on a header that ALSO carried a 36px ⤢, and deleting the ⤢ gave
+    back more than this costs. `Card` also passes `rowMinHeight={MIN_TAP_TARGET}`, so every card
+    header is one height whether or not its title is pressable — an asymmetry the ⤢ had been
+    hiding by flooring the row from the other side on exactly the expandable cards.
+  - ⚠️ **`components/PlanTaskCard.tsx` was the FOURTEENTH card header** and the last one outside
+    the registry; its non-embedded shell is `Card` now (`homeToday`). It showed: on Home, "Today"
+    was the one card in the stack with no fold chevron, because a hand-rolled header has whatever
+    controls its author remembered. Its `embedded` path is unchanged and still a bare `View`.
+  - `SectionRail` gained a `countRef` — a MEASUREMENT hook, not anatomy — because
+    `HomeShoppingCard`'s tick animation flies a row to the header count, which `Card` draws now.
+    It also glosses a `{left, total}` count with `t.pad.summary` for screen readers, which is
+    where that wording went when the hand-rolled count pills were deleted.
+
 - **⚠️ One card shape — the card registry (2026-08-21)** (`lib/cardRegistry.ts` + `components/Card.tsx`;
   pinned by `lib/__tests__/cardRegistry.test.ts` and `cardAnatomy.test.ts`). **Read this before
   adding, moving or restyling any card — most of the card notes below it describe how things were

@@ -660,7 +660,7 @@ function rowToSettings(row: Row): Settings {
     // the bottom nav the same pass). A stored order from that window is un-folded on read by
     // sanitizeHomeCardOrder in lib/homeCards.ts — deliberately there rather than as a lib/db.ts
     // migration, so a row written later by an older build/paired device is covered too.
-    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['habits', 'notes', 'health', 'medicine']),
+    homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
     energyWeeklyCapacity: readInt(row, 'energy_weekly_capacity', 50),
@@ -864,7 +864,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   seenScreenHints: [],
   dismissedStarters: [],
   dismissedHints: [],
-  homeCardOrder: ['habits', 'notes', 'health', 'medicine'],
+  homeCardOrder: ['plans', 'notes', 'shopping'],
   energySystemEnabled: true,
   energyDailyCapacity: 10,
   energyWeeklyCapacity: 50,

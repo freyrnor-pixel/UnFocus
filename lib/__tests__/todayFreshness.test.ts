@@ -33,23 +33,25 @@ const TABS_DIR = path.join(ROOT, 'app', '(tabs)');
  * file it was written for. app/health.tsx crossed the SAME way hours later (the "full-screen
  * card expansion" pass) and joined it.
  */
-const PUSHED_SCREENS = ['app/habits.tsx', 'app/health.tsx'] as const;
-// ⚠️ Both entries above are thin route wrappers as of 2026-08-20 and capture nothing
-// themselves — app/habits.tsx joined app/health.tsx there when components/HabitsSurface.tsx was
-// extracted. They stay in the scan deliberately: the day one of them grows a `today` of its own
-// again, the rule should bind it without anyone remembering to re-add it here.
+// ⚠️ **Empty since 2026-08-22, and that is not a coverage loss.** It held app/habits.tsx and
+// app/health.tsx; both moved into app/(tabs)/ when the bottom nav went back to five tabs, so the
+// TABS_DIR scan above picks them up directly and listing them here would read them twice — from
+// paths that no longer exist. Neither captures a `today` of its own anyway (both are thin route
+// wrappers); the surfaces that do are in EXTRACTED_SURFACES below.
+const PUSHED_SCREENS: readonly string[] = [] as const;
 
 /**
  * Extracted surface components (same pass) that carry the REAL `today` capture now — their
- * thin route wrappers (app/(tabs)/plans.tsx, app/health.tsx) mount them but derive nothing
+ * thin route wrappers (app/(tabs)/plans.tsx, app/(tabs)/health.tsx) mount them but derive nothing
  * themselves. Scanning only the wrapper would trivially pass ("nothing captured — fine") over
  * exactly the file that actually needs the pairing.
  */
 const EXTRACTED_SURFACES = [
   'components/TodoSurface.tsx',
   'components/HealthSurface.tsx',
-  // components/HabitsSurface.tsx joined them on 2026-08-20, extracted so the Me tab's Habits
-  // card could have a real full-screen body. It carries the capture the original bug was
+  // components/HabitsSurface.tsx joined them on 2026-08-20, extracted so the then-Me tab's
+  // Habits card could have a real full-screen body — it is the Habits TAB's content again as of
+  // 2026-08-22, and unchanged. It carries the capture the original bug was
   // measured on, so this is the entry that keeps that coverage rather than losing it to the
   // move — exactly the failure mode the PUSHED_SCREENS note above describes.
   'components/HabitsSurface.tsx',
@@ -81,7 +83,7 @@ const tabScreens = [
 
 describe('a render-scope `today` is paired with the minute tick', () => {
   it('finds the screens at all (guards against a silently empty scan)', () => {
-    // 3 tabs + the 2 pushed list screens + the 3 extracted surfaces.
+    // 5 tabs + the 3 extracted surfaces (no pushed screens left — see PUSHED_SCREENS).
     expect(tabScreens.length).toBeGreaterThanOrEqual(8);
   });
 
@@ -108,7 +110,12 @@ describe('a render-scope `today` is paired with the minute tick', () => {
   it('covers the screens/surfaces that capture one', () => {
     const capturing = tabScreens.filter((s) => RENDER_SCOPE_TODAY.test(s.source)).map((s) => s.file);
     // `habits.tsx` was here until 2026-08-20; the capture moved into HabitsSurface.tsx with the
-    // rest of that screen's content. Still three, and still the same three surfaces.
-    expect(capturing.sort()).toEqual(['HabitsSurface.tsx', 'HealthSurface.tsx', 'TodoSurface.tsx']);
+    // rest of that screen's content. **`index.tsx` joined on 2026-08-22**: Home carries the day's
+    // tasks and the shopping week again, so it derives `today` at render scope for the first time
+    // since those cards left it — and it is paired with `useNowMinutes()` for the day log, which
+    // is what the rule above actually checks.
+    expect(capturing.sort()).toEqual([
+      'HabitsSurface.tsx', 'HealthSurface.tsx', 'TodoSurface.tsx', 'index.tsx',
+    ]);
   });
 });
