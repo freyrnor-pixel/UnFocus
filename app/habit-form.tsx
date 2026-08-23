@@ -893,8 +893,25 @@ const baseStyles = StyleSheet.create({
   // components/TaskCard.tsx's editor so both creation surfaces end identically.
   headerSaveBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerSaveText: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
-  bottomActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.md },
-  bottomActionsRight: { flexDirection: 'row', gap: Spacing.xs },
+  // **Wraps, and the right-hand cluster stays right-aligned when it does (2026-08-23).**
+  // `npm run wraps --lang=no --width=360` reported the Discard/Save pair 7px past the pop-up
+  // pane's own overflow mask — a CLIPPED control, i.e. the Save button physically sliced.
+  // `space-between` does not shrink anything: Slett (84) + Forkast·Lagre (205) needs 289 in the
+  // 267 a 92%-wide centre-modal pane leaves at 360px, so the surplus simply hangs off the end.
+  // Three labelled buttons that genuinely do not fit is the wrap audit's own "cannot be fixed
+  // by shortening copy" case, and components/TaskCard.tsx fixed the identical row this way on
+  // 2026-08-01; this is that fix reaching the two editors that were never revisited.
+  // `marginLeft: 'auto'` is what keeps Forkast·Lagre against the right edge once the row wraps
+  // and `space-between` has only one child per line to work with.
+  bottomActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    rowGap: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  bottomActionsRight: { flexDirection: 'row', gap: Spacing.xs, marginLeft: 'auto' },
   smallActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',

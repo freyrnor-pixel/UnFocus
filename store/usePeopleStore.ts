@@ -37,6 +37,12 @@
  *   - `settings.childProfiles` is deliberately left in place and untouched. This repo
  *     never drops columns, and keeping it readable means a bad back-fill stays
  *     diagnosable from a backup. Nothing should READ it for person UI any more.
+ *   - ⚠️ **`remove()` hands their tasks back, and that rewrite is synced too.** Clearing
+ *     `tasks.assignee_id` touches a whitelisted synced column on rows this store does not own,
+ *     so the affected ids are collected before the tx and stamped with `syncRows('tasks', …)`
+ *     after it. The person's tombstone says nothing about them; without this the peer kept
+ *     every task assigned to somebody it had just been told was deleted.
+ *     See __tests__/relatedRowSync.test.ts.
  *   - Every mutation goes through `syncPersonRow`/`softDelete` — a raw `updateRow` here
  *     would change local state without the peer ever hearing about it. `syncPersonRow` is
  *     a one-line wrapper naming this store's table; the stamp+broadcast body it used to
@@ -64,7 +70,7 @@ import { generateId } from '@/lib/id';
 import { paletteColorAt } from '@/lib/personColor';
 import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
-import { syncRow } from '@/lib/syncRow';
+import { syncRow, syncRows } from '@/lib/syncRow';
 import { useSettingsStore } from '@/store/useSettingsStore';
 // Link cleanup only, used inside remove() at call time — never at module-eval time.
 import { useTaskStore } from '@/store/useTaskStore';
@@ -298,6 +304,15 @@ export const usePeopleStore = create<PeopleStore>((set, get) => ({
     // The self row is this device's own identity — removing it would leave every task
     // assigned to nobody and the back-fill unable to recreate it (its gate is set).
     if (!person || person.isSelf) return;
+    // Their tasks are handed back to the household in the tx below. `assignee_id` is a
+    // whitelisted synced column (lib/liveSync.ts), so those rows need the stamp-and-broadcast
+    // pair — the person's own tombstone says nothing about them, and a bare local UPDATE left
+    // the peer with tasks still assigned to a person it had just been told was gone. Read
+    // before the writes, since the UPDATE is what makes the predicate stop matching.
+    const reassignedTaskIds = useTaskStore
+      .getState()
+      .tasks.filter((t) => t.assigneeId === id)
+      .map((t) => t.id);
     tx(() => {
       softDelete('people', id, useSettingsStore.getState().deviceId);
       // App-enforced ON DELETE SET DEFAULT: their tasks come back to the household rather
@@ -309,6 +324,7 @@ export const usePeopleStore = create<PeopleStore>((set, get) => ({
     // Clear the now-dangling id from the task store's in-memory state (the column was
     // cleared in the tx above). Call-time use — see the import note at the top of the file.
     useTaskStore.getState().clearPerson(id);
+    syncRows('tasks', reassignedTaskIds);
   },
 
   self() {

@@ -50,10 +50,19 @@
  *                       sliced by a mask's border box IS a real bug it can see, and it is silent
  *                       across the app today — but do not read "0 clipped" as "no text is cut off".
  *
- * Coverage note: this walks onboarding, the tour card, all three tabs (Shop/Home/To-do —
- * five until the 2026-08-20 5→3 merge, three again the same day once the SAME-DAY
- * "full-screen card expansion" pass restored To-do's tab slot and moved Health off the bar
- * entirely onto a Home card), Settings, the **Energy config sheet**, and — since 2026-08-01 —
+ * ⚠️ **A step that SKIPS is not a step that passes, and a nav change is what breaks them.**
+ * This walk is a list of hard-coded labels, so every pass that moves a surface silently
+ * un-measures whatever this reached through it. On 2026-08-22 the bar went back to five tabs
+ * and Home stopped being "Meg": `goHome` then waited ten seconds for a tab that no longer
+ * exists and the WHOLE RUN died at the first tab loop — and once that was fixed, three more
+ * steps were found pointing at the old geography (the habit composer, the symptom form and the
+ * medicine editor were all reached "via Home", where none of them lives any more), plus two
+ * whole tabs simply absent from `tabs`. Check the "screens measured" line against the steps
+ * you expect, not just the totals.
+ *
+ * Coverage note: this walks onboarding, the tour card, all FIVE tabs (Shop/To-do/Home/Habits/
+ * Health — five since 2026-08-22, which is Decision 036 again after a two-day three-tab
+ * detour), Settings, the **Energy config sheet**, and — since 2026-08-01 —
  * the **task editor** (where the mic bug lived), the **Goals drawer** (an in-card editor as of
  * 2026-08-12, was a popup before that), the **health form** and the **medicine editor**.
  * Pushed sub-screens and opened editors/sheets were invisible to this audit before that pass,
@@ -61,6 +70,9 @@
  * with tight horizontal pressure, add a step for it here rather than trusting a screenshot.
  *
  * Ordering is constrained by three facts, all verified rather than assumed — see main():
+ *   - a card that is not on Home rests CLOSED (lib/cardRegistry.ts's `openAtRest`), so any
+ *     step reaching for something inside one has to `openCard()` it first — otherwise the
+ *     locator waits on a control that is genuinely not in the DOM and the step skips;
  *   - the run is FOUR passes, because `settings`, `health-form` and `medicine-form` are all
  *     dead ends (pushed `tier="sub"` screens with no BottomNav, confirmed by reading each file
  *     rather than trusting an older comment — see Pass 2's own note) and only one of them can
@@ -117,7 +129,13 @@ const L = {
     // off the bar entirely, becoming a Home card instead — see the health-form step below).
     // `home` is the middle tab and is listed separately because several steps need to return
     // to it by name.
-    tabs: ['Shop', 'To-do'], home: 'Me', settings: 'Settings',
+    // ⚠️ All four non-Home tabs, since 2026-08-22 restored the five-tab bar. A tab this loop
+    // does not click is a tab this audit does not measure — Habits and Health were simply
+    // absent from the run for as long as this list said two.
+    tabs: ['Shop', 'To-do', 'Habits', 'Health'], home: 'Home', settings: 'Settings',
+    // Card fold chevrons read "<card title>: <expandListLabel>" — see `openCard`.
+    expandList: 'Expand list',
+    habitsCard: 'Habits', healthWeekCard: 'This week', medicineCard: 'Medicine',
     dismiss: ['Skip', 'Got it', 'Got it →', 'OK'],
     // Task-editor walk: the "All tasks" tab is the only one with an add affordance, and a
     // fresh profile has no tasks, so one has to be created before an editor can be opened.
@@ -175,7 +193,9 @@ const L = {
   no: {
     langRow: /^Språk: Norsk\./, basicsNext: 'Fortsett',
     start: 'Start', tourNext: 'Skjønner', skipTour: 'Hopp over omvisningen',
-    tabs: ['Handle', 'Gjøremål'], home: 'Meg', settings: 'Innstillinger',
+    tabs: ['Handle', 'Gjøremål', 'Vaner', 'Helse'], home: 'Hjem', settings: 'Innstillinger',
+    expandList: 'Vis liste',
+    habitsCard: 'Vaner', healthWeekCard: 'Denne uken', medicineCard: 'Medisin',
     dismiss: ['Hopp over', 'Skjønner', 'Skjønner →', 'OK'],
     newTask: 'Ny oppgave', probeTask: 'Bredde-test',
     expandWhenever: 'Når som helst: Vis liste',
@@ -196,7 +216,9 @@ const L = {
     // below it is post-switch and genuinely Icelandic.
     langRow: /^Språk: Íslenska\./, basicsNext: 'Áfram',
     start: 'Byrja', tourNext: 'Ég skil', skipTour: 'Sleppa kynningunni',
-    tabs: ['Innkaup', 'Verkefni'], home: 'Ég', settings: 'Stillingar',
+    tabs: ['Innkaup', 'Verkefni', 'Venjur', 'Heilsa'], home: 'Heim', settings: 'Stillingar',
+    expandList: 'Sýna lista',
+    habitsCard: 'Venjur', healthWeekCard: 'Þessa viku', medicineCard: 'Lyf',
     dismiss: ['Sleppa', 'Ég skil', 'Ég skil →', 'Í lagi'],
     newTask: 'Nýtt verkefni', probeTask: 'Breiddarpróf',
     expandWhenever: 'Hvenær sem er: Sýna lista',
@@ -255,6 +277,36 @@ async function goHome(page) {
   if (onHome) return;
   await page.getByRole('button', { name: L.home, exact: true }).first().click({ timeout: 10000 });
   await page.waitForTimeout(700);
+}
+
+/**
+ * Switch to one of the bottom-nav tabs by its label.
+ *
+ * Five of them since 2026-08-22 (Handle · Gjøremål · Hjem · Vaner · Helse). Habits and Health
+ * are tabs again rather than cards on Home, which is why three steps below click their way
+ * here instead of calling `goHome`.
+ */
+async function goTab(page, label) {
+  await page.getByRole('button', { name: label, exact: true }).first().click({ timeout: 10000 });
+  await page.waitForTimeout(900);
+}
+
+/**
+ * Unfold a card by its title, so the composer/rows inside it exist in the DOM.
+ *
+ * Every card rests CLOSED apart from Home's three (lib/cardRegistry.ts's `openAtRest`), and a
+ * folded card is its header and nothing else — so a locator aimed at anything inside one waits
+ * thirty seconds and the step SKIPS, which is the silent failure AGENTS.md warns about. The
+ * chevron's accessible name is `<card title>: <expandListLabel>` in both states
+ * (components/CardCollapseToggle.tsx), so this is a no-op when the card is already open.
+ */
+async function openCard(page, title) {
+  const toggle = page.getByRole('button', { name: `${title}: ${L.expandList}`, exact: true }).first();
+  if (!(await toggle.isVisible().catch(() => false))) return false;
+  await toggle.scrollIntoViewIfNeeded({ timeout: 5000 });
+  await toggle.click({ timeout: 10000 });
+  await page.waitForTimeout(700);
+  return true;
 }
 
 // Runs in the page.
@@ -358,7 +410,11 @@ const SCAN = () => {
             clipperSize: Math.round(c.clipperSize),
             // The clipper's own text is the most useful way to say WHERE this is.
             near: (c.clipper.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44),
-            text: axis === 'y' ? (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44) : '',
+            // The element's OWN text, on both axes. It is what says WHICH control this is —
+            // an unlabelled `<div>` 7px past a mask is unfindable from the clipper's text
+            // alone, which cost a debugging session. (It used to be y-only, for no reason
+            // that survives: the axis decides what gets RECORDED, not how it is named.)
+            text: (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 44),
             _dbg: `elx=${Math.round(rect.left)} clipx=${Math.round(c.clipper.getBoundingClientRect().left)} clipTag=${c.clipper.tagName.toLowerCase()} clipCls=${(c.clipper.className || '').toString().slice(0, 60)} elCls=${(el.className || '').toString().slice(0, 60)}`,
           });
         };
@@ -523,12 +579,18 @@ async function walkToTabs(page, { scanning }) {
   // ── The quick-add, focused ──
   // Click, don't focus(): a programmatic DOM focus doesn't reliably drive react-native-web's
   // onFocus, and the panel + buttons this step exists to measure hang off the component's own
-  // focused state. Home's habits card is the .first() match for this label whichever tab is
-  // showing (all five are mounted, `lazy: false`), which is why this runs here rather than on
-  // the Habits tab. Blurred again afterwards so the unfolded panel can't overlap a later step.
+  // focused state.
+  // ⚠️ **On the Habits TAB, and with its card opened first (2026-08-23).** Habits was a card on
+  // Home until 2026-08-22, so this step used to run here on whichever tab happened to be
+  // showing and take the `.first()` match through the mounted-but-offscreen pager. There is no
+  // habits card on Home any more, and the Habits tab's own card rests closed, so the composer
+  // did not exist at all and the step skipped — silently, with the run still printing totals.
+  // Home again at the end, which is this function's postcondition for every caller below.
   try {
+    await goTab(page, L.tabs[2]);
+    await openCard(page, L.habitsCard);
     const field = page.getByLabel(L.typeHabit, { exact: true }).first();
-    await field.scrollIntoViewIfNeeded();
+    await field.scrollIntoViewIfNeeded({ timeout: 5000 });
     await field.click({ timeout: 8000 });
     await page.waitForTimeout(600);
     if (scanning) await scan(page, 'quick-add-focused');
@@ -538,6 +600,7 @@ async function walkToTabs(page, { scanning }) {
   } catch (e) {
     console.error(`  (quick-add-focused step skipped: ${e.message.split('\n')[0]})`);
   }
+  await goHome(page);
 }
 
 async function main() {
@@ -635,10 +698,10 @@ async function main() {
     }
 
     // ── Pass 2: Health's symptom form (app/health-form.tsx) ──
-    // Health left the bottom nav entirely in the same pass that restored To-do's tab slot — it
-    // is a Home card now (components/HomeHealthCard.tsx, mounting HealthSurface `embedded` with
-    // nothing truncated), not a tab, so this is reached via Home rather than a "Me"/"Meg" tab
-    // click. (app/scan.tsx is deliberately never walked: the web bundle resolves
+    // Health is a bottom-nav tab again as of 2026-08-22 (app/(tabs)/health.tsx, a thin wrapper
+    // around HealthSurface), so this is reached with a tab click. It was a Home card for two
+    // days and this step still went through Home, which is why it skipped.
+    // (app/scan.tsx is deliberately never walked: the web bundle resolves
     // app/scan.web.tsx, an OCR "not available" placeholder, so measuring it would report on a
     // screen that does not exist on device. It needs a real device, like the rest of the
     // native-only surface.)
@@ -656,8 +719,12 @@ async function main() {
     // `goHome`'s own header for that mechanism — which is what surfaced the false claim.
     try {
       await walkToTabs(page, { scanning: false });
-      await goHome(page);
+      // ⚠️ **Health is a bottom-nav TAB again (2026-08-22)**, not a card on Home — this step
+      // clicked its way through Home for as long as it was one. Its "This week" card rests
+      // closed, and the composer is inside it.
+      await goTab(page, L.tabs[3]);
       await dismissModalIfPresent(page);
+      await openCard(page, L.healthWeekCard);
       // The composer's option rows (and so "More options") only render once the field is
       // focused or has text — the same tier-2 rule every quick-add follows.
       const symptomLine = page.getByLabel(L.logSymptom, { exact: true }).first();
@@ -678,12 +745,12 @@ async function main() {
     // are identical to pass 1 and would only duplicate findings.
     try {
       await walkToTabs(page, { scanning: false });
-      // Health is a Home card now, not a tab — see the health-form step's comment above.
-      // walkToTabs already lands on Home, so `goHome` below is a no-op here in practice — kept
-      // for the same reason every other call site uses it: cheap, and correct if that ever
-      // changes.
-      await goHome(page);
+      // Medicine is a peer card on the Health TAB since 2026-08-22 (components/MedicineCard.tsx,
+      // was HomeMedicineCard on the Me tab) — and, like every card outside Home's three, it
+      // rests closed, so its "+ Add a medicine" bar is not drawn until this opens it.
+      await goTab(page, L.tabs[3]);
       await dismissModalIfPresent(page);
+      await openCard(page, L.medicineCard);
       // The editor needs a medicine to open, and a fresh profile has none.
       const medBar = page.getByRole('button', { name: L.addMedicine, exact: true }).first();
       await medBar.scrollIntoViewIfNeeded({ timeout: 5000 });
