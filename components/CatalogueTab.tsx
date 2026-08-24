@@ -183,7 +183,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, HitSlop, IconSize, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, FIELD_GLOW_CLEARANCE, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, HitSlop, IconSize, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -999,10 +999,21 @@ const baseStyles = StyleSheet.create({
   // a card whose own rows run edge to edge, so the two boxes read as a narrower stack floating
   // on top of the list rather than as part of it. The side shadows clip at the card's own edge
   // now, which is invisible; a 32px width difference was not.
-  listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: 0 },
+  //
+  // ⚠️ **It is `FIELD_GLOW_CLEARANCE` (8) as of 2026-08-24, not 0** — the sentence above is
+  // wrong about the one thing that matters: what clips here is not a drop shadow, it is this
+  // field's own neon halo (`getFieldGlow`), and a halo cut off flat at the box's own left and
+  // right edges is the most visible thing on the card, not "invisible". Measured at zero room
+  // on every side. This is NOT a return to the 16px the maintainer removed — that inset was
+  // 32px of width, read as a narrower stack floating on the list; this is the same 8px gutter
+  // every composer in the app now reserves for its light, and the same one PadSheet insets its
+  // rows by, so the field stays as wide as the list it sits over to within one gutter.
+  listHeader: { gap: Spacing.md, marginTop: Spacing.md, marginHorizontal: FIELD_GLOW_CLEARANCE },
   // Embedded: the top margin exists on the real screen so the Surfaces' shadows clear the
   // FlatList's clip. There are no Surfaces and no clip inside the drawer.
-  listHeaderEmbedded: { marginTop: 0 },
+  // Embedded: no Surfaces and no clip of its own — but the card body's fold still clips, and
+  // this field's halo needs the same room above it that it now has at its sides.
+  listHeaderEmbedded: { marginTop: FIELD_GLOW_CLEARANCE },
   embeddedRoot: { gap: Spacing.sm },
   // **ONE box, in both modes (2026-08-20)** — the fix for *"box in box (textbox) visual goes
   // against guidelines and how other text boxes look like."* This used to be `searchCard` (a

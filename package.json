@@ -87,6 +87,7 @@
     "preview:serve": "node scripts/serve-web.mjs",
     "preview": "bash scripts/run-preview.sh",
     "wraps": "bash scripts/run-wraps.sh",
+    "halos": "bash scripts/run-halos.sh",
     "review-bundle": "bash scripts/run-review-bundle.sh",
     "widget-previews": "node scripts/build-widget-previews.mjs"
   },

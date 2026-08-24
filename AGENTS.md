@@ -873,7 +873,38 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
   arrow) that carried none. So every Home card drew a square glow around a rounded well.
   **The fix is the merge, not the fourth copy**: `getFieldGlow(hue, level, radiusScale?)` returns
   `{ borderRadius: FIELD_RADIUS, ...getGlow(…) }`, so a caller cannot take the light without the
-  shape it is cast from, wherever it hangs it. All three composers go through it and none of them
+  shape it is cast from, wherever it hangs it.
+  - ⚠️ **A field also reserves the ROOM its halo needs — `FIELD_GLOW_CLEARANCE` (2026-08-24,
+    user report: *"Neon in/around text boxes are visually bugged, again."*).** The shape was
+    merged with the light and the light was still being cut in half: a `boxShadow` is clipped by
+    the nearest `overflow: hidden` ancestor, and what clips a composer is not the card's
+    `Spacing.md` padding (the premise the bloom had been sized against) but the card BODY's fold
+    — `components/Card.tsx` draws it with a `Collapsible`, which sits INSIDE that padding. A
+    composer is a full-width child of it, so the room its light actually had was **zero**.
+    Measured across the app: **31 of 36 haloed fields were clipped**, left and right halves
+    sliced off flat at the field's own edges. The only one that looked right was the Today
+    card's, which has a padded wrapper of its own — which is why every report of this named
+    "the text boxes" generally and no single card in particular.
+    Two halves, and neither works alone: the clearance is spent by the component that OWNS the
+    field (`PadTypeRow`, `AddRow`, `CatalogueTab`'s search, `MedicineSurface`'s tray wells), so
+    it travels with the control instead of depending on what a caller mounts it in; and
+    `FIELD_GLOW_RADIUS` is now 3/4 (outer pass 5/7px), sized to fade INSIDE that clearance
+    rather than inside a 16px that was never there. `Spacing.sm` is not arbitrary — it is the
+    gutter `PadSheet` already insets its rows by, so a composer that reserves it lands in its
+    list's own column, which is a second bug fixed by the same number (every PadSheet composer
+    had been 8px wider than the rows above it).
+    ⚠️ **Yoga trap, and it is how the bottom edge stayed clipped after the sides were fixed**: an
+    edge-specific `paddingBottom` beats the `padding` shorthand whatever the key order, so
+    `PadTypeRow`'s panel column had to give its own up rather than have the clearance layered
+    over it.
+    **`npm run halos` (`scripts/measure-halos.mjs`) is the guard**, and it has to be a
+    measurement: `tsc` sees valid styles, Jest has no layout, and a screenshot shows a lit box
+    whether or not the light is complete — the whole tell is that the glow stops dead instead of
+    fading. It walks the five tabs in the web preview, opens every card (a composer inside a
+    closed card is not in the DOM — the same silent-skip trap `npm run wraps` has), and compares
+    each field's blur radius against the room before its clip. 0 clipped at 430px and 360px.
+    `lib/__tests__/chromeRhythm.test.ts` §5 pins the arithmetic and the fact that each of those
+    four components still names the constant. All three composers go through it and none of them
   restates `Radius.sm`. `getGlow` itself is untouched and still correct for anything that sets its
   own radius on the same view (the checkbox box, the Switch track) — the rule is about the
   field/halo PAIR, not a ban on the primitive.
@@ -2390,6 +2421,24 @@ device or EAS build.
   top-level-await, no queuing tricks needed. **In-memory only — no persistence across a
   full page reload/`page.goto()`.** Navigate between tabs via BottomNav clicks (client-side
   route change), not `page.goto()`, or the DB (and onboarding state) resets.
+### Halo audit — `npm run halos` (2026-08-24)
+Answers one question the other checks cannot: **is a field's neon actually being drawn, or is it
+being sliced off?** A halo (`getFieldGlow`) is a `boxShadow`, so it is cut to the nearest
+`overflow: hidden` ancestor — and a card clips its own body. `scripts/measure-halos.mjs` walks
+the five tabs in the web preview, opens every card (a composer inside a closed card is not in the
+DOM at all), and for every field-shaped haloed element compares its blur radius against the room
+it has before that clip. Exits 1 on any finding, and the failure text says where the fix goes.
+
+- `npm run halos`, `npm run halos -- --width=360`; `FORCE_BUILD=1` rebuilds `dist/` first.
+- It found the 2026-08-24 report: **31 of 36 haloed fields clipped**, every composer in the app
+  but one. See the `getFieldGlow` bullet above for the mechanism and the two-part fix.
+- **A field is recognised by `FIELD_RADIUS` (12px) plus a coloured `boxShadow`** — that is what
+  separates a field's light from a card's own drop shadow without needing a class name. A new
+  field shape that does not go through `getFieldGlow` is a field this audit does not measure.
+- Same caveats as the wrap audit: it drives the real app, so a nav or resting-state change can
+  make a step measure nothing rather than fail. Read the count — 14 fields at the time of
+  writing.
+
 ### Wrap audit — `npm run wraps` (2026-07-28)
 Finds the "why is that on two lines when it nearly fits?" class of bug by measurement
 instead of eyeballing. `scripts/measure-wraps.mjs` walks the same preview build and, for
