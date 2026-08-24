@@ -45,9 +45,13 @@
  *   - **The trailing cluster is `{controls}` → fold, in that order, always.** `controls` is the
  *     caller's OWN controls and nothing else — a bell, a lock, a ⋮. The fold is outermost, in
  *     the card's actual top-right corner, which is where the ⤢ used to land.
- *   - **Closed is a bare header.** The rail's hairline follows the body (`divider={!collapsed}`)
- *     and the card's bottom inset drops to match its top one, so a folded card is its header and
- *     nothing else *by construction* rather than by each caller remembering.
+ *   - **Closed is a bare header.** Three things follow the body rather than the card: the rail's
+ *     hairline (`divider={!collapsed}`), the GAP the rail reserves under itself (`railClosed`,
+ *     2026-08-24) and the card's bottom inset (`cardCollapsed`) — so a folded card is its header
+ *     and nothing else *by construction* rather than by each caller remembering. The middle one
+ *     was missed until a user reported that *"titles are not vertically centered"*: 8px of the
+ *     rail's own margin plus 8px of card padding sat under a header with nothing between them,
+ *     which put every closed card's title 4px above its centre.
  *   - `CardShell` is exported for exactly one caller, components/SectionCard.tsx, so that
  *     component can be reimplemented on this one with no visual change before it dies. It is not
  *     a public escape hatch: a new surface takes `Card` and an entry in the registry.
@@ -216,6 +220,15 @@ export function CardShell({
       // The hairline follows the BODY: the rule is what ties a header to the content under it,
       // so a folded card drawing one draws it over nothing.
       divider={!isClosed}
+      // ...and so does the GAP under the rule (2026-08-24). `SectionRail`'s container carries a
+      // `marginBottom` to separate the header from the rows it labels; on a folded card there
+      // are none, so it was 8px of reserved space below a header with the card's own 8px
+      // bottom inset already under it — which sat the title 4px above the closed card's centre
+      // on every card in the app. Reported as *"titles are not vertically centered"*. The
+      // `paddingBottom` half of this was already handled by `cardCollapsed`; this is the same
+      // rule one level up, and it is why closed is a bare header BY CONSTRUCTION rather than
+      // by each caller remembering.
+      style={isClosed ? styles.railClosed : undefined}
       right={
         <>
           {/* ⚠️ **The caller's own controls, then the fold — always, and the fold is last.** The
@@ -268,6 +281,9 @@ const styles = StyleSheet.create({
   // Closed, the bottom inset matches the top one — padding reserved for rows that are not drawn
   // is just a gap.
   cardCollapsed: { paddingBottom: Spacing.sm },
+  // Closed, the rail labels nothing, so it reserves no gap under itself either — see the
+  // `style` prop passed above.
+  railClosed: { marginBottom: 0 },
   // `embedded`: the OUTER card already inset this content from the screen edge, and a second
   // horizontal inset is the "three stacked paddings" shape the wrap audit keeps finding.
   cardEmbedded: { paddingHorizontal: 0 },

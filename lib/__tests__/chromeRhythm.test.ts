@@ -90,6 +90,29 @@ describe('PressableScale — sinks in, pops out, no bob', () => {
     expect(release).not.toMatch(/sunk/);
   });
 
+  it('nothing rests sunk to say "this one is on" (2026-08-24)', () => {
+    // `sunk` translates the cap down for as long as the state holds, so in a ROW of controls
+    // the one that is on sits below its neighbours. Reported twice, from opposite ends of the
+    // app: the bottom nav's selected tab (2026-08-12, "instead of the pressed down look, just
+    // have the blue move") and the Katalog card header's locked lock sitting 4px under the
+    // camera beside it. components/IconButton.tsx has the extra reason as of the 2026-08-18
+    // matte-glass pass — its `keyBase` slab is deleted, so there is no base left to sink INTO
+    // and the offset never read as depth, only as a button sitting low.
+    //
+    // The prop itself stays: it is what a momentary press animates through, and a caller may
+    // still drive it from a transient. What is banned is wiring it straight to an `active`
+    // flag. `sunk={active}` in components/BottomNav.tsx is asserted separately below.
+    for (const file of ['components/IconButton.tsx', 'components/Button.tsx', 'components/BottomNav.tsx']) {
+      expect([file, code(file).match(/sunk=\{active\}/)?.[0] ?? null]).toEqual([file, null]);
+    }
+    // On is still carried on three channels in IconButton — the deepened body, the accent
+    // glyph and the outward halo — so removing the fourth costs no state legibility.
+    const icon = code('components/IconButton.tsx');
+    expect(icon).toMatch(/glassKey\(theme\.accent, isDark, 'key'\)/);
+    expect(icon).toMatch(/active \? theme\.accent/);
+    expect(icon).toMatch(/glow=\{active && !disabled/);
+  });
+
   it('has exactly three opt-outs, each structural rather than a taste call', () => {
     // A `ghost` Button/IconButton has no fill and therefore no base to sink onto; Surface's
     // is the reduced-motion branch. Anything else reaching for press="scale" is drift —

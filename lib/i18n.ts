@@ -637,16 +637,16 @@ const en = {
     skipAll: 'Skip the tour',
     steps: {
       home: {
-        title: 'Me is the personal side',
-        body: 'Habits, notes and how you feel.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
+        title: 'Home gathers the day',
+        body: 'Today, notes and the shopping list, on one screen.\n• Small beats perfect — one thing you can finish.\n• A quiet day is just a quiet day.',
       },
       shopping: {
-        title: 'Shopping resets itself',
-        body: 'Two lists, both clearing on their own.\n• Weekly, for groceries.\n• Monthly, for what the house needs.',
+        title: 'Everything you need to buy',
+        body: 'Your lists sit here, next to your dishes and a catalogue of what you usually buy.',
       },
       todo: {
         title: 'To-do holds the rest of the week',
-        body: 'Whenever, this week, and what repeats.\n• Each card grows to fill the screen when you need more room.',
+        body: 'Today, this week, whenever, and what repeats.\n• Press a card title to open it full screen.',
       },
     },
     finale: {
@@ -2780,16 +2780,16 @@ const no: typeof en = {
     skipAll: 'Hopp over omvisningen',
     steps: {
       home: {
-        title: 'Meg er den personlige siden',
-        body: 'Vaner, notater og hvordan du har det.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
+        title: 'Hjem samler dagen',
+        body: 'I dag, notater og handlelisten, på én skjerm.\n• Lite slår perfekt — én ting du blir ferdig med.\n• En rolig dag er bare en rolig dag.',
       },
       shopping: {
-        title: 'Handlelisten nullstiller seg selv',
-        body: 'To lister, begge nullstiller seg selv.\n• Ukentlig, til dagligvarer.\n• Månedlig, til det huset trenger.',
+        title: 'Alt du trenger å kjøpe',
+        body: 'Listene dine ligger her, ved siden av rettene dine og en katalog over det du pleier å handle.',
       },
       todo: {
         title: 'Gjøremål holder på resten av uken',
-        body: 'Når som helst, denne uken, og det som gjentar seg.\n• Hvert kort vokser til å fylle skjermen når du trenger mer plass.',
+        body: 'I dag, denne uken, når som helst, og det som gjentar seg.\n• Trykk på tittelen til et kort for å åpne det i full skjerm.',
       },
     },
     finale: {
@@ -4587,16 +4587,16 @@ const is: typeof en = {
     skipAll: 'Sleppa kynningunni',
     steps: {
       home: {
-        title: 'Ég er persónulega hliðin',
-        body: 'Venjur, minnispunktar og líðan.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
+        title: 'Heim safnar deginum',
+        body: 'Í dag, minnispunktar og innkaupalistinn, á einum skjá.\n• Lítið slær fullkomið — eitt sem þú klárar.\n• Rólegur dagur er bara rólegur dagur.',
       },
       shopping: {
-        title: 'Innkaupalistinn núllstillir sig sjálfur',
-        body: 'Tveir listar, báðir núllstilla sig sjálfir.\n• Vikulega, fyrir matvöru.\n• Mánaðarlega, fyrir það sem heimilið þarf.',
+        title: 'Allt sem þarf að kaupa',
+        body: 'Listarnir þínir eru hér, við hliðina á réttunum þínum og skrá yfir það sem þú kaupir venjulega.',
       },
       todo: {
         title: 'Verkefni geymir restina af vikunni',
-        body: 'Hvenær sem er, þessa viku, og það sem endurtekur sig.\n• Hvert kort stækkar til að fylla skjáinn þegar þú þarft meira pláss.',
+        body: 'Í dag, þessa viku, hvenær sem er, og það sem endurtekur sig.\n• Ýttu á titil korts til að opna það í fullum skjá.',
       },
     },
     finale: {

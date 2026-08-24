@@ -32,6 +32,17 @@
  *   - `route` is the tab's router path, so the tour can navigate itself to the right screen.
  *   - Adding a step means adding the TourTarget on that screen AND the copy in both languages.
  *     The test will fail on either alone.
+ *   - **⚠️ A step's copy has to describe the card the spotlight is actually on, and must not
+ *     restate that card's own words (2026-08-24).** Both halves were reported at once, from one
+ *     pair of screenshots. The `home` step still said *"Me is the personal side — habits, notes
+ *     and how you feel"* eight months after the nav restructure gave Home the label "Hjem" and
+ *     the cards Today/Notes/Shopping, and after its target moved to the Today card. And the
+ *     `shopping` step's two bullets were a paraphrase of the `StarterCard` inside the ring it
+ *     was pointing at, so the coach card and the lit card said the same thing twice, a
+ *     centimetre apart. Neither is visible to `tsc` or to any test: the copy compiles whatever
+ *     it says, and nothing ties a string to the surface it describes. So when a tab's name,
+ *     its cards or a `targetId` moves, re-read `t.tour.steps` in lib/i18n.ts in the same pass —
+ *     and write the step to say what the ringed card does NOT.
  */
 
 /** One stop on the tour. */

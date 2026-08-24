@@ -27,8 +27,20 @@
  *       • the `LinearGradient` rim ring and its `EDGE_WIDTH` geometry are **deleted** — the edge
  *         is the cap's own four-sided border now, so `glassSurfaces` no longer changes this
  *         component's size (or anything else about it; a key was never blurred).
- *     What SURVIVES, and must: the sink (`travel`), the resting-sunk `active` state, and the
- *     `active` body crossfade. Depth here is a motion and a lit edge, never a filled plate.
+ *     What SURVIVES, and must: the momentary sink (`travel`) and the `active` body crossfade.
+ *     Depth here is a motion and a lit edge, never a filled plate.
+ *   - **⚠️ An active button does NOT rest sunk (2026-08-24), and that is an alignment rule
+ *     rather than a taste one.** It carried `sunk={active}` from 2026-07-28 ("Pressed = on"),
+ *     which translates the cap down by `Travel.md` for as long as the state holds — so in a row
+ *     of these the lit one sits 4px lower than its neighbours. Reported against the Katalog
+ *     card's header, where the locked lock sat visibly below the camera next to it
+ *     (`components/CatalogueTab.tsx`'s `CatalogueHeaderControls`). It is the same ruling
+ *     components/BottomNav.tsx already took on 2026-08-12 — `sunk` is for a momentary press,
+ *     not for "this one is on" — and for the extra reason the 2026-08-18 pass created here: the
+ *     `keyBase` slab is deleted, so there is no base left to sink INTO and the offset never read
+ *     as depth, only as a button sitting low. On is still carried on three channels — the
+ *     deepened body, the accent glyph and the outward halo. Pinned by
+ *     lib/__tests__/chromeRhythm.test.ts.
  *   - `active` deepens the body (`quiet` → `key` rung of the same glass) and swaps the icon to
  *     the accent instantly, matching the SegmentedControl convention. Only the BODY crossfades:
  *     `useToggleColor` collapses `borderColor` to one tone for all four sides, which would
@@ -194,11 +206,10 @@ export default function IconButton({
       onPress={onPress}
       disabled={disabled}
       scaleTo={0.9}
-      // Key press (2026-07-28): an icon button sinks rather than shrinking, and an ACTIVE one
-      // stays sunk — v6's "Pressed = on", so a focus/filter toggle reads as engaged by depth
-      // and not only by the body crossfade.
+      // Key press (2026-07-28): an icon button sinks rather than shrinking. **It does NOT rest
+      // sunk while `active` (2026-08-24)** — see the header note; the resting offset put an
+      // active button 4px below the inactive one beside it.
       travel={Travel.md}
-      sunk={active}
       // Outward halo on the active state only, the one light a matte key is allowed (see
       // Button.tsx). No `depth="raised"` — that was a black cast shadow, i.e. the "inner
       // shadows / heavy" family the brief rules out.
