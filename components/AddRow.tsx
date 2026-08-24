@@ -60,7 +60,8 @@
  * buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getFieldGlow, …), lib/useAppTheme,
+ *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getFieldGlow,
+ *             FIELD_GLOW_CLEARANCE — the room both states keep for their halo, …), lib/useAppTheme,
  *             lib/domainColor (badgeGlyphFor — keeps the focus ring visible on the well),
  *             lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
@@ -121,7 +122,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { BORDER_WIDTH, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FIELD_GLOW_CLEARANCE, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
@@ -227,6 +228,11 @@ export default function AddRow({
 
   const containerStyle = [
     styles.row,
+    // The room this row's halo needs, reserved by the row itself — see the same style in
+    // components/PadTypeRow.tsx. Both of this component's states wear a `getFieldGlow`
+    // (the collapsed "+" bar as much as the expanded field), and both were mounted flush
+    // against the card body's clip, so both had their light cut off at the sides.
+    styles.glowClearance,
     showDivider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.rule },
     disabled && styles.gated,
     style,
@@ -475,6 +481,9 @@ export default function AddRow({
 }
 
 const styles = StyleSheet.create({
+  // See components/PadTypeRow.tsx's copy for why a field reserves its own halo's room. On the
+  // outermost view only: the panel layout draws `styles.row` again as its inner line.
+  glowClearance: { paddingHorizontal: FIELD_GLOW_CLEARANCE },  // vertical room is already `styles.row`'s own Spacing.sm padding, which is the same number
   row: {
     flexDirection: 'row',
     alignItems: 'center',

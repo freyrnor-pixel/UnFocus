@@ -61,7 +61,7 @@
  *             components/Button (the worded "More options" button — see the `onMore` note),
  *             components/ScreenScaffold (ScrollIntoViewContext), constants/theme
  *             (MIN_TAP_TARGET, PAD_ROW_MIN_HEIGHT, FontSize, Fonts, Radius, FIELD_RADIUS,
- *             getFieldGlow, getRecessedField, Shadow, Spacing,
+ *             FIELD_GLOW_CLEARANCE, getFieldGlow, getRecessedField, Shadow, Spacing,
  *             contrastOn), lib/haptics (confirm), lib/i18n, lib/useAppTheme,
  *             @expo/vector-icons
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
@@ -72,6 +72,17 @@
  *   Data    → none — presentational; fires onSubmit
  *
  * Edit notes:
+ *   - ⚠️ **This row reserves `FIELD_GLOW_CLEARANCE` on all four sides, and it is load-bearing
+ *     (2026-08-24, user report: *"Neon in/around text boxes are visually bugged, again."*).**
+ *     The field's halo is a `boxShadow`, so it is cut to the nearest `overflow: hidden`
+ *     ancestor — and this composer is mounted as a FULL-WIDTH child of a card body, which
+ *     components/Card.tsx folds through a `Collapsible`. So the light had zero room on the
+ *     left and right and was sliced off flat at the field's own edges, on every surface except
+ *     the Today card (whose host pads it 16px). The clearance lives here, not at the mount
+ *     sites, so a new caller cannot forget it; it doubles as the alignment, being the same
+ *     gutter components/PadSheet.tsx insets its rows by. Measure with `npm run halos`, which
+ *     is the only check in this repo that can see a clipped halo — tsc sees valid styles and a
+ *     screenshot shows a lit box either way.
  *   - **Keyboard-avoidance is inherited from AddRow's hard-won fix (2026-07-13/16)**: on focus
  *     and on `keyboardDidShow` this hands the enclosing ScreenScaffold its OWN View node via
  *     ScrollIntoViewContext, which measures and lifts just this row. Without it Android's
@@ -161,6 +172,7 @@ import {
   Radius,
   Spacing,
   contrastOn,
+  FIELD_GLOW_CLEARANCE,
   FIELD_RADIUS,
   getFieldGlow,
   getRecessedField,
@@ -497,10 +509,10 @@ export default function PadTypeRow({
     return (
       <View
         ref={rowRef}
-        style={[styles.column, disabled && styles.gated, style]}
+        style={[styles.column, styles.glowClearance, disabled && styles.gated, style]}
         pointerEvents={disabled ? 'none' : 'auto'}
       >
-        <View style={styles.row}>{fieldAndPrompt}</View>
+        <View style={[styles.row, styles.panelLine]}>{fieldAndPrompt}</View>
         {showControls ? (
           <View style={styles.panelSlot} {...controlsResponderProps}>
             {panel}
@@ -518,7 +530,7 @@ export default function PadTypeRow({
   return (
     <View
       ref={rowRef}
-      style={[styles.row, disabled && styles.gated, style]}
+      style={[styles.row, styles.glowClearance, disabled && styles.gated, style]}
       pointerEvents={disabled ? 'none' : 'auto'}
     >
       {fieldAndPrompt}
@@ -556,13 +568,35 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
   },
   field: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  // The room this composer's halo needs, reserved by the composer itself (2026-08-24).
+  // A card clips its own body, and this control is mounted as a full-width child of it on
+  // every surface but one — so the light was sliced off flat at the field's own left and
+  // right edges everywhere except the Today card, which has a padded wrapper of its own.
+  // Reserving it HERE rather than at each mount site is what makes that unrepeatable: a
+  // caller cannot mount the field without the room its light fades into. It doubles as the
+  // alignment — the same gutter components/PadSheet.tsx insets its rows by, so the composer
+  // now sits in the list's own column instead of 8px wider than it. Applied to the OUTERMOST
+  // view of each layout only; `styles.row` is also the panel layout's inner line, and putting
+  // it there would spend the clearance twice.
+  // All four sides, not just the horizontal pair: the top edge is the one that ran out of
+  // room on an EMPTY card (the pad is then the composer alone, so the fold clips 4px above the
+  // field — measured at 4 against a 5px bloom).
+  glowClearance: { padding: FIELD_GLOW_CLEARANCE },
+  // The panel layout draws `styles.row` INSIDE the cleared box, so its own vertical padding
+  // would sit on top of the clearance and push the field down. The clearance is the spacing
+  // there; this drops the duplicate.
+  panelLine: { paddingVertical: 0 },
+
   // A transparent wrapper whose only job is the capture-phase responder check above. It
   // must not change the row's layout — the extras used to be direct children of the row, so
   // this inherits the same flex-row alignment and gap and is otherwise invisible.
   extrasSlot: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // Panel layout (`panel` prop): a column instead of the single inline row. Its own `row`
-  // child already carries the padding above, so only the bottom edge needs adding here.
-  column: { gap: Spacing.xs, paddingBottom: Spacing.xs },
+  // Panel layout (`panel` prop): a column instead of the single inline row. It carries NO
+  // padding of its own (2026-08-24): `glowClearance` pads all four sides of this same view,
+  // and an edge-specific `paddingBottom` beside it would win over the shorthand regardless of
+  // key order in Yoga — which is exactly how this layout kept 4px under the field where the
+  // clearance had put 8, leaving the bottom of the halo cut off after the sides were fixed.
+  column: { gap: Spacing.xs },
   panelSlot: { width: '100%' },
   panelButtonRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.xs },
   // A real field, the same shape as components/FormControls.tsx's `Input` — see the header

@@ -116,7 +116,7 @@ import {
   trayProgress,
   traysInUse,
 } from '@/lib/medicineSchedule';
-import { FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
+import { FIELD_GLOW_CLEARANCE, FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
 
 /** Time-of-day glyph per tray — the pill-organiser row, read left to right. */
 const TRAY_ICONS: Record<TrayId, React.ComponentProps<typeof Ionicons>['name']> = {
@@ -287,6 +287,14 @@ export default function MedicineSurface() {
                 </Text>
                 <View ref={trayLifts[tray].ref}>
                   <Input
+                    // `recessed` (2026-08-24): these four sit INSIDE the Medicine card, which
+                    // is the condition `FormControls`' prop is gated on — and the AddRow well
+                    // one row below them is the shape they were disagreeing with. Left plain,
+                    // they drew the editor field's resting stroke in the screen's hue, so this
+                    // one card rendered four rose-outlined pills directly above a recessed,
+                    // haloed well: two field shapes, one card, which is the complaint the
+                    // consistency audit converted every other in-card field for.
+                    recessed
                     value={timeDrafts[tray] ?? trayTimes[tray]}
                     onChangeText={(v) => setTimeDrafts((prev) => ({ ...prev, [tray]: v }))}
                     onFocus={trayLifts[tray].onFocus}
@@ -540,7 +548,17 @@ const baseStyles = StyleSheet.create({
   },
   reminderLabel: { flex: 1, fontSize: FontSize.sm },
   reminderHint: { fontSize: FontSize.xs },
-  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  // The four wells are now the app's shared in-card field (`recessed`, 2026-08-24), so they
+  // carry its halo — and a halo needs room before the card body's fold clips it. The grid's
+  // own `gap` already covers the two inner edges; this is the outer four. See
+  // `FIELD_GLOW_CLEARANCE` in constants/theme.ts, and `npm run halos` for the measurement.
+  timeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    paddingHorizontal: FIELD_GLOW_CLEARANCE,
+    paddingBottom: FIELD_GLOW_CLEARANCE,
+  },
   timeField: { flexGrow: 1, flexBasis: '45%', gap: 2 },
   timeFieldLabel: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   timeInput: { paddingVertical: Spacing.xs },

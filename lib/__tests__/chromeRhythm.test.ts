@@ -562,12 +562,54 @@ describe('getFieldGlow — the light and the corner are one decision', () => {
   // what should have read as a soft light instead read as a hard-edged rectangle. The field's
   // own radii stay well under that 16px on both rungs, so the tail fades out before the mask
   // ever has to cut it.
-  it('uses a smaller bloom than getGlow, so a card at Spacing.md padding can still let it fade', () => {
-    expect(theme).toMatch(/const FIELD_GLOW_RADIUS = \{ soft: 5, strong: 8 \};/);
-    for (const level of ['soft', 'strong'] as const) {
-      const outer = Math.round((level === 'strong' ? 8 : 5) * 1.8);
-      expect(outer).toBeLessThan(16);
+  // 2026-08-21, screenshotted on Health's "Logg noe" composer: getGlow's button-tuned bloom
+  // (15/22, blooming to 27/40px with the outer pass) has nowhere to go once it's inside a field.
+  //
+  // ⚠️ **That cut sized the bloom against 16px of card padding that a composer never sits
+  // inside** (2026-08-24, user report: *"Neon in/around text boxes are visually bugged,
+  // again."*). What clips a field is the card BODY's fold — `components/Card.tsx` draws it with
+  // a `Collapsible`, i.e. `overflow: 'hidden'` — which is INSIDE that padding, and a composer is
+  // a full-width child of it. Measured with `npm run halos`: **31 of 36 haloed fields in the app
+  // had zero room**, so the left and right halves of every composer's light were sliced off flat
+  // at the field's own edges. The one that looked right (the Today card's) was the one with a
+  // padded wrapper of its own.
+  //
+  // So the number has to be paired with a clearance that actually exists, and the clearance has
+  // to be spent by the component that owns the field — the same shape of fix as `getFieldGlow`
+  // returning the radius with the light: a caller cannot mount the field without the room its
+  // glow fades into.
+  it('sizes the bloom to fade inside the clearance a field reserves for itself', () => {
+    expect(theme).toMatch(/const FIELD_GLOW_RADIUS = \{ soft: 3, strong: 4 \};/);
+    expect(theme).toMatch(/export const FIELD_GLOW_CLEARANCE = Spacing\.sm;/);
+    const CLEARANCE = 8; // Spacing.sm
+    for (const [level, radius] of [['soft', 3], ['strong', 4]] as const) {
+      // getGlow's outer pass is 1.8x the inner one, and it is the one that reaches furthest.
+      expect({ level, outer: Math.round(radius * 1.8) < CLEARANCE }).toEqual({ level, outer: true });
     }
+  });
+
+  // The clearance is only real if the components that draw a field spend it. A source scan
+  // cannot see a clip — `npm run halos` measures that on the real app — but it can see a
+  // composer that stopped reserving room, which is how this regressed the first time.
+  it('is reserved by every component that mounts a haloed field flush inside a card', () => {
+    for (const file of [
+      'components/PadTypeRow.tsx',   // both layouts: the pad's type line
+      'components/AddRow.tsx',       // both states: the collapsed "+" bar glows too
+      'components/CatalogueTab.tsx', // the search field, one box wide as the list under it
+      'components/MedicineSurface.tsx', // the four tray wells
+    ]) {
+      const s = code(file);
+      expect({ file, reserves: /FIELD_GLOW_CLEARANCE/.test(s) }).toEqual({ file, reserves: true });
+    }
+    // ...and it is spent on the OUTERMOST view only. PadTypeRow's panel layout draws
+    // `styles.row` again as its inner line, so putting the clearance in that shared style
+    // would pay it twice there and push the field off its own centre.
+    expect(code('components/PadTypeRow.tsx')).toMatch(/glowClearance: \{ padding: FIELD_GLOW_CLEARANCE \},/);
+    expect(code('components/PadTypeRow.tsx')).not.toMatch(/row: \{[^}]*FIELD_GLOW_CLEARANCE/s);
+    // An edge-specific padding beats the shorthand in Yoga whatever the key order, so a
+    // `paddingBottom` left on the panel column silently wins over the clearance — which is
+    // exactly how the bottom of the halo stayed clipped after the sides were fixed.
+    expect(code('components/PadTypeRow.tsx')).toMatch(/column: \{ gap: Spacing\.xs \},/);
   });
 
   it('is what every field-shaped surface draws its halo with', () => {

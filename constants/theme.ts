@@ -1214,13 +1214,40 @@ export const TITLE_FIELD = {
  */
 // getGlow's button-tuned bloom (15/22, blooming out to 27/40px including the outer pass) has
 // nowhere to go on a field: a field is contractually always mounted inside a card (see
-// PadTypeRow's header), and a card's Surface clips its content at `Spacing.md` (16px) padding
-// — `components/Surface.tsx`'s `mask` view is `overflow: 'hidden'`. A halo that wide hits that
-// boundary before it has faded, and because the boundary is a straight clip line (not another
-// radial falloff), what should read as a soft light instead reads as a hard-edged rectangle
-// behind the field — screenshotted on Health's composer, "Logg noe", 2026-08-2x. Kept well
-// inside that 16px on both rungs so the tail fades out on its own before the mask ever cuts it.
-const FIELD_GLOW_RADIUS = { soft: 5, strong: 8 };
+// PadTypeRow's header), and a card clips its own body — `components/Card.tsx`'s fold is a
+// `Collapsible`, `overflow: 'hidden'`. A halo that wide hits that boundary before it has
+// faded, and because the boundary is a straight clip line (not another radial falloff), what
+// should read as a soft light instead reads as a hard-edged rectangle behind the field —
+// screenshotted on Health's composer, "Logg noe", 2026-08-2x.
+//
+// ⚠️ **That first cut sized the bloom against a clearance the composers do not have, and the
+// clipping was never fixed** (2026-08-24, user report: *"Neon in/around text boxes are
+// visually bugged, again."*). The premise above — "a card's Surface clips its content at
+// `Spacing.md` (16px) padding" — is not what a composer sits inside: the clip is the card
+// BODY's fold, which sits INSIDE that padding, and a composer is a full-width child of it. So
+// the room a field's halo actually had was **zero**, measured on every tab: the left and right
+// halves of the light were sliced off flat at the field's own edges on all seven composers
+// (both `PadTypeRow` layouts, both `AddRow` states, and `CatalogueTab`'s search field) — every
+// haloed field in the app except the Today card's, which is inset by a padded wrapper of its
+// own and was the one that looked right.
+//
+// Two halves, and neither works without the other:
+//   1. A field RESERVES the room its light needs — `FIELD_GLOW_CLEARANCE` below, spent as
+//      horizontal padding by the component that owns the field, so the clearance travels with
+//      the control instead of depending on what a caller happens to mount it in.
+//   2. The bloom is sized to FADE inside that clearance, rather than against a 16px that was
+//      never there. Both rungs' outer pass (radius × 1.8, `getGlow`) stays under it.
+const FIELD_GLOW_RADIUS = { soft: 3, strong: 4 };
+
+/**
+ * The room a field keeps around itself so its halo can fade instead of being cut off.
+ *
+ * `Spacing.sm` is not an arbitrary pick: it is the gutter `components/PadSheet.tsx` already
+ * insets its ROWS by, so a composer that reserves it lands in the same column as the list it
+ * appends to — the clearance and the alignment are one number, the way the radius and the
+ * light are one call (`getFieldGlow`).
+ */
+export const FIELD_GLOW_CLEARANCE = Spacing.sm;
 
 export function getFieldGlow(color: string, level: 'soft' | 'strong' = 'soft', radiusScale = 1) {
   return {
