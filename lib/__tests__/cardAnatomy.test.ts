@@ -463,6 +463,23 @@ describe('a collapsed card draws no rule and reserves no room', () => {
     // The closed card's bottom inset matches its top one, so it is the header and nothing else.
     expect(src).toMatch(/cardCollapsed:\s*\{\s*paddingBottom:\s*Spacing\.sm\s*\}/);
     expect(src).toMatch(/isClosed\s*&&\s*styles\.cardCollapsed/);
+    // ...and the GAP the rail reserves under its own rule follows the fold too (2026-08-24).
+    // `SectionRail`'s container carries `marginBottom: Spacing.sm` to hold the header off the
+    // rows it labels; a folded card has none, so that margin stacked on top of the card's own
+    // 8px bottom inset and sat the title 4px above the closed card's centre — reported as
+    // "titles are not vertically centered". Both halves of "closed is a bare header" have to be
+    // asserted, or the shell can go on reserving room for a body it is not drawing.
+    expect(src).toMatch(/style=\{isClosed \? styles\.railClosed : undefined\}/);
+    expect(src).toMatch(/railClosed:\s*\{\s*marginBottom:\s*0\s*\}/);
+  });
+
+  it('the rail it is cancelling really does carry that margin', () => {
+    // The override above is only load-bearing while SectionRail draws the gap. If that margin
+    // ever moves (to the card's own padding, say), this fails and the override should go with
+    // it rather than silently pulling a closed card's header tight against nothing.
+    expect(code('components/SectionRail.tsx')).toMatch(
+      /container:\s*\{[^}]*marginBottom:\s*Spacing\.sm/,
+    );
   });
 
   /**
