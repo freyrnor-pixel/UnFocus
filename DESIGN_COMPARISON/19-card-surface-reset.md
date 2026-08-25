@@ -106,3 +106,100 @@ Implementation is planned but not started. Files it will touch: `constants/color
 (boxed rows), `components/Card.tsx` + `lib/__tests__/cardAnatomy.test.ts` (the ⤢, which that
 test currently asserts the *absence* of), and `lib/cardRegistry.ts` (`compose` and `group`).
 A new `lib/__tests__/glowBudget.test.ts` is what stops the glow creeping back.
+
+---
+
+# Round 2 — the restructure (2026-08-25, same day)
+
+Maintainer, after testing round 1: *"Looks great. But Monthly goes under shopping list, and there
+has to be a way to make more shopping lists, save them for later use (Archiving) and an easy way
+to make New shopping lists and adding dishes and items from Catalogue, as well as the sectioning
+we started with (In list, in cart, bought). Goals for Habits should be a part of habit card, and
+Goals for to-do a part of 'Today'. To-do must be simpler."*
+
+## Shop — one container card
+
+`Shopping lists` is the container. Every list is a **section** inside it, **Monthly among them,
+under the weekly one** — not a peer card. That follows `lib/cardRegistry.ts`'s own boundary: a
+card is a thing the registry names; a section is drawn one-per-row of user data, so it gets no
+`Surface`, no persisted fold id and no full-screen arrow — it rides its parent's.
+
+Each list splits **In list → In cart → Bought**, and a row moves along by tapping it.
+
+> ⚠️ **This needs no migration.** The three states already exist: `lib/db.ts:387` documents
+> `checked` = *"moved to cart"* and `collected` = the cart tick, added together in the same pass.
+> So `checked=0` / `checked=1,collected=0` / `checked=1,collected=1` **is** In list / In cart /
+> Bought. The sectioning is a rendering of state the app already stores.
+
+`+ New shopping list` and `Archive` sit at the foot of the list stack — the bottom-of-list
+placement rule (a trigger belongs where the thing it creates will land). New list offers
+*Start from*: empty, this week's, or any archived list, which is what makes archiving mean
+"save for later use" rather than "hide".
+
+**Food and Catalogue stay peer cards**, because they are libraries you add *from*, not lists.
+Each row carries a `+` that asks which list — the same shape `FoodTab`'s per-dish button
+already has.
+
+## Goals fold into their parents
+
+Habits' goals into the Habits card; To-do's into *Today*. `habitsGoals` and `todoGoals` stop
+being registry cards and become sections.
+
+## To-do is five cards
+
+Today · This week · **This month** · Whenever · Recurring.
+
+> **"This month" is a date filter, not monthly recurrence.** AGENTS.md excludes monthly
+> *recurrence* from `normalizeRecurringTasks` because there is no per-occurrence completion row.
+> A month-shaped section has no such problem — it is the same question This week already asks,
+> one rung out.
+
+## Two things I decided that you did not ask for
+
+Both flagged in the prototype so they are easy to overrule:
+
+1. **Earlier days and Washed away fold in too**, by the same principle you gave for Goals:
+   Earlier days into *Today*, Washed away into *Whenever* — which is where it belongs anyway,
+   since the Whenever backlog is exactly what washes away.
+2. **The first card on each screen rests open.** This is the answer I proposed to "seven
+   identical bars", now testable. It softens the 2026-08-21 all-closed ruling.
+
+## What a new row gets, per card
+
+The three-tier contract already in AGENTS.md, made visible: **the line** (a name — committing
+there alone must always produce a valid row), **the options**, **More options** into the editor.
+
+| Card | Options |
+|---|---|
+| Today | Time · Effort · Goal |
+| This week | Day · Time · Goal |
+| This month | Date · Goal |
+| Whenever | Effort · Goal |
+| Recurring | Repeat · On · Time |
+| Shopping list | Qty · Category |
+| Catalogue | Price · Category |
+| Habits | How often · Target · Remind |
+| Goals | By when · Measured in |
+| Medicine | Dose · Trays |
+
+**Options can depend on each other**, and Recurring demonstrates it: the weekday row exists only
+once Repeat says Weekly. That is deliberately the control that froze the shipped app — a picker
+opening in a `Modal` took window focus, the field blurred, and the composer tore itself down
+behind the open dialog. Anything built here must keep `internalPressRef`'s guard.
+
+**No blind tap-cycles**: a stepper for a number, a picker for a choice.
+
+## The measurement moved
+
+Re-swept after the restructure — still 6 of 30 combinations truncate a card title with the ⤢ on,
+1 of 30 with it off. But one case is new and worse:
+
+> ⚠️ **"Denne måneden" truncates at 393px**, not just 360 — the only card title in the app that
+> fails at a mainstream width. The card you asked for has the longest Norwegian title in the set.
+> Worth having; this is its bill.
+
+## Still open
+
+- Whether Earlier days / Washed away should really live inside other cards (my call, not yours).
+- Whether the first-card-open default sticks, against the 2026-08-21 ruling.
+- Whether "This month" keeps its Norwegian name, or takes a shorter one to clear 393.

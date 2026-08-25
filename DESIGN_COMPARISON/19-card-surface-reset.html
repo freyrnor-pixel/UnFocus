@@ -485,6 +485,94 @@ textarea.in{resize:none;min-height:72px}
   .device{width:100%;height:calc(100dvh - var(--barh,110px));min-height:480px;border-radius:0;box-shadow:none}
   .rail{padding:20px 16px 48px}
 }
+
+/* ---------------------------------------------------------------------------
+   A LIST or a GOALS block INSIDE a card (2026-08-25 restructure).
+   A section is drawn one-per-row of user data, so it gets no Surface of its own
+   and no full-screen arrow - it rides its parent card's. That is the registry
+   boundary from lib/cardRegistry.ts, applied.
+   ------------------------------------------------------------------------- */
+.sub{display:flex;flex-direction:column;gap:var(--sp-sm)}
+.sub+.sub{border-top:1px solid var(--rule);padding-top:var(--sp-xs)}
+.subhead{
+  display:flex;align-items:center;gap:9px;min-height:44px;cursor:pointer;
+  background:none;border:0;padding:0;width:100%;text-align:left;color:inherit;
+  font-family:var(--app-font);
+}
+.subdot2{width:9px;height:9px;border-radius:50%;background:var(--f);flex:0 0 auto}
+.subname{
+  font-size:var(--fs-md);font-weight:800;letter-spacing:-.01em;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);
+}
+.subcount{font-size:11.5px;font-weight:800;color:var(--text-muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.subchev{width:32px;height:32px;display:grid;place-items:center;color:var(--text-muted);position:relative;flex:0 0 auto}
+.subchev:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:var(--tap);height:var(--tap)}
+.subchev svg{width:18px;height:18px;transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.sub[data-open="false"] .subchev svg{transform:rotate(-90deg)}
+.sub[data-open="false"] .subbody{display:none}
+.subbody{display:flex;flex-direction:column;gap:var(--sp-sm)}
+
+/* ---- In list / In cart / Bought ---- */
+.seclabel{
+  display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;
+  padding:var(--sp-xs) 0 0;cursor:pointer;min-height:34px;font-family:var(--app-font);
+  font-size:10.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--text-muted);text-align:left;
+}
+.seclabel .n{font-variant-numeric:tabular-nums;opacity:.75}
+.seclabel .line{flex:1;height:1px;background:var(--rule)}
+.seclabel svg{width:15px;height:15px;transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.sec[data-open="false"] .seclabel svg{transform:rotate(-90deg)}
+.sec[data-open="false"] .rows{display:none}
+/* in the trolley: picked up, not paid for */
+.row.cart{border-color:color-mix(in srgb,var(--f) 34%,transparent)}
+.row.cart .chk{border-color:var(--f);color:var(--f);background:color-mix(in srgb,var(--f) 18%,transparent)}
+.row.bought{opacity:.5}
+
+/* ---- the composer's OPTIONS panel - tier 2 of the three-tier contract ---- */
+.optpanel{display:flex;flex-direction:column;padding-top:var(--sp-xs)}
+.optrow{display:flex;flex-direction:column;align-items:stretch;gap:7px;padding:7px 0}
+.optlab{
+  font-size:10.5px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-muted);
+}
+.optctl{flex:1;min-width:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.optchip{
+  min-height:44px;padding:0 13px;border-radius:var(--r-full);cursor:pointer;
+  font:700 12.5px/1 var(--app-font);display:inline-flex;align-items:center;
+  color:var(--text-muted);background:var(--frost);border:1px solid transparent;
+}
+.optchip.on{color:var(--f);background:color-mix(in srgb,var(--f) 20%,transparent);border-color:color-mix(in srgb,var(--f) 50%,transparent)}
+.optstep{display:flex;align-items:center;border-radius:var(--r-sm);border:1px solid var(--row-edge);background:var(--well);overflow:hidden;flex:0 0 auto}
+.optstep button{width:44px;height:44px;border:0;background:none;color:var(--f);font:800 18px/1 var(--app-font);cursor:pointer}
+.optstep span{min-width:40px;text-align:center;font-size:var(--fs-sm);font-weight:800;font-variant-numeric:tabular-nums}
+.optunit{font-size:12px;font-weight:700;color:var(--text-muted)}
+.moreline{
+  display:flex;align-items:center;gap:7px;min-height:var(--tap);cursor:pointer;background:none;
+  border:0;padding:0;font:800 var(--fs-xs)/1 var(--app-font);color:var(--f);text-align:left;
+}
+.moreline svg{width:17px;height:17px}
+
+/* ---- bottom-of-list triggers: new list, archive, add from a library ---- */
+.triggers{display:flex;flex-direction:column;gap:var(--sp-sm);border-top:1px solid var(--rule);padding-top:var(--sp-sm);margin-top:var(--sp-xs)}
+.trigger{
+  display:flex;align-items:center;gap:10px;min-height:var(--tap);padding:0 12px;width:100%;
+  border-radius:var(--r-sm);background:var(--well);border:1px solid transparent;cursor:pointer;
+  font:700 var(--fs-sm)/1 var(--app-font);color:var(--text-muted);text-align:left;
+}
+.trigger svg{width:19px;height:19px;flex:0 0 auto}
+.trigger .n{margin-left:auto;font-size:11.5px;font-variant-numeric:tabular-nums}
+.trigger:hover{border-color:color-mix(in srgb,var(--f) 40%,transparent);color:var(--text)}
+.rowadd{
+  width:36px;height:36px;flex:0 0 auto;border:0;border-radius:10px;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--f) 16%,transparent);color:var(--f);cursor:pointer;position:relative;
+}
+.rowadd:after{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:var(--tap);height:var(--tap)}
+.rowadd svg{width:19px;height:19px}
+.archrow{display:flex;align-items:center;gap:11px;min-height:var(--tap);padding:6px 0;border-bottom:1px solid var(--rule)}
+.archrow:last-of-type{border-bottom:0}
+.archrow .an{flex:1;min-width:0;font-size:var(--fs-sm);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.archrow .ac{font-size:11.5px;font-weight:700;color:var(--text-muted);font-variant-numeric:tabular-nums}
 </style>
 
 <div class="bar">
@@ -523,6 +611,7 @@ textarea.in{resize:none;min-height:72px}
     </div>
   </div>
 
+  <button class="tgl" id="btnCompose" aria-pressed="false">Open every composer</button>
   <button class="tgl" id="btnExpand" aria-pressed="true">&#x2922; in the header</button>
   <button class="tgl" id="btnAudit" aria-pressed="false">Show what&#8217;s lit</button>
   <button class="tgl" id="btnManage">Manage cards</button>
@@ -540,6 +629,35 @@ textarea.in{resize:none;min-height:72px}
   </div>
 
   <aside class="rail">
+    <section>
+      <h2>This round &mdash; the restructure</h2>
+      <ul class="ruleset">
+        <li><span class="tag keep">Shop</span><span><b>One container card.</b> Every list &#8212; <b>Monthly among them, under the weekly one</b> &#8212; is a SECTION inside <em>Shopping lists</em>, not a peer card. Each splits <b>In list &#8594; In cart &#8594; Bought</b>; tap a row to move it along. <b>+ New shopping list</b> and <b>Archive</b> sit at the foot, where the thing they create will land.</span></li>
+        <li><span class="tag keep">Shop</span><span><b>Food and Catalogue stay peers</b>, because they are libraries you add <em>from</em>, not lists. Every row carries a <b>+</b> that asks which list.</span></li>
+        <li><span class="tag keep">Goals</span><span><b>Folded into their parents</b> &#8212; Habits&#8217; goals into the Habits card, To-do&#8217;s into <em>Today</em>.</span></li>
+        <li><span class="tag keep">To-do</span><span><b>Five cards</b>: Today &middot; This week &middot; This month &middot; Whenever &middot; Recurring.</span></li>
+        <li><span class="tag rev">My call</span><span><b>Earlier days and Washed away</b> follow the same principle you gave for Goals: Earlier days into <em>Today</em>, Washed away into <em>Whenever</em> (it <em>is</em> the backlog that lingered). You did not ask for this &#8212; overrule it and they can go back to being cards, or to Manage cards.</span></li>
+        <li><span class="tag rev">My call</span><span><b>The first card on each screen rests open.</b> That is the answer I proposed to &#8220;seven identical bars&#8221;, made testable rather than argued about. It softens the 2026-08-21 all-closed ruling.</span></li>
+      </ul>
+    </section>
+
+    <section class="note">
+      <h3>What a new row gets</h3>
+      <p>Press <b>Open every composer</b> to see all of them at once. Three tiers, per the contract already in AGENTS.md: <b>the line</b> (a name &#8212; committing there alone must always make a valid row), <b>the options</b> below it, and <b>More options</b> into the full editor.</p>
+      <div class="metric"><span>Today</span><b>Time &middot; Effort &middot; Goal</b></div>
+      <div class="metric"><span>This week</span><b>Day &middot; Time &middot; Goal</b></div>
+      <div class="metric"><span>This month</span><b>Date &middot; Goal</b></div>
+      <div class="metric"><span>Whenever</span><b>Effort &middot; Goal</b></div>
+      <div class="metric"><span>Recurring</span><b>Repeat &middot; On &middot; Time</b></div>
+      <div class="metric"><span>Shopping list</span><b>Qty &middot; Category</b></div>
+      <div class="metric"><span>Catalogue</span><b>Price &middot; Category</b></div>
+      <div class="metric"><span>Habits</span><b>How often &middot; Target &middot; Remind</b></div>
+      <div class="metric"><span>Goals</span><b>By when &middot; Measured in</b></div>
+      <div class="metric"><span>Medicine</span><b>Dose &middot; Trays</b></div>
+      <p style="margin-top:10px"><b>Options can depend on each other.</b> On Recurring, the weekday row only exists once Repeat says Weekly. Worth watching, because that is the exact control that froze the shipped app: the picker opened in a Modal, the Modal took window focus, the field blurred, and the composer tore itself down behind the open dialog.</p>
+      <p><b>No blind tap-cycles.</b> A stepper for a number, a picker for a choice &#8212; never a chip that silently advances with no way back.</p>
+    </section>
+
     <section>
       <h2>The four decisions</h2>
       <ul class="ruleset">
@@ -582,9 +700,10 @@ textarea.in{resize:none;min-height:72px}
       <p><b>1. The &#x2922; costs title width, and here is the bill.</b> Swept all five screens &times; three widths &times; both languages, with the buttons already trimmed to the app&#8217;s own draw-36 / touch-48:</p>
       <div class="metric"><span>&#x2922; in the header</span><b>6 of 30 truncate</b></div>
       <div class="metric"><span>&#x2922; off, title opens</span><b>1 of 30 truncate</b></div>
-      <p style="margin-top:10px">All of it is at <b>360px</b>; 393 and 430 are clean either way. The pattern is exact: <b>any card carrying its own control</b> &#8212; Catalogue&#8217;s lock, Medicine&#8217;s bell &#8212; plus the &#x2922; plus the fold. Three buttons is one too many at that width.</p>
+      <p style="margin-top:10px">Mostly at <b>360px</b>, and the pattern is exact: <b>any card carrying its own control</b> &#8212; Catalogue&#8217;s lock, Medicine&#8217;s bell &#8212; plus the &#x2922; plus the fold. Three buttons is one too many at that width.</p>
+      <p>&#9888; <b>&#8220;This month&#8221; made it worse.</b> <em>Denne m&aring;neden</em> is the longest card title in the app and it truncates at <b>393px</b> too &#8212; the only title that fails at a mainstream width. The new card is worth having; this is its bill.</p>
       <p>The toggle in the bar switches between them, live. I would keep your ruling and take the &#x2922;, then drop the fold chevron on cards that carry a control &#8212; but that is a third option, and it is your call.</p>
-      <p><b>2. Closed cards all look the same.</b> Open To-do and you get seven near-identical bars &#8212; which is your &#8220;no order, no logic&#8221; note again, in its purest form. <b>The surface fix does not touch this.</b> It is a resting-state question, and the honest answers are: fewer cards per screen, or let the first card on each screen rest open. Worth deciding separately.</p>
+      <p><b>2. Closed cards all look the same</b> &#8212; and this round answers it twice over. To-do went from seven cards to five, and the first card on each screen now rests open, so no screen is a wall of identical bars any more. Both are changes to the 2026-08-21 all-closed ruling, so say if you want it back.</p>
     </section>
 
     <section class="note">
@@ -622,13 +741,14 @@ textarea.in{resize:none;min-height:72px}
 </div>
 
 <script>
-/* === icons \u2014 stand-ins for Ionicons; the CDN the mockups used is CSP-blocked === */
+/* icons - stand-ins for Ionicons; the CDN the mockups used is CSP-blocked */
 const I = {
   check:'M20 6 9 17l-5-5', chevron:'M6 9l6 6 6-6',
   expand:'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
   contract:'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7',
   today:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 15h4',
   calendar:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  month:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM7 14h2M11 14h2M15 14h2M7 18h2M11 18h2',
   cart:'M2 3h3l2.7 11.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
   list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   food:'M4 3v8a3 3 0 0 0 6 0V3M7 11v10M17 3c-1.7 1.5-2 4-2 6s.5 3 2 3 2-1 2-3 -.3-4.5-2-6zM17 12v9',
@@ -645,461 +765,521 @@ const I = {
   add:'M12 5v14M5 12h14', close:'M6 6l12 12M18 6L6 18',
   up:'M12 19V5M6 11l6-6 6 6', more:'M5 12h.01M12 12h.01M19 12h.01',
   grip:'M4 9h16M4 15h16', bell:'M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M10.3 21a2 2 0 0 0 3.4 0',
-  lock:'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4'
+  lock:'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4',
+  sliders:'M4 6h10M18 6h2M4 12h4M12 12h8M4 18h10M18 18h2M14 4v4M8 10v4M14 16v4',
+  restore:'M3 12a9 9 0 1 0 3-6.7M3 4v5h5'
 };
-const svg = (n, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${I[n]||I.list}"/></svg>`;
+const svg = (n,w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${I[n]||I.list}"/></svg>`;
 
-/* === copy, both languages \u2014 Norwegian is the tighter wrap test === */
+/* ===== copy. Norwegian is the tighter wrap test, per npm run wraps ===== */
 const T = {
-  en:{
-    shop:'Shop', todo:'To-do', home:'Home', habits:'Habits', health:'Health',
-    lists:'Shopping lists', food:'Food', catalogue:'Catalogue', monthly:'Monthly',
-    today:'Today', week:'This week', whenever:'Whenever', recurring:'Recurring',
-    elsewhere:'Elsewhere', goalsP:'Practical goals', goalsPer:'Personal goals',
-    earlier:'Earlier days', washed:'Washed away', notes:'Notes', shopping:'Shopping',
-    retired:'Retired', issues:'Health issues', medicine:'Medicine',
-    addTask:'New task', addItem:'Add an item', addNote:'New note', addHabit:'Name the habit',
-    addEntry:'Log something', addGoal:'Name the goal', addDish:'Add a dish', addMed:'Add a medicine',
-    manage:'Manage cards', manageSub:'Drag to reorder. Choose the size each card opens at.',
-    open:'Open', peek:'Peek', done:'Done', cancel:'Cancel', save:'Save',
-    growth:'Growth', supplies:'Supplies', time:'Time',
-    narrTodo:'Nothing here is asking for anything.',
-    narrHealth:'A quiet week. I am not counting it as anything.',
-    newT:'New', editT:'Edit'
-  },
-  no:{
-    shop:'Handle', todo:'Gj\u00F8rem\u00E5l', home:'Hjem', habits:'Vaner', health:'Helse',
-    lists:'Handlelister', food:'Mat', catalogue:'Katalog', monthly:'M\u00E5nedlig',
-    today:'I dag', week:'Denne uka', whenever:'N\u00E5r som helst', recurring:'Gjentakende',
-    elsewhere:'Andre steder', goalsP:'Praktiske m\u00E5l', goalsPer:'Personlige m\u00E5l',
-    earlier:'Tidligere dager', washed:'Skylt bort', notes:'Notater', shopping:'Handleliste',
-    retired:'Lagt bort', issues:'Helseplager', medicine:'Medisiner',
-    addTask:'Ny oppgave', addItem:'Legg til vare', addNote:'Nytt notat', addHabit:'Navn p\u00E5 vanen',
-    addEntry:'Loggf\u00F8r noe', addGoal:'Navn p\u00E5 m\u00E5let', addDish:'Legg til rett', addMed:'Legg til medisin',
-    manage:'Behandle kort', manageSub:'Dra for \u00E5 endre rekkef\u00F8lge. Velg st\u00F8rrelsen hvert kort \u00E5pner i.',
-    open:'\u00C5pent', peek:'Smug', done:'Ferdig', cancel:'Avbryt', save:'Lagre',
-    growth:'Vekst', supplies:'Forsyninger', time:'Tid',
-    narrTodo:'Ingenting her ber om noe.',
-    narrHealth:'En stille uke. Jeg teller den ikke som noe.',
-    newT:'Ny', editT:'Endre'
-  }
+ en:{shop:'Shop',todo:'To-do',home:'Home',habits:'Habits',health:'Health',
+  lists:'Shopping lists',food:'Food',catalogue:'Catalogue',
+  today:'Today',week:'This week',month:'This month',whenever:'Whenever',recurring:'Recurring',
+  notes:'Notes',shopping:'Shopping',retired:'Retired',issues:'Health issues',medicine:'Medicine',
+  goals:'Goals',earlier:'Earlier days',washed:'Washed away',
+  inlist:'In list',incart:'In cart',bought:'Bought',
+  newList:'New shopping list',archive:'Archive',restore:'Use again',
+  addTask:'New task',addItem:'Add an item',addNote:'New note',addHabit:'New habit',
+  addGoal:'New goal',addDish:'New dish',addMed:'New medicine',addEntry:'Log something',
+  addCat:'New catalogue item',more:'More options',addTo:'Add to which list?',
+  listName:'What is it for?',startFrom:'Start from',
+  cancel:'Cancel',save:'Save',done:'Done',open:'Open',peek:'Peek',
+  manage:'Manage cards',manageSub:'Drag to reorder. Choose the size each card opens at.',
+  growth:'Growth',supplies:'Supplies',time:'Time',
+  narrTodo:'Nothing here is asking for anything.',
+  narrHealth:'A quiet week. I am not counting it as anything.',
+  narrMonth:'The month is mostly empty. That is allowed.'},
+ no:{shop:'Handle',todo:'Gj\u00F8rem\u00E5l',home:'Hjem',habits:'Vaner',health:'Helse',
+  lists:'Handlelister',food:'Mat',catalogue:'Katalog',
+  today:'I dag',week:'Denne uka',month:'Denne m\u00E5neden',whenever:'N\u00E5r som helst',recurring:'Gjentakende',
+  notes:'Notater',shopping:'Handleliste',retired:'Lagt bort',issues:'Helseplager',medicine:'Medisiner',
+  goals:'M\u00E5l',earlier:'Tidligere dager',washed:'Skylt bort',
+  inlist:'I lista',incart:'I kurven',bought:'Kj\u00F8pt',
+  newList:'Ny handleliste',archive:'Arkiv',restore:'Bruk igjen',
+  addTask:'Ny oppgave',addItem:'Legg til vare',addNote:'Nytt notat',addHabit:'Ny vane',
+  addGoal:'Nytt m\u00E5l',addDish:'Ny rett',addMed:'Ny medisin',addEntry:'Loggf\u00F8r noe',
+  addCat:'Ny katalogvare',more:'Flere valg',addTo:'Hvilken liste?',
+  listName:'Hva er den til?',startFrom:'Start fra',
+  cancel:'Avbryt',save:'Lagre',done:'Ferdig',open:'\u00C5pent',peek:'Smug',
+  manage:'Behandle kort',manageSub:'Dra for \u00E5 endre rekkef\u00F8lge. Velg st\u00F8rrelsen hvert kort \u00E5pner i.',
+  growth:'Vekst',supplies:'Forsyninger',time:'Tid',
+  narrTodo:'Ingenting her ber om noe.',
+  narrHealth:'En stille uke. Jeg teller den ikke som noe.',
+  narrMonth:'M\u00E5neden er stort sett tom. Det er lov.'}
 };
 
-/* === the card registry, mirrored from lib/cardRegistry.ts === */
-const HUE = {todo:'#FFD700',habits:'#05D9E8',health:'#FF8CB2',shopping:'#0DB34A',notes:'#B45CFF',home:'#8A8A95'};
+/* ===== the option vocabulary: what a new row can be given, per card =====
+   This is the three-tier contract from AGENTS.md: tier 1 is the line (a name,
+   and committing there must always make a valid row), tier 2 is these, tier 3
+   is "More options". No blind tap-cycles - a stepper for a number, a picker
+   for a choice. */
+const OPT = {
+ time:  {l:['Time','Tid'],           v:{en:['Morning','Afternoon','Evening','No time'],no:['Morgen','Ettermiddag','Kveld','Ingen tid']},i:3},
+ effort:{l:['Effort','Innsats'],     v:{en:['2 min','Short','Long'],no:['2 min','Kort','Lang']},i:0},
+ goal:  {l:['Goal','M\u00E5l'],      v:{en:['None','Move more','Read 12 books'],no:['Ingen','Bevege meg mer','Lese 12 b\u00F8ker']},i:0},
+ day:   {l:['Day','Dag'],            v:{en:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],no:['Man','Tir','Ons','Tor','Fre','L\u00F8r','S\u00F8n']},i:1},
+ date:  {l:['Date','Dato'],          v:{en:['Early','Mid','Late','Pick a date'],no:['Tidlig','Midten','Sent','Velg dato']},i:1},
+ repeat:{l:['Repeat','Gjenta'],      v:{en:['Daily','Weekly','Monthly'],no:['Daglig','Ukentlig','M\u00E5nedlig']},i:1},
+ on:    {l:['On','P\u00E5'],         v:{en:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],no:['Man','Tir','Ons','Tor','Fre','L\u00F8r','S\u00F8n']},i:2,dep:{k:'repeat',is:1}},
+ qty:   {l:['Qty','Antall'],ty:'step',v:1},
+ list:  {l:['List','Liste'],         v:{en:['This week','Monthly','Party'],no:['Denne uka','M\u00E5nedlig','Fest']},i:0},
+ cat:   {l:['Category','Kategori'],  v:{en:['Dairy','Bakery','Household'],no:['Meieri','Bakeri','Husholdning']},i:0},
+ often: {l:['How often','Hvor ofte'],v:{en:['Daily','Weekdays','3x a week'],no:['Daglig','Hverdager','3x i uka']},i:0},
+ target:{l:['Target','M\u00E5l'],ty:'step',v:2,unit:['a day','om dagen']},
+ remind:{l:['Remind','P\u00E5minn'], v:{en:['Morning','Midday','Evening','Never'],no:['Morgen','Midt p\u00E5 dagen','Kveld','Aldri']},i:3},
+ by:    {l:['By when','Innen'],      v:{en:['This month','3 months','This year'],no:['Denne m\u00E5neden','3 m\u00E5neder','I \u00E5r']},i:1},
+ meas:  {l:['Measured in','M\u00E5les i'],ty:'step',v:12,unit:['books','b\u00F8ker']},
+ meal:  {l:['Meal','M\u00E5ltid'],   v:{en:['Breakfast','Lunch','Dinner'],no:['Frokost','Lunsj','Middag']},i:2},
+ price: {l:['Price','Pris'],ty:'step',v:20,unit:['kr','kr']},
+ what:  {l:['What','Hva'],           v:{en:['Sleep','Movement','Water','Mood'],no:['S\u00F8vn','Bevegelse','Vann','Hum\u00F8r']},i:0},
+ bad:   {l:['How bad','Hvor ille'],ty:'step',v:3,unit:['of 5','av 5']},
+ dose:  {l:['Dose','Dose'],ty:'step',v:1,unit:['tablet','tablett']},
+ tray:  {l:['Trays','Skuffer'],      v:{en:['Morning','Midday','Evening','Night'],no:['Morgen','Midt p\u00E5 dagen','Kveld','Natt']},i:0}
+};
 
-const SCREENS = [
-  {id:'shop', k:'shop', hue:'shopping', icon:'cart', cards:[
-    {id:'shopLists', t:'lists', hue:'shopping', icon:'cart', count:{l:6,n:11}, expand:false, compose:'quick', ph:'addItem', group:'supplies',
-     body:{kind:'checks', rows:[['Oat milk',1,'\u00D72'],['Bread',0,'\u00D71'],['Washing tabs',0,'\u00D71'],['Coffee beans',0,'\u00D71']]},
-     why:'Primary content of the tab, so no full screen \u2014 a pane would be a second rendering of the screen you are on.'},
-    {id:'shopDishes', t:'food', hue:'shopping', icon:'food', count:14, expand:true, compose:'sheet', ph:'addDish', group:'supplies',
-     body:{kind:'checks', rows:[['Fish soup',0,'Mon'],['Lentil stew',0,'Wed'],['Pancakes',0,'Sat']]}},
-    {id:'shopCatalogue', t:'catalogue', hue:'shopping', icon:'list', count:287, expand:true, compose:'sheet', ph:'addItem', group:'supplies',
-     ctl:['lock'], body:{kind:'checks', rows:[['Bananas',0,'1.20'],['Brown cheese',0,'4.90'],['Oat milk',0,'2.40']]}},
-    {id:'shopMonthly', t:'monthly', hue:'shopping', icon:'calendar', count:4, expand:false, compose:'quick', ph:'addItem',
-     body:{kind:'checks', rows:[['Dish soap',1,'\u00D71'],['Batteries',0,'\u00D74']]},
-     why:'Its lists are sections, not cards \u2014 a section rides its parent card&#8217;s full screen.'}
-  ]},
+const HUE={todo:'#FFD700',habits:'#05D9E8',health:'#FF8CB2',shopping:'#0DB34A',notes:'#B45CFF',home:'#8A8A95'};
+const rows = a => a.map(r => ({t:r[0], s:r[1]||0, m:r[2]||''}));
 
-  {id:'todo', k:'todo', hue:'todo', icon:'today', cards:[
-    {id:'todoToday', t:'today', hue:'todo', icon:'today', count:{l:4,n:7}, expand:true, compose:'quick', ph:'addTask', group:'time',
-     body:{kind:'checks', rows:[['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min'],['Call the plumber',0,'']]}},
-    {id:'todoWeek', t:'week', hue:'todo', icon:'calendar', count:9, expand:true, compose:'quick', ph:'addTask', group:'time',
-     body:{kind:'checks', rows:[['Physio',0,'Tue 15:00'],['Bin night',0,'Thu 21:00'],['Swim',0,'Sat']]}},
-    {id:'todoWhenever', t:'whenever', hue:'todo', icon:'time', count:5, expand:true, compose:'quick', ph:'addTask',
-     body:{kind:'narrator', text:'narrTodo'}},
-    {id:'todoRecurring', t:'recurring', hue:'health', icon:'repeat', count:4, expand:true, compose:'sheet', ph:'addTask',
-     body:{kind:'checks', rows:[['Water the plants',0,'Sun'],['Change the filter',0,'Monthly']]},
-     why:'Borrows Health&#8217;s rose so it does not read as a fifth To-do card. That is in the registry today.'},
-    {id:'_group', group:'elsewhere'},
-    {id:'todoGoals', t:'goalsP', hue:'todo', icon:'flag', count:3, expand:true, compose:'sheet', ph:'addGoal',
-     body:{kind:'bars', bars:[['Move more',60],['Read 12 books',33]]}},
-    {id:'todoEarlierDays', t:'earlier', hue:'todo', icon:'time', expand:true, compose:null,
-     body:{kind:'checks', rows:[['Yesterday',0,'6 things'],['Sat 23 Aug',0,'2 things']]}},
-    {id:'todoWashedAway', t:'washed', hue:'todo', icon:'water', count:2, expand:true, compose:null,
-     body:{kind:'checks', rows:[['Sort the loft',0,''],['Find the warranty',0,'']]}}
-  ]},
+/* ===== the screens ===== */
+const SCREENS=[
+ /* --- SHOP: one container card. Monthly is a LIST inside it, not a peer card. --- */
+ {id:'shop',k:'shop',hue:'shopping',icon:'cart',cards:[
+   {id:'shopLists',t:'lists',hue:'shopping',icon:'cart',count:{l:6,n:11},expand:false,open:true,group:'supplies',
+    lists:[
+      {id:'wk',n:'This week',nn:'Denne uka',open:true,
+       secs:[{k:'inlist',rows:rows([['Oat milk',0,'x2'],['Bread',0,'x1'],['Washing tabs',0,'x1'],['Coffee beans',0,'x1']])},
+             {k:'incart',rows:rows([['Bananas',0,'x1'],['Brown cheese',0,'x1']])},
+             {k:'bought',fold:true,rows:rows([['Dish soap',1,'x1'],['Eggs',1,'x12'],['Rye crisp',1,'x2']])}],
+       compose:{ph:'addItem',opts:['qty','cat'],more:false}},
+      {id:'mo',n:'Monthly',nn:'M\u00E5nedlig',open:false,
+       secs:[{k:'inlist',rows:rows([['Batteries',0,'x4'],['Light bulbs',0,'x2'],['Coffee filters',0,'x1']])},
+             {k:'incart',rows:[]},{k:'bought',fold:true,rows:rows([['Kitchen roll',1,'x6']])}],
+       compose:{ph:'addItem',opts:['qty','cat'],more:false}},
+      {id:'party',n:'Party, 12 Sep',nn:'Fest, 12. sep',open:false,
+       secs:[{k:'inlist',rows:rows([['Sparkling water',0,'x6'],['Crisps',0,'x3']])},
+             {k:'incart',rows:[]},{k:'bought',fold:true,rows:[]}],
+       compose:{ph:'addItem',opts:['qty','cat'],more:false}}
+    ],
+    archived:[['Christmas',24],['Camping trip',11],['Weekly basics',9]],
+    why:'Every list is a SECTION here, not a card - drawn one-per-row of user data, so it gets no Surface and no arrow of its own. That is lib/cardRegistry.ts&#8217;s own boundary, applied.'},
+   {id:'shopDishes',t:'food',hue:'shopping',icon:'food',count:14,expand:true,group:'supplies',
+    addTo:true,body:{kind:'checks',rows:rows([['Fish soup',0,'Mon'],['Lentil stew',0,'Wed'],['Pancakes',0,'Sat']])},
+    compose:{ph:'addDish',opts:['meal'],more:true}},
+   {id:'shopCatalogue',t:'catalogue',hue:'shopping',icon:'list',count:287,expand:true,ctl:['lock'],group:'supplies',
+    addTo:true,body:{kind:'checks',rows:rows([['Bananas',0,'19 kr'],['Brown cheese',0,'49 kr'],['Oat milk',0,'24 kr']])},
+    compose:{ph:'addCat',opts:['price','cat'],more:false}}
+ ]},
 
-  {id:'home', k:'home', hue:'home', icon:'home', cards:[
-    {id:'homeToday', t:'today', hue:'todo', icon:'today', count:{l:4,n:7}, expand:true, open:true, compose:'quick', ph:'addTask', group:'time',
-     body:{kind:'checks', rows:[['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min']]}},
-    {id:'homeNotes', t:'notes', hue:'notes', icon:'note', count:6, expand:true, open:true, compose:'quick', ph:'addNote',
-     body:{kind:'checks', rows:[['Boiler serial number',0,''],['Book recommendation from Ana',0,''],['Wifi password, upstairs',0,'']]}},
-    {id:'homeShopping', t:'shopping', hue:'shopping', icon:'cart', count:{l:6,n:11}, expand:false, open:true, compose:'quick', ph:'addItem',
-     body:{kind:'checks', rows:[['Oat milk',1,'\u00D72'],['Bread',0,'\u00D71'],['Washing tabs',0,'\u00D71']]},
-     why:'The Shop tab is one swipe away, so this previews it rather than duplicating its full screen.'},
-    {id:'homeRetired', t:'retired', hue:'home', icon:'archive', count:2, expand:false, compose:null,
-     body:{kind:'checks', rows:[['Habits',0,'hidden'],['Health',0,'hidden']]}}
-  ]},
+ /* --- TO-DO: five cards. Goals, Earlier days and Washed away fold INTO them. --- */
+ {id:'todo',k:'todo',hue:'todo',icon:'today',cards:[
+   {id:'todoToday',t:'today',hue:'todo',icon:'today',count:{l:4,n:7},expand:true,open:true,group:'time',
+    body:{kind:'checks',rows:rows([['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min'],['Call the plumber',0,'']])},
+    compose:{ph:'addTask',opts:['time','effort','goal'],more:true},
+    subs:[
+      {id:'tGoals',t:'goals',icon:'flag',rows:rows([['Move more',0,'60%'],['Read 12 books',0,'33%']]),
+       compose:{ph:'addGoal',opts:['by','meas'],more:false}},
+      {id:'tEarlier',t:'earlier',icon:'time',rows:rows([['Yesterday',0,'6 things'],['Sat 23 Aug',0,'2 things']])}
+    ]},
+   {id:'todoWeek',t:'week',hue:'todo',icon:'calendar',count:9,expand:true,group:'time',
+    body:{kind:'checks',rows:rows([['Physio',0,'Tue 15:00'],['Bin night',0,'Thu 21:00'],['Swim',0,'Sat']])},
+    compose:{ph:'addTask',opts:['day','time','goal'],more:true}},
+   {id:'todoMonth',t:'month',hue:'todo',icon:'month',count:4,expand:true,
+    body:{kind:'checks',rows:rows([['Car service',0,'12 Sep'],['Dentist',0,'19 Sep'],['Pay the insurance',0,'end of month']])},
+    compose:{ph:'addTask',opts:['date','goal'],more:true},
+    why:'NEW. A date filter between the week and Whenever - not monthly RECURRENCE, which AGENTS.md excludes from normalizeRecurringTasks because there is no per-occurrence completion row.'},
+   {id:'todoWhenever',t:'whenever',hue:'todo',icon:'time',count:5,expand:true,
+    body:{kind:'narrator',text:'narrTodo'},
+    compose:{ph:'addTask',opts:['effort','goal'],more:true},
+    subs:[{id:'tWashed',t:'washed',icon:'water',rows:rows([['Sort the loft',0,''],['Find the warranty',0,'']])}]},
+   {id:'todoRecurring',t:'recurring',hue:'health',icon:'repeat',count:4,expand:true,
+    body:{kind:'checks',rows:rows([['Water the plants',0,'Sun'],['Change the filter',0,'Monthly']])},
+    compose:{ph:'addTask',opts:['repeat','on','time'],more:true},
+    why:'Borrows Health&#8217;s rose so it does not read as a fifth To-do card. That is what the registry says today.'}
+ ]},
 
-  {id:'habits', k:'habits', hue:'habits', icon:'repeat', cards:[
-    {id:'habitsList', t:'habits', hue:'habits', icon:'repeat', count:{l:2,n:6}, expand:false, compose:'sheet', ph:'addHabit', group:'growth',
-     body:{kind:'rings', rings:[['Water',72],['Meds',100],['Walk',35],['Sleep',0]]},
-     why:'Primary content of its own tab \u2014 declined a full screen for the same reason Shopping lists does.'},
-    {id:'habitsGoals', t:'goalsPer', hue:'habits', icon:'flag', count:2, expand:false, compose:'sheet', ph:'addGoal', group:'growth',
-     body:{kind:'bars', bars:[['Sleep before midnight',48],['Swim 2 km',60]]}}
-  ]},
+ {id:'home',k:'home',hue:'home',icon:'home',cards:[
+   {id:'homeToday',t:'today',hue:'todo',icon:'today',count:{l:4,n:7},expand:true,open:true,group:'time',
+    body:{kind:'checks',rows:rows([['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min']])},
+    compose:{ph:'addTask',opts:['time','effort','goal'],more:true}},
+   {id:'homeNotes',t:'notes',hue:'notes',icon:'note',count:6,expand:true,open:true,
+    body:{kind:'checks',rows:rows([['Boiler serial number',0,''],['Book from Ana',0,''],['Wifi password',0,'']])},
+    compose:{ph:'addNote',opts:[],more:false}},
+   {id:'homeShopping',t:'shopping',hue:'shopping',icon:'cart',count:{l:6,n:11},expand:false,open:true,
+    body:{kind:'checks',rows:rows([['Oat milk',0,'x2'],['Bread',0,'x1'],['Washing tabs',0,'x1']])},
+    compose:{ph:'addItem',opts:['qty','list'],more:false}},
+   {id:'homeRetired',t:'retired',hue:'home',icon:'archive',count:2,expand:false,
+    body:{kind:'checks',rows:rows([['Habits',0,'hidden'],['Health',0,'hidden']])}}
+ ]},
 
-  {id:'health', k:'health', hue:'health', icon:'heart', cards:[
-    {id:'healthWeek', t:'week', hue:'health', icon:'heart', count:3, expand:false, compose:'sheet', ph:'addEntry', group:'growth',
-     body:{kind:'narrator', text:'narrHealth'}},
-    {id:'healthIssues', t:'issues', hue:'health', icon:'medical', count:4, expand:false, compose:'sheet', ph:'addEntry', ctl:['more'], group:'growth',
-     body:{kind:'checks', rows:[['Migraine',0,'2 this week'],['Reflux',0,'1 this week'],['Poor sleep',0,'4 this week']]}},
-    {id:'healthMedicine', t:'medicine', hue:'health', icon:'medkit', count:{l:1,n:4}, expand:true, compose:'full', ph:'addMed', ctl:['bell'], group:'growth',
-     body:{kind:'checks', rows:[['Morning',1,'2 taken'],['Midday',0,'still due'],['Evening',0,'1 due'],['Night',0,'\u2014']]}}
-  ]}
+ /* --- HABITS: one card, with Goals folded into it --- */
+ {id:'habits',k:'habits',hue:'habits',icon:'repeat',cards:[
+   {id:'habitsList',t:'habits',hue:'habits',icon:'repeat',count:{l:2,n:6},expand:false,open:true,group:'growth',
+    body:{kind:'rings',rings:[['Water',72],['Meds',100],['Walk',35],['Sleep',0]]},
+    compose:{ph:'addHabit',opts:['often','target','remind'],more:true},
+    subs:[{id:'hGoals',t:'goals',icon:'flag',rows:rows([['Sleep before midnight',0,'48%'],['Swim 2 km',0,'60%']]),
+           compose:{ph:'addGoal',opts:['by','meas'],more:false}}]}
+ ]},
+
+ {id:'health',k:'health',hue:'health',icon:'heart',cards:[
+   {id:'healthWeek',t:'week',hue:'health',icon:'heart',count:3,expand:false,open:true,group:'growth',
+    body:{kind:'narrator',text:'narrHealth'},
+    compose:{ph:'addEntry',opts:['what','bad','time'],more:true}},
+   {id:'healthIssues',t:'issues',hue:'health',icon:'medical',count:4,expand:false,ctl:['more'],group:'growth',
+    body:{kind:'checks',rows:rows([['Migraine',0,'2 this week'],['Reflux',0,'1 this week'],['Poor sleep',0,'4 this week']])},
+    compose:{ph:'addEntry',opts:['bad'],more:false}},
+   {id:'healthMedicine',t:'medicine',hue:'health',icon:'medkit',count:{l:1,n:4},expand:true,ctl:['bell'],group:'growth',
+    body:{kind:'checks',rows:rows([['Morning',1,'2 taken'],['Midday',0,'still due'],['Evening',0,'1 due'],['Night',0,'\u2014']])},
+    compose:{ph:'addMed',opts:['dose','tray'],more:true}}
+ ]}
 ];
 
-const GROUPS = {
-  growth:{k:'growth', ids:['habitsList','healthWeek','healthMedicine']},
-  supplies:{k:'supplies', ids:['shopLists','shopDishes','shopCatalogue']},
-  time:{k:'time', ids:['todoToday','todoWeek','homeToday']}
-};
+const GROUPS={growth:{k:'growth',ids:['habitsList','healthWeek','healthMedicine']},
+              supplies:{k:'supplies',ids:['shopLists','shopDishes','shopCatalogue']},
+              time:{k:'time',ids:['todoToday','todoWeek','homeToday']}};
 
-/* the sheet / full-editor field sets, from Card_Editor_System.html */
-const EDITORS = {
-  sheet:{
-    fields:[
-      {l:'Name', ty:'text', big:1, ph:'What it is'},
-      {l:'How often', ty:'chips', o:['Daily','Weekdays','3\u00D7 a week'], i:0},
-      {l:'Target', ty:'step', v:2},
-      {l:'Remind me', ty:'chips', o:['Morning','Midday','Evening','Never'], i:3},
-      {l:'Why it matters \u00B7 optional', ty:'area', ph:'For the days it feels pointless'}
-    ]
-  },
-  full:{
-    fields:[
-      {l:'Medicine', ty:'text', big:1, ph:'What it is called'},
-      {l:'Dose', ty:'step', v:1},
-      {l:'Trays', ty:'chips', o:['Morning','Midday','Evening','Night'], i:0},
-      {l:'Who is it for', ty:'people', o:['F','A','J'], on:[0]},
-      {l:'Remind', ty:'chips', o:['At the tray','30 min before','Never'], i:0},
-      {l:'Note \u00B7 optional', ty:'area', ph:'With food'}
-    ]
-  }
-};
+/* ===== state ===== */
+let S={screen:'home',app:'dark',w:393,lang:'en',audit:false,showExpand:true,allCompose:false,
+       closed:{},subClosed:{},secClosed:{},pane:null,sheet:null,manage:false,compose:null,opt:{},typed:{}};
+const t=()=>T[S.lang];
+const dev=document.getElementById('device');
+const scr=()=>SCREENS.find(s=>s.id===S.screen);
+const allCards=()=>scr().cards;
+const anyCard=id=>{for(const s of SCREENS){const c=s.cards.find(x=>x.id===id);if(c)return c;}};
+const screenOf=id=>SCREENS.find(s=>s.cards.some(x=>x.id===id));
+const isOpen=c=>S.closed[c.id]!==undefined?!S.closed[c.id]:!!c.open;
+const subOpen=(id,d)=>S.subClosed[id]!==undefined?!S.subClosed[id]:!!d;
+const secOpen=(id,d)=>S.secClosed[id]!==undefined?!S.secClosed[id]:d;
+const optVal=(key,name)=>{const o=OPT[name];return (S.opt[key]&&S.opt[key][name]!==undefined)?S.opt[key][name]:(o.ty==='step'?o.v:o.i);};
+const listName=l=>S.lang==='no'?l.nn:l.n;
 
-/* === state === */
-let S = {
-  screen:'home', app:'dark', w:393, lang:'en', audit:false, showExpand:true,
-  closed:{}, pane:null, sheet:null, manage:false, focus:null, typed:{}, gtab:null,
-  peek:{}
-};
-const t = () => T[S.lang];
-const dev = document.getElementById('device');
-const scr = () => SCREENS.find(s => s.id === S.screen);
-
-function isOpen(c){
-  if (S.closed[c.id] !== undefined) return !S.closed[c.id];
-  return !!c.open;   // openAtRest \u2014 Home's three, and nothing else
+/* ===== the composer: tier 1 line, tier 2 options, tier 3 More ===== */
+function composerHTML(key,cfg,hue){
+  if(!cfg) return '';
+  const ph=t()[cfg.ph]||'', on=S.allCompose||S.compose===key, val=S.typed[key]||'';
+  const line=`<div class="qa${on?' focused':''}${val?' armed':''}" data-act="compose" data-key="${key}">
+    <input placeholder="${ph}" value="${val}" data-key="${key}">
+    <button class="qbtn go" data-act="submit" data-key="${key}" aria-label="Add">${svg('up')}</button>
+  </div>`;
+  if(!on) return line;
+  const rowsHTML=(cfg.opts||[]).map(name=>{
+    const o=OPT[name];
+    /* a dependent option: "On" only exists once Repeat says Weekly. Shown
+       because this is exactly where the app froze once - a picker opening in a
+       Modal blurred the field, and the composer disposed of itself behind it. */
+    if(o.dep&&optVal(key,o.dep.k)!==o.dep.is) return '';
+    const lab=`<span class="optlab">${o.l[S.lang==='no'?1:0]}</span>`;
+    if(o.ty==='step'){
+      const v=optVal(key,name), u=o.unit?`<span class="optunit">${o.unit[S.lang==='no'?1:0]}</span>`:'';
+      return `<div class="optrow">${lab}<span class="optctl"><span class="optstep">
+        <button data-act="opt-" data-key="${key}" data-o="${name}">\u2212</button><span>${v}</span>
+        <button data-act="opt+" data-key="${key}" data-o="${name}">+</button></span>${u}</span></div>`;
+    }
+    const vals=o.v[S.lang], cur=optVal(key,name);
+    return `<div class="optrow">${lab}<span class="optctl">${vals.map((x,i)=>
+      `<button class="optchip${i===cur?' on':''}" data-act="optset" data-key="${key}" data-o="${name}" data-i="${i}">${x}</button>`).join('')}</span></div>`;
+  }).join('');
+  const more=cfg.more?`<button class="moreline" data-act="opensheet" data-id="${key}" data-depth="sheet">${svg('sliders')}${t().more}</button>`:'';
+  return line+`<div class="optpanel">${rowsHTML}${more}</div>`;
 }
 
-/* === render === */
+/* ===== bodies ===== */
+function rowsHTML(rs,cls,hue,key){
+  return `<div class="rows">${rs.map((r,i)=>
+    `<div class="row ${cls||''}${r.s?' done':''}" data-act="row" data-key="${key}" data-i="${i}">
+      <span class="chk${r.s?' on':''}">${svg('check',3)}</span>
+      <span class="rlabel">${r.t}</span>
+      ${r.m?`<span class="rmeta">${r.m}</span>`:''}
+    </div>`).join('')}</div>`;
+}
+function bodyHTML(c){
+  const b=c.body; if(!b) return '';
+  if(b.kind==='narrator') return `<p class="narrator">${t()[b.text]}</p>`;
+  if(b.kind==='rings') return `<div class="rings">${b.rings.map(r=>
+    `<div class="ringwrap"><div class="ring" style="background:conic-gradient(var(--f) ${r[1]}%,color-mix(in srgb,var(--border) 45%,transparent) 0)">
+     <i>${r[1]?r[1]:'\u2013'}</i></div><span class="ringlab">${r[0]}</span></div>`).join('')}</div>`;
+  /* a library row carries a "+" that asks which list to add it to */
+  if(c.addTo) return `<div class="rows">${b.rows.map((r,i)=>
+    `<div class="row" data-act="row" data-key="${c.id}" data-i="${i}">
+      <span class="rlabel">${r.t}</span>${r.m?`<span class="rmeta">${r.m}</span>`:''}
+      <button class="rowadd" data-act="addto" data-name="${r.t}" aria-label="Add ${r.t} to a list">${svg('add')}</button>
+    </div>`).join('')}</div>`;
+  return rowsHTML(b.rows,'',null,c.id);
+}
+
+/* ===== a SECTION inside a card: a shopping list, or Goals ===== */
+function secHTML(list,sec){
+  const id=list.id+':'+sec.k, def=!sec.fold, open=secOpen(id,def);
+  if(!sec.rows.length&&sec.k!=='inlist') return '';
+  return `<div class="sec" data-open="${open}">
+    <button class="seclabel" data-act="sec" data-id="${id}">${svg('chevron')}${t()[sec.k]}
+      <span class="n">${sec.rows.length}</span><span class="line"></span></button>
+    ${sec.rows.length?rowsHTML(sec.rows,sec.k==='incart'?'cart':sec.k==='bought'?'bought':'',null,id)
+      :`<p class="narrator">${t().narrTodo}</p>`}
+  </div>`;
+}
+function listHTML(list){
+  const open=subOpen(list.id,list.open);
+  const n=list.secs.reduce((a,s)=>a+s.rows.filter(r=>!r.s).length,0);
+  return `<div class="sub" data-open="${open}">
+    <button class="subhead" data-act="sub" data-id="${list.id}">
+      <span class="subdot2"></span><span class="subname">${listName(list)}</span>
+      <span class="subcount">${n}</span><span class="subchev">${svg('chevron')}</span></button>
+    <div class="subbody">${list.secs.map(s=>secHTML(list,s)).join('')}
+      ${composerHTML(list.id,list.compose)}</div>
+  </div>`;
+}
+function subHTML(sub){
+  const open=subOpen(sub.id,false);
+  return `<div class="sub" data-open="${open}">
+    <button class="subhead" data-act="sub" data-id="${sub.id}">
+      <span class="subdot2"></span><span class="subname">${t()[sub.t]}</span>
+      <span class="subcount">${sub.rows.length}</span><span class="subchev">${svg('chevron')}</span></button>
+    <div class="subbody">${rowsHTML(sub.rows,'',null,sub.id)}${composerHTML(sub.id,sub.compose)}</div>
+  </div>`;
+}
+
+/* ===== the card ===== */
 function cardHTML(c){
-  if (c.id === '_group') return `<div class="grouprail">${t()[c.group]}</div>`;
-  const hue = HUE[c.hue], open = isOpen(c), lbl = t()[c.t];
-  const count = c.count == null ? '' :
-    `<span class="ccount">${typeof c.count === 'object' ? c.count.l + '/' + c.count.n : c.count}</span>`;
-  const ctl = (c.ctl || []).map(k =>
-    `<button class="cbtn" aria-label="${k}">${svg(k)}</button>`).join('');
-  const exp = (c.expand && S.showExpand)
-    ? `<button class="cbtn" data-act="expand" data-id="${c.id}" aria-label="Open ${lbl} full screen">${svg('expand')}</button>` : '';
+  const hue=HUE[c.hue],open=isOpen(c),lbl=t()[c.t];
+  const count=c.count==null?'':`<span class="ccount">${typeof c.count==='object'?c.count.l+'/'+c.count.n:c.count}</span>`;
+  const ctl=(c.ctl||[]).map(k=>`<button class="cbtn" aria-label="${k}">${svg(k)}</button>`).join('');
+  const exp=(c.expand&&S.showExpand)?`<button class="cbtn" data-act="expand" data-id="${c.id}" aria-label="Open ${lbl} full screen">${svg('expand')}</button>`:'';
+  const namePress=(c.expand&&!S.showExpand)?` role="button" tabindex="0" data-act="expand" data-id="${c.id}" style="cursor:pointer"`:'';
+  let body='';
+  if(c.lists){
+    body=c.lists.map(listHTML).join('')
+      +`<div class="triggers">
+          <button class="trigger" data-act="newlist">${svg('add')}${t().newList}</button>
+          <button class="trigger" data-act="archive">${svg('archive')}${t().archive}<span class="n">${c.archived.length}</span></button>
+        </div>`;
+  } else {
+    body=bodyHTML(c)+composerHTML(c.id,c.compose)+(c.subs||[]).map(subHTML).join('');
+  }
   return `<div class="card" data-open="${open}" style="--f:${hue}">
     <div class="chead">
-      <span class="badge">${svg(c.icon, 2.1)}</span>
-      <span class="cnames"${c.expand && !S.showExpand ? ` role="button" tabindex="0" data-act="expand" data-id="${c.id}" style="cursor:pointer"` : ''}><span class="ctitle">${lbl}</span>${count}</span>
+      <span class="badge">${svg(c.icon,2.1)}</span>
+      <span class="cnames"${namePress}><span class="ctitle">${lbl}</span>${count}</span>
       <span class="cctl">${ctl}${exp}
-        <button class="cbtn chev" data-act="fold" data-id="${c.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${lbl}">${svg('chevron')}</button>
+        <button class="cbtn chev" data-act="fold" data-id="${c.id}" aria-label="${open?'Collapse':'Expand'} ${lbl}">${svg('chevron')}</button>
       </span>
     </div>
     <div class="crule"></div>
-    <div class="cbody">${bodyHTML(c)}${composerHTML(c)}</div>
+    <div class="cbody">${body}</div>
   </div>`;
 }
 
-function bodyHTML(c){
-  const b = c.body; if (!b) return '';
-  if (b.kind === 'narrator') return `<p class="narrator">${t()[b.text]}</p>`;
-  if (b.kind === 'bars') return `<div class="bars">${b.bars.map(x =>
-    `<div class="barrow"><div class="barlab"><span>${x[0]}</span><span>${x[1]}%</span></div>
-     <div class="bartrack"><i style="width:${x[1]}%"></i></div></div>`).join('')}</div>`;
-  if (b.kind === 'rings') return `<div class="rings">${b.rings.map(r =>
-    `<div class="ringwrap"><div class="ring" style="background:conic-gradient(var(--f) ${r[1]}%,color-mix(in srgb,var(--border) 45%,transparent) 0)">
-     <i>${r[1] ? r[1] : '\u2013'}</i></div><span class="ringlab">${r[0]}</span></div>`).join('')}</div>`;
-  return `<div class="rows">${b.rows.map((r,i) =>
-    `<div class="row${r[1] ? ' done' : ''}" data-act="row" data-id="${c.id}" data-i="${i}">
-      <span class="chk${r[1] ? ' on' : ''}">${svg('check', 3)}</span>
-      <span class="rlabel">${r[0]}</span>
-      ${r[2] ? `<span class="rmeta">${r[2]}</span>` : ''}
-    </div>`).join('')}</div>`;
-}
-
-function composerHTML(c){
-  if (!c.compose) return '';
-  const ph = t()[c.ph] || '';
-  if (c.compose === 'quick'){
-    const focused = S.focus === c.id, val = S.typed[c.id] || '';
-    return `<div class="qa${focused ? ' focused' : ''}${val ? ' armed' : ''}" data-act="qa" data-id="${c.id}">
-      <input placeholder="${ph}" value="${val}" data-id="${c.id}">
-      <button class="qbtn go" data-act="submit" data-id="${c.id}" aria-label="Add">${svg('up')}</button>
-    </div>`;
-  }
-  return `<button class="qa" data-act="opensheet" data-id="${c.id}" data-depth="${c.compose}" style="cursor:pointer;text-align:left;width:100%">
-    <span class="qbtn go" aria-hidden="true">${svg('add')}</span>
-    <span style="flex:1;font:700 var(--fs-sm)/1.3 var(--app-font);color:var(--text-muted)">${ph}</span>
-  </button>`;
-}
-
+/* ===== full-screen pane ===== */
 function paneHTML(){
-  const c = anyCard(S.pane); if (!c) return '';
-  const hue = HUE[c.hue], g = c.group ? GROUPS[c.group] : null;
-  const tabs = g ? `<div class="gtabs">${g.ids.map(id => {
-    const s = anyCard(id); if (!s) return '';
-    return `<button class="gtab${id === c.id ? ' on' : ''}" style="--gf:${HUE[s.hue]}" data-act="gtab" data-id="${id}">${svg(s.icon)}${t()[s.t]}</button>`;
-  }).join('')}</div>` : '';
-  return `<div class="pane" style="--f:${hue}">
-    <div class="panehead">
-      <span class="badge">${svg(c.icon, 2.1)}</span>
+  const c=anyCard(S.pane); if(!c) return '';
+  const g=c.group?GROUPS[c.group]:null;
+  const tabs=g?`<div class="gtabs">${g.ids.map(id=>{const s=anyCard(id);if(!s)return'';
+    return `<button class="gtab${id===c.id?' on':''}" style="--gf:${HUE[s.hue]}" data-act="gtab" data-id="${id}">${svg(s.icon)}${t()[s.t]}</button>`;}).join('')}</div>`:'';
+  const body=c.lists?c.lists.map(listHTML).join(''):bodyHTML(c)+composerHTML(c.id,c.compose)+(c.subs||[]).map(subHTML).join('');
+  return `<div class="pane" style="--f:${HUE[c.hue]}">
+    <div class="panehead"><span class="badge">${svg(c.icon,2.1)}</span>
       <span class="cnames"><span class="ctitle">${t()[c.t]}</span></span>
-      <span class="cctl"><button class="cbtn" data-act="closepane" aria-label="Close">${svg('contract')}</button></span>
-    </div>
-    ${tabs}
-    <div class="panebody">${bodyHTML(c)}${composerHTML(c)}</div>
-  </div>`;
+      <span class="cctl"><button class="cbtn" data-act="closepane" aria-label="Close">${svg('contract')}</button></span></div>
+    ${tabs}<div class="panebody">${body}</div></div>`;
 }
 
+/* ===== sheets ===== */
 function field(f){
-  const lbl = `<div class="fl">${f.l}</div>`;
-  if (f.ty === 'text') return `<div>${f.big ? '' : lbl}<input class="in${f.big ? ' big' : ''}" placeholder="${f.ph || ''}"></div>`;
-  if (f.ty === 'area') return `<div>${lbl}<textarea class="in" placeholder="${f.ph || ''}"></textarea></div>`;
-  if (f.ty === 'chips') return `<div>${lbl}<div class="chips">${f.o.map((o,k) =>
-    `<button class="chip${k === f.i ? ' on' : ''}" data-act="chip">${o}</button>`).join('')}</div></div>`;
-  if (f.ty === 'step') return `<div>${lbl}<div class="step"><button data-act="step" data-d="-1">\u2212</button><span>${f.v}</span><button data-act="step" data-d="1">+</button></div></div>`;
-  if (f.ty === 'people') return `<div>${lbl}<div class="people">${f.o.map((p,k) =>
-    `<button class="av${f.on.includes(k) ? ' on' : ''}" data-act="av">${p}</button>`).join('')}</div></div>`;
+  const lbl=`<div class="fl">${f.l}</div>`;
+  if(f.ty==='text') return `<div>${f.big?'':lbl}<input class="in${f.big?' big':''}" placeholder="${f.ph||''}"></div>`;
+  if(f.ty==='area') return `<div>${lbl}<textarea class="in" placeholder="${f.ph||''}"></textarea></div>`;
+  if(f.ty==='chips') return `<div>${lbl}<div class="chips">${f.o.map((o,k)=>`<button class="chip${k===f.i?' on':''}" data-act="chip">${o}</button>`).join('')}</div></div>`;
+  if(f.ty==='step') return `<div>${lbl}<div class="step"><button data-act="step" data-d="-1">\u2212</button><span>${f.v}</span><button data-act="step" data-d="1">+</button></div></div>`;
   return '';
 }
-
 function sheetHTML(){
-  if (S.manage) return manageHTML();
-  if (!S.sheet) return '';
-  const c = anyCard(S.sheet.id); if (!c) return '';
-  const E = EDITORS[S.sheet.depth] || EDITORS.sheet, full = S.sheet.depth === 'full';
+  if(S.manage) return manageHTML();
+  if(!S.sheet) return '';
+  const k=S.sheet.kind;
+  if(k==='newlist') return wrap(`<b>${t().newList}<small>${t().listName}</small></b>`,
+    `<div>${field({l:t().listName,ty:'text',big:1,ph:S.lang==='no'?'Ukas handleliste':'This week&#8217;s shopping'})}</div>
+     <div><div class="fl">${t().startFrom}</div><div class="chips">
+       ${[['Empty','Tom'],['This week','Denne uka'],['Christmas','Jul'],['Camping trip','Campingtur']]
+         .map((x,i)=>`<button class="chip${i===0?' on':''}" data-act="chip">${x[S.lang==='no'?1:0]}</button>`).join('')}
+     </div></div>`,HUE.shopping);
+  if(k==='archive') return wrap(`<b>${t().archive}<small>${S.lang==='no'?'Lagrede lister du kan bruke om igjen':'Saved lists you can use again'}</small></b>`,
+    anyCard('shopLists').archived.map(a=>`<div class="archrow">
+      <span class="mbadge" style="--mf:${HUE.shopping}">${svg('cart',2.1)}</span>
+      <span class="an">${a[0]}</span><span class="ac">${a[1]}</span>
+      <button class="key ghost" data-act="closesheet">${svg('restore')}</button></div>`).join(''),HUE.shopping);
+  if(k==='addto') return wrap(`<b>${S.sheet.name}<small>${t().addTo}</small></b>`,
+    `<div class="chips">${anyCard('shopLists').lists.map((l,i)=>
+      `<button class="chip${i===0?' on':''}" data-act="chip">${listName(l)}</button>`).join('')}
+      <button class="chip" data-act="chip">+ ${t().newList}</button></div>
+     <div>${field({l:OPT.qty.l[S.lang==='no'?1:0],ty:'step',v:1})}</div>`,HUE.shopping);
+  /* tier 3: the full editor a composer escalates into */
+  const c=anyCard(S.sheet.id)||{t:'today',hue:'todo',icon:'today'};
+  const cfg=(c.compose||{opts:[]});
+  const fs=[{l:t()[cfg.ph]||'',ty:'text',big:1,ph:t()[cfg.ph]||''}].concat((cfg.opts||[]).map(n=>{
+    const o=OPT[n];
+    return o.ty==='step'?{l:o.l[S.lang==='no'?1:0],ty:'step',v:o.v}
+                        :{l:o.l[S.lang==='no'?1:0],ty:'chips',o:o.v[S.lang],i:o.i};
+  })).concat([{l:(S.lang==='no'?'Notat':'Note')+' \u00B7 '+(S.lang==='no'?'valgfritt':'optional'),ty:'area',ph:''}]);
+  return wrap(`<span class="badge">${svg(c.icon,2.1)}</span><b>${t()[cfg.ph]||''}<small>${t()[c.t]} \u00B7 ${t().more}</small></b>`,
+    fs.map(field).join(''),HUE[c.hue]);
+}
+function wrap(head,inner,hue){
   return `<div class="scrim" data-act="closesheet"></div>
-  <div class="sheet${full ? ' full' : ''}" style="--f:${HUE[c.hue]}">
-    <div class="grab"></div>
-    <div class="shead">
-      <span class="badge">${svg(c.icon, 2.1)}</span>
-      <b>${t().newT} &middot; ${t()[c.t]}<small>${full ? 'Full editor' : 'Sheet'} &middot; declared by the card</small></b>
-      <button class="cbtn" data-act="closesheet" aria-label="Close">${svg('close')}</button>
-    </div>
-    <div class="fields">${E.fields.map(field).join('')}</div>
-    <div class="savebar">
-      <button class="key ghost" data-act="closesheet">${t().cancel}</button>
-      <button class="key primary" data-act="closesheet">${t().save}</button>
-    </div>
-  </div>`;
+  <div class="sheet" style="--f:${hue}"><div class="grab"></div>
+    <div class="shead">${head}<button class="cbtn" data-act="closesheet" aria-label="Close">${svg('close')}</button></div>
+    <div class="fields">${inner}</div>
+    <div class="savebar"><button class="key ghost" data-act="closesheet">${t().cancel}</button>
+      <button class="key primary" data-act="closesheet">${t().save}</button></div></div>`;
 }
-
 function manageHTML(){
-  const rows = allCards().filter(c => c.id !== '_group').map(c => {
-    const g = c.group ? t()[GROUPS[c.group].k] : '\u2014';
-    // Open/Peek IS the fold, so the sheet drives the same state the chevron does.
-    const peek = !isOpen(c);
+  const rs=allCards().map(c=>{const g=c.group?t()[GROUPS[c.group].k]:'\u2014',peek=!isOpen(c);
     return `<div class="mrow" style="--mf:${HUE[c.hue]};--f:${HUE[c.hue]}">
-      <span class="mgrip">${svg('grip')}</span>
-      <span class="mbadge">${svg(c.icon, 2.1)}</span>
-      <span class="mname">${t()[c.t]}</span>
-      <span class="mgroup">${g}</span>
-      <span class="mseg">
-        <button class="${peek ? '' : 'on'}" data-act="peek" data-id="${c.id}" data-v="0">${t().open}</button>
-        <button class="${peek ? 'on' : ''}" data-act="peek" data-id="${c.id}" data-v="1">${t().peek}</button>
-      </span>
-    </div>`;
-  }).join('');
+      <span class="mgrip">${svg('grip')}</span><span class="mbadge">${svg(c.icon,2.1)}</span>
+      <span class="mname">${t()[c.t]}</span><span class="mgroup">${g}</span>
+      <span class="mseg"><button class="${peek?'':'on'}" data-act="peek" data-id="${c.id}" data-v="0">${t().open}</button>
+      <button class="${peek?'on':''}" data-act="peek" data-id="${c.id}" data-v="1">${t().peek}</button></span></div>`;}).join('');
   return `<div class="scrim" data-act="closemanage"></div>
-  <div class="sheet" style="--f:${HUE[scr().hue]}">
-    <div class="grab"></div>
-    <div class="shead">
-      <b>${t().manage}<small>${t().manageSub}</small></b>
-      <button class="key ghost" data-act="closemanage">${t().done}</button>
-    </div>
-    ${rows}
-  </div>`;
+  <div class="sheet" style="--f:${HUE[scr().hue]}"><div class="grab"></div>
+    <div class="shead"><b>${t().manage}<small>${t().manageSub}</small></b>
+      <button class="key ghost" data-act="closemanage">${t().done}</button></div>${rs}</div>`;
 }
 
-const allCards = () => scr().cards;
-/* A group SPANS screens - Growth is Habits' card plus two of Health's - so a
-   group lookup that only searched the current screen would render a one-tab
-   strip and quietly lose the feature. */
-const anyCard = id => { for (const s of SCREENS){ const c = s.cards.find(x => x.id === id); if (c) return c; } };
-const screenOf = id => SCREENS.find(s => s.cards.some(x => x.id === id));
-
+/* ===== render ===== */
 function render(){
-  const s = scr(), hue = HUE[s.hue];
-  dev.dataset.app = S.app;
-  dev.dataset.audit = S.audit ? 'on' : 'off';
-  dev.style.setProperty('--f', hue);
-  if (!dev.classList.contains('bare')) dev.style.width = S.w + 'px';
-
-  dev.innerHTML = `
+  const s=scr();
+  dev.dataset.app=S.app; dev.dataset.audit=S.audit?'on':'off';
+  dev.style.setProperty('--f',HUE[s.hue]);
+  if(!dev.classList.contains('bare')) dev.style.width=S.w+'px';
+  dev.innerHTML=`
     <div class="backdrop"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
-    <div class="hdr">
-      <span class="htitle">${t()[s.k]}</span>
-      <span class="hsub">9:41</span>
-    </div>
+    <div class="hdr"><span class="htitle">${t()[s.k]}</span><span class="hsub">9:41</span></div>
     <div class="scroll">${s.cards.map(cardHTML).join('')}</div>
-    <nav class="nav">${SCREENS.map(x =>
-      `<button class="navtab${x.id === S.screen ? ' on' : ''}" style="--nf:${HUE[x.hue]}" data-act="nav" data-id="${x.id}">
-        ${svg(x.icon, x.id === S.screen ? 2.4 : 1.9)}<span>${t()[x.k]}</span>
-      </button>`).join('')}</nav>
-    ${S.pane ? paneHTML() : ''}
-    ${sheetHTML()}`;
-
-  document.getElementById('stageMeta').textContent = `${S.w} \u00D7 812`;
-  document.querySelectorAll('#segScreen button').forEach(b =>
-    b.setAttribute('aria-pressed', b.dataset.s === S.screen));
+    <nav class="nav">${SCREENS.map(x=>
+      `<button class="navtab${x.id===S.screen?' on':''}" style="--nf:${HUE[x.hue]}" data-act="nav" data-id="${x.id}">
+        ${svg(x.icon,x.id===S.screen?2.4:1.9)}<span>${t()[x.k]}</span></button>`).join('')}</nav>
+    ${S.pane?paneHTML():''}${sheetHTML()}`;
+  document.getElementById('stageMeta').textContent=`${S.w} \u00D7 812`;
+  document.querySelectorAll('#segScreen button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===S.screen));
   measure();
 }
-
-/* A card title that does not fit is the measured cost of putting the \u2922 back
-   beside the fold. Reported live rather than left for someone to notice, in the
-   same spirit as npm run wraps - a mockup you cannot measure is a picture. */
 function measure(){
-  const cut = [...dev.querySelectorAll('.ctitle')].filter(e => e.scrollWidth > e.clientWidth + 1);
-  const box = document.getElementById('fitReport');
-  if (!box) return;
-  box.className = 'fitreport' + (cut.length ? ' bad' : '');
-  box.innerHTML = cut.length
-    ? `<b>${cut.length} of ${dev.querySelectorAll('.ctitle').length} card titles truncate</b> at
-       ${S.w}px / ${S.lang.toUpperCase()} &mdash; ${cut.map(e => '&ldquo;' + e.textContent + '&rdquo;').join(', ')}.
-       Two header buttons cost roughly 80px of the naming row.`
-    : `<b>All ${dev.querySelectorAll('.ctitle').length} card titles fit</b> at ${S.w}px / ${S.lang.toUpperCase()}.`;
+  const all=dev.querySelectorAll('.ctitle'),cut=[...all].filter(e=>e.scrollWidth>e.clientWidth+1);
+  const box=document.getElementById('fitReport'); if(!box) return;
+  box.className='fitreport'+(cut.length?' bad':'');
+  box.innerHTML=cut.length
+    ?`<b>${cut.length} of ${all.length} card titles truncate</b> at ${S.w}px / ${S.lang.toUpperCase()} &mdash;
+      ${cut.map(e=>'&ldquo;'+e.textContent+'&rdquo;').join(', ')}. Two header buttons cost roughly 80px of the naming row.`
+    :`<b>All ${all.length} card titles fit</b> at ${S.w}px / ${S.lang.toUpperCase()}.`;
 }
 
-/* === interaction === */
-dev.addEventListener('click', e => {
-  const el = e.target.closest('[data-act]'); if (!el) return;
-  const a = el.dataset.act, id = el.dataset.id;
-  if (a === 'nav'){ S.screen = id; S.pane = null; S.sheet = null; }
-  else if (a === 'fold'){ S.closed[id] = isOpen(allCards().find(c => c.id === id)); }
-  else if (a === 'expand'){ S.pane = id; }
-  else if (a === 'closepane'){ S.pane = null; }
-  else if (a === 'gtab'){
-    // Crossing a group tab also moves the tab you are on, so closing the pane
-    // leaves you where the card you were last reading actually lives.
-    const s = screenOf(id); if (s) S.screen = s.id;
-    S.pane = id;
-  }
-  else if (a === 'opensheet'){ S.sheet = {id, depth: el.dataset.depth}; }
-  else if (a === 'closesheet'){ S.sheet = null; }
-  else if (a === 'closemanage'){ S.manage = false; }
-  else if (a === 'peek'){ S.closed[id] = el.dataset.v === '1'; }
-  else if (a === 'row'){
-    const c = allCards().find(x => x.id === id);
-    if (c && c.body.rows){ const r = c.body.rows[+el.dataset.i]; r[1] = r[1] ? 0 : 1; }
-  }
-  else if (a === 'submit'){ S.typed[id] = ''; S.focus = null; }
-  else if (a === 'chip'){
-    el.parentElement.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
-    el.classList.add('on'); return;
-  }
-  else if (a === 'step'){
-    const sp = el.parentElement.querySelector('span');
-    sp.textContent = Math.max(1, +sp.textContent + (+el.dataset.d)); return;
-  }
-  else if (a === 'av'){ el.classList.toggle('on'); return; }
+/* ===== interaction ===== */
+dev.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const a=el.dataset.act,id=el.dataset.id,key=el.dataset.key;
+  if(a==='nav'){S.screen=id;S.pane=null;S.sheet=null;S.compose=null;}
+  else if(a==='fold'){S.closed[id]=isOpen(anyCard(id));}
+  /* set closed := open-right-now, which is a real toggle whatever the default was */
+  else if(a==='sub'){S.subClosed[id]=subOpenNow(id);}
+  else if(a==='sec'){S.secClosed[id]=secOpenNow(id);}
+  else if(a==='expand'){S.pane=id;}
+  else if(a==='closepane'){S.pane=null;}
+  else if(a==='gtab'){const sc=screenOf(id); if(sc) S.screen=sc.id; S.pane=id;}
+  else if(a==='compose'){S.compose=S.compose===key?null:key;}
+  else if(a==='opensheet'){S.sheet={id:el.dataset.id,kind:'editor'};}
+  else if(a==='newlist'){S.sheet={kind:'newlist'};}
+  else if(a==='archive'){S.sheet={kind:'archive'};}
+  else if(a==='addto'){S.sheet={kind:'addto',name:el.dataset.name};}
+  else if(a==='closesheet'){S.sheet=null;}
+  else if(a==='closemanage'){S.manage=false;}
+  else if(a==='peek'){S.closed[id]=el.dataset.v==='1';}
+  else if(a==='optset'){(S.opt[key]=S.opt[key]||{})[el.dataset.o]=+el.dataset.i;}
+  else if(a==='opt+'||a==='opt-'){const o=el.dataset.o,cur=optVal(key,o);
+    (S.opt[key]=S.opt[key]||{})[o]=Math.max(0,cur+(a==='opt+'?1:-1));}
+  else if(a==='row'){toggleRow(key,+el.dataset.i);}
+  else if(a==='submit'){S.typed[key]='';S.compose=null;}
+  else if(a==='chip'){el.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));el.classList.add('on');return;}
+  else if(a==='step'){const sp=el.parentElement.querySelector('span');sp.textContent=Math.max(0,+sp.textContent+(+el.dataset.d));return;}
   else return;
   render();
 });
+/* the two fold defaults differ per thing, so resolve them before flipping */
+function subOpenNow(id){
+  for(const s of SCREENS) for(const c of s.cards){
+    if(c.lists) for(const l of c.lists) if(l.id===id) return subOpen(id,l.open);
+    if(c.subs) for(const b of c.subs) if(b.id===id) return subOpen(id,false);
+  }
+  return subOpen(id,false);
+}
+function secOpenNow(id){
+  for(const s of SCREENS) for(const c of s.cards) if(c.lists) for(const l of c.lists)
+    if(id.startsWith(l.id+':')) for(const sec of l.secs)
+      if(l.id+':'+sec.k===id) return secOpen(id,!sec.fold);
+  return true;
+}
+/* In list -> In cart -> Bought, one tap at a time. The three states already
+   exist in the schema: lib/db.ts:387 documents `checked` = "moved to cart" and
+   `collected` = the cart tick, so this is a RENDERING, not a migration. */
+function toggleRow(key,i){
+  for(const s of SCREENS) for(const c of s.cards){
+    if(c.lists) for(const l of c.lists) for(const sec of l.secs) if(l.id+':'+sec.k===key){
+      const r=sec.rows[i]; if(!r) return;
+      const order=['inlist','incart','bought'],at=order.indexOf(sec.k);
+      if(at<2){sec.rows.splice(i,1);const to=l.secs.find(x=>x.k===order[at+1]);
+        r.s=order[at+1]==='bought'?1:0;to.rows.push(r);}
+      else {sec.rows.splice(i,1);r.s=0;l.secs.find(x=>x.k==='inlist').rows.push(r);}
+      return;
+    }
+    if(c.body&&c.body.rows&&c.id===key){const r=c.body.rows[i];if(r)r.s=r.s?0:1;return;}
+    if(c.subs) for(const b of c.subs) if(b.id===key){const r=b.rows[i];if(r)r.s=r.s?0:1;return;}
+  }
+}
+dev.addEventListener('input',e=>{const i=e.target.closest('.qa input');if(!i)return;
+  S.typed[i.dataset.key]=i.value;i.closest('.qa').classList.toggle('armed',!!i.value.trim());});
 
-dev.addEventListener('input', e => {
-  const i = e.target.closest('.qa input'); if (!i) return;
-  const id = i.dataset.id;
-  S.typed[id] = i.value;
-  i.closest('.qa').classList.toggle('armed', !!i.value.trim());
-});
-dev.addEventListener('focusin', e => {
-  const i = e.target.closest('.qa input'); if (!i) return;
-  S.focus = i.dataset.id;
-  i.closest('.qa').classList.add('focused');
-});
-dev.addEventListener('focusout', e => {
-  const i = e.target.closest('.qa input'); if (!i) return;
-  i.closest('.qa').classList.remove('focused'); S.focus = null;
-});
+/* ===== chrome ===== */
+document.getElementById('segScreen').innerHTML=SCREENS.map(s=>
+  `<button data-s="${s.id}" aria-pressed="${s.id===S.screen}">${T.en[s.k]}</button>`).join('');
+document.getElementById('segScreen').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  S.screen=b.dataset.s;S.pane=null;S.sheet=null;S.compose=null;render();};
+document.getElementById('segApp').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.app=b.dataset.app;
+  document.querySelectorAll('#segApp button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.app===S.app));render();};
+document.getElementById('segW').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.w=+b.dataset.w;
+  document.querySelectorAll('#segW button').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.w===S.w));render();};
+document.getElementById('segLang').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.lang=b.dataset.lang;
+  document.querySelectorAll('#segLang button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.lang===S.lang));
+  document.querySelectorAll('#segScreen button').forEach(x=>{x.textContent=t()[SCREENS.find(s=>s.id===x.dataset.s).k];});render();};
+document.getElementById('btnExpand').onclick=e=>{S.showExpand=!S.showExpand;
+  e.currentTarget.setAttribute('aria-pressed',S.showExpand);
+  e.currentTarget.innerHTML=S.showExpand?'\u2922 in the header':'\u2922 off \u00B7 title opens';render();};
+document.getElementById('btnAudit').onclick=e=>{S.audit=!S.audit;
+  e.currentTarget.setAttribute('aria-pressed',S.audit);
+  document.getElementById('stageHint').textContent=S.audit?'everything unlit is dimmed \u2014 count what is left'
+    :'tap a composer to see the options a new row gets';render();};
+document.getElementById('btnCompose').onclick=e=>{S.allCompose=!S.allCompose;
+  e.currentTarget.setAttribute('aria-pressed',S.allCompose);
+  e.currentTarget.textContent=S.allCompose?'Composers open':'Open every composer';render();};
+document.getElementById('btnManage').onclick=()=>{S.manage=true;render();};
 
-/* === chrome controls === */
-document.getElementById('segScreen').innerHTML = SCREENS.map(s =>
-  `<button data-s="${s.id}" aria-pressed="${s.id === S.screen}">${T.en[s.k]}</button>`).join('');
-document.getElementById('segScreen').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  S.screen = b.dataset.s; S.pane = null; S.sheet = null; render();
-};
-document.getElementById('segApp').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  S.app = b.dataset.app;
-  document.querySelectorAll('#segApp button').forEach(x => x.setAttribute('aria-pressed', x.dataset.app === S.app));
-  render();
-};
-document.getElementById('segW').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  S.w = +b.dataset.w;
-  document.querySelectorAll('#segW button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.w === S.w));
-  render();
-};
-document.getElementById('segLang').onclick = e => {
-  const b = e.target.closest('button'); if (!b) return;
-  S.lang = b.dataset.lang;
-  document.querySelectorAll('#segLang button').forEach(x => x.setAttribute('aria-pressed', x.dataset.lang === S.lang));
-  document.querySelectorAll('#segScreen button').forEach(x => { x.textContent = t()[SCREENS.find(s => s.id === x.dataset.s).k]; });
-  render();
-};
-document.getElementById('btnAudit').onclick = e => {
-  S.audit = !S.audit;
-  e.currentTarget.setAttribute('aria-pressed', S.audit);
-  document.getElementById('stageHint').textContent = S.audit
-    ? 'everything unlit is dimmed \u2014 count what is left'
-    : 'tap a title\u2019s \u2922 to open it full screen';
-  render();
-};
-document.getElementById('btnExpand').onclick = e => {
-  S.showExpand = !S.showExpand;
-  e.currentTarget.setAttribute('aria-pressed', S.showExpand);
-  e.currentTarget.innerHTML = S.showExpand ? '\u2922 in the header' : '\u2922 off \u00b7 title opens';
-  render();
-};
-document.getElementById('btnManage').onclick = () => { S.manage = true; render(); };
-
-/* === the fill slider \u2014 tune the number yourself === */
-const lin = v => { v /= 255; return v <= .03928 ? v/12.92 : Math.pow((v + .055)/1.055, 2.4); };
-const lum = n => { const c = lin(n); return .2126*c + .7152*c + .0722*c; };
-const ratio = (a,b) => { const [h,l] = [Math.max(a,b), Math.min(a,b)]; return (h + .05)/(l + .05); };
-const range = document.getElementById('fillRange');
+/* ===== the fill slider ===== */
+const lin=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);};
+const ratio=(a,b)=>{const h=Math.max(a,b),l=Math.min(a,b);return (h+.05)/(l+.05);};
+const range=document.getElementById('fillRange');
 function applyFill(){
-  const n = +range.value;
-  const hex = '#' + n.toString(16).padStart(2,'0').repeat(3).toUpperCase();
-  const L = lum(n);
-  dev.style.setProperty('--surf-live', hex);
-  document.getElementById('fillHex').textContent = hex;
-  document.getElementById('fillRatio').textContent = ratio(L, 0).toFixed(2) + ':1';
-  document.getElementById('fillText').textContent = ratio(1, L).toFixed(1) + ':1';
+  const n=+range.value,hex='#'+n.toString(16).padStart(2,'0').repeat(3).toUpperCase(),L=lin(n);
+  dev.style.setProperty('--surf-live',hex);
+  document.getElementById('fillHex').textContent=hex;
+  document.getElementById('fillRatio').textContent=ratio(L,0).toFixed(2)+':1';
+  document.getElementById('fillText').textContent=ratio(1,L).toFixed(1)+':1';
 }
-range.addEventListener('input', applyFill);
+range.addEventListener('input',applyFill);
 
-/* on a phone, drop the frame and run the app at 1:1 against the real viewport */
 function fit(){
-  const bare = window.innerWidth <= 620;
-  dev.classList.toggle('bare', bare);
-  dev.style.width = bare ? '' : S.w + 'px';
-  // The control bar wraps on a narrow screen, so its height has to be measured
-  // rather than assumed \u2014 otherwise the nav sits below the fold on exactly the
-  // device this is meant to be tested on.
-  const bar = document.querySelector('.bar');
-  if (bar) document.documentElement.style.setProperty('--barh', bar.offsetHeight + 'px');
+  const bare=window.innerWidth<=620;
+  dev.classList.toggle('bare',bare);
+  dev.style.width=bare?'':S.w+'px';
+  const bar=document.querySelector('.bar');
+  if(bar) document.documentElement.style.setProperty('--barh',bar.offsetHeight+'px');
 }
-window.addEventListener('resize', fit);
-
-fit(); applyFill(); render();
+window.addEventListener('resize',fit);
+fit();applyFill();render();
 </script>
