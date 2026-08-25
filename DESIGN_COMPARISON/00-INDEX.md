@@ -155,3 +155,8 @@ Read `19-card-surface-reset.md` for the four decisions — two of which **revers
 rulings** (the ⤢ returns, 2026-08-22; rows are boxed, 2026-08-15) — and for the measured cost
 of each. Nothing under `app/`, `components/`, `lib/`, `store/` or `constants/` has been
 touched yet; implementation waits on a device test.
+
+**19-IMPLEMENTATION.md — the handoff.** Approved 2026-08-25. Ordered phases with the exact files,
+the tests that must be *updated* rather than merely passed, and the traps (the `surface`/
+`surfaceGlass` derived pair, `collected` missing from the live-sync whitelist, the composer
+focus-steal guard). Start there, not here.

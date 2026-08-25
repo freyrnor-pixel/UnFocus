@@ -899,7 +899,7 @@ const SCREENS=[
  ]},
 
  {id:'home',k:'home',hue:'home',icon:'home',cards:[
-   {id:'homeToday',t:'today',hue:'todo',icon:'today',count:{l:4,n:7},expand:true,open:true,group:'time',
+   {id:'homeToday',t:'today',hue:'todo',icon:'today',count:{l:4,n:7},expand:true,open:true,
     body:{kind:'checks',rows:rows([['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min']])},
     compose:{ph:'addTask',opts:['time','effort','goal'],more:true}},
    {id:'homeNotes',t:'notes',hue:'notes',icon:'note',count:6,expand:true,open:true,
@@ -934,9 +934,23 @@ const SCREENS=[
  ]}
 ];
 
+/* A GROUP is a set of cards you can move between without leaving the pane.
+   !! Two members must never share a title: `time` held todoToday AND homeToday,
+   both of which render "Today", so expanding Home's Today drew the strip as
+   "Today \u00B7 This week \u00B7 Today". Home's cards are PREVIEWS of other tabs and none
+   of the others (homeNotes, homeShopping) carries a group - this one should not
+   either. The group is the three real To-do time cards. */
 const GROUPS={growth:{k:'growth',ids:['habitsList','healthWeek','healthMedicine']},
               supplies:{k:'supplies',ids:['shopLists','shopDishes','shopCatalogue']},
-              time:{k:'time',ids:['todoToday','todoWeek','homeToday']}};
+              time:{k:'time',ids:['todoToday','todoWeek','todoMonth']}};
+
+/* Duplicate titles inside one group are invisible until you open the pane, so
+   check it at load rather than by eye. The real registry wants the same rule. */
+for(const g of Object.values(GROUPS)){
+  const names=g.ids.map(i=>{for(const s of SCREENS){const c=s.cards.find(x=>x.id===i);if(c)return c.t;}});
+  const dup=names.filter((n,i)=>names.indexOf(n)!==i);
+  if(dup.length) console.error('group "'+g.k+'" has two cards titled "'+dup[0]+'"');
+}
 
 /* ===== state ===== */
 let S={screen:'home',app:'dark',w:393,lang:'en',audit:false,showExpand:true,allCompose:false,
