@@ -142,3 +142,16 @@ push publishes nothing to users.
 EnergyMeter does not import Motif; the real `halo-ring` caller is
 `components/TourSpotlight.tsx:211`. One-line header correction — fold it into whichever of
 01–05 you run first.
+
+---
+
+## Later additions (not part of the 01–18 dependency order)
+
+**19 — The card surface reset (2026-08-25).** Not a design-project comparison: a response to
+*"Todays look is messy, clouded, and looks like 10 steps back in design."* Ships a **live,
+operable per-screen prototype** (`19-card-surface-reset.html`) rather than a diff, on the
+maintainer's instruction to *"show me a mockup per screen I can test before we implement."*
+Read `19-card-surface-reset.md` for the four decisions — two of which **reverse shipped
+rulings** (the ⤢ returns, 2026-08-22; rows are boxed, 2026-08-15) — and for the measured cost
+of each. Nothing under `app/`, `components/`, `lib/`, `store/` or `constants/` has been
+touched yet; implementation waits on a device test.

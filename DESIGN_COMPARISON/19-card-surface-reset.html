@@ -1,0 +1,1105 @@
+<meta charset="utf-8">
+<title>Card Surface Reset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap">
+
+<style>
+/* ===========================================================================
+   WORKBENCH CHROME &mdash; warm graphite, monochrome on purpose.
+   The only saturated colour on this page lives inside the phone. A page whose
+   subject is "too much is lit" cannot itself shout.
+   =========================================================================== */
+:root{
+  --ground:#EAE7E1; --panel:#F5F3EF; --panel-2:#E3DFD8;
+  --ink:#232120; --ink-2:#5C5651; --ink-3:#8C857D;
+  --hair:#D2CDC5; --hair-2:#BEB8AE;
+  --sel:#232120; --sel-ink:#F5F3EF;
+  --ok:#3F6B4A; --warn:#8A5A20; --stop:#8C3A34;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --app-font:"Nunito",var(--sans);
+  --rail:340px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#191817; --panel:#232120; --panel-2:#2E2B28;
+    --ink:#EDEAE5; --ink-2:#A8A199; --ink-3:#7A736B;
+    --hair:#33302D; --hair-2:#443F3A;
+    --sel:#EDEAE5; --sel-ink:#232120;
+    --ok:#7FB98C; --warn:#D3A25E; --stop:#DE8078;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#191817; --panel:#232120; --panel-2:#2E2B28;
+  --ink:#EDEAE5; --ink-2:#A8A199; --ink-3:#7A736B;
+  --hair:#33302D; --hair-2:#443F3A;
+  --sel:#EDEAE5; --sel-ink:#232120;
+  --ok:#7FB98C; --warn:#D3A25E; --stop:#DE8078;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* -- control bar ---------------------------------------------------------- */
+.bar{
+  position:sticky; top:0; z-index:40; background:var(--ground);
+  border-bottom:1px solid var(--hair); padding:10px 20px;
+  display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+}
+.brand{display:flex;flex-direction:column;gap:1px;margin-right:auto}
+.brand b{font-size:14px;font-weight:600;letter-spacing:-.01em}
+.brand span{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.02em}
+.grp{display:flex;align-items:center;gap:8px}
+.grp>label{
+  font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--ink-3);
+}
+.seg{display:flex;border:1px solid var(--hair-2);border-radius:7px;overflow:hidden;background:var(--panel)}
+.seg button{
+  font:500 12px/1 var(--sans); font-family:var(--mono); font-size:11px;
+  padding:8px 11px; border:0; background:none; color:var(--ink-2); cursor:pointer;
+  border-right:1px solid var(--hair); min-height:34px;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink)}
+.tgl{
+  font-family:var(--mono);font-size:11px;padding:8px 12px;min-height:34px;
+  border:1px solid var(--hair-2);border-radius:7px;background:var(--panel);
+  color:var(--ink-2);cursor:pointer;
+}
+.tgl[aria-pressed="true"]{background:var(--sel);color:var(--sel-ink);border-color:var(--sel)}
+
+/* -- workbench ------------------------------------------------------------ */
+.work{display:grid;grid-template-columns:minmax(0,1fr) var(--rail);align-items:start;min-height:calc(100vh - 56px)}
+.stagewrap{
+  padding:34px 20px 60px; display:flex; flex-direction:column; align-items:center; gap:18px;
+  background:
+    repeating-linear-gradient(0deg,transparent 0 39px,color-mix(in srgb,var(--hair) 55%,transparent) 39px 40px),
+    repeating-linear-gradient(90deg,transparent 0 39px,color-mix(in srgb,var(--hair) 55%,transparent) 39px 40px);
+  min-height:100%;
+}
+.stagelabel{
+  font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-3);display:flex;gap:10px;align-items:center;
+}
+.stagelabel b{color:var(--ink-2);font-weight:500}
+/* live wrap measurement - see measure() */
+.fitreport{
+  max-width:520px;font-family:var(--mono);font-size:11.5px;line-height:1.6;
+  color:var(--ink-2);background:var(--panel);border:1px solid var(--hair);
+  border-left:3px solid var(--ok);border-radius:8px;padding:10px 13px;text-align:left;
+}
+.fitreport.bad{border-left-color:var(--stop)}
+.fitreport b{color:var(--ink);font-weight:600}
+
+/* -- notes rail ----------------------------------------------------------- */
+.rail{
+  border-left:1px solid var(--hair); background:var(--panel);
+  padding:26px 22px 60px; position:sticky; top:56px; max-height:calc(100vh - 56px);
+  overflow-y:auto; display:flex; flex-direction:column; gap:26px;
+}
+.rail h2{
+  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--ink-3);margin:0 0 10px;
+}
+.rail h3{font-size:14px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.rail p{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--ink-2)}
+.rail p:last-child{margin-bottom:0}
+.note{border-top:1px solid var(--hair);padding-top:14px}
+.note:first-of-type{border-top:0;padding-top:0}
+kbd,code{font-family:var(--mono);font-size:11.5px;background:var(--panel-2);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.metric{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11.5px;padding:5px 0;border-bottom:1px solid var(--hair)}
+.metric:last-child{border-bottom:0}
+.metric span:first-child{color:var(--ink-3)}
+.metric b{font-weight:500;font-variant-numeric:tabular-nums}
+.tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+.tag.keep{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.rev{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.tag.no{background:color-mix(in srgb,var(--stop) 16%,transparent);color:var(--stop)}
+.ruleset{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.ruleset li{display:flex;gap:9px;font-size:12.5px;line-height:1.5;color:var(--ink-2);align-items:flex-start}
+.ruleset li .tag{flex:0 0 auto;margin-top:2px}
+
+/* slider */
+.slider{display:flex;flex-direction:column;gap:7px}
+.slider input[type=range]{width:100%;accent-color:var(--ink);height:22px}
+.sliderrow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.sliderrow b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+
+/* ===========================================================================
+   THE DEVICE &mdash; everything below is the APP, drawn from constants/theme.ts and
+   constants/colors.ts. Tokens are scoped to [data-app] and always defined in
+   both, so nothing here depends on the page's own theme.
+   =========================================================================== */
+.device{
+  --sp-xs:4px; --sp-sm:8px; --sp-md:16px; --sp-lg:24px; --sp-xl:32px;
+  --r-sm:12px; --r-md:16px; --r-lg:24px; --r-full:999px;
+  --fs-xs:13px; --fs-sm:15px; --fs-md:17px; --fs-lg:20px; --fs-xl:24px;
+  --tap:48px; --icon-action:36px;
+  --f:var(--hue-todo);
+  --hue-todo:#FFD700; --hue-habits:#05D9E8; --hue-health:#FF8CB2;
+  --hue-shopping:#0DB34A; --hue-notes:#B45CFF;
+  font-family:var(--app-font);
+  position:relative; width:393px; height:812px; max-width:100%;
+  border-radius:38px; overflow:hidden; flex:0 0 auto;
+  box-shadow:0 30px 70px rgba(0,0,0,.30),0 0 0 1px color-mix(in srgb,var(--hair-2) 90%,transparent);
+  background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column;
+}
+.device[data-app="dark"]{
+  --bg:#000000; --surface:var(--surf-live,#242424); --surface-muted:#121212;
+  --raised:#292929; --rule:#3A3A42; --text:#FFFFFF; --text-muted:#B0B0BA;
+  --border:#8A8A95; --accent:#1E88FF; --surf-live:#2C2C2C;
+  --row-fill:rgba(255,255,255,.055); --row-edge:rgba(255,255,255,.10);
+  --well:rgba(0,0,0,.34); --frost:rgba(255,255,255,.10);
+  --nav-fill:#292929;
+}
+.device[data-app="light"]{
+  --bg:#E2EAF5; --surface:#FDFEFF; --surface-muted:#E6EDF6;
+  --raised:#FCFDFF; --rule:#C7D1DF; --text:#1B2432; --text-muted:#535D6B;
+  --border:#65768F; --accent:#235EE0;
+  --row-fill:rgba(27,36,50,.045); --row-edge:rgba(27,36,50,.10);
+  --well:rgba(27,36,50,.06); --frost:rgba(27,36,50,.07);
+  --nav-fill:#FCFDFF;
+}
+.device.bare{border-radius:0;box-shadow:none;width:100%;height:100%}
+
+/* backdrop &mdash; orbs, dimmed to the mockups' 10&ndash;15% ceiling */
+.backdrop{position:absolute;inset:0;z-index:0;pointer-events:none}
+.orb{position:absolute;border-radius:50%;filter:blur(1px)}
+.o1{width:460px;height:460px;right:-170px;top:-160px;background:radial-gradient(circle,color-mix(in srgb,var(--hue-habits) 13%,transparent) 0%,transparent 68%)}
+.o2{width:420px;height:420px;left:-180px;bottom:-120px;background:radial-gradient(circle,color-mix(in srgb,var(--hue-notes) 12%,transparent) 0%,transparent 68%)}
+.o3{width:320px;height:320px;left:-130px;top:-110px;background:radial-gradient(circle,color-mix(in srgb,var(--hue-habits) 7%,transparent) 0%,transparent 70%)}
+.device[data-app="light"] .o1,.device[data-app="light"] .o2,.device[data-app="light"] .o3{opacity:.55}
+
+/* header */
+.hdr{
+  position:relative;z-index:3;flex:0 0 auto;margin:var(--sp-sm) var(--sp-sm) 0;
+  padding:10px var(--sp-md);background:var(--raised);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+  border:1px solid var(--rule);border-bottom:0;
+  display:flex;align-items:center;gap:10px;min-height:52px;
+}
+.hdr .htitle{font-size:var(--fs-xl);font-weight:800;letter-spacing:-.015em;flex:1;min-width:0}
+.hdr .hsub{font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.02em}
+
+/* scroller &mdash; the real clip window */
+.scroll{
+  position:relative;z-index:2;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+  margin:0 var(--sp-sm);padding:var(--sp-md) var(--sp-sm) var(--sp-lg);
+  display:flex;flex-direction:column;gap:var(--sp-md);
+  scrollbar-width:thin;
+}
+.scroll::-webkit-scrollbar{width:0}
+
+/* -- THE CARD ------------------------------------------------------------- */
+.card{
+  position:relative;border-radius:var(--r-md);background:var(--surface);
+  border:1px solid var(--border);
+  padding:var(--sp-sm) var(--sp-md) var(--sp-md);
+  box-shadow:0 2px 6px rgba(0,0,0,.16),0 8px 22px rgba(0,0,0,.20);
+  transition:background .2s;
+}
+.device[data-app="light"] .card{box-shadow:0 1px 3px rgba(27,36,50,.08),0 6px 18px rgba(27,36,50,.10)}
+.card[data-open="false"]{padding-bottom:var(--sp-sm)}
+
+.chead{display:flex;align-items:center;gap:11px;min-height:var(--tap)}
+.badge{
+  flex:0 0 auto;width:var(--icon-action);height:var(--icon-action);border-radius:50%;
+  display:grid;place-items:center;background:var(--frost);color:var(--f);
+  border:1px solid color-mix(in srgb,var(--f) 30%,transparent);
+}
+.badge svg{width:19px;height:19px}
+.cnames{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px}
+.ctitle{
+  font-size:var(--fs-lg);font-weight:800;letter-spacing:-.012em;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ccount{
+  font-size:12px;font-weight:800;color:var(--text-muted);font-variant-numeric:tabular-nums;
+  flex:0 0 auto;letter-spacing:.01em;
+}
+.cctl{display:flex;gap:4px;flex:0 0 auto;margin-left:6px}
+/* Visual 36 (IconSize.action), touch 48 (MIN_TAP_TARGET) &mdash; the ::after is this
+   page's hitSlopFor(). Two buttons at a literal 48 wide ate 24px of title width
+   and truncated "Practical goals" at 393px in ENGLISH; Norwegian was worse. */
+.cbtn{
+  width:var(--icon-action);height:var(--icon-action);border:0;background:none;padding:0;
+  display:grid;place-items:center;color:var(--text-muted);cursor:pointer;border-radius:var(--r-sm);
+  position:relative;
+}
+.cbtn:after{
+  content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:var(--tap);height:var(--tap);
+}
+.cbtn svg{width:21px;height:21px;transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.cbtn:hover{color:var(--text);background:var(--frost)}
+.card[data-open="false"] .cbtn.chev svg{transform:rotate(-90deg)}
+.crule{height:1px;background:color-mix(in srgb,var(--f) 26%,var(--rule));margin:var(--sp-sm) 0 0}
+.cbody{padding-top:var(--sp-md);display:flex;flex-direction:column;gap:var(--sp-sm)}
+.card[data-open="false"] .crule,.card[data-open="false"] .cbody{display:none}
+
+/* -- THE ROW &mdash; boxed again (2026-08-25) ----------------------------------- */
+.rows{display:flex;flex-direction:column;gap:var(--sp-sm)}
+.row{
+  display:flex;align-items:center;gap:11px;min-height:var(--tap);
+  padding:9px 12px;border-radius:var(--r-sm);
+  background:var(--row-fill);border:1px solid var(--row-edge);
+  font-size:var(--fs-sm);font-weight:600;cursor:pointer;
+}
+.row:hover{border-color:color-mix(in srgb,var(--f) 40%,var(--row-edge))}
+.row .rlabel{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .rmeta{font-size:11.5px;font-weight:700;color:var(--text-muted);flex:0 0 auto;font-variant-numeric:tabular-nums}
+.row.done .rlabel{color:var(--text-muted);text-decoration:line-through;text-decoration-thickness:1px}
+.chk{
+  width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex:0 0 auto;
+  display:grid;place-items:center;color:transparent;
+}
+.chk.on{
+  border-color:var(--f);background:var(--f);color:#0A0A0A;
+  box-shadow:0 0 14px color-mix(in srgb,var(--f) 60%,transparent);
+}
+.chk svg{width:13px;height:13px}
+
+/* bars + rings */
+.bars{display:flex;flex-direction:column;gap:11px}
+.barrow{display:flex;flex-direction:column;gap:6px}
+.barlab{display:flex;justify-content:space-between;font-size:var(--fs-xs);font-weight:700}
+.barlab span:last-child{color:var(--text-muted);font-variant-numeric:tabular-nums}
+.bartrack{height:8px;border-radius:var(--r-full);background:var(--well);overflow:hidden}
+.bartrack i{display:block;height:100%;border-radius:var(--r-full);background:var(--f);box-shadow:0 0 12px color-mix(in srgb,var(--f) 70%,transparent)}
+.rings{display:flex;gap:11px;flex-wrap:wrap}
+.ringwrap{display:flex;flex-direction:column;align-items:center;gap:5px;width:56px}
+.ring{
+  width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
+  box-shadow:0 0 16px color-mix(in srgb,var(--f) 28%,transparent);
+}
+.ring i{
+  width:36px;height:36px;border-radius:50%;background:var(--surface);display:grid;place-items:center;
+  font-size:11px;font-weight:800;font-style:normal;font-variant-numeric:tabular-nums;
+}
+.ringlab{font-size:10.5px;font-weight:700;color:var(--text-muted);text-align:center;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* narrator &mdash; the empty state, kept */
+.narrator{
+  font-family:var(--app-font);font-style:italic;font-size:var(--fs-xs);line-height:1.55;
+  color:var(--text-muted);padding:6px 2px 2px;
+}
+
+/* sub-rail, for a section inside a card */
+.subrail{
+  display:flex;align-items:center;gap:8px;font-size:var(--fs-md);font-weight:800;
+  letter-spacing:-.01em;padding-top:var(--sp-xs);
+}
+.subdot{width:9px;height:9px;border-radius:50%;background:var(--f);flex:0 0 auto}
+
+/* group rail &mdash; the one 24px heading over a stack of cards */
+.grouprail{
+  display:flex;align-items:center;gap:10px;padding:var(--sp-sm) var(--sp-xs) 0;
+  font-size:var(--fs-xl);font-weight:800;letter-spacing:-.015em;color:var(--text);
+}
+.grouprail:after{content:"";flex:1;height:1px;background:var(--rule)}
+
+/* -- COMPOSER &mdash; quiet at rest, lit only on focus -------------------------- */
+/* !! At REST this is the quietest thing in the card, and that is the whole point.
+   Shipped today it is the loudest: components/AddRow.tsx:312 hangs a getFieldGlow
+   halo on the COLLAPSED bar, so a five-card screen carries up to nine lit wells
+   while the tasks themselves carry none. Nothing here lights until you touch it. */
+.qa{
+  display:flex;align-items:center;gap:var(--sp-sm);min-height:var(--tap);
+  padding:4px 4px 4px 12px;border-radius:var(--r-sm);
+  /* A recessed well with NO stroke at rest - getRecessedField's resting state.
+     Not a dashed box: the 2026-08-18 blueprint pass banned those inside a card,
+     and a mockup that breaks a rule it claims to keep is not evidence of much. */
+  background:var(--well);border:1px solid transparent;
+  transition:border-color .18s,box-shadow .18s,background .18s;
+}
+.qa.focused{
+  border-color:color-mix(in srgb,var(--f) 65%,transparent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--f) 15%,transparent);
+}
+.qa input{
+  flex:1;min-width:0;border:0;background:none;outline:none;color:var(--text);
+  font:600 var(--fs-sm)/1.3 var(--app-font);
+}
+.qa input::placeholder{color:var(--text-muted);font-weight:600}
+.qbtn{
+  width:40px;height:40px;flex:0 0 auto;border:0;border-radius:10px;display:grid;place-items:center;
+  background:none;color:var(--text-muted);cursor:pointer;
+}
+.qbtn svg{width:20px;height:20px}
+/* Armed &mdash; there is text, so there is something to commit. This is the ONE
+   thing in the composer the budget lets glow. */
+.qa.armed .qbtn.go{
+  background:var(--f);color:#0A0A0A;
+  box-shadow:0 0 18px color-mix(in srgb,var(--f) 55%,transparent);
+}
+
+/* -- FULLSCREEN PANE ------------------------------------------------------ */
+.pane{
+  position:absolute;inset:0;z-index:20;background:var(--surface);
+  display:flex;flex-direction:column;animation:panein .3s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes panein{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.panehead{
+  display:flex;align-items:center;gap:11px;padding:var(--sp-md) var(--sp-md) var(--sp-sm);
+  min-height:var(--tap);
+}
+.panehead .ctitle{font-size:var(--fs-xl)}
+.gtabs{display:flex;gap:7px;padding:0 var(--sp-md) var(--sp-sm);flex-wrap:wrap}
+.gtab{
+  display:flex;align-items:center;gap:6px;min-height:40px;padding:0 13px;border-radius:var(--r-full);
+  font:700 12.5px/1 var(--app-font);cursor:pointer;color:var(--text-muted);
+  background:var(--frost);border:1px solid transparent;
+}
+.gtab svg{width:15px;height:15px}
+.gtab.on{background:color-mix(in srgb,var(--gf) 20%,transparent);color:var(--gf);border-color:color-mix(in srgb,var(--gf) 45%,transparent)}
+.panebody{flex:1;min-height:0;overflow-y:auto;padding:0 var(--sp-md) var(--sp-lg);display:flex;flex-direction:column;gap:var(--sp-sm)}
+
+/* -- SHEET (composer depth 2) + FULL EDITOR (depth 3) --------------------- */
+.scrim{position:absolute;inset:0;z-index:24;background:rgba(0,0,0,.5)}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:25;max-height:90%;overflow-y:auto;
+  background:var(--raised);border:1px solid var(--rule);border-bottom:0;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;padding:10px var(--sp-md) var(--sp-md);
+  animation:sheetin .3s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes sheetin{from{transform:translateY(26px);opacity:0}to{transform:none;opacity:1}}
+.sheet.full{top:0;border-radius:0;max-height:none;border:0}
+.grab{width:38px;height:4px;border-radius:99px;background:var(--rule);margin:0 auto 12px}
+.sheet.full .grab{display:none}
+.shead{display:flex;align-items:center;gap:11px;margin-bottom:var(--sp-md);min-height:var(--tap)}
+.shead b{font-size:var(--fs-md);font-weight:800;flex:1;min-width:0}
+.shead small{display:block;font-size:11.5px;font-weight:700;color:var(--text-muted);margin-top:1px}
+.fields{display:flex;flex-direction:column;gap:15px}
+.fl{
+  font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text-muted);margin-bottom:7px;
+}
+.in{
+  width:100%;min-height:var(--tap);border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--well);
+  padding:11px 13px;color:var(--text);outline:none;
+  font:600 var(--fs-sm)/1.35 var(--app-font);
+}
+.in:focus{border-color:color-mix(in srgb,var(--f) 70%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--f) 15%,transparent)}
+.in.big{font-size:var(--fs-md);font-weight:700}
+textarea.in{resize:none;min-height:72px}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+.chip{
+  min-height:40px;padding:0 13px;border-radius:var(--r-full);cursor:pointer;
+  font:700 12.5px/1 var(--app-font);display:inline-flex;align-items:center;
+  color:var(--text-muted);background:var(--frost);border:1px solid transparent;
+}
+.chip.on{color:var(--f);background:color-mix(in srgb,var(--f) 20%,transparent);border-color:color-mix(in srgb,var(--f) 50%,transparent)}
+.step{display:flex;align-items:center;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--well);overflow:hidden;width:150px}
+.step button{width:48px;height:48px;border:0;background:none;color:var(--f);font-size:20px;cursor:pointer;font-family:var(--app-font);font-weight:800}
+.step span{flex:1;text-align:center;font-size:var(--fs-md);font-weight:800;font-variant-numeric:tabular-nums}
+.people{display:flex;gap:8px;flex-wrap:wrap}
+.av{
+  width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+  font-size:13px;font-weight:800;background:var(--frost);color:var(--text);border:2px solid transparent;
+}
+.av.on{border-color:var(--f)}
+.savebar{display:flex;gap:9px;align-items:center;margin-top:var(--sp-lg);padding-top:var(--sp-md);border-top:1px solid var(--rule)}
+.key{
+  min-height:var(--tap);border:0;border-radius:var(--r-sm);padding:0 18px;cursor:pointer;
+  font:800 var(--fs-sm)/1 var(--app-font);
+}
+.key.primary{
+  flex:1;background:color-mix(in srgb,var(--f) 20%,transparent);color:var(--text);
+  border:1px solid color-mix(in srgb,var(--f) 55%,transparent);
+  box-shadow:0 0 20px color-mix(in srgb,var(--f) 32%,transparent);
+}
+.key.ghost{background:var(--frost);color:var(--text-muted)}
+.key.danger{background:color-mix(in srgb,#FF3B5C 20%,transparent);color:#FF3B5C;padding:0 14px}
+.device[data-app="light"] .key.danger{color:#B3202F;background:color-mix(in srgb,#B3202F 12%,transparent)}
+
+/* manage cards */
+.mrow{display:flex;align-items:center;gap:10px;min-height:var(--tap);padding:6px 0;border-bottom:1px solid var(--rule)}
+.mrow:last-child{border-bottom:0}
+.mgrip{color:var(--text-muted);cursor:grab;display:grid;place-items:center;width:28px;height:44px;flex:0 0 auto}
+.mgrip svg{width:19px;height:19px}
+.mbadge{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--frost);color:var(--mf);flex:0 0 auto;border:1px solid color-mix(in srgb,var(--mf) 30%,transparent)}
+.mbadge svg{width:16px;height:16px}
+.mname{flex:1;min-width:0;font-size:var(--fs-xs);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mgroup{font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:3px 7px;border-radius:var(--r-full);background:var(--frost);flex:0 0 auto}
+.mseg{display:flex;border-radius:var(--r-full);overflow:hidden;border:1px solid var(--rule);flex:0 0 auto}
+.mseg button{font:800 10.5px/1 var(--app-font);padding:0 10px;height:34px;border:0;background:none;color:var(--text-muted);cursor:pointer}
+.mseg button.on{background:var(--f);color:#0A0A0A}
+
+/* -- BOTTOM NAV &mdash; five equal slots, no pill (2026-08-18 stands) ----------- */
+.nav{
+  position:relative;z-index:3;flex:0 0 auto;margin:0 var(--sp-sm) var(--sp-sm);
+  background:var(--nav-fill);border:1px solid var(--rule);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+  display:flex;padding:6px 4px 8px;
+}
+.navtab{
+  flex:1;min-width:0;min-height:56px;border:0;background:none;cursor:pointer;padding:4px 2px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--text-muted);
+}
+.navtab svg{width:23px;height:23px}
+.navtab span{font-size:10.5px;font-weight:700;letter-spacing:.005em;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navtab.on{color:var(--nf)}
+.navtab.on span{font-weight:800}
+
+/* -- GLOW AUDIT MODE --------------------------------------------------------
+   Strip everything that is NOT a light source, so the remaining glows can be
+   counted. Opacity is applied to LEAVES only &mdash; an ancestor at low opacity caps
+   its children and would take the glows down with it. */
+.device[data-audit="on"] .card,.device[data-audit="on"] .qa,.device[data-audit="on"] .row,
+.device[data-audit="on"] .in,.device[data-audit="on"] .step{
+  background:transparent!important;border-color:transparent!important;box-shadow:none!important;
+}
+.device[data-audit="on"] .ctitle,.device[data-audit="on"] .ccount,.device[data-audit="on"] .rlabel,
+.device[data-audit="on"] .rmeta,.device[data-audit="on"] .cbtn,.device[data-audit="on"] .narrator,
+.device[data-audit="on"] .barlab,.device[data-audit="on"] .ringlab,.device[data-audit="on"] .subrail,
+.device[data-audit="on"] .grouprail,.device[data-audit="on"] .chk:not(.on),
+.device[data-audit="on"] .qa input,.device[data-audit="on"] .qbtn:not(.go),
+.device[data-audit="on"] .hdr,.device[data-audit="on"] .nav{opacity:.14}
+.device[data-audit="on"] .crule{opacity:0}
+.device[data-audit="on"] .bartrack{background:transparent}
+
+/* -- responsive: on a phone, drop the frame and run 1:1 ------------------- */
+@media (max-width:1180px){
+  :root{--rail:300px}
+}
+@media (max-width:980px){
+  .work{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;max-height:none;border-left:0;border-top:1px solid var(--hair)}
+}
+@media (max-width:620px){
+  .bar{padding:8px 12px;gap:12px}
+  .brand{width:100%;margin-right:0}
+  .stagewrap{padding:0;background:none;gap:0}
+  .stagelabel{display:none}
+  .device{width:100%;height:calc(100dvh - var(--barh,110px));min-height:480px;border-radius:0;box-shadow:none}
+  .rail{padding:20px 16px 48px}
+}
+</style>
+
+<div class="bar">
+  <div class="brand">
+    <b>Card surface reset</b>
+    <span>DESIGN_COMPARISON/19 &middot; mockup, not shipped</span>
+  </div>
+
+  <div class="grp">
+    <label for="segScreen">Screen</label>
+    <div class="seg" id="segScreen"></div>
+  </div>
+
+  <div class="grp">
+    <label>Theme</label>
+    <div class="seg" id="segApp">
+      <button data-app="dark" aria-pressed="true">Dark</button>
+      <button data-app="light" aria-pressed="false">Light</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Width</label>
+    <div class="seg" id="segW">
+      <button data-w="360" aria-pressed="false">360</button>
+      <button data-w="393" aria-pressed="true">393</button>
+      <button data-w="430" aria-pressed="false">430</button>
+    </div>
+  </div>
+
+  <div class="grp">
+    <label>Lang</label>
+    <div class="seg" id="segLang">
+      <button data-lang="en" aria-pressed="true">EN</button>
+      <button data-lang="no" aria-pressed="false">NO</button>
+    </div>
+  </div>
+
+  <button class="tgl" id="btnExpand" aria-pressed="true">&#x2922; in the header</button>
+  <button class="tgl" id="btnAudit" aria-pressed="false">Show what&#8217;s lit</button>
+  <button class="tgl" id="btnManage">Manage cards</button>
+</div>
+
+<div class="work">
+  <div class="stagewrap">
+    <div class="stagelabel">
+      <span>Live prototype</span>
+      <b id="stageMeta">393 &times; 812</b>
+      <span id="stageHint">tap a card&#8217;s &#x2922; to open it full screen</span>
+    </div>
+    <div class="device" id="device" data-app="dark" data-audit="off"></div>
+    <div class="fitreport" id="fitReport"></div>
+  </div>
+
+  <aside class="rail">
+    <section>
+      <h2>The four decisions</h2>
+      <ul class="ruleset">
+        <li><span class="tag keep">Kept</span><span><b>Card stays neutral.</b> No hue on the pane &#8212; the badge is still the one colour move. The 2026-08-20 ruling stands.</span></li>
+        <li><span class="tag rev">Reversal</span><span><b>The &#x2922; is back</b>, between your controls and the fold. Reverses 2026-08-22 (&#8220;user just presses the title&#8221;).</span></li>
+        <li><span class="tag rev">Reversal</span><span><b>Rows are boxed again.</b> Reverses 2026-08-15 flush rows and reopens open conflict&nbsp;#8.</span></li>
+        <li><span class="tag keep">New</span><span><b>Depth is chosen by the card</b>, not the user &#8212; quick row, sheet, or full editor.</span></li>
+      </ul>
+    </section>
+
+    <section class="note">
+      <h3>Why it looked clouded</h3>
+      <p>A card&#8217;s fill was doing nothing. In dark, <code>bg</code> <code>#000000</code> against <code>surface</code> <code>#1E1E1E</code> is <b>1.26:1</b> &#8212; so the only thing separating a card from the page was a 1px edge that faded to transparent on its bottom-right by design.</p>
+      <p>Move the fill and the card becomes an object again. Find the value you want:</p>
+      <div class="slider">
+        <input type="range" id="fillRange" min="30" max="58" value="44" aria-label="Dark card fill">
+        <div class="sliderrow"><span>surface</span><b id="fillHex">#2C2C2C</b></div>
+        <div class="sliderrow"><span>vs bg</span><b id="fillRatio">1.50:1</b></div>
+        <div class="sliderrow"><span>text on it</span><b id="fillText">14.0:1</b></div>
+      </div>
+      <p style="margin-top:10px">Shipped is <code>#1E1E1E</code> (1.26:1). This opens at <code>#2C2C2C</code> (1.50:1). The real ceiling is <code>rule</code> <code>#3A3A42</code> &#8212; push the surface up to meet it and the row dividers vanish, so the top of this slider is where the ladder runs out, not where taste does.</p>
+      <p>It also <em>helps</em> the halation ceiling that rule&nbsp;10a defends: white text goes 16.7:1 &#8594; 14.0:1, further inside the bound rather than past it.</p>
+    </section>
+
+    <section class="note">
+      <h3>The glow budget</h3>
+      <p>The mockup&#8217;s own rule, now enforced: <b>text, borders and backgrounds never glow.</b> Press <b>Show what&#8217;s lit</b> to count the light sources on any screen.</p>
+      <ul class="ruleset">
+        <li><span class="tag keep">Lit</span><span>The badge glyph</span></li>
+        <li><span class="tag keep">Lit</span><span>An active check, a filled bar or ring</span></li>
+        <li><span class="tag keep">Lit</span><span>The primary key, and a field <em>while focused</em></span></li>
+        <li><span class="tag no">Dark</span><span>The card edge &#8212; a border, not a light source</span></li>
+        <li><span class="tag no">Dark</span><span>A resting composer. This was the loudest thing on every screen.</span></li>
+        <li><span class="tag no">Dark</span><span>The backdrop. Orbs held at 12&#8211;13%.</span></li>
+      </ul>
+    </section>
+
+    <section class="note">
+      <h3>Two things building this turned up</h3>
+      <p><b>1. The &#x2922; costs title width, and here is the bill.</b> Swept all five screens &times; three widths &times; both languages, with the buttons already trimmed to the app&#8217;s own draw-36 / touch-48:</p>
+      <div class="metric"><span>&#x2922; in the header</span><b>6 of 30 truncate</b></div>
+      <div class="metric"><span>&#x2922; off, title opens</span><b>1 of 30 truncate</b></div>
+      <p style="margin-top:10px">All of it is at <b>360px</b>; 393 and 430 are clean either way. The pattern is exact: <b>any card carrying its own control</b> &#8212; Catalogue&#8217;s lock, Medicine&#8217;s bell &#8212; plus the &#x2922; plus the fold. Three buttons is one too many at that width.</p>
+      <p>The toggle in the bar switches between them, live. I would keep your ruling and take the &#x2922;, then drop the fold chevron on cards that carry a control &#8212; but that is a third option, and it is your call.</p>
+      <p><b>2. Closed cards all look the same.</b> Open To-do and you get seven near-identical bars &#8212; which is your &#8220;no order, no logic&#8221; note again, in its purest form. <b>The surface fix does not touch this.</b> It is a resting-state question, and the honest answers are: fewer cards per screen, or let the first card on each screen rest open. Worth deciding separately.</p>
+    </section>
+
+    <section class="note">
+      <h3>Taken from the mockups</h3>
+      <div class="metric"><span>Border on all four sides</span><b>yes</b></div>
+      <div class="metric"><span>Real drop shadow</span><b>yes</b></div>
+      <div class="metric"><span>Chevron points where it goes</span><b>yes</b></div>
+      <div class="metric"><span>Group tabs in full screen</span><b>yes</b></div>
+      <div class="metric"><span>Manage cards sheet</span><b>yes</b></div>
+      <div class="metric"><span>Three composer depths</span><b>yes</b></div>
+    </section>
+
+    <section class="note">
+      <h3>Refused, on purpose</h3>
+      <ul class="ruleset">
+        <li><span class="tag no">No</span><span><b>30px controls.</b> Every target here is 48. <code>MIN_TAP_TARGET</code> is not negotiable.</span></li>
+        <li><span class="tag no">No</span><span><b>&#8220;Enter saves and keeps typing.&#8221;</b> That is a manual, and 2026-08-17 deleted the manuals.</span></li>
+        <li><span class="tag no">No</span><span><b>The dashed empty box.</b> The narrator says something instead; dashed wells went in the blueprint pass.</span></li>
+        <li><span class="tag no">No</span><span><b>The mockups&#8217; frame glow</b> at 26&#8211;34%. Brighter than our orbs, and it reopens the OLED argument.</span></li>
+      </ul>
+    </section>
+
+    <section class="note">
+      <h3>Tokens, verbatim</h3>
+      <div class="metric"><span>To-do</span><b>#FFD700</b></div>
+      <div class="metric"><span>Habits</span><b>#05D9E8</b></div>
+      <div class="metric"><span>Health</span><b>#FF8CB2</b></div>
+      <div class="metric"><span>Shopping</span><b>#0DB34A</b></div>
+      <div class="metric"><span>Notes</span><b>#B45CFF</b></div>
+      <div class="metric"><span>Radius.md / sm</span><b>16 / 12</b></div>
+      <div class="metric"><span>Tap target</span><b>48</b></div>
+      <div class="metric"><span>Face</span><b>Nunito</b></div>
+    </section>
+  </aside>
+</div>
+
+<script>
+/* === icons \u2014 stand-ins for Ionicons; the CDN the mockups used is CSP-blocked === */
+const I = {
+  check:'M20 6 9 17l-5-5', chevron:'M6 9l6 6 6-6',
+  expand:'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+  contract:'M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7',
+  today:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 15h4',
+  calendar:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  cart:'M2 3h3l2.7 11.4a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 7H6M9 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM18 21a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
+  list:'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  food:'M4 3v8a3 3 0 0 0 6 0V3M7 11v10M17 3c-1.7 1.5-2 4-2 6s.5 3 2 3 2-1 2-3 -.3-4.5-2-6zM17 12v9',
+  repeat:'M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+  heart:'M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1l8.8 8.8 8.8-8.8a5 5 0 0 0 0-7.1z',
+  medkit:'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M4 6h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM12 11v6M9 14h6',
+  medical:'M12 3v18M5.5 7.5l13 9M18.5 7.5l-13 9',
+  note:'M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM15 4v5h5M8 13h8M8 17h5',
+  flag:'M4 22V4M4 4h13l-2.5 4L17 12H4',
+  time:'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zM12 7v5l3.5 2',
+  water:'M12 2.7C12 2.7 5 10 5 14.4A7 7 0 0 0 19 14.4C19 10 12 2.7 12 2.7z',
+  archive:'M3 8h18M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M3 4h18v4H3zM10 12h4',
+  home:'M3 11l9-8 9 8M6 10v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V10',
+  add:'M12 5v14M5 12h14', close:'M6 6l12 12M18 6L6 18',
+  up:'M12 19V5M6 11l6-6 6 6', more:'M5 12h.01M12 12h.01M19 12h.01',
+  grip:'M4 9h16M4 15h16', bell:'M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M10.3 21a2 2 0 0 0 3.4 0',
+  lock:'M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zM8 11V7a4 4 0 0 1 8 0v4'
+};
+const svg = (n, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${I[n]||I.list}"/></svg>`;
+
+/* === copy, both languages \u2014 Norwegian is the tighter wrap test === */
+const T = {
+  en:{
+    shop:'Shop', todo:'To-do', home:'Home', habits:'Habits', health:'Health',
+    lists:'Shopping lists', food:'Food', catalogue:'Catalogue', monthly:'Monthly',
+    today:'Today', week:'This week', whenever:'Whenever', recurring:'Recurring',
+    elsewhere:'Elsewhere', goalsP:'Practical goals', goalsPer:'Personal goals',
+    earlier:'Earlier days', washed:'Washed away', notes:'Notes', shopping:'Shopping',
+    retired:'Retired', issues:'Health issues', medicine:'Medicine',
+    addTask:'New task', addItem:'Add an item', addNote:'New note', addHabit:'Name the habit',
+    addEntry:'Log something', addGoal:'Name the goal', addDish:'Add a dish', addMed:'Add a medicine',
+    manage:'Manage cards', manageSub:'Drag to reorder. Choose the size each card opens at.',
+    open:'Open', peek:'Peek', done:'Done', cancel:'Cancel', save:'Save',
+    growth:'Growth', supplies:'Supplies', time:'Time',
+    narrTodo:'Nothing here is asking for anything.',
+    narrHealth:'A quiet week. I am not counting it as anything.',
+    newT:'New', editT:'Edit'
+  },
+  no:{
+    shop:'Handle', todo:'Gj\u00F8rem\u00E5l', home:'Hjem', habits:'Vaner', health:'Helse',
+    lists:'Handlelister', food:'Mat', catalogue:'Katalog', monthly:'M\u00E5nedlig',
+    today:'I dag', week:'Denne uka', whenever:'N\u00E5r som helst', recurring:'Gjentakende',
+    elsewhere:'Andre steder', goalsP:'Praktiske m\u00E5l', goalsPer:'Personlige m\u00E5l',
+    earlier:'Tidligere dager', washed:'Skylt bort', notes:'Notater', shopping:'Handleliste',
+    retired:'Lagt bort', issues:'Helseplager', medicine:'Medisiner',
+    addTask:'Ny oppgave', addItem:'Legg til vare', addNote:'Nytt notat', addHabit:'Navn p\u00E5 vanen',
+    addEntry:'Loggf\u00F8r noe', addGoal:'Navn p\u00E5 m\u00E5let', addDish:'Legg til rett', addMed:'Legg til medisin',
+    manage:'Behandle kort', manageSub:'Dra for \u00E5 endre rekkef\u00F8lge. Velg st\u00F8rrelsen hvert kort \u00E5pner i.',
+    open:'\u00C5pent', peek:'Smug', done:'Ferdig', cancel:'Avbryt', save:'Lagre',
+    growth:'Vekst', supplies:'Forsyninger', time:'Tid',
+    narrTodo:'Ingenting her ber om noe.',
+    narrHealth:'En stille uke. Jeg teller den ikke som noe.',
+    newT:'Ny', editT:'Endre'
+  }
+};
+
+/* === the card registry, mirrored from lib/cardRegistry.ts === */
+const HUE = {todo:'#FFD700',habits:'#05D9E8',health:'#FF8CB2',shopping:'#0DB34A',notes:'#B45CFF',home:'#8A8A95'};
+
+const SCREENS = [
+  {id:'shop', k:'shop', hue:'shopping', icon:'cart', cards:[
+    {id:'shopLists', t:'lists', hue:'shopping', icon:'cart', count:{l:6,n:11}, expand:false, compose:'quick', ph:'addItem', group:'supplies',
+     body:{kind:'checks', rows:[['Oat milk',1,'\u00D72'],['Bread',0,'\u00D71'],['Washing tabs',0,'\u00D71'],['Coffee beans',0,'\u00D71']]},
+     why:'Primary content of the tab, so no full screen \u2014 a pane would be a second rendering of the screen you are on.'},
+    {id:'shopDishes', t:'food', hue:'shopping', icon:'food', count:14, expand:true, compose:'sheet', ph:'addDish', group:'supplies',
+     body:{kind:'checks', rows:[['Fish soup',0,'Mon'],['Lentil stew',0,'Wed'],['Pancakes',0,'Sat']]}},
+    {id:'shopCatalogue', t:'catalogue', hue:'shopping', icon:'list', count:287, expand:true, compose:'sheet', ph:'addItem', group:'supplies',
+     ctl:['lock'], body:{kind:'checks', rows:[['Bananas',0,'1.20'],['Brown cheese',0,'4.90'],['Oat milk',0,'2.40']]}},
+    {id:'shopMonthly', t:'monthly', hue:'shopping', icon:'calendar', count:4, expand:false, compose:'quick', ph:'addItem',
+     body:{kind:'checks', rows:[['Dish soap',1,'\u00D71'],['Batteries',0,'\u00D74']]},
+     why:'Its lists are sections, not cards \u2014 a section rides its parent card&#8217;s full screen.'}
+  ]},
+
+  {id:'todo', k:'todo', hue:'todo', icon:'today', cards:[
+    {id:'todoToday', t:'today', hue:'todo', icon:'today', count:{l:4,n:7}, expand:true, compose:'quick', ph:'addTask', group:'time',
+     body:{kind:'checks', rows:[['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min'],['Call the plumber',0,'']]}},
+    {id:'todoWeek', t:'week', hue:'todo', icon:'calendar', count:9, expand:true, compose:'quick', ph:'addTask', group:'time',
+     body:{kind:'checks', rows:[['Physio',0,'Tue 15:00'],['Bin night',0,'Thu 21:00'],['Swim',0,'Sat']]}},
+    {id:'todoWhenever', t:'whenever', hue:'todo', icon:'time', count:5, expand:true, compose:'quick', ph:'addTask',
+     body:{kind:'narrator', text:'narrTodo'}},
+    {id:'todoRecurring', t:'recurring', hue:'health', icon:'repeat', count:4, expand:true, compose:'sheet', ph:'addTask',
+     body:{kind:'checks', rows:[['Water the plants',0,'Sun'],['Change the filter',0,'Monthly']]},
+     why:'Borrows Health&#8217;s rose so it does not read as a fifth To-do card. That is in the registry today.'},
+    {id:'_group', group:'elsewhere'},
+    {id:'todoGoals', t:'goalsP', hue:'todo', icon:'flag', count:3, expand:true, compose:'sheet', ph:'addGoal',
+     body:{kind:'bars', bars:[['Move more',60],['Read 12 books',33]]}},
+    {id:'todoEarlierDays', t:'earlier', hue:'todo', icon:'time', expand:true, compose:null,
+     body:{kind:'checks', rows:[['Yesterday',0,'6 things'],['Sat 23 Aug',0,'2 things']]}},
+    {id:'todoWashedAway', t:'washed', hue:'todo', icon:'water', count:2, expand:true, compose:null,
+     body:{kind:'checks', rows:[['Sort the loft',0,''],['Find the warranty',0,'']]}}
+  ]},
+
+  {id:'home', k:'home', hue:'home', icon:'home', cards:[
+    {id:'homeToday', t:'today', hue:'todo', icon:'today', count:{l:4,n:7}, expand:true, open:true, compose:'quick', ph:'addTask', group:'time',
+     body:{kind:'checks', rows:[['Refill the prescription',1,'8:30'],['Pack the swim bag',0,'today'],['Reply to the school email',0,'2 min']]}},
+    {id:'homeNotes', t:'notes', hue:'notes', icon:'note', count:6, expand:true, open:true, compose:'quick', ph:'addNote',
+     body:{kind:'checks', rows:[['Boiler serial number',0,''],['Book recommendation from Ana',0,''],['Wifi password, upstairs',0,'']]}},
+    {id:'homeShopping', t:'shopping', hue:'shopping', icon:'cart', count:{l:6,n:11}, expand:false, open:true, compose:'quick', ph:'addItem',
+     body:{kind:'checks', rows:[['Oat milk',1,'\u00D72'],['Bread',0,'\u00D71'],['Washing tabs',0,'\u00D71']]},
+     why:'The Shop tab is one swipe away, so this previews it rather than duplicating its full screen.'},
+    {id:'homeRetired', t:'retired', hue:'home', icon:'archive', count:2, expand:false, compose:null,
+     body:{kind:'checks', rows:[['Habits',0,'hidden'],['Health',0,'hidden']]}}
+  ]},
+
+  {id:'habits', k:'habits', hue:'habits', icon:'repeat', cards:[
+    {id:'habitsList', t:'habits', hue:'habits', icon:'repeat', count:{l:2,n:6}, expand:false, compose:'sheet', ph:'addHabit', group:'growth',
+     body:{kind:'rings', rings:[['Water',72],['Meds',100],['Walk',35],['Sleep',0]]},
+     why:'Primary content of its own tab \u2014 declined a full screen for the same reason Shopping lists does.'},
+    {id:'habitsGoals', t:'goalsPer', hue:'habits', icon:'flag', count:2, expand:false, compose:'sheet', ph:'addGoal', group:'growth',
+     body:{kind:'bars', bars:[['Sleep before midnight',48],['Swim 2 km',60]]}}
+  ]},
+
+  {id:'health', k:'health', hue:'health', icon:'heart', cards:[
+    {id:'healthWeek', t:'week', hue:'health', icon:'heart', count:3, expand:false, compose:'sheet', ph:'addEntry', group:'growth',
+     body:{kind:'narrator', text:'narrHealth'}},
+    {id:'healthIssues', t:'issues', hue:'health', icon:'medical', count:4, expand:false, compose:'sheet', ph:'addEntry', ctl:['more'], group:'growth',
+     body:{kind:'checks', rows:[['Migraine',0,'2 this week'],['Reflux',0,'1 this week'],['Poor sleep',0,'4 this week']]}},
+    {id:'healthMedicine', t:'medicine', hue:'health', icon:'medkit', count:{l:1,n:4}, expand:true, compose:'full', ph:'addMed', ctl:['bell'], group:'growth',
+     body:{kind:'checks', rows:[['Morning',1,'2 taken'],['Midday',0,'still due'],['Evening',0,'1 due'],['Night',0,'\u2014']]}}
+  ]}
+];
+
+const GROUPS = {
+  growth:{k:'growth', ids:['habitsList','healthWeek','healthMedicine']},
+  supplies:{k:'supplies', ids:['shopLists','shopDishes','shopCatalogue']},
+  time:{k:'time', ids:['todoToday','todoWeek','homeToday']}
+};
+
+/* the sheet / full-editor field sets, from Card_Editor_System.html */
+const EDITORS = {
+  sheet:{
+    fields:[
+      {l:'Name', ty:'text', big:1, ph:'What it is'},
+      {l:'How often', ty:'chips', o:['Daily','Weekdays','3\u00D7 a week'], i:0},
+      {l:'Target', ty:'step', v:2},
+      {l:'Remind me', ty:'chips', o:['Morning','Midday','Evening','Never'], i:3},
+      {l:'Why it matters \u00B7 optional', ty:'area', ph:'For the days it feels pointless'}
+    ]
+  },
+  full:{
+    fields:[
+      {l:'Medicine', ty:'text', big:1, ph:'What it is called'},
+      {l:'Dose', ty:'step', v:1},
+      {l:'Trays', ty:'chips', o:['Morning','Midday','Evening','Night'], i:0},
+      {l:'Who is it for', ty:'people', o:['F','A','J'], on:[0]},
+      {l:'Remind', ty:'chips', o:['At the tray','30 min before','Never'], i:0},
+      {l:'Note \u00B7 optional', ty:'area', ph:'With food'}
+    ]
+  }
+};
+
+/* === state === */
+let S = {
+  screen:'home', app:'dark', w:393, lang:'en', audit:false, showExpand:true,
+  closed:{}, pane:null, sheet:null, manage:false, focus:null, typed:{}, gtab:null,
+  peek:{}
+};
+const t = () => T[S.lang];
+const dev = document.getElementById('device');
+const scr = () => SCREENS.find(s => s.id === S.screen);
+
+function isOpen(c){
+  if (S.closed[c.id] !== undefined) return !S.closed[c.id];
+  return !!c.open;   // openAtRest \u2014 Home's three, and nothing else
+}
+
+/* === render === */
+function cardHTML(c){
+  if (c.id === '_group') return `<div class="grouprail">${t()[c.group]}</div>`;
+  const hue = HUE[c.hue], open = isOpen(c), lbl = t()[c.t];
+  const count = c.count == null ? '' :
+    `<span class="ccount">${typeof c.count === 'object' ? c.count.l + '/' + c.count.n : c.count}</span>`;
+  const ctl = (c.ctl || []).map(k =>
+    `<button class="cbtn" aria-label="${k}">${svg(k)}</button>`).join('');
+  const exp = (c.expand && S.showExpand)
+    ? `<button class="cbtn" data-act="expand" data-id="${c.id}" aria-label="Open ${lbl} full screen">${svg('expand')}</button>` : '';
+  return `<div class="card" data-open="${open}" style="--f:${hue}">
+    <div class="chead">
+      <span class="badge">${svg(c.icon, 2.1)}</span>
+      <span class="cnames"${c.expand && !S.showExpand ? ` role="button" tabindex="0" data-act="expand" data-id="${c.id}" style="cursor:pointer"` : ''}><span class="ctitle">${lbl}</span>${count}</span>
+      <span class="cctl">${ctl}${exp}
+        <button class="cbtn chev" data-act="fold" data-id="${c.id}" aria-label="${open ? 'Collapse' : 'Expand'} ${lbl}">${svg('chevron')}</button>
+      </span>
+    </div>
+    <div class="crule"></div>
+    <div class="cbody">${bodyHTML(c)}${composerHTML(c)}</div>
+  </div>`;
+}
+
+function bodyHTML(c){
+  const b = c.body; if (!b) return '';
+  if (b.kind === 'narrator') return `<p class="narrator">${t()[b.text]}</p>`;
+  if (b.kind === 'bars') return `<div class="bars">${b.bars.map(x =>
+    `<div class="barrow"><div class="barlab"><span>${x[0]}</span><span>${x[1]}%</span></div>
+     <div class="bartrack"><i style="width:${x[1]}%"></i></div></div>`).join('')}</div>`;
+  if (b.kind === 'rings') return `<div class="rings">${b.rings.map(r =>
+    `<div class="ringwrap"><div class="ring" style="background:conic-gradient(var(--f) ${r[1]}%,color-mix(in srgb,var(--border) 45%,transparent) 0)">
+     <i>${r[1] ? r[1] : '\u2013'}</i></div><span class="ringlab">${r[0]}</span></div>`).join('')}</div>`;
+  return `<div class="rows">${b.rows.map((r,i) =>
+    `<div class="row${r[1] ? ' done' : ''}" data-act="row" data-id="${c.id}" data-i="${i}">
+      <span class="chk${r[1] ? ' on' : ''}">${svg('check', 3)}</span>
+      <span class="rlabel">${r[0]}</span>
+      ${r[2] ? `<span class="rmeta">${r[2]}</span>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+function composerHTML(c){
+  if (!c.compose) return '';
+  const ph = t()[c.ph] || '';
+  if (c.compose === 'quick'){
+    const focused = S.focus === c.id, val = S.typed[c.id] || '';
+    return `<div class="qa${focused ? ' focused' : ''}${val ? ' armed' : ''}" data-act="qa" data-id="${c.id}">
+      <input placeholder="${ph}" value="${val}" data-id="${c.id}">
+      <button class="qbtn go" data-act="submit" data-id="${c.id}" aria-label="Add">${svg('up')}</button>
+    </div>`;
+  }
+  return `<button class="qa" data-act="opensheet" data-id="${c.id}" data-depth="${c.compose}" style="cursor:pointer;text-align:left;width:100%">
+    <span class="qbtn go" aria-hidden="true">${svg('add')}</span>
+    <span style="flex:1;font:700 var(--fs-sm)/1.3 var(--app-font);color:var(--text-muted)">${ph}</span>
+  </button>`;
+}
+
+function paneHTML(){
+  const c = anyCard(S.pane); if (!c) return '';
+  const hue = HUE[c.hue], g = c.group ? GROUPS[c.group] : null;
+  const tabs = g ? `<div class="gtabs">${g.ids.map(id => {
+    const s = anyCard(id); if (!s) return '';
+    return `<button class="gtab${id === c.id ? ' on' : ''}" style="--gf:${HUE[s.hue]}" data-act="gtab" data-id="${id}">${svg(s.icon)}${t()[s.t]}</button>`;
+  }).join('')}</div>` : '';
+  return `<div class="pane" style="--f:${hue}">
+    <div class="panehead">
+      <span class="badge">${svg(c.icon, 2.1)}</span>
+      <span class="cnames"><span class="ctitle">${t()[c.t]}</span></span>
+      <span class="cctl"><button class="cbtn" data-act="closepane" aria-label="Close">${svg('contract')}</button></span>
+    </div>
+    ${tabs}
+    <div class="panebody">${bodyHTML(c)}${composerHTML(c)}</div>
+  </div>`;
+}
+
+function field(f){
+  const lbl = `<div class="fl">${f.l}</div>`;
+  if (f.ty === 'text') return `<div>${f.big ? '' : lbl}<input class="in${f.big ? ' big' : ''}" placeholder="${f.ph || ''}"></div>`;
+  if (f.ty === 'area') return `<div>${lbl}<textarea class="in" placeholder="${f.ph || ''}"></textarea></div>`;
+  if (f.ty === 'chips') return `<div>${lbl}<div class="chips">${f.o.map((o,k) =>
+    `<button class="chip${k === f.i ? ' on' : ''}" data-act="chip">${o}</button>`).join('')}</div></div>`;
+  if (f.ty === 'step') return `<div>${lbl}<div class="step"><button data-act="step" data-d="-1">\u2212</button><span>${f.v}</span><button data-act="step" data-d="1">+</button></div></div>`;
+  if (f.ty === 'people') return `<div>${lbl}<div class="people">${f.o.map((p,k) =>
+    `<button class="av${f.on.includes(k) ? ' on' : ''}" data-act="av">${p}</button>`).join('')}</div></div>`;
+  return '';
+}
+
+function sheetHTML(){
+  if (S.manage) return manageHTML();
+  if (!S.sheet) return '';
+  const c = anyCard(S.sheet.id); if (!c) return '';
+  const E = EDITORS[S.sheet.depth] || EDITORS.sheet, full = S.sheet.depth === 'full';
+  return `<div class="scrim" data-act="closesheet"></div>
+  <div class="sheet${full ? ' full' : ''}" style="--f:${HUE[c.hue]}">
+    <div class="grab"></div>
+    <div class="shead">
+      <span class="badge">${svg(c.icon, 2.1)}</span>
+      <b>${t().newT} &middot; ${t()[c.t]}<small>${full ? 'Full editor' : 'Sheet'} &middot; declared by the card</small></b>
+      <button class="cbtn" data-act="closesheet" aria-label="Close">${svg('close')}</button>
+    </div>
+    <div class="fields">${E.fields.map(field).join('')}</div>
+    <div class="savebar">
+      <button class="key ghost" data-act="closesheet">${t().cancel}</button>
+      <button class="key primary" data-act="closesheet">${t().save}</button>
+    </div>
+  </div>`;
+}
+
+function manageHTML(){
+  const rows = allCards().filter(c => c.id !== '_group').map(c => {
+    const g = c.group ? t()[GROUPS[c.group].k] : '\u2014';
+    // Open/Peek IS the fold, so the sheet drives the same state the chevron does.
+    const peek = !isOpen(c);
+    return `<div class="mrow" style="--mf:${HUE[c.hue]};--f:${HUE[c.hue]}">
+      <span class="mgrip">${svg('grip')}</span>
+      <span class="mbadge">${svg(c.icon, 2.1)}</span>
+      <span class="mname">${t()[c.t]}</span>
+      <span class="mgroup">${g}</span>
+      <span class="mseg">
+        <button class="${peek ? '' : 'on'}" data-act="peek" data-id="${c.id}" data-v="0">${t().open}</button>
+        <button class="${peek ? 'on' : ''}" data-act="peek" data-id="${c.id}" data-v="1">${t().peek}</button>
+      </span>
+    </div>`;
+  }).join('');
+  return `<div class="scrim" data-act="closemanage"></div>
+  <div class="sheet" style="--f:${HUE[scr().hue]}">
+    <div class="grab"></div>
+    <div class="shead">
+      <b>${t().manage}<small>${t().manageSub}</small></b>
+      <button class="key ghost" data-act="closemanage">${t().done}</button>
+    </div>
+    ${rows}
+  </div>`;
+}
+
+const allCards = () => scr().cards;
+/* A group SPANS screens - Growth is Habits' card plus two of Health's - so a
+   group lookup that only searched the current screen would render a one-tab
+   strip and quietly lose the feature. */
+const anyCard = id => { for (const s of SCREENS){ const c = s.cards.find(x => x.id === id); if (c) return c; } };
+const screenOf = id => SCREENS.find(s => s.cards.some(x => x.id === id));
+
+function render(){
+  const s = scr(), hue = HUE[s.hue];
+  dev.dataset.app = S.app;
+  dev.dataset.audit = S.audit ? 'on' : 'off';
+  dev.style.setProperty('--f', hue);
+  if (!dev.classList.contains('bare')) dev.style.width = S.w + 'px';
+
+  dev.innerHTML = `
+    <div class="backdrop"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
+    <div class="hdr">
+      <span class="htitle">${t()[s.k]}</span>
+      <span class="hsub">9:41</span>
+    </div>
+    <div class="scroll">${s.cards.map(cardHTML).join('')}</div>
+    <nav class="nav">${SCREENS.map(x =>
+      `<button class="navtab${x.id === S.screen ? ' on' : ''}" style="--nf:${HUE[x.hue]}" data-act="nav" data-id="${x.id}">
+        ${svg(x.icon, x.id === S.screen ? 2.4 : 1.9)}<span>${t()[x.k]}</span>
+      </button>`).join('')}</nav>
+    ${S.pane ? paneHTML() : ''}
+    ${sheetHTML()}`;
+
+  document.getElementById('stageMeta').textContent = `${S.w} \u00D7 812`;
+  document.querySelectorAll('#segScreen button').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.s === S.screen));
+  measure();
+}
+
+/* A card title that does not fit is the measured cost of putting the \u2922 back
+   beside the fold. Reported live rather than left for someone to notice, in the
+   same spirit as npm run wraps - a mockup you cannot measure is a picture. */
+function measure(){
+  const cut = [...dev.querySelectorAll('.ctitle')].filter(e => e.scrollWidth > e.clientWidth + 1);
+  const box = document.getElementById('fitReport');
+  if (!box) return;
+  box.className = 'fitreport' + (cut.length ? ' bad' : '');
+  box.innerHTML = cut.length
+    ? `<b>${cut.length} of ${dev.querySelectorAll('.ctitle').length} card titles truncate</b> at
+       ${S.w}px / ${S.lang.toUpperCase()} &mdash; ${cut.map(e => '&ldquo;' + e.textContent + '&rdquo;').join(', ')}.
+       Two header buttons cost roughly 80px of the naming row.`
+    : `<b>All ${dev.querySelectorAll('.ctitle').length} card titles fit</b> at ${S.w}px / ${S.lang.toUpperCase()}.`;
+}
+
+/* === interaction === */
+dev.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, id = el.dataset.id;
+  if (a === 'nav'){ S.screen = id; S.pane = null; S.sheet = null; }
+  else if (a === 'fold'){ S.closed[id] = isOpen(allCards().find(c => c.id === id)); }
+  else if (a === 'expand'){ S.pane = id; }
+  else if (a === 'closepane'){ S.pane = null; }
+  else if (a === 'gtab'){
+    // Crossing a group tab also moves the tab you are on, so closing the pane
+    // leaves you where the card you were last reading actually lives.
+    const s = screenOf(id); if (s) S.screen = s.id;
+    S.pane = id;
+  }
+  else if (a === 'opensheet'){ S.sheet = {id, depth: el.dataset.depth}; }
+  else if (a === 'closesheet'){ S.sheet = null; }
+  else if (a === 'closemanage'){ S.manage = false; }
+  else if (a === 'peek'){ S.closed[id] = el.dataset.v === '1'; }
+  else if (a === 'row'){
+    const c = allCards().find(x => x.id === id);
+    if (c && c.body.rows){ const r = c.body.rows[+el.dataset.i]; r[1] = r[1] ? 0 : 1; }
+  }
+  else if (a === 'submit'){ S.typed[id] = ''; S.focus = null; }
+  else if (a === 'chip'){
+    el.parentElement.querySelectorAll('.chip').forEach(x => x.classList.remove('on'));
+    el.classList.add('on'); return;
+  }
+  else if (a === 'step'){
+    const sp = el.parentElement.querySelector('span');
+    sp.textContent = Math.max(1, +sp.textContent + (+el.dataset.d)); return;
+  }
+  else if (a === 'av'){ el.classList.toggle('on'); return; }
+  else return;
+  render();
+});
+
+dev.addEventListener('input', e => {
+  const i = e.target.closest('.qa input'); if (!i) return;
+  const id = i.dataset.id;
+  S.typed[id] = i.value;
+  i.closest('.qa').classList.toggle('armed', !!i.value.trim());
+});
+dev.addEventListener('focusin', e => {
+  const i = e.target.closest('.qa input'); if (!i) return;
+  S.focus = i.dataset.id;
+  i.closest('.qa').classList.add('focused');
+});
+dev.addEventListener('focusout', e => {
+  const i = e.target.closest('.qa input'); if (!i) return;
+  i.closest('.qa').classList.remove('focused'); S.focus = null;
+});
+
+/* === chrome controls === */
+document.getElementById('segScreen').innerHTML = SCREENS.map(s =>
+  `<button data-s="${s.id}" aria-pressed="${s.id === S.screen}">${T.en[s.k]}</button>`).join('');
+document.getElementById('segScreen').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.screen = b.dataset.s; S.pane = null; S.sheet = null; render();
+};
+document.getElementById('segApp').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.app = b.dataset.app;
+  document.querySelectorAll('#segApp button').forEach(x => x.setAttribute('aria-pressed', x.dataset.app === S.app));
+  render();
+};
+document.getElementById('segW').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.w = +b.dataset.w;
+  document.querySelectorAll('#segW button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.w === S.w));
+  render();
+};
+document.getElementById('segLang').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  S.lang = b.dataset.lang;
+  document.querySelectorAll('#segLang button').forEach(x => x.setAttribute('aria-pressed', x.dataset.lang === S.lang));
+  document.querySelectorAll('#segScreen button').forEach(x => { x.textContent = t()[SCREENS.find(s => s.id === x.dataset.s).k]; });
+  render();
+};
+document.getElementById('btnAudit').onclick = e => {
+  S.audit = !S.audit;
+  e.currentTarget.setAttribute('aria-pressed', S.audit);
+  document.getElementById('stageHint').textContent = S.audit
+    ? 'everything unlit is dimmed \u2014 count what is left'
+    : 'tap a title\u2019s \u2922 to open it full screen';
+  render();
+};
+document.getElementById('btnExpand').onclick = e => {
+  S.showExpand = !S.showExpand;
+  e.currentTarget.setAttribute('aria-pressed', S.showExpand);
+  e.currentTarget.innerHTML = S.showExpand ? '\u2922 in the header' : '\u2922 off \u00b7 title opens';
+  render();
+};
+document.getElementById('btnManage').onclick = () => { S.manage = true; render(); };
+
+/* === the fill slider \u2014 tune the number yourself === */
+const lin = v => { v /= 255; return v <= .03928 ? v/12.92 : Math.pow((v + .055)/1.055, 2.4); };
+const lum = n => { const c = lin(n); return .2126*c + .7152*c + .0722*c; };
+const ratio = (a,b) => { const [h,l] = [Math.max(a,b), Math.min(a,b)]; return (h + .05)/(l + .05); };
+const range = document.getElementById('fillRange');
+function applyFill(){
+  const n = +range.value;
+  const hex = '#' + n.toString(16).padStart(2,'0').repeat(3).toUpperCase();
+  const L = lum(n);
+  dev.style.setProperty('--surf-live', hex);
+  document.getElementById('fillHex').textContent = hex;
+  document.getElementById('fillRatio').textContent = ratio(L, 0).toFixed(2) + ':1';
+  document.getElementById('fillText').textContent = ratio(1, L).toFixed(1) + ':1';
+}
+range.addEventListener('input', applyFill);
+
+/* on a phone, drop the frame and run the app at 1:1 against the real viewport */
+function fit(){
+  const bare = window.innerWidth <= 620;
+  dev.classList.toggle('bare', bare);
+  dev.style.width = bare ? '' : S.w + 'px';
+  // The control bar wraps on a narrow screen, so its height has to be measured
+  // rather than assumed \u2014 otherwise the nav sits below the fold on exactly the
+  // device this is meant to be tested on.
+  const bar = document.querySelector('.bar');
+  if (bar) document.documentElement.style.setProperty('--barh', bar.offsetHeight + 'px');
+}
+window.addEventListener('resize', fit);
+
+fit(); applyFill(); render();
+</script>
