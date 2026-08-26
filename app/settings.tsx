@@ -112,7 +112,9 @@
  *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
  *             (exportAiSetupGuide/exportAiSetupGuideToDevice/pickAndParseAiSetupFile),
  *             lib/aiSetupApply (previewAiSetupConfig/applyAiSetupConfig), lib/feedbackMail, lib/freyrModeSeed,
- *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService, lib/widgets/sync
+ *             lib/haptics, lib/i18n, lib/notifications, lib/reminders, lib/syncService,
+ *             lib/updateHealth (updateHealth — is this install still being reached by OTA at
+ *             all; see the Version & updates card), lib/widgets/sync
  *             (syncWidgetsAndOverview — the persistent-overview toggle refreshes/cancels it, and
  *             the Freyr-mode toggle re-syncs after seeding/unseeding today's tasks + shopping),
  *             lib/medicineNotifications (registerMedicineCategory — relabels the medicine
@@ -294,6 +296,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { updateHealth } from '@/lib/updateHealth';
 import ScreenScaffold, { ScrollToNodeContext } from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import DisclosureRow from '@/components/DisclosureRow';
@@ -601,6 +604,11 @@ export default function SettingsScreen() {
         // Newest update already downloaded on a prior launch — just apply it.
         showAppModal(t.version.title, t.version.downloaded);
         await Updates.reloadAsync();
+      } else if (health.kind === 'stale' && health.ageDays !== null) {
+        // "Up to date" is true here and useless: the server has nothing for THIS runtime, which
+        // is the same answer a stranded install gets. Say which runtime was asked about, and
+        // that a new runtime needs installing rather than updating.
+        showAppModal(t.version.title, t.version.upToDateStale(health.ageDays, runtimeVersion));
       } else {
         showAppModal(t.version.title, t.version.upToDate);
       }
@@ -628,6 +636,16 @@ export default function SettingsScreen() {
   const updateSource = runningEmbedded ? t.version.sourceEmbedded : t.version.sourceOta;
   const updateIdShort = Updates.updateId ? Updates.updateId.slice(0, 8) : t.version.embedded;
   const updatePublished = Updates.createdAt ? Updates.createdAt.toLocaleString() : '—';
+  // Is this install still being reached by OTA at all? An update only crosses to installs on
+  // the matching runtime, so a native bump silently strands every older one — and the app
+  // cannot be TOLD that by an update, because the update is what stopped arriving. The age of
+  // the running bundle is the only signal left; see lib/updateHealth.ts for why it is a
+  // heuristic and why the copy says "probably".
+  const health = updateHealth({
+    publishedAt: Updates.createdAt,
+    updatesEnabled: Updates.isEnabled,
+    now: new Date(),
+  });
 
   function applyAndSync(patch: Partial<Settings>) {
     settings.update(patch);
@@ -1820,6 +1838,14 @@ export default function SettingsScreen() {
                   {!Updates.isEnabled && (
                     <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
                       {t.version.disabled}
+                    </Text>
+                  )}
+                  {/* Passive twin of the check-for-updates result above, so the explanation is
+                      findable without pressing anything. `warn`, not `bad`: nothing is broken
+                      and no data is at risk — there is just a newer build to install. */}
+                  {health.kind === 'stale' && health.ageDays !== null && (
+                    <Text style={[styles.descText, { color: theme.warn, marginBottom: Spacing.sm }]}>
+                      {t.version.staleNote(health.ageDays, runtimeVersion)}
                     </Text>
                   )}
                   <View style={[styles.divider, { backgroundColor: theme.border }]} />

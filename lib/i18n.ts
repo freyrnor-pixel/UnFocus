@@ -504,6 +504,10 @@ const en = {
     disabled: 'Debug build — install a release build to receive updates',
     updateAvailable: 'Update available — tap to install and restart',
     experimental: 'Experimental build — things may change, move or break',
+    staleNote: (days: number, runtime: string) =>
+      `Nothing new for ${days} days. Updates only reach runtime ${runtime} — a newer build needs installing, not updating.`,
+    upToDateStale: (days: number, runtime: string) =>
+      `No update for runtime ${runtime}. The running bundle is ${days} days old, so there is probably a newer build to install — an update cannot cross to a new runtime.`,
   },
   sectionProfile: 'Profile',
   yourName: 'Your name',
@@ -2692,6 +2696,10 @@ const no: typeof en = {
     disabled: 'Debug-bygg — installer et release-bygg for å motta oppdateringer',
     updateAvailable: 'Oppdatering tilgjengelig — trykk for å installere og starte på nytt',
     experimental: 'Eksperimentell versjon — ting kan endre seg, flytte på seg eller ryke',
+    staleNote: (days: number, runtime: string) =>
+      `Ingenting nytt på ${days} dager. Oppdateringer når bare kjøretid ${runtime} — et nyere bygg må installeres, ikke oppdateres.`,
+    upToDateStale: (days: number, runtime: string) =>
+      `Ingen oppdatering for kjøretid ${runtime}. Pakken som kjører er ${days} dager gammel, så det finnes trolig et nyere bygg å installere — en oppdatering kan ikke krysse over til en ny kjøretid.`,
   },
   sectionProfile: 'Profil',
   yourName: 'Ditt navn',
@@ -4496,6 +4504,14 @@ const is: typeof en = {
     disabled: 'Debug-útgáfa — settu upp release-útgáfu til að fá uppfærslur',
     updateAvailable: 'Uppfærsla tilbúin — ýttu til að setja upp og endurræsa',
     experimental: 'Tilraunaútgáfa — hlutir geta breyst, færst til eða bilað',
+    // Duration takes the accusative ("í 1 dag" / "í 2 daga") and the age phrase the genitive
+    // ("1 dags gamall" / "2 daga gamall"), so the two counted forms differ — see AGENTS.md's
+    // isCount rule. The runtime string is a version number, never user text, so it is safe
+    // beside a preposition.
+    staleNote: (days: number, runtime: string) =>
+      `Ekkert nýtt í ${isCount(days, `${days} dag`, `${days} daga`)}. Uppfærslur ná aðeins til keyrsluútgáfu ${runtime} — nýrri útgáfu þarf að setja upp, ekki uppfæra.`,
+    upToDateStale: (days: number, runtime: string) =>
+      `Engin uppfærsla fyrir keyrsluútgáfu ${runtime}. Pakkinn sem keyrir er ${isCount(days, `${days} dags`, `${days} daga`)} gamall, svo líklega er til nýrri útgáfa til að setja upp — uppfærsla kemst ekki yfir á nýja keyrsluútgáfu.`,
   },
   sectionProfile: 'Prófíll',
   yourName: 'Nafnið þitt',
