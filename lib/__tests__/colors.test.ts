@@ -130,6 +130,25 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // instruction rather than nudged, so the floor moved instead. That note ended "if `bad`
     // is ever retuned, put this back to 4.5 rather than leaving a floor nothing needs" — the
     // neon pass retuned it to #FF3B5C (4.79:1), so this is that instruction being carried out.
+    //
+    // ⚠️⚠️ **KNOWN, UNRESOLVED CONFLICT as of 2026-08-26 — `dark: accent` and `dark: bad` now
+    // FAIL this floor, and it is not a small miss.** DESIGN_COMPARISON/19 phase 1 raised dark
+    // `surface` `#1E1E1E` → `#2C2C2C` to fix the card having "no boundary" against `bg`
+    // (documented in constants/colors.ts). Nobody had checked that move against the
+    // CHROMATIC tokens measured here — the design doc's own arithmetic only verified `bg`↔
+    // `surface`, `rule`↔`surface` and white `text`↔`surface`. It turns out **any** surface
+    // lighter than `#1F1F1F` (one step above the old `#1E1E1E`) already drops at least one of
+    // `accent` (4.00:1), `bad` (4.01:1), `IDENTITY_HUES.notes` (3.93:1, see that test below)
+    // or the `dinner` meal hue (3.83:1, see the meal-palette describe block) under 4.5 — so
+    // `#2C2C2C` cannot be reached without EITHER retuning those four already-shipped hues to
+    // clear the new, lighter `surface`, OR a deliberate, maintainer-approved relaxation of
+    // this floor for dark, OR capping `surface` well short of `#2C2C2C` (which would undercut
+    // the card-boundary fix phase 1 exists for). None of those is a phase-1/2 decision, so it
+    // is left here, unresolved and undisguised, rather than the floor being weakened to hide
+    // it — DESIGN_COMPARISON/19-IMPLEMENTATION.md's own instruction is "update tests, never
+    // delete an assertion to make it pass," and lowering this floor IS that. See the matching
+    // notes on the `identity notes` and `dinner` tests below for the other two failures this
+    // same root cause produces.
     const CHROMATIC_FLOOR = { light: 4.5, dark: 4.5 } as const;
 
     MODES.forEach((mode) => {
@@ -201,8 +220,8 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // surface needed a border to exist at all. 1.20:1 is the floor at which the fill alone
     // reads as a raised plane.
     // ⚠️ LIGHT's floor is RELAXED to 1.15 under Tactile Glass (2026-08-15, DESIGN_RULES.md
-    // rule 10b). Dark is untouched at 1.20 and still measures 1.260, because its glass alpha
-    // was chosen to composite to exactly the `#1E1E1E` it already had.
+    // rule 10b). Dark is 1.20 and now measures 1.504 (was 1.260) — see the 2026-08-26 note in
+    // the ladder-ratios test below for the `surface` bump that moved it.
     //
     // Why light had to give: `surface` was `#FFFFFF`, its ceiling. A translucent pane cannot
     // reach the ceiling, so it lands at `#F9FBFE` and the step falls to 1.170. The obvious
@@ -250,16 +269,23 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       test(`${mode}: documented ladder ratios hold`, () => {
         const p = THEMES.default[mode];
         // Light re-solved 2026-08-15 for the glass composite (`surface` #FFFFFF → #F9FBFE).
-        // Dark is byte-identical to the true-black pass — its glass alpha was picked so the
-        // composite lands on the `#1E1E1E` it already had, so nothing below it moved.
-        // ⚠️ The `rule` figures moved on 2026-08-20 (contrast pass) and NOTHING else did —
-        // light 1.347 → 1.488, dark 1.119 → 1.480. The three surface ratios are byte-identical
-        // because no surface token was touched: the pass lifted the two EDGE tokens (`rule`,
-        // `border`) and `textMuted`, deliberately leaving the ladder alone, since moving a
-        // surface is what re-opens the mutual exclusion the note above documents.
+        // Dark was byte-identical to the true-black pass until 2026-08-26 — its glass alpha
+        // was originally picked so the composite would land on the `#1E1E1E` it already had.
+        // ⚠️ The `rule` figures moved on 2026-08-20 (contrast pass) — light 1.347 → 1.488,
+        // dark 1.119 → 1.480, with the three surface ratios byte-identical at the time,
+        // because that pass lifted the two EDGE tokens (`rule`, `border`) and `textMuted`
+        // rather than any surface token.
+        //
+        // ── 2026-08-26, DESIGN_COMPARISON/19 phase 1 ("the card surface") ────────────────
+        // `surface` moved for the first time since the true-black palette: dark `#1E1E1E` →
+        // `#2C2C2C` (bg↔surface 1.260 → 1.504 — the fix for "clouded"), light `#F9FBFE` →
+        // `#FDFEFF` (bg↔surface 1.170 → 1.201, a smaller step, see that token's doc comment
+        // in constants/colors.ts). `surfaceMuted`/`surfaceInset` did NOT move on either side,
+        // so `ladderB` (surfaceMuted↔surfaceInset) is unchanged; `ladderA` and `rule` move
+        // because `surface` is one of their two inputs.
         const expected = mode === 'light'
-          ? { bgSurface: 1.170, ladderA: 1.138, ladderB: 1.118, rule: 1.488 }
-          : { bgSurface: 1.260, ladderA: 1.124, ladderB: 1.057, rule: 1.480 };
+          ? { bgSurface: 1.201, ladderA: 1.168, ladderB: 1.118, rule: 1.528 }
+          : { bgSurface: 1.504, ladderA: 1.341, ladderB: 1.057, rule: 1.239 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);
         expect(contrastRatio(p.surfaceMuted, p.surfaceInset)).toBeCloseTo(expected.ladderB, 2);
@@ -411,10 +437,23 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       });
 
       // Pin #3 — the AA floor, per hue, on the harder of the two dark grounds. `surface`
-      // (#1E1E1E) is the dark glass card; anything clearing it clears `bg` (#000000) too, and
+      // was `#1E1E1E`, the dark glass card; anything clearing it clears `bg` (#000000) too, and
       // both are asserted because "on the black canvas" is how the requirement is usually
-      // stated. This is the test that fixes the BOTTOM of the band at L* 55.4 — it is why
+      // stated. This is the test that fixed the BOTTOM of the band at L* 55.4 — it is why
       // Notes cannot be a deeper violet, and why no future rung can be added below it.
+      //
+      // ⚠️⚠️ **`identity notes` now FAILS, as of 2026-08-26 — see the matching note on
+      // `CHROMATIC_FLOOR` above for the full picture.** DESIGN_COMPARISON/19 phase 1 raised
+      // `surface` to `#2C2C2C`, which raises the L* floor this pin fixes from 55.4 to ~60.6 —
+      // Notes (`#B45CFF`, L* 56.7, already "the DEEPEST violet AA allows" against the OLD
+      // floor) now measures 3.93:1, not 4.5. Nudging Notes lighter to re-clear it is not a
+      // local fix: the 5-rung ladder's rungs are ~7.6 L* apart inside a band whose bottom is
+      // exactly this test's floor and whose top is fixed by sRGB running out of saturated
+      // amber (~L* 87) — narrowing the band's bottom by ~5.2 L* leaves less than the ≥7 L*
+      // minimum step for five rungs to fit at all (see the ladder-step test below). So this is
+      // a real conflict between "raise `surface` for the card boundary" and "keep five
+      // categorical hues on one accessible, colour-blind-safe lightness ladder," not a rounding
+      // error — left failing and documented rather than the floor being loosened to hide it.
       test(`identity ${key}: ≥ 4.5:1 as a glyph on the dark card AND on the black canvas`, () => {
         const p = THEMES.default.dark;
         expect(contrastRatio(hue, p.surface)).toBeGreaterThanOrEqual(4.5);
@@ -699,6 +738,13 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       ]);
     });
 
+    // ⚠️⚠️ **`dark: dinner` FAILS as of 2026-08-26 — same root cause as the `CHROMATIC_FLOOR`
+    // and `identity notes` notes above.** DESIGN_COMPARISON/19 phase 1's `surface` bump
+    // (`#1E1E1E` → `#2C2C2C`) drops `dinner` (`#EE4F00`, components/FoodTab.tsx) from 4.57:1
+    // to 3.83:1 on `surface` — it was already the tightest of the five meal hues (rung 1,
+    // "darkest") before the surface moved, so it is the first to fall. Left failing and
+    // documented, not silently loosened; see the CHROMATIC_FLOOR note for the full picture and
+    // the options for resolving it (none of which is a phase-1/2 decision).
     MODES.forEach((mode) => {
       const surface = THEMES.default[mode].surface;
       Object.entries(MEAL_COLORS).forEach(([meal, pair]) => {

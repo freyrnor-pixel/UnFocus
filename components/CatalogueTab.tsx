@@ -183,7 +183,7 @@ import { useCatalogStore, StoreItem } from '@/store/useCatalogStore';
 import { useShoppingStore, UNALLOCATED_LIST_ID } from '@/store/useShoppingStore';
 import { useMonthlyListStore, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { showAppModal } from '@/components/AppModal';
-import { BORDER_WIDTH, computeBorderTone, FIELD_GLOW_CLEARANCE, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, HitSlop, IconSize, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums } from '@/constants/theme';
+import { BORDER_WIDTH, computeBorderTone, FIELD_GLOW_CLEARANCE, FIELD_RADIUS, Fonts, FontSize, getElevation, getFieldGlow, getRecessedField, HitSlop, IconSize, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { ThemePalette } from '@/constants/colors';
 import { useT } from '@/lib/i18n';
@@ -413,6 +413,10 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
   // button and the "+" key as well as the text — so it takes the same helpers instead, which is
   // exactly what components/PadTypeRow.tsx does with its own wrapper for the same reason.
   const searchRecess = getRecessedField(theme.surface, isDark);
+  // The halo below is FOCUS-ONLY (2026-08-26, DESIGN_COMPARISON/19 phase 2) — see that call
+  // site's note for why this field, alone among the app's, briefly kept a resting glow after
+  // the others gave theirs up.
+  const [searchFocused, setSearchFocused] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -753,9 +757,13 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
           style={[
             styles.searchRow,
             // The halo carries the radius it is cut to (getFieldGlow, 2026-08-19), so the well
-            // and its light are one decision — the same `soft` resting glow every other in-card
-            // field has worn since the 2026-08-16 tactile-glow pass.
-            getFieldGlow(screenHue, 'soft'),
+            // and its light are one decision. **Focus-only, not resting** (reversed 2026-08-26,
+            // DESIGN_COMPARISON/19 phase 2 — this used to be a `soft` glow at rest, the same
+            // pattern every other in-card field carried from the 2026-08-16 tactile-glow pass
+            // until phase 2 reversed all of them: "text, borders and backgrounds never glow…
+            // only a field while FOCUSED"). Unfocused, the bare radius object keeps the well's
+            // shape without its light.
+            searchFocused ? getFieldGlow(screenHue, 'soft') : { borderRadius: FIELD_RADIUS },
             { borderColor: searchFieldEdge, backgroundColor: searchRecess.paint },
           ]}
         >
@@ -764,6 +772,8 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
             style={[styles.searchInput, { color: theme.text }]}
             value={query}
             onChangeText={setQuery}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             placeholder={t.catalogueSearchPlaceholder}
             placeholderTextColor={theme.textMuted}
             returnKeyType="search"
@@ -1025,10 +1035,10 @@ const baseStyles = StyleSheet.create({
   // the rest of the app. `paddingRight` is smaller because the "+" key carries its own hit
   // padding out to MIN_TAP_TARGET. `sortCard`/`sortRow`/`sortControl` went with the sort
   // control itself.
-  // No `borderRadius` here (2026-08-21): `getFieldGlow` supplies `FIELD_RADIUS` inline together
-  // with the halo, so the well and its light cannot be cut to two different shapes — the same
-  // arrangement components/AddRow.tsx and FormControls' Input use. It was a bare `Radius.sm`,
-  // which happens to equal FIELD_RADIUS today and would not have followed it if it moved.
+  // No `borderRadius` here (2026-08-21): the focused/unfocused branch above supplies it inline
+  // — `getFieldGlow`'s `FIELD_RADIUS` when lit, a bare `{ borderRadius: FIELD_RADIUS }` when
+  // not — so the well and its light cannot be cut to two different shapes whichever branch is
+  // live, the same arrangement components/AddRow.tsx and FormControls' Input use.
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',

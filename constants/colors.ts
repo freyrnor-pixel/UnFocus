@@ -59,6 +59,15 @@
  *     IDENTITY_HUES before moving any value, and DESIGN_RULES.md rule 11a for the rule.
  *   - Adding a colour token? Add it to the matching list in lib/__tests__/colors.test.ts in
  *     the same edit — a token in no list is a token nothing checks.
+ *   - **`surface` was raised again on 2026-08-26** (DESIGN_COMPARISON/19 phase 1, "the card
+ *     surface" — the change that fixes "clouded"): dark `#1E1E1E` → `#2C2C2C`, light `#F9FBFE`
+ *     → `#FDFEFF`, `surfaceGlass` re-derived for both so the composited PAIR cannot drift — see
+ *     the two dark/light block comments below for the exact arithmetic. ⚠️ **This did not touch
+ *     `lib/widgets/WidgetViews.tsx`**, which hand-copies `surface` into its own `DARK.card` /
+ *     `LIGHT.card` literals (the widget-palette lesson in AGENTS.md) and is checked against this
+ *     file by `lib/widgets/__tests__/widgetPalette.test.ts` — that test now fails until those two
+ *     literals are updated to match. Flagged rather than fixed here: out of this edit's file
+ *     ownership for the pass that made this change (see its own PR/session notes).
  */
 import { relLuminance } from '@/constants/theme';
 
@@ -108,17 +117,33 @@ export interface ThemePalette {
    * assertion in lib/__tests__/colors.test.ts keeps measuring an opaque hex, and it is
    * a hex the compositor really produces, because the ground behind a card is known.
    *
-   * ⚠️ The two must agree. Dark: `rgba(255,255,255,0.118)` over `#000000` composites to
-   * exactly `#1E1E1E`, which is why the dark palette did not move at all in this pass.
-   * Light: `rgba(255,255,255,0.78)` over the backdrop's DARKEST stop (`#e4ecfb` in
-   * components/ScreenBackground.tsx) gives `#F9FBFE` — worst case, so the real pane is
-   * never darker than the value the tests check. Change one, re-derive the other; the
-   * test asserts the composite, so they cannot silently drift apart.
+   * ⚠️ The two must agree. Dark: `rgba(255,255,255,0.1725)` over `#000000` composites to
+   * exactly `#2C2C2C` (44/255 = 0.1725 — the ground is pure black, so the composite is
+   * literally `alpha × 255`). Light: `rgba(255,255,255,0.94)` over the backdrop's DARKEST
+   * stop (`#e4ecfb` in components/ScreenBackground.tsx) gives `#FDFEFF` — worst case, so the
+   * real pane is never darker than the value the tests check. Change one, re-derive the
+   * other; `__tests__/glassMaterial.test.ts` asserts the composite, so they cannot silently
+   * drift apart.
+   *
+   * ── Raised again, 2026-08-26 (DESIGN_COMPARISON/19 phase 1) ────────────────────────────
+   * Was `rgba(255,255,255,0.118)` → `#1E1E1E` dark, `rgba(255,255,255,0.78)` → `#F9FBFE`
+   * light. `#1E1E1E` on a pure-black ground read as "clouded" — too little separation from
+   * `bg` for a card to have a boundary of its own (`bg`↔`surface` was 1.260:1) — and this is
+   * the single largest fix for it: 1.260 → 1.504:1. `#2C2C2C` is also the ceiling: push it
+   * any further and it starts to close on `rule` (`#3A3A42`, 1.239:1 away at this value),
+   * which is where the row dividers stop being visible against the card they sit on. Light
+   * moved by a much smaller PERCEIVED step — `#F9FBFE` → `#FDFEFF` is a 4/3/1-per-channel
+   * shift, because light's surface was already close to its own ceiling (opaque white); the
+   * alpha required to reach it (0.78 → 0.94) looks like the bigger jump but lands on a much
+   * smaller visible move, which is deliberate — dark is the default and the binding case,
+   * light's step stays the gentler one.
    *
    * ⚠️ The dark alpha is set by the HALATION CEILING, not by taste. The brief asked for
    * 5–10% white; at 7% the pane is `#121212` and `text` measures 17.0:1 on it, over the
    * 16:1 ceiling DESIGN_RULES.md rule 10a defends (near-white text on a dark surface
-   * blooms for astigmatic readers). 11.8% is the lowest alpha that stays inside it.
+   * blooms for astigmatic readers). At the new 17.25%, `text` on `surface` is 13.97:1 —
+   * *further inside* that ceiling than before, not closer to it: raising `surface` is the
+   * first change in months that helps this number rather than spending it.
    */
   surfaceGlass: string;
   /**
@@ -495,17 +520,32 @@ const defaultLight: ThemePalette = {
   // edge, where `getGlassEdge()`'s shade stop is plain `border` at 3.658:1 on the pane and
   // 3.128:1 on bg. A measured 3:1 boundary is a stronger promise than a 1.21 fill step was.
   // Every text and chromatic token is untouched and still clears 4.5:1 on both rungs.
+  //
+  // ── Raised again, 2026-08-26 (DESIGN_COMPARISON/19 phase 1) ─────────────────────────────
+  // `#F9FBFE` → `#FDFEFF`, keeping step with dark's `surface` bump — see `surfaceGlass`'s doc
+  // comment above for the arithmetic (alpha 0.78 → 0.94 over the backdrop's darkest stop) and
+  // for why this is the SMALLER of the two moves despite the bigger alpha jump. bg↔surface
+  // goes 1.170 → 1.201:1 (still clears rule 10b's 1.15 floor, with more room than before).
   bg: '#E2EAF5',
-  surface: '#F9FBFE',      // = surfaceGlass composited over the backdrop's darkest stop
+  surface: '#FDFEFF',      // = surfaceGlass composited over the backdrop's darkest stop
   surfaceMuted: '#E6EDF6',
   surfaceInset: '#D8E1EE',
   // 2026-08-20 contrast pass: #D3DBE6 → #C7D1DF, 1.346:1 → 1.488:1 on `surface`. Decorative
   // row divider ONLY — never a control boundary; the 3:1 upper bound is what stops it drifting
-  // into `border`'s job.
+  // into `border`'s job. (Re-measured against the 2026-08-26 `surface` bump: 1.528:1 — still
+  // inside the band.)
   rule: '#C7D1DF',
-  surfaceGlass: 'rgba(255,255,255,0.78)',
-  surfaceGlassStrong: 'rgba(255,255,255,0.88)',
-  surfaceRaised: '#FCFDFF',   // = surfaceGlassStrong composited over the backdrop's darkest stop
+  surfaceGlass: 'rgba(255,255,255,0.94)',
+  // ⚠️ **0.95, not 0.88, as of 2026-08-26** — a forced companion to the `surface` bump above,
+  // same reasoning as dark's `surfaceGlassStrong`. At 0.88 (→ `#FCFDFF`) it was LIGHTER than
+  // the old `surface` (`#F9FBFE`) but DARKER than the new one (`#FDFEFF`) — the overlay/nav
+  // tier had gone from "raised" to "recessed" purely because `surface` moved past it. There is
+  // very little room left before pure white (`surface` itself is already alpha 0.94), so 0.95
+  // is a small nudge to `#FEFEFF`, which is enough to clear the ordering test and keeps every
+  // dependent contrast well inside its floor (`text` 15.49:1, `textMuted` 6.62:1, `border`
+  // 4.59:1 on it).
+  surfaceGlassStrong: 'rgba(255,255,255,0.95)',
+  surfaceRaised: '#FEFEFF',   // = surfaceGlassStrong composited over the backdrop's darkest stop
   text: '#1B2432',
   // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg. 2026-08-20 contrast
   // pass: #5F6978 → #535D6B, 5.36:1 → 6.44:1 on `surface` and 4.58 → 5.51 on `bg`, which was
@@ -685,32 +725,60 @@ const defaultDark: ThemePalette = {
   // supplied hexes instead of discarding one.
   //
   // ── Surface ladder, and where it had to give ────────────────────────────────────────────
-  //   bg ↔ surface           1.260   (floor ≥1.20 — holds)
-  //   surface ↔ surfaceMuted 1.124   (floor ≥1.10 — holds)
+  //   bg ↔ surface           1.260   (floor ≥1.20 — holds; see the 2026-08-26 update below)
+  //   surface ↔ surfaceMuted 1.124   (floor ≥1.10 — holds; see the 2026-08-26 update below)
   //   surfaceMuted ↔ inset   1.057   (floor RELAXED to ≥1.05 — see below)
   //   rule ↔ surface         1.119   (band RELAXED to ≥1.10 — see below)
   // ⚠️ The bottom of the ladder is arithmetic, not taste. A pure-black `bg` leaves ~0.006 of
   // relative luminance for two rungs beneath `surface`; there is no pair of hexes that keeps
   // a 1.10 step at both. If you want the 1.10 floor back, `bg` has to leave black — that is
   // the trade, and it is the one thing this palette exists to avoid.
+  //
+  // ── `surface` raised again, 2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface,
+  // the change that fixes 'clouded'") ─────────────────────────────────────────────────────
+  // `#1E1E1E` → `#2C2C2C`. `bg`↔`surface` was still only 1.260:1 against a pure-black page —
+  // enough to clear the 1.20 floor, not enough for a card to read as having an edge of its
+  // own without one drawn on it. Now:
+  //   bg ↔ surface           1.504   (up from 1.260)
+  //   surface ↔ surfaceMuted 1.341   (up from 1.124 — `surfaceMuted`/`surfaceInset` untouched)
+  //   surfaceMuted ↔ inset   1.057   (unchanged — neither token moved)
+  //   rule ↔ surface         1.239   (down from 1.480 — see the ⚠️ on `rule` below: this is
+  //                                   the ceiling. `surface` cannot go higher without erasing
+  //                                   the row-divider contrast against the card it sits on.)
+  // Two numbers get BETTER, not worse, and stay that way rather than being "fixed" back:
+  // white `text` on `surface` goes 16.67:1 → 13.97:1, i.e. further inside rule 10a's 7–17
+  // halation band, and `bg`↔`surface` clearing 1.50 is the first real card boundary this
+  // palette has had without drawing one.
   bg: '#000000',
-  surface: '#1E1E1E',
+  surface: '#2C2C2C',
   surfaceMuted: '#121212',
   surfaceInset: '#0A0A0A',
   // ── Tactile Glass, 2026-08-15 ───────────────────────────────────────────────────────────
-  // `rgba(255,255,255,0.118)` over a `#000000` ground composites to EXACTLY `#1E1E1E` — the
-  // value `surface` already had — which is why not one number in this dark block moved when
-  // the app went translucent, and why every dark assertion in colors.test.ts still passes
-  // unedited. The ground really is pure black: ScreenBackground's DARK.base is three
-  // `#000000` stops with both radial glows at opacity 0, and its branch art is edge-anchored
-  // with the centre box (where cards live) kept clear by design.
+  // `rgba(255,255,255,0.1725)` over a `#000000` ground composites to EXACTLY `#2C2C2C` — the
+  // ground is pure black, so the composite is just `alpha × 255`: 44/255 = 0.1725. (Was
+  // `rgba(255,255,255,0.118)` → `#1E1E1E` until the 2026-08-26 `surface` bump above; that
+  // value was chosen so the dark block wouldn't move AT ALL when the app went translucent —
+  // this pass spends that headroom on purpose.) The ground really is pure black:
+  // ScreenBackground's DARK.base is three `#000000` stops with both radial glows at opacity
+  // 0, and its branch art is edge-anchored with the centre box (where cards live) kept clear
+  // by design.
   //
-  // ⚠️ 0.118, not the brief's "5% to 10%", and the reason is the halation ceiling rather than
-  // taste — at 0.07 the pane is `#121212` and `text` measures 17.0:1 on it, past the 16:1
-  // bound rule 10a defends. Lowering this alpha makes the app LESS legible, not airier.
-  surfaceGlass: 'rgba(255,255,255,0.118)',
-  surfaceGlassStrong: 'rgba(255,255,255,0.16)',   // -> #292929, the overlay/nav tier
-  surfaceRaised: '#292929',   // that composite, painted flat — what a sheet/modal actually uses
+  // ⚠️ The brief's "5% to 10%" ceiling is stale — see the 2026-08-26 note above; the new
+  // alpha is set by the SAME halation-ceiling logic, re-run against the new target: at 7% the
+  // pane would be `#121212` and `text` measures 17.0:1 on it, past the 16:1 bound rule 10a
+  // defends. 17.25% is what `#2C2C2C` actually needs; it is not a free choice.
+  surfaceGlass: 'rgba(255,255,255,0.1725)',
+  // ⚠️ **0.22, not 0.16, as of 2026-08-26** — a forced companion to the `surface` bump above,
+  // not a phase-1 target in its own right. `surfaceRaised` (the overlay/nav tier — a sheet,
+  // modal, or floating header/bar) has to stay LIGHTER than plain `surface`, or "raised" reads
+  // backwards; `__tests__/glassMaterial.test.ts` asserts that ordering directly. At the old
+  // 0.16 (→ `#292929`, raw 41) it was already darker than the new `surface` (`#2C2C2C`, raw
+  // 44) — the two composited tiers had swapped which one reads as "on top". 0.22 composites to
+  // `#383838` (raw 56), clear of `surface` by the same margin the old pair had (11), and every
+  // dependent contrast (`text` 11.73:1, `textMuted` 5.45:1, `border` 3.43:1 on it) still clears
+  // its floor with room, including the halation ceiling (`text` stays ≤16:1 on this rung).
+  surfaceGlassStrong: 'rgba(255,255,255,0.22)',   // -> #383838, the overlay/nav tier
+  surfaceRaised: '#383838',   // that composite, painted flat — what a sheet/modal actually uses
   // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
   // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as
@@ -718,19 +786,25 @@ const defaultDark: ThemePalette = {
   // card reset is built on. See `border` below for the value that does that job.
   // 2026-08-20 contrast pass, on the maintainer's *"a bit more contrast so it's easier to
   // visually navigate between things"*: #27272A → #3A3A42, taking the divider from 1.119:1 on
-  // `surface` to 1.480:1. Still a HAIRLINE and still nowhere near a control boundary — the
-  // upper bound that keeps it from quietly becoming a second `border` is asserted at 3:1 and
-  // is what a further lift would run into. The value stops being the design review's supplied
-  // "border.subtle" verbatim; that was never the point of it, the WEIGHT was.
+  // `surface` to 1.480:1 (re-measured at 1.239:1 after the 2026-08-26 `surface` bump — still a
+  // HAIRLINE and still nowhere near a control boundary). The upper bound that keeps it from
+  // quietly becoming a second `border` is asserted at 3:1 and is what a further lift would run
+  // into — and it is now also the practical CEILING on how much higher `surface` can go: push
+  // `surface` up to meet `rule` and the divider vanishes against the card it sits on. The value
+  // stops being the design review's supplied "border.subtle" verbatim; that was never the
+  // point of it, the WEIGHT was.
   rule: '#3A3A42',
-  // ⚠️ PURE WHITE, 16.67:1 on `surface` — outside the old 7–12 halation band, and now outside
-  // the 16 ceiling that replaced it too. Both moves were by instruction, one after the other:
-  // 2026-08-10 raised the ceiling 12 → 16 for the true-black palette's `#F3F4F6`, and
-  // 2026-08-16's brief §5 requires "Primary text (Headers, main tasks) must be pure white
-  // (#FFFFFF)", which needs 17. The original reasoning has still never been shown to be wrong —
-  // near-white text on a dark surface blooms for astigmatic readers, and it is the most common
-  // dark-mode legibility complaint there is. If one ever comes back from a real device, THIS is
-  // the token to pull back first (toward ~#D8DADF), before touching any surface value.
+  // ⚠️ PURE WHITE, 13.97:1 on `surface` as of the 2026-08-26 `surface` bump (was 16.67:1) —
+  // comfortably inside the 7–17 halation band DESIGN_RULES.md rule 10a defends, where it used
+  // to sit right at the edge of it. Both moves that pushed the ceiling out to admit the old
+  // 16.67 were by instruction: 2026-08-10 raised the ceiling 12 → 16 for the true-black
+  // palette's `#F3F4F6`, and 2026-08-16's brief §5 requires "Primary text (Headers, main
+  // tasks) must be pure white (#FFFFFF)", which needed 17. The original reasoning has still
+  // never been shown to be wrong — near-white text on a dark surface blooms for astigmatic
+  // readers, and it is the most common dark-mode legibility complaint there is. Raising
+  // `surface` is what actually bought this number room again; if a complaint ever comes back
+  // from a real device even at 13.97:1, THIS is still the token to pull back first (toward
+  // ~#D8DADF).
   text: '#FFFFFF',
   // Brief §5: "Secondary text (dates, placeholders) must be a highly legible silver/grey
   // (rgba(255,255,255,0.6))". A literal 60% white over `surface` composites to `#8E8E8E`, which
@@ -750,6 +824,8 @@ const defaultDark: ThemePalette = {
   // 2026-08-20 contrast pass: #787882 → #8A8A95, 3.817:1 → 4.882:1 on `surface` (6.150:1 on
   // bg, 5.486:1 on surfaceMuted). This is the token `getGlassEdge`'s shade stop draws, so it is
   // what actually says where a card ends now that the fill step is soft — see rule 10b.
+  // Re-measured after the 2026-08-26 `surface` bump: 4.090:1 on `surface` (bg/surfaceMuted
+  // ratios unchanged, since neither token moved) — still comfortably clear of the 3:1 floor.
   border: '#8A8A95',
   borderStrong: '#A8A8B4',
   // ── Vibrant pass, 2026-08-16 (brief §4: "highly saturated, vibrant jewel tones") ──────────

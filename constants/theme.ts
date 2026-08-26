@@ -864,38 +864,38 @@ export function computeBorderTone(
  * Never make `shade` fainter than `lit` at the card rung — that inverts the light direction and
  * the pane reads as lit from below.
  *
- * ── `shadeDark` and the asymmetric card edge (2026-08-16, brief §3) ────────────────────────
- * The brief asks for the edge to exist on the TOP and LEFT only — `borderTopWidth: 1`,
- * `borderLeftWidth: 1`, `borderBottomWidth: 0`, `borderRightWidth: 0` — because a lip that
- * stops halfway round is what reads as a thick piece of glass catching a light source above
- * and to the left, where a closed rectangle reads as a drawn frame.
+ * ── `shadeDark` and the asymmetric card edge — SHIPPED 2026-08-16 (brief §3), REVERSED
+ *    2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface") ─────────────────────────
+ * The 2026-08-16 brief asked for the edge to exist on the TOP and LEFT only —
+ * `borderTopWidth: 1`, `borderLeftWidth: 1`, `borderBottomWidth: 0`, `borderRightWidth: 0` —
+ * because a lip that stops halfway round is what reads as a thick piece of glass catching a
+ * light source above and to the left, where a closed rectangle reads as a drawn frame. It was
+ * implemented as a THIRD GRADIENT STOP fading to transparent, not as per-side border widths
+ * (these edges are drawn as a `LinearGradient` padding-ring — see `getGlassEdge` and
+ * components/Surface.tsx — because RN's native border renderer cannot blend two colours around
+ * a rounded corner; a hard 1px→0px transition at a `Radius.lg` corner is visibly a cut, where a
+ * gradient reaching zero alpha by the bottom-right survives it), scoped to the CARD rung in
+ * DARK mode only — a card is a container, separated from the page by its own fill plus a
+ * `getLayeredShadow`, so it could afford to lose its bottom-right edge where a field or button
+ * (which carry a real WCAG 1.4.11 control boundary) could not.
  *
- * It is implemented as a THIRD GRADIENT STOP fading to transparent, not as per-side border
- * widths, and that is deliberate: these edges are drawn as a `LinearGradient` padding-ring
- * (see `getGlassEdge` and components/Surface.tsx) precisely because RN's native border renderer
- * cannot blend two colours around a rounded corner. Mixing per-side widths INTO that ring would
- * mean abandoning the ring, and a hard 1px→0px transition at the corner of a `Radius.lg` card
- * is visibly a cut rather than a fade. A gradient that reaches zero alpha by the bottom-right
- * produces the same read and survives the corner.
- *
- * ⚠️ **It applies to the CARD rung in DARK mode only, and both halves of that scope are
- * load-bearing.**
- *   - **Cards only.** `shade` at full strength is plain `theme.border`, and it is what carries
- *     WCAG 1.4.11's 3:1 boundary for anything that identifies a CONTROL. A card is a container,
- *     not a control, and on black it is separated by its own fill plus a `getLayeredShadow`
- *     underneath — so it can afford to lose its bottom-right edge. A text field or a button
- *     cannot, and they keep theirs. Do not "finish the job" by extending this to `field`.
- *   - **Dark only.** The trick works because the ground is `#000000` and the pane is lighter
- *     than it. In light mode the pane is `#F9FBFE` on a `#E2EAF5` backdrop — a 1.17 fill step
- *     with nothing else to separate them — so removing the boundary there would leave a card
- *     with no edge at all. Light keeps `shade` and therefore keeps its measured boundary.
+ * ⚠️ **That scoping is exactly what DESIGN_COMPARISON/19-IMPLEMENTATION.md phase 1 names as
+ * "half of why a card had no boundary".** A dark card was relying on its FILL step (`bg`↔
+ * `surface`) for a boundary on two sides and on nothing at all on the other two — and the fill
+ * step alone measured only 1.260:1 before that phase's `surface` bump. Raising `surface` fixes
+ * the fill half; dropping `shadeDark` here fixes the edge half, so a dark card has the SAME
+ * closed boundary on all four sides that light mode, and every field and button, already had.
+ * `card` in `GLASS_EDGE` below no longer sets `shadeDark`, so `getGlassEdge` falls through to
+ * `w.shade` (the ordinary `theme.border` boundary) in dark mode exactly as it always has in
+ * light — the asymmetric 3-stop branch in `getGlassEdge` is unreachable for `card` now, but
+ * stays in the function: it is also what a `strength: 0` design-lab knob produces on ANY
+ * weight, which is unrelated to this reversal and still needs the branch.
  */
 const GLASS_EDGE: Record<
   BorderWeight,
   { lit: number; litDark: number; shade: number; shadeDark?: number }
 > = {
-  // `shadeDark: 0` is the asymmetric top-left-only lip — see the block above.
-  card: { lit: 0.95, litDark: 0.16, shade: 1, shadeDark: 0 },
+  card: { lit: 0.95, litDark: 0.16, shade: 1 },
   field: { lit: 0.75, litDark: 0.12, shade: 0.68 },
   button: { lit: 0.62, litDark: 0.1, shade: 0.52 },
 };
@@ -913,13 +913,15 @@ const GLASS_LIGHT = '#FFFFFF';
  * bottom-right): a vertical sweep would light the top edge and leave the left one dark, which
  * is not how a pane of glass catches a light source above and to the left of it.
  *
- * ── The asymmetric case (2026-08-16, brief §3) ─────────────────────────────────────────────
- * A dark-mode CARD returns a THREE-stop ramp instead of two: the white lip, the same lip at a
- * third of its alpha a third of the way across, then fully transparent at the bottom-right. The
- * middle stop is what makes it a lip rather than a wash — without it the highlight is linear
- * across the whole diagonal and reads as a gradient fill on the border, not as light landing on
- * an edge. See `GLASS_EDGE`'s block above for why this is scoped to cards, to dark mode, and to
- * a gradient rather than per-side border widths.
+ * ── The asymmetric case (2026-08-16, brief §3; REVERSED for `card` 2026-08-26, see
+ *    `GLASS_EDGE`'s block above) ──────────────────────────────────────────────────────────────
+ * A THREE-stop ramp instead of two: the white lip, the same lip at a third of its alpha a third
+ * of the way across, then fully transparent at the shaded end. The middle stop is what makes it
+ * a lip rather than a wash — without it the highlight is linear across the whole diagonal and
+ * reads as a gradient fill on the border, not as light landing on an edge. Fires whenever a
+ * weight's `shadeAlpha` resolves to exactly 0, which no longer happens for `card` in dark mode
+ * (its `shadeDark` was dropped) but still happens for ANY weight when the design lab's
+ * `strength` knob is 0 — see `GLASS_EDGE`'s block above for the full history.
  *
  * @param shade the boundary colour — pass `theme.border`. NOT a screen hue: colour left the
  *   card edge in the 2026-08-15 pass and lives in the pane tint and the badge now. Ignored
