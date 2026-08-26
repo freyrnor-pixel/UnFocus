@@ -59,15 +59,28 @@
  *     IDENTITY_HUES before moving any value, and DESIGN_RULES.md rule 11a for the rule.
  *   - Adding a colour token? Add it to the matching list in lib/__tests__/colors.test.ts in
  *     the same edit — a token in no list is a token nothing checks.
- *   - **`surface` was raised again on 2026-08-26** (DESIGN_COMPARISON/19 phase 1, "the card
+ *   - **`surface` was raised on 2026-08-26** (DESIGN_COMPARISON/19 phase 1, "the card
  *     surface" — the change that fixes "clouded"): dark `#1E1E1E` → `#2C2C2C`, light `#F9FBFE`
- *     → `#FDFEFF`, `surfaceGlass` re-derived for both so the composited PAIR cannot drift — see
- *     the two dark/light block comments below for the exact arithmetic. ⚠️ **This did not touch
- *     `lib/widgets/WidgetViews.tsx`**, which hand-copies `surface` into its own `DARK.card` /
- *     `LIGHT.card` literals (the widget-palette lesson in AGENTS.md) and is checked against this
- *     file by `lib/widgets/__tests__/widgetPalette.test.ts` — that test now fails until those two
- *     literals are updated to match. Flagged rather than fixed here: out of this edit's file
- *     ownership for the pass that made this change (see its own PR/session notes).
+ *     → `#FDFEFF`. That first dark value broke four already-shipped WCAG guarantees measured
+ *     against `surface` — `accent`, `bad`, `IDENTITY_HUES.notes` and the `dinner` meal hue all
+ *     dropped under 4.5:1 — because nobody had checked the move against the CHROMATIC tokens,
+ *     only against `bg`↔`surface`/`rule`↔`surface`/white `text`↔`surface`.
+ *   - **Corrected the same day, same phase**: dark `surface` landed at **`#242424`** instead —
+ *     enough lift for a real card boundary (`bg`↔`surface` 1.260 → 1.353:1) without breaking
+ *     any chromatic floor. `surfaceGlass` is re-derived to match (alpha = 36/255 = 0.1412, since
+ *     the ground is pure black); `surfaceGlassStrong`/`surfaceRaised` are re-derived in step so
+ *     the overlay/nav tier stays lighter than the card (`__tests__/glassMaterial.test.ts` checks
+ *     this ordering directly). `accent`, `bad`, `IDENTITY_HUES.shopping`, `IDENTITY_HUES.notes`
+ *     and (in components/FoodTab.tsx) the `dinner`/`snack` meal hues were all lifted a small
+ *     amount to clear 4.5:1 on the new surface — see each value's own comment below for the
+ *     exact arithmetic, and lib/__tests__/colors.test.ts's `CHROMATIC_FLOOR` comment for why
+ *     shopping/snack (not on anyone's list of "broken" hues) also had to move: lifting Notes
+ *     (and dinner) into the identity/meal ladder's bottom rung leaves too little room for the
+ *     `>=7 L*` step to its neighbour unless that neighbour lifts too.
+ *   - **`lib/widgets/WidgetViews.tsx` and `lib/widgets/snapshot.ts` are kept in step** (hand
+ *     copies, the widget-palette lesson in AGENTS.md) — `lib/widgets/__tests__/widgetPalette.test.ts`
+ *     is what keeps them honest; it recomputes every widget colour from this file and
+ *     `constants/theme.ts` rather than trusting either hand copy.
  */
 import { relLuminance } from '@/constants/theme';
 
@@ -117,33 +130,36 @@ export interface ThemePalette {
    * assertion in lib/__tests__/colors.test.ts keeps measuring an opaque hex, and it is
    * a hex the compositor really produces, because the ground behind a card is known.
    *
-   * ⚠️ The two must agree. Dark: `rgba(255,255,255,0.1725)` over `#000000` composites to
-   * exactly `#2C2C2C` (44/255 = 0.1725 — the ground is pure black, so the composite is
+   * ⚠️ The two must agree. Dark: `rgba(255,255,255,0.1412)` over `#000000` composites to
+   * exactly `#242424` (36/255 = 0.1412 — the ground is pure black, so the composite is
    * literally `alpha × 255`). Light: `rgba(255,255,255,0.94)` over the backdrop's DARKEST
    * stop (`#e4ecfb` in components/ScreenBackground.tsx) gives `#FDFEFF` — worst case, so the
    * real pane is never darker than the value the tests check. Change one, re-derive the
    * other; `__tests__/glassMaterial.test.ts` asserts the composite, so they cannot silently
    * drift apart.
    *
-   * ── Raised again, 2026-08-26 (DESIGN_COMPARISON/19 phase 1) ────────────────────────────
+   * ── Raised, 2026-08-26 (DESIGN_COMPARISON/19 phase 1) ──────────────────────────────────
    * Was `rgba(255,255,255,0.118)` → `#1E1E1E` dark, `rgba(255,255,255,0.78)` → `#F9FBFE`
    * light. `#1E1E1E` on a pure-black ground read as "clouded" — too little separation from
-   * `bg` for a card to have a boundary of its own (`bg`↔`surface` was 1.260:1) — and this is
-   * the single largest fix for it: 1.260 → 1.504:1. `#2C2C2C` is also the ceiling: push it
-   * any further and it starts to close on `rule` (`#3A3A42`, 1.239:1 away at this value),
-   * which is where the row dividers stop being visible against the card they sit on. Light
-   * moved by a much smaller PERCEIVED step — `#F9FBFE` → `#FDFEFF` is a 4/3/1-per-channel
+   * `bg` for a card to have a boundary of its own (`bg`↔`surface` was 1.260:1). The FIRST fix
+   * tried was `#2C2C2C` (1.504:1) — and it broke four already-shipped WCAG floors measured
+   * against `surface` (`accent`, `bad`, `IDENTITY_HUES.notes`, the `dinner` meal hue), because
+   * nobody had checked the move against anything but `bg`↔`surface`, `rule`↔`surface` and white
+   * `text`↔`surface`. **`#242424` is the corrected value**: `bg`↔`surface` 1.260 → 1.353:1 —
+   * still a real boundary, just not the largest one reachable — with every chromatic floor
+   * re-verified and the four broken hues lifted back over 4.5:1 (see each token's own comment).
+   * Light moved by a much smaller PERCEIVED step — `#F9FBFE` → `#FDFEFF` is a 4/3/1-per-channel
    * shift, because light's surface was already close to its own ceiling (opaque white); the
    * alpha required to reach it (0.78 → 0.94) looks like the bigger jump but lands on a much
-   * smaller visible move, which is deliberate — dark is the default and the binding case,
-   * light's step stays the gentler one.
+   * smaller visible move. Light was not touched by the `#2C2C2C` → `#242424` correction — none
+   * of the four broken hues are light-mode values, and light's own ladder is unaffected.
    *
    * ⚠️ The dark alpha is set by the HALATION CEILING, not by taste. The brief asked for
    * 5–10% white; at 7% the pane is `#121212` and `text` measures 17.0:1 on it, over the
    * 16:1 ceiling DESIGN_RULES.md rule 10a defends (near-white text on a dark surface
-   * blooms for astigmatic readers). At the new 17.25%, `text` on `surface` is 13.97:1 —
-   * *further inside* that ceiling than before, not closer to it: raising `surface` is the
-   * first change in months that helps this number rather than spending it.
+   * blooms for astigmatic readers). At 14.12%, `text` on `surface` is 15.52:1 — inside that
+   * ceiling with real room either side (7–17 per rule 10a), and lighter than the `#2C2C2C`
+   * attempt's 13.97:1 would have been but darker than the original `#1E1E1E`'s 16.67:1.
    */
   surfaceGlass: string;
   /**
@@ -270,19 +286,21 @@ export function contrastRatio(hex1: string, hex2: string): number {
 
 // ── Identity hues — FIVE neon categoricals on a LIGHTNESS LADDER (2026-08-17) ─
 //
-// History, because this table has been rewritten three times and the reasons matter:
+// History, because this table has been rewritten several times and the reasons matter:
 // the system had NINE hues until 2026-07-31 (addendum A.3), which collapsed it to FOUR on the
 // grounds that nobody learns nine colours at a 22px badge. The collapse stands — this is still
 // "one hue per thing a person thinks of as a separate part of their life" — and so does the
 // 2026-08-16 categorical brief, which took it to FIVE named neons and gave Notes an identity
-// of its own. What changed on **2026-08-17** is the VALUES, not the count or the aesthetic:
+// of its own. What changed on **2026-08-17** is the VALUES, not the count or the aesthetic;
+// **2026-08-26** moved shopping and notes again, for a different reason — see the addendum
+// after the table.
 //
 //   Rung  Hue      Value      L\*    Badge ink   Owns
 //   1     To-do    #FFD700    86.9   DARK        tasks, plans, goals            (gold)
 //   2     Habits   #05D9E8    79.3   DARK        habits                         (electric cyan)
 //   3     Health   #FF8CB2    71.7   DARK        health entries, medicines, episodes (rose)
-//   4     Shopping #0DB34A    64.0   DARK        shopping, food, catalogue, budget, scan (emerald)
-//   5     Notes    #B45CFF    56.7   DARK        notes                          (violet)
+//   4     Shopping #24B451    64.7   DARK        shopping, food, catalogue, budget, scan (emerald)
+//   5     Notes    #B660FF    57.6   DARK        notes                          (violet)
 //
 // Home still gets NO identity hue (IDENTITY_NEUTRAL below); Notes no longer shares that fate.
 //
@@ -296,42 +314,58 @@ export function contrastRatio(hex1: string, hex2: string): number {
 // band. Lightness is the only channel that survives greyscale, deuteranopia, protanopia and
 // monochromacy at once, so it is the channel the categories are carried on.
 //
-// **The rungs are ~7.6 L\* apart and the ladder is not decoration — it is the accessibility
+// **The rungs are ~7.1–7.6 L\* apart and the ladder is not decoration — it is the accessibility
 // guarantee.** Reordering two hues, or "harmonising" one toward its neighbour, deletes it.
 //
 // **The band is not a taste choice either — it is derived, and both ends are pinned:**
-//   · BOTTOM, L\* 55.4. Every hue must clear WCAG AA 4.5:1 as a glyph on the dark glass card
-//     (`surface` #1E1E1E — a harder ground than `bg` #000000, so clearing it clears both).
-//     4.5:1 there needs relative luminance ≥ 0.2333, i.e. L\* ≥ 55.4, whatever the hue.
-//     Notes sits at 56.7 (4.70:1) for margin — it is the DEEPEST violet AA allows here, and
-//     "deeper" is not available without failing rule 11's own contrast requirement.
+//   · BOTTOM. Every hue must clear WCAG AA 4.5:1 as a glyph on the dark glass card (`surface`),
+//     which is a harder ground than `bg` (#000000), so clearing it clears both. That floor
+//     moves with `surface` — see the 2026-08-26 addendum below for the current number.
 //   · TOP, ~L\* 87. Above that, sRGB has no saturated amber left: the gold cusp is at L\* 87
 //     and everything higher is a pale cream (at L\* 92 the best amber is C\* 34, a third of
 //     what it is here). Pushing To-do higher buys ladder room by spending the neon.
-//   · So the whole set lives in a 30-point band, and 5 rungs is what fits at ~7.6 apart. **A
-//     SIXTH identity hue does not fit.** If one is ever needed, that is a conversation about
-//     the band, not a value to slot in between two rungs.
+//   · So the whole set lives in a band under 30 points wide, and 5 rungs is what fits at
+//     ~7.1–7.6 apart. **A SIXTH identity hue does not fit.** If one is ever needed, that is a
+//     conversation about the band, not a value to slot in between two rungs.
 //
 // **Every hue is on the sRGB gamut boundary at its assigned lightness**, which is what keeps
 // this a neon/jewel set rather than a pastel one: none of them is desaturated to hit its rung,
 // each is the most saturated colour that exists at that lightness in its family (C\* 43–93;
 // cyan's 43 is not a compromise — 46 is the physical maximum for any cyan at L\* 79).
-// Health's rose is the one that visibly moved (`#FF2A6D` → `#FF8CB2`): a rose can only be
-// deeply saturated below L\* 60, and rung 3 is above that. In exchange it stopped colliding
-// with `bad` `#FF3B5C` (a 1.1 L\* gap became 14.5), which was its own quiet defect.
+// Health's rose is the one that visibly moved on 2026-08-17 (`#FF2A6D` → `#FF8CB2`): a rose can
+// only be deeply saturated below L\* 60, and rung 3 is above that. In exchange it stopped
+// colliding with `bad` (a 1.1 L\* gap became 13.8 — see the 2026-08-26 addendum for why the
+// number moved again).
 //
-// What the set still guarantees, unchanged from the neon pass:
-//   · pairwise ΔE2000 ≥ 25 (worst pair now Health/Notes at 26.9);
-//   · every hue ≥ 4.5:1 on `surface` AND on `bg` in dark mode (worst 4.70:1 / 5.92:1);
+// What the set still guarantees:
+//   · pairwise ΔE2000 ≥ 25 (worst pair now Health/Notes at 26.36);
+//   · every hue ≥ 4.5:1 on `surface` AND on `bg` in dark mode (worst 4.51:1 / 6.11:1);
+//   · every dichromat-simulation floor (deutan ≥15, protan ≥12; worst pairs now Habits/Notes at
+//     18.89 deutan and Habits/Health at 12.87 protan);
 //   · the badge GLYPH is contrast-checked per hue, per mode, against the real composited plate
 //     (`badgeGlyphFor`, `lib/domainColor.ts`), so no hue is ever drawn somewhere its
 //     legibility is merely assumed.
-// All four are asserted in `lib/__tests__/colors.test.ts`, together with the ladder itself and
-// a dichromat-simulation regression floor.
+// All are asserted in `lib/__tests__/colors.test.ts`, together with the ladder itself.
 //
 // All five take DARK ink: they are all bright, so `contrastOn()` picks the dark end for every
-// one of them. That uniformity is a symptom of the band's bottom being L\* 55.4, not a
-// separate decision.
+// one of them.
+//
+// ── 2026-08-26 addendum: shopping and notes moved, because `surface` did ──────────────────
+// DESIGN_COMPARISON/19 phase 1 raised dark `surface` for a card-boundary fix and, on its first
+// attempt (`#1E1E1E` → `#2C2C2C`), pushed the AA floor for a glyph on that card from L\* 55.4 to
+// ~60.6 — past what the ladder's bottom rung (Notes, 56.7) could survive. The corrected surface
+// value, `#242424`, needs L\* ≥ 57.5, still tighter than Notes' old value. Notes moved to
+// `#B660FF` (L\* 57.589, 4.514:1 on the new surface) — the tightest margin in the set, and
+// genuinely the floor: this is the deepest violet the new surface's AA requirement admits at
+// the gamut boundary.
+//
+// Notes moving up by itself is not enough — it also has to stay ≥7 L\* below its neighbour
+// (Shopping), and Shopping's un-moved value (`#0DB34A`, L\* 64.0) leaves only 6.4 L\* of room.
+// So **Shopping moved too**, to `#24B451` (L\* 64.651, 5.708:1 on `surface`) — a ~4% reduction
+// in chroma from `#0DB34A` (73.7 → 70.1), not a hue rotation, chosen to land in the narrow
+// window that keeps BOTH of its own gaps ≥7 L\* (to Health above, 7.063; to Notes below,
+// 7.062). Habits and Health did not need to move — their existing gaps (7.6, 7.6) had enough
+// slack to absorb Shopping's small lift without themselves dropping under 7.
 export const IDENTITY_HUES = {
   /**
    * Rung 1, L\* 86.9 — the brightest of the five. Tasks, plans, goals. Gold.
@@ -354,41 +388,50 @@ export const IDENTITY_HUES = {
   /**
    * Rung 3, L\* 71.7 — rose. Health entries, medicines, episodes.
    *
-   * ⚠️ **The value that moved furthest (`#FF2A6D` → `#FF8CB2`), and it is not a fade.** A rose
-   * is only deeply saturated below L\* 60 — the red-magenta gamut cusp is down there — so a
-   * mid-rung rose is necessarily lighter, and at C\* 48 this one is on the gamut boundary for
-   * its lightness, same rule as the rest. Two quiet defects went with it: `#FF2A6D` sat 1.1 L\*
-   * from the destructive token `bad` `#FF3B5C` (now 14.5 apart), and at 4.61:1 it was the rung
-   * with no AA margin at all (now 7.66:1).
+   * ⚠️ **The value that moved furthest on 2026-08-17 (`#FF2A6D` → `#FF8CB2`), and it is not a
+   * fade.** A rose is only deeply saturated below L\* 60 — the red-magenta gamut cusp is down
+   * there — so a mid-rung rose is necessarily lighter, and at C\* 48 this one is on the gamut
+   * boundary for its lightness, same rule as the rest. Two quiet defects went with it:
+   * `#FF2A6D` sat 1.1 L\* from the destructive token `bad`, and at 4.61:1 it was the rung with
+   * no AA margin at all (now 7.13:1 against the `#242424` surface, re-verified 2026-08-26).
    *
    * Rotating it back toward magenta to buy chroma costs Notes: at h 350 the pair measures
    * ΔE2000 24.0 and fails the ≥25 separation floor outright.
    */
   health: { hue: '#FF8CB2', ink: '#1B2432' },
   /**
-   * Rung 4, L\* 64.0 — emerald. Shopping, food, catalogue, budget, scan.
+   * Rung 4, L\* 64.7 — emerald. Shopping, food, catalogue, budget, scan.
    *
-   * This is the rung the 2026-08-17 review was really about. `#00FF85` was the LIGHTEST hue in
-   * the set (L\* 88.5), 9 points above Habits' cyan — and deuteranopia turns a mint green and a
-   * cyan into much the same thing, so two tabs sitting one apart in the nav were told apart by
-   * a channel some readers do not have. Deepening it to a forest/emerald neon puts 15 L\*
-   * between them, which is what a deuteranope actually reads. Simulated worst-pair separation
-   * across the whole set goes ΔE2000 11.8 → 19.7; To-do/Shopping specifically, 11.8 → 23.0.
+   * 2026-08-17 deepened this from `#00FF85` (L\* 88.5, 9 points above Habits' cyan — a mint
+   * green and a cyan read alike under deuteranopia) to a forest/emerald neon at L\* 64.0, `#0DB34A`.
    *
-   * (For the record, the 2026-08-16 brief's own suggestion `#01FFC3` was rejected before that
-   * set ever shipped, at ΔE2000 22.9 against Habits' cyan. Don't rotate back toward it.)
+   * ── Retuned again 2026-08-26 (`#0DB34A` → `#24B451`), NOT because this hue failed AA — it
+   * didn't — but because Notes, one rung below it, had to lift (see the addendum above this
+   * block), and the two need ≥7 L\* between them. A ~4% chroma reduction along the same hue
+   * (73.7 → 70.1) lands `#24B451` at L\* 64.651, the narrow window that keeps this rung's gaps
+   * to BOTH neighbours ≥7 L\* (7.063 to Health, 7.062 to Notes). `lib/widgets/snapshot.ts`'s
+   * `WIDGET_ACCENT.shop` and `constants/colors.ts`'s dark `featShop` mirror this value —
+   * `lib/widgets/__tests__/widgetPalette.test.ts` checks the first, nothing checks the second
+   * beyond the doc comment on `featShop` staying honest.
    */
-  shopping: { hue: '#0DB34A', ink: '#1B2432' },
+  shopping: { hue: '#24B451', ink: '#1B2432' },
   /**
-   * Rung 5, L\* 56.7 — violet. Notes. (Notes was IDENTITY_NEUTRAL until 2026-08-16.)
+   * Rung 5, L\* 57.6 — violet. Notes. (Notes was IDENTITY_NEUTRAL until 2026-08-16.)
    *
    * ⚠️ **This is the floor of the whole system and it cannot go deeper.** 4.5:1 on the dark
-   * glass card needs L\* ≥ 55.4; this sits at 56.7 (4.70:1) to keep margin against rounding.
-   * A deeper violet — `#A855F7` at L\* 53.5, say — measures 4.21:1 and fails AA as a glyph,
-   * which is rule 11's own contrast half. At C\* 93 it is the most saturated value in the set,
-   * so "deep" is carried here by chroma rather than by lightness.
+   * glass card (`surface` #242424) needs L\* ≥ 57.5; this sits at 57.589 (4.514:1) — margin of
+   * 0.014 in contrast, the tightest in the set, because it is genuinely the AA boundary at the
+   * gamut edge for this hue family.
+   *
+   * ── Retuned 2026-08-26 (`#B45CFF` → `#B660FF`), FORCED by the `surface` correction to
+   * `#242424` (see the addendum above this block) — this is not a stylistic choice. The old
+   * value (`#B45CFF`, L\* 56.66) was already documented as "the DEEPEST violet AA allows" at
+   * the OLD floor (L\* 55.4, `surface` #1E1E1E); the new floor is ~2.1 L\* higher, so the old
+   * value now measures 4.373:1 and fails. A deeper violet than `#B660FF` is not available
+   * without failing AA on this surface, full stop — this is the constrained end of the ladder.
+   * At C\* 90.5 it is still the most saturated value in the set.
    */
-  notes: { hue: '#B45CFF', ink: '#1B2432' },
+  notes: { hue: '#B660FF', ink: '#1B2432' },
 } as const;
 
 /**
@@ -734,51 +777,55 @@ const defaultDark: ThemePalette = {
   // a 1.10 step at both. If you want the 1.10 floor back, `bg` has to leave black — that is
   // the trade, and it is the one thing this palette exists to avoid.
   //
-  // ── `surface` raised again, 2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface,
+  // ── `surface` raised, 2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface,
   // the change that fixes 'clouded'") ─────────────────────────────────────────────────────
-  // `#1E1E1E` → `#2C2C2C`. `bg`↔`surface` was still only 1.260:1 against a pure-black page —
-  // enough to clear the 1.20 floor, not enough for a card to read as having an edge of its
-  // own without one drawn on it. Now:
-  //   bg ↔ surface           1.504   (up from 1.260)
-  //   surface ↔ surfaceMuted 1.341   (up from 1.124 — `surfaceMuted`/`surfaceInset` untouched)
+  // `#1E1E1E` → `#2C2C2C` was the FIRST attempt. `bg`↔`surface` was still only 1.260:1 against
+  // a pure-black page — enough to clear the 1.20 floor, not enough for a card to read as
+  // having an edge of its own without one drawn on it — and `#2C2C2C` fixed that
+  // (bg↔surface 1.504:1). But nobody had checked the move against anything but bg↔surface,
+  // rule↔surface and white text↔surface, and it broke four already-shipped WCAG floors
+  // measured against `surface`: `accent` (4.00:1), `bad` (4.01:1), `IDENTITY_HUES.notes`
+  // (3.93:1) and the `dinner` meal hue (3.83:1) — all under 4.5.
+  //
+  // **`#242424` is the corrected value, same day, same phase.** Less lift than `#2C2C2C`, but
+  // enough for a real boundary and small enough that every chromatic floor re-clears once the
+  // four broken hues are lifted a little too (see `accent`/`bad` below, `IDENTITY_HUES.shopping`/
+  // `.notes` above, and `dinner`/`snack` in components/FoodTab.tsx — shopping and snack are not
+  // themselves broken but had to move to keep their ladders' `>=7 L*` step to their now-lifted
+  // neighbour; see lib/__tests__/colors.test.ts's `CHROMATIC_FLOOR` comment for the derivation).
+  //   bg ↔ surface           1.353   (up from 1.260, not as far as `#2C2C2C`'s 1.504)
+  //   surface ↔ surfaceMuted 1.207   (up from 1.124 — `surfaceMuted`/`surfaceInset` untouched)
   //   surfaceMuted ↔ inset   1.057   (unchanged — neither token moved)
-  //   rule ↔ surface         1.239   (down from 1.480 — see the ⚠️ on `rule` below: this is
-  //                                   the ceiling. `surface` cannot go higher without erasing
-  //                                   the row-divider contrast against the card it sits on.)
-  // Two numbers get BETTER, not worse, and stay that way rather than being "fixed" back:
-  // white `text` on `surface` goes 16.67:1 → 13.97:1, i.e. further inside rule 10a's 7–17
-  // halation band, and `bg`↔`surface` clearing 1.50 is the first real card boundary this
-  // palette has had without drawing one.
+  //   rule ↔ surface         1.378   (up from 1.119 — `rule` unchanged, `surface` moved past it)
+  // White `text` on `surface` goes 16.67:1 → 15.52:1 — inside rule 10a's 7–17 halation band
+  // with real room either side, lighter than `#2C2C2C`'s 13.97:1 would have been.
   bg: '#000000',
-  surface: '#2C2C2C',
+  surface: '#242424',
   surfaceMuted: '#121212',
   surfaceInset: '#0A0A0A',
-  // ── Tactile Glass, 2026-08-15 ───────────────────────────────────────────────────────────
-  // `rgba(255,255,255,0.1725)` over a `#000000` ground composites to EXACTLY `#2C2C2C` — the
-  // ground is pure black, so the composite is just `alpha × 255`: 44/255 = 0.1725. (Was
-  // `rgba(255,255,255,0.118)` → `#1E1E1E` until the 2026-08-26 `surface` bump above; that
-  // value was chosen so the dark block wouldn't move AT ALL when the app went translucent —
-  // this pass spends that headroom on purpose.) The ground really is pure black:
-  // ScreenBackground's DARK.base is three `#000000` stops with both radial glows at opacity
-  // 0, and its branch art is edge-anchored with the centre box (where cards live) kept clear
-  // by design.
+  // ── Tactile Glass, 2026-08-15; re-derived 2026-08-26 for the `#242424` correction ─────────
+  // `rgba(255,255,255,0.1412)` over a `#000000` ground composites to EXACTLY `#242424` — the
+  // ground is pure black, so the composite is just `alpha × 255`: 36/255 = 0.1412. (Was
+  // `0.1725` → `#2C2C2C` for a few hours during the same phase, and `0.118` → `#1E1E1E` before
+  // that.) The ground really is pure black: ScreenBackground's DARK.base is three `#000000`
+  // stops with both radial glows at opacity 0, and its branch art is edge-anchored with the
+  // centre box (where cards live) kept clear by design.
   //
-  // ⚠️ The brief's "5% to 10%" ceiling is stale — see the 2026-08-26 note above; the new
-  // alpha is set by the SAME halation-ceiling logic, re-run against the new target: at 7% the
-  // pane would be `#121212` and `text` measures 17.0:1 on it, past the 16:1 bound rule 10a
-  // defends. 17.25% is what `#2C2C2C` actually needs; it is not a free choice.
-  surfaceGlass: 'rgba(255,255,255,0.1725)',
-  // ⚠️ **0.22, not 0.16, as of 2026-08-26** — a forced companion to the `surface` bump above,
-  // not a phase-1 target in its own right. `surfaceRaised` (the overlay/nav tier — a sheet,
-  // modal, or floating header/bar) has to stay LIGHTER than plain `surface`, or "raised" reads
-  // backwards; `__tests__/glassMaterial.test.ts` asserts that ordering directly. At the old
-  // 0.16 (→ `#292929`, raw 41) it was already darker than the new `surface` (`#2C2C2C`, raw
-  // 44) — the two composited tiers had swapped which one reads as "on top". 0.22 composites to
-  // `#383838` (raw 56), clear of `surface` by the same margin the old pair had (11), and every
-  // dependent contrast (`text` 11.73:1, `textMuted` 5.45:1, `border` 3.43:1 on it) still clears
-  // its floor with room, including the halation ceiling (`text` stays ≤16:1 on this rung).
-  surfaceGlassStrong: 'rgba(255,255,255,0.22)',   // -> #383838, the overlay/nav tier
-  surfaceRaised: '#383838',   // that composite, painted flat — what a sheet/modal actually uses
+  // ⚠️ The brief's "5% to 10%" ceiling is stale — the alpha is set by the HALATION CEILING,
+  // not by taste: at 7% the pane would be `#121212` and `text` measures 17.0:1 on it, past the
+  // 16:1 bound rule 10a defends. 14.12% is what `#242424` actually needs; it is not a free
+  // choice.
+  surfaceGlass: 'rgba(255,255,255,0.1412)',
+  // ⚠️ **0.1882, re-derived 2026-08-26 alongside the `#242424` correction.** `surfaceRaised`
+  // (the overlay/nav tier — a sheet, modal, or floating header/bar) has to stay LIGHTER than
+  // plain `surface`, or "raised" reads backwards; `__tests__/glassMaterial.test.ts` asserts
+  // that ordering directly. 0.1882 composites to `#303030` (raw 48), clear of `surface`
+  // (raw 36) by the same margin (12) the `#1E1E1E`/`#292929` pair had, and every dependent
+  // contrast (`text` 13.20:1, `textMuted` 6.14:1, `border` 3.87:1 on it) still clears its
+  // floor with room, including the halation ceiling (`text` stays well under 16:1 on this
+  // rung).
+  surfaceGlassStrong: 'rgba(255,255,255,0.1882)',   // -> #303030, the overlay/nav tier
+  surfaceRaised: '#303030',   // that composite, painted flat — what a sheet/modal actually uses
   // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
   // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as
@@ -786,15 +833,17 @@ const defaultDark: ThemePalette = {
   // card reset is built on. See `border` below for the value that does that job.
   // 2026-08-20 contrast pass, on the maintainer's *"a bit more contrast so it's easier to
   // visually navigate between things"*: #27272A → #3A3A42, taking the divider from 1.119:1 on
-  // `surface` to 1.480:1 (re-measured at 1.239:1 after the 2026-08-26 `surface` bump — still a
-  // HAIRLINE and still nowhere near a control boundary). The upper bound that keeps it from
-  // quietly becoming a second `border` is asserted at 3:1 and is what a further lift would run
-  // into — and it is now also the practical CEILING on how much higher `surface` can go: push
-  // `surface` up to meet `rule` and the divider vanishes against the card it sits on. The value
-  // stops being the design review's supplied "border.subtle" verbatim; that was never the
-  // point of it, the WEIGHT was.
+  // `surface` to 1.480:1 (re-measured at 1.378:1 after the 2026-08-26 `surface` correction to
+  // `#242424` — still a HAIRLINE and still nowhere near a control boundary; briefly 1.239:1
+  // during the same phase's `#2C2C2C` attempt). The upper bound that keeps it from quietly
+  // becoming a second `border` is asserted at 3:1 and is what a further lift would run into —
+  // and it is the practical CEILING on how much higher `surface` can go: push `surface` up to
+  // meet `rule` and the divider vanishes against the card it sits on, which is exactly what
+  // made `#2C2C2C` the wrong amount of lift. The value stops being the design review's
+  // supplied "border.subtle" verbatim; that was never the point of it, the WEIGHT was.
   rule: '#3A3A42',
-  // ⚠️ PURE WHITE, 13.97:1 on `surface` as of the 2026-08-26 `surface` bump (was 16.67:1) —
+  // ⚠️ PURE WHITE, 15.52:1 on `surface` as of the 2026-08-26 `surface` correction to `#242424`
+  // (was 16.67:1 at `#1E1E1E`, briefly 13.97:1 during the same phase's `#2C2C2C` attempt) —
   // comfortably inside the 7–17 halation band DESIGN_RULES.md rule 10a defends, where it used
   // to sit right at the edge of it. Both moves that pushed the ceiling out to admit the old
   // 16.67 were by instruction: 2026-08-10 raised the ceiling 12 → 16 for the true-black
@@ -803,7 +852,7 @@ const defaultDark: ThemePalette = {
   // never been shown to be wrong — near-white text on a dark surface blooms for astigmatic
   // readers, and it is the most common dark-mode legibility complaint there is. Raising
   // `surface` is what actually bought this number room again; if a complaint ever comes back
-  // from a real device even at 13.97:1, THIS is still the token to pull back first (toward
+  // from a real device even at 15.52:1, THIS is still the token to pull back first (toward
   // ~#D8DADF).
   text: '#FFFFFF',
   // Brief §5: "Secondary text (dates, placeholders) must be a highly legible silver/grey
@@ -824,8 +873,9 @@ const defaultDark: ThemePalette = {
   // 2026-08-20 contrast pass: #787882 → #8A8A95, 3.817:1 → 4.882:1 on `surface` (6.150:1 on
   // bg, 5.486:1 on surfaceMuted). This is the token `getGlassEdge`'s shade stop draws, so it is
   // what actually says where a card ends now that the fill step is soft — see rule 10b.
-  // Re-measured after the 2026-08-26 `surface` bump: 4.090:1 on `surface` (bg/surfaceMuted
-  // ratios unchanged, since neither token moved) — still comfortably clear of the 3:1 floor.
+  // Re-measured after the 2026-08-26 `surface` correction to `#242424`: 4.546:1 on `surface`
+  // (was 4.090:1 during the same phase's `#2C2C2C` attempt; bg/surfaceMuted ratios unchanged,
+  // since neither token moved) — still comfortably clear of the 3:1 floor.
   border: '#8A8A95',
   borderStrong: '#A8A8B4',
   // ── Vibrant pass, 2026-08-16 (brief §4: "highly saturated, vibrant jewel tones") ──────────
@@ -836,20 +886,37 @@ const defaultDark: ThemePalette = {
   // Cyan" first. Cyan is spoken for: brief §7 assigns `#05D9E8` to Habits as a CATEGORY colour,
   // and an accent that matches one category's identity makes every primary button on every
   // other screen look like it belongs to Habits. Blue is the one vivid slot the five
-  // categoricals leave open (nearest is Habits' cyan at ΔE2000 30.5).
-  // 4.78:1 on `surface` (was 4.53), so this also retires the 4.4 floor's last excuse — see
-  // `bad` below. contrastOn() still picks the dark ink, so nothing on an accent fill flipped.
-  accent: '#1E88FF',
+  // categoricals leave open (nearest is Habits' cyan, now ΔE2000 33.1 — see the 2026-08-26
+  // retune below).
+  // 4.78:1 on `surface` (was 4.53) as of 2026-08-16, so that pass also retired the 4.4 floor's
+  // last excuse — see `bad` below. contrastOn() still picks the dark ink, so nothing on an
+  // accent fill flipped.
+  //
+  // ── Retuned 2026-08-26 (DESIGN_COMPARISON/19 phase 1's `surface` correction) ─────────────
+  // `#1E88FF` → `#298AFF`. Raising dark `surface` to `#242424` (see that token's own comment)
+  // dropped `accent` from 4.78:1 to 4.45:1 — under AA — because a chromatic token's contrast
+  // is measured against `surface`, and a lighter `surface` narrows every gap to a fixed hue.
+  // Lifted along the same hue (electric blue, not desaturated) to L\* 57.9, clearing 4.5 with
+  // a small margin: 4.564:1 on `surface`, 6.174:1 on `bg`. `accentInk` (`#0A0A0A`) still clears
+  // 3:1 on the new fill (5.82:1) with room; nothing on an accent fill changed which ink it uses.
+  accent: '#298AFF',
   accentSoft: '#12233D',
   accentInk: '#0A0A0A',
-  // Bright emerald, per the brief's named example. 9.98:1 on `surface`.
+  // Bright emerald, per the brief's named example. 9.30:1 on `surface` as of the 2026-08-26
+  // `surface` correction (was 9.98:1 at `#1E1E1E`) — untouched, still well clear of AA.
   good: '#00E58A',
   goodSoft: '#0B2A20',
   // ⚠️ Retuned off `#EF4444`, and that FIXES a documented shortfall rather than creating one:
   // #EF4444 measured 4.430:1 on `surface` — 0.07 under AA — and was kept on instruction in the
   // 2026-08-10 pass, which is the sole reason `CHROMATIC_FLOOR.dark` in colors.test.ts was
-  // relaxed to 4.4. This is 4.79:1, so that floor goes back to 4.5 in the same change.
-  bad: '#FF3B5C',
+  // relaxed to 4.4. `#FF3B5C` (2026-08-16) was 4.79:1, so that floor went back to 4.5 in the
+  // same change.
+  //
+  // ── Retuned again 2026-08-26, same cause as `accent` above ────────────────────────────────
+  // `#FF3B5C` → `#FF415E`. The `surface` correction to `#242424` dropped this to 4.46:1 —
+  // under AA again. Lifted along the same hue to L\* 57.9: 4.561:1 on `surface`, 6.170:1 on
+  // `bg`. `CHROMATIC_FLOOR.dark` stays 4.5 — this fix keeps the floor rather than reopening it.
+  bad: '#FF415E',
   badSoft: '#2E1215',
   warn: '#FFB300',
   warnSoft: '#2D2109',
@@ -886,16 +953,18 @@ const defaultDark: ThemePalette = {
   // has a teal Health wash under a rose Health badge — is known and accepted.
   //
   // ⚠️ The six categorical entries below are `IDENTITY_HUES` VERBATIM and must stay that way —
-  // they moved with the 2026-08-17 lightness-ladder recalibration and would silently un-align
-  // the wash from its badge if left behind. Copied rather than referenced only because this
-  // block is a literal palette; `lib/__tests__/colors.test.ts` asserts they agree.
+  // they moved with the 2026-08-17 lightness-ladder recalibration (and `featShop`/`featNote`
+  // moved again on 2026-08-26 with the shopping/notes retune — see IDENTITY_HUES' own addendum)
+  // and would silently un-align the wash from its badge if left behind. Copied rather than
+  // referenced only because this block is a literal palette; `lib/__tests__/colors.test.ts`
+  // asserts they agree.
   //
   // Three of the nine are NOT one of the five named categories and are picked to stay clear of
   // all of them rather than to mean anything new. **They are deliberately NOT on the ladder**,
   // and the reason is that they cannot be seen beside it: `feat*` is a per-SCREEN wash, one
   // screen at a time, and the only surface that shows several at once is Home — whose preview
   // cards are To-do, Habits, Shopping and Notes, i.e. four of the five. Food, Scan and Budget
-  // have no Home card, so `featMeal` sharing Shopping's rung (L\* 66.0 vs 64.0) costs nothing
+  // have no Home card, so `featMeal` sharing Shopping's rung (L\* 66.0 vs 64.7) costs nothing
   // that is ever on screen together. Don't "finish the ladder" by putting them on it — that
   // would spend rungs the five categories need.
   featPlan: '#FFD700',   // goals — rides To-do's gold (this token has no live consumer; see
@@ -905,15 +974,15 @@ const defaultDark: ThemePalette = {
   featHealth: '#FF8CB2', // health — rose (rung 3)
   featMeal: '#FF7A1A',   // food & meals — neon orange. Part of the shopping world, but its own
   // screen, so it can't just take Shopping's green; orange is the nearest free slot.
-  featShop: '#0DB34A',   // shopping — emerald (rung 4)
+  featShop: '#24B451',   // shopping — emerald (rung 4; was #0DB34A until the 2026-08-26 retune)
   featBudget: '#FFB300', // money — unwired, no screen maps to it
-  featNote: '#B45CFF',   // notes — violet (rung 5)
+  featNote: '#B660FF',   // notes — violet (rung 5; was #B45CFF until the 2026-08-26 retune)
   featScan: '#7C5CFF',   // scan & receipts — electric indigo. It was violet, which Notes owns;
   // moved along the hue wheel rather than being left to collide with it. It still sits closest
-  // to Notes of anything here (ΔE2000 9.4, was 10.9 before the 2026-08-17 recalibration) and is
-  // left alone on purpose: rotating it further toward blue just trades that for a collision
-  // with `accent` (#1E88FF, ΔE 19.5 today, 12.8 at h 285), and Scan is a pushed sub-screen that
-  // shares no view with either.
+  // to Notes of anything here (ΔE2000 9.92 against the retuned `#B660FF`, was 9.4 against the
+  // pre-2026-08-26 value) and is left alone on purpose: rotating it further toward blue just
+  // trades that for a collision with `accent` (`#298AFF` as of the same retune, ΔE 19.64
+  // today), and Scan is a pushed sub-screen that shares no view with either.
 
   // Card identity (dark) — IDENTICAL to light as of 2026-07-31 (addendum A.3). The old ramp
   // lightened every stop ~0.20 for the dark surface; the five collapsed hues do NOT, because
