@@ -109,6 +109,9 @@ import { todayStr, getWeekDates, getMonthDates, dayOfWeekMon0 } from '@/lib/date
 import TimeBoxInput from '@/components/TimeBoxInput';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import Stepper from '@/components/Stepper';
+import GoalQuickCell from '@/components/GoalQuickCell';
+import { energyFieldsFromStepper } from '@/lib/energy';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -242,30 +245,59 @@ function DoneSplitList({
   );
 }
 
-/** Inline "add a task" row scoped to a specific date. */
+/** A pickable date for the Day/Date option — see `InlineTaskAdd`'s `dateChoices`. */
+type DateChoice = { date: string; short: string; label: string };
+
+/**
+ * Inline "add a task" row scoped to a specific date.
+ *
+ * **`compose` is this mount's slice of `lib/cardRegistry.ts`'s per-card options table
+ * (DESIGN_COMPARISON/19-IMPLEMENTATION.md phase 7)** — Today gets Time·Effort·Goal, This week
+ * gets Day·Time·Goal, This month gets Date·Goal. One composer, three option sets, because all
+ * three cards commit through the identical `addTask` shape and differ only in which cells show.
+ * Tier 1 (the line, committing alone) is unchanged in every case — none of these options is
+ * required to add a row.
+ */
 function InlineTaskAdd({
   date,
   accent,
   assigneeId = '',
   assignee = '',
   wrapped,
+  compose,
+  dateChoices,
 }: {
   date: string;
   accent: string;
   assigneeId?: string;
   assignee?: string;
   wrapped?: boolean;
+  /** Which options panel this mount offers — omit for a bare line with no options at all. */
+  compose?: 'today' | 'week' | 'month';
+  /** The Day/Date option's pickable dates (`'week'`/`'month'` only) — the composer's own `date`
+   *  is the default selection. */
+  dateChoices?: DateChoice[];
 }) {
   const t = useT();
   const addTask = useTaskStore((s) => s.add);
+  const energySystemEnabled = useSettingsStore((s) => s.energySystemEnabled);
+  const featureGoals = useSettingsStore((s) => s.featureGoals);
   const [value, setValue] = useState('');
+  const [time, setTime] = useState('');
+  const [energyValue, setEnergyValue] = useState(0);
+  const [goalId, setGoalId] = useState<string | null>(null);
+  const [chosenDate, setChosenDate] = useState(date);
+
+  const commitDate = compose === 'week' || compose === 'month' ? chosenDate || date : date;
 
   const commit = useCallback(() => {
     const title = value.trim();
     if (!title) return;
+    const energy = energyFieldsFromStepper(energyValue);
     addTask({
       title,
-      date,
+      date: commitDate,
+      time: (compose === 'today' || compose === 'week') && time ? time : undefined,
       taskType: 'start-at',
       done: false,
       recurring: 'none',
@@ -279,9 +311,64 @@ function InlineTaskAdd({
       hasStartDate: true,
       assigneeId,
       assignee,
+      energyEnabled: energy.energyEnabled,
+      energyValue: energy.energyValue,
+      goalId,
     });
     setValue('');
-  }, [value, date, assigneeId, assignee, addTask]);
+    setTime('');
+    setEnergyValue(0);
+    setGoalId(null);
+    setChosenDate(date);
+  }, [value, commitDate, time, energyValue, goalId, date, compose, assigneeId, assignee, addTask]);
+
+  function pickDate() {
+    if (!dateChoices || dateChoices.length === 0) return;
+    tap();
+    showAppModal(compose === 'week' ? t.pad.dayOption : t.dateLabel, undefined, [
+      ...dateChoices.map((d) => ({
+        text: d.date === commitDate ? `• ${d.label}` : d.label,
+        onPress: () => setChosenDate(d.date),
+      })),
+      { text: t.cancel, style: 'cancel' as const },
+    ]);
+  }
+
+  const chosen = dateChoices?.find((d) => d.date === commitDate);
+
+  const panel = compose ? (
+    <QuickAddOptionsPanel>
+      {(compose === 'week' || compose === 'month') && dateChoices && dateChoices.length > 0 && (
+        <QuickAddOptionRow
+          icon="calendar-outline"
+          label={compose === 'week' ? t.pad.dayOption : t.dateLabel}
+          value={chosen?.short ?? ''}
+          isSet={!!chosen}
+          accent={accent}
+          onPress={pickDate}
+          showsMore
+          accessibilityLabel={`${compose === 'week' ? t.pad.dayOption : t.dateLabel}: ${chosen?.label ?? ''}`}
+        />
+      )}
+      {(compose === 'today' || compose === 'week') && (
+        <QuickAddOptionRow
+          icon="time-outline"
+          label={t.timeLabel}
+          value={<TimeBoxInput value={time} onChange={setTime} />}
+          accent={accent}
+        />
+      )}
+      {compose === 'today' && energySystemEnabled && (
+        <QuickAddOptionRow
+          icon={energyValue === 0 ? 'flash-outline' : energyValue > 0 ? 'flash' : 'flash-off'}
+          label={t.energyGiveTakeLabel}
+          value={<Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />}
+          accent={accent}
+        />
+      )}
+      {featureGoals && <GoalQuickCell value={goalId} onChange={setGoalId} accent={accent} />}
+    </QuickAddOptionsPanel>
+  ) : undefined;
 
   const row = (
     <AddRow
@@ -292,6 +379,7 @@ function InlineTaskAdd({
       accent={accent}
       showDivider={!wrapped}
       accessibilityLabel={t.newTask}
+      panel={panel}
     />
   );
 
@@ -444,6 +532,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const [wheneverTime, setWheneverTime] = useState('');
   const [wheneverRecurring, setWheneverRecurring] = useState<Recurring>('none');
   const [wheneverRecurringDays, setWheneverRecurringDays] = useState<number[]>([]);
+  // Effort · Goal (phase 7's table for Whenever) — added ALONGSIDE the existing Time/Repeat
+  // cells rather than replacing them: this composer already doubles as the general "add any
+  // task" line (setting Repeat here creates a genuinely recurring task, which is why it isn't
+  // filtered out of `wheneverAll` by mistake — recurring tasks just leave this list once
+  // committed), and that was shipped, tested behaviour worth keeping rather than deleting to
+  // match the table's minimal two-option read of "Whenever".
+  const [wheneverEnergyValue, setWheneverEnergyValue] = useState(0);
+  const [wheneverGoalId, setWheneverGoalId] = useState<string | null>(null);
   function pickWheneverRecurring() {
     tap();
     const options: Recurring[] = ['none', 'daily', 'weekly', 'monthly'];
@@ -470,6 +566,45 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     if (mode === 'monthly') return t.taskRecurMonth;
     return t.taskRecurNever;
   }
+
+  // ── Recurring's own composer: Repeat · On · Time (phase 7's table) ─────────────────────────
+  // **`recurringDays` (the "On" cell) is the dependent option the phase-7 handoff calls out by
+  // name** — it only exists once Repeat says Weekly, and its own picker is exactly the shape
+  // that froze the shipped app before `engaged` existed (a `showAppModal` Repeat picker takes
+  // window focus, blurring the composer; without `engaged` the whole panel — On included — would
+  // unmount behind the dialog). Nothing new is needed here to be safe: `PadTypeRow`/`AddRow`'s
+  // panel slot already spreads `controlsResponderProps` around whatever this returns, so a cell
+  // that appears/disappears with `recurringMode` is just ordinary conditional JSX inside it.
+  const [recurringInput, setRecurringInput] = useState('');
+  const [recurringMode, setRecurringMode] = useState<Recurring>('daily');
+  const [recurringDays, setRecurringDays] = useState<number[]>([dayOfWeekMon0(new Date())]);
+  const [recurringTime, setRecurringTime] = useState('');
+  function pickRecurringMode() {
+    tap();
+    const options: Recurring[] = ['daily', 'weekly', 'monthly'];
+    showAppModal(
+      t.pad.recurrencePicker,
+      undefined,
+      [
+        ...options.map((mode) => ({
+          text: mode === recurringMode ? `• ${wheneverRecurringLabel(mode)}` : wheneverRecurringLabel(mode),
+          onPress: () => {
+            if (mode === 'weekly') {
+              setRecurringDays((days) => (days.length ? days : [dayOfWeekMon0(new Date())]));
+            }
+            setRecurringMode(mode);
+          },
+        })),
+        { text: t.cancel, style: 'cancel' as const },
+      ]
+    );
+  }
+  function toggleRecurringDay(i: number) {
+    tap();
+    setRecurringDays((days) => (days.includes(i) ? days.filter((d) => d !== i) : [...days, i].sort((a, b) => a - b)));
+  }
+  // commitRecurring itself is defined further down, once `addAssigneeName` exists — see there.
+
   const [planStarterAdded, setPlanStarterAdded] = useState(false);
 
   const { expandTaskId } = useLocalSearchParams<{ expandTaskId?: string }>();
@@ -498,6 +633,33 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const selfPersonId = people.find((p) => p.isSelf)?.id ?? '';
   const filterPerson = personFilter ? people.find((p) => p.id === personFilter) ?? null : null;
   const addAssigneeName = filterPerson && !filterPerson.isSelf ? filterPerson.name : '';
+
+  const commitRecurring = useCallback(() => {
+    const title = recurringInput.trim();
+    if (!title) return;
+    addTask({
+      title,
+      date: today,
+      time: recurringTime || undefined,
+      taskType: 'start-at',
+      done: false,
+      recurring: recurringMode,
+      recurringDays: recurringMode === 'weekly' ? recurringDays : [],
+      weekInterval: 1,
+      monthlyMode: 'day',
+      monthDay: new Date().getDate(),
+      monthOrdinal: 'first',
+      monthWeekday: 0,
+      sortOrder: 0,
+      hasStartDate: true,
+      assigneeId: personFilter ?? '',
+      assignee: addAssigneeName,
+    });
+    setRecurringInput('');
+    setRecurringTime('');
+    setRecurringMode('daily');
+    setRecurringDays([dayOfWeekMon0(new Date())]);
+  }, [recurringInput, recurringTime, recurringMode, recurringDays, addTask, today, personFilter, addAssigneeName]);
 
   const handleTimelineAddTask = useCallback(
     (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) =>
@@ -613,6 +775,13 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     [weekGroups]
   );
 
+  // The Week composer's "Day" option (phase 7) — one choice per date the card actually draws,
+  // short for the cell, full for the picker's own list.
+  const weekDateChoices = useMemo(
+    () => weekGroups.map((g, i): DateChoice => ({ date: g.date, short: t.dayLabels[i], label: t.dayFull[i] })),
+    [weekGroups, t]
+  );
+
   // Per-weekday fold state for the Week card (2026-08-20, card-element standardization pass —
   // "avoid always having 7 days showing"). Local and NOT persisted: a day's own SectionCard is
   // data-generated (one per date in the current week), and lib/collapsedCards.ts's singleton
@@ -650,6 +819,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // New tasks composed on this card default to the month's last day, so committing on the line
   // alone (tier 1's rule) always lands a row this card actually draws.
   const monthDefaultDate = monthDates[monthDates.length - 1] ?? today;
+  // The Month composer's "Date" option (phase 7) — every date this card draws, labelled by day
+  // number (there's no room in a half-width cell for a full "26 August").
+  const monthDateChoices = useMemo(
+    () => monthDates.map((d): DateChoice => ({ date: d, short: String(Number(d.slice(8, 10))), label: d })),
+    [monthDates]
+  );
   const monthAll = useMemo(() => {
     const weekSet = new Set(weekDates);
     return tasks
@@ -743,6 +918,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const commitWhenever = useCallback(() => {
     const title = wheneverInput.trim();
     if (!title) return;
+    const energy = energyFieldsFromStepper(wheneverEnergyValue);
     addTask({
       title,
       date: today,
@@ -759,12 +935,17 @@ export default function TodoSurface({ section, onDayReset }: Props) {
       sortOrder: 0,
       hasStartDate: false,
       assignee: '',
+      energyEnabled: energy.energyEnabled,
+      energyValue: energy.energyValue,
+      goalId: wheneverGoalId,
     });
     setWheneverInput('');
     setWheneverTime('');
     setWheneverRecurring('none');
     setWheneverRecurringDays([]);
-  }, [wheneverInput, wheneverTime, wheneverRecurring, wheneverRecurringDays, addTask, today]);
+    setWheneverEnergyValue(0);
+    setWheneverGoalId(null);
+  }, [wheneverInput, wheneverTime, wheneverRecurring, wheneverRecurringDays, wheneverEnergyValue, wheneverGoalId, addTask, today]);
 
   function addPlanStarterTask() {
     const newTask = addTask({
@@ -857,6 +1038,25 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                   showsMore
                   accessibilityLabel={`${t.taskRecurringToggle}: ${wheneverRecurringLabel(wheneverRecurring)}`}
                 />
+                {/* Effort · Goal — phase 7's table entry for this card. */}
+                {energySystemEnabled && (
+                  <QuickAddOptionRow
+                    icon={wheneverEnergyValue === 0 ? 'flash-outline' : wheneverEnergyValue > 0 ? 'flash' : 'flash-off'}
+                    label={t.energyGiveTakeLabel}
+                    value={
+                      <Stepper
+                        value={wheneverEnergyValue}
+                        onChange={setWheneverEnergyValue}
+                        signed
+                        accessibilityLabel={t.energyGiveTakeLabel}
+                      />
+                    }
+                    accent={wheneverHue}
+                  />
+                )}
+                {featureGoals && (
+                  <GoalQuickCell value={wheneverGoalId} onChange={setWheneverGoalId} accent={wheneverHue} />
+                )}
               </QuickAddOptionsPanel>
             }
           />
@@ -904,7 +1104,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                     focusMode={layoutSpec.focusMode}
                     emptyQuoteKey={dayResetNonce}
                     footer={
-                      <InlineTaskAdd date={today} accent={group.hue} assigneeId={group.personId} assignee={group.addName} wrapped />
+                      <InlineTaskAdd date={today} accent={group.hue} assigneeId={group.personId} assignee={group.addName} wrapped compose="today" />
                     }
                     renderCard={(tk) => (
                       <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
@@ -941,14 +1141,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               newSinceIds={newSinceIds}
               newFields={newFields}
               pinProps={pinProps}
-              footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+              footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="today" />}
             />
           ) : (
             <DoneSplitList
               tasks={todayList}
               focusMode={layoutSpec.focusMode}
               emptyQuoteKey={dayResetNonce}
-              footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+              footer={<InlineTaskAdd date={today} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="today" />}
               renderCard={(tk) => (
                 <TaskCard key={tk.id} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} {...pinProps(tk)} />
               )}
@@ -1029,7 +1229,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               <DoneSplitList
                 tasks={[...group.tasks].sort(byTime)}
                 focusMode={layoutSpec.focusMode}
-                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="week" dateChoices={weekDateChoices} />}
                 renderCard={(tk) => (
                   <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                 )}
@@ -1046,7 +1246,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
       <Card id="todoMonth" count={monthAll.length}>
         <DoneSplitList
           tasks={monthAll}
-          footer={<InlineTaskAdd date={monthDefaultDate} accent={screenHue} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+          footer={<InlineTaskAdd date={monthDefaultDate} accent={screenHue} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="month" dateChoices={monthDateChoices} />}
           renderCard={(tk) => (
             <TaskCard
               key={tk.id}
@@ -1085,6 +1285,77 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               ))}
             </View>
           )}
+          {/* Repeat · On · Time (phase 7's table) — commits a genuinely recurring task
+              directly, rather than sending the user to the full editor for what is this
+              card's own primary action. "On" is the dependent cell: it only renders once
+              Repeat says Weekly, see the state block above for why that's safe. */}
+          <View style={styles.addRowSlot}>
+            <AddRow
+              placeholder={t.newTask}
+              value={recurringInput}
+              onChangeText={setRecurringInput}
+              onSubmit={commitRecurring}
+              accent={screenHue}
+              showDivider={recurringAll.length > 0}
+              accessibilityLabel={t.newTask}
+              panel={
+                <QuickAddOptionsPanel>
+                  <QuickAddOptionRow
+                    icon="repeat"
+                    label={t.taskRecurringToggle}
+                    value={wheneverRecurringLabel(recurringMode)}
+                    isSet
+                    accent={screenHue}
+                    onPress={pickRecurringMode}
+                    showsMore
+                    accessibilityLabel={`${t.taskRecurringToggle}: ${wheneverRecurringLabel(recurringMode)}`}
+                  />
+                  {recurringMode === 'weekly' && (
+                    <QuickAddOptionRow
+                      icon="calendar-outline"
+                      label={t.pad.onDays}
+                      wide
+                      accent={screenHue}
+                      value={
+                        <View style={styles.recurringDaysRow}>
+                          {t.dayLabels.map((label, i) => {
+                            const active = recurringDays.includes(i);
+                            return (
+                              <PressableScale
+                                key={i}
+                                style={[
+                                  styles.recurringDayChip,
+                                  {
+                                    backgroundColor: active ? screenHue : theme.surfaceMuted,
+                                    borderColor: active ? screenHue : theme.border,
+                                  },
+                                ]}
+                                onPress={() => toggleRecurringDay(i)}
+                                scaleTo={0.97}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected: active }}
+                                accessibilityLabel={t.dayFull[i]}
+                              >
+                                <Text style={[styles.recurringDayChipText, { color: active ? theme.accentInk : theme.textMuted }]}>
+                                  {label.slice(0, 2)}
+                                </Text>
+                              </PressableScale>
+                            );
+                          })}
+                        </View>
+                      }
+                    />
+                  )}
+                  <QuickAddOptionRow
+                    icon="time-outline"
+                    label={t.timeLabel}
+                    value={<TimeBoxInput value={recurringTime} onChange={setRecurringTime} />}
+                    accent={screenHue}
+                  />
+                </QuickAddOptionsPanel>
+              }
+            />
+          </View>
         </Card>
       </DebugNoteAnchor>
     </View>
@@ -1173,6 +1444,20 @@ const styles = StyleSheet.create({
   // horizontal inset, the same convention components/FoodTab.tsx's `root` follows.
   content: { gap: SCREEN_GAP },
   cardStack: { gap: Spacing.sm },
+  // The Recurring composer's "On" cell (phase 7) — a compact weekday multi-select, same
+  // geometry as components/TaskCard.tsx's own `weekdayChip` row (a smaller version of the same
+  // control, since this one lives inside a half-height quick-add cell rather than a full form).
+  recurringDaysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  recurringDayChip: {
+    minWidth: 28,
+    height: 28,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recurringDayChipText: { fontSize: FontSize.xs, fontFamily: Type.label.fontFamily },
   // `cardHeaderRow`/`cardHeaderTitle` are DELETED (2026-08-21): both headers that used them are
   // `SectionRail`s now, which owns the row, the title token and the trailing cluster. See the
   // call sites. Their `flex: 1` + `minWidth: 0` note lives on SectionRail's `label` style, where

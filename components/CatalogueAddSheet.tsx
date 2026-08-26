@@ -11,18 +11,24 @@
  *
  * Connections:
  *   Imports → components/AnimatedBottomSheet, components/Button, components/Surface,
- *             components/FormControls (Input), constants/theme, lib/i18n, lib/useAppTheme
+ *             components/FormControls (Input), components/PressableScale (the category chips),
+ *             lib/shoppingCategories (categoryPresets — Price/Category, phase 7 of
+ *             DESIGN_COMPARISON/19-IMPLEMENTATION.md), constants/theme, lib/i18n, lib/useAppTheme
  *   Used by → components/CatalogueTab.tsx (both the /catalogue screen and Shopping's
  *             Catalogue drawer — the sheet is a Modal, so it works from inside the drawer too)
- *   Data    → none. It hands `{ name, price }` back through `onSave`; the caller owns the
- *             useCatalogStore write, its haptic and its toast.
+ *   Data    → none. It hands `{ name, price, category }` back through `onSave`; the caller owns
+ *             the useCatalogStore write, its haptic and its toast.
  *
  * Edit notes:
  *   - **Name is the only required field**, matching the composers' tier-1 rule (AGENTS.md,
  *     "the hierarchy of settings when making a row"): committing on the name alone must always
- *     produce a valid row, so price defaults to 0 and carries an "Opt" tag rather than a
- *     validation error. Save is disabled while the name is blank — there is nothing to save,
- *     and a button that can act is better than one that reports a failure.
+ *     produce a valid row, so price/category default to 0/'other' and carry an "Opt" tag rather
+ *     than a validation error. Save is disabled while the name is blank — there is nothing to
+ *     save, and a button that can act is better than one that reports a failure.
+ *   - **Category is a wrapping chip row, not a `showAppModal` picker** — this sheet is already
+ *     one `<Modal>` (AnimatedBottomSheet); a second stacked Modal for the picker is the kind of
+ *     thing worth avoiding when a 13-value preset list fits directly on the sheet, the same
+ *     shape `components/ShoppingItemSheet.tsx`'s own category row already uses.
  *   - Fields are re-seeded to blank on each OPEN, not on every render, so the store's own
  *     notifications can't wipe half-typed text. Discard and a backdrop dismiss are the same
  *     path (`onClose`) — nothing is written until Save.
@@ -37,7 +43,9 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
 import Button from '@/components/Button';
 import Surface from '@/components/Surface';
+import PressableScale from '@/components/PressableScale';
 import { Input } from '@/components/FormControls';
+import { categoryPresets } from '@/lib/shoppingCategories';
 import { Fonts, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
@@ -45,17 +53,19 @@ import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 type Props = {
   visible: boolean;
   onClose: () => void;
-  /** Price is already parsed; 0 means "no price given". */
-  onSave: (item: { name: string; price: number }) => void;
+  /** Price is already parsed; 0 means "no price given". Category defaults to 'other'. */
+  onSave: (item: { name: string; price: number; category: string }) => void;
 };
 
 export default function CatalogueAddSheet({ visible, onClose, onSave }: Props) {
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
+  const categories = categoryPresets(t);
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [category, setCategory] = useState('other');
 
   // Blank on every open — this sheet only ever creates, so there is no row to seed from, and
   // leaving the last attempt in the fields would make a second add look like an edit.
@@ -63,6 +73,7 @@ export default function CatalogueAddSheet({ visible, onClose, onSave }: Props) {
     if (!visible) return;
     setName('');
     setPrice('');
+    setCategory('other');
   }, [visible]);
 
   const canSave = name.trim().length > 0;
@@ -70,7 +81,7 @@ export default function CatalogueAddSheet({ visible, onClose, onSave }: Props) {
   function save() {
     const trimmed = name.trim();
     if (!trimmed) return;
-    onSave({ name: trimmed, price: parseFloat(price.replace(',', '.')) || 0 });
+    onSave({ name: trimmed, price: parseFloat(price.replace(',', '.')) || 0, category });
     onClose();
   }
 
@@ -102,6 +113,35 @@ export default function CatalogueAddSheet({ visible, onClose, onSave }: Props) {
             onSubmitEditing={save}
             style={styles.input}
           />
+
+          {/* Category — phase 7's second option for this card. */}
+          <View>
+            <Text style={[styles.categoryLabel, { color: theme.textMuted }]}>
+              {t.shoppingItemSheet.category}
+            </Text>
+            <View style={styles.categoryRow}>
+              {categories.map((c) => {
+                const active = category === c.value;
+                return (
+                  <PressableScale
+                    key={c.value}
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: active ? theme.accent : theme.surfaceMuted, borderColor: active ? theme.accent : theme.border },
+                    ]}
+                    onPress={() => setCategory(c.value)}
+                    scaleTo={0.97}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.categoryChipText, { color: active ? theme.accentInk : theme.textMuted }]}>
+                      {c.label}
+                    </Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
 
           <View style={styles.actions}>
             <Button label={t.discard} onPress={onClose} variant="ghost" />
@@ -136,6 +176,10 @@ const baseStyles = StyleSheet.create({
   },
   title: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
   input: { minHeight: MIN_TAP_TARGET },
+  categoryLabel: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, marginBottom: Spacing.xs },
+  categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  categoryChip: { paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1 },
+  categoryChipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
   // Discard sits left as a ghost, Save right as the one filled action. `flexWrap` + `rowGap`
   // is the wrap-audit's answer for a labelled button pair that can't shorten its words.
   actions: {

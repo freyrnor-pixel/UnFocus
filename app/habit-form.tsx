@@ -73,6 +73,11 @@
  *             (or editing its recipe) reschedules the habit's reminders through the store
  *
  * Edit notes:
+ *   - **`params.notificationEnabled`/`params.notificationTime` (2026-08-26)** — the Habits
+ *     tab's quick-add "Remind" option (`components/HabitsSurface.tsx`, phase 7 of
+ *     DESIGN_COMPARISON/19-IMPLEMENTATION.md) seeds these the same way it already seeded
+ *     `dailyGoal`/`recurrence`/`energy`: CREATE-mode only, ignored once `existing` is set,
+ *     nothing written until Save.
  *   - All visible strings go through useT(); colour theme comes from useAppTheme().
  *   - **Recurrence (2026-07-20)**: Daily/Weekly/Monthly/Flexible picker, matching
  *     lib/habitRecurrence.ts's habitOccursOn. Weekly saves `recurrenceDays` as the
@@ -229,6 +234,10 @@ export default function HabitForm() {
     recurrenceInterval?: string;
     recurrenceDays?: string;
     dailyGoal?: string;
+    // Reminder seeds (2026-08-26, phase 7's "Remind" quick-add option) — same shape as the
+    // recurrence seeds above: they only seed initial state, nothing is written until Save.
+    notificationEnabled?: string;
+    notificationTime?: string;
   }>();
   const isEdit = !!params.id;
 
@@ -309,13 +318,17 @@ export default function HabitForm() {
   });
   const [goalId, setGoalId] = useState<string | null>(existing?.goalId ?? null);
 
-  const [notificationEnabled, setNotificationEnabled] = useState(existing?.notificationEnabled ?? false);
+  const [notificationEnabled, setNotificationEnabled] = useState(
+    existing?.notificationEnabled ?? params.notificationEnabled === '1'
+  );
   // Recipe fields: prefer the persisted recipe (Decision 016 Q3); fall back to the old
   // length-based inference for a habit saved before recipe columns existed.
   const [reminderMode, setReminderMode] = useState<HabitReminderMode>(
     existing?.reminderMode ?? ((existing?.notificationTimes?.length ?? 0) > 1 ? 'count' : 'single')
   );
-  const [singleTime, setSingleTime] = useState(existing?.notificationTimes?.[0] ?? '08:00');
+  const [singleTime, setSingleTime] = useState(
+    existing?.notificationTimes?.[0] ?? params.notificationTime ?? '08:00'
+  );
   const [reminderCount, setReminderCount] = useState(
     existing?.reminderCount ?? Math.min(12, Math.max(2, existing?.notificationTimes?.length ?? 3))
   );

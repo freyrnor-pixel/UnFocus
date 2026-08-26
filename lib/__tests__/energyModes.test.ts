@@ -186,7 +186,13 @@ const ENERGY_SURFACES: { what: string; file: string; token: string }[] = [
   { what: "the task editor's energy stepper", file: 'components/TaskCard.tsx', token: 't.energyGiveTakeLabel' },
   { what: "the habit form's energy stepper", file: 'app/habit-form.tsx', token: 't.energyGiveTakeLabel' },
   // components/HabitsSurface.tsx since the 2026-08-20 extraction; app/habits.tsx is a wrapper.
-  { what: "the Habits tab's own quick-add energy row", file: 'components/HabitsSurface.tsx', token: '<QuickAddOptionRow' },
+  // ⚠️ **`t.energyGiveTakeLabel`, not `<QuickAddOptionRow` (2026-08-26).** The bare component
+  // tag matched every occurrence in the file, which was fine while the energy cell was the
+  // ONLY `QuickAddOptionRow` there — phase 7 of DESIGN_COMPARISON/19-IMPLEMENTATION.md added
+  // Target and Remind cells beside it, neither gated on `energySystemEnabled` (they have
+  // nothing to do with it), and the blanket token search started failing on those. The label
+  // string is what every OTHER entry in this table already keys on for exactly this reason.
+  { what: "the Habits tab's own quick-add energy row", file: 'components/HabitsSurface.tsx', token: 't.energyGiveTakeLabel' },
 ];
 
 describe('Rewards mode renders no energy UI', () => {

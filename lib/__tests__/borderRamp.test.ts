@@ -228,15 +228,17 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
   });
 
-  it('dark: the card drops out of the shade family; field > button still holds', () => {
-    // 2026-08-16, brief §3. A dark card has NO shaded side at all — it is a top-left lip that
-    // fades to nothing — so it cannot take part in a shade-alpha ordering. The hierarchy still
-    // has to hold among the rungs that DO have one, which is the part that stops a card full
-    // of bordered controls reading as a grid.
-    const field = alphaOf(getGlassEdge(BORDER_DARK, true, 'field').colors[1]);
-    const button = alphaOf(getGlassEdge(BORDER_DARK, true, 'button').colors[1]);
-    expect(field).toBeGreaterThan(button);
-    expect(button).toBeGreaterThan(0.25);
+  // ⚠️ **REVERSED 2026-08-26** — was "dark: the card drops out of the shade family; field >
+  // button still holds", from 2026-08-16's brief §3: a dark card had NO shaded side at all (a
+  // top-left lip fading to nothing), so it couldn't take part in a shade-alpha ordering, and
+  // only `field > button` was asserted. Now that `GLASS_EDGE.card` no longer sets `shadeDark`,
+  // dark inherits the SAME `card > field > button` family light already had — the hierarchy
+  // that stops a card full of bordered controls reading as a grid now holds in both modes.
+  it('dark: inherits the card > field > button family too, now that the card has a shade', () => {
+    const alphas = WEIGHTS.map((w) => alphaOf(getGlassEdge(BORDER_DARK, true, w).colors[1]));
+    expect(alphas[0]).toBeGreaterThan(alphas[1]);
+    expect(alphas[1]).toBeGreaterThan(alphas[2]);
+    alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
   });
 
   it('light: keeps the shade stop at FULL border strength on a card', () => {

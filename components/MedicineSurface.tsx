@@ -35,7 +35,9 @@
  *             (no explainer line since 2026-08-17 — the bulb tier is deleted app-wide; this card
  *             had a StarterCard until 2026-08-12 and a CardHintNote until this pass, and now has
  *             neither: its add field sits directly under the header),
- *             components/FormControls (Input), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
+ *             components/FormControls (Input), components/QuickAddOptionsPanel,
+ *             components/QuickAddOptionRow (the quick-add's Dose/Trays cells, phase 7 of
+ *             DESIGN_COMPARISON/19-IMPLEMENTATION.md), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
@@ -48,10 +50,16 @@
  *             and People-mode profiles
  *
  * Edit notes:
+ *   - **Dose · Trays (2026-08-26, phase 7)** — the quick-add's options panel. Both fields
+ *     already existed on `Medicine`, so this is composer wiring only, no migration. `traysDraft`
+ *     empty keeps the pre-existing "default to the tray we're standing in" behaviour below;
+ *     picking any tray in the panel overrides it. No Modal is opened by either cell (Dose is a
+ *     plain field, Trays a direct multi-select toggle), so neither needs anything beyond the
+ *     panel slot's own `controlsResponderProps`.
  *   - Quick-add puts the new medicine in the tray whose window contains NOW (falling back
  *     to the first tray of the day when it's before the earliest one), because that's what
- *     someone adding a medicine mid-dose is almost always doing. Everything else about it
- *     is editable in the form.
+ *     someone adding a medicine mid-dose is almost always doing — UNLESS the Trays option
+ *     picked something else. Everything else about it is editable in the form.
  *   - Tray times are edited here rather than in Settings: they're only meaningful next to
  *     the trays themselves. Drafts are committed on BLUR (not per keystroke) so a
  *     half-typed "1" never gets persisted as a reminder time, and only when
@@ -86,6 +94,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
+import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { Input } from '@/components/FormControls';
 import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -156,6 +166,13 @@ export default function MedicineSurface() {
   const [draft, setDraft] = useState('');
   const [timeDrafts, setTimeDrafts] = useState<Partial<Record<TrayId, string>>>({});
   const [selectedPerson, setSelectedPerson] = useState('');
+  // Dose · Trays (phase 7's table, DESIGN_COMPARISON/19-IMPLEMENTATION.md) — both fields
+  // already exist on `Medicine` (`dose` is free text, `trays` a TrayId[]), so this is
+  // composer-only wiring, no schema change. An EMPTY `traysDraft` keeps the existing
+  // "default to the tray we're standing in" behaviour from `commitAdd` below; picking any
+  // tray here overrides that default.
+  const [doseDraft, setDoseDraft] = useState('');
+  const [traysDraft, setTraysDraft] = useState<TrayId[]>([]);
 
   // One lift per tray field (hooks can't be called from inside TRAY_IDS.map) — see the
   // keyboard-avoidance edit note above.
@@ -225,13 +242,26 @@ export default function MedicineSurface() {
     takeDose(med.id, tray, today);
   }
 
+  function toggleTrayDraft(tray: TrayId) {
+    tap();
+    setTraysDraft((prev) => (prev.includes(tray) ? prev.filter((t) => t !== tray) : [...prev, tray]));
+  }
+
   function commitAdd() {
     const name = draft.trim();
     if (!name) return;
-    // Default to the tray we're standing in — before the day's first tray, use that one.
+    // Default to the tray we're standing in — before the day's first tray, use that one —
+    // unless the Trays option picked something else.
     const tray = currentTray(trayTimes, now) ?? sortedTrays(trayTimes)[0];
-    addMedicine({ name, trays: [tray], childName: person ?? '' });
+    addMedicine({
+      name,
+      dose: doseDraft.trim(),
+      trays: traysDraft.length > 0 ? traysDraft : [tray],
+      childName: person ?? '',
+    });
     setDraft('');
+    setDoseDraft('');
+    setTraysDraft([]);
     success();
   }
 
@@ -515,6 +545,64 @@ export default function MedicineSurface() {
         accent={screenHue}
         showDivider={medicines.length > 0}
         accessibilityLabel={t.medicine.addPlaceholder}
+        panel={
+          <QuickAddOptionsPanel>
+            {/* Dose · Trays — phase 7's table for this card. Both already exist on
+                `Medicine` (dose is free text, trays a TrayId[]), so this is composer-only
+                wiring, no schema change. */}
+            <QuickAddOptionRow
+              icon="medical-outline"
+              label={t.medicine.doseLabel}
+              wide
+              accent={screenHue}
+              value={
+                <Input
+                  value={doseDraft}
+                  onChangeText={setDoseDraft}
+                  placeholder={t.medicine.doseLabel}
+                  containerStyle={styles.doseInput}
+                  recessed
+                />
+              }
+            />
+            <QuickAddOptionRow
+              icon="time-outline"
+              label={t.medicine.traysLabel}
+              wide
+              accent={screenHue}
+              value={
+                <View style={styles.trayChipsRow}>
+                  {TRAY_IDS.map((tray) => {
+                    const active = traysDraft.includes(tray);
+                    return (
+                      <PressableScale
+                        key={tray}
+                        style={[
+                          styles.trayChip,
+                          {
+                            backgroundColor: active ? screenHue : theme.surfaceMuted,
+                            borderColor: active ? screenHue : theme.border,
+                          },
+                        ]}
+                        onPress={() => toggleTrayDraft(tray)}
+                        scaleTo={0.97}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={t.medicine.trays[tray]}
+                      >
+                        <Ionicons
+                          name={TRAY_ICONS[tray]}
+                          size={14}
+                          color={active ? theme.accentInk : theme.textMuted}
+                        />
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              }
+            />
+          </QuickAddOptionsPanel>
+        }
       />
     </View>
   );
@@ -535,6 +623,19 @@ const baseStyles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: FontSize.xs, fontFamily: Fonts.semibold },
+  // The quick-add's Dose · Trays cells (phase 7) — `doseInput` gives FormControls' `Input` a
+  // width the wide QuickAddOptionRow cell can flex, `trayChipsRow`/`trayChip` are a compact
+  // multi-select, same geometry family as components/TodoSurface.tsx's Recurring "On" chips.
+  doseInput: { flex: 1 },
+  trayChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  trayChip: {
+    width: 32,
+    height: 28,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reminderPanel: {
     marginTop: Spacing.sm,
     paddingTop: Spacing.sm,

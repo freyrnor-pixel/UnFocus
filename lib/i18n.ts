@@ -331,6 +331,11 @@ const en = {
     // Repeat picker (2026-08-05) — replaced a row that cycled none → daily → weekly →
     // monthly on tap, forward-only, with no way back and no cue that it cycled.
     recurrencePicker: 'How often?',
+    // Phase 7 (DESIGN_COMPARISON/19-IMPLEMENTATION.md) — the Week composer's "Day" option
+    // (which date, among the ones this card draws) and the Recurring composer's "On" option
+    // (which weekdays it repeats on, shown once Repeat says Weekly).
+    dayOption: 'Day',
+    onDays: 'On',
     // The type-line's options panel (2026-08-04) — the "Add as" row that toggles a task vs.
     // a day-log moment (components/PlanTaskCard.tsx's onCaptureMoment).
     captureTarget: {
@@ -2561,6 +2566,8 @@ const no: typeof en = {
     },
     moreOptions: 'Flere valg',
     recurrencePicker: 'Hvor ofte?',
+    dayOption: 'Dag',
+    onDays: 'På',
     captureTarget: {
       label: 'Legg til som',
       task: 'Oppgave',
@@ -4370,6 +4377,8 @@ const is: typeof en = {
     },
     moreOptions: 'Fleiri valkostir',
     recurrencePicker: 'Hversu oft?',
+    dayOption: 'Dagur',
+    onDays: 'Á',
     captureTarget: {
       label: 'Bæta við sem',
       task: 'Verkefni',

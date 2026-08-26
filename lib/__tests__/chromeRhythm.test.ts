@@ -643,10 +643,17 @@ describe('getFieldGlow — the light and the corner are one decision', () => {
   // with a 4px accent bar down its left edge. Three edges around one control, and a shape that
   // changed the moment you tapped it. Both halves are asserted, because either one alone still
   // reads as "the text boxes are wrong".
+  // ⚠️ Amended 2026-08-26 by the glow-budget pass (phase 2 of the card surface reset): text,
+  // borders and backgrounds never glow, and a field is lit only WHILE FOCUSED. The bar's resting
+  // halo was the loudest thing in the app — up to nine lit wells on a five-card screen, while the
+  // tasks themselves carried none. The rule this test exists for is unchanged and is what is
+  // still asserted: the collapsed bar and the field it becomes are ONE control, so neither may
+  // glow at rest. `lib/__tests__/glowBudget.test.ts` owns the budget itself.
   it('draws the collapsed "+" bar as the same well as the expanded field', () => {
     const s = code('components/AddRow.tsx');
-    // The halo, at rest, on the bar itself.
-    expect(s).toMatch(/styles\.addBar,\s*\n\s*getFieldGlow\(fill, 'soft'\),/);
+    // No halo at rest, on the bar or on the input — the two agree, on the new budget.
+    expect(s).not.toMatch(/styles\.addBar,\s*\n\s*getFieldGlow\(/);
+    expect(s).not.toMatch(/getFieldGlow\(fill, 'soft'\)/);
     // The well, and no resting stroke — the same pair the input below it applies.
     expect(s).toMatch(/\{ backgroundColor: recess\.paint, borderColor: 'transparent' \}/);
     // No outlined-pill leftovers: the bar takes the field's border weight and the helper's

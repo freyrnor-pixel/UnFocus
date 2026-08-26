@@ -19,6 +19,8 @@
  * Connections:
  *   Imports → components/PadRow, components/PadTypeRow, components/QuickAddOptionsPanel,
  *             components/QuickAddOptionRow, components/HabitRecurrenceCells, components/Stepper,
+ *             components/TimeBoxInput (the quick-add's Target/Remind cells, phase 7 of
+ *             DESIGN_COMPARISON/19-IMPLEMENTATION.md),
  *             components/StarterCard + components/StarterSuggestionChip (the empty state),
  *             components/NarratorQuote (a day with nothing due), components/CollapsedSection +
  *             components/GoalsEditor (the "Goals" drawer), components/Surface,
@@ -75,6 +77,7 @@ import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import HabitRecurrenceCells from '@/components/HabitRecurrenceCells';
 import Stepper from '@/components/Stepper';
+import TimeBoxInput from '@/components/TimeBoxInput';
 import { energyFieldsFromStepper } from '@/lib/energy';
 import { useHabitRecurrenceDraft } from '@/lib/useHabitRecurrenceDraft';
 import AnimatedListItem from '@/components/AnimatedListItem';
@@ -524,6 +527,15 @@ export default function HabitsSurface() {
   // "Every N days/weeks" repeat picker (2026-08-11) — always visible, unlike the energy cell
   // above; see lib/useHabitRecurrenceDraft.ts's header for why the state lives in a shared hook.
   const habitRecurrenceDraft = useHabitRecurrenceDraft();
+  // Target · Remind (phase 7's table, DESIGN_COMPARISON/19-IMPLEMENTATION.md) — added beside
+  // the existing How often/Energy cells. `habitTargetValue` is independent of
+  // `habitRecurrenceDraft`'s own weekly-goal Stepper for `weekly-flexible` (that one already IS
+  // this habit's target for that one recurrence shape) — see `commitHabit` for how the two
+  // reconcile. Reminder mirrors the shape `app/habit-form.tsx`/`components/ReminderBell.tsx`
+  // already use: one enabled flag plus a single `HH:MM` in `notificationTimes[0]`.
+  const [habitTargetValue, setHabitTargetValue] = useState(1);
+  const [habitRemindEnabled, setHabitRemindEnabled] = useState(false);
+  const [habitRemindTime, setHabitRemindTime] = useState('08:00');
 
   // Arrived from a note's ⋯ → Send it to… → Habits: seed the quick-add with the note's text
   // instead of making the user retype it (lib/prefill.ts).
@@ -630,7 +642,9 @@ export default function HabitsSurface() {
     energyValue = 1,
     recurrence: HabitRecurrence = 'daily',
     recurrenceDays: number[] = [],
-    recurrenceInterval = 1
+    recurrenceInterval = 1,
+    notificationEnabled = false,
+    notificationTimes: string[] = []
   ) {
     addHabitQuick({
       title,
@@ -642,9 +656,9 @@ export default function HabitsSurface() {
       recurrence,
       recurrenceDays,
       recurrenceInterval,
-      notificationEnabled: false,
-      notificationTimes: [],
-      reminderMode: null,
+      notificationEnabled,
+      notificationTimes,
+      reminderMode: notificationEnabled ? 'single' : null,
       reminderCount: null,
       reminderIntervalMin: null,
       reminderStart: null,
@@ -667,9 +681,27 @@ export default function HabitsSurface() {
     // reward/rating, against the app's no-shame framing. Custom icons still pickable.
     const energy = energyFieldsFromStepper(habitEnergyValue);
     const { recurrence, recurrenceDays, recurrenceInterval, dailyGoal } = habitRecurrenceDraft.toHabitFields();
-    createHabit(title, 'ellipse-outline', dailyGoal, energy.energyEnabled, energy.energyValue, recurrence, recurrenceDays, recurrenceInterval);
+    // Target (phase 7): `weekly-flexible`'s own weekly-goal Stepper (inside
+    // HabitRecurrenceCells) already IS this habit's target for that one recurrence shape —
+    // don't let the separate Target cell below double-apply a second number over it.
+    const target = recurrence === 'weekly-flexible' ? dailyGoal : habitTargetValue;
+    createHabit(
+      title,
+      'ellipse-outline',
+      target,
+      energy.energyEnabled,
+      energy.energyValue,
+      recurrence,
+      recurrenceDays,
+      recurrenceInterval,
+      habitRemindEnabled,
+      habitRemindEnabled ? [habitRemindTime] : []
+    );
     setHabitDraft('');
     setHabitEnergyValue(0);
+    setHabitTargetValue(1);
+    setHabitRemindEnabled(false);
+    setHabitRemindTime('08:00');
     habitRecurrenceDraft.reset();
   }
 
@@ -681,17 +713,30 @@ export default function HabitsSurface() {
    */
   function openHabitFormWithDraft() {
     tap();
+    const recurrenceParams = habitRecurrenceDraft.toParams();
     router.push({
       pathname: '/habit-form',
       params: {
         title: habitDraft.trim(),
         energy: String(habitEnergyValue),
         childName: selectedProfile || '',
-        ...habitRecurrenceDraft.toParams(),
+        ...recurrenceParams,
+        // The Target cell overrides `toParams()`'s own `dailyGoal` UNLESS `weekly-flexible`,
+        // whose weekly-goal Stepper already IS this habit's target — same reconciliation as
+        // commitHabit above.
+        dailyGoal:
+          habitRecurrenceDraft.recurrence === 'weekly-flexible'
+            ? recurrenceParams.dailyGoal
+            : String(habitTargetValue),
+        notificationEnabled: habitRemindEnabled ? '1' : '0',
+        notificationTime: habitRemindTime,
       },
     });
     setHabitDraft('');
     setHabitEnergyValue(0);
+    setHabitTargetValue(1);
+    setHabitRemindEnabled(false);
+    setHabitRemindTime('08:00');
     habitRecurrenceDraft.reset();
   }
 
@@ -902,6 +947,50 @@ export default function HabitsSurface() {
                       {/* "Every N days/weeks" (2026-08-11) — unconditional, unlike the energy
                           cell above; see components/HabitRecurrenceCells.tsx's header. */}
                       <HabitRecurrenceCells draft={habitRecurrenceDraft} accent={screenHue} />
+                      {/* Target · Remind — phase 7's table for this card
+                          (DESIGN_COMPARISON/19-IMPLEMENTATION.md). Target is hidden for
+                          weekly-flexible: that recurrence's own weekly-goal Stepper, inside
+                          HabitRecurrenceCells above, already IS the target — a second cell
+                          here would be the same number asked twice. */}
+                      {habitRecurrenceDraft.recurrence !== 'weekly-flexible' && (
+                        <QuickAddOptionRow
+                          icon="flag-outline"
+                          label={t.habitDailyGoal}
+                          value={
+                            <Stepper
+                              value={habitTargetValue}
+                              onChange={setHabitTargetValue}
+                              min={1}
+                              accessibilityLabel={t.habitDailyGoal}
+                            />
+                          }
+                          accent={screenHue}
+                        />
+                      )}
+                      <QuickAddOptionRow
+                        icon={habitRemindEnabled ? 'notifications' : 'notifications-off-outline'}
+                        label={t.habitReminderLabel}
+                        value={habitRemindEnabled ? t.darkModeOn : t.darkModeOff}
+                        isSet={habitRemindEnabled}
+                        accent={screenHue}
+                        onPress={() => {
+                          tap();
+                          setHabitRemindEnabled((v) => !v);
+                        }}
+                        accessibilityLabel={`${t.habitReminderLabel}: ${habitRemindEnabled ? t.darkModeOn : t.darkModeOff}`}
+                      />
+                      {/* The dependent cell — only exists once Remind is on, the same shape as
+                          Recurring's "On" cell in TodoSurface. No modal is involved here (this
+                          toggles inline, not through showAppModal), so there's nothing extra to
+                          guard: the panel slot's `controlsResponderProps` already covers it. */}
+                      {habitRemindEnabled && (
+                        <QuickAddOptionRow
+                          icon="time-outline"
+                          label={t.timeLabel}
+                          value={<TimeBoxInput value={habitRemindTime} onChange={setHabitRemindTime} />}
+                          accent={screenHue}
+                        />
+                      )}
                     </QuickAddOptionsPanel>
                   }
                 />
