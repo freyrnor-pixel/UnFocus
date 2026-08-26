@@ -27,15 +27,25 @@
  *
  * Edit notes:
  *   - **`section` is the whole extraction contract.** Omitted (the tab itself): renders the
- *     hint, the first-run StarterCard, the person/tag filter rows, the shared-load card, all
- *     four to-do cards, and the Goals/Earlier-days/Washed-away drawers — i.e. everything the
- *     old tabbed screen drew across its three tabs, now stacked instead of switched. Set to one
- *     of `'whenever' | 'today' | 'week' | 'recurring'` (an expanded card's body, mounted by
- *     CardExpandHost): renders ONLY that card's content, with none of the screen chrome around
- *     it — CardExpandHost's own pane already supplies a title bar, so a second one here would
- *     be a duplicate. Every OTHER piece of state below (filters, layout, drag order, energy
- *     pause) is still computed in section mode, cheaply, so an expanded card's filter/sort
- *     behaviour can never disagree with the tab's.
+ *     hint, the first-run StarterCard, the person/tag filter rows, the shared-load card, and
+ *     all five to-do cards — i.e. everything the old tabbed screen drew across its three tabs,
+ *     now stacked instead of switched. Set to one of `'whenever' | 'today' | 'week' | 'month' |
+ *     'recurring'` (an expanded card's body, mounted by CardExpandHost): renders ONLY that
+ *     card's content, with none of the screen chrome around it — CardExpandHost's own pane
+ *     already supplies a title bar, so a second one here would be a duplicate. Every OTHER
+ *     piece of state below (filters, layout, drag order, energy pause) is still computed in
+ *     section mode, cheaply, so an expanded card's filter/sort behaviour can never disagree
+ *     with the tab's.
+ *   - ⚠️ **Goals, Earlier days and Washed away are SECTIONS, not cards, as of 2026-08-26**
+ *     (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — Goals and Earlier days are drawn
+ *     `embedded` inside the Today card's body (below whichever of its four shapes is active),
+ *     Washed away inside the Whenever card's body. They were `todoGoals`/`todoEarlierDays`/
+ *     `todoWashedAway`, ordinary registry cards under one "Elsewhere" group rail, until this
+ *     pass — see lib/cardRegistry.ts's note at their old position for why. Each keeps its own
+ *     LOCAL (unpersisted) fold, the same shape the Week card's seven weekday sections already
+ *     use — a section has nothing stable to key a persisted fold on. Because they are drawn
+ *     inside `showToday`/`showWhenever`, an expanded Today or Whenever pane carries them for
+ *     free with no separate CardExpandHost entry.
  *   - **The "Whenever inside Today/This week" nested drawer is GONE.** The pre-extraction
  *     screen drew the undated backlog twice: once as the All tab's real (draggable) section,
  *     and again as a narrower, non-draggable `CollapsedSection` tucked under Today/This week.
@@ -95,7 +105,7 @@ import { RecentDaysList } from '@/components/DayPickerSheet';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import { todayStr, getWeekDates, dayOfWeekMon0 } from '@/lib/date';
+import { todayStr, getWeekDates, getMonthDates, dayOfWeekMon0 } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -124,7 +134,7 @@ import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
 import { getScreenColor } from '@/lib/screenColor';
 
-export type TodoSection = 'whenever' | 'today' | 'week' | 'recurring' | 'washedAway';
+export type TodoSection = 'whenever' | 'today' | 'week' | 'month' | 'recurring';
 
 /** Time-order comparator: timed tasks first (by HH:MM), then untimed by title. */
 function byTime(a: Task, b: Task): number {
@@ -627,6 +637,42 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     });
   }, []);
 
+  // **The Month card — a DATE FILTER, not monthly recurrence** (2026-08-26, new). Every date in
+  // the current calendar month, minus the seven Week already draws — the same question
+  // `todoWeek` already asks, one rung out, so it reads `taskOccursOn` the identical way
+  // `tasksForWeek` does rather than adding a second occurrence engine. Recurring tasks stay out
+  // (they belong to `todoRecurring`); this is only the dated, non-recurring backlog for later
+  // this month.
+  const monthDates = useMemo(() => {
+    const [y, m] = today.slice(0, 7).split('-').map(Number);
+    return getMonthDates(y, m);
+  }, [today]);
+  // New tasks composed on this card default to the month's last day, so committing on the line
+  // alone (tier 1's rule) always lands a row this card actually draws.
+  const monthDefaultDate = monthDates[monthDates.length - 1] ?? today;
+  const monthAll = useMemo(() => {
+    const weekSet = new Set(weekDates);
+    return tasks
+      .filter(
+        (tk) =>
+          tk.hasStartDate &&
+          tk.recurring === 'none' &&
+          !tk.sharedOut &&
+          monthDates.includes(tk.date) &&
+          !weekSet.has(tk.date) &&
+          matchFilters(tk)
+      )
+      .sort((a, b) => a.date.localeCompare(b.date) || byTime(a, b));
+  }, [tasks, monthDates, weekDates, matchFilters]);
+
+  // Goals/Earlier days (inside Today) and Washed away (inside Whenever) are SECTIONS now, not
+  // registry cards — see lib/cardRegistry.ts's note at their old position. A section's fold is
+  // LOCAL and unpersisted, the same shape the Week card's seven weekday sections already use;
+  // there is nothing stable here to key a persisted `collapseKey` on.
+  const [todayGoalsOpen, setTodayGoalsOpen] = useState(false);
+  const [todayEarlierOpen, setTodayEarlierOpen] = useState(false);
+  const [wheneverWashedOpen, setWheneverWashedOpen] = useState(false);
+
   const wheneverDrag = useDragReorder(
     useMemo(() => wheneverAll.map((tk) => tk.id), [wheneverAll]),
     reorderTasks
@@ -746,7 +792,24 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
   const showWeek = full || section === 'week';
+  const showMonth = full || section === 'month';
   const showRecurring = full || section === 'recurring';
+
+  // The washed-away rows, drawn as a section inside the Whenever card's own body (2026-08-26 —
+  // was its own registry card, `todoWashedAway`; see lib/cardRegistry.ts's note). Defined ahead
+  // of `wheneverCard` because it is now a CHILD of it rather than a sibling.
+  const washedAwayRows = (
+    <View style={styles.cardStack}>
+      {washedAway.map((tk) => (
+        <PadRow
+          key={tk.id}
+          title={tk.title}
+          accent={wheneverHue}
+          trailing={<Button label={t.washedAwayBringBack} variant="secondary" size="sm" onPress={() => { tap(); bringBack(tk.id); }} />}
+        />
+      ))}
+    </View>
+  );
 
   const wheneverCard = showWhenever && (
     <View key="whenever">
@@ -798,6 +861,19 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             }
           />
         </View>
+        {washedAway.length > 0 && (
+          <SectionCard
+            embedded
+            hue={wheneverHue}
+            icon="water-outline"
+            label={t.tasksSectionWashedAway}
+            count={washedAway.length}
+            collapsed={!wheneverWashedOpen}
+            onToggleCollapse={() => setWheneverWashedOpen((v) => !v)}
+          >
+            {washedAwayRows}
+          </SectionCard>
+        )}
       </Card>
     </View>
   );
@@ -878,6 +954,35 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               )}
             />
           )}
+
+          {/* Goals and Earlier days — SECTIONS inside Today's own body since 2026-08-26 (were
+              `todoGoals`/`todoEarlierDays`, ordinary registry cards under one "Elsewhere" group
+              rail; see lib/cardRegistry.ts's note at their old position). Drawn below whichever
+              of the four shapes above is active, so an expanded Today pane carries them too. */}
+          {featureGoals && (
+            <SectionCard
+              embedded
+              hue={screenHue}
+              icon="flag"
+              label={t.goals.editLinkPractical}
+              collapsed={!todayGoalsOpen}
+              onToggleCollapse={() => setTodayGoalsOpen((v) => !v)}
+            >
+              <GoalsEditor accent={screenHue} />
+            </SectionCard>
+          )}
+          {featureDayLog && (
+            <SectionCard
+              embedded
+              hue={screenHue}
+              icon="time-outline"
+              label={t.dayLog.earlierDays}
+              collapsed={!todayEarlierOpen}
+              onToggleCollapse={() => setTodayEarlierOpen((v) => !v)}
+            >
+              <RecentDaysList accent={screenHue} />
+            </SectionCard>
+          )}
         </Card>
       </DebugNoteAnchor>
 
@@ -936,19 +1041,24 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     </View>
   );
 
-  // The washed-away rows, shared by the card on the tab and by the full-screen pane that
-  // mounts `section="washedAway"` — the same "one rendering, two hosts" contract the four
-  // section cards above already keep.
-  const washedAwayRows = (
-    <View style={styles.cardStack}>
-      {washedAway.map((tk) => (
-        <PadRow
-          key={tk.id}
-          title={tk.title}
-          accent={wheneverHue}
-          trailing={<Button label={t.washedAwayBringBack} variant="secondary" size="sm" onPress={() => { tap(); bringBack(tk.id); }} />}
+  const monthCard = showMonth && (
+    <View key="month">
+      <Card id="todoMonth" count={monthAll.length}>
+        <DoneSplitList
+          tasks={monthAll}
+          footer={<InlineTaskAdd date={monthDefaultDate} accent={screenHue} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped />}
+          renderCard={(tk) => (
+            <TaskCard
+              key={tk.id}
+              task={tk}
+              showDelete
+              showShareOut
+              autoExpand={tk.id === expandTaskId}
+              onToggleDone={handleToggleDone}
+            />
+          )}
         />
-      ))}
+      </Card>
     </View>
   );
 
@@ -1039,52 +1149,19 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
       {energySystemEnabled && full && showPeople && <EnergyBalanceCard date={today} />}
 
-      {/* ⚠️ **The order is the registry's, and it is deliberate (2026-08-21).** Time horizon
-          narrowing to widening, then what repeats, then what is not the day's work at all:
-          Today → Week → Whenever → Recurring → "Elsewhere". It ran Whenever first for no reason
-          anyone recorded, which put the undated backlog above the day you are standing in.
+      {/* ⚠️ **The order is the registry's, and it is deliberate (2026-08-21, revised
+          2026-08-26).** Time horizon narrowing to widening, then what repeats: Today → Week →
+          Month → Whenever → Recurring. Goals, Earlier days and Washed away are no longer
+          top-level cards here — they are sections drawn INSIDE Today and Whenever's own bodies
+          (see those two cards above), so there is no "Elsewhere" group rail left to draw.
           lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent. */}
       {todayCard}
       {weekCard}
+      {monthCard}
       {wheneverCard}
       {recurringCard}
 
-      {/* The expanded Washed away card — rows only, no card of its own, exactly like the four
-          `section` modes above. */}
-      {section === 'washedAway' && washedAwayRows}
-
       {full && featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
-
-      {/* ⚠️ **"Elsewhere" — the tab's one group rail, and its three cards (2026-08-21).**
-          These were `CollapsedSection` drawers: a fourth card shape, with a fold of its own and
-          no ⤢, sitting under four cards that had both. They are ordinary cards now.
-            The rail is the top rung of the heading ladder — a group heading over a stack of
-          cards, no badge — and it is the only one in the app. Shop and Me have none on
-          instruction; see the registry's `group` field. */}
-      {full && (featureGoals || featureDayLog || washedAway.length > 0) && (
-        <SectionRail hue={wheneverHue} label={t.todoElsewhereTitle} divider={false} />
-      )}
-
-      {full && featureGoals && (
-        <Card id="todoGoals">
-          <GoalsEditor accent={wheneverHue} />
-        </Card>
-      )}
-      {full && featureDayLog && (
-        // ⚠️ **No `onTitlePress` and no `DayPickerSheet` any more.** The drawer's title opened a
-        // pop-up of the same rows its body already drew — the 2026-08-10 "a pop-up where one is
-        // cheap" ruling, made when the body was a read-only preview. It is not a preview now:
-        // the card's ⤢ shows the same list full screen, and every row navigates itself.
-        <Card id="todoEarlierDays">
-          <RecentDaysList accent={wheneverHue} />
-        </Card>
-      )}
-
-      {full && washedAway.length > 0 && (
-        <Card id="todoWashedAway" count={washedAway.length}>
-          {washedAwayRows}
-        </Card>
-      )}
 
     </View>
   );

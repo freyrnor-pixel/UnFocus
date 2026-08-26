@@ -16,6 +16,11 @@
  *   Data    → none — expansion is not persisted, see lib/expandableCards.ts's edit notes
  *
  * Edit notes:
+ *   - ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` left `CARD_BODIES` on 2026-08-26**
+ *     (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — they are SECTIONS inside
+ *     `todoToday`/`todoWhenever` now, not their own expandable cards, so they arrive for free
+ *     with those two entries' bodies. `todoMonth` joined in the same pass (a new registry card,
+ *     a date filter between Week and Whenever — see lib/cardRegistry.ts).
  *   - **`CARD_BODIES` is the only per-card knowledge this file holds**, and the union in
  *     lib/expandableCards.ts is the only list to keep in step with it —
  *     lib/__tests__/expandableCards.test.ts asserts every id has an entry and vice versa.
@@ -97,9 +102,6 @@ import TodoSurface from '@/components/TodoSurface';
 import MedicineSurface from '@/components/MedicineSurface';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
-import GoalsEditor from '@/components/GoalsEditor';
-import { RecentDaysList } from '@/components/DayPickerSheet';
-import { getScreenColor } from '@/lib/screenColor';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
@@ -173,21 +175,6 @@ function MedicineExpandedBody() {
 }
 
 /**
- * To-do's Goals and Earlier days, which are whole components already — the editor the drawer
- * mounted and the day list the drawer mounted. Each takes its screen's hue, which is To-do's:
- * a card wears its HOST screen's colour, the 2026-08-10 ruling that stopped the same drawer
- * being indigo on one tab and green on another.
- */
-function GoalsExpandedBody() {
-  const theme = useAppTheme();
-  return <GoalsEditor accent={getScreenColor(theme, 'plans').base} />;
-}
-function EarlierDaysExpandedBody() {
-  const theme = useAppTheme();
-  return <RecentDaysList accent={getScreenColor(theme, 'plans').base} />;
-}
-
-/**
  * One entry per lib/expandableCards.ts id. Each surface component registers itself here as it
  * is built; `lib/__tests__/expandableCards.test.ts` fails the PR if the two lists ever diverge.
  */
@@ -216,13 +203,15 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },
+  // NEW (2026-08-26) — see lib/cardRegistry.ts's `todoMonth` note. Same "one rendering, two
+  // hosts" contract as its three siblings.
+  todoMonth: { title: (t) => t.todoMonthTitle, Body: () => <TodoSurface section="month" /> },
   todoRecurring: { title: (t) => t.tasksSectionRecurring, Body: () => <TodoSurface section="recurring" /> },
-  // The three "Elsewhere" cards (2026-08-21). They were `CollapsedSection` drawers — a card
-  // shape with a fold and no ⤢ — and two of them already had a standalone body to mount, which
-  // is most of why converting them cost so little.
-  todoGoals: { title: (t) => t.goals.editLinkPractical, Body: GoalsExpandedBody },
-  todoEarlierDays: { title: (t) => t.dayLog.earlierDays, Body: EarlierDaysExpandedBody },
-  todoWashedAway: { title: (t) => t.tasksSectionWashedAway, Body: () => <TodoSurface section="washedAway" /> },
+  // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` left this registry on 2026-08-26** —
+  // they are SECTIONS now, drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever`
+  // (Washed away), so they travel for free with those two cards' own `section="today"`/
+  // `section="whenever"` bodies above and need no entry of their own. See
+  // lib/cardRegistry.ts's note at their old position.
 };
 
 type ExpandRequest = { id: ExpandableCardId; rect: ExpandRect };

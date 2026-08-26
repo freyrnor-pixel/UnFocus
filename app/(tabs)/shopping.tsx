@@ -61,6 +61,22 @@
  * purchased-this-month history — plus a "+ New list" row and a small relocated "reset all
  * lists" link at the bottom. Replaces the old single global Katalog card.
  *
+ * ⚠️ **Registry restructure, 2026-08-26 (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md).**
+ * `shopMonthly` is gone from lib/cardRegistry.ts — everything the paragraph above still
+ * accurately describes is drawn now as `monthlySection`, a section EMBEDDED inside `weeklyGroup`
+ * (near its foot, below the week sections, above the New-list/Archive triggers) rather than its
+ * own top-level `<Card>`. This is a wrapper change only: not one line of the Monthly body itself
+ * (the filter bar, the per-list Surfaces, the empty state) moved. `weeklyGroup` and
+ * `foodCatalogueLinks` are the two groups composed in the return now, not three.
+ *
+ * **Shop's Archive (same pass).** A weekly list can be put away without deleting it —
+ * `shopping_lists.archived_at`, a DIFFERENT axis from `isTemplate` (a reusable blueprint you
+ * start a NEW list from — the pre-existing Saved-lists feature). `WeekListCard`'s kebab menu
+ * gained an "Archive this list" entry beside Delete; the Archive drawer itself sits at the very
+ * foot of `weeklyGroup`, past the "+ New shopping list" trigger, and is only rendered once
+ * there's something in it. See store/useShoppingListStore.ts's header for the full note,
+ * including why this needed no sync decision (`shopping_lists` isn't a synced table at all).
+ *
  * Connections:
  *   Imports → components/InlineAddItem, components/AddDishSheet (AddDishTarget type),
  *             components/NarratorQuote (2026-08-19 — an unlocked monthly list with nothing
@@ -526,11 +542,13 @@ import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Card from '@/components/Card';
+import SectionCard from '@/components/SectionCard';
+import PadRow from '@/components/PadRow';
 import SectionRail from '@/components/SectionRail';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
-import { success, heavy, warning } from '@/lib/haptics';
+import { success, heavy, warning, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { todayStr, dateStr, getWeekRangeContaining, weekOfMonthlyCycle, dateRangeForCycleWeek, formatDateRange } from '@/lib/date';
 import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
@@ -619,6 +637,10 @@ export default function ShoppingScreen() {
   // Shared across every Monthly list card (one search box, not one per list — 2026-07-22).
   const [monthlyTabSearch, setMonthlyTabSearch] = useState('');
   const [monthlyTabCategory, setMonthlyTabCategory] = useState<string | null>(null);
+  // Monthly is a SECTION inside the shopLists card now (2026-08-26) — was `shopMonthly`, an
+  // ordinary registry card; see lib/cardRegistry.ts's note at its old position. A section's
+  // fold is local and unpersisted, same as every other section in the app.
+  const [monthlySectionOpen, setMonthlySectionOpen] = useState(false);
   // One list's lightweight "reset this list" confirm — id of the list being confirmed, or null.
   const [resetListConfirmId, setResetListConfirmId] = useState<string | null>(null);
   // Tap-to-edit name field, per Monthly list (mirrors WeekListCard's nameEditing/nameInput
@@ -773,6 +795,8 @@ export default function ShoppingScreen() {
   const syncListToTemplate = useShoppingListStore((s) => s.syncListToTemplate);
   const addList = useShoppingListStore((s) => s.add);
   const removeList = useShoppingListStore((s) => s.remove);
+  const archiveList = useShoppingListStore((s) => s.archive);
+  const unarchiveList = useShoppingListStore((s) => s.unarchive);
   const advanceRecurringLists = useShoppingListStore((s) => s.advanceRecurringLists);
   const loadShopping = useShoppingStore((s) => s.load);
   const updateSettings = useSettingsStore((s) => s.update);
@@ -784,8 +808,16 @@ export default function ShoppingScreen() {
   // see lib/sharingVisibility.ts. The setting is still read so nothing else changes shape.
   const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
 
-  const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate), [lists]);
+  // Archived (`archivedAt` set) is excluded from the active weekly view, same as a template —
+  // a DIFFERENT question from `isTemplate` (a reusable blueprint), see
+  // store/useShoppingListStore.ts's header for the full "Archive" note.
+  const nonTemplateLists = useMemo(() => lists.filter((l) => !l.isTemplate && !l.archivedAt), [lists]);
   const templateLists = useMemo(() => lists.filter((l) => l.isTemplate), [lists]);
+  const archivedLists = useMemo(
+    () => lists.filter((l) => !l.isTemplate && !!l.archivedAt).sort((a, b) => (b.archivedAt ?? '').localeCompare(a.archivedAt ?? '')),
+    [lists]
+  );
+  const [archiveOpen, setArchiveOpen] = useState(false);
   // Marks a saved list "in use" in SavedListsSection without removing/disabling it — a
   // template stays copyable into other weeks even once it's been used somewhere.
   const usedTemplateIds = useMemo(
@@ -1115,6 +1147,14 @@ export default function ShoppingScreen() {
       confirmLabel: t.deleteList,
       onConfirm: () => removeList(listId),
     });
+  }
+
+  // Puts a list away without deleting it — reversible, so no confirmDestructive (that's for
+  // choices that lose data; this loses nothing, the list moves to the Archive drawer at the
+  // foot of this card and `unarchiveList` brings it straight back).
+  function handleArchiveList(listId: string) {
+    tap();
+    archiveList(listId);
   }
 
   /** "Reset all Monthly lists now" — the full interactive review flow (weekly-list
@@ -1712,363 +1752,21 @@ export default function ShoppingScreen() {
   // (WeekListCard, the Monthly `catalogCard`s), and a card around a stack of cards reads as the
   // nested panel the 2026-08-18 blueprint pass banned. `components/SectionRail.tsx` alone gives
   // each group the same header language as the rest of the app without adding that box.
-  const weeklyGroup = (
-    // ⚠️ **A `Card`, not a bare rail over loose cards (2026-08-21).** Shop drew ~12 top-level
-    // `Surface`s: two group headers sitting on the backdrop with a stack of per-list cards under
-    // each, plus the two library cards. The registry's boundary settles it — a CARD is a thing
-    // the registry names, a SECTION is drawn one-per-row-of-user-data — so the group is the
-    // card and each list inside it is a section. That is also how "every card has a ⤢" is
-    // reached here: mostly by shrinking the set of cards, not by adding buttons.
-    //
-    // The GROUP folds, not the lists inside it: a list's card is drawn one per row of data, so
-    // an id built from its list id would accumulate entries for lists that no longer exist —
-    // lib/collapsedCards.ts's singleton rule.
-    //
-    // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
-    // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
-    <Card id="shopLists" count={nonTemplateLists.length || undefined}>
-      {true && (
-        <>
-          {unsavedListCount > 0 && (
-            <View
-              style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
-              accessibilityLabel={t.unsavedShoppingBanner(unsavedListCount)}
-            >
-              <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
-              <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unsavedListCount}</Text>
-            </View>
-          )}
-
-          {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ──
-              Decision 043 rule 3: featMeal lives on the 4px accent bar only, not the whole
-              card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
-          {unallocatedItems.length > 0 && (
-            <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
-              <View style={[styles.unallocatedAccent, { backgroundColor: mealDomainColor.accent }]} />
-              <View style={styles.unallocatedContent}>
-              <View style={styles.unallocatedHeader}>
-                <Ionicons name="fast-food-outline" size={18} color={theme.text} />
-                <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
-              </View>
-              <Text style={[styles.unallocatedHint, { color: theme.textMuted }]}>{t.unallocatedHint}</Text>
-
-              {unallocatedDishGroups.map(([dishName, groupItems]) => (
-                <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                  <View style={styles.unallocatedGroupHeader}>
-                    <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
-                    <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={HitSlop.snug} scaleTo={0.97}>
-                      <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
-                      <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
-                    </PressableScale>
-                  </View>
-                  {groupItems.map((item, idx) => (
-                    <View key={item.id}>
-                      <View style={[styles.unallocatedRow, { borderTopColor: theme.border }, idx > 0 && styles.unallocatedRowBorder]}>
-                        <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                        <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
-                          {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
-                        </Text>
-                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
-                          <Ionicons name="close" size={18} color={theme.textMuted} />
-                        </PressableScale>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              ))}
-
-              {unallocatedUngrouped.length > 0 && (
-                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
-                  {unallocatedUngrouped.map((item, idx) => (
-                    <View key={item.id} style={[styles.unallocatedRow, idx > 0 && styles.unallocatedRowBorder, { borderTopColor: theme.border }]}>
-                      <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                      <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
-                        {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
-                      </Text>
-                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={HitSlop.snug} scaleTo={0.97}>
-                        <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
-                      </PressableScale>
-                      <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
-                        <Ionicons name="close" size={18} color={theme.textMuted} />
-                      </PressableScale>
-                    </View>
-                  ))}
-                </View>
-              )}
-              </View>
-            </Surface>
-          )}
-
-          {/* ── Saved lists: expandable accordion, drag (or tap-to-choose-week) a saved
-              list into a week section below to instantiate it there. ── */}
-          <SavedListsSection
-            templates={templateLists}
-            usedTemplateIds={usedTemplateIds}
-            onDragStart={handleSavedListDragStart}
-            onDragMove={handleSavedListDragMove}
-            onDragEnd={handleSavedListDragEnd}
-            onQuickAdd={addTemplateToWeek}
-          />
-
-          {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
-              All 4 sections always render (each registers itself as a drag-drop target
-              via handleRegisterWeekSectionNode) once at least one list OR saved list
-              exists — a saved list needs somewhere to be dropped even before the first
-              live list is created. With neither, there's nothing to drag yet, so the big
-              empty card below covers that case instead of 4 redundant "no lists here"
-              sections. */}
-          {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
-            const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
-            const weekLists = listsByWeek[week] ?? [];
-            const isDropTarget =
-              (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
-              (savedListDrag != null && savedListDrag.targetWeek === week);
-
-            return (
-              <React.Fragment key={week}>
-                <View
-                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
-                  style={[
-                    styles.weekSection,
-                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-                  ]}
-                >
-                {/* ⚠️ **The app's one section header, at its smaller tier (2026-08-21).** This
-                    was a hand-rolled `<Text>` pair — the THIRD header idiom on a screen that has
-                    two `SectionRail` groups above it, which is what `CONSISTENCY_AUDIT.md` §13
-                    measured against *"Use of sub-headers to show user what is what"*. Its SIZE
-                    was never the problem (a heading inside a group should be smaller than the
-                    group's); being hand-rolled was, because nothing tied its anatomy to the
-                    header one level up.
-                      `divider={false}`: these four sections sit in their own bordered
-                    `weekSection` box, so a hairline under the name would be a second line inside
-                    one edge. The date range moves to the `right` slot, which is where a section
-                    header's trailing value sits on every other rail in the app. */}
-                <SectionRail
-                  hue={screenHue}
-                  tier="sub"
-                  divider={false}
-                  label={t.weekNumberChip(week)}
-                  right={
-                    <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
-                      {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
-                    </Text>
-                  }
-                />
-
-                {weekLists.length === 0 ? (
-                  <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
-                ) : (
-                  weekLists.map((list) => {
-                    const groups = computeListGroups(items, list.id);
-                    const groupsProgress = listProgress(groups);
-                    const order = groups.ungroupedUnchecked.map((i) => i.id);
-                    const displayUngrouped =
-                      drag && drag.listId === list.id
-                        ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
-                        : groups.ungroupedUnchecked;
-                    const expanded = !!expandedListIds[list.id];
-
-                    return (
-                      <DraggableTaskRow
-                        key={list.id}
-                        isOpen={expanded}
-                        onDragStart={() => handleWeekDragStart(list)}
-                        onDragMove={(centerY) => handleWeekDragMove(list.id, centerY)}
-                        onDragEnd={() => handleWeekDragEnd(list.id)}
-                      >
-                        <WeekListCard
-                          list={list}
-                          focused={focusedList?.id === list.id}
-                          onFocus={() => setFocusedListId(list.id)}
-                          expanded={expanded}
-                          onToggleExpand={() => toggleListExpanded(list.id)}
-                          dirty={!!dirtyByListId[list.id]}
-                          onSaveChanges={() => handleSaveListChanges(list)}
-                          onDiscardChanges={() => handleDiscardListChanges(list)}
-                          dishGroups={groups.dishGroups}
-                          ungroupedUnchecked={displayUngrouped}
-                          checked={groups.checked}
-                          purchased={groups.purchased}
-                          onToggleLock={() => handleToggleLock(list)}
-                          onRename={(name) => renameList(list.id, name)}
-                          onOpenSavedLists={() => setSavedListsListId(list.id)}
-                          onOpenListSettings={() => setListSettingsListId(list.id)}
-                          onDelete={() => handleDeleteList(list.id)}
-                          onSyncToTemplate={() => handleSyncListToTemplate(list)}
-                          onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
-                          onToggleItem={(item) => toggle(item.id)}
-                          onRemoveItem={handleRemoveWeeklyItem}
-                          onOpenItem={setDetailItem}
-                          onDecrementCartItem={handleDecrementCartItem}
-                          // A note sent here (lib/prefill.ts) seeds THIS week's add row only
-                          // — the list whose date range contains today — so a prefill can
-                          // never land on a week the user isn't looking at.
-                          addPrefill={list.id === prefillListId ? prefill : undefined}
-                          onAddStarterBundle={(starterItems) => handleAddStarterBundle(list.id, starterItems)}
-                          onAddInlineItem={(input) => {
-                            add({
-                              name: input.name,
-                              amount: String(input.qty),
-                              unit: '',
-                              listType: 'weekly',
-                              store: '',
-                              price: input.price,
-                              inventoryQty: 0,
-                              isTemporary: false,
-                              targetQuantity: input.qty,
-                              status: 'inWeeklyList',
-                              listId: list.id,
-                              category: input.category,
-                            });
-                            success();
-                            setConfirm(t.itemAddedToList(input.name));
-                          }}
-                          monthlyItems={allCatalogItems}
-                          monthlyLists={monthlyLists}
-                          onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
-                            for (const item of monthlyItemsToAdd) {
-                              addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
-                            }
-                            success();
-                            setConfirm(
-                              monthlyItemsToAdd.length === 1
-                                ? t.itemAddedToList(monthlyItemsToAdd[0].name)
-                                : t.itemsAddedToList(monthlyItemsToAdd.length)
-                            );
-                          }}
-                          onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
-                          onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
-                          registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
-                          onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
-                          registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
-                          mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
-                          spec={layoutSpec}
-                          newSinceIds={newSinceIds}
-                          newFields={newFields}
-                          renderReorderableRow={(item) => (
-                            <DraggableTaskRow
-                              isOpen={false}
-                              registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
-                              onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
-                              onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
-                              onDragEnd={() => handleDragEnd(list.id, item.id)}
-                            >
-                              <ShoppingRow
-                                item={item}
-                                variant="planned"
-                                onToggle={() => toggle(item.id)}
-                                onRemove={() => handleRemoveWeeklyItem(item)}
-                                onOpenDetail={() => setDetailItem(item)}
-                                inStockLabel={t.inStockLabel}
-                                locked={list.locked}
-                                spec={layoutSpec}
-                                isNewSince={newSinceIds.has(item.id)}
-                                newFields={newFields}
-                                onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
-                              />
-                            </DraggableTaskRow>
-                          )}
-                        />
-                      </DraggableTaskRow>
-                    );
-                  })
-                )}
-                </View>
-              </React.Fragment>
-            );
-          })}
-
-          {/* Creating a new list has no single text field to fill (it's auto-named by
-              date range, then offers a start-empty/from-saved choice), so it genuinely
-              doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
-              "tap to open a chooser" trigger, and that difference is real rather than an
-              inconsistency to iron out.
-              What WAS an inconsistency: it carried no visible label. The 2026-08-03
-              walkthrough hit this on an empty Shopping tab — a big empty box and an
-              unexplained "+" — and it was the only primary add in the app that didn't say
-              what it does. The label is back (same change, same reasoning, as the Monthly
-              tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
-              trigger's hardest moment is an empty tab where there is nothing to declutter
-              and everything to explain).
-
-              **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
-              "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
-              that creating the first just looks like editing the default card that is there
-              when there are No lists. When there are lists, we can use the make New list
-              button." They used to stack — an `EmptyState` card saying "Make a new list
-              below to get started", then the thing it pointed at — so an empty tab spent
-              two cards saying one thing, and the card was inert while the real affordance
-              was somewhere else.
-              Empty: one card whose body IS the two choices, so the first list is made by
-              filling in the card already on screen. Not empty: the trigger alone, exactly
-              as before.
-              The chooser modal is skipped on the empty path deliberately — with only two
-              options and a whole card to hold them, putting them behind a dialog is one tap
-              and one context switch for nothing. It stays on the not-empty path, where the
-              trigger is a single row with no room to spell them out. */}
-          {isWeeklyEmpty ? (
-            // Neutral edge (theme.border) instead of the default screen-hue edge, so this
-            // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
-            // placeholder cards).
-            <Surface style={styles.weekEmptyCard}>
-              <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
-              <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
-              <PressableScale
-                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                onPress={handleCreateNewWeeklyList}
-                accessibilityRole="button"
-                accessibilityLabel={t.startEmptyList}
-                scaleTo={0.97}
-              >
-                <Ionicons name="add" size={22} color={theme.accent} />
-                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                  {t.startEmptyList}
-                </Text>
-              </PressableScale>
-              <PressableScale
-                style={styles.weekEmptySecondary}
-                onPress={() => setSavedListsListId('__new__')}
-                accessibilityRole="button"
-                accessibilityLabel={t.savedListsTitle}
-                scaleTo={0.97}
-              >
-                <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
-                  {t.savedListsTitle}
-                </Text>
-              </PressableScale>
-            </Surface>
-          ) : (
-            <PressableScale
-              // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
-              // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
-              // the two triggers are deliberately kept identical.
-              style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-              onPress={() =>
-                showAppModal(t.newWeeklyListTitle, '', [
-                  { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
-                  { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
-                  { text: t.cancel, style: 'cancel' },
-                ])
-              }
-              accessibilityRole="button"
-              accessibilityLabel={t.newWeeklyListTitle}
-              scaleTo={0.97}
-            >
-              <Ionicons name="add" size={22} color={theme.accent} />
-              <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                {t.newWeeklyListTitle}
-              </Text>
-            </PressableScale>
-          )}
-        </>
-      )}
-
-    </Card>
-  );
-
-  const monthlyGroup = (
-    <Card id="shopMonthly" count={monthlyLists.length || undefined}>
+  // Monthly is a SECTION inside the shopLists card as of 2026-08-26 (phase 5 of
+  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — was `shopMonthly`, an ordinary registry card;
+  // see lib/cardRegistry.ts's note at its old position for why. Defined here, ahead of
+  // `weeklyGroup`, because it is now a CHILD of it rather than a sibling — every line of its
+  // own body (the filter bar, the per-list Surfaces, the empty state) is unchanged.
+  const monthlySection = (
+    <SectionCard
+      embedded
+      hue={screenHue}
+      icon="calendar"
+      label={t.monthlyTabLabel}
+      count={monthlyLists.length || undefined}
+      collapsed={!monthlySectionOpen}
+      onToggleCollapse={() => setMonthlySectionOpen((v) => !v)}
+    >
 
       {true && (
         <>
@@ -2394,6 +2092,401 @@ export default function ShoppingScreen() {
         </>
       )}
 
+    </SectionCard>
+  );
+
+  const weeklyGroup = (
+    // ⚠️ **A `Card`, not a bare rail over loose cards (2026-08-21).** Shop drew ~12 top-level
+    // `Surface`s: two group headers sitting on the backdrop with a stack of per-list cards under
+    // each, plus the two library cards. The registry's boundary settles it — a CARD is a thing
+    // the registry names, a SECTION is drawn one-per-row-of-user-data — so the group is the
+    // card and each list inside it is a section. That is also how "every card has a ⤢" is
+    // reached here: mostly by shrinking the set of cards, not by adding buttons.
+    //
+    // The GROUP folds, not the lists inside it: a list's card is drawn one per row of data, so
+    // an id built from its list id would accumulate entries for lists that no longer exist —
+    // lib/collapsedCards.ts's singleton rule.
+    //
+    // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
+    // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
+    <Card id="shopLists" count={nonTemplateLists.length || undefined}>
+      {true && (
+        <>
+          {unsavedListCount > 0 && (
+            <View
+              style={[styles.unsavedBadge, { backgroundColor: theme.accentSoft }]}
+              accessibilityLabel={t.unsavedShoppingBanner(unsavedListCount)}
+            >
+              <Ionicons name="lock-open-outline" size={13} color={theme.accent} />
+              <Text style={[styles.unsavedBadgeText, { color: theme.accent }]}>{unsavedListCount}</Text>
+            </View>
+          )}
+
+          {/* ── Unallocated: dishes added "to the week" from the Food tab, not yet in a dated list ──
+              Decision 043 rule 3: featMeal lives on the 4px accent bar only, not the whole
+              card's material (a Surface `tint` used to recolor the entire fill/sheen). */}
+          {unallocatedItems.length > 0 && (
+            <Surface style={[styles.unallocatedCard, styles.unallocatedCardRow]}>
+              <View style={[styles.unallocatedAccent, { backgroundColor: mealDomainColor.accent }]} />
+              <View style={styles.unallocatedContent}>
+              <View style={styles.unallocatedHeader}>
+                <Ionicons name="fast-food-outline" size={18} color={theme.text} />
+                <Text style={[styles.unallocatedTitle, { color: theme.text }]}>{t.unallocatedSection}</Text>
+              </View>
+              <Text style={[styles.unallocatedHint, { color: theme.textMuted }]}>{t.unallocatedHint}</Text>
+
+              {unallocatedDishGroups.map(([dishName, groupItems]) => (
+                <View key={dishName} style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                  <View style={styles.unallocatedGroupHeader}>
+                    <Text style={[styles.unallocatedGroupName, { color: theme.text }]} numberOfLines={1}>{dishName}</Text>
+                    <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate(groupItems)} hitSlop={HitSlop.snug} scaleTo={0.97}>
+                      <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                      <Text style={[styles.allocateBtnText, { color: theme.textInverse }]}>{t.allocateItemLabel}</Text>
+                    </PressableScale>
+                  </View>
+                  {groupItems.map((item, idx) => (
+                    <View key={item.id}>
+                      <View style={[styles.unallocatedRow, { borderTopColor: theme.border }, idx > 0 && styles.unallocatedRowBorder]}>
+                        <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                        <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                          {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                        </Text>
+                        <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                          <Ionicons name="close" size={18} color={theme.textMuted} />
+                        </PressableScale>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              ))}
+
+              {unallocatedUngrouped.length > 0 && (
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                  {unallocatedUngrouped.map((item, idx) => (
+                    <View key={item.id} style={[styles.unallocatedRow, idx > 0 && styles.unallocatedRowBorder, { borderTopColor: theme.border }]}>
+                      <Text style={[styles.unallocatedItemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                      <Text style={[styles.unallocatedItemMeta, { color: theme.textMuted }]}>
+                        {item.amount}{item.unit ? ` ${item.unit}` : ''}{item.price > 0 ? ` · ${formatKr(item.price, 0)}` : ''}
+                      </Text>
+                      <PressableScale style={[styles.allocateBtn, { backgroundColor: theme.good }]} onPress={() => handleAllocate([item])} hitSlop={HitSlop.snug} scaleTo={0.97}>
+                        <Ionicons name="arrow-forward" size={14} color={theme.textInverse} />
+                      </PressableScale>
+                      <PressableScale onPress={() => removeWithSource(item.id)} hitSlop={HitSlop.base} accessibilityLabel={t.removeItemLabel} scaleTo={0.93}>
+                        <Ionicons name="close" size={18} color={theme.textMuted} />
+                      </PressableScale>
+                    </View>
+                  ))}
+                </View>
+              )}
+              </View>
+            </Surface>
+          )}
+
+          {/* ── Saved lists: expandable accordion, drag (or tap-to-choose-week) a saved
+              list into a week section below to instantiate it there. ── */}
+          <SavedListsSection
+            templates={templateLists}
+            usedTemplateIds={usedTemplateIds}
+            onDragStart={handleSavedListDragStart}
+            onDragMove={handleSavedListDragMove}
+            onDragEnd={handleSavedListDragEnd}
+            onQuickAdd={addTemplateToWeek}
+          />
+
+          {/* ── Weekly lists, grouped into one section per week of the monthly cycle ──
+              All 4 sections always render (each registers itself as a drag-drop target
+              via handleRegisterWeekSectionNode) once at least one list OR saved list
+              exists — a saved list needs somewhere to be dropped even before the first
+              live list is created. With neither, there's nothing to drag yet, so the big
+              empty card below covers that case instead of 4 redundant "no lists here"
+              sections. */}
+          {(nonTemplateLists.length > 0 || templateLists.length > 0) && [1, 2, 3, 4].map((week) => {
+            const weekRange = dateRangeForCycleWeek(todayStr(), monthlyResetDate, week, weeklyResetDay);
+            const weekLists = listsByWeek[week] ?? [];
+            const isDropTarget =
+              (weekDrag != null && weekDrag.targetWeek === week && weekDrag.startWeek !== week) ||
+              (savedListDrag != null && savedListDrag.targetWeek === week);
+
+            return (
+              <React.Fragment key={week}>
+                <View
+                  ref={(node) => handleRegisterWeekSectionNode(week, node)}
+                  style={[
+                    styles.weekSection,
+                    isDropTarget && { borderColor: theme.accent, backgroundColor: theme.accentSoft },
+                  ]}
+                >
+                {/* ⚠️ **The app's one section header, at its smaller tier (2026-08-21).** This
+                    was a hand-rolled `<Text>` pair — the THIRD header idiom on a screen that has
+                    two `SectionRail` groups above it, which is what `CONSISTENCY_AUDIT.md` §13
+                    measured against *"Use of sub-headers to show user what is what"*. Its SIZE
+                    was never the problem (a heading inside a group should be smaller than the
+                    group's); being hand-rolled was, because nothing tied its anatomy to the
+                    header one level up.
+                      `divider={false}`: these four sections sit in their own bordered
+                    `weekSection` box, so a hairline under the name would be a second line inside
+                    one edge. The date range moves to the `right` slot, which is where a section
+                    header's trailing value sits on every other rail in the app. */}
+                <SectionRail
+                  hue={screenHue}
+                  tier="sub"
+                  divider={false}
+                  label={t.weekNumberChip(week)}
+                  right={
+                    <Text style={[styles.weekSectionRange, { color: theme.textMuted }]}>
+                      {formatDateRange(weekRange.startDate, weekRange.endDate, t.monthsShort, language)}
+                    </Text>
+                  }
+                />
+
+                {weekLists.length === 0 ? (
+                  <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
+                ) : (
+                  weekLists.map((list) => {
+                    const groups = computeListGroups(items, list.id);
+                    const groupsProgress = listProgress(groups);
+                    const order = groups.ungroupedUnchecked.map((i) => i.id);
+                    const displayUngrouped =
+                      drag && drag.listId === list.id
+                        ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
+                        : groups.ungroupedUnchecked;
+                    const expanded = !!expandedListIds[list.id];
+
+                    return (
+                      <DraggableTaskRow
+                        key={list.id}
+                        isOpen={expanded}
+                        onDragStart={() => handleWeekDragStart(list)}
+                        onDragMove={(centerY) => handleWeekDragMove(list.id, centerY)}
+                        onDragEnd={() => handleWeekDragEnd(list.id)}
+                      >
+                        <WeekListCard
+                          list={list}
+                          focused={focusedList?.id === list.id}
+                          onFocus={() => setFocusedListId(list.id)}
+                          expanded={expanded}
+                          onToggleExpand={() => toggleListExpanded(list.id)}
+                          dirty={!!dirtyByListId[list.id]}
+                          onSaveChanges={() => handleSaveListChanges(list)}
+                          onDiscardChanges={() => handleDiscardListChanges(list)}
+                          dishGroups={groups.dishGroups}
+                          ungroupedUnchecked={displayUngrouped}
+                          checked={groups.checked}
+                          purchased={groups.purchased}
+                          onToggleLock={() => handleToggleLock(list)}
+                          onRename={(name) => renameList(list.id, name)}
+                          onOpenSavedLists={() => setSavedListsListId(list.id)}
+                          onOpenListSettings={() => setListSettingsListId(list.id)}
+                          onDelete={() => handleDeleteList(list.id)}
+                          onArchive={() => handleArchiveList(list.id)}
+                          onSyncToTemplate={() => handleSyncListToTemplate(list)}
+                          onSaveAsTemplate={() => handleSaveListAsTemplate(list)}
+                          onToggleItem={(item) => toggle(item.id)}
+                          onRemoveItem={handleRemoveWeeklyItem}
+                          onOpenItem={setDetailItem}
+                          onDecrementCartItem={handleDecrementCartItem}
+                          // A note sent here (lib/prefill.ts) seeds THIS week's add row only
+                          // — the list whose date range contains today — so a prefill can
+                          // never land on a week the user isn't looking at.
+                          addPrefill={list.id === prefillListId ? prefill : undefined}
+                          onAddStarterBundle={(starterItems) => handleAddStarterBundle(list.id, starterItems)}
+                          onAddInlineItem={(input) => {
+                            add({
+                              name: input.name,
+                              amount: String(input.qty),
+                              unit: '',
+                              listType: 'weekly',
+                              store: '',
+                              price: input.price,
+                              inventoryQty: 0,
+                              isTemporary: false,
+                              targetQuantity: input.qty,
+                              status: 'inWeeklyList',
+                              listId: list.id,
+                              category: input.category,
+                            });
+                            success();
+                            setConfirm(t.itemAddedToList(input.name));
+                          }}
+                          monthlyItems={allCatalogItems}
+                          monthlyLists={monthlyLists}
+                          onAddMonthlyItemsToWeek={(monthlyItemsToAdd) => {
+                            for (const item of monthlyItemsToAdd) {
+                              addToWeeklyFromCatalog(item.id, parseInt(item.amount, 10) || 1, list.id);
+                            }
+                            success();
+                            setConfirm(
+                              monthlyItemsToAdd.length === 1
+                                ? t.itemAddedToList(monthlyItemsToAdd[0].name)
+                                : t.itemsAddedToList(monthlyItemsToAdd.length)
+                            );
+                          }}
+                          onDoneShopping={() => handleDoneShopping(list, groupsProgress.inCart)}
+                          onOpenDishSheet={() => setDishSheetTarget({ mode: 'weekly', listId: list.id })}
+                          registerCartHeaderNode={(node) => handleRegisterCartHeaderNode(list.id, node)}
+                          onFlightStart={(item, rect) => handleFlightStart(list.id, item, rect)}
+                          registerDishGroupNode={(dishName, node) => handleRegisterDishNode(list.id, dishName, node)}
+                          mergeHighlightDish={drag?.listId === list.id ? drag.mergeTargetDish : null}
+                          spec={layoutSpec}
+                          newSinceIds={newSinceIds}
+                          newFields={newFields}
+                          renderReorderableRow={(item) => (
+                            <DraggableTaskRow
+                              isOpen={false}
+                              registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
+                              onDragStart={() => handleDragStart(list.id, item.id, item.name, order)}
+                              onDragMove={(centerY) => handleDragMove(list.id, item.id, centerY)}
+                              onDragEnd={() => handleDragEnd(list.id, item.id)}
+                            >
+                              <ShoppingRow
+                                item={item}
+                                variant="planned"
+                                onToggle={() => toggle(item.id)}
+                                onRemove={() => handleRemoveWeeklyItem(item)}
+                                onOpenDetail={() => setDetailItem(item)}
+                                inStockLabel={t.inStockLabel}
+                                locked={list.locked}
+                                spec={layoutSpec}
+                                isNewSince={newSinceIds.has(item.id)}
+                                newFields={newFields}
+                                onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
+                              />
+                            </DraggableTaskRow>
+                          )}
+                        />
+                      </DraggableTaskRow>
+                    );
+                  })
+                )}
+                </View>
+              </React.Fragment>
+            );
+          })}
+
+          {monthlySection}
+
+          {/* Creating a new list has no single text field to fill (it's auto-named by
+              date range, then offers a start-empty/from-saved choice), so it genuinely
+              doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
+              "tap to open a chooser" trigger, and that difference is real rather than an
+              inconsistency to iron out.
+              What WAS an inconsistency: it carried no visible label. The 2026-08-03
+              walkthrough hit this on an empty Shopping tab — a big empty box and an
+              unexplained "+" — and it was the only primary add in the app that didn't say
+              what it does. The label is back (same change, same reasoning, as the Monthly
+              tab's NewMonthlyListRow twin: a bare glyph declutters a busy row, but this
+              trigger's hardest moment is an empty tab where there is nothing to declutter
+              and everything to explain).
+
+              **The empty state and the trigger are ONE card now (2026-08-13.)** Maintainer:
+              "Merge the 'No lists this week yet' and the 'Make New list' when it's empty so
+              that creating the first just looks like editing the default card that is there
+              when there are No lists. When there are lists, we can use the make New list
+              button." They used to stack — an `EmptyState` card saying "Make a new list
+              below to get started", then the thing it pointed at — so an empty tab spent
+              two cards saying one thing, and the card was inert while the real affordance
+              was somewhere else.
+              Empty: one card whose body IS the two choices, so the first list is made by
+              filling in the card already on screen. Not empty: the trigger alone, exactly
+              as before.
+              The chooser modal is skipped on the empty path deliberately — with only two
+              options and a whole card to hold them, putting them behind a dialog is one tap
+              and one context switch for nothing. It stays on the not-empty path, where the
+              trigger is a single row with no room to spell them out. */}
+          {isWeeklyEmpty ? (
+            // Neutral edge (theme.border) instead of the default screen-hue edge, so this
+            // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
+            // placeholder cards).
+            <Surface style={styles.weekEmptyCard}>
+              <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
+              <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
+              <PressableScale
+                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+                onPress={handleCreateNewWeeklyList}
+                accessibilityRole="button"
+                accessibilityLabel={t.startEmptyList}
+                scaleTo={0.97}
+              >
+                <Ionicons name="add" size={22} color={theme.accent} />
+                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                  {t.startEmptyList}
+                </Text>
+              </PressableScale>
+              <PressableScale
+                style={styles.weekEmptySecondary}
+                onPress={() => setSavedListsListId('__new__')}
+                accessibilityRole="button"
+                accessibilityLabel={t.savedListsTitle}
+                scaleTo={0.97}
+              >
+                <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
+                  {t.savedListsTitle}
+                </Text>
+              </PressableScale>
+            </Surface>
+          ) : (
+            <PressableScale
+              // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly
+              // tab's NewMonthlyListRow twin (2026-08-09). See that file for the reasoning;
+              // the two triggers are deliberately kept identical.
+              style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
+              onPress={() =>
+                showAppModal(t.newWeeklyListTitle, '', [
+                  { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
+                  { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
+                  { text: t.cancel, style: 'cancel' },
+                ])
+              }
+              accessibilityRole="button"
+              accessibilityLabel={t.newWeeklyListTitle}
+              scaleTo={0.97}
+            >
+              <Ionicons name="add" size={22} color={theme.accent} />
+              <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
+                {t.newWeeklyListTitle}
+              </Text>
+            </PressableScale>
+          )}
+
+          {/* Archive (2026-08-26) — a past weekly list put away without deleting it, a
+              DIFFERENT drawer from Saved lists (that's `isTemplate`, a reusable blueprint).
+              Placed at the very FOOT of the stack, same as "+ New shopping list" above it and
+              for the same reason (2026-08-06 `FoodTab` placement rule) — both are triggers
+              that act on the list stack as a whole, not on any one week. Only rendered once
+              there's something in it; an empty Archive drawer with nothing to unarchive is a
+              door to an empty room. */}
+          {archivedLists.length > 0 && (
+            <SectionCard
+              embedded
+              hue={screenHue}
+              icon="archive-outline"
+              label={t.shopArchiveTitle}
+              count={archivedLists.length}
+              collapsed={!archiveOpen}
+              onToggleCollapse={() => setArchiveOpen((v) => !v)}
+            >
+              <View style={styles.cardStack}>
+                {archivedLists.map((list) => (
+                  <PadRow
+                    key={list.id}
+                    title={list.name}
+                    accent={screenHue}
+                    trailing={
+                      <Button
+                        label={t.unarchiveListButtonLabel}
+                        variant="secondary"
+                        size="sm"
+                        onPress={() => { tap(); unarchiveList(list.id); }}
+                      />
+                    }
+                  />
+                ))}
+              </View>
+            </SectionCard>
+          )}
+        </>
+      )}
+
     </Card>
   );
 
@@ -2455,15 +2548,17 @@ export default function ShoppingScreen() {
           {/* ⚠️ **Order settled 2026-08-21 by the maintainer**, asked whether Dishes and
               Catalogue should sit under one "Inventory" header and whether Monthly should move
               above the lists it feeds: *"Shopping lists, food and Catalogue, Monthly."* So —
-              the lists you open on a trip first, the two libraries next, and Monthly last.
-              Two things that answer names by NOT doing them, so the gaps read as decisions:
-              there is no "Inventory" grouping header (Dishes and Catalogue are each their own
-              card, and a header over two cards would be a fourth header idiom on a screen that
-              just got down to one), and Monthly is not presented as the basis the shopping list
-              is built from — it is simply last. `CONSISTENCY_AUDIT.md` §13 has the question.
-                This REPLACES the old source-order arrangement (Monthly, then Weekly, then the
-              libraries), which the file's own comment admitted was *"leftover source order from
-              when this was extracted, not a deliberate call"*. */}
+              the lists you open on a trip first, then the two libraries. Two things that answer
+              names by NOT doing them, so the gaps read as decisions: there is no "Inventory"
+              grouping header (Dishes and Catalogue are each their own card, and a header over
+              two cards would be a fourth header idiom on a screen that just got down to one),
+              and Monthly is not presented as the basis the shopping list is built from.
+              `CONSISTENCY_AUDIT.md` §13 has the question.
+                ⚠️ **Monthly moved from its own top-level card to a SECTION inside `weeklyGroup`
+              on 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md — see
+              lib/cardRegistry.ts's note at `shopMonthly`'s old position), so it is no longer a
+              separate render call here at all; `monthlySection` is mounted INSIDE `weeklyGroup`,
+              near its foot, below the week sections and above the New-list/Archive triggers. */}
           {weeklyGroup}
 
           {/* Doors out of this screen go at the FOOT of it (2026-08-10). They sat above the
@@ -2472,8 +2567,6 @@ export default function ShoppingScreen() {
               to do (DESIGN_RULES.md rule 7). Bottom-of-screen is also where To-do and Habits
               put theirs, so the placement matches the shape. */}
           {foodCatalogueLinks}
-
-          {monthlyGroup}
 
         </DebugNoteAnchor>
 
@@ -2577,6 +2670,8 @@ export default function ShoppingScreen() {
 }
 
 const styles = StyleSheet.create({
+  // The Archive drawer's row stack (2026-08-26) — same shape TodoSurface's washed-away rows use.
+  cardStack: { gap: Spacing.sm },
   // The screen owns the vertical rhythm (2026-08-08). `gap` here, and NO vertical margin on
   // any card in the stack — see SCREEN_GAP's doc in constants/theme.ts for the five different
   // gaps this replaced. A child that is always mounted but sometimes zero-height (a closed

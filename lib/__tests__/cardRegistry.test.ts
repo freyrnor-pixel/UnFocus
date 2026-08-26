@@ -76,10 +76,29 @@ describe('each screen has a deliberate order', () => {
     }
   });
 
-  // Closed is the resting state; the exceptions are the cards whose content is the reason to
-  // open the app at all. It stops being true as a sentence if this grows.
-  it('opens at most three cards at rest', () => {
-    expect(CARD_KEYS.filter((k) => cardSpec(k).openAtRest).length).toBeLessThanOrEqual(3);
+  // Closed is the resting state. Two SEPARATE exceptions, and the rule has to say both:
+  // (1) Home keeps its three maintainer-named cards (Today/Notes/Shopping, 2026-08-21 — "all
+  // cards start closed, except 'Today' 'Notes' and 'Shopping' in middle screen") — up to three
+  // there, and this test doesn't care which three. (2) Every OTHER screen may rest its own
+  // FIRST card open (2026-08-26, phase 5 decision (b) of DESIGN_COMPARISON/19-IMPLEMENTATION.md
+  // — "the first card on each screen rests open"), at most one there, and it has to actually BE
+  // that screen's lowest `order`. This replaced a flat global cap of 3, which was right only
+  // while Home was the one screen with an exception at all — the cap stopped being a sentence
+  // the moment a second screen got one.
+  it('opens at most three cards at rest on Home, at most one elsewhere — and elsewhere it must be that screen\'s first card', () => {
+    for (const screen of ['home', 'todo', 'shop', 'habits', 'health'] as const) {
+      const keys = cardsForScreen(screen);
+      const openKeys = keys.filter((k) => cardSpec(k).openAtRest);
+      if (screen === 'home') {
+        expect(openKeys.length).toBeLessThanOrEqual(3);
+        continue;
+      }
+      expect(openKeys.length).toBeLessThanOrEqual(1);
+      if (openKeys.length === 1) {
+        const firstKey = [...keys].sort((a, b) => (cardSpec(a).order ?? 0) - (cardSpec(b).order ?? 0))[0];
+        expect(openKeys[0]).toBe(firstKey);
+      }
+    }
   });
 });
 

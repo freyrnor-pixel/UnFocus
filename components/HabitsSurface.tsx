@@ -66,6 +66,7 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import Card from '@/components/Card';
+import SectionCard from '@/components/SectionCard';
 import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import PadRow from '@/components/PadRow';
@@ -98,7 +99,7 @@ import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop, OpticalCenter } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
-import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
 
@@ -202,10 +203,11 @@ function HabitCard({
   first?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  // `useIsDark()` and `useScreenColor()` were read here only to build the row's border, which
-  // came off in the 2026-08-15 de-boxing. The screen hue no longer reaches this row at all —
-  // the pane wash that carried it was deleted on 2026-08-20 (components/Surface.tsx) — and the
-  // card's badge is where the screen says which screen it is.
+  // `useIsDark()` is read again as of 2026-08-26 (rows boxed back) — see `rowBox` below. It is
+  // ONLY for the row's neutral fill/edge, never the screen's hue: that pane wash was deleted on
+  // 2026-08-20 (components/Surface.tsx) and stays gone — the card's badge is where the screen
+  // says which screen it is, not the row.
+  const isDark = useIsDark();
   const logs = useHabitStore((s) => s.logs);
   const increment = useHabitStore((s) => s.increment);
   const decrement = useHabitStore((s) => s.decrement);
@@ -237,19 +239,26 @@ function HabitCard({
   }
 
   const accent = habitColor(habit.kind, theme);
-  // ── Flush row (Tactile Glass, 2026-08-15) ────────────────────────────────────────────────
-  // Was a boxed row from the 2026-08-05 card reset until now: `BORDER_WIDTH.field` in the
-  // screen hue at the field rung. The brief's "no box-in-a-box — group elements purely using
-  // whitespace" takes the border off, and the gap under `habitCardStacked` grows to carry the
-  // separation instead (Spacing.xs → sm, matching PadSheet's `stackGap`).
+  // ── Boxed row again (2026-08-26) ─────────────────────────────────────────────────────────
+  // Reverses the 2026-08-15 de-boxing (Tactile Glass' "no box-in-a-box"). The fill/edge pair is
+  // the SAME two literals `components/PadSheet.tsx` draws its own rows with — one step off the
+  // card's own surface, neutral, never the screen's categorical hue (see the `isDark` note
+  // above). `habitCardStacked`'s gap goes back to `Spacing.xs`, matching PadSheet's boxed
+  // `stackGap`, now that the border is there again to keep two rows apart.
   //
   // ⚠️ **This screen hand-rolls the row box because it never adopted `components/PadSheet.tsx`
   // (see this file's header), so it does NOT move when PadSheet does.** That is exactly how it
-  // survived the first pass of this change and shipped boxed rows on the Habits tab while
-  // every PadSheet surface went flush — caught in a dark-mode screenshot, not by a test. If a
-  // future pass changes the row shape again, grep for `rowShape` AND for this constant; the
-  // real fix is adopting PadSheet here, which is already tracked in AGENTS.md's row rule.
-  const rowBox = null;
+  // shipped boxed rows on the Habits tab for a whole build while every PadSheet surface was
+  // still flush, in the OTHER direction — caught in a dark-mode screenshot, not by a test. If a
+  // future pass changes the row shape again, grep for `rowShape` in PadSheet AND for
+  // `ROW_BOX_FILL_DARK`/`ROW_BOX_EDGE_DARK` here; the real fix is adopting PadSheet, which is
+  // already tracked in AGENTS.md's row rule.
+  const rowBox = {
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(27,36,50,0.10)',
+    backgroundColor: isDark ? 'rgba(255,255,255,0.055)' : 'rgba(27,36,50,0.045)',
+    borderRadius: Radius.sm,
+  };
 
   const prevDone = useRef(isDone);
   useEffect(() => {
@@ -497,6 +506,11 @@ export default function HabitsSurface() {
   const screenHue = getScreenColor(theme, 'habits').base;
 
   const [selectedProfile, setSelectedProfile] = useState<string>('');
+  // Goals — a SECTION inside the Habits card's own body since 2026-08-26 (was `habitsGoals`,
+  // an ordinary registry card; see lib/cardRegistry.ts's note at its old position, and
+  // components/TodoSurface.tsx's identical move for Goals/Earlier days/Washed away). A
+  // section's fold is LOCAL and unpersisted, same as every other section in the app.
+  const [habitsGoalsOpen, setHabitsGoalsOpen] = useState(false);
   // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
   // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via
   // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
@@ -893,6 +907,26 @@ export default function HabitsSurface() {
                 />
 
               </View>
+
+              {/* Goals — a SECTION inside this card's own body since 2026-08-26 (see the
+                  `habitsGoalsOpen` note above). Expanding shows the goals AND lets you
+                  add/edit/delete them right there — no popup (2026-08-12, maintainer: "This
+                  should not be a pop-up. Examples included in card just like other cards, and
+                  making, editing and deleting in the card, not a pop up."). See
+                  components/GoalsEditor.tsx. Same `featureGoals` gate — turning the feature off
+                  removes the section entirely, editor included. */}
+              {featureGoals && (
+                <SectionCard
+                  embedded
+                  hue={screenHue}
+                  icon="flag"
+                  label={t.goals.editLinkPersonal}
+                  collapsed={!habitsGoalsOpen}
+                  onToggleCollapse={() => setHabitsGoalsOpen((v) => !v)}
+                >
+                  <GoalsEditor accent={screenHue} prefill={goalPrefill} />
+                </SectionCard>
+              )}
             </Card>
             </DebugNoteAnchor>
 
@@ -916,34 +950,12 @@ export default function HabitsSurface() {
               watermark from the suggested-habits card, which isn't a StarterCard any more —
               see the header's dated note) — back to the original plain gate: nothing to
               stand on until there's at least one habit. */}
-          {/* Goals — the same drawer the To-do tab draws (2026-08-10). Expanding shows the
-              goals AND lets you add/edit/delete them right there — no popup any more
-              (2026-08-12, maintainer: "This should not be a pop-up. Examples included in
-              card just like other cards, and making, editing and deleting in the card, not
-              a pop up."). See components/CollapsedSection.tsx and components/GoalsEditor.tsx.
-
-              This REVERSES the 2026-08-06 placement, and deliberately. That pass moved Goals
-              from a `SubScreenLinkButton` card into a plain row INSIDE the Habits card, on the
-              maintainer's reasoning: "in the habits card... saves us from yet another card".
-              The objection was to a card that could only be *followed* — a bordered Surface
-              whose entire content was one link, which is a card's worth of space for a row's
-              worth of information. A drawer is not that: it earns its card by showing what is
-              behind it, and it is now the app's one shape for "a surface this screen leads to"
-              (To-do's Goals and Earlier days, Shopping's Food and Catalogue). A row inside the
-              Habits card would be the odd one out again, on the very screen the maintainer
-              asked to make consistent. Same `featureGoals` gate — turning the feature off
-              removes the drawer entirely, editor included. */}
-          {featureGoals && (
-            /* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21)** — see
-               components/HealthSurface.tsx's equivalent note. `openSignal` goes with the
-               drawer: it existed so a note routed here through lib/prefill.ts could pop the
-               drawer open, and a card's fold is a stored user choice that an incoming
-               navigation should not overwrite. The prefill still reaches the editor, which is
-               what puts the text somewhere the user can see it. */
-            <Card id="habitsGoals">
-              <GoalsEditor accent={screenHue} prefill={goalPrefill} />
-            </Card>
-          )}
+          {/* ⚠️ **Goals moved INSIDE the `habitsList` Card as of 2026-08-26** — it is a SECTION
+              of this screen's one card now, not a card of its own (`habitsGoals` is gone from
+              lib/cardRegistry.ts; see the `habitsGoalsOpen` state above and its mount point
+              inside the Card body). This is a smaller move than it looks: the drawer/pop-up
+              question this block used to argue about was already settled in Goals' favour
+              (editing right there, no pop-up) — only WHICH card it's a section of changed. */}
 
           {/* ⚠️ **The foot StageTree is gone (2026-08-20).** It was a watermark for the BOTTOM OF
               A SCREEN — a full-height tree soaking up whatever viewport was left below the Goals
@@ -1037,24 +1049,19 @@ const baseStyles = StyleSheet.create({
   habitGlowWrap: { position: 'relative', borderRadius: Radius.md },
   // Habit card — Decision 043 rule 3: progress/done state lives on the 4px accent bar
   // only (habitAccent); the card body/border never recolors (see barColor in HabitCard).
-  // A ruled line on one sheet, NOT a card of its own (2026-08-04). Each habit used to be an
-  // opaque rounded surface with its own shadow, stacked inside the list's surface — a card
-  // inside a card, three deep once the screen's own Surface is counted. Flat rows separated by
-  // a hairline is what the design system's own habit card does, and it is the difference the
-  // maintainer was pointing at.
+  // Boxed again as of 2026-08-26 — see `rowBox` in HabitCard for the fill/edge and why this
+  // is a neutral row box, not the categorical hue the pre-2026-08-15 version drew.
   //
   // The 4px accent bar STAYS and is not decoration: it encodes progress
-  // (`progressColor(ratio)`) and the done state. With rows flush and square, consecutive bars
-  // line up into one continuous left margin, which reads as the notepad's ruled edge.
+  // (`progressColor(ratio)`) and the done state.
   habitCard: {
     flexDirection: 'row',
     overflow: 'hidden',
   },
-  // 4px gap between boxes, not flush — two adjacent 1.25px borders would paint a line heavier
-  // than the CARD's own edge and invert the hierarchy. Same rule as components/PadSheet.tsx.
-  // Tracks PadSheet's `stackGap`: xs → sm on 2026-08-15 when the row border came off. With no
-  // border to keep two rows apart, this gap IS the separation.
-  habitCardStacked: { marginTop: Spacing.sm },
+  // 4px gap between boxes, not flush — two adjacent 1px borders would paint a line heavier
+  // than the CARD's own edge and invert the hierarchy. Same rule as components/PadSheet.tsx —
+  // its boxed `stackGap` is `Spacing.xs` too, now that the border is back to keep two rows apart.
+  habitCardStacked: { marginTop: Spacing.xs },
   habitAccent: { width: 4, alignSelf: 'stretch' },
   habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
   // The row shell itself — leading icon, title, the ONE meta line, the ONE right-hand value,

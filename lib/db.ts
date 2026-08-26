@@ -1403,6 +1403,14 @@ export function initDb() {
     // card back on the registry's `openAtRest` — which is now literally the maintainer's
     // sentence: Today, Notes and Shopping open, on the middle screen, everything else closed.
     "UPDATE settings SET collapsed_cards = '{}'",
+    // ── 2026-08-26: Shop's "Archive" — a weekly list put away without deleting it ────────
+    //
+    // `is_template` already means "a saved list you can start a new one from" (Saved lists),
+    // a different question from "a past weekly list I'm done with but don't want to lose".
+    // NULL = active (drawn in its week section); a timestamp takes it out of the active
+    // weeks and into the Archive drawer at the foot of the shopLists card. Not synced —
+    // shopping_lists isn't in lib/liveSync.ts's SyncTable at all (see that store's header).
+    "ALTER TABLE shopping_lists ADD COLUMN archived_at TEXT DEFAULT NULL",
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

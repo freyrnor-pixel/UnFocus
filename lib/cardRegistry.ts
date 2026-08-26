@@ -91,6 +91,14 @@ export type CardSpec = {
    * way on instruction: the maintainer declined an "Inventory" grouping on Shop and a "Health"
    * grouping over the Health and Medicine cards. Recorded here so nobody adds one back.
    */
+  /**
+   * A group sub-header this card sits under. Unused since the 2026-08-26 registry restructure
+   * (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) turned To-do's "Elsewhere" trio into
+   * sections drawn INSIDE their parent card — a group rail over a stack of sections inside one
+   * card is not a shape this app draws, so nothing names this field today. Kept declared rather
+   * than deleted: a later cross-screen `group` (phase 8's Habits/Health "Growth" pairing) is a
+   * different, wider idea and gets its own field when it lands, not a resurrection of this one.
+   */
   group?: 'elsewhere';
   /** Screen hue the card's rail wears — resolved through lib/screenColor.ts at render. */
   hue: ScreenKey;
@@ -129,10 +137,15 @@ export const CARDS = {
     title: (t) => t.tasksTabToday,
     fold: 'persisted',
     expand: 'surface',
-    // ⚠️ **No `openAtRest` since 2026-08-22.** It had one because this was the only "Today" the
-    // app had while Home was the Me tab; Home has its own Today card again (`homeToday`), which
-    // is the one the maintainer's exception names. Two Todays resting open, one tab apart, is
-    // the duplication the exception was never about.
+    // ⚠️ **`openAtRest` again as of 2026-08-26** (phase 5 of
+    // DESIGN_COMPARISON/19-IMPLEMENTATION.md, decision (b): "the first card on each screen
+    // rests open"). It lost this 2026-08-22 on the reasoning that Home already has its own
+    // Today (`homeToday`) resting open, and two Todays open one tab apart was the duplication
+    // that exception was never about — that reasoning is about Home's THREE NAMED cards
+    // specifically, not about whether a tab's own first card gets a bare header on first open.
+    // This is a separate, narrower exception: every OTHER screen's own first card rests open
+    // too (`shopLists`, `habitsList`, `healthWeek`), which Home's rule never covered.
+    openAtRest: true,
   },
   todoWeek: {
     screen: 'todo',
@@ -144,9 +157,24 @@ export const CARDS = {
     fold: 'persisted',
     expand: 'surface',
   },
-  todoWhenever: {
+  // NEW (2026-08-26). A DATE FILTER, not monthly recurrence — AGENTS.md excludes monthly
+  // recurrence from normalizeRecurringTasks because there's no per-occurrence completion row;
+  // this asks the same question todoWeek already does, one rung out ("what's dated later this
+  // month"), and is wired to nothing in lib/taskRecurrence.ts beyond the same taskOccursOn every
+  // other dated card already reads.
+  todoMonth: {
     screen: 'todo',
     order: 3,
+    hue: 'plans',
+    domain: 'task',
+    icon: 'calendar-outline',
+    title: (t) => t.todoMonthTitle,
+    fold: 'persisted',
+    expand: 'surface',
+  },
+  todoWhenever: {
+    screen: 'todo',
+    order: 4,
     hue: 'plans',
     domain: 'task',
     title: (t) => t.tasksSectionWhenever,
@@ -155,7 +183,7 @@ export const CARDS = {
   },
   todoRecurring: {
     screen: 'todo',
-    order: 4,
+    order: 5,
     // Borrows the health hue so three To-do cards in a column aren't one colour — see
     // constants/colors.ts's card-identity addendum. The glyph is what names it.
     hue: 'health',
@@ -166,43 +194,16 @@ export const CARDS = {
     expand: 'surface',
   },
 
-  // The three cards that are not the day's work — what you're aiming at, what's behind you, and
-  // what quietly stopped mattering. They were `CollapsedSection` drawers, a fourth card shape
-  // with its own fold and no ⤢; they are ordinary cards now, under the one group rail on this
-  // tab.
-  todoGoals: {
-    screen: 'todo',
-    order: 5,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'flag',
-    title: (t) => t.goals.editLinkPractical,
-    fold: 'persisted',
-    expand: 'surface',
-  },
-  todoEarlierDays: {
-    screen: 'todo',
-    order: 6,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'time-outline',
-    title: (t) => t.dayLog.earlierDays,
-    fold: 'persisted',
-    expand: 'surface',
-  },
-  todoWashedAway: {
-    screen: 'todo',
-    order: 7,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'water-outline',
-    title: (t) => t.tasksSectionWashedAway,
-    fold: 'persisted',
-    expand: 'surface',
-  },
+  // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` are GONE from this registry as of
+  // 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — not deleted, turned into
+  // SECTIONS drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever` (Washed away).
+  // They were the app's only cards with `group: 'elsewhere'`; per the registry's own boundary —
+  // "a card is registry-named, a section is drawn one-per-row-of-user-data and rides its
+  // parent's Surface/fold/⤢" — a card that exists only to hold a short, fixed, non-list body
+  // one card below its natural home was the boundary being violated in exactly the direction
+  // the boundary exists to prevent. Removing a key here is tsc-guided (CardId/ExpandableCardId
+  // are derived) and needs no fold migration (sanitizeCollapsedCards drops unknown ids on
+  // read) — see components/TodoSurface.tsx for where the content actually lives now.
 
   // ── Shop ───────────────────────────────────────────────────────────────────────────────
   // The maintainer's order, verbatim, and deliberately with NO group headers over it — he
@@ -220,10 +221,13 @@ export const CARDS = {
     // full-screen copy of them is a second rendering of the screen you are already on.
     expandDeclined:
       "Shopping's lists are the Shop tab's primary content — a full-screen copy of them is a second rendering of the screen you are already looking at, and each list card already expands its rows in place.",
-    // ⚠️ **No `openAtRest` since 2026-08-22.** The maintainer's exception is *"'Today' 'Notes'
-    // and 'Shopping' in middle screen"* — the middle screen is Home, and all three of those
-    // cards live there now. This is the Shop tab's own lists card, which the exception never
-    // named; it was carrying the flag only because Home had no Shopping card to carry it.
+    // ⚠️ **`openAtRest` again as of 2026-08-26** — see `todoToday`'s note: this is the Shop
+    // tab's OWN first card resting open (decision (b) of DESIGN_COMPARISON/19-IMPLEMENTATION.md
+    // phase 5), a different exception from Home's three named cards, which it lost 2026-08-22
+    // on the reasoning that Home's "Shopping" preview already covered "Shopping rests open".
+    // That reasoning was about Home's rule, not this tab's own; this tab gets its own first-card
+    // exception like every other screen now.
+    openAtRest: true,
   },
   shopDishes: {
     screen: 'shop',
@@ -248,19 +252,15 @@ export const CARDS = {
     fold: 'persisted',
     expand: 'surface',
   },
-  shopMonthly: {
-    screen: 'shop',
-    order: 4,
-    hue: 'shopping',
-    domain: 'plan',
-    icon: 'calendar',
-    badgeHue: true,
-    title: (t) => t.monthlyTabLabel,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "Monthly is the stock list the weekly lists are built FROM, drawn one card per list; the group has no single body to grow, and the per-list cards are sections (drawn one per row of data), which never grow to fill the screen on their own.",
-  },
+  // ⚠️ **`shopMonthly` is GONE from this registry as of 2026-08-26** (phase 5 of
+  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — turned into a SECTION drawn inside `shopLists`,
+  // the same boundary move that took `todoGoals`/`todoEarlierDays`/`todoWashedAway` out of the
+  // registry: Monthly was already declared `expand: 'none'` for exactly the section reason
+  // ("the per-list cards are sections… which never grow to fill the screen on their own") —
+  // the outer `shopMonthly` wrapper around them was the one piece of that card that was still a
+  // CARD rather than a section, and it held no user data of its own to justify it. See
+  // app/(tabs)/shopping.tsx for where the content lives now (still every bit of it — the
+  // per-list `Surface`s, the filter bar, the empty state — just without an outer registry card).
 
   // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
   // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*
@@ -343,19 +343,16 @@ export const CARDS = {
     expand: 'none',
     expandDeclined:
       "Today's habits are the Habits tab's primary content, so a full-screen copy of them is a second rendering of the screen you are already on — the same refusal shopLists makes on Shop.",
+    // This tab has exactly one card, so "the first card rests open" (2026-08-26, phase 5 of
+    // DESIGN_COMPARISON/19-IMPLEMENTATION.md decision (b)) and "always open" coincide here —
+    // still worth stating explicitly rather than leaving it implicit, since every other
+    // screen's version of this flag is genuinely partial.
+    openAtRest: true,
   },
-  habitsGoals: {
-    screen: 'habits',
-    order: 2,
-    hue: 'habits',
-    domain: 'habit',
-    icon: 'flag',
-    title: (t) => t.goals.editLinkPersonal,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      'A short list of what the habits above are aiming at, with its own add and delete rows inside the card. Full screen it is the same handful of lines with more air around them; the fold is the control that matters here.',
-  },
+  // ⚠️ **`habitsGoals` is GONE from this registry as of 2026-08-26** — turned into a SECTION
+  // drawn inside `habitsList`, the same boundary move as To-do's Goals/Earlier days/Washed
+  // away (see the note at `todoGoals`'s old position above). See components/HabitsSurface.tsx
+  // for where the content lives now.
 
   // ── Health ─────────────────────────────────────────────────────────────────────────────
   // Also top-level and also on their own tab again. Medicine joins them: it was its own card on
@@ -372,6 +369,9 @@ export const CARDS = {
     expand: 'none',
     expandDeclined:
       "This week's issues are the Health tab's primary content — a pane for them is a second rendering of the screen you are already on.",
+    // `openAtRest` (2026-08-26, phase 5 decision (b) — "the first card on each screen rests
+    // open") — this tab's own first card, same exception as `todoToday`/`shopLists`/`habitsList`.
+    openAtRest: true,
   },
   healthIssues: {
     screen: 'health',
