@@ -528,15 +528,15 @@ describe('getRecessedField — the inputs are sunk into the pane, not drawn on i
   // assertion that keeps passing while measuring a colour the app no longer draws everywhere.
   // Rather than leave the new surface unmeasured, it gets its own explicit bound.
   //
-  // ── 2026-08-26 (DESIGN_COMPARISON/19 phase 1, dark `surface` #1E1E1E → #2C2C2C) ───────────
+  // ── 2026-08-26 (DESIGN_COMPARISON/19 phase 1, dark `surface`) ─────────────────────────────
   // Raising `surface` raised the well it is recessed FROM too: the composite (`getRecessedField`,
-  // 35% toward black) moved `#141414` → `#1D1D1D`, and white text on it moved **18.42:1 →
-  // 16.86:1** — this bound is no longer the tighter one. It happens to now sit UNDER the
-  // primary 17:1 ceiling as well (13.97:1 on `surface` itself, 16.86:1 on the well), so the two
-  // bounds that used to be "mutually exclusive" (see below) currently agree — a coincidence of
-  // this specific pair of values, not a reason to delete the second bound: raise `surface`
-  // again later and the well can separate from `surface` past 17 without this test knowing,
-  // exactly the PR #540 shape this exists to catch.
+  // 35% toward black) moved `#141414` → `#171717` (via a rejected `#1D1D1D` at the phase's first
+  // `#2C2C2C` surface attempt), and white text on it moved **18.42:1 → 17.93:1**. It did NOT
+  // land under the primary 17:1 ceiling this time (unlike the rejected `#2C2C2C` attempt's
+  // 16.86:1): the well is structurally darker than `surface`, so at `surface`'s corrected,
+  // smaller lift (`#242424`, 15.52:1 on `surface` itself) the well still exceeds 17 (17.93:1),
+  // which is exactly why this SEPARATE bound exists rather than folding into the 17:1 one — see
+  // the reasoning below, now demonstrated rather than hypothetical.
   //
   // The ORIGINAL reasoning this bound was added for, still the reason it exists as its own
   // assertion rather than being folded into the 17:1 one: with `text` at pure #FFFFFF, a

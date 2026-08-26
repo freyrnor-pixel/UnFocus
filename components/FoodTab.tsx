@@ -203,13 +203,13 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
  *
  * So the rung ORDER is not decorative and not alphabetical: it is the assignment that maximises
  * the worst dichromat pair across BOTH deuteranopia and protanopia in BOTH modes, searched over
- * rung permutations and a few degrees of hue either side of each family. Shipped worst pair:
- * **16.8** (dark deutan; protan 23.8) and **18.3 / 18.9** in light — against the 4.0 that
- * saturating alone produced.
+ * rung permutations and a few degrees of hue either side of each family. Shipped worst pair (as
+ * of the 2026-08-26 retune below): **15.17** (dark deutan; protan 23.77) and **18.3 / 18.9** in
+ * light (unaffected) — against the 4.0 that saturating alone produced.
  *
- *   L* rung   1 (darkest in dark mode) … 5        dark on #1E1E1E   light on #F9FBFE
- *   dinner    1                                    56                18
- *   snack     2                                    64                25
+ *   L* rung   1 (darkest in dark mode) … 5        dark on #242424   light on #F9FBFE
+ *   dinner    1                                    57.5              18
+ *   snack     2                                    64.7              25
  *   lunch     3                                    72                33
  *   breakfast 4                                    80                40
  *   kveldsmat 5                                    88                48
@@ -218,6 +218,15 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
  * theme does. Each value is the most chromatic sRGB colour at its hue and rung — nothing is
  * desaturated to hit a number — and every one clears 4.5:1 on its own mode's `surface`, which is
  * what makes it safe as a fully opaque glyph on the frost plate.
+ *
+ * ── Retuned 2026-08-26 (DESIGN_COMPARISON/19 phase 1's `surface` correction, `#1E1E1E` →
+ * `#242424` via a rejected `#2C2C2C` first attempt) — `dinner`/`dark` dropped from 4.57:1 to
+ * 3.83:1 at the same universal L* ≥ 57.5 floor `constants/colors.ts`'s identity hues hit (see
+ * that file's `IDENTITY_HUES` comment, and `lib/__tests__/colors.test.ts`'s `CHROMATIC_FLOOR`
+ * comment, for the derivation). `dinner` lifted `#EE4F00` → `#F55200` (L* 57.514, 4.501:1 — the
+ * tightest margin here), which forced `snack` (its ≥7-L*-apart neighbour) to lift too:
+ * `#D073FF` → `#CF77FE` (chroma −4%, same hue), landing at L* 64.657. `breakfast`/`lunch`/
+ * `kveldsmat` are untouched, and none of the LIGHT values moved.
  *
  * `lib/__tests__/colors.test.ts` pins the contrast, the ≥7 L* ladder and the dichromat floor,
  * and **reads these values out of this file rather than keeping a copy** — it held a hand-typed
@@ -229,8 +238,8 @@ const MEAL_ORDER: { value: MealType; icon: keyof typeof Ionicons.glyphMap }[] = 
 const MEAL_COLORS: Record<MealType, { light: string; dark: string }> = {
   breakfast: { light: '#795B00', dark: '#FBBC00' }, // morning amber   — rung 4
   lunch:     { light: '#00594D', dark: '#00C6AC' }, // teal            — rung 3
-  dinner:    { light: '#511B00', dark: '#EE4F00' }, // terracotta      — rung 1 (darkest)
-  snack:     { light: '#600091', dark: '#D073FF' }, // purple          — rung 2
+  dinner:    { light: '#511B00', dark: '#F55200' }, // terracotta      — rung 1 (darkest)
+  snack:     { light: '#600091', dark: '#CF77FE' }, // purple          — rung 2
   kveldsmat: { light: '#0068FA', dark: '#C7DEFF' }, // night blue      — rung 5 (lightest)
 };
 

@@ -131,24 +131,44 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // is ever retuned, put this back to 4.5 rather than leaving a floor nothing needs" — the
     // neon pass retuned it to #FF3B5C (4.79:1), so this is that instruction being carried out.
     //
-    // ⚠️⚠️ **KNOWN, UNRESOLVED CONFLICT as of 2026-08-26 — `dark: accent` and `dark: bad` now
-    // FAIL this floor, and it is not a small miss.** DESIGN_COMPARISON/19 phase 1 raised dark
-    // `surface` `#1E1E1E` → `#2C2C2C` to fix the card having "no boundary" against `bg`
-    // (documented in constants/colors.ts). Nobody had checked that move against the
-    // CHROMATIC tokens measured here — the design doc's own arithmetic only verified `bg`↔
-    // `surface`, `rule`↔`surface` and white `text`↔`surface`. It turns out **any** surface
-    // lighter than `#1F1F1F` (one step above the old `#1E1E1E`) already drops at least one of
-    // `accent` (4.00:1), `bad` (4.01:1), `IDENTITY_HUES.notes` (3.93:1, see that test below)
-    // or the `dinner` meal hue (3.83:1, see the meal-palette describe block) under 4.5 — so
-    // `#2C2C2C` cannot be reached without EITHER retuning those four already-shipped hues to
-    // clear the new, lighter `surface`, OR a deliberate, maintainer-approved relaxation of
-    // this floor for dark, OR capping `surface` well short of `#2C2C2C` (which would undercut
-    // the card-boundary fix phase 1 exists for). None of those is a phase-1/2 decision, so it
-    // is left here, unresolved and undisguised, rather than the floor being weakened to hide
-    // it — DESIGN_COMPARISON/19-IMPLEMENTATION.md's own instruction is "update tests, never
-    // delete an assertion to make it pass," and lowering this floor IS that. See the matching
-    // notes on the `identity notes` and `dinner` tests below for the other two failures this
-    // same root cause produces.
+    // ⚠️⚠️ **RESOLVED, 2026-08-26 — the conflict this comment used to describe.** DESIGN_COMPARISON/19
+    // phase 1 raised dark `surface` to fix the card having "no boundary" against `bg`. Its FIRST
+    // attempt, `#1E1E1E` → `#2C2C2C`, broke four already-shipped WCAG floors measured against
+    // `surface` — `accent` (4.00:1), `bad` (4.01:1), `IDENTITY_HUES.notes` (3.93:1) and the
+    // `dinner` meal hue (3.83:1) — because nobody had checked that move against anything but
+    // `bg`↔`surface`, `rule`↔`surface` and white `text`↔`surface`. The fix landed on **`#242424`
+    // instead of `#2C2C2C`**, plus small lifts to the four broken hues (and two more, forced by
+    // the ladder — see below). Nothing here is relaxed; every floor in this file still reads 4.5.
+    //
+    // **The derivation, because it is the reason the fix touched more than four hues.** At the
+    // corrected `surface` (`#242424`), any hue needs relative luminance ≥ 0.2544 to clear 4.5:1 —
+    // this is essentially HUE-INDEPENDENT (CIE L\* is a direct function of Y alone, so the
+    // luminance floor is the same regardless of chroma/hue), and it lands at **L\* ≥ 57.5** for
+    // every one of `accent`, `bad`, `dinner` and Notes. `accent`/`bad`/`dinner` had no ladder
+    // constraint, so each was simply lifted along its own hue (not desaturated) to clear 4.5 with
+    // a small margin (4.56–4.56:1) — see each token's own comment in constants/colors.ts.
+    //
+    // **Notes was the constrained one, because it sits in `IDENTITY_HUES`' five-rung lightness
+    // ladder, one L\* below Shopping, and the ladder requires ≥7 L\* between adjacent rungs.**
+    // With Shopping fixed at its old L\* 64.0, the ladder step alone caps Notes at L\* ≤ 57.0 —
+    // BELOW the 57.5 AA floor. That is a real, ~0.5 L\* conflict, not a rounding error: Notes
+    // cannot simultaneously clear AA on the new surface and stay 7 L\* under an unmoved Shopping.
+    // The theoretical ceiling for Notes — if every rung above it were repacked to the legal
+    // minimum spacing under Gold's fixed top (L\* 86.9 − 4×7 = 58.9) — is L\*≤58.9, which is
+    // where the "L\* ≤ 58.9" ceiling comes from; but that number assumes Habits/Health/Shopping
+    // all move, which they do not need to. Holding Habits and Health fixed (they had 0.6/0.7 L\*
+    // of spare margin in their own gaps) and moving ONLY Shopping gives Notes a real, narrower
+    // window of **[57.5, 57.7]** — inside the generic [57.5, 58.9] ceiling, but the number that
+    // actually applies to the shipped values. Notes landed at L\* 57.589 (`#B660FF`, 4.514:1),
+    // and Shopping was lifted ~0.65 L\* along its own hue (chroma −4%, not a hue rotation) to
+    // L\* 64.651 (`#24B451`, 5.708:1) — just enough to keep BOTH of Shopping's own gaps ≥7 L\*
+    // (7.063 to Health, 7.062 to Notes). Habits and Health are untouched.
+    //
+    // The identical shape recurs one level down, in the mode-invariant MEAL palette
+    // (`components/FoodTab.tsx`'s `MEAL_COLORS`, tested further below): `dinner` is that
+    // ladder's own bottom rung and needed the same ~L\*57.5 lift, which forced `snack` (its
+    // neighbour) to lift too, for the same "≥7 L\* to both sides" reason. See that describe
+    // block's own comment for the numbers.
     const CHROMATIC_FLOOR = { light: 4.5, dark: 4.5 } as const;
 
     MODES.forEach((mode) => {
@@ -278,14 +298,17 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
         //
         // ── 2026-08-26, DESIGN_COMPARISON/19 phase 1 ("the card surface") ────────────────
         // `surface` moved for the first time since the true-black palette: dark `#1E1E1E` →
-        // `#2C2C2C` (bg↔surface 1.260 → 1.504 — the fix for "clouded"), light `#F9FBFE` →
-        // `#FDFEFF` (bg↔surface 1.170 → 1.201, a smaller step, see that token's doc comment
-        // in constants/colors.ts). `surfaceMuted`/`surfaceInset` did NOT move on either side,
-        // so `ladderB` (surfaceMuted↔surfaceInset) is unchanged; `ladderA` and `rule` move
+        // `#2C2C2C` (bg↔surface 1.260 → 1.504) was the FIRST attempt and broke four already-
+        // shipped chromatic floors (see `CHROMATIC_FLOOR`'s comment above) — dark landed on
+        // **`#242424`** instead (bg↔surface 1.260 → 1.353, still a real boundary, just not the
+        // largest one reachable). Light moved `#F9FBFE` → `#FDFEFF` (bg↔surface 1.170 → 1.201,
+        // a smaller step, see that token's doc comment in constants/colors.ts) and was NOT
+        // touched by the dark correction. `surfaceMuted`/`surfaceInset` did NOT move on either
+        // side, so `ladderB` (surfaceMuted↔surfaceInset) is unchanged; `ladderA` and `rule` move
         // because `surface` is one of their two inputs.
         const expected = mode === 'light'
           ? { bgSurface: 1.201, ladderA: 1.168, ladderB: 1.118, rule: 1.528 }
-          : { bgSurface: 1.504, ladderA: 1.341, ladderB: 1.057, rule: 1.239 };
+          : { bgSurface: 1.353, ladderA: 1.207, ladderB: 1.057, rule: 1.378 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);
         expect(contrastRatio(p.surfaceMuted, p.surfaceInset)).toBeCloseTo(expected.ladderB, 2);
@@ -380,25 +403,28 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     //      at constant lightness, which is the "harmonise the badges" edit A.6 existed to catch);
     //   2. the ladder — adjacent rungs ≥ 7 L* apart, IN ORDER. This is the accessibility
     //      guarantee itself, and it is what a "make Health more vivid" edit would break;
-    //   3. the AA floor — ≥ 4.5:1 on the dark glass card, which is what fixes the BOTTOM of the
-    //      band at L* 55.4 and is therefore why Notes cannot be a deeper violet;
+    //   3. the AA floor — ≥ 4.5:1 on the dark glass card, which fixes the BOTTOM of the band —
+    //      L* 55.4 originally, **L* 57.5 as of the 2026-08-26 `surface` correction to `#242424`**
+    //      (see `CHROMATIC_FLOOR`'s comment above for the derivation) — and is therefore why
+    //      Notes cannot be a deeper violet;
     //   4. the dichromat regression — the simulated worst pair, which is the number the whole
-    //      change exists to move (11.8 → 19.7).
+    //      change exists to move (11.8 → 18.89 deutan / 12.87 protan as of 2026-08-26).
     // Plus the pre-existing pairwise ΔE2000 ≥ 25 floor, which is unchanged and still catches
     // the hue-space half.
     const DOCUMENTED_HEX: Record<(typeof HUE_KEYS)[number], string> = {
       todo: '#FFD700',
       habits: '#05D9E8',
       health: '#FF8CB2',
-      shopping: '#0DB34A',
-      notes: '#B45CFF',
+      shopping: '#24B451',
+      notes: '#B660FF',
     };
 
     // The ladder, brightest rung first. The ORDER is asserted, not just the gaps: two hues
     // swapped would keep every gap and still undo the recognition this buys, because the
     // categories are learned as "the bright one" / "the dark one".
     const LADDER = ['todo', 'habits', 'health', 'shopping', 'notes'] as const;
-    /** Minimum lightness step between adjacent rungs. Shipped set: 7.4–7.7. */
+    /** Minimum lightness step between adjacent rungs. Shipped set: 7.06–7.61 (was 7.4–7.7
+     *  before the 2026-08-26 shopping/notes retune — see `CHROMATIC_FLOOR`'s comment above). */
     const LADDER_MIN_STEP = 7;
 
     HUE_KEYS.forEach((key) => {
@@ -437,23 +463,21 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       });
 
       // Pin #3 — the AA floor, per hue, on the harder of the two dark grounds. `surface`
-      // was `#1E1E1E`, the dark glass card; anything clearing it clears `bg` (#000000) too, and
+      // is `#242424`, the dark glass card; anything clearing it clears `bg` (#000000) too, and
       // both are asserted because "on the black canvas" is how the requirement is usually
-      // stated. This is the test that fixed the BOTTOM of the band at L* 55.4 — it is why
-      // Notes cannot be a deeper violet, and why no future rung can be added below it.
+      // stated. This is the test that fixes the BOTTOM of the band — L* 55.4 originally, L* 57.5
+      // as of the 2026-08-26 `surface` correction — it is why Notes cannot be a deeper violet,
+      // and why no future rung can be added below it.
       //
-      // ⚠️⚠️ **`identity notes` now FAILS, as of 2026-08-26 — see the matching note on
-      // `CHROMATIC_FLOOR` above for the full picture.** DESIGN_COMPARISON/19 phase 1 raised
-      // `surface` to `#2C2C2C`, which raises the L* floor this pin fixes from 55.4 to ~60.6 —
-      // Notes (`#B45CFF`, L* 56.7, already "the DEEPEST violet AA allows" against the OLD
-      // floor) now measures 3.93:1, not 4.5. Nudging Notes lighter to re-clear it is not a
-      // local fix: the 5-rung ladder's rungs are ~7.6 L* apart inside a band whose bottom is
-      // exactly this test's floor and whose top is fixed by sRGB running out of saturated
-      // amber (~L* 87) — narrowing the band's bottom by ~5.2 L* leaves less than the ≥7 L*
-      // minimum step for five rungs to fit at all (see the ladder-step test below). So this is
-      // a real conflict between "raise `surface` for the card boundary" and "keep five
-      // categorical hues on one accessible, colour-blind-safe lightness ladder," not a rounding
-      // error — left failing and documented rather than the floor being loosened to hide it.
+      // ⚠️⚠️ **RESOLVED, 2026-08-26 — see `CHROMATIC_FLOOR`'s comment above for the full
+      // derivation.** DESIGN_COMPARISON/19 phase 1's first attempt raised `surface` to `#2C2C2C`,
+      // which raised the L* floor this pin fixes from 55.4 to ~60.6 — past what Notes (`#B45CFF`,
+      // L* 56.7, already "the DEEPEST violet AA allows" against the OLD floor) could survive
+      // (3.93:1). The corrected `surface`, `#242424`, needs only L* ≥ 57.5 — still above Notes'
+      // old value, but reachable: Notes moved to `#B660FF` (L* 57.589, 4.514:1), the tightest
+      // margin in the set. That in turn forced Shopping (Notes' neighbour on the ladder) to lift
+      // too, to keep the ≥7 L* step between them — see `CHROMATIC_FLOOR`'s comment for why only
+      // Shopping needed to move and Habits/Health did not.
       test(`identity ${key}: ≥ 4.5:1 as a glyph on the dark card AND on the black canvas`, () => {
         const p = THEMES.default.dark;
         expect(contrastRatio(hue, p.surface)).toBeGreaterThanOrEqual(4.5);
@@ -467,10 +491,12 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // matter — the ORDER (a swap keeps every gap and still costs the "bright one / dark one"
     // recognition) and the STEP.
     //
-    // Shipped steps are 7.4–7.7 against a floor of 7, which is deliberately tight: the band is
-    // only ~30 L* wide (bottom fixed by the AA test above, top by sRGB running out of saturated
-    // amber above L* 87), so five rungs is what fits. **A sixth identity hue does not fit** —
-    // this test failing on an added hue is the correct outcome, not an obstacle to route around.
+    // Shipped steps are 7.06–7.61 against a floor of 7 (was 7.4–7.7 before the 2026-08-26
+    // `surface` correction lifted Notes and, in turn, Shopping — see `CHROMATIC_FLOOR`'s
+    // comment above), which is deliberately tight: the band is under 30 L* wide (bottom fixed
+    // by the AA test above, top by sRGB running out of saturated amber above L* 87), so five
+    // rungs is what fits. **A sixth identity hue does not fit** — this test failing on an added
+    // hue is the correct outcome, not an obstacle to route around.
     test('identity hues: the lightness ladder is in order and every step is ≥ 7 L*', () => {
       const rungs = LADDER.map((k) => ({ key: k, L: lstar(IDENTITY_HUES[k].hue) }));
       for (let i = 1; i < rungs.length; i += 1) {
@@ -485,11 +511,14 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     // readers it is for. Simulation is Viénot/Brettel/Mollon (1999), the standard LMS
     // projection, implemented inline at the bottom of this file next to the Lab maths.
     //
-    // The floor is 15 against a shipped worst pair of 19.7 (deutan) / 12.9 (protan). Protanopia
-    // gets the lower floor because its luminance response is itself shifted — a protanope sees
+    // The floor is deutan≥15/protan≥12 against a shipped worst pair of 18.89 (deutan,
+    // Habits/Notes) / 12.87 (protan, Habits/Health — unchanged by the 2026-08-26 retune, since
+    // neither hue in that pair moved). Was 19.7/12.9 before that retune moved Shopping and
+    // Notes; both are still far above what the pre-ladder set managed: 11.8 and 11.9, i.e. the
+    // whole set within one ΔE band of "these two are the same colour". Protanopia gets the
+    // lower floor because its luminance response is itself shifted — a protanope sees
     // red-family hues darker than the CIE Y this ladder is built on — so the same rungs
-    // compress slightly. Both are far above what the pre-ladder set managed: 11.8 and 11.9,
-    // i.e. the whole set within one ΔE band of "these two are the same colour".
+    // compress slightly.
     test('identity hues: every pair survives deuteranopia and protanopia simulation', () => {
       const FLOORS = { deutan: 15, protan: 12 } as const;
       (['deutan', 'protan'] as const).forEach((kind) => {
@@ -506,7 +535,8 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
 
     // A.6 #2 — every pair is separable in COLOUR space too, which the ladder does not imply:
     // two hues one rung apart could still be the same hue at two lightnesses. Worst pair today
-    // is Health/Notes at 26.9. This floor is also what caught the 2026-08-16 brief's own
+    // is Health/Notes at 26.36 (was 26.9 before the 2026-08-26 shopping/notes retune). This
+    // floor is also what caught the 2026-08-16 brief's own
     // suggested Shopping value (`#01FFC3`, 22.9 against Habits' cyan) before it shipped, and
     // what stops Health's rose being rotated back toward magenta for chroma (24.0 at h 350).
     test('identity hues: every pair is ΔE2000 ≥ 25', () => {
@@ -604,9 +634,10 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       // hue clear the floor unaided, this fails — and that is the moment to check whether
       // badgeGlyphFor is still doing anything, not to delete this test."
       //
-      // That moment arrived. On the dark plate (`#323232`) the five measure 9.14 / 7.39 / 5.89 /
-      // 4.62 / 3.61 (2026-08-17 ladder values; 7.81 / 7.39 / 3.54 / 9.83 / 3.94 before it) —
-      // all clear either way, because bright-on-near-black is the whole point of the set. So in
+      // That moment arrived. On the dark plate (`#383838` as of the 2026-08-26 `surface`
+      // correction to `#242424`, was `#323232`) the five measure 8.36 / 6.75 / 5.39 / 4.31 /
+      // 3.41 (todo/habits/health/shopping/notes) — all clear either way, because
+      // bright-on-near-black is the whole point of the set. So in
       // DARK, `badgeGlyphFor` is a genuine no-op, and asserting otherwise would be asserting a
       // defect. In LIGHT it is still doing real work — since the ladder ALL FIVE need the walk
       // there, Notes having been the last hue that cleared unaided (3.03 against a 3.3 floor) —
@@ -738,13 +769,17 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
       ]);
     });
 
-    // ⚠️⚠️ **`dark: dinner` FAILS as of 2026-08-26 — same root cause as the `CHROMATIC_FLOOR`
-    // and `identity notes` notes above.** DESIGN_COMPARISON/19 phase 1's `surface` bump
-    // (`#1E1E1E` → `#2C2C2C`) drops `dinner` (`#EE4F00`, components/FoodTab.tsx) from 4.57:1
-    // to 3.83:1 on `surface` — it was already the tightest of the five meal hues (rung 1,
-    // "darkest") before the surface moved, so it is the first to fall. Left failing and
-    // documented, not silently loosened; see the CHROMATIC_FLOOR note for the full picture and
-    // the options for resolving it (none of which is a phase-1/2 decision).
+    // ⚠️⚠️ **RESOLVED, 2026-08-26 — same root cause and same fix shape as the
+    // `CHROMATIC_FLOOR`/`identity notes` notes above.** DESIGN_COMPARISON/19 phase 1's first
+    // `surface` attempt (`#1E1E1E` → `#2C2C2C`) dropped `dinner` (`components/FoodTab.tsx`,
+    // rung 1 of this mode-invariant meal ladder, "darkest") from 4.57:1 to 3.83:1 — it was
+    // already the tightest of the five meal hues, so it was the first to fall. The corrected
+    // `surface` (`#242424`) needs the same universal L* ≥ 57.5 lift every other broken hue
+    // needed; `dinner` moved `#EE4F00` → `#F55200` (L* 57.514, 4.501:1 — the tightest margin
+    // here too). And exactly as with Shopping/Notes, lifting `dinner` alone would close its
+    // ≥7 L* gap to its neighbour `snack` (L* 64.07 unmoved would leave only ~6.6), so `snack`
+    // moved too: `#D073FF` → `#CF77FE` (chroma −4%, not a hue rotation), landing at L* 64.657
+    // with ≥7 L* margin on both its own gaps. `breakfast`/`lunch`/`kveldsmat` are untouched.
     MODES.forEach((mode) => {
       const surface = THEMES.default[mode].surface;
       Object.entries(MEAL_COLORS).forEach(([meal, pair]) => {
@@ -798,8 +833,9 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     test.each(MODES)('%s: no pair collapses for a dichromat', (mode) => {
       // A lower floor than IDENTITY_HUES' 15/12: these five are one card's sections rather than
       // the app's navigation, and they are read next to their own labels. The shipped worst
-      // pairs are 22.8 (deutan, dark) and 36.4 (light) against the 4.0 that saturating alone
-      // produced, so the margin is real either way.
+      // pairs are 15.17 deutan / 23.77 protan (dark, as of the 2026-08-26 dinner/snack retune —
+      // was 22.8 deutan before it) and 36.4 (light, unaffected by that retune) against the 4.0
+      // that saturating alone produced, so the margin is real either way.
       const FLOORS = { deutan: 12, protan: 10 } as const;
       (['deutan', 'protan'] as const).forEach((kind) => {
         const entries = Object.entries(MEAL_COLORS);

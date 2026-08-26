@@ -44,12 +44,16 @@ import db from '@/lib/db';
  * until 2026-08-15 — pre-dating the categorical system entirely, so a widget's dot was a
  * colour that appeared nowhere in the app it belonged to. `overview` has no identity hue to
  * borrow (Home is the one neutral surface), so it takes the palette's own `accent`.
+ *
+ * `shop`/`notes`/`overview` re-synced 2026-08-26 for the `IDENTITY_HUES.shopping`/`.notes` and
+ * dark `accent` retune in constants/colors.ts (DESIGN_COMPARISON/19 phase 1's `surface`
+ * correction) — see that file's `IDENTITY_HUES` comment for why shopping/notes moved together.
  */
 export const WIDGET_ACCENT = {
-  shop: '#0DB34A', // IDENTITY_HUES.shopping
+  shop: '#24B451', // IDENTITY_HUES.shopping
   task: '#FFD700', // IDENTITY_HUES.todo
-  overview: '#1E88FF', // DARK.accent — Home/overview is IDENTITY_NEUTRAL, which is a drab grey
-  notes: '#B45CFF', // IDENTITY_HUES.notes
+  overview: '#298AFF', // DARK.accent — Home/overview is IDENTITY_NEUTRAL, which is a drab grey
+  notes: '#B660FF', // IDENTITY_HUES.notes
   habits: '#05D9E8', // IDENTITY_HUES.habits
   health: '#FF8CB2', // IDENTITY_HUES.health
 } as const;
