@@ -17,14 +17,16 @@
  * it, which is what makes a fourteenth order unspellable rather than merely discouraged.
  *
  * **The load-bearing guard is a BAN, not an allowlist.** No file outside this one may import
- * components/CardCollapseToggle.tsx or components/CardExpandButton.tsx
- * (`lib/__tests__/cardAnatomy.test.ts`). One assertion, and it is stronger than every list the
- * previous passes maintained: those listed the cards that were already right, so a new card was
- * compliant by default. This one says where the controls may be built at all.
+ * components/CardCollapseToggle.tsx. `components/CardExpandButton.tsx` has exactly one other
+ * legitimate importer — components/CardExpandHost.tsx, the expanded pane's own close control —
+ * and both exceptions are named, not allowlisted (`lib/__tests__/cardAnatomy.test.ts`). One
+ * assertion per control, and each is stronger than every list the previous passes maintained:
+ * those listed the cards that were already right, so a new card was compliant by default. This
+ * one says where the controls may be built at all.
  *
  * Connections:
  *   Imports → components/Surface, components/SectionRail, components/Collapsible,
- *             components/CardCollapseToggle, constants/theme,
+ *             components/CardCollapseToggle, components/CardExpandButton, constants/theme,
  *             lib/cardRegistry, lib/useCollapsedCard, lib/useCardExpand, lib/screenColor,
  *             lib/useAppTheme
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
@@ -32,19 +34,23 @@
  *   Data    → settings.collapsedCards, for cards whose registry entry folds
  *
  * Edit notes:
- *   - ⚠️ **There is no ⤢ in a card header any more (2026-08-22).** Maintainer: *"Remove all full
- *     screen buttons, instead user just presses the title."* The rail has carried
- *     `onLabelPress` since 2026-08-10 and this file has wired every expandable card's title to
- *     `expand.onExpand` since the registry landed — so the button was a second control for a
- *     thing the title already did, and it was the widest item in the cluster. Deleting it is
- *     the whole change: the measure ref, the geometry and `useCardExpand` are untouched,
- *     because none of them care which control fires.
- *     `components/CardExpandButton.tsx` still exists — the expanded PANE draws one as its close
- *     control (components/CardExpandHost.tsx). It is a card header that may not have one, and
- *     the import ban is what keeps that true.
- *   - **The trailing cluster is `{controls}` → fold, in that order, always.** `controls` is the
- *     caller's OWN controls and nothing else — a bell, a lock, a ⋮. The fold is outermost, in
- *     the card's actual top-right corner, which is where the ⤢ used to land.
+ *   - ⚠️ **The ⤢ is back in a card header (2026-08-26), reversing 2026-08-22** ("Remove all full
+ *     screen buttons, instead user just presses the title") **on the maintainer's explicit
+ *     instruction, who has seen and accepted its measured cost**: across five screens × three
+ *     widths × two languages, 6 of 30 combinations truncate a card title with the ⤢ back, vs 1
+ *     of 30 without — nearly all at 360px, and only on a card that ALSO carries its own control
+ *     (Catalogue's lock, Medicine's bell) plus the ⤢ plus the fold. Three buttons is one too
+ *     many at that width, and it is a known, accepted cost rather than a regression to chase.
+ *     **The title stays pressable too** — two ways in is fine, and it is what keeps
+ *     `labelPressHint` honest for anyone who still reaches for the name.
+ *   - **The trailing cluster is `{controls}` → ⤢ → fold, in that order, always.** `controls` is
+ *     the caller's OWN controls and nothing else — a bell, a lock, a ⋮. The fold is still
+ *     outermost, in the card's actual top-right corner; the ⤢ sits just inside it. Both draw at
+ *     `IconSize.action` (36, `components/IconButton.tsx`'s own default) and reach the 48px
+ *     `MIN_TAP_TARGET` through that component's own hit-target floor
+ *     (`Math.max(MIN_TAP_TARGET, size + Spacing.sm)` on the PRESSABLE, never on the painted
+ *     circle) — never a literal 48-wide filled box, which would cost another 24px of header
+ *     width per control and truncate more titles than the measured cost already does.
  *   - **Closed is a bare header.** Three things follow the body rather than the card: the rail's
  *     hairline (`divider={!collapsed}`), the GAP the rail reserves under itself (`railClosed`,
  *     2026-08-24) and the card's bottom inset (`cardCollapsed`) — so a folded card is its header
@@ -62,6 +68,7 @@ import Surface from '@/components/Surface';
 import SectionRail from '@/components/SectionRail';
 import Collapsible from '@/components/Collapsible';
 import CardCollapseToggle from '@/components/CardCollapseToggle';
+import CardExpandButton from '@/components/CardExpandButton';
 import { MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import type { Domain } from '@/lib/domainColor';
 import { CardKey, cardSpec } from '@/lib/cardRegistry';
@@ -124,11 +131,16 @@ export default function Card({ id, count, countRef, controls, embedded, contentS
       // this since 2026-08-10; wiring it here means every expandable card gets it, rather than
       // the four that remembered.
       onLabelPress={expands ? expand.onExpand : undefined}
-      // The button carried the "open full screen" wording in its accessible label. With the
-      // button gone the title has to carry it, or the one control left is a name that does not
-      // say it is a control.
+      // The title still carries the "open full screen" wording in its accessible label even
+      // though the ⤢ is back — two ways in, one accessible name each. See the header note.
       labelPressHint={expands ? `${label} — ${t.expandCardLabel}` : undefined}
       controls={controls}
+      // Just inside the fold, which stays outermost. `undefined` (not a component call) when
+      // the card doesn't expand, so a non-expandable card's cluster is exactly `{controls}` →
+      // fold, unchanged.
+      expandButton={expands ? (
+        <CardExpandButton expanded={expand.expanded} onExpand={expand.onExpand} onCollapse={expand.onCollapse} />
+      ) : undefined}
     >
       {children}
     </CardShell>
@@ -155,8 +167,15 @@ type ShellProps = {
   onLabelPress?: () => void;
   /** Accessible name for the pressable title, when pressing it does something. */
   labelPressHint?: string;
-  /** The caller's own header controls — drawn first, before the fold, which is outermost. */
+  /** The caller's own header controls — drawn first, before the ⤢ and the fold. */
   controls?: React.ReactNode;
+  /**
+   * The full-screen ⤢, just inside the fold (which stays outermost). Built by the caller
+   * (components/Card.tsx's default export) from `lib/useCardExpand.ts`'s hook, because this
+   * shell has no registry access of its own — see components/SectionCard.tsx, whose cards never
+   * expand and so never pass one.
+   */
+  expandButton?: React.ReactNode;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   embedded?: boolean;
@@ -185,6 +204,7 @@ export function CardShell({
   onLabelPress,
   labelPressHint,
   controls,
+  expandButton,
   collapsed,
   onToggleCollapse,
   embedded = false,
@@ -231,13 +251,15 @@ export function CardShell({
       style={isClosed ? styles.railClosed : undefined}
       right={
         <>
-          {/* ⚠️ **The caller's own controls, then the fold — always, and the fold is last.** The
-              rule was `controls → fold → ⤢` until 2026-08-22, when the ⤢ was deleted app-wide
-              (the title opens the card now). The fold inherits the corner it used to yield.
-              `SectionCard` implemented the opposite order for months, putting the chevron
-              first: the Katalog card came out `fold → camera → lock` where the rule asks for
+          {/* ⚠️ **The caller's own controls, then the ⤢, then the fold — always, and the fold
+              is last.** The rule was `controls → fold` alone from 2026-08-22 (when the ⤢ was
+              deleted app-wide) until 2026-08-26, which puts it back one step inside the fold —
+              see the header note for the measured cost the maintainer accepted to get it back.
+              `SectionCard` implemented the opposite chevron-first order for months before that:
+              the Katalog card came out `fold → camera → lock` where the rule asks for
               `camera → lock → fold`. There is one place to get it right now. */}
           {controls}
+          {expandButton}
           {folds && (
             <CardCollapseToggle collapsed={!!collapsed} onToggle={onToggleCollapse!} cardLabel={label} />
           )}

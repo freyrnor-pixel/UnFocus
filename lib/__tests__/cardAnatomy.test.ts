@@ -253,12 +253,15 @@ function rightSlots(src: string): string[] {
   return out;
 }
 
-describe('the fold is last in the header, and no card header has a ⤢', () => {
+describe('the fold is last in the header, and the ⤢ is built in exactly one place', () => {
   /**
-   * The rule (2026-08-22): a caller's own controls → the fold chevron, with the FOLD outermost on
-   * every surface. It was `controls → fold → ⤢` from 2026-08-20 until the ⤢ was deleted app-wide
-   * (maintainer: *"Remove all full screen buttons, instead user just presses the title."*); the
-   * fold inherits the corner it used to yield.
+   * The rule (2026-08-26, reversing 2026-08-22): a caller's own controls → the ⤢ → the fold
+   * chevron, with the FOLD outermost on every surface. It was `controls → fold` alone from
+   * 2026-08-22, when the ⤢ was deleted app-wide (maintainer: *"Remove all full screen buttons,
+   * instead user just presses the title."*), and before that `controls → fold → ⤢` from
+   * 2026-08-20. The ⤢ is back on the maintainer's explicit instruction — see components/Card.tsx's
+   * header for the measured truncation cost they accepted to get it — landing one step INSIDE
+   * the fold rather than after it, so the fold still inherits the corner it always has.
    */
   it("the cluster is the caller's controls, then the fold, and nothing after it", () => {
     // ⚠️ **This used to pin what `SectionCard` DID rather than what the rule says**, on the
@@ -279,20 +282,26 @@ describe('the fold is last in the header, and no card header has a ⤢', () => {
     expect(after).not.toMatch(/<[A-Z][A-Za-z]*\b/);
   });
 
-  it('no card header anywhere mounts a CardExpandButton', () => {
-    // The button survives for ONE job: the expanded pane's own close control
-    // (components/CardExpandHost.tsx). A card header may not have one — pressing the title is
-    // the way in, and a second control for it is what was removed. Scoped to `right={…}` slots,
-    // i.e. header clusters, so the pane's own chrome is out of scope by construction.
-    const offenders: string[] = [];
-    for (const file of sourceFiles()) {
-      const src = code(file);
-      if (!src.includes('CardExpandButton')) continue;
-      for (const slot of rightSlots(src)) {
-        if (slot.includes('CardExpandButton')) offenders.push(`${file}: ⤢ in a header slot`);
-      }
-    }
+  it('a <CardExpandButton> JSX tag appears ONLY in a card header or its expanded pane', () => {
+    // A BAN with exactly two named exceptions, not an allowlist — same shape as the import ban
+    // at the top of this file, which allows the same two files for the same reason. Scanning
+    // for the literal JSX tag rather than `right={…}` text on purpose: `components/Card.tsx`
+    // passes the button down through `CardShell`'s `expandButton` prop rather than writing
+    // `<CardExpandButton` inline inside `right={…}`, so a slot-scoped scan (the way the CHEVRON
+    // ban above reads `right=` text) would miss the real call site and pass vacuously.
+    // `components/CardExpandHost.tsx` is the button's OTHER legitimate mount — the expanded
+    // pane's own close control, which has no card header to belong to at all.
+    const offenders = sourceFiles().filter(
+      (rel) => rel !== 'components/Card.tsx' && rel !== 'components/CardExpandHost.tsx'
+        && /<CardExpandButton\b/.test(code(rel)),
+    );
     expect(offenders).toEqual([]);
+  });
+
+  it('components/Card.tsx really does mount the ⤢', () => {
+    // The exception above is only honest if it is used. Without this, deleting the ⤢ from
+    // Card.tsx entirely would leave the ban passing vacuously — "nobody else does it either".
+    expect(code('components/Card.tsx')).toMatch(/<CardExpandButton\b/);
   });
 
   it('an expandable card gives its pressable title an accessible name that says what it does', () => {

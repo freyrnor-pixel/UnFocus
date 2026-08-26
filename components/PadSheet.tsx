@@ -1,53 +1,41 @@
 /**
- * PadSheet.tsx — the shared body of every list-bearing card: flush rows, separated by space.
+ * PadSheet.tsx — the shared body of every list-bearing card: a filled, bordered row at
+ * `Radius.sm`, separated by space.
  *
- * **Flush rows, 2026-08-15 (Tactile Glass, maintainer brief §3: "No 'Box-in-a-Box': strip away
- * all unnecessary nested borders. Group elements purely using whitespace and edge-to-edge
- * layouts.").** A row has no border, no fill and no rule under it; what separates it from the
- * next one is `Spacing.sm` of nothing. The card's own glass pane is the only box.
+ * **Boxed rows are back, 2026-08-26 — the THIRD reversal of this one question, and the second
+ * time boxes have been the answer.** Ruled lines (2026-07-30 notepad pass) → bordered boxes
+ * (2026-08-05 card reset) → flush (2026-08-15 Tactile Glass) → **boxed again (now)**. All four
+ * rulings are the maintainer's own; none was drift. `DESIGN_RULES.md` rule 5 and its open
+ * conflict #8 are rewritten in the same edit as this file, so the docs stop contradicting the
+ * shipped app — see those files rather than trusting this comment's account to stay current.
+ * `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` and `19-card-surface-reset.md` have the
+ * reasoning for each swing.
  *
- * ⚠️ **This is the THIRD answer to one question, and each was the maintainer's own.** Ruled
- * lines (2026-07-30 notepad pass) → bordered boxes (2026-08-05 card reset) → flush (now).
- * None of the three was drift, and the reason the answer keeps moving is that it depends on
- * the MATERIAL: boxes made sense inside a flat opaque card and stopped making sense inside a
- * frosted pane, which already reads as a container without help. `DESIGN_RULES.md` rule 5
- * ("whitespace over lines") is therefore RESTORED, and open conflict #8's rule-5 half flips
- * back with it — read DESIGN_RULES_AUDIT.md's 2026-08-15 addendum before moving it again.
- * `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` has all three in one place.
+ * **The recipe is one step away from the card, in whichever direction has room.** A row is not
+ * a THEME-hued line any more (the 2026-08-05 boxes used `computeBorderTone(hue, …)`, the
+ * screen's own colour at the field rung) — it is a neutral wash of the row's OWN surface: a dark
+ * card lifts (a lit-white fill reads as raised on near-black), a light card is already close to
+ * white so the same white wash would vanish, and recesses instead (a dark wash reads as sunk).
+ * Same fill/edge pair on every screen regardless of the card's categorical hue — this is a
+ * container edge, not a control boundary, and the identity hue stays reserved for the badge,
+ * a focused field's halo and a primary key, per the "text/borders/backgrounds never glow"
+ * glow-budget rule. The values are inlined here (not a `constants/theme.ts` token) — this pass
+ * runs alongside another touching that file's card/glow tokens, and a literal two-value pair
+ * with nothing else deriving from it doesn't need a shared home yet.
  *
- * **What did NOT change, and must not be "finished" by this pass**: the composer keeps its
- * box. `components/PadTypeRow.tsx` and `FormControls`' `Input` are still bordered, filled and
- * focus-showing, because that box is a rule-18 fix ("focus is never invisible") answering a
- * real user report — *"Not visible where user is typing, looks unnatural"* — and
- * DESIGN_COMPARISON/10 says in as many words that the composer box is not precedent for
- * boxing rows. The inverse holds exactly as strongly: de-boxing rows is not precedent for
- * un-boxing the field. One control you type INTO gets a box; rows do not.
+ * **What did NOT change**: the composer keeps its own, separately-justified box
+ * (`components/PadTypeRow.tsx` / `FormControls`' `Input`, a rule-18 focus fix, not a rows
+ * decision) — de-boxing rows never argued for un-boxing the field, and boxing rows back up
+ * doesn't argue for giving the field a *different* box either.
  *
- * **The 2026-08-05 pass this replaced reversed two earlier decisions, and both were re-put to
- * the maintainer before it was written** — history, kept because the reasoning still explains
- * why the boxes were right for the card they were drawn on:
- *   - `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` + `DESIGN_RULES_AUDIT.md` item 12
- *     (2026-08-04) rejected boxed rows as "cards inside a card". The counter-argument then was
- *     PR #483, which had moved Habits the other way a day earlier. What changed is that a card
- *     is no longer a glass pane with a beveled rim — it is a flat white page with one thin
- *     border (see components/Surface.tsx), so a bordered row inside it no longer reads as a
- *     second card competing with the first. The "cards inside a card" objection was about the
- *     old material, and the old material is gone.
- *   - The 2026-07-30 notepad pass drew full-width rules on every list card, which is
- *     `DESIGN_RULES.md`'s open conflict #8. That conflict is now **resolved in favour of rule
- *     5** ("whitespace over lines") rather than against it: the rules are gone. The notepad
- *     feel the maintainer asked for is carried by the card's own shape and white page, not by
- *     printed lines.
- *
- * Spare lines are gone with them. They existed so a short list still read as a page rather than
- * as a card that ran out; a page of empty *boxes* reads as broken UI rather than as blank paper,
- * so the mechanism doesn't survive the change of shape. `padSpareLines` is still exported from
- * lib/padState for its tests, but this component no longer calls it.
+ * Spare lines are still gone (see the 2026-08-15 note this replaced) — a page of empty boxes
+ * reads as broken UI rather than as blank paper, so the mechanism doesn't come back with the
+ * border. `padSpareLines` is still exported from lib/padState for its tests, but this
+ * component still doesn't call it.
  *
  * Connections:
- *   Imports → constants/theme (computeBorderTone, PAD_ROW_HEIGHT,
- *             PAD_ROW_MIN_HEIGHT, Radius, Spacing), components/Collapsible, lib/padState
- *             (PadState), lib/screenColor (useScreenColor), lib/useAppTheme,
+ *   Imports → constants/theme (PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing),
+ *             components/Collapsible, lib/padState (PadState), lib/useAppTheme,
  *             lib/useDesignLab (useLabControl, useLabShape — the `rowShape` knob below)
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
  *             app/(tabs)/{plans,habits,shopping}.tsx
@@ -71,31 +59,38 @@
  *     appends to" (AGENTS.md) — so the pad follows it now and the split is closed.
  *     **Above the `footer`, not below it**: the footer is the done/checked zone, and this field
  *     appends to the ACTIVE list, not to that one.
- *     It gets NO box of its own: `components/PadTypeRow.tsx` already draws a
- *     bordered field, and wrapping a bordered field in a bordered box is the doubled-border
- *     mistake this whole pass exists to avoid.
+ *     It gets NO box of its own beyond what it already draws: `components/PadTypeRow.tsx`
+ *     already draws a bordered field, and wrapping a bordered field in a bordered box is the
+ *     doubled-border mistake this component still avoids even with the rows boxed again.
  *   - Rows animate open/shut through components/Collapsible (measured-height clip, no fade) so
  *     folding a card reads as "still there, just folded". Do not swap in an opacity fade — see
  *     Collapsible's header for why.
- *   - The row border is `computeBorderTone(hue, isDark, 'field')` — the screen's hue at the
- *     FIELD rung, one step lighter than the card's own edge. That gradation is the whole reason
- *     a card full of boxes doesn't read as a grid: the card's border is the strong line, the
- *     rows are quieter lines inside it. Don't reach for `theme.border` here; it's a fixed grey
- *     that would ignore the screen it's on.
- *   - **The design lab's `rowShape` knob (2026-08-06) can put the rules back**, and that is the
- *     point of it: boxed · ruled · flush are the three answers this one question has been given
- *     across three passes, and each was argued in prose. `boxed` is the shipped fallback, so
- *     nothing changes until the lab says otherwise — but if a future pass wants to move off
- *     boxes, the way to decide is to flip this on the real screens rather than to re-argue it.
+ *   - **The row fill/edge is neutral and theme-derived, not screen-hued** — `ROW_BOX_*` below,
+ *     picked by `isDark`, never by `useScreenColor()`. Don't reach for the screen's hue here;
+ *     see the header note on why that's a deliberate change from the 2026-08-05 boxes.
+ *   - **The design lab's `rowShape` knob (2026-08-06) can put ruled or flush back**, and that is
+ *     the point of it: boxed · ruled · flush are the three answers this one question has been
+ *     given across four passes, and each was argued in prose. `boxed` is the shipped fallback
+ *     again (`lib/designLab.ts`'s `CONTROL_KNOBS` entry) — but if a future pass wants to move
+ *     off boxes, the way to decide is to flip this on the real screens rather than re-argue it.
  *     Row height and the field border's width/strength come from the lab too.
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { computeBorderTone, PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
+import { PAD_ROW_HEIGHT, PAD_ROW_MIN_HEIGHT, Radius, Spacing } from '@/constants/theme';
 import { useLabControl, useLabShape } from '@/lib/useDesignLab';
 import { PadState } from '@/lib/padState';
-import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+
+// A row's box is one step away from the CARD's own surface, not the screen's categorical hue —
+// see the header note. Inlined rather than a constants/theme.ts token: a two-value pair with
+// nothing else deriving from it, alongside another pass touching that file's own card/glow
+// tokens this session. Keep the two pairs in step if the card surface (Phase 1, constants/
+// colors.ts) moves again — "one step away from the card" is the invariant, not these literals.
+const ROW_BOX_FILL_DARK = 'rgba(255,255,255,0.055)';
+const ROW_BOX_EDGE_DARK = 'rgba(255,255,255,0.10)';
+const ROW_BOX_FILL_LIGHT = 'rgba(27,36,50,0.045)';
+const ROW_BOX_EDGE_LIGHT = 'rgba(27,36,50,0.10)';
 
 type Props = {
   /** Which of the three sizes to draw. Drives the rows' reveal. */
@@ -132,19 +127,18 @@ export default function PadSheet({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const hue = useScreenColor() ?? theme.border;
   const rows = React.Children.toArray(children).filter(Boolean);
-  // Design lab (lib/designLab.ts). `rowShape` is the one knob that re-answers the question the
-  // 2026-08-05 pass answered with boxes — and that DESIGN_COMPARISON/10 had answered with rules
-  // before it. Both answers were right for the card they were asked about, which is exactly why
-  // it is worth being able to flip between them on the real screens rather than in prose.
+  // Design lab (lib/designLab.ts). `rowShape` is the one knob that re-answers the question
+  // this pass answers with boxes again — DESIGN_COMPARISON/10 answered it with rules once, and
+  // the 2026-08-15 pass answered it with neither. All three are worth being able to flip
+  // between on the real screens rather than re-arguing in prose.
   const shape = useLabShape();
   const rowShape = useLabControl('rowShape');
   const fieldWidth = shape.borderFieldWidth * shape.borderScale;
-  const tone = computeBorderTone(hue, isDark, 'field', shape.borderRampStrength);
-  // 'ruled' is the pre-reset notepad: one hairline under each row, no box. 'flush' is neither —
-  // rows separated by whitespace alone, which is what DESIGN_RULES.md rule 5 asks for and the
-  // reset explicitly overruled.
+  // 'ruled' is the pre-reset notepad: one hairline under each row, no box. 'flush' is the
+  // 2026-08-15 answer — rows separated by whitespace alone. 'boxed' (the fallback again) is a
+  // neutral fill+edge one step off the card's own surface — see the header note for why it is
+  // no longer the screen's categorical hue.
   const box =
     rowShape === 'ruled'
       ? { borderBottomWidth: fieldWidth, borderColor: theme.rule }
@@ -152,20 +146,18 @@ export default function PadSheet({
         ? null
         : {
             borderWidth: fieldWidth,
-            borderColor: tone,
+            borderColor: isDark ? ROW_BOX_EDGE_DARK : ROW_BOX_EDGE_LIGHT,
+            backgroundColor: isDark ? ROW_BOX_FILL_DARK : ROW_BOX_FILL_LIGHT,
             borderRadius: Radius.sm * shape.radiusScale,
           };
   // This file's `styles` are NOT run through useScaledStyles, so it owns its own geometry
   // outright — no double-application risk, unlike a caller-supplied radius (see Surface).
   const gutter = { paddingHorizontal: Spacing.sm * shape.spacingScale };
-  // ── The gap has to grow when the borders go (Tactile Glass, 2026-08-15) ──────────────────
-  // At `boxed` the gap was `Spacing.xs` (4) and had exactly one job: keep two 1.25px borders
-  // from butting into a 2.5px line heavier than the card's own 1.5px edge. With no borders
-  // there is nothing to keep apart — and 4px of nothing is not a separation, it is a
-  // collision. Whitespace is the ONLY grouping signal on a flush row, so it has to be worth
-  // reading: `Spacing.sm` (8). This is the practical half of restoring DESIGN_RULES.md rule 5
-  // ("whitespace over lines"), which the 2026-08-05 reset overruled and the 2026-08-15 ruling
-  // reinstates — the rule is only true if the whitespace is actually there.
+  // ── The gap only shrinks back down when there's no border to collide with ────────────────
+  // Boxed: `Spacing.xs` (4) — enough to keep two 1.25px borders from butting into a 2.5px line
+  // heavier than the card's own 1.5px edge. Flush (no `box`): `Spacing.sm` (8) — with no
+  // borders to keep apart, the whitespace itself has to be the separation, per DESIGN_RULES.md
+  // rule 5's flush-mode case.
   const stackGap = { marginTop: (box ? Spacing.xs : Spacing.sm) * shape.spacingScale };
 
   return (
@@ -213,7 +205,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   // Boxes stack with a 4px gap rather than flush. Flush would put two 1.25px borders against
-  // each other and paint a 2.5px line between every pair of rows — heavier than the CARD's own
-  // border, which inverts the hierarchy the tone ramp is there to establish.
+  // each other and paint a 2.5px line between every pair of rows — heavier than either the
+  // card's own edge or the row's own neutral one, which inverts the hierarchy the fill/edge
+  // pair is there to establish.
   stacked: { marginTop: Spacing.xs },
 });

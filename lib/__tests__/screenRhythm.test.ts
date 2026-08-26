@@ -393,3 +393,50 @@ describe('no screen re-adds a top gap below the header', () => {
     expect(firstChildStyle('<View style={styles.page}>')).toBeNull();
   });
 });
+
+/**
+ * Boxed rows are back (2026-08-26, reversing 2026-08-15's flush-rows pass — see
+ * `components/PadSheet.tsx`'s header for the full lineage). This describe block is the guard
+ * AGENTS.md's "Folding a card away" / row-rule history calls for explicitly: `app/(tabs)/
+ * habits.tsx` (now `components/HabitsSurface.tsx`) hand-rolls its OWN row box because it never
+ * adopted PadSheet, and it has drifted from PadSheet's row shape in BOTH directions before —
+ * shipped boxed while PadSheet was flush, and (the risk this guards) could just as easily ship
+ * flush again while PadSheet goes back to boxed. A source scan, not a render test, because the
+ * property is "these two files still agree", not any one rendered pixel.
+ */
+describe('boxed rows — PadSheet and the Habits surface agree on the same recipe', () => {
+  const PAD_SHEET = 'components/PadSheet.tsx';
+  const HABITS_SURFACE = 'components/HabitsSurface.tsx';
+
+  // The four literals `components/PadSheet.tsx` ships as its `ROW_BOX_*` constants. Read
+  // straight from that file rather than hand-copied here, so a future recalibration of the
+  // recipe can't silently desync this test from the value it's meant to pin.
+  function padSheetRowBoxLiterals(): string[] {
+    const src = read(PAD_SHEET);
+    const literals: string[] = [];
+    for (const name of ['ROW_BOX_FILL_DARK', 'ROW_BOX_EDGE_DARK', 'ROW_BOX_FILL_LIGHT', 'ROW_BOX_EDGE_LIGHT']) {
+      const m = src.match(new RegExp(`${name}\\s*=\\s*'([^']+)'`));
+      expect({ name, found: !!m }).toEqual({ name, found: true });
+      if (m) literals.push(m[1]);
+    }
+    return literals;
+  }
+
+  it('PadSheet ships all four ROW_BOX_* literals', () => {
+    expect(padSheetRowBoxLiterals().length).toBe(4);
+  });
+
+  it("HabitsSurface's hand-rolled rowBox carries the SAME four literals as PadSheet", () => {
+    const habitsSrc = read(HABITS_SURFACE);
+    for (const literal of padSheetRowBoxLiterals()) {
+      expect({ literal, presentInHabitsSurface: habitsSrc.includes(literal) })
+        .toEqual({ literal, presentInHabitsSurface: true });
+    }
+  });
+
+  it("the design lab's rowShape knob fallback is 'boxed', not 'flush'", () => {
+    const src = read('lib/designLab.ts');
+    const m = src.match(/id: 'rowShape'[\s\S]*?fallback: '(\w+)'/);
+    expect(m?.[1]).toBe('boxed');
+  });
+});
