@@ -197,6 +197,35 @@ const SCAN = `(() => {
   return out;
 })()`;
 
+// A composer below the first screenful (Shop's Food/Catalogue, Health's medicine tray on a run
+// with a long narrator quote pushing everything else down — `components/NarratorQuote.tsx`
+// picks a random line per mount, so which fields fit above the fold is genuinely not fixed run
+// to run) needs the page scrolled to be reached at all. `page.mouse.wheel()` was tried first and
+// is a NO-OP against this app's ScrollView in the headless preview (confirmed: a wheel event at
+// a point squarely over scrollable content changed nothing on screen) — the harness sees no
+// `wheel`-to-scroll wiring on the DOM node react-native-web renders, so this drives the actual
+// overflow-y element's `scrollTop` directly instead. Picks the LARGEST visible one, which is
+// reliably the active tab's own content — an inactive tab's scroll container sits off-screen
+// horizontally and is excluded by the same left/right bounds check FIND_CANDIDATES uses.
+async function scrollActiveTab(page, delta) {
+  return page.evaluate((d) => {
+    let best = null, bestArea = 0;
+    for (const el of document.querySelectorAll('*')) {
+      const cs = getComputedStyle(el);
+      if (cs.overflowY !== 'auto' && cs.overflowY !== 'scroll') continue;
+      if (el.scrollHeight <= el.clientHeight + 10) continue;
+      const r = el.getBoundingClientRect();
+      if (r.right <= 0 || r.left >= window.innerWidth) continue;
+      const area = r.width * r.height;
+      if (area > bestArea) { bestArea = area; best = el; }
+    }
+    if (!best) return false;
+    const before = best.scrollTop;
+    best.scrollTop = Math.min(best.scrollTop + d, best.scrollHeight - best.clientHeight);
+    return best.scrollTop !== before;
+  }, delta);
+}
+
 const browser = await chromium.launch({
   executablePath: CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'],
 });
@@ -270,35 +299,48 @@ try {
     await page.waitForTimeout(300);
   }
 
+  // The screen title each tab settles on — checked by POSITION, not by Playwright's `visible`
+  // state. Two things learned the hard way, both dead ends kept here so they aren't retried:
+  // `BottomNav` (the "five equal slots" pass, 2026-08-18) tells its active tab apart with an
+  // icon variant and a colour, NOT any ARIA state — there is no `aria-selected`/`aria-current`
+  // anywhere on these buttons to wait on. And the screen's own title text is a false green light
+  // too: all five tabs are mounted at once (`lazy: false`), so "Shopping list" already EXISTS in
+  // the DOM (just off-screen) even while looking at a different tab, and Playwright's `visible`
+  // state doesn't account for a transform pushing an element outside the viewport — only real
+  // CSS visibility/display/size. Waiting on it was satisfied instantly regardless of which tab
+  // was actually on screen, which is how a Medicine composer and its tray wells got reported
+  // under "Habits". The fix is the same hit-test idea as FIND_CANDIDATES: wait until this tab's
+  // title text has an on-screen (horizontally in-bounds) bounding rect of its own.
+  const HEADER_TEXT = { Shop: 'Shopping list', 'To-do': 'To-do list', Home: 'Home', Habits: 'Habits', Health: 'Health' };
   const seen = new Set();
   for (const tab of ['Shop', 'To-do', 'Home', 'Habits', 'Health']) {
     const tabButton = page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first();
     await tabButton.click({ timeout: 10000 }).catch(() => {});
-    // Wait for THIS tab's own button to be marked selected (`aria-selected`, from BottomNav's
-    // `accessibilityState`) rather than for the screen's title text — see the note above.
     await page.waitForFunction(
-      (t) => {
-        for (const el of document.querySelectorAll('[role="button"]')) {
-          if (el.getAttribute('aria-label') === t || el.textContent?.trim() === t) {
-            return el.getAttribute('aria-selected') === 'true';
-          }
+      (title) => {
+        for (const el of document.querySelectorAll('*')) {
+          if (el.children.length || (el.textContent || '').trim() !== title) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) continue;
+          if (r.left >= 0 && r.right <= window.innerWidth && r.top < 200) return true;
         }
         return false;
       },
-      tab,
+      HEADER_TEXT[tab],
       { timeout: 8000 },
     ).catch(() => {});
     await page.waitForTimeout(700);
 
     // openCards() can reveal a NESTED toggle it couldn't reach in its own single 14-click budget
     // (opening a card can reveal a further, still-closed section inside it) — a second pass
-    // after the first catches that. Scrolling (`page.mouse.wheel`) was tried as a third source of
-    // newly-revealed composers and dropped: it is a no-op against this app's ScrollView in the
-    // headless preview (measured — a wheel event changes nothing on screen), so it only added a
-    // wasted 700ms× per tab and, worse, kept re-finding an AddRow composer that collapses back to
-    // a brand-new, unmarked DOM node on blur (see the loop cap below) without ever revealing
-    // anything new.
-    for (let pass = 0; pass < 2; pass++) {
+    // after the first catches that. A composer below the first screenful (Shop's Food/Catalogue,
+    // or Health's medicine tray on a run with a long narrator quote — see `scrollActiveTab`'s
+    // note) needs a scroll between passes to be reached at all. Stops once a pass finds nothing
+    // NEW and scrolling made no further progress (either already at the bottom, or nothing
+    // scrollable was found) — two such passes in a row, so one stray empty pass mid-content
+    // doesn't end the walk early.
+    let emptyPasses = 0;
+    for (let pass = 0; pass < 6 && emptyPasses < 2; pass++) {
       await openCards(page);
       await page.waitForTimeout(400);
       const candidates = await page.evaluate(FIND_CANDIDATES);
@@ -306,6 +348,9 @@ try {
         console.error(`[debug] ${tab} pass ${pass}: ${candidates.length} new candidates`, candidates.map((c) => c.label));
       }
       for (const c of candidates) await processCandidate(tab, c, seen);
+      const scrolled = await scrollActiveTab(page, 700);
+      await page.waitForTimeout(400);
+      emptyPasses = (candidates.length === 0 && !scrolled) ? emptyPasses + 1 : 0;
     }
   }
 } finally {
