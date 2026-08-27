@@ -122,11 +122,20 @@ async function openCards(page) {
 // actionability checks included), not a bare \`page.mouse.click(x, y)\`. A raw coordinate click
 // was tried first and silently missed a still-settling composer (a card's expand animation can
 // leave a rect stale for a beat after \`openCards()\`'s fixed wait); the locator click doesn't.
+// \`data-halo-scanned\` persists across calls (set the moment a candidate is FOUND, not once it's
+// clicked) so a later pass — after the page has been scrolled to reach a composer below the
+// first screenful — doesn't rediscover the same element and reprocess it a second time.
+// \`data-halo-idx\` has to be unique for the whole page lifetime, not just within one call — a
+// counter that restarted at 0 on every pass produced a second element carrying the same idx as
+// an already-processed one from an earlier pass, so the locator click below matched whichever
+// of the two DOM order put first (sometimes the stale one), and reused that idx's own click just
+// silently landed on the wrong composer.
 const FIND_CANDIDATES = `(() => {
   const out = [];
   const seenPos = new Set();
-  let idx = 0;
+  window.__haloIdx = window.__haloIdx || 0;
   for (const el of document.querySelectorAll('input, textarea, [role="button"]')) {
+    if (el.dataset.haloScanned) continue;
     const isField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
     if (!isField) {
       const cs = getComputedStyle(el);
@@ -152,8 +161,10 @@ const FIND_CANDIDATES = `(() => {
       || el.getAttribute('aria-label')
       || (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 28)
       || '(unlabelled field)';
+    const idx = window.__haloIdx++;
     el.setAttribute('data-halo-idx', String(idx));
-    out.push({ label, idx: idx++, x: cx, y: cy });
+    el.dataset.haloScanned = '1';
+    out.push({ label, idx, x: cx, y: cy });
   }
   return out;
 })()`;
@@ -213,58 +224,75 @@ try {
   // for CLIPPED/ok, since dedup still separates them by room — but it produced a same-placeholder
   // "NO HALO" ghost, since the click landed on a tab that never actually had that field focused).
   const HEADER_TEXT = { Shop: 'Shopping list', 'To-do': 'To-do list', Home: 'Home', Habits: 'Habits', Health: 'Health' };
+
+  // Click one candidate, measure whatever lit up nearest it, report and dedupe. Returns whether
+  // a match was found at all (used only for logging, not for control flow).
+  async function processCandidate(tab, c, seen) {
+    // A real Playwright locator click (scroll-into-view + actionability checks), keyed to the
+    // marker FIND_CANDIDATES left on this exact element — not a bare coordinate click, which
+    // missed a composer whose rect was still settling after openCards()'s fixed wait. An
+    // element belonging to an inactive pager page fails this (off-screen, so "not actionable")
+    // and is skipped rather than mis-clicking whatever real content sits at that coordinate.
+    const clicked = await page.locator(`[data-halo-idx="${c.idx}"]`).first()
+      .click({ timeout: 3000 }).then(() => true).catch(() => false);
+    if (!clicked) return;
+    await page.waitForTimeout(350);
+    const glowing = await page.evaluate(SCAN);
+    // The field that lit up (if any) is whichever glowing element sits nearest the point we
+    // just clicked — a wrapper View growing around an input, or the input itself, both center
+    // on roughly the same spot; an AddRow expanding taller keeps the same left edge and top.
+    let match = null, bestDist = Infinity;
+    for (const f of glowing) {
+      const d = Math.hypot(f.cx - c.x, f.cy - c.y);
+      if (d < bestDist && d < 140) { bestDist = d; match = f; }
+    }
+    const key = `${tab}|${c.label}|${match ? JSON.stringify(match.room) : 'none'}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      if (!match) {
+        noHalo += 1;
+        console.log(`  NO HALO  "${c.label}" (${tab}) — never grew a boxShadow, focused or not`);
+      } else {
+        const short = Object.entries(match.room).filter(([, v]) => v < match.need);
+        if (short.length) {
+          clipped += 1;
+          console.log(`  CLIPPED  "${c.label}" halo=${match.need}px, room ${short.map(([s, v]) => `${s}=${v}`).join(' ')}`);
+        } else {
+          clean += 1;
+          console.log(`  ok       "${c.label}" halo=${match.need}px`);
+        }
+      }
+    }
+    await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+    await page.waitForTimeout(300);
+  }
+
   const seen = new Set();
   for (const tab of ['Shop', 'To-do', 'Home', 'Habits', 'Health']) {
     await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first().click({ timeout: 10000 }).catch(() => {});
     await page.getByText(HEADER_TEXT[tab], { exact: true }).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1000);
-    await openCards(page);
-    await page.waitForTimeout(500);
+    await page.mouse.move(width / 2, 500);
 
-    // Candidates are found ONCE, at rest, before any field on this tab is touched — clicking one
-    // is followed by a blur (see below), which is what lets the rest of the list's coordinates
-    // stay valid: an AddRow that doesn't collapse back out from under the next candidate would
-    // silently shift everything below it.
-    const candidates = await page.evaluate(FIND_CANDIDATES);
-    if (process.env.HALO_DEBUG) console.error(`[debug] ${tab}: ${candidates.length} candidates`, candidates.map((c) => c.label));
-    for (const c of candidates) {
-      // A real Playwright locator click (scroll-into-view + actionability checks), keyed to the
-      // marker FIND_CANDIDATES left on this exact element — not a bare coordinate click, which
-      // missed a composer whose rect was still settling after openCards()'s fixed wait. An
-      // element belonging to an inactive pager page fails this (off-screen, so "not actionable")
-      // and is skipped rather than mis-clicking whatever real content sits at that coordinate.
-      const clicked = await page.locator(`[data-halo-idx="${c.idx}"]`).first()
-        .click({ timeout: 3000 }).then(() => true).catch(() => false);
-      if (!clicked) continue;
-      await page.waitForTimeout(350);
-      const glowing = await page.evaluate(SCAN);
-      // The field that lit up (if any) is whichever glowing element sits nearest the point we
-      // just clicked — a wrapper View growing around an input, or the input itself, both center
-      // on roughly the same spot; an AddRow expanding taller keeps the same left edge and top.
-      let match = null, bestDist = Infinity;
-      for (const f of glowing) {
-        const d = Math.hypot(f.cx - c.x, f.cy - c.y);
-        if (d < bestDist && d < 140) { bestDist = d; match = f; }
+    // A tab's own composers are not all above the fold — Shop's Food/Catalogue cards, or a
+    // Health tray past a long "This week" card, sit below the first screenful. Each pass opens
+    // whatever newly-scrolled-into-view card it can, harvests whatever NEW candidates that
+    // reveals (FIND_CANDIDATES' \`data-halo-scanned\` marker means an already-processed field is
+    // never re-found), then scrolls further. Stops once a scroll produces nothing new AND the
+    // page is at (or past) its own bottom — two consecutive empty passes is the fallback in case
+    // a pass's wheel event lands on a non-scrolling ancestor and \`scrollTop\` never changes.
+    let emptyPasses = 0;
+    for (let pass = 0; pass < 8 && emptyPasses < 2; pass++) {
+      await openCards(page);
+      await page.waitForTimeout(400);
+      const candidates = await page.evaluate(FIND_CANDIDATES);
+      if (process.env.HALO_DEBUG) {
+        console.error(`[debug] ${tab} pass ${pass}: ${candidates.length} new candidates`, candidates.map((c) => c.label));
       }
-      const key = `${tab}|${c.label}|${match ? JSON.stringify(match.room) : 'none'}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        if (!match) {
-          noHalo += 1;
-          console.log(`  NO HALO  "${c.label}" (${tab}) — never grew a boxShadow, focused or not`);
-        } else {
-          const short = Object.entries(match.room).filter(([, v]) => v < match.need);
-          if (short.length) {
-            clipped += 1;
-            console.log(`  CLIPPED  "${c.label}" halo=${match.need}px, room ${short.map(([s, v]) => `${s}=${v}`).join(' ')}`);
-          } else {
-            clean += 1;
-            console.log(`  ok       "${c.label}" halo=${match.need}px`);
-          }
-        }
-      }
-      await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
-      await page.waitForTimeout(300);
+      for (const c of candidates) await processCandidate(tab, c, seen);
+      emptyPasses = candidates.length === 0 ? emptyPasses + 1 : 0;
+      await page.mouse.wheel(0, 700);
+      await page.waitForTimeout(400);
     }
   }
 } finally {
