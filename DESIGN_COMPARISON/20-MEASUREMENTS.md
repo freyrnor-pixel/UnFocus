@@ -149,6 +149,39 @@ saturated amber's 86.9 ceiling:
 | ×0.75 | `rgb(62,61,48)` | 68.1 | 18.8 | 3 |
 | ×1 | `rgb(70,69,51)` | 72.2 | 14.7 | 3 |
 
+### ⚠️ The correction: there is no headroom at all, and the wash's STRENGTH was never the issue
+
+Measured after building phase 2, and it revises the table above rather than confirming it.
+
+`surfaceGlass` over `#000000` composites to `#242424`, whose luminance is **L 0.0176**. The
+ceiling for Notes (`#B660FF`, the ladder's bottom rung) to clear AA 4.5:1 on the card is
+**L 0.0178**. That is a margin of 0.0002 — a ground of grey **1** is already enough to push the
+composite over.
+
+So "dim the wash to ≤25%" was the wrong frame, including in this document's own first reading.
+The wash's strength is close to irrelevant; what protects every chromatic token is entirely the
+**geometry** — that nothing lights the pixels a card sits on. A per-tab hue on the existing
+corner discs is therefore free at any sane opacity, and a wash reaching the card band is unsafe
+at any opacity. `lib/__tests__/chromeRhythm.test.ts` §6 now checks both halves: the discs never
+reach the middle, and the hue layer indexes into those same discs rather than declaring its own.
+
+Measured in the shipped app after the change, sampling the gutter (x=3 and x=387, outside every
+card) at 390px:
+
+| tab | top-right corner | bottom-left corner | mid-gutter | brightest gutter L |
+|---|---|---|---|---|
+| Shop | `rgb(7,29,21)` | `rgb(11,15,16)` | `rgb(0,0,0)` | 0.0098 |
+| To-do | `rgb(21,31,17)` | `rgb(22,17,13)` | `rgb(0,0,0)` | 0.0118 |
+| Home | `rgb(23,32,16)` | `rgb(22,16,12)` | `rgb(0,0,0)` | 0.0125 |
+| Habits | `rgb(4,32,34)` | `rgb(9,16,24)` | `rgb(0,0,0)` | 0.0129 |
+| Health | `rgb(21,27,32)` | `rgb(20,12,21)` | `rgb(0,0,0)` | 0.0111 |
+
+The hue is legibly per-tab (Shop green-dominant, Habits cyan, To-do/Home gold), the corners peak
+below the mockup's 0.0188, and **the mid-gutter — the height at which cards sit — is pure black
+on every tab**.
+
+---
+
 The current five sit at L\* 86.9 / 79.3 / 71.7 / 64.7 / 57.6 — steps of 7.6 / 7.6 / 7.0 / 7.1
 in a 29.0 band that needs 7.26 average. **The ladder is exactly full**, and the hues are already
 on the sRGB gamut boundary at their lightness (C\* 43–93), so "more vivid" is not available at
