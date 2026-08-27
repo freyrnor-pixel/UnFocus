@@ -102,11 +102,18 @@ import TodoSurface from '@/components/TodoSurface';
 import MedicineSurface from '@/components/MedicineSurface';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
+import HabitsSurface from '@/components/HabitsSurface';
+import HealthSurface from '@/components/HealthSurface';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
 import { Duration, Ease } from '@/constants/motion';
-import { Fonts, FontSize, Radius, Spacing, getLayeredShadow } from '@/constants/theme';
-import { ExpandableCardId, ExpandRect } from '@/lib/expandableCards';
+import { Fonts, FontSize, MIN_TAP_TARGET, Radius, Spacing, getLayeredShadow, rgba } from '@/constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { DOMAIN_ICON } from '@/components/CardAccent';
+import PressableScale from '@/components/PressableScale';
+import { cardSpec, cardsInGroup } from '@/lib/cardRegistry';
+import { getScreenColor } from '@/lib/screenColor';
+import { ExpandableCardId, ExpandRect, isExpandableCardId } from '@/lib/expandableCards';
 import { useT, Translations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 
@@ -200,6 +207,14 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
   // switch. Same `header` slot CatalogueExpandedBody uses for the lock and camera.
   healthMedicine: { title: (t) => t.medicine.title, Body: MedicineExpandedBody },
+  // ⚠️ **These two arrived on 2026-08-27 (round 20 phase 6) by REVERSING a written
+  // `expandDeclined`** — see lib/cardRegistry.ts's note on each for why, and note that neither
+  // mounts its whole surface: `habitsList`'s tab holds exactly one card, so `HabitsSurface` IS
+  // that card's body, while `healthWeek` passes `section="week"` so its pane is This week alone
+  // rather than the Health tab over again. Both are members of the `growth` group, which is what
+  // the panes exist for — the strip below can only switch to a card that has one.
+  habitsList: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
+  healthWeek: { title: (t) => t.thisWeekLabel, Body: () => <HealthSurface section="week" /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },
@@ -214,14 +229,122 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // lib/cardRegistry.ts's note at their old position.
 };
 
+/**
+ * The `growth` strip: every OTHER card in the open card's group, one tap from replacing it in
+ * this pane (2026-08-27, round 20 phase 6 — DESIGN_COMPARISON/19-card-surface-reset.html's
+ * `gtabs`). A group spans SCREENS by design, so this is the only way to get from the Habits tab's
+ * card to Health's two without collapsing, changing tab and expanding again.
+ *
+ * Three deliberate departures from the prototype:
+ *   - **It scrolls, it does not wrap.** The prototype's `.gtabs` is `flex-wrap`, which is the
+ *     "row must fit 360px" defect the handoff names: three Norwegian titles plus glyphs do not
+ *     fit one 360px line, and a wrapped control row is also a `npm run wraps` finding by
+ *     construction. A horizontal scroller has no width it can fail at.
+ *   - **`MIN_TAP_TARGET`, not the prototype's 40px** — DESIGN_RULES.md rule 17 is not negotiable
+ *     against a mockup, and `Spacing`/`Radius` tokens replace its raw 7/13/6px.
+ *   - **Members with no pane are filtered out, not drawn dead.** The prototype drew a tab for
+ *     every member and opened a pane for it regardless of its own `expand:false` — the
+ *     contradiction that made this feature look buildable when it was not. Here the filter is the
+ *     honest expression of the same rule, and `lib/__tests__/cardRegistry.test.ts` additionally
+ *     asserts no group is left with fewer than two reachable members, so a future
+ *     `expand: 'none'` on a group member fails the suite instead of silently emptying the strip.
+ */
+function GroupStrip({ current }: { current: ExpandableCardId }) {
+  const theme = useAppTheme();
+  const t = useT();
+  const scroller = useRef<ScrollView>(null);
+  // Where the ACTIVE tab starts, from its own onLayout. Measured rather than computed: the tabs
+  // are text-width, so their x depends on the language (Norwegian's "Denne uken" against
+  // English's "This week") and on the user's text-size setting, neither of which a constant here
+  // could know. See `scrollToActive` for why it is needed at all.
+  const activeX = useRef(0);
+  const group = cardSpec(current).group;
+  // Every member across every screen — never scoped to the current one, which is the whole point
+  // of the feature; see cardsInGroup's own doc.
+  const members = (group ? cardsInGroup(group) : []).filter(isExpandableCardId);
+  if (!group || members.length < 2) return null;
+
+  return (
+    <ScrollView
+      ref={scroller}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.groupStrip}
+    >
+      {members.map((key) => {
+        const spec = cardSpec(key);
+        const hue = getScreenColor(theme, spec.hue).base;
+        const on = key === current;
+        const label = spec.title(t);
+        return (
+          <PressableScale
+            key={key}
+            // ⚠️ **The active tab must be ON SCREEN when the pane opens, and at 360px it is not.**
+            // Measured in the web preview: three Norwegian growth titles overflow a 360px line, so
+            // opening Medicine — the last member in declaration order — drew its own tab sliced by
+            // the right edge, i.e. the card you are looking at labelled by a half-tab. The strip
+            // scrolls, so it was reachable; it was just not where the eye needed it. Scrolling to
+            // the active tab fixes it at every width and every group size, where trimming padding
+            // to make three specific words fit only fixes it for those three words in one
+            // language. `x - Spacing.md` leaves the preceding tab peeking, which is what says the
+            // row scrolls.
+            onLayout={(e) => {
+              if (!on) return;
+              activeX.current = e.nativeEvent.layout.x;
+              scroller.current?.scrollTo({ x: Math.max(0, activeX.current - Spacing.md), animated: false });
+            }}
+            onPress={() => switchExpandedCard(key)}
+            disabled={on}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={label}
+            style={[
+              styles.groupTab,
+              {
+                backgroundColor: on ? rgba(hue, 0.2) : theme.surfaceMuted,
+                borderColor: on ? rgba(hue, 0.45) : 'transparent',
+              },
+            ]}
+          >
+            <Ionicons
+              name={spec.icon ?? DOMAIN_ICON[spec.domain]}
+              size={16}
+              color={on ? hue : theme.textMuted}
+            />
+            <Text style={[styles.groupTabLabel, { color: on ? hue : theme.textMuted }]} numberOfLines={1}>
+              {label}
+            </Text>
+          </PressableScale>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 type ExpandRequest = { id: ExpandableCardId; rect: ExpandRect };
 
 let requestListener: ((req: ExpandRequest | null) => void) | null = null;
+// Separate from `requestListener` because a switch carries no rect — it reuses the open pane's,
+// which only the component holds. See switchExpandedCard.
+let switchListener: ((id: ExpandableCardId) => void) | null = null;
 let idListeners: Array<(id: ExpandableCardId | null) => void> = [];
 
 /** Grow `id`'s registered body from `rect` (window coordinates, from measureInWindow) to fill the screen. */
 export function expandCard(id: ExpandableCardId, rect: ExpandRect) {
   requestListener?.({ id, rect });
+  idListeners.forEach((l) => l(id));
+}
+
+/**
+ * Swap the pane to another card in the SAME group, keeping the pane exactly where it is
+ * (2026-08-27, round 20 phase 6 — the group strip). Deliberately not `expandCard`: that one
+ * takes a rect and restarts the growth, so re-using it here would shrink the open pane back to
+ * the new card's rect and grow it again — and on a card that is on ANOTHER SCREEN, that rect is
+ * whatever the unmounted tab last measured, i.e. stale or zero. Switching keeps `request.rect`
+ * and only changes the id, so `progress` is left alone at 1 and nothing animates.
+ */
+export function switchExpandedCard(id: ExpandableCardId) {
+  switchListener?.(id);
   idListeners.forEach((l) => l(id));
 }
 
@@ -282,8 +405,13 @@ export default function CardExpandHost() {
         ? 1
         : withTiming(1, { duration: Duration.cardExpand, easing: Ease.enter });
     };
+    // A switch keeps the open pane's rect and its finished `progress`, changing only which body
+    // is mounted — see switchExpandedCard. Guarded on `prev` so a switch with nothing open is a
+    // no-op rather than a pane with no geometry.
+    switchListener = (id) => setRequest((prev) => (prev ? { ...prev, id } : prev));
     return () => {
       requestListener = null;
+      switchListener = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
@@ -370,6 +498,7 @@ export default function CardExpandHost() {
                 <CardExpandButton expanded onExpand={() => {}} onCollapse={collapseCard} />
               </Animated.View>
               <Animated.View style={[styles.bodyOuter, bodyStyle]}>
+                <GroupStrip current={request.id} />
                 {scrollable ? (
                   <ScrollView
                     contentContainerStyle={styles.scrollContent}
@@ -409,6 +538,20 @@ const styles = StyleSheet.create({
   // rule this pass established is that these two sit in the surface's top part, not in an edge
   // of their own.
   expandedControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  // The strip sits between the pane's title bar and its body — the prototype's placement, and
+  // the only one that works: above the title it would compete with the card's own name, and
+  // below the body it would be off the bottom of a long list.
+  groupStrip: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+  groupTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    minHeight: MIN_TAP_TARGET,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  groupTabLabel: { fontFamily: Fonts.bold, fontSize: FontSize.sm },
   bodyOuter: { flex: 1 },
   bodyFlex: { flex: 1, paddingHorizontal: Spacing.md },
   scrollContent: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },

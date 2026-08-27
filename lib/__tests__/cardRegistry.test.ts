@@ -177,6 +177,31 @@ describe('cross-screen groups (phase 8)', () => {
     }
   });
 
+  it('every group member has a pane — a strip cannot switch to a card that has none', () => {
+    // ⚠️ **The rule the round 19 prototype broke, and the reason two written `expandDeclined`s
+    // were reversed on 2026-08-27** (round 20 phase 6). The strip lives INSIDE the expanded pane
+    // and swaps it to another member; a member with `expand: 'none'` has no pane to swap to, so
+    // it can only be drawn dead. The prototype drew it anyway — it marked `habitsList` and
+    // `healthWeek` `expand:false` and its tab handler set `S.pane=id` regardless — which is
+    // exactly why the defect survived review: on screen the strip looked like it worked.
+    // Without this assertion, adding `group` to a non-expandable card, or taking a pane away
+    // from a member, silently empties the strip in a pane nobody opens in a test.
+    for (const group of GROUPS) {
+      for (const key of cardsInGroup(group)) {
+        expect(cardSpec(key).expand).toBe('surface');
+      }
+    }
+  });
+
+  it('every group keeps at least two REACHABLE members, not just two declared ones', () => {
+    // Deliberately not implied by the two tests above: "≥2 members" and "members are expandable"
+    // could both hold while a future filter (a feature flag, a platform gate) leaves one tab on
+    // screen. A strip of one is a label, not a control.
+    for (const group of GROUPS) {
+      expect(cardsInGroup(group).filter((k) => cardSpec(k).expand === 'surface').length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
   it("cardsInGroup finds a member regardless of which screen it's looked up from", () => {
     // The lookup takes no `screen` argument at all — this asserts that isn't accidental: every
     // member's own screen is represented once cardsInGroup runs, i.e. the search really is

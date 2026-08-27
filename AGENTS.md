@@ -2538,8 +2538,18 @@ it has before that clip. Exits 1 on any finding, and the failure text says where
   nothing about the app having changed. Left/right is also the only axis any clipping bug this
   audit has found has ever lived on.
 - Same caveats as the wrap audit: it drives the real app, so a nav or resting-state change can
-  make a step measure nothing rather than fail. **Read the count — 12 distinct fields, the same
-  at 430px and 360px, and it is deterministic; a lower number is un-measurement, not a pass.**
+  make a step measure nothing rather than fail. The count is **12 distinct fields** at 430px and
+  360px when the walk gets all the way round.
+- ⚠️ **It is NOT deterministic, and this line used to say it was (corrected 2026-08-27).** The
+  claim was *"it is deterministic; a lower number is un-measurement, not a pass"*, which sent a
+  session hunting a regression that did not exist. Measured on ONE unchanged build, four
+  consecutive runs: **10, 12, 9, 12**. `openCards()` walks with fixed `waitForTimeout`s and a
+  per-tab pass budget, so a slow frame drops a card that never opens and its composer is simply
+  not seen — the same silent-skip the wrap audit has, on a harness that also re-runs each tab
+  several times. **`0 clipped` is the gate; the count is not.** Read the count as a floor on
+  coverage, and if it comes in low, RE-RUN before believing it — a real un-measurement (a nav or
+  resting-state change) reproduces every time, a slow frame does not. Comparing a suspicious
+  count against the same audit on `main` is the way to tell them apart.
 
 ### Wrap audit — `npm run wraps` (2026-07-28)
 Finds the "why is that on two lines when it nearly fits?" class of bug by measurement

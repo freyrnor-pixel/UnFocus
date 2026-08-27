@@ -209,9 +209,18 @@ function IssueRow({
 type Props = {
   /** Mounted inside a caller's own card (HomeHealthCard) — drops the Surface + header row. */
   embedded?: boolean;
+  /**
+   * Omit for the whole tab (every card). Set for ONE expanded card's body — the same shape
+   * components/TodoSurface.tsx's `section` has, and added for the same reason (2026-08-27,
+   * round 20 phase 6): `healthWeek` grew a pane, and a pane mounting the whole surface would
+   * draw This week AND Health issues AND Medicine, i.e. exactly the "second rendering of the
+   * screen you are already on" that card's old `expandDeclined` warned about. `'week'` is the
+   * only value because it is the only card here with a pane; `healthIssues` still declines one.
+   */
+  section?: 'week';
 };
 
-export default function HealthSurface({ embedded = false }: Props) {
+export default function HealthSurface({ embedded = false, section }: Props) {
   const router = useRouter();
   const logs = useHealthStore((s) => s.logs);
   const symptoms = useHealthStore((s) => s.symptoms);
@@ -486,28 +495,47 @@ export default function HealthSurface({ embedded = false }: Props) {
   // wrapped it. That difference was the §10 defect: the embedded branch drew neither header nor
   // `Collapsible`, so the stored fold did nothing on the Me tab. `Card` takes `embedded` for
   // exactly this, so the branches now differ in one prop and cannot drift apart again.
-  const weekCard = embedded ? (
+  const weekCardInner = (
     <Card
       id="healthWeek"
-      embedded
+      embedded={embedded}
       peek={t.peek.healthWeek(thisWeekIssues.length)}
       hint={thisWeekIssues.length > 0 ? t.cardHint.healthWeek : undefined}
     >
       {cardBody}
     </Card>
-  ) : (
-    <TourTarget id="tour.health.log">
-      <DebugNoteAnchor id="health.quickLog" label="Health — This week">
-        <Card
-          id="healthWeek"
-          peek={t.peek.healthWeek(thisWeekIssues.length)}
-          hint={thisWeekIssues.length > 0 ? t.cardHint.healthWeek : undefined}
-        >
-          {cardBody}
-        </Card>
-      </DebugNoteAnchor>
-    </TourTarget>
   );
+  // ⚠️ **The tour/debug wrappers go on the TAB's copy only** — `embedded` (Home's card) never had
+  // them, and `section` (the expanded pane, 2026-08-27) must not either: `TourTarget` registers a
+  // measurable rect under `'tour.health.log'`, and two live mounts of one id race to be the rect
+  // the spotlight cuts to — the pane's copy would win while the tour is pointing at the tab's.
+  // That is invisible to tsc and to a screenshot, and the tour's own history (AGENTS.md, "a rect
+  // being present does not mean its screen is visible") is this bug one step removed.
+  const weekCard =
+    embedded || section ? (
+      weekCardInner
+    ) : (
+      <TourTarget id="tour.health.log">
+        <DebugNoteAnchor id="health.quickLog" label="Health — This week">
+          {weekCardInner}
+        </DebugNoteAnchor>
+      </TourTarget>
+    );
+
+  // ONE card's body, for its expanded pane (2026-08-27, round 20 phase 6). Deliberately NOT the
+  // whole surface: `healthWeek`'s pane must be This week and nothing else, or it is the "second
+  // rendering of the screen you are already on" its old `expandDeclined` refused. The two sheets
+  // come along because the week card's own rows open them — a `<Modal>` left out of a branch
+  // simply never opens there, and nothing errors (this file's own §10 lesson, see the header).
+  if (section === 'week') {
+    return (
+      <View style={styles.embeddedContent}>
+        {weekCard}
+        <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
+        <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />
+      </View>
+    );
+  }
 
   return (
     <View style={embedded ? styles.embeddedContent : styles.content}>
