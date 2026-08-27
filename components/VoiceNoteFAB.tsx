@@ -35,6 +35,7 @@ import { glassKey, Radius, Spacing } from '@/constants/theme';
 import { FAB_LG_SIZE, FAB_DEFAULT_BOTTOM } from '@/components/AddFAB';
 import PressableScale from '@/components/PressableScale';
 import { Travel } from '@/constants/motion';
+import { useControlHue } from '@/lib/screenColor';
 
 type Props = {
   /** Fires once, with the recognized text, when a recording ends with non-empty speech. */
@@ -50,7 +51,16 @@ export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
   const t = useT();
   const { listening, toggle } = useVoiceCapture(onTranscript);
   const autoStartedRef = useRef(false);
-  const key = glassKey(listening ? theme.bad : theme.accent, isDark, listening ? 'loud' : 'key');
+  // **Idle wears the screen's hue in dark, not the app's accent (2026-08-27, round 20).** This
+  // FAB lives on Notes, whose hue is violet, and it was blooming blue in the corner of it —
+  // one of the three sites round 20's *"never blue on a pink or cyan screen"* named. Listening
+  // keeps `theme.bad`: recording is a state of the WORLD, not of the screen, and a red stop
+  // button must not borrow the colour of the tab it happens to be on — the same carve-out
+  // components/Button.tsx's `danger` variant makes. Body and halo read one value, so the two
+  // can never disagree about which colour the key is.
+  const idleHue = useControlHue(theme, isDark);
+  const keyHue = listening ? theme.bad : idleHue;
+  const key = glassKey(keyHue, isDark, listening ? 'loud' : 'key');
 
   // Auto-start once when opened via the widget's voice deep-link.
   useEffect(() => {
@@ -74,7 +84,7 @@ export default function VoiceNoteFAB({ onTranscript, autoStart }: Props) {
       // and a body that is only a 14–24% wash would let note rows travel through the middle of
       // it. Same answer the chrome got in the same pass: keep the glass, put the app's own
       // ground behind it so what shows through is a surface and never content.
-      glow={{ color: listening ? theme.bad : theme.accent, radius: Radius.full }}
+      glow={{ color: keyHue, radius: Radius.full }}
       travel={Travel.fab}
       style={[
         styles.base,

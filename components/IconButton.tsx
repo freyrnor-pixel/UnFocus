@@ -7,7 +7,8 @@
  *
  * Connections:
  *   Imports → constants/theme (glassKey), lib/useAppTheme, lib/useToggleColor (the active-state
- *             body crossfade), react-native-reanimated, components/PressableScale
+ *             body crossfade), lib/screenColor (useControlHue — what the active state is lit in),
+ *             react-native-reanimated, components/PressableScale
  *   Used by → header actions, focus toggles, standalone icon controls
  *   Data    → none
  *
@@ -39,10 +40,17 @@
  *     not for "this one is on" — and for the extra reason the 2026-08-18 pass created here: the
  *     `keyBase` slab is deleted, so there is no base left to sink INTO and the offset never read
  *     as depth, only as a button sitting low. On is still carried on three channels — the
- *     deepened body, the accent glyph and the outward halo. Pinned by
+ *     deepened body, the hued glyph and the outward halo. Pinned by
  *     lib/__tests__/chromeRhythm.test.ts.
+ *   - **The active state is the SCREEN's hue in dark, `theme.accent` in light** (2026-08-27,
+ *     round 20's *"never blue on a pink or cyan screen"*). All three active channels read one
+ *     `useControlHue` value, so the body cannot be tinted one colour and lit another. This is
+ *     the component that made the gap visible: components/ReminderBell.tsx is an IconButton, so
+ *     the medicine bell was a blue bloom on the rose Health tab. The dark-only half is measured
+ *     — see `useControlHue`'s doc and lib/__tests__/screenColor.test.ts, which pins the light
+ *     mode FAILURE too so nobody extends it there.
  *   - `active` deepens the body (`quiet` → `key` rung of the same glass) and swaps the icon to
- *     the accent instantly, matching the SegmentedControl convention. Only the BODY crossfades:
+ *     that hue instantly, matching the SegmentedControl convention. Only the BODY crossfades:
  *     `useToggleColor` collapses `borderColor` to one tone for all four sides, which would
  *     destroy the top-left-lit/bottom-right-shaded split that IS the 3D cue, so the edge is set
  *     statically. The border width never changes between states, so toggling can't shift the
@@ -63,6 +71,7 @@ import { StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { glassKey, IconSize, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
+import { useControlHue } from '@/lib/screenColor';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useToggleColor } from '@/lib/useToggleColor';
 import PressableScale from '@/components/PressableScale';
@@ -116,7 +125,15 @@ export default function IconButton({
   const iconSize = Math.round(size * 0.5);
   const hitTarget = Math.max(MIN_TAP_TARGET, size + Spacing.sm);
 
-  const fgColor = color ?? (disabled ? theme.textMuted : active ? theme.accent : theme.text);
+  // **The active state wears the SCREEN's hue, not the app's accent (2026-08-27, round 20).**
+  // The brief: *"never blue on a pink or cyan screen"* — and this component is where that was
+  // most visible, because components/ReminderBell.tsx is an IconButton, so the medicine bell
+  // bloomed blue in the middle of the rose Health tab. `useControlHue` is dark-only and says
+  // why (light's octet fails the 3:1 non-text floor as glyph ink). All three of the active
+  // channels below read it, so the body can never be tinted one colour and lit another —
+  // the same single-`hue` discipline components/Button.tsx states.
+  const controlHue = useControlHue(theme, isDark);
+  const fgColor = color ?? (disabled ? theme.textMuted : active ? controlHue : theme.text);
 
   // **Matte glass, same recipe as components/Button.tsx (2026-08-18).** This component was left
   // behind by the 2026-08-17 button pass and so still carried every layer that pass deleted: a
@@ -128,7 +145,7 @@ export default function IconButton({
   // `quiet` for the resting rung and `key` for the active one, so switching a filter on
   // deepens the body rather than swapping its colour for a solid plate.
   const restKey = glassKey(tint ?? theme.text, isDark, 'quiet');
-  const activeKey = glassKey(theme.accent, isDark, 'key');
+  const activeKey = glassKey(controlHue, isDark, 'key');
   const edge = active ? activeKey : restKey;
   // Only the BODY crossfades. The four edge colours are set statically below, because the
   // top-left lit / bottom-right shaded split is the whole 3D cue and `useToggleColor` collapses
@@ -213,7 +230,7 @@ export default function IconButton({
       // Outward halo on the active state only, the one light a matte key is allowed (see
       // Button.tsx). No `depth="raised"` — that was a black cast shadow, i.e. the "inner
       // shadows / heavy" family the brief rules out.
-      glow={active && !disabled ? { color: theme.accent, radius: Radius.full } : undefined}
+      glow={active && !disabled ? { color: controlHue, radius: Radius.full } : undefined}
       accessibilityLabel={label}
       accessibilityRole={role}
       accessibilityState={role === 'switch' ? { disabled, checked: active } : { disabled, selected: active }}

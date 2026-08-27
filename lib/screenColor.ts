@@ -29,7 +29,9 @@
  *   Used by → components/ScreenScaffold.tsx (provides ScreenColorContext for the screen body),
  *             components/Surface.tsx (edge hue fallback via useScreenColor), the 5 tab roots
  *             + the sub-tier screens that name their own key, and the Home preview cards
- *             (which call getScreenColor directly with their SOURCE screen's key)
+ *             (which call getScreenColor directly with their SOURCE screen's key).
+ *             `useControlHue` → components/IconButton, components/VoiceNoteFAB,
+ *             components/AddFAB, components/NewSinceGlow — the glow-bearing controls
  *   Data    → pure functions + a React context (no store/DB)
  *
  * Edit notes:
@@ -153,12 +155,43 @@ export function getScreenColor(theme: ThemePalette, route: string | null | undef
 }
 
 /**
- * The active screen's base hue, or null outside a screen that provides one. Surface falls
- * back to the neutral `theme.border` when this is null, so a card is never edgeless.
+ * The active screen's base hue, or null outside a screen that provides one — AND null on a
+ * screen whose key is deliberately neutral ('home', 'settings'), which ScreenScaffold collapses
+ * rather than passing that key's grey base down. Every consumer reads
+ * `useScreenColor() ?? theme.border`, which is the value a neutral key resolved to anyway, so
+ * the two cases draw identically; what the collapse buys is that `null` means "no hue" rather
+ * than "grey", which `useControlHue` below depends on.
  */
 export const ScreenColorContext = React.createContext<string | null>(null);
 
 /** Read the ambient screen hue set by the nearest ScreenScaffold (null if none). */
 export function useScreenColor(): string | null {
   return React.useContext(ScreenColorContext);
+}
+
+/**
+ * The hue a CONTROL lights up in — its active glyph, its body wash and its halo.
+ *
+ * **Dark mode only, and that is measured rather than chosen.** Round 20's brief: *"Glow belongs
+ * to accent icons, the active chip and the primary button only, and is always the card's own
+ * feature hue — never blue on a pink or cyan screen."* In DARK that is straightforwardly better
+ * than the blue it replaces: the five hues measure 3.79–7.77:1 as a glyph on their own 14% key
+ * body, against `theme.accent`'s 3.82, so four of the five gain contrast and Notes' violet is a
+ * wash with it. In LIGHT the same swap is a regression — light's `feat*` octet is the 2026-08-10
+ * cinematic mid-tone set, not the neon ladder, and it measures 2.48–4.08:1 there against the
+ * accent's 4.39. Notes' violet at **2.48 fails WCAG 1.4.11's 3:1 floor for a non-text control**,
+ * and Health's teal (3.07) and Habits' sky (3.30) only just clear it. So light keeps the accent.
+ *
+ * This is the SAME split `components/BottomNav.tsx`'s `navTabHue` already makes, for the same
+ * measured reason (see AGENTS.md's neon-pass entry) — it is one rule applied twice, not a second
+ * rule. `lib/__tests__/screenColor.test.ts` pins both halves, the light-mode FAILURE included, so
+ * nobody "finishes the job" by making light categorical too.
+ *
+ * A screen with no hue of its own (outside a ScreenScaffold — a modal, a sheet) gets
+ * `theme.accent`, exactly as `components/Button.tsx` already falls back. Never the neutral grey:
+ * a grey halo is a smudge, not an identity.
+ */
+export function useControlHue(theme: ThemePalette, isDark: boolean): string {
+  const screenHue = useScreenColor();
+  return isDark && screenHue ? screenHue : theme.accent;
 }

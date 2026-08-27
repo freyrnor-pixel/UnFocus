@@ -197,9 +197,11 @@ type Props = {
    * arrow once there is text and colours the focus ring + halo — brief §8's "the Task input
    * field glows Neon Amber when tapped; the Habit input glows Electric Cyan".
    *
-   * Deliberately a per-card PROP rather than the ambient `useScreenColor()`: on Home the To-do
-   * and Habits cards sit on one hue-less screen and still have to light up differently, so the
-   * caller is the only thing that knows the answer.
+   * Deliberately a per-card PROP rather than the ambient `useScreenColor()`: on Home the
+   * preview cards sit on ONE screen and still have to light up as the tabs they preview, so the
+   * caller is the only thing that knows the answer. (Home names a hue of its own since round 20
+   * — see app/(tabs)/index.tsx — which makes the ambient read wrong here rather than absent:
+   * every card on that screen would light up gold.)
    */
   accent: string;
   /** Per-surface quick-add controls, shown only while the line is active. */

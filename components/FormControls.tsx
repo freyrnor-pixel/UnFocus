@@ -256,6 +256,11 @@ export function Switch({ checked, onChange, disabled, accessibilityLabel }: Swit
             borderColor: checked ? theme.accent : theme.border,
             borderWidth: shape.borderFieldWidth * shape.borderScale,
           },
+          // Stays `theme.accent` on every screen, unlike the glow-bearing controls round 20
+          // moved to the categorical hue (2026-08-27). Same case as components/AddFAB.tsx: the
+          // track below is a SOLID accent fill with a white thumb on it, so a categorical body
+          // reopens the `accentInk` problem, and lighting it in a colour it is not made of is
+          // not a lesser fix. If the track ever becomes a wash, this can follow.
           checked && !disabled ? getGlow(theme.accent, 'soft') : null,
         ]}
       >

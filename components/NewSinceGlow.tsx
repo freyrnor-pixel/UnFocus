@@ -47,8 +47,13 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, Easing } from 'react-native-reanimated';
-import { getGlow, Radius } from '@/constants/theme';
-import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { getGlow, Radius, rgba } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useControlHue } from '@/lib/screenColor';
+
+/** The mark's fill: the same 0.14 `soft` step lib/screenColor.ts derives, matched by hand here
+ *  because that helper returns a whole ScreenHue and this needs one wash off the resolved hue. */
+const MARK_WASH = 0.14;
 
 /** One breath. Slow enough to read as "look here", not as an alarm. */
 const PULSE_MS = 2400;
@@ -106,18 +111,28 @@ export default function NewSinceGlow({ active, suppressed = false, tight = false
 
   const edgeStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
 
+  // **The mark wears the SCREEN's hue in dark (2026-08-27, round 20's "never blue on a pink or
+  // cyan screen").** It had no colour of its own — it borrowed `accent`/`accentSoft` because
+  // those were simply the app's one highlight pair — so unlike the recording red on
+  // components/VoiceNoteFAB.tsx there is nothing semantic to preserve here: this marks rows on
+  // THIS screen, so it belongs to this screen. Nothing is written on the wash (it sits behind a
+  // row that keeps its own `theme.text`), so recolouring it raises no ink question, which is
+  // exactly why it could move when components/AddFAB.tsx's solid fill could not.
+  const isDark = useIsDark();
+  const hue = useControlHue(theme, isDark);
+
   const overlay = on ? (
     <Animated.View
       pointerEvents="none"
       style={[
         StyleSheet.absoluteFill,
         tight ? styles.overlayTight : styles.overlay,
-        { borderColor: theme.accent, backgroundColor: theme.accentSoft },
-        getGlow(theme.accent, 'soft'),
+        { borderColor: hue, backgroundColor: rgba(hue, MARK_WASH) },
+        getGlow(hue, 'soft'),
         edgeStyle,
       ]}
     >
-      {tight ? null : <View style={[styles.edge, { backgroundColor: theme.accent }]} />}
+      {tight ? null : <View style={[styles.edge, { backgroundColor: hue }]} />}
     </Animated.View>
   ) : null;
 
