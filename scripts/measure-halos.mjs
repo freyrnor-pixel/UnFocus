@@ -330,6 +330,19 @@ try {
       { timeout: 8000 },
     ).catch(() => {});
     await page.waitForTimeout(700);
+    if (process.env.HALO_DEBUG) {
+      const actualTitle = await page.evaluate(() => {
+        for (const el of document.querySelectorAll('*')) {
+          if (el.children.length) continue;
+          const t = (el.textContent || '').trim();
+          if (!t) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.top < 80) return t;
+        }
+        return '(none found)';
+      });
+      console.error(`[debug] wanted ${tab}, on-screen top-left text now: "${actualTitle}"`);
+    }
 
     // openCards() can reveal a NESTED toggle it couldn't reach in its own single 14-click budget
     // (opening a card can reveal a further, still-closed section inside it) — a second pass
