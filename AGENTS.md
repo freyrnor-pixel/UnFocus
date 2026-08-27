@@ -2626,6 +2626,31 @@ Known-benign findings, don't "fix" them:
   - `design-lab-controls` — the ten raw slot-option pills, unchanged.
   One near-miss is worth knowing rather than fixing: `design-lab-card`'s empty-card line misses
   one line by **8px** at 327 in Norwegian.
+- ⚠️ **`quick-add-focused` (the Habits composer's options panel) reports a wrapped control row
+  since phase 7 of `DESIGN_COMPARISON/19-IMPLEMENTATION.md`** (`lib/cardRegistry.ts`'s
+  `habitsList.compose` table, wired into `components/HabitsSurface.tsx`'s panel): "short by
+  562px | 5 items on 3 lines" at `--lang=no --width=360`. **Confirmed new, not pre-existing** —
+  on `main` the same panel draws only Energy + `HabitRecurrenceCells`' 1–2 cells (2–3 total);
+  phase 7 added a Target `Stepper` and a Remind toggle (plus its dependent Time cell when Remind
+  is on), taking it to 5. **And confirmed NOT a layout bug** — a screenshot at 360px
+  (`npm run halos`-style manual capture) shows a clean 2-column grid: pair, then one cell alone
+  on its own full-width line (`Hver 1. dag`, whose two steppers need the room), then a second
+  pair, then "More options". Nothing truncates, overlaps or spills off the card.
+  **The "short by Npx" number is structurally meaningless for this component family**, which is
+  why it joins the design-lab bullet above rather than getting a code change: the control-row
+  detector sums every child's ACTUAL RENDERED width — including children already sitting on
+  DIFFERENT wrapped rows — and compares that sum to the width of ONE row (`scripts/measure-wraps.mjs`'s
+  `needPx` reducer, next to the "Control rows" section header). That sum only shrinks below the
+  row width for a `QuickAddOptionsPanel` with one or two cells; the panel is designed to wrap
+  (`components/QuickAddOptionsPanel.tsx`'s header: "cells pair two-per-line"), so any caller
+  with three or more cells trips this exact false positive — precisely the shape already
+  documented for `design-lab-part-panel`/`design-lab-colour`/`design-lab-controls` above. Adding
+  a `wide` prop to a cell to "fix" this would make the reported number WORSE, not better (a
+  `wide` cell's rendered width grows to the full row, which the sum then counts in full), for no
+  visual gain — the fix that would move the number is exactly the fix that must not be made.
+  Don't shorten copy, don't add `wide`, and don't re-litigate this as a regression next time the
+  audit runs; if a *sixth* option cell is ever added here, expect the number to grow again for
+  the same non-reason.
 - The **token screen's three tab labels** may be reported as TRUNCATED by a few px at
   `--width=327`, Norwegian only. `components/TabSlider.tsx` sets `adjustsFontSizeToFit` +
   `minimumFontScale` 0.85, which react-native-web implements neither of — the exact artifact
