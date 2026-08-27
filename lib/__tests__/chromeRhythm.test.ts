@@ -105,12 +105,21 @@ describe('PressableScale — sinks in, pops out, no bob', () => {
     for (const file of ['components/IconButton.tsx', 'components/Button.tsx', 'components/BottomNav.tsx']) {
       expect([file, code(file).match(/sunk=\{active\}/)?.[0] ?? null]).toEqual([file, null]);
     }
-    // On is still carried on three channels in IconButton — the deepened body, the accent
-    // glyph and the outward halo — so removing the fourth costs no state legibility.
+    // On is still carried on three channels in IconButton — the deepened body, the hued glyph
+    // and the outward halo — so removing the fourth costs no state legibility.
+    //
+    // ⚠️ **The colour those three share stopped being `theme.accent` on 2026-08-27** (round 20's
+    // *"never blue on a pink or cyan screen"*; it is the screen's own hue in dark now — see
+    // lib/__tests__/screenColor.test.ts for the measurement). This assertion used to name the
+    // token and so failed on a change it has no opinion about. It is spelled without a colour
+    // now, and is stronger for it: what it pins is that all three channels are driven by ONE
+    // value, whatever that value is called — which is the property that stops a key being
+    // tinted one colour and lit another.
     const icon = code('components/IconButton.tsx');
-    expect(icon).toMatch(/glassKey\(theme\.accent, isDark, 'key'\)/);
-    expect(icon).toMatch(/active \? theme\.accent/);
-    expect(icon).toMatch(/glow=\{active && !disabled/);
+    const lit = /glassKey\((\w+), isDark, 'key'\)/.exec(icon)?.[1];
+    expect(lit).toBeTruthy();
+    expect(icon).toMatch(new RegExp(`active \\? ${lit}`));
+    expect(icon).toMatch(new RegExp(`glow=\\{active && !disabled \\? \\{ color: ${lit}`));
   });
 
   it('has exactly three opt-outs, each structural rather than a taste call', () => {

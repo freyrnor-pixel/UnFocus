@@ -440,10 +440,17 @@ export default function ScreenScaffold({
   // The screen's own hue, handed to every Surface in the body via context (card design reset,
   // 2026-08-05). `null` when the screen names no key — Home and Settings, which are neutral on
   // purpose — so an un-coded card lands on the neutral `theme.border` rather than on a colour.
-  const screenHue = React.useMemo(
-    () => (screenKey ? getScreenColor(theme, screenKey).base : null),
-    [theme, screenKey],
-  );
+  const screenHue = React.useMemo(() => {
+    if (!screenKey) return null;
+    // `null` for a key that is deliberately neutral ('home', 'settings'), not that key's grey
+    // base. Every consumer reads `useScreenColor() ?? theme.border`, which is the SAME value a
+    // neutral key resolves to — so this changes nothing that is drawn. What it buys is that
+    // `null` finally means what Button.tsx's comment has always claimed it means: "this screen
+    // has no hue", tellable from "this screen is grey". `useControlHue` needs that distinction,
+    // because a halo in the neutral border colour is a smudge rather than an identity.
+    const hue = getScreenColor(theme, screenKey);
+    return hue.neutral ? null : hue.base;
+  }, [theme, screenKey]);
   // Flat backdrop colour for plainBackground screens (Settings): true white/black, no tint.
   // Dark reads `theme.bg`, which IS #000000 since the 2026-08-10 true-black palette — the
   // hardcoded literal here predates it and would now just restate the token. Light keeps its

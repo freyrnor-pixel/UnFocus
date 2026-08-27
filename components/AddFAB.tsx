@@ -96,6 +96,20 @@ export default function AddFAB({ onPress, size = 'lg', bottom, style, accessibil
   // would be the one control in the app contradicting that. Moved from a static `boxShadow` in
   // the style below onto PressableScale's `glow`, which drives it off the same shared value as
   // the travel — so the light dying and the cap landing are one gesture.
+  //
+  // ⚠️ **This halo stays `theme.accent` on every screen, and that is a decision (2026-08-27,
+  // round 20).** Its siblings moved to the screen's categorical hue in that pass —
+  // components/IconButton.tsx, components/VoiceNoteFAB.tsx — and this one cannot follow them,
+  // for the reason the 2026-08-17 matte-glass pass recorded: a categorical body only became
+  // safe when the body stopped being something ink sits ON. This FAB is the one key in the app
+  // that kept a SOLID `theme.accent` fill (see the note on the style below — it floats over
+  // scrolling content, where a 14% wash reads as a hole), and its "+" is `theme.accentInk`. Two
+  // of the five hues admit no AA-contrast ink at all, so recolouring the fill ships an
+  // unreadable glyph on at least one screen. Recolouring the HALO alone is worse, not a
+  // compromise: it would light the key in a colour it is not made of, which is the one thing
+  // both Button.tsx and IconButton.tsx derive from a single `hue` to make unspellable.
+  // components/FormControls.tsx's `Switch` is the same case for the same reason — a solid
+  // accent track with a white thumb on it. Pinned by lib/__tests__/screenColor.test.ts.
   const glow = size === 'lg' ? { color: theme.accent, level: 'strong' as const } : undefined;
 
   // Key press (2026-07-28) — the FAB travels furthest of anything (v6's travel table), a big

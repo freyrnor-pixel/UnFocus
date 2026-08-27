@@ -716,9 +716,11 @@ export default function EnergyMeter() {
         // `variant="primary"` (2026-08-16, "no header pill / tactile glow" polish pass — was
         // `secondary`): this button is the ONE action on this card, not a quiet alternative to
         // a louder one beside it, so it earns the halo `isRaised` reserves for primary/danger
-        // (constants/theme.ts's getGlow, via Button.tsx). Home provides no screen hue, so it
-        // lights up `theme.accent` rather than a categorical colour — the same fallback every
-        // other primary button outside a hued screen already uses.
+        // (constants/theme.ts's getGlow, via Button.tsx). **Its halo is the to-do gold in dark
+        // as of round 20, not blue** — this said "Home provides no screen hue" and that was the
+        // bug, not the design: Home simply never passed a `screenKey`, so the one button on the
+        // app's first screen wore the accent on a tab the mockup draws gold. Nothing changed
+        // here; app/(tabs)/index.tsx names the hue and Button.tsx already resolved it.
         <StarterCard noTree>
           <Button
             label={t.starters.energy.action}

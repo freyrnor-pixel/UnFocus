@@ -1772,6 +1772,37 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
       worse than the 4.19:1 `accent`-on-`accentSoft` already gives. Dark measures 5.99–10.07:1
       across the four hued tabs (was 4.89–10.50 before the 2026-08-17 ladder — the plate is
       derived from the hue, so a hue and its plate keep their ratio as the hue moves).
+    - ⚠️ **Every glow-bearing CONTROL now takes that same dark-only split, via one shared
+      `useControlHue(theme, isDark)` in `lib/screenColor.ts` (2026-08-27, round 20).** The nav
+      was alone in doing this, so the rest of the app went on lighting up blue wherever it
+      stood: round 20's brief — *"glow… is always the card's own feature hue, never blue on a
+      pink or cyan screen"* — and the three sites it named were `components/IconButton.tsx`
+      (which is `ReminderBell`, so the medicine bell bloomed blue in the middle of the ROSE
+      Health tab), `components/VoiceNoteFAB.tsx` (the mic, blue on violet Notes) and Home's
+      Energy button. All three active channels of an IconButton — deepened body, glyph, halo —
+      read the one value, so a key can never be tinted one colour and lit another.
+      **The light-mode half is measured and is a real refusal**: a hue as glyph ink on its own
+      14% key body runs 3.79–7.77:1 in dark (against `theme.accent`'s 3.82 — four of five gain,
+      Notes' violet is a wash with it) and **2.48–4.08:1 in light**, where Notes' violet FAILS
+      WCAG 1.4.11's 3:1 non-text floor outright and Health's and Habits' only just clear it.
+      `lib/__tests__/screenColor.test.ts` pins the failure too, so nobody finishes the job.
+    - ⚠️ **Two controls keep `theme.accent` on every screen, and the gap is a decision**:
+      `components/AddFAB.tsx` and `FormControls`' `Switch`. Both are the one shape a categorical
+      hue cannot take — a SOLID accent fill with ink on it (`accentInk`; a white thumb) — which
+      is the `accentInk` constraint the 2026-08-17 matte-glass pass escaped only by making a
+      key's body a WASH. Recolouring the fill ships an unreadable glyph on at least one screen,
+      and recolouring the halo alone is worse than either: it lights a key in a colour it is not
+      made of. If a track or a FAB ever becomes a wash, they can follow.
+    - ⚠️ **`app/(tabs)/index.tsx` passes `screenKey="index"` as of the same pass, and its absence
+      was the actual bug behind "Home's energy button is blue".** `SCREEN_TOKEN.index` has read
+      `featTask` since the 5→3 merge and `BottomNav`'s `navTabHue` had been drawing Home's own
+      tab gold the whole time — but the SCREEN named no key, so `useScreenColor()` was null for
+      all of Home and every categorical control on it fell back to the accent. A screen and its
+      own tab disagreed about what colour it is. Related: both scaffolds now collapse a
+      deliberately-neutral key (`home`, `settings`) to `null` rather than passing that key's grey
+      base down — every consumer already reads `?? theme.border`, which is the same value, so
+      nothing drawn changes; what it buys is that `null` finally means "no hue" rather than
+      "grey", which `useControlHue` turns on (a halo in the neutral border colour is a smudge).
     - ⚠️ The pill plate is `mix(bg, hue, 0.2)`, **not** the `soft` `rgba(hue, 0.16)` wash every
       other surface uses. The first cut used the wash and shipped an unreadable bar — a 16%
       wash of a NEON hue over the nav's light glass put the rose "Health" label on a rose plate

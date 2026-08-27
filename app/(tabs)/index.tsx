@@ -650,6 +650,15 @@ export default function HomeScreen() {
       <ScreenScaffold
         title={t.nav.home}
         tier="site"
+        // **Home names its hue (2026-08-27, round 20).** It passed no `screenKey` at all, so
+        // `useScreenColor()` was null for the whole screen and every categorical control on it
+        // fell back to `theme.accent` — which is why the Energy card's button glowed BLUE on the
+        // one tab the mockup draws in the to-do gold. The bottom nav had already been drawing
+        // Home's own tab gold for months (components/BottomNav.tsx's `navTabHue` resolves the
+        // `/` route to 'index'), so the screen and its tab disagreed about what colour Home is.
+        // `SCREEN_TOKEN.index` has said `featTask` since the 5→3 merge; this is the second half
+        // of that, which was simply never wired up.
+        screenKey="index"
         isHome
         bottomNav={false}
         pagerFloatingNav

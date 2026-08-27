@@ -98,7 +98,15 @@ export default function CenterModalScreen({
   const insets = useSafeAreaInsets();
 
   const screenHue = React.useMemo(
-    () => (screenKey ? getScreenColor(theme, screenKey).base : null),
+    // `null` for a deliberately-neutral key, not that key's grey base — same collapse
+    // components/ScreenScaffold.tsx makes, and for the same reason: every consumer already
+    // falls back to `theme.border`, so nothing drawn changes, and `null` starts meaning
+    // "no hue" rather than "grey" for `useControlHue`.
+    () => {
+      if (!screenKey) return null;
+      const hue = getScreenColor(theme, screenKey);
+      return hue.neutral ? null : hue.base;
+    },
     [theme, screenKey],
   );
 
