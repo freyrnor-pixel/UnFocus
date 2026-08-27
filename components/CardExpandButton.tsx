@@ -16,6 +16,7 @@
 import React from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import IconButton from '@/components/IconButton';
+import { IconSize } from '@/constants/theme';
 import { useT } from '@/lib/i18n';
 
 type Props = {
@@ -32,6 +33,15 @@ export default function CardExpandButton({ expanded, onExpand, onCollapse, style
       icon={expanded ? 'contract-outline' : 'expand-outline'}
       label={expanded ? t.collapseCardLabel : t.expandCardLabel}
       onPress={expanded ? onCollapse : onExpand}
+      // ⚠️ **`compact` (30), not the default `action` (36) — 2026-08-27, round 20.** The drawn
+      // screens put a 29px control in the card header, and the difference is not fussiness: at
+      // 36 this is the widest single item in the cluster, and on a closed card it is a filled
+      // circle competing with the badge for the eye on a header whose whole job is to say one
+      // name. 30 is the token nearest the drawn 29; 29 itself is not on the scale.
+      //   The tap target does NOT shrink with it. `IconButton` floors its hit target at
+      // `max(MIN_TAP_TARGET, size + Spacing.sm)`, so this still reaches 48 — which is the only
+      // reason the visual may move at all (DESIGN_RULES rule 17, and round 20's own ground rule).
+      size={IconSize.compact}
       style={style}
     />
   );

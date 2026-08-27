@@ -160,3 +160,21 @@ touched yet; implementation waits on a device test.
 the tests that must be *updated* rather than merely passed, and the traps (the `surface`/
 `surfaceGlass` derived pair, `collected` missing from the live-sync whitelist, the composer
 focus-steal guard). Start there, not here.
+
+**20 — The corrected screens (2026-08-27).** Three mockups on top of #638:
+`20-corrected-screens.html` (the five tabs, and the one that wins where they disagree),
+`20-card-editor-system.html` (round 19's **phase 7**) and `20-glass-card-system.html` (round
+19's **phase 8**). Start at **`20-IMPLEMENTATION.md`**; `20-MEASUREMENTS.md` is the evidence
+behind every number in it.
+
+Four reversals were ruled on: a **resting gap returns** (overturning 2026-08-19/20's "no
+gaps" — spent on `contentPad` only, so the scroll seam is untouched), the header cluster goes
+**chevron-first**, the **italic 💡 hint line comes back** (overturning 2026-08-17), and header
+buttons draw **29/32px** with the 48px reach kept.
+
+⚠️ Three things in the mockups are **defects, not design**: chrome translucent enough that
+content reads through it while scrolling (regresses 2026-08-18), a peek line that truncates
+7 of 8 times *in English*, and a Manage cards sheet whose light-mode text inherits the dark
+page's colour at ≈1.2:1. ⚠️ And the per-tab backdrop wash **cannot ship at the drawn strength**:
+it lifts the card ground enough to fail AA for three of the five identity hues and cuts the
+ladder from five rungs to three. That decision gates phase 2.

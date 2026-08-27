@@ -730,6 +730,10 @@ export default function ShoppingScreen() {
   // `dishNames`/`catalogNames` arrays feeding a names-only preview; the drawers mount the real
   // FoodTab/CatalogueTab now, and each reads its own store.)
   const dishCount = useMealStore((s) => s.dishes).length;
+  // How many items the Catalogue knows — drawn as that card's PEEK, never as a count on its
+  // title row (see the note at its `<Card>`; the row is the app's most crowded and a tally
+  // there truncated the title at 430px).
+  const catalogueSize = useCatalogStore((s) => s.items.length);
   // `catalogCount` went with the Catalogue card's `count` prop (2026-08-21) — see the note at
   // that card. Nothing else on this screen showed it.
   // "Arrived while you were away" glow. Computed once per visit against the surface's seen
@@ -2109,7 +2113,12 @@ export default function ShoppingScreen() {
     //
     // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
     // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
-    <Card id="shopLists" count={nonTemplateLists.length || undefined}>
+    <Card
+      id="shopLists"
+      count={nonTemplateLists.length || undefined}
+      peek={t.peek.shopLists(nonTemplateLists.length)}
+      hint={nonTemplateLists.length > 0 ? t.cardHint.shopLists : undefined}
+    >
       {true && (
         <>
           {unsavedListCount > 0 && (
@@ -2508,7 +2517,7 @@ export default function ShoppingScreen() {
               `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
             rather than the aliased domain colour. The CARD's edge is untouched and still the
             screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
-        <Card id="shopDishes" count={dishCount}>
+        <Card id="shopDishes" count={dishCount} peek={t.peek.shopDishes(dishCount)}>
           <FoodTab embedded onNotify={setConfirm} />
         </Card>
       </View>
@@ -2524,6 +2533,13 @@ export default function ShoppingScreen() {
             MEAN, not that every card owes one. */}
         <Card
           id="shopCatalogue"
+          // ⚠️ **A peek where the COUNT was refused (2026-08-21), and the two are not the same
+          // question.** That note is directly above: this header is the most crowded in the app,
+          // and adding a tally to the title ROW truncated "Catalogue" to "Catal…" at 430px. A
+          // peek is a second storey — it competes with nothing on that row — so the size the
+          // card wanted to state can be stated after all, without reopening the measurement that
+          // kept it off the line.
+          peek={t.peek.shopCatalogue(catalogueSize)}
           // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
           // buttons for camera and lock should be in the top part instead"*) — they were inside
           // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is

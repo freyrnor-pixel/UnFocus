@@ -378,6 +378,7 @@ export default function HomeShoppingCard({
     <Card
       id="homeShopping"
       count={totalCount > 0 ? { left: progress.remaining, total: progress.total } : undefined}
+      peek={t.peek.homeShopping(progress.remaining)}
       // The tick animation flies a row to the header's count. `Card` draws that figure now, so
       // the node it lands on comes back through this ref rather than being a badge this file
       // builds — see components/SectionRail.tsx's `countRef`.

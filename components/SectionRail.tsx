@@ -160,10 +160,30 @@ type Props = {
    * sub-header that gains a control later gains it in the same place as its parent.
    */
   tier?: 'group' | 'card' | 'sub';
+  /**
+   * One line under the title saying what is inside — "3 igjen · 1 gjort", "Ingen ennå denne
+   * uken" (2026-08-27, round 20). **CARD tier only**, and ignored anywhere else.
+   *
+   * It replaces the bare `count` as the thing a CLOSED card tells you. A card resting shut with
+   * a `0` beside its name reads as a score of zero on a surface the user has not filled in yet;
+   * the same card saying "Ingen ennå denne uken" says what it is FOR. That is the round 20
+   * mockup's own framing ("counts read as failure") and it is why this is content, not chrome.
+   *
+   * ⚠️ **It is a PROP, not registry data, and the distinction is the registry's own.** The
+   * registry holds what a card LOOKS like — hue, badge, glyph, title, whether it folds. A peek
+   * is live state, the same kind of thing `count` already is, so it arrives the same way. A
+   * caller still cannot describe a card; it can only tell one what it currently holds.
+   *
+   * ⚠️ **There is a width budget and it is tight: ~180px at 360px.** The mockups this came from
+   * truncated 7 of their 8 peeks in English, which is the shorter language — see
+   * `DESIGN_COMPARISON/20-MEASUREMENTS.md`. Author to the budget and let
+   * `scripts/measure-wraps.mjs` tell you; it fails on a truncating peek.
+   */
+  peek?: string;
   style?: StyleProp<ViewStyle>;
 };
 
-export default function SectionRail({ hue, domain, icon, label, count, countRef, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, tier = 'group', style }: Props) {
+export default function SectionRail({ hue, domain, icon, label, count, countRef, right, badgeHue, onLabelPress, labelPressHint, rowMinHeight, divider = true, tier = 'group', peek, style }: Props) {
   const theme = useAppTheme();
   const t = useT();
   // A.4 rule 1 (2026-07-31): an identity hue is a FILL, never text. The dot/badge and the
@@ -172,6 +192,49 @@ export default function SectionRail({ hue, domain, icon, label, count, countRef,
   const labelColor = theme.text;
   const sub = tier === 'sub';
   const isCard = tier === 'card';
+  // ⚠️ **A peek belongs to the CARD rung and to a card that is CLOSED** — see the prop's doc.
+  // Gating it here rather than at the call site is what stops a caller from putting a summary
+  // line under a group heading or under a `sub` section's dot, neither of which has room for a
+  // second storey.
+  const showPeek = isCard && !!peek;
+  /**
+   * ⚠️ **A zero count is not drawn beside a peek (2026-08-27, round 20).**
+   *
+   * The peek exists because a card resting shut with a bare `0` scores the user zero on a
+   * surface they have not filled in yet — round 20's own words, *"counts read as failure"*.
+   * Drawing both put "Today 0" directly above "Nothing due today", which is the same number
+   * twice: once as a verdict and once in words. Only the verdict goes.
+   *
+   * A NON-zero count stays, beside the peek, because that is a size and the rule has always been
+   * "a size yes, a score no". And with no peek the count is drawn whatever it is — a card that
+   * has opted out of saying what it holds has nothing else to say.
+   */
+  const countIsZero =
+    count === 0 || (typeof count === 'object' && count !== null && count.left === 0 && count.total === 0);
+  const showCount = count != null && !(showPeek && countIsZero);
+  const titleLine = (
+    <>
+      <Text style={[sub ? styles.subLabel : isCard ? styles.cardLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
+        {label}
+      </Text>
+      {showCount && (
+        // `countRef` is a MEASUREMENT hook, not anatomy — the one caller that needs it is
+        // components/HomeShoppingCard.tsx, whose tick animation flies the row to this figure.
+        // Nothing may style or replace the count through it.
+        <Text
+          ref={countRef}
+          style={[styles.count, TabularNums, { color: theme.textMuted }]}
+          // A sighted reader takes the noun from the title beside it; a screen reader
+          // announcing a bare "3/7" has lost it. `t.pad.summary` is the wording the count
+          // pills carried before they moved into the card header, kept for exactly this.
+          // A plain total needs no gloss — it is a size, and the title says of what.
+          accessibilityLabel={typeof count === 'number' ? undefined : t.pad.summary(count.left, count.total)}
+        >
+          {typeof count === 'number' ? count : `${count.left}/${count.total}`}
+        </Text>
+      )}
+    </>
+  );
   const naming = (
     <>
       {/* A badge belongs to the CARD rung only — a group heading over a stack of cards that
@@ -195,24 +258,23 @@ export default function SectionRail({ hue, domain, icon, label, count, countRef,
           `minWidth: 0` on the label style is still what lets it yield at all — without that pair
           it pushes the controls off the row instead of truncating (AGENTS.md's wrap-audit note:
           flexShrink alone does not do it). */}
-      <Text style={[sub ? styles.subLabel : isCard ? styles.cardLabel : styles.label, { color: labelColor }]} numberOfLines={1}>
-        {label}
-      </Text>
-      {count != null && (
-        // `countRef` is a MEASUREMENT hook, not anatomy — the one caller that needs it is
-        // components/HomeShoppingCard.tsx, whose tick animation flies the row to this figure.
-        // Nothing may style or replace the count through it.
-        <Text
-          ref={countRef}
-          style={[styles.count, TabularNums, { color: theme.textMuted }]}
-          // A sighted reader takes the noun from the title beside it; a screen reader
-          // announcing a bare "3/7" has lost it. `t.pad.summary` is the wording the count
-          // pills carried before they moved into the card header, kept for exactly this.
-          // A plain total needs no gloss — it is a size, and the title says of what.
-          accessibilityLabel={typeof count === 'number' ? undefined : t.pad.summary(count.left, count.total)}
-        >
-          {typeof count === 'number' ? count : `${count.left}/${count.total}`}
-        </Text>
+      {showPeek ? (
+        // ⚠️ **Two storeys ONLY when there is a peek to draw.** With no peek the title and the
+        // count stay bare children of `row` — byte-for-byte the layout every card had before
+        // this existed. A column wrapper around a single line is not free: it changes how
+        // `flexShrink` reaches the label, and every card's header geometry was settled against
+        // the flat arrangement (see the one-line note above, which was measured on Katalog).
+        <View style={styles.titles}>
+          <View style={styles.titleLine}>{titleLine}</View>
+          {/* `testID` is how `scripts/measure-wraps.mjs` finds a peek to measure it. The width
+              budget here is ~28 characters and the mockups this came from broke it 7 times in 8,
+              so the guard has to be able to name the element rather than guess at it by size. */}
+          <Text testID="card-peek" style={[styles.peek, { color: theme.textMuted }]} numberOfLines={1}>
+            {peek}
+          </Text>
+        </View>
+      ) : (
+        titleLine
       )}
     </>
   );
@@ -308,6 +370,24 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   count: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
+  /**
+   * The two-storey naming column — title line over peek line. Mounted ONLY when a peek exists.
+   *
+   * It carries the `flexShrink: 1` + `minWidth: 0` pair that the label carries in the flat
+   * arrangement, because with the column in place the label's own pair now only lets it yield
+   * inside `titleLine`; without it here the COLUMN is what refuses to narrow and shoves the
+   * trailing controls off the row — the same failure the one-line note above describes, one
+   * level out.
+   */
+  titles: { flexShrink: 1, minWidth: 0, gap: 1 },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minWidth: 0 },
+  /**
+   * ⚠️ `FontSize.xs` (13), not the mockup's 12.5 — a half-pixel is not on the type scale, and
+   * the caption rung is what this is. One line, always: a peek that wrapped would make the card
+   * header a variable height and undo `Card`'s `rowMinHeight`, which exists so every header is
+   * the same height whether or not its title is pressable.
+   */
+  peek: { fontSize: FontSize.xs, lineHeight: 17, fontFamily: Fonts.medium },
   subDot: { width: 6, height: 6, borderRadius: 3 },
   /**
    * The sub tier's heading: `Type.subheading`, sentence case.

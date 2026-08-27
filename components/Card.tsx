@@ -26,7 +26,8 @@
  *
  * Connections:
  *   Imports → components/Surface, components/SectionRail, components/Collapsible,
- *             components/CardCollapseToggle, components/CardExpandButton, constants/theme,
+ *             components/CardCollapseToggle, components/CardExpandButton, components/CardHintLine,
+ *             constants/theme,
  *             lib/cardRegistry, lib/useCollapsedCard, lib/useCardExpand, lib/screenColor,
  *             lib/useAppTheme
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
@@ -43,14 +44,23 @@
  *     many at that width, and it is a known, accepted cost rather than a regression to chase.
  *     **The title stays pressable too** — two ways in is fine, and it is what keeps
  *     `labelPressHint` honest for anyone who still reaches for the name.
- *   - **The trailing cluster is `{controls}` → ⤢ → fold, in that order, always.** `controls` is
- *     the caller's OWN controls and nothing else — a bell, a lock, a ⋮. The fold is still
- *     outermost, in the card's actual top-right corner; the ⤢ sits just inside it. Both draw at
- *     `IconSize.action` (36, `components/IconButton.tsx`'s own default) and reach the 48px
- *     `MIN_TAP_TARGET` through that component's own hit-target floor
- *     (`Math.max(MIN_TAP_TARGET, size + Spacing.sm)` on the PRESSABLE, never on the painted
- *     circle) — never a literal 48-wide filled box, which would cost another 24px of header
- *     width per control and truncate more titles than the measured cost already does.
+ *   - **The trailing cluster is fold → `{controls}` → ⤢, in that order, always** (2026-08-27,
+ *     round 20, reversing 2026-08-26's `{controls}` → ⤢ → fold). `controls` is the caller's OWN
+ *     controls and nothing else — a bell, a lock, a ⋮. The **⤢ is outermost** now, in the card's
+ *     actual top-right corner, and the fold leads. What that buys: the ⤢ is the one control that
+ *     changes which SCREEN you are looking at, and it now sits in the same corner on every card
+ *     whether or not that card folds — which the old order could not, since a non-folding card's
+ *     ⤢ landed exactly where a folding card's chevron did.
+ *     The ⤢ draws at `IconSize.compact` (30, nearest the mockup's 29) and a caller's own controls
+ *     at `IconSize.action` (36); both reach the 48px `MIN_TAP_TARGET` through
+ *     `components/IconButton.tsx`'s own hit-target floor (`Math.max(MIN_TAP_TARGET, size +
+ *     Spacing.sm)` on the PRESSABLE, never on the painted circle) — never a literal 48-wide
+ *     filled box, which would cost another 24px of header width per control.
+ *   - **`peek` and `hint` are content props, not description** (2026-08-27). A `peek` is one line
+ *     under the title saying what a CLOSED card holds, replacing the bare count that read as a
+ *     score; a `hint` is one muted italic line under the header saying what the card is FOR, and
+ *     is passed only while the card has content. Both are live state, like `count` — the registry
+ *     still owns everything a card LOOKS like, and neither prop reopens that.
  *   - **Closed is a bare header.** Three things follow the body rather than the card: the rail's
  *     hairline (`divider={!collapsed}`), the GAP the rail reserves under itself (`railClosed`,
  *     2026-08-24) and the card's bottom inset (`cardCollapsed`) — so a folded card is its header
@@ -77,6 +87,7 @@ import type { ExpandableCardId } from '@/lib/expandableCards';
 import { getScreenColor } from '@/lib/screenColor';
 import { useCardExpand } from '@/lib/useCardExpand';
 import { useCollapsedCard } from '@/lib/useCollapsedCard';
+import CardHintLine from '@/components/CardHintLine';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 
@@ -84,6 +95,23 @@ type CardProps = {
   id: CardKey;
   /** Optional tally shown after the title. A size, never a score. */
   count?: number | { left: number; total: number };
+  /**
+   * One line under the title saying what is inside — see `SectionRail`'s `peek`, which owns the
+   * rendering and the width budget. Live state, like `count`, which is why it is a prop: the
+   * registry holds what a card LOOKS like, never what it currently holds.
+   */
+  peek?: string;
+  /**
+   * One muted italic line under the header saying what this card is for — see
+   * `components/CardHintLine.tsx`, which owns the rendering and the reversal it represents.
+   *
+   * ⚠️ **Pass it only while the card HAS content.** An empty card already speaks, through
+   * `StarterCard`'s line or `NarratorQuote`'s aside, and drawing both stacks two muted italic
+   * lines — which is the "reads like a manual" failure the 2026-08-17 deletion was about. The
+   * gate is the caller's because only the caller knows what empty means for its surface;
+   * AGENTS.md's empty-state note lists five different predicates across the app.
+   */
+  hint?: string;
   /**
    * Ref onto the rendered count, to MEASURE it. One caller — components/HomeShoppingCard.tsx
    * flies a ticked row to that figure. Not a styling hook; see SectionRail's `countRef`.
@@ -98,7 +126,7 @@ type CardProps = {
   children: React.ReactNode;
 };
 
-export default function Card({ id, count, countRef, controls, embedded, contentStyle, children }: CardProps) {
+export default function Card({ id, count, peek, hint, countRef, controls, embedded, contentStyle, children }: CardProps) {
   const t = useT();
   const theme = useAppTheme();
   const spec = cardSpec(id);
@@ -122,6 +150,8 @@ export default function Card({ id, count, countRef, controls, embedded, contentS
       label={label}
       count={count}
       countRef={countRef}
+      peek={peek}
+      hint={hint}
       embedded={embedded}
       contentStyle={contentStyle}
       collapsed={folds ? collapsed : undefined}
@@ -163,6 +193,10 @@ type ShellProps = {
   badgeHue?: boolean;
   label: string;
   count?: number | { left: number; total: number };
+  /** See CardProps' `peek`. */
+  peek?: string;
+  /** See CardProps' `hint`. */
+  hint?: string;
   countRef?: React.Ref<Text>;
   onLabelPress?: () => void;
   /** Accessible name for the pressable title, when pressing it does something. */
@@ -201,6 +235,8 @@ export function CardShell({
   label,
   count,
   countRef,
+  peek,
+  hint,
   onLabelPress,
   labelPressHint,
   controls,
@@ -226,6 +262,7 @@ export function CardShell({
       label={label}
       count={count}
       countRef={countRef}
+      peek={peek}
       // The middle rung of the heading ladder: 20 with a badge. A card is not a group heading
       // (24, no badge) and not a section inside one (17, a dot) — see SectionRail's `tier`.
       tier={tier}
@@ -251,24 +288,42 @@ export function CardShell({
       style={isClosed ? styles.railClosed : undefined}
       right={
         <>
-          {/* ⚠️ **The caller's own controls, then the ⤢, then the fold — always, and the fold
-              is last.** The rule was `controls → fold` alone from 2026-08-22 (when the ⤢ was
-              deleted app-wide) until 2026-08-26, which puts it back one step inside the fold —
-              see the header note for the measured cost the maintainer accepted to get it back.
-              `SectionCard` implemented the opposite chevron-first order for months before that:
-              the Katalog card came out `fold → camera → lock` where the rule asks for
-              `camera → lock → fold`. There is one place to get it right now. */}
-          {controls}
-          {expandButton}
+          {/* ⚠️ **The fold, then the caller's own controls, then the ⤢ — always, and the ⤢ is
+              last** (2026-08-27, round 20). This REVERSES the order that stood here from
+              2026-08-26, which read `controls → ⤢ → fold` with the fold outermost, and it is a
+              maintainer ruling against the drawn mockup rather than a re-derivation: the round 20
+              screens put the chevron first and the expand control in the corner, on every card,
+              on every screen.
+                The reasoning that produced the old order is still worth knowing, because it is
+              what makes this a real reversal and not drift. The fold was put outermost so the
+              control a user reaches for most often sits in the corner where the thumb lands. The
+              ruling trades that for a different consistency: the ⤢ is the one control that
+              changes what SCREEN you are looking at, and the mockup keeps it in the same corner
+              on every card whether or not that card also folds — which the old order could not,
+              since a non-folding card's ⤢ then sat where a folding card's chevron sat.
+                `SectionCard` drew chevron-first for months before 2026-08-26 (the Katalog card
+              came out `fold → camera → lock`); that was drift, this is the same shape arrived at
+              deliberately, and there is still exactly one place it is spelled. */}
           {folds && (
             <CardCollapseToggle collapsed={!!collapsed} onToggle={onToggleCollapse!} cardLabel={label} />
           )}
+          {controls}
+          {expandButton}
         </>
       }
     />
   );
 
-  const body = <View style={[styles.content, contentStyle]}>{children}</View>;
+  // The hint sits under the header rule and above everything the caller draws — the placement
+  // rule that survived the 2026-08-17 deletion ("explanation always sits underneath sub-header",
+  // 2026-08-12) and is now used again. Inside the `Collapsible`, so a folded card takes its
+  // explanation away with its content.
+  const body = (
+    <View style={[styles.content, contentStyle]}>
+      {hint ? <CardHintLine text={hint} /> : null}
+      {children}
+    </View>
+  );
 
   return (
     <Shell style={[styles.card, isClosed && styles.cardCollapsed, embedded && styles.cardEmbedded, style]}>

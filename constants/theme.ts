@@ -216,6 +216,43 @@ export const Spacing = {
  */
 export const SCREEN_GAP = Spacing.md;
 
+/**
+ * The breathing room between the floating chrome and the content at REST — the gap above the
+ * first card and below the last one (2026-08-27, round 20).
+ *
+ * ⚠️ **This reverses 2026-08-19's "flush at rest too" and 2026-08-20's "no gaps", and the
+ * reversal is narrower than it sounds.** Both of those rulings were about the strip a card gets
+ * SLICED ACROSS on its way past the header, and about the bare-backdrop lens in the chrome's
+ * corner notches — and both of those live on `ScreenScaffold`'s `viewportInset`, which this does
+ * not touch. The rule that survived every pass is that the margin is where content is CUT and
+ * the padding is where it RESTS; this is spent entirely on `contentPad`, so a card still travels
+ * behind the glass and is still hidden by it. What comes back is only the resting gap, which is
+ * what the round 20 mockup draws (12px there; 8 here, because 12 is not on the spacing scale).
+ *
+ * Spend it at BOTH ends or neither. The mockup itself got this wrong — 12px above the first card
+ * against 28px below the last, because its 96px bottom padding overshot a 68px nav — and an
+ * asymmetry no one chose is exactly the kind of thing this constant exists to stop.
+ */
+export const CHROME_REST_GAP = Spacing.sm;
+
+/**
+ * How far the floating chrome cards — the header and the bottom nav — sit in from the screen
+ * edge. **The same number every screen's content pads by**, and that is the whole point of it
+ * being here rather than spelled twice (2026-08-27, round 20).
+ *
+ * It was `Spacing.sm` in `ScreenScaffold` and a separate `NAV_FLOAT_GAP` in
+ * `app/(tabs)/_layout.tsx`, both 8, while every screen padded its content by `Spacing.md`. The
+ * 2026-07-24 note that set the first one only ever asked that the header and the bar read as the
+ * same width *as each other*; the content card — the third card on screen, and the one the eye
+ * actually tracks down the page — was never in the comparison. So the chrome's left edge sat 8px
+ * outside every card's left edge on every screen, in both themes, by nobody's decision.
+ *
+ * ⚠️ **`NAV_FLOAT_GAP` is still separate and still 8, deliberately.** That one is the VERTICAL
+ * float — the band of backdrop below the bar — which has no reason to equal the side inset.
+ * Changing this constant must not drag that one with it.
+ */
+export const CHROME_FLOAT_INSET = Spacing.md;
+
 export const Radius = {
   sm: 12,
   // md nudged 18 → 16 (2026-07-18 "colored glass"): a calmer, less bubbly card corner so

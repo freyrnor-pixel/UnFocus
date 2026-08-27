@@ -130,13 +130,20 @@ const styles = StyleSheet.create({
    * right margin. Matching the cap width puts every trailing glyph on one vertical line.
    *
    * This does NOT reopen the 2026-08-21 width argument, because that pass was paying 30px for a
-   * `MIN_TAP_TARGET` (48) box on a header that also carried a 36px ⤢. The ⤢ is deleted, which
-   * gave back more than this costs: a header with a fold and no caller controls is ~40px wider
-   * than it was, not narrower. The target still comes from `hitSlopFor`, per `MIN_TAP_TARGET`'s
-   * "pick one" rule — 36 is a cap width, not a tap target, and the slop is what makes it 48.
+   * `MIN_TAP_TARGET` (48) box on a header that also carried a 36px ⤢. The target still comes
+   * from `hitSlopFor`, per `MIN_TAP_TARGET`'s "pick one" rule — this is a cap width, not a tap
+   * target, and the slop is what makes it 48.
+   *
+   * ⚠️ **`compact` (30), not `action` (36), since 2026-08-27 (round 20).** The width tracks
+   * whatever the TRAILING control's cap is, because that is the whole point of it — and round 20
+   * moved both: `CardExpandButton` draws at `IconSize.compact` now, and the cluster reordered so
+   * the ⤢ is the outermost item rather than this chevron. On a card with no ⤢ and no caller
+   * controls the chevron IS the trailing item, so it has to be the same width as the ⤢ or those
+   * two kinds of card get a ragged right margin against each other — which is the exact defect
+   * the 2026-08-22 note above was written about, one size down.
    */
   btn: {
-    minWidth: IconSize.action,
+    minWidth: IconSize.compact,
     minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',

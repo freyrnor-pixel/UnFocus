@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>UnFocus — corrected screens</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080A10;color:#E6E9EF;font-family:var(--font-sans,Nunito),system-ui;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1560px;margin:0 auto;padding:56px 40px 96px}
+h1{font-size:34px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#77809A;margin-bottom:14px}
+.lede{font-size:16px;line-height:1.65;color:#9AA3B2;max-width:70ch;margin:0}
+.sec{margin-top:60px}
+h2{font-size:13px;font-weight:800;line-height:1.5;letter-spacing:.14em;text-transform:uppercase;color:#77809A;margin:0 0 6px}
+.sec-note{font-size:14px;line-height:1.65;color:#8C95A6;max-width:74ch;margin:0 0 28px}
+.screens{display:flex;gap:36px;flex-wrap:wrap}
+.scr{width:352px;display:flex;flex-direction:column;gap:14px}
+.scr-h{font-size:15px;font-weight:800}
+.scr-h small{display:block;font-size:12.5px;font-weight:700;color:#8C95A6;margin-top:3px}
+.fixes{margin:2px 0 0;padding-left:17px;font-size:12.5px;line-height:1.7;color:#939CAD}
+.fixes b{color:#D3DAE6;font-weight:700}
+
+/* ── phone ───────────────────────────────────────────────────── */
+.frame{position:relative;width:352px;height:716px;display:flex;flex-direction:column;border-radius:34px;overflow:hidden;background:#0A0D15;isolation:isolate;box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)}
+.frame::before{content:"";position:absolute;inset:0;z-index:0;background:radial-gradient(78% 46% at 8% -4%,color-mix(in srgb,var(--acc) 30%,transparent),transparent 72%),radial-gradient(70% 46% at 104% 26%,color-mix(in srgb,var(--acc2,var(--acc)) 22%,transparent),transparent 72%),radial-gradient(84% 42% at 46% 104%,color-mix(in srgb,var(--acc) 16%,transparent),transparent 70%)}
+.frame>*{position:relative;z-index:1}
+.top{flex:0 0 auto;display:flex;align-items:center;gap:10px;margin:14px 14px 0;padding:13px 16px;border-radius:20px;background:rgba(18,23,36,.62);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2)}
+.top h3{flex:1;min-width:0;margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn{width:32px;height:32px;flex:0 0 auto;border:0;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.07);color:#B9C2D2;font-size:17px;cursor:pointer}
+.stack{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:12px 14px 96px;scrollbar-width:none}
+.stack::-webkit-scrollbar{display:none}
+.nav{position:absolute;left:14px;right:14px;bottom:14px;z-index:3;display:flex;gap:2px;padding:8px 6px;border-radius:22px;background:rgba(14,18,29,.78);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(22px) saturate(1.2);-webkit-backdrop-filter:blur(22px) saturate(1.2)}
+.nav a{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:#8B94A6;text-decoration:none}
+.nav a ion-icon{font-size:21px}
+.nav a.on{color:var(--acc)}
+
+/* ── card ────────────────────────────────────────────────────── */
+.gc{--f:var(--acc);border-radius:20px;padding:13px;color:#EDF0F6;background:rgba(19,25,40,.52);border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(18px) saturate(1.25);-webkit-backdrop-filter:blur(18px) saturate(1.25);box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08)}
+.gc-head{display:flex;align-items:center;gap:11px}
+.gc-icon{flex:0 0 auto;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--f);color:var(--bubble-ink);font-size:18px;box-shadow:0 0 0 1px color-mix(in srgb,var(--f) 60%,transparent),0 0 16px color-mix(in srgb,var(--f) 55%,transparent),0 0 38px color-mix(in srgb,var(--f) 28%,transparent)}
+.gc-titles{flex:1;min-width:0}
+.gc-title{font-size:15.5px;font-weight:800;line-height:1.25;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-peek{font-size:12.5px;font-weight:600;color:#98A2B6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-ctl{flex:0 0 auto;display:flex;gap:6px}
+.gc-btn{width:29px;height:29px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#C3CBDA;font-size:14px;display:grid;place-items:center;cursor:pointer}
+.gc-body{margin-top:11px;display:flex;flex-direction:column;gap:9px}
+.hint{font-size:12.5px;line-height:1.45;font-weight:600;font-style:italic;color:#8B94A6;display:flex;gap:7px;align-items:flex-start}
+.hint ion-icon{flex:0 0 auto;font-size:14px;margin-top:1px;color:#6E7789}
+.rows{display:flex;flex-direction:column;gap:7px}
+.row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.075);font-size:13.5px;font-weight:700;min-height:44px}
+.row .txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{flex:0 0 auto;font-size:11.5px;font-weight:800;color:#98A2B6}
+.row.done .txt{color:#8B94A6;text-decoration:line-through}
+.chk{width:20px;height:20px;flex:0 0 auto;border-radius:999px;border:2px solid #79839A}
+.chk.on{border-color:var(--f);background:var(--f);box-shadow:0 0 13px color-mix(in srgb,var(--f) 55%,transparent)}
+.ring{width:22px;height:22px;flex:0 0 auto;border-radius:999px;background:conic-gradient(var(--f) var(--p),rgba(255,255,255,.13) 0);mask:radial-gradient(circle,transparent 55%,#000 57%);-webkit-mask:radial-gradient(circle,transparent 55%,#000 57%)}
+.grp{display:flex;align-items:center;gap:9px;padding:10px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font-size:13.5px;font-weight:800;min-height:44px;cursor:pointer}
+.grp .dot{width:7px;height:7px;border-radius:99px;background:var(--f);flex:0 0 auto}
+.grp .txt{flex:1;min-width:0}
+.grp .sub{font-size:11.5px;font-weight:700;color:#98A2B6}
+.grp ion-icon{color:#8B94A6;font-size:15px}
+/* quick add row — the one composer at tier 1 */
+.qa{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 11px;border-radius:14px;background:rgba(255,255,255,.075);border:1px solid color-mix(in srgb,var(--f) 42%,transparent)}
+.qa .ph{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:#7C8698;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qa .qchip{flex:0 0 auto;font-size:10.5px;font-weight:800;padding:5px 8px;border-radius:99px;color:var(--f);background:color-mix(in srgb,var(--f) 16%,transparent);white-space:nowrap}
+.qbtn{width:29px;height:29px;flex:0 0 auto;border:0;border-radius:9px;display:grid;place-items:center;font-size:15px;cursor:pointer;background:rgba(255,255,255,.09);color:#C3CBDA}
+.qbtn.go{background:var(--f);color:var(--bubble-ink);box-shadow:0 0 15px color-mix(in srgb,var(--f) 50%,transparent)}
+.qbtn.go.off{opacity:.4;box-shadow:none}
+.empty{padding:14px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.12);text-align:center}
+.empty p{margin:0 0 10px;font-size:12.5px;font-weight:700;color:#98A2B6;line-height:1.5}
+.ebtn{border:0;border-radius:12px;padding:10px 16px;min-height:44px;white-space:nowrap;line-height:1.3;font-family:inherit;font-size:13px;font-weight:800;color:var(--bubble-ink);background:var(--f);box-shadow:0 0 16px color-mix(in srgb,var(--f) 45%,transparent);cursor:pointer}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;white-space:nowrap;line-height:1.3;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#AEB8C9;border-radius:11px;padding:9px 0;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;min-height:40px}
+.seg button.on{background:var(--f);color:var(--bubble-ink);border-color:transparent;box-shadow:0 0 15px color-mix(in srgb,var(--f) 45%,transparent)}
+.slim .gc-body{margin-top:10px}
+
+/* ── docs ────────────────────────────────────────────────────── */
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.spec{border:1px solid #1D2331;border-radius:16px;padding:16px 18px;background:#0F131D}
+.spec h4{font-size:14px;font-weight:800;margin:0 0 8px}
+.spec p,.spec li{font-size:13px;line-height:1.65;color:#98A1B3;margin:0}
+.spec ul{margin:6px 0 0;padding-left:18px}
+.spec b{color:#CBD3E1}
+a{color:#8FB4FF}a:hover{color:#B9D0FF}
+</style></head>
+<body>
+<div class="wrap">
+<div class="eyebrow">UnFocus · card system · screen corrections</div>
+<h1>The five tabs, corrected</h1>
+<p class="lede">Same five screens Code built, rebuilt against the card system and the composer spec. Norwegian copy is kept as it stands in the app. Each screen lists what changed, so the diff can be applied without re-reading the whole handoff.</p>
+
+<div class="sec">
+  <h2>Screens</h2>
+  <p class="sec-note">352 × 716 frame, dark theme. Every card carries the same anatomy: accent icon, title, peek line, two-icon control cluster, then body. The topbar and the tab bar are the only chrome; nothing else floats.</p>
+  <div class="screens" id="screens"></div>
+</div>
+
+<div class="sec">
+  <h2>What was wrong, globally</h2>
+  <div class="specs">
+    <div class="spec"><h4>Glass had nothing to blur</h4><p>Cards sat on flat near-black, so blur produced <b>uniform grey slabs</b>. The backdrop now carries three soft accent washes per tab; the same card material reads as glass because there is light behind it.</p></div>
+    <div class="spec"><h4>Control cluster drifted</h4><p>Headers carried three to five controls — bell, mic, camera, lock, ⋮, expand, chevron — in different orders. It is <b>exactly two</b>, always chevron then expand, always the same 29px. Everything else moves into the body or the Manage cards sheet.</p></div>
+    <div class="spec"><h4>Accents are tokens, not hexes</h4><p>The vivid yellow / green / cyan / pink in the build are literals. Every accent here resolves from <b>var(--feature-*)</b> on the dark scheme — task for Hjem and Gjøremål, shop for Handle, habits for Vaner, health for Helse, capture for Notater, meals for Mat, focus for Mål. If the app is meant to keep those vivid per-tab hues, they belong in <b>tokens/themes.css</b> as a new named scheme, never inline, or scheme switching breaks across 5 schemes × light/dark.</p></div>
+    <div class="spec"><h4>Glow was spent on chrome</h4><p>Blue halos bloomed behind neutral icon buttons and around the nav. Glow belongs to <b>accent icons, the active chip and the primary button only</b>, and is always the card's own feature hue — never blue on a pink or cyan screen.</p></div>
+    <div class="spec"><h4>Cards were mostly hint text</h4><p>An italic quote took two thirds of the card and pushed content below the fold. The hint is <b>one slot, two lines maximum</b>, muted, directly under the header, and it never appears on a card that has no content yet — the empty state speaks instead.</p></div>
+    <div class="spec"><h4>Counts read as failure</h4><p>Collapsed cards showed a bare <b>0</b> next to the title. They now show a peek line in words, so a card with nothing in it says what it is for rather than scoring the user zero.</p></div>
+    <div class="spec"><h4>The tab bar clipped the stack</h4><p>The last card was cut in half behind the bar. The stack scrolls with <b>96px bottom padding</b>; the bar is inset 14px and blurs what passes under it.</p></div>
+    <div class="spec"><h4>Stray artefacts</h4><p>Loose 2px dots, a hard black rule inside <b>I dag</b>, and hairline dividers under every header. All removed — separation comes from the body's 11px offset, not a line.</p></div>
+    <div class="spec"><h4>Composer was inconsistent</h4><p>Five different add affordances appeared across five screens. One quick row: <b>placeholder, context chip, More, Save</b>. Save stays dim until the field has content. Escalation and full editors follow the composer file.</p></div>
+  </div>
+</div>
+</div>
+
+<script>
+const NAV=[['Handle','cart-outline','shop'],['Gjøremål','checkbox-outline','tasks'],['Hjem','home-outline','home'],['Vaner','leaf-outline','habits'],['Helse','pulse-outline','health']];
+function nav(active,acc){return `<div class="nav">${NAV.map(([l,i,k])=>`<a href="#" class="${k===active?'on':''}">${k===active?`<ion-icon name="${i.replace('-outline','')}"></ion-icon>`:`<ion-icon name="${i}"></ion-icon>`}<span>${l}</span></a>`).join('')}</div>`}
+function head(ic,t,peek,open,acc){return `<div class="gc-head"><div class="gc-icon"${acc?` style="--f:${acc}"`:''}><ion-icon name="${ic}"></ion-icon></div><div class="gc-titles"><div class="gc-title">${t}</div>${peek?`<div class="gc-peek">${peek}</div>`:''}</div><div class="gc-ctl"><button class="gc-btn"><ion-icon name="chevron-${open?'up':'down'}-outline"></ion-icon></button><button class="gc-btn"><ion-icon name="expand-outline"></ion-icon></button></div></div>`}
+function qa(ph,chip){return `<div class="qa"><span class="ph">${ph}</span><span class="qchip">${chip}</span><button class="qbtn"><ion-icon name="chevron-up-outline"></ion-icon></button><button class="qbtn go off"><ion-icon name="arrow-up-outline"></ion-icon></button></div>`}
+function rows(list){return `<div class="rows">${list.map(r=>`<div class="row${r[0]==='done'?' done':''}">${r[0]==='ring'?`<span class="ring" style="--p:${r[3]}"></span>`:`<span class="chk${r[0]==='done'?' on':''}"></span>`}<span class="txt">${r[1]}</span><span class="sub">${r[2]}</span></div>`).join('')}</div>`}
+function grp(t,sub){return `<div class="grp"><span class="dot"></span><span class="txt">${t}</span><span class="sub">${sub}</span><ion-icon name="chevron-down-outline"></ion-icon></div>`}
+function hint(t){return `<div class="hint"><ion-icon name="bulb-outline"></ion-icon><span>${t}</span></div>`}
+
+const SCREENS=[
+{k:'home',t:'Hjem',acc:'var(--feature-task)',acc2:'var(--feature-capture)',title:'Hjem',
+ fixes:['<b>Energy</b> was a lone glowing pill floating outside any card — now a slim card with three chips, glow only on the chosen one.','<b>I dag</b> was empty apart from a quote and a stray black rule; it now shows three rows, then the quick add.','Removed <b>⋮</b> from I dag and the <b>mic</b> from Notater — voice capture lives in the note composer.','Notater collapsed with a peek line instead of an empty body.'],
+ body:`<div class="gc slim" style="--acc:var(--feature-task)">${head('flash-outline','Dagens energi','Middels · satt 08:12',1)}<div class="gc-body"><div class="seg"><button>Lav</button><button class="on">Middels</button><button>Høy</button></div></div></div>
+ <div class="gc" style="--acc:var(--feature-task)">${head('calendar-outline','I dag','2 av 5 gjort · neste 15:00',1)}<div class="gc-body">${hint('Del det opp til det blir litt latterlig. Det er da det begynner å funke.')}${rows([['done','Ta medisin','08:30'],['','Ring rørlegger','i dag'],['','Pakk svømmebag','15:00']])}${qa('Skriv oppgave','I dag')}</div></div>
+ <div class="gc" style="--acc:var(--feature-capture)">${head('document-text-outline','Notater','3 notater · sist i går',0)}</div>
+ <div class="gc" style="--acc:var(--feature-habits)">${head('leaf-outline','Vaner','4 av 6 i dag',0)}</div>`},
+
+{k:'tasks',t:'Gjøremålsliste',acc:'var(--feature-task)',acc2:'var(--feature-meals)',title:'Gjøremålsliste',
+ fixes:['Replaced the <b>0</b> badges on Uke, Måned and Når som helst with peek lines.','Sub-sections <b>Praktiske mål</b> and <b>Tidligere dager</b> are group rows with counts, not chevrons over empty space.','Quick add moved below the rows it adds to, not above them.','Last card no longer sits under the tab bar.'],
+ body:`<div class="gc" style="--acc:var(--feature-task)">${head('calendar-outline','I dag','3 igjen · 1 gjort',1)}<div class="gc-body">${hint('Del det opp til det blir litt latterlig. Det er da det begynner å funke.')}${rows([['done','Hent pakke','gjort'],['','Fyll på resept','08:30'],['','Vaske opp','2 min'],['','Svar Ana','i dag']])}${qa('Skriv oppgave','I dag')}${grp('Praktiske mål','4')}${grp('Tidligere dager','7')}</div></div>
+ <div class="gc" style="--acc:var(--feature-task)">${head('calendar-number-outline','Uke','Ingen ennå denne uken',0)}</div>
+ <div class="gc" style="--acc:var(--feature-task)">${head('calendar-clear-outline','Måned','2 planlagt · første 12. sep',0)}</div>
+ <div class="gc" style="--acc:var(--feature-task)">${head('checkmark-circle-outline','Når som helst','5 i backlog',0)}</div>`},
+
+{k:'shop',t:'Handleliste',acc:'var(--feature-shop)',acc2:'var(--feature-meals)',title:'Handleliste',
+ fixes:['The bullet-list hint card at the top became <b>one hint line inside Handlelister</b> — it was a card with no owner.','Empty state is one line and one button; the nested inner card with two competing links is gone.','<b>Katalog</b> lost its camera and lock buttons from the header — scan lives in its body, lock in Manage cards.','Mat keeps its count because 66 is information; the empty lists get words instead.'],
+ body:`<div class="gc" style="--acc:var(--feature-shop)">${head('cart-outline','Handlelister','Uke 2 varer · Måned tom',1)}<div class="gc-body">${hint('Legg til når du går tom — nullstilles ukentlig.')}${grp('Uke','2')}${rows([['done','Havremelk','×2'],['','Brød','×1']])}${qa('Legg til vare','Uke · ×1')}${grp('Måned','0')}<div class="empty"><p>Ingen lister denne uken ennå.</p><button class="ebtn">Start tom liste</button></div></div></div>
+ <div class="gc" style="--acc:var(--feature-meals)">${head('fast-food-outline','Mat','66 varer · 4 kategorier',0)}</div>
+ <div class="gc" style="--acc:var(--feature-shop)">${head('list-outline','Katalog','Låst · 128 varer',0)}</div>`},
+
+{k:'habits',t:'Vaner',acc:'var(--feature-habits)',title:'Vaner',
+ fixes:['Card was a quote and an input with nothing to repeat — it now shows the habits with their rings and counts.','<b>Personlige mål</b> is a group row with a count, inside the card, not a title over emptiness.','Removed the hairline divider under the header and the loose dots in the background.','Rings use the shame-free muted track; only the filled arc takes the accent.'],
+ body:`<div class="gc" style="--acc:var(--feature-habits)">${head('repeat-outline','Vaner','4 ringer i gang · 2 urørt',1)}<div class="gc-body">${hint('En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.')}${rows([['ring','Vann','5 / 8','62%'],['ring','Gå tur','1 / 1','100%'],['ring','Strekk','0 / 1','0%'],['ring','Lese','2 / 3','66%']])}${qa('Skriv vane','Daglig')}${grp('Personlige mål','3')}</div></div>
+ <div class="gc" style="--acc:var(--feature-focus)">${head('trophy-outline','Mål','2 mål · Bevege meg mer 60 %',0)}</div>`},
+
+{k:'health',t:'Helse',acc:'var(--feature-health)',title:'Helse',
+ fixes:['<b>Denne uken</b> showed only a joke and an input; it now logs the week — sleep, water, medicine.','The blue bell halo on <b>Medisin</b> is gone; reminders are a row in the card body, and the glow is pink like the rest of the tab.','<b>Helseplager 0</b> became a peek line; the lone open-in-new button was dropped for the standard cluster.','Hint trimmed from three lines to one so the log rows sit above the fold.'],
+ body:`<div class="gc" style="--acc:var(--feature-health)">${head('heart-outline','Denne uken','Sov 6t 40m · 1 medisin igjen',1)}<div class="gc-body">${hint('Logg og følg opp helseplager over tid.')}${rows([['done','Søvn','6t 40m'],['done','Vann','85%'],['','Medisin · kveld','20:00'],['','Bevegelse','22 min']])}${qa('Logg noe','Nå')}</div></div>
+ <div class="gc" style="--acc:var(--feature-health)">${head('medkit-outline','Medisin','2 daglige · neste 20:00',0)}</div>
+ <div class="gc" style="--acc:var(--feature-health)">${head('bandage-outline','Helseplager','Ingen aktive · 3 arkivert',0)}</div>`}
+];
+document.getElementById('screens').innerHTML=SCREENS.map(s=>`<div class="scr">
+ <div class="scr-h">${s.title}<small>${s.fixes.length} fixes</small></div>
+ <div class="frame dark" style="--acc:${s.acc};--acc2:${s.acc2||s.acc}">
+  <div class="top"><h3>${s.title}</h3>${s.k==='tasks'||s.k==='shop'?'<button class="tbtn"><ion-icon name="list-outline"></ion-icon></button>':''}<button class="tbtn"><ion-icon name="settings-outline"></ion-icon></button></div>
+  <div class="stack">${s.body}</div>
+  ${nav(s.k,s.acc)}
+ </div>
+ <ul class="fixes">${s.fixes.map(f=>`<li>${f}</li>`).join('')}</ul>
+</div>`).join('');
+</script>
+</body></html>

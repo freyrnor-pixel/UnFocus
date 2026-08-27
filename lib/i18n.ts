@@ -311,6 +311,66 @@ const en = {
    * state's one line; `more`/`all`/`less` label the single chevron that cycles closed →
    * preview → open. `type.*` are the always-open first line's prompts, worded per card.
    */
+  /**
+   * The card header's peek line — one line under the title saying what is inside, drawn instead
+   * of a bare count on a card the user has not opened (2026-08-27, round 20).
+   *
+   * ⚠️ **Author every one of these to ~28 characters — and to ~10 on a card with its own header
+   * controls.** The slot is ~190px at a 360px screen (card 296 wide, less the badge, the gap and
+   * the trailing cluster) at `FontSize.xs`. But a card whose caller passes controls is far
+   * tighter, because the peek's column yields to a cluster that does not: measured at **67px**
+   * on Shop's Katalog (camera + lock + fold + ⤢) and **91px** on Home's Notes (voice capture +
+   * menu). Both were caught by the audit below rather than by reading the code, and both are why
+   * `shopCatalogue` says "286 varer" and not "286 kjente varer". The
+   * mockups this came from truncated 7 of their 8 peeks in ENGLISH, the shorter of the two
+   * languages the app is authored in — see DESIGN_COMPARISON/20-MEASUREMENTS.md. Norwegian and
+   * Icelandic both run longer, so a string that only just fits here will not fit there.
+   * `npm run wraps` fails the PR on a peek that truncates; check it rather than eyeballing.
+   *
+   * ⚠️ **A peek is never a score.** These say what a card is FOR when it is empty — that is the
+   * whole reason the bare `0` was replaced (round 20: *"counts read as failure"*). So no card
+   * reads "0 of 5", nothing congratulates a full one, and an empty card gets words rather than a
+   * number. Rule 23 applies here as everywhere: "still due", never "missed".
+   */
+  /**
+   * A card's own one-line explanation of what it is for — `components/CardHintLine.tsx`.
+   *
+   * ⚠️ **Drawn only while the card HAS content.** An empty card already speaks, through
+   * StarterCard's line or NarratorQuote's aside; two muted italic lines stacked is the
+   * "reads like a manual" failure the 2026-08-17 deletion was about. The gate is at each call
+   * site, because only the card knows what empty means for it.
+   *
+   * Two lines maximum, and one sentence. If it needs a third, the sentence is wrong.
+   * Rule 23 applies: this explains, it never nags and it never scores.
+   */
+  cardHint: {
+    todoToday: 'Break it down until it feels slightly ridiculous. That is when it starts working.',
+    todoWeek: 'A week is for seeing what is coming, not for deciding it now.',
+    shopLists: 'Add things as you run out — the weekly list clears itself.',
+    habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
+    healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
+  },
+  peek: {
+    todoToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Nothing due today' : `${left} left · ${done} done`,
+    todoWeek: (n: number) => (n === 0 ? 'Nothing this week yet' : `${n} this week`),
+    todoMonth: (n: number) => (n === 0 ? 'Nothing this month yet' : `${n} this month`),
+    todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
+    todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
+    shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
+    shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
+    shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
+    habitsList: (going: number, untouched: number) =>
+      going === 0 && untouched === 0 ? 'Nothing to repeat yet' : `${going} going · ${untouched} untouched`,
+    healthWeek: (n: number) => (n === 0 ? 'A quiet week' : `${n} logged this week`),
+    healthIssues: (n: number) => (n === 0 ? 'None being tracked' : `${n} tracked`),
+    healthMedicine: (n: number) => (n === 0 ? 'Nothing set up' : `${n} daily`),
+    homeToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Nothing due today' : `${left} left · ${done} done`,
+    homeNotes: (n: number) => (n === 0 ? 'None yet' : `${n} notes`),
+    homeShopping: (n: number) => (n === 0 ? 'List is clear' : `${n} to buy`),
+    homeRetired: (n: number) => (n === 0 ? 'Nothing put away' : `${n} put away`),
+  },
   pad: {
     summary: (left: number, total: number) => `${left}/${total} left`,
     more: (n: number) => `${n} more`,
@@ -2553,6 +2613,34 @@ const no: typeof en = {
   showHint: 'Slik fungerer det',
   hideHint: 'Skjul instruksjoner',
   hintSheetDone: 'Ferdig',
+  cardHint: {
+    todoToday: 'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
+    todoWeek: 'En uke er for å se hva som kommer, ikke for å bestemme det nå.',
+    shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
+    habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
+    healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
+  },
+  peek: {
+    todoToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Ingenting i dag' : `${left} igjen · ${done} gjort`,
+    todoWeek: (n: number) => (n === 0 ? 'Ingen ennå denne uken' : `${n} denne uken`),
+    todoMonth: (n: number) => (n === 0 ? 'Ingen ennå denne måneden' : `${n} denne måneden`),
+    todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
+    todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
+    shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
+    shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
+    shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
+    habitsList: (going: number, untouched: number) =>
+      going === 0 && untouched === 0 ? 'Ingenting å gjenta ennå' : `${going} i gang · ${untouched} urørt`,
+    healthWeek: (n: number) => (n === 0 ? 'En rolig uke' : `${n} logget denne uken`),
+    healthIssues: (n: number) => (n === 0 ? 'Ingen følges opp' : `${n} følges opp`),
+    healthMedicine: (n: number) => (n === 0 ? 'Ingenting satt opp' : `${n} daglige`),
+    homeToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Ingenting i dag' : `${left} igjen · ${done} gjort`,
+    homeNotes: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} notater`),
+    homeShopping: (n: number) => (n === 0 ? 'Lista er tom' : `${n} å kjøpe`),
+    homeRetired: (n: number) => (n === 0 ? 'Ingenting lagt bort' : `${n} lagt bort`),
+  },
   pad: {
     summary: (left: number, total: number) => `${left}/${total} igjen`,
     more: (n: number) => `${n} flere`,
@@ -4364,6 +4452,35 @@ const is: typeof en = {
   showHint: 'Svona virkar þetta',
   hideHint: 'Fela leiðbeiningar',
   hintSheetDone: 'Búið',
+  // Talnasamræmi: `isCount` fer með alla setninguna, ekki bara nafnorðið — sjá skýringuna efst.
+  cardHint: {
+    todoToday: 'Skiptu því niður þar til það verður hálf hlægilegt. Þá fer það að virka.',
+    todoWeek: 'Vika er til að sjá hvað er framundan, ekki til að ákveða það núna.',
+    shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
+    habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
+    healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
+  },
+  peek: {
+    todoToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Ekkert í dag' : `${left} eftir · ${done} lokið`,
+    todoWeek: (n: number) => (n === 0 ? 'Ekkert í þessari viku' : `${n} í þessari viku`),
+    todoMonth: (n: number) => (n === 0 ? 'Ekkert í þessum mánuði' : `${n} í þessum mánuði`),
+    todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
+    todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
+    shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
+    shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
+    shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
+    habitsList: (going: number, untouched: number) =>
+      going === 0 && untouched === 0 ? 'Ekkert að endurtaka enn' : `${going} í gangi · ${untouched} ósnert`,
+    healthWeek: (n: number) => (n === 0 ? 'Róleg vika' : `${n} skráð í vikunni`),
+    healthIssues: (n: number) => (n === 0 ? 'Ekkert fylgst með' : `${n} fylgst með`),
+    healthMedicine: (n: number) => (n === 0 ? 'Ekkert sett upp' : `${n} daglega`),
+    homeToday: (left: number, done: number) =>
+      left === 0 && done === 0 ? 'Ekkert í dag' : `${left} eftir · ${done} lokið`,
+    homeNotes: (n: number) => (n === 0 ? 'Engar enn' : isCount(n, `${n} nóta`, `${n} nótur`)),
+    homeShopping: (n: number) => (n === 0 ? 'Listinn er tómur' : `${n} eftir að kaupa`),
+    homeRetired: (n: number) => (n === 0 ? 'Ekkert lagt til hliðar' : `${n} lagt til hliðar`),
+  },
   pad: {
     summary: (left: number, total: number) => `${left}/${total} eftir`,
     more: (n: number) => `${n} í viðbót`,
