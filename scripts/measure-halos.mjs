@@ -299,50 +299,65 @@ try {
     await page.waitForTimeout(300);
   }
 
-  // The screen title each tab settles on — checked by POSITION, not by Playwright's `visible`
-  // state. Two things learned the hard way, both dead ends kept here so they aren't retried:
-  // `BottomNav` (the "five equal slots" pass, 2026-08-18) tells its active tab apart with an
-  // icon variant and a colour, NOT any ARIA state — there is no `aria-selected`/`aria-current`
-  // anywhere on these buttons to wait on. And the screen's own title text is a false green light
-  // too: all five tabs are mounted at once (`lazy: false`), so "Shopping list" already EXISTS in
-  // the DOM (just off-screen) even while looking at a different tab, and Playwright's `visible`
-  // state doesn't account for a transform pushing an element outside the viewport — only real
-  // CSS visibility/display/size. Waiting on it was satisfied instantly regardless of which tab
-  // was actually on screen, which is how a Medicine composer and its tray wells got reported
-  // under "Habits". The fix is the same hit-test idea as FIND_CANDIDATES: wait until this tab's
-  // title text has an on-screen (horizontally in-bounds) bounding rect of its own.
-  const HEADER_TEXT = { Shop: 'Shopping list', 'To-do': 'To-do list', Home: 'Home', Habits: 'Habits', Health: 'Health' };
-  const seen = new Set();
-  for (const tab of ['Shop', 'To-do', 'Home', 'Habits', 'Health']) {
-    const tabButton = page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first();
-    await tabButton.click({ timeout: 10000 }).catch(() => {});
-    await page.waitForFunction(
-      (title) => {
-        for (const el of document.querySelectorAll('*')) {
-          if (el.children.length || (el.textContent || '').trim() !== title) continue;
-          const r = el.getBoundingClientRect();
-          if (r.width <= 0 || r.height <= 0) continue;
-          if (r.left >= 0 && r.right <= window.innerWidth && r.top < 200) return true;
-        }
-        return false;
-      },
-      HEADER_TEXT[tab],
-      { timeout: 8000 },
-    ).catch(() => {});
-    await page.waitForTimeout(700);
-    if (process.env.HALO_DEBUG) {
-      const actualTitle = await page.evaluate(() => {
-        for (const el of document.querySelectorAll('*')) {
-          if (el.children.length) continue;
-          const t = (el.textContent || '').trim();
-          if (!t) continue;
-          const r = el.getBoundingClientRect();
-          if (r.width > 0 && r.left >= 0 && r.right <= window.innerWidth && r.top >= 0 && r.top < 80) return t;
-        }
-        return '(none found)';
-      });
-      console.error(`[debug] wanted ${tab}, on-screen top-left text now: "${actualTitle}"`);
+  // Which tab is actually on screen, checked EXACTLY rather than inferred from rendered
+  // content. Two text-based approaches were tried first and both were false green lights, worth
+  // recording so they aren't retried: `BottomNav` (the "five equal slots" pass, 2026-08-18)
+  // tells its active tab apart with an icon variant and a colour, not any ARIA state — there is
+  // no `aria-selected`/`aria-current` to wait on, and the colour itself can't disambiguate every
+  // pair (Home's own active hue is `featTask` — the SAME gold as To-do's, since Home's content
+  // is task-led — so a colour check would have called Home "correct" while actually sitting on
+  // To-do). And the screen's own title text is a false green light for a different reason: all
+  // five tabs are mounted at once (`lazy: false`), so "Shopping list" already EXISTS in the DOM
+  // (just off-screen) even while looking at a different tab, and Playwright's `visible` state
+  // doesn't account for a transform pushing an element outside the viewport — only real CSS
+  // visibility/display/size. Waiting on it was satisfied instantly regardless of which tab was
+  // actually on screen, which is how a Medicine composer and its tray wells got reported under
+  // "Habits" for a full debugging pass before this was found.
+  //
+  // The actual mechanism is a single `translateX` on one wide flex row holding all five
+  // screens — `tx = -index * viewportWidth`, confirmed by reading it directly while stepping
+  // through every tab. That is the one signal that cannot be fooled by shared colours or
+  // still-mounted-but-off-screen text, so it is what `isOnTab` reads.
+  const TAB_ORDER = ['Shop', 'To-do', 'Home', 'Habits', 'Health'];
+  async function pagerIndex() {
+    return page.evaluate((count) => {
+      for (const el of document.querySelectorAll('div')) {
+        const r = el.getBoundingClientRect();
+        if (Math.abs(r.width - window.innerWidth * count) > 5) continue;
+        const m = getComputedStyle(el).transform.match(/matrix\(([^)]+)\)/);
+        if (!m) continue;
+        return Math.round(-Number(m[1].split(',')[4]) / window.innerWidth);
+      }
+      return null;
+    }, TAB_ORDER.length);
+  }
+  async function isOnTab(tab) {
+    return (await pagerIndex()) === TAB_ORDER.indexOf(tab);
+  }
+
+  // Click the tab and wait until `isOnTab` agrees, polling rather than trusting a fixed delay.
+  // ⚠️ **Re-verifying before every pass below matters just as much as this.** Even after settling
+  // correctly here, a LATER pass on the same tab could still find the pager had moved on with no
+  // click of ours in between — the one shared ingredient in every pass is `scrollActiveTab`'s
+  // `el.scrollTop` write, so the working theory is that a transition not fully settled by the
+  // time a pass starts leaves both the departing and arriving tab's containers briefly on
+  // screen at once, `scrollActiveTab`'s "largest visible" pick lands on the wrong one, and
+  // mutating ITS `scrollTop` mid-transition is what nudges the pager the rest of the way to the
+  // next tab. Unconfirmed beyond "everything downstream of the first `scrollActiveTab` call can
+  // drift" — re-verifying before every pass is the fix that doesn't depend on knowing the exact
+  // mechanism.
+  async function settleOnTab(tab) {
+    await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first().click({ timeout: 10000 }).catch(() => {});
+    for (let i = 0; i < 20; i++) {
+      if (await isOnTab(tab)) return;
+      await page.waitForTimeout(300);
     }
+  }
+
+  const seen = new Set();
+  for (const tab of TAB_ORDER) {
+    await settleOnTab(tab);
+    await page.waitForTimeout(500);
 
     // openCards() can reveal a NESTED toggle it couldn't reach in its own single 14-click budget
     // (opening a card can reveal a further, still-closed section inside it) — a second pass
@@ -354,6 +369,9 @@ try {
     // doesn't end the walk early.
     let emptyPasses = 0;
     for (let pass = 0; pass < 6 && emptyPasses < 2; pass++) {
+      // Re-verify EVERY pass, not just once per tab — see settleOnTab's note.
+      if (!(await isOnTab(tab))) await settleOnTab(tab);
+      if (process.env.HALO_DEBUG) console.error(`[debug] ${tab} pass ${pass}: on correct tab = ${await isOnTab(tab)}`);
       await openCards(page);
       await page.waitForTimeout(400);
       const candidates = await page.evaluate(FIND_CANDIDATES);
@@ -363,6 +381,8 @@ try {
       for (const c of candidates) await processCandidate(tab, c, seen);
       const scrolled = await scrollActiveTab(page, 700);
       await page.waitForTimeout(400);
+      // If scrolling just moved us off our own tab (the working theory above), the NEXT pass's
+      // re-verify catches it — this only has to stop the walk, not diagnose it.
       emptyPasses = (candidates.length === 0 && !scrolled) ? emptyPasses + 1 : 0;
     }
   }
