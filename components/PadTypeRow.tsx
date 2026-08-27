@@ -19,8 +19,10 @@
  * This is a FINISH change on top of the 2026-08-05 pass described below, not a reversal of it.
  * That pass's point was that the composer is a real, visible, focus-showing CONTROL rather than
  * a bare caret on a blank card; all three of those properties are stronger here, not weaker —
- * the well is visible at rest, the focus ring is coloured instead of grey, and it is joined by a
- * halo. What changed is the direction of the depth (sunk instead of raised) and where the
+ * the well is visible at rest, the focus ring is coloured instead of grey, and once FOCUSED it
+ * is joined by a halo (2026-08-26, DESIGN_COMPARISON/19 phase 2 — the halo briefly lit the well
+ * at rest too, from 2026-08-16 to 2026-08-26; see the `fieldAndPrompt` note below for why that
+ * reversed). What changed is the direction of the depth (sunk instead of raised) and where the
  * boundary comes from (the fill step instead of a stroke).
  *
  * ⚠️ The recess only reads because this component is contractually mounted INSIDE a card. See
@@ -400,16 +402,15 @@ export default function PadTypeRow({
     // below still carries the FOCUS state on its own, so if the glow ever fails to render the
     // field still passes DESIGN_RULES.md rule 18 — the glow is reinforcement, not the cue.
     //
-    // **Always lit, not focus-only (2026-08-16, "tactile glow" polish pass)** — this used to be
-    // `focused ? getGlow(accent, 'soft') : null`, a bare well with no light of its own until
-    // tapped. The recessed composers were reading as flat/grey against the dark glass card even
-    // at rest, so the well now carries a resting `soft` glow in its own card's categorical
-    // colour always, and steps up to `strong` on focus — the same two-rung distinction
-    // `Button.tsx`'s halo makes between resting and pressed-adjacent states. This is a scoped
-    // exception to DESIGN_RULES.md rule 15 ("the purposeful halo is for the one active/focused
-    // surface, never decoration"): a card's ONE composer field earns it, the same way its one
-    // primary button does — see `components/AddRow.tsx`'s identical field for the sibling
-    // composer this stays in step with.
+    // **Focus-only again (reversed 2026-08-26, DESIGN_COMPARISON/19 phase 2).** The
+    // 2026-08-16 "tactile glow" polish pass made this always lit — `soft` at rest, `strong` on
+    // focus — on the reasoning that a recessed well read as flat/grey against the dark glass
+    // card even at rest. That reasoning is exactly what phase 2 names as the bug: "text,
+    // borders and backgrounds never glow… a field only while FOCUSED." A resting halo on every
+    // composer field was the single loudest thing in the app (up to nine lit wells on a
+    // five-card screen while the rows themselves carried none) — back to
+    // `focused ? getFieldGlow(accent, 'strong') : null`, matching `components/AddRow.tsx`'s
+    // identical field, which reverses the same way in the same change.
     //
     // ⚠️ **In `npm run preview` the focus ring looks WHITE, and it is not** (measured 2026-08-16,
     // don't re-investigate). Chromium paints its own `:focus-visible` outline on the underlying
@@ -424,7 +425,14 @@ export default function PadTypeRow({
     // square glow around a rounded well ("the glow is squared, but the text-boxes inside are
     // rounded"). The helper hands out the radius with the light so the two cannot disagree here
     // or at any other field; `styles.input` takes its radius from the same `FIELD_RADIUS`.
-    <View style={[styles.field, getFieldGlow(accent, focused ? 'strong' : 'soft')]}>
+    // Unfocused, there is no light to be square in the first place — the bare radius object
+    // below keeps the wrapper's shape consistent whether or not the halo is present.
+    <View
+      style={[
+        styles.field,
+        focused ? getFieldGlow(accent, 'strong') : { borderRadius: FIELD_RADIUS },
+      ]}
+    >
       <TextInput
         style={[
           styles.input,

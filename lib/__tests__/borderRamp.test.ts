@@ -159,18 +159,56 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     expect(edge.end).toEqual({ x: 1, y: 1 });
   });
 
-  it('is lit at the start and never lit at the end, in either mode', () => {
-    // Inverting these lights the pane from below, which reads as a hole rather than a pane.
-    // The two modes satisfy it differently since 2026-08-16 (brief §3): light's last stop is
-    // a genuinely DARKER colour, dark's is the same white faded to nothing. Both are "the
-    // light is at the start"; neither may end brighter than it began.
+  // ⚠️ **Rewritten 2026-08-26 (DESIGN_COMPARISON/19 phase 1)** — was "is lit at the start and
+  // never lit at the end, in either mode", comparing `lightnessOf(c) * alphaOf(c)` between the
+  // first and last stop. That formula only worked for `card` in dark mode by ACCIDENT: it was
+  // the one weight whose last stop used to be the same white as the first, faded to zero alpha,
+  // so "weighted brightness decreases" and "the last stop is not a light source" were the same
+  // claim. `card` no longer has that shape (its `shadeDark` override is gone — see
+  // `constants/theme.ts`'s `GLASS_EDGE` block) — its last stop, like `field`'s and `button`'s
+  // always did, is the passed BOUNDARY colour at a real alpha, which is not "less bright", it
+  // is a *different colour entirely* (grey, not white), and a highly-opaque mid-grey can
+  // outweigh a faint white highlight on this formula without the ramp being lit "from below" in
+  // any visual sense. The two shapes need two different, HONEST assertions instead of one
+  // formula stretched to cover both:
+  it('the lit stop is a highlight, never inverted by the strength knob', () => {
+    // Guards the thing "brighter at the end" actually used to catch for the SAME shape: scaling
+    // `strength` down must fade the highlight, never brighten it past where it started.
     for (const isDark of [false, true]) {
-      const edge = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark);
+      const full = alphaOf(getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark).colors[0]);
+      const half = alphaOf(
+        getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark, 'card', 0.5).colors[0],
+      );
+      expect(half).toBeLessThan(full);
+    }
+  });
+
+  it('the asymmetric (strength-0) shape is a three-stop white fade, not a two-stop boundary', () => {
+    // At `strength: 0` every alpha in the ramp is zero by construction — `lit` and `shadeAlpha`
+    // are both `<value> * 0` — so there is no non-degenerate brightness comparison to make
+    // between its stops (unlike the old card-only shape, whose `lit` stayed non-zero while only
+    // the SHADE side zeroed out). What is still real and worth pinning: the SHAPE — three white
+    // stops at the documented locations, none of them the boundary colour — because that shape
+    // is what a non-zero-but-still-`shadeAlpha === 0` future weight would also produce, and it
+    // must not silently become a two-stop ramp.
+    for (const isDark of [false, true]) {
+      const edge = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark, 'card', 0);
+      expect(edge.colors).toHaveLength(3);
+      expect(edge.locations).toEqual([0, 0.34, 1]);
+      edge.colors.forEach((c) => expect(c).toMatch(/^rgba\(255, 255, 255, 0\)$/));
+    }
+  });
+
+  it('the closed-boundary shape ends on the real shade colour, not a faded highlight', () => {
+    // The complementary claim for the shape every weight now uses at the default strength: the
+    // last stop is not "dimmer white", it is `shade` itself — asserted by colour, not by a
+    // brightness formula that can't distinguish "a different hue" from "less light".
+    for (const isDark of [false, true]) {
+      const border = isDark ? BORDER_DARK : BORDER_LIGHT;
+      const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(border.slice(i, i + 2), 16));
+      const edge = getGlassEdge(border, isDark);
       const last = edge.colors[edge.colors.length - 1];
-      // Alpha-weighted, because a fully transparent white is byte-for-byte "255,255,255" and
-      // comparing raw lightness would call it the brightest stop on the ramp.
-      const weighted = (c: string) => lightnessOf(c) * alphaOf(c);
-      expect(weighted(edge.colors[0])).toBeGreaterThan(weighted(last));
+      expect(last).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, `));
     }
   });
 
@@ -190,15 +228,17 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
   });
 
-  it('dark: the card drops out of the shade family; field > button still holds', () => {
-    // 2026-08-16, brief §3. A dark card has NO shaded side at all — it is a top-left lip that
-    // fades to nothing — so it cannot take part in a shade-alpha ordering. The hierarchy still
-    // has to hold among the rungs that DO have one, which is the part that stops a card full
-    // of bordered controls reading as a grid.
-    const field = alphaOf(getGlassEdge(BORDER_DARK, true, 'field').colors[1]);
-    const button = alphaOf(getGlassEdge(BORDER_DARK, true, 'button').colors[1]);
-    expect(field).toBeGreaterThan(button);
-    expect(button).toBeGreaterThan(0.25);
+  // ⚠️ **REVERSED 2026-08-26** — was "dark: the card drops out of the shade family; field >
+  // button still holds", from 2026-08-16's brief §3: a dark card had NO shaded side at all (a
+  // top-left lip fading to nothing), so it couldn't take part in a shade-alpha ordering, and
+  // only `field > button` was asserted. Now that `GLASS_EDGE.card` no longer sets `shadeDark`,
+  // dark inherits the SAME `card > field > button` family light already had — the hierarchy
+  // that stops a card full of bordered controls reading as a grid now holds in both modes.
+  it('dark: inherits the card > field > button family too, now that the card has a shade', () => {
+    const alphas = WEIGHTS.map((w) => alphaOf(getGlassEdge(BORDER_DARK, true, w).colors[1]));
+    expect(alphas[0]).toBeGreaterThan(alphas[1]);
+    expect(alphas[1]).toBeGreaterThan(alphas[2]);
+    alphas.forEach((a) => expect(a).toBeGreaterThan(0.25));
   });
 
   it('light: keeps the shade stop at FULL border strength on a card', () => {
@@ -215,16 +255,19 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     expect(alphaOf(getGlassEdge(BORDER_LIGHT, false, 'card').colors[1])).toBe(1);
   });
 
-  it('dark: a card edge ends fully transparent instead of closing into a frame', () => {
+  // ⚠️ **REVERSED 2026-08-26** — was "dark: a card edge ends fully transparent instead of
+  // closing into a frame". `GLASS_EDGE.card` no longer sets `shadeDark`, so a dark card closes
+  // into a real boundary now, exactly like `field` and `button` always did — see
+  // `constants/theme.ts`'s `GLASS_EDGE` block for why (the phase-1 fix for "a card had no
+  // boundary on two of its four sides"). The 3-stop fade-to-nothing shape this used to assert
+  // is still real — see "the asymmetric (strength-0) shape fades its light stop all the way to
+  // nothing" above — it just no longer fires for `card` at the default strength.
+  it('dark: a card edge closes into a real boundary, not a fade to nothing', () => {
     const ramp = getGlassEdge(BORDER_DARK, true, 'card');
-    expect(ramp.colors).toHaveLength(3);
-    expect(alphaOf(ramp.colors[2])).toBe(0);
-    // The middle stop is what makes it read as a lip rather than a wash across the diagonal.
-    expect(alphaOf(ramp.colors[1])).toBeGreaterThan(0);
-    expect(alphaOf(ramp.colors[1])).toBeLessThan(alphaOf(ramp.colors[0]));
-    // The shade colour is not used at all on this path, so a caller passing a hue can't
-    // sneak colour back onto the edge.
-    ramp.colors.forEach((c) => expect(c).toMatch(/^rgba\(255, 255, 255,/));
+    expect(ramp.colors).toHaveLength(2);
+    expect(alphaOf(ramp.colors[1])).toBe(1); // card's `shade` is full strength — see GLASS_EDGE
+    const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(BORDER_DARK.slice(i, i + 2), 16));
+    expect(ramp.colors[1]).toBe(`rgba(${br}, ${bg}, ${bb}, 1)`);
   });
 
   it('the lit catch is far weaker in dark mode than in light', () => {

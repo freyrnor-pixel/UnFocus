@@ -700,6 +700,7 @@ export default function HomeScreen() {
             onReorder={(next) => updateSettings({ homeCardOrder: next })}
             onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
             renderCard={renderHomeCard}
+            retiredCardId="homeRetired"
           />
 
           {/* Gentle points */}

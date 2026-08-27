@@ -216,6 +216,10 @@ type Props = {
   onOpenSavedLists: () => void;
   onOpenListSettings: () => void;
   onDelete: () => void;
+  /** Puts this list away without deleting it (2026-08-26) — reversible, via the Archive
+   *  drawer at the foot of the shopLists card. A different kebab entry from `onDelete`:
+   *  no confirm, because nothing is lost. */
+  onArchive: () => void;
   /** Pushes this list's current items back to its source saved list (only meaningful,
    *  and only shown in the kebab menu, when list.sourceTemplateId is set). */
   onSyncToTemplate: () => void;
@@ -307,6 +311,7 @@ export default function WeekListCard({
   onOpenSavedLists,
   onOpenListSettings,
   onDelete,
+  onArchive,
   onSyncToTemplate,
   onSaveAsTemplate,
   onToggleItem,
@@ -375,8 +380,11 @@ export default function WeekListCard({
     setNameEditing(false);
   }
 
-  // Kebab menu (Saved lists / List settings / Delete) — replaces 3 separately-visible
+  // Kebab menu (Saved lists / List settings / Archive / Delete) — replaces 3 separately-visible
   // IconButtons with one entry point, reusing the app's existing showAppModal chooser.
+  // `onArchive` (2026-08-26) is between Settings and Delete deliberately: it is the reversible
+  // neighbour of the destructive Delete row, not a variant of it — see
+  // store/useShoppingListStore.ts's header for the archivedAt/isTemplate distinction.
   function openListOptions() {
     showAppModal(list.name, undefined, [
       // Scan a receipt AGAINST this list (2026-08-13) — the camera used to be a single
@@ -393,6 +401,7 @@ export default function WeekListCard({
       // to sync back for a list that was started empty.
       ...(list.sourceTemplateId ? [{ text: t.syncListButtonLabel, onPress: onSyncToTemplate }] : []),
       { text: t.listSettingsButtonLabel, onPress: onOpenListSettings },
+      { text: t.archiveListButtonLabel, onPress: onArchive },
       { text: t.deleteListButtonLabel, style: 'destructive' as const, onPress: onDelete },
       { text: t.cancel, style: 'cancel' as const },
     ]);

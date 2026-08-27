@@ -299,12 +299,16 @@ describe('the screen half is wired where it has to be', () => {
     expect(body).toMatch(/taskDecayOn/);
   });
 
-  it('the archive drawer renders only when it holds something, and shows no age', () => {
-    // `full &&` (2026-08-20): the drawer is full-tab chrome, omitted when TodoSurface renders
-    // one expanded card's body — see that file's `section` prop doc.
-    expect(plans).toMatch(/\{full && washedAway\.length > 0 && \(/);
-    const start = plans.indexOf('{full && washedAway.length > 0 && (');
-    const block = plans.slice(start, plans.indexOf('</CollapsedSection>', start));
+  it('washed away renders only when it holds something, and shows no age', () => {
+    // ⚠️ **Washed away is a SECTION inside the Whenever card's own body as of 2026-08-26**
+    // (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md — was `todoWashedAway`, a top-level
+    // registry card under a "CollapsedSection"-shaped drawer; see lib/cardRegistry.ts's note at
+    // its old position). It renders inside `wheneverCard`, which is itself gated on
+    // `showWhenever` (full tab OR the Whenever card's own expanded pane) — there is no separate
+    // `full &&` guard on the section any more, because a section rides its parent's visibility.
+    expect(plans).toMatch(/\{washedAway\.length > 0 && \(/);
+    const start = plans.indexOf('{washedAway.length > 0 && (');
+    const block = plans.slice(start, plans.indexOf('</SectionCard>', start));
     // A date, a "days ago" or a formatted stamp on one of these rows would re-introduce
     // exactly the escalation the whole feature exists to avoid.
     expect(block).not.toMatch(/formatDisplayDate|lastActedAt|hoursSince|\bdaysAgo\b/);

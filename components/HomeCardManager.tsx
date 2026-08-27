@@ -1,14 +1,23 @@
 /**
- * HomeCardManager.tsx — reorderable wrapper for the Home tab's preview cards, plus the
- * "Retired" shelf that every hidden one falls to.
+ * HomeCardManager.tsx — "Manage cards": a reorderable card wrapper plus the "Retired" shelf
+ * every hidden card falls to. Generalised off Home (phase 8, DESIGN_COMPARISON/19-IMPLEMENTATION.md
+ * — the name is a holdover from its one caller, kept because renaming it would churn every
+ * `Connections:` header that names it for no behavioural gain).
  *
- * **This component defines what "reorderable" means on Me, by omission.** Only the kinds
- * Home passes in `order` (`HOME_CARD_KINDS` in lib/homeCards.ts — plans/notes/shopping)
- * can be dragged or retired. The Energy strip, the incoming-Shared card and the cumulative
- * "you've done N things" line are rendered as SIBLINGS of this component, never as entries in
- * it, which is exactly what makes them fixed — there is no flag to check and no way for a
- * corrupt `homeCardOrder` to move them. Keep it that way: making one of them reorderable means
- * adding it to that set, not adding a special case here.
+ * **The component defines what "reorderable" means, by omission — the CALLER decides the
+ * set.** Home passes `order`/`labels` for its own three preview kinds
+ * (`HOME_CARD_KINDS` in lib/homeCards.ts — plans/notes/shopping); a second screen adopting this
+ * would pass its own. Anything a caller renders as a SIBLING of this component instead — Home's
+ * Energy strip, its incoming-Shared card, its cumulative "you've done N things" line — is fixed
+ * by construction: there is no flag to check and no way for a corrupt order column to move it.
+ * Keep it that way: making something reorderable means adding it to the caller's own set, not
+ * adding a special case here.
+ *
+ * **`retiredCardId` is what makes the shelf itself a registry-named card rather than a
+ * hardcoded `'homeRetired'`** — the one thing that was still Home-specific before this pass.
+ * A caller adopting this component on another screen needs its own `lib/cardRegistry.ts` entry
+ * for its shelf (`fold: 'none'`, `expand: 'none'`, both with a written reason — see that
+ * registry's own contract) and passes that key here.
  *
  * Long-pressing ANY card starts a drag-to-reorder — no mode to enter first, matching what
  * long-press means everywhere else in the app (WeekListCard, Shopping's DraggableTaskRow rows).
@@ -18,14 +27,24 @@
  * notes, habits and the Whenever list could share the gesture instead of keeping a fourth copy).
  *
  * Connections:
- *   Imports → components/CollapsedSection (the Retired drawer), components/DraggableTaskRow,
- *             components/PressableScale, constants/theme, lib/haptics, lib/i18n,
- *             lib/screenColor (the drawer wears the host screen's hue), lib/useDragReorder,
+ *   Imports → components/Card (the Retired shelf, named by `retiredCardId`),
+ *             components/DraggableTaskRow, components/PressableScale, constants/theme,
+ *             lib/cardRegistry (CardKey, type only), lib/haptics, lib/i18n, lib/useDragReorder,
  *             lib/useAppTheme
- *   Used by → app/(tabs)/index.tsx (the Home tab's Today/Notes/Shopping preview stack)
+ *   Used by → app/(tabs)/index.tsx (the Home tab's Today/Notes/Shopping preview stack, the only
+ *             caller today — see the Edit notes for what a second caller needs)
  *   Data    → none — pure presentational, all mutations bubbled up via callbacks
  *
  * Edit notes:
+ *   - **A second screen adopting "Manage cards" needs three things this pass did NOT build**:
+ *     (1) its own persisted order column, the shape `settings.homeCardOrder` is for Home — there
+ *     is no generic "any screen's card order" column yet; (2) a `sanitize*Order()` the way
+ *     lib/homeCards.ts's `sanitizeHomeCardOrder()` repairs a legacy/corrupt order on read; and
+ *     (3) its own `…Retired` registry entry. None of To-do/Shop/Habits/Health has these today —
+ *     their registry `order` is the screen's fixed, undraggable sequence. This pass generalised
+ *     the COMPONENT so a screen CAN adopt the mechanism without a fork of this file; it did not
+ *     give a second screen the data model to actually do so. Don't assume a screen the registry
+ *     doesn't fold has draggable cards.
  *   - **⚠️ There is no edit mode any more (2026-08-20, UI-consistency pass).** Maintainer:
  *     *"In home, remove the 'Edit cards' button as well, and when a card is hidden it just goes
  *     to a totally collapsed state at the bottom in a section called 'Retired'."* So the
@@ -73,6 +92,7 @@ import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppThem
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { useDragReorder } from '@/lib/useDragReorder';
+import type { CardKey } from '@/lib/cardRegistry';
 
 type Props = {
   /** Ordered, currently-visible kind ids (e.g. ['notes', 'shopping']). */
@@ -83,9 +103,18 @@ type Props = {
   /** Restore a retired kind — appends it to `order`. */
   onAdd: (kind: string) => void;
   renderCard: (kind: string) => React.ReactNode;
+  /**
+   * The registry card the Retired shelf itself draws as (phase 8, generalised off Home —
+   * DESIGN_COMPARISON/19-IMPLEMENTATION.md). Every caller of this component names its own
+   * "…Retired" card here, the same way every OTHER card in the app is named rather than
+   * described — see lib/cardRegistry.ts's "a caller never describes a card, it names one".
+   * Home is the only registered `…Retired` card today (`homeRetired`); a second screen adopting
+   * this component needs its own registry entry the same shape.
+   */
+  retiredCardId: CardKey;
 };
 
-export default function HomeCardManager({ order, labels, onReorder, onAdd, renderCard }: Props) {
+export default function HomeCardManager({ order, labels, onReorder, onAdd, renderCard, retiredCardId }: Props) {
   const theme = useAppTheme();
   const t = useT();
   const styles = useScaledStyles(baseStyles);
@@ -120,7 +149,7 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
           open). It sits INSIDE the gapped list so the screen's own SCREEN_GAP separates it
           from the last card, rather than carrying a margin of its own. */}
       {retiredKinds.length > 0 && (
-        <Card id="homeRetired" count={retiredKinds.length}>
+        <Card id={retiredCardId} count={retiredKinds.length}>
           {retiredKinds.map((kind) => (
             <PressableScale
               key={kind}

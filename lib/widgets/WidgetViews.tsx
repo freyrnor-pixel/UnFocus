@@ -79,12 +79,20 @@ type Palette = {
  * would also dissolve it into any dark wallpaper. (The old `bg` field is gone rather than
  * left unused — `card` was declared and never referenced, which is how the frame ended up
  * drawn in the page colour in the first place.)
+ *
+ * **Re-synced 2026-08-26** (DESIGN_COMPARISON/19 phase 1's `surface`/`accent`/identity-hue
+ * retune): `DARK.card` `#1E1E1E` → `#242424`; `LIGHT.card` `#F9FBFE` → `#FDFEFF` — this second
+ * one had ALREADY drifted before this pass touched anything, from an earlier `surface` edit
+ * that updated `constants/colors.ts` but not this hand copy (exactly the widget-palette lesson
+ * this file's own header describes). Every `LIGHT_INK` entry is recomputed below because the
+ * light-mode floor (`mix toward black until 4.5:1 on LIGHT.card`) depends on `LIGHT.card`,
+ * which moved — so even the three unretuned hues (todo/habits/health) needed a new ink value.
  */
 // `muted`/`line` lifted 2026-08-20 with constants/colors.ts's contrast pass — these are baked
 // copies, and lib/widgets/__tests__/widgetPalette.test.ts recomputes them from the real palette
 // and fails the PR on a drift. That is what caught this pair; keep them moving together.
-const LIGHT: Palette = { card: '#F9FBFE', text: '#1B2432', muted: '#535D6B', line: '#65768F', dark: false };
-const DARK: Palette = { card: '#1E1E1E', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95', dark: true };
+const LIGHT: Palette = { card: '#FDFEFF', text: '#1B2432', muted: '#535D6B', line: '#65768F', dark: false };
+const DARK: Palette = { card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95', dark: true };
 
 /**
  * A hue's light-mode ink. The five identity hues are tuned for a BLACK card — on the light
@@ -94,14 +102,17 @@ const DARK: Palette = { card: '#1E1E1E', text: '#FFFFFF', muted: '#B0B0BA', line
  * badgeGlyphFor() computes at runtime in the app — a call this file can't make, since it
  * renders in a bare headless context. The test recomputes them from IDENTITY_HUES rather
  * than trusting the table, so a hue moving in the app moves these too.
+ *
+ * Recomputed 2026-08-26 for the `LIGHT.card`/`DARK.accent` retune above — keyed by hue, so
+ * `#0DB34A`/`#B45CFF`/`#1E88FF` (their pre-retune values) are gone; look up by the new hex.
  */
 const LIGHT_INK: Record<string, Hex> = {
-  '#FFD700': '#877200', // To-do gold
-  '#05D9E8': '#038089', // Habits cyan
-  '#FF8CB2': '#A85C75', // Health rose
-  '#0DB34A': '#0A8638', // Shopping emerald
-  '#B45CFF': '#994ED9', // Notes violet
-  '#1E88FF': '#1972D6', // accent (the overview's stand-in for an identity hue)
+  '#FFD700': '#8A7400', // To-do gold
+  '#05D9E8': '#03828B', // Habits cyan
+  '#FF8CB2': '#AB5E77', // Health rose
+  '#24B451': '#1B873D', // Shopping emerald
+  '#B660FF': '#9B52D9', // Notes violet
+  '#298AFF': '#2375D9', // accent (the overview's stand-in for an identity hue)
 };
 
 /** The accent as it may actually be drawn in this palette. Identity hues pass through in dark. */

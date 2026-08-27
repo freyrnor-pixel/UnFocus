@@ -74,6 +74,16 @@
  *     which meant `sortOrder` was written on every constructor but never actually affected
  *     card order. Now a drag-reorder (e.g. from components/MonthlyResetReviewSheet.tsx)
  *     changes real app-wide list order, not just an ephemeral view.
+ *   - **Archive (2026-08-26, phase 6 of DESIGN_COMPARISON/19-IMPLEMENTATION.md).**
+ *     `archivedAt` puts a past weekly list away without deleting it -- a DIFFERENT axis
+ *     from `isTemplate`: a template is a reusable blueprint you start a NEW list from
+ *     (the existing Saved-lists feature already IS "a saved list you can start a new
+ *     one from" -- no new column needed for that half). `archive(id)`/`unarchive(id)`
+ *     are thin wrappers over `update()`; `currentList()` and `advanceRecurringLists()`
+ *     both exclude an archived list, same as they already exclude a template. Not
+ *     synced -- `shopping_lists` isn't in lib/liveSync.ts's `TABLE_COLUMNS`/`SyncTable`
+ *     at all (see copyOpenItemsToList's own note above), so archiving is deliberately
+ *     device-local too.
  */
 import { create } from 'zustand';
 import db from '@/lib/db';
@@ -119,6 +129,14 @@ export type ShoppingList = {
   /** The saved/template list this live list was instantiated from (undefined for lists
    *  started empty and for template rows themselves). See instantiateTemplate/syncListToTemplate. */
   sourceTemplateId?: string;
+  /**
+   * Set when the user has put this list away without deleting it (2026-08-26, the Shop
+   * "Archive" drawer). undefined/absent = active, drawn in its week section like any other
+   * list. A DIFFERENT question from `isTemplate` — a template is a reusable blueprint you
+   * start a NEW list from; an archived list is a past, real list you're keeping for
+   * reference. See archive()/unarchive() below.
+   */
+  archivedAt?: string;
 };
 
 type ShoppingListAddInput = {
@@ -143,6 +161,10 @@ type ShoppingListStore = {
   /** Set which weeks (1–4) of the monthly cycle this list is active on; [] = every week. */
   setActiveWeeks: (id: string, weeks: number[]) => void;
   toggleLocked: (id: string) => void;
+  /** Puts a list away — sets `archivedAt`, taking it out of its week section into the
+   *  Archive drawer. Reversible: unarchive(id) clears it back to active. */
+  archive: (id: string) => void;
+  unarchive: (id: string) => void;
   /** The active (non-template) list whose [startDate, endDate] contains `today`. */
   currentList: (today: string) => ShoppingList | undefined;
   /** Rolls every overdue recurring list forward to the period containing `today`. */
@@ -187,6 +209,7 @@ function rowToList(row: Row): ShoppingList {
     sortOrder: readInt(row, 'sort_order'),
     createdAt: readStr(row, 'created_at'),
     sourceTemplateId: readStr(row, 'source_template_id') || undefined,
+    archivedAt: readStr(row, 'archived_at') || undefined,
   };
 }
 
@@ -204,6 +227,7 @@ const LIST_COLUMNS: FieldMap<ShoppingList> = {
   sortOrder: { col: 'sort_order' },
   createdAt: { col: 'created_at' },
   sourceTemplateId: { col: 'source_template_id', to: (v) => v ?? null },
+  archivedAt: { col: 'archived_at', to: (v) => v ?? null },
 };
 
 /** Auto-computed list name from its date span, in the user's current language. */
@@ -350,15 +374,23 @@ export const useShoppingListStore = create<ShoppingListStore>((set, get) => ({
     get().update(id, { locked: !list.locked });
   },
 
+  archive(id) {
+    get().update(id, { archivedAt: new Date().toISOString() });
+  },
+
+  unarchive(id) {
+    get().update(id, { archivedAt: undefined });
+  },
+
   currentList(today) {
-    const active = get().lists.filter((l) => !l.isTemplate);
+    const active = get().lists.filter((l) => !l.isTemplate && !l.archivedAt);
     const inRange = active.find((l) => l.startDate <= today && today <= l.endDate);
     if (inRange) return inRange;
     return [...active].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
   },
 
   advanceRecurringLists(today) {
-    const overdue = get().lists.filter((l) => l.isRecurring && !l.isTemplate && l.endDate < today);
+    const overdue = get().lists.filter((l) => l.isRecurring && !l.isTemplate && !l.archivedAt && l.endDate < today);
     if (overdue.length === 0) return false;
 
     // A list scoped to specific weeks-of-the-monthly-cycle only regenerates when the

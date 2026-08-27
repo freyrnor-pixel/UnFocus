@@ -83,33 +83,40 @@ design, not the rule.
    text below is kept as the reasoning that made it defensible, not as a live exception. Don't
    generalise it into "section headers can carry a second
    control".)*
-5. **Whitespace over lines.** **RESTORED 2026-08-15 (Tactile Glass), after being
-   overruled on 2026-08-05.** A row inside a card has no border, no fill and no rule
-   under it; what separates it from the next one is `Spacing.sm` of nothing
-   (`components/PadSheet.tsx`). The maintainer's brief: *"No 'Box-in-a-Box': strip
-   away all unnecessary nested borders. Group elements purely using whitespace and
-   edge-to-edge layouts."*
+5. **A row is a filled, bordered box again.** **RESTORED 2026-08-26 (the card-surface
+   reset), reversing the 2026-08-15 flush-rows pass this rule used to describe.** A row
+   inside a card is a `Radius.sm` box, one step off the CARD's own surface: a neutral
+   fill+edge (`components/PadSheet.tsx`'s `ROW_BOX_*` constants) that lifts on a dark
+   card and recesses on a light one — never the screen's categorical hue, which the
+   pre-2026-08-15 boxes carried and this pass deliberately drops (the identity hue stays
+   reserved for the badge, a focused field's halo and a primary key — see the glow-budget
+   rule this same pass introduced). Rows stack `Spacing.xs` apart, not flush, so two
+   adjacent borders don't paint a line heavier than the card's own edge.
 
-   ⚠️ **This rule has now been answered three times, each time by the maintainer, and
-   the answer depends on the MATERIAL rather than on taste.** Ruled lines (2026-07-30
-   notepad pass) → bordered boxes (2026-08-05 card reset, *"borders around cards,
-   buttons, text-boxes, options and so on for separating them"*) → whitespace (now).
-   Boxes were right inside a flat opaque card and stopped being right inside a frosted
-   pane, which already reads as a container without help. Before changing it a fourth
-   time, read `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`, which has all three in one
-   place — none of them was drift.
+   ⚠️ **This rule has now been answered FOUR times, each time by the maintainer, and the
+   name of the rule keeps changing with the answer rather than the rule surviving under
+   a stale title.** Ruled lines (2026-07-30 notepad pass) → bordered boxes (2026-08-05
+   card reset, *"borders around cards, buttons, text-boxes, options and so on for
+   separating them"*) → whitespace (2026-08-15 Tactile Glass, *"No 'Box-in-a-Box'"*) →
+   **boxed again (now)**. None of the four was drift — each was right for the material
+   it was drawn on, or for a report the maintainer made about the shipped app. Before
+   changing it a fifth time, read `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` and
+   `DESIGN_COMPARISON/19-card-surface-reset.md`, which between them have all four.
 
-   **Two things this does NOT strip.** (a) The CARD still has one edge — that edge is
-   what carries the control boundary under rule 10b, so "no boxes" never means "no
-   card". (b) The COMPOSER keeps its box (`FormControls`' `Input`, `PadTypeRow`): that
-   box is a rule-18 fix answering a real user report — *"Not visible where user is
-   typing, looks unnatural"* — and de-boxing rows is not precedent for un-boxing the
-   one control you type INTO, exactly as `DESIGN_COMPARISON/10` says the reverse is not
-   precedent either.
+   **Two things this does NOT touch.** (a) The CARD still has one edge — that edge is
+   what carries the control boundary under rule 10b, and it is a DIFFERENT, stronger
+   line than a row's own quieter one, which is the whole reason a card full of boxes
+   doesn't read as an undifferentiated grid. (b) The COMPOSER keeps its own,
+   separately-justified box (`FormControls`' `Input`, `PadTypeRow`): that box is a
+   rule-18 fix answering a real user report — *"Not visible where user is typing,
+   looks unnatural"* — and boxing rows back up is not an argument for giving the
+   composer a *different* box, exactly as de-boxing rows never argued for un-boxing
+   it either.
 
-   Dividers stay gone, as they have been throughout: the app separates with
-   *boundaries* and *space*, never with *lines between things*. *(This flips former
-   open conflict #8's first half back — see the conflicts table.)*
+   Dividers stay gone: the app still never separates two rows with a *line between
+   them* — a row's own edge is a boundary AROUND it, not a rule drawn under it. *(This
+   flips former open conflict #8's first half back to bordered boxes — see the
+   conflicts table.)*
 
 ## 2. Placement & order
 
@@ -427,9 +434,11 @@ design, not the rule.
     still draws through `getRecessedField` / `getFieldGlow` / `FIELD_RADIUS`, so it is the same
     shape by construction. **CI**: `fieldAnatomy.test.ts`. Colour may vary per card; nothing else may.
     **BINDING since 2026-08-21** — the backlog is empty. Four sites stay bare and are KEEP with
-    reasons, because they are not form fields: two ROW TITLES (a row has been flush and unboxed
-    since the PadSheet pass, so boxing one boxes a row), a typable CHIP in a chip cloud, and a
-    parsed receipt line. A card TITLE edited in place is its own thing again — it keeps the
+    reasons, because they are not form fields: two ROW TITLES (the row itself is the box now that
+    rule 5's boxed-rows recipe is back, 2026-08-26 — giving the title INSIDE it a second, nested
+    field box would be exactly the box-in-a-box the field-anatomy rule elsewhere forbids), a
+    typable CHIP in a chip cloud, and a parsed receipt line. A card TITLE edited in place is its
+    own thing again — it keeps the
     header's height and the title's typography — and the two that existed shared nothing until
     they were given `constants/theme.ts`'s `TITLE_FIELD`; one had been a box, the other an
     underline, one card apart on the same screen.
@@ -453,17 +462,25 @@ design, not the rule.
     existed, so every card title actually rendered at 24.
     **CI**: `cardAnatomy.test.ts` — title literals, the control order, and the ban in rule 28.
 
-28. **No file outside `components/Card.tsx` may import `CardCollapseToggle` or
-    `CardExpandButton`.** The order in a card header is the caller's own controls → the fold
-    chevron → **⤢ last, always, on every surface**, and it is assembled in that one file, so a
-    fourteenth order is unspellable rather than merely discouraged.
-    ⚠️ **This rule was a description and is now a ban, which is the whole point of the
-    2026-08-21 pass.** It blessed *two* fold idioms and told you to pick by judgement; the
-    order it stated had been stated in five files since 2026-08-20 while `SectionCard`
-    implemented the opposite (chevron first, so the Catalogue card came out `fold → camera →
-    lock → ⤢`), and `cardAnatomy.test.ts` pinned the wrong order **on purpose** because
-    correcting it meant moving the chevron on every card at once. There is one place to correct
-    now, and it is corrected.
+28. **No file outside `components/Card.tsx` may import `CardCollapseToggle`, and no file
+    outside `Card.tsx`/`CardExpandHost.tsx` may mount `CardExpandButton`.** The order in a card
+    header is the caller's own controls → **⤢** → the fold chevron, fold **outermost, always,
+    on every surface**, and both controls are assembled in that one file, so a fourteenth order
+    is unspellable rather than merely discouraged.
+    ⚠️ **The order changed under this rule on 2026-08-26, and the rule's wording changed with
+    it rather than the code drifting away from a fixed rule.** From 2026-08-22 to 2026-08-25
+    there was no ⤢ at all — pressing a card's title was the only way in, and this rule read
+    `controls → fold, nothing after it`. The ⤢ is back on the maintainer's explicit
+    instruction, who has seen and accepted its measured cost (six of thirty screen×width×
+    language combinations now truncate a card title that also carries its own control, e.g.
+    Catalogue's lock or Medicine's bell, versus one of thirty without it). It lands one step
+    INSIDE the fold rather than after it, which is why the fold is still described as
+    outermost — the corner it inherited on 2026-08-22 is still its corner. **The title stays
+    pressable too**, as a second way in.
+    ⚠️ **Both controls draw at `IconSize.action` (36) and reach `MIN_TAP_TARGET` (48) through
+    the control's own hit-target floor, never a literal 48px filled box.** A painted 48px circle
+    costs 24px more of header width per control than a 36px glyph with an invisible 48px
+    pressable, and header width is exactly what a three-control card is short of at 360px.
     **The one door out is `SectionFoldToggle`**, exported from `Card.tsx` and named for what it
     is: a SECTION drawn one-per-row-of-user-data (a weekly list's card, a monthly list's card)
     has no stable storage key, so the registry cannot name it and its fold is local state.
@@ -557,7 +574,7 @@ one of these in passing.
 | 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
 | 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. **`TabSlider`'s segment joined them at 34 on 2026-08-10** ("the tab slider should be slightly vertically slimmer"), which is the smallest of the four — the sticky tab row is a full-width 3-segment control, so each target is ~100px wide and the height is the only axis under pressure. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
-| 8 | Rules 5 & 9 — whitespace over lines; nothing jumps | **The rule-5 half FLIPPED BACK on 2026-08-15 and the conflict is now CLOSED in rule 5's favour**: rows are flush and separated by space, so the code and the rule agree for the first time since 2026-07-30. (It was "resolved against rule 5" from 2026-08-05, when every row was its own bordered box — read rule 5's own entry for why the answer moves with the material rather than drifting.) The rule-9 half still stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
+| 8 | Rules 5 & 9 — a row is a filled bordered box; nothing jumps | **The rule-5 half is STILL CLOSED, but the rule's TEXT changed under it on 2026-08-26 rather than the code drifting away from a fixed rule.** Rows are boxed again (`components/PadSheet.tsx`'s `ROW_BOX_*` recipe, `Radius.sm`, neutral fill+edge) — the fourth answer to this question — and rule 5's own wording was rewritten to match, so the code and the rule still agree, the same way they agreed at the 2026-08-15 flush stage and at the 2026-08-05 boxed stage before it. Read rule 5's own entry for the full lineage and why the recipe is neutral now rather than the screen's categorical hue. The rule-9 half still stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
 
 ---
 
@@ -591,7 +608,8 @@ one of these in passing.
 **§8 — which component owns it (added 2026-08-21):**
 - [ ] Every text field is a shared composer, or draws through the field helpers.
 - [ ] Every card header is a `SectionRail`; no title size is a literal.
-- [ ] The fold is `CardCollapseToggle`, the expand is `CardExpandButton`, and **⤢ is last**.
+- [ ] The fold is `CardCollapseToggle`, the expand is `CardExpandButton`, and **the FOLD is
+      last** — controls → ⤢ → fold, never a literal 48px box for either.
 - [ ] Every control centres its own content; only its box is placed.
 - [ ] One thing per card — no card inside a card.
 - [ ] A repeated glyph means the same thing, in the same place, at the same size.

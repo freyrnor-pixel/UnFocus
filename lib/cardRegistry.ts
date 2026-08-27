@@ -27,10 +27,23 @@
  * sync layer. Hue and domain are stored as KEYS (`ScreenKey`/`Domain`) and resolved at render
  * by `components/Card.tsx`; every import below is type-only.
  *
+ * **Two more things are DATA here as of 2026-08-26** (phases 7 and 8 of
+ * DESIGN_COMPARISON/19-IMPLEMENTATION.md): a card's quick-add OPTIONS table (`compose` —
+ * Effort/Goal/Repeat/On/…, the tier-2 shape AGENTS.md's three-tier composer contract describes)
+ * and its cross-screen GROUP (`group` — currently only `'growth'`, pairing the Habits tab's card
+ * with two of Health's). Neither draws anything: `compose` is the table the real composer in
+ * each card's own surface component (`TodoSurface`/`HabitsSurface`/`MedicineSurface`/…) is built
+ * against, and `group` is what `cardsInGroup()` reads — searching every screen, never just the
+ * caller's own, which is the whole point (see that function's doc for the bug a screen-scoped
+ * lookup would reopen).
+ *
  * Connections:
  *   Imports → (types only) lib/screenColor, lib/domainColor, lib/i18n, @expo/vector-icons
  *   Used by → components/Card.tsx, lib/collapsedCards.ts, lib/expandableCards.ts,
- *             lib/__tests__/cardRegistry.test.ts
+ *             lib/__tests__/cardRegistry.test.ts; `compose` is read by each card's own surface
+ *             component (documented per-card, e.g. components/TodoSurface.tsx's `InlineTaskAdd`)
+ *             and `cardsInGroup()` by nothing yet — see that function's doc for what a caller
+ *             drawing the actual group strip still needs to build
  *   Data    → none directly. `fold: 'persisted'` keys become storage keys in
  *             settings.collapsedCards; see lib/collapsedCards.ts.
  *
@@ -77,6 +90,51 @@ type IoniconsName = keyof typeof Ionicons.glyphMap;
  */
 export type CardScreen = 'shop' | 'todo' | 'home' | 'habits' | 'health';
 
+/**
+ * A cross-screen family, drawn as one strip wherever any one member expands (phase 8 of
+ * DESIGN_COMPARISON/19-IMPLEMENTATION.md). **Only one exists today: `'growth'`**, pairing the
+ * Habits tab's one card with two of Health's — the habit-forming/consistency surfaces, spanning
+ * two screens on purpose (see `GROUPS` below and `cardsInGroup()`).
+ */
+export type CardGroup = 'growth';
+
+/**
+ * A card's per-card quick-add options — the "options" tier of the three-tier composer contract
+ * (AGENTS.md "The hierarchy of settings when making a row"), made DATA (phase 7 of
+ * DESIGN_COMPARISON/19-IMPLEMENTATION.md). This does not draw anything by itself — it is the
+ * table the real composer (in the card's own surface component: TodoSurface, HabitsSurface,
+ * MedicineSurface, …) is built against, so the shipped options and this list can be diffed
+ * against each other rather than drifting apart silently.
+ */
+export type ComposeOption =
+  | 'time'
+  | 'day'
+  | 'date'
+  | 'effort'
+  | 'goal'
+  | 'repeat'
+  | 'on'
+  | 'qty'
+  | 'category'
+  | 'price'
+  | 'howOften'
+  | 'target'
+  | 'remind'
+  | 'dose'
+  | 'trays';
+
+export type ComposeSpec = {
+  /** The tier-2 "options" shape (AGENTS.md's three-tier contract) — `'panel'` for the labelled
+   *  `QuickAddOptionsPanel` cell design every card here uses EXCEPT `shopCatalogue`, whose
+   *  options live in `components/CatalogueAddSheet.tsx`'s own pop-up instead (that screen's
+   *  composer was already a sheet rather than an inline `AddRow`/`PadTypeRow`, before phase 7 —
+   *  see that file's header). Nothing here uses the older inline `extras` chip row; a caller may
+   *  still have pre-existing `extras` for OTHER, non-table settings, which this data does not
+   *  describe. */
+  depth: 'panel';
+  opts: ComposeOption[];
+};
+
 export type CardSpec = {
   screen: CardScreen;
   /** Position within the screen. Absent for a `nested` card. A default on Home — see the notes. */
@@ -84,14 +142,17 @@ export type CardSpec = {
   /** The CardKey of the card this one is drawn inside, if any. */
   nested?: string;
   /**
-   * A group sub-header this card sits under. The screen draws the rail once, before the first
-   * card that names it; every card after it on that screen belongs to it.
-   *
-   * There is exactly one today — To-do's "Elsewhere" — and the two screens with none are that
-   * way on instruction: the maintainer declined an "Inventory" grouping on Shop and a "Health"
-   * grouping over the Health and Medicine cards. Recorded here so nobody adds one back.
+   * A cross-screen family this card belongs to (phase 8) — see `CardGroup`'s doc. Deliberately
+   * NOT the same field the 2026-08-21→2026-08-26 To-do "Elsewhere" group rail used (that one
+   * grouped cards within ONE screen and is gone with the cards it grouped — see the note at
+   * `todoToday`'s old neighbours below); this is a different, wider idea: a strip spanning
+   * SCREENS, assembled by `cardsInGroup()` searching every screen, not the current one.
+   * **Home's cards carry no group** — they are previews of other tabs, and a preview and its
+   * source sharing a group is exactly the "Today · This week · Today" duplicate-title bug the
+   * prototype found; see `cardRegistry.test.ts`'s "no group holds two cards with the same
+   * title" test.
    */
-  group?: 'elsewhere';
+  group?: CardGroup;
   /** Screen hue the card's rail wears — resolved through lib/screenColor.ts at render. */
   hue: ScreenKey;
   /** Badge identity — resolved through lib/domainColor.ts at render. */
@@ -107,6 +168,10 @@ export type CardSpec = {
   expandDeclined?: string;
   /** Drawn open when the user has chosen nothing. Replaces lib/cardDefaults.ts. */
   openAtRest?: true;
+  /** This card's quick-add options table (phase 7) — see `ComposeSpec`. Absent for a card whose
+   *  composer offers no options beyond the bare line (tier 1 only) or has no composer at all
+   *  (e.g. `healthIssues`, whose "add" is its own sheet, not a quick-add row). */
+  compose?: ComposeSpec;
 };
 
 /**
@@ -129,10 +194,19 @@ export const CARDS = {
     title: (t) => t.tasksTabToday,
     fold: 'persisted',
     expand: 'surface',
-    // ⚠️ **No `openAtRest` since 2026-08-22.** It had one because this was the only "Today" the
-    // app had while Home was the Me tab; Home has its own Today card again (`homeToday`), which
-    // is the one the maintainer's exception names. Two Todays resting open, one tab apart, is
-    // the duplication the exception was never about.
+    // ⚠️ **`openAtRest` again as of 2026-08-26** (phase 5 of
+    // DESIGN_COMPARISON/19-IMPLEMENTATION.md, decision (b): "the first card on each screen
+    // rests open"). It lost this 2026-08-22 on the reasoning that Home already has its own
+    // Today (`homeToday`) resting open, and two Todays open one tab apart was the duplication
+    // that exception was never about — that reasoning is about Home's THREE NAMED cards
+    // specifically, not about whether a tab's own first card gets a bare header on first open.
+    // This is a separate, narrower exception: every OTHER screen's own first card rests open
+    // too (`shopLists`, `habitsList`, `healthWeek`), which Home's rule never covered.
+    openAtRest: true,
+    // Phase 7's table for this card. Wired into components/TodoSurface.tsx's `InlineTaskAdd`
+    // (`compose="today"`) — Time is a TimeBoxInput cell, Effort a signed Stepper gated on
+    // `energySystemEnabled`, Goal `components/GoalQuickCell.tsx` gated on `featureGoals`.
+    compose: { depth: 'panel', opts: ['time', 'effort', 'goal'] },
   },
   todoWeek: {
     screen: 'todo',
@@ -143,19 +217,47 @@ export const CARDS = {
     title: (t) => t.todoWeekTitle,
     fold: 'persisted',
     expand: 'surface',
+    // Wired into InlineTaskAdd via `compose="week"` + `dateChoices` — Day is a picker over the
+    // week's own seven dates (defaulting to the weekday section the row was added on).
+    compose: { depth: 'panel', opts: ['day', 'time', 'goal'] },
+  },
+  // NEW (2026-08-26). A DATE FILTER, not monthly recurrence — AGENTS.md excludes monthly
+  // recurrence from normalizeRecurringTasks because there's no per-occurrence completion row;
+  // this asks the same question todoWeek already does, one rung out ("what's dated later this
+  // month"), and is wired to nothing in lib/taskRecurrence.ts beyond the same taskOccursOn every
+  // other dated card already reads.
+  todoMonth: {
+    screen: 'todo',
+    order: 3,
+    hue: 'plans',
+    domain: 'task',
+    icon: 'calendar-outline',
+    title: (t) => t.todoMonthTitle,
+    fold: 'persisted',
+    expand: 'surface',
+    // Wired via `compose="month"` + `dateChoices` — Date picks among this card's own dates
+    // (the month's days not already claimed by This week), labelled by day number.
+    compose: { depth: 'panel', opts: ['date', 'goal'] },
   },
   todoWhenever: {
     screen: 'todo',
-    order: 3,
+    order: 4,
     hue: 'plans',
     domain: 'task',
     title: (t) => t.tasksSectionWhenever,
     fold: 'persisted',
     expand: 'surface',
+    // ⚠️ **The shipped panel is a SUPERSET of this table** (Effort + Goal, per the table below,
+    // PLUS the pre-existing Time + Repeat cells — see components/TodoSurface.tsx's
+    // `wheneverEnergyValue`/`wheneverGoalId` note for why those two weren't deleted to match
+    // the table exactly: Whenever already doubled as the general "add any task" composer, and
+    // Repeat here creates a genuinely recurring task, which is shipped, tested behaviour). This
+    // field states the table's own two; it is not a claim that Time/Repeat are absent.
+    compose: { depth: 'panel', opts: ['effort', 'goal'] },
   },
   todoRecurring: {
     screen: 'todo',
-    order: 4,
+    order: 5,
     // Borrows the health hue so three To-do cards in a column aren't one colour — see
     // constants/colors.ts's card-identity addendum. The glyph is what names it.
     hue: 'health',
@@ -164,45 +266,22 @@ export const CARDS = {
     title: (t) => t.tasksSectionRecurring,
     fold: 'persisted',
     expand: 'surface',
+    // Repeat opens a showAppModal picker; On (the weekday multi-select) is the DEPENDENT
+    // option — it only renders once Repeat says Weekly, the exact shape that once froze the
+    // shipped app (see components/TodoSurface.tsx's note by `recurringDays`).
+    compose: { depth: 'panel', opts: ['repeat', 'on', 'time'] },
   },
 
-  // The three cards that are not the day's work — what you're aiming at, what's behind you, and
-  // what quietly stopped mattering. They were `CollapsedSection` drawers, a fourth card shape
-  // with its own fold and no ⤢; they are ordinary cards now, under the one group rail on this
-  // tab.
-  todoGoals: {
-    screen: 'todo',
-    order: 5,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'flag',
-    title: (t) => t.goals.editLinkPractical,
-    fold: 'persisted',
-    expand: 'surface',
-  },
-  todoEarlierDays: {
-    screen: 'todo',
-    order: 6,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'time-outline',
-    title: (t) => t.dayLog.earlierDays,
-    fold: 'persisted',
-    expand: 'surface',
-  },
-  todoWashedAway: {
-    screen: 'todo',
-    order: 7,
-    group: 'elsewhere',
-    hue: 'plans',
-    domain: 'task',
-    icon: 'water-outline',
-    title: (t) => t.tasksSectionWashedAway,
-    fold: 'persisted',
-    expand: 'surface',
-  },
+  // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` are GONE from this registry as of
+  // 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — not deleted, turned into
+  // SECTIONS drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever` (Washed away).
+  // They were the app's only cards with `group: 'elsewhere'`; per the registry's own boundary —
+  // "a card is registry-named, a section is drawn one-per-row-of-user-data and rides its
+  // parent's Surface/fold/⤢" — a card that exists only to hold a short, fixed, non-list body
+  // one card below its natural home was the boundary being violated in exactly the direction
+  // the boundary exists to prevent. Removing a key here is tsc-guided (CardId/ExpandableCardId
+  // are derived) and needs no fold migration (sanitizeCollapsedCards drops unknown ids on
+  // read) — see components/TodoSurface.tsx for where the content actually lives now.
 
   // ── Shop ───────────────────────────────────────────────────────────────────────────────
   // The maintainer's order, verbatim, and deliberately with NO group headers over it — he
@@ -220,10 +299,17 @@ export const CARDS = {
     // full-screen copy of them is a second rendering of the screen you are already on.
     expandDeclined:
       "Shopping's lists are the Shop tab's primary content — a full-screen copy of them is a second rendering of the screen you are already looking at, and each list card already expands its rows in place.",
-    // ⚠️ **No `openAtRest` since 2026-08-22.** The maintainer's exception is *"'Today' 'Notes'
-    // and 'Shopping' in middle screen"* — the middle screen is Home, and all three of those
-    // cards live there now. This is the Shop tab's own lists card, which the exception never
-    // named; it was carrying the flag only because Home had no Shopping card to carry it.
+    // ⚠️ **`openAtRest` again as of 2026-08-26** — see `todoToday`'s note: this is the Shop
+    // tab's OWN first card resting open (decision (b) of DESIGN_COMPARISON/19-IMPLEMENTATION.md
+    // phase 5), a different exception from Home's three named cards, which it lost 2026-08-22
+    // on the reasoning that Home's "Shopping" preview already covered "Shopping rests open".
+    // That reasoning was about Home's rule, not this tab's own; this tab gets its own first-card
+    // exception like every other screen now.
+    openAtRest: true,
+    // Already shipped, not new: components/InlineAddItem.tsx's flat panel already carries a
+    // quantity Stepper and category chips for every weekly/monthly list — see that file's
+    // header. This states what was already true rather than adding anything.
+    compose: { depth: 'panel', opts: ['qty', 'category'] },
   },
   shopDishes: {
     screen: 'shop',
@@ -247,20 +333,20 @@ export const CARDS = {
     title: (t) => t.catalogueTabLabel,
     fold: 'persisted',
     expand: 'surface',
+    // components/CatalogueAddSheet.tsx (a pop-up, not an inline AddRow panel — see that file's
+    // header for why) — Price already shipped; Category is new as of phase 7, a wrapping chip
+    // row over lib/shoppingCategories.ts's preset list.
+    compose: { depth: 'panel', opts: ['price', 'category'] },
   },
-  shopMonthly: {
-    screen: 'shop',
-    order: 4,
-    hue: 'shopping',
-    domain: 'plan',
-    icon: 'calendar',
-    badgeHue: true,
-    title: (t) => t.monthlyTabLabel,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "Monthly is the stock list the weekly lists are built FROM, drawn one card per list; the group has no single body to grow, and the per-list cards are sections (drawn one per row of data), which never grow to fill the screen on their own.",
-  },
+  // ⚠️ **`shopMonthly` is GONE from this registry as of 2026-08-26** (phase 5 of
+  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — turned into a SECTION drawn inside `shopLists`,
+  // the same boundary move that took `todoGoals`/`todoEarlierDays`/`todoWashedAway` out of the
+  // registry: Monthly was already declared `expand: 'none'` for exactly the section reason
+  // ("the per-list cards are sections… which never grow to fill the screen on their own") —
+  // the outer `shopMonthly` wrapper around them was the one piece of that card that was still a
+  // CARD rather than a section, and it held no user data of its own to justify it. See
+  // app/(tabs)/shopping.tsx for where the content lives now (still every bit of it — the
+  // per-list `Surface`s, the filter bar, the empty state — just without an outer registry card).
 
   // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
   // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*
@@ -343,19 +429,25 @@ export const CARDS = {
     expand: 'none',
     expandDeclined:
       "Today's habits are the Habits tab's primary content, so a full-screen copy of them is a second rendering of the screen you are already on — the same refusal shopLists makes on Shop.",
+    // This tab has exactly one card, so "the first card rests open" (2026-08-26, phase 5 of
+    // DESIGN_COMPARISON/19-IMPLEMENTATION.md decision (b)) and "always open" coincide here —
+    // still worth stating explicitly rather than leaving it implicit, since every other
+    // screen's version of this flag is genuinely partial.
+    openAtRest: true,
+    // Phase 8's "Growth" group (see `GROUPS` below) — the habit-forming/consistency family,
+    // spanning this screen and two of Health's.
+    group: 'growth',
+    // Phase 7's table for this card. Wired into components/HabitsSurface.tsx's quick-add panel:
+    // How often is components/HabitRecurrenceCells.tsx (already shipped); Target is a Stepper,
+    // suppressed for `weekly-flexible` (whose own weekly-goal Stepper already IS the target —
+    // see that component's `habitTargetValue` note); Remind is a toggle cell plus a dependent
+    // Time cell, the same shape as Recurring's Repeat/On pair.
+    compose: { depth: 'panel', opts: ['howOften', 'target', 'remind'] },
   },
-  habitsGoals: {
-    screen: 'habits',
-    order: 2,
-    hue: 'habits',
-    domain: 'habit',
-    icon: 'flag',
-    title: (t) => t.goals.editLinkPersonal,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      'A short list of what the habits above are aiming at, with its own add and delete rows inside the card. Full screen it is the same handful of lines with more air around them; the fold is the control that matters here.',
-  },
+  // ⚠️ **`habitsGoals` is GONE from this registry as of 2026-08-26** — turned into a SECTION
+  // drawn inside `habitsList`, the same boundary move as To-do's Goals/Earlier days/Washed
+  // away (see the note at `todoGoals`'s old position above). See components/HabitsSurface.tsx
+  // for where the content lives now.
 
   // ── Health ─────────────────────────────────────────────────────────────────────────────
   // Also top-level and also on their own tab again. Medicine joins them: it was its own card on
@@ -372,6 +464,11 @@ export const CARDS = {
     expand: 'none',
     expandDeclined:
       "This week's issues are the Health tab's primary content — a pane for them is a second rendering of the screen you are already on.",
+    // `openAtRest` (2026-08-26, phase 5 decision (b) — "the first card on each screen rests
+    // open") — this tab's own first card, same exception as `todoToday`/`shopLists`/`habitsList`.
+    openAtRest: true,
+    // Phase 8's "Growth" group — see `habitsList`'s note and `GROUPS` below.
+    group: 'growth',
   },
   healthIssues: {
     screen: 'health',
@@ -396,6 +493,13 @@ export const CARDS = {
     title: (t) => t.medicine.title,
     fold: 'persisted',
     expand: 'surface',
+    // Phase 8's "Growth" group — see `habitsList`'s note and `GROUPS` below. A dose taken on
+    // schedule is as much a consistency habit as anything on the Habits tab.
+    group: 'growth',
+    // Phase 7's table for this card. Wired into components/MedicineSurface.tsx's quick-add
+    // panel — both fields already existed on `Medicine` (dose free text, trays a TrayId[]), so
+    // this was composer wiring only, no schema change.
+    compose: { depth: 'panel', opts: ['dose', 'trays'] },
   },
 } as const satisfies Record<string, CardSpec>;
 
@@ -413,4 +517,17 @@ export function cardsForScreen(screen: CardScreen): CardKey[] {
   return CARD_KEYS.filter((k) => cardSpec(k).screen === screen && !cardSpec(k).nested).sort(
     (a, b) => (cardSpec(a).order ?? 0) - (cardSpec(b).order ?? 0),
   );
+}
+
+/**
+ * Every card in `group`, across EVERY screen — the whole point of phase 8's cross-screen groups
+ * (DESIGN_COMPARISON/19-IMPLEMENTATION.md). Unlike `cardsForScreen`, this does NOT take a
+ * screen: a lookup scoped to "the current screen" is exactly what would have hidden the
+ * duplicate-title bug the prototype found (see `cardRegistry.test.ts`'s test for it), because
+ * `time` there held both `todoToday` and `homeToday` and nothing ever looked at both at once.
+ * Order within the result is registry declaration order, not screen order — a strip reads the
+ * same way regardless of which member's card the user opened it from.
+ */
+export function cardsInGroup(group: CardGroup): CardKey[] {
+  return CARD_KEYS.filter((k) => cardSpec(k).group === group);
 }

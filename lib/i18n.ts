@@ -331,6 +331,11 @@ const en = {
     // Repeat picker (2026-08-05) — replaced a row that cycled none → daily → weekly →
     // monthly on tap, forward-only, with no way back and no cue that it cycled.
     recurrencePicker: 'How often?',
+    // Phase 7 (DESIGN_COMPARISON/19-IMPLEMENTATION.md) — the Week composer's "Day" option
+    // (which date, among the ones this card draws) and the Recurring composer's "On" option
+    // (which weekdays it repeats on, shown once Repeat says Weekly).
+    dayOption: 'Day',
+    onDays: 'On',
     // The type-line's options panel (2026-08-04) — the "Add as" row that toggles a task vs.
     // a day-log moment (components/PlanTaskCard.tsx's onCaptureMoment).
     captureTarget: {
@@ -896,6 +901,9 @@ const en = {
   addItemInputPlaceholder: 'Search for items…',
   savedListsButtonLabel: 'Saved lists',
   deleteListButtonLabel: 'Delete list',
+  archiveListButtonLabel: 'Archive list',
+  unarchiveListButtonLabel: 'Move back to active',
+  shopArchiveTitle: 'Archive',
   listSettingsButtonLabel: 'List settings',
   lockListButtonLabel: 'Lock list',
   unlockListButtonLabel: 'Unlock list',
@@ -917,6 +925,7 @@ const en = {
   collapseCardLabel: 'Collapse card',
   // The To-do tab's Week card (Mon–Sun), replacing the old "This week" tab.
   todoWeekTitle: 'Week',
+  todoMonthTitle: 'Month',
   // The To-do tab's one group rail (2026-08-21): the three cards below it are not the day's
   // work — what you're aiming at, what's behind you, what quietly stopped mattering.
   todoElsewhereTitle: 'Elsewhere',
@@ -2557,6 +2566,8 @@ const no: typeof en = {
     },
     moreOptions: 'Flere valg',
     recurrencePicker: 'Hvor ofte?',
+    dayOption: 'Dag',
+    onDays: 'På',
     captureTarget: {
       label: 'Legg til som',
       task: 'Oppgave',
@@ -2986,6 +2997,9 @@ const no: typeof en = {
   addItemInputPlaceholder: 'Søk etter varer…',
   savedListsButtonLabel: 'Lagrede lister',
   deleteListButtonLabel: 'Slett liste',
+  archiveListButtonLabel: 'Arkiver liste',
+  unarchiveListButtonLabel: 'Flytt tilbake til aktive',
+  shopArchiveTitle: 'Arkiv',
   listSettingsButtonLabel: 'Listeinnstillinger',
   lockListButtonLabel: 'Lås liste',
   unlockListButtonLabel: 'Lås opp liste',
@@ -3003,6 +3017,7 @@ const no: typeof en = {
   expandCardLabel: 'Vis kort i fullskjerm',
   collapseCardLabel: 'Skjul fullskjerm',
   todoWeekTitle: 'Uke',
+  todoMonthTitle: 'Måned',
   todoElsewhereTitle: 'Ellers',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
@@ -4362,6 +4377,8 @@ const is: typeof en = {
     },
     moreOptions: 'Fleiri valkostir',
     recurrencePicker: 'Hversu oft?',
+    dayOption: 'Dagur',
+    onDays: 'Á',
     captureTarget: {
       label: 'Bæta við sem',
       task: 'Verkefni',
@@ -4793,6 +4810,9 @@ const is: typeof en = {
   addItemInputPlaceholder: 'Leita að vörum…',
   savedListsButtonLabel: 'Vistaðir listar',
   deleteListButtonLabel: 'Eyða lista',
+  archiveListButtonLabel: 'Setja lista í geymslu',
+  unarchiveListButtonLabel: 'Færa aftur í virka lista',
+  shopArchiveTitle: 'Geymsla',
   listSettingsButtonLabel: 'Stillingar lista',
   lockListButtonLabel: 'Læsa lista',
   unlockListButtonLabel: 'Opna lista',
@@ -4810,6 +4830,7 @@ const is: typeof en = {
   expandCardLabel: 'Sýna kort í fullum skjá',
   collapseCardLabel: 'Fela fullan skjá',
   todoWeekTitle: 'Vika',
+  todoMonthTitle: 'Mánuður',
   todoElsewhereTitle: 'Annað',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',

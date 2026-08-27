@@ -1273,3 +1273,75 @@ own job. **The FAB keeps one documented exception**: its glass body is painted o
 `theme.surface` disc, because it floats over a scrolling list and a 14% wash would let note rows
 travel through the middle of it. That is the same answer the chrome got in this pass, for the same
 reason — translucency is a look, not a licence to show content through a control.
+
+---
+
+## Addendum, 2026-08-26 — the card surface reset: rows box up again, the ⤢ returns
+
+`DESIGN_COMPARISON/19-card-surface-reset.html` / `19-IMPLEMENTATION.md`, phases 3 and 4. Two
+reversals from that handoff, each one the maintainer's own prior ruling being overturned by the
+maintainer again, and each recorded here for the same reason every addendum above exists: so the
+next session can tell "the answer moved" from "the code drifted".
+
+### 3. Rows are boxed a FOURTH time, and the recipe changed with it
+
+Rule 5 flipped flush → boxed. This is not a return to the 2026-08-05 boxes: those took the
+screen's categorical hue at the field rung (`computeBorderTone(hue, isDark, 'field')`); this
+recipe is neutral — a fill+edge one step off the card's own surface, the same on every screen
+regardless of hue. That follows directly from the glow-budget rule this same pass introduced
+(phase 2 of the handoff, not this agent's phases): an identity hue is reserved for the badge, a
+focused field's halo and a primary key, and a resting row border painted in the screen's hue
+would have been exactly the kind of ambient light that rule exists to stop. So this is a genuine
+FIFTH recipe even though it is the third time "boxed" has been the ANSWER — ruled → boxed(hued)
+→ flush → boxed(neutral). `DESIGN_RULES.md` rule 5 is rewritten to describe this one, not the
+2026-08-05 one.
+
+**What is knowingly re-opened**: open conflict #8's first half, which the 2026-08-15 pass had
+closed by making the rule and the code agree on "flush". It is closed again, in the opposite
+direction — the conflicts table entry is rewritten rather than left claiming an agreement that no
+longer holds.
+
+**The known drift risk, stated because it already happened once each direction**:
+`components/HabitsSurface.tsx` hand-rolls its own row box because it never adopted
+`components/PadSheet.tsx` — flagged in AGENTS.md and now guarded by a source scan
+(`lib/__tests__/screenRhythm.test.ts`'s "boxed rows — PadSheet and the Habits surface agree on
+the same recipe" describe block) that fails if the two files' literal fill/edge values ever
+diverge again, in either direction. A render-level check cannot see this class of bug — both
+files render correctly in isolation — so the guard reads the literals out of PadSheet's source
+and asserts HabitsSurface's source contains the same strings, rather than asserting a fixed
+value twice.
+
+### 4. The ⤢ is back, at a measured and accepted cost
+
+Rule 28 flipped `controls → fold` (2026-08-22) to `controls → ⤢ → fold` (now), reversing the
+2026-08-22 pass's *"Remove all full screen buttons, instead user just presses the title"* on the
+maintainer's own later instruction. Unlike every other reversal in this file, this one's cost was
+measured BEFORE being accepted, not discovered after: the prototype's own toggle put the count on
+screen (six of thirty screen × width × language combinations truncate a card title with the ⤢
+present, one of thirty without), and the maintainer chose to pay it. That is a different shape of
+decision from the rest of this document — a cost accepted going in, not a trade-off argued about
+after a report — and it is why `components/Card.tsx`'s own header states the ratio rather than
+just the ruling.
+
+**What did NOT reopen**: the title stays pressable, so the ⤢ is a SECOND way in rather than a
+replacement for the first — `labelPressHint` still needs to be honest, and it is, because both
+controls now share the "open full screen" job. And `SectionFoldToggle`'s "no matching ⤢ export"
+rule is untouched — a section still rides its parent card's, never grows one of its own.
+
+**The size discipline this pass reinforces rather than introduces**: both the ⤢ and the fold
+draw at `IconSize.action` (36) and reach `MIN_TAP_TARGET` (48) through the control's own
+hit-target floor (`components/IconButton.tsx`'s `Math.max(MIN_TAP_TARGET, size + Spacing.sm)` on
+the pressable, not the painted circle) — never a literal 48px filled box, which would cost
+another 24px of header width per control and directly worsen the truncation count above. This
+was already how `IconButton` worked; the ⤢'s return is what makes the distinction load-bearing
+again, since a header with three controls (a caller's own control, the ⤢, the fold) is exactly
+where that extra 24px matters.
+
+**The test rewritten**: `cardAnatomy.test.ts`'s "no card header anywhere mounts a
+CardExpandButton" is now "a `<CardExpandButton>` JSX tag appears ONLY in a card header or its
+expanded pane" — a ban with two named exceptions (`components/Card.tsx`,
+`components/CardExpandHost.tsx`), not an allowlist. It scans for the literal JSX tag rather than
+`right={…}` slot text, because `Card.tsx` passes the button down through `CardShell`'s
+`expandButton` prop rather than writing `<CardExpandButton` inline inside the slot — a
+slot-scoped scan would miss the real call site and pass vacuously, which is the exact failure
+mode this addendum's "measured cost" framing is trying to avoid repeating on the test side.

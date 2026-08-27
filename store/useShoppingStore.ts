@@ -110,6 +110,13 @@
  *     to cart"). fromCatalog = row originated from the standing Katalog; it drives
  *     buildMonthlyResetSummary()'s inventory-vs-ad-hoc split — call it BEFORE
  *     monthlyReset(), which clears the purchasedAt/shoppingTripId it reads.
+ *   - **⚠️ `collected` is deliberately DEVICE-LOCAL and stays out of lib/liveSync.ts's
+ *     `TABLE_COLUMNS.shopping_items` (maintainer ruling, 2026-08-26, phase 6 of
+ *     DESIGN_COMPARISON/19-IMPLEMENTATION.md — do not "fix" this by adding it).** The
+ *     three-section split a week list already draws (I liste / I handlekurv / Kjøpt) is
+ *     keyed on `status` + `checked` instead, both of which DO sync — see
+ *     lib/shoppingGroups.ts's `computeListGroups()` header, which is the pre-existing
+ *     reasoning this ruling confirms rather than introduces.
  *   - putBackToInventory(id) reverts ANY row to status='catalog' (clearing
  *     checked/collected/pendingRestock) — used when removing a fromCatalog row
  *     from the weekly list, since that row IS the user's permanent Katalog entry.

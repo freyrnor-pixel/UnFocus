@@ -266,35 +266,45 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(shade).toBe(rgba(p.border, 1));
   });
 
-  it('dark: a card edge is a top-left lip that fades out, with no bottom-right frame', () => {
-    // Brief §3 asks for borderTop/Left only and borderBottom/Right at zero. Implemented as a
-    // third gradient stop at zero alpha rather than per-side widths (a 1px→0px step cuts
-    // visibly at a rounded corner; the ring is a LinearGradient for that same reason).
+  // ── REVERSED 2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface") ────────────────
+  // This test used to be "dark: a card edge is a top-left lip that fades out, with no
+  // bottom-right frame" — brief §3's asymmetric card edge (borderTop/Left only,
+  // borderBottom/Right dropped to a zero-alpha third gradient stop), the LOAD-BEARING half of
+  // why the phase-1 doc says "a card had no boundary on two of its four sides": the fill step
+  // alone (`bg`↔`surface`) was the only thing separating a card from the page, and this dropped
+  // even the EDGE half on two sides. `constants/theme.ts`'s `GLASS_EDGE.card` no longer sets
+  // `shadeDark`, so a dark card now gets the same closed 2-stop boundary `field`/`button`
+  // already had — the shaded side no longer needs its own scope guard here, because it no
+  // longer differs from them.
+  it('dark: a card edge is a closed boundary on every side, like field and button', () => {
     const p = THEMES.default.dark;
-    const ramp = getGlassEdge(p.border, true);
-    expect(ramp.colors).toHaveLength(3);
-    // Fades to transparent WHITE, not to the boundary colour and not to a named `transparent`
-    // — interpolating a named transparent goes through black on Android and smudges the
-    // bottom-right rather than leaving it clean.
-    expect(ramp.colors[2]).toBe('rgba(255, 255, 255, 0)');
-    expect(ramp.colors[0]).toMatch(/^rgba\(255, 255, 255, 0\.1/);
-    // Diagonal, or the "top AND left" the trick depends on becomes "top only".
-    expect(ramp.start).toEqual({ x: 0, y: 0 });
-    expect(ramp.end).toEqual({ x: 1, y: 1 });
-    // ⚠️ Scope guard, and the reason this test is worth its length: the boundary is dropped for
-    // CARDS only. A field or a button identifies a CONTROL, so WCAG 1.4.11's 3:1 still applies
-    // to it and its shaded side must survive. A card is a container, separated on black by its
-    // own fill and its shadow.
-    // Derived from the palette rather than written out as literal channels: this asserted
-    // `rgba(120, 120, 130,` — `border`'s value at the time — and so failed the 2026-08-20
-    // contrast pass for lifting a token, which is not what it is here to catch. What it IS
-    // here to catch is the shaded side being dropped or faded, so it now says exactly that,
-    // against whatever `border` currently is.
+    // Derived from the palette rather than written out as literal channels — see the removed
+    // comment this replaced for why (a literal `rgba(r,g,b,` fails the moment `border` is
+    // retuned for an unrelated reason).
     const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(p.border.slice(i, i + 2), 16));
-    (['field', 'button'] as const).forEach((weight) => {
-      const w = getGlassEdge(p.border, true, weight);
-      expect(w.colors).toHaveLength(2);
-      expect(w.colors[1]).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, 0\\.`));
+    (['card', 'field', 'button'] as const).forEach((weight) => {
+      const ramp = getGlassEdge(p.border, true, weight);
+      // Two stops, not three: the asymmetric fade-to-nothing branch is unreachable for any
+      // weight at the default strength now that nothing sets `shadeDark`.
+      expect(ramp.colors).toHaveLength(2);
+      expect(ramp.colors[0]).toMatch(/^rgba\(255, 255, 255, 0\.1/);
+      // `card`'s shade is full strength (1) — a real closed boundary, not a fractional one —
+      // where `field`/`button` step down to 0.68/0.52; both are legitimate `shade` values.
+      expect(ramp.colors[1]).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, (0\\.|1\\))`));
+      // Diagonal, unchanged by the reversal — the light still catches top-left.
+      expect(ramp.start).toEqual({ x: 0, y: 0 });
+      expect(ramp.end).toEqual({ x: 1, y: 1 });
+    });
+  });
+
+  // The asymmetric 3-stop branch itself is not deleted — `getGlassEdge` still needs it for a
+  // `strength: 0` design-lab knob on ANY weight, unrelated to the card-specific reversal above.
+  it('the asymmetric fade-to-nothing branch still fires at strength 0, on any weight', () => {
+    const p = THEMES.default.dark;
+    (['card', 'field', 'button'] as const).forEach((weight) => {
+      const ramp = getGlassEdge(p.border, true, weight, 0);
+      expect(ramp.colors).toHaveLength(3);
+      expect(ramp.colors[2]).toBe('rgba(255, 255, 255, 0)');
     });
   });
 });
@@ -514,18 +524,30 @@ describe('getRecessedField — the inputs are sunk into the pane, not drawn on i
   //
   // `colors.test.ts` caps `text` on `surface` at 17:1 (DESIGN_RULES.md rule 10a). A recessed
   // field is DARKER than `surface`, so white text measures higher on it than that test can
-  // see — 18.42:1 — and the gap is exactly the shape of the bug AGENTS.md records from PR
-  // #540: an assertion that keeps passing while measuring a colour the app no longer draws
-  // everywhere. Rather than leave the new surface unmeasured, it gets its own explicit bound.
+  // see — and the gap is exactly the shape of the bug AGENTS.md records from PR #540: an
+  // assertion that keeps passing while measuring a colour the app no longer draws everywhere.
+  // Rather than leave the new surface unmeasured, it gets its own explicit bound.
   //
-  // Why it is allowed to be looser rather than the field being lightened: the arithmetic
-  // leaves no choice — with `text` at pure #FFFFFF, ANY darkening of `#1E1E1E` exceeds 17
-  // (even a 10% wash lands at 17.22), so "recessed field" and "17:1 ceiling" are mutually
-  // exclusive. And the contexts genuinely differ: the halation ceiling defends sustained
-  // READING of body copy on a card, where bloom accumulates over a paragraph; this is one
-  // line the user is actively typing into, bounded by a 26px control and its own edge. If a
-  // real-device complaint ever arrives, pull `text` back toward ~#D8DADF — which fixes both
-  // bounds at once — rather than lightening the well and losing the recess.
+  // ── 2026-08-26 (DESIGN_COMPARISON/19 phase 1, dark `surface`) ─────────────────────────────
+  // Raising `surface` raised the well it is recessed FROM too: the composite (`getRecessedField`,
+  // 35% toward black) moved `#141414` → `#171717` (via a rejected `#1D1D1D` at the phase's first
+  // `#2C2C2C` surface attempt), and white text on it moved **18.42:1 → 17.93:1**. It did NOT
+  // land under the primary 17:1 ceiling this time (unlike the rejected `#2C2C2C` attempt's
+  // 16.86:1): the well is structurally darker than `surface`, so at `surface`'s corrected,
+  // smaller lift (`#242424`, 15.52:1 on `surface` itself) the well still exceeds 17 (17.93:1),
+  // which is exactly why this SEPARATE bound exists rather than folding into the 17:1 one — see
+  // the reasoning below, now demonstrated rather than hypothetical.
+  //
+  // The ORIGINAL reasoning this bound was added for, still the reason it exists as its own
+  // assertion rather than being folded into the 17:1 one: with `text` at pure #FFFFFF, a
+  // recessed field is *structurally* darker than the surface it recesses from, so "recessed
+  // field" and "one shared 17:1 ceiling" cannot both hold for every possible `surface` value —
+  // there will always be some `surface` at which the well alone exceeds 17. And the contexts
+  // genuinely differ: the halation ceiling defends sustained READING of body copy on a card,
+  // where bloom accumulates over a paragraph; this is one line the user is actively typing
+  // into, bounded by a 26px control and its own edge. If a real-device complaint ever arrives,
+  // pull `text` back toward ~#D8DADF — which fixes both bounds at once — rather than lightening
+  // the well and losing the recess.
   it('holds a documented halation bound of its own on the dark well', () => {
     const p = THEMES.default.dark;
     const { composite } = getRecessedField(p.surface, true);

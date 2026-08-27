@@ -233,16 +233,24 @@ const LIGHT: Palette = {
 // violet) taken a long way down toward black — the brief's "deeply muted, dark versions of our
 // neon palette". They are hand-picked rather than computed from those tokens on purpose: this is
 // scenery, it must not move when a categorical hue is recalibrated, and an identity hue is a
-// SIGNAL that means "this is Habits" everywhere it appears at strength. At the 0.14 peak these
-// composite to roughly #021114 and #0D0619 over black — visible on an OLED panel, well below
-// anything that could be mistaken for a card.
+// SIGNAL that means "this is Habits" everywhere it appears at strength. At the 0.13 peak (down
+// from 0.14, see the ⚠️ note just below) these composite to roughly #021012 and #0C0612 over
+// black — visible on an OLED panel, well below anything that could be mistaken for a card.
+//
+// ⚠️ **0.13, not 0.14 (2026-08-26, DESIGN_COMPARISON/19 phase 2, "the glow budget").** The
+// prototype's own CSS measures the two corner orbs at 13%/12% respectively — a single scalar
+// here can't split them by orb, so 0.13 is the midpoint, still inside the brief's 10–15% range
+// and the same direction of travel the phase asks for across the whole file: nothing that is
+// text, a border or a background gets to glow, and an always-on ambient field is the closest
+// thing this file has to a "background", so it takes the gentler end of its own range rather
+// than the brighter one. LIGHT is untouched — its 0.10 already sits below this band.
 const DARK: Palette = {
   base: ['#000000', '#000000', '#000000'],
   topGlow: 'rgb(90,150,255)', topGlowOpacity: 0,
   botGlow: 'rgb(60,120,255)', botGlowOpacity: 0,
   orbCool: '#0E7C8C', orbWarm: '#5B2E8C',
   orbGrowth: '#1E7A5E',
-  orbOpacity: 0.14,
+  orbOpacity: 0.13,
 };
 
 /**

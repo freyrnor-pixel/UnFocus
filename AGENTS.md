@@ -902,7 +902,7 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     whether or not the light is complete — the whole tell is that the glow stops dead instead of
     fading. It walks the five tabs in the web preview, opens every card (a composer inside a
     closed card is not in the DOM — the same silent-skip trap `npm run wraps` has), and compares
-    each field's blur radius against the room before its clip. 0 clipped at 430px and 360px.
+    each field's blur radius against the room before its clip. 0 clipped, 12 clean at 430px and 360px.
     `lib/__tests__/chromeRhythm.test.ts` §5 pins the arithmetic and the fact that each of those
     four components still names the constant. All three composers go through it and none of them
   restates `Radius.sm`. `getGlow` itself is untouched and still correct for anything that sets its
@@ -1070,6 +1070,60 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     exist until its card is opened, and its `/habits` push became an in-place expansion. Same
     trap as the wrap audit's silently-skipping steps: a step that can't find its target times out
     thirty seconds later, nowhere near the cause.
+- **The registry restructure — phase 5 of `DESIGN_COMPARISON/19-IMPLEMENTATION.md`
+  (2026-08-26).** Applies the card/section boundary the registry entry above states but had not
+  yet been swept across the app: a card the registry names gets a `Surface`, a persisted fold and
+  a ⤢; a section drawn one-per-row-of-a-parent's-own-data gets none of those and rides its
+  parent's card instead. Five cards became sections inside their parent: `shopMonthly` (into
+  `shopLists`), `habitsGoals` (into `habitsList`), `todoGoals` + `todoEarlierDays` (both into
+  `todoToday`), `todoWashedAway` (into `todoWhenever`) — the maintainer's own instruction, since
+  it applies the Goals principle already settled elsewhere. A section's fold is LOCAL
+  (`useState`, unpersisted), same as the Week card's seven weekday sections already were — it is
+  not a new mechanism, just a boundary applied more widely.
+  - **`todoMonth` is new**: To-do's fifth card, a DATE FILTER between Week and Whenever —
+    non-recurring dated tasks in the current calendar month that Week doesn't already show
+    (`hasStartDate && recurring==='none'`, month-of `today`, excluded if the date is one of
+    Week's seven). **Not monthly recurrence** — AGENTS.md's task-reset entry excludes monthly
+    recurrence from `normalizeRecurringTasks` because there is no per-occurrence completion row;
+    a date-filtered SECTION has no such problem, since it's the same question `todoWeek` already
+    asks, one rung out. Composing into it defaults the new task's date to the last day of the
+    current month, so a fresh row is guaranteed to land inside the card that created it.
+  - **The first card on each screen rests open** (`openAtRest`), softening 2026-08-21's
+    all-closed default — `shopLists`, `todoToday`, `habitsList`, `healthWeek`. This is a SEPARATE
+    exception from Home's three named cards (Today/Notes/Shopping), which predate it and are
+    unrelated in reasoning (Home's is the maintainer naming three specific surfaces; this is "a
+    screen's own first card isn't a bare header on first open"). `lib/__tests__/cardRegistry.test.ts`'s
+    global cap ("opens at most three cards at rest") became a per-screen rule — at most one
+    `openAtRest` card per non-Home screen, and it must be that screen's lowest `order` — because
+    the cap that was right when only Home had an exception stopped being a sentence once every
+    screen did.
+  - **The "Elsewhere" group rail is gone.** It existed only to sit over `todoGoals`/
+    `todoEarlierDays`/`todoWashedAway`, which are sections now — a group rail over a stack of
+    SECTIONS inside one card is not a thing this app draws. `t.todoElsewhereTitle` is an inert
+    i18n key rather than deleted, on the same "never re-derive a stale claim" caution as
+    elsewhere in this file; nothing reads it.
+  - **Not done in this pass** (explicitly out of scope, left for whoever picks up phases 7–8):
+    `lib/cardRegistry.ts`'s `compose`/`group` fields, the composer-options-per-card table, and
+    Manage-cards generalised beyond Home.
+- **Shop's Archive — phase 6 of the same handoff (2026-08-26).** `shopping_lists.archived_at`
+  (nullable, new) puts a past weekly list away without deleting it — a DIFFERENT axis from
+  `isTemplate`, which already was (and still is) "a saved list you can start a NEW one from"
+  (the Saved-lists feature). `store/useShoppingListStore.ts`'s `archive(id)`/`unarchive(id)` are
+  thin `update()` wrappers; `currentList()` and `advanceRecurringLists()` both exclude an
+  archived list, same as they already excluded a template. **Not synced** — `shopping_lists`
+  isn't in `lib/liveSync.ts` at all, so this needed no `TABLE_COLUMNS` decision and no
+  `syncRows` call. **Not in the AI setup guide** — archiving is presentation/organisation of a
+  user's own device, not data a household would want an AI import to move.
+  - ⚠️ **The three-state list split (In list / In cart / Bought) the handoff asked for TURNED OUT
+    TO ALREADY EXIST**, shipped 2026-08-11, and built on a DIFFERENT predicate than the handoff
+    assumed: not `checked`+`collected`, but `status` (`inWeeklyList`/`purchased`) + `checked` —
+    see `lib/shoppingGroups.ts`'s `computeListGroups()` header, which already explains why:
+    `collected` was never added to `lib/liveSync.ts`'s sync whitelist, so a section keyed on it
+    would silently disagree between two paired phones, while `status`/`checked` both sync. The
+    2026-08-26 maintainer ruling on `collected` (device-local, don't sync it) CONFIRMS that
+    2026-08-11 design rather than changing anything — no code moved. `collected` itself still
+    exists and still means "ticked off inside the cart, before checkout" (a fourth, finer state
+    that only shows once a list is expanded), and is not part of the three top-level sections.
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
@@ -2432,12 +2486,25 @@ it has before that clip. Exits 1 on any finding, and the failure text says where
 - `npm run halos`, `npm run halos -- --width=360`; `FORCE_BUILD=1` rebuilds `dist/` first.
 - It found the 2026-08-24 report: **31 of 36 haloed fields clipped**, every composer in the app
   but one. See the `getFieldGlow` bullet above for the mechanism and the two-part fix.
-- **A field is recognised by `FIELD_RADIUS` (12px) plus a coloured `boxShadow`** — that is what
-  separates a field's light from a card's own drop shadow without needing a class name. A new
-  field shape that does not go through `getFieldGlow` is a field this audit does not measure.
+- **A field is recognised by `FIELD_RADIUS` (12px) — and then FOCUSED, because that is when its
+  light exists (2026-08-26).** The detector used to be "`FIELD_RADIUS` plus a coloured
+  `boxShadow`", which stopped working the day the glow-budget pass made a halo a focus-only
+  state: an unfocused field has no shadow to match, the scan fell from 14 fields to 4, and it
+  reported a contented `0 clipped` while looking at almost nothing. A new field shape that does
+  not go through `getFieldGlow` is still a field this audit does not measure.
+- **Three outcomes, not two.** A field with NO halo even when focused is reported separately from
+  one whose halo is clipped: the first is a possible regression in the glow budget, the second is
+  the bug this audit exists for, and folding them together hides either.
+- ⚠️ **Dedupe on the LEFT/RIGHT room only.** A widely-reused composer — the To-do tab's "New
+  task" mounts once per card and once per weekday inside Week — has one horizontal clearance
+  wherever it sits, because that comes from the component's own padding; its top/bottom room is
+  just wherever the page happened to be scrolled. Keying on the full room let that noise mint a
+  fresh key for a structurally identical finding, so the count swung 12/14/15 between runs with
+  nothing about the app having changed. Left/right is also the only axis any clipping bug this
+  audit has found has ever lived on.
 - Same caveats as the wrap audit: it drives the real app, so a nav or resting-state change can
-  make a step measure nothing rather than fail. Read the count — 14 fields at the time of
-  writing.
+  make a step measure nothing rather than fail. **Read the count — 12 distinct fields, the same
+  at 430px and 360px, and it is deterministic; a lower number is un-measurement, not a pass.**
 
 ### Wrap audit — `npm run wraps` (2026-07-28)
 Finds the "why is that on two lines when it nearly fits?" class of bug by measurement
@@ -2572,6 +2639,31 @@ Known-benign findings, don't "fix" them:
   - `design-lab-controls` — the ten raw slot-option pills, unchanged.
   One near-miss is worth knowing rather than fixing: `design-lab-card`'s empty-card line misses
   one line by **8px** at 327 in Norwegian.
+- ⚠️ **`quick-add-focused` (the Habits composer's options panel) reports a wrapped control row
+  since phase 7 of `DESIGN_COMPARISON/19-IMPLEMENTATION.md`** (`lib/cardRegistry.ts`'s
+  `habitsList.compose` table, wired into `components/HabitsSurface.tsx`'s panel): "short by
+  562px | 5 items on 3 lines" at `--lang=no --width=360`. **Confirmed new, not pre-existing** —
+  on `main` the same panel draws only Energy + `HabitRecurrenceCells`' 1–2 cells (2–3 total);
+  phase 7 added a Target `Stepper` and a Remind toggle (plus its dependent Time cell when Remind
+  is on), taking it to 5. **And confirmed NOT a layout bug** — a screenshot at 360px
+  (`npm run halos`-style manual capture) shows a clean 2-column grid: pair, then one cell alone
+  on its own full-width line (`Hver 1. dag`, whose two steppers need the room), then a second
+  pair, then "More options". Nothing truncates, overlaps or spills off the card.
+  **The "short by Npx" number is structurally meaningless for this component family**, which is
+  why it joins the design-lab bullet above rather than getting a code change: the control-row
+  detector sums every child's ACTUAL RENDERED width — including children already sitting on
+  DIFFERENT wrapped rows — and compares that sum to the width of ONE row (`scripts/measure-wraps.mjs`'s
+  `needPx` reducer, next to the "Control rows" section header). That sum only shrinks below the
+  row width for a `QuickAddOptionsPanel` with one or two cells; the panel is designed to wrap
+  (`components/QuickAddOptionsPanel.tsx`'s header: "cells pair two-per-line"), so any caller
+  with three or more cells trips this exact false positive — precisely the shape already
+  documented for `design-lab-part-panel`/`design-lab-colour`/`design-lab-controls` above. Adding
+  a `wide` prop to a cell to "fix" this would make the reported number WORSE, not better (a
+  `wide` cell's rendered width grows to the full row, which the sum then counts in full), for no
+  visual gain — the fix that would move the number is exactly the fix that must not be made.
+  Don't shorten copy, don't add `wide`, and don't re-litigate this as a regression next time the
+  audit runs; if a *sixth* option cell is ever added here, expect the number to grow again for
+  the same non-reason.
 - The **token screen's three tab labels** may be reported as TRUNCATED by a few px at
   `--width=327`, Norwegian only. `components/TabSlider.tsx` sets `adjustsFontSizeToFit` +
   `minimumFontScale` 0.85, which react-native-web implements neither of — the exact artifact

@@ -8,9 +8,10 @@
  */
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
-import { CARDS, CARD_KEYS, CardKey, cardSpec, cardsForScreen } from '@/lib/cardRegistry';
+import { CARDS, CARD_KEYS, CardKey, CardGroup, cardSpec, cardsForScreen, cardsInGroup } from '@/lib/cardRegistry';
 import { CARD_IDS } from '@/lib/collapsedCards';
 import { EXPANDABLE_CARD_IDS } from '@/lib/expandableCards';
+import { getTranslations } from '@/lib/i18n';
 
 const ROOT = join(__dirname, '..', '..');
 
@@ -76,10 +77,29 @@ describe('each screen has a deliberate order', () => {
     }
   });
 
-  // Closed is the resting state; the exceptions are the cards whose content is the reason to
-  // open the app at all. It stops being true as a sentence if this grows.
-  it('opens at most three cards at rest', () => {
-    expect(CARD_KEYS.filter((k) => cardSpec(k).openAtRest).length).toBeLessThanOrEqual(3);
+  // Closed is the resting state. Two SEPARATE exceptions, and the rule has to say both:
+  // (1) Home keeps its three maintainer-named cards (Today/Notes/Shopping, 2026-08-21 — "all
+  // cards start closed, except 'Today' 'Notes' and 'Shopping' in middle screen") — up to three
+  // there, and this test doesn't care which three. (2) Every OTHER screen may rest its own
+  // FIRST card open (2026-08-26, phase 5 decision (b) of DESIGN_COMPARISON/19-IMPLEMENTATION.md
+  // — "the first card on each screen rests open"), at most one there, and it has to actually BE
+  // that screen's lowest `order`. This replaced a flat global cap of 3, which was right only
+  // while Home was the one screen with an exception at all — the cap stopped being a sentence
+  // the moment a second screen got one.
+  it('opens at most three cards at rest on Home, at most one elsewhere — and elsewhere it must be that screen\'s first card', () => {
+    for (const screen of ['home', 'todo', 'shop', 'habits', 'health'] as const) {
+      const keys = cardsForScreen(screen);
+      const openKeys = keys.filter((k) => cardSpec(k).openAtRest);
+      if (screen === 'home') {
+        expect(openKeys.length).toBeLessThanOrEqual(3);
+        continue;
+      }
+      expect(openKeys.length).toBeLessThanOrEqual(1);
+      if (openKeys.length === 1) {
+        const firstKey = [...keys].sort((a, b) => (cardSpec(a).order ?? 0) - (cardSpec(b).order ?? 0))[0];
+        expect(openKeys[0]).toBe(firstKey);
+      }
+    }
   });
 });
 
@@ -113,5 +133,82 @@ describe('declared and drawn are the same set', () => {
     // Cheap smoke test: the title thunks are typed against `Translations`, so this is really
     // asserting that none of them was stubbed out to a literal.
     for (const key of CARD_KEYS) expect(typeof CARDS[key].title).toBe('function');
+  });
+});
+
+// Phase 8 (DESIGN_COMPARISON/19-IMPLEMENTATION.md): a cross-screen `group` strip, and the bug
+// the prototype shipped with — two members sharing a rendered TITLE, so the strip read as
+// "Today · This week · Today" once `time` held both `todoToday` and `homeToday`.
+describe('cross-screen groups (phase 8)', () => {
+  const t = getTranslations('en');
+  const GROUPS: CardGroup[] = ['growth'];
+
+  it('every group has at least two members — a group of one is not a group', () => {
+    for (const group of GROUPS) {
+      expect(cardsInGroup(group).length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('a group spans more than one screen — the whole point of the feature', () => {
+    for (const group of GROUPS) {
+      const screens = new Set(cardsInGroup(group).map((k) => cardSpec(k).screen));
+      expect(screens.size).toBeGreaterThan(1);
+    }
+  });
+
+  it('no group holds two cards with the same title', () => {
+    // The exact prototype bug: `time` held `todoToday` AND `homeToday`, both titled "Today",
+    // so expanding Home's Today drew the strip as "Today · This week · Today". Titles are
+    // resolved through English (arbitrary — the strings are stable per-language, so a
+    // collision in one language is a collision in all three, and `icelandic.test.ts` covers
+    // the language-specific half separately).
+    for (const group of GROUPS) {
+      const titles = cardsInGroup(group).map((k) => CARDS[k].title(t));
+      expect(new Set(titles).size).toBe(titles.length);
+    }
+  });
+
+  it("Home's cards carry no group — they are previews, not group members", () => {
+    // Stated as its own rule because it is exactly what would reopen the bug above: a Home
+    // preview card and the real card it previews sharing a group puts the same title in the
+    // strip twice, by construction, every time.
+    for (const key of CARD_KEYS) {
+      if (cardSpec(key).screen === 'home') expect(cardSpec(key).group).toBeUndefined();
+    }
+  });
+
+  it("cardsInGroup finds a member regardless of which screen it's looked up from", () => {
+    // The lookup takes no `screen` argument at all — this asserts that isn't accidental: every
+    // member's own screen is represented once cardsInGroup runs, i.e. the search really is
+    // over every screen, not scoped to the caller's current one.
+    for (const group of GROUPS) {
+      const members = cardsInGroup(group);
+      for (const key of members) {
+        expect(members).toContain(key);
+      }
+      const screensCovered = new Set(members.map((k) => cardSpec(k).screen));
+      for (const screen of screensCovered) {
+        expect(members.some((k) => cardSpec(k).screen === screen)).toBe(true);
+      }
+    }
+  });
+});
+
+// Phase 7: the composer options table is DATA, not a claim nothing checks.
+describe('quick-add options (phase 7)', () => {
+  it('never declares an empty options table', () => {
+    for (const key of CARD_KEYS) {
+      const compose = cardSpec(key).compose;
+      if (!compose) continue;
+      expect(compose.opts.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('never repeats an option on one card', () => {
+    for (const key of CARD_KEYS) {
+      const compose = cardSpec(key).compose;
+      if (!compose) continue;
+      expect(new Set(compose.opts).size).toBe(compose.opts.length);
+    }
   });
 });

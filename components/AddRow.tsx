@@ -19,9 +19,11 @@
  *     where an inline composer never quite fit.)
  * **The fields are ALREADY converged** — all three draw the same field, and since 2026-08-16
  * (brief §8) that is a RECESSED WELL: a translucent black wash sunk into the card, no stroke at
- * rest, and a focus ring in the card's own categorical colour plus a `getFieldGlow` halo (which
+ * rest, and — since 2026-08-26 (DESIGN_COMPARISON/19 phase 2, "text, borders and backgrounds
+ * never glow; a field lights up only while FOCUSED") — a focus ring in the card's own
+ * categorical colour plus a `getFieldGlow` halo **only once focused**, not at rest. `getFieldGlow`
  * carries the field's corner radius with it, so the light is always cut to the field's shape —
- * see that helper's doc). This one and `PadTypeRow` build the well from `getRecessedField`
+ * see that helper's doc. This one and `PadTypeRow` build the well from `getRecessedField`
  * directly; `InlineAddItem` gets it by passing
  * `recessed` to `FormControls`' `Input`, which is opt-in there for a measured reason — see that
  * prop's doc before assuming every field in the app should look like this (it should not; an
@@ -60,8 +62,10 @@
  * buttons never sit adjacent (criterion 6).
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getFieldGlow,
- *             FIELD_GLOW_CLEARANCE — the room both states keep for their halo, …), lib/useAppTheme,
+ *   Imports → constants/theme (BORDER_WIDTH, getRecessedField, getFieldGlow, FIELD_RADIUS —
+ *             the collapsed bar's own shape, now that it carries no halo to supply it,
+ *             FIELD_GLOW_CLEARANCE — the room the expanded, focused field keeps for its
+ *             halo, …), lib/useAppTheme,
  *             lib/domainColor (badgeGlyphFor — keeps the focus ring visible on the well),
  *             lib/i18n, lib/haptics, components/PressableScale,
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
@@ -79,9 +83,12 @@
  * Edit notes:
  *   - **The collapsed "+" bar IS the field (2026-08-21, user report: the To-do tab's two
  *     composers, one card apart, were two different controls).** It carries the same recessed
- *     well, the same resting `getFieldGlow` halo and the same `FIELD_RADIUS` as the expanded
- *     input and as `components/PadTypeRow.tsx`, so tapping it changes only what is inside the
- *     box. It used to be a 1.5px `theme.border` outlined pill at `Radius.md` and 32px tall
+ *     well and the same `FIELD_RADIUS` as the expanded input and as `components/PadTypeRow.tsx`,
+ *     so tapping it changes only what is inside the box. **It no longer carries a resting halo**
+ *     (2026-08-26, DESIGN_COMPARISON/19 phase 2) — a collapsed, unfocused bar is not a "field
+ *     while focused", and it was measured as the single loudest lit surface in the app (up to
+ *     nine glowing wells on a five-card screen while the tasks inside them carried none). It
+ *     used to be a 1.5px `theme.border` outlined pill at `Radius.md` and 32px tall
  *     (2026-07-25, when the bar was bare text beside an icon and needed *a* container) — that
  *     report is still answered, by a stronger container: a well reads as contained without
  *     drawing an edge, which is what the 2026-08-18 blueprint pass asks of anything inside a
@@ -122,7 +129,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { confirm as hapticConfirm } from '@/lib/haptics';
-import { BORDER_WIDTH, FIELD_GLOW_CLEARANCE, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FIELD_GLOW_CLEARANCE, FIELD_RADIUS, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import PressableScale from '@/components/PressableScale';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
@@ -304,12 +311,20 @@ export default function AddRow({
           // The SAME well the expanded field is (2026-08-21). It was a 1.5px outlined pill on
           // `theme.border`, so a composer changed shape the moment you tapped it — an outlined
           // box before, a recessed glowing field after — and inside a card that outline was a
-          // second edge around a control the card already contained. One recess, one halo, one
-          // radius, from the same helpers the field uses, so the two states differ only by what
-          // is inside them. See the header's "the fields are ALREADY converged" note.
+          // second edge around a control the card already contained. One recess, one radius,
+          // from the same helpers the field uses, so the two states differ only by what is
+          // inside them.
+          //
+          // ⚠️ NO GLOW HERE (2026-08-26, DESIGN_COMPARISON/19 phase 2, "text, borders and
+          // backgrounds never glow — only a FOCUSED field lights up"). This bar is neither
+          // text, a border nor a background — but it is also not a field with focus; it is the
+          // collapsed, unfocused rest state of a composer, and it was the single loudest thing
+          // in the app for it: up to nine lit wells on a five-card screen while the actual TASK
+          // rows carried none. `getFieldGlow` is applied to the expanded input below, gated on
+          // `focused` — this bar stays unlit until it is tapped open.
           style={[
             styles.addBar,
-            getFieldGlow(fill, 'soft'),
+            { borderRadius: FIELD_RADIUS },
             { backgroundColor: recess.paint, borderColor: 'transparent' },
           ]}
           onPress={expand}
@@ -338,17 +353,15 @@ export default function AddRow({
         // so it goes on the TextInput — where a `boxShadow` renders less reliably on Android.
         // That is acceptable HERE and only because the border below carries the FOCUS state on
         // its own: the glow is reinforcement, and rule 18 is satisfied without it.
-        // Always lit (2026-08-16, "tactile glow" polish pass), stepping `soft` → `strong` on
-        // focus — see PadTypeRow's identical change for the one-composer-field-can-glow-at-rest
-        // reasoning; the two fields must stay in step, since they're the same control.
+        // Lit only while FOCUSED (reversed 2026-08-26, DESIGN_COMPARISON/19 phase 2 — was
+        // "always lit, stepping `soft` → `strong` on focus" from the 2026-08-16 "tactile glow"
+        // polish pass, which is exactly the resting-halo pattern that pass is a reversal of).
         // `getFieldGlow` (2026-08-19) hands out the halo AND the radius it is cut to, so a
         // field's light can never be a different shape from the field — see its doc for the
-        // square-halo bug that produced it. This site sets both on the input itself and was
-        // already correct; it goes through the helper so there is one field shape, not three
-        // copies of `Radius.sm` that only happen to agree. `styles.input`'s own borderRadius is
-        // gone with it — the helper's is the same number and appears earlier in the style array,
-        // so restating it would just be a second place to drift.
-        getFieldGlow(fill, focused ? 'strong' : 'soft'),
+        // square-halo bug that produced it. Unfocused, this resolves to `null`, so
+        // `styles.input`'s own borderRadius carries the shape instead (restated below,
+        // matching `FIELD_RADIUS` — see the collapsed bar above for the same number).
+        focused ? getFieldGlow(fill, 'strong') : { borderRadius: FIELD_RADIUS },
         {
           color: theme.text,
           // ── Recessed, not raised (2026-08-16, brief §8) ────────────────────────────────
@@ -501,10 +514,11 @@ const styles = StyleSheet.create({
     // The expanded field's height, not 32 — the two states share this container, so a shorter
     // bar made the row jump on every tap. Also the tap-target rung.
     minHeight: MIN_TAP_TARGET,
-    // Field weight, resting colour transparent, radius from `getFieldGlow` — i.e. exactly
-    // `styles.input` below. The 2026-07-25 report this replaces ("the + row read as floating
-    // text next to an icon") is still answered: the affordance is contained by the WELL now,
-    // which is a stronger container than the outline was, and the same one the field uses.
+    // Field weight, resting colour transparent, radius `FIELD_RADIUS` (inline, alongside this
+    // style) — i.e. exactly `styles.input` below. The 2026-07-25 report this replaces ("the +
+    // row read as floating text next to an icon") is still answered: the affordance is
+    // contained by the WELL now, which is a stronger container than the outline was, and the
+    // same one the field uses. No halo at rest (2026-08-26) — see the call site's note.
     borderWidth: BORDER_WIDTH.field,
   },
   addBarChip: {
@@ -538,8 +552,10 @@ const styles = StyleSheet.create({
     // Same weight as every other field-rung border (PadTypeRow's composer, PadSheet's row
     // boxes, QuickAddOptionRow's cells) — card design reset, 2026-08-05.
     borderWidth: BORDER_WIDTH.field,
-    // No borderRadius here — `getFieldGlow` supplies it inline with the halo, so the field and
-    // its light are cut to one shape by construction (2026-08-19).
+    // No borderRadius here — the focused/unfocused branch above supplies it inline (via
+    // `getFieldGlow` when lit, via a bare `{ borderRadius: FIELD_RADIUS }` when not), so the
+    // field and its light are cut to one shape by construction whichever branch is live
+    // (2026-08-19; branch added 2026-08-26).
     paddingHorizontal: Spacing.sm,
     // ⚠️ **`FontSize.md`, matching the other two composers (consistency audit, 2026-08-21).**
     // This was `FontSize.sm` (15) while components/PadTypeRow.tsx and FormControls' `Input` —
