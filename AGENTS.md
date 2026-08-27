@@ -311,7 +311,24 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     OUTERMOST view carries the `zIndex: 100` — `PagerFloatingNav` is a `zIndex: 100` sibling, so
     a wrapper without it lets the bar paint over the scrim and the coach card.
 - **Empty-state explainers** (`components/StarterCard.tsx`, 2026-07-26; extended 2026-07-27): a second, more visible teaching layer than the ⓘ hint — a short explanation plus one concrete example row, rendered inline where content would be while a surface is empty, and gone once the user has their own (emptiness is the gate, so it also returns if they delete everything). **The gate is a plain `length === 0` on only one of the callers** (`components/GoalsEditor.tsx`; it was `app/goals.tsx` until that screen was retired 2026-08-12) — don't copy that shape blindly (measured 2026-07-31, AUDIT.md): Habits counts the *person-filtered* `profileHabits`, Shopping needs `lists.length === 0 && items.length === 0` (a migration seeds one empty monthly list, so a monthly count is never 0 and would suppress the card for every new user), and Health and Plans both OR in a just-added flag (`healthStarterAdded` / `planStarterAdded`) so pressing the example's "+" doesn't unmount the card in the same tick that the write lands — Plans additionally suppresses it on the timeline layout, where `PlanTaskCard` already draws its own inline explainer. Live on Habits (plus four one-tap starter habits from `lib/habitStarters.ts`), Plans, Shopping and Health, and — since 2026-07-27 — on the **Home preview cards** too: the day-view card (`components/PlanTaskCard.tsx`) and — until it was deleted on 2026-08-19 — the shopping card each render their own explainer + suggested-add row *inside* the card, never as a nested Surface (a Surface inside a Surface reads as a nested panel) — since 2026-08-12 that means `StarterCard`'s `embedded` prop rather than hand-rolling the block; see the placement paragraph at the end of this bullet. Copy lives under `starters.*` in `lib/i18n.ts`; each one's core message is also in the matching `hints.*.example`, which is where it stays reachable after the card disappears. The StarterCard shell is styled with a **neutral** `theme.border` Surface, deliberately NOT the accent-barred HintCard look — on a first visit both are on screen at once and twins would read as a duplicate — while `components/StarterExampleRow.tsx` (the suggestion itself) is drawn as a **provisional sketch** — dashed neutral border, no fill, muted italic title, accent only on its "+" and its "Example" chip. **That reversed on 2026-08-10** ("Examples are not visible examples, they look like a part of the card or an active task, not as a temporary thing"); until then it deliberately DID copy the surrounding list's real row styling (accent wash + accent edge) on the opposite 2026-07-27 report, and succeeded so completely that a one-word chip was the only thing left telling the two apart. It keeps the row's GEOMETRY — an example has to be the same shape as the thing it's an example of — and changes only the finish. Read that file's Edit notes before restoring any of it. **The Energy strip is the half-exception**: its explainer is a permanent one-line hint under the meter (`t.energyMeter.hint`), *not* a disappearing StarterCard — as a separate card between Energy and the to-do card it read as belonging to the to-do card, and an explanation that self-destructs isn't there when you come back to the number months later. **But since 2026-08-03 it ALSO has a StarterCard tutorial** (`starters.energy`), and the two coexist deliberately: the tutorial *replaces the meter itself* while nothing carries an energy value and no capacity has been set (a full ten-pip bar with nothing able to spend it is the "reads as a score" problem at its worst, on the first screen a new user sees), with nothing above it to be confused with, and the permanent hint comes back attached to the meter the moment there's a number worth naming. Its gate is a third shape again — `!hasEnergyItems && !hasSetCapacity`, AND all three source stores `loaded`, because an unloaded store looks exactly like an empty one and the wrong answer flashes teaching copy at a long-time user. See `components/EnergyMeter.tsx`'s "Tutorial state" note.
-  **The explainer LINE is deleted — the "no manual" pass (2026-08-17).** Maintainer: *"A native
+  ⚠️ **The explainer line came BACK on 2026-08-27 (round 20), narrowly — read this whole
+  paragraph before either restoring more of it or deleting it again.** Round 20's drawn screens
+  put an italic, bulb-prefixed line under every card that has content, and the maintainer ruled
+  for the mockup. What returned is one component (`components/CardHintLine.tsx`) with one mount
+  site (`Card`'s `hint` prop), five strings, and a rule that it draws **only while the card has
+  content** — an empty card still speaks through `StarterCard`'s line or `NarratorQuote`'s aside,
+  and both at once stacks two muted italic lines, which is the failure the 2026-08-17 pass was
+  actually about. Everything else below stays deleted: `HintCard`, `CardHintNote`, the ⓘ banner
+  tier, and any second `bulb-outline` anywhere in the app (asserted). The italic exception is
+  **two files wide** now, both using `Fonts.italic` and never `fontStyle: 'italic'`.
+    Also from that round, on the same cards: **a card header carries a `peek` line** — one line
+  under the title saying what a CLOSED card holds, drawn instead of a bare count, because a `0`
+  beside a name on a surface nobody has filled in yet reads as a verdict. A zero count is no
+  longer drawn beside a peek; a non-zero one is, because that is a size. ⚠️ **Its slot is ~190px,
+  and only ~67–91px on a card that also passes header controls** — measured, and it is why
+  `shopCatalogue` reads "286 varer". `npm run wraps` has a CARD PEEK gate that fails the run.
+
+  **The explainer LINE was deleted — the "no manual" pass (2026-08-17).** Maintainer: *"A native
   app should not read like a manual. You are placing way too much text on the screen. Delete all
   lightbulb (💡) sections entirely."* `components/CardHintNote.tsx` — the shared bulb + italic
   sentence that eight cards mounted — **does not exist any more**, and neither do the strings it
@@ -734,7 +751,8 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     and `screenHeaderContract`'s sub-screen list shrank to the two routes still genuinely pushed.
   - **⚠️ The full-screen ⤢ is the RIGHT-MOST control in a card header, on every surface.** After
     the caller's own controls AND after the fold chevron — which reverses `SectionCard`'s older
-    "the fold sits outermost". Two things followed from making that universal: `SectionRail`'s
+    "the fold sits outermost". *(This is true again as of 2026-08-27, round 20, after being
+    reversed twice in between — see the cluster note below for the full lineage.)* Two things followed from making that universal: `SectionRail`'s
     `right` slot is a ROW now (it was a bare View, i.e. a COLUMN, so any caller passing two
     controls stacked them silently — the Katalog card came out as a three-storey column), and
     the To-do **Week** card is one outer `Surface` holding seven `embedded` `SectionCard`s, since
@@ -839,6 +857,14 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     glass, which is what the report is about. **The one-clearance-each rule survives and is why
     the two are still spelled separately**: the margin is where content is CUT, the padding is
     where it RESTS. A future gap comes back on `contentPad` alone, never on the margin.
+    - ⚠️ **That future arrived (2026-08-27, round 20) — `contentPad` carries `CHROME_REST_GAP`
+      (8) at BOTH ends now, and `headerFloatBottom` is still 0.** Reported as *"the top card is
+      still touching the header when scrolled fully up, no breathing room"*. It is the reversal
+      this very paragraph anticipated and it took the route the paragraph names: the gap is
+      padding, `viewportInset` did not move, so a card is still cut at the glass and the corner
+      notches are unchanged. **Both ends or neither** — the round 20 mockup drew 12 above and 28
+      below from a bottom padding that overshot its own nav, and one constant at both ends is
+      what stops that. Measured after: 9.5px and 11.0px, the difference being `Surface`'s ring.
   - **⚠️ An edge that faces content is SQUARE.** The header's bottom pair (`chromeFacingSquare`,
     now unconditional rather than only when a sticky bar is attached), the nav bar's top pair,
     and an `attachedTop` `TabSlider`'s corners — all 0; the viewport is square on all four to
@@ -979,11 +1005,20 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
   title already did — and the widest item in the cluster. Deleting it is the whole change: the
   measure ref, the animation geometry and `useCardExpand` are untouched, because none of them
   care which control fires.
-  - **The trailing cluster is `{controls}` → fold, and the fold is outermost**, inheriting the
-    corner the ⤢ used to occupy. The test asserts the ABSENCE (nothing follows the fold, no
-    header slot anywhere mounts a `CardExpandButton`) rather than an ordering — the old assertion
-    was that `{afterFold}` came *after* the fold, which deleting the whole cluster would also
-    have satisfied.
+  - ~~**The trailing cluster is `{controls}` → fold, and the fold is outermost**~~ — ⚠️ **the
+    order is `fold → {controls}` → ⤢ as of 2026-08-27 (round 20), with the ⤢ outermost.** This
+    line has now been every arrangement it can be: `controls → fold → ⤢` (2026-08-20) →
+    `controls → fold` (2026-08-22, the ⤢ deleted app-wide) → `controls → ⤢ → fold` (2026-08-26,
+    the ⤢ back one step inside the fold) → this. Round 20's drawn screens put the chevron first
+    and the ⤢ in the corner, and the maintainer ruled for the mockup.
+      What the latest reversal buys, since the previous order was not arbitrary either: the ⤢ is
+    the one control that changes which SCREEN you are looking at, and it now sits in the same
+    corner on every card whether or not that card folds — which the old order could not, since a
+    non-folding card's ⤢ landed exactly where a folding card's chevron did. It also draws at
+    `IconSize.compact` (30, nearest the mockup's 29) rather than `action` (36); the tap target
+    is unmoved, because `IconButton` floors it at `max(MIN_TAP_TARGET, size + Spacing.sm)`.
+    `lib/__tests__/cardAnatomy.test.ts` still asserts the ABSENCE of anything after the last
+    control rather than an ordering alone, so deleting the cluster cannot pass it.
   - **`components/CardExpandButton.tsx` still exists**, for exactly one job: the expanded pane's
     own close control in `components/CardExpandHost.tsx`. The import ban is what keeps a card
     header from reaching for it again.
