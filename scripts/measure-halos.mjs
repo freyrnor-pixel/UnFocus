@@ -216,14 +216,17 @@ try {
 
   // All five screens are mounted at once (`lazy: false`), so a field can be reported from a tab
   // it does not live on. Dedupe on what was measured rather than on where it was found.
-  // The screen title each tab settles on — a settle-marker, not decoration. The pager can jump
-  // TWO slots in one tap (e.g. the cold-start default is Home, centre slot, so the very first
-  // `Shop` click slides across Habits too), and a fixed wait sized for an adjacent-slot swipe
-  // was too short for that: `openCards()` and FIND_CANDIDATES ran while the PREVIOUS tab's page
-  // was still on screen, so a field got attributed to the wrong tab in a report key (harmless
-  // for CLIPPED/ok, since dedup still separates them by room — but it produced a same-placeholder
-  // "NO HALO" ghost, since the click landed on a tab that never actually had that field focused).
-  const HEADER_TEXT = { Shop: 'Shopping list', 'To-do': 'To-do list', Home: 'Home', Habits: 'Habits', Health: 'Health' };
+  //
+  // ⚠️ **Waiting for the screen's OWN title text is not a settle-marker — it is a no-op**, and
+  // this cost a full debugging pass to find. `BottomNav`'s own tab LABEL ("Habits", "Health", …)
+  // is on screen at all times, active tab or not, so `page.getByText('Habits')` is satisfied by
+  // the nav bar itself before the pager has moved at all — it is not, as it looks, waiting for
+  // anything. The tell was a Medicine composer and its four tray wells being reported under
+  // "Habits": the walk never actually reached the Health page for that click, it was still
+  // sitting on whatever page came before while the label matched instantly. The real signal is
+  // `BottomNav`'s `accessibilityState={{ selected: active }}`, which react-native-web renders as
+  // `aria-selected` — wait for the CLICKED tab's own button to carry it, not for text that was
+  // always going to be there regardless.
 
   // Click one candidate, measure whatever lit up nearest it, report and dedupe. Returns whether
   // a match was found at all (used only for logging, not for control flow).
@@ -269,20 +272,33 @@ try {
 
   const seen = new Set();
   for (const tab of ['Shop', 'To-do', 'Home', 'Habits', 'Health']) {
-    await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first().click({ timeout: 10000 }).catch(() => {});
-    await page.getByText(HEADER_TEXT[tab], { exact: true }).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
-    await page.waitForTimeout(1000);
-    await page.mouse.move(width / 2, 500);
+    const tabButton = page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first();
+    await tabButton.click({ timeout: 10000 }).catch(() => {});
+    // Wait for THIS tab's own button to be marked selected (`aria-selected`, from BottomNav's
+    // `accessibilityState`) rather than for the screen's title text — see the note above.
+    await page.waitForFunction(
+      (t) => {
+        for (const el of document.querySelectorAll('[role="button"]')) {
+          if (el.getAttribute('aria-label') === t || el.textContent?.trim() === t) {
+            return el.getAttribute('aria-selected') === 'true';
+          }
+        }
+        return false;
+      },
+      tab,
+      { timeout: 8000 },
+    ).catch(() => {});
+    await page.waitForTimeout(700);
 
-    // A tab's own composers are not all above the fold — Shop's Food/Catalogue cards, or a
-    // Health tray past a long "This week" card, sit below the first screenful. Each pass opens
-    // whatever newly-scrolled-into-view card it can, harvests whatever NEW candidates that
-    // reveals (FIND_CANDIDATES' \`data-halo-scanned\` marker means an already-processed field is
-    // never re-found), then scrolls further. Stops once a scroll produces nothing new AND the
-    // page is at (or past) its own bottom — two consecutive empty passes is the fallback in case
-    // a pass's wheel event lands on a non-scrolling ancestor and \`scrollTop\` never changes.
-    let emptyPasses = 0;
-    for (let pass = 0; pass < 8 && emptyPasses < 2; pass++) {
+    // openCards() can reveal a NESTED toggle it couldn't reach in its own single 14-click budget
+    // (opening a card can reveal a further, still-closed section inside it) — a second pass
+    // after the first catches that. Scrolling (`page.mouse.wheel`) was tried as a third source of
+    // newly-revealed composers and dropped: it is a no-op against this app's ScrollView in the
+    // headless preview (measured — a wheel event changes nothing on screen), so it only added a
+    // wasted 700ms× per tab and, worse, kept re-finding an AddRow composer that collapses back to
+    // a brand-new, unmarked DOM node on blur (see the loop cap below) without ever revealing
+    // anything new.
+    for (let pass = 0; pass < 2; pass++) {
       await openCards(page);
       await page.waitForTimeout(400);
       const candidates = await page.evaluate(FIND_CANDIDATES);
@@ -290,9 +306,6 @@ try {
         console.error(`[debug] ${tab} pass ${pass}: ${candidates.length} new candidates`, candidates.map((c) => c.label));
       }
       for (const c of candidates) await processCandidate(tab, c, seen);
-      emptyPasses = candidates.length === 0 ? emptyPasses + 1 : 0;
-      await page.mouse.wheel(0, 700);
-      await page.waitForTimeout(400);
     }
   }
 } finally {
