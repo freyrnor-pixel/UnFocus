@@ -7,17 +7,44 @@
 // therefore has ZERO room for its light: the halo's left and right halves are chopped off flat
 // at the field's own edges, which reads as a hard neon rim rather than a glow.
 //
-// That is what shipped, on every composer in the app but one, and it is invisible to every
+// ⚠️ **A field only glows while FOCUSED, since DESIGN_COMPARISON/19 phase 2 (2026-08-26,
+// "text, borders and backgrounds never glow").** Before that pass every composer field
+// (`PadTypeRow`, `AddRow`, `CatalogueTab`'s search) glowed AT REST — `getFieldGlow` ran
+// unconditionally — so a plain DOM scan found every field with no interaction needed, which is
+// how this script's first version worked. That premise is gone: `focused ? getFieldGlow(...) :
+// null` (or `{ borderRadius: FIELD_RADIUS }`) is now the shape at every one of those call sites,
+// so an UNFOCUSED field carries no `boxShadow` at all and a plain scan silently stops seeing it —
+// the audit's own documented failure mode (it fails by un-measuring screens, not by erroring).
+// The one exception is `components/FormControls.tsx`'s `recessed` Input (`InlineAddItem`,
+// `MedicineSurface`'s tray wells, `FoodTab`, `ShoppingFilterBar`, and `CatalogueTab`'s own
+// `recessed` call sites), which is a documented BACKLOG item in `lib/__tests__/glowBudget.test.ts`
+// — it still glows `soft` at rest and `strong` on focus, so it alone survives a rest-only scan.
+//
+// So the walk now FOCUSES every field-shaped candidate before measuring it, and reports THREE
+// outcomes rather than two:
+//   - CLIPPED  — the halo exists (at rest or on focus) and is cut short by an ancestor's clip.
+//   - ok       — the halo exists and has room to fade.
+//   - NO HALO  — the field never grew a `boxShadow` at all, focused or not. That is not
+//                automatically a bug (a plain editor `Input` on the screen backdrop, or a
+//                deliberately un-glowed control, is fine) but it IS worth a human's eyes if the
+//                field is one that's supposed to glow on focus — see the printed note.
+//
+// This is what shipped, on every composer in the app but one, and it is invisible to every
 // other check in this repo: `tsc` sees valid styles, the Jest suite has no layout, and a
 // screenshot shows a lit box either way — the whole tell is that the light stops dead instead
 // of fading. Three maintainer reports about "the text boxes" were this. Hence a measurement:
-// walk the real app in the web preview and, for every field-shaped haloed element, compare the
-// blur radius against the room it has before the clip.
+// walk the real app in the web preview, FOCUS every field-shaped element, and compare the blur
+// radius against the room it has before the clip.
 //
 //   npm run halos              # 430px, English
 //   npm run halos -- --width=360
 //
 // Exits 1 if anything is clipped, so it can gate a change the way `npm run wraps` reports do.
+// A NO HALO finding does NOT fail the run on its own — it is reported for a human to judge,
+// since "this field never glows" is sometimes correct (an editor field before it's ever
+// focused, or `components/WeekListCard.tsx`'s tap-to-rename title, which never calls
+// `getFieldGlow` at all and so is never a candidate in the first place — see FIND_CANDIDATES).
+//
 // Needs the preview bundle: `npm run preview:build` (or FORCE_BUILD=1) and a server on 8787 —
 // scripts/run-halos.sh wires both up, the same way run-preview.sh does.
 import { chromium } from '@playwright/test';
@@ -34,9 +61,12 @@ async function clickText(page, text) {
   throw new Error(`no visible "${text}"`);
 }
 
-// Every card rests closed (lib/cardRegistry.ts), and a composer inside a closed card is not in
-// the DOM — so a walk that does not open them measures almost nothing. Same trap the wrap
-// audit hit on 2026-08-21; the failure is silent in both.
+// Every card rests closed (lib/cardRegistry.ts) except each screen's own first card
+// (`openAtRest`) — a composer inside a still-closed card is not in the DOM at all, so the walk
+// must open the rest by hand. Same trap the wrap audit hit on 2026-08-21; the failure is silent
+// in both. Re-checked on this branch: the accessible name is still `<card>: <expandListLabel>`
+// (`components/CardCollapseToggle.tsx`), so the `/: (Expand|Open)/i` match still holds even
+// though which cards start open has changed.
 async function openCards(page) {
   for (let i = 0; i < 14; i++) {
     const toggle = page.getByRole('button', { name: /: (Expand|Open)/i }).first();
@@ -46,9 +76,65 @@ async function openCards(page) {
   }
 }
 
-// Runs in the page. FIELD_RADIUS (12) is what marks a field: it is the one radius every field
-// in the app is cut to, halo included (see getFieldGlow), so it separates a field's light from
-// a card's own drop shadow without needing a class name.
+// Runs in the page, at REST (before any field has been focused). Finds every field-shaped
+// CANDIDATE to click — real `<input>`/`<textarea>` elements (already-mounted fields: PadTypeRow,
+// CatalogueTab's search, FormControls' Input in every mode) and `[role="button"]` elements whose
+// own resting radius is FIELD_RADIUS (AddRow's collapsed "+" bar, which has no `<input>` at all
+// until it's expanded — clicking it both expands AND autofocuses, see that file's header).
+//
+// A `[role="button"]` that already contains a live input is skipped — that is an already-mounted
+// field, and the input itself is the candidate, not its housing.
+//
+// Deliberately does NOT filter inputs by radius: `components/WeekListCard.tsx`'s tap-to-rename
+// `TITLE_FIELD` also carries FIELD_RADIUS but never calls `getFieldGlow`, so it would only ever
+// be a false "NO HALO" — but it renders as plain `<Text>` until tapped, so it is never an
+// `<input>` in the DOM at rest and never becomes a candidate here in the first place.
+// Marks each candidate with a \`data-halo-idx\` attribute rather than handing back raw
+// coordinates — the actual click goes through a real Playwright locator (scroll-into-view +
+// actionability checks included), not a bare \`page.mouse.click(x, y)\`. A raw coordinate click
+// was tried first and silently missed a still-settling composer (a card's expand animation can
+// leave a rect stale for a beat after \`openCards()\`'s fixed wait); the locator click doesn't.
+const FIND_CANDIDATES = `(() => {
+  const out = [];
+  const seenPos = new Set();
+  let idx = 0;
+  for (const el of document.querySelectorAll('input, textarea, [role="button"]')) {
+    const isField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+    if (!isField) {
+      const cs = getComputedStyle(el);
+      if (Math.round(parseFloat(cs.borderTopLeftRadius)) !== 12) continue;
+      if (el.querySelector('input,textarea')) continue;
+    }
+    const r = el.getBoundingClientRect();
+    if (r.width < 20 || r.height < 16) continue;
+    if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;
+    const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
+    // All five screens are mounted at once (\`lazy: false\`) and the pager moves pages by
+    // TRANSFORM, which does not change an off-screen page's own layout coordinates — an
+    // inactive tab's field can still land inside the viewport's bounding box on paper. A real
+    // hit-test is the only thing that tells "on screen" from "in the DOM, off to the side":
+    // whatever is actually topmost at this point must be this element or one of its own
+    // descendants/ancestors, or the click would land on the WRONG tab's content.
+    const hit = document.elementFromPoint(cx, cy);
+    if (!hit || !(hit === el || el.contains(hit) || hit.contains(el))) continue;
+    const posKey = cx + ',' + cy;
+    if (seenPos.has(posKey)) continue;
+    seenPos.add(posKey);
+    const label = (isField && (el.placeholder || el.value))
+      || el.getAttribute('aria-label')
+      || (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 28)
+      || '(unlabelled field)';
+    el.setAttribute('data-halo-idx', String(idx));
+    out.push({ label, idx: idx++, x: cx, y: cy });
+  }
+  return out;
+})()`;
+
+// FIELD_RADIUS (12) is what marks a field: it is the one radius every field in the app is cut
+// to, halo included (see getFieldGlow), so it separates a field's light from a card's own drop
+// shadow without needing a class name. Only elements CARRYING a boxShadow right now match — so
+// this only sees a field mid-focus (or a `recessed` FormControls Input, which glows at rest too;
+// see the file header for why that one alone survives an unfocused scan).
 const SCAN = `(() => {
   const out = [];
   for (const el of document.querySelectorAll('*')) {
@@ -65,7 +151,7 @@ const SCAN = `(() => {
     const input = el.querySelector('input,textarea') || (el.tagName === 'INPUT' ? el : null);
     const label = (input && (input.placeholder || input.value))
       || (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 28) || '(unlabelled field)';
-    out.push({ label, need, room: {
+    out.push({ label, need, cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2), room: {
       left: Math.round(r.left - clip.left), right: Math.round(clip.right - r.right),
       top: Math.round(r.top - clip.top), bottom: Math.round(clip.bottom - r.bottom) } });
   }
@@ -76,7 +162,7 @@ const browser = await chromium.launch({
   executablePath: CHROMIUM_PATH, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'],
 });
 const page = await browser.newPage({ viewport: { width, height: 932 } });
-let clipped = 0, clean = 0;
+let clipped = 0, clean = 0, noHalo = 0;
 try {
   await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
   await page.waitForTimeout(1000);
@@ -97,28 +183,66 @@ try {
     await page.waitForTimeout(1000);
     await openCards(page);
     await page.waitForTimeout(400);
-    for (const f of await page.evaluate(SCAN)) {
-      const key = `${f.label}|${JSON.stringify(f.room)}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const short = Object.entries(f.room).filter(([, v]) => v < f.need);
-      if (short.length) {
-        clipped += 1;
-        console.log(`  CLIPPED  "${f.label}" halo=${f.need}px, room ${short.map(([s, v]) => `${s}=${v}`).join(' ')}`);
-      } else {
-        clean += 1;
-        console.log(`  ok       "${f.label}" halo=${f.need}px`);
+
+    // Candidates are found ONCE, at rest, before any field on this tab is touched — clicking one
+    // is followed by a blur (see below), which is what lets the rest of the list's coordinates
+    // stay valid: an AddRow that doesn't collapse back out from under the next candidate would
+    // silently shift everything below it.
+    const candidates = await page.evaluate(FIND_CANDIDATES);
+    for (const c of candidates) {
+      // A real Playwright locator click (scroll-into-view + actionability checks), keyed to the
+      // marker FIND_CANDIDATES left on this exact element — not a bare coordinate click, which
+      // missed a composer whose rect was still settling after openCards()'s fixed wait. An
+      // element belonging to an inactive pager page fails this (off-screen, so "not actionable")
+      // and is skipped rather than mis-clicking whatever real content sits at that coordinate.
+      const clicked = await page.locator(`[data-halo-idx="${c.idx}"]`).first()
+        .click({ timeout: 3000 }).then(() => true).catch(() => false);
+      if (!clicked) continue;
+      await page.waitForTimeout(350);
+      const glowing = await page.evaluate(SCAN);
+      // The field that lit up (if any) is whichever glowing element sits nearest the point we
+      // just clicked — a wrapper View growing around an input, or the input itself, both center
+      // on roughly the same spot; an AddRow expanding taller keeps the same left edge and top.
+      let match = null, bestDist = Infinity;
+      for (const f of glowing) {
+        const d = Math.hypot(f.cx - c.x, f.cy - c.y);
+        if (d < bestDist && d < 140) { bestDist = d; match = f; }
       }
+      const key = `${tab}|${c.label}|${match ? JSON.stringify(match.room) : 'none'}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        if (!match) {
+          noHalo += 1;
+          console.log(`  NO HALO  "${c.label}" (${tab}) — never grew a boxShadow, focused or not`);
+        } else {
+          const short = Object.entries(match.room).filter(([, v]) => v < match.need);
+          if (short.length) {
+            clipped += 1;
+            console.log(`  CLIPPED  "${c.label}" halo=${match.need}px, room ${short.map(([s, v]) => `${s}=${v}`).join(' ')}`);
+          } else {
+            clean += 1;
+            console.log(`  ok       "${c.label}" halo=${match.need}px`);
+          }
+        }
+      }
+      await page.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+      await page.waitForTimeout(300);
     }
   }
 } finally {
   await browser.close();
 }
-console.log(`\n${clipped} clipped, ${clean} clean (at ${width}px)`);
+console.log(`\n${clipped} clipped, ${clean} clean, ${noHalo} no-halo (at ${width}px)`);
 if (clipped) {
   console.log('\nA clipped halo means the field has less room than its own light needs. Give the');
   console.log('component that owns the field `FIELD_GLOW_CLEARANCE` of padding (constants/theme.ts),');
   console.log('the way components/PadTypeRow.tsx and components/AddRow.tsx do — do not shrink the glow');
   console.log('at one call site, and do not "fix" it by moving the shadow onto a different view.');
+}
+if (noHalo) {
+  console.log('\nA NO HALO finding is not automatically a bug — an editor field on the screen backdrop');
+  console.log('(medicine-form, health-form, …) is fine with no light at all. It IS worth a look if the');
+  console.log('field is a card composer (PadTypeRow/AddRow/CatalogueTab search): check that its focus');
+  console.log('state actually sets the `focused` flag `getFieldGlow` is gated on.');
 }
 process.exit(clipped ? 1 : 0);
