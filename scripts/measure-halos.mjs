@@ -67,11 +67,39 @@ async function clickText(page, text) {
 // in both. Re-checked on this branch: the accessible name is still `<card>: <expandListLabel>`
 // (`components/CardCollapseToggle.tsx`), so the `/: (Expand|Open)/i` match still holds even
 // though which cards start open has changed.
+//
+// ⚠️ **Scoped to what is actually ON SCREEN, and that scoping is load-bearing here.** All five
+// tabs are mounted at once (`lazy: false`) and the pager positions the inactive four with a
+// `transform`, which does not hide them from `getByRole` — Playwright's own `isVisible()` passed
+// for toggles that were off in a page nobody could see. A plain `.first()` therefore doesn't
+// necessarily open THIS tab's cards at all: once this tab's own toggles run out (all say
+// "Collapse", not "Expand"), `.first()` moves on to the next matching toggle anywhere in the
+// DOM — an inactive tab's still-closed card — and clicking it can trip that field's own
+// keyboard-avoidance `scrollIntoView` (see components/AddRow.tsx's header), which pages the
+// PAGER itself to the tab that field lives on. Caught by screenshot: `openCards()` on the Shop
+// tab silently ended on the To-do tab, BottomNav still showing Shop highlighted underneath it.
+// A real hit-test (same technique as FIND_CANDIDATES below) is what tells "this tab's own,
+// still-closed card" from "some other tab's card that merely LOOKS reachable from here".
 async function openCards(page) {
   for (let i = 0; i < 14; i++) {
-    const toggle = page.getByRole('button', { name: /: (Expand|Open)/i }).first();
-    if (!(await toggle.count()) || !(await toggle.isVisible().catch(() => false))) return;
-    await toggle.click({ timeout: 5000 }).catch(() => {});
+    const found = await page.evaluate(() => {
+      for (const el of document.querySelectorAll('[role="button"]')) {
+        const label = el.getAttribute('aria-label') || '';
+        if (!/: (Expand|Open)/i.test(label)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        if (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth) continue;
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const hit = document.elementFromPoint(cx, cy);
+        if (!hit || !(hit === el || el.contains(hit) || hit.contains(el))) continue;
+        el.setAttribute('data-halo-toggle', '1');
+        return true;
+      }
+      return false;
+    });
+    if (!found) return;
+    await page.locator('[data-halo-toggle="1"]').first().click({ timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => document.querySelector('[data-halo-toggle="1"]')?.removeAttribute('data-halo-toggle'));
     await page.waitForTimeout(250);
   }
 }
@@ -177,18 +205,28 @@ try {
 
   // All five screens are mounted at once (`lazy: false`), so a field can be reported from a tab
   // it does not live on. Dedupe on what was measured rather than on where it was found.
+  // The screen title each tab settles on — a settle-marker, not decoration. The pager can jump
+  // TWO slots in one tap (e.g. the cold-start default is Home, centre slot, so the very first
+  // `Shop` click slides across Habits too), and a fixed wait sized for an adjacent-slot swipe
+  // was too short for that: `openCards()` and FIND_CANDIDATES ran while the PREVIOUS tab's page
+  // was still on screen, so a field got attributed to the wrong tab in a report key (harmless
+  // for CLIPPED/ok, since dedup still separates them by room — but it produced a same-placeholder
+  // "NO HALO" ghost, since the click landed on a tab that never actually had that field focused).
+  const HEADER_TEXT = { Shop: 'Shopping list', 'To-do': 'To-do list', Home: 'Home', Habits: 'Habits', Health: 'Health' };
   const seen = new Set();
   for (const tab of ['Shop', 'To-do', 'Home', 'Habits', 'Health']) {
     await page.getByRole('button', { name: new RegExp(`^${tab}$`) }).first().click({ timeout: 10000 }).catch(() => {});
+    await page.getByText(HEADER_TEXT[tab], { exact: true }).first().waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1000);
     await openCards(page);
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
 
     // Candidates are found ONCE, at rest, before any field on this tab is touched — clicking one
     // is followed by a blur (see below), which is what lets the rest of the list's coordinates
     // stay valid: an AddRow that doesn't collapse back out from under the next candidate would
     // silently shift everything below it.
     const candidates = await page.evaluate(FIND_CANDIDATES);
+    if (process.env.HALO_DEBUG) console.error(`[debug] ${tab}: ${candidates.length} candidates`, candidates.map((c) => c.label));
     for (const c of candidates) {
       // A real Playwright locator click (scroll-into-view + actionability checks), keyed to the
       // marker FIND_CANDIDATES left on this exact element — not a bare coordinate click, which

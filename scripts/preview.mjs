@@ -75,12 +75,16 @@ async function anyVisibleText(page, text) {
 /**
  * Open a card by its title, if it is resting closed.
  *
- * ⚠️ **Every card rests CLOSED except the three lib/cardRegistry.ts marks `openAtRest`** (Today,
- * Notes and Shopping, all on the Home tab), and closed is a bare header — so a composer or a row
- * inside any other card simply does not exist until it is opened. A step that reaches for one
- * without opening it does not fail where the mistake is: it either times out thirty seconds
- * later, or, worse, resolves `.first()` to a same-named element on another mounted pager page
- * and passes vacuously. Both have happened in this walk.
+ * ⚠️ **Most cards rest CLOSED; `lib/cardRegistry.ts`'s `openAtRest` cards don't** — Home's
+ * Today/Notes/Shopping, plus (since 2026-08-26 phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md)
+ * each other screen's own FIRST card: `habitsList` (Habits), `healthWeek` (Health), `shopLists`
+ * (Shop) and `todoToday` (To-do). Closed is a bare header — so a composer or a row inside any
+ * other card simply does not exist until it is opened. A step that reaches for one without
+ * opening it does not fail where the mistake is: it either times out thirty seconds later, or,
+ * worse, resolves `.first()` to a same-named element on another mounted pager page and passes
+ * vacuously. Both have happened in this walk — and so has the OPPOSITE mistake, toggling an
+ * already-`openAtRest` card CLOSED by clicking its toggle unconditionally on a second visit,
+ * which is exactly why this function checks state before clicking rather than assuming closed.
  *
  * Matched by PREFIX rather than the exact string: the chevron's accessible name is
  * `<card title>: <action>`, and the action half is localised.
@@ -359,20 +363,14 @@ async function main() {
     await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(900);
     await dismissModalIfPresent(page);
-    // ⚠️ **Open the Habits card first.** Every card rests CLOSED except the three
-    // lib/cardRegistry.ts marks `openAtRest`, and closed is a bare header as of 2026-08-21 — so
-    // the composer this step focuses does not EXIST until the card is opened. A step that can't
-    // find its target doesn't fail loudly here, it times out thirty seconds later; AGENTS.md's
-    // note about the wrap audit's silently-skipping steps is the same trap in the other script.
-    // Matched by prefix rather than by the exact string: this walk runs in English, the wrap
-    // audit's equivalent runs in three languages, and the chevron's accessible name is
-    // `<card title>: <action>` in whichever one is active.
-    const openHabits = page.getByRole('button', { name: /^Habits: / }).first();
-    if (await openHabits.count()) {
-      await openHabits.scrollIntoViewIfNeeded();
-      await openHabits.click();
-      await page.waitForTimeout(600);
-    }
+    // ⚠️ **Open the Habits card first — but `habitsList` is now `openAtRest`, so most of the
+    // time there is nothing to open.** This is the SECOND visit to the Habits tab in this walk
+    // (the first is the plain tab screenshot earlier); `openCardByTitle` checks the toggle's own
+    // state before clicking, which is what keeps this from toggling an already-open card CLOSED
+    // — the failure this block used to hit, since the field it's about to focus disappears with
+    // the card and the locator below times out 30s later nowhere near the real cause. See that
+    // function's header for the full rundown of which cards rest open now.
+    await openCardByTitle(page, 'Habits');
     const focusProbe = page.getByLabel('Type habit', { exact: true }).first();
     await focusProbe.scrollIntoViewIfNeeded();
     await focusProbe.click({ timeout: 10000 });
