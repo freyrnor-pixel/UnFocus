@@ -149,6 +149,71 @@ saturated amber's 86.9 ceiling:
 | ×0.75 | `rgb(62,61,48)` | 68.1 | 18.8 | 3 |
 | ×1 | `rgb(70,69,51)` | 72.2 | 14.7 | 3 |
 
+### New hue angles were searched for, and the current set kept
+
+The brief was "new hues, you derive them", narrowed by the headroom finding below to *hue angle
+only* — the five L\* rungs cannot move. So the angles were searched: for each rung, every hue at
+5° steps whose most-saturated form lands within 1.2 L\* of that rung, scored on the worst
+pairwise dichromat separation across ~8M combinations.
+
+A mechanically better set exists. It scores **deutan 38.2 / protan 38.2** against the current
+set's **30.8 / 17.6** — a real gain on protanopia, the current set's weakest axis (which still
+clears the documented floor of 12).
+
+It is not an improvement in use, and the search is what shows why:
+
+| rung | found | current |
+|---|---|---|
+| To-do | `#E0E000` (h 60) | `#FFD700` (h 51) |
+| Habits | `#FFA8E9` (h 315) | `#05D9E8` (h 185) |
+| Health | `#FF8F8F` (h 0) | `#FF8CB2` (h 340) |
+| Shopping | `#BF80FF` (h 270) | `#24B451` (h 140) |
+| Notes | `#8F8F00` (h 60) | `#B660FF` (h 275) |
+
+To-do and Notes land on **the same hue angle**, which reads as one colour at two lightnesses
+rather than as two categories — the exact confusion the separation score is supposed to measure
+and cannot see, because ΔE between a bright yellow and an olive is large while the *relationship*
+between them is obvious. And the semantics invert: Shopping becomes violet, Notes olive, Habits
+pink. A pure-separation optimum optimises the wrong thing.
+
+**Recommendation: keep the current five.** They were derived on 2026-08-17 against these same
+constraints plus semantic fit, they clear every floor, and the only axis a search improves is one
+that already passes. Churning them would cost the app's colour identity for a metric gain nobody
+can see.
+
+### ⚠️ The correction: there is no headroom at all, and the wash's STRENGTH was never the issue
+
+Measured after building phase 2, and it revises the table above rather than confirming it.
+
+`surfaceGlass` over `#000000` composites to `#242424`, whose luminance is **L 0.0176**. The
+ceiling for Notes (`#B660FF`, the ladder's bottom rung) to clear AA 4.5:1 on the card is
+**L 0.0178**. That is a margin of 0.0002 — a ground of grey **1** is already enough to push the
+composite over.
+
+So "dim the wash to ≤25%" was the wrong frame, including in this document's own first reading.
+The wash's strength is close to irrelevant; what protects every chromatic token is entirely the
+**geometry** — that nothing lights the pixels a card sits on. A per-tab hue on the existing
+corner discs is therefore free at any sane opacity, and a wash reaching the card band is unsafe
+at any opacity. `lib/__tests__/chromeRhythm.test.ts` §6 now checks both halves: the discs never
+reach the middle, and the hue layer indexes into those same discs rather than declaring its own.
+
+Measured in the shipped app after the change, sampling the gutter (x=3 and x=387, outside every
+card) at 390px:
+
+| tab | top-right corner | bottom-left corner | mid-gutter | brightest gutter L |
+|---|---|---|---|---|
+| Shop | `rgb(7,29,21)` | `rgb(11,15,16)` | `rgb(0,0,0)` | 0.0098 |
+| To-do | `rgb(21,31,17)` | `rgb(22,17,13)` | `rgb(0,0,0)` | 0.0118 |
+| Home | `rgb(23,32,16)` | `rgb(22,16,12)` | `rgb(0,0,0)` | 0.0125 |
+| Habits | `rgb(4,32,34)` | `rgb(9,16,24)` | `rgb(0,0,0)` | 0.0129 |
+| Health | `rgb(21,27,32)` | `rgb(20,12,21)` | `rgb(0,0,0)` | 0.0111 |
+
+The hue is legibly per-tab (Shop green-dominant, Habits cyan, To-do/Home gold), the corners peak
+below the mockup's 0.0188, and **the mid-gutter — the height at which cards sit — is pure black
+on every tab**.
+
+---
+
 The current five sit at L\* 86.9 / 79.3 / 71.7 / 64.7 / 57.6 — steps of 7.6 / 7.6 / 7.0 / 7.1
 in a 29.0 band that needs 7.26 average. **The ladder is exactly full**, and the hues are already
 on the sRGB gamut boundary at their lightness (C\* 43–93), so "more vivid" is not available at

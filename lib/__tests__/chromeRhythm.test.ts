@@ -797,6 +797,30 @@ describe('the backdrop — under everything, and out of the middle', () => {
       expect({ cx, cy, reachesMiddle: dist <= Number(r) + grow }).toEqual({ cx, cy, reachesMiddle: false });
     }
   });
+
+  it('draws the screen-hue copy on the SAME discs, never new ones', () => {
+    // ⚠️ **The card surface has NO contrast headroom, and that is why this is checked rather
+    // than trusted** (measured 2026-08-27, round 20). `surfaceGlass` over `#000000` composites
+    // to `#242424`, which measures **L 0.0176** — against a ceiling of **0.0178** for Notes
+    // (`#B660FF`, the ladder's bottom rung) to clear AA 4.5:1 on it. A ground of grey **1** is
+    // already enough to push the composite over. So the safety of every chromatic token rests
+    // entirely on nothing lighting the pixels a card sits on: not on the wash being DIM, which
+    // is what round 20's brief and this repo's own first reading of it both assumed, but on the
+    // GEOMETRY. A per-tab hue is therefore free — and a per-tab hue on a new, more central disc
+    // would not be, at any opacity.
+    const s = code('components/ScreenBackground.tsx');
+    // The hue field indexes into ORBS rather than declaring geometry of its own. Anything else
+    // (a literal cx/cy/r, a second array) is a disc this file's centre check never sees.
+    expect(s).toMatch(/const SCREEN_HUE_ORB_INDEXES = \[[\d,\s]+\] as const;/);
+    expect(s).toMatch(/SCREEN_HUE_ORB_INDEXES\.map\(\(i\) => \(/);
+    expect(s).toMatch(/cx=\{ORBS\[i\]\.cx\} cy=\{ORBS\[i\]\.cy\} r=\{ORBS\[i\]\.r \+ grow\}/);
+    // Every index it names must exist in ORBS.
+    const orbCount = [...s.matchAll(/\{\s*cx:\s*-?[\d.]+,\s*cy:\s*-?[\d.]+,\s*r:\s*[\d.]+,\s*tone:/g)].length;
+    const idx = s.match(/const SCREEN_HUE_ORB_INDEXES = \[([\d,\s]+)\]/)![1]
+      .split(',').map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n));
+    expect(idx.length).toBeGreaterThan(0);
+    for (const i of idx) expect(i).toBeLessThan(orbCount);
+  });
 });
 
 describe('an expanded card is an overlay-tier surface — no blur, opaque fill', () => {

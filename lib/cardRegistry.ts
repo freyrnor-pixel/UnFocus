@@ -110,7 +110,12 @@ export type ComposeOption =
   | 'time'
   | 'day'
   | 'date'
-  | 'effort'
+  // ⚠️ Was `'effort'` until 2026-08-27 (round 20). Nothing in the app has ever built an "effort"
+  // cell — the word is the round 19 prototype's, and what actually ships on these cards is the
+  // ENERGY stepper (`t.energyGiveTakeLabel`, gated on `energySystemEnabled`). The table named a
+  // control that did not exist for as long as it was inert; naming the real one is what lets it
+  // be checked. See `lib/__tests__/cardRegistry.test.ts`'s "every declared option is built".
+  | 'energy'
   | 'goal'
   | 'repeat'
   | 'on'
@@ -206,7 +211,7 @@ export const CARDS = {
     // Phase 7's table for this card. Wired into components/TodoSurface.tsx's `InlineTaskAdd`
     // (`compose="today"`) — Time is a TimeBoxInput cell, Effort a signed Stepper gated on
     // `energySystemEnabled`, Goal `components/GoalQuickCell.tsx` gated on `featureGoals`.
-    compose: { depth: 'panel', opts: ['time', 'effort', 'goal'] },
+    compose: { depth: 'panel', opts: ['time', 'energy', 'goal'] },
   },
   todoWeek: {
     screen: 'todo',
@@ -253,7 +258,7 @@ export const CARDS = {
     // the table exactly: Whenever already doubled as the general "add any task" composer, and
     // Repeat here creates a genuinely recurring task, which is shipped, tested behaviour). This
     // field states the table's own two; it is not a claim that Time/Repeat are absent.
-    compose: { depth: 'panel', opts: ['effort', 'goal'] },
+    compose: { depth: 'panel', opts: ['time', 'repeat', 'energy', 'goal'] },
   },
   todoRecurring: {
     screen: 'todo',

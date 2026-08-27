@@ -341,6 +341,7 @@ export default function HomeShoppingCard({
       panel={
         <QuickAddOptionsPanel>
           <QuickAddOptionRow
+            opt="qty"
             icon="layers-outline"
             label={t.home.quantityLabel}
             value={
@@ -359,6 +360,7 @@ export default function HomeShoppingCard({
               stops depends on how many monthly lists exist. It opens a picker now, so every
               destination is one tap away and visible before you commit to it. */}
           <QuickAddOptionRow
+            opt="category"
             icon={addTargetIndex === 0 ? 'calendar-outline' : 'file-tray-full-outline'}
             label={t.home.addToListLabel}
             value={addTargetName}

@@ -975,6 +975,7 @@ export default function HabitsSurface() {
                           here would be the same number asked twice. */}
                       {habitRecurrenceDraft.recurrence !== 'weekly-flexible' && (
                         <QuickAddOptionRow
+                          opt="target"
                           icon="flag-outline"
                           label={t.habitDailyGoal}
                           value={
@@ -989,6 +990,7 @@ export default function HabitsSurface() {
                         />
                       )}
                       <QuickAddOptionRow
+                        opt="remind"
                         icon={habitRemindEnabled ? 'notifications' : 'notifications-off-outline'}
                         label={t.habitReminderLabel}
                         value={habitRemindEnabled ? t.darkModeOn : t.darkModeOff}

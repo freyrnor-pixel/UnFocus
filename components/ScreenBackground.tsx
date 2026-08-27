@@ -108,20 +108,44 @@
  *     the intensity it returns is quantised so a single tick can't repaint the backdrop for a
  *     sub-step change. See lib/useGrowth.ts's edit notes.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
+import { useAppTheme } from '@/lib/useAppTheme';
+import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
 
 const AnimatedG = Animated.createAnimatedComponent(G);
 
 type Props = {
-  /** Accepted for call-site compatibility (the pager passes the active tab); not used —
-   *  the backdrop is a single shared field on every screen. */
+  /**
+   * The active tab's route file name — `index`, `plans`, `shopping`, `habits`, `health`.
+   *
+   * ⚠️ **Live since 2026-08-27 (round 20); it was accepted and ignored before that**, with a
+   * comment saying the backdrop is one shared field on every screen. It still is one field — the
+   * pager mounts exactly one — but the field now takes the ACTIVE SCREEN'S HUE, which is the
+   * mockups' *"three soft accent washes per tab"* held to a strength that keeps the card band
+   * dark (see `SCREEN_HUE_ORBS` and the palette's `orbScreenOpacity`).
+   */
   activeRoute?: string;
+};
+
+/**
+ * Route file name → the `ScreenKey` whose hue the backdrop wears.
+ *
+ * Only the five tabs, because only the pager passes an `activeRoute`; anything else falls
+ * through to `null` and draws the neutral field alone, which is what every non-tab screen did
+ * before this existed and still does.
+ */
+const ROUTE_HUE: Record<string, ScreenKey> = {
+  index: 'index',
+  plans: 'plans',
+  shopping: 'shopping',
+  habits: 'habits',
+  health: 'health',
 };
 
 // ─── Orb geometry (viewBox 0 0 280 607) ────────────────────────────────────────────────────────
@@ -171,6 +195,22 @@ const ORBS: Orb[] = [
  * stops are that curve. Alphas are fractions of the palette's `orbOpacity` peak, so the whole
  * field brightens or dims from one number.
  */
+/**
+ * Which orbs take the screen's hue (2026-08-27, round 20).
+ *
+ * The two the round 20 mockups name — top-right and bottom-left — and NOT the quiet third. All
+ * three would make the whole field one colour, which on the gold To-do tab reads as a tint over
+ * the app rather than as light coming from somewhere; two leaves the top-left corner neutral and
+ * the hue reads as a direction.
+ *
+ * ⚠️ **The geometry is `ORBS`', unchanged, and that is load-bearing outside this file.** These
+ * are the same discs at the same centres and radii, so every one of them still reaches zero well
+ * before the middle of the canvas — which is what `__tests__/glassMaterial.test.ts` depends on
+ * when it measures every glass token against a `#000000` ground, and what
+ * `lib/__tests__/chromeRhythm.test.ts` §6 checks. Adding a hue must not become adding a disc.
+ */
+const SCREEN_HUE_ORB_INDEXES = [0, 1] as const;
+
 const ORB_STOPS: { offset: number; alpha: number }[] = [
   { offset: 0, alpha: 1 },
   { offset: 0.3, alpha: 0.82 },
@@ -199,6 +239,16 @@ type Palette = {
   orbWarm: string;                // the violet orb (neutral)
   orbGrowth: string;              // both orbs at full growth intensity
   orbOpacity: number;             // peak alpha at an orb's core (the brief's 10-15%)
+  /**
+   * Peak alpha for the SCREEN-HUE copy of the orb field (2026-08-27, round 20).
+   *
+   * Deliberately lower than `orbOpacity`: this layer is drawn OVER the neutral pair, so the two
+   * add, and the neutral pair is what the app's whole contrast story is measured against. Round
+   * 20's mockups lit the backdrop far harder — enough to take three of the five identity hues
+   * under AA when a card composited over it (see DESIGN_COMPARISON/20-MEASUREMENTS.md §6) — and
+   * the maintainer's ruling was to keep five hues and dim the wash. This is that dimming.
+   */
+  orbScreenOpacity: number;
 };
 
 // The growth green sits in the same hue family as constants/colors.ts's `good` (#177E56,
@@ -215,6 +265,9 @@ const LIGHT: Palette = {
   orbCool: '#4FB6C4', orbWarm: '#9E7BD6',
   orbGrowth: '#5FB899',
   orbOpacity: 0.1,
+  // Light has far less headroom before an ambient wash competes with a card, so the hue layer
+  // is barely there — it says which screen you are on, it does not light anything.
+  orbScreenOpacity: 0.05,
 };
 
 // ⚠️ TRUE BLACK, and this block is still the reason `theme.bg` alone was never enough. This
@@ -251,6 +304,7 @@ const DARK: Palette = {
   orbCool: '#0E7C8C', orbWarm: '#5B2E8C',
   orbGrowth: '#1E7A5E',
   orbOpacity: 0.13,
+  orbScreenOpacity: 0.09,
 };
 
 /**
@@ -292,7 +346,20 @@ function OrbField({ cool, warm, level }: { cool: string; warm: string; level: nu
   );
 }
 
-function ScreenBackground(_props: Props) {
+/** The screen-hue copy: the same discs as `OrbField`, but only the two `SCREEN_HUE_ORB_INDEXES`
+ *  names, all filled from one gradient. */
+function ScreenHueField({ gradient, level }: { gradient: string; level: number }) {
+  const grow = level * ORB_GROWTH_STEP;
+  return (
+    <>
+      {SCREEN_HUE_ORB_INDEXES.map((i) => (
+        <Circle key={i} cx={ORBS[i].cx} cy={ORBS[i].cy} r={ORBS[i].r + grow} fill={`url(#${gradient})`} />
+      ))}
+    </>
+  );
+}
+
+function ScreenBackground({ activeRoute }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
@@ -312,6 +379,39 @@ function ScreenBackground(_props: Props) {
   }, [intensity, reducedMotion, tint]);
 
   const tintProps = useAnimatedProps(() => ({ opacity: tint.value }));
+
+  /**
+   * The screen-hue field, double-buffered (2026-08-27, round 20).
+   *
+   * Two gradient defs, A and B, and a shared value crossfading between them. A tab change writes
+   * the incoming hue into whichever buffer is currently hidden and then animates across — the
+   * standard double-buffer, and the reason it is needed here rather than just animating a colour
+   * is that `react-native-svg` gives no reliable animated `stopColor` on both platforms, so the
+   * thing that animates has to be an opacity.
+   *
+   * The pager mounts ONE background for all five tabs and it does not slide, so without the
+   * crossfade a swipe would pop the whole field from gold to green mid-gesture.
+   */
+  const theme = useAppTheme();
+  const screenKey = activeRoute ? ROUTE_HUE[activeRoute] : undefined;
+  const screenHue = screenKey ? getScreenColor(theme, screenKey).base : null;
+  const [buffers, setBuffers] = useState<[string | null, string | null]>([screenHue, null]);
+  const [showB, setShowB] = useState(false);
+  const cross = useSharedValue(0);
+  useEffect(() => {
+    const current = showB ? buffers[1] : buffers[0];
+    if (screenHue === current) return;
+    // Write into the hidden buffer, then cross to it. Both halves in one effect so a rapid swipe
+    // cannot leave the visible buffer holding a colour nothing is animating toward.
+    setBuffers((prev) => (showB ? [screenHue, prev[1]] : [prev[0], screenHue]));
+    const next = !showB;
+    setShowB(next);
+    cross.value = reducedMotion
+      ? (next ? 1 : 0)
+      : withTiming(next ? 1 : 0, { duration: Duration.ambient, easing: Ease.move });
+  }, [screenHue, showB, buffers, cross, reducedMotion]);
+  const hueAProps = useAnimatedProps(() => ({ opacity: 1 - cross.value }));
+  const hueBProps = useAnimatedProps(() => ({ opacity: cross.value }));
 
   return (
     <Svg
@@ -354,6 +454,14 @@ function ScreenBackground(_props: Props) {
         <RadialGradient id="sbOrbGrowth" cx="50%" cy="50%" r="50%">
           {orbStops(p.orbGrowth, p.orbOpacity)}
         </RadialGradient>
+        {/* The two screen-hue buffers. Drawn at `orbScreenOpacity`, which is lower than the
+            neutral peak because this layer sits OVER that one and the two add. */}
+        <RadialGradient id="sbOrbHueA" cx="50%" cy="50%" r="50%">
+          {orbStops(buffers[0] ?? p.orbCool, buffers[0] ? p.orbScreenOpacity : 0)}
+        </RadialGradient>
+        <RadialGradient id="sbOrbHueB" cx="50%" cy="50%" r="50%">
+          {orbStops(buffers[1] ?? p.orbCool, buffers[1] ? p.orbScreenOpacity : 0)}
+        </RadialGradient>
       </Defs>
 
       <Rect x="0" y="0" width="280" height="607" fill="url(#sbBase)" />
@@ -366,6 +474,15 @@ function ScreenBackground(_props: Props) {
       <G>
         <OrbField cool="sbOrbCool" warm="sbOrbWarm" level={level} />
       </G>
+      {/* The screen's own hue, over the neutral pair and UNDER the growth tint — growth is the
+          thing the user earned and stays the top note. Only two of the three discs take it; see
+          SCREEN_HUE_ORB_INDEXES. */}
+      <AnimatedG animatedProps={hueAProps}>
+        <ScreenHueField gradient="sbOrbHueA" level={level} />
+      </AnimatedG>
+      <AnimatedG animatedProps={hueBProps}>
+        <ScreenHueField gradient="sbOrbHueB" level={level} />
+      </AnimatedG>
       <AnimatedG animatedProps={tintProps}>
         <OrbField cool="sbOrbGrowth" warm="sbOrbGrowth" level={level} />
       </AnimatedG>

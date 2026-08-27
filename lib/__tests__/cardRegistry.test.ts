@@ -8,7 +8,7 @@
  */
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
-import { CARDS, CARD_KEYS, CardKey, CardGroup, cardSpec, cardsForScreen, cardsInGroup } from '@/lib/cardRegistry';
+import { CARDS, CARD_KEYS, CardKey, CardGroup, CardSpec, cardSpec, cardsForScreen, cardsInGroup } from '@/lib/cardRegistry';
 import { CARD_IDS } from '@/lib/collapsedCards';
 import { EXPANDABLE_CARD_IDS } from '@/lib/expandableCards';
 import { getTranslations } from '@/lib/i18n';
@@ -210,5 +210,87 @@ describe('quick-add options (phase 7)', () => {
       if (!compose) continue;
       expect(new Set(compose.opts).size).toBe(compose.opts.length);
     }
+  });
+});
+
+const REG_ROOT = join(__dirname, '..', '..');
+/** Every `.tsx`/`.ts` under app/, components/ and lib/, repo-relative. */
+function sourceFiles(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(REG_ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+        walk(rel);
+      } else if (/\.tsx?$/.test(entry.name)) out.push(rel);
+    }
+  };
+  for (const root of ['app', 'components', 'lib']) walk(root);
+  return out;
+}
+/** Source with comments stripped — a `opt=` inside a comment is prose, not a control. */
+const code = (rel: string) =>
+  readFileSync(join(REG_ROOT, rel), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+describe('the compose table names controls that exist', () => {
+  /**
+   * ⚠️ **`compose` shipped inert (round 19, 2026-08-26) and this is what makes it real.** It was
+   * data in the registry with NO runtime consumer at all: each surface hand-rolled its option
+   * cells, and they matched the table only because one session wrote both. Nothing would have
+   * noticed a cell added, dropped or renamed — the exact failure the registry exists to end, one
+   * rung below the card anatomy it already governs.
+   *
+   * The binding is a `opt` prop naming which `ComposeOption` a cell IS, rather than generating
+   * cells FROM the table: the data each cell edits lives in five stores with five shapes, and a
+   * generator would have to know all of them. The surface renders, the registry declares, and
+   * this binds them.
+   *
+   * It caught one straight away. The table declared **`effort`** on two cards and nothing in the
+   * app has ever built an "effort" cell — the word is the prototype's, and what ships there is
+   * the ENERGY stepper. A table naming a control that does not exist is what an inert table
+   * decays into; `ComposeOption` names `energy` now.
+   */
+  const OPT_RE = /\bopt=(?:"(\w+)"|\{[^}]*?'(\w+)'\s*:\s*'(\w+)'[^}]*\})/g;
+  const builtOptions = (): Set<string> => {
+    const found = new Set<string>();
+    for (const rel of sourceFiles()) {
+      for (const m of code(rel).matchAll(OPT_RE)) {
+        for (const g of [m[1], m[2], m[3]]) if (g) found.add(g);
+      }
+    }
+    return found;
+  };
+
+  it('every option a card declares is built by a real cell', () => {
+    // The one documented exception: `shopCatalogue`'s options are not `QuickAddOptionRow` cells
+    // at all — that surface's composer was already a pop-up before phase 7
+    // (components/CatalogueAddSheet.tsx: a name, an optional price, a category chip row), which
+    // `ComposeSpec`'s own doc records. Named, not allowlisted by pattern.
+    const IN_A_SHEET_INSTEAD: Partial<Record<CardKey, string[]>> = { shopCatalogue: ['price', 'category'] };
+    const built = builtOptions();
+    expect(built.size).toBeGreaterThan(0); // a regex that matched nothing would pass vacuously
+    const offenders: string[] = [];
+    for (const key of CARD_KEYS) {
+      // `CARDS[key]` narrows to the union of literal specs, and not every member declares
+      // `compose` — so read it through the shared type rather than off the narrowed literal.
+      const spec: CardSpec = CARDS[key];
+      for (const opt of spec.compose?.opts ?? []) {
+        if (IN_A_SHEET_INSTEAD[key]?.includes(opt)) continue;
+        if (!built.has(opt)) offenders.push(`${key} declares '${opt}' — no cell carries opt="${opt}"`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('every cell tagged with an opt names a real ComposeOption', () => {
+    // The other direction: a typo in a cell's `opt` is a tag bound to nothing, which would make
+    // the assertion above pass while the cell it was meant to cover went unchecked.
+    const declared = new Set(CARD_KEYS.flatMap((k) => (CARDS[k] as CardSpec).compose?.opts ?? []));
+    const offenders = [...builtOptions()].filter((o) => !declared.has(o as never));
+    expect(offenders).toEqual([]);
   });
 });

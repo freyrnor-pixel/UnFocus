@@ -551,6 +551,7 @@ export default function MedicineSurface() {
                 `Medicine` (dose is free text, trays a TrayId[]), so this is composer-only
                 wiring, no schema change. */}
             <QuickAddOptionRow
+              opt="dose"
               icon="medical-outline"
               label={t.medicine.doseLabel}
               wide
@@ -566,6 +567,7 @@ export default function MedicineSurface() {
               }
             />
             <QuickAddOptionRow
+              opt="trays"
               icon="time-outline"
               label={t.medicine.traysLabel}
               wide

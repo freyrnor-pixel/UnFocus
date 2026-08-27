@@ -42,12 +42,30 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { ComposeOption } from '@/lib/cardRegistry';
 import PressableScale from '@/components/PressableScale';
 import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
+  /**
+   * Which `ComposeOption` this cell IS — the binding between the card's declared options table
+   * (`lib/cardRegistry.ts`'s `compose.opts`) and the cell that actually renders (2026-08-27,
+   * round 20, completing round 19's phase 7).
+   *
+   * ⚠️ **The table was inert before this.** `compose` shipped in the registry as data with no
+   * runtime consumer at all: each surface hand-rolled its cells, and they matched the table only
+   * because the same session wrote both. Nothing would have noticed a cell being added, dropped
+   * or reordered — which is the whole failure mode the registry exists to end, one rung down
+   * from the card anatomy it already governs.
+   *
+   * Naming the cell here, rather than generating cells FROM the table, is deliberate: the data a
+   * cell edits lives in five different stores with five different shapes, and a generator would
+   * need to know all of them. The surface still renders; the registry still declares; and
+   * `lib/__tests__/cardRegistry.test.ts` binds the two, so they cannot drift apart in silence.
+   */
+  opt?: ComposeOption;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   /** Current value text (e.g. "Weekly", "Task"), or a live control (TimeBoxInput). */

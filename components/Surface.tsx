@@ -27,6 +27,36 @@
  * of the older entries; they are history now, not current state.
  *
  * Three things about the new material that are load-bearing and not obvious:
+ *   - ⚠️ **The edge is a real per-side BORDER, not a gradient ring (2026-08-27, round 20) — and
+ *     the reason is the worst defect this file has had.** User report, against a build:
+ *     *"This looks too stale, not like glass."*
+ *
+ *     The ring was a full-area `LinearGradient` with the fill mask inside it, inset by
+ *     `padding: edgeWidth`. That works only while the mask is OPAQUE, which is what the comment
+ *     at the render site said it was. It stopped being opaque on 2026-08-15, when the fill
+ *     became `theme.surfaceGlass` — `rgba(255,255,255,0.1412)`, i.e. **86% transparent**. So
+ *     ~86% of the edge ramp showed through the ENTIRE pane, and every card in the app was a
+ *     diagonal grey wash rather than a flat piece of glass with a lit edge.
+ *
+ *     Measured on the Habits card at 390px, sampling its interior along the diagonal:
+ *     `rgb(75,70,82)` at the top-left running to `rgb(135,135,148)` at the bottom-right, where
+ *     the design intends a flat `rgb(36,36,36)` everywhere. Two to four times too light, with a
+ *     gradient across it.
+ *
+ *     ⚠️ **And it meant every contrast assertion in the app was measuring a colour no card
+ *     drew.** `__tests__/glassMaterial.test.ts` and `lib/__tests__/colors.test.ts` check against
+ *     `#242424`, where the five identity hues measure 11.07 / 8.94 / 7.13 / 5.71 / 4.51 and
+ *     white text 15.52. On the pane as actually drawn: at the centre every one of the five fails
+ *     AA (4.06 / 3.28 / 2.62 / 2.09 / 1.66) and at the bottom-right **white body text falls to
+ *     3.55:1**, under AA for normal text. The suite stayed green throughout. This is the PR #540
+ *     shape at full scale, and it is why "a comment asserting a safety property is a claim to
+ *     verify, not a fact to trust" is the first entry in AGENTS.md's gotchas.
+ *
+ *     What the fix gives up: a gradient can blend two colours around a corner and per-side
+ *     borders cannot. That is real and it is small — a 1.5px stroke changing colour over a 16px
+ *     arc is not perceptible — and it was never worth washing the pane to get.
+ *     `__tests__/glassMaterial.test.ts` now asserts the pane is painted by ONE flat fill with no
+ *     gradient behind it.
  *   - **The fill is a pair.** `surfaceGlass` is what gets PAINTED; `surface` is the same
  *     colour already composited over the backdrop, and is what every contrast test measures.
  *     They are derived from each other by construction — dark's alpha was chosen so the
@@ -147,7 +177,6 @@
  */
 import React from 'react';
 import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import {
   BORDER_WIDTH,
@@ -436,17 +465,15 @@ export default function Surface({
       card
     );
 
-  const innerTopLeftRadius = Math.max(0, topLeftRadius - edgeWidth);
-  const innerTopRightRadius = Math.max(0, topRightRadius - edgeWidth);
-  const innerBottomLeftRadius = Math.max(0, bottomLeftRadius - edgeWidth);
-  const innerBottomRightRadius = Math.max(0, bottomRightRadius - edgeWidth);
-
-  // The border is drawn as a `LinearGradient` padding-ring rather than as a View's own
-  // `borderColor`, for one specific reason worth keeping: RN's native border renderer doesn't
-  // reliably blend two colours around a rounded corner (worse on Android), so a two-stop edge
-  // set via border props can render the corner as a flat cut even when the fill looks properly
-  // rounded. A gradient FILL clipped by borderRadius has no such problem on any platform. The
-  // mask inside it carries the opaque page.
+  // ⚠️ **The border was a `LinearGradient` padding-ring until 2026-08-27, and that is the bug
+  // this file's header documents.** The reason it existed is still true — RN's native border
+  // renderer does not reliably BLEND two colours around a rounded corner, where a gradient fill
+  // clipped by `borderRadius` has no such problem — but the sentence that made it safe stopped
+  // being true on 2026-08-15 and nobody noticed: "the mask inside it carries the opaque page".
+  // The mask stopped being opaque when the fill became `surfaceGlass`, and a full-area gradient
+  // behind an 86%-transparent mask is a wash, not a ring.
+  //   Per-side border colours are what `glassKey()` has used on every button in the app since
+  // the 2026-08-17 matte pass, so the card is on the technique the codebase already had.
   return asKey(
     <View
       style={[
@@ -463,37 +490,32 @@ export default function Surface({
         shadowLevel === 'flat' ? null : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) },
       ]}
     >
-      <LinearGradient
-        colors={ramp.colors}
-        locations={ramp.locations}
-        // Diagonal, from getGlassEdge — a vertical sweep would light the top edge and leave
-        // the left one dark, and the brief asks for both. `?? ` keeps the older RimGradient
-        // producers (computeRimGradient/computeBorderRamp) rendering vertically as they always
-        // did, since neither sets these.
-        start={ramp.start ?? { x: 0, y: 0 }}
-        end={ramp.end ?? { x: 0, y: 1 }}
-        style={[
-          styles.ring,
-          maskGrowStyle,
-          {
-            borderTopLeftRadius: topLeftRadius,
-            borderTopRightRadius: topRightRadius,
-            borderBottomLeftRadius: bottomLeftRadius,
-            borderBottomRightRadius: bottomRightRadius,
-            padding: edgeWidth,
-          },
-        ]}
-      >
         <View
           style={[
             styles.mask,
             maskGrowStyle,
             {
-              borderTopLeftRadius: innerTopLeftRadius,
-              borderTopRightRadius: innerTopRightRadius,
-              borderBottomLeftRadius: innerBottomLeftRadius,
-              borderBottomRightRadius: innerBottomRightRadius,
+              borderTopLeftRadius: topLeftRadius,
+              borderTopRightRadius: topRightRadius,
+              borderBottomLeftRadius: bottomLeftRadius,
+              borderBottomRightRadius: bottomRightRadius,
               backgroundColor: fill,
+              // ⚠️ **The edge is a real BORDER, per side — it is not a gradient any more
+              // (2026-08-27, round 20).** See this file's header for the measurement; the short
+              // version is that a full-area `LinearGradient` behind an 86%-transparent fill is
+              // not a ring, it is a wash over the whole pane, and it was the "clouded / milky /
+              // not glass" report.
+              //   Two colours, top-left lit and bottom-right shaded, is exactly what
+              // `glassKey()` already does on every button in the app, so this is the technique
+              // the codebase had rather than a new one. What it gives up is the BLEND around a
+              // corner that only a gradient can do — the reason the ring existed. That is a
+              // real loss and a small one: a 1.5px stroke changing colour over a 16px arc is
+              // not perceptible, and it was never worth washing the pane to get.
+              borderWidth: edgeWidth,
+              borderTopColor: ramp.colors[0],
+              borderLeftColor: ramp.colors[0],
+              borderBottomColor: ramp.colors[ramp.colors.length - 1],
+              borderRightColor: ramp.colors[ramp.colors.length - 1],
             },
           ]}
         >
@@ -542,7 +564,6 @@ export default function Surface({
           ) : null}
           <View style={[content, padding]}>{children}</View>
         </View>
-      </LinearGradient>
     </View>
   );
 }
