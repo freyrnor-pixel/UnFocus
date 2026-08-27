@@ -422,8 +422,8 @@ export const CARDS = {
   // ── Habits ─────────────────────────────────────────────────────────────────────────────
   // Top-level cards on their own tab again since 2026-08-22. They were `nested` under the Me
   // tab's Habits card and rode its ⤢; with that card gone there is no host to ride, and a card
-  // on a tab of its own is simply a card. Neither expands: this tab IS the full-screen version
-  // of both, so a pane would be the screen you are already looking at.
+  // on a tab of its own is simply a card. This card expanded from 2026-08-27 (round 20 phase 6)
+  // — see its own note for why the "the tab IS the full-screen version" refusal was reversed.
   habitsList: {
     screen: 'habits',
     order: 1,
@@ -431,9 +431,19 @@ export const CARDS = {
     domain: 'habit',
     title: (t) => t.nav.habits,
     fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "Today's habits are the Habits tab's primary content, so a full-screen copy of them is a second rendering of the screen you are already on — the same refusal shopLists makes on Shop.",
+    // ⚠️ **This declined a pane until 2026-08-27 (round 20, phase 6), and the reversal is the
+    // maintainer's call, not a drift.** The refusal read: *"Today's habits are the Habits tab's
+    // primary content, so a full-screen copy of them is a second rendering of the screen you are
+    // already on — the same refusal shopLists makes on Shop."* That reasoning is still true in
+    // isolation; what changed is that it is no longer in isolation. The `growth` group's strip
+    // (components/CardExpandHost.tsx) lets one pane switch to another member's WITHOUT going back
+    // to the tab, and a member with no pane cannot be switched to — so of three members only
+    // `healthMedicine` had one, and the strip had nothing to be a strip of. The prototype had the
+    // same contradiction and hid it (it marked this card `expand:false` and its tab handler opened
+    // a pane anyway); making the refusal and the strip agree is the fix, in the direction the
+    // maintainer chose. **`shopLists` keeps its identical refusal** — it is in no group, so
+    // nothing about this applies to it; don't "make it consistent".
+    expand: 'surface',
     // This tab has exactly one card, so "the first card rests open" (2026-08-26, phase 5 of
     // DESIGN_COMPARISON/19-IMPLEMENTATION.md decision (b)) and "always open" coincide here —
     // still worth stating explicitly rather than leaving it implicit, since every other
@@ -466,9 +476,12 @@ export const CARDS = {
     domain: 'health',
     title: (t) => t.thisWeekLabel,
     fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "This week's issues are the Health tab's primary content — a pane for them is a second rendering of the screen you are already on.",
+    // ⚠️ Reversed in the same 2026-08-27 pass, for the same reason — see `habitsList`'s note. The
+    // refusal read: *"This week's issues are the Health tab's primary content — a pane for them is
+    // a second rendering of the screen you are already on."* Its pane mounts
+    // `HealthSurface section="week"`, which is that card's body ALONE — deliberately not the whole
+    // surface, or the pane really would be the second rendering the old refusal warned about.
+    expand: 'surface',
     // `openAtRest` (2026-08-26, phase 5 decision (b) — "the first card on each screen rests
     // open") — this tab's own first card, same exception as `todoToday`/`shopLists`/`habitsList`.
     openAtRest: true,

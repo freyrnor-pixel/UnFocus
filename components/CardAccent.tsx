@@ -119,7 +119,11 @@ type IoniconsName = keyof typeof Ionicons.glyphMap;
  * These are load-bearing since A.3 collapsed nine identity hues to four: several domains now
  * share a hue, so the glyph is the only thing separating them. Keep the silhouettes distinct.
  */
-const DOMAIN_ICON: Record<Domain, IoniconsName> = {
+// Exported since 2026-08-27 (round 20 phase 6) for components/CardExpandHost.tsx's group strip,
+// which draws each member's glyph beside its name. A second map there would be the "two owners
+// for one thing" shape this repo keeps closing — a tab and the badge it stands for must not be
+// able to disagree about which silhouette a domain has.
+export const DOMAIN_ICON: Record<Domain, IoniconsName> = {
   task: 'checkmark-circle',
   plan: 'calendar',
   habit: 'repeat',
