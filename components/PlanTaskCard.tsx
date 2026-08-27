@@ -1859,6 +1859,7 @@ export default function PlanTaskCard({
     <Card
       id="homeToday"
       count={countableTasks.length > 0 ? { left: pendingCount, total: countableTasks.length } : undefined}
+      peek={t.peek.homeToday(pendingCount, countableTasks.length - pendingCount)}
       controls={cardMenu ? <CardMenuButton cardTitle={t.home.todaysPlans} {...cardMenu} /> : null}
     >
       {body}

@@ -497,6 +497,7 @@ const SCAN = () => {
         kind: 'wrapped', text: txt.slice(0, 70), lines,
         avail: Math.round(avail), natural: Math.round(natural),
         needForOne: Math.round(natural - avail), fontSize: cs.fontSize,
+        testId: el.getAttribute('data-testid') || '',
       });
     } else if (natural > avail + 1) {
       // ── 2. Single line but overflowing: ellipsised or clipped.
@@ -504,10 +505,31 @@ const SCAN = () => {
         kind: 'truncated', text: txt.slice(0, 70), lines: 1,
         avail: Math.round(avail), natural: Math.round(natural),
         needForOne: Math.round(natural - avail), fontSize: cs.fontSize,
+        testId: el.getAttribute('data-testid') || '',
       });
     }
   }
-  return { texts, rows, clipped };
+  // ── 4. Card peek lines, collected in FULL — every one, fitting or not.
+  // The three passes above only record a node when it already misbehaves, which is right for
+  // them (a report of every text that fits would be the whole app). It is wrong here: the peek
+  // gate below fails the run, so it has to be able to say how many peeks it actually LOOKED at.
+  // Otherwise a change that stops peeks rendering at all reads as a clean pass — the same
+  // un-measurement trap `npm run halos` documents, and the reason its output states a count.
+  const peeks = [];
+  for (const el of document.querySelectorAll('[data-testid="card-peek"]')) {
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    const prevWS = el.style.whiteSpace, prevOF = el.style.overflow;
+    el.style.whiteSpace = 'nowrap'; el.style.overflow = 'visible';
+    const natural = el.scrollWidth;
+    el.style.whiteSpace = prevWS; el.style.overflow = prevOF;
+    peeks.push({
+      text: (el.textContent || '').trim().slice(0, 70),
+      avail: Math.round(rect.width), natural: Math.round(natural),
+      over: Math.round(natural - rect.width),
+    });
+  }
+  return { texts, rows, clipped, peeks };
 };
 
 const screens = [];
@@ -866,6 +888,7 @@ async function main() {
   const allTexts = screens.flatMap((s) => s.texts.map((t) => ({ ...t, screen: s.name })));
   const allRows = screens.flatMap((s) => s.rows.map((r) => ({ ...r, screen: s.name })));
   const allClipped = screens.flatMap((s) => (s.clipped || []).map((c) => ({ ...c, screen: s.name })));
+  const allPeeks = screens.flatMap((s) => (s.peeks || []).map((c) => ({ ...c, screen: s.name })));
   const uniq = (arr, key) => {
     const seen = new Set();
     return arr.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -907,6 +930,30 @@ async function main() {
   console.log(`\nNEAR-MISS wrapped text (would fit on one line with <=60px more): ${near.length}`);
   for (const t of near.sort((a, b) => a.needForOne - b.needForOne)) {
     console.log(`  +${t.needForOne}px | avail=${t.avail} ${t.fontSize} [${t.screen}] ${JSON.stringify(t.text)}`);
+  }
+
+  // ── Card peek lines — the one category that FAILS the run ────────────────────────────────
+  // Everything above is advisory: it carries documented benign findings (BottomNav's autosized
+  // label, the design lab's chip clouds) and a human reads it. A peek is different. It is a
+  // fixed slot of ~180px that copy is authored INTO, the mockups it came from truncated 7 of
+  // their 8 in English — the shorter language — and a peek that ellipsises has failed at the one
+  // job it has, which is to say what a closed card holds. So it is a hard gate, and the fix is
+  // always to shorten the string in lib/i18n.ts rather than to widen anything.
+  //   ⚠️ **`tour-step` is excluded, and only from THIS gate.** The pager runs `lazy: false`, so
+  // that scan measures the cards on the other two tabs as well as the one the spotlight is on,
+  // at whatever transient width they have mid-transition — AGENTS.md's own note says to trust
+  // the per-screen scans over it. It reported two peeks at `avail=67` and `avail=91` against a
+  // real slot of ~190, i.e. it was measuring a card mid-slide. Excluding it here does not hide
+  // anything: every one of those cards is measured again, settled, on its own screen.
+  const peeks = uniq(allPeeks.filter((p) => p.screen !== 'tour-step'), (p) => `${p.screen}:${p.text}`);
+  const peeksBad = peeks.filter((p) => p.over > 1);
+  console.log(`\nCARD PEEK lines — ${peeks.length} drawn, ${peeksBad.length} over budget`);
+  for (const t of peeksBad.sort((a, b) => b.over - a.over)) {
+    console.log(`  over by ${t.over}px | avail=${t.avail} [${t.screen}] ${JSON.stringify(t.text)}`);
+  }
+  if (peeksBad.length) {
+    console.log('  ^ shorten these in lib/i18n.ts\'s `peek` block — the slot does not grow.');
+    process.exitCode = 1;
   }
 
   const totalWrapped = allTexts.filter((t) => t.kind === 'wrapped').length;

@@ -38,6 +38,7 @@ import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import MedicineSurface from '@/components/MedicineSurface';
 import { useT } from '@/lib/i18n';
+import { useMedicineStore } from '@/store/useMedicineStore';
 
 type Props = {
   /** The host screen's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮". */
@@ -46,9 +47,14 @@ type Props = {
 
 export default function MedicineCard({ cardMenu }: Props) {
   const t = useT();
+  // The peek counts medicines on a TRAY (morning/midday/evening/night), not every medicine the
+  // person has: an as-needed medicine belongs to no tray and nothing ever nudges you to take
+  // one, so counting it as "daily" would state a schedule that deliberately does not exist.
+  const dailyCount = useMedicineStore((s) => s.medicines.filter((m) => m.trays.length > 0).length);
   return (
     <Card
       id="healthMedicine"
+      peek={t.peek.healthMedicine(dailyCount)}
       controls={
         <>
           <MedicineReminderBell />

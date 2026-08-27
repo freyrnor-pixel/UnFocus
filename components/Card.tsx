@@ -85,6 +85,12 @@ type CardProps = {
   /** Optional tally shown after the title. A size, never a score. */
   count?: number | { left: number; total: number };
   /**
+   * One line under the title saying what is inside — see `SectionRail`'s `peek`, which owns the
+   * rendering and the width budget. Live state, like `count`, which is why it is a prop: the
+   * registry holds what a card LOOKS like, never what it currently holds.
+   */
+  peek?: string;
+  /**
    * Ref onto the rendered count, to MEASURE it. One caller — components/HomeShoppingCard.tsx
    * flies a ticked row to that figure. Not a styling hook; see SectionRail's `countRef`.
    */
@@ -98,7 +104,7 @@ type CardProps = {
   children: React.ReactNode;
 };
 
-export default function Card({ id, count, countRef, controls, embedded, contentStyle, children }: CardProps) {
+export default function Card({ id, count, peek, countRef, controls, embedded, contentStyle, children }: CardProps) {
   const t = useT();
   const theme = useAppTheme();
   const spec = cardSpec(id);
@@ -122,6 +128,7 @@ export default function Card({ id, count, countRef, controls, embedded, contentS
       label={label}
       count={count}
       countRef={countRef}
+      peek={peek}
       embedded={embedded}
       contentStyle={contentStyle}
       collapsed={folds ? collapsed : undefined}
@@ -163,6 +170,8 @@ type ShellProps = {
   badgeHue?: boolean;
   label: string;
   count?: number | { left: number; total: number };
+  /** See CardProps' `peek`. */
+  peek?: string;
   countRef?: React.Ref<Text>;
   onLabelPress?: () => void;
   /** Accessible name for the pressable title, when pressing it does something. */
@@ -201,6 +210,7 @@ export function CardShell({
   label,
   count,
   countRef,
+  peek,
   onLabelPress,
   labelPressHint,
   controls,
@@ -226,6 +236,7 @@ export function CardShell({
       label={label}
       count={count}
       countRef={countRef}
+      peek={peek}
       // The middle rung of the heading ladder: 20 with a badge. A card is not a group heading
       // (24, no badge) and not a section inside one (17, a dot) — see SectionRail's `tier`.
       tier={tier}
@@ -251,18 +262,27 @@ export function CardShell({
       style={isClosed ? styles.railClosed : undefined}
       right={
         <>
-          {/* ⚠️ **The caller's own controls, then the ⤢, then the fold — always, and the fold
-              is last.** The rule was `controls → fold` alone from 2026-08-22 (when the ⤢ was
-              deleted app-wide) until 2026-08-26, which puts it back one step inside the fold —
-              see the header note for the measured cost the maintainer accepted to get it back.
-              `SectionCard` implemented the opposite chevron-first order for months before that:
-              the Katalog card came out `fold → camera → lock` where the rule asks for
-              `camera → lock → fold`. There is one place to get it right now. */}
-          {controls}
-          {expandButton}
+          {/* ⚠️ **The fold, then the caller's own controls, then the ⤢ — always, and the ⤢ is
+              last** (2026-08-27, round 20). This REVERSES the order that stood here from
+              2026-08-26, which read `controls → ⤢ → fold` with the fold outermost, and it is a
+              maintainer ruling against the drawn mockup rather than a re-derivation: the round 20
+              screens put the chevron first and the expand control in the corner, on every card,
+              on every screen.
+                The reasoning that produced the old order is still worth knowing, because it is
+              what makes this a real reversal and not drift. The fold was put outermost so the
+              control a user reaches for most often sits in the corner where the thumb lands. The
+              ruling trades that for a different consistency: the ⤢ is the one control that
+              changes what SCREEN you are looking at, and the mockup keeps it in the same corner
+              on every card whether or not that card also folds — which the old order could not,
+              since a non-folding card's ⤢ then sat where a folding card's chevron sat.
+                `SectionCard` drew chevron-first for months before 2026-08-26 (the Katalog card
+              came out `fold → camera → lock`); that was drift, this is the same shape arrived at
+              deliberately, and there is still exactly one place it is spelled. */}
           {folds && (
             <CardCollapseToggle collapsed={!!collapsed} onToggle={onToggleCollapse!} cardLabel={label} />
           )}
+          {controls}
+          {expandButton}
         </>
       }
     />

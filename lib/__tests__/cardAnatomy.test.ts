@@ -253,33 +253,41 @@ function rightSlots(src: string): string[] {
   return out;
 }
 
-describe('the fold is last in the header, and the ⤢ is built in exactly one place', () => {
+describe('the fold is FIRST in the header, and the ⤢ is built in exactly one place', () => {
   /**
-   * The rule (2026-08-26, reversing 2026-08-22): a caller's own controls → the ⤢ → the fold
-   * chevron, with the FOLD outermost on every surface. It was `controls → fold` alone from
-   * 2026-08-22, when the ⤢ was deleted app-wide (maintainer: *"Remove all full screen buttons,
-   * instead user just presses the title."*), and before that `controls → fold → ⤢` from
-   * 2026-08-20. The ⤢ is back on the maintainer's explicit instruction — see components/Card.tsx's
-   * header for the measured truncation cost they accepted to get it — landing one step INSIDE
-   * the fold rather than after it, so the fold still inherits the corner it always has.
+   * The rule (2026-08-27, round 20, reversing 2026-08-26): the fold chevron → the caller's own
+   * controls → the ⤢, with the **⤢ outermost** on every surface.
+   *
+   * The lineage matters because this order has now been every arrangement it can be. It was
+   * `controls → fold → ⤢` (2026-08-20), then `controls → fold` alone (2026-08-22, when the ⤢ was
+   * deleted app-wide — *"Remove all full screen buttons, instead user just presses the title."*),
+   * then `controls → ⤢ → fold` (2026-08-26, when the ⤢ came back one step inside the fold so the
+   * fold kept the corner). Round 20's drawn screens put the chevron first and the ⤢ in the
+   * corner, and the maintainer ruled for the mockup.
+   *
+   * What the reversal buys, since the previous order was not arbitrary either: the ⤢ is the one
+   * control that changes which SCREEN you are on, and it now sits in the same corner on every
+   * card whether or not that card folds. Under the old order it could not — a non-folding card's
+   * ⤢ landed exactly where a folding card's chevron was.
    */
-  it("the cluster is the caller's controls, then the fold, and nothing after it", () => {
+  it("the cluster is the fold, then the caller's controls, then the ⤢", () => {
     // ⚠️ **This used to pin what `SectionCard` DID rather than what the rule says**, on the
     // reasoning that correcting it moved the chevron on every card at once and so belonged with
     // the header-convergence pass. That pass happened. The cluster is assembled in exactly one
-    // place now — components/Card.tsx — so there is no second file for a fourteenth order to
+    // place now — components/Card.tsx — so there is no second file for a fifteenth order to
     // appear in, and the import ban below is what keeps it that way.
     const slots = rightSlots(code('components/Card.tsx')).filter((slot) =>
       slot.includes('CardCollapseToggle'),
     );
     expect(slots).toHaveLength(1);
-    expect(slots[0].indexOf('{controls}')).toBeLessThan(slots[0].indexOf('CardCollapseToggle'));
-    // Nothing may follow the fold. Asserting the ABSENCE is the point: the old assertion was
-    // that `{afterFold}` came after it, so deleting the slot and deleting the whole cluster
-    // would both have failed the same way. This one only passes when the fold is genuinely the
-    // last thing in the row.
-    const after = slots[0].slice(slots[0].indexOf('CardCollapseToggle'));
+    expect(slots[0].indexOf('CardCollapseToggle')).toBeLessThan(slots[0].indexOf('{controls}'));
+    expect(slots[0].indexOf('{controls}')).toBeLessThan(slots[0].indexOf('{expandButton}'));
+    // Nothing may follow the ⤢. Asserting the ABSENCE is the point, exactly as it was when the
+    // fold held this position: an assertion that some named thing comes last would also pass if
+    // the cluster were deleted wholesale.
+    const after = slots[0].slice(slots[0].indexOf('{expandButton}') + '{expandButton}'.length);
     expect(after).not.toMatch(/<[A-Z][A-Za-z]*\b/);
+    expect(after).not.toMatch(/\{[a-z]/);
   });
 
   it('a <CardExpandButton> JSX tag appears ONLY in a card header or its expanded pane', () => {
@@ -538,5 +546,89 @@ describe('a collapsed card draws no rule and reserves no room', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+/** Every `<Card …>` opening tag in a file, ended at the `>` that is at brace depth 0. */
+function cardTags(src: string): string[] {
+  const out: string[] = [];
+  const re = /<Card\s/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    let depth = 0;
+    for (let i = m.index; i < src.length; i += 1) {
+      const c = src[i];
+      if (c === '{') depth += 1;
+      else if (c === '}') depth -= 1;
+      else if (c === '>' && depth === 0) {
+        out.push(src.slice(m.index, i + 1));
+        break;
+      }
+    }
+  }
+  return out;
+}
+
+describe('the peek line — every card says what it holds, none shows a bare count', () => {
+  /**
+   * Round 20's rule: a card the user has not opened says what is inside in words, not as a
+   * number. The mockup's own framing was that *"counts read as failure"* — a card resting shut
+   * with a `0` beside its name scores the user zero on a surface they have not filled in yet.
+   *
+   * The peek is a PROP, not registry data (it is live state, like `count`), so this has to be a
+   * source scan: every `<Card id="…">` in the app must pass one. That is the guard against the
+   * thing this feature was built to remove coming back one card at a time.
+   */
+  it('every <Card> call site passes a peek', () => {
+    const offenders: string[] = [];
+    for (const rel of sourceFiles()) {
+      if (rel === 'components/Card.tsx') continue; // where <Card> is DEFINED, not called
+      const src = code(rel);
+      // Each `<Card` opening tag up to its `>`; `id=` is what distinguishes a real call site
+      // from CardShell/CardMenuButton/CardExpandButton and friends.
+      //   ⚠️ **Scan to the `>` at brace depth ZERO, not the first one.** A non-greedy `.*?>` ends
+      // inside the first prop that contains a comparison — `count={notes.length > 0 ? … }` — and
+      // then reports three cards that do pass a peek as offenders. Caught by exactly that.
+      for (const tag of cardTags(src)) {
+        if (!/\bid=/.test(tag)) continue;
+        if (!/\bpeek=/.test(tag)) {
+          offenders.push(`${rel}: <Card ${(tag.match(/id=\{?["']?(\w+)/) ?? [])[1] ?? '?'}> has no peek`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('a peek is drawn on the card rung only, and on one line', () => {
+    // Two storeys under a `group` heading or beside a `sub` section's 6px dot is not a thing the
+    // app draws — neither rung has the room, and a peek under a group heading would make it read
+    // as a card, which is the same defect the badge rule below guards.
+    const rail = code('components/SectionRail.tsx');
+    expect(rail).toMatch(/const showPeek = isCard && !!peek;/);
+    // One line, always. A wrapping peek makes the header a variable height and undoes `Card`'s
+    // `rowMinHeight`, which exists so every card header is the same height.
+    expect(rail).toMatch(/style=\{\[styles\.peek[\s\S]{0,80}?numberOfLines=\{1\}/);
+  });
+
+  it('a zero count is not drawn beside a peek', () => {
+    // "Today 0" directly above "Nothing due today" is the same number twice — once as a verdict
+    // and once in words — and the verdict is the half the peek was built to delete. A non-zero
+    // count survives beside a peek: that is a size, and "a size yes, a score no" is unchanged.
+    const rail = code('components/SectionRail.tsx');
+    expect(rail).toMatch(/const showCount = count != null && !\(showPeek && countIsZero\);/);
+    expect(rail).toMatch(/\{showCount && \(/);
+  });
+
+  it('the peek strings carry no score and no bare zero', () => {
+    // A peek states a SIZE or says what the card is for. It must never read "0 of 5", and an
+    // empty card gets words rather than a number — that is the whole reason the count moved.
+    const src = code('lib/i18n.ts');
+    const block = src.slice(src.indexOf('  peek: {'));
+    const peeks = block.slice(0, block.indexOf('\n  pad: {'));
+    // The empty branch of every entry is a string with no interpolation in it.
+    for (const empty of peeks.match(/\?\s*'[^']*'/g) ?? []) {
+      expect(empty).not.toMatch(/\$\{/);
+      expect(empty).not.toMatch(/\b0\b/);
+    }
   });
 });

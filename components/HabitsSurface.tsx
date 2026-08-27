@@ -473,6 +473,8 @@ function HabitCard({
 export default function HabitsSurface() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
+  // Read here (not only inside HabitCard) for the header's peek line — see `habitPeek` below.
+  const surfaceLogs = useHabitStore((s) => s.logs);
   const reorderHabits = useHabitStore((s) => s.reorder);
   // Inline "ghost" undo row (2026-08-01) — see useHabitStore's `lastDeleted` doc. There's no
   // delete affordance on this screen itself; it's app/habit-form.tsx's Delete button that
@@ -581,6 +583,21 @@ export default function HabitsSurface() {
     () => profileHabits.filter((h) => habitOccursOn(h, today)),
     [profileHabits, today]
   );
+
+  /**
+   * The peek line's two numbers (2026-08-27, round 20) — "4 going · 2 untouched", over the
+   * habits DUE today rather than every habit the person has.
+   *
+   * ⚠️ **"Going" is `count > 0`, not `isDone`.** A habit with a daily goal of 3 that has been
+   * logged once is going, and saying so is the whole point: the alternative reads as 0 of 3 on a
+   * day the user has already done something, which is the scoreboard this app does not keep.
+   * Same reasoning as `lib/dayLog.ts` filing a habit on its FIRST log rather than on "met".
+   */
+  const habitPeek = useMemo(() => {
+    let going = 0;
+    for (const h of visibleHabits) if (habitProgress(h, surfaceLogs, today).count > 0) going += 1;
+    return { going, untouched: visibleHabits.length - going };
+  }, [visibleHabits, surfaceLogs, today]);
 
   /**
    * Have all the shown starter suggestions already been added? (2026-08-06 v2, "Suggested
@@ -778,7 +795,7 @@ export default function HabitsSurface() {
                 away from four cards whose heading was a name. It has the registry's title and
                 badge now, and the sentence goes back to being the first line of the body — which
                 is what `StarterCard`'s `text` already is on every other empty surface. */}
-            <Card id="habitsList">
+            <Card id="habitsList" peek={t.peek.habitsList(habitPeek.going, habitPeek.untouched)}>
 
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in

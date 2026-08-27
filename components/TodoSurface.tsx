@@ -739,6 +739,19 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForDate reads the store, not this var), not read directly
   }, [tasksForDate, today, tasks, matchFilters, energyPause.pinnedTaskId]);
 
+  // The peek line's two numbers (2026-08-27, round 20). A card resting shut used to say `0`,
+  // which on a day nobody has filled in yet reads as a score; this says what the card is for.
+  // `isCompletable` is what keeps a 'note' card out of both halves — it has no completion state
+  // at all, so counting it as "left" would promise a tick the row does not have.
+  const todayDone = useMemo(
+    () => todayList.filter((tk) => isCompletable(tk.cardType) && tk.done).length,
+    [todayList]
+  );
+  const todayLeft = useMemo(
+    () => todayList.filter((tk) => isCompletable(tk.cardType) && !tk.done).length,
+    [todayList]
+  );
+
   const dayResetTasks = useMemo(() => todayList.filter(canPostpone), [todayList]);
   const [dayResetNonce, setDayResetNonce] = useState(0);
 
@@ -994,7 +1007,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   const wheneverCard = showWhenever && (
     <View key="whenever">
-      <Card id="todoWhenever" count={wheneverAll.length}>
+      <Card id="todoWhenever" count={wheneverAll.length} peek={t.peek.todoWhenever(wheneverAll.length)}>
         {wheneverAll.length > 0 && (
           <View style={styles.cardStack}>
             {wheneverDragged.map((tk) => (
@@ -1091,7 +1104,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const todayCard = showToday && (
     <View key="today">
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
-        <Card id="todoToday" count={todayList.length}>
+        <Card id="todoToday" count={todayList.length} peek={t.peek.todoToday(todayLeft, todayDone)}>
           {groupByPerson ? (
             <View style={styles.cardStack}>
               {/* `embedded`: these sit inside the Today card, and a Surface inside a Surface is
@@ -1214,7 +1227,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // That was never a reason: `Card`'s body is whatever the caller passes, and seven embedded
     // `SectionCard`s are one child like any other.
     <View key="week">
-      <Card id="todoWeek" count={weekTaskCount}>
+      <Card id="todoWeek" count={weekTaskCount} peek={t.peek.todoWeek(weekTaskCount)}>
         <View style={styles.weekDays}>
           {weekGroups.map((group, i) => (
             <SectionCard
@@ -1243,7 +1256,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   const monthCard = showMonth && (
     <View key="month">
-      <Card id="todoMonth" count={monthAll.length}>
+      <Card id="todoMonth" count={monthAll.length} peek={t.peek.todoMonth(monthAll.length)}>
         <DoneSplitList
           tasks={monthAll}
           footer={<InlineTaskAdd date={monthDefaultDate} accent={screenHue} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="month" dateChoices={monthDateChoices} />}
@@ -1268,6 +1281,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         <Card
           id="todoRecurring"
           count={recurringAll.length}
+          peek={t.peek.todoRecurring(recurringAll.length)}
         >
           {recurringAll.length === 0 ? (
             <NarratorQuote category="todo" />

@@ -220,6 +220,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
     <Card
       id="homeNotes"
       count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}
+      peek={t.peek.homeNotes(notes.length)}
       controls={
         <>
           <PressableScale

@@ -149,7 +149,7 @@ export default function HomeCardManager({ order, labels, onReorder, onAdd, rende
           open). It sits INSIDE the gapped list so the screen's own SCREEN_GAP separates it
           from the last card, rather than carrying a margin of its own. */}
       {retiredKinds.length > 0 && (
-        <Card id={retiredCardId} count={retiredKinds.length}>
+        <Card id={retiredCardId} count={retiredKinds.length} peek={t.peek.homeRetired(retiredKinds.length)}>
           {retiredKinds.map((kind) => (
             <PressableScale
               key={kind}
