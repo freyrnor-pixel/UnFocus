@@ -573,3 +573,42 @@ describe('getRecessedField — the inputs are sunk into the pane, not drawn on i
     });
   });
 });
+
+describe('the pane is painted by ONE flat fill, with nothing behind it', () => {
+  /**
+   * ⚠️ **The defect this exists for shipped for twelve days and every test in this file stayed
+   * green through it** (2026-08-27, round 20; user report: *"This looks too stale, not like
+   * glass."*).
+   *
+   * `components/Surface.tsx` drew its edge as a full-area `LinearGradient` with the fill mask
+   * inside it, inset by the border width. That is a ring only while the mask is OPAQUE — which
+   * the render site's own comment asserted it was, and which stopped being true on 2026-08-15
+   * when the fill became `surfaceGlass`, 86% transparent. So the ramp washed the whole pane:
+   * measured `rgb(75,70,82)` → `rgb(135,135,148)` across one card where this file's assertions
+   * all assume a flat `#242424`.
+   *
+   * Every composite check in this file was therefore measuring a colour no card drew. At the
+   * centre of a pane all five identity hues fail AA; at the bottom, white body text falls to
+   * 3.55:1. **That is what a passing suite looked like.** So the structural fact — nothing is
+   * painted behind the fill — is asserted here directly, not inferred from a colour.
+   */
+  const surface = readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8');
+
+  it('mounts no gradient behind the fill', () => {
+    // A gradient ANYWHERE in this component is the shape of the bug: the only way one can be
+    // drawn here is as a layer under or over the pane, and both wash it.
+    expect(surface).not.toMatch(/<LinearGradient/);
+    expect(surface).not.toMatch(/from 'expo-linear-gradient'/);
+  });
+
+  it('draws the edge as per-side border colours, the way glassKey already does', () => {
+    // Two colours, lit at the top-left and shaded at the bottom-right — the same edge the ring
+    // described, on the technique `constants/theme.ts`'s glassKey() has used for every button
+    // since the 2026-08-17 matte pass.
+    for (const side of ['borderTopColor', 'borderLeftColor', 'borderBottomColor', 'borderRightColor']) {
+      expect(surface).toMatch(new RegExp(`${side}: ramp\\.colors\\[`));
+    }
+    // ...and the fill is a single flat colour on that same view, so there is exactly one paint.
+    expect(surface).toMatch(/backgroundColor: fill,/);
+  });
+});
