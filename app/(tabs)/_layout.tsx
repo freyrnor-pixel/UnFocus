@@ -205,6 +205,7 @@ import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
+import { CHROME_FLOAT_INSET } from '@/constants/theme';
 
 // Max horizontal drift (px) of the shared background as you swipe across the tabs — a
 // subtle parallax that adds depth without re-coupling the backdrop to the swipe the way a
@@ -307,7 +308,13 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
         zIndex: 100,
         height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
         paddingBottom: insetsBottom + NAV_FLOAT_GAP,
-        paddingHorizontal: NAV_FLOAT_GAP,
+        // ⚠️ **The SIDE inset is `CHROME_FLOAT_INSET`, not `NAV_FLOAT_GAP` (2026-08-27, round
+        // 20).** These were the same number (8) and are two different questions: the gap is how
+        // far the bar floats above the safe area, the inset is how far it sits in from the screen
+        // edge — and the inset has to agree with the header's and with every screen's content
+        // padding, which it did not. Sharing one constant with `ScreenScaffold` is the fix; the
+        // two being spelled in two files is how they drifted.
+        paddingHorizontal: CHROME_FLOAT_INSET,
       }}
     >
       <BottomNav state={state as any} navigation={navigation as any} />

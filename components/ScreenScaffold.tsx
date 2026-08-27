@@ -235,7 +235,7 @@
 import React, { useCallback, useRef } from 'react';
 import { Keyboard, NativeScrollEvent, NativeSyntheticEvent, PixelRatio, Platform, ScrollView, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
-import { getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
+import { CHROME_FLOAT_INSET, CHROME_REST_GAP, getHeaderMetrics, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { nextStep, parseProgress } from '@/lib/tourSteps';
@@ -534,7 +534,25 @@ export default function ScreenScaffold({
   const headerFloatBottom = 0;
   // Spacing.sm (was .md) to match BottomNav's NAV_FLOAT_GAP (app/(tabs)/_layout.tsx) — the
   // header and bottom-nav floating cards should read as the same width (2026-07-24).
-  const headerFloatH = floatChrome ? Spacing.sm : 0;
+  // **One inset for all three (2026-08-27, round 20).** This was `Spacing.sm` (8) from
+  // 2026-07-24, when its stated job was only that the header and the nav card *read as the same
+  // width as each other* — which it achieved, and which quietly left the third card out of the
+  // comparison. Every screen pads its content by `Spacing.md`, so the header's and the bar's left
+  // edges sat 8px OUTSIDE every content card's left edge, on every screen, in both themes. No
+  // ruling ever chose that; it is what you get when two numbers are written in two files. The
+  // round 20 mockup insets all three equally and it is most of why its stacks read as tidier.
+  //   ⚠️ **The cost is real and is paid in LIGHT mode.** The clip window is derived from this, so
+  // the window now lands exactly on the content cards' edges and a card's side shadow is clipped
+  // entirely (`getLayeredShadow`'s widest pass reaches ~11px horizontally — already clipped to 8
+  // before this, so what is lost is the last 8). In dark mode that costs nothing: `theme.shadow`
+  // is `rgba(0,0,0,0.72)` over a `#000000` backdrop. In light it flattens a card's left and right
+  // bleed, leaving `getGlassEdge`'s 1.5px stroke to separate it — which is what that stroke is
+  // for, and it is why the edge is asserted at ≥3:1 on both sides in both modes. The mockup makes
+  // the same trade: its `.stack` is `overflow:auto` and clips a 28px card shadow at 14px.
+  //   The constant is shared with `app/(tabs)/_layout.tsx`, which positions the nav card, because
+  // the two being written separately is how they came to disagree with the content in the first
+  // place. Do not re-inline either half.
+  const headerFloatH = floatChrome ? CHROME_FLOAT_INSET : 0;
   const headerBlockHeight = HEADER_HEIGHT + topInset + headerFloatTop + headerFloatBottom;
   // How far below the safe-area top the header footprint ends — what content must clear.
   const contentTopClear = headerBlockHeight - topInset;
@@ -788,14 +806,25 @@ export default function ScreenScaffold({
   // to `viewportInset`, which is where content is CUT. One each, never both: the window runs the
   // chrome's full height now, so without this the first card would render underneath the header
   // at rest, and with it on both the screen grows a blank band the height of its own header.
-  //   Both numbers are the chrome's own footprint and nothing more — no 8px breathing strip
-  // (2026-08-19's "flush at rest too", reaffirmed 2026-08-20's "no gaps"). `contentTopClear`
-  // folds in `headerFloatBottom`, which is 0, so the first card rests exactly against the header
-  // card's bottom edge; `BOTTOM_NAV_HEIGHT` is the bar's card alone, the band under it having
-  // already been taken as margin above.
+  //   Each number is the chrome's own footprint PLUS `CHROME_REST_GAP` (2026-08-27, round 20).
+  // That gap reverses 2026-08-19's "flush at rest too" and 2026-08-20's "no gaps" — narrowly, and
+  // read the constant's own note before undoing it. Those rulings were about the strip a card is
+  // SLICED ACROSS while scrolling and about the corner notches, both of which live on
+  // `viewportInset` above; nothing there moved, so a card still travels behind the glass and is
+  // still hidden by it. Only where content COMES TO REST changed, which is the one thing the
+  // round 20 mockup fixes here and the maintainer's own report ("the top card is still touching
+  // the header when scrolled fully up, no breathing room").
+  //   ⚠️ **Both ends or neither.** `contentTopClear` folds in `headerFloatBottom` (0), so the top
+  // is the header card's bottom edge plus the gap; `BOTTOM_NAV_HEIGHT` is the bar's card alone —
+  // the band beneath it is already margin above — so the bottom is the bar's top edge plus the
+  // same gap. The mockup shipped 12 above and 28 below, from a bottom padding that overshot its
+  // own nav, and an asymmetry nobody chose is what this symmetry is guarding against.
   const contentPad = {
-    paddingTop: contentTopClear + (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
-    paddingBottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT : 0,
+    paddingTop:
+      contentTopClear +
+      CHROME_REST_GAP +
+      (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
+    paddingBottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT + CHROME_REST_GAP : 0,
   };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})

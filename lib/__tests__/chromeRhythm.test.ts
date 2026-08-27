@@ -206,7 +206,9 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(source).toMatch(/marginBottom: pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0,/);
     // The other half is the RESTING clearance, and it is padding, never a second margin — one
     // clearance each, never both, is the one rule that has survived every one of these passes.
-    expect(source).toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT : 0,/);
+    expect(source).toMatch(
+      /paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT \+ CHROME_REST_GAP : 0,/,
+    );
     // And still never spelled as the whole clearance constant, which is only the
     // DebugGeneralNoteButton's offset from the screen edge.
     expect(source).not.toMatch(/(margin|padding)Bottom: bottomNavClearance/);
@@ -222,23 +224,60 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     const source = code('components/ScreenScaffold.tsx');
     expect(source).not.toMatch(/marginTop: contentTopClear/);
     expect(source).toMatch(
-      /paddingTop: contentTopClear \+ \(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\),/,
+      /paddingTop:\s*contentTopClear \+\s*CHROME_REST_GAP \+\s*\(stickyBelowHeader \? stickyBelowHeaderHeight \+ stickyGap : 0\),/,
     );
   });
 
-  it('clips the scroll viewport and still leaves NO resting gap at either end', () => {
+  it('clips the scroll viewport, and rests content one CHROME_REST_GAP off the chrome at BOTH ends', () => {
     const source = code('components/ScreenScaffold.tsx');
     // `overflow: hidden` is the mechanism; without it the margins are just a differently-spelled
     // padding and every strip leaks again.
     expect(source).toMatch(/viewport:\s*\{[^}]*overflow:\s*'hidden'/s);
     expect(source).toMatch(/const viewportInset = \{/);
     // `contentPad` reaches BOTH branches — the ScrollView's contentContainer and the
-    // non-scrollable (FlatList) wrapper. It is the chrome's own footprint and nothing more: no
-    // 8px breathing strip at either end (2026-08-19 "flush at rest too", reaffirmed 2026-08-20
-    // "no gaps"), which is what `headerFloatBottom === 0` states on the top edge.
-    expect(source).toMatch(/const headerFloatBottom = 0;/);
+    // non-scrollable (FlatList) wrapper.
     expect(source).toMatch(/contentContainerStyle=\{\[styles\.contentContainer, contentPad\]\}/);
     expect(source).toMatch(/\[styles\.scrollView, viewportBleed, contentPad\]/);
+    // `headerFloatBottom` stays 0 — the header's FOOTPRINT still ends where its card ends, which
+    // is what keeps the clip window and the resting clearance derived from one number.
+    expect(source).toMatch(/const headerFloatBottom = 0;/);
+    // ⚠️ **The resting gap is spent on `contentPad` and NOWHERE else (2026-08-27, round 20).**
+    // 2026-08-19's "flush at rest too" and 2026-08-20's "no gaps" were about the strip a card is
+    // sliced across while scrolling and about the corner-notch lens — both `viewportInset`. Put
+    // the gap there instead and you re-create exactly what those rulings deleted, while the
+    // resting gap the round 20 mockup asks for still would not appear.
+    expect(source).not.toMatch(/marginTop: CHROME_REST_GAP|marginBottom:[^,]*CHROME_REST_GAP/);
+    expect(source).toMatch(/const viewportBleed = \{ marginHorizontal: -headerFloatH \};/);
+  });
+
+  it('insets the header, the nav and the content by ONE shared number', () => {
+    // The bug this pins is a drift, not a value. `ScreenScaffold` spelled `Spacing.sm` and
+    // `app/(tabs)/_layout.tsx` spelled `NAV_FLOAT_GAP` — both 8, which made the header and the
+    // bar agree with each other and disagree with every content card, which pads `Spacing.md`.
+    // The 2026-07-24 note that set it only ever asked those two to match *each other*; the third
+    // card on screen was never in the comparison. So assert the two chrome sites read the SAME
+    // constant, and that it is the one the screens pad by.
+    expect(code('components/ScreenScaffold.tsx')).toMatch(
+      /const headerFloatH = floatChrome \? CHROME_FLOAT_INSET : 0;/,
+    );
+    expect(code('app/(tabs)/_layout.tsx')).toMatch(/paddingHorizontal: CHROME_FLOAT_INSET,/);
+    // ...and the vertical float is deliberately NOT the same question. If a later pass changes
+    // the side inset, the band under the bar must not follow it.
+    expect(code('app/(tabs)/_layout.tsx')).toMatch(/paddingBottom: insetsBottom \+ NAV_FLOAT_GAP,/);
+    const theme = code('constants/theme.ts');
+    expect(theme).toMatch(/export const CHROME_FLOAT_INSET = Spacing\.md;/);
+    expect(theme).toMatch(/export const SCREEN_GAP = Spacing\.md;/);
+  });
+
+  it('rests the same gap at the top and the bottom', () => {
+    // The round 20 mockup drew 12px above the first card and 28px below the last, because its
+    // 96px bottom padding overshot a 54px nav in a 14px inset. Nobody chose that asymmetry — it
+    // fell out of two numbers written at different times, which is the failure mode a single
+    // named constant at both ends exists to prevent. Assert the constant reaches both.
+    const source = code('components/ScreenScaffold.tsx');
+    const pad = source.slice(source.indexOf('const contentPad = {'));
+    const body = pad.slice(0, pad.indexOf('};'));
+    expect(body.match(/CHROME_REST_GAP/g)).toHaveLength(2);
   });
 
   it('keeps the header card mounted at every scroll offset', () => {
