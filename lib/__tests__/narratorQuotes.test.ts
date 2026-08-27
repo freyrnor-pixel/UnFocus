@@ -253,7 +253,7 @@ describe('NarratorQuote — a line on the card, not a card of its own', () => {
   });
 });
 
-describe('the italic exception is exactly one file wide, and is a real face', () => {
+describe('the italic exception is exactly two files wide, and is a real face', () => {
   // The 2026-08-18 blueprint pass deleted `fontStyle: 'italic'` from all 14 files that carried
   // it. This is a narrow, instructed exception the day after — *"muted, translucent italic
   // text… so it looks like a subtle note rather than primary UI"* — and the value of writing it
@@ -268,6 +268,9 @@ describe('the italic exception is exactly one file wide, and is a real face', ()
       // deleted app-wide. Its slot is not backfilled: the list names the files that carry
       // teaching copy and could plausibly reach for italic again, not a count to keep at four.
       'components/PlanTaskCard.tsx',
+      // ⚠️ `components/CardHintLine.tsx` is NOT in this list — it is the second sanctioned
+      // italic (2026-08-27, round 20), asserted below. It is named there rather than merely
+      // omitted here, so "two" stays a decision instead of becoming a gap.
     ]) {
       const source = code(file);
       expect({ file, italic: /fontStyle: 'italic'|Fonts\.italic/.test(source) })
@@ -281,6 +284,12 @@ describe('the italic exception is exactly one file wide, and is a real face', ()
     // is synthesised on web and iOS and does NOTHING on Android — a perfect slant in the web
     // preview, in `npm run wraps`, and in every screenshot, over an upright shipped build.
     expect(code('components/NarratorQuote.tsx')).not.toMatch(/fontStyle: 'italic'/);
+    // ⚠️ **The SECOND sanctioned italic (2026-08-27, round 20)**: a card's own hint line, back
+    // on the maintainer's ruling against the drawn screens after the 2026-08-17 pass deleted the
+    // tier. It is bound by the same two rules as the first — a real FACE, never `fontStyle`, and
+    // exactly one file — and `lib/__tests__/exampleRows.test.ts` is what keeps it to one mount.
+    expect(code('components/CardHintLine.tsx')).toMatch(/fontFamily: Fonts\.italic/);
+    expect(code('components/CardHintLine.tsx')).not.toMatch(/fontStyle: 'italic'/);
     // …which only works if the face is actually at the font gate. Both halves, or neither.
     expect(code('constants/theme.ts')).toMatch(/italic: 'Nunito_400Regular_Italic'/);
     expect(code('app/_layout.tsx')).toMatch(/Nunito_400Regular_Italic,[\s\S]*useFonts\(\{[\s\S]*Nunito_400Regular_Italic,/);

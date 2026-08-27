@@ -529,7 +529,24 @@ const SCAN = () => {
       over: Math.round(natural - rect.width),
     });
   }
-  return { texts, rows, clipped, peeks };
+  // ── 5. Card hint lines, same idea, clamped in HEIGHT rather than width.
+  // A two-line clamp that ellipsises overflows vertically, and every pass above compares widths
+  // — so this one is invisible to all of them and needs its own measurement.
+  const hints = [];
+  for (const el of document.querySelectorAll('[data-testid="card-hint"]')) {
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) continue;
+    const prevClamp = el.style.webkitLineClamp, prevOF = el.style.overflow, prevMax = el.style.maxHeight;
+    el.style.webkitLineClamp = 'unset'; el.style.overflow = 'visible'; el.style.maxHeight = 'none';
+    const natural = el.scrollHeight;
+    el.style.webkitLineClamp = prevClamp; el.style.overflow = prevOF; el.style.maxHeight = prevMax;
+    hints.push({
+      text: (el.textContent || '').trim().slice(0, 80),
+      avail: Math.round(rect.height), natural: Math.round(natural),
+      over: Math.round(natural - rect.height),
+    });
+  }
+  return { texts, rows, clipped, peeks, hints };
 };
 
 const screens = [];
@@ -889,6 +906,7 @@ async function main() {
   const allRows = screens.flatMap((s) => s.rows.map((r) => ({ ...r, screen: s.name })));
   const allClipped = screens.flatMap((s) => (s.clipped || []).map((c) => ({ ...c, screen: s.name })));
   const allPeeks = screens.flatMap((s) => (s.peeks || []).map((c) => ({ ...c, screen: s.name })));
+  const allHints = screens.flatMap((s) => (s.hints || []).map((c) => ({ ...c, screen: s.name })));
   const uniq = (arr, key) => {
     const seen = new Set();
     return arr.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; });
@@ -953,6 +971,18 @@ async function main() {
   }
   if (peeksBad.length) {
     console.log('  ^ shorten these in lib/i18n.ts\'s `peek` block — the slot does not grow.');
+    process.exitCode = 1;
+  }
+
+  // Same gate, same reasoning, for the card hint line's two-line clamp.
+  const hints = uniq(allHints.filter((h) => h.screen !== 'tour-step'), (h) => `${h.screen}:${h.text}`);
+  const hintsBad = hints.filter((h) => h.over > 1);
+  console.log(`\nCARD HINT lines — ${hints.length} drawn, ${hintsBad.length} over two lines`);
+  for (const h of hintsBad.sort((a, b) => b.over - a.over)) {
+    console.log(`  ${h.over}px past the clamp | [${h.screen}] ${JSON.stringify(h.text)}`);
+  }
+  if (hintsBad.length) {
+    console.log('  ^ shorten these in lib/i18n.ts\'s `cardHint` block — one sentence, two lines.');
     process.exitCode = 1;
   }
 

@@ -1104,7 +1104,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const todayCard = showToday && (
     <View key="today">
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
-        <Card id="todoToday" count={todayList.length} peek={t.peek.todoToday(todayLeft, todayDone)}>
+        <Card
+          id="todoToday"
+          count={todayList.length}
+          peek={t.peek.todoToday(todayLeft, todayDone)}
+          // Only while the card has rows — an empty Today already speaks through NarratorQuote,
+          // and two muted italic lines stacked is what the 2026-08-17 deletion was about.
+          hint={todayList.length > 0 ? t.cardHint.todoToday : undefined}
+        >
           {groupByPerson ? (
             <View style={styles.cardStack}>
               {/* `embedded`: these sit inside the Today card, and a Surface inside a Surface is
@@ -1227,7 +1234,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // That was never a reason: `Card`'s body is whatever the caller passes, and seven embedded
     // `SectionCard`s are one child like any other.
     <View key="week">
-      <Card id="todoWeek" count={weekTaskCount} peek={t.peek.todoWeek(weekTaskCount)}>
+      <Card
+        id="todoWeek"
+        count={weekTaskCount}
+        peek={t.peek.todoWeek(weekTaskCount)}
+        hint={weekTaskCount > 0 ? t.cardHint.todoWeek : undefined}
+      >
         <View style={styles.weekDays}>
           {weekGroups.map((group, i) => (
             <SectionCard

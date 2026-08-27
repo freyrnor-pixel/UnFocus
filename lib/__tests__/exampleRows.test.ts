@@ -47,7 +47,7 @@
  * and the web preview cannot see either (react-native-web's box model differs, and these
  * differences are single-digit pixels). Precedent: chromeRhythm, cardLayout, designTokens.
  */
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { BORDER_WIDTH } from '@/constants/theme';
 
@@ -64,6 +64,44 @@ const code = (rel: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '')
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+
+/** Every `.tsx`/`.ts` under app/, components/ and lib/, repo-relative. */
+function sourceFiles(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+        walk(rel);
+      } else if (/\.tsx?$/.test(entry.name)) out.push(rel);
+    }
+  };
+  for (const root of ['app', 'components', 'lib']) walk(root);
+  return out;
+}
+
+/**
+ * Every `<Card …>` opening tag in a file, ended at the `>` that is at brace depth 0.
+ *
+ * ⚠️ Depth-aware on purpose: a non-greedy `.*?>` ends inside the first prop containing a
+ * comparison — `count={notes.length > 0 ? … }` — and then reports cards that are fine.
+ */
+function cardTags(src: string): string[] {
+  const out: string[] = [];
+  const re = /<Card\s/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    let depth = 0;
+    for (let i = m.index; i < src.length; i += 1) {
+      const c = src[i];
+      if (c === '{') depth += 1;
+      else if (c === '}') depth -= 1;
+      else if (c === '>' && depth === 0) { out.push(src.slice(m.index, i + 1)); break; }
+    }
+  }
+  return out;
+}
 
 // ── 1. The composer is never narrowed by its own preview ─────────────────────
 
@@ -523,43 +561,91 @@ describe('the composer comes after the examples, everywhere', () => {
 
 // ── 4. No card explains itself in a lightbulb line ───────────────────────────
 
-describe('the bulb explainer line stays deleted', () => {
-  // ⚠️ **REPLACES the "CardHintNote placement is decided by emptiness" block (2026-08-17).**
-  // That block pinned where the app's one bulb-and-italic explainer sat on each of eight cards
-  // — head everywhere except EnergyMeter's permanent one at the foot. The maintainer's ruling
-  // deleted the whole tier: *"A native app should not read like a manual… Delete all lightbulb
-  // (💡) sections entirely."* So the component is gone and the assertions invert: what has to
-  // stay true now is that nothing brings it back, which is exactly the kind of thing a
-  // screenshot review re-introduces card by card without noticing it is a system.
+describe('the bulb explainer line is back, and only in one place', () => {
+  // ⚠️ **REVERSES the 2026-08-17 deletion, on the maintainer's ruling against round 20's drawn
+  // screens** (2026-08-27). That pass deleted `components/CardHintNote.tsx`, the 💡 glyph and
+  // `fontStyle: 'italic'` app-wide — *"A native app should not read like a manual… Delete all
+  // lightbulb (💡) sections entirely."* The mockups put an italic, bulb-prefixed line back under
+  // every content card's header, and the maintainer chose the mockup.
   //
-  // The placement rule it encoded is NOT lost, and is worth keeping legible in case a future
-  // brief wants a shorter explainer somewhere: an explanation belongs under the card's header
-  // ("explanation always sits underneath sub-header", 2026-08-12), and whether it disappears
-  // once the card fills up is each caller's separate decision.
+  // What has to stay true is narrower than "no bulbs", and these assertions encode it:
+  //   1. There is exactly ONE component that draws it, and one mount site (components/Card.tsx's
+  //      `hint` prop). The 2026-08-17 complaint was about a TIER of explanatory text appearing
+  //      card by card, so a single generator is what stops that recurring.
+  //   2. Nothing hand-rolls a second one out of the same two ingredients.
+  //   3. It uses `Fonts.italic`, never `fontStyle: 'italic'` — see below.
+  //   4. It is drawn only while a card has content, gated at each call site.
+  // The rest of the tier stays deleted: `HintCard` is still gone (asserted just below), and
+  // `StarterCard` is still what an EMPTY surface says.
 
-  it('has no CardHintNote component to mount', () => {
+  it('has exactly one component drawing it, and Card is its only mount', () => {
+    expect(existsSync(join(ROOT, 'components/CardHintLine.tsx'))).toBe(true);
+    // The old component stays deleted — this is a new, narrower one, not a restoration.
     expect(existsSync(join(ROOT, 'components/CardHintNote.tsx'))).toBe(false);
+    const offenders = sourceFiles().filter(
+      (rel) => rel !== 'components/Card.tsx' && /<CardHintLine\b/.test(code(rel)),
+    );
+    expect(offenders).toEqual([]);
+    expect(code('components/Card.tsx')).toMatch(/<CardHintLine\b/);
   });
 
-  for (const file of [
-    'components/PlanTaskCard.tsx',
-    'components/HomeNotesCard.tsx',
-    'components/MedicineSurface.tsx',
-    'components/EnergyMeter.tsx',
-    'components/HabitsSurface.tsx',
-    'components/HealthSurface.tsx',
-  ] as const) {
-    it(`${file} mounts no explainer line`, () => {
-      // Matches a MOUNT or an import, never a mention — these files legitimately explain in
-      // prose that they used to carry one, and a scan that trips on the explanation makes
-      // deleting the explanation the cheapest way to green.
-      const source = code(file);
-      expect(source).not.toMatch(/<CardHintNote/);
-      expect(source).not.toMatch(/from '@\/components\/CardHintNote'/);
-      // …and nothing hand-rolls a replacement out of the same two ingredients.
-      expect(source).not.toMatch(/name="bulb-outline"/);
-    });
-  }
+  it('is the only bulb in the app', () => {
+    // A second `bulb-outline` anywhere is the tier coming back one card at a time, which is
+    // exactly what the 2026-08-17 ruling was about and what a single generator prevents.
+    const offenders = sourceFiles().filter(
+      (rel) => rel !== 'components/CardHintLine.tsx' && /name="bulb-outline"/.test(code(rel)),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('every hint fits its two-line clamp, in all three languages', () => {
+    // ⚠️ **This is the guard that actually RUNS, and `npm run wraps` is not.** That audit has a
+    // `CARD HINT` pass measuring the real clamp in the real app — but a hint only draws on a card
+    // that HAS content, and the wrap walk runs on a fresh install where every card is empty, so
+    // it reports "0 drawn". A gate that can never fire is not a gate; it stays there for a walk
+    // that seeds data, and this stands in for it meanwhile.
+    //
+    // The budget: `FontSize.xs` (13) in a card ~296px wide at 360px, less the bulb glyph and its
+    // gap (22), is ~274px per line. Nunito at 13px averages ~6.4px a character, so ~42 per line
+    // and ~85 across the two. 90 is that with a little slack, which is honest for an average-
+    // width estimate — a string near the cap should be checked in the app rather than trusted.
+    //
+    // A SOURCE scan, like `copyTone.test.ts` next door and for its reason: the dictionaries are
+    // not exported (only `getTranslations`), and reading the file catches all three at once
+    // including any that a future edit adds to one language and forgets in another.
+    const CAP = 90;
+    const src = readFileSync(join(ROOT, 'lib/i18n.ts'), 'utf8');
+    const blocks = [...src.matchAll(/\n  cardHint: \{([\s\S]*?)\n  \},/g)];
+    // Three dictionaries, three blocks. If this ever reads 0 or 1 the scan has silently stopped
+    // finding them, which would pass vacuously — the failure mode this whole file is about.
+    expect(blocks).toHaveLength(3);
+    const offenders: string[] = [];
+    for (const [i, block] of blocks.entries()) {
+      for (const line of block[1].matchAll(/^\s*(\w+): '(.*)',$/gm)) {
+        if (line[2].length > CAP) {
+          offenders.push(`${['en', 'no', 'is'][i]}.cardHint.${line[1]}: ${line[2].length} chars`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('every card that passes a hint gates it on having content', () => {
+    // Both drawn at once stacks two muted italic lines with nothing between them — the hint and
+    // either NarratorQuote or StarterCard's line. The gate has to be at the call site because
+    // only the card knows what empty means for it; what is checked here is that there IS one.
+    const offenders: string[] = [];
+    for (const rel of sourceFiles()) {
+      for (const tag of cardTags(code(rel))) {
+        const hint = tag.match(/hint=\{([^}]*)\}/);
+        if (!hint) continue;
+        // A conditional — `x > 0 ? … : undefined`, `x.length ? … : undefined`. A bare
+        // `hint={t.cardHint.foo}` draws on the empty state too.
+        if (!/\?/.test(hint[1])) offenders.push(`${rel}: hint is not gated on content`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 
   /**
    * ⚠️ **The HintCard tier stays deleted at the SITE too, not only as a component** (2026-08-21,

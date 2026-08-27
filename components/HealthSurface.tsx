@@ -487,11 +487,24 @@ export default function HealthSurface({ embedded = false }: Props) {
   // `Collapsible`, so the stored fold did nothing on the Me tab. `Card` takes `embedded` for
   // exactly this, so the branches now differ in one prop and cannot drift apart again.
   const weekCard = embedded ? (
-    <Card id="healthWeek" embedded peek={t.peek.healthWeek(thisWeekIssues.length)}>{cardBody}</Card>
+    <Card
+      id="healthWeek"
+      embedded
+      peek={t.peek.healthWeek(thisWeekIssues.length)}
+      hint={thisWeekIssues.length > 0 ? t.cardHint.healthWeek : undefined}
+    >
+      {cardBody}
+    </Card>
   ) : (
     <TourTarget id="tour.health.log">
       <DebugNoteAnchor id="health.quickLog" label="Health — This week">
-        <Card id="healthWeek" peek={t.peek.healthWeek(thisWeekIssues.length)}>{cardBody}</Card>
+        <Card
+          id="healthWeek"
+          peek={t.peek.healthWeek(thisWeekIssues.length)}
+          hint={thisWeekIssues.length > 0 ? t.cardHint.healthWeek : undefined}
+        >
+          {cardBody}
+        </Card>
       </DebugNoteAnchor>
     </TourTarget>
   );

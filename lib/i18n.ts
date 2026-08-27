@@ -332,6 +332,24 @@ const en = {
    * reads "0 of 5", nothing congratulates a full one, and an empty card gets words rather than a
    * number. Rule 23 applies here as everywhere: "still due", never "missed".
    */
+  /**
+   * A card's own one-line explanation of what it is for — `components/CardHintLine.tsx`.
+   *
+   * ⚠️ **Drawn only while the card HAS content.** An empty card already speaks, through
+   * StarterCard's line or NarratorQuote's aside; two muted italic lines stacked is the
+   * "reads like a manual" failure the 2026-08-17 deletion was about. The gate is at each call
+   * site, because only the card knows what empty means for it.
+   *
+   * Two lines maximum, and one sentence. If it needs a third, the sentence is wrong.
+   * Rule 23 applies: this explains, it never nags and it never scores.
+   */
+  cardHint: {
+    todoToday: 'Break it down until it feels slightly ridiculous. That is when it starts working.',
+    todoWeek: 'A week is for seeing what is coming, not for deciding it now.',
+    shopLists: 'Add things as you run out — the weekly list clears itself.',
+    habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
+    healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
+  },
   peek: {
     todoToday: (left: number, done: number) =>
       left === 0 && done === 0 ? 'Nothing due today' : `${left} left · ${done} done`,
@@ -2595,6 +2613,13 @@ const no: typeof en = {
   showHint: 'Slik fungerer det',
   hideHint: 'Skjul instruksjoner',
   hintSheetDone: 'Ferdig',
+  cardHint: {
+    todoToday: 'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
+    todoWeek: 'En uke er for å se hva som kommer, ikke for å bestemme det nå.',
+    shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
+    habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
+    healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
+  },
   peek: {
     todoToday: (left: number, done: number) =>
       left === 0 && done === 0 ? 'Ingenting i dag' : `${left} igjen · ${done} gjort`,
@@ -4428,6 +4453,13 @@ const is: typeof en = {
   hideHint: 'Fela leiðbeiningar',
   hintSheetDone: 'Búið',
   // Talnasamræmi: `isCount` fer með alla setninguna, ekki bara nafnorðið — sjá skýringuna efst.
+  cardHint: {
+    todoToday: 'Skiptu því niður þar til það verður hálf hlægilegt. Þá fer það að virka.',
+    todoWeek: 'Vika er til að sjá hvað er framundan, ekki til að ákveða það núna.',
+    shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
+    habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
+    healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
+  },
   peek: {
     todoToday: (left: number, done: number) =>
       left === 0 && done === 0 ? 'Ekkert í dag' : `${left} eftir · ${done} lokið`,

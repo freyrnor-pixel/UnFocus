@@ -795,7 +795,11 @@ export default function HabitsSurface() {
                 away from four cards whose heading was a name. It has the registry's title and
                 badge now, and the sentence goes back to being the first line of the body — which
                 is what `StarterCard`'s `text` already is on every other empty surface. */}
-            <Card id="habitsList" peek={t.peek.habitsList(habitPeek.going, habitPeek.untouched)}>
+            <Card
+              id="habitsList"
+              peek={t.peek.habitsList(habitPeek.going, habitPeek.untouched)}
+              hint={visibleHabits.length > 0 ? t.cardHint.habitsList : undefined}
+            >
 
 
               {/* Person filter (People/family mode) — Me + each profile. Management is in

@@ -2113,7 +2113,12 @@ export default function ShoppingScreen() {
     //
     // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
     // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
-    <Card id="shopLists" count={nonTemplateLists.length || undefined} peek={t.peek.shopLists(nonTemplateLists.length)}>
+    <Card
+      id="shopLists"
+      count={nonTemplateLists.length || undefined}
+      peek={t.peek.shopLists(nonTemplateLists.length)}
+      hint={nonTemplateLists.length > 0 ? t.cardHint.shopLists : undefined}
+    >
       {true && (
         <>
           {unsavedListCount > 0 && (
