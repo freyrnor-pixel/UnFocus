@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Card editor — adding & editing inside cards</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0B0E14;color:#E6E9EF;font-family:var(--font-sans,Nunito),system-ui;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1480px;margin:0 auto;padding:56px 40px 96px}
+h1{font-size:34px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:16px;line-height:1.6;color:#9AA3B2;max-width:66ch;margin:0 0 8px}
+.sec{margin-top:64px}
+.sec-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-h h2{font-size:13px;font-weight:800;line-height:1.5;letter-spacing:.14em;text-transform:uppercase;color:#77809A;margin:0}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#77809A;margin-bottom:14px}
+.sec-note{font-size:14px;line-height:1.6;color:#8C95A6;max-width:72ch;margin:6px 0 26px}
+.toggles{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+.tg{font-family:inherit;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;padding:8px 12px;border-radius:99px;border:1px solid #262C3C;background:#141926;color:#AEB7C7;cursor:pointer}
+.tg[aria-pressed="true"]{background:#E9EDF5;color:#131722;border-color:#E9EDF5}
+.play{display:flex;gap:44px;flex-wrap:wrap;margin-top:8px}
+.col{display:flex;flex-direction:column;gap:14px;width:352px}
+.col-h{font-size:15px;font-weight:800}
+.col-sub{font-size:13px;color:#8C95A6;line-height:1.5;margin-top:-8px;min-height:40px}
+
+/* ── frame + card (from the card system) ─────────────────────── */
+.frame{position:relative;width:352px;height:640px;display:flex;flex-direction:column;border-radius:34px;overflow:hidden;padding:18px 16px 22px;background:#F1F4F9;isolation:isolate;box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.08);--frame-glow:radial-gradient(90% 62% at 12% 0%,color-mix(in srgb,var(--feature-task) 26%,transparent),transparent 70%),radial-gradient(80% 60% at 96% 30%,color-mix(in srgb,var(--feature-capture) 22%,transparent),transparent 72%),radial-gradient(70% 50% at 40% 104%,color-mix(in srgb,var(--feature-health) 20%,transparent),transparent 70%)}
+.frame.dark{background:#0E1220;--frame-glow:radial-gradient(90% 62% at 12% 0%,color-mix(in srgb,var(--feature-task) 34%,transparent),transparent 68%),radial-gradient(80% 60% at 96% 30%,color-mix(in srgb,var(--feature-capture) 30%,transparent),transparent 70%),radial-gradient(70% 52% at 40% 104%,color-mix(in srgb,var(--feature-health) 26%,transparent),transparent 68%)}
+.frame::before{content:"";position:absolute;inset:0;background:var(--frame-glow);z-index:0}
+.frame>*{position:relative;z-index:1;flex:0 0 auto}
+.frame>.stack{flex:1 1 auto;position:static;min-height:0}
+.frame-bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--text-muted);padding:0 6px 14px;opacity:.75}
+.dark .frame-bar{color:#9EA8BC}
+.stack{display:flex;flex-direction:column;gap:14px;align-content:flex-start}
+.gc{--f:var(--feature-task);position:relative;border-radius:20px;padding:14px;color:var(--text-body);backdrop-filter:blur(18px) saturate(1.25);-webkit-backdrop-filter:blur(18px) saturate(1.25);background:rgba(255,255,255,.56);border:1px solid rgba(255,255,255,.62);box-shadow:0 6px 24px rgba(16,22,38,.13),inset 0 1px 0 rgba(255,255,255,.7);transition:box-shadow .32s cubic-bezier(.2,.8,.2,1),transform .32s cubic-bezier(.2,.8,.2,1)}
+.dark .gc{background:rgba(20,26,42,.5);border-color:rgba(255,255,255,.12);color:#EDF0F6;box-shadow:0 8px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.09)}
+.gc-head{display:flex;align-items:center;gap:11px}
+.gc-icon{flex:0 0 auto;width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--f);color:var(--bubble-ink);font-size:19px;box-shadow:0 0 0 1px color-mix(in srgb,var(--f) 60%,transparent),0 0 18px color-mix(in srgb,var(--f) 55%,transparent),0 0 40px color-mix(in srgb,var(--f) 30%,transparent)}
+.gc-titles{min-width:0;flex:1}
+.gc-title{font-size:15px;font-weight:700;line-height:1.25;letter-spacing:-.005em}
+.gc-peek{font-size:13px;font-weight:600;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dark .gc-peek{color:#9EA8BC}
+.gc-ctl{display:flex;gap:6px;flex:0 0 auto}
+.gc-btn{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.46);color:var(--text-muted);font-size:15px;cursor:pointer}
+.dark .gc-btn{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);color:#C3CBDA}
+.gc-body{margin-top:12px}
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.5);font-size:14px;font-weight:600}
+.dark .row{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.09)}
+.chk{width:20px;height:20px;border-radius:999px;border:2px solid var(--neutral);flex:0 0 auto}
+.chk.on{border-color:var(--f);background:var(--f);box-shadow:0 0 14px color-mix(in srgb,var(--f) 60%,transparent)}
+.row .sub{margin-left:auto;font-size:12px;font-weight:700;color:var(--text-muted)}
+.dark .row .sub{color:#98A2B6}
+.gc-foot{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:13px;font-weight:700;color:var(--f);cursor:pointer}
+.dark .gc-foot{color:color-mix(in srgb,var(--f) 65%,#fff)}
+.row.editing{border-color:color-mix(in srgb,var(--f) 55%,transparent);background:color-mix(in srgb,var(--f) 10%,rgba(255,255,255,.5));box-shadow:0 0 0 3px color-mix(in srgb,var(--f) 16%,transparent)}
+.dark .row.editing{background:color-mix(in srgb,var(--f) 22%,rgba(255,255,255,.04))}
+
+/* ── tier 1 · quick add, inline in the card ──────────────────── */
+.qa{display:flex;align-items:center;gap:8px;margin-top:9px;padding:7px 8px 7px 10px;border-radius:14px;background:rgba(255,255,255,.62);border:1px solid color-mix(in srgb,var(--f) 46%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--f) 14%,transparent)}
+.dark .qa{background:rgba(255,255,255,.08);border-color:color-mix(in srgb,var(--f) 55%,transparent)}
+.qa input{flex:1;min-width:0;border:0;background:none;font-family:inherit;font-size:14px;font-weight:700;line-height:1.3;color:inherit;outline:none}
+.qa input::placeholder{color:var(--text-muted);font-weight:600}
+.qa .qchip{flex:0 0 auto;font-size:11px;font-weight:800;padding:5px 8px;border-radius:99px;color:var(--f);background:color-mix(in srgb,var(--f) 15%,transparent);white-space:nowrap}
+.iconbtn{width:30px;height:30px;flex:0 0 auto;border-radius:10px;border:0;display:grid;place-items:center;font-size:16px;cursor:pointer;background:rgba(140,150,170,.16);color:var(--text-muted)}
+.dark .iconbtn{background:rgba(255,255,255,.1);color:#C3CBDA}
+.iconbtn.go{background:var(--f);color:var(--bubble-ink);box-shadow:0 0 16px color-mix(in srgb,var(--f) 55%,transparent)}
+.iconbtn.go[disabled]{opacity:.4;box-shadow:none;cursor:default}
+.qa-hint{font-size:11.5px;font-weight:700;color:var(--text-muted);margin-top:7px;display:flex;align-items:center;gap:5px;padding-left:4px}
+
+/* ── tier 2/3 · editor sheet ─────────────────────────────────── */
+.scrim{position:absolute;inset:0;z-index:4;background:rgba(12,16,26,.34);backdrop-filter:blur(2px)}
+.esheet{position:absolute;left:0;right:0;bottom:0;z-index:5;max-height:88%;overflow:auto;padding:12px 16px 16px;border-radius:26px 26px 34px 34px;background:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.66);backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 -12px 44px rgba(16,22,38,.24);color:var(--text-body)}
+.dark .esheet{background:rgba(13,18,30,.86);border-color:rgba(255,255,255,.12);color:#EDF0F6}
+.esheet.full{top:0;border-radius:0;max-height:none;padding:16px;display:flex;flex-direction:column}
+.esheet.full .fields{flex:1 1 auto;overflow:auto;min-height:0}
+.esheet.full .savebar{flex:0 0 auto}
+.grab{width:38px;height:4px;border-radius:99px;background:rgba(140,150,170,.4);margin:2px auto 12px}
+.esheet.full .grab{display:none}
+.eh{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.eh .gc-icon{width:32px;height:32px;border-radius:11px;font-size:17px}
+.eh b{font-size:16px;font-weight:800;flex:1;min-width:0}
+.eh small{display:block;font-size:11.5px;font-weight:700;color:var(--text-muted);margin-top:1px}
+.xbtn{width:30px;height:30px;border-radius:10px;border:0;display:grid;place-items:center;background:rgba(140,150,170,.16);color:var(--text-muted);font-size:16px;cursor:pointer}
+.dark .xbtn{background:rgba(255,255,255,.1);color:#C3CBDA}
+.fields{display:flex;flex-direction:column;gap:13px}
+.fl{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px}
+.in{width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.55);padding:11px 12px;font-family:inherit;font-size:14px;font-weight:600;line-height:1.35;color:inherit;outline:none}
+.dark .in{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)}
+.in:focus{border-color:color-mix(in srgb,var(--f) 60%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--f) 16%,transparent)}
+.in.big{font-size:17px;font-weight:700;padding:13px 13px}
+textarea.in{resize:none;min-height:66px}
+.chips{display:flex;gap:7px;flex-wrap:wrap;min-width:0}
+.chip{font-family:inherit;font-size:12.5px;font-weight:700;line-height:1;white-space:nowrap;padding:9px 11px;border-radius:99px;cursor:pointer;color:var(--text-muted);background:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.6)}
+.dark .chip{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.13);color:#AEB8C9}
+.chip.on{color:var(--bubble-ink);background:var(--f);border-color:transparent;box-shadow:0 0 16px color-mix(in srgb,var(--f) 45%,transparent)}
+.pair{display:flex;gap:10px}.pair>*{flex:1;min-width:0}
+.stepper{display:flex;align-items:center;gap:0;border-radius:12px;border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.55);overflow:hidden;width:132px}
+.dark .stepper{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.14)}
+.stepper button{width:40px;height:42px;border:0;background:none;color:var(--f);font-size:18px;display:grid;place-items:center;cursor:pointer}
+.stepper span{flex:1;text-align:center;font-size:15px;font-weight:800}
+.people{display:flex;gap:7px;align-items:center}
+.av{width:34px;height:34px;border-radius:99px;display:grid;place-items:center;font-size:12px;font-weight:800;background:rgba(140,150,170,.2);color:var(--text-body);border:2px solid transparent}
+.dark .av{color:#E9EDF5;background:rgba(255,255,255,.12)}
+.av.on{border-color:var(--f);box-shadow:0 0 14px color-mix(in srgb,var(--f) 45%,transparent)}
+.av.add{border:1.5px dashed rgba(140,150,170,.6);background:none;color:var(--text-muted)}
+.helper{font-size:11.5px;font-weight:700;color:var(--text-muted);margin-top:6px;display:flex;gap:5px;align-items:center}
+.savebar{display:flex;gap:9px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid rgba(140,150,170,.2)}
+.btn{border:0;border-radius:14px;padding:12px 16px;font-family:inherit;font-size:14px;font-weight:800;line-height:1;white-space:nowrap;cursor:pointer}
+.btn.primary{flex:1;background:var(--f);color:var(--bubble-ink);box-shadow:0 0 22px color-mix(in srgb,var(--f) 45%,transparent)}
+.btn.primary[disabled]{opacity:.42;box-shadow:none;cursor:default}
+.btn.ghost{background:rgba(140,150,170,.16);color:var(--text-muted)}
+.dark .btn.ghost{background:rgba(255,255,255,.1);color:#C3CBDA}
+.btn.danger{background:color-mix(in srgb,var(--status-error,#E5484D) 16%,transparent);color:var(--status-error,#E5484D)}
+.more{display:flex;align-items:center;gap:6px;justify-content:center;margin-top:12px;font-size:12.5px;font-weight:800;color:var(--f);cursor:pointer}
+.err{font-size:12px;font-weight:700;color:var(--status-error,#E5484D);margin-top:6px}
+
+/* ── docs ─────────────────────────────────────────────────────── */
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:8px}
+.spec{border:1px solid #1E2432;border-radius:16px;padding:16px 18px;background:#10141F}
+.spec h3{font-size:14px;font-weight:800;margin:0 0 8px}
+.spec p{font-size:13px;line-height:1.6;color:#9AA3B2;margin:0}
+.spec ul{margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.7;color:#9AA3B2}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid #1B2130;vertical-align:top;line-height:1.55}
+th{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#77809A}
+td:first-child{font-weight:800;color:#DDE3EE;white-space:nowrap}
+td{color:#98A1B3}
+td b{color:#C9D1DF;font-weight:700}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#B9C6E0}
+a{color:#8FB4FF}a:hover{color:#B9D0FF}
+</style></head>
+<body>
+<div class="wrap">
+<div class="eyebrow">UnFocus · card system · editing</div>
+<h1>One composer, three depths</h1>
+<p class="lede">Adding and editing use the same object at three depths: a <b>quick row</b> inside the card for one field, a <b>sheet</b> over the card for the rest, and a <b>full editor</b> when the thing being made has a shape of its own. Editing an existing item opens the same depth it was created at, prefilled, with Delete in the footer. Nothing is ever saved by leaving — every depth commits with one button, and cancel means cancel.</p>
+
+<div class="sec">
+  <div class="sec-h"><h2>The three depths, live</h2></div>
+  <p class="sec-note">Pick a card and a mode. Type in the field to see the save button arm; press <b>More</b> in the quick row to escalate into the sheet without losing what you typed.</p>
+  <div class="toggles" id="cardTabs"></div>
+  <div class="toggles"><button class="tg" id="modeBtn">Editing an existing item</button><button class="tg" id="darkBtn" aria-pressed="false">Dark backdrop</button></div>
+  <div class="play" id="play"></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>What each card asks for</h2></div>
+  <p class="sec-note">The quick field is the one thing the item cannot exist without. Everything else waits in the sheet, in this order, and every card puts its optional fields last so the sheet can be dismissed early.</p>
+  <div class="spec" style="padding:4px 0 0"><table id="fieldTable"></table></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>Rules</h2></div>
+  <div class="specs">
+    <div class="spec"><h3>Depth is chosen by the item, not the user</h3><p>A task, a shopping item and a scanned line open at quick depth. A habit, a health entry and a goal open the sheet. A plan opens the full editor because it has a time, a place and people. The user can always escalate up; they are never dropped a level down.</p></div>
+    <div class="spec"><h3>Where the composer appears</h3><ul><li>Quick: appended inside the card body, under the last row</li><li>Sheet: over the card, bottom-anchored, card still visible above</li><li>Full: fills the frame, same geometry as a fullscreen card</li></ul></div>
+    <div class="spec"><h3>Editing reuses creating</h3><p>Tap a row to edit it. The same composer opens at the same depth, prefilled, the header reads <b>Edit</b> instead of <b>New</b>, the primary button reads <b>Save</b>, and a Delete button joins the footer. No separate edit screen exists.</p></div>
+    <div class="spec"><h3>Commit and cancel</h3><ul><li>Save is disabled until the required field has content</li><li>Enter in the quick row saves and keeps the row open for the next item</li><li>Cancel or scrim-tap discards; if fields changed, one confirm</li><li>No autosave, no silent drafts</li></ul></div>
+    <div class="spec"><h3>Glow budget holds</h3><p>The focused field takes a 3px feature-tinted ring, not a glow. Only the primary button and the active chip bloom, at the same 16–22px as a card's icon. Inputs, labels and helper text stay unlit.</p></div>
+    <div class="spec"><h3>Motion</h3><p>Quick row: height and opacity, 220ms. Sheet: translateY from 24px with the scrim fading in, 300ms <code>cubic-bezier(.2,.8,.2,1)</code>. Escalation quick → sheet keeps the typed value and cross-fades in 200ms. Reduced motion: no translate, opacity only.</p></div>
+    <div class="spec"><h3>Errors are quiet</h3><p>Validation runs on save, never while typing. The field border turns to the error hue, one line of text under it says what to fix, and the rest of the sheet holds still. Nothing shakes.</p></div>
+    <div class="spec"><h3>Keyboard and reach</h3><p>The sheet lifts above the keyboard and keeps the save bar pinned to the top of it. The primary field autofocuses at every depth. Chip rows scroll horizontally rather than wrapping past two lines.</p></div>
+  </div>
+</div>
+</div>
+
+<script>
+const CARDS=[
+ {id:'task',f:'task',ic:'checkbox-outline',t:"Today's tasks",noun:'task',depth:'quick',
+  peek:'3 of 7 done · 2 for this morning',rows:[['Refill the prescription',1,'8:30'],['Pack swim bag',0,'today']],
+  quick:{ph:'Add a task',chip:'This morning',val:'Book the dentist'},
+  fields:[{l:'Task',ty:'text',big:1,ph:'What needs doing',v:'Book the dentist'},{l:'When',ty:'chips',o:['This morning','Afternoon','Evening','No time'],i:0},{l:'Effort',ty:'chips',o:['2 minutes','Short','Long'],i:0},{l:'Repeat',ty:'chips',o:['Once','Daily','Weekly'],i:0},{l:'Note',ty:'area',ph:'Anything you want to remember',opt:1}]},
+ {id:'shop',f:'shop',ic:'cart-outline',t:'Shopping list',noun:'item',depth:'quick',
+  peek:'11 items · 2 lists',rows:[['Oat milk',1,'×2'],['Bread',0,'×1']],
+  quick:{ph:'Add an item',chip:'Home · ×1',val:'Washing tabs'},
+  fields:[{l:'Item',ty:'text',big:1,ph:'What to buy',v:'Washing tabs'},{l:'Quantity',ty:'step',v:2},{l:'List',ty:'chips',o:['Home','Pharmacy','Hardware'],i:0},{l:'Note',ty:'area',ph:'Brand, size, aisle',opt:1}]},
+ {id:'habits',f:'habits',ic:'flower-outline',t:'Habits',noun:'habit',depth:'sheet',
+  peek:'4 rings going · 2 untouched',rows:[['Water',1,'72%'],['Walk',0,'35%']],
+  quick:{ph:'Name the habit',chip:'Daily',val:'Stretch'},
+  fields:[{l:'Habit',ty:'text',big:1,ph:'One small thing to repeat',v:'Stretch'},{l:'How often',ty:'chips',o:['Daily','Weekdays','3× a week'],i:0},{l:'Target',ty:'pairstep',unit:['times','minutes','glasses'],v:2},{l:'Remind me',ty:'chips',o:['Morning','Midday','Evening','Never'],i:3},{l:'Why it matters',ty:'area',ph:'For the days it feels pointless',opt:1}]},
+ {id:'goals',f:'focus',ic:'trophy-outline',t:'Goals',noun:'goal',depth:'sheet',
+  peek:'2 goals · Move more is 60% there',rows:[['Move more',0,'60%'],['Read 12 books',0,'33%']],
+  quick:{ph:'Name the goal',chip:'By December',val:'Swim 2 km'},
+  fields:[{l:'Goal',ty:'text',big:1,ph:'What you are aiming at',v:'Swim 2 km'},{l:'By when',ty:'chips',o:['This month','3 months','This year','Pick a date'],i:1},{l:'Measured in',ty:'pairstep',unit:['km','sessions','books','%'],v:2},{l:'Built on',ty:'chips',o:['Swim','Walk','New habit'],i:0},{l:'Why it matters',ty:'area',ph:'A goal is a habit with a horizon',opt:1}]},
+ {id:'health',f:'health',ic:'pulse-outline',t:'Health',noun:'entry',depth:'sheet',
+  peek:'Slept 6h 40m · 1 med left',rows:[['Sleep',1,'6h 40m'],['Water',0,'85%']],
+  quick:{ph:'Log something',chip:'Now',val:'Water'},
+  fields:[{l:'What',ty:'chips',o:['Sleep','Movement','Water','Medication','Mood'],i:2},{l:'Amount',ty:'pairstep',unit:['glasses','ml','minutes'],v:3},{l:'When',ty:'chips',o:['Now','This morning','Last night','Pick a time'],i:0},{l:'Note',ty:'area',ph:'How it felt, if you want',opt:1}]},
+ {id:'shared',f:'shared',ic:'calendar-outline',t:'Plans',noun:'plan',depth:'full',
+  peek:'2 today · next at 15:00',rows:[['Physio',0,'15:00'],['Dinner with Ana',0,'19:30']],
+  quick:{ph:'Add a plan',chip:'Today 15:00',val:'Physio'},
+  fields:[{l:'Plan',ty:'text',big:1,ph:'What is happening',v:'Physio'},{l:'Day & time',ty:'pair2',a:'Fri 12 Sep',b:'15:00'},{l:'Who is coming',ty:'people',o:['F','A','J','M'],on:[0,1]},{l:'Where',ty:'text',ph:'Place or link',v:'Klinikk Sentrum'},{l:'Remind',ty:'chips',o:['30 min before','1 hour','The day before','Never'],i:0},{l:'Note',ty:'area',ph:'Bring the referral',opt:1}]},
+ {id:'scan',f:'scan',ic:'scan-outline',t:'Scan results',noun:'line',depth:'quick',
+  peek:'Receipt · 6 items found',rows:[['Coffee beans',1,'4.90'],['Bananas',1,'1.20']],
+  quick:{ph:'Fix the item name',chip:'4.90',val:'Coffee beans 1kg'},
+  fields:[{l:'Item',ty:'text',big:1,ph:'What it actually is',v:'Coffee beans 1kg'},{l:'Price',ty:'pair2',a:'4.90',b:'NOK'},{l:'Quantity',ty:'step',v:1},{l:'Send to',ty:'chips',o:['Shopping list','Pantry','Nowhere'],i:0}]}
+];
+const DEPTHS={quick:'Quick row',sheet:'Sheet',full:'Full editor'};
+let cur='task',dark=false,edit=false;
+
+/* ── field rendering ─────────────────────────────────────────── */
+function field(f,i){
+ const lbl=`<div class="fl">${f.l}${f.opt?' · optional':''}</div>`;
+ if(f.ty==='text')return `<div>${f.big?'':lbl}<input class="in${f.big?' big':''}" placeholder="${f.ph||''}" value="${edit&&f.v?f.v:''}"></div>`;
+ if(f.ty==='area')return `<div>${lbl}<textarea class="in" placeholder="${f.ph||''}"></textarea></div>`;
+ if(f.ty==='chips')return `<div>${lbl}<div class="chips" data-chips>${f.o.map((o,k)=>`<button class="chip${k===f.i?' on':''}">${o}</button>`).join('')}</div></div>`;
+ if(f.ty==='step')return `<div>${lbl}<div class="stepper"><button data-step="-1">−</button><span>${f.v}</span><button data-step="1">+</button></div></div>`;
+ if(f.ty==='pairstep')return `<div>${lbl}<div class="pair"><div class="stepper" style="flex:0 0 132px"><button data-step="-1">−</button><span>${f.v}</span><button data-step="1">+</button></div><div class="chips" data-chips>${f.unit.map((u,k)=>`<button class="chip${k===0?' on':''}">${u}</button>`).join('')}</div></div></div>`;
+ if(f.ty==='pair2')return `<div>${lbl}<div class="pair"><input class="in" value="${f.a}"><input class="in" value="${f.b}"></div></div>`;
+ if(f.ty==='people')return `<div>${lbl}<div class="people">${f.o.map((p,k)=>`<span class="av${f.on.includes(k)?' on':''}">${p}</span>`).join('')}<span class="av add"><ion-icon name="add-outline"></ion-icon></span></div></div>`;
+ return '';
+}
+function sheet(c,full){
+ const fs=c.fields.map(field).join('');
+ return `<div class="scrim" data-close></div><div class="esheet${full?' full':''}">
+  <div class="grab"></div>
+  <div class="eh"><div class="gc-icon"><ion-icon name="${c.ic}"></ion-icon></div>
+   <b>${edit?'Edit':'New'} ${c.noun}<small>${c.t}${edit?' · created here':''}</small></b>
+   <button class="xbtn" data-close><ion-icon name="close-outline"></ion-icon></button></div>
+  <div class="fields">${fs}</div>
+  <div class="savebar">${edit?`<button class="btn danger"><ion-icon name="trash-outline"></ion-icon></button>`:''}<button class="btn ghost" data-close>Cancel</button><button class="btn primary" ${edit?'':'disabled'} data-save>${edit?'Save changes':'Add '+c.noun}</button></div>
+ </div>`;
+}
+function cardHTML(c,tier){
+ const rows=c.rows.map((r,k)=>`<div class="row${edit&&tier==='quick'&&k===0?' editing':''}"><span class="chk${r[1]?' on':''}"></span>${r[0]}<span class="sub">${r[2]}</span></div>`).join('');
+ const qa=tier==='quick'?`<div class="qa"><input placeholder="${c.quick.ph}" value="${edit?c.quick.val:''}"><span class="qchip">${c.quick.chip}</span><button class="iconbtn" data-esc aria-label="More fields"><ion-icon name="chevron-up-outline"></ion-icon></button><button class="iconbtn go" ${edit?'':'disabled'} data-save aria-label="Save"><ion-icon name="arrow-up-outline"></ion-icon></button></div>
+  <div class="qa-hint"><ion-icon name="return-down-back-outline"></ion-icon>Enter saves and keeps typing · More for all fields</div>`:'';
+ return `<div class="gc" data-id="${c.id}">
+  <div class="gc-head"><div class="gc-icon"><ion-icon name="${c.ic}"></ion-icon></div>
+   <div class="gc-titles"><div class="gc-title">${c.t}</div><div class="gc-peek">${c.peek}</div></div>
+   <div class="gc-ctl"><button class="gc-btn"><ion-icon name="chevron-down-outline"></ion-icon></button><button class="gc-btn"><ion-icon name="expand-outline"></ion-icon></button></div></div>
+  <div class="gc-body"><div class="rows">${rows}</div>${qa||`<div class="gc-foot"><ion-icon name="add-circle-outline"></ion-icon>Add ${c.noun}</div>`}</div>
+ </div>`;
+}
+function frame(c,tier,label,sub){
+ const badge=c.depth===tier?' · default for this card':'';
+ return `<div class="col"><div class="col-h">${label}</div><div class="col-sub">${sub}${badge?`<br><b style="color:#C6CDDA">Default for ${c.t}</b>`:''}</div>
+  <div class="frame ${dark?'dark':''}" style="--f:var(--feature-${c.f})">
+   <div class="frame-bar"><span>9:41</span><span>${DEPTHS[tier]}</span></div>
+   <div class="stack">${cardHTML(c,tier==='quick'?'quick':'read')}</div>
+   ${tier==='quick'?'':sheet(c,tier==='full')}
+  </div></div>`;
+}
+function render(){
+ const c=CARDS.find(x=>x.id===cur);
+ document.getElementById('play').innerHTML=
+  frame(c,'quick','1 · Quick row','One field, inside the card. For things whose whole content is a name.')+
+  frame(c,'sheet','2 · Sheet','Every field, over the card. The card stays visible so context is never lost.')+
+  frame(c,'full','3 · Full editor','Fills the frame. For items with time, place and people.');
+}
+document.getElementById('cardTabs').innerHTML=CARDS.map(c=>`<button class="tg" data-card="${c.id}" aria-pressed="${c.id===cur}">${c.t}</button>`).join('');
+document.getElementById('cardTabs').onclick=e=>{const b=e.target.closest('[data-card]');if(!b)return;cur=b.dataset.card;
+ document.querySelectorAll('#cardTabs .tg').forEach(x=>x.setAttribute('aria-pressed',x.dataset.card===cur));render()};
+document.getElementById('modeBtn').onclick=e=>{edit=!edit;e.currentTarget.setAttribute('aria-pressed',edit);e.currentTarget.textContent=edit?'Adding a new item':'Editing an existing item';render()};
+document.getElementById('darkBtn').onclick=e=>{dark=!dark;e.currentTarget.setAttribute('aria-pressed',dark);e.currentTarget.textContent=dark?'Light backdrop':'Dark backdrop';render()};
+
+/* live behaviour inside the frames */
+document.addEventListener('input',e=>{
+ const w=e.target.closest('.qa,.esheet');if(!w||!/INPUT|TEXTAREA/.test(e.target.tagName))return;
+ const save=w.querySelector('[data-save]');if(!save)return;
+ const first=w.querySelector('.qa input,.in');
+ save.disabled=!(first&&first.value.trim());
+});
+document.addEventListener('click',e=>{
+ const chip=e.target.closest('[data-chips] .chip');
+ if(chip){chip.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));chip.classList.add('on');return}
+ const st=e.target.closest('[data-step]');
+ if(st){const s=st.parentElement.querySelector('span');s.textContent=Math.max(1,+s.textContent+ +st.dataset.step);return}
+ const av=e.target.closest('.av:not(.add)');if(av){av.classList.toggle('on');return}
+ const esc=e.target.closest('[data-esc]');
+ if(esc){const col=esc.closest('.col'),typed=col.querySelector('.qa input').value,c=CARDS.find(x=>x.id===cur);
+  const f=col.querySelector('.frame');f.insertAdjacentHTML('beforeend',sheet(c,false));
+  const inp=f.querySelector('.esheet .in');if(inp&&typed){inp.value=typed;f.querySelector('.esheet [data-save]').disabled=false}
+  if(inp)inp.focus();return}
+ if(e.target.closest('[data-close]')){const sh=e.target.closest('.frame');const s=sh&&sh.querySelector('.esheet');
+  if(s&&sh.querySelectorAll('.esheet').length>1||s&&sh.querySelector('.qa')){s.remove();sh.querySelector('.scrim').remove()}return}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.closest('.qa')){e.preventDefault();const i=e.target;if(i.value.trim()){i.value='';i.closest('.qa').querySelector('[data-save]').disabled=true}}});
+document.getElementById('fieldTable').innerHTML=`<thead><tr><th>Card</th><th>Opens at</th><th>Quick field</th><th>Sheet fields, in order</th></tr></thead><tbody>${
+ CARDS.map(c=>`<tr><td>${c.t}</td><td><b>${DEPTHS[c.depth]}</b></td><td>${c.fields[0].l}</td><td>${c.fields.map(f=>f.l+(f.opt?' <i>(optional)</i>':'')).join(' · ')}</td></tr>`).join('')}</tbody>`;
+render();
+</script>
+</body></html>

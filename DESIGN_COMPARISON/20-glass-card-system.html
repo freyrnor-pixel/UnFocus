@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Glass card system — states & controls</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0B0E14;color:#E6E9EF;font-family:var(--font-sans,Nunito),system-ui;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1480px;margin:0 auto;padding:56px 40px 96px}
+h1{font-size:34px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.lede{font-size:16px;line-height:1.6;color:#9AA3B2;max-width:64ch;margin:0 0 8px}
+.sec{margin-top:64px}
+.sec-h{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.sec-h h2{font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#77809A;margin:0}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#77809A;margin-bottom:14px}
+.sec-note{font-size:14px;line-height:1.6;color:#8C95A6;max-width:70ch;margin:6px 0 26px}
+.rule{height:1px;background:#1C2130;margin:26px 0 0}
+
+/* ── device frame ─────────────────────────────────────────────── */
+.frame{position:relative;width:352px;min-height:640px;display:flex;flex-direction:column;border-radius:34px;overflow:hidden;padding:18px 16px 22px;background:#F1F4F9;isolation:isolate;box-shadow:0 24px 60px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.08)}
+.frame.dark{background:#0E1220}
+.frame::before{content:"";position:absolute;inset:0;background:var(--frame-glow);z-index:0}
+.frame>*{position:relative;z-index:1;flex:0 0 auto}
+.frame>.stack{flex:1 1 auto;position:static}
+.frame{--frame-glow:radial-gradient(90% 62% at 12% 0%,color-mix(in srgb,var(--feature-task) 26%,transparent),transparent 70%),radial-gradient(80% 60% at 96% 30%,color-mix(in srgb,var(--feature-capture) 22%,transparent),transparent 72%),radial-gradient(70% 50% at 40% 104%,color-mix(in srgb,var(--feature-health) 20%,transparent),transparent 70%)}
+.frame.dark{--frame-glow:radial-gradient(90% 62% at 12% 0%,color-mix(in srgb,var(--feature-task) 34%,transparent),transparent 68%),radial-gradient(80% 60% at 96% 30%,color-mix(in srgb,var(--feature-capture) 30%,transparent),transparent 70%),radial-gradient(70% 52% at 40% 104%,color-mix(in srgb,var(--feature-health) 26%,transparent),transparent 68%)}
+.frame-bar{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--text-muted);padding:0 6px 14px;opacity:.75}
+.stack{display:flex;flex-direction:column;gap:14px;align-content:flex-start}
+
+/* ── the glass card ───────────────────────────────────────────── */
+.gc{--f:var(--feature-task);position:relative;border-radius:20px;padding:14px;color:var(--text-body);backdrop-filter:blur(18px) saturate(1.25);-webkit-backdrop-filter:blur(18px) saturate(1.25);background:rgba(255,255,255,.56);border:1px solid rgba(255,255,255,.62);box-shadow:0 6px 24px rgba(16,22,38,.13),inset 0 1px 0 rgba(255,255,255,.7);transition:box-shadow .32s cubic-bezier(.2,.8,.2,1),transform .32s cubic-bezier(.2,.8,.2,1),background .32s}
+.dark .gc{background:rgba(20,26,42,.5);border-color:rgba(255,255,255,.12);color:#EDF0F6;box-shadow:0 8px 30px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.09)}
+.dark .gc{--tint-ink:#EDF0F6}
+/* direction B — tinted glass + outer bloom in the feature hue */
+.b .gc{background:color-mix(in srgb,var(--f) 13%,rgba(255,255,255,.6));border-color:color-mix(in srgb,var(--f) 30%,rgba(255,255,255,.5));box-shadow:0 8px 28px color-mix(in srgb,var(--f) 22%,transparent),0 0 0 1px color-mix(in srgb,var(--f) 10%,transparent),inset 0 1px 0 rgba(255,255,255,.66)}
+.b .dark .gc,.dark .b .gc{background:color-mix(in srgb,var(--f) 20%,rgba(14,19,32,.62));border-color:color-mix(in srgb,var(--f) 44%,transparent);box-shadow:0 10px 34px color-mix(in srgb,var(--f) 30%,transparent),inset 0 1px 0 rgba(255,255,255,.1)}
+
+.gc-head{display:flex;align-items:center;gap:11px}
+.gc-icon{position:relative;flex:0 0 auto;width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--f);color:var(--bubble-ink);font-size:19px;box-shadow:0 0 0 1px color-mix(in srgb,var(--f) 60%,transparent),0 0 18px color-mix(in srgb,var(--f) 55%,transparent),0 0 40px color-mix(in srgb,var(--f) 30%,transparent)}
+.gc-titles{min-width:0;flex:1}
+.gc-title{font-size:15px;font-weight:700;line-height:1.25;letter-spacing:-.005em}
+.gc-peek{font-size:13px;font-weight:600;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dark .gc-peek{color:#9EA8BC}
+
+/* control cluster */
+.gc-ctl{display:flex;gap:6px;flex:0 0 auto}
+.gc-btn{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.6);background:rgba(255,255,255,.46);backdrop-filter:blur(8px);color:var(--text-muted);font-size:15px;cursor:pointer;transition:transform .18s,background .18s,color .18s}
+.dark .gc-btn{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);color:#C3CBDA}
+.gc-btn:hover{background:color-mix(in srgb,var(--f) 22%,rgba(255,255,255,.6));color:var(--f);transform:translateY(-1px)}
+.dark .gc-btn:hover{color:#fff;background:color-mix(in srgb,var(--f) 44%,transparent)}
+.gc-btn ion-icon{transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.gc[data-state="collapsed"] .gc-btn.chev ion-icon{transform:rotate(-90deg)}
+
+/* body */
+.gc-body{overflow:hidden;transition:max-height .34s cubic-bezier(.2,.8,.2,1),opacity .24s,margin-top .3s;max-height:420px;opacity:1;margin-top:12px}
+.gc[data-state="collapsed"] .gc-body{max-height:0;opacity:0;margin-top:0}
+.gc[data-state="collapsed"] .gc-peek{display:block}
+.gc:not([data-state="collapsed"]) .gc-peek{color:var(--text-muted)}
+.row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.5);font-size:14px;font-weight:600}
+.dark .row{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.09)}
+.rows{display:flex;flex-direction:column;gap:8px}
+.chk{width:20px;height:20px;border-radius:999px;border:2px solid var(--neutral);flex:0 0 auto}
+.chk.on{border-color:var(--f);background:var(--f);box-shadow:0 0 14px color-mix(in srgb,var(--f) 60%,transparent)}
+.row .sub{margin-left:auto;font-size:12px;font-weight:700;color:var(--text-muted)}
+.dark .row .sub{color:#98A2B6}
+.gc-foot{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:13px;font-weight:700;color:var(--f)}
+.dark .gc-foot{color:color-mix(in srgb,var(--f) 65%,#fff)}
+.rings{display:flex;gap:9px}
+.ring{width:44px;height:44px;border-radius:999px;flex:0 0 auto;background:conic-gradient(var(--f) var(--p),color-mix(in srgb,var(--neutral) 40%,transparent) 0);display:grid;place-items:center;box-shadow:0 0 16px color-mix(in srgb,var(--f) 30%,transparent)}
+.ring i{width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,.72);display:grid;place-items:center;font-size:11px;font-weight:800;font-style:normal;color:var(--text-body)}
+.dark .ring i{background:#141A2A;color:#E9EDF5}
+.bars{display:flex;flex-direction:column;gap:9px}
+.bar{height:8px;border-radius:99px;background:rgba(255,255,255,.45);overflow:hidden}
+.dark .bar{background:rgba(255,255,255,.1)}
+.bar span{display:block;height:100%;border-radius:99px;background:var(--f);box-shadow:0 0 12px color-mix(in srgb,var(--f) 70%,transparent)}
+.empty{text-align:center;padding:22px 14px;border-radius:14px;background:rgba(255,255,255,.3);border:1px dashed color-mix(in srgb,var(--neutral) 55%,transparent);color:var(--text-muted);font-size:13px;font-weight:600;line-height:1.5}
+.dark .empty{background:rgba(255,255,255,.04)}
+.empty b{display:block;font-size:14px;color:var(--text-body);margin-bottom:3px}
+.dark .empty b{color:#E9EDF5}
+
+/* hint variant reads flatter */
+.gc.hint{background:rgba(255,255,255,.34);box-shadow:none;border-color:color-mix(in srgb,var(--f) 24%,rgba(255,255,255,.5))}
+.gc.hint .gc-icon{background:transparent;color:var(--f);box-shadow:none;font-size:22px}
+.dark .gc.hint{background:rgba(255,255,255,.05)}
+
+/* fullscreen */
+.gc[data-state="full"]{position:absolute;inset:0;border-radius:0;border-width:0;padding:20px 16px;z-index:5;background:rgba(255,255,255,.72)}
+.dark .gc[data-state="full"]{background:rgba(11,15,26,.8)}
+.b .gc[data-state="full"]{background:color-mix(in srgb,var(--f) 16%,rgba(255,255,255,.7))}
+.dark .b .gc[data-state="full"],.b .dark .gc[data-state="full"]{background:color-mix(in srgb,var(--f) 22%,rgba(11,15,26,.8))}
+.gc[data-state="full"] .gc-body{max-height:none}
+.gc[data-state="full"] .gc-title{font-size:19px}
+.gc[data-state="full"] .gc-peek{display:none}
+
+/* reordering */
+.gc[data-state="reorder"]{transform:rotate(-1.2deg) scale(1.02);box-shadow:0 18px 40px color-mix(in srgb,var(--f) 26%,rgba(0,0,0,.3))}
+.gc[data-state="reorder"] .gc-ctl{opacity:.28;pointer-events:none}
+.grip{width:26px;height:30px;display:grid;place-items:center;color:var(--text-muted);font-size:17px;cursor:grab;margin-left:-4px}
+.slot{height:56px;border-radius:20px;border:1.5px dashed color-mix(in srgb,var(--f) 55%,transparent);background:color-mix(in srgb,var(--f) 8%,transparent)}
+
+/* ── labels / matrix ─────────────────────────────────────────── */
+.play{display:flex;gap:44px;flex-wrap:wrap;margin-top:8px}
+.col{display:flex;flex-direction:column;gap:14px}
+.col-h{font-size:15px;font-weight:800}
+.col-sub{font-size:13px;color:#8C95A6;line-height:1.5;max-width:34ch;margin-top:-8px}
+.toggles{display:flex;gap:8px;flex-wrap:wrap}
+.tg{font:600 12px/1 var(--font-sans,Nunito),system-ui;padding:8px 12px;border-radius:99px;border:1px solid #262C3C;background:#141926;color:#AEB7C7;cursor:pointer}
+.tg[aria-pressed="true"]{background:#E9EDF5;color:#131722;border-color:#E9EDF5}
+.matrix{display:grid;gap:14px;grid-template-columns:112px repeat(5,200px);align-items:start;overflow-x:auto;padding-bottom:8px}
+.mh{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#77809A;padding-bottom:2px}
+.rl{font-size:13px;font-weight:700;color:#C6CDDA;padding-top:10px}
+.rl small{display:block;font-weight:600;color:#7B849A;font-size:11px;margin-top:3px;letter-spacing:0}
+.cell{position:relative;width:200px;height:240px;border-radius:20px;overflow:hidden;background:#F1F4F9;isolation:isolate;box-shadow:0 0 0 1px rgba(255,255,255,.07)}
+.cs{position:relative;z-index:1;width:320px;height:384px;padding:14px;transform:scale(.625);transform-origin:top left}
+.cell.dark{background:#0E1220}
+.cell::before{content:"";position:absolute;inset:0;background:var(--frame-glow);z-index:0}
+.cell{--frame-glow:radial-gradient(90% 70% at 10% 0%,color-mix(in srgb,var(--f) 26%,transparent),transparent 72%),radial-gradient(80% 60% at 100% 100%,color-mix(in srgb,var(--feature-capture) 18%,transparent),transparent 72%)}
+.cell.dark{--frame-glow:radial-gradient(90% 70% at 10% 0%,color-mix(in srgb,var(--f) 36%,transparent),transparent 70%),radial-gradient(80% 60% at 100% 100%,color-mix(in srgb,var(--feature-capture) 26%,transparent),transparent 70%)}
+.cell .gc-body{max-height:230px}
+.grouptabs{display:flex;gap:7px;margin-bottom:12px;flex-wrap:wrap}
+.gtab{display:flex;align-items:center;gap:6px;font:700 12.5px/1 var(--font-sans,Nunito),system-ui;padding:8px 11px;border-radius:99px;cursor:pointer;color:var(--text-muted);background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.55)}
+.dark .gtab{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.12);color:#AEB8C9}
+.gtab ion-icon{font-size:14px}
+.gtab.on{color:var(--bubble-ink);background:var(--f);border-color:transparent;box-shadow:0 0 16px color-mix(in srgb,var(--f) 45%,transparent)}
+/* manage-cards sheet */
+.sheet{border-radius:26px 26px 20px 20px;padding:18px 16px 16px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.6);backdrop-filter:blur(20px);box-shadow:0 -8px 40px rgba(16,22,38,.18)}
+.dark .sheet{background:rgba(13,18,30,.82);border-color:rgba(255,255,255,.12);color:#EDF0F6}
+.sheet-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.sheet-h b{font-size:16px;font-weight:800}
+.sheet-h span{font-size:13px;font-weight:700;color:var(--color-primary)}
+.sheet-sub{font-size:12.5px;font-weight:600;color:var(--text-muted);margin-bottom:14px;line-height:1.45}
+.mrow{display:flex;align-items:center;gap:9px;padding:8px 4px}
+.mrow+.mrow{border-top:1px solid rgba(140,150,170,.18)}
+.mrow .mi{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;background:var(--f);color:var(--bubble-ink);font-size:14px;box-shadow:0 0 12px color-mix(in srgb,var(--f) 45%,transparent)}
+.mrow .mn{font-size:13.5px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .mg{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:3px 7px;border-radius:99px;background:rgba(140,150,170,.16)}
+.seg{display:flex;border-radius:99px;overflow:hidden;border:1px solid rgba(140,150,170,.3);flex:0 0 auto}
+.seg b{font-size:11px;font-weight:800;padding:5px 9px;color:var(--text-muted);cursor:pointer}
+.seg b.on{background:var(--color-primary);color:#fff}
+.mrow .grip{margin:0;color:var(--text-muted);opacity:.7}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:8px}
+.spec{border:1px solid #1E2432;border-radius:16px;padding:16px 18px;background:#10141F}
+.spec h3{font-size:14px;font-weight:800;margin:0 0 8px}
+.spec p{font-size:13px;line-height:1.6;color:#9AA3B2;margin:0}
+.spec ul{margin:8px 0 0;padding-left:18px;font-size:13px;line-height:1.7;color:#9AA3B2}
+a{color:#8FB4FF}a:hover{color:#B9D0FF}
+</style></head>
+<body>
+<div class="wrap">
+<div class="eyebrow">UnFocus · card system</div>
+<h1>Glass cards, three sizes, one control</h1>
+<p class="lede">Every card on every screen — tasks, habits, shopping, health, plans, scan, hints — is the same object at three sizes: peek, open, and fullscreen. One control cluster sits in the top-right of every card, in the same place, with the same two icons. Glow is spent only where it is functional: the feature icon, an active check, a filled bar.</p>
+
+<div class="sec">
+  <div class="sec-h"><h2>Two directions</h2></div>
+  <p class="sec-note">Same structure, same controls, different surface. <b>A</b> keeps the glass neutral and lets the feature colour glow from the icon only. <b>B</b> tints the whole pane in the feature hue and blooms it outward, so a card is identifiable before you read it. Click the controls on either card — they work.</p>
+  <div class="toggles" style="margin-bottom:22px"><button class="tg" id="themeBtn" aria-pressed="false">Dark backdrop</button><button class="tg" id="cardBtn">Next card</button></div>
+  <div class="play" id="play"></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>State matrix</h2></div>
+  <p class="sec-note">Every card, every state. Switch direction and backdrop to compare.</p>
+  <div class="toggles" style="margin-bottom:22px"><button class="tg" id="mDirA" aria-pressed="true">Direction A</button><button class="tg" id="mDirB">Direction B</button><button class="tg" id="mTheme" aria-pressed="false">Dark backdrop</button></div>
+  <div class="matrix" id="matrix"></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>Related cards</h2></div>
+  <p class="sec-note">Three groups — <b>Growth</b> (Habits · Goals · Health), <b>Supplies</b> (Shopping · Scan), <b>Time</b> (Tasks · Plans). Grouped cards sit adjacent in the stack, and in fullscreen they carry a tab strip so you can move between related cards without going back out. Goals is the new card: a habit with a horizon.</p>
+  <div class="play"><div class="col a"><div class="col-h">Fullscreen with group tabs</div><div class="col-sub">Habits, Goals and Health are one place once you are inside any of them.</div><div class="frame" id="groupFrame" style="--f:var(--feature-habits)"></div></div>
+  <div class="col a"><div class="col-h">Manage cards — per screen</div><div class="col-sub">Long-press any card, or Settings → Manage cards. Show/hide, set the size a card opens at, drag to reorder. Group tags show what will travel together.</div><div class="frame" id="sheetFrame" style="--f:var(--feature-task);padding:0"></div></div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-h"><h2>How the control works</h2></div>
+  <div class="specs">
+    <div class="spec"><h3>Two icons, never more</h3><p>Chevron toggles peek ↔ open; the chevron rotates to point the way it will move. Expand-arrows go fullscreen and become collapse-arrows there. Nothing else ever appears in the cluster.</p></div>
+    <div class="spec"><h3>Fullscreen grows in place</h3><p>The card scales from its own rectangle to fill the screen — no new screen, no separate header. The title stays where the eye left it, the cluster stays in the top-right, so the way back is the button you just pressed.</p></div>
+    <div class="spec"><h3>Reordering hides the cluster</h3><p>Long-press any card to enter reorder: cards drop to peek height, a grip replaces the icon's left margin, the cluster dims out of reach, and the gap you're dragging into shows as a dashed slot.</p></div>
+    <div class="spec"><h3>Per-card control</h3><p>The cluster only ever resizes. Everything else a card can do lives in one place: its footer action when small, and the group tab strip plus footer when fullscreen. No overflow menus, no long-press menus per card.</p></div>
+  <div class="spec"><h3>Per-screen control</h3><p>Manage cards is the only place a screen's composition changes: visibility, opening size, order. It is reachable two ways — long-press a card, or Settings → Manage cards — and it names the group each card belongs to so reordering never separates a pair.</p></div>
+  <div class="spec"><h3>Glow budget</h3><ul><li>Feature icon: rim + 18px + 40px bloom</li><li>Completed check: 14px bloom</li><li>Filled bar / ring: 12–16px bloom</li><li>Text, borders, backgrounds: no glow</li></ul></div>
+    <div class="spec"><h3>Empty stays neutral</h3><p>Empty states use the shame-free neutral for the dashed well and muted text — the feature colour survives only in the icon, so nothing reads as a warning.</p></div>
+    <div class="spec"><h3>Motion</h3><p>Height and scale on 340ms <code>cubic-bezier(.2,.8,.2,1)</code>, opacity on 240ms, no overshoot. Under reduced motion the card snaps between states and the glow holds still.</p></div>
+  </div>
+</div>
+</div>
+
+<script>
+const CARDS=[
+ {id:'task',f:'task',g:'time',ic:'checkbox-outline',t:"Today's tasks",peek:'3 of 7 done · 2 for this morning',kind:'checks',rows:[['Refill the prescription',1,'8:30'],['Pack swim bag',0,'today'],['Reply to the school email',0,'2 min']],foot:'Add a task',empty:['Nothing due today','Anything you add lands here.']},
+ {id:'habits',f:'habits',g:'growth',ic:'flower-outline',t:'Habits',peek:'4 rings going · 2 untouched',kind:'rings',rings:[['Water','72%'],['Meds','100%'],['Walk','35%'],['Sleep','0%']],foot:'See the week',empty:['No habits yet','Pick one small thing to repeat.']},
+ {id:'goals',f:'focus',g:'growth',ic:'trophy-outline',t:'Goals',peek:'2 goals · Move more is 60% there',kind:'bars',bars:[['Move more',60],['Read 12 books',33]],foot:'Add a goal',empty:['No goals yet','A goal is a habit with a horizon.']},
+ {id:'shop',f:'shop',g:'supplies',ic:'cart-outline',t:'Shopping list',peek:'11 items · 2 lists',kind:'checks',rows:[['Oat milk',1,'×2'],['Bread',0,'×1'],['Washing tabs',0,'×1']],foot:'Add an item',empty:['List is clear','Add what you notice, whenever.']},
+ {id:'health',f:'health',g:'growth',ic:'pulse-outline',t:'Health',peek:'Slept 6h 40m · 1 med left',kind:'bars',bars:[['Sleep',68],['Movement',41],['Water',85]],foot:'Log something',empty:['Nothing logged today','No streak to lose here.']},
+ {id:'shared',f:'shared',g:'time',ic:'calendar-outline',t:'Plans',peek:'2 today · next at 15:00',kind:'checks',rows:[['Physio',0,'15:00'],['Dinner with Ana',0,'19:30'],['Bin night',0,'21:00']],foot:'Open the week',empty:['Nothing planned','A clear day is a fine day.']},
+ {id:'scan',f:'scan',g:'supplies',ic:'scan-outline',t:'Scan results',peek:'Receipt · 6 items found',kind:'checks',rows:[['Coffee beans',1,'4.90'],['Bananas',1,'1.20'],['Sponges',0,'2.40']],foot:'Send to a list',empty:['Nothing scanned yet','Point the camera at a receipt.']},
+ {id:'hint',f:'capture',ic:'information-circle-outline',t:'Why cards collapse',hint:1,peek:'Tap the chevron to keep a card small',kind:'text',text:'Peek keeps a card on the screen without asking you to read it. Open when you want it, fullscreen when it is the only thing you want.',foot:'Got it',empty:['Nothing to explain here','Hints appear where they help.']}
+];
+const GROUPS={growth:'Growth',supplies:'Supplies',time:'Time'};
+const sibs=c=>c.g?CARDS.filter(x=>x.g===c.g):[];
+const STATES=[['collapsed','Collapsed','peek height'],['expanded','Expanded','the default'],['full','Fullscreen','grows in place'],['empty','Empty','shame-free'],['reorder','Reordering','long-press']];
+
+function body(c,state){
+ if(state==='empty')return `<div class="empty"><b>${c.empty[0]}</b>${c.empty[1]}</div>`;
+ if(c.kind==='rings')return `<div class="rings">${c.rings.map(r=>`<div class="ring" style="--p:${r[1]}"><i>${r[1]==='0%'?'–':r[1].replace('%','')}</i></div>`).join('')}</div>`;
+ if(c.kind==='bars')return `<div class="bars">${c.bars.map(b=>`<div><div class="row" style="background:none;border:none;padding:0 0 5px;font-size:13px">${b[0]}<span class="sub">${b[1]}%</span></div><div class="bar"><span style="width:${b[1]}%"></span></div></div>`).join('')}</div>`;
+ if(c.kind==='text')return `<div style="font-size:13.5px;line-height:1.6;color:var(--text-muted)">${c.text}</div>`;
+ const rows=state==='full'?c.rows.concat(c.rows.map(r=>[r[0],0,r[2]])):c.rows;
+ return `<div class="rows">${rows.map(r=>`<div class="row"><span class="chk${r[1]?' on':''}"></span>${r[0]}<span class="sub">${r[2]}</span></div>`).join('')}</div>`;
+}
+function card(c,state,opts={}){
+ const grip=state==='reorder'?`<span class="grip"><ion-icon name="reorder-two-outline"></ion-icon></span>`:'';
+ const full=state==='full';
+ const rel=sibs(c);
+ const tabs=full&&rel.length>1?`<div class="grouptabs">${rel.map(s=>`<button class="gtab${s.id===c.id?' on':''}" style="--f:var(--feature-${s.f})" data-go="${s.id}"><ion-icon name="${s.ic}"></ion-icon>${s.t}</button>`).join('')}</div>`:'';
+ return `<div class="gc${c.hint?' hint':''}" data-state="${state}" data-id="${c.id}" style="--f:var(--feature-${c.f})">
+  <div class="gc-head">${grip}<div class="gc-icon"><ion-icon name="${c.ic}"></ion-icon></div>
+   <div class="gc-titles"><div class="gc-title">${c.t}</div><div class="gc-peek">${c.peek}</div></div>
+   <div class="gc-ctl"><button class="gc-btn chev" data-act="chev" aria-label="Collapse or expand"><ion-icon name="chevron-down-outline"></ion-icon></button>
+   <button class="gc-btn" data-act="full" aria-label="Fullscreen"><ion-icon name="${full?'contract-outline':'expand-outline'}"></ion-icon></button></div></div>
+  <div class="gc-body">${tabs}${body(c,state)}${state==='empty'?'':`<div class="gc-foot"><ion-icon name="add-circle-outline"></ion-icon>${c.foot}</div>`}</div>
+ </div>`;
+}
+
+/* live playground */
+let pIdx=0,pDark=false;
+function renderPlay(){
+ const c=CARDS[pIdx],other=CARDS[(pIdx+1)%CARDS.length];
+ const frame=(dir,label,sub)=>`<div class="col ${dir}"><div class="col-h">${label}</div><div class="col-sub">${sub}</div>
+   <div class="frame ${pDark?'dark':''} ${pDark?'dark':''}" style="--f:var(--feature-${c.f})">
+    <div class="frame-bar"><span>9:41</span><span>Good morning, Freyr</span></div>
+    <div class="stack">${card(c,'expanded')}${card(other,'collapsed')}</div></div></div>`;
+ document.getElementById('play').innerHTML=
+  frame('a','A · Frosted','Neutral glass. The feature hue lives in the icon and its bloom, nowhere else.')+
+  frame('b','B · Tinted + bloom','The pane itself carries the hue and casts it outward; the card is recognisable at a glance.');
+ document.querySelectorAll('.frame.dark').forEach(f=>f.classList.add('dark'));
+}
+document.getElementById('themeBtn').onclick=e=>{pDark=!pDark;e.currentTarget.setAttribute('aria-pressed',pDark);e.currentTarget.textContent=pDark?'Light backdrop':'Dark backdrop';renderPlay()};
+document.getElementById('cardBtn').onclick=()=>{pIdx=(pIdx+1)%CARDS.length;renderPlay()};
+document.addEventListener('click',e=>{
+ const btn=e.target.closest('.gc-btn');if(!btn)return;
+ const gc=btn.closest('.gc'),act=btn.dataset.act,s=gc.dataset.state;
+ if(act==='chev')gc.dataset.state=s==='collapsed'?'expanded':'collapsed';
+ else{gc.dataset.state=s==='full'?'expanded':'full';
+  btn.querySelector('ion-icon').setAttribute('name',gc.dataset.state==='full'?'contract-outline':'expand-outline');}
+});
+
+/* matrix */
+let mDir='a',mDark=false;
+function renderMatrix(){
+ const m=document.getElementById('matrix');
+ let html=`<div></div>`+STATES.map(s=>`<div class="mh">${s[1]}<small style="display:block;font-weight:600;letter-spacing:0;text-transform:none;color:#6E778C;margin-top:3px">${s[2]}</small></div>`).join('');
+ CARDS.forEach(c=>{
+  html+=`<div class="rl">${c.t}<small>--feature-${c.f}</small></div>`;
+  STATES.forEach(s=>{
+   const inner=s[0]==='reorder'?card(c,'reorder')+`<div class="slot" style="margin-top:12px"></div>`:card(c,s[0]);
+   html+=`<div class="cell ${mDir} ${mDark?'dark':''}" style="--f:var(--feature-${c.f})"><div class="cs">${inner}</div></div>`;
+  });
+ });
+ m.innerHTML=html;
+}
+document.getElementById('mDirA').onclick=()=>{mDir='a';flag();};
+document.getElementById('mDirB').onclick=()=>{mDir='b';flag();};
+function flag(){document.getElementById('mDirA').setAttribute('aria-pressed',mDir==='a');document.getElementById('mDirB').setAttribute('aria-pressed',mDir==='b');renderMatrix();}
+document.getElementById('mTheme').onclick=e=>{mDark=!mDark;e.currentTarget.setAttribute('aria-pressed',mDark);e.currentTarget.textContent=mDark?'Light backdrop':'Dark backdrop';renderMatrix()};
+/* related cards + manage sheet */
+let gCur='habits';
+function renderGroup(){
+ const c=CARDS.find(x=>x.id===gCur);
+ const f=document.getElementById('groupFrame');
+ f.style.setProperty('--f',`var(--feature-${c.f})`);
+ f.innerHTML=`<div class="frame-bar"><span>9:41</span><span>Growth</span></div><div class="stack">${card(c,'full')}</div>`;
+}
+document.addEventListener('click',e=>{const t=e.target.closest('.gtab');if(!t)return;gCur=t.dataset.go;renderGroup();});
+function renderSheet(){
+ const rows=CARDS.filter(c=>!c.hint).map((c,i)=>`<div class="mrow" style="--f:var(--feature-${c.f})">
+  <span class="grip"><ion-icon name="reorder-two-outline"></ion-icon></span>
+  <span class="mi"><ion-icon name="${c.ic}"></ion-icon></span>
+  <span class="mn">${c.t}</span><span class="mg">${GROUPS[c.g]||'—'}</span>
+  <span class="seg"><b class="${i<3?'on':''}">Open</b><b class="${i<3?'':'on'}">Peek</b></span></div>`).join('');
+ document.getElementById('sheetFrame').innerHTML=`<div style="padding:16px 16px 0"><div class="frame-bar" style="padding-bottom:8px"><span>Home</span><span>7 cards</span></div></div>
+ <div class="sheet"><div class="sheet-h"><b>Manage cards</b><span>Done</span></div><div class="sheet-sub">Drag to reorder. Choose the size each card opens at. Hidden cards keep their data.</div>${rows}</div>`;
+}
+renderPlay();flag();renderGroup();renderSheet();
+</script>
+</body></html>
