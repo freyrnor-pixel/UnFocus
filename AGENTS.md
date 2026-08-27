@@ -902,7 +902,7 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     whether or not the light is complete — the whole tell is that the glow stops dead instead of
     fading. It walks the five tabs in the web preview, opens every card (a composer inside a
     closed card is not in the DOM — the same silent-skip trap `npm run wraps` has), and compares
-    each field's blur radius against the room before its clip. 0 clipped at 430px and 360px.
+    each field's blur radius against the room before its clip. 0 clipped, 12 clean at 430px and 360px.
     `lib/__tests__/chromeRhythm.test.ts` §5 pins the arithmetic and the fact that each of those
     four components still names the constant. All three composers go through it and none of them
   restates `Radius.sm`. `getGlow` itself is untouched and still correct for anything that sets its
@@ -2486,12 +2486,25 @@ it has before that clip. Exits 1 on any finding, and the failure text says where
 - `npm run halos`, `npm run halos -- --width=360`; `FORCE_BUILD=1` rebuilds `dist/` first.
 - It found the 2026-08-24 report: **31 of 36 haloed fields clipped**, every composer in the app
   but one. See the `getFieldGlow` bullet above for the mechanism and the two-part fix.
-- **A field is recognised by `FIELD_RADIUS` (12px) plus a coloured `boxShadow`** — that is what
-  separates a field's light from a card's own drop shadow without needing a class name. A new
-  field shape that does not go through `getFieldGlow` is a field this audit does not measure.
+- **A field is recognised by `FIELD_RADIUS` (12px) — and then FOCUSED, because that is when its
+  light exists (2026-08-26).** The detector used to be "`FIELD_RADIUS` plus a coloured
+  `boxShadow`", which stopped working the day the glow-budget pass made a halo a focus-only
+  state: an unfocused field has no shadow to match, the scan fell from 14 fields to 4, and it
+  reported a contented `0 clipped` while looking at almost nothing. A new field shape that does
+  not go through `getFieldGlow` is still a field this audit does not measure.
+- **Three outcomes, not two.** A field with NO halo even when focused is reported separately from
+  one whose halo is clipped: the first is a possible regression in the glow budget, the second is
+  the bug this audit exists for, and folding them together hides either.
+- ⚠️ **Dedupe on the LEFT/RIGHT room only.** A widely-reused composer — the To-do tab's "New
+  task" mounts once per card and once per weekday inside Week — has one horizontal clearance
+  wherever it sits, because that comes from the component's own padding; its top/bottom room is
+  just wherever the page happened to be scrolled. Keying on the full room let that noise mint a
+  fresh key for a structurally identical finding, so the count swung 12/14/15 between runs with
+  nothing about the app having changed. Left/right is also the only axis any clipping bug this
+  audit has found has ever lived on.
 - Same caveats as the wrap audit: it drives the real app, so a nav or resting-state change can
-  make a step measure nothing rather than fail. Read the count — 14 fields at the time of
-  writing.
+  make a step measure nothing rather than fail. **Read the count — 12 distinct fields, the same
+  at 430px and 360px, and it is deterministic; a lower number is un-measurement, not a pass.**
 
 ### Wrap audit — `npm run wraps` (2026-07-28)
 Finds the "why is that on two lines when it nearly fits?" class of bug by measurement

@@ -287,7 +287,20 @@ try {
       const d = Math.hypot(f.cx - c.x, f.cy - c.y);
       if (d < bestDist && d < 140) { bestDist = d; match = f; }
     }
-    const key = `${tab}|${c.label}|${match ? JSON.stringify(match.room) : 'none'}`;
+    // Dedupe on LEFT/RIGHT room only, not the full room object. A repeated composer (the To-do
+    // tab's "New task" AddRow mounts once per Week/Month/Whenever/Recurring card AND once per
+    // weekday inside Week — up to ~10 physically distinct elements sharing one label) keeps the
+    // same horizontal clearance wherever it sits, since that comes from the component's own
+    // padding, not from scroll position — but its TOP/BOTTOM room is whatever the page happened
+    // to be scrolled to at the moment this one instance got clicked, which varies run to run and
+    // instance to instance for reasons that have nothing to do with clipping (a scrolling column
+    // has near-unlimited room above/below; only the horizontal edges are ever actually tight).
+    // Keying on the full room object let scroll-position noise mint a "new" dedupe key for what
+    // was structurally the same finding, so the reported count for a widely-reused composer
+    // swung between runs (12/14/15 measured 2026-08-27) with nothing about the app having
+    // changed. Left/right is also the axis every clipping bug this audit has actually found
+    // (`getFieldGlow`'s halo, `FIELD_GLOW_CLEARANCE`) lives on — see the file header.
+    const key = `${tab}|${c.label}|${match ? `${match.room.left},${match.room.right}` : 'none'}`;
     if (!seen.has(key)) {
       seen.add(key);
       if (!match) {
