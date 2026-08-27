@@ -58,6 +58,7 @@ export default function GoalQuickCell({ value, onChange, accent }: Props) {
 
   return (
     <QuickAddOptionRow
+      opt="goal"
       icon="flag"
       label={t.goals.pickerLabel}
       value={selected ? selected.title : t.goals.none}

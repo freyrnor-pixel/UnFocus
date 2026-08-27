@@ -84,6 +84,7 @@ export default function HabitRecurrenceCells({ draft, accent }: Props) {
   return (
     <>
       <QuickAddOptionRow
+      opt="howOften"
         icon="repeat"
         label={t.habitHowOften}
         value={recurrenceLabel}

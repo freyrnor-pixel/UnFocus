@@ -340,6 +340,7 @@ function InlineTaskAdd({
     <QuickAddOptionsPanel>
       {(compose === 'week' || compose === 'month') && dateChoices && dateChoices.length > 0 && (
         <QuickAddOptionRow
+          opt={compose === 'week' ? 'day' : 'date'}
           icon="calendar-outline"
           label={compose === 'week' ? t.pad.dayOption : t.dateLabel}
           value={chosen?.short ?? ''}
@@ -352,6 +353,7 @@ function InlineTaskAdd({
       )}
       {(compose === 'today' || compose === 'week') && (
         <QuickAddOptionRow
+          opt="time"
           icon="time-outline"
           label={t.timeLabel}
           value={<TimeBoxInput value={time} onChange={setTime} />}
@@ -360,6 +362,7 @@ function InlineTaskAdd({
       )}
       {compose === 'today' && energySystemEnabled && (
         <QuickAddOptionRow
+          opt="energy"
           icon={energyValue === 0 ? 'flash-outline' : energyValue > 0 ? 'flash' : 'flash-off'}
           label={t.energyGiveTakeLabel}
           value={<Stepper value={energyValue} onChange={setEnergyValue} signed accessibilityLabel={t.energyGiveTakeLabel} />}
@@ -1036,12 +1039,14 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             panel={
               <QuickAddOptionsPanel>
                 <QuickAddOptionRow
+                  opt="time"
                   icon="time-outline"
                   label={t.timeLabel}
                   value={<TimeBoxInput value={wheneverTime} onChange={setWheneverTime} />}
                   accent={wheneverHue}
                 />
                 <QuickAddOptionRow
+                  opt="repeat"
                   icon="repeat"
                   label={t.taskRecurringToggle}
                   value={wheneverRecurringLabel(wheneverRecurring)}
@@ -1054,6 +1059,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                 {/* Effort · Goal — phase 7's table entry for this card. */}
                 {energySystemEnabled && (
                   <QuickAddOptionRow
+                    opt="energy"
                     icon={wheneverEnergyValue === 0 ? 'flash-outline' : wheneverEnergyValue > 0 ? 'flash' : 'flash-off'}
                     label={t.energyGiveTakeLabel}
                     value={
@@ -1327,6 +1333,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               panel={
                 <QuickAddOptionsPanel>
                   <QuickAddOptionRow
+                    opt="repeat"
                     icon="repeat"
                     label={t.taskRecurringToggle}
                     value={wheneverRecurringLabel(recurringMode)}
@@ -1338,6 +1345,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                   />
                   {recurringMode === 'weekly' && (
                     <QuickAddOptionRow
+                      opt="on"
                       icon="calendar-outline"
                       label={t.pad.onDays}
                       wide
@@ -1373,6 +1381,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
                     />
                   )}
                   <QuickAddOptionRow
+                    opt="time"
                     icon="time-outline"
                     label={t.timeLabel}
                     value={<TimeBoxInput value={recurringTime} onChange={setRecurringTime} />}
