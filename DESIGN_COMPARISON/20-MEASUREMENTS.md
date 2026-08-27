@@ -149,6 +149,38 @@ saturated amber's 86.9 ceiling:
 | ×0.75 | `rgb(62,61,48)` | 68.1 | 18.8 | 3 |
 | ×1 | `rgb(70,69,51)` | 72.2 | 14.7 | 3 |
 
+### New hue angles were searched for, and the current set kept
+
+The brief was "new hues, you derive them", narrowed by the headroom finding below to *hue angle
+only* — the five L\* rungs cannot move. So the angles were searched: for each rung, every hue at
+5° steps whose most-saturated form lands within 1.2 L\* of that rung, scored on the worst
+pairwise dichromat separation across ~8M combinations.
+
+A mechanically better set exists. It scores **deutan 38.2 / protan 38.2** against the current
+set's **30.8 / 17.6** — a real gain on protanopia, the current set's weakest axis (which still
+clears the documented floor of 12).
+
+It is not an improvement in use, and the search is what shows why:
+
+| rung | found | current |
+|---|---|---|
+| To-do | `#E0E000` (h 60) | `#FFD700` (h 51) |
+| Habits | `#FFA8E9` (h 315) | `#05D9E8` (h 185) |
+| Health | `#FF8F8F` (h 0) | `#FF8CB2` (h 340) |
+| Shopping | `#BF80FF` (h 270) | `#24B451` (h 140) |
+| Notes | `#8F8F00` (h 60) | `#B660FF` (h 275) |
+
+To-do and Notes land on **the same hue angle**, which reads as one colour at two lightnesses
+rather than as two categories — the exact confusion the separation score is supposed to measure
+and cannot see, because ΔE between a bright yellow and an olive is large while the *relationship*
+between them is obvious. And the semantics invert: Shopping becomes violet, Notes olive, Habits
+pink. A pure-separation optimum optimises the wrong thing.
+
+**Recommendation: keep the current five.** They were derived on 2026-08-17 against these same
+constraints plus semantic fit, they clear every floor, and the only axis a search improves is one
+that already passes. Churning them would cost the app's colour identity for a metric gain nobody
+can see.
+
 ### ⚠️ The correction: there is no headroom at all, and the wash's STRENGTH was never the issue
 
 Measured after building phase 2, and it revises the table above rather than confirming it.
