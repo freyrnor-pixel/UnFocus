@@ -80,7 +80,14 @@ async function clickText(page, text) {
 // tab silently ended on the To-do tab, BottomNav still showing Shop highlighted underneath it.
 // A real hit-test (same technique as FIND_CANDIDATES below) is what tells "this tab's own,
 // still-closed card" from "some other tab's card that merely LOOKS reachable from here".
+// Returns how many toggles it actually clicked, which is the STRUCTURAL half of the outer
+// loop's stop condition — see its call site. A card the walk just opened can take a beat to
+// mount its composer (a nested `Collapsible`, a fresh `AddRow`/`PadTypeRow` layout pass), so the
+// candidate scan run immediately after this can legitimately come back empty even though real
+// work just happened. Only "opened nothing, found nothing, scrolled nowhere" is a genuine dead
+// end; "opened something, found nothing (yet)" is not.
 async function openCards(page) {
+  let opened = 0;
   for (let i = 0; i < 14; i++) {
     const found = await page.evaluate(() => {
       for (const el of document.querySelectorAll('[role="button"]')) {
@@ -97,11 +104,13 @@ async function openCards(page) {
       }
       return false;
     });
-    if (!found) return;
+    if (!found) return opened;
     await page.locator('[data-halo-toggle="1"]').first().click({ timeout: 5000 }).catch(() => {});
     await page.evaluate(() => document.querySelector('[data-halo-toggle="1"]')?.removeAttribute('data-halo-toggle'));
+    opened += 1;
     await page.waitForTimeout(250);
   }
+  return opened;
 }
 
 // Runs in the page, at REST (before any field has been focused). Finds every field-shaped
@@ -363,27 +372,39 @@ try {
     // (opening a card can reveal a further, still-closed section inside it) — a second pass
     // after the first catches that. A composer below the first screenful (Shop's Food/Catalogue,
     // or Health's medicine tray on a run with a long narrator quote — see `scrollActiveTab`'s
-    // note) needs a scroll between passes to be reached at all. Stops once a pass finds nothing
-    // NEW and scrolling made no further progress (either already at the bottom, or nothing
-    // scrollable was found) — two such passes in a row, so one stray empty pass mid-content
-    // doesn't end the walk early.
+    // note) needs a scroll between passes to be reached at all.
+    //
+    // ⚠️ **The stop condition is STRUCTURAL (toggles opened / candidates found / scroll progress),
+    // not just "did this one candidate scan come back empty" — that distinction is load-bearing
+    // and was the cause of a real flake (found 2026-08-27).** The To-do tab's Week card nests
+    // SEVEN independently-foldable weekday sections (each with its own "New task" composer) below
+    // Month/Whenever/Recurring, so fully opening it at a narrow width takes several open+scroll
+    // cycles. `openCards()` clicking a toggle and `FIND_CANDIDATES` seeing its composer are two
+    // separate render passes — a card can take a beat to mount a freshly-revealed `Collapsible`'s
+    // body, so the candidate scan run immediately after `openCards()` can legitimately come back
+    // empty in the SAME pass real structural progress just happened in. Counting that as one of
+    // the two "empty" passes needed to stop the walk was cutting it off mid-expansion at 360px on
+    // a slow run and not at 430px on a fast one — same script, same app, a coin flip on timing.
+    // `opened` (how many toggles `openCards()` itself clicked) is the fix: it is not subject to
+    // the same lag, since it is asking "did I just do something" rather than "did something I did
+    // two renders ago finish appearing yet".
     let emptyPasses = 0;
-    for (let pass = 0; pass < 6 && emptyPasses < 2; pass++) {
+    for (let pass = 0; pass < 10 && emptyPasses < 2; pass++) {
       // Re-verify EVERY pass, not just once per tab — see settleOnTab's note.
       if (!(await isOnTab(tab))) await settleOnTab(tab);
       if (process.env.HALO_DEBUG) console.error(`[debug] ${tab} pass ${pass}: on correct tab = ${await isOnTab(tab)}`);
-      await openCards(page);
+      const opened = await openCards(page);
       await page.waitForTimeout(400);
       const candidates = await page.evaluate(FIND_CANDIDATES);
       if (process.env.HALO_DEBUG) {
-        console.error(`[debug] ${tab} pass ${pass}: ${candidates.length} new candidates`, candidates.map((c) => c.label));
+        console.error(`[debug] ${tab} pass ${pass}: opened ${opened} toggles, ${candidates.length} new candidates`, candidates.map((c) => c.label));
       }
       for (const c of candidates) await processCandidate(tab, c, seen);
       const scrolled = await scrollActiveTab(page, 700);
       await page.waitForTimeout(400);
       // If scrolling just moved us off our own tab (the working theory above), the NEXT pass's
       // re-verify catches it — this only has to stop the walk, not diagnose it.
-      emptyPasses = (candidates.length === 0 && !scrolled) ? emptyPasses + 1 : 0;
+      emptyPasses = (opened === 0 && candidates.length === 0 && !scrolled) ? emptyPasses + 1 : 0;
     }
   }
 } finally {
