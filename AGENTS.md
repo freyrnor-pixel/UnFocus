@@ -370,6 +370,76 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
   to other settings. The card also has **no "nothing scheduled today" line** any more — it sat
   above the starter card saying less than the card did (and, when every medicine is as-needed,
   above nothing at all).
+- **The widgets are drawn like the app's CARD — 2026-08-28** (`lib/widgets/WidgetViews.tsx` +
+  `scripts/build-widget-previews.mjs`; pinned by `lib/widgets/__tests__/widgetPalette.test.ts`).
+  The colour half of the 2026-08-15 entry below worked: the palette test caught the 2026-08-26
+  `surface` retune and has kept every hue in step since. What it could not see is that the app's
+  **card was rebuilt twice underneath it** — round 19's surface reset and round 20's corrected
+  screens — and none of that reached the one surface that renders with the app process dead. So
+  the widgets were the right colours in the wrong shape: a 10px hue dot for a header, an
+  accent-coloured subtitle hung off the right edge, flush rows with the marker on the LEFT, and a
+  solid accent pill with contrast-derived ink on it. Five things came across, each named against
+  the app component that owns it, and the same "recompute it, don't copy it" mechanism now covers
+  the material as well as the colour:
+  - **A lit edge** (`components/Surface.tsx`, round 20's per-side border): white lip top-left,
+    `theme.border` bottom-right. The one app treatment a widget wants MORE than a screen does — a
+    widget has no page behind it, only a wallpaper, and the edge is what separates the two. It
+    ports at all only because the lib renders through React Native's own `CSSBackgroundDrawable`,
+    so per-side border colours on a rounded box are the same code path a `<View>` takes.
+  - **A badge + a two-storey naming column** (`components/SectionRail.tsx`, `card` tier): the
+    2026-08-15 inverted badge (neutral frosted plate, hue fully opaque on top) and the subtitle
+    moved UNDER the title as a `peek` — muted, not the hue. ⚠️ **The snapshot still calls that
+    string `subtitle`** and must keep doing so: renaming the wire field strands every
+    `widget_snapshot` row an older build persisted. The slot it lands in is the peek; the name is
+    the format.
+  - **Boxed rows** (`components/PadSheet.tsx`, round 19) and **the check on the RIGHT**
+    (`components/PadRow.tsx`, the 2026-07-30 row rule — which the widgets never got at all). An
+    empty check is a neutral ring on the boundary token, a ticked one is filled with the hue,
+    exactly as in the app. Health's read-only symptom rows keep a LEADING mark instead, which is
+    the row rule's other slot: a state the row carries, not a control.
+  - **Nothing is written on a hue** (`constants/theme.ts`'s `glassKey`, 2026-08-17). Notes' mic
+    button is a matte key — a flat wash of its own hue, a lit edge, a plain `text` label — and
+    `onInk()` is **deleted** with the solid pill it existed to serve.
+  - ⚠️ **SHAPE is the app's, RHYTHM is scaled, and the split is load-bearing.** Radii and edge
+    widths are `Radius.md`/`Radius.sm`/`BORDER_WIDTH.card`/`.field` outright — a 16px corner with
+    a 1.5px lip reads as the same object at any size. Padding is NOT: measured on the real
+    declared minimum (180×110dp, `app.json`), the app's own `Spacing.md` insets plus this anatomy
+    leave a widget room for exactly ONE row where the flat header and unboxed rows fit two. The
+    peek line and the boxes are the app's decisions and they cost real height; the padding is
+    where that height is found. The rungs are the app's scale stepped down one — 12/8/6/3 against
+    16/8/8/4 — which is what this file has always done with type (13px rows against `FontSize.md`'s
+    17). A test asserts both halves, so "make it match the app exactly" cannot quietly undo it.
+  - **Three app layers deliberately did NOT come across**, so the gaps read as decisions: the
+    `getGlow` halo (a two-pass shadow; RemoteViews has no view shadow at all), the card hint line
+    (teaching copy for a screen you are standing on — a widget is glanced at), and the badge's
+    domain GLYPH (drawing an icon font in a headless render is the failure this file's own edit
+    notes warn about: a glyph that fails to rasterise blanks the whole widget). The plate carries
+    a hue dot instead — the badge's construction without the risk, and a widget needs no glyph to
+    say which surface it is.
+  - ⚠️ **Every translucent app layer is COMPOSITED into the palette table, never passed as an
+    alpha.** The lib's `ColorProp` does admit `rgba()`, so this is a choice: the app's glass
+    composites over its own backdrop and a widget has no backdrop, only someone's wallpaper — a
+    translucent row box would let a photo through the pane and make "one step off the card" depend
+    on what that photo is. `plate`/`rowFill`/`rowEdge`/`edgeLit` are each baked, and the test
+    recomputes each from the app source that owns the recipe (`getBadgeFrost`, `getGlassEdge`,
+    `PadSheet`'s `ROW_BOX_*`). There is no fifth: `GLASS_EDGE.card` carries no `shadeDark`, so the
+    shaded side IS `theme.border` — asserted, so it stops being true loudly.
+  - ⚠️ **`fontStyle: 'italic'` on the empty line is legitimate HERE and nowhere else in the repo.**
+    The app bans it because RN does not synthesise italic onto a NAMED custom family on Android
+    (`components/NarratorQuote.tsx` loads a real `Fonts.italic` face). A widget names no family and
+    cannot reach a font gate, so the system font's synthetic italic is exactly what renders. Both
+    `widgetPalette.test.ts` and `lib/__tests__/narratorQuotes.test.ts` name it, so the app's
+    "exactly two files wide" stays a decision rather than a claim that is quietly false one
+    directory over.
+  - **The picker previews were regenerated** (`npm run widget-previews`) and their scale
+    corrected: `K` 1.8 → 1.6, i.e. a 240×135dp widget rather than a 213×120dp one, which is what a
+    3×2 placement actually measures. The sample budget is TWO rows now, not three — the honest
+    consequence of a taller header and boxed rows. The "drop the subtitle so the title fits" hack
+    is **gone**, and its absence is the point: it existed because the header was one row and the
+    two strings competed for it, which a peek on its own line makes impossible. ⚠️ **`previewImage`
+    is bundled into the APK as a drawable, so the PNGs reach nobody over OTA** — they need a new
+    preview build. The widget layouts themselves are JS and ship over OTA like everything else.
+
 - **The outside surfaces caught up with the app — 2026-08-15** (`lib/widgets/*` +
   `lib/notifications.ts`'s persistent channel). The widgets and the pinned "today's overview"
   notification are the only parts of this app that render with the app process DEAD, which is

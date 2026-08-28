@@ -278,6 +278,23 @@ describe('the italic exception is exactly two files wide, and is a real face', (
     }
   });
 
+  it('does not reach the WIDGETS, which draw the same aside with the opposite property', () => {
+    // ⚠️ **A THIRD italic exists, on purpose, and it is not in the app** (2026-08-28).
+    // lib/widgets/WidgetViews.tsx draws an empty widget's line as this component's aside —
+    // muted, no container — and it uses `fontStyle: 'italic'`, the property banned everywhere
+    // above. The ban's REASON is what makes that correct rather than an exception: RN does not
+    // synthesise `fontStyle` onto a NAMED custom family, and a widget names no family at all.
+    // It renders to RemoteViews in the system font, which is exactly the case Android does
+    // synthesise — and it cannot load `Fonts.italic`, because a headless widget render has no
+    // font gate. So the two files want opposite properties for one look.
+    // Named here rather than left to be discovered, so "exactly two files" stays a decision
+    // about the app rather than a claim that is quietly false one directory over.
+    // `lib/widgets/__tests__/widgetPalette.test.ts` is what holds it to one line there.
+    const widget = code('lib/widgets/WidgetViews.tsx');
+    expect(widget).toMatch(/fontStyle: 'italic'/);
+    expect(widget).not.toMatch(/Fonts\.italic/);
+  });
+
   it('uses the loaded face, not the synthesised style', () => {
     // ⚠️ The load-bearing half, and invisible to every harness in this repo. RN does not map
     // `fontStyle` onto a named custom family, so `fontStyle: 'italic'` beside `Fonts.regular`
