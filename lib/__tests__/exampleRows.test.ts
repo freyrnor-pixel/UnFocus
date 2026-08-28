@@ -430,7 +430,8 @@ describe('the example sits in the list it is an example of, not above the list\'
     const source = code('components/HealthSurface.tsx');
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
-    const composer = source.indexOf('<PadTypeRow');
+    // The MOUNT, not what is inside it — see the identical note on the Habits case below.
+    const composer = source.indexOf('<DraftComposer');
     expect(section).toBeGreaterThan(-1);
     expect(section).toBeLessThan(starter);
     expect(starter).toBeLessThan(composer);
@@ -441,14 +442,13 @@ describe('the example sits in the list it is an example of, not above the list\'
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
     // ⚠️ **The marker is the composer's MOUNT, not the component inside it** (2026-08-28).
-    // This read `<PadTypeRow` until the quick-add's draft state was extracted into
-    // `HabitComposer` for performance — which moved the `<PadTypeRow` *definition* above
-    // `HabitsSurface` itself, so this index started finding the top of the file and the test
-    // failed while the layout it guards had not moved at all. The rule here is about where the
-    // composer is MOUNTED in the card; a marker naming an implementation detail of the
-    // composer answers a different question. `PlanTaskCard`'s row in the table below already
-    // had this right (`typeRow={typeRow}`), which is why it did not fail.
-    const composer = source.indexOf('<HabitComposer');
+    // This read `<PadTypeRow` until the quick-add's draft state was lifted into a component
+    // that owns it (`components/DraftComposer.tsx`, for performance) — which moved the
+    // `<PadTypeRow` *definition* out of this file entirely, so the index found nothing like
+    // the mount and a layout test failed over a change that moved no layout. The rule here is
+    // about where the composer is MOUNTED in the card; a marker naming an implementation
+    // detail of the composer answers a different question.
+    const composer = source.indexOf('<DraftComposer');
     expect(section).toBeGreaterThan(-1);
     expect(section).toBeLessThan(starter);
     expect(starter).toBeLessThan(composer);
@@ -536,15 +536,17 @@ describe('StarterCard — the suggestions drop-down starts shut and says one wor
 
 describe('the composer comes after the examples, everywhere', () => {
   // ⚠️ **A composerMarker must name the composer's MOUNT SITE.** Naming what is *inside* the
-  // composer (`<PadTypeRow`) breaks the moment that composer is extracted into its own
-  // component in the same file — the definition then sits above the surface and the index
-  // finds the top of the file, failing a layout test over a change that moved no layout. Both
-  // `Habits` and `the day card` are mounts for that reason; `Health` and `the Goals drawer`
-  // still mount their composer inline, so there the mount IS the tag.
+  // composer (`<PadTypeRow`) breaks the moment the draft state is lifted into a component that
+  // owns it — which is what `components/DraftComposer.tsx` now is for five surfaces. This
+  // table was written against `<PadTypeRow` and broke twice in one day for that reason, both
+  // times over a change that moved no layout at all. Three of the four rows are `<DraftComposer`
+  // now; the Goals drawer still mounts `AddRow` inline, so there the mount IS the tag.
   for (const [file, starterMarker, composerMarker, label] of [
-    ['components/HealthSurface.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
-    ['components/HabitsSurface.tsx', '<StarterCard', '<HabitComposer', 'Habits'],
+    ['components/HealthSurface.tsx', '<StarterCard', '<DraftComposer', 'Health'],
+    ['components/HabitsSurface.tsx', '<StarterCard', '<DraftComposer', 'Habits'],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
+    // The day card builds its type line into a `typeRow` const and mounts that const in two
+    // places (ruled list and timeline), so the const's USE is its mount.
     ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
   ] as const) {
     it(`${label} draws its composer below its example`, () => {

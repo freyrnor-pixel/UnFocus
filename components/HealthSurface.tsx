@@ -75,7 +75,7 @@ import HealthIssuesSheet from '@/components/HealthIssuesSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import PadRow from '@/components/PadRow';
-import PadTypeRow from '@/components/PadTypeRow';
+import DraftComposer from '@/components/DraftComposer';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import Collapsible from '@/components/Collapsible';
@@ -229,7 +229,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   // The gate for the Medicine card at the foot of this surface — see its mount site.
   const featureMedicine = useSettingsStore((s) => s.featureMedicine);
 
-  const [quickDraft, setQuickDraft] = useState('');
   const [quickSeverity, setQuickSeverity] = useState(DEFAULT_SEVERITY);
   const [quickStartTime, setQuickStartTime] = useState('');
   const [quickDuration, setQuickDuration] = useState('');
@@ -323,27 +322,24 @@ export default function HealthSurface({ embedded = false, section }: Props) {
     success();
   }
 
-  function handleQuickLog() {
-    const name = quickDraft.trim();
-    if (!name) return;
+  // Takes the name as an ARGUMENT — the draft lives in DraftComposer now. See that file:
+  // this surface renders the whole week's issue list, and it used to re-render per keystroke.
+  function handleQuickLog(name: string) {
     logIncident(name, {
       severity: quickSeverity,
       startTime: quickStartTime,
       durationMinutes: quickDuration,
       ongoing: quickOngoing,
     });
-    setQuickDraft('');
     setQuickSeverity(DEFAULT_SEVERITY);
     setQuickStartTime('');
     setQuickDuration('');
     setQuickOngoing(false);
   }
 
-  function openFormWithDraft() {
+  function openFormWithDraft(name: string) {
     tap();
-    const name = quickDraft.trim();
     router.push({ pathname: '/health-form', params: name ? { name } : {} });
-    setQuickDraft('');
   }
 
   function logAgain(issue: WeekIssue) {
@@ -418,10 +414,8 @@ export default function HealthSurface({ embedded = false, section }: Props) {
         )}
       </View>
 
-      <PadTypeRow
+      <DraftComposer
         prompt={t.healthIssues.typePrompt}
-        value={quickDraft}
-        onChangeText={setQuickDraft}
         onSubmit={handleQuickLog}
         accent={screenHue}
         onMore={openFormWithDraft}

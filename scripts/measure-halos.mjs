@@ -377,7 +377,24 @@ try {
   }
 
   const seen = new Set();
-  for (const tab of TAB_ORDER) {
+  // ⚠️ **TWO laps of the tab order, and the second one is not belt-and-braces (2026-08-28).**
+  // `app/(tabs)/_layout.tsx` was `lazy: false` when this walk was written, so every screen was
+  // already mounted before the first tab was clicked and one lap saw everything. That flag is
+  // `lazy: true` now (a five-tab pager was building all five trees at frame 0 of every launch),
+  // so a tab is MOUNTING on the visit that scans it — and this audit went from its usual 10-12
+  // fields to **4**, silently, while still printing a contented "0 clipped". Measured on one
+  // unchanged build: one lap 4, two laps **11**, with every missing field back (New task, Type
+  // habit, New goal name, Log something, both HH:MM, Add a medicine).
+  //   The second lap is what makes it honest, and a longer sleep on the first is NOT the fix —
+  // that was tried. The toggles and inputs are present within 500ms (probed per tab: To-do 6
+  // toggles, Health 2, Habits 1); what a first visit does not have is a settled card stack for
+  // `openCards` to walk, and the cheap way to get one is to come back once everything is
+  // mounted. Nothing is double-counted: `seen` is global and dedupes across laps.
+  //   ⚠️ **This is exactly the silent-skip failure this repo has now hit three times** — the
+  // wrap audit's stale locators (2026-08-20), its resting-state break (2026-08-21), and this.
+  // A change to NAV or to what a screen mounts should always be followed by reading this
+  // script's field COUNT, not just its "0 clipped" verdict.
+  for (const tab of [...TAB_ORDER, ...TAB_ORDER]) {
     await settleOnTab(tab);
     await page.waitForTimeout(500);
 

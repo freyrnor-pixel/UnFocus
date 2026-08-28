@@ -136,6 +136,60 @@ const TRAY_ICONS: Record<TrayId, React.ComponentProps<typeof Ionicons>['name']> 
   night: 'moon-outline',
 };
 
+/**
+ * This card's add row, owning the text you type into it (2026-08-28, perf).
+ *
+ * Same reasoning as `components/DraftComposer.tsx` — read that file's header for the
+ * measurement and the "only the TEXT moves" rule. `draft` was `useState` in `MedicineSurface`,
+ * which draws all four trays, every medicine row and the tray-time editors, so a keystroke
+ * re-rendered the lot.
+ *
+ * ⚠️ **It is NOT `DraftComposer`, and the difference is the composer underneath.** That one
+ * wraps `PadTypeRow` (an always-open type line); this card uses `components/AddRow.tsx`, the
+ * collapsed-"+"-bar composer, whose props and resting state are genuinely different. Making one
+ * component render either would mean a union of two prop sets to save fifteen lines. The dose
+ * field and the tray chips stay in the surface and arrive as the built `panel` node, exactly as
+ * they do for DraftComposer's callers.
+ *
+ * `components/FoodTab.tsx`'s two AddRows have the same defect and are NOT fixed here: one is
+ * keyed by dish id into a `Record` held by the parent and the other takes its value from props,
+ * so both need a real restructure rather than this lift.
+ */
+function MedicineComposer({
+  placeholder,
+  accent,
+  panel,
+  showDivider,
+  accessibilityLabel,
+  onSubmit,
+}: {
+  placeholder: string;
+  accent: string;
+  panel?: React.ReactNode;
+  showDivider?: boolean;
+  accessibilityLabel?: string;
+  onSubmit: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  return (
+    <AddRow
+      placeholder={placeholder}
+      value={draft}
+      onChangeText={setDraft}
+      onSubmit={() => {
+        const name = draft.trim();
+        if (!name) return;
+        onSubmit(name);
+        setDraft('');
+      }}
+      accent={accent}
+      showDivider={showDivider}
+      accessibilityLabel={accessibilityLabel}
+      panel={panel}
+    />
+  );
+}
+
 export default function MedicineSurface() {
   const router = useRouter();
   const t = useT();
@@ -163,7 +217,6 @@ export default function MedicineSurface() {
   const people = usePeopleStore((s) => s.people);
   const updateSettings = useSettingsStore((s) => s.update);
 
-  const [draft, setDraft] = useState('');
   const [timeDrafts, setTimeDrafts] = useState<Partial<Record<TrayId, string>>>({});
   const [selectedPerson, setSelectedPerson] = useState('');
   // Dose · Trays (phase 7's table, DESIGN_COMPARISON/19-IMPLEMENTATION.md) — both fields
@@ -247,9 +300,8 @@ export default function MedicineSurface() {
     setTraysDraft((prev) => (prev.includes(tray) ? prev.filter((t) => t !== tray) : [...prev, tray]));
   }
 
-  function commitAdd() {
-    const name = draft.trim();
-    if (!name) return;
+  // Takes the name as an ARGUMENT — the draft lives in MedicineComposer now (see its note).
+  function commitAdd(name: string) {
     // Default to the tray we're standing in — before the day's first tray, use that one —
     // unless the Trays option picked something else.
     const tray = currentTray(trayTimes, now) ?? sortedTrays(trayTimes)[0];
@@ -259,7 +311,6 @@ export default function MedicineSurface() {
       trays: traysDraft.length > 0 ? traysDraft : [tray],
       childName: person ?? '',
     });
-    setDraft('');
     setDoseDraft('');
     setTraysDraft([]);
     success();
@@ -537,10 +588,8 @@ export default function MedicineSurface() {
         </View>
       )}
 
-      <AddRow
+      <MedicineComposer
         placeholder={t.medicine.addPlaceholder}
-        value={draft}
-        onChangeText={setDraft}
         onSubmit={commitAdd}
         accent={screenHue}
         showDivider={medicines.length > 0}

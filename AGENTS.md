@@ -648,6 +648,25 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     | `PadTypeRow` | always-open line | `panel` + `extras` | `onMore` ✓ | the 4 Home cards, Habits tab, To-do timeline |
     | `AddRow` | collapsed `+` pill → line | `panel` + `extras` | **none** | Plans, Health, health-log, Goals, GoalsEditor, Food, Medicine |
     | `InlineAddItem` | collapsed `+` bar → **whole panel** | **not separated** — name, catalog autocomplete, price, category, qty and Temporary all at once | n/a | Shopping, inventory |
+    ⚠️ **`components/DraftComposer.tsx` is NOT a fourth composer — it is a `PadTypeRow` that
+    owns its own text** (2026-08-28), so the rule below is intact. It exists for a performance
+    reason, not a design one: five surfaces held their composer's `value`/`onChangeText` in the
+    component that draws the WHOLE surface (`PlanTaskCard` is ~2 000 lines of timeline, rows and
+    day log), and since React re-renders from where state lives downward and nothing in those
+    trees is memoised, **one character typed re-rendered the entire card stack**, re-running
+    `Surface`'s work for every card in it. Measured with the CDP profiler, JS busy time per ten
+    keystrokes, median of three, on one build A/B: Home's "I dag" **57ms → 18ms**, the Habits
+    card **64ms → 15ms**. `components/TodoSurface.tsx`'s `InlineTaskAdd` and `InlineAddItem` had
+    always owned their drafts; this is that pattern named once rather than copied per surface.
+    **Only the TEXT belongs in it** — option state (energy, target, remind, recurrence, the
+    task-vs-moment switch) changes on a TAP, not a character, and arrives as the already-built
+    `panel` NODE, so a keystroke re-renders the composer while the caller does not and React
+    bails out of that subtree. Splitting on "what changes per keystroke" is the point; splitting
+    on "what belongs to the composer" would be slower. `MedicineSurface` has a local equivalent
+    over `AddRow` (different props, different resting state — a union of both prop sets to save
+    fifteen lines was not worth it). **`components/FoodTab.tsx`'s two `AddRow`s still have the
+    defect** and need a real restructure: one is keyed by dish id into a `Record` held by the
+    parent, the other takes its value from props.
     Two known gaps, stated so they are decisions rather than drift: **`AddRow` has no tier 3**,
     so a surface on it cannot offer a fuller editor from the composer; and **`InlineAddItem`
     does not separate tiers at all** — it is one flat panel, which is why it is the only

@@ -90,7 +90,7 @@ import Card from '@/components/Card';
 import IconButton from '@/components/IconButton';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
-import PadTypeRow from '@/components/PadTypeRow';
+import DraftComposer from '@/components/DraftComposer';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
@@ -219,7 +219,6 @@ export default function HomeShoppingCard({
   const rowNodes = useRef<Map<string, any>>(new Map());
 
   // Quick-add. addTargetIndex 0 = this week's list; i>0 = monthlyLists[i-1].
-  const [addDraft, setAddDraft] = useState('');
   const [addQty, setAddQty] = useState(1);
   const [addTargetIndex, setAddTargetIndex] = useState(0);
 
@@ -302,12 +301,11 @@ export default function HomeShoppingCard({
     );
   }
 
-  function commitAdd() {
-    const name = addDraft.trim();
-    if (!name || !onAddItem) return;
+  // Takes the name as an ARGUMENT — the draft lives in DraftComposer now (see that file).
+  function commitAdd(name: string) {
+    if (!onAddItem) return;
     const monthlyListId = addTargetIndex > 0 ? monthlyLists[addTargetIndex - 1]?.id : undefined;
     onAddItem(name, addQty, monthlyListId);
-    setAddDraft('');
     setAddQty(1);
     setAddTargetIndex(0);
   }
@@ -328,10 +326,8 @@ export default function HomeShoppingCard({
   }
 
   const typeRow = onAddItem ? (
-    <PadTypeRow
+    <DraftComposer
       prompt={t.pad.type.item}
-      value={addDraft}
-      onChangeText={setAddDraft}
       onSubmit={commitAdd}
       accent={screenColor.base}
       // The labelled panel, not the inline `extras` row (2026-08-05) — same move as

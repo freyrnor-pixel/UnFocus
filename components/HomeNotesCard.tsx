@@ -96,7 +96,7 @@ import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
 import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
-import PadTypeRow from '@/components/PadTypeRow';
+import DraftComposer from '@/components/DraftComposer';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { Input } from '@/components/FormControls';
@@ -147,26 +147,26 @@ type Props = {
 function NotesComposer({ accent, onCommit }: { accent: string; onCommit: (header: string, body: string) => void }) {
   const t = useT();
   const styles = useScaledStyles(baseStyles);
-  const [noteDraft, setNoteDraft] = useState('');
+  // ⚠️ **Only the BODY lives here; the title lives in DraftComposer.** This card is the one
+  // caller with a second field, and the split is the same rule as everywhere else: the title
+  // changes on every keystroke and is the hot one, so it goes in the shared composer, while
+  // this field is built into the `panel` node the composer receives. Typing a BODY re-renders
+  // this small component (which is fine — it draws one field), typing a TITLE re-renders only
+  // DraftComposer.
   const [extraInfoDraft, setExtraInfoDraft] = useState('');
   // PadTypeRow's own keyboard-lift only fires for ITS primary field's focus/blur (see that
   // component's ScrollIntoViewContext wiring) — this extras field needs its own, or focusing
   // it while the row sits low in the card leaves it hidden behind the keyboard.
   const extraInfoLift = useKeyboardLift<TextInput>();
 
-  function commit() {
-    const trimmed = noteDraft.trim();
-    if (!trimmed) return;
-    onCommit(trimmed, extraInfoDraft.trim());
-    setNoteDraft('');
+  function commit(header: string) {
+    onCommit(header, extraInfoDraft.trim());
     setExtraInfoDraft('');
   }
 
   return (
-    <PadTypeRow
+    <DraftComposer
       prompt={t.pad.type.note}
-      value={noteDraft}
-      onChangeText={setNoteDraft}
       onSubmit={commit}
       accent={accent}
       // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
@@ -199,7 +199,10 @@ function NotesComposer({ accent, onCommit }: { accent: string; onCommit: (header
                 onFocus={extraInfoLift.onFocus}
                 onBlur={extraInfoLift.onBlur}
                 placeholder={t.home.extraInfoPlaceholder}
-                onSubmitEditing={commit}
+                // No onSubmitEditing: the title is the required field and it lives in
+                // DraftComposer, so this field cannot commit on its own without reaching for
+                // a title it does not hold. Submitting from the title line still takes the
+                // body along, which is the path that was always used.
               />
             }
             accent={accent}
