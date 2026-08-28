@@ -8,6 +8,46 @@
  * and a palette, so they never touch stores, i18n, or the settings theme — the app bakes
  * every string and the light/dark colours are chosen by the caller via renderWidgetByName.
  *
+ * ── The card anatomy, 2026-08-28 ────────────────────────────────────────────────────────────
+ * **A widget IS a card, so it is drawn like one.** The colours were re-synced on 2026-08-15 and
+ * again on 2026-08-26 and have been correct since; what had gone a year stale is the SHAPE. The
+ * app's card was rebuilt twice over in between (the round 19 surface reset and round 20's
+ * corrected screens) and none of it reached the one surface that renders with the app process
+ * dead — the same blind spot the palette had, one level up from colour. Five things came across,
+ * each named against the app component that owns it:
+ *
+ *   1. **A lit edge** (components/Surface.tsx, round 20). The card carries a real per-side
+ *      border: a white lip on the top and left, `border` on the bottom and right. That is the
+ *      one app treatment a widget wants *more* than a screen does — a widget has no page behind
+ *      it, only a wallpaper, and the edge is what separates the two.
+ *   2. **The header is a badge + a two-storey naming column** (components/SectionRail.tsx, tier
+ *      `card`): a neutral frosted plate with the hue fully opaque on top (the 2026-08-15 badge
+ *      inversion), then the title with the subtitle UNDER it as a `peek` line — muted, not the
+ *      hue, and not hung off the right-hand edge (round 20: a card says what it holds, in words).
+ *   3. **Rows are boxed** (components/PadSheet.tsx, round 19): a neutral fill one step off the
+ *      card with a quiet edge, `Radius.sm`, stacked with a 4px gap.
+ *   4. **The check is on the RIGHT** (components/PadRow.tsx, the 2026-07-30 row rule, which the
+ *      widgets never got): `[leading?] title → right value → [○ check]`. An empty check is a
+ *      neutral RING on the boundary token; a ticked one is filled with the hue.
+ *   5. **Nothing is written on a hue** (constants/theme.ts's `glassKey`, 2026-08-17). Notes' mic
+ *      button is a matte key now — a flat wash of its own hue with a lit edge and a plain
+ *      `text` label — instead of a solid accent pill with contrast-derived ink on it.
+ *
+ * What deliberately did NOT come across, so the gaps read as decisions:
+ *   - **The halo.** `getGlow` is a two-pass shadow; RemoteViews has one text shadow and no view
+ *     shadow at all. A key here is body + edge, and that is the whole of it.
+ *   - **The card hint line** (components/CardHintLine.tsx, round 20). One muted italic line
+ *     saying what a card is FOR is teaching copy for a screen you are standing on; a widget is
+ *     glanced at, and the app's own "no manual" ruling applies here hardest.
+ *   - **The domain GLYPH inside the badge.** Drawing an icon font in a headless RemoteViews
+ *     render is the failure mode this file's own Edit notes warn about (a glyph that fails to
+ *     rasterise blanks the whole widget). The plate carries a hue dot instead: the badge's
+ *     construction — neutral ground, hue on top — without the risk. A widget needs no glyph to
+ *     say which surface it is; there is exactly one of each.
+ *   - **Fading a done row.** `PadRow` drops the whole row to `DONE_ROW_OPACITY` and strikes the
+ *     title through; neither exists here, so a settled row says so with muted ink and a filled
+ *     check, exactly as it did before.
+ *
  * Interactivity: Tasks/Shopping/Notes/Habits rows live inside a scrollable ListWidget and
  * each carries its own clickAction so a tap writes back through the headless handler
  * (lib/widgets/handler.tsx → lib/widgets/widgetActions.ts):
@@ -25,7 +65,8 @@
  *
  * Connections:
  *   Imports → react-native-android-widget (FlexWidget, TextWidget, ListWidget), lib/widgets/snapshot (types)
- *   Used by → lib/widgets/handler.tsx (headless render), lib/widgets/sync.ts (in-app requestWidgetUpdate)
+ *   Used by → lib/widgets/handler.tsx (headless render), lib/widgets/sync.ts (in-app requestWidgetUpdate),
+ *             scripts/build-widget-previews.mjs (extracts the palette tables + the layout it mirrors)
  *   Data    → none (pure)
  *
  * Edit notes:
@@ -38,9 +79,21 @@
  *   - Colours must be `#RRGGBB` literals (the lib's ColorProp type) — that's why palette
  *     values and the snapshot accents are typed/cast to Hex here. Keep layouts shallow
  *     (Flex + Text) — no app components, no StyleSheet — they render to native RemoteViews.
+ *   - ⚠️ **Every translucent layer the app draws is COMPOSITED here, never passed as an alpha.**
+ *     The lib's `ColorProp` does admit `rgba(r, g, b, a)`, so this is a choice: the app's glass
+ *     composites over its own backdrop, and a widget has no backdrop — only the user's
+ *     wallpaper. A translucent row box would let a photo through the pane and the whole "one
+ *     step off the card" relationship would depend on what someone's wallpaper happens to be.
+ *     So the tables below hold each layer ALREADY composited over `card`, exactly the way
+ *     constants/colors.ts derives `surface` from `surfaceGlass`. The test recomputes them.
  *   - Do NOT put Unicode symbol glyphs (☑/☐/•/…) in a TextWidget: rendering them to the
  *     RemoteViews bitmap can fail and blank the WHOLE widget. Use a FlexWidget shape (a filled
  *     dot for done/in-cart, a bordered ring for not-done/in-list) instead.
+ *   - `fontStyle: 'italic'` on the empty line is safe HERE and is not a licence anywhere else.
+ *     The app bans it (AGENTS.md: RN does not synthesise italic onto a named custom family on
+ *     Android, so `components/NarratorQuote.tsx` loads a real `Fonts.italic` face). A widget
+ *     draws in the system font with no family named, which is precisely the case Android DOES
+ *     synthesise. Never copy the property back into the app.
  */
 import React from 'react';
 import { FlexWidget, TextWidget, ListWidget } from 'react-native-android-widget';
@@ -60,7 +113,15 @@ type Palette = {
   card: Hex;
   text: Hex;
   muted: Hex;
+  /** `theme.border` — the control-boundary token. An empty check ring and the card's shaded edge. */
   line: Hex;
+  /** The badge's frosted plate (`getBadgeFrost`), composited over `card`. */
+  plate: Hex;
+  /** A boxed row's fill and edge (components/PadSheet.tsx's `ROW_BOX_*`), composited over `card`. */
+  rowFill: Hex;
+  rowEdge: Hex;
+  /** The card's lit top-left lip (`getGlassEdge`'s first stop), composited over `card`. */
+  edgeLit: Hex;
   dark: boolean;
 };
 
@@ -87,12 +148,28 @@ type Palette = {
  * this file's own header describes). Every `LIGHT_INK` entry is recomputed below because the
  * light-mode floor (`mix toward black until 4.5:1 on LIGHT.card`) depends on `LIGHT.card`,
  * which moved — so even the three unretuned hues (todo/habits/health) needed a new ink value.
+ *
+ * **Four DERIVED fields joined on 2026-08-28** — `plate`, `rowFill`, `rowEdge`, `edgeLit`. Each
+ * is a translucent app layer already composited over `card` (see the Edit note above for why
+ * compositing rather than an alpha), and each is recomputed by the test from the app source
+ * that owns it: `getBadgeFrost` and `getGlassEdge` in constants/theme.ts, `ROW_BOX_*` in
+ * components/PadSheet.tsx. There is no fifth: the card's SHADED edge is `line` itself, because
+ * `GLASS_EDGE.card` carries no `shadeDark` and so resolves to plain `theme.border` at full
+ * alpha in both modes.
  */
 // `muted`/`line` lifted 2026-08-20 with constants/colors.ts's contrast pass — these are baked
 // copies, and lib/widgets/__tests__/widgetPalette.test.ts recomputes them from the real palette
 // and fails the PR on a drift. That is what caught this pair; keep them moving together.
-const LIGHT: Palette = { card: '#FDFEFF', text: '#1B2432', muted: '#535D6B', line: '#65768F', dark: false };
-const DARK: Palette = { card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95', dark: true };
+const LIGHT: Palette = {
+  card: '#FDFEFF', text: '#1B2432', muted: '#535D6B', line: '#65768F',
+  plate: '#EFF0F2', rowFill: '#F3F4F6', rowEdge: '#E6E8EB', edgeLit: '#FFFFFF',
+  dark: false,
+};
+const DARK: Palette = {
+  card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95',
+  plate: '#383838', rowFill: '#303030', rowEdge: '#3A3A3A', edgeLit: '#474747',
+  dark: true,
+};
 
 /**
  * A hue's light-mode ink. The five identity hues are tuned for a BLACK card — on the light
@@ -105,6 +182,13 @@ const DARK: Palette = { card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line
  *
  * Recomputed 2026-08-26 for the `LIGHT.card`/`DARK.accent` retune above — keyed by hue, so
  * `#0DB34A`/`#B45CFF`/`#1E88FF` (their pre-retune values) are gone; look up by the new hex.
+ *
+ * ⚠️ **ONE table, used everywhere a hue is drawn in light mode — including the badge dot, which
+ * the app derives separately** (2026-08-28). `badgeGlyphFor` walks each hue against the *plate*
+ * to 3.3:1, so the app's badge ink and its card ink are two different values. Baking a second
+ * table here would be a second thing to keep in step for no gain: this one targets the STRICTER
+ * floor (4.5:1 on the card), and the test proves every entry also clears 3.3:1 on the composited
+ * `plate` and 3:1 on `rowFill`, which is every ground a hue actually lands on in a widget.
  */
 const LIGHT_INK: Record<string, Hex> = {
   '#FFD700': '#8A7400', // To-do gold
@@ -122,90 +206,240 @@ function ink(accent: Hex, p: Palette): Hex {
 }
 
 /**
- * Label colour for something drawn ON an accent fill (the Notes mic button). Mirrors
- * constants/theme.ts's contrastOn, including its `#1E293B` dark ink. Hardcoded white was
- * 3.55:1 on the violet — under AA at the 12px this label is drawn at.
+ * One translucent layer, flattened onto the ground it is drawn over — the arithmetic half of
+ * the "composite, never alpha" rule in the Edit notes. Mirrors `mix()` in constants/theme.ts,
+ * which is what every app-side recipe (`getBadgeFrost`, `glassKey`, `getGlassEdge`) is built on.
+ *
+ * Only `keyStyle()` calls it at render time; the palette's own composited fields are baked
+ * literals, because scripts/build-widget-previews.mjs extracts those tables by regex and a
+ * computed field would be invisible to it.
  */
-function onInk(fill: Hex): Hex {
-  const lin = (c: number) => {
-    const v = c / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-  };
-  const l = (h: string) => {
-    const n = h.replace('#', '');
-    const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16));
-    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-  };
-  const ratio = (a: string, b: string) => {
-    const [x, y] = [l(a), l(b)];
-    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-  };
-  return ratio(fill, '#1E293B') >= ratio(fill, '#FFFFFF') ? '#1E293B' : '#FFFFFF';
+function composite(base: Hex, tint: Hex, alpha: number): Hex {
+  const bytes = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [r1, g1, b1] = bytes(base);
+  const [r2, g2, b2] = bytes(tint);
+  const to = (n: number) => Math.round(n).toString(16).padStart(2, '0').toUpperCase();
+  return hex(`#${to(r1 + (r2 - r1) * alpha)}${to(g1 + (g2 - g1) * alpha)}${to(b1 + (b2 - b1) * alpha)}`);
 }
 
-const FRAME = {
-  height: 'match_parent' as const,
-  width: 'match_parent' as const,
-  flexDirection: 'column' as const,
-  padding: 14,
-  borderRadius: 20,
-};
+/** The white a lit edge catches, in both the card's edge and a key's — `GLASS_LIGHT`. */
+const GLASS_LIGHT = '#FFFFFF' as Hex;
 
-const ROW = {
-  width: 'match_parent' as const,
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  paddingVertical: 6,
-  paddingHorizontal: 2,
-};
-
-/** Filled marker (done / in-cart). */
-function Dot({ color }: { color: Hex }) {
-  return <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: color }} />;
+/**
+ * The matte-glass KEY (constants/theme.ts's `glassKey`, 2026-08-17), composited.
+ *
+ * The app's primary action stopped being a solid accent pill with derived ink on it: it is a
+ * flat wash of its own hue, a white lip on the top-left, a quiet boundary on the bottom-right,
+ * and a `theme.text` label. Notes' mic button is the widget layer's one key, so it follows.
+ *
+ * The `KEY_BODY_ALPHA` / `KEY_EDGE_*` numbers are the app's, mirrored — the test recomputes the
+ * whole style against the real `glassKey()` and fails on a drift, the same mechanism the palette
+ * tables have. What is NOT here is the halo: `getGlow` is a two-pass shadow and RemoteViews has
+ * none, so a key is body + edge and nothing else.
+ */
+function keyStyle(accent: Hex, p: Palette) {
+  const body = composite(p.card, accent, p.dark ? 0.14 : 0.16);
+  const lit = composite(p.card, GLASS_LIGHT, p.dark ? 0.3 : 0.9);
+  const shade = p.dark ? composite(p.card, GLASS_LIGHT, 0.07) : composite(p.card, accent, 0.35);
+  return {
+    backgroundColor: body,
+    borderWidth: 1.25,
+    borderTopColor: lit,
+    borderLeftColor: lit,
+    borderBottomColor: shade,
+    borderRightColor: shade,
+  };
 }
-/** Hollow marker (not-done / in-list / note). */
-function Ring({ color }: { color: Hex }) {
+
+// ── Geometry ─────────────────────────────────────────────────────────────────
+// **SHAPE is the app's; RHYTHM is scaled.** The two halves are split deliberately and the line
+// between them is worth knowing before moving anything here.
+//
+// A radius and an edge width are what a card IS — a 16px corner with a 1.5px lit lip reads as
+// the same object at any size — so those are `constants/theme.ts`'s tokens outright, and
+// `lib/widgets/__tests__/widgetPalette.test.ts` pins each one to the token it came from.
+//
+// Padding and gaps are not: they are proportional to the TYPE, and this file has drawn at one
+// rung below the app's since it was written (13px rows against `FontSize.md`'s 17). Spending the
+// app's `Spacing.md` on a card whose minimum is 180×110dp is not fidelity, it is a smaller
+// widget — measured, on the real declared size: the app's own insets plus this anatomy leave a
+// 110dp-tall widget room for exactly ONE row, where the flat header and unboxed rows it replaces
+// fit two. The peek line and the row boxes are the app's decisions and they cost real height; the
+// padding around them is where that height is found. So the rungs below are the app's scale
+// stepped down one, not new numbers: 12/8/6/3 against 16/8/8/4.
+const CARD_RADIUS = 16; // Radius.md
+const ROW_RADIUS = 12; // Radius.sm
+const CARD_EDGE = 1.5; // BORDER_WIDTH.card
+const ROW_EDGE = 1.25; // BORDER_WIDTH.field
+/** The widget's own rhythm — `Spacing`, one rung down. See the block above. */
+const S = { xxs: 3, xs: 6, sm: 8, md: 12 };
+
+/** The card. A lit top-left lip, the boundary token bottom-right — components/Surface.tsx. */
+function frame(p: Palette) {
+  return {
+    height: 'match_parent' as const,
+    width: 'match_parent' as const,
+    flexDirection: 'column' as const,
+    paddingHorizontal: S.md,
+    paddingTop: S.sm,
+    paddingBottom: S.md,
+    borderRadius: CARD_RADIUS,
+    borderWidth: CARD_EDGE,
+    borderTopColor: p.edgeLit,
+    borderLeftColor: p.edgeLit,
+    borderBottomColor: p.line,
+    borderRightColor: p.line,
+    backgroundColor: p.card,
+  };
+}
+
+/**
+ * A boxed row — components/PadSheet.tsx's `line` + its neutral fill/edge pair.
+ *
+ * The stack gap is that file's own reasoning carried over: two 1.25px borders flush against
+ * each other paint a 2.5px line between every pair of rows, heavier than the card's own edge,
+ * which inverts the hierarchy the fill is there to establish. It is the smallest rung here
+ * rather than PadSheet's `Spacing.xs`, for the reason the geometry block above gives.
+ */
+function rowStyle(p: Palette) {
+  return {
+    width: 'match_parent' as const,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: S.sm,
+    paddingVertical: 5,
+    marginBottom: S.xxs,
+    borderRadius: ROW_RADIUS,
+    borderWidth: ROW_EDGE,
+    borderColor: p.rowEdge,
+    backgroundColor: p.rowFill,
+  };
+}
+
+/**
+ * The row's trailing check — components/PadRow.tsx's, on the right where the row rule puts it
+ * (2026-07-30: *"a paper checklist puts its ticks in the right margin"*).
+ *
+ * Neutral while empty and hue only once ticked, which is the app's own rule and not merely a
+ * colour choice: an empty ring is a CONTROL BOUNDARY and belongs on the contrast-tuned `border`
+ * token. The tick itself is the fill — there is no checkmark glyph, per the Unicode note above.
+ */
+function Check({ done, accent, p }: { done: boolean; accent: Hex; p: Palette }) {
   return (
-    <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, marginRight: 8, borderWidth: 2, borderColor: color }} />
+    <FlexWidget
+      style={{
+        width: 13,
+        height: 13,
+        borderRadius: 7,
+        marginLeft: S.sm,
+        borderWidth: 2,
+        borderColor: done ? accent : p.line,
+        ...(done ? { backgroundColor: accent } : null),
+      }}
+    />
   );
 }
 
-function Header({ title, subtitle, accent, p }: { title: string; subtitle: string; accent: Hex; p: Palette }) {
+/** Filled leading marker (an ongoing entry). */
+function Dot({ color }: { color: Hex }) {
+  return <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, marginRight: S.sm, backgroundColor: color }} />;
+}
+/** Hollow leading marker (a settled entry). */
+function Ring({ color }: { color: Hex }) {
+  return (
+    <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, marginRight: S.sm, borderWidth: 2, borderColor: color }} />
+  );
+}
+
+/**
+ * The card header — components/SectionRail.tsx at its `card` tier.
+ *
+ * A badge, then a naming COLUMN: the title, and under it the `peek`. The snapshot still calls
+ * that string `subtitle` (renaming the wire format would strand every snapshot row an older
+ * build persisted) but the slot it lands in is the peek: one muted line saying what the card
+ * holds, where it used to be an accent-coloured chip hung off the right-hand edge. Round 20's
+ * framing is that a count beside a name reads as a score and a sentence does not — and the
+ * second storey is also what stopped the title having to compete with it for one row's width.
+ */
+function Header({
+  title,
+  peek,
+  accent,
+  p,
+  right,
+}: {
+  title: string;
+  peek: string;
+  accent: Hex;
+  p: Palette;
+  right?: React.ReactNode;
+}) {
   return (
     <FlexWidget
       style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
     >
-      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: accent, marginRight: 8 }} />
-        <TextWidget text={title} style={{ fontSize: 15, fontWeight: '700', color: p.text }} />
+      <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        {/* The inverted badge: a neutral frosted plate with the hue fully opaque on top. */}
+        <FlexWidget
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            marginRight: S.sm,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: p.plate,
+          }}
+        >
+          <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: accent }} />
+        </FlexWidget>
+        <FlexWidget style={{ flex: 1, flexDirection: 'column' }}>
+          <TextWidget
+            text={title}
+            maxLines={1}
+            truncate="END"
+            style={{ fontSize: 15, fontWeight: '700', color: p.text }}
+          />
+          {peek ? (
+            <TextWidget text={peek} maxLines={1} truncate="END" style={{ fontSize: 11, color: p.muted }} />
+          ) : null}
+        </FlexWidget>
       </FlexWidget>
-      {subtitle ? <TextWidget text={subtitle} style={{ fontSize: 12, fontWeight: '500', color: accent }} /> : null}
+      {right ?? null}
     </FlexWidget>
   );
 }
 
+/**
+ * What an empty surface says. Drawn as the app draws an aside — no container, no fill, no
+ * border, muted and italic (components/NarratorQuote.tsx). See the Edit note on why the italic
+ * property is legitimate in a widget and banned in the app.
+ */
 function Empty({ text, p }: { text: string; p: Palette }) {
   if (!text) return null;
   return (
     <FlexWidget
-      style={{ width: 'match_parent', flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}
+      style={{ width: 'match_parent', flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: S.xs }}
     >
-      <TextWidget text={text} style={{ fontSize: 13, color: p.muted }} />
+      <TextWidget text={text} style={{ fontSize: 13, fontStyle: 'italic', color: p.muted }} />
     </FlexWidget>
   );
 }
 
 function More({ text, p }: { text: string; p: Palette }) {
   if (!text) return null;
-  return <TextWidget text={text} style={{ fontSize: 12, color: p.muted, marginTop: 6 }} />;
+  return <TextWidget text={text} style={{ fontSize: 12, color: p.muted, marginTop: S.xxs }} />;
 }
 
 /** Scrollable list container + a "+N more" footer, sharing the column layout of every widget.
  *  ListWidget has no flex prop (it maps to a native ListView), so it fills a flex:1 wrapper
- *  via height:'match_parent', leaving the footer its own row below. */
+ *  via height:'match_parent', leaving the footer its own row below.
+ *  The gap above it is the header→body gap SectionRail reserves as its own `marginBottom`,
+ *  which is also the whole of that separation now: the hairline rule under a card header was
+ *  deleted in round 20 as a "stray artefact", and nothing replaced it. */
 function ScrollBody({ more, p, children }: { more: string; p: Palette; children: React.ReactNode }) {
   return (
-    <FlexWidget style={{ width: 'match_parent', flex: 1, flexDirection: 'column', marginTop: 8 }}>
+    <FlexWidget style={{ width: 'match_parent', flex: 1, flexDirection: 'column', marginTop: S.xs }}>
       <FlexWidget style={{ width: 'match_parent', flex: 1 }}>
         <ListWidget style={{ height: 'match_parent', width: 'match_parent' }}>{children}</ListWidget>
       </FlexWidget>
@@ -214,31 +448,57 @@ function ScrollBody({ more, p, children }: { more: string; p: Palette; children:
   );
 }
 
+/** Title + trailing check — the shape four of the five widgets' rows take. */
+function CheckRow({
+  label,
+  done,
+  accent,
+  p,
+}: {
+  label: string;
+  done: boolean;
+  accent: Hex;
+  p: Palette;
+}) {
+  return (
+    <>
+      {/* The label is wrapped rather than flexed directly: TextWidget carries no `flex` of its
+          own, so a bare one sizes to its content and the check drifts in beside it instead of
+          sitting at the row's right edge. */}
+      <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        <TextWidget
+          text={label}
+          maxLines={1}
+          truncate="END"
+          style={{ fontSize: 13, color: done ? p.muted : p.text }}
+        />
+      </FlexWidget>
+      <Check done={done} accent={accent} p={p} />
+    </>
+  );
+}
+
 // ── Shopping ─────────────────────────────────────────────────────────────────
 function ShoppingWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.shopping;
   const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
-      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      <Header title={s.title} peek={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
         <ScrollBody more={s.more} p={p}>
-          {s.items.map((item, i) => {
-            const inCart = item.state === 'cart';
-            return (
-              <FlexWidget key={`${i}-${item.id}`} clickAction="CYCLE_SHOP_ITEM" clickActionData={{ id: item.id }} style={ROW}>
-                {inCart ? <Dot color={accent} /> : <Ring color={accent} />}
-                <TextWidget
-                  text={item.name}
-                  maxLines={1}
-                  truncate="END"
-                  style={{ fontSize: 13, color: inCart ? p.muted : p.text }}
-                />
-              </FlexWidget>
-            );
-          })}
+          {s.items.map((item, i) => (
+            <FlexWidget
+              key={`${i}-${item.id}`}
+              clickAction="CYCLE_SHOP_ITEM"
+              clickActionData={{ id: item.id }}
+              style={rowStyle(p)}
+            >
+              <CheckRow label={item.name} done={item.state === 'cart'} accent={accent} p={p} />
+            </FlexWidget>
+          ))}
         </ScrollBody>
       )}
     </FlexWidget>
@@ -250,21 +510,15 @@ function TasksWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.tasks;
   const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
-      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      <Header title={s.title} peek={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
         <ScrollBody more={s.more} p={p}>
           {s.items.map((task, i) => (
-            <FlexWidget key={`${i}-${task.id}`} clickAction="TOGGLE_TASK" clickActionData={{ id: task.id }} style={ROW}>
-              {task.done ? <Dot color={accent} /> : <Ring color={p.muted} />}
-              <TextWidget
-                text={task.title}
-                maxLines={1}
-                truncate="END"
-                style={{ fontSize: 13, color: task.done ? p.muted : p.text }}
-              />
+            <FlexWidget key={`${i}-${task.id}`} clickAction="TOGGLE_TASK" clickActionData={{ id: task.id }} style={rowStyle(p)}>
+              <CheckRow label={task.title} done={task.done} accent={accent} p={p} />
             </FlexWidget>
           ))}
         </ScrollBody>
@@ -278,15 +532,13 @@ function OverviewWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.overview;
   const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
-      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: accent, marginRight: 8 }} />
-        <TextWidget text={s.title} style={{ fontSize: 15, fontWeight: '700', color: p.text }} />
-      </FlexWidget>
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      {/* No peek: the overview's own first line is already the summary one would go in. */}
+      <Header title={s.title} peek="" accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
-        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: 10 }}>
+        <FlexWidget style={{ width: 'match_parent', flexDirection: 'column', marginTop: S.xs }}>
           {s.lines.map((line, i) => (
             <TextWidget
               key={`${i}-${line}`}
@@ -307,39 +559,41 @@ function NotesWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.notes;
   const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'unfocus:///notes' }} style={{ ...FRAME, backgroundColor: p.card }}>
-      <FlexWidget
-        style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-      >
-        <FlexWidget style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <FlexWidget style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: accent, marginRight: 8 }} />
-          <TextWidget text={s.title} style={{ fontSize: 15, fontWeight: '700', color: p.text }} />
-        </FlexWidget>
-        {/* Mic button → opens Notes and auto-starts recording (speech runs in-app only). */}
-        <FlexWidget
-          clickAction="OPEN_URI"
-          clickActionData={{ uri: 'unfocus:///notes?capture=voice' }}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            backgroundColor: accent,
-            borderRadius: 14,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-          }}
-        >
-          <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: onInk(accent), marginRight: 6 }} />
-          <TextWidget text={s.voiceLabel} style={{ fontSize: 12, fontWeight: '600', color: onInk(accent) }} />
-        </FlexWidget>
-      </FlexWidget>
+    <FlexWidget clickAction="OPEN_URI" clickActionData={{ uri: 'unfocus:///notes' }} style={frame(p)}>
+      <Header
+        title={s.title}
+        peek=""
+        accent={accent}
+        p={p}
+        right={
+          /* Mic button → opens Notes and auto-starts recording (speech runs in-app only).
+             A matte key: its own hue as a flat wash, a lit edge, and a plain `text` label —
+             nothing is written on a hue any more (constants/theme.ts's glassKey). */
+          <FlexWidget
+            clickAction="OPEN_URI"
+            clickActionData={{ uri: 'unfocus:///notes?capture=voice' }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginLeft: S.sm,
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+              ...keyStyle(accent, p),
+            }}
+          >
+            <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: accent, marginRight: 6 }} />
+            <TextWidget text={s.voiceLabel} style={{ fontSize: 12, fontWeight: '600', color: p.text }} />
+          </FlexWidget>
+        }
+      />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
         <ScrollBody more={s.more} p={p}>
           {s.items.map((note, i) => (
-            <FlexWidget key={`${i}-${note.id}`} clickAction="TOGGLE_NOTE" clickActionData={{ id: note.id }} style={ROW}>
-              <Ring color={accent} />
-              <TextWidget text={note.header || '—'} maxLines={1} truncate="END" style={{ fontSize: 13, color: p.text }} />
+            <FlexWidget key={`${i}-${note.id}`} clickAction="TOGGLE_NOTE" clickActionData={{ id: note.id }} style={rowStyle(p)}>
+              <CheckRow label={note.header || '—'} done={false} accent={accent} p={p} />
             </FlexWidget>
           ))}
         </ScrollBody>
@@ -353,21 +607,15 @@ function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   const s = snap.habits;
   const accent = ink(hex(s.accent), p);
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
-      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      <Header title={s.title} peek={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
         <ScrollBody more={s.more} p={p}>
           {s.items.map((habit, i) => (
-            <FlexWidget key={`${i}-${habit.id}`} clickAction="TOGGLE_HABIT" clickActionData={{ id: habit.id }} style={ROW}>
-              {habit.done ? <Dot color={accent} /> : <Ring color={p.muted} />}
-              <TextWidget
-                text={habit.title}
-                maxLines={1}
-                truncate="END"
-                style={{ fontSize: 13, color: habit.done ? p.muted : p.text }}
-              />
+            <FlexWidget key={`${i}-${habit.id}`} clickAction="TOGGLE_HABIT" clickActionData={{ id: habit.id }} style={rowStyle(p)}>
+              <CheckRow label={habit.title} done={habit.done} accent={accent} p={p} />
             </FlexWidget>
           ))}
         </ScrollBody>
@@ -381,26 +629,29 @@ function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
  * One medicine tray. The ONLY actionable row on this widget — a tap logs the whole window
  * (TAKE_TRAY), the same unit the notification's "Taken" button works in.
  *
- * Three states, and the middle one is the point: taken (filled dot, muted label — settled),
- * still due (hollow accent ring, full-strength label — visible without being shouted at), and
- * upcoming (hollow muted ring, muted label — not your problem yet). A tray that has passed
+ * Three states, and the middle one is the point: taken (filled check, muted label — settled),
+ * still due (empty check, full-strength label — visible without being shouted at), and
+ * upcoming (empty check, muted label — not your problem yet). A tray that has passed
  * untaken looks exactly like one that has not yet arrived, apart from where the eye lands;
  * there is no red, no count of how late, no escalation of any kind. That is the tray contract
  * from lib/medicineSchedule.ts carried onto the home screen.
+ *
+ * The row rule's full shape, since this is the one row that uses all of it:
+ * `title → ONE right-hand value → [○ check]`, with the tray's progress as that value.
  */
 function TrayRow({ tray, accent, p }: { tray: NonNullable<WidgetSnapshot['health']['trays']>[number]; accent: Hex; p: Palette }) {
-  const label = tray.taken || !tray.due ? p.muted : p.text;
   return (
-    <FlexWidget
-      clickAction="TAKE_TRAY"
-      clickActionData={{ id: tray.id }}
-      style={{ ...ROW, justifyContent: 'space-between' }}
-    >
-      <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-        {tray.taken ? <Dot color={accent} /> : <Ring color={tray.due ? accent : p.muted} />}
-        <TextWidget text={tray.label} maxLines={1} truncate="END" style={{ fontSize: 13, color: label }} />
+    <FlexWidget clickAction="TAKE_TRAY" clickActionData={{ id: tray.id }} style={rowStyle(p)}>
+      <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+        <TextWidget
+          text={tray.label}
+          maxLines={1}
+          truncate="END"
+          style={{ fontSize: 13, color: tray.taken || !tray.due ? p.muted : p.text }}
+        />
       </FlexWidget>
-      <TextWidget text={tray.detail} style={{ fontSize: 12, color: p.muted, marginLeft: 8 }} />
+      <TextWidget text={tray.detail} style={{ fontSize: 12, color: p.muted, marginLeft: S.sm }} />
+      <Check done={tray.taken} accent={accent} p={p} />
     </FlexWidget>
   );
 }
@@ -409,7 +660,7 @@ function TrayRow({ tray, accent, p }: { tray: NonNullable<WidgetSnapshot['health
 function SeverityScale({ severity, accent, p }: { severity: number; accent: Hex; p: Palette }) {
   const filled = Math.max(0, Math.min(5, severity));
   return (
-    <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 8 }}>
+    <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', marginLeft: S.sm }}>
       {[0, 1, 2, 3, 4].map((i) => (
         <FlexWidget
           key={i}
@@ -431,8 +682,8 @@ function HealthWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   // fold-in has no `trays` key at all, and the handler renders that row verbatim.
   const trays = s.trays ?? [];
   return (
-    <FlexWidget clickAction="OPEN_APP" style={{ ...FRAME, backgroundColor: p.card }}>
-      <Header title={s.title} subtitle={s.subtitle} accent={accent} p={p} />
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      <Header title={s.title} peek={s.subtitle} accent={accent} p={p} />
       {!s.hasContent ? (
         <Empty text={s.empty} p={p} />
       ) : (
@@ -443,16 +694,14 @@ function HealthWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
             <TrayRow key={`tray-${tray.id}`} tray={tray} accent={accent} p={p} />
           ))}
           {s.items.map((entry, i) => (
-            // Read-only: no per-row clickAction (empty taps fall through to the card's OPEN_APP).
-            <FlexWidget key={`${i}-${entry.id}`} style={{ ...ROW, justifyContent: 'space-between' }}>
-              <FlexWidget style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                {entry.ongoing ? <Dot color={accent} /> : <Ring color={p.muted} />}
-                <TextWidget
-                  text={entry.label}
-                  maxLines={1}
-                  truncate="END"
-                  style={{ fontSize: 13, color: p.text }}
-                />
+            // Read-only: no per-row clickAction (empty taps fall through to the card's
+            // OPEN_APP), and so no check — the row rule's trailing slot is for a control, and
+            // there is none. The ongoing/settled mark is a LEADING one, which is the slot the
+            // rule keeps for exactly this: a state the row carries rather than a thing to press.
+            <FlexWidget key={`${i}-${entry.id}`} style={rowStyle(p)}>
+              <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                {entry.ongoing ? <Dot color={accent} /> : <Ring color={p.line} />}
+                <TextWidget text={entry.label} maxLines={1} truncate="END" style={{ fontSize: 13, color: p.text }} />
               </FlexWidget>
               <SeverityScale severity={entry.severity} accent={accent} p={p} />
             </FlexWidget>
