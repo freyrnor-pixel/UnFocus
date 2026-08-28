@@ -9,7 +9,7 @@
  *
  * Connections:
  *   Imports → components/Surface, components/CardExpandButton, constants/theme, constants/motion,
- *             lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated
+ *             lib/cardPane, lib/expandableCards, lib/i18n, lib/useAppTheme, react-native-reanimated
  *   Used by → <CardExpandHost/> mounted in app/_layout.tsx; expandCard()/collapseCard() called
  *             from lib/useCardExpand.ts (which every expandable card uses); useExpandedCardId()
  *             read by lib/useCardExpand.ts to know whether ITS card is the one showing
@@ -21,6 +21,12 @@
  *     `todoToday`/`todoWhenever` now, not their own expandable cards, so they arrive for free
  *     with those two entries' bodies. `todoMonth` joined in the same pass (a new registry card,
  *     a date filter between Week and Whenever — see lib/cardRegistry.ts).
+ *   - ⚠️ **The card this pane is showing draws as the pane's BODY, not as a card (2026-08-28,
+ *     lib/cardPane.ts).** Every one of these bodies is a surface whose job is to render one
+ *     `<Card>`, so without the context this file paints its title bar and then lets that card
+ *     paint a second Surface, a second header with the same word on it, a fold chevron and an ⤢
+ *     inside it. `entry.card` names the card where it is not this pane's own id — only
+ *     `homeToday`, whose body is To-do's Today card by design.
  *   - **`CARD_BODIES` is the only per-card knowledge this file holds**, and the union in
  *     lib/expandableCards.ts is the only list to keep in step with it —
  *     lib/__tests__/expandableCards.test.ts asserts every id has an entry and vice versa.
@@ -111,8 +117,9 @@ import { Fonts, FontSize, MIN_TAP_TARGET, Radius, Spacing, getLayeredShadow, rgb
 import { Ionicons } from '@expo/vector-icons';
 import { DOMAIN_ICON } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
-import { cardSpec, cardsInGroup } from '@/lib/cardRegistry';
-import { getScreenColor } from '@/lib/screenColor';
+import { CardKey, cardSpec, cardsInGroup } from '@/lib/cardRegistry';
+import { PaneCardContext } from '@/lib/cardPane';
+import { ScreenColorContext, getScreenColor } from '@/lib/screenColor';
 import { ExpandableCardId, ExpandRect, isExpandableCardId } from '@/lib/expandableCards';
 import { useT, Translations } from '@/lib/i18n';
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
@@ -130,6 +137,17 @@ type CardBodyEntry = {
   Body: React.ComponentType<Record<string, never>>;
   /** Default true. Set false when the body already owns its own scrolling (a virtualised list). */
   scrollable?: boolean;
+  /**
+   * Which `Card` inside `Body` is the one this pane is showing, when it is not the pane's own
+   * id — that card draws as the pane's BODY (no second Surface, no second header) rather than
+   * as a card. See lib/cardPane.ts for the defect this closes.
+   *
+   * Only `homeToday` needs it: its body is `TodoSurface section="today"`, which draws
+   * `todoToday`, deliberately — Home's card is a preview of that card, so its full-screen
+   * version has to be the same surface rather than a second rendering of it.
+   * `lib/__tests__/expandableCards.test.ts` pins that this is the only divergence.
+   */
+  card?: CardKey;
 };
 
 /**
@@ -202,7 +220,10 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // Home's own "Today" card. Same body as `todoToday` one tab over, and deliberately so: the
   // card on Home is a PREVIEW of that card, so its full-screen version has to be the same
   // surface, not a second rendering of it.
-  homeToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
+  // `card: 'todoToday'` because that is what this body actually draws — see CardBodyEntry's
+  // `card` note. Without it the pane would paint "Today" and then let TodoSurface paint a whole
+  // second Today card inside it.
+  homeToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" />, card: 'todoToday' },
   // The pane draws its own title bar, so this entry supplies the one header control the card
   // shell has that the pane would otherwise lose: the reminder bell, which IS the reminders
   // switch. Same `header` slot CatalogueExpandedBody uses for the lock and camera.
@@ -465,6 +486,15 @@ export default function CardExpandHost() {
 
   const entry = request ? CARD_BODIES[request.id] : null;
   const scrollable = entry?.scrollable !== false;
+  // ⚠️ **The pane provides its card's own hue (2026-08-28).** It is mounted in app/_layout.tsx,
+  // OUTSIDE every `ScreenScaffold`, so until now `useScreenColor()` was null for everything
+  // inside it and every hue-reading control fell back to `theme.accent` — a blue focus ring, a
+  // blue key halo and a blue row rail on a full-screen Health or Habits card, which is exactly
+  // the *"never blue on a pink or cyan screen"* complaint round 20's glow pass was about. The
+  // card's own registry hue is the right answer here for the same reason
+  // components/CenterModalScreen.tsx provides one: an expanded card is the surface you are
+  // standing on, not a context-free overlay.
+  const paneHue = request ? getScreenColor(theme, cardSpec(request.id).hue).base : null;
 
   return (
     <View
@@ -490,6 +520,7 @@ export default function CardExpandHost() {
           <Animated.View
             style={[styles.pane, { boxShadow: getLayeredShadow(theme.shadow, 'floating') }, rectStyle]}
           >
+            <ScreenColorContext.Provider value={paneHue}>
             <Surface surfaceContext="overlay" style={styles.surface}>
               <Animated.View style={[styles.header, { borderBottomColor: theme.border }, headerStyle]}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
@@ -499,21 +530,31 @@ export default function CardExpandHost() {
               </Animated.View>
               <Animated.View style={[styles.bodyOuter, bodyStyle]}>
                 <GroupStrip current={request.id} />
-                {scrollable ? (
-                  <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    keyboardShouldPersistTaps="handled"
-                    showsVerticalScrollIndicator={false}
-                  >
-                    <entry.Body />
-                  </ScrollView>
-                ) : (
-                  <View style={styles.bodyFlex}>
-                    <entry.Body />
-                  </View>
-                )}
+                {/* ⚠️ **The card this pane is showing draws as the pane's BODY, not as a card**
+                    (2026-08-28, lib/cardPane.ts). Every one of these bodies is a surface whose
+                    job is to render one `<Card>`, so without this the pane painted its title and
+                    then let that card paint a second Surface, a second header with the same word
+                    on it, a fold chevron and an ⤢ — 76px of duplicated chrome and two controls
+                    that cannot act on a pane. `entry.card` names it where it is not the pane's
+                    own id (only `homeToday`). */}
+                <PaneCardContext.Provider value={entry.card ?? request.id}>
+                  {scrollable ? (
+                    <ScrollView
+                      contentContainerStyle={styles.scrollContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      <entry.Body />
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.bodyFlex}>
+                      <entry.Body />
+                    </View>
+                  )}
+                </PaneCardContext.Provider>
               </Animated.View>
             </Surface>
+            </ScreenColorContext.Provider>
           </Animated.View>
         </>
       )}

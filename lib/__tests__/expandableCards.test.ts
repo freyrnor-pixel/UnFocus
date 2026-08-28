@@ -165,3 +165,76 @@ describe('the window-coordinate rect math', () => {
     }
   });
 });
+
+/**
+ * ⚠️ **An expanded pane draws the card's BODY, not the card (2026-08-28).**
+ *
+ * Measured on Home's Today card at 430×932 before the fix: the pane painted its own 65px title
+ * bar reading "Today", then mounted `<TodoSurface section="today"/>`, whose whole job is to draw
+ * `<Card id="todoToday">` — so a second `Surface`, a second 52px header with the same word on it,
+ * a fold chevron and an ⤢ appeared inside the pane, along with the card's own vertical padding
+ * and a second horizontal inset inside the pane's. Two of those controls cannot even act: a fold
+ * on a full-screen pane, an ⤢ on an already-expanded card.
+ *
+ * That is the card-in-a-card the 2026-08-18 blueprint pass banned, surviving in the one place
+ * nothing was looking — `Card`'s `embedded` prop drops the Surface but deliberately KEEPS the
+ * header, which is right for a section inside a card and exactly wrong for a pane.
+ *
+ * The mechanism is lib/cardPane.ts. These assertions pin the two halves that can silently rot:
+ * the host must PROVIDE the context around the body, and `Card` must READ it.
+ */
+describe('the expanded pane does not draw a second card header', () => {
+  it('CardExpandHost wraps the body in PaneCardContext', () => {
+    const code = read('components/CardExpandHost.tsx');
+    expect(code).toContain("import { PaneCardContext } from '@/lib/cardPane'");
+    expect(code).toMatch(/<PaneCardContext\.Provider value=\{entry\.card \?\? request\.id\}>/);
+  });
+
+  it('Card renders as the pane body when the context names it', () => {
+    const code = read('components/Card.tsx');
+    expect(code).toContain("useIsPaneBody");
+    // The claim is single by construction: a card that takes the pane re-provides `null`, so
+    // nothing deeper can strip its own header a second time.
+    expect(code).toMatch(/if \(isPaneBody\)/);
+    expect(code).toMatch(/<PaneCardContext\.Provider value=\{null\}>/);
+  });
+
+  /**
+   * `homeToday` is the ONE entry whose body draws a card with a different id — deliberately:
+   * Home's Today card is a PREVIEW of To-do's, so its full-screen version has to be the same
+   * surface rather than a second rendering of it. Every other entry either draws its own id or
+   * draws no `Card` at all (NotesSurface, FoodTab, CatalogueTab, MedicineSurface).
+   *
+   * Pinned as an exact set rather than "homeToday has a card field", because the failure mode
+   * of getting this wrong is silent: the pane simply goes back to drawing two headers, which no
+   * type and no render test notices.
+   */
+  it('only homeToday names a different card than its own pane id', () => {
+    const code = read('components/CardExpandHost.tsx');
+    const bodies = code.slice(code.indexOf('const CARD_BODIES'), code.indexOf('\n};', code.indexOf('const CARD_BODIES')));
+    const named = [...bodies.matchAll(/^\s*(\w+): \{[^\n]*card: '(\w+)'/gm)].map((m) => `${m[1]}→${m[2]}`);
+    expect(named).toEqual(['homeToday→todoToday']);
+  });
+});
+
+/**
+ * ⚠️ **A pane provides its own card's hue (2026-08-28).**
+ *
+ * `components/CardExpandHost.tsx` is mounted in `app/_layout.tsx`, a sibling of `<Stack>` and so
+ * OUTSIDE every `ScreenScaffold` — which is what makes it able to cover the floating nav, and
+ * also what left `useScreenColor()` null for everything inside it. Every hue-reading control in
+ * an expanded card therefore fell back to `theme.accent`: a blue focus ring, a blue key halo and
+ * a blue row rail on a full-screen Health or Habits card, which is precisely the *"never blue on
+ * a pink or cyan screen"* complaint round 20's glow pass was about.
+ *
+ * `components/CenterModalScreen.tsx` already provided one for the same reason; this is the same
+ * fix in the second overlay.
+ */
+describe('an expanded card is not a context-free overlay', () => {
+  it('CardExpandHost provides ScreenColorContext from the open card spec', () => {
+    const code = read('components/CardExpandHost.tsx');
+    expect(code).toContain("ScreenColorContext");
+    expect(code).toMatch(/getScreenColor\(theme, cardSpec\(request\.id\)\.hue\)\.base/);
+    expect(code).toMatch(/<ScreenColorContext\.Provider value=\{paneHue\}>/);
+  });
+});

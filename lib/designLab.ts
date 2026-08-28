@@ -308,12 +308,17 @@ export const CONTROL_KNOBS: readonly ControlKnob[] = [
     usedBy: 'reminder times, medicine trays, task start/finish',
   },
   {
-    // 'boxed' is what ships again as of 2026-08-26 (the card-surface-reset pass reversing
-    // 2026-08-15's "no box-in-a-box" flush rows). It was 'flush' from that Tactile Glass pass,
-    // 'boxed' from the 2026-08-05 card reset before it, and 'ruled' from the 2026-07-30 notepad
-    // pass before THAT. All four answers were given by the maintainer to the same question
-    // about different materials, which is precisely why this knob exists.
-    id: 'rowShape', variants: ['boxed', 'ruled', 'flush'], fallback: 'boxed',
+    // ⚠️ **'listed' ships as of 2026-08-28** — DESIGN_COMPARISON/20-corrected-screens.html's
+    // headline fix: rows share ONE surface with hairline separators and a hue rail, so a list of
+    // four tasks reads as one object rather than as four cards. It is not a fifth swing of the
+    // boxed/ruled pendulum; it answers a different question, and it keeps the 2026-08-26
+    // ruling's fill and edge while spending them once on the list instead of once per row.
+    //   The other three are the previous answers, each the maintainer's own: 'boxed' from
+    // 2026-08-26 (reversing 2026-08-15's "no box-in-a-box" flush rows), 'flush' from that
+    // Tactile Glass pass, 'ruled' from the 2026-07-30 notepad pass. Five answers to one question
+    // about different materials is precisely why this knob exists — flip it on the real screens
+    // rather than re-arguing it in prose.
+    id: 'rowShape', variants: ['listed', 'boxed', 'ruled', 'flush'], fallback: 'listed',
     source: 'components/PadSheet.tsx',
     usedBy: 'how one row is separated from the next',
   },

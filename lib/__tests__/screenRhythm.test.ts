@@ -13,6 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { SCREEN_GAP, Spacing } from '@/constants/theme';
+import { rowListStyle } from '@/lib/rowList';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -395,48 +396,138 @@ describe('no screen re-adds a top gap below the header', () => {
 });
 
 /**
- * Boxed rows are back (2026-08-26, reversing 2026-08-15's flush-rows pass — see
- * `components/PadSheet.tsx`'s header for the full lineage). This describe block is the guard
- * AGENTS.md's "Folding a card away" / row-rule history calls for explicitly: `app/(tabs)/
- * habits.tsx` (now `components/HabitsSurface.tsx`) hand-rolls its OWN row box because it never
- * adopted PadSheet, and it has drifted from PadSheet's row shape in BOTH directions before —
- * shipped boxed while PadSheet was flush, and (the risk this guards) could just as easily ship
- * flush again while PadSheet goes back to boxed. A source scan, not a render test, because the
- * property is "these two files still agree", not any one rendered pixel.
+ * **One connected list (2026-08-28)** — `DESIGN_COMPARISON/20-corrected-screens.html`'s headline
+ * global fix, and the shape `components/PadSheet.tsx` draws today: rows share ONE surface, a
+ * hairline says where one ends, and a 2px rail in the card's hue runs down the left edge. See
+ * that file's header for the full boxed → ruled → flush → boxed → listed lineage.
+ *
+ * This describe block is the guard AGENTS.md's row rule calls for explicitly:
+ * `components/HabitsSurface.tsx` hand-rolls its OWN row shape because it never adopted PadSheet,
+ * and it has drifted from PadSheet in BOTH directions before — it shipped boxed rows for a whole
+ * build while every PadSheet surface was flush, caught in a screenshot rather than by a test. A
+ * source scan, not a render test, because the property is "these two files still agree", not any
+ * one rendered pixel.
  */
-describe('boxed rows — PadSheet and the Habits surface agree on the same recipe', () => {
+describe('listed rows — every file that draws a run of rows shares one recipe', () => {
   const PAD_SHEET = 'components/PadSheet.tsx';
   const HABITS_SURFACE = 'components/HabitsSurface.tsx';
 
-  // The four literals `components/PadSheet.tsx` ships as its `ROW_BOX_*` constants. Read
-  // straight from that file rather than hand-copied here, so a future recalibration of the
-  // recipe can't silently desync this test from the value it's meant to pin.
-  function padSheetRowBoxLiterals(): string[] {
-    const src = read(PAD_SHEET);
-    const literals: string[] = [];
-    for (const name of ['ROW_BOX_FILL_DARK', 'ROW_BOX_EDGE_DARK', 'ROW_BOX_FILL_LIGHT', 'ROW_BOX_EDGE_LIGHT']) {
-      const m = src.match(new RegExp(`${name}\\s*=\\s*'([^']+)'`));
+  const ROW_LIST = 'lib/rowList.ts';
+  const PLAN_TASK_CARD = 'components/PlanTaskCard.tsx';
+
+  /**
+   * ⚠️ **The recipe lives in ONE module now, and the guard is that the row-drawing files go
+   * through it** — not, as it was until 2026-08-28, that two of them happen to contain the same
+   * string literals. That comparison never covered the third file
+   * (`components/PlanTaskCard.tsx`, the day view — the app's most-seen card), which was drawing a
+   * shape of its own the whole time: `rgba(theme.accent, 0.05)` inside `rgba(screenHue, 0.2)`,
+   * i.e. also the last place a categorical hue washed a row's whole body after the 2026-08-20
+   * ruling took that wash off the card.
+   */
+  it('every file that draws a run of rows takes the recipe from lib/rowList.ts', () => {
+    for (const file of [PAD_SHEET, HABITS_SURFACE, PLAN_TASK_CARD]) {
+      expect({ file, importsRecipe: read(file).includes("from '@/lib/rowList'") })
+        .toEqual({ file, importsRecipe: true });
+    }
+  });
+
+  it('the recipe ships a fill, an edge and a separator for each mode, plus the rail', () => {
+    const src = read(ROW_LIST);
+    const names = [
+      'ROW_LIST_FILL_DARK', 'ROW_LIST_FILL_LIGHT',
+      'ROW_LIST_EDGE_DARK', 'ROW_LIST_EDGE_LIGHT',
+      'ROW_LIST_SEP_DARK', 'ROW_LIST_SEP_LIGHT',
+      'ROW_LIST_RAIL_WIDTH', 'ROW_LIST_RAIL_ALPHA',
+    ];
+    for (const name of names) {
+      expect({ name, exported: new RegExp(`export const ${name}\\s*=`).test(src) })
+        .toEqual({ name, exported: true });
+    }
+  });
+
+  /**
+   * The separator between two rows must stay QUIETER than the edge around the run. Equal weights
+   * make the list read as a grid of cells again, which is the failure this replaced — and it is
+   * the one property of the recipe that a well-meaning "use one colour" tidy-up would undo.
+   */
+  it('the separator is lighter than the list edge', () => {
+    const src = read(ROW_LIST);
+    const alpha = (name: string) => {
+      const m = src.match(new RegExp(`${name}\\s*=\\s*'rgba\\([^)]*?,\\s*([0-9.]+)\\)'`));
       expect({ name, found: !!m }).toEqual({ name, found: true });
-      if (m) literals.push(m[1]);
-    }
-    return literals;
-  }
-
-  it('PadSheet ships all four ROW_BOX_* literals', () => {
-    expect(padSheetRowBoxLiterals().length).toBe(4);
+      return Number(m![1]);
+    };
+    expect(alpha('ROW_LIST_SEP_DARK')).toBeLessThan(alpha('ROW_LIST_EDGE_DARK'));
+    expect(alpha('ROW_LIST_SEP_LIGHT')).toBeLessThan(alpha('ROW_LIST_EDGE_LIGHT'));
   });
 
-  it("HabitsSurface's hand-rolled rowBox carries the SAME four literals as PadSheet", () => {
-    const habitsSrc = read(HABITS_SURFACE);
-    for (const literal of padSheetRowBoxLiterals()) {
-      expect({ literal, presentInHabitsSurface: habitsSrc.includes(literal) })
-        .toEqual({ literal, presentInHabitsSurface: true });
-    }
+  /**
+   * A list must not change shape as it fills up: a single row is both the first and the last, so
+   * it takes both sets of corners and both outer edges.
+   */
+  /**
+   * The rail is the ONE place a card's identity hue touches its body (rule 5) — and it must not
+   * appear where the row already draws a rail of its own. `HabitsSurface`'s rows carry a 4px
+   * column in the habit's PROGRESS colour, which says more than the card's hue would; two rails
+   * on one row is what passing `rail` there would produce.
+   */
+  it('only the lists with no rail of their own ask for one', () => {
+    expect(read(PLAN_TASK_CARD)).toMatch(/rail: screenColor\.base/);
+    expect(read(HABITS_SURFACE)).not.toMatch(/rowListStyle\([^)]*rail:/);
   });
 
-  it("the design lab's rowShape knob fallback is 'boxed', not 'flush'", () => {
+  it('a one-row list is still a rounded box', () => {
+    const only = rowListStyle({ isDark: true, first: true, last: true });
+    expect(only.borderTopLeftRadius).toBe(only.borderBottomLeftRadius);
+    expect(only.borderBottomWidth).toBe(only.borderTopWidth);
+    const middle = rowListStyle({ isDark: true, first: false, last: false });
+    // A middle row draws no bottom edge — its bottom IS the next row's separator, and drawing
+    // both paints a double line between every pair.
+    expect(middle.borderBottomWidth).toBe(0);
+    expect(middle.borderTopLeftRadius).toBe(0);
+    expect(middle.borderTopColor).not.toBe(rowListStyle({ isDark: true, first: true, last: false }).borderTopColor);
+  });
+
+  it("the design lab's rowShape knob ships 'listed', and keeps every previous answer", () => {
     const src = read('lib/designLab.ts');
-    const m = src.match(/id: 'rowShape'[\s\S]*?fallback: '(\w+)'/);
-    expect(m?.[1]).toBe('boxed');
+    const m = src.match(/id: 'rowShape', variants: \[([^\]]+)\], fallback: '(\w+)'/);
+    expect(m?.[2]).toBe('listed');
+    // The four answers this one question has been given across five passes. Losing one is
+    // losing the ability to put it back on the real screens, which is what the knob is for.
+    for (const variant of ['listed', 'boxed', 'ruled', 'flush']) {
+      expect({ variant, offered: (m?.[1] ?? '').includes(`'${variant}'`) })
+        .toEqual({ variant, offered: true });
+    }
+  });
+
+  /**
+   * ⚠️ **A listed row's height is its `minHeight` alone.** The 2026-08-26 boxed row paid
+   * `Spacing.sm` above and below a 27px line, which is where 45px-per-row (and, with the 4px
+   * gap, 49px of stack) came from. Putting `paddingVertical` back on `styles.line` re-inflates
+   * every list in the app by ~18% with nothing visible to show for it, and it is exactly the
+   * kind of edit that looks like a tidy-up.
+   */
+  it('a PadSheet row pays no vertical padding', () => {
+    const src = read(PAD_SHEET);
+    const line = src.slice(src.indexOf('  line: {'));
+    const body = line.slice(0, line.indexOf('},'));
+    expect({ style: 'line', body: /padding(Vertical|Top|Bottom)\s*:/.test(body) })
+      .toEqual({ style: 'line', body: false });
+  });
+
+  /**
+   * ⚠️ **The rail is a sibling View, never a `borderLeftWidth`.** Mixed per-side border WIDTHS
+   * on a rounded box render inconsistently on Android — the same finding that stopped
+   * `constants/theme.ts`'s `glassKey` taking the button brief's per-side widths. A 2px column
+   * beside the rows is the one shape that is identical on both platforms, and it is invisible
+   * to every harness in this repo that a border would not have been.
+   */
+  it('PadSheet draws the hue rail as its own View', () => {
+    const src = read(PAD_SHEET);
+    expect(src).toMatch(/rail: \{ alignSelf: 'stretch' \}/);
+    // Below the file header, so the Edit note that WARNS about `borderLeftWidth` doesn't read
+    // as a use of it — the ordinary hazard of scanning a repo that documents its own traps.
+    const code = src.slice(src.indexOf("import React"));
+    expect(code).not.toMatch(/borderLeftWidth/);
   });
 });

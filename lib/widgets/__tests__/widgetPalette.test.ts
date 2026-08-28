@@ -37,8 +37,13 @@ const LIGHT = getThemePalette('default', false);
 const DARK = getThemePalette('default', true);
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'WidgetViews.tsx'), 'utf8');
-const PAD_SHEET = fs.readFileSync(
-  path.join(__dirname, '..', '..', '..', 'components', 'PadSheet.tsx'),
+// ⚠️ **The row recipe moved out of components/PadSheet.tsx into lib/rowList.ts on 2026-08-28**,
+// when a third file turned out to be drawing rows too (components/PlanTaskCard.tsx's day view)
+// and the "keep these two files in step" prose had already failed once. The widget's baked
+// ROWFILL/ROWEDGE are recomputed from whichever file OWNS the recipe — that is the whole point
+// of this suite — so it follows the recipe rather than the component.
+const ROW_LIST = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'rowList.ts'),
   'utf8'
 );
 
@@ -61,10 +66,10 @@ function flatten(rgbaStr: string, base: string): string {
  */
 const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
-/** One of components/PadSheet.tsx's private ROW_BOX_* constants, by name. */
+/** One of lib/rowList.ts's ROW_LIST_* constants, by name. */
 function rowBox(name: string): string {
-  const m = new RegExp(`const ${name} = '([^']+)'`).exec(PAD_SHEET);
-  if (!m) throw new Error(`${name} not found in PadSheet.tsx — did the boxed row change shape?`);
+  const m = new RegExp(`const ${name} = '([^']+)'`).exec(ROW_LIST);
+  if (!m) throw new Error(`${name} not found in lib/rowList.ts — did the row shape change?`);
   return m[1];
 }
 
@@ -204,8 +209,8 @@ describe('the composited layers equal the app layers they stand in for', () => {
   it.each(cases)('%s row box is PadSheet\'s own fill and edge, composited', (name, isDark, theme) => {
     const p = literalTable(name);
     const suffix = isDark ? 'DARK' : 'LIGHT';
-    expect(p.ROWFILL).toBe(flatten(rowBox(`ROW_BOX_FILL_${suffix}`), theme.surface));
-    expect(p.ROWEDGE).toBe(flatten(rowBox(`ROW_BOX_EDGE_${suffix}`), theme.surface));
+    expect(p.ROWFILL).toBe(flatten(rowBox(`ROW_LIST_FILL_${suffix}`), theme.surface));
+    expect(p.ROWEDGE).toBe(flatten(rowBox(`ROW_LIST_EDGE_${suffix}`), theme.surface));
   });
 
   it.each(cases)('%s card edge is getGlassEdge()\'s lit lip, and its shade side IS `line`', (name, isDark, theme) => {
@@ -271,8 +276,8 @@ describe('a hue stays legible on every ground a widget composites it onto', () =
   });
 
   it('a filled check clears the shape floor on the boxed row it sits in, in both modes', () => {
-    const darkRow = flatten(rowBox('ROW_BOX_FILL_DARK'), DARK.surface);
-    const lightRow = flatten(rowBox('ROW_BOX_FILL_LIGHT'), LIGHT.surface);
+    const darkRow = flatten(rowBox('ROW_LIST_FILL_DARK'), DARK.surface);
+    const lightRow = flatten(rowBox('ROW_LIST_FILL_LIGHT'), LIGHT.surface);
     for (const hue of hues) {
       expect(contrast(hue, darkRow)).toBeGreaterThanOrEqual(SHAPE_FLOOR);
       expect(contrast(inkTable[hue.toUpperCase()], lightRow)).toBeGreaterThanOrEqual(SHAPE_FLOOR);
@@ -280,8 +285,8 @@ describe('a hue stays legible on every ground a widget composites it onto', () =
   });
 
   it('an EMPTY check ring clears the shape floor too — it is a control boundary', () => {
-    expect(contrast(DARK.border, flatten(rowBox('ROW_BOX_FILL_DARK'), DARK.surface))).toBeGreaterThanOrEqual(SHAPE_FLOOR);
-    expect(contrast(LIGHT.border, flatten(rowBox('ROW_BOX_FILL_LIGHT'), LIGHT.surface))).toBeGreaterThanOrEqual(SHAPE_FLOOR);
+    expect(contrast(DARK.border, flatten(rowBox('ROW_LIST_FILL_DARK'), DARK.surface))).toBeGreaterThanOrEqual(SHAPE_FLOOR);
+    expect(contrast(LIGHT.border, flatten(rowBox('ROW_LIST_FILL_LIGHT'), LIGHT.surface))).toBeGreaterThanOrEqual(SHAPE_FLOOR);
   });
 });
 

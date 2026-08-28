@@ -83,25 +83,36 @@ design, not the rule.
    text below is kept as the reasoning that made it defensible, not as a live exception. Don't
    generalise it into "section headers can carry a second
    control".)*
-5. **A row is a filled, bordered box again.** **RESTORED 2026-08-26 (the card-surface
-   reset), reversing the 2026-08-15 flush-rows pass this rule used to describe.** A row
-   inside a card is a `Radius.sm` box, one step off the CARD's own surface: a neutral
-   fill+edge (`components/PadSheet.tsx`'s `ROW_BOX_*` constants) that lifts on a dark
-   card and recesses on a light one — never the screen's categorical hue, which the
-   pre-2026-08-15 boxes carried and this pass deliberately drops (the identity hue stays
-   reserved for the badge, a focused field's halo and a primary key — see the glow-budget
-   rule this same pass introduced). Rows stack `Spacing.xs` apart, not flush, so two
-   adjacent borders don't paint a line heavier than the card's own edge.
+5. **A run of rows is ONE list, not a stack of boxes.** **2026-08-28, from
+   `DESIGN_COMPARISON/20-corrected-screens.html`'s first global finding:** *"Rows were
+   separate floating pills with 7px of air between them, so four tasks read as four
+   cards. Rows now share one surface with hairline separators and an accent rail down the
+   left edge — a single object with parts."* The recipe is `lib/rowList.ts`, and it is one
+   module because **three files were drawing three different rows** when that was written.
+   The list takes a neutral fill+edge one step off the CARD's own surface (it lifts on a
+   dark card and recesses on a light one), a **quieter** hairline where two rows meet, the
+   corners on its first and last rows, and a 2px rail in the card's own hue down the left
+   edge. A row carries **no vertical padding** — its height is `PAD_ROW_HEIGHT` alone —
+   and no gap: a gap in a connected surface is a hole in it.
 
-   ⚠️ **This rule has now been answered FOUR times, each time by the maintainer, and the
+   **The rail is a colour element, not a pane wash.** The 2026-08-20 ruling deleted the 5%
+   identity-hue wash over the whole card (*"White glass with color elements might be
+   better"*); a 2px rail beside a list is the second half of that sentence. Everything
+   else stays neutral, and the hue stays reserved for the badge, a focused field's halo and
+   a primary key.
+
+   ⚠️ **This rule has now been answered FIVE times, each time by the maintainer, and the
    name of the rule keeps changing with the answer rather than the rule surviving under
    a stale title.** Ruled lines (2026-07-30 notepad pass) → bordered boxes (2026-08-05
    card reset, *"borders around cards, buttons, text-boxes, options and so on for
    separating them"*) → whitespace (2026-08-15 Tactile Glass, *"No 'Box-in-a-Box'"*) →
-   **boxed again (now)**. None of the four was drift — each was right for the material
-   it was drawn on, or for a report the maintainer made about the shipped app. Before
-   changing it a fifth time, read `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` and
-   `DESIGN_COMPARISON/19-card-surface-reset.md`, which between them have all four.
+   boxed again (2026-08-26) → **one list (now)**. None of the five was drift. The first
+   four all answered *"how is one row separated from the next"*; this one answers a
+   different question — *"do these rows read as one object or as several"* — and it keeps
+   the 2026-08-26 ruling's fill and edge while spending them **once, on the list**, instead
+   of once per row. Before changing it a sixth time, read
+   `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md` and
+   `DESIGN_COMPARISON/19-card-surface-reset.md`, which between them have the first four.
 
    **Two things this does NOT touch.** (a) The CARD still has one edge — that edge is
    what carries the control boundary under rule 10b, and it is a DIFFERENT, stronger
@@ -435,7 +446,7 @@ design, not the rule.
     shape by construction. **CI**: `fieldAnatomy.test.ts`. Colour may vary per card; nothing else may.
     **BINDING since 2026-08-21** — the backlog is empty. Four sites stay bare and are KEEP with
     reasons, because they are not form fields: two ROW TITLES (the row itself is the box now that
-    rule 5's boxed-rows recipe is back, 2026-08-26 — giving the title INSIDE it a second, nested
+    rule 5's list gives the row its own surface — giving the title INSIDE it a second, nested
     field box would be exactly the box-in-a-box the field-anatomy rule elsewhere forbids), a
     typable CHIP in a chip cloud, and a parsed receipt line. A card TITLE edited in place is its
     own thing again — it keeps the
@@ -574,7 +585,7 @@ one of these in passing.
 | 5 | Rule 12 — one accent | **RULED ON 2026-08-05: the app runs two colour systems on purpose, and they no longer overlap.** `lib/screenColor.ts` is revived and un-dormant — each screen owns one `feat*` hue, and it is the only thing that colours a card/field/option BORDER. `lib/domainColor.ts`'s four `card*` hues survive for the gradient BADGE and its ink — a glyph plate, never an edge. The conflict that got screenColor retired on 2026-07-31 was the two systems fighting over the same bevel; splitting them by *channel* (edge vs badge) is what settled it. Rule 12 stays formally violated, deliberately. | `constants/colors.ts`, `lib/screenColor.ts` |
 | 6 | Rule 17 — every target ≥ 48px | `PAD_ROW_HEIGHT` is 38 — an explicit 2026-07-30 response to a user report ("lines can be compressed for all except the empty one"). `Button` size `sm` is 36, and FormControls has 40px rows. **`TabSlider`'s segment joined them at 34 on 2026-08-10** ("the tab slider should be slightly vertically slimmer"), which is the smallest of the four — the sticky tab row is a full-width 3-segment control, so each target is ~100px wide and the height is the only axis under pressure. `PAD_ROW_MIN_HEIGHT` (the type line, a real field) tracks the token and rose 44→48 with it on 2026-08-08; the other three did **not**, so raising the token widened this conflict rather than closing it. That is known and accepted — closing it is its own change with its own layout cost. | `constants/theme.ts`, `components/Button.tsx` |
 | 7 | Rule 23 — never "!" | 13 shipped strings use one, all celebratory: "Nice work!", "All done!", "Paired!", "List received!". The rule's stated purpose is anti-guilt/anti-urgency; these are its opposite. | `lib/i18n.ts` (EN + NO twins) |
-| 8 | Rules 5 & 9 — a row is a filled bordered box; nothing jumps | **The rule-5 half is STILL CLOSED, but the rule's TEXT changed under it on 2026-08-26 rather than the code drifting away from a fixed rule.** Rows are boxed again (`components/PadSheet.tsx`'s `ROW_BOX_*` recipe, `Radius.sm`, neutral fill+edge) — the fourth answer to this question — and rule 5's own wording was rewritten to match, so the code and the rule still agree, the same way they agreed at the 2026-08-15 flush stage and at the 2026-08-05 boxed stage before it. Read rule 5's own entry for the full lineage and why the recipe is neutral now rather than the screen's categorical hue. The rule-9 half still stands: first-visit ⓘ hints auto-expand and `NewSinceGlow` paints after load, both intentional teaching moments. | `components/PadSheet.tsx`, `lib/useFirstVisitHint.ts`, `components/NewSinceGlow.tsx` |
+| 8 | Rules 5 & 9 — a run of rows is one list; nothing jumps | **The rule-5 half is STILL CLOSED, and the rule's TEXT changed under it again on 2026-08-28 rather than the code drifting away from a fixed rule.** Rows are one connected list now (`lib/rowList.ts`: a neutral fill+edge around the run, a quieter hairline between rows, corners on the first and last, a 2px hue rail) — the fifth answer to this question — and rule 5's own wording was rewritten to match, the same way it was at the 2026-08-26 boxed stage, the 2026-08-15 flush stage and the 2026-08-05 boxed stage before it. Read rule 5's own entry for the full lineage and for why this one answers a different question than the other four. The rule-9 half still stands: `NewSinceGlow` paints after load, an intentional teaching moment. | `lib/rowList.ts`, `components/PadSheet.tsx`, `components/NewSinceGlow.tsx` |
 
 ---
 

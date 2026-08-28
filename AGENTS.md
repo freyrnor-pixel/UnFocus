@@ -540,6 +540,10 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
 - **The row rule + matte buttons** (2026-07-28, from design-system v6's `Checklist Redesign
   Options` / `Focus First (1c)` / `handoff/BUTTONS.md` — the only parts of that bundle that
   post-date the rebuild; the rest of it describes the pre-rebuild app and is dead).
+  - ⚠️ **How a run of rows is DRAWN is `lib/rowList.ts` since 2026-08-28 — one connected list,
+    not a stack of boxes.** See the "One connected list" bullet below; three files were drawing
+    three different rows before it existed. What follows is the row's ANATOMY (which slot holds
+    what), which is a separate question and is unchanged.
   - **Row anatomy (amended 2026-07-30 — the check moved to the RIGHT)**:
     `[leading?] title → ONE meta line → ONE right-hand value → [⋯ action] → [○ check]`.
     `components/PadRow.tsx` is the shared implementation; a list-bearing surface should
@@ -902,11 +906,87 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     smallest element (a 4px bar). Both fixed — Today is **330** — and the same lesson as the
     track above: *a number that was correct because of what sat next to it does not announce
     itself when that neighbour moves.*
-    ⚠️ **NOT done, deliberately**: `SCREEN_GAP` (16) and `Card`'s `Spacing.md` padding. The
-    mockup's numbers translate to ~12 at this width, which is not a rung on the deliberate
-    4/8/16/24/32/48 `Spacing` scale, and both are pinned by `DESIGN_RULES.md` +
+    ⚠️ **NOT done in that pass**: `SCREEN_GAP` (16) and `Card`'s padding. *(Half of this was
+    taken on 2026-08-28 — see the next bullet. `Card`'s vertical inset is `Spacing.sm` at both
+    ends now; `SCREEN_GAP` is still 16, and still for the reason below.)* The mockup's numbers
+    translate to ~12 at this width, which is not a rung on the deliberate 4/8/16/24/32/48
+    `Spacing` scale, and both are pinned by `DESIGN_RULES.md` +
     `lib/__tests__/screenRhythm.test.ts`. That is a design-system decision (add a rung, or don't),
-    not a defect — worth about 44px on Home if taken.
+    not a defect.
+    ⚠️ **The bigger conclusion of this bullet — *"it is not the padding"* — was RIGHT and
+    INCOMPLETE, and the next bullet is what it was missing.** The pass looked at the card's own
+    box and at one dead 32px block, found the trim worth ~2.5px, and stopped. It never looked at
+    the ROWS, which is where a list-bearing card actually spends its height and which is also the
+    mockup's own first global finding. Read them together.
+
+- **One connected list, and a pane that draws one header — 2026-08-28** (`lib/rowList.ts` +
+  `lib/cardPane.ts`, both new; `components/{PadSheet,PlanTaskCard,HabitsSurface,Card,CardExpandHost,
+  SectionRail}.tsx`). Maintainer, against the shipped app: *"Visual is still not like mockups, and
+  the 'Make things condensed' and cards more compact when expanded has not worked."* Three
+  findings, each measured in the web preview rather than read off a screenshot.
+  - ⚠️ **Round 20 built the mockup's chrome, header, hint and groups and never touched the
+    ROWS — which is what its own "what was wrong, globally" list opens with**: *"Rows were
+    separate floating pills with 7px of air between them, so four tasks read as four cards. Rows
+    now share one surface with hairline separators and an accent rail down the left edge — a
+    single object with parts."* That is most of what "still not like the mockups" was pointing at.
+    It is also the largest density win available, because a card's height is mostly its rows: a
+    boxed row measured **45px + a 4px gap = 49px** of stack (its own `Spacing.sm` vertical padding
+    plus two 1.25px borders on a 27px line) against a listed row's **38px + a hairline**.
+  - ⚠️ **THREE files were drawing three different rows, and the guard only compared two of
+    them.** `PadSheet` had the recipe; `HabitsSurface` hand-copied its four literals (it cannot
+    use PadSheet — its rows are wrapped in `DraggableTaskRow`); and **`PlanTaskCard`'s day view —
+    the app's single most-seen card — drew a third shape nobody had noticed**,
+    `rgba(theme.accent, 0.05)` inside `rgba(screenHue, 0.2)`, which was also the last place a
+    categorical hue washed a row's whole body after the 2026-08-20 ruling took that wash off the
+    card. `lib/__tests__/screenRhythm.test.ts` had a whole describe block comparing string
+    literals across the first two and had never heard of the third. **The recipe is `lib/rowList.ts`
+    now and the guard asserts the three files IMPORT it** — a shared module is what prose in three
+    headers telling each other to stay in step had already failed to be.
+  - **The list is built FROM THE ROWS, not from a clip, and that is not a stylistic choice.**
+    `PadSheet` can afford one `overflow: 'hidden'` wrapper and uses it; the other two cannot — a
+    Habits row lifted by a drag out of a clipping parent is sliced in half mid-gesture, and a
+    day-view row carries `FadeInDown`/`FadeOutDown` and would be cut off as it left. So
+    `rowListStyle({ isDark, first, last })` hands each row the side edges, gives the first and
+    last the outer edges and the corners, and puts a **quieter** hairline on every row in between.
+    Equal weights there make the run read as a grid of cells again, which is the failure this
+    replaced; a test pins separator < edge.
+  - **The 2px rail is a colour element, not a pane wash** — the second half of the 2026-08-20
+    sentence (*"White glass with color elements might be better"*), not a reopening of the first.
+    `__tests__/glassMaterial.test.ts` still pins the absence of the pane wash and is untouched.
+    It is a sibling View, never a `borderLeftWidth`: mixed per-side border WIDTHS on a rounded box
+    render inconsistently on Android, the same finding that stopped `glassKey` taking the button
+    brief's per-side widths.
+  - ⚠️ **"More compact when expanded" was a real defect, and it was a duplicated header.**
+    Measured on Home's Today card: the pane painted its own **65px** title bar reading "Today",
+    then mounted `<TodoSurface section="today"/>` — whose whole job is to draw
+    `<Card id="todoToday">` — so a second `Surface`, a second **52px** header saying the same
+    word, the card's own vertical padding and a second horizontal inset appeared inside the
+    pane's, along with a fold chevron and an ⤢ that cannot act on a pane at all. The
+    card-in-a-card the 2026-08-18 blueprint pass banned, surviving where nothing was looking:
+    `Card`'s `embedded` prop drops the Surface and KEEPS the header, which is right for a section
+    inside a card and exactly wrong for a pane. `lib/cardPane.ts` is a CONTEXT rather than a prop
+    because nothing in `CardExpandHost` renders a `Card` — it mounts a surface that decides
+    several components down which card to draw, so a prop would have to be threaded through every
+    surface's own props and every one would have to remember to forward it. **`CARD_BODIES` names
+    the card each pane shows** (`card`, defaulting to the pane's id); only `homeToday` differs,
+    because its body is To-do's Today card by design, and a test pins that as the single exception.
+  - ⚠️ **A pane was a context-free overlay, and that is a second thing it got wrong.**
+    `CardExpandHost` is mounted in `app/_layout.tsx` as a sibling of `<Stack>` — which is what
+    lets it cover the floating nav for free, and also what left `useScreenColor()` **null** for
+    everything inside it. So every hue-reading control in an expanded card fell back to
+    `theme.accent`: a blue focus ring, a blue key halo and a blue row rail on a full-screen Health
+    or Habits card, i.e. exactly the *"never blue on a pink or cyan screen"* complaint round 20's
+    glow pass was about, surviving in the one surface that pass did not walk. It provides its own
+    card's registry hue now, the same way `components/CenterModalScreen.tsx` already did for the
+    other overlay.
+  - **Two smaller things in the same pass, both worth their line.** `Card`'s vertical inset is
+    **symmetric** (`Spacing.sm` both ends, was 8 top / 16 bottom — neither a rung apart on purpose
+    nor anything the mockup draws). And `SectionRail`'s `spacer` View is **deleted**: it added
+    `Spacing.xs` on top of the container's own margin, so the header→body gap was 12px while round
+    20's own note claimed it was already *"the container's marginBottom alone (8)"*. The View was
+    left behind when that pass deleted the hairline it carried. `divider` survives as a prop and
+    still means "is a body drawn below this header", which is what keeps *closed is a bare header*
+    true by construction.
 
 - **The clean reveal + the narrator — 2026-08-19** (`components/StarterCard.tsx`, and the new
   `lib/narratorQuotes.ts` + `components/NarratorQuote.tsx`; pinned by

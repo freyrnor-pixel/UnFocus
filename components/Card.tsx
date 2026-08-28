@@ -28,8 +28,8 @@
  *   Imports → components/Surface, components/SectionRail, components/Collapsible,
  *             components/CardCollapseToggle, components/CardExpandButton, components/CardHintLine,
  *             constants/theme,
- *             lib/cardRegistry, lib/useCollapsedCard, lib/useCardExpand, lib/screenColor,
- *             lib/useAppTheme
+ *             lib/cardRegistry, lib/cardPane, lib/useCollapsedCard, lib/useCardExpand,
+ *             lib/screenColor, lib/useAppTheme
  *   Used by → every card on every tab; components/SectionCard.tsx (via `CardShell`, until it
  *             is retired)
  *   Data    → settings.collapsedCards, for cards whose registry entry folds
@@ -68,6 +68,16 @@
  *     was missed until a user reported that *"titles are not vertically centered"*: 8px of the
  *     rail's own margin plus 8px of card padding sat under a header with nothing between them,
  *     which put every closed card's title 4px above its centre.
+ *   - ⚠️ **Inside its own full-screen pane, a card draws its BODY and nothing else (2026-08-28,
+ *     lib/cardPane.ts).** `components/CardExpandHost.tsx` paints the pane's title bar and its
+ *     close control, and then mounts a surface whose whole job is to render one `<Card>` — so
+ *     until this, an expanded card drew a second Surface, a second header with the same word on
+ *     it, a fold chevron and an ⤢, inside the pane's own paddings. Measured on Home's Today card:
+ *     65px of pane header, then a 52px card header saying "Today" again. **This is NOT what
+ *     `embedded` does** — `embedded` drops the Surface and the horizontal padding and KEEPS the
+ *     header, which is right for a section inside a card and exactly wrong for a pane. The `hint`
+ *     survives into the pane (it is what the card is FOR, and the pane has nowhere else to say
+ *     it); the fold and the ⤢ do not, since neither can act on a pane.
  *   - `CardShell` is exported for exactly one caller, components/SectionCard.tsx, so that
  *     component can be reimplemented on this one with no visual change before it dies. It is not
  *     a public escape hatch: a new surface takes `Card` and an entry in the registry.
@@ -85,6 +95,7 @@ import { CardKey, cardSpec } from '@/lib/cardRegistry';
 import type { CardId } from '@/lib/collapsedCards';
 import type { ExpandableCardId } from '@/lib/expandableCards';
 import { getScreenColor } from '@/lib/screenColor';
+import { PaneCardContext, useIsPaneBody } from '@/lib/cardPane';
 import { useCardExpand } from '@/lib/useCardExpand';
 import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import CardHintLine from '@/components/CardHintLine';
@@ -136,10 +147,30 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
   // so there is nothing here to protect.
   const [collapsed, toggleCollapsed] = useCollapsedCard(id as CardId);
   const expand = useCardExpand(id as ExpandableCardId);
+  // Is THIS card the one the open full-screen pane is drawing? See lib/cardPane.ts — the pane
+  // already paints the title and the close control, so drawing a card here is the title twice
+  // over plus a fold chevron and an ⤢ that cannot mean anything inside a pane.
+  const isPaneBody = useIsPaneBody(id);
 
   const folds = spec.fold === 'persisted';
   const expands = spec.expand === 'surface';
   const label = spec.title(t);
+
+  // ⚠️ **Inside its own pane a card is its BODY and nothing else** (2026-08-28). Not `embedded`,
+  // which drops the Surface and keeps the header — a section inside a card needs that header;
+  // a pane has already drawn it. The provider is re-set to `null` so nothing deeper can claim
+  // the pane a second time. `hint` survives (it is what the card is FOR, and the pane has no
+  // other place to say it); the fold and the ⤢ do not, since neither can act on a pane.
+  if (isPaneBody) {
+    return (
+      <PaneCardContext.Provider value={null}>
+        <View style={[styles.content, contentStyle]}>
+          {hint ? <CardHintLine text={hint} /> : null}
+          {children}
+        </View>
+      </PaneCardContext.Provider>
+    );
+  }
 
   const shell = (
     <CardShell
@@ -348,15 +379,29 @@ export { default as SectionFoldToggle } from '@/components/CardCollapseToggle';
 const styles = StyleSheet.create({
   // No vertical margin: the screen's content container owns the gap between stacked cards
   // (`SCREEN_GAP`, constants/theme.ts).
+  //
+  // ⚠️ **The vertical inset is SYMMETRIC as of 2026-08-28 — `Spacing.sm` at both ends.** It was
+  // 8 top / 16 bottom, which is neither a rung apart on purpose nor anything the mockup draws:
+  // `DESIGN_COMPARISON/20-corrected-screens.html` uses 11px both ways, and its "padding is down
+  // across the board" line is one of the two the maintainer named as not having landed. 8 is the
+  // rung below 11 on the deliberate 4/8/16/24/32/48 scale, and the top inset was already there,
+  // so this makes the two ends agree rather than inventing a value between them. Worth 8px on
+  // every open card and every embedded section in the app.
+  //   The HORIZONTAL inset stays `Spacing.md`: it is what holds a row's text off the card's edge
+  // and what `npm run wraps` measures every screen's text width against, and the mockup's own
+  // horizontal figure (12) is not on the scale either.
   card: {
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
     paddingTop: Spacing.sm,
   },
   content: { gap: Spacing.sm },
   // Closed, the bottom inset matches the top one — padding reserved for rows that are not drawn
-  // is just a gap.
+  // is just a gap. Since 2026-08-28 the open card's inset is `Spacing.sm` too, so this is the
+  // same value; it is kept as its own style rather than deleted because "closed is a bare
+  // header" is a construction the card system depends on (lib/__tests__/cardAnatomy.test.ts),
+  // and it must not silently stop being expressed if the open card's bottom inset ever grows.
   cardCollapsed: { paddingBottom: Spacing.sm },
   // Closed, the rail labels nothing, so it reserves no gap under itself either — see the
   // `style` prop passed above.
