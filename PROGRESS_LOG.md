@@ -4890,3 +4890,44 @@ encountered in this session.
 ---
 
 **Behavior preserved:** no navigation, data, ordering, Focus-mode, store, or interaction changes. Greeting styling unchanged (FontSize.xxl / Fonts.semibold as recorded). `PlanTaskCard.tsx` internals not touched. Zero new TypeScript errors expected (style-only change). No new dependencies; no Surface.tsx edits; all strings via `useT()` (no new strings).
+
+## 2026-08-28 — One connected list, and a pane that draws one header
+
+Maintainer, against the shipped app: *"Visual is still not like mockups, and the 'Make things
+condensed' and cards more compact when expanded has not worked."* Round 20 built the mockups'
+chrome, header, hint and card groups; three things it did not do are what was left.
+
+**1. The rows.** `DESIGN_COMPARISON/20-corrected-screens.html` opens its list of what was
+globally wrong with the rows — *"separate floating pills with 7px of air between them, so four
+tasks read as four cards"* — and round 20 never touched them. It is also where a card's height
+actually goes: a boxed row measured 45px + a 4px gap = **49px** of stack against a listed row's
+**38px + a hairline**. Measured on Home's Today card with three tasks, the rows went 155px → 114
+and the card 533 → 480, with nothing removed from the screen.
+
+**2. Three files were drawing three different rows, and the guard compared two of them.**
+`PadSheet` owned the recipe; `HabitsSurface` hand-copied its four literals; and `PlanTaskCard`'s
+day view — the app's most-seen card — drew a third shape nobody had noticed, `rgba(accent, 0.05)`
+inside `rgba(screenHue, 0.2)`, on the inner content View so the done/delete column sat *outside*
+the box. That was also the last place a categorical hue washed a row's whole body after the
+2026-08-20 ruling took that wash off the card. `lib/rowList.ts` is the one recipe now and the test
+asserts the three files import it, rather than comparing string literals across two of them.
+
+**3. "More compact when expanded" was a duplicated header.** The pane painted its own 65px title
+bar reading "Today" and then mounted a surface whose job is to draw `<Card id="todoToday">` — a
+second Surface, a second 52px header saying the same word, the card's own paddings inside the
+pane's, and a fold chevron and an ⤢ that cannot act on a pane. `lib/cardPane.ts` is a context
+rather than a prop because nothing in the host renders a `Card` directly. While in there: the pane
+provides its own card's hue, which it never had — every hue-reading control inside an expanded
+card had been falling back to blue.
+
+Smaller, same pass: `Card`'s vertical inset is symmetric (`Spacing.sm` both ends, was 8/16), and
+`SectionRail`'s leftover `spacer` View is deleted — it made the header→body gap 12px while round
+20's own note claimed it was already 8.
+
+Verified: `tsc` clean, 125 suites / 2412 tests green, eslint 0 errors, `npm run preview` walks the
+whole app at 0 page / 0 console errors, `npm run halos` 0 clipped, and
+`npm run wraps --lang=no --width=360` measures all 22 screens with no new findings.
+
+Left open, deliberately: `SCREEN_GAP` is still 16. The mockup's figure translates to ~12 at this
+width, which is not a rung on the deliberate 4/8/16/24/32/48 scale — a design-system decision
+about adding a rung, not a defect.

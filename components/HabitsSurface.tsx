@@ -17,7 +17,9 @@
  * flight-animation refs are a materially riskier extraction than this one.)
  *
  * Connections:
- *   Imports → components/PadRow, components/PadTypeRow, components/QuickAddOptionsPanel,
+ *   Imports → lib/rowList (the shared connected-list recipe — this surface hand-copied
+ *             PadSheet's literals until 2026-08-28), components/PadRow, components/PadTypeRow,
+ *             components/QuickAddOptionsPanel,
  *             components/QuickAddOptionRow, components/HabitRecurrenceCells, components/Stepper,
  *             components/TimeBoxInput (the quick-add's Target/Remind cells, phase 7 of
  *             DESIGN_COMPARISON/19-IMPLEMENTATION.md),
@@ -102,6 +104,7 @@ import { habitOccursOn, habitProgress } from '@/lib/habitRecurrence';
 import { contrastOn, FontSize, PAD_GUTTER, Radius, SCREEN_GAP, Shadow, Spacing, Fonts, Type, HitSlop, OpticalCenter } from '@/constants/theme';
 import type { ThemePalette } from '@/constants/colors';
 import { Duration } from '@/constants/motion';
+import { rowListStyle } from '@/lib/rowList';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
@@ -199,17 +202,18 @@ function WeekStrip({
 }
 
 function HabitCard({
-  habit, today, onEdit, lang, theme, first,
+  habit, today, onEdit, lang, theme, first, last,
 }: {
   habit: Habit; today: string; onEdit: (id: string) => void; lang: string; theme: ThemePalette;
-  /** First row in the list — draws no divider above it. */
+  /** First row in the list — takes the list's top edge and its top corners. */
   first?: boolean;
+  /** Last row in the list — takes the list's bottom edge and its bottom corners. */
+  last?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  // `useIsDark()` is read again as of 2026-08-26 (rows boxed back) — see `rowBox` below. It is
-  // ONLY for the row's neutral fill/edge, never the screen's hue: that pane wash was deleted on
-  // 2026-08-20 (components/Surface.tsx) and stays gone — the card's badge is where the screen
-  // says which screen it is, not the row.
+  // `useIsDark()` is ONLY for the row's neutral fill/edge, never the screen's hue: that pane
+  // wash was deleted on 2026-08-20 (components/Surface.tsx) and stays gone — the card's badge is
+  // where the screen says which screen it is, not the row.
   const isDark = useIsDark();
   const logs = useHabitStore((s) => s.logs);
   const increment = useHabitStore((s) => s.increment);
@@ -249,19 +253,20 @@ function HabitCard({
   // above). `habitCardStacked`'s gap goes back to `Spacing.xs`, matching PadSheet's boxed
   // `stackGap`, now that the border is there again to keep two rows apart.
   //
-  // ⚠️ **This screen hand-rolls the row box because it never adopted `components/PadSheet.tsx`
-  // (see this file's header), so it does NOT move when PadSheet does.** That is exactly how it
-  // shipped boxed rows on the Habits tab for a whole build while every PadSheet surface was
-  // still flush, in the OTHER direction — caught in a dark-mode screenshot, not by a test. If a
-  // future pass changes the row shape again, grep for `rowShape` in PadSheet AND for
-  // `ROW_BOX_FILL_DARK`/`ROW_BOX_EDGE_DARK` here; the real fix is adopting PadSheet, which is
-  // already tracked in AGENTS.md's row rule.
-  const rowBox = {
-    borderWidth: 1,
-    borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(27,36,50,0.10)',
-    backgroundColor: isDark ? 'rgba(255,255,255,0.055)' : 'rgba(27,36,50,0.045)',
-    borderRadius: Radius.sm,
-  };
+  // ⚠️ **This screen never adopted `components/PadSheet.tsx` (see this file's header), and it
+  // cannot: each row is wrapped in `DraggableTaskRow`, and PadSheet builds its list as one
+  // `overflow: 'hidden'` surface — a row lifted by a drag out of a clipping parent is a row
+  // sliced in half mid-gesture. What it CAN share is the recipe, which is what lib/rowList.ts is
+  // for: the list is built from the rows instead (side edges on every one, the top and bottom
+  // edges and corners on the first and last, a quieter hairline in between), and the 4px progress
+  // bar each row already carried lines up into a continuous rail down the left edge.
+  //   Before that module existed this file hand-copied PadSheet's four literals and a test
+  // compared the two strings across files — which is how it shipped BOXED rows for a whole build
+  // while every PadSheet surface was flush, caught in a screenshot rather than by that test.
+  // No `rail`: this row already draws one of its own, and it says more. `habitAccent` is a 4px
+  // column in the habit's PROGRESS colour, so the rail down this list is per-habit rather than
+  // per-card — a second, card-hued rail beside it would be two rails on one row.
+  const rowBox = rowListStyle({ isDark, first: !!first, last: !!last });
 
   const prevDone = useRef(isDone);
   useEffect(() => {
@@ -295,7 +300,7 @@ function HabitCard({
           divider between flush rows. It is now its own bordered box in the screen's hue at the
           FIELD rung, matching components/PadSheet.tsx exactly — this screen's rows and the
           Home habits card's rows are the same object, which is the point of the reset. */}
-      <View style={[styles.habitCard, rowBox, !first && styles.habitCardStacked]}>
+      <View style={[styles.habitCard, rowBox]}>
         <View style={[styles.habitAccent, { backgroundColor: barColor }]} />
         <View style={styles.habitCardContent}>
 
@@ -866,7 +871,7 @@ export default function HabitsSurface() {
                             it — dragging an open card works, it simply reflows a taller block.
                             components/HomeCardManager.tsx made the same call for the same reason. */}
                         <DraggableTaskRow isOpen={false} {...habitDrag.rowProps(h.id)}>
-                          <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} first={hi === 0} />
+                          <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} first={hi === 0} last={hi === draggedHabits.length - 1} />
                         </DraggableTaskRow>
                       </AnimatedListItem>
                     ))
@@ -1170,12 +1175,15 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     overflow: 'hidden',
   },
-  // 4px gap between boxes, not flush — two adjacent 1px borders would paint a line heavier
-  // than the CARD's own edge and invert the hierarchy. Same rule as components/PadSheet.tsx —
-  // its boxed `stackGap` is `Spacing.xs` too, now that the border is back to keep two rows apart.
-  habitCardStacked: { marginTop: Spacing.xs },
+  // ⚠️ **No gap between rows as of 2026-08-28.** They are one list now (see `rowBox` in
+  // HabitCard), so the 4px that used to keep two 1px borders from painting a 2px line is exactly
+  // what has to go: a gap in a connected surface is a hole in it.
   habitAccent: { width: 4, alignSelf: 'stretch' },
-  habitCardContent: { flex: 1, padding: Spacing.md, position: 'relative' },
+  // ⚠️ **`Spacing.sm` vertically, not `Spacing.md`.** A habit row carries a title, one meta line
+  // and a progress bar, and 16px above and below all three made this the tallest row in the app
+  // — 32px of padding on ~44px of content. The horizontal inset stays 16: that is what keeps the
+  // title off the rail, and narrowing it costs text width the wrap audit already watches.
+  habitCardContent: { flex: 1, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, position: 'relative' },
   // The row shell itself — leading icon, title, the ONE meta line, the ONE right-hand value,
   // the ⋯ and the check — is components/PadRow.tsx's since 2026-08-01 (B2-3, inverted), so the
   // styles that used to build it here (cardHeader / habitIcon / habitTitleWrap / habitTitle /

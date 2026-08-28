@@ -27,6 +27,9 @@
  * Connections:
  *   Imports → constants/colors (ThemePalette), constants/theme (rgba), react
  *   Used by → components/ScreenScaffold.tsx (provides ScreenColorContext for the screen body),
+ *             components/CardExpandHost.tsx (provides the OPEN CARD's hue inside a full-screen
+ *             pane — it is mounted outside every scaffold, so without it every hue-reading
+ *             control in an expanded card fell back to the blue accent),
  *             components/Surface.tsx (edge hue fallback via useScreenColor), the 5 tab roots
  *             + the sub-tier screens that name their own key, and the Home preview cards
  *             (which call getScreenColor directly with their SOURCE screen's key).

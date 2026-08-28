@@ -34,8 +34,8 @@
  *     look was dropped). Pass a solid accent, not an already-translucent colour.
  *     ⚠️ **The hairline rule under the naming row is GONE (2026-08-27, round 20)** — it was
  *     `rgba(hue, 0.25)` at hairlineWidth, and it is on the mockup's "stray artefacts" list
- *     with the loose dots. The header is separated from its body by SPACE now; see `divider`
- *     and the `spacer` style, which is what that prop draws today.
+ *     with the loose dots. The header is separated from its body by SPACE now — `container`'s
+ *     own `marginBottom`, and nothing else since 2026-08-28; see the note on that style.
  *   - **(2026-07-31, addendum A.4 rule 1) The LABEL is `theme.text`, never the hue.** It was
  *     pure `hue` (a same-hue-on-same-hue pairing that read low-contrast), then `mix(hue, text,
  *     0.3)` — but a 70% blend of an identity hue is still that hue used as TEXT colour, which
@@ -312,8 +312,8 @@ export default function SectionRail({ hue, domain, icon, label, count, countRef,
           `divider={!isClosed}`, which is what still cancels that gap on a folded card, and
           "closed is a bare header" is a construction the card system depends on
           (lib/__tests__/cardAnatomy.test.ts). What changed is that the prop now controls only
-          the space, not a rule — see `container`/`spacer` below. */}
-      {divider && <View style={styles.spacer} />}
+          the space, not a rule — see `container`'s note below. */}
+
     </View>
   );
 }
@@ -437,8 +437,14 @@ const styles = StyleSheet.create({
   // stepper/icon row has no width to give, which is the rule the 2026-07-28 wrap pass settled
   // (let the label yield, never the fixed-size control).
   right: { marginLeft: 'auto', flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  // Was `divider` — a hairlineWidth rule in `rgba(hue, 0.25)` plus this margin. The rule is
-  // gone (round 20); the margin stays, so a card that draws a body still separates its header
-  // from it by the same total it always did, minus the 1px of ink.
-  spacer: { height: 0, marginTop: Spacing.xs },
+  // ⚠️ **The header→body gap is `container`'s `marginBottom` and nothing else (2026-08-28).**
+  // Until now a `spacer` View added `Spacing.xs` on top of it whenever `divider` was true, so
+  // the real gap was 12px — while round 20's own note claimed it was already "the container's
+  // marginBottom alone (8, against the mockup's 9)". The View was left behind when that pass
+  // deleted the hairline it used to carry; this deletes it, which is what makes the code agree
+  // with the sentence written about it, and takes 4px off every card AND every embedded section
+  // on every screen.
+  //   `divider` SURVIVES as a prop and still means "is a body drawn below this header": it is
+  // what `styles.railClosed` in components/Card.tsx keys off to cancel the gap entirely on a
+  // folded card, so "closed is a bare header" stays true by construction.
 });

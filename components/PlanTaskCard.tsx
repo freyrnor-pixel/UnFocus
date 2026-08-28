@@ -68,8 +68,19 @@
  * secondary, opt-in mode. `renderColumn`/`renderHSpacer`/`hNowMarker`/`hGapMarker` and the
  * `PX_PER_MIN`/`MIN_GAP`/`MAX_GAP`/`railTailMinutes` tuning are horizontal-only now.
  *
+ * ⚠️ **Its flat rows go through lib/rowList.ts since 2026-08-28.** The day view's `renderFlatRow`
+ * drew a THIRD row shape — `rgba(theme.accent, 0.05)` inside `rgba(screenHue, 0.2)`, on the inner
+ * content View so the done/delete column sat OUTSIDE the box — while components/PadSheet.tsx and
+ * components/HabitsSurface.tsx drew a fourth and a fifth between them. On the app's most-seen
+ * card, a three-task day therefore read as three floating pills with their controls loose beside
+ * them, which is what DESIGN_COMPARISON/20-corrected-screens.html's first global finding is
+ * about. It was also the last place a categorical hue washed a row's whole body after the
+ * 2026-08-20 ruling took that wash off the card. The surface is on the ROW now, one shared recipe,
+ * and the GRID cards are deliberately untouched — a timed task absolutely positioned on the
+ * timeline genuinely is a floating card, which is the calendar idiom this surface is built on.
+ *
  * Connections:
- *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow +
+ *   Imports → components/PadSheet + components/PadRow + components/PadTypeRow + lib/rowList +
  *             lib/cardType (isCompletable / steppedProgress — the per-ITEM card types.
  *             This surface carries the MINIMUM the types require of it: a 'note' draws no
  *             checkbox anywhere and counts for nothing in the summary/progress bar, and a
@@ -327,12 +338,13 @@ import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import { Task, Recurring } from '@/store/useTaskStore';
-import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop, Type } from '@/constants/theme';
+import { DONE_ROW_OPACITY, FontSize, Fonts, HOME_PREVIEW_CARD_MIN_HEIGHT, OpticalCenter, PAD_GUTTER, PAD_ROW_HEIGHT, Radius, RowTrailing, Spacing, TabularNums, rgba, HitSlop, Type } from '@/constants/theme';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable, visibleStepNumber } from '@/lib/cardType';
 import { PadState, padVisibleRows } from '@/lib/padState';
 import { Duration, Ease, Spring } from '@/constants/motion';
-import { useAppTheme, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
+import { rowListStyle } from '@/lib/rowList';
+import { useAppTheme, useIsDark, useScaledStyles, useAccessibility } from '@/lib/useAppTheme';
 import { success, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
 import { getScreenColor } from '@/lib/screenColor';
@@ -539,6 +551,13 @@ type RailItemOpts = {
    *  toggle mounts/unmounts them; done-zone rows omit this (their reveal is owned by the
    *  Collapsible wrapper). */
   animateIn?: boolean;
+  /**
+   * Where this row sits in its run — a flat row is one part of ONE connected list now, not a
+   * floating pill of its own (2026-08-28, lib/rowList.ts). The first and last rows carry the
+   * list's outer edges and its corners; every row between them carries a hairline instead.
+   */
+  first?: boolean;
+  last?: boolean;
 };
 
 function timedEntryOf(task: Task): TimedEntry {
@@ -607,6 +626,7 @@ export default function PlanTaskCard({
   embedded = false,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const styles = useScaledStyles(baseStyles);
@@ -1206,7 +1226,7 @@ export default function PlanTaskCard({
   }
 
   function renderFlatRow(task: Task, opts: RailItemOpts) {
-    const { timed, isPast, animateIn } = opts;
+    const { timed, isPast, animateIn, first, last } = opts;
     const dimmed = !!(task.done || isPast);
     const surfaced = surfacedIds.has(task.id);
     const isUp = task.id === upNextId;
@@ -1216,20 +1236,27 @@ export default function PlanTaskCard({
     return (
       <Animated.View
         key={task.id}
-        style={[styles.flatRow, isDimmedByPin(task) && styles.rowDimmed]}
+        // ⚠️ **The surface is on the ROW, not on the row's content** (2026-08-28). It used to be
+        // `styles.rowCard` on the inner View, which put the done/delete column OUTSIDE the box —
+        // so a run of tasks read as a column of floating pills with the controls loose beside
+        // them, the exact thing the round 20 mockup opens its list of global defects with. With
+        // the box out here they are one list, and the check sits inside its own row the way the
+        // row rule has said since 2026-07-30.
+        style={[
+          styles.flatRow,
+          rowListStyle({ isDark, first: !!first, last: !!last, rail: screenColor.base }),
+          isDimmedByPin(task) && styles.rowDimmed,
+        ]}
         entering={anim ? FadeInDown.duration(Duration.listIn).easing(Ease.enter) : undefined}
         exiting={anim ? FadeOutDown.duration(Duration.cardOut).easing(Ease.exit) : undefined}
         layout={anim ? LinearTransition.duration(Duration.listMove).easing(Ease.move) : undefined}
       >
         {pinBadge(task)}
         <PressableScale style={styles.flatContent} onPress={() => handlePress(task)} disabled={readOnly || !onPressTask} scaleTo={0.97}>
-          <View
-            style={[
-              styles.rowCard,
-              { backgroundColor: rgba(theme.accent, 0.05) },
-              { borderColor: rgba(screenColor.base, 0.2) },
-            ]}
-          >
+          {/* No box of its own any more — the row it sits in IS the box. The accent wash and the
+              hue-tinted border that used to be here were also the last place a categorical hue
+              washed a row's whole body, which the 2026-08-20 ruling took off the card. */}
+          <View style={styles.flatRowBody}>
             {taskCardContent(task, { timed, dimmed, showHint, surfaced, showAnytimeBadge: !timed && !task.done })}
           </View>
         </PressableScale>
@@ -1709,7 +1736,9 @@ export default function PlanTaskCard({
             {renderNowDivider()}
             {visibleAnytime.length > 0 && (
               <Animated.View style={styles.anytimeList} layout={containerLayout}>
-                {visibleAnytime.map((task) => renderFlatRow(task, { animateIn: true }))}
+                {visibleAnytime.map((task, i) => renderFlatRow(task, {
+                  animateIn: true, first: i === 0, last: i === visibleAnytime.length - 1,
+                }))}
               </Animated.View>
             )}
             {/* Nothing fixed left today — a neutral statement of fact where the grid would
@@ -1794,10 +1823,12 @@ export default function PlanTaskCard({
             </PressableScale>
             <Collapsible open={doneOpen}>
               <View style={styles.doneRows}>
-                {doneTasks.map((task) =>
+                {doneTasks.map((task, i) =>
                   renderFlatRow(task, {
                     timed: task.time ? timedEntryOf(task) : undefined,
                     isPast: true,
+                    first: i === 0,
+                    last: i === doneTasks.length - 1,
                   })
                 )}
               </View>
@@ -1818,15 +1849,15 @@ export default function PlanTaskCard({
             </PressableScale>
             <Collapsible open={deletedOpen}>
               <View style={styles.doneRows}>
-                {deletedTasks.map((task) => (
-                  <View key={task.id} style={styles.flatRow}>
-                    <View
-                      style={[
-                        styles.rowCard,
-                        styles.deletedRowCard,
-                        { backgroundColor: rgba(theme.accent, 0.03), borderColor: theme.border },
-                      ]}
-                    >
+                {deletedTasks.map((task, i) => (
+                  <View
+                    key={task.id}
+                    style={[
+                      styles.flatRow,
+                      rowListStyle({ isDark, first: i === 0, last: i === deletedTasks.length - 1, rail: screenColor.base }),
+                    ]}
+                  >
+                    <View style={styles.deletedRowCard}>
                       <Text numberOfLines={1} style={[styles.title, { color: theme.textMuted }]}>
                         {task.title}
                       </Text>
@@ -1926,7 +1957,10 @@ const baseStyles = StyleSheet.create({
   emptyAddText: { fontSize: FontSize.sm, fontFamily: Fonts.medium },
 
   // Anytime list — a plain flat list above the grid (untimed tasks have no clock position).
-  anytimeList: { gap: Spacing.xs, marginBottom: Spacing.sm },
+  // ⚠️ **No `gap` since 2026-08-28.** These rows are one connected list (lib/rowList.ts), and a
+  // gap in a connected surface is a hole in it. The 4px it used to spend per row is also most of
+  // what made a three-task day read as three cards.
+  anytimeList: { marginBottom: Spacing.sm },
   // The day log. NO `gap` and no per-row spacing on purpose — behind the now-line the day
   // is flush, and PadRow's own fixed height is the only vertical rhythm it gets. Adding a
   // gap here would reintroduce exactly the emptiness the collapse exists to remove.
@@ -1951,9 +1985,21 @@ const baseStyles = StyleSheet.create({
     paddingVertical: Spacing.md,
     textAlign: 'center',
   },
-  // Flat row: [content][doneCol] — used by the anytime list and the "Done today" zone.
-  flatRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: Spacing.xs },
-  flatContent: { flex: 1 },
+  // Flat row: [content][doneCol] — used by the anytime list, the "Done today" zone and the
+  // recently-deleted zone. It carries the LIST's own surface now (lib/rowList.ts), so the
+  // done/delete column sits inside the row rather than loose beside it, and there is no
+  // `marginBottom`: rows in one list are adjacent by definition.
+  flatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    minHeight: PAD_ROW_HEIGHT,
+  },
+  flatContent: { flex: 1, minWidth: 0 },
+  // ⚠️ **No vertical padding** — the row's height is `PAD_ROW_HEIGHT` and its content's, which
+  // is the whole point of the list (see lib/rowList.ts's first Edit note). `Spacing.xs` is what
+  // keeps a two-line row (title + hint) off its own separators without inflating a one-line one.
+  flatRowBody: { paddingVertical: Spacing.xs },
   // Secondary weight while another row is pinned. Opacity ONLY — the row keeps its height, its
   // controls, its reminders and its counts; the same shared amount a finished row uses.
   rowDimmed: { opacity: DONE_ROW_OPACITY },
@@ -1989,9 +2035,9 @@ const baseStyles = StyleSheet.create({
   // tasks read as distinct items rather than text floating on the background. borderWidth
   // added 2026-07-26 (calendar-style pass) — see the inline borderColor overrides.
   rowCard: { borderRadius: Radius.sm, borderWidth: 1, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm },
-  // Restore-zone row: no checkbox/hint/badges, just the title — flex:1 so it fills the row
-  // the way `flatContent` does for a live task.
-  deletedRowCard: { flex: 1 },
+  // Restore-zone row: no checkbox/hint/badges, just the title — flex:1 so it fills the row the
+  // way `flatContent` does for a live task. Its box went with every other flat row's.
+  deletedRowCard: { flex: 1, minWidth: 0, paddingVertical: Spacing.xs },
   // Holds the done-toggle and (when wired) the trash action, stacked so a long title still
   // gets the full row width.
   doneCol: { width: DONE_COL_WIDTH, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },

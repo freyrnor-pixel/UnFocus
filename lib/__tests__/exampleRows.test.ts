@@ -549,11 +549,15 @@ describe('the composer comes after the examples, everywhere', () => {
     // the done/checked zone — this field appends to the ACTIVE list, not to that one.
     const source = code('components/PadSheet.tsx');
     // The rows were wrapped in a `<Collapsible>` until 2026-08-21, when 'closed' left the pad
-    // axis and folding became components/Card.tsx's job — so the anchor is the row map itself.
-    const rows = source.indexOf('{rows.map(');
-    const typeLine = source.indexOf('styles.typeLine');
-    const footer = source.indexOf("state === 'open' && footer");
-    expect(rows).toBeGreaterThan(-1);
+    // axis and folding became components/Card.tsx's job; since 2026-08-28 they are built as
+    // `lines` above the JSX and PLACED inside the connected list (lib/rowList.ts). So the anchor
+    // has to be where they are placed, not where they are built — measuring from the `.map()`
+    // would put the rows at the top of the file and pass no matter what the JSX did.
+    const jsx = source.indexOf('<View style={[styles.sheet, style]}>');
+    const rows = source.indexOf('{lines}', jsx);
+    const typeLine = source.indexOf('styles.typeLine', jsx);
+    const footer = source.indexOf("state === 'open' && footer", jsx);
+    expect({ jsx: jsx > -1, rows: rows > -1 }).toEqual({ jsx: true, rows: true });
     expect(typeLine).toBeGreaterThan(rows);
     expect(footer).toBeGreaterThan(typeLine);
   });
