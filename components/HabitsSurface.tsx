@@ -470,6 +470,80 @@ function HabitCard({
  * every call site — the "optional prop nothing varies" shape this pass deleted elsewhere.
  * If Habits is ever a pushed screen again, add the flag back with the caller that needs it.
  */
+/**
+ * The habit quick-add's TEXT, as its own component (2026-08-28, perf).
+ *
+ * `habitDraft` was `useState` in `HabitsSurface`, which renders every `HabitCard`, every
+ * `WeekStrip`, the person filter, the starter card and the Goals section. React re-renders
+ * from where the state lives downward and nothing in that tree is memoised, so **every
+ * keystroke re-rendered the whole screen**, each pass re-running `Surface`'s work for every
+ * card in it. That is the "typing lags" report.
+ *
+ * ⚠️ **Only the TEXT moved, and that is deliberate.** The other five pieces of composer state
+ * (energy, target, remind, remind-time, the recurrence draft) stay in the surface: they change
+ * on a tap, not on a character, so they are not what makes typing expensive — and several of
+ * them are read by `commitHabit`/`openHabitFormWithDraft`, so moving them would mean threading
+ * six values back up for no gain. They arrive here as the already-built `panel` NODE, so when
+ * a keystroke re-renders this component the parent has not re-rendered, `panel` is the same
+ * element reference, and React bails out of that whole subtree. Splitting on "what changes per
+ * keystroke" is the point; splitting on "what belongs to the composer" would be slower.
+ *
+ * The title reaches the parent as an ARGUMENT to `onCommit`/`onMore` rather than as shared
+ * state — `onMore` needs the text at the instant it is pressed, which is why it is not simply
+ * `() => void` here.
+ *
+ * Same shape as `components/TodoSurface.tsx`'s `InlineTaskAdd`, which has always owned its own
+ * draft. Keep a composer's text inside the composer.
+ */
+function HabitComposer({
+  accent,
+  panel,
+  prefill,
+  onCommit,
+  onMore,
+}: {
+  accent: string;
+  panel: React.ReactNode;
+  /** A note's text, sent here via lib/prefill.ts. Read and cleared by the SURFACE (one slot,
+   *  one consumer) and passed down, because the field it seeds lives here. */
+  prefill?: string | null;
+  onCommit: (title: string) => void;
+  onMore: (title: string) => void;
+}) {
+  const t = useT();
+  const [draft, setDraft] = useState('');
+  useEffect(() => {
+    if (prefill) setDraft(prefill);
+  }, [prefill]);
+
+  return (
+    <PadTypeRow
+      prompt={t.pad.type.habit}
+      value={draft}
+      onChangeText={setDraft}
+      onSubmit={() => {
+        const title = draft.trim();
+        if (!title) return;
+        onCommit(title);
+        setDraft('');
+      }}
+      accent={accent}
+      onMore={() => {
+        // The parent used to clear the draft at the end of its own handler; with the text
+        // down here, clearing is this component's job. Same order as before: push, then clear.
+        onMore(draft.trim());
+        setDraft('');
+      }}
+      // No check to preview (2026-08-06, user report: "the circle to the right of
+      // the empty row") — every habit row ends in a −/+ pair now, never a check,
+      // so the idle ghost ring previewed a control that could never appear. The
+      // input widens into the freed space for free (it's already flex: 1).
+      noGhostCheck
+      panel={panel}
+    />
+  );
+}
+
 export default function HabitsSurface() {
   const router = useRouter();
   const habits = useHabitStore((s) => s.habits);
@@ -520,7 +594,6 @@ export default function HabitsSurface() {
   // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via
   // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
   const addHabitQuick = useHabitStore((s) => s.add);
-  const [habitDraft, setHabitDraft] = useState('');
   // Quick-add's Energy row (2026-08-04) — closes the gap with HomeHabitsCard's own quick-add,
   // which already had this; mirrors its habitEnergyValue and its signed Stepper exactly. It
   // was a tap-cycle in both places until 2026-08-05; see HomeHabitsCard's mount for why.
@@ -540,11 +613,9 @@ export default function HabitsSurface() {
   const [habitRemindTime, setHabitRemindTime] = useState('08:00');
 
   // Arrived from a note's ⋯ → Send it to… → Habits: seed the quick-add with the note's text
-  // instead of making the user retype it (lib/prefill.ts).
+  // instead of making the user retype it (lib/prefill.ts). Consumed HERE (the slot must be
+  // read once, by one consumer) and handed to the composer, which owns the field it seeds.
   const prefill = usePrefill();
-  useEffect(() => {
-    if (prefill) setHabitDraft(prefill);
-  }, [prefill]);
 
   // …and → Goals, which since 2026-08-12 arrives on THIS screen too: the Goals editor is a
   // drawer down the page (app/goals.tsx, the screen it used to open, is retired). The `goals`
@@ -691,9 +762,10 @@ export default function HabitsSurface() {
     success();
   }
 
-  function commitHabit() {
-    const title = habitDraft.trim();
-    if (!title) return;
+  // Takes the title as an ARGUMENT — the draft lives in HabitComposer now, not up here.
+  // See that component's note: it was the only piece of this surface's state that changes on
+  // every keystroke, and this surface renders the whole habit list.
+  function commitHabit(title: string) {
     // Neutral "to-do" marker default (debug-note 2026-07-21) — a star reads as a
     // reward/rating, against the app's no-shame framing. Custom icons still pickable.
     const energy = energyFieldsFromStepper(habitEnergyValue);
@@ -714,7 +786,6 @@ export default function HabitsSurface() {
       habitRemindEnabled,
       habitRemindEnabled ? [habitRemindTime] : []
     );
-    setHabitDraft('');
     setHabitEnergyValue(0);
     setHabitTargetValue(1);
     setHabitRemindEnabled(false);
@@ -728,13 +799,13 @@ export default function HabitsSurface() {
    * editor with the draft carried over and saves nothing; see HomeHabitsCard's copy of this
    * function for the full reasoning.
    */
-  function openHabitFormWithDraft() {
+  function openHabitFormWithDraft(title: string) {
     tap();
     const recurrenceParams = habitRecurrenceDraft.toParams();
     router.push({
       pathname: '/habit-form',
       params: {
-        title: habitDraft.trim(),
+        title,
         energy: String(habitEnergyValue),
         childName: selectedProfile || '',
         ...recurrenceParams,
@@ -749,7 +820,6 @@ export default function HabitsSurface() {
         notificationTime: habitRemindTime,
       },
     });
-    setHabitDraft('');
     setHabitEnergyValue(0);
     setHabitTargetValue(1);
     setHabitRemindEnabled(false);
@@ -933,18 +1003,11 @@ export default function HabitsSurface() {
                     section's Surface — do NOT wrap it in its own card, or the add row detaches
                     from its list"); that nested card was one of the things making this screen
                     read as a pile of boxes. */}
-                <PadTypeRow
-                  prompt={t.pad.type.habit}
-                  value={habitDraft}
-                  onChangeText={setHabitDraft}
-                  onSubmit={commitHabit}
+                <HabitComposer
                   accent={screenHue}
+                  prefill={prefill}
+                  onCommit={commitHabit}
                   onMore={openHabitFormWithDraft}
-                  // No check to preview (2026-08-06, user report: "the circle to the right of
-                  // the empty row") — every habit row ends in a −/+ pair now, never a check,
-                  // so the idle ghost ring previewed a control that could never appear. The
-                  // input widens into the freed space for free (it's already flex: 1).
-                  noGhostCheck
                   panel={
                     <QuickAddOptionsPanel>
                       {/* Signed stepper, not a tap-cycle — see the identical mount in
