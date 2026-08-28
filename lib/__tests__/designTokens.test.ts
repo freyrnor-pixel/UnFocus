@@ -410,11 +410,11 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
   });
 
   test('no raw millisecond literals in animated code — use Duration.*', () => {
-    const ALLOW = new Set([
-      // Per-particle drift times for ambient background scenery — data describing a scene,
-      // not the timing of any interaction. Already gated on reducedMotion + a user setting.
-      'components/ParticleBackground.tsx',
-    ]);
+    // **Empty since 2026-08-27**, and worth leaving as an empty set rather than deleting the
+    // mechanism: its one entry was `components/ParticleBackground.tsx`, whose per-particle drift
+    // times were scene data rather than interaction timing. That file is gone (round 20's stray
+    // artefacts), so the rule now has no exceptions at all.
+    const ALLOW = new Set<string>([]);
     const offenders: string[] = [];
     for (const f of SCANNED) {
       if (ALLOW.has(rel(f))) continue;

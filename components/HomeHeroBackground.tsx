@@ -6,7 +6,8 @@
  * carries the whole field on every screen, so Home no longer needs its own sky/orb/ground stack —
  * it just gets one stronger blue focal glow, cross-faded in when Home is focused (see
  * app/(tabs)/_layout.tsx). Transparent everywhere else so the shared field shows through. Fully
- * STATIC — no motion (the ambient drift comes from ParticleBackground).
+ * STATIC — no motion. (An ambient rising-dot field used to supply drift; it was deleted
+ * 2026-08-27 as one of round 20's stray artefacts, so nothing in the backdrop drifts now.)
  *
  * Connections:
  *   Imports → lib/useAppTheme (useIsDark), react-native-svg
@@ -35,7 +36,7 @@
  * Edit notes:
  *   - Render as the first child inside the SafeAreaView, same contract as ScreenBackground:
  *     absolutely positioned, pointerEvents="none", `zIndex: -1`. Transparent — it only ADDS a glow.
- *   - No looping motion here — ParticleBackground supplies the ambient rising-dot field; a static
+ *   - No looping motion here; a static
  *     glow keeps swipes cheap (ANIMATION_GUIDELINES §6). Because it's static, no reducedMotion gate.
  *   - **The centre and the peak are per-theme and are not free to converge.** Light's glow sits in
  *     the upper third and may; dark's is anchored above the top edge and may not come back down.

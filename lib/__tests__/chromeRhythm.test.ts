@@ -735,10 +735,12 @@ describe('the backdrop — under everything, and out of the middle', () => {
   // the platform whose sorting rule you happened not to be looking at, and "does an orb reach the
   // middle of the screen" is arithmetic nobody eyeballs correctly. Hence a source scan.
 
+  // Two layers, not three: `components/ParticleBackground.tsx` was DELETED on 2026-08-27
+  // (round 20's stray artefacts — the loose drifting dots). The rule below is unchanged and
+  // still binds every backdrop layer that exists; a new one has to be added here.
   const LAYERS = [
     'components/ScreenBackground.tsx',
     'components/HomeHeroBackground.tsx',
-    'components/ParticleBackground.tsx',
   ];
 
   it('pins every backdrop layer under the chrome', () => {

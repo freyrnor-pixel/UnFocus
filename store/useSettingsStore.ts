@@ -60,7 +60,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/ParticleBackground.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:
@@ -99,6 +99,19 @@
  *     a default nobody chose, deciding the first thing they saw. `lib/__tests__/firstRunOptions.test.ts`
  *     asserts no surface reads the field, because wiring a new control to it would typecheck
  *     perfectly and quietly re-create exactly that.
+ *   - **`particlesEnabled` joined the inert list on 2026-08-27** (round 20's stray artefacts).
+ *     `components/ParticleBackground.tsx` — the ambient field of drifting dots, and this flag's
+ *     only consumer — is DELETED, so the Settings → Accessibility row that wrote it was toggling
+ *     a column nothing reads; the row and its `settings.accessibility.particles*` copy went with
+ *     it, so nothing can be quietly rewired to the flag.
+ *     ⚠️ **It also took a rung off the onboarding motion ladder, and that is the part to know
+ *     before reviving it.** `lib/firstRunOptions.ts`'s ladder was full → reduced → none, and
+ *     `'reduced'` was defined as EXACTLY `particlesEnabled: false` — so with the field gone that
+ *     rung wrote nothing and its shipped copy ("Transitions stay, moving background goes")
+ *     described a no-op. The ladder is two rungs now. Reviving this flag therefore means giving
+ *     the middle rung something real to turn off first, not just re-adding the word; the test
+ *     that fails if you don't is `firstRunOptions.test.ts`'s "no rung is offered that changes
+ *     nothing".
  *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/habits.tsx dropped
  *     its Today/Week/Month switcher entirely (a habit is set up once with a recurrence and
  *     an optional reminder time; the maintainer's call was that browsing by day/week/month

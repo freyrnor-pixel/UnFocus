@@ -1547,21 +1547,32 @@ export default function PlanTaskCard({
             down. The badge, title, count and ⋮ above it went to Card/the registry. */}
         {readOnly && (
           <View style={styles.headerRowPressable}>
-            <View style={styles.headerTopRow}>
-              {/* Count pill, not the old grey sentence (2026-08-04, DESIGN_COMPARISON/09) — see
-                  HomeNotesCard's edit note for why it's a header-row sibling, not inline after
-                  the title. Rule 9 — the bar below stays ALWAYS mounted (unchanged): it used to
-                  be gated on `countableTasks.length > 0` too, so writing the day's first task
-                  made a progress bar appear out of nothing and pushed the card down (2026-08-03
-                  UX review). The pill CAN gate on the same condition without repeating that bug,
-                  because unlike the old summary it shares the title's line rather than adding
-                  one: `headerTopRow`'s `minHeight: 32` already covers both the pill's and the
-                  title's height, so its row never changes height whether the pill is there or
-                  not — only its width does, which isn't the jump rule 9 was written against. */}
-            </View>
+            {/* ⚠️ **A 32px row reserving space for nothing lived here until 2026-08-27, and it
+                was the single biggest term in this card's height** (round 20: an empty card runs
+                half the screen). `headerTopRow` held a count pill and carried `minHeight: 32` so
+                that the pill appearing could not change the row's height — sound, while the pill
+                was here. The 2026-08-22 registry pass moved the count into `Card`'s own header
+                and left the View behind holding only this comment, so every day-view card has
+                since reserved 32px for an element that is drawn one level up.
+                  Nothing replaces it: the count is on the card header, and the bar below is its
+                own child. The lesson is the one the ProgressBar track note makes from the other
+                direction — a number that was correct because of what sat next to it does not
+                announce itself when that neighbour moves. */}
+            {/* ⚠️ **Transparent track on a day with nothing countable (2026-08-27, round 20).**
+                The bar stays MOUNTED — that is rule 9 and the 2026-08-03 fix above, and it is
+                not being reopened: the height is still reserved, so writing the day's first
+                task cannot make the card grow under the reader's thumb. What goes is the INK.
+                A 0-of-0 bar has nothing to report, and on the app's first screen it was the
+                only thing drawn inside an otherwise empty card — the "hard black rule inside
+                I dag" round 20 lists as a stray artefact. (Its blackness was a second,
+                separate defect in the track colour itself; see ProgressBar's TRACK_ALPHA. Both
+                had to go — a faint wash drawn across an empty card is still a bar saying
+                nothing.) With something to count, the track comes back and reads as the room
+                the day has left in it. */}
             <ProgressBar
               value={countableTasks.length > 0 ? doneTasks.length / countableTasks.length : 0}
               color={screenColor.base}
+              trackColor={countableTasks.length > 0 ? undefined : 'transparent'}
               height={4}
               style={styles.progressBar}
             />
@@ -2079,13 +2090,15 @@ const baseStyles = StyleSheet.create({
   // as "close to the wash divider" at this size; the room bought back goes to the content
   // below it instead, matching HomeNotesCard/HomeHabitsCard/HomeShoppingCard's own header gap
   // (2026-07-30, user report: content read as crowding the colored badge).
-  headerRowPressable: { marginBottom: Spacing.lg },
+  // `Spacing.sm`, not `lg` (2026-08-27). 24px under a 4px bar was sized for the header block
+  // this used to be — a count row plus a bar — and stayed after the count row went, leaving the
+  // largest gap in the card sitting under its smallest element.
+  headerRowPressable: { marginBottom: Spacing.sm },
   // The badge is an ordinary flex child again (2026-07-30). It used to be absolutely
   // positioned, with this row's paddingLeft:52 dodging it and the progress bar's matching
   // marginLeft dodging it a second time — three coupled numbers, and a documented
   // native-vs-react-native-web disagreement about whether an absolute child inherits its
   // parent's padding. In flex flow there is nothing to dodge and nothing to disagree about.
-  headerTopRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 32 },
   headerText: { flex: 1, minWidth: 0 },
   progressBar: { marginTop: Spacing.xs },
   // OpticalCenter so the title optically centers against the round CardAccentBadge on Android
