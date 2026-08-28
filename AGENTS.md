@@ -424,13 +424,19 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     recomputes each from the app source that owns the recipe (`getBadgeFrost`, `getGlassEdge`,
     `PadSheet`'s `ROW_BOX_*`). There is no fifth: `GLASS_EDGE.card` carries no `shadeDark`, so the
     shaded side IS `theme.border` — asserted, so it stops being true loudly.
-  - ⚠️ **`fontStyle: 'italic'` on the empty line is legitimate HERE and nowhere else in the repo.**
-    The app bans it because RN does not synthesise italic onto a NAMED custom family on Android
-    (`components/NarratorQuote.tsx` loads a real `Fonts.italic` face). A widget names no family and
-    cannot reach a font gate, so the system font's synthetic italic is exactly what renders. Both
-    `widgetPalette.test.ts` and `lib/__tests__/narratorQuotes.test.ts` name it, so the app's
-    "exactly two files wide" stays a decision rather than a claim that is quietly false one
-    directory over.
+  - ⚠️ **An empty widget says something, and it says it UPRIGHT.** `habits` and `health` were the
+    only two surfaces in the app passing `empty: ''`, so those widgets drew a header over a blank
+    body; `t.widgets.noHabits`/`.noHealth` close that at both producers (`sync.ts` AND
+    `headlessSnapshot.ts`, which carry separate string tables — a widget renders from whichever
+    last wrote the row). **An italic shipped on that line for a few hours the same day and was
+    reverted**, and the reasoning is worth keeping because the obvious argument is the wrong one:
+    a widget CAN draw synthesised italic — it names no font family, so the Android limitation
+    behind the app's ban genuinely does not reach it — but these strings are plain statements,
+    which is `StarterCard`'s register and is drawn upright. The app's one italic is
+    `NarratorQuote`'s FIRST-PERSON aside; copying the slant without the voice is the decorative
+    use the 2026-08-18 ban was about. Both `widgetPalette.test.ts` and
+    `lib/__tests__/narratorQuotes.test.ts` assert the absence, because nothing else would: the
+    app-wide italic guards walk `app/`, `components/` and `lib/` by explicit file list.
   - **The picker previews were regenerated** (`npm run widget-previews`) and their scale
     corrected: `K` 1.8 → 1.6, i.e. a 240×135dp widget rather than a 213×120dp one, which is what a
     3×2 placement actually measures. The sample budget is TWO rows now, not three — the honest

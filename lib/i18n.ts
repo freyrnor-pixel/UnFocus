@@ -1276,8 +1276,14 @@ const en = {
     voiceNote: 'Voice note',
     habitsTitle: 'Habits',
     habitsLeft: (n: number) => (n === 1 ? '1 habit left' : `${n} habits left`),
+    // A widget with nothing to show says so, the way every other empty surface in the app
+    // does. These two were the only widgets passing `empty: ''`, which drew a header over a
+    // blank body — see lib/widgets/sync.ts. Plain statements, not congratulations: Health's
+    // no-scoreboard rule means a quiet day is neither praised nor scored.
+    noHabits: 'No habits today',
     healthTitle: 'Health',
     healthOngoing: (n: number) => (n === 1 ? '1 ongoing' : `${n} ongoing`),
+    noHealth: 'Nothing logged today',
     // Medicine folded into the Health widget + the pinned overview (2026-08-15). Counts
     // MEDICINES, not trays: it doubles as the lock-screen-safe line, where naming a tray
     // would say more about someone's day than a locked phone should. "Still due" is the
@@ -3682,8 +3688,10 @@ const no: typeof en = {
     voiceNote: 'Taleopptak',
     habitsTitle: 'Vaner',
     habitsLeft: (n: number) => (n === 1 ? '1 vane igjen' : `${n} vaner igjen`),
+    noHabits: 'Ingen vaner i dag',
     healthTitle: 'Helse',
     healthOngoing: (n: number) => (n === 1 ? '1 pågående' : `${n} pågående`),
+    noHealth: 'Ingenting logget i dag',
     medicineDue: (n: number) => (n === 1 ? '1 medisin gjenstår' : `${n} medisiner gjenstår`),
     trayProgress: (taken: number, total: number) => `${taken} av ${total}`,
   },
@@ -5519,8 +5527,11 @@ const is: typeof en = {
     voiceNote: 'Talupptaka',
     habitsTitle: 'Venjur',
     habitsLeft: (n: number) => `${n} ${isCount(n, 'venja', 'venjur')} eftir`,
+    // "venjur" is feminine plural, so the quantifier is "engar".
+    noHabits: 'Engar venjur í dag',
     healthTitle: 'Heilsa',
     healthOngoing: (n: number) => `${n} í gangi`,
+    noHealth: 'Ekkert skráð í dag',
     // "lyf" is neuter with one form for both numbers, so it needs no isCount.
     medicineDue: (n: number) => `${n} lyf eftir`,
     trayProgress: (taken: number, total: number) => `${taken} af ${total}`,

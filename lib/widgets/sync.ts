@@ -274,7 +274,7 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       // No empty-state text (2026-08-12 — the "No habits today"/"Nothing logged" filler was
       // removed from both this card and Health's below; Empty() in WidgetViews.tsx renders
       // nothing for a blank string).
-      empty: '',
+      empty: t.widgets.noHabits,
       accent: WIDGET_ACCENT.habits,
       hasContent: todayHabits.length > 0,
     },
@@ -285,7 +285,7 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       trays,
       more: activeHealth.length > PREVIEW ? t.widgets.more(activeHealth.length - PREVIEW) : '',
       // See the habits card's note above — no empty-state text here either.
-      empty: '',
+      empty: t.widgets.noHealth,
       accent: WIDGET_ACCENT.health,
       // A day with trays and no entries is a perfectly normal, and common, day.
       hasContent: healthItems.length > 0 || trays.length > 0,
