@@ -75,21 +75,31 @@ describe('anti-overwhelm: one screen, each row with 2–4 options', () => {
 });
 
 describe('invariant 2: no pick can produce an invalid state', () => {
-  test('every motion choice maps to a fully-specified pair of booleans', () => {
+  test('every motion choice maps to a fully-specified setting', () => {
     for (const choice of MOTION_CHOICES) {
-      const s = MOTION_SETTINGS[choice];
-      expect(typeof s.reducedMotion).toBe('boolean');
-      expect(typeof s.particlesEnabled).toBe('boolean');
+      expect(typeof MOTION_SETTINGS[choice].reducedMotion).toBe('boolean');
     }
   });
 
   test('the motion ladder only ever removes movement', () => {
-    // full → reduced → none must be monotonic: each step down keeps every reduction the
-    // one above it made. This is what lets the OS reduce-motion flag be treated as a floor.
-    const weight = (c: (typeof MOTION_CHOICES)[number]) =>
-      (MOTION_SETTINGS[c].reducedMotion ? 2 : 0) + (MOTION_SETTINGS[c].particlesEnabled ? 0 : 1);
-    expect(weight('full')).toBeLessThan(weight('reduced'));
-    expect(weight('reduced')).toBeLessThan(weight('none'));
+    // Monotonic: each step down keeps every reduction the one above it made. This is what
+    // lets the OS reduce-motion flag be treated as a floor.
+    //
+    // ⚠️ **Two rungs since 2026-08-27, and the weight function is deliberately still a
+    // function** rather than being inlined to a single comparison. `'reduced'` was dropped when
+    // the ambient particle field it turned off was deleted (round 20's stray artefacts) — see
+    // lib/firstRunOptions.ts — and if a middle rung is ever reintroduced with something real to
+    // turn off, this is the assertion that has to keep passing over three.
+    const weight = (c: (typeof MOTION_CHOICES)[number]) => (MOTION_SETTINGS[c].reducedMotion ? 1 : 0);
+    expect(weight('full')).toBeLessThan(weight('none'));
+  });
+
+  test('no rung is offered that changes nothing', () => {
+    // The defect the collapse fixed, pinned so it cannot come back by someone re-adding a
+    // word: every choice must write a DISTINCT set of settings. A rung whose settings equal
+    // another's is a card the user can pick with no effect.
+    const seen = MOTION_CHOICES.map((c) => JSON.stringify(MOTION_SETTINGS[c]));
+    expect(new Set(seen).size).toBe(MOTION_CHOICES.length);
   });
 
   test('the fixed start tab names a real tab route and a real path', () => {
@@ -163,10 +173,14 @@ describe('invariant 5: the commit is one atomic, complete patch', () => {
       // If firstRunComplete could ever be written without the selections, a crash between
       // the two writes would leave the flow "done" with nothing applied. One object, so it
       // can't be.
+      // `particlesEnabled` left this list on 2026-08-27 with the ambient particle field it
+      // switched (round 20's stray artefacts) — the motion row writes `reducedMotion` alone now.
+      // The assertion is still an exact key list rather than a subset: the whole point is that
+      // a row can't quietly stop being committed.
       expect(Object.keys(patch).sort()).toEqual(
         [
           'darkMode', 'firstRunComplete', 'fontSize', 'language', 'leftHanded',
-          'particlesEnabled', 'reducedMotion',
+          'reducedMotion',
         ].sort(),
       );
       expect(patch.firstRunComplete).toBe(true);
@@ -186,14 +200,12 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
     // The real "re-run and press straight through" case: whatever a user's current
     // settings are, seeding the flow from them and committing writes them back unchanged.
     for (const reducedMotion of [false, true])
-      for (const particlesEnabled of [false, true])
-        for (const fontSize of FONT_SIZE_CHOICES)
-          for (const darkMode of DARK_MODE_CHOICES)
-            for (const language of LANGUAGE_CHOICES)
-              for (const leftHanded of [false, true]) {
+      for (const fontSize of FONT_SIZE_CHOICES)
+        for (const darkMode of DARK_MODE_CHOICES)
+          for (const language of LANGUAGE_CHOICES)
+            for (const leftHanded of [false, true]) {
               const current: FirstRunSettings = {
                 reducedMotion,
-                particlesEnabled,
                 fontSize,
                 darkMode,
                 language,
@@ -205,30 +217,25 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
               expect(writtenBack.darkMode).toBe(current.darkMode);
               expect(writtenBack.language).toBe(current.language);
               expect(writtenBack.leftHanded).toBe(current.leftHanded);
-              // Motion is the one lossy axis: reducedMotion=true with particles on isn't a
-              // state the three cards can express, so it normalises to 'none' (particles
-              // off). That direction is deliberate — it removes movement, never adds it.
+              // Motion is no longer a lossy axis. It used to be: `reducedMotion` true with
+              // particles ON was a state the three cards could not express, so it normalised
+              // to 'none'. With the particle field deleted (2026-08-27) the ladder is exactly
+              // one boolean, so the round trip is now exact on every row.
               expect(writtenBack.reducedMotion).toBe(current.reducedMotion);
-              if (!current.reducedMotion) {
-                expect(writtenBack.particlesEnabled).toBe(current.particlesEnabled);
-              } else {
-                expect(writtenBack.particlesEnabled).toBe(false);
-              }
             }
   });
 });
 
 describe('motionChoiceOf pre-selects honestly', () => {
-  test('reducedMotion wins outright, whatever particles says', () => {
+  test('reducedMotion decides the rung', () => {
     // A user who turned reduced motion on in Settings and then re-runs the flow must not
     // be offered "Full" as the pre-selection.
-    expect(motionChoiceOf({ reducedMotion: true, particlesEnabled: true })).toBe('none');
-    expect(motionChoiceOf({ reducedMotion: true, particlesEnabled: false })).toBe('none');
+    expect(motionChoiceOf({ reducedMotion: true })).toBe('none');
   });
 
   test('the shipped defaults pre-select Full', () => {
     // defaultSettings in store/useSettingsStore.ts — a fresh install starts at the top of
     // the ladder, so step 1 opens on the state the app is already in.
-    expect(motionChoiceOf({ reducedMotion: false, particlesEnabled: true })).toBe('full');
+    expect(motionChoiceOf({ reducedMotion: false })).toBe('full');
   });
 });

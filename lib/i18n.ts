@@ -650,8 +650,7 @@ const en = {
       title: 'How much movement do you want?',
       sub: 'Animation can connect things, or get in the way',
       osReduced: 'Your phone asks for reduced motion, so movement is already down',
-      full: { label: 'Full', desc: 'Smooth transitions and moving background.' },
-      reduced: { label: 'Reduced', desc: 'Transitions stay, moving background goes.' },
+      full: { label: 'Full', desc: 'Smooth transitions between screens and cards.' },
       none: { label: 'None', desc: 'No animation anywhere.' },
     },
     textSize: {
@@ -1611,8 +1610,6 @@ const en = {
     accessibility: {
       title: 'Accessibility',
       reducedMotion: 'Reduced motion',
-      particles: 'Particle effects',
-      particlesHint: 'Animated particles on the home screen background',
       glassSurfaces: 'Glass surfaces',
       glassSurfacesHint: 'Frosted glass on cards and buttons — off for solid surfaces',
       fontSize: 'Font size',
@@ -2845,8 +2842,7 @@ const no: typeof en = {
       title: 'Hvor mye bevegelse vil du ha?',
       sub: 'Animasjon kan binde ting sammen, eller komme i veien',
       osReduced: 'Telefonen ber om redusert bevegelse, så bevegelsen er allerede nede',
-      full: { label: 'Full', desc: 'Myke overganger og bevegelig bakgrunn.' },
-      reduced: { label: 'Redusert', desc: 'Overgangene blir, bakgrunnen står stille.' },
+      full: { label: 'Full', desc: 'Myke overganger mellom skjermer og kort.' },
       none: { label: 'Ingen', desc: 'Ingen animasjon noe sted.' },
     },
     textSize: {
@@ -3258,8 +3254,6 @@ const no: typeof en = {
     accessibility: {
       title: 'Tilgjengelighet',
       reducedMotion: 'Redusert bevegelse',
-      particles: 'Partikkeleffekter',
-      particlesHint: 'Animerte partikler på startskjermens bakgrunn',
       glassSurfaces: 'Glassflater',
       glassSurfacesHint: 'Frostet glass på kort og knapper — av for heldekkende flater',
       fontSize: 'Skriftstørrelse',
@@ -4687,8 +4681,7 @@ const is: typeof en = {
       title: 'Hversu mikla hreyfingu viltu?',
       sub: 'Hreyfing getur tengt hlutina, eða þvælst fyrir',
       osReduced: 'Síminn biður um minni hreyfingu, svo hún er þegar niðri',
-      full: { label: 'Full', desc: 'Mjúkar umbreytingar og bakgrunnur á hreyfingu.' },
-      reduced: { label: 'Minni', desc: 'Umbreytingarnar haldast, bakgrunnurinn stendur kyrr.' },
+      full: { label: 'Full', desc: 'Mjúkar umbreytingar milli skjáa og korta.' },
       none: { label: 'Engin', desc: 'Engar hreyfimyndir neins staðar.' },
     },
     textSize: {
@@ -5095,8 +5088,6 @@ const is: typeof en = {
     accessibility: {
       title: 'Aðgengi',
       reducedMotion: 'Minni hreyfing',
-      particles: 'Agnaáhrif',
-      particlesHint: 'Hreyfðar agnir í bakgrunni heimaskjásins',
       glassSurfaces: 'Glerfletir',
       glassSurfacesHint: 'Frostað gler á kortum og hnöppum — slökkt fyrir gegnheila fleti',
       fontSize: 'Leturstærð',

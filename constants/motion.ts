@@ -26,7 +26,7 @@
  *     Two tokens deliberately share a value with another (`value`/`listIn` both 250,
  *     `card`/`modalOut`/`listMove` all 220): they're independent knobs that happen to
  *     agree today, so don't collapse them. The remaining literals are
- *     components/ParticleBackground.tsx's per-particle 7000-10500ms drifts, which are
+ *     the retired ParticleBackground's per-particle 7000-10500ms drifts, which were
  *     ambient scenery data rather than an interaction's timing.
  */
 import { Easing } from 'react-native-reanimated';
@@ -92,7 +92,7 @@ export const Duration = {
   /** an ambient backdrop crossfade — components/ScreenBackground.tsx's growth tint and
    *  branch reveal. Deliberately an order of magnitude above every band above: this is
    *  scenery reacting to something that took days to earn, and it must never read as a
-   *  reward animation firing off a tap. Sits alongside ParticleBackground's multi-second
+   *  reward animation firing off a tap. Sat alongside the retired ParticleBackground's multi-second
    *  drifts rather than the §1 interaction bands. */
   ambient: 2400,
   /** Half of the stage tree's idle sway cycle (components/StageTree.tsx) — the design

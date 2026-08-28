@@ -30,9 +30,12 @@
  *   - `hue` should be a solid domain accent (works on any surface, both modes). The header is
  *     the app-wide unified card/section style (2026-07-19): a small dot + sentence-case
  *     title (20px, bold — was ALL-CAPS with letterSpacing 0.8 until the 2026-07-28 design
- *     review moved uppercase back to ≤13px labels only) over a hairline rule tinted
- *     `rgba(hue, 0.25)` — NOT a filled pill (that soft-plate look was dropped). Pass a solid
- *     accent, not an already-translucent colour.
+ *     review moved uppercase back to ≤13px labels only) — NOT a filled pill (that soft-plate
+ *     look was dropped). Pass a solid accent, not an already-translucent colour.
+ *     ⚠️ **The hairline rule under the naming row is GONE (2026-08-27, round 20)** — it was
+ *     `rgba(hue, 0.25)` at hairlineWidth, and it is on the mockup's "stray artefacts" list
+ *     with the loose dots. The header is separated from its body by SPACE now; see `divider`
+ *     and the `spacer` style, which is what that prop draws today.
  *   - **(2026-07-31, addendum A.4 rule 1) The LABEL is `theme.text`, never the hue.** It was
  *     pure `hue` (a same-hue-on-same-hue pairing that read low-contrast), then `mix(hue, text,
  *     0.3)` — but a 70% blend of an identity hue is still that hue used as TEXT colour, which
@@ -61,7 +64,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, MIN_TAP_TARGET, rgba, Spacing, TabularNums, Type } from '@/constants/theme';
+import { Fonts, FontSize, MIN_TAP_TARGET, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
@@ -132,11 +135,13 @@ type Props = {
    */
   rowMinHeight?: number;
   /**
-   * Draw the hairline rule under the naming row (2026-08-12). Defaults to true — every
-   * caller except a closed `components/CollapsedSection.tsx` wants it, since it's what ties
-   * the header to the content it labels. Set false while that content isn't there to be tied
-   * to (a collapsed drawer): the rule was rendering over nothing, right above the drawer's
-   * own closed-state padding, which read as a stray line under a header with no card below it.
+   * Separate the naming row from the body under it (2026-08-12; **the rule it used to draw is
+   * deleted as of 2026-08-27**, so this is now spacing only — see the render site). Defaults to
+   * true — every caller except a closed card/drawer wants it, since it is what holds the header
+   * off the content it labels. Set false while that content isn't there to be held off from (a
+   * folded card): the space was being reserved over nothing, which sat the title above the
+   * centre of a closed card. The NAME is kept rather than renamed to `spaced` — every caller
+   * reads correctly either way, and a rename would churn call sites for a word.
    */
   divider?: boolean;
   /**
@@ -297,7 +302,18 @@ export default function SectionRail({ hue, domain, icon, label, count, countRef,
         )}
         {right ? <View style={styles.right}>{right}</View> : null}
       </View>
-      {divider && <View style={[styles.divider, { backgroundColor: rgba(hue, 0.25) }]} />}
+      {/* **No hairline under a card header (2026-08-27, round 20).** The rule used to be drawn
+          here in `rgba(hue, 0.25)`; the mockup's "stray artefacts" list has it alongside the
+          loose dots, and the replacement is spacing rather than another line: *"separation comes
+          from the body's offset, not a line"*. Deleting the View is the whole change — the
+          header→body gap becomes `container`'s own `marginBottom` (Spacing.sm, 8px, against the
+          mockup's 9), where it was 4 + 1 + 8 = 13 with the rule in it.
+            `divider` SURVIVES as a prop, and that is deliberate: components/Card.tsx passes
+          `divider={!isClosed}`, which is what still cancels that gap on a folded card, and
+          "closed is a bare header" is a construction the card system depends on
+          (lib/__tests__/cardAnatomy.test.ts). What changed is that the prop now controls only
+          the space, not a rule — see `container`/`spacer` below. */}
+      {divider && <View style={styles.spacer} />}
     </View>
   );
 }
@@ -421,5 +437,8 @@ const styles = StyleSheet.create({
   // stepper/icon row has no width to give, which is the rule the 2026-07-28 wrap pass settled
   // (let the label yield, never the fixed-size control).
   right: { marginLeft: 'auto', flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
+  // Was `divider` — a hairlineWidth rule in `rgba(hue, 0.25)` plus this margin. The rule is
+  // gone (round 20); the margin stays, so a card that draws a body still separates its header
+  // from it by the same total it always did, minus the 1px of ink.
+  spacer: { height: 0, marginTop: Spacing.xs },
 });

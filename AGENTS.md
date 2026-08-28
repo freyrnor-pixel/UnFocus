@@ -783,6 +783,61 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     moved** — lifting a surface is what re-opens rule 10b's mutual exclusion. The widget's baked
     palette copies moved in step, caught by their own test exactly as designed.
 
+- **Round 20's stray artefacts, and the density they were hiding — 2026-08-27.** The mockup's
+  *"Stray artefacts"* box: *"Loose 2px dots, a hard black rule inside **I dag**, and hairline
+  dividers under every header. All removed — separation comes from the body's offset, not a
+  line."* All three were found by MEASURING the DOM in the web preview rather than by reading
+  screenshots, which matters because two of them turned out not to be what they looked like.
+  - **The hairline is `SectionRail`'s `divider`** — a `rgba(hue, 0.25)` rule at hairlineWidth,
+    one per card. The View is deleted; **the PROP survives and now controls only the space**,
+    because `components/Card.tsx` passes `divider={!isClosed}` and that is what still cancels the
+    gap on a folded card — "closed is a bare header" is a construction the card system depends on
+    (`lib/__tests__/cardAnatomy.test.ts`), not a coincidence. Header→body was 4 + 1 + 8 = 13px and
+    is now `container`'s own `marginBottom` alone (8, against the mockup's 9).
+  - ⚠️ **The "hard black rule" was `ProgressBar`, and its blackness was a side effect of a palette
+    change nobody re-checked.** Measured: a 332×4 box of `rgb(18,18,18)` inside the Today card.
+    The track was `theme.surfaceMuted`, an OPAQUE "sunken surface" token — which was 12 steps
+    under a `#1E1E1E` surface when that default was written, and is **18 steps under the
+    `#242424` surface** since the 2026-08-26 lift. So the track stopped being one step down and
+    became a hole cut in the card, app-wide, silently. It is a translucent wash of `theme.text`
+    now (`TRACK_ALPHA`), which is defined against its own ground and cannot drift that way.
+    **The reusable half: an opaque "one step down" token stops meaning one step down the moment
+    the step above it moves.** `components/PlanTaskCard.tsx` additionally passes a TRANSPARENT
+    track when nothing is countable — the bar stays MOUNTED (rule 9 and the 2026-08-03 fix are
+    not reopened; the height is still reserved) and only the ink goes, because a 0-of-0 bar was
+    the only thing drawn inside an otherwise empty card.
+  - ⚠️ **The loose dots were `components/ParticleBackground.tsx`, and deleting it cost an
+    onboarding rung — read this before reviving either.** Five drifting 2.6–4px dots at
+    `rgba(110,175,255,0.7)`, the app's one ambient particle field. It is DELETED, both mounts with
+    it, and `settings.particlesEnabled` is an inert column (never dropped — see
+    `store/useSettingsStore.ts`). **`lib/firstRunOptions.ts`'s motion ladder is TWO rungs now**
+    (full/none): `'reduced'` was defined as exactly `particlesEnabled: false`, so with the field
+    gone it wrote nothing and its shipped copy ("Transitions stay, moving background goes")
+    described a no-op. The app's other two backdrop animations do not save it — a growth crossfade
+    (off by default) and a hue crossfade on tab change, and the latter is a TRANSITION, which is
+    what the middle rung promised to KEEP. **The OS reduce-motion path costs nothing, and that is
+    measured**: `useAccessibility()` ORs the OS flag into `reducedMotion`, so on such a phone all
+    three rungs already behaved identically and the pre-selection was cosmetic (it floors at
+    `'none'` now instead of a rung that no longer exists). Reviving the flag means giving a middle
+    rung something real to turn off FIRST; `firstRunOptions.test.ts`'s "no rung is offered that
+    changes nothing" is what fails if you don't.
+  - **Density: the mockup fits five cards per frame, the app about three — and it is not the
+    padding.** Measured on Home at 430×932: Energy 80, **Today 359**, Notes 151, Shopping 239.
+    The mockup's own prescription (card 13→11, body 11→9, row 44→42, stack 12→10) is a 2px trim
+    on a 352px frame, i.e. ~2.5px at this width — it cannot account for a 359px empty card.
+    What did: **`PlanTaskCard`'s `headerTopRow` reserved `minHeight: 32` for a count pill that
+    moved to `Card`'s own header in the 2026-08-22 registry pass**, leaving a View holding one
+    comment and 32px of nothing on every day-view card; and `headerRowPressable` kept a
+    `Spacing.lg` (24px) margin sized for that block, so the card's largest gap sat under its
+    smallest element (a 4px bar). Both fixed — Today is **330** — and the same lesson as the
+    track above: *a number that was correct because of what sat next to it does not announce
+    itself when that neighbour moves.*
+    ⚠️ **NOT done, deliberately**: `SCREEN_GAP` (16) and `Card`'s `Spacing.md` padding. The
+    mockup's numbers translate to ~12 at this width, which is not a rung on the deliberate
+    4/8/16/24/32/48 `Spacing` scale, and both are pinned by `DESIGN_RULES.md` +
+    `lib/__tests__/screenRhythm.test.ts`. That is a design-system decision (add a rung, or don't),
+    not a defect — worth about 44px on Home if taken.
+
 - **The clean reveal + the narrator — 2026-08-19** (`components/StarterCard.tsx`, and the new
   `lib/narratorQuotes.ts` + `components/NarratorQuote.tsx`; pinned by
   `lib/__tests__/exampleRows.test.ts` §6 and the new `lib/__tests__/narratorQuotes.test.ts`).

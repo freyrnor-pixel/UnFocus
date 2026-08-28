@@ -7,7 +7,7 @@
  * distracting."* Two instructions, and they are separate fixes — read both before undoing either.
  *
  *   1. **`zIndex: -1`, explicitly, on every backdrop layer.** This component, and its two
- *      siblings in the same group (`HomeHeroBackground`, `ParticleBackground`), used to rely on
+ *      siblings in the same group (`HomeHeroBackground`), used to rely on
  *      being the FIRST child of their container and on nothing else declaring a z. That is a
  *      convention, not a guarantee: `app/(tabs)/_layout.tsx` mounts the group beside a
  *      `zIndex: 100` nav overlay and a pager, and `ScreenScaffold` mounts it beside two

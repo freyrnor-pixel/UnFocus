@@ -16,7 +16,7 @@
  * way ScreenScaffold's old bottomBlock did.
  *
  * Also renders ONE shared L1/L2 background (ScreenBackground + a cross-faded
- * HomeHeroBackground + ParticleBackground) behind the whole pager, instead of each of the
+ * HomeHeroBackground) behind the whole pager, instead of each of the
  * 3 screens mounting its own via ScreenScaffold. react-native-pager-view slides each
  * screen's whole subtree horizontally, so a per-screen background used to slide right
  * along with the content — reading as "each screen has its own picture" instead of a fixed
@@ -33,7 +33,7 @@
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
- *             components/HomeHeroBackground, components/ParticleBackground, lib/siteNav
+ *             components/HomeHeroBackground, lib/siteNav
  *   Note    → the navigator's `initialRouteName` is the user's chosen starting tab
  *             (fixed at the centre tab since 2026-08-21 — see START_TAB_ROUTE below),
  *             frozen at mount. That is NOT the same thing as `unstable_settings.
@@ -201,7 +201,6 @@ import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/Bottom
 import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
-import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
@@ -475,7 +474,7 @@ export default function TabsLayout() {
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
           </Animated.View>
-          <ParticleBackground />
+
         </Animated.View>
 
         <TopTabs

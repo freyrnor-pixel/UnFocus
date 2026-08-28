@@ -1226,13 +1226,12 @@ export default function SettingsScreen() {
                   checked={settings.reducedMotion}
                   onChange={(v) => settings.update({ reducedMotion: v })}
                 />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.settings.accessibility.particles}
-                  hint={t.settings.accessibility.particlesHint}
-                  checked={settings.particlesEnabled}
-                  onChange={(v) => settings.update({ particlesEnabled: v })}
-                />
+                {/* **No "Particle effects" row (2026-08-27, round 20).** The ambient drifting-dot
+                    field it switched is deleted — one of the mockup's stray artefacts — so the
+                    row toggled a column nothing reads. `particlesEnabled` survives as an inert
+                    column (store/useSettingsStore.ts's "Inert columns" note); the copy under
+                    `settings.accessibility.particles*` is deleted with the row so nothing can be
+                    quietly rewired to it. */}
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {/* The app's ONE reduce-transparency control since 2026-08-17. Appearance's
                     "Solid cards" (`opaqueCards`) was a second, narrower switch over the same

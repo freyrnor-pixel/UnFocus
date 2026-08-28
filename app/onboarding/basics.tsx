@@ -149,8 +149,13 @@ export default function OnboardingBasics() {
   // "Skip" and "re-run and press straight through" no-ops.
   const [picks, setPicks] = useState<FirstRunPicks>(() => {
     const seeded = picksFromSettings(settings);
-    // A phone asking for reduced motion never gets offered "Full" as the pre-selection.
-    return osReducedMotion && seeded.motion === 'full' ? { ...seeded, motion: 'reduced' } : seeded;
+    // A phone asking for reduced motion never gets offered "Full" as the pre-selection. That
+    // floor used to land on `'reduced'`; the ladder is two rungs since 2026-08-27 (see
+    // lib/firstRunOptions.ts for why the middle one stopped meaning anything), so it lands on
+    // `'none'` now. This is a pre-selection only, and on such a phone it changes nothing that
+    // is drawn: `useAccessibility()` ORs the OS flag into `reducedMotion` regardless of the
+    // pick, so every rung already behaved identically there.
+    return osReducedMotion && seeded.motion === 'full' ? { ...seeded, motion: 'none' } : seeded;
   });
 
   // ── Live preview: this screen renders from `picks`, not from the store ──────

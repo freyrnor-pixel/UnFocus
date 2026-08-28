@@ -71,32 +71,46 @@ export type BasicsRow = (typeof BASICS_ROWS)[number];
 
 /* ── Step 1: motion ──────────────────────────────────────────────────────── */
 
-export type MotionChoice = 'full' | 'reduced' | 'none';
+/**
+ * ⚠️ **TWO rungs since 2026-08-27, not three — `'reduced'` is gone.**
+ *
+ * The ladder was full → reduced → none, and the middle rung's ONLY job was
+ * `particlesEnabled: false`: it turned off the ambient drifting-dot field and kept the
+ * functional transitions. Round 20's stray-artefacts list deleted that field
+ * (`components/ParticleBackground.tsx`), and with it the only ambient motion in the app — the
+ * backdrop's other two animations are a growth crossfade (off by default) and a hue crossfade
+ * on tab change, and the latter is a TRANSITION, which is exactly what the middle rung
+ * promised to keep. So `'reduced'` would have gone on being offered while doing nothing, and
+ * its shipped copy ("Transitions stay, moving background goes") would have described a no-op.
+ *
+ * **The OS reduce-motion path costs nothing here, and that is measured rather than assumed**:
+ * `useAccessibility()` ORs the OS flag into `reducedMotion`, so on a phone asking for reduced
+ * motion all three rungs already behaved identically and the pre-selection was cosmetic. That
+ * is why collapsing to two is safe — see app/onboarding/basics.tsx's seeding, which now floors
+ * such a phone at `'none'` instead of at a rung that no longer exists.
+ *
+ * Restoring a middle rung means first giving it something real to turn off; don't re-add the
+ * word on its own.
+ */
+export type MotionChoice = 'full' | 'none';
 
 /** The settings a motion choice actually writes. */
-export type MotionSettings = { reducedMotion: boolean; particlesEnabled: boolean };
+export type MotionSettings = { reducedMotion: boolean };
 
-export const MOTION_CHOICES: readonly MotionChoice[] = ['full', 'reduced', 'none'];
+export const MOTION_CHOICES: readonly MotionChoice[] = ['full', 'none'];
 
-/**
- * Most movement first, least last. `reduced` drops the ambient particle field but keeps
- * the functional transitions that show where a thing came from; `none` drops those too.
- */
+/** Most movement first, least last. */
 export const MOTION_SETTINGS: Record<MotionChoice, MotionSettings> = {
-  full: { reducedMotion: false, particlesEnabled: true },
-  reduced: { reducedMotion: false, particlesEnabled: false },
-  none: { reducedMotion: true, particlesEnabled: false },
+  full: { reducedMotion: false },
+  none: { reducedMotion: true },
 };
 
 /**
- * Which card to pre-select for a settings row. `reducedMotion` wins outright: an install
- * that has it on is already at the bottom of the ladder whatever the particles flag says,
- * so a user who turned it on in Settings and then re-runs the flow sees `none` selected
- * rather than being quietly offered more movement than they asked for.
+ * Which card to pre-select for a settings row. `reducedMotion` is now the whole ladder, so
+ * this is a straight read — it used to also have to rank the particles flag beneath it.
  */
 export function motionChoiceOf(s: MotionSettings): MotionChoice {
-  if (s.reducedMotion) return 'none';
-  return s.particlesEnabled ? 'full' : 'reduced';
+  return s.reducedMotion ? 'none' : 'full';
 }
 
 /* ── Text size and appearance ─────────────────────────────────────────────── */

@@ -8,7 +8,7 @@
  *
  * Connections:
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
- *             components/ParticleBackground, components/ScreenHeader (now also passed `isHome`, so
+ *             components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
  *             debugModeEnabled — mounted once here so every screen gets it for free),
@@ -48,7 +48,9 @@
  *     because `scrollIntoView` scrolls only when the node overlaps the keyboard and only by
  *     that overlap — correct for its job, wrong for every case here. Both are provided by the
  *     scrollable branch and both are `null` on the non-scrollable one.
- *   - ParticleBackground gating (particlesEnabled + reducedMotion) happens inside the component
+ *   - **The ambient particle field is DELETED (2026-08-27, round 20's stray artefacts).** This
+ *     used to mount `ParticleBackground` here; `settings.particlesEnabled` is an inert column
+ *     now (store/useSettingsStore.ts). The line below described its gating
  *   - **Content lives in a CLIPPED VIEWPORT that runs the chrome's FULL height (2026-08-20 —
  *     restores the 2026-08-11 geometry, reversing 2026-08-18/19).** `styles.viewport` is an
  *     `overflow: 'hidden'` box running from the header card's TOP edge to the nav card's BOTTOM
@@ -124,7 +126,7 @@
  *     (true) — their transitions are stack push/pop, not a swipe, so per-screen
  *     backgrounds were never the problem.
  *   - **plainBackground (Settings request)**: opt-in flat backdrop — pure white/black
- *     (via useIsDark) with no ScreenBackground accent blob and no ParticleBackground, and
+ *     (via useIsDark) with no ScreenBackground accent blob, and
  *     a hairline bottom edge on the header block so the title bar stays a visible app-bar
  *     against the flat fill. Only app/settings.tsx passes it; every other screen keeps the
  *     tinted theme.bg + glow.
@@ -241,7 +243,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
-import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
@@ -894,7 +895,7 @@ export default function ScreenScaffold({
       )}
 
       {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground. */}
-      {ownBackground && !plainBackground && <ParticleBackground />}
+
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
           app/(tabs)/_layout.tsx's pager, so tab screens render their scroll content
