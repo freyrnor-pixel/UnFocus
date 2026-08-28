@@ -71,8 +71,12 @@
  *         cap was a ROW COUNT (`EMBEDDED_ROWS = 8`) with an "and N more →" row out to the full
  *         screen until 2026-08-20; the maintainer asked for *"the list … rounded, and scrollable
  *         even when not in full screen"*, so the whole catalogue is here and the tail row —
- *         this card's last navigate-away — is gone. `EMBEDDED_MAX_HEIGHT` bounds the LAYOUT,
- *         not the render;
+ *         this card's last navigate-away — is gone. `EMBEDDED_MAX_HEIGHT` bounds the LAYOUT;
+ *         **`EMBEDDED_WINDOW` bounds the RENDER as of 2026-08-28** — this line used to end "not
+ *         the render", which was the whole problem: unfolding the card put 1 729 extra nodes in
+ *         the tree for a box showing six rows, and the fold state persists while the Shop tab is
+ *         eager-mounted. It hand-windows now (a windowful, grown on scroll), so nothing is cut
+ *         and the tail row stays gone;
  *       · the A–Z scrubber → gone, it needs a full column of screen height to drag down;
  *       · the notepad container + grow-to-fill footer → the drawer's card IS the container,
  *         and there is no leftover viewport inside a drawer to soak up;
@@ -171,8 +175,8 @@
  *     without it, editing a row past the first screenful hides the edit fields behind the
  *     keyboard on Android's `windowSoftInputMode=resize`.
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, NativeScrollEvent, NativeSyntheticEvent, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
 import CatalogueAddSheet from '@/components/CatalogueAddSheet';
@@ -234,6 +238,31 @@ type Props = {
  *  a different amount of screen for different people, and what matters here is how much of the
  *  tab this card is allowed to take. */
 const EMBEDDED_MAX_HEIGHT = 320;
+
+/** How many rows the embedded list mounts before it has been scrolled (2026-08-28, perf).
+ *
+ *  ⚠️ **This is a WINDOW, not the `EMBEDDED_ROWS = 8` cap it looks like.** That cap CUT the list
+ *  at eight rows and offered an "and N more →" row that navigated to the full screen; this
+ *  mounts a windowful and grows it as you scroll, so the whole catalogue is still reachable
+ *  here and the 2026-08-20 ruling (*"the list should be rounded, and scrollable even when not
+ *  in full screen"*) is untouched. Nothing is cut and there is no tail row.
+ *
+ *  The number this fixes: a `.map()` over all 286 seeded items put **1 729 extra nodes** in the
+ *  tree for a box that shows about six rows (measured in the web preview at 393px — Shop tab
+ *  778 → 2 507 nodes the moment this card unfolds). That cost was not paid once: the fold state
+ *  persists in `settings.collapsed_cards` and the Shop tab is eager-mounted (`lazy: false` in
+ *  app/(tabs)/_layout.tsx), so a user who opened this card once paid it on every cold start, on
+ *  a tab they might not be looking at. The file's own comment predicted exactly this and
+ *  prescribed gating the body on expansion; windowing keeps the list reachable instead.
+ *
+ *  A row is `MIN_TAP_TARGET` (48) tall at minimum, so `EMBEDDED_MAX_HEIGHT` shows under 7 —
+ *  24 is roughly three and a half boxfuls of buffer before the first grow, and the grow step
+ *  matches so a fast flick lands inside already-mounted rows rather than on blank space. */
+const EMBEDDED_WINDOW = 24;
+
+/** How close to the bottom (px) a scroll gets before the next `EMBEDDED_WINDOW` rows mount.
+ *  Roughly two boxfuls, so growth happens well before the run of rows is exhausted. */
+const EMBEDDED_GROW_THRESHOLD = 600;
 
 type Styles = ReturnType<typeof useScaledStyles<typeof baseStyles>>;
 
@@ -447,6 +476,42 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
     const q = query.trim().toLowerCase();
     return q ? items.filter((i) => i.name.toLowerCase().includes(q)) : items;
   }, [items, query]);
+
+  // ── The embedded list's mount window (2026-08-28, perf) ───────────────────────────────
+  // See EMBEDDED_WINDOW for the measurement and why this is a window rather than the cap it
+  // replaced. `embedded` only — the real screen has a FlatList, which windows itself.
+  //
+  // Reset on the QUERY, not on `displayItems`: an edit to any catalogue row mints a new
+  // filtered array, and resetting there would snap a user who had scrolled to row 200 back to
+  // the top the moment they renamed something. A new query genuinely is a new list, and search
+  // is what keeps a far-down item reachable without scrolling to it — the filter runs over the
+  // WHOLE catalogue above, then this window applies to the result, so a match at index 250
+  // arrives inside the first windowful.
+  const [embeddedWindow, setEmbeddedWindow] = useState(EMBEDDED_WINDOW);
+  useEffect(() => { setEmbeddedWindow(EMBEDDED_WINDOW); }, [query]);
+
+  // A row being EDITED must stay mounted even if the window would end before it: `editingId`
+  // survives a query change (nothing clears it), so a user who starts an edit and then types in
+  // the search field would otherwise have the open editor vanish mid-keystroke with their
+  // half-typed name in it. Cheap: an indexOf over an already-filtered array, and only while an
+  // edit is actually open.
+  const embeddedRows = useMemo(() => {
+    if (!embedded) return displayItems;
+    let end = embeddedWindow;
+    if (editingId) {
+      const i = displayItems.findIndex((it) => it.id === editingId);
+      if (i >= end) end = i + 1;
+    }
+    return end >= displayItems.length ? displayItems : displayItems.slice(0, end);
+  }, [embedded, displayItems, embeddedWindow, editingId]);
+
+  /** Grow the window as the inner scroller nears its end. No-op once everything is mounted. */
+  const onEmbeddedScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const remaining = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    if (remaining > EMBEDDED_GROW_THRESHOLD) return;
+    setEmbeddedWindow((w) => (w >= displayItems.length ? w : w + EMBEDDED_WINDOW));
+  }, [displayItems.length]);
 
   // ── A–Z scrubber ──────────────────────────────────────────────────────────────────
   const flatListRef = useRef<FlatList<StoreItem>>(null);
@@ -833,11 +898,16 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
             here.
             ⚠️ **It is a plain ScrollView, NOT a FlatList, and that is forced.** A FlatList here
             is a VirtualizedList nested in Shopping's own ScrollView on the same axis, which
-            breaks windowing and warns. The cost is that every row mounts at once rather than in
-            a window; rows are memoised and cheap (a View and two Texts), and the height cap
-            keeps the LAYOUT bounded even though the render is not. If this ever shows up as
-            Shop-tab open latency, the fix is to gate the body on the card being expanded, not
-            to reintroduce the tail row.
+            breaks windowing and warns. So this windows BY HAND (`EMBEDDED_WINDOW`): a windowful
+            mounts, and `onScroll` grows it as you approach the end. ⚠️ **The paragraph that used
+            to be here said "every row mounts at once … the height cap keeps the LAYOUT bounded
+            even though the render is not", and named its own remedy — "if this ever shows up as
+            Shop-tab open latency, the fix is to gate the body on the card being expanded, not to
+            reintroduce the tail row."** It showed up: unfolding this card took the Shop tab from
+            778 to 2 507 DOM nodes, for a box that shows about six rows, on a tab that is
+            eager-mounted at boot and remembers its fold state. Windowing is taken in preference
+            to that gate because it costs the card nothing — the whole catalogue is still
+            reachable here, which the gate would have taken away.
             `nestedScrollEnabled` is what makes the inner scroll win on Android; iOS handles
             nested scrolling natively. The rows are their OWN container with no gap: they are a
             continuous divider-ruled run, exactly as on the real screen, and `embeddedRoot`'s gap
@@ -847,8 +917,10 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
           contentContainerStyle={styles.embeddedListContent}
           nestedScrollEnabled
           keyboardShouldPersistTaps="handled"
+          onScroll={onEmbeddedScroll}
+          scrollEventThrottle={16}
         >
-          {displayItems.map((item, index) => (
+          {embeddedRows.map((item, index) => (
             <React.Fragment key={item.id}>
               {index > 0 && <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />}
               {renderItem({ item, index })}
