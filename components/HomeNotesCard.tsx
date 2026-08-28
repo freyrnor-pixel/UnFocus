@@ -124,6 +124,92 @@ type Props = {
   cardMenu?: CardMenu;
 };
 
+/**
+ * The card's quick-add, as its own component — and the SPLIT is the point, not the tidiness
+ * (2026-08-28, perf).
+ *
+ * `noteDraft` and `extraInfoDraft` used to be `useState` in `HomeNotesCard` itself, which
+ * renders the whole card: the rail, the count, the mic, every visible `PadRow`, the done
+ * drawer and the send-to sheet. React re-renders from where the state lives downward, so
+ * **every keystroke re-rendered all of that** — and since nothing in the card tree is
+ * memoised, each pass re-ran `Surface`'s work for the card and every row inside it. That is
+ * the "typing lags" report, and it is a property of where the `useState` sits rather than of
+ * anything being slow.
+ *
+ * Now a character typed re-renders this component and nothing else. The parent is handed the
+ * two finished strings on submit, which is all it ever wanted them for.
+ *
+ * ⚠️ **This is the shape `components/TodoSurface.tsx`'s `InlineTaskAdd` has always had** — the
+ * codebase's own pattern, applied to a card that predates it, not a new idea. Keep a
+ * composer's draft inside the composer; a surface that renders a list must not hold the text
+ * of the field at the bottom of it.
+ */
+function NotesComposer({ accent, onCommit }: { accent: string; onCommit: (header: string, body: string) => void }) {
+  const t = useT();
+  const styles = useScaledStyles(baseStyles);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [extraInfoDraft, setExtraInfoDraft] = useState('');
+  // PadTypeRow's own keyboard-lift only fires for ITS primary field's focus/blur (see that
+  // component's ScrollIntoViewContext wiring) — this extras field needs its own, or focusing
+  // it while the row sits low in the card leaves it hidden behind the keyboard.
+  const extraInfoLift = useKeyboardLift<TextInput>();
+
+  function commit() {
+    const trimmed = noteDraft.trim();
+    if (!trimmed) return;
+    onCommit(trimmed, extraInfoDraft.trim());
+    setNoteDraft('');
+    setExtraInfoDraft('');
+  }
+
+  return (
+    <PadTypeRow
+      prompt={t.pad.type.note}
+      value={noteDraft}
+      onChangeText={setNoteDraft}
+      onSubmit={commit}
+      accent={accent}
+      // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
+      // be a bare 76px-wide box sharing one 44px line with the title input, the ghost
+      // check and two buttons — which is most of why the title input had no room to
+      // look like a field at all. On its own labelled row it gets the full width, the
+      // title input gets the whole line above it, and this card's quick-add finally
+      // matches Habits' and To-do's. Nothing about a note changed: still a header and
+      // a body, still committed by the same onSubmit.
+      panel={
+        <QuickAddOptionsPanel>
+          <QuickAddOptionRow
+            icon="document-text-outline"
+            label={t.home.extraInfoLabel}
+            value={
+              /* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** This
+                 was a hand-rolled bordered box that had been tuned twice to LOOK like
+                 the shared field — a plain surface fill "matching PadTypeRow's field
+                 above it", a 1px border, `Radius.sm` — which is the whole mechanism
+                 that section is about: every hand-rolled field is somebody carefully
+                 reproducing the real one, and the copies drift the moment the original
+                 moves. components/HealthSurface.tsx already mounts `Input` in this
+                 exact slot (a QuickAddOptionRow's `value`), so this is converging on a
+                 sibling rather than on a theory. */
+              <Input
+                ref={extraInfoLift.ref}
+                style={styles.extraInfoInput}
+                value={extraInfoDraft}
+                onChangeText={setExtraInfoDraft}
+                onFocus={extraInfoLift.onFocus}
+                onBlur={extraInfoLift.onBlur}
+                placeholder={t.home.extraInfoPlaceholder}
+                onSubmitEditing={commit}
+              />
+            }
+            accent={accent}
+          />
+        </QuickAddOptionsPanel>
+      }
+    />
+  );
+}
+
 export default function HomeNotesCard({ cardMenu }: Props) {
   const t = useT();
   const router = useRouter();
@@ -145,13 +231,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
 
   const [state, setState] = useCardState('notes');
   const [checkedOpen, setCheckedOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState('');
-  const [extraInfoDraft, setExtraInfoDraft] = useState('');
   const [sendToId, setSendToId] = useState<string | null>(null);
-  // PadTypeRow's own keyboard-lift only fires for ITS primary field's focus/blur (see that
-  // component's ScrollIntoViewContext wiring) — this extras field needs its own, or focusing
-  // it while the row sits low in the card leaves it hidden behind the keyboard.
-  const extraInfoLift = useKeyboardLift<TextInput>();
 
   const { listening, toggle: toggleVoiceCapture } = useVoiceCapture((text) => {
     const note = addNote();
@@ -171,16 +251,13 @@ export default function HomeNotesCard({ cardMenu }: Props) {
   // From the FULL list, never from what's on screen — see the edit note.
   const leftCount = notes.filter((n) => !n.checked).length;
 
-  function commitNoteDraft() {
-    const trimmed = noteDraft.trim();
-    if (!trimmed) return;
+  // Takes the two strings from the composer rather than reading state of its own — see
+  // NotesComposer's own note for why the draft does not live up here any more.
+  const commitNote = React.useCallback((header: string, body: string) => {
     const note = addNote();
-    const body = extraInfoDraft.trim();
-    updateNote(note.id, body ? { header: trimmed, body } : { header: trimmed });
-    setNoteDraft('');
-    setExtraInfoDraft('');
+    updateNote(note.id, body ? { header, body } : { header });
     success();
-  }
+  }, [addNote, updateNote]);
 
   /**
    * There is deliberately NO "More options" button on this card (2026-08-05).
@@ -254,52 +331,7 @@ export default function HomeNotesCard({ cardMenu }: Props) {
     >
         <PadSheet
           state={state}
-          typeRow={
-            <PadTypeRow
-              prompt={t.pad.type.note}
-              value={noteDraft}
-              onChangeText={setNoteDraft}
-              onSubmit={commitNoteDraft}
-              accent={screenColor.base}
-              // The labelled panel, not the inline `extras` row (2026-08-05). Details used to
-              // be a bare 76px-wide box sharing one 44px line with the title input, the ghost
-              // check and two buttons — which is most of why the title input had no room to
-              // look like a field at all. On its own labelled row it gets the full width, the
-              // title input gets the whole line above it, and this card's quick-add finally
-              // matches Habits' and To-do's. Nothing about a note changed: still a header and
-              // a body, still committed by the same onSubmit.
-              panel={
-                <QuickAddOptionsPanel>
-                  <QuickAddOptionRow
-                    icon="document-text-outline"
-                    label={t.home.extraInfoLabel}
-                    value={
-                      /* ⚠️ **The shared `Input` (2026-08-21, CONSISTENCY_AUDIT.md §1).** This
-                         was a hand-rolled bordered box that had been tuned twice to LOOK like
-                         the shared field — a plain surface fill "matching PadTypeRow's field
-                         above it", a 1px border, `Radius.sm` — which is the whole mechanism
-                         that section is about: every hand-rolled field is somebody carefully
-                         reproducing the real one, and the copies drift the moment the original
-                         moves. components/HealthSurface.tsx already mounts `Input` in this
-                         exact slot (a QuickAddOptionRow's `value`), so this is converging on a
-                         sibling rather than on a theory. */
-                      <Input
-                        ref={extraInfoLift.ref}
-                        style={styles.extraInfoInput}
-                        value={extraInfoDraft}
-                        onChangeText={setExtraInfoDraft}
-                        onFocus={extraInfoLift.onFocus}
-                        onBlur={extraInfoLift.onBlur}
-                        placeholder={t.home.extraInfoPlaceholder}
-                        onSubmitEditing={commitNoteDraft}
-                      />
-                    }
-                    accent={screenColor.base}
-                  />
-                </QuickAddOptionsPanel>
-              }
-            />
-          }
+          typeRow={<NotesComposer accent={screenColor.base} onCommit={commitNote} />}
           footer={
             sunkNotes.length > 0 ? (
               <View>

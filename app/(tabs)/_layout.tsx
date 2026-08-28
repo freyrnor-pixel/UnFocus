@@ -56,24 +56,27 @@
  *     `createMaterialTopTabNavigator` from `@react-navigation/material-top-tabs` — the
  *     latter breaks both `eas update` and `eas build` at the bundling step. `TopTabs`
  *     wraps the identical react-native-tab-view/-pager-view stack internally.
- *   - **`lazy: false` (2026-07-16, cold-start perf)**: all three sites mount up front when
- *     the pager mounts, so navigating Home → any tab reveals an ALREADY-RENDERED tree
- *     instead of mounting it fresh on first visit — that first-visit mount was the visible
- *     "things load in" hitch users reported. Pairs with app/_layout.tsx's cold-start
- *     hydration (Tier A stores + the settings render gate), so the pre-mounted screens mount
- *     with their data already in memory. Watch memory on low-end Android (3 screens mounted
- *     from launch) — the former Scan tab's camera-power-on caveat here no longer applies
- *     since Scan moved out to a pushed sub-screen (app/scan.tsx, 2026-07-23).
- *   - **`lazy: false` vs the REVERTED `lazyPreloadDistance` (2026-07-13)**: the earlier
- *     revert was `lazyPreloadDistance: 1` — a HALF-lazy state (lazy:true + preload) that hit
- *     react-native-pager-view's documented touch-delivery bug for preloaded-but-inactive
- *     screens ("+"/add controls going dead, e.g. Habits' inline AddRow). `lazy: false` is a
- *     different mode: the classic fully-eager tab-view render where every screen is a
- *     first-class mounted page from frame 0, not a preloaded-inactive one — the likely-safer
- *     configuration. Still: pager-view touch delivery can only be verified on-device (the
- *     headless web preview doesn't exercise native touch), so BEFORE this merges, verify
- *     inline add/tap controls (Habits AddRow, Shopping/Plans "+") work on a real build. If
- *     they regress, this single line goes back to `lazy: true`.
+ *   - **⚠️ `lazy: true` since 2026-08-28, reversing `lazy: false` (2026-07-16) — and the
+ *     reason is that the old flag was tuned for a THREE-page pager.** This bullet used to
+ *     defend eager mounting on cold-start grounds ("navigating Home → any tab reveals an
+ *     ALREADY-RENDERED tree… that first-visit mount was the visible 'things load in' hitch"),
+ *     and it even carried the caveat that killed it: *"Watch memory on low-end Android (3
+ *     screens mounted from launch)."* `ab03933` (2026-08-23) restored the five-tab bar and
+ *     nobody came back here, so the app spent five days mounting five screen trees at frame 0
+ *     of every launch. Measured on an EMPTY profile in the web preview: the five scenes hold
+ *     137/177/171/67/104 nodes, ~650 of them for four screens nobody is looking at, before
+ *     any of the user's own data is in them — and nothing outside CatalogueTab is virtualised,
+ *     so that grows with use. The first-visit hitch is knowingly taken back in exchange.
+ *   - **`lazyPreloadDistance` stays at its default 0, and that is the safety argument.** The
+ *     REVERTED 2026-07-13 configuration was `lazy: true` + `lazyPreloadDistance: 1` — a
+ *     HALF-lazy state that hit react-native-pager-view's documented touch-delivery bug for
+ *     screens that are mounted but NOT active ("+"/add controls going dead, e.g. Habits'
+ *     inline AddRow). At distance 0 no screen is ever in that state: a page mounts when you
+ *     navigate to it, i.e. as the active page. **Raising this to 1 re-creates exactly what was
+ *     reverted.** Pager touch delivery still cannot be verified by the web preview (no native
+ *     touch), so this rests on reasoning about the library's states rather than on a green
+ *     harness — verify the inline add/"+" controls on every tab on a real build. If they
+ *     regress, go back to `lazy: false`, NOT to a preload distance.
  *   - **Native swipe-feel patch (2026-07-19, needs a build — NOT OTA)**: the finger-swipe
  *     between tabs is native react-native-pager-view (ViewPager2 on Android). Its physics
  *     (fling/settle) are AOSP defaults and expose NO JS prop — the only reachable lever is
@@ -482,7 +485,32 @@ export default function TabsLayout() {
         tabBarPosition="bottom"
         screenOptions={{
           swipeEnabled: true,
-          lazy: false,
+          // ── `lazy: true` since 2026-08-28 (perf) ────────────────────────────────────────
+          // ⚠️ **This reverses the 2026-07-16 `lazy: false`, and the reason is that the flag
+          // was tuned for a THREE-page pager and never revisited when `ab03933` (2026-08-23)
+          // restored the five-tab bar.** Eager mounting cost 3 screens then and 5 now, from
+          // frame 0, every launch — measured in the web preview on an EMPTY profile, the five
+          // scene subtrees hold 137/177/171/67/104 nodes, i.e. ~650 nodes for four screens
+          // nobody is looking at, before a single row of the user's own data is in any of them
+          // (and nothing outside CatalogueTab is virtualised, so that number grows with use).
+          //   What `lazy: false` bought was the first-visit mount hitch, and that is a real
+          // cost being taken back deliberately: navigating to a tab for the first time in a
+          // session now renders it on arrival. Judged the better trade at five pages — a
+          // hitch once per tab per launch, against every launch paying for all five.
+          //
+          // ⚠️ **`lazyPreloadDistance` is left at its default 0, and that is the whole safety
+          // argument — do not raise it.** The 2026-07-13 revert this file's Edit notes describe
+          // was `lazy: true` + `lazyPreloadDistance: 1`, which hit react-native-pager-view's
+          // touch-delivery bug for screens that are MOUNTED BUT NOT ACTIVE (Habits' inline
+          // AddRow and other "+" controls went dead). At distance 0 no screen is ever in that
+          // state: a page mounts when you navigate to it, i.e. as the active page. Raising it
+          // to 1 re-creates the exact configuration that was reverted.
+          //   Still verify on a real build before trusting it: pager touch delivery cannot be
+          // exercised by the web preview (no native touch), so this line's safety rests on
+          // reasoning about the library's states, not on a green harness. Tap the inline
+          // add/"+" controls on every tab. If they regress, this goes back to `lazy: false`
+          // — NOT to `lazy: true` with a preload distance.
+          lazy: true,
           // `false` on ALL platforms — this flag only governs PROGRAMMATIC tab navigation
           // (a BottomNav tap → navigation.navigate → PagerViewAdapter.jumpTo). It does NOT
           // touch finger-swipe: swipeEnabled/scrollEnabled drives the native follow-finger

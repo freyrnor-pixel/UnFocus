@@ -578,6 +578,73 @@ const DAY_LOG_ICONS: Record<DayEntry['kind'], keyof typeof Ionicons.glyphMap> = 
   calendar: 'calendar-outline',
 };
 
+/**
+ * The pad's type line, as its own component — the SPLIT is the point (2026-08-28, perf).
+ *
+ * `addDraft` was `useState` in `PlanTaskCard`, which is ~2 000 lines drawing the whole day:
+ * the elastic timeline, every `TaskCard`, the day log behind the now-line, the follower rows,
+ * the progress bar and the starter card. React re-renders from where the state lives downward
+ * and nothing in that tree is memoised, so **every keystroke re-rendered all of it**, each
+ * pass re-running `Surface`'s work for the card and every row in it. This card is Home's
+ * "I dag" — the first composer most people ever type into — so it is the single worst instance
+ * of the pattern in the app. That is the "typing lags" report.
+ *
+ * ⚠️ **Only the TEXT moved.** The option state (time, recurrence, recurring days, the
+ * task-vs-moment switch) stays in the card: it changes on a tap, not on a character, and
+ * `draftExtra()`/`resetDraft()` read it. It arrives here as the already-built `panel` NODE, so
+ * a keystroke re-renders this component while the parent has not re-rendered — `panel` is the
+ * same element reference and React bails out of that subtree. Splitting on "what changes per
+ * keystroke" is what makes this fast; splitting on "what belongs to the composer" would drag
+ * the option state through and be slower.
+ *
+ * The text reaches the card as an ARGUMENT to `onSubmit`/`onMore`. Note `onMore` must still
+ * fire on an EMPTY line (2026-08-05 — see `commitAddAndEdit`'s note), so the guard here is on
+ * `onSubmit` only; do not "tidy" the two into one early return.
+ *
+ * Same shape as `components/TodoSurface.tsx`'s `InlineTaskAdd`. Keep a composer's text inside
+ * the composer.
+ */
+function TaskComposer({
+  prompt,
+  accent,
+  panel,
+  onSubmit,
+  onMore,
+}: {
+  prompt: string;
+  accent: string;
+  panel: React.ReactNode;
+  onSubmit: (text: string) => void;
+  onMore?: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  return (
+    <PadTypeRow
+      prompt={prompt}
+      value={draft}
+      onChangeText={setDraft}
+      onSubmit={() => {
+        const text = draft.trim();
+        if (!text) return;
+        onSubmit(text);
+        setDraft('');
+      }}
+      accent={accent}
+      onMore={
+        onMore
+          ? () => {
+              // Deliberately NOT guarded on an empty line — an empty press is valid here and
+              // opens the To-do screen without creating anything.
+              onMore(draft.trim());
+              setDraft('');
+            }
+          : undefined
+      }
+      panel={panel}
+    />
+  );
+}
+
 export default function PlanTaskCard({
   cardMenu,
   extraSection,
@@ -638,7 +705,6 @@ export default function PlanTaskCard({
   const expanded = state === 'open';
   const [doneOpen, setDoneOpen] = useState(false);
   const [deletedOpen, setDeletedOpen] = useState(false);
-  const [addDraft, setAddDraft] = useState('');
   const [addTime, setAddTime] = useState('');
   const [addRecurring, setAddRecurring] = useState<Recurring>('none');
   const [addRecurringDays, setAddRecurringDays] = useState<number[]>([]);
@@ -700,8 +766,10 @@ export default function PlanTaskCard({
     };
   }
 
+  // Clears the OPTIONS only — the text lives in TaskComposer now and it clears its own.
+  // See that component's note: the draft was the one piece of this card's state that changes
+  // on every keystroke, and this card is 2 000 lines of timeline and rows.
   function resetDraft() {
-    setAddDraft('');
     setAddTime('');
     setAddRecurring('none');
     setAddRecurringDays([]);
@@ -719,15 +787,13 @@ export default function PlanTaskCard({
    * The mode deliberately STAYS on after a submit: someone capturing one thing that just
    * happened is usually about to capture the next one.
    */
-  function commitMoment() {
-    const text = addDraft.trim();
+  function commitMoment(text: string) {
     if (!text || !onCaptureMoment) return;
     onCaptureMoment(text);
     resetDraft();
   }
 
-  function commitAdd() {
-    const title = addDraft.trim();
+  function commitAdd(title: string) {
     if (!title || !onAddTask) return;
     onAddTask(title, draftExtra());
     resetDraft();
@@ -749,9 +815,9 @@ export default function PlanTaskCard({
    * SAVED row (app/task-form.tsx was retired 2026-07-23), so there is no unsaved task for it
    * to render. Commit-then-open stays until something like a create-mode TaskCard exists.
    */
-  function commitAddAndEdit() {
+  function commitAddAndEdit(title: string) {
     if (!onAddTaskAndEdit) return;
-    onAddTaskAndEdit(addDraft.trim(), draftExtra());
+    onAddTaskAndEdit(title, draftExtra());
     resetDraft();
   }
 
@@ -1469,10 +1535,8 @@ export default function PlanTaskCard({
    * else, including energy, is edited later in the task's own form — reachable inline via "…".
    */
   const typeRow = onAddTask ? (
-    <PadTypeRow
+    <TaskComposer
       prompt={captureAsMoment ? t.dayLog.capturePrompt : t.pad.type.task}
-      value={addDraft}
-      onChangeText={setAddDraft}
       onSubmit={captureAsMoment ? commitMoment : commitAdd}
       accent={screenColor.base}
       // A moment has no editor to continue into — it IS the record. Only a task offers "…".

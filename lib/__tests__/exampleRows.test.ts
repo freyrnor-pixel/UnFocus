@@ -440,7 +440,15 @@ describe('the example sits in the list it is an example of, not above the list\'
     const source = code('components/HabitsSurface.tsx');
     const section = source.indexOf('styles.section');
     const starter = source.indexOf('<StarterCard');
-    const composer = source.indexOf('<PadTypeRow');
+    // ⚠️ **The marker is the composer's MOUNT, not the component inside it** (2026-08-28).
+    // This read `<PadTypeRow` until the quick-add's draft state was extracted into
+    // `HabitComposer` for performance — which moved the `<PadTypeRow` *definition* above
+    // `HabitsSurface` itself, so this index started finding the top of the file and the test
+    // failed while the layout it guards had not moved at all. The rule here is about where the
+    // composer is MOUNTED in the card; a marker naming an implementation detail of the
+    // composer answers a different question. `PlanTaskCard`'s row in the table below already
+    // had this right (`typeRow={typeRow}`), which is why it did not fail.
+    const composer = source.indexOf('<HabitComposer');
     expect(section).toBeGreaterThan(-1);
     expect(section).toBeLessThan(starter);
     expect(starter).toBeLessThan(composer);
@@ -527,9 +535,15 @@ describe('StarterCard — the suggestions drop-down starts shut and says one wor
 });
 
 describe('the composer comes after the examples, everywhere', () => {
+  // ⚠️ **A composerMarker must name the composer's MOUNT SITE.** Naming what is *inside* the
+  // composer (`<PadTypeRow`) breaks the moment that composer is extracted into its own
+  // component in the same file — the definition then sits above the surface and the index
+  // finds the top of the file, failing a layout test over a change that moved no layout. Both
+  // `Habits` and `the day card` are mounts for that reason; `Health` and `the Goals drawer`
+  // still mount their composer inline, so there the mount IS the tag.
   for (const [file, starterMarker, composerMarker, label] of [
     ['components/HealthSurface.tsx', '<StarterCard', '<PadTypeRow', 'Health'],
-    ['components/HabitsSurface.tsx', '<StarterCard', '<PadTypeRow', 'Habits'],
+    ['components/HabitsSurface.tsx', '<StarterCard', '<HabitComposer', 'Habits'],
     ['components/GoalsEditor.tsx', '<StarterCard', '<AddRow', 'the Goals drawer'],
     ['components/PlanTaskCard.tsx', '<StarterCard', 'typeRow={typeRow}', 'the day card'],
   ] as const) {
