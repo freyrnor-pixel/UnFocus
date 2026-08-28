@@ -170,12 +170,30 @@
  *     them the way it reaches radius/padding everywhere else. `cardElevation` at its default
  *     resolves to `undefined` so the per-card `elevated` prop still decides — one global knob
  *     should not be able to flatten a deliberately-floating card. Inert until the lab is used.
+ *   - **⚠️ Nothing in this component may allocate per render without a reason (2026-08-28,
+ *     perf).** This file had no `useMemo` at all while being the app's single card shape, so
+ *     every render of every card ran `StyleSheet.flatten` + a key-partition loop over the
+ *     caller's style, and minted a fresh `getGlassEdge` object (two arrays), a fresh
+ *     `getLayeredShadow` array (three objects) and three identical radius literals. The
+ *     allocation was the smaller half: `boxShadow` got a NEW VALUE IDENTITY every render, so
+ *     Fabric re-committed a three-layer shadow even when nothing had changed — across ~60
+ *     cards, on every store write, and on every foreground (app/_layout.tsx reloads three
+ *     stores on `AppState: 'active'`, which gives every subscriber new array identities).
+ *     The five memos below are all keyed on already-stable deps, so for a normal user they
+ *     compute once and hold one reference for the app's lifetime.
+ *       **What this deliberately does NOT do is `React.memo` the component.** `children` is
+ *     fresh JSX on every parent render, so the wrapper would buy nothing without also making
+ *     ~105 call sites stop passing inline `style` arrays — a wide mechanical change with real
+ *     stale-render risk that no harness in this repo can see. The `style`-keyed memo above has
+ *     the same caveat in miniature and says so at its own call site: a caller passing
+ *     `styles.card` gets the pass for free, a caller passing `[styles.card, {gap: 4}]` does
+ *     not. Don't read the stable dep lists as a claim that every call site benefits.
  *   - **Per-corner radius**: pass standard RN `borderTopLeftRadius` etc. in `style` to square
  *     off individual corners (BottomNav squares its top corners). The outer view honours these
- *     already; the ring and mask need their own math, which is what `topLeftRadius` & co. below
- *     are for.
+ *     already; the mask and the key base need the same four corners, which is what the memoised
+ *     `radii` object below is for (it was three identical inline literals until 2026-08-28).
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { BlurView } from 'expo-blur';
 import {
@@ -380,45 +398,90 @@ export default function Surface({
   // exactly what the card shipped with, so this is inert until the lab is used.
   const shape = useLabShape();
   const edgeWidth = shape.borderCardWidth * shape.borderScale;
-  const ramp = getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength);
+  // ── Memoised: these two were the app's largest per-render allocation (2026-08-28, perf) ──
+  // `getGlassEdge` mints an object holding two fresh arrays and `getLayeredShadow` an array of
+  // three fresh objects, and this component ran BOTH on every render of every card, with no
+  // memo anywhere in the file. The allocation was the smaller half of the cost: because
+  // `boxShadow` got a NEW VALUE IDENTITY each time, Fabric re-committed a three-layer shadow to
+  // the shadow node on every render even when nothing about it had changed — across ~60 cards,
+  // on every store write, and (see app/_layout.tsx's AppState handler) on every foreground.
+  // Every dep here is already stable per theme/lab state, so for a normal user these now
+  // compute once and keep one reference for the app's lifetime.
+  const ramp = useMemo(
+    () => getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength),
+    [edgeHue, isDark, shape.borderRampStrength],
+  );
   const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
+  // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no flat
+  // tier in getLayeredShadow (it starts at 'raised'), so the pass is skipped rather than asked
+  // for a zero-strength one.
+  const shadowStyle = useMemo(
+    () => (shadowLevel === 'flat' ? null : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
+    [theme.shadow, shadowLevel],
+  );
 
-  const flat = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
-  const outer: Record<string, unknown> = {};
-  const wrapper: Record<string, unknown> = {};
-  const padding: Record<string, unknown> = {};
-  const content: Record<string, unknown> = {};
-  for (const key of Object.keys(flat)) {
-    if (PADDING_KEYS.has(key)) padding[key] = flat[key];
-    else if (CONTENT_LAYOUT_KEYS.has(key)) content[key] = flat[key];
-    else if (OWNED_KEYS.has(key)) continue;
-    // On the key path only, the whole-key sizing keys move to the cap+base wrapper.
-    else if (isKey && WRAPPER_KEYS.has(key)) wrapper[key] = flat[key];
-    else outer[key] = flat[key];
-  }
+  // ── Memoised: the flatten + key-partition pass (2026-08-28, perf) ──────────────────────
+  // `StyleSheet.flatten` walks a (usually nested) array and allocates, then this loop allocates
+  // four more objects and visits every key the caller passed. It ran on every render of every
+  // card. Keyed on the `style` prop and `isKey` — nothing else here reads anything else.
+  //   ⚠️ **This is worth exactly as much as the caller's `style` identity is stable**, and a
+  // caller passing an inline array (`style={[styles.a, {gap: 4}]}`) mints a new one every
+  // render and gets nothing. That is the wide, mechanical call-site change this deliberately
+  // does NOT make; a caller passing a plain `styles.card` reference — most of them — gets the
+  // whole pass for free from here. Don't read a stable dep list as a claim that every call site
+  // benefits.
+  const { flat, outer, wrapper, padding, content, capStretches, maskGrowStyle } = useMemo(() => {
+    const f = (StyleSheet.flatten(style) ?? {}) as Record<string, unknown>;
+    const o: Record<string, unknown> = {};
+    const w: Record<string, unknown> = {};
+    const p: Record<string, unknown> = {};
+    const c: Record<string, unknown> = {};
+    for (const key of Object.keys(f)) {
+      if (PADDING_KEYS.has(key)) p[key] = f[key];
+      else if (CONTENT_LAYOUT_KEYS.has(key)) c[key] = f[key];
+      else if (OWNED_KEYS.has(key)) continue;
+      // On the key path only, the whole-key sizing keys move to the cap+base wrapper.
+      else if (isKey && WRAPPER_KEYS.has(key)) w[key] = f[key];
+      else o[key] = f[key];
+    }
+    // A caller's `flex`/`flexGrow` moved to the key wrapper (WRAPPER_KEYS), so the cap has to
+    // be told to fill it or the card would hug its content inside a stretched housing. Set
+    // HERE rather than by mutating `o` after the memo — the old code did exactly that, which
+    // was harmless only because the write happened to be idempotent.
+    const stretches = isKey && ('flex' in f || 'flexGrow' in f);
+    if (stretches) o.flexGrow = 1;
+    // The mask's flexGrow:1 only exists to let the fill reach the floor of an outer view the
+    // CALLER has explicitly forced taller than its content (minHeight/height/flex). For a
+    // hug-content card (no such key — a small alignSelf:'center' pill), the outer view has no
+    // definite main-axis size to distribute, and on Android that can resolve as the
+    // ScrollView's unbounded measure spec instead of the content-hug behaviour web/iOS give
+    // it, growing the chip into a full-height bar (2026-07-20 bug: the Habits "X / Y goals met
+    // today" chip).
+    const grows = 'minHeight' in f || 'height' in f || 'flex' in f || 'flexGrow' in f;
+    return {
+      flat: f, outer: o, wrapper: w, padding: p, content: c,
+      capStretches: stretches,
+      maskGrowStyle: { flexGrow: grows ? 1 : 0 },
+    };
+  }, [style, isKey]);
   // The design lab's `radiusScale` is applied to the DEFAULT only, never to a radius the
   // caller passed in. **One owner per property** — a caller that runs its styles through
   // `useScaledStyles` has already had its `borderRadius` scaled by that same knob, so scaling
   // it again here would square the factor and round a card's corners twice as fast as a chip's.
   // A caller that does NOT use that hook keeps whatever radius it hard-coded; that is a known,
   // documented partial rather than a bug to "fix" by scaling here as well.
-  const radius = (flat.borderRadius as number | undefined) ?? Radius.md * shape.radiusScale;
-  const topLeftRadius = (flat.borderTopLeftRadius as number | undefined) ?? radius;
-  const topRightRadius = (flat.borderTopRightRadius as number | undefined) ?? radius;
-  const bottomLeftRadius = (flat.borderBottomLeftRadius as number | undefined) ?? radius;
-  const bottomRightRadius = (flat.borderBottomRightRadius as number | undefined) ?? radius;
-  // The mask's flexGrow:1 only exists to let the fill reach the floor of an outer view the
-  // CALLER has explicitly forced taller than its content (minHeight/height/flex). For a
-  // hug-content card (no such key — a small alignSelf:'center' pill), the outer view has no
-  // definite main-axis size to distribute, and on Android that can resolve as the ScrollView's
-  // unbounded measure spec instead of the content-hug behaviour web/iOS give it, growing the
-  // chip into a full-height bar (2026-07-20 bug: the Habits "X / Y goals met today" chip).
-  const growsToFillOuter = 'minHeight' in flat || 'height' in flat || 'flex' in flat || 'flexGrow' in flat;
-  const maskGrowStyle = { flexGrow: growsToFillOuter ? 1 : 0 };
-  // A caller's `flex`/`flexGrow` moved to the key wrapper (WRAPPER_KEYS), so the cap has to be
-  // told to fill it or the card would hug its content inside a stretched housing.
-  const capStretches = isKey && ('flex' in flat || 'flexGrow' in flat);
-  if (capStretches) outer.flexGrow = 1;
+  // One object, memoised, for the three views that all need the same four corners (the key
+  // base, the outer shadow-caster, the mask). It was three identical inline literals, i.e.
+  // three fresh objects per render per card.
+  const radii = useMemo(() => {
+    const r = (flat.borderRadius as number | undefined) ?? Radius.md * shape.radiusScale;
+    return {
+      borderTopLeftRadius: (flat.borderTopLeftRadius as number | undefined) ?? r,
+      borderTopRightRadius: (flat.borderTopRightRadius as number | undefined) ?? r,
+      borderBottomLeftRadius: (flat.borderBottomLeftRadius as number | undefined) ?? r,
+      borderBottomRightRadius: (flat.borderBottomRightRadius as number | undefined) ?? r,
+    };
+  }, [flat, shape.radiusScale]);
 
   // ── Key-press housing ────────────────────────────────────────────────────────────────────
   // A tappable card is a CAP ON A BASE, exactly as Button/IconButton are: a stationary
@@ -432,11 +495,8 @@ export default function Surface({
         <View
           style={[
             styles.keyBase,
+            radii,
             {
-              borderTopLeftRadius: topLeftRadius,
-              borderTopRightRadius: topRightRadius,
-              borderBottomLeftRadius: bottomLeftRadius,
-              borderBottomRightRadius: bottomRightRadius,
               backgroundColor: keyBaseColor,
               opacity: disabled ? 0.45 : 1,
             },
@@ -478,27 +538,16 @@ export default function Surface({
     <View
       style={[
         outer,
-        {
-          borderTopLeftRadius: topLeftRadius,
-          borderTopRightRadius: topRightRadius,
-          borderBottomLeftRadius: bottomLeftRadius,
-          borderBottomRightRadius: bottomRightRadius,
-        },
-        // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no
-        // flat tier in getLayeredShadow (it starts at 'raised'), so the pass is skipped rather
-        // than asked for a zero-strength one.
-        shadowLevel === 'flat' ? null : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) },
+        radii,
+        shadowStyle,
       ]}
     >
         <View
           style={[
             styles.mask,
             maskGrowStyle,
+            radii,
             {
-              borderTopLeftRadius: topLeftRadius,
-              borderTopRightRadius: topRightRadius,
-              borderBottomLeftRadius: bottomLeftRadius,
-              borderBottomRightRadius: bottomRightRadius,
               backgroundColor: fill,
               // ⚠️ **The edge is a real BORDER, per side — it is not a gradient any more
               // (2026-08-27, round 20).** See this file's header for the measurement; the short
