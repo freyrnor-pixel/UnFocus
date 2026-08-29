@@ -37,6 +37,7 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -49,8 +50,7 @@ const DETERMINISTIC = args.includes('--deterministic');
 
 fs.mkdirSync(outDir, { recursive: true });
 
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 const prefix = THEME === 'dark' ? 'dark-' : '';
 const captions = [];
@@ -72,7 +72,16 @@ async function shot(page, name, meta = {}) {
   }
   shotIndex += 1;
   const file = `${prefix}${String(shotIndex).padStart(2, '0')}-${name}.png`;
-  await page.screenshot({ path: path.join(outDir, file), fullPage: true });
+  // ⚠️ **`fullPage: false` since 2026-08-29, and it captures strictly MORE useful area than the
+  // `fullPage: true` it replaces.** The note above already says why: the app scrolls inside a
+  // fixed-height ScrollView, not the document, so "full page" never reached below the fold —
+  // it only added the ~61px of bare document that sits under the app's 932px viewport. That
+  // strip is not the app, and it is not stable: it renders as whatever the outermost background
+  // happens to be, so a change to the backdrop's own view tree moves it while nothing inside
+  // the app moves at all. Measured — an early cut of the 2026-08-29 GPU pass came back with 18
+  // of 21 baselines "changed", every one of them differing at exactly y=932 and nowhere above
+  // it. A gate whose findings are mostly outside the thing it guards gets ignored.
+  await page.screenshot({ path: path.join(outDir, file), fullPage: false });
   captions.push({ file, theme: THEME, ...meta, name });
   console.log(`  ${file} — ${meta.title || name}`);
 }

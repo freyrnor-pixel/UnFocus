@@ -92,7 +92,8 @@
     "halos": "bash scripts/run-halos.sh",
     "review-bundle": "bash scripts/run-review-bundle.sh",
     "widget-previews": "node scripts/build-widget-previews.mjs",
-    "visual": "bash scripts/run-visual.sh"
+    "visual": "bash scripts/run-visual.sh",
+    "geometry": "bash scripts/run-geometry.sh"
   },
   "private": true
 }

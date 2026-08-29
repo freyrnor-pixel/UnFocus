@@ -98,10 +98,10 @@
  * Requires the built bundle + a running server — `npm run wraps` handles both.
  */
 import { chromium } from '@playwright/test';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 const arg = (name, dflt) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));

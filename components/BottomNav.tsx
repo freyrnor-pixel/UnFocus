@@ -94,7 +94,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, HitSlop } from '@/constants/theme';
+import { Fonts, FontSize, Radius, Spacing, HitSlop, MIN_TAP_TARGET } from '@/constants/theme';
 import { getScreenColor } from '@/lib/screenColor';
 import type { ThemePalette } from '@/constants/colors';
 import { Travel } from '@/constants/motion';
@@ -103,7 +103,24 @@ import { goToSite, SITE_ITEMS, SiteItem, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 
-export const BOTTOM_NAV_HEIGHT = 72;
+/**
+ * The bar's painted height — `item.minHeight + bar.paddingVertical * 2`, and it must stay in
+ * step with those two or every screen's bottom clearance is wrong by the difference.
+ *
+ * **72 → 56 on 2026-08-29, the density pass.** `DESIGN_COMPARISON/20-MEASUREMENTS.md` §1
+ * measured the round-20 mockup's nav at **54** against this 72, and 18px of chrome on every
+ * screen is the single biggest density win available — far bigger than the ~2.5px the round-20
+ * pass found by trimming card padding, which is why that pass concluded "it is not the padding"
+ * and then did not look here.
+ *
+ * The 16 comes off the two places that were paying for nothing: the item's `minHeight` was a
+ * magic **56** and is now exactly `MIN_TAP_TARGET`, and the bar's own `paddingVertical` was
+ * `Spacing.sm` around an item already taller than its content. 56 rather than the mockup's 54
+ * because ⚠️ **`MIN_TAP_TARGET` (48) is the floor and does not move** — it is the one thing this
+ * app takes from Material Design 3, it is CI-enforced, and 54 would mean either a sub-48 target
+ * or 3px of padding, which is not a rung. 56 = 48 + `Spacing.xs` × 2, every number a token.
+ */
+export const BOTTOM_NAV_HEIGHT = 56;
 // Float gap for the bottom-nav bar: left/right margin AND a matching gap below (on top of the
 // safe-area inset) so the bar's rounded corners read as a floating panel — shared between
 // app/(tabs)/_layout.tsx (which positions the real bar) and ScreenScaffold (which reserves
@@ -225,7 +242,9 @@ const baseStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.xs,
-    paddingVertical: Spacing.sm,
+    // Spacing.sm → xs (2026-08-29): the item below is already floored at MIN_TAP_TARGET, so
+    // this was padding around a box that had its own. See BOTTOM_NAV_HEIGHT.
+    paddingVertical: Spacing.xs,
     // No `gap` and no `justifyContent` (2026-08-18): every slot is `flex: 1`, so the five
     // divide the bar evenly by construction. The old bar needed both because it was three
     // children of unequal width (two flex groups around a fixed 56px FAB) — and the gap was
@@ -243,7 +262,9 @@ const baseStyles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    minHeight: 56,
+    // The accessibility floor itself, not a magic number that happened to sit above it. It was
+    // a bare 56 — 8px of height every screen paid for on top of a target that was already legal.
+    minHeight: MIN_TAP_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,

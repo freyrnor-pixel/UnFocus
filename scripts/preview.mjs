@@ -11,6 +11,7 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const outDir = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'preview-shots';
@@ -18,8 +19,7 @@ const onlyRoute = process.argv.find((a) => a.startsWith('--route='))?.split('=')
 
 fs.mkdirSync(outDir, { recursive: true });
 
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 let shotIndex = 0;
 async function shot(page, name) {

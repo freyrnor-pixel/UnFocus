@@ -24,6 +24,16 @@
  * means "nothing changed that I did not intend", never "this looks right on a phone". Do not
  * let a later session read a blessed baseline as a device screenshot.
  *
+ * ⚠️ **BASELINES ARE ENVIRONMENT-BOUND — this cannot currently run in CI.** Blessed here and
+ * compared on a GitHub runner, all 21 screens come back "changed" at 0.1-1.05% each: uniform,
+ * on every screen, including ones the commit never touched. The runner installs Chromium v1228
+ * where the blessing environment has v1194 pre-installed, and different browser builds rasterise
+ * text differently. A baseline is a fact about the machine that took it as well as about the
+ * app. So this gate runs where the baselines were blessed, and CI runs the three audits that
+ * measure geometry rather than pixels. The options for changing that, with their costs, are in
+ * DECISIONS_OPEN.md — do not just raise MAX_DIFF_RATIO past the noise floor, which is exactly
+ * where a single-card regression hides.
+ *
  * ⚠️ BLESSING IS THE WHOLE RISK. `--update` is how an intentional redesign lands, and it is also
  * how a real regression gets laundered into the baseline. So the diff PNGs are written for every
  * finding and the failure output names each one: re-bless deliberately, in its own commit, with

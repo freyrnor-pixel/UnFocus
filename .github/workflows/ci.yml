@@ -44,3 +44,90 @@ jobs:
 
       - name: Test (with coverage)
         run: npm run test:coverage
+
+  # ---------------------------------------------------------------------------
+  # The VISUAL gate.
+  #
+  # Until 2026-08-29 every visual harness in this repo ran only when somebody remembered to run
+  # it, which in practice meant the maintainer's eyes were the first detector of every visual
+  # regression — and a defect fixed once could come back with nothing to notice. Worse, two of
+  # the audits fail by UN-MEASURING (a stale locator makes a step skip while the run still
+  # prints a confident total), so "nobody ran it" and "it ran and saw half the app" looked the
+  # same. Both are now gates, and both are here.
+  #
+  # Separate job, not more steps on `verify`: it builds a web bundle and drives Chromium, so it
+  # is minutes rather than seconds, and a red pixel diff should be legible as its own thing
+  # rather than buried under a typecheck.
+  # ---------------------------------------------------------------------------
+  visual:
+    name: Visual, geometry & layout audits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # Chromium is pre-installed on this image via Playwright's own download step. The repo
+      # never runs `playwright install` locally (the remote env pins PLAYWRIGHT_BROWSERS_PATH),
+      # but CI has no such pre-seeded browser, so it is fetched here.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Build ONCE and reuse it for all four audits — each of the run-*.sh wrappers reuses an
+      # existing dist/ and only builds when it is missing.
+      - name: Build web preview
+        run: npm run preview:build
+
+      # Every gate runs even if an earlier one fails: they answer different questions, and
+      # seeing only the first failure is what turns a multi-audit run into a one-audit run.
+      # ⚠️ **`npm run visual` is deliberately NOT run here — pixel baselines are environment-bound.**
+      #
+      # It was, on this job's first two runs, and it failed with all 21 screens "changed" at
+      # **0.1–1.05%** each: tiny, uniform, and on every screen including ones no commit had
+      # touched. The cause is in this job's own log — the runner installs **Chromium v1228**
+      # while the environment that blessed the baselines has **v1194** pre-installed. Different
+      # browser builds rasterise text differently, so a baseline is a fact about the machine that
+      # took it, not only about the app.
+      #
+      # Three ways out, and none is free: pin the exact Playwright build in both places (still
+      # leaves fontconfig differences), bless from CI (then every local run is red, and local is
+      # where the work happens), or raise the tolerance past ~1.1% (which is where a
+      # single-card regression hides — the real one caught on 2026-08-29 was 11%, but a one-row
+      # shift would be well under it). That is a real trade, so it is filed in DECISIONS_OPEN.md
+      # rather than picked quietly.
+      #
+      # The gate still runs — in the environment that blessed it, where it has already caught two
+      # real regressions. What runs HERE is the three audits that measure GEOMETRY rather than
+      # pixels, and are therefore machine-independent: verified on this runner, they returned
+      # byte-identical findings to local (geometry clean, wraps 22/22 with the same 7 clipped and
+      # 18 truncated, halos 0 clipped / 12 fields).
+      - name: Geometry
+        if: always()
+        run: npm run geometry
+
+      - name: Wrap audit (Norwegian, 360px)
+        if: always()
+        run: npm run wraps -- --lang=no --width=360
+
+      - name: Halo audit
+        if: always()
+        run: npm run halos
+
+      # The diffs are the whole point of a red visual run — without them the failure says a
+      # number and nothing else.
+      - name: Upload visual diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: visual-diff-out/
+          if-no-files-found: ignore
+          retention-days: 14

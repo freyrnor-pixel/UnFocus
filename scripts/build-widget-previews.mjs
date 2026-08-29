@@ -32,6 +32,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { chromium } from '@playwright/test';
+import { resolveChromium } from './chromium-path.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'assets', 'widget-previews');
@@ -49,9 +50,7 @@ const THEME = argOf('theme', 'dark') === 'light' ? 'light' : 'dark';
 const WIDTH = 384;
 const HEIGHT = 216;
 
-const CHROMIUM_PATH =
-  process.env.PLAYWRIGHT_CHROMIUM_PATH ||
-  `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 // ── Extract, never copy ─────────────────────────────────────────────────────
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
