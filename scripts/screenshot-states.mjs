@@ -37,6 +37,7 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -49,8 +50,7 @@ const DETERMINISTIC = args.includes('--deterministic');
 
 fs.mkdirSync(outDir, { recursive: true });
 
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 const prefix = THEME === 'dark' ? 'dark-' : '';
 const captions = [];

@@ -28,12 +28,12 @@
  * that does not match its token.
  */
 import { chromium } from '@playwright/test';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
 const WIDTH = Number(args.find((a) => a.startsWith('--width='))?.split('=')[1] || 430);
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 
 /**
  * How far out of true a measurement may be before it is a finding, in CSS px.

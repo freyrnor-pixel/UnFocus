@@ -48,10 +48,10 @@
 // Needs the preview bundle: `npm run preview:build` (or FORCE_BUILD=1) and a server on 8787 —
 // scripts/run-halos.sh wires both up, the same way run-preview.sh does.
 import { chromium } from '@playwright/test';
+import { resolveChromium } from './chromium-path.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_PATH
-  || `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
+const CHROMIUM_PATH = resolveChromium();
 const width = Number(process.argv.find((a) => a.startsWith('--width='))?.split('=')[1] || 430);
 
 async function clickText(page, text) {
