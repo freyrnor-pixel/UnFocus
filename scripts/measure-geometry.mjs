@@ -82,7 +82,30 @@ const COLLECT = () => {
       // Full-width bands only — this excludes badges and pills that also declare a z.
       return b.width > window.innerWidth * 0.9 && b.height > 16 && b.height < 260;
     })
-    .map((el) => ({ z: parseInt(getComputedStyle(el).zIndex, 10), ...box(el) }))
+    .map((el) => {
+      // ⚠️ The BAND is full-bleed (`left: 0, right: 0` on ScreenScaffold's header/sticky blocks),
+      // so comparing bands tells you nothing about horizontal inset — they are all the same
+      // width by construction, which is exactly why the first version of this audit passed over
+      // a bar sticking 8pt out past its header. What is actually inset is the painted CARD
+      // inside the band, so find that: the widest descendant that paints a background and is
+      // narrower than the viewport.
+      let painted = null;
+      for (const child of el.querySelectorAll('*')) {
+        const cs = getComputedStyle(child);
+        const bg = cs.backgroundColor;
+        if (!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') continue;
+        const cb = child.getBoundingClientRect();
+        if (cb.width < window.innerWidth * 0.5 || cb.width > window.innerWidth - 1) continue;
+        if (cb.height < 12) continue;
+        if (!painted || cb.width > painted.width) painted = cb;
+      }
+      return {
+        z: parseInt(getComputedStyle(el).zIndex, 10),
+        ...box(el),
+        paintedLeft: painted ? +painted.left.toFixed(2) : null,
+        paintedRight: painted ? +painted.right.toFixed(2) : null,
+      };
+    })
     .sort((a, b) => a.top - b.top);
 
   // Any control that carries an accessible name and sits inside one of those bands. Used for
@@ -132,6 +155,46 @@ function checkChromeOverlap(screen, bands) {
       'The higher band wins, so those pixels come off ONE END of the bar while its content is ' +
         'still centred in the full declared height — which is how a correctly-specified control ' +
         'ends up reading as offset. See HEADER_SEAM_OVERLAP in components/ScreenScaffold.tsx.',
+    );
+  }
+}
+
+/**
+ * CHECK 1b — every chrome band shares ONE horizontal inset.
+ *
+ * ⚠️ **This check exists because the audit's first version did not have it and therefore missed
+ * the very defect it was written to find.** "The tab-slider in Settings is not vertically
+ * centred" was reported twice; the vertical measured fine (3px above / 4px below on web, 10 and
+ * 11 device px on the maintainer's own screenshot — centred to within half a point). What the
+ * eye was actually reading was HORIZONTAL: the sticky tab bar was inset 8pt where the header
+ * above it and every card below it were inset 16, so a strip the 2026-08-10 rule calls ONE card
+ * was drawn at two widths, with the wider piece in the middle of the stack.
+ *
+ * The lesson worth keeping: a report names the symptom the reporter has words for, not the axis
+ * the bug is on. Measure both.
+ *
+ * Round 20 phase 1's rule is "one horizontal inset for header, cards and nav", so the header's
+ * own inset is the reference and everything else is compared to it.
+ */
+function checkChromeInset(screen, bands) {
+  const header = pickHeader(bands);
+  const sticky = pickSticky(bands);
+  if (!header || !sticky) return;
+
+  // The painted cards, not the full-bleed bands — see COLLECT.
+  if (header.paintedLeft == null || sticky.paintedLeft == null) return;
+  const dLeft = +(sticky.paintedLeft - header.paintedLeft).toFixed(2);
+  const dRight = +(header.paintedRight - sticky.paintedRight).toFixed(2);
+  measured.push({ screen, what: 'sticky inset', gapTop: dLeft, gapBottom: dRight, skew: 0, inset: true });
+  if (Math.abs(dLeft) > TOLERANCE || Math.abs(dRight) > TOLERANCE) {
+    finding(
+      screen,
+      'chrome-inset',
+      `the sticky bar is inset ${sticky.paintedLeft} where the header is ${header.paintedLeft} ` +
+        `(left off by ${dLeft}px, right by ${dRight}px)`,
+      'Round 20 phase 1: one horizontal inset for header, cards and nav. Name ' +
+        'CHROME_FLOAT_INSET at the caller rather than repeating a number — a bar that sticks ' +
+        'out past the header reads as misalignment, and gets reported as anything but.',
     );
   }
 }
@@ -234,6 +297,7 @@ async function scan(page, screen) {
     return;
   }
   checkChromeOverlap(screen, chrome);
+  checkChromeInset(screen, chrome);
   checkControlCentring(screen, chrome, controls);
   console.log(`  ${screen}: ${chrome.length} chrome band(s), ${controls.length} control(s)`);
 }
@@ -279,8 +343,13 @@ console.log(`coverage: ${screensScanned} screens scanned, expected ${EXPECTED_SC
 // off the same way, in the same direction) is visible at all — which is exactly the shape the
 // Settings tab-slider report turned out to have.
 if (measured.length) {
-  console.log('\nmeasured centring (gap above / below, + = sits low):');
+  console.log('\nmeasured (gap above / below, + = sits low; inset rows are left/right vs the header):');
   for (const m of measured) {
+    if (m.inset) {
+      const bad = Math.abs(m.gapTop) > TOLERANCE || Math.abs(m.gapBottom) > TOLERANCE;
+      console.log(`  [${m.screen}] ${String(m.what).padEnd(12)} ${String(m.gapTop).padStart(6)} / ${String(m.gapBottom).padStart(6)}   (left/right vs header)${bad ? ' ←' : ''}`);
+      continue;
+    }
     const flag = Math.abs(m.skew) > TOLERANCE ? ' ←' : '';
     console.log(`  [${m.screen}] ${String(m.what).padEnd(12)} ${String(m.gapTop).padStart(6)} / ${String(m.gapBottom).padStart(6)}   skew ${m.skew >= 0 ? '+' : ''}${m.skew}${flag}`);
   }

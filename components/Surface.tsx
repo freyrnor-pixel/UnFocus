@@ -364,6 +364,36 @@ export default function Surface({
   // opaque fill for the same reason.) An `ambient` card still frosts: it sits in a vertical list
   // that never overlaps itself.
   const overlapsCards = surfaceContext === 'overlay' || surfaceContext === 'nav';
+  // ── An ambient card in DARK draws no blur and casts no shadow (2026-08-29) ──────────────
+  //
+  // ⚠️ **This is the third ruling on the ambient blur, and the first one with a MEASUREMENT
+  // behind it.** 2026-08-15 excluded ambient cards ("blurring black returns black"); 2026-08-16
+  // reversed that ("use expo-blur as the absolute foundation for every card"); both were
+  // arguments. The maintainer then reported, against the shipped app: *"Enabling visual effects
+  // now does nothing except for making it go slow again."*
+  //
+  // That is now measured rather than argued, on the dark visual baselines with the narrator
+  // pinned (`scripts/visual-diff.mjs` + `--deterministic`) — which is precisely the harness the
+  // note on `shadowStyle` below said this question needed and did not have. Turning BOTH off for
+  // ambient cards in dark leaves **15 of 21 screens byte-identical**, and moves the other six by
+  // 0.05-0.07% (~235 px of ~400 000).
+  //
+  // What those 235 px are is the whole point: sampled, the cards come out **2-6/255 LIGHTER**.
+  // That is not a blur — on a black ground there is nothing to blur — it is `expo-blur`'s
+  // `tint="dark"` overlay darkening the pane. So the blur's only contribution in dark was to
+  // make every card DARKER THAN `theme.surface` SAYS IT IS, while `__tests__/glassMaterial.test.ts`
+  // measured contrast against `surface`. Removing it does not degrade the card; it makes the app
+  // finally draw the colour its own contrast system has been asserting all along.
+  //
+  // Scoped deliberately, and each exclusion is load-bearing:
+  //   · **`overlay`/`nav` keep everything** — they have the app's own scrolling cards behind
+  //     them, so their blur does visible work and their shadow falls on a lit ground.
+  //   · **LIGHT keeps everything** — its backdrop is a real gradient with two broad ellipses, so
+  //     neither the blur nor the shadow is drawing onto a flat black field.
+  //   · **The shadow half is scoped to ambient too**, because the chrome casts onto content
+  //     scrolling underneath it where the ground is not black — the objection the previous note
+  //     raised, and it survives.
+  const flatDarkGround = isAmbient && isDark;
   const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !(isAmbient && opaqueCards);
   const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
   // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
@@ -436,10 +466,10 @@ export default function Surface({
   // channel delta (121/125) is exactly the figure the "shadows are visible" reading rested on.
   // Any future attempt at this question needs a harness that pins the narrator first.
   const shadowStyle = useMemo(
-    () => (shadowLevel === 'flat' || reduceEffects
+    () => (shadowLevel === 'flat' || reduceEffects || flatDarkGround
       ? null
       : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
-    [theme.shadow, shadowLevel, reduceEffects],
+    [theme.shadow, shadowLevel, reduceEffects, flatDarkGround],
   );
 
   // ── Memoised: the flatten + key-partition pass (2026-08-28, perf) ──────────────────────
@@ -625,7 +655,7 @@ export default function Surface({
               a form that looks half-fixed). That is a narrowing by one context, not the ambient
               argument re-opened: what settles each tier is what is BEHIND it, and a sheet is
               the only one with the app's own cards there. See the `overlapsCards` comment. */}
-          {glassOn ? (
+          {glassOn && !flatDarkGround ? (
             <BlurView
               intensity={isAmbient ? BLUR_AMBIENT : BLUR_STRONG}
               tint={isDark ? 'dark' : 'light'}

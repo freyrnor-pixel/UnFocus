@@ -338,7 +338,7 @@ import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, heavy } from '@/lib/haptics';
-import { FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop, CHROME_FLOAT_INSET } from '@/constants/theme';
 import { BUILD_SUBJECT, shortCommit } from '@/constants/buildInfo';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
@@ -2019,5 +2019,22 @@ const baseStyles = StyleSheet.create({
   // header/bottom-nav width-alignment pass) so the two read as one consistent floating-chrome
   // language; flex:1 + justifyContent:'center' fill and vertically center it within the sticky
   // strip's reserved height (TAB_BAR_HEIGHT).
-  tabsGlass: { flex: 1, marginHorizontal: Spacing.sm, justifyContent: 'center' },
+  // ⚠️ **`CHROME_FLOAT_INSET`, not `Spacing.sm` — measured on a device, 2026-08-29.**
+  //
+  // This was `Spacing.sm` (8) while the header card above it and every content card below it
+  // are inset by `CHROME_FLOAT_INSET` (16). So the sticky tab bar stuck out ~8pt past both, on
+  // both sides — measured off the maintainer's own screenshot: header 16.4pt, content card
+  // 16.4pt, tab track **10.2pt**. Two pieces that the 2026-08-10 rule says are ONE card, drawn
+  // at two different widths, with the wider one in the middle of the stack.
+  //
+  // It is reported as "the tab-slider is not vertically centred", and the vertical is a red
+  // herring: the pill measures 10px above / 11px below in that same screenshot, i.e. centred to
+  // within half a point. What the eye is reading is the horizontal step.
+  //
+  // Round 20 phase 1's instruction was "one horizontal inset for header, cards and nav". Every
+  // other sticky bar already obeys it (`app/design-lab/*` both use `Spacing.md`); this caller
+  // was missed because it passes its own style. Naming the constant rather than repeating 16
+  // is what stops it drifting again — and `npm run geometry` now fails if any chrome band's
+  // inset disagrees with the header's.
+  tabsGlass: { flex: 1, marginHorizontal: CHROME_FLOAT_INSET, justifyContent: 'center' },
 });

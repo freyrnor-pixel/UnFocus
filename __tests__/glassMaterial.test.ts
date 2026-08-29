@@ -152,7 +152,25 @@ describe('the material system stays deleted, and stays matte', () => {
     // 'a sheet never lets the card behind it through' test below for the rule and the ruling.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/<BlurView/);
-    // Not gated on context any more, but still gated on the reduce-transparency setting.
+    // ⚠️ **NARROWED AGAIN on 2026-08-29 — an ambient card in DARK mounts no blur, and this time
+    // the ruling is a measurement rather than an argument.** Both previous rulings reasoned:
+    // 2026-08-15 excluded ambient ("blurring black returns black"), 2026-08-16 reversed it.
+    // The maintainer then reported "enabling visual effects now does nothing except for making
+    // it go slow again", and the dark visual baselines — with the narrator pinned, which is the
+    // harness the old `shadowStyle` note said this question needed — settle it: 15 of 21 screens
+    // byte-identical with the blur AND the shadow off, the other six moving 0.05-0.07%.
+    //   Those pixels are cards rendering 2-6/255 LIGHTER. On a black ground there is nothing to
+    // blur, so the blur's only contribution was `expo-blur`'s `tint="dark"` darkening the pane —
+    // i.e. it was making every card darker than `theme.surface`, the very token the contrast
+    // assertions in this file measure. Removing it makes the drawn colour match the asserted one.
+    //   LIGHT still blurs (a real gradient backdrop), and `overlay`/`nav` still blur in both
+    // modes (the app's own cards are behind them). The gate is one hoisted predicate so the two
+    // costs it governs cannot drift apart.
+    expect(surface).toMatch(/const flatDarkGround = isAmbient && isDark;/);
+    expect(surface).toMatch(/\{glassOn && !flatDarkGround \? \(/);
+    expect(surface).toMatch(/shadowLevel === 'flat' \|\| reduceEffects \|\| flatDarkGround/);
+    // The blur is still context-gated only by the two rules above — never by a bare ambient
+    // exclusion that would take LIGHT mode with it.
     expect(surface).not.toMatch(/surfaceContext !== 'ambient'/);
     // The per-tier intensity is the cost mitigation and is the part worth pinning: ~59 ambient
     // cards to an overlay's one, so an ambient pass must stay the cheaper of the two.
@@ -178,7 +196,11 @@ describe('the material system stays deleted, and stays matte', () => {
     // on it, and the fill falls back through getGlassFill to the opaque composite.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/glassSurfaces/);
-    expect(surface).toMatch(/\{glassOn \?/);
+    // The blur's gate must still START with `glassOn`, so switching reduce-transparency on
+    // still removes the frost everywhere. It gained a second term on 2026-08-29 (an ambient
+    // card in dark blurs nothing — see the BlurView test above), which narrows WHERE the frost
+    // is drawn without weakening this switch: `glassOn` false still means no blur, anywhere.
+    expect(surface).toMatch(/\{glassOn && !flatDarkGround \? \(/);
     expect(surface).toMatch(/getGlassFill\(/);
   });
 
