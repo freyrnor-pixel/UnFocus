@@ -11,6 +11,7 @@ import { buildDebugNotesMailUrl, buildFeedbackMailUrl, formatDebugNotesMessage, 
 const INFO: FeedbackDeviceInfo = {
   appVersion: '1.3.0',
   runtimeVersion: '1.3.0',
+  commit: 'a1b2c3d',
   platform: 'ios',
   osVersion: '17.0',
 };
@@ -30,10 +31,17 @@ describe('buildFeedbackMailUrl', () => {
     expect(url).toContain('%3F');
   });
 
-  it('(c) always appends the app/runtime/platform footer', () => {
+  it('(c) always appends the app/runtime/commit/platform footer', () => {
     const url = buildFeedbackMailUrl('  trimmed message  ', INFO, 'a@b.com', 'Subj');
     const decodedBody = decodeURIComponent(url.split('body=')[1]);
-    expect(decodedBody).toBe('trimmed message\n\n---\n1.3.0 · runtime 1.3.0 · ios 17.0');
+    expect(decodedBody).toBe('trimmed message\n\n---\n1.3.0 · runtime 1.3.0 · a1b2c3d · ios 17.0');
+  });
+
+  it('(d) carries the commit, so a report names a commit and not just a version', () => {
+    // Every build for weeks reads "1.7.0 · runtime 1.7.0"; the commit is the only field in
+    // this footer that distinguishes one OTA from another. See FeedbackDeviceInfo's note.
+    const url = buildFeedbackMailUrl('anything', INFO, 'a@b.com', 'Subj');
+    expect(decodeURIComponent(url)).toContain('a1b2c3d');
   });
 });
 
@@ -69,6 +77,6 @@ describe('buildDebugNotesMailUrl', () => {
     const decodedBody = decodeURIComponent(url.split('body=')[1]);
     expect(decodedBody).toContain('Heading');
     expect(decodedBody).toContain('Header (/health)\nhi');
-    expect(decodedBody).toContain('---\n1.3.0 · runtime 1.3.0 · ios 17.0');
+    expect(decodedBody).toContain('---\n1.3.0 · runtime 1.3.0 · a1b2c3d · ios 17.0');
   });
 });

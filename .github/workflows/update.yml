@@ -35,6 +35,14 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      # Writes the merge commit into constants/buildInfo.ts so the running app can say which
+      # commit it came from (Settings → Version & updates). Must run BEFORE `eas update` — the
+      # stamp has to be inside the bundle it describes. The file is never committed stamped;
+      # see its edit notes. Exits non-zero if the file's shape changed, so this cannot rot into
+      # a silent no-op that ships a build indistinguishable from a local one.
+      - name: Stamp build info
+        run: node scripts/stamp-build-info.mjs
+
       - name: Push update
         run: |
           MSG=$(git log -1 --format=%s)

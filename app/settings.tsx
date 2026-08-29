@@ -107,7 +107,8 @@
  *             2026-08-12), components/ConfirmationBanner, components/FormControls,
  *             components/ScreenScaffold, components/Surface,
  *             components/DisclosureRow, components/PressableScale, components/TabSlider,
- *             components/AiSetupPreviewModal, constants/theme, lib/domainColor, lib/backup
+ *             components/AiSetupPreviewModal, constants/theme, constants/buildInfo
+ *             (the commit + change rows in Version & updates), lib/domainColor, lib/backup
  *             (exportBackup/exportBackupToDevice/pickAndParseBackup/restoreBackup/reloadApp/
  *             saveAutoBackup/chooseAutoBackupLocation), lib/aiSetupGuide
  *             (exportAiSetupGuide/exportAiSetupGuideToDevice/pickAndParseAiSetupFile),
@@ -338,6 +339,7 @@ import { useT, getTranslations } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, heavy } from '@/lib/haptics';
 import { FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
+import { BUILD_SUBJECT, shortCommit } from '@/constants/buildInfo';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
 
 /**
@@ -628,6 +630,11 @@ export default function SettingsScreen() {
   const updateSource = runningEmbedded ? t.version.sourceEmbedded : t.version.sourceOta;
   const updateIdShort = Updates.updateId ? Updates.updateId.slice(0, 8) : t.version.embedded;
   const updatePublished = Updates.createdAt ? Updates.createdAt.toLocaleString() : '—';
+  // The commit this JS was built from — stamped into constants/buildInfo.ts by update.yml
+  // right before `eas update`, so it travels inside the bundle it describes. `updateId` above
+  // identifies the OTA to EAS and to nobody else; THIS is the one a report can be acted on.
+  const buildCommit = shortCommit();
+  const buildSubject = BUILD_SUBJECT;
 
   function applyAndSync(patch: Partial<Settings>) {
     settings.update(patch);
@@ -722,7 +729,7 @@ export default function SettingsScreen() {
     selection();
     const url = buildFeedbackMailUrl(
       feedbackText,
-      { appVersion, runtimeVersion, platform: Platform.OS, osVersion: Platform.Version },
+      { appVersion, runtimeVersion, commit: buildCommit, platform: Platform.OS, osVersion: Platform.Version },
       'Unfocus@hlynsson.no',
       t.feedback.subject,
     );
@@ -1813,6 +1820,8 @@ export default function SettingsScreen() {
                     [t.version.channel, updateChannel],
                     [t.version.source, updateSource],
                     [t.version.updateId, updateIdShort],
+                    [t.version.commit, buildCommit],
+                    [t.version.change, buildSubject],
                     [t.version.published, updatePublished],
                   ].map(([label, value], i) => (
                     <View key={label} style={[styles.switchRow, i > 0 && { marginTop: Spacing.sm }]}>

@@ -10,6 +10,12 @@
  *   Used by → app/settings.tsx (Send Feedback card), components/ScreenHeader.tsx
  *             (debug-mode "email all notes" button, via buildDebugNotesMailUrl)
  *   Data    → none — pure functions
+ *
+ * Edit notes:
+ *   - The footer carries the build COMMIT (`constants/buildInfo.ts`) as well as the version,
+ *     and `FeedbackDeviceInfo.commit` is required so tsc names every construction site. Every
+ *     build for weeks reads "1.7.0 · runtime 1.7.0"; the commit is the only field here that
+ *     tells two OTAs apart, which is the whole point of the footer.
  */
 
 export interface FeedbackDeviceInfo {
@@ -17,6 +23,16 @@ export interface FeedbackDeviceInfo {
   runtimeVersion: string;
   platform: string;
   osVersion: string | number;
+  /**
+   * Short commit the running JS was built from (`constants/buildInfo.ts`'s `shortCommit()`),
+   * or `'development'` on an unstamped local build.
+   *
+   * ⚠️ **Required, not optional, on purpose.** A feedback mail whose footer says only
+   * `1.7.0 · runtime 1.7.0` cannot be acted on — every version of the app for weeks says
+   * exactly that, and the OTA id shown in Settings maps to no commit. Making it required
+   * means tsc names every construction site if a third one is ever added.
+   */
+  commit: string;
 }
 
 export function buildFeedbackMailUrl(
@@ -25,7 +41,7 @@ export function buildFeedbackMailUrl(
   to: string,
   subject: string,
 ): string {
-  const footer = `\n\n---\n${info.appVersion} · runtime ${info.runtimeVersion} · ${info.platform} ${info.osVersion}`;
+  const footer = `\n\n---\n${info.appVersion} · runtime ${info.runtimeVersion} · ${info.commit} · ${info.platform} ${info.osVersion}`;
   const body = encodeURIComponent(message.trim() + footer);
   return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${body}`;
 }
