@@ -32,8 +32,32 @@ that will be re-derived, not made.**
 
 ## Open
 
-_None. The density decision below was answered on 2026-08-29 and is kept as the worked example
-of what a row looks like — delete it once a second real row exists._
+### Should the pixel gate run in CI, and what would we pay for it?
+**Asked:** 2026-08-29 · **Blocks:** `npm run visual` catching a regression that an agent session
+does not run locally — i.e. anything a human pushes, and anything an agent forgets.
+
+`npm run visual` works and has already caught two real regressions. It cannot currently run in
+GitHub Actions: **pixel baselines are environment-bound.** On its first two CI runs all 21
+screens came back "changed" at **0.1–1.05%** each — uniform, on every screen, including ones the
+commit never touched. The job's own log has the cause: the runner installs **Chromium v1228**
+while the environment that blesses the baselines has **v1194** pre-installed, and different
+browser builds rasterise text differently.
+
+So today the gate runs where the baselines were blessed, and CI runs the three audits that
+measure geometry rather than pixels (`geometry`, `wraps`, `halos`) — verified machine-independent:
+identical findings on the runner and locally.
+
+| option | cost |
+|---|---|
+| Leave it (today) | A push that skips the local gate is unguarded. Cheapest, and the three geometry audits still run. |
+| Pin the exact Playwright build in both places | Should work; still leaves fontconfig/OS font differences, so it may not fully converge. Needs a couple of CI round-trips to find out. |
+| Bless baselines from CI | CI goes green; **every local run goes red**, and local is where the work happens. Probably the worst of the three. |
+| Raise the tolerance past ~1.1% | One line. But that is where a single-card regression hides — the real one caught on 2026-08-29 was ~11%, and the density change 3.8–7.5%, so the *global* changes stay caught; a one-row shift would not be. |
+| Containerise the capture (run CI's capture in the same image) | The robust industry answer, and the most work by some distance. |
+
+**Not picked, because it is a genuine trade rather than a defect.**
+
+---
 
 ---
 
