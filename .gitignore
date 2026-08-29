@@ -29,3 +29,8 @@ coverage/
 *.p8
 asc-api-key.p8
 google-play-service-account.json
+
+# Visual regression working dirs (npm run visual). Baselines under visual-baselines/ ARE
+# committed — these two are the per-run capture and the diff output.
+.visual-work/
+visual-diff-out/
