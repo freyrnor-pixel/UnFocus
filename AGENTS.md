@@ -931,13 +931,25 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     smallest element (a 4px bar). Both fixed — Today is **330** — and the same lesson as the
     track above: *a number that was correct because of what sat next to it does not announce
     itself when that neighbour moves.*
-    ⚠️ **NOT done in that pass**: `SCREEN_GAP` (16) and `Card`'s padding. *(Half of this was
-    taken on 2026-08-28 — see the next bullet. `Card`'s vertical inset is `Spacing.sm` at both
-    ends now; `SCREEN_GAP` is still 16, and still for the reason below.)* The mockup's numbers
-    translate to ~12 at this width, which is not a rung on the deliberate 4/8/16/24/32/48
-    `Spacing` scale, and both are pinned by `DESIGN_RULES.md` +
-    `lib/__tests__/screenRhythm.test.ts`. That is a design-system decision (add a rung, or don't),
-    not a defect.
+    ⚠️ **SETTLED 2026-08-29 — the rung was added, and the way this note sat here unanswered is
+    itself the lesson.** This paragraph used to end "that is a design-system decision (add a rung,
+    or don't), not a defect", which was correct on the rules as they stood and was **never put to
+    the maintainer**. The symptom ("visual condensing has not landed") was re-reported two days
+    later and a whole session went on proving the code was on `main` and the OTA had published.
+    `DECISIONS_OPEN.md` exists so that cannot happen again: a pass that stops because it needs a
+    ruling files the ruling there, in the same PR that stops.
+      Asked and answered: *"12px, but also focus on where and how things are placed as well. Just
+    decreasing pure space is not the entire thing."* So `Spacing` gained **`smd: 12`** between
+    `sm` and `md`, and `SCREEN_GAP` (16) and `CHROME_REST_GAP` (8) both take it. `Card`'s padding
+    is deliberately still `Spacing.md` horizontal / `Spacing.sm` vertical — the mockup's "13 even"
+    would make every card 8px TALLER, which is the opposite of the ask.
+      **And the "where things are placed" half went to the chrome, which is where the density
+    actually was**: `BOTTOM_NAV_HEIGHT` **72 → 56** (`components/BottomNav.tsx`). The item's
+    `minHeight` was a magic 56 and is now exactly `MIN_TAP_TARGET`; the bar's `paddingVertical`
+    was `Spacing.sm` around a box that already had its own. 16px on every screen, against the
+    ~2.5px this pass found in card padding. ⚠️ **56, not the mockup's 54** — `MIN_TAP_TARGET` (48)
+    is the CI-enforced accessibility floor and 54 means either a sub-48 target or 3px of padding,
+    which is not a rung. 56 = 48 + `Spacing.xs` × 2, every number a token.
     ⚠️ **The bigger conclusion of this bullet — *"it is not the padding"* — was RIGHT and
     INCOMPLETE, and the next bullet is what it was missing.** The pass looked at the card's own
     box and at one dead 32px block, found the trim worth ~2.5px, and stopped. It never looked at
@@ -2771,6 +2783,66 @@ device or EAS build.
   top-level-await, no queuing tricks needed. **In-memory only — no persistence across a
   full page reload/`page.goto()`.** Navigate between tabs via BottomNav clicks (client-side
   route change), not `page.goto()`, or the DB (and onboarding state) resets.
+### Visual regression — `npm run visual` (2026-08-29)
+**The first check in this repo that can see a defect COME BACK.** Until it existed the
+maintainer's eyes were the only detector of a visual regression: `tsc` sees valid styles, jest
+has no layout, and the other three harnesses each answer a narrower question. That is why this
+file reads as a list of reversals — the card header cluster order alone has now been all four of
+its possible arrangements — and why the same defects kept being re-reported by hand.
+
+It captures through `scripts/screenshot-states.mjs` and pixel-diffs against committed baselines
+in `visual-baselines/<theme>/`. **21 screens per theme, light AND dark** (~3.9 MB) — curated, not
+all 54, because these are PNGs in git history forever.
+
+- `npm run visual`, `npm run visual -- --theme=dark`, `FORCE_BUILD=1` to rebuild first.
+- `npm run visual -- --update` re-blesses. ⚠️ **Blessing is the whole risk** — it is both how an
+  intentional redesign lands and how a real regression gets laundered in. Diffs plus `expected`
+  and `actual` are written for every finding; re-bless deliberately, in its own commit, having
+  looked at them. Never to make a red run go green.
+- ⚠️ **Web-render vs web-render, NOT native ground truth.** Clean means "nothing changed that I
+  did not intend", never "this looks right on a phone".
+- **Determinism is what makes it usable and it took real work.** `components/NarratorQuote.tsx`
+  picks its line by a RANDOM index on mount and several surfaces print the current date, so
+  `--deterministic` (in the screenshot walk) pins `Math.random` to a seeded mulberry32 and the
+  ZERO-ARGUMENT `Date` to a fixed local noon on a Wednesday. Page-level overrides; nothing in the
+  app changes. Verified stable: two independent runs on one unchanged build, 21/21.
+- **It is proven to FAIL, not just to pass** — a probe changing `SCREEN_GAP` 16→12 turned 13 of
+  21 red, and the 8 that stayed green were exactly the forms and single-card screens where a card
+  gap does not apply.
+- ⚠️ **`--update` refuses to bless a partial set**, and four screens the set wants but the walk
+  cannot reach are PRINTED on every run (`WANTED_BUT_UNCAPTURED`) rather than dropped. Move one
+  into `BASELINE_SET` when its excursion is repaired; the ratchet only goes one way.
+- ⚠️ **Shots are `fullPage: false`.** The app scrolls inside a fixed-height ScrollView, so
+  "full page" never reached below the fold — it only added ~61px of bare document under the
+  932px viewport, which renders as whatever the outermost background is. That strip produced 18
+  false findings in one pass, every one differing at exactly y=932.
+
+### Geometry — `npm run geometry` (2026-08-29)
+Measures **vertical** placement, which nothing else did: `wraps` is horizontal, `halos` is a
+sliced glow, `visual` is change-against-baseline. "The tab slider in Settings is not vertically
+centred" was reported by eye twice with no check able to see it.
+
+Targeted, not a generic DOM sweep — the first cut swept generically and reported 25 false
+findings, because react-native-web wraps a View in several absolutely-positioned divs and it read
+nesting as overlap. It compares the header band (`zIndex 100`) against an attached sticky bar
+(`zIndex 99`), and measures a control's gaps against the bar's **visible** band rather than its
+declared box.
+
+**It prints its measurements on every run, pass or fail**, which is the point: the Settings
+segments sit `3 / 4` — a systematic 1px skew in the same direction on all three, caused by
+`HEADER_SEAM_OVERLAP`. That is under the 1px tolerance and is NOT a failure; a verdict alone
+would have hidden it.
+⚠️ `constants/theme.ts`'s `OpticalCenter` is Android-only and a no-op on web, so a label
+mis-centred by Android font padding is invisible here **by construction**. That class still needs
+a device.
+
+### The visual gates run in CI (2026-08-29)
+`.github/workflows/ci.yml` has a second job that builds the bundle once and runs `visual` (both
+themes), `geometry`, `wraps` and `halos`, each `if: always()` so one failure does not hide the
+others, uploading pixel diffs on failure. ⚠️ **Chromium is resolved by `scripts/chromium-path.mjs`**,
+not by the hardcoded `/opt/pw-browsers/chromium-1194/...` seven scripts used to carry — that path
+is right only in the remote dev env, and it is what made this job fail on its first run.
+
 ### Halo audit — `npm run halos` (2026-08-24)
 Answers one question the other checks cannot: **is a field's neon actually being drawn, or is it
 being sliced off?** A halo (`getFieldGlow`) is a `boxShadow`, so it is cut to the nearest
