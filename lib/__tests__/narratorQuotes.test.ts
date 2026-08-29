@@ -278,20 +278,18 @@ describe('the italic exception is exactly two files wide, and is a real face', (
     }
   });
 
-  it('does not reach the WIDGETS, which draw the same aside with the opposite property', () => {
-    // ⚠️ **A THIRD italic exists, on purpose, and it is not in the app** (2026-08-28).
-    // lib/widgets/WidgetViews.tsx draws an empty widget's line as this component's aside —
-    // muted, no container — and it uses `fontStyle: 'italic'`, the property banned everywhere
-    // above. The ban's REASON is what makes that correct rather than an exception: RN does not
-    // synthesise `fontStyle` onto a NAMED custom family, and a widget names no family at all.
-    // It renders to RemoteViews in the system font, which is exactly the case Android does
-    // synthesise — and it cannot load `Fonts.italic`, because a headless widget render has no
-    // font gate. So the two files want opposite properties for one look.
-    // Named here rather than left to be discovered, so "exactly two files" stays a decision
-    // about the app rather than a claim that is quietly false one directory over.
-    // `lib/widgets/__tests__/widgetPalette.test.ts` is what holds it to one line there.
+  it('does not reach the WIDGETS, which draw their empty line upright', () => {
+    // ⚠️ **A third italic shipped for a few hours on 2026-08-28 and was reverted the same day.**
+    // lib/widgets/WidgetViews.tsx draws an empty widget's line, and it CAN render synthesised
+    // italic — a widget names no font family, so the Android limitation behind the ban above
+    // does not reach it. The reason it is upright anyway is REGISTER, not rendering: a widget's
+    // empty strings are plain statements ("Listen er tom"), which components/StarterCard.tsx
+    // draws upright, where this component's italic marks a first-person aside. Copying the
+    // slant without the voice is the decorative use the 2026-08-18 ban was actually about.
+    //   Asserted here as well as in the widget's own suite so that "exactly two files wide"
+    // stays true of the whole repo rather than of the app directories this describe() walks.
     const widget = code('lib/widgets/WidgetViews.tsx');
-    expect(widget).toMatch(/fontStyle: 'italic'/);
+    expect(widget).not.toMatch(/fontStyle: 'italic'/);
     expect(widget).not.toMatch(/Fonts\.italic/);
   });
 

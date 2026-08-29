@@ -47,6 +47,9 @@
  *   - **Fading a done row.** `PadRow` drops the whole row to `DONE_ROW_OPACITY` and strikes the
  *     title through; neither exists here, so a settled row says so with muted ink and a filled
  *     check, exactly as it did before.
+ *   - **The narrator.** An empty card in the app may draw a `NarratorQuote` — a cycled,
+ *     first-person, italic aside. A widget's empty line is `StarterCard`'s plain register
+ *     instead: there is nothing to cycle it with, and a home screen is glanced at. See `Empty`.
  *
  * Interactivity: Tasks/Shopping/Notes/Habits rows live inside a scrollable ListWidget and
  * each carries its own clickAction so a tap writes back through the headless handler
@@ -89,11 +92,12 @@
  *   - Do NOT put Unicode symbol glyphs (☑/☐/•/…) in a TextWidget: rendering them to the
  *     RemoteViews bitmap can fail and blank the WHOLE widget. Use a FlexWidget shape (a filled
  *     dot for done/in-cart, a bordered ring for not-done/in-list) instead.
- *   - `fontStyle: 'italic'` on the empty line is safe HERE and is not a licence anywhere else.
- *     The app bans it (AGENTS.md: RN does not synthesise italic onto a named custom family on
- *     Android, so `components/NarratorQuote.tsx` loads a real `Fonts.italic` face). A widget
- *     draws in the system font with no family named, which is precisely the case Android DOES
- *     synthesise. Never copy the property back into the app.
+ *   - **There is no italic here, and the reason is register rather than rendering.** One shipped
+ *     briefly and was reverted the same day: a widget CAN draw synthesised italic (it names no
+ *     font family, so the Android limitation behind the app's ban does not apply to it) — but
+ *     these empty-state strings are plain statements, which `components/StarterCard.tsx` draws
+ *     upright. The app's one italic is `components/NarratorQuote.tsx`'s first-person aside, and
+ *     copying the slant without the voice is decoration. See `Empty` below.
  */
 import React from 'react';
 import { FlexWidget, TextWidget, ListWidget } from 'react-native-android-widget';
@@ -411,9 +415,19 @@ function Header({
 }
 
 /**
- * What an empty surface says. Drawn as the app draws an aside — no container, no fill, no
- * border, muted and italic (components/NarratorQuote.tsx). See the Edit note on why the italic
- * property is legitimate in a widget and banned in the app.
+ * What an empty surface says — no container, no fill, no border, one short muted line.
+ *
+ * That is `components/StarterCard.tsx`'s register, not `components/NarratorQuote.tsx`'s, and the
+ * difference decides the type. The narrator is a dry FIRST-PERSON aside and is the app's one
+ * sanctioned italic; these strings are plain statements of fact ("Listen er tom", "Ingen vaner i
+ * dag"), which StarterCard draws upright. This line was briefly italic (2026-08-28, and reverted
+ * the same day): italic on copy that is not an aside is decoration, which is the exact use the
+ * 2026-08-18 ban was about. If these strings are ever rewritten in the narrator's voice, the
+ * italic question reopens with them — not before.
+ *
+ * Every widget passes a string now. `habits` and `health` were the two that passed `''`, so an
+ * empty Habits or Health widget drew a header over a blank body while every other empty surface
+ * in the app says something.
  */
 function Empty({ text, p }: { text: string; p: Palette }) {
   if (!text) return null;
@@ -421,7 +435,7 @@ function Empty({ text, p }: { text: string; p: Palette }) {
     <FlexWidget
       style={{ width: 'match_parent', flex: 1, alignItems: 'center', justifyContent: 'center', marginTop: S.xs }}
     >
-      <TextWidget text={text} style={{ fontSize: 13, fontStyle: 'italic', color: p.muted }} />
+      <TextWidget text={text} maxLines={2} truncate="END" style={{ fontSize: 13, color: p.muted }} />
     </FlexWidget>
   );
 }

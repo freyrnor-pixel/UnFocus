@@ -368,11 +368,25 @@ describe('the widget card is built like the app card', () => {
     expect(CODE).not.toMatch(/shadow/i);
   });
 
-  it('keeps `fontStyle: italic` to the one line the app would draw italic too', () => {
-    // Safe here and banned in the app: RN does not synthesise italic onto a NAMED custom family
-    // on Android, which is why components/NarratorQuote.tsx loads a real face. A widget names no
-    // family, so the system font's synthetic italic is exactly what renders.
-    expect(CODE.match(/fontStyle: 'italic'/g)?.length).toBe(1);
-    expect(/function Empty\(([\s\S]*?)\n}/.exec(CODE)?.[1]).toContain("fontStyle: 'italic'");
+  it('draws no italic — an empty widget speaks in StarterCard\'s register, not the narrator\'s', () => {
+    // One shipped for a few hours on 2026-08-28 and was reverted the same day. A widget CAN
+    // render synthesised italic (it names no font family, so the Android limitation behind the
+    // app's ban does not reach it), which is exactly why this needs asserting rather than being
+    // left to the app-wide guards: nothing else would stop it coming back. The reason it is
+    // wrong is the COPY — these strings are plain statements, the register StarterCard draws
+    // upright, where the app's one italic is NarratorQuote's first-person aside.
+    expect(CODE).not.toContain("fontStyle: 'italic'");
+  });
+
+  it('gives every widget something to say when it is empty', () => {
+    // `habits` and `health` passed `empty: ''` until 2026-08-28, so those two drew a header over
+    // a blank body — the one place the widgets disobeyed the app's rule that an empty surface
+    // says something. Asserted at BOTH producers: the app-built snapshot and the headless
+    // rebuild are separate code paths with separate string tables, and a widget renders from
+    // whichever one last wrote the row.
+    const producers = ['sync.ts', 'headlessSnapshot.ts'].map((f) =>
+      fs.readFileSync(path.join(__dirname, '..', f), 'utf8'),
+    );
+    for (const src of producers) expect(src).not.toMatch(/empty: '',/);
   });
 });

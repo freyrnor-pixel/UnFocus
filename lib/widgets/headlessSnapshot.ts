@@ -64,6 +64,8 @@ type Strings = {
   noItems: string;
   noTasks: string;
   noNotes: string;
+  noHabits: string;
+  noHealth: string;
   voiceNote: string;
   overviewEmpty: string;
   medicineDue: (n: number) => string;
@@ -98,6 +100,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noItems: 'List is empty',
     noTasks: 'Nothing planned today',
     noNotes: 'No notes yet',
+    noHabits: 'No habits today',
+    noHealth: 'Nothing logged today',
     voiceNote: 'Voice note',
     overviewEmpty: 'No tasks left today',
     medicineDue: (n) => (n === 1 ? '1 medicine still due' : `${n} medicines still due`),
@@ -121,6 +125,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noItems: 'Listen er tom',
     noTasks: 'Ingenting planlagt i dag',
     noNotes: 'Ingen notater ennå',
+    noHabits: 'Ingen vaner i dag',
+    noHealth: 'Ingenting logget i dag',
     voiceNote: 'Taleopptak',
     overviewEmpty: 'Ingen oppgaver igjen i dag',
     medicineDue: (n) => (n === 1 ? '1 medisin gjenstår' : `${n} medisiner gjenstår`),
@@ -144,6 +150,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     noItems: 'Listinn er tómur',
     noTasks: 'Ekkert á dagskrá í dag',
     noNotes: 'Engir minnispunktar enn',
+    noHabits: 'Engar venjur í dag',
+    noHealth: 'Ekkert skráð í dag',
     voiceNote: 'Talupptaka',
     overviewEmpty: 'Engin verkefni eftir í dag',
     // "lyf" is neuter with one form for both numbers, so it needs no isCount.
@@ -427,7 +435,7 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
         items: habitItems,
         more: habitTotal > PREVIEW ? s.more(habitTotal - PREVIEW) : '',
         // No empty-state text (2026-08-12 — matches sync.ts's mirrored removal).
-        empty: '',
+        empty: s.noHabits,
         accent: ACCENT.habits,
         hasContent: habitTotal > 0,
       },
@@ -437,7 +445,7 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
         items: healthItems,
         trays,
         more: healthTotal > PREVIEW ? s.more(healthTotal - PREVIEW) : '',
-        empty: '',
+        empty: s.noHealth,
         accent: ACCENT.health,
         hasContent: healthItems.length > 0 || trays.length > 0,
       },
