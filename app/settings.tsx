@@ -1243,6 +1243,18 @@ export default function SettingsScreen() {
                   checked={settings.glassSurfaces}
                   onChange={(v) => settings.update({ glassSurfaces: v })}
                 />
+                {/* 2026-08-29, the performance pass. Beside `glassSurfaces` because they are
+                    neighbours in kind, NOT because one subsumes the other: that switch is
+                    reduce-transparency and reaches only the blur, which is why turning it off
+                    did not make a slow device fast. This one also takes the card shadows and
+                    the backdrop's orb field — the other two per-frame GPU costs. Off by
+                    default. See store/useSettingsStore.ts for the measurement. */}
+                <ToggleRow
+                  label={t.settings.accessibility.reduceEffects}
+                  hint={t.settings.accessibility.reduceEffectsHint}
+                  checked={settings.reduceEffects}
+                  onChange={(v) => settings.update({ reduceEffects: v })}
+                />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 <ToggleRow
                   label={t.settings.accessibility.leftHanded}

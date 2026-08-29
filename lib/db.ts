@@ -1411,6 +1411,13 @@ export function initDb() {
     // weeks and into the Archive drawer at the foot of the shopLists card. Not synced —
     // shopping_lists isn't in lib/liveSync.ts's SyncTable at all (see that store's header).
     "ALTER TABLE shopping_lists ADD COLUMN archived_at TEXT DEFAULT NULL",
+    // ── 2026-08-29: "Reduce visual effects" — one switch over the per-frame GPU work ─────
+    //
+    // OFF by default, so nothing changes for anyone who does not go looking for it: this is
+    // an escape hatch for a slow device, not a new default look. See store/useSettingsStore.ts
+    // for the measurement that motivated it (an Android HWUI trace running 5-10x over budget
+    // on a nearly EMPTY screen, dominated by the two GPU-side bands).
+    'ALTER TABLE settings ADD COLUMN reduce_effects INTEGER DEFAULT 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

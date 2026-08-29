@@ -344,6 +344,10 @@ export default function Surface({
   // with it off, everything here is opaque whatever this says. See the Edit notes.
   const glassPref = useSettingsStore((s) => s.glassSurfaces);
   const opaqueCards = useSettingsStore((s) => s.opaqueCards);
+  // "Reduce visual effects" (2026-08-29) — the user's escape hatch for a GPU-bound device.
+  // It takes BOTH of this component's per-frame GPU costs: the BlurView below, and the
+  // three-pass boxShadow. Off by default; see store/useSettingsStore.ts for the measurement.
+  const reduceEffects = useSettingsStore((s) => s.reduceEffects);
   const isAmbient = surfaceContext === 'ambient';
   // ── An overlay pane is OPAQUE (2026-08-18), and so is the nav bar (2026-08-20) ──────────
   // Maintainer, against a screenshot of the card menu: *"Cards that overlap other cards should
@@ -360,7 +364,7 @@ export default function Surface({
   // opaque fill for the same reason.) An `ambient` card still frosts: it sits in a vertical list
   // that never overlaps itself.
   const overlapsCards = surfaceContext === 'overlay' || surfaceContext === 'nav';
-  const glassOn = glassPref && !tint && !overlapsCards && !(isAmbient && opaqueCards);
+  const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !(isAmbient && opaqueCards);
   const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
   // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
   // `glassSurfaces`) changes what is drawn and never how bright the surface reads. `nav`'s
@@ -415,9 +419,27 @@ export default function Surface({
   // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no flat
   // tier in getLayeredShadow (it starts at 'raised'), so the pass is skipped rather than asked
   // for a zero-strength one.
+  // ⚠️ `reduceEffects` drops this ENTIRELY rather than thinning it, and that is deliberate:
+  // a boxShadow's cost is the blur, so two passes of three is still two blurs per card per
+  // frame.
+  //   ⚠️ **Whether this is visible in DARK mode is an OPEN question — do not make it the
+  // default on the strength of an argument that it is invisible.** The argument is tempting
+  // and half-sound: `theme.shadow` is `rgba(0,0,0,0.72)` in dark, `getLayeredShadow` takes it
+  // to ~7-10% alpha, and a card's ground is `#000000` (ScreenBackground's DARK.base is three
+  // black stops and its orbs are CI-asserted never to reach the card band), so black at 7%
+  // over black is black. What that argument misses is the CHROME: the header and the nav are
+  // Surfaces too, and they cast onto content scrolling underneath them, where the ground is
+  // not black.
+  //   A pixel diff was run to settle it and could NOT: this app's screenshots have a noise
+  // floor of ~43 000 differing pixels between two runs of the SAME build, because
+  // `components/NarratorQuote.tsx` picks a random line on mount — and the noise floor's max
+  // channel delta (121/125) is exactly the figure the "shadows are visible" reading rested on.
+  // Any future attempt at this question needs a harness that pins the narrator first.
   const shadowStyle = useMemo(
-    () => (shadowLevel === 'flat' ? null : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
-    [theme.shadow, shadowLevel],
+    () => (shadowLevel === 'flat' || reduceEffects
+      ? null
+      : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
+    [theme.shadow, shadowLevel, reduceEffects],
   );
 
   // ── Memoised: the flatten + key-partition pass (2026-08-28, perf) ──────────────────────
