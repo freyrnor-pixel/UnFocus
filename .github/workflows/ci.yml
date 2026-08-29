@@ -44,3 +44,73 @@ jobs:
 
       - name: Test (with coverage)
         run: npm run test:coverage
+
+  # ---------------------------------------------------------------------------
+  # The VISUAL gate.
+  #
+  # Until 2026-08-29 every visual harness in this repo ran only when somebody remembered to run
+  # it, which in practice meant the maintainer's eyes were the first detector of every visual
+  # regression — and a defect fixed once could come back with nothing to notice. Worse, two of
+  # the audits fail by UN-MEASURING (a stale locator makes a step skip while the run still
+  # prints a confident total), so "nobody ran it" and "it ran and saw half the app" looked the
+  # same. Both are now gates, and both are here.
+  #
+  # Separate job, not more steps on `verify`: it builds a web bundle and drives Chromium, so it
+  # is minutes rather than seconds, and a red pixel diff should be legible as its own thing
+  # rather than buried under a typecheck.
+  # ---------------------------------------------------------------------------
+  visual:
+    name: Visual, geometry & layout audits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # Chromium is pre-installed on this image via Playwright's own download step. The repo
+      # never runs `playwright install` locally (the remote env pins PLAYWRIGHT_BROWSERS_PATH),
+      # but CI has no such pre-seeded browser, so it is fetched here.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Build ONCE and reuse it for all four audits — each of the run-*.sh wrappers reuses an
+      # existing dist/ and only builds when it is missing.
+      - name: Build web preview
+        run: npm run preview:build
+
+      # Every gate runs even if an earlier one fails: they answer different questions, and
+      # seeing only the first failure is what turns a multi-audit run into a one-audit run.
+      - name: Visual regression
+        if: always()
+        run: npm run visual
+
+      - name: Geometry
+        if: always()
+        run: npm run geometry
+
+      - name: Wrap audit (Norwegian, 360px)
+        if: always()
+        run: npm run wraps -- --lang=no --width=360
+
+      - name: Halo audit
+        if: always()
+        run: npm run halos
+
+      # The diffs are the whole point of a red visual run — without them the failure says a
+      # number and nothing else.
+      - name: Upload visual diffs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: visual-diff-out/
+          if-no-files-found: ignore
+          retention-days: 14
