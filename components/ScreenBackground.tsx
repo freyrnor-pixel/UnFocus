@@ -65,8 +65,15 @@
  * Both are gated on settings.showGrowth (off by default) via lib/useGrowth.ts, which returns a
  * flat 0/0 when the feature is off — i.e. precisely the always-there three-orb field.
  *
- * The whole thing is ONE react-native-svg canvas (base gradient + two legacy radial glows, live
- * in LIGHT only + six circles) so it costs a single native view behind the pager. The canvas is a
+ * **What it COSTS, and how that was cut (2026-08-29).** This was one react-native-svg canvas
+ * holding everything — base gradient, the two legacy radial glows, six circles. The maintainer's
+ * HWUI trace showed the app is GPU-bound and this is its largest fixed per-frame cost, because
+ * the canvas TRANSLATES with the pager while two of its groups cross-fade. In DARK — the default
+ * theme — three of those layers were drawing nothing: `base` is three identical `#000000` stops
+ * (a gradient shader painting a flat black) and both glow opacities are 0 (two fully transparent
+ * full-canvas rects). All three are now conditional, so dark draws a plain `View` and the orbs,
+ * and dark + `reduceEffects` mounts no `<Svg>` at all. LIGHT is untouched and deliberately so —
+ * see the measured refusal in the block above the return. The canvas is a
  * 280×607 viewBox scaled to COVER the screen (`preserveAspectRatio="xMidYMid slice"`), so a corner
  * orb tucks further off-screen on non-phone aspect ratios rather than distorting.
  *
@@ -109,7 +116,7 @@
  *     sub-step change. See lib/useGrowth.ts's edit notes.
  */
 import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
@@ -417,12 +424,54 @@ function ScreenBackground({ activeRoute }: Props) {
   const hueAProps = useAnimatedProps(() => ({ opacity: 1 - cross.value }));
   const hueBProps = useAnimatedProps(() => ({ opacity: cross.value }));
 
+  // ── The base layer left the SVG (2026-08-29, the GPU pass) ──────────────────────────────
+  //
+  // The maintainer's HWUI trace settled that this app is GPU-bound, and this file is its single
+  // largest FIXED per-frame cost: a full-screen SVG inside a layer that TRANSLATES with the
+  // pager while two of its groups cross-fade. #652 added `reduceEffects` to drop the orb field,
+  // and the report came back "improved, but not enough" — because THREE full-canvas gradient
+  // Rects survived that switch and were being painted on every screen regardless.
+  //
+  // What they were actually drawing on the DEFAULT theme is the point: dark's `base` is three
+  // identical `#000000` stops (a gradient from black to black to black) and both glow opacities
+  // are **0**. So the app was rasterising one pointless gradient shader and two fully
+  // transparent full-screen rects, in SVG, on every frame of every swipe.
+  //
+  //   · when the three base stops are EQUAL — which is dark, the default theme — the "gradient"
+  //     is a flat fill, and it is drawn as a plain `View` with a `backgroundColor`. No shader,
+  //     no SVG, no rect.
+  //   · the two glows are RADIAL, which has no native equivalent, so they stay SVG — but they
+  //     are only rendered when their opacity is non-zero, i.e. never in dark.
+  //   · the `<Svg>` itself is only mounted when something inside it will actually draw. In dark
+  //     with `reduceEffects` on, that is nothing: the whole canvas is gone.
+  //
+  // ⚠️ **LIGHT MODE'S BASE DELIBERATELY STAYS IN SVG, and this is a measured refusal, not an
+  // oversight.** The first cut drew it with `expo-linear-gradient` and `npm run visual` failed on
+  // the three Settings screens — ~46–51k pixels differing across the whole content area, from the
+  // first row of content down, reproducibly across two runs. A native gradient fills its own box
+  // where the SVG is a 280×607 viewBox scaled to COVER (`preserveAspectRatio="slice"`), so the
+  // stops land at different heights, and every translucent glass card composited over it shifts a
+  // value or two. The visible cost of getting that wrong is spread across every card on the
+  // screen, which is exactly the kind of change that ships unnoticed.
+  //
+  // So the win is taken only where it is provably free: a flat fill is a flat fill at any size.
+  // Dark is the default theme, so that is most users, and it is also the mode the whole
+  // OLED/glass design is tuned for. Light keeps one SVG rect.
+  const glowsVisible = p.topGlowOpacity > 0 || p.botGlowOpacity > 0;
+  const flatBase = p.base[0] === p.base[1] && p.base[1] === p.base[2];
+  const svgHasContent = glowsVisible || !flatBase || !reduceEffects;
+
   return (
+    <>
+      {/* `zIndex: -1` is the fix for "the background renders on top of the bottom navigation" —
+          see instruction 1 in this file's header. It is deliberately on the component rather than
+          left to each caller: there are three of them and a fourth would inherit the bug. BOTH
+          layers carry it, and the base is written first so it sits under the orbs — among
+          siblings sharing one z, document order decides. */}
+      {flatBase && <View pointerEvents="none" style={[styles.backdrop, { backgroundColor: p.base[0] }]} />}
+      {svgHasContent && (
     <Svg
       pointerEvents="none"
-      // `zIndex: -1` is the fix for "the background renders on top of the bottom navigation" —
-      // see instruction 1 in this file's header. It is deliberately on the component rather than
-      // left to each caller: there are three of them and a fourth would inherit the bug.
       style={styles.backdrop}
       viewBox="0 0 280 607"
       // Scale the 280×607 canvas to COVER the real screen: a corner orb tucks further off-screen
@@ -468,9 +517,19 @@ function ScreenBackground({ activeRoute }: Props) {
         </RadialGradient>
       </Defs>
 
-      <Rect x="0" y="0" width="280" height="607" fill="url(#sbBase)" />
-      <Rect x="0" y="0" width="280" height="607" fill="url(#sbTopGlow)" />
-      <Rect x="0" y="0" width="280" height="607" fill="url(#sbBotGlow)" />
+      {/* Drawn only where the base is a REAL gradient (light). In dark all three stops are
+          `#000000`, so this rect was a gradient shader painting a flat black — a native View
+          above does it for free. See the block above the return. */}
+      {!flatBase && <Rect x="0" y="0" width="280" height="607" fill="url(#sbBase)" />}
+      {/* These two are radial and have no native equivalent, so they stay — but only where they
+          draw anything at all: both are opacity 0 in dark, which is the default theme, so this is
+          two full-canvas paints removed from every frame for most users. */}
+      {glowsVisible && (
+        <>
+          <Rect x="0" y="0" width="280" height="607" fill="url(#sbTopGlow)" />
+          <Rect x="0" y="0" width="280" height="607" fill="url(#sbBotGlow)" />
+        </>
+      )}
 
       {/* ── "Reduce visual effects" drops the whole orb field (2026-08-29) ────────────────
           This SVG is the app's single largest fixed per-frame GPU cost, and unlike a card it is
@@ -504,6 +563,8 @@ function ScreenBackground({ activeRoute }: Props) {
         </>
       )}
     </Svg>
+      )}
+    </>
   );
 }
 

@@ -88,9 +88,17 @@ jobs:
 
       # Every gate runs even if an earlier one fails: they answer different questions, and
       # seeing only the first failure is what turns a multi-audit run into a one-audit run.
-      - name: Visual regression
+      # Both themes. Dark is the DEFAULT (2026-08-16) and every glass, edge and glow decision in
+      # this app is tuned for it, so a light-only gate would be guarding the mode fewer people
+      # see — and the 2026-08-29 backdrop change fires ONLY in dark, which a light-only gate
+      # would have waved through without rendering the code path at all.
+      - name: Visual regression (light)
         if: always()
         run: npm run visual
+
+      - name: Visual regression (dark)
+        if: always()
+        run: npm run visual -- --theme=dark
 
       - name: Geometry
         if: always()
