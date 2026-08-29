@@ -113,6 +113,7 @@ import { StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle, G } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -363,6 +364,9 @@ function ScreenBackground({ activeRoute }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
+  // See the gate at the orb field below. Read unconditionally (a hook cannot sit behind a
+  // branch) and cheap for anyone who never turns it on.
+  const reduceEffects = useSettingsStore((st) => st.reduceEffects);
   const p = isDark ? DARK : LIGHT;
 
   // The green copy's opacity, which IS `intensity` — the peak alpha lives in the gradient stops
@@ -468,9 +472,20 @@ function ScreenBackground({ activeRoute }: Props) {
       <Rect x="0" y="0" width="280" height="607" fill="url(#sbTopGlow)" />
       <Rect x="0" y="0" width="280" height="607" fill="url(#sbBotGlow)" />
 
-      {/* The ambient orbs. The neutral pair is always drawn at full strength — the peak alpha
-          lives in the gradient stops, so there is no group opacity to dim — and the growth copy
-          fades in over it, which leaves intensity 0 as exactly the always-there field. */}
+      {/* ── "Reduce visual effects" drops the whole orb field (2026-08-29) ────────────────
+          This SVG is the app's single largest fixed per-frame GPU cost, and unlike a card it is
+          paid on every screen whether or not anything is on it: 3 full-canvas gradient Rects
+          plus THIRTEEN gradient-filled shapes, inside a layer that TRANSLATES with the pager
+          while two of its groups CROSS-FADE — so during a swipe, the one gesture the user
+          reported, the whole thing re-renders every frame while also moving.
+            The base gradient Rects stay: they are the page's colour, not an effect, and
+          removing them would leave a bare `theme.bg`. What goes is the decorative field —
+          the orbs, the screen hue and the growth tint. Growth going with it is the honest
+          consequence and is stated in lib/growth.ts's terms: the backdrop IS the reward
+          surface, so a user who turns effects off is choosing not to see it. Nothing is
+          un-earned — `lifetimeGrowth` keeps accruing (see lib/useGrowth.ts). */}
+      {reduceEffects ? null : (
+        <>
       <G>
         <OrbField cool="sbOrbCool" warm="sbOrbWarm" level={level} />
       </G>
@@ -486,6 +501,8 @@ function ScreenBackground({ activeRoute }: Props) {
       <AnimatedG animatedProps={tintProps}>
         <OrbField cool="sbOrbGrowth" warm="sbOrbGrowth" level={level} />
       </AnimatedG>
+        </>
+      )}
     </Svg>
   );
 }

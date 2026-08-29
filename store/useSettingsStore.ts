@@ -315,6 +315,29 @@ export type Settings = {
    * `glassSurfaces` off everything is opaque regardless — that switch still wins.
    */
   opaqueCards: boolean;
+  /**
+   * Reduce visual effects (2026-08-29, the performance pass) — OFF by default.
+   *
+   * On a real device the app measured **GPU-bound**: an Android HWUI trace on a nearly EMPTY
+   * screen ran 5-10x over the 16ms line with the graph dominated by the red "issue commands"
+   * and orange "swap buffers" bands, which is Android's own signature for "the app is doing
+   * too much work on the GPU". The cost is not proportional to content — it is the fixed
+   * per-frame stack, which on any screen is: a `BlurView` on every card, a THREE-pass
+   * `boxShadow` on every card, and a full-screen SVG backdrop of 13 gradient-filled shapes
+   * that both translates and cross-fades during a swipe.
+   *
+   * ⚠️ **This is deliberately ONE switch over all three, and it is NOT `glassSurfaces`.** That
+   * one is the reduce-transparency accessibility setting and its copy promises exactly that
+   * ("frosted glass on cards and buttons"); it reaches the blur and NOTHING else, which is why
+   * turning it off did not make a slow device fast — the maintainer's report was "slow either
+   * way". Widening it would have made an accessibility setting quietly mean something bigger.
+   * `glassSurfaces` still wins for the blur: with it off, cards are opaque whatever this says.
+   *
+   * Not in `aiSetupApply`'s SETTINGS_WHITELIST — same carve-out as `collapsed_cards` and
+   * `design_lab`: an AI-authored file must not be able to restyle the app. No
+   * AI_SETUP_SCHEMA_VERSION bump.
+   */
+  reduceEffects: boolean;
   fontSize: FontSizePref;
   // Left-handed mode
   leftHanded: boolean;
@@ -632,6 +655,7 @@ function rowToSettings(row: Row): Settings {
     reducedMotion: readBool(row, 'reduced_motion'),
     particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     glassSurfaces: readInt(row, 'glass_surfaces', 1) !== 0,
+    reduceEffects: readInt(row, 'reduce_effects', 0) !== 0,
     opaqueCards: readBool(row, 'opaque_cards'),
     fontSize: readEnum<FontSizePref>(row, 'font_size', ['small', 'default', 'large'], 'default'),
     leftHanded: readBool(row, 'left_handed'),
@@ -736,6 +760,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   reducedMotion: { col: 'reduced_motion', to: bool },
   particlesEnabled: { col: 'particles_enabled', to: bool },
   glassSurfaces: { col: 'glass_surfaces', to: bool },
+  reduceEffects: { col: 'reduce_effects', to: bool },
   opaqueCards: { col: 'opaque_cards', to: bool },
   fontSize: { col: 'font_size' },
   leftHanded: { col: 'left_handed', to: bool },
@@ -842,6 +867,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   reducedMotion: false,
   particlesEnabled: true,
   glassSurfaces: true,
+  reduceEffects: false,
   opaqueCards: false,
   fontSize: 'default' as FontSizePref,
   leftHanded: false,

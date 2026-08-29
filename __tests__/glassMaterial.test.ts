@@ -454,10 +454,17 @@ describe('glass settings', () => {
     // `tint` still wins over both. 2026-08-18 added a fourth term, `!overlapsCards`, in the same
     // one-line boolean — the sheet rule, which 2026-08-20 widened to the nav bar (see 'a sheet —
     // and now the nav bar — never lets the card behind it through'). `opaqueCards` is still the
-    // only one of the four scoped to ambient panes, which is what this test is about.
+    // only one of the five scoped to ambient panes, which is what this test is about.
+    //   ⚠️ **A FIFTH term, `!reduceEffects`, joined on 2026-08-29** (the performance pass). It is
+    // NOT a rival to `glassSurfaces` and does not change any precedence above it: it is a wider
+    // switch that also takes the card SHADOWS and the backdrop's orb field, which
+    // `glassSurfaces` — reduce-transparency, whose copy promises frosted glass and nothing else
+    // — deliberately does not reach. That gap is why turning `glassSurfaces` off did not make a
+    // GPU-bound device fast. Both still hold here: either one off ⇒ no blur, and `tint` wins
+    // over all of them.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
-      /const glassOn = glassPref && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
+      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
     );
     // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
     // turning the switch on would change what lib/__tests__/colors.test.ts measures rather
