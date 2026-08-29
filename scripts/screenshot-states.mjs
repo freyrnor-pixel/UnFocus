@@ -381,8 +381,8 @@ async function seedMedicine(page, name) {
  * value before every read of the settings table also survives onboarding writing its own
  * appearance pick back over it.
  */
-async function forceDarkMode(page) {
-  await page.addInitScript(() => {
+async function forceAppearance(page, mode) {
+  await page.addInitScript((wanted) => {
     Object.defineProperty(window, '__unfocusSqlJsDb__', {
       configurable: true,
       set(db) {
@@ -391,7 +391,7 @@ async function forceDarkMode(page) {
         db.prepare = (sql, ...rest) => {
           if (typeof sql === 'string' && /\bfrom\s+settings\b/i.test(sql)) {
             try {
-              run("UPDATE settings SET dark_mode = 'on'");
+              run(`UPDATE settings SET dark_mode = '${wanted}'`);
             } catch {
               /* table not created yet — the next read will catch it */
             }
@@ -405,7 +405,7 @@ async function forceDarkMode(page) {
         });
       },
     });
-  });
+  }, mode);
 }
 
 /**
@@ -472,7 +472,13 @@ async function main() {
   page.on('pageerror', (err) => problems.push(`[pageerror] ${err.message}`));
 
   if (DETERMINISTIC) await freezeNondeterminism(page);
-  if (THEME === 'dark') await forceDarkMode(page);
+  // ⚠️ **BOTH modes are forced, and light MUST be (2026-08-29).** `--theme=light` used to mean
+  // only "don't call forceDarkMode" — which stopped meaning light on 2026-08-16, when dark
+  // became the DEFAULT appearance. AGENTS.md has said so since; this walk had not caught up, so
+  // every "light" baseline was in fact a dark-mode screenshot and the two committed sets were
+  // the same picture twice. Caught by the gate itself: a change scoped to `isDark` moved the
+  // "light" baselines by exactly the amount it moved the dark ones, which is impossible.
+  await forceAppearance(page, THEME === 'dark' ? 'on' : 'off');
 
   try {
     // ---- 1. onboarding + tour -------------------------------------------
