@@ -45,7 +45,8 @@
  * know which list you meant and so could only ever ADD rows. See lib/scanTarget.ts.
  *
  * Connections:
- *   Imports → constants/theme, lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
+ *   Imports → constants/theme, constants/buildInfo (the commit in the debug-note mail footer),
+ *             lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
  *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
  *             store/useFeedbackStore, components/PressableScale, components/DebugNoteAnchor,
  *             components/AppModal (showAppModal), expo-router, expo-updates, expo-constants,
@@ -138,6 +139,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
+import { shortCommit } from '@/constants/buildInfo';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -253,6 +255,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     const info = {
       appVersion: Constants.expoConfig?.version ?? '—',
       runtimeVersion: String(Updates.runtimeVersion ?? '—'),
+      commit: shortCommit(),
       platform: Platform.OS,
       osVersion: Platform.Version,
     };
