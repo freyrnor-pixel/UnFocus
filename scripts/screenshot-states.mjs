@@ -11,7 +11,11 @@
  * Output: `review-bundle/screens/NN-name.png` + `index.json` + `INDEX.md`.
  *
  * Usage:
- *   node scripts/screenshot-states.mjs [outDir] [--theme=light|dark] [--only=core]
+ *   node scripts/screenshot-states.mjs [outDir] [--theme=light|dark] [--only=core] [--deterministic]
+ *
+ * `--deterministic` pins Math.random and the clock (see freezeNondeterminism) so the output can
+ * be DIFFED rather than merely looked at. `scripts/visual-diff.mjs` always passes it; the review
+ * bundle deliberately does not, since a human reader benefits from a real random narrator line.
  *
  * THE ONE CONSTRAINT THAT SHAPES THE WHOLE WALK: on web the DB is in-memory sql.js, and
  * `page.goto()`/`page.goBack()` reload the document and WIPE it back to a fresh install.
@@ -40,6 +44,8 @@ const outDir = args[0] && !args[0].startsWith('--') ? args[0] : 'review-bundle/s
 const THEME = args.find((a) => a.startsWith('--theme='))?.split('=')[1] || 'light';
 const ONLY = args.find((a) => a.startsWith('--only='))?.split('=')[1] || 'all';
 const FULL = ONLY === 'all';
+/** Pin Math.random + the clock so shots can be diffed run to run. See freezeNondeterminism. */
+const DETERMINISTIC = args.includes('--deterministic');
 
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -155,6 +161,28 @@ async function tab(page, name) {
   await closeOverlays(page);
 }
 
+/**
+ * Open a card by title, so its body — composer included — is actually in the DOM.
+ *
+ * ⚠️ Every card RESTS CLOSED since 2026-08-21 (`lib/cardDefaults.ts`), and a closed card is a
+ * bare header: its composer does not exist to be typed into. Without this, a seeding step aimed
+ * inside a card waits its full timeout and the step SKIPS — the silent failure this whole audit
+ * family keeps getting bitten by, and exactly what happened to the Habits composer here.
+ *
+ * The chevron's accessible name is `<card title>: <expandListLabel>` in BOTH states
+ * (components/CardCollapseToggle.tsx), so this is a no-op on an already-open card. Same helper
+ * as `scripts/measure-wraps.mjs`'s; kept per-file because the two walks run in different
+ * languages.
+ */
+async function openCard(page, title, expandLabel = 'Expand list') {
+  const toggle = page.getByRole('button', { name: `${title}: ${expandLabel}`, exact: true }).first();
+  if (!(await toggle.isVisible().catch(() => false))) return false;
+  await toggle.scrollIntoViewIfNeeded({ timeout: 5000 }).catch(() => {});
+  await toggle.click({ timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(700);
+  return true;
+}
+
 /** Onboarding. `allRows` uses the Settings re-run route, which is where the appearance row lives. */
 async function runOnboarding(page, { allRows = false, capture = false } = {}) {
   await page.goto(allRows ? `${BASE_URL}/onboarding/basics?rows=all` : BASE_URL, {
@@ -255,7 +283,7 @@ async function back(page) {
 async function ensureTabs(page) {
   await dismissTour(page);
   await closeOverlays(page);
-  if (await page.getByRole('button', { name: 'Me', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await page.getByRole('button', { name: 'Home', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
     return;
   }
   if (await page.getByText('Continue', { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false)) {
@@ -265,7 +293,7 @@ async function ensureTabs(page) {
     await page.waitForTimeout(1800);
     await walkTour(page, { capture: false });
     await dismissTour(page);
-    if (await page.getByRole('button', { name: 'Me', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await page.getByRole('button', { name: 'Home', exact: true }).first().isVisible({ timeout: 3000 }).catch(() => false)) {
       return;
     }
   }
@@ -371,6 +399,58 @@ async function forceDarkMode(page) {
   });
 }
 
+/**
+ * Pin the two sources of run-to-run variation, so a screenshot can be DIFFED and not merely
+ * looked at (`npm run visual`). Opt-in via `--deterministic`; the review bundle does not use
+ * it, because a human reader benefits from seeing a real random line.
+ *
+ * Both are page-level overrides installed before any app code evaluates — nothing in the app
+ * changes, and nothing here can leak into a shipped build.
+ *
+ *   · **`Math.random`** — `components/NarratorQuote.tsx` picks its line by a random index ON
+ *     MOUNT, so every empty state in the app renders different copy on every run. That is one
+ *     of the surfaces a baseline most wants to watch (it is what an empty card SAYS), so
+ *     skipping those screens would be the wrong trade. A tiny deterministic PRNG (mulberry32)
+ *     rather than a constant: `Math.random()` returning the same number forever is a subtly
+ *     different program, and at least one caller could divide by the gap between two draws.
+ *   · **The clock** — the day log splits "today" at the current minute, several surfaces print
+ *     a date, and `Updates.createdAt` renders a timestamp. Frozen to a fixed local noon on a
+ *     Wednesday: mid-week and mid-day, so nothing lands on a week or day boundary where a
+ *     surface would render its "edge" state and make the baseline depend on when it was blessed.
+ *
+ * ⚠️ `Date` must stay a real constructor — the app calls `new Date(someString)` and
+ * `date.getTime()` all over `lib/date.ts`. Only the ZERO-ARGUMENT construction and `Date.now`
+ * are pinned; every other overload passes straight through.
+ */
+async function freezeNondeterminism(page) {
+  await page.addInitScript(() => {
+    let seed = 0x9e3779b9;
+    Math.random = () => {
+      seed |= 0;
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+
+    const FROZEN = new Date('2026-06-17T12:00:00').getTime(); // a Wednesday, local noon
+    const RealDate = Date;
+    // eslint-disable-next-line no-global-assign
+    Date = class extends RealDate {
+      constructor(...args) {
+        // Only "what time is it now" is pinned; every explicit value is passed through.
+        if (args.length === 0) super(FROZEN);
+        else super(...args);
+      }
+      static now() {
+        return FROZEN;
+      }
+    };
+    Date.parse = RealDate.parse;
+    Date.UTC = RealDate.UTC;
+  });
+}
+
 // ---------------------------------------------------------------------------
 
 async function main() {
@@ -382,6 +462,7 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 430, height: 932 } });
   page.on('pageerror', (err) => problems.push(`[pageerror] ${err.message}`));
 
+  if (DETERMINISTIC) await freezeNondeterminism(page);
   if (THEME === 'dark') await forceDarkMode(page);
 
   try {
@@ -409,7 +490,7 @@ async function main() {
       // Health is a CARD on the Me tab, not a tab of its own — it left the bottom nav on
       // 2026-08-20. Clicking 'Me' lands on the screen that holds it; the card is below Habits
       // and Notes, so this frame shows it in its stack rather than full-bleed.
-      ['Me', 'health-empty', 'Health — empty (a card on the Me tab)', 'components/HealthSurface.tsx',
+      ['Home', 'health-empty', 'Health — empty (a card on the Me tab)', 'components/HealthSurface.tsx',
         'EMPTY. Rose card hue. Medicine trays (morning / midday / evening / night — windows, not clock times) sit above the symptom log. Nothing on this surface is a scoreboard: a count of migraines is not an achievement in either direction, so there is no streak, no total, no escalating colour, and — the trap specific to this domain — no congratulation for a quiet week.',
         'MedicineTrayCard, OpenEpisodeCard, AddRow, StarterCard, StarterExampleRow'],
     ]) {
@@ -420,7 +501,7 @@ async function main() {
     // ---- 3. sheets and overlays (close in place) -------------------------
     if (FULL) {
       console.log('> sheets and overlays');
-      await tab(page, 'Me');
+      await tab(page, 'Home');
       if (await tryButton(page, "Set the day's energy")) {
         await shot(page, 'energy-config-sheet', {
           title: 'The Energy config sheet',
@@ -442,7 +523,9 @@ async function main() {
         await closeOverlays(page);
       }
 
-      await tab(page, 'Me');
+      // Goals is a SECTION inside To-do's Today card since 2026-08-26 (registry phase 5).
+      await tab(page, 'To-do');
+      await openCard(page, 'Today');
       if (await tryButton(page, 'Goals')) {
         await shot(page, 'goals-drawer', {
           title: 'The Goals drawer, expanded (from To-do and from Habits)',
@@ -479,7 +562,8 @@ async function main() {
         await closeOverlays(page);
       }
 
-      await tab(page, 'Me');
+      await tab(page, 'Health');
+      await openCard(page, 'Medicine');
       if (await tryButton(page, 'Reminder times')) {
         await shot(page, 'medicine-reminder-times', {
           title: 'Medicine tray reminder times',
@@ -499,7 +583,7 @@ async function main() {
       // Reached by their card headers on Home — the same route a user takes — rather than by
       // a goto, so the walk also proves those doors still open.
       await excursion(page, 'plans-empty', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'To-do');
         await clickOnScreenText(page, "Today's list");
         await page.waitForTimeout(1100);
         await shot(page, 'plans-empty', {
@@ -511,7 +595,7 @@ async function main() {
       });
 
       await excursion(page, 'habits-empty', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Habits');
         await clickOnScreenText(page, 'Habits');
         await page.waitForTimeout(1100);
         await shot(page, 'habits-empty', {
@@ -547,7 +631,7 @@ async function main() {
       });
 
       await excursion(page, 'notes-empty', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Home');
         await clickText(page, 'Notes');
         await page.waitForTimeout(1000);
         await shot(page, 'notes-empty', {
@@ -559,7 +643,9 @@ async function main() {
       });
 
       await excursion(page, 'day-log', async () => {
-        await tab(page, 'Me');
+        // Earlier days is a SECTION inside To-do's Today card since 2026-08-26.
+        await tab(page, 'To-do');
+        await openCard(page, 'Today');
         await tryButton(page, 'Earlier days');
         await page.waitForTimeout(1000);
         await shot(page, 'day-log-screen', {
@@ -571,7 +657,7 @@ async function main() {
       });
 
       await excursion(page, 'health-form', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Health');
         await tryButton(page, "What's bothering you?");
         await page.waitForTimeout(1000);
         await shot(page, 'health-form', {
@@ -583,7 +669,7 @@ async function main() {
       });
 
       await excursion(page, 'health-log', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Health');
         await tryButton(page, 'Health log');
         await page.waitForTimeout(1000);
         await shot(page, 'health-log', {
@@ -594,7 +680,8 @@ async function main() {
       });
 
       await excursion(page, 'medicine-form', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Health');
+        await openCard(page, 'Medicine');
         if (await seedMedicine(page, 'Vitamin D')) {
           await tryButton(page, 'Vitamin D');
           await page.waitForTimeout(1000);
@@ -608,7 +695,7 @@ async function main() {
       });
 
       await excursion(page, 'settings', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Home');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await shot(page, 'settings-general', {
@@ -636,7 +723,7 @@ async function main() {
       });
 
       await excursion(page, 'design-lab', async () => {
-        await tab(page, 'Me');
+        await tab(page, 'Home');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
         await tryText(page, 'Advanced', 4000);
@@ -782,7 +869,11 @@ async function main() {
     }
 
     console.log('> habits');
-    await tab(page, 'Me');
+    // Habits is its OWN TAB again (2026-08-22, five tabs, Home in the middle) — it was a card
+    // on the old "Me" tab when this walk was written. And its list card rests closed, so the
+    // composer is not in the DOM until openCard runs.
+    await tab(page, 'Habits');
+    await openCard(page, 'Habits');
     await seedHabit(page, 'Drink water');
     await seedHabit(page, 'Ten minutes outside');
     await shot(page, 'habits-populated', {
@@ -805,7 +896,9 @@ async function main() {
     }
 
     console.log('> health');
-    await tab(page, 'Me');
+    // Health is its own tab again too, and Medicine moved onto it as a peer card (2026-08-22).
+    await tab(page, 'Health');
+    await openCard(page, 'Medicine');
     if (await seedMedicine(page, 'Vitamin D')) {
       await shot(page, 'health-medicine-tray', {
         title: 'Health — a medicine in its tray',
@@ -893,7 +986,7 @@ async function main() {
     }
 
     console.log('> home, populated');
-    await tab(page, 'Me');
+    await tab(page, 'Home');
     await shot(page, 'home-populated', {
       title: 'Me — with everything seeded',
       screen: 'app/(tabs)/index.tsx',

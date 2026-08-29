@@ -450,4 +450,28 @@ if (noHalo) {
   console.log('field is a card composer (PadTypeRow/AddRow/CatalogueTab search): check that its focus');
   console.log('state actually sets the `focused` flag `getFieldGlow` is gated on.');
 }
+// ⚠️ **Coverage is a GATE, not a number to eyeball (2026-08-29).**
+//
+// This file's own header already warns to "read the field COUNT, not just the 0 clipped
+// verdict" — because when lazy tab mounting landed, the scan fell from 12–14 fields to 4 and
+// went on printing a contented "0 clipped", which is a pass by un-measurement. A warning in a
+// comment did not stop that happening; a threshold does.
+//
+// It is a FLOOR, not an equality, and deliberately so: AGENTS.md records this walk as
+// genuinely non-deterministic (10 / 12 / 9 / 12 across four runs on one unchanged build — a
+// slow frame drops a card that never opens). So the floor sits under the observed spread and
+// catches a structural collapse, which is what actually goes wrong, rather than flapping on
+// timing. Raise it if the walk is made deterministic; do not lower it to clear a red run.
+const MIN_FIELDS = 8;
+const seen = clipped + clean + noHalo;
+console.log(`coverage: ${seen} fields scanned, expected at least ${MIN_FIELDS}`);
+if (seen < MIN_FIELDS) {
+  console.error(
+    `\n⚠️  UN-MEASURED: only ${seen} field(s) scanned.\n` +
+      `   This is not a pass. A card that never opened, a renamed locator or a resting-state\n` +
+      `   change can take whole screens out of this walk while it still reports "0 clipped".\n` +
+      `   Re-run once (this walk is timing-sensitive); if it stays low, the walk is broken.`,
+  );
+  process.exit(1);
+}
 process.exit(clipped ? 1 : 0);

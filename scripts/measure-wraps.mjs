@@ -237,6 +237,16 @@ const L = {
 
 if (!L) { console.error(`unknown --lang=${LANG} (expected en, no or is)`); process.exit(1); }
 
+/**
+ * The floor on how many screens a run must actually measure, asserted at the end.
+ *
+ * ⚠️ **A RATCHET — raise it when a screen is added, never lower it to make a run pass.** A
+ * number that drops is this audit's own characteristic bug (it fails by un-measuring, not by
+ * reporting wrongly); lowering the floor to match is deleting the alarm rather than the fire.
+ * AGENTS.md documents 22 as the count once the walk is whole.
+ */
+const EXPECTED_SCREENS = 22;
+
 async function clickText(page, text) {
   const locator = page.getByText(text, { exact: true });
   await locator.first().waitFor({ state: 'attached', timeout: 10000 });
@@ -983,6 +993,29 @@ async function main() {
   }
   if (hintsBad.length) {
     console.log('  ^ shorten these in lib/i18n.ts\'s `cardHint` block — one sentence, two lines.');
+    process.exitCode = 1;
+  }
+
+  // ⚠️ **A step that cannot find its target must FAIL, not skip (2026-08-29).**
+  //
+  // This audit's characteristic failure has never been a wrong number — it is measuring FEWER
+  // SCREENS and still printing a confident total. It has happened at least three times, each
+  // time from a change nowhere near this file: the 2026-08-22 nav restructure left it waiting
+  // on a "Meg" tab and it measured nothing at all; before that `health-form` and `goals-drawer`
+  // waited on labels that had moved, and the app's second- and third-densest forms went
+  // unmeasured for days while every run reported success. Every one of those printed a
+  // one-line "step skipped" to stderr and carried on.
+  //
+  // So the coverage is now a GATE. `EXPECTED_SCREENS` is a ratchet: raise it when a screen is
+  // added, and never lower it to make a run go green — a lower number is precisely the bug.
+  const measured = screens.length;
+  console.log(`\ncoverage: ${measured} screens measured, expected at least ${EXPECTED_SCREENS}`);
+  if (measured < EXPECTED_SCREENS) {
+    console.error(
+      `\n⚠️  UN-MEASURED: ${EXPECTED_SCREENS - measured} screen(s) did not run.\n` +
+        `   Look for "step skipped" above — a locator has gone stale, which means this audit is\n` +
+        `   reporting on less of the app than it thinks. Fix the walk; do not lower EXPECTED_SCREENS.`,
+    );
     process.exitCode = 1;
   }
 
