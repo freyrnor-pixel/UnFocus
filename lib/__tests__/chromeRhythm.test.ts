@@ -275,7 +275,7 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(code('app/(tabs)/_layout.tsx')).toMatch(/paddingBottom: insetsBottom \+ NAV_FLOAT_GAP,/);
     const theme = code('constants/theme.ts');
     expect(theme).toMatch(/export const CHROME_FLOAT_INSET = Spacing\.md;/);
-    expect(theme).toMatch(/export const SCREEN_GAP = Spacing\.md;/);
+    expect(theme).toMatch(/export const SCREEN_GAP = Spacing\.smd;/);
   });
 
   it('rests the same gap at the top and the bottom', () => {
