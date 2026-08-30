@@ -114,6 +114,11 @@ const BASELINE_SET = [
   'medicine-form',
   'catalogue',
   'quick-add-focused-empty',
+  // Added 2026-08-30 once the walk could reach them. `task-editor` is the densest form in the
+  // app and the one that produced the sliced-microphone bug — the single most valuable shot in
+  // this set, and it was missing from it until now.
+  'task-editor',
+  'goals-drawer',
 ];
 
 /**
@@ -129,10 +134,8 @@ const BASELINE_SET = [
  * moment its excursion is repaired — that is the ratchet, and it only goes one way.
  */
 const WANTED_BUT_UNCAPTURED = [
-  ['task-editor', 'the densest form in the app — needs a seeded task to open'],
-  ['goals-drawer', 'Goals became a section inside To-do’s Today card (2026-08-26)'],
-  ['day-log-screen', 'Earlier days moved into the same card'],
-  ['shopping-list-expanded-empty', 'needs a list created first'],
+  ['day-log-screen', 'the walk’s `day-log` excursion times out — Earlier days is a SECTION inside To-do’s Today card since 2026-08-26, and retargeting the tab was not enough'],
+  ['shopping-list-expanded-empty', 'needs a list created first; the `food` excursion above it times out for a related reason'],
 ];
 
 function log(...m) {

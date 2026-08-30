@@ -1051,6 +1051,71 @@ async function main() {
       }
     }
 
+    // ---- 7. the To-do editor and the Goals drawer (last, on a FRESH app) ---
+    //
+    // Ported from `scripts/measure-wraps.mjs`'s To-do pass, which has reached both of these
+    // reliably for weeks while this walk could not produce them at all — they were two of the
+    // four names `scripts/visual-diff.mjs` prints as a coverage gap on every run. The task
+    // editor is the densest form in the app, so a baseline set without it was missing the
+    // surface most likely to break.
+    //
+    // ⚠️ **It starts by RELOADING, and that is the fix.** Two earlier attempts at this port
+    // failed and were reverted; the recipe was never the problem — driven against a fresh app
+    // every step passes. What failed was the STATE phase 7 inherits: phase 6 ends on a pushed
+    // screen with seeded data behind it, and by then Whenever already holds tasks, so
+    // `openCard` finds a card that is already open and the row locators match rows this step
+    // did not create. `ensureTabs()` alone was not enough, because it only recovers a MISSING
+    // tab bar, not a dirty one.
+    //   Reloading is free here for the same reason phase 6's push is: nothing follows, so the
+    // in-memory DB wipe costs nothing. That is the licence this phase takes.
+    if (FULL) {
+      console.log('> task editor + goals drawer (fresh app)');
+      try {
+        await runOnboarding(page, {});
+        await walkTour(page, { capture: false });
+        await dismissTour(page);
+        await tab(page, 'To-do');
+        // Every card rests closed, so the composer is not in the DOM until this runs.
+        await openCard(page, 'Whenever');
+        await page.getByRole('button', { name: 'New task', exact: true }).first().click({ timeout: 10000 });
+        await page.waitForTimeout(400);
+        const field = page.getByPlaceholder('New task').first();
+        await field.fill('Screenshot probe');
+        await field.press('Enter');
+        await page.waitForTimeout(900);
+
+        // ⚠️ `.last()`, never `.first()`. All five tabs are mounted at once (`lazy: false`) and
+        // Home's preview card renders this same task a full screen-width to the left; both
+        // report `isVisible()`, and an element on another pager page can never be scrolled into
+        // this one's viewport, so the retry loop never converges. To-do is mounted after Home.
+        const probeRow = page.getByText('Screenshot probe', { exact: true }).last();
+        await probeRow.scrollIntoViewIfNeeded({ timeout: 5000 });
+        await probeRow.click({ timeout: 10000 });
+        await page.waitForTimeout(1000);
+        await shot(page, 'task-editor', {
+          title: 'The task editor, open on a row',
+          screen: 'components/TaskCard.tsx (variant="full")',
+          state: 'POPULATED. The densest form in the app, and the one whose horizontal pressure produced the 2026-08-01 sliced-microphone bug — three nested 16px paddings plus an icon gutter left the text 306 of 393px. Delete · Discard · Save WRAPS rather than truncating, because the labels are words the user has to read.',
+          components: 'TaskCard, GoalPicker, Stepper, SegmentedControl, PersonChip, TagChip',
+        });
+
+        // `.last()` again: the editor left open above carries its own Goal PICKER with the same
+        // word, inside a collapsed section that cannot be scrolled to. The drawer is at the foot.
+        const goals = page.getByText('Practical goals', { exact: true }).last();
+        await goals.scrollIntoViewIfNeeded({ timeout: 5000 });
+        await goals.click({ timeout: 10000 });
+        await page.waitForTimeout(900);
+        await shot(page, 'goals-drawer', {
+          title: 'The Goals drawer, expanded',
+          screen: 'components/GoalsEditor.tsx',
+          state: 'An in-card editor since 2026-08-12, not a pop-up (maintainer: "making, editing and deleting in the card, not a pop up"). A goal has three fine-to-be-in strength bands and deliberately no fourth, worse one — the mechanic floors at neutral, so there is no state in which a goal is failing.',
+          components: 'GoalsEditor, StarterCard, AddRow',
+        });
+      } catch (e) {
+        problems.push(`task-editor/goals-drawer: ${e.message.split('\n')[0]}`);
+      }
+    }
+
     console.log(`\n> ${captions.length} screenshots, ${problems.length} problems`);
     problems.forEach((p) => console.log('  ', p));
   } finally {
