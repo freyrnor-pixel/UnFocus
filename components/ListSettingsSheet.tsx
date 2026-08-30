@@ -109,7 +109,7 @@ export default function ListSettingsSheet({ visible, list, onClose, onSetRecurri
           </View>
         )}
 
-        <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.95}>
+        <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.95} accessibilityRole="button">
           <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.save}</Text>
         </PressableScale>
       </Surface>

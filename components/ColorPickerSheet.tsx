@@ -215,6 +215,7 @@ export default function ColorPickerSheet({
             onPress={onClose}
             scaleTo={0.95}
             style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
+            accessibilityRole="button"
           >
             <Text style={[styles.doneText, { color: theme.text }]}>{t.designLab.color.close}</Text>
           </PressableScale>

@@ -35,6 +35,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import TodoSurface from '@/components/TodoSurface';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
+import ManageCardsSheet from '@/components/ManageCardsSheet';
 import TourTarget from '@/components/TourTarget';
 import { useT } from '@/lib/i18n';
 import { useRouter } from 'expo-router';
@@ -49,6 +50,7 @@ export default function TasksScreen() {
   const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
   const setTasksDated = useTaskStore((s) => s.setTasksDated);
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
+  const [manageCardsOpen, setManageCardsOpen] = useState(false);
 
   const [dayResetUndoIds, setDayResetUndoIds] = useState<string[] | null>(null);
   const [dayResetMessage, setDayResetMessage] = useState<string | null>(null);
@@ -75,6 +77,7 @@ export default function TasksScreen() {
         ownBackground={false}
         onSharePress={featureSharing ? () => router.push('/share-modal?kind=t') : undefined}
         onLayoutPress={() => setLayoutPickerOpen(true)}
+        onManageCardsPress={() => setManageCardsOpen(true)}
       >
         <View style={styles.content}>
           <TourTarget id="tour.plans.today">
@@ -82,6 +85,7 @@ export default function TasksScreen() {
           </TourTarget>
         </View>
         <LayoutPickerSheet visible={layoutPickerOpen} surface="plans" onClose={() => setLayoutPickerOpen(false)} />
+        <ManageCardsSheet visible={manageCardsOpen} screen="todo" onClose={() => setManageCardsOpen(false)} />
       </ScreenScaffold>
       <ConfirmationBanner
         message={dayResetMessage}

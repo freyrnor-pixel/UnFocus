@@ -175,6 +175,7 @@ export default function CardMenuSheet({ open, onClose, cardTitle, options }: She
           style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           onPress={onClose}
           scaleTo={0.95}
+          accessibilityRole="button"
         >
           <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.home.cardMenu.close}</Text>
         </PressableScale>

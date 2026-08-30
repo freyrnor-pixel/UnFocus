@@ -790,6 +790,60 @@ async function main() {
     await page.waitForTimeout(800);
     await dismissTour(page);
 
+    // ---- hide a card, and prove the new column round-trips ---------------
+    //
+    // The FIFTH real write path in this walk, and it earns its place for the same reason the
+    // other four do: `settings.hidden_cards` (2026-08-30) is a new column, and a column is only
+    // proven by a write followed by a read on the other side of a navigation. `tsc` sees a valid
+    // FieldMap entry and Jest sees a mocked DB; neither can tell whether SQLite actually took it.
+    //
+    // Health is the screen it is done on because that tab's cards are the least entangled with
+    // the rest of the walk — nothing later depends on Medicine being visible — and the step puts
+    // it back before moving on, so a failure here cannot cascade into a missing-card timeout
+    // three phases away, which is how this walk's failures usually get expensive.
+    console.log('> Health -> manage cards (hide + restore)');
+    await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    await dismissModalIfPresent(page);
+    const manageBtn = page.getByRole('button', { name: 'Cards on this screen' }).first();
+    await manageBtn.click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    await shot(page, 'manage-cards-sheet');
+    // The sheet's switch is labelled with the card's own registry title, so this also asserts
+    // that `cardsForScreen()` returned real cards rather than an empty list.
+    const medSwitch = page.getByRole('switch', { name: /Medicine/i }).first();
+    const sheetListed = (await medSwitch.count()) > 0;
+    console.log(`  sheet lists the screen's cards: ${sheetListed}`);
+    if (!sheetListed) pageErrors.push('Manage cards opened but listed no card for the Health screen');
+    if (sheetListed) {
+      await medSwitch.click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await shot(page, 'manage-cards-hidden');
+
+      // Round-trip via Shop: this is the read half, and the whole point of the step.
+      await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(800);
+      const stillHidden = (await page.getByRole('button', { name: /^Medicine: / }).count()) === 0;
+      console.log(`  card stayed hidden after tab round-trip: ${stillHidden}`);
+      if (!stillHidden) pageErrors.push('A hidden card came back after navigating away and returning');
+
+      // …and put it back, so the rest of the walk sees the screen it expects.
+      await manageBtn.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      await page.getByRole('switch', { name: /Medicine/i }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      const restored = (await page.getByRole('button', { name: /^Medicine: / }).count()) > 0;
+      console.log(`  card restored from the same sheet: ${restored}`);
+      if (!restored) pageErrors.push('A hidden card could not be restored from the Manage cards sheet');
+      await shot(page, 'manage-cards-restored');
+    }
+
     // ⚠️ **The "Habits card, expanded in place" excursion is DELETED (2026-08-22).** Habits is a
     // bottom-nav tab again, so its surface is shot directly by the tab loop near the top of this
     // walk — there is no Home card to expand, and the step's marker text now renders on a tab

@@ -238,6 +238,7 @@ export default function ShoppingItemSheet({ visible, item, onClose }: Props) {
             style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
             onPress={close}
             scaleTo={0.95}
+            accessibilityRole="button"
           >
             <Text style={[styles.doneBtnText, { color: theme.text }]}>
               {t.shoppingItemSheet.done}

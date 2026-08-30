@@ -241,7 +241,7 @@ export default function AddDishSheet({ visible, onClose, onAdded, target }: Prop
               </ScrollView>
             )}
 
-            <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.96}>
+            <PressableScale style={[styles.doneBtn, glassKey(theme.accent, isDark)]} onPress={onClose} scaleTo={0.96} accessibilityRole="button">
               <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.closePopupLabel}</Text>
             </PressableScale>
           </Surface>

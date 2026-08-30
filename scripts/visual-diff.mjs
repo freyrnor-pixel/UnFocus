@@ -32,7 +32,7 @@
  *   ⚠️ The browser BINARY was not the variable — `chromium.executablePath()` resolves to the same
  * build either way. It is the LIBRARY. It is pinned to `~1.56.0`, the revision is gone from every
  * script (`scripts/chromium-path.mjs`), and `lib/__tests__/visualGate.test.ts` keeps it that way.
- *   If this ever goes uniformly red again, check the toolchain BEFORE touching MAX_DIFF_RATIO —
+ *   If this ever goes uniformly red again, check the toolchain BEFORE touching MAX_DIFF_PIXELS —
  * raising it past the noise floor is exactly where a single-card regression hides.
  *
  * ⚠️ BLESSING IS THE WHOLE RISK. `--update` is how an intentional redesign lands, and it is also
@@ -64,15 +64,29 @@ const DIFF_DIR = path.join(ROOT, 'visual-diff-out', THEME);
 const PIXEL_THRESHOLD = 0.1;
 
 /**
- * How many changed pixels a screen may have before it is a finding, as a FRACTION of the shot.
+ * How many changed pixels a screen may have before it is a finding — an ABSOLUTE count.
  *
- * Not zero, and the reason is worth keeping: Chromium's text rasterisation is not bit-identical
- * across runs on the same machine, so a strict 0 makes every run red for reasons that have
- * nothing to do with the app, and a gate that cries wolf gets switched off. 0.0005 of a
- * 430×932 shot is ~200 px — comfortably under a 1px shift of a single line of text (a 200px-wide
- * label moving one pixel dirties ~400), so a real geometry change still fails.
+ * ⚠️ **This was `0.0005` of the shot (~200 px) until 2026-08-30, on a premise that turned out to
+ * be false, and the false premise was hiding real changes.** The old note said Chromium's text
+ * rasterisation is not bit-identical across runs, so a strict 0 would make every run red. That is
+ * the shape AGENTS.md's "a header that ASSERTS a safety property is not evidence the property
+ * holds" gotcha warns about: it was never measured. Measured now, on one pinned toolchain, over
+ * the whole set — **nine untouched screens came back at exactly 0 changed pixels**, not "small".
+ * The noise floor is zero.
+ *
+ * What the 200 px was actually buying was a blind spot the same size. The commit that measured
+ * this added one header icon to twelve screens, and every one of them differed by **exactly 84
+ * px** — a thin 22px outline glyph is mostly its own background — so the gate reported
+ * `unchanged` on twelve screens that had visibly gained a control. A whole new affordance is
+ * precisely the class of change this exists to catch.
+ *
+ * An absolute budget rather than a ratio, because the thing being absorbed is stray rasteriser
+ * pixels, which do not scale with the frame. 24 px is well under a third of the smallest real
+ * change measured (84) and well above the measured floor (0). ⚠️ **If CI ever shows a floor of
+ * its own, raise this with the measurement in hand** — the number it replaced was set by feel and
+ * cost eight days of a header icon nobody could see.
  */
-const MAX_DIFF_RATIO = 0.0005;
+const MAX_DIFF_PIXELS = 24;
 
 /**
  * The curated baseline set, keyed by the walk's own `name` — NOT by its `NN-` filename.
@@ -213,7 +227,7 @@ function compareOne(name, shotPath) {
     includeAA: false,
   });
   const ratio = changed / (shot.width * shot.height);
-  if (ratio <= MAX_DIFF_RATIO) return { name, status: 'ok', changed, ratio };
+  if (changed <= MAX_DIFF_PIXELS) return { name, status: 'ok', changed, ratio };
 
   fs.mkdirSync(DIFF_DIR, { recursive: true });
   const diffPath = path.join(DIFF_DIR, `${name}.diff.png`);

@@ -345,6 +345,8 @@ type Props = {
   onScanPress?: () => void;
   /** Site-tier only — forwarded to the header's optional card-layout icon. */
   onLayoutPress?: () => void;
+  /** Opens the screen's components/ManageCardsSheet.tsx — see ScreenHeader's own prop doc. */
+  onManageCardsPress?: () => void;
   /**
    * Whether this screen renders its own BottomNav block. Only applies to
    * `tier === 'site'`. Default true. The 5 tab sites (app/(tabs)/*) pass false,
@@ -427,6 +429,7 @@ export default function ScreenScaffold({
   onSharePress,
   onScanPress,
   onLayoutPress,
+  onManageCardsPress,
   bottomNav = true,
   pagerFloatingNav = false,
   ownBackground = true,
@@ -948,6 +951,7 @@ export default function ScreenScaffold({
           onSharePress={onSharePress}
           onScanPress={onScanPress}
           onLayoutPress={onLayoutPress}
+          onManageCardsPress={onManageCardsPress}
         />
       </View>
 

@@ -230,6 +230,7 @@ import { AspectRatioKey } from '@/constants/theme';
 import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/cardLayout';
 import { sanitizeCardStates } from '@/lib/padState';
 import { CollapsedCards, sanitizeCollapsedCards } from '@/lib/collapsedCards';
+import { HiddenCards, sanitizeHiddenCards } from '@/lib/hiddenCards';
 import { EMPTY_OVERRIDES, sanitizeLabOverrides, type LabOverrides } from '@/lib/designLab';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
@@ -554,6 +555,19 @@ export type Settings = {
   // Presentation ONLY, and device-local — same rule as cardStates. A collapsed card's rows are
   // all still live; nothing in the reminder, widget, sync or automation paths may read this.
   collapsedCards: CollapsedCards;
+  /**
+   * Cards the user has put away entirely (2026-08-30) — a FOURTH axis, not a rival to the three
+   * above it. `cardLayouts` is how much detail a row shows, `cardStates` is how many rows are
+   * drawn, `collapsedCards` is whether a card's body is drawn; this is whether the card is on
+   * the screen at all. A collapsed card is still there and still counted; a hidden one is not
+   * drawn, and the way back is the "Manage cards" sheet that hid it.
+   *
+   * Validated on read through lib/hiddenCards.ts's sanitizeHiddenCards, which drops an id no
+   * longer in the registry. An ARRAY rather than a bag of booleans, because unlike a fold there
+   * is no per-card default to diverge from — every card starts visible. Presentation only: a
+   * hidden card's rows keep their reminders and still count.
+   */
+  hiddenCards: HiddenCards;
   // ---- Design lab (2026-08-06) ----
   // The override bag the lab writes: colour tokens (per light/dark), geometry scales, control
   // variants and row-slot assignments, plus the maintainer's own note. Same JSON-blob-in-TEXT
@@ -727,6 +741,7 @@ function rowToSettings(row: Row): Settings {
     cardLayouts: sanitizeCardLayouts(readJson<unknown>(row, 'card_layouts', {})),
     cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
     collapsedCards: sanitizeCollapsedCards(readJson<unknown>(row, 'collapsed_cards', {})),
+    hiddenCards: sanitizeHiddenCards(readJson<unknown>(row, 'hidden_cards', [])),
     designLab: sanitizeLabOverrides(readJson<unknown>(row, 'design_lab', {})),
     designLabApply: readBool(row, 'design_lab_apply'),
     tourProgress: readStr(row, 'tour_progress', ''),
@@ -821,6 +836,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   cardLayouts: { col: 'card_layouts', to: (v) => JSON.stringify(v) },
   cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
   collapsedCards: { col: 'collapsed_cards', to: (v) => JSON.stringify(v) },
+  hiddenCards: { col: 'hidden_cards', to: (v) => JSON.stringify(v) },
   designLab: { col: 'design_lab', to: (v) => JSON.stringify(v) },
   designLabApply: { col: 'design_lab_apply', to: bool },
   tourProgress: { col: 'tour_progress' },
@@ -941,6 +957,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Empty = every card rests where lib/cardRegistry.ts puts it — closed, bar the exceptions.
   // Same "only what the user moved" storage rule as cardStates above.
   collapsedCards: {},
+  hiddenCards: [],
   // The lab starts empty and preview-only every time — see the field docs above.
   designLab: EMPTY_OVERRIDES,
   designLabApply: false,

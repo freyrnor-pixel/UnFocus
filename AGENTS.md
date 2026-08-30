@@ -1401,6 +1401,73 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     2026-08-11 design rather than changing anything — no code moved. `collected` itself still
     exists and still means "ticked off inside the cart, before checkout" (a fourth, finer state
     that only shows once a list is expanded), and is not part of the three top-level sections.
+- **Putting a card AWAY — one "Manage cards" entry per screen (2026-08-30)** (`lib/hiddenCards.ts`
+  + `lib/useHiddenCard.ts` + `components/ManageCardsSheet.tsx`, over the new `settings.hidden_cards`
+  column; pinned by `lib/__tests__/hiddenCards.test.ts`). Round 19's phase 8 — *Manage cards
+  generalised beyond Home* — finally built, and the maintainer settled its one open question first:
+  a per-card ⋮ matching Home, or one control per screen? *"One for each screen, not per card."*
+  So a screen carries a single header icon (`ScreenScaffold`'s `onManageCardsPress`, the same shape
+  as `onLayoutPress`), and no card gains a control — which is also why the registry-governed header
+  cluster (`cardAnatomy.test.ts`) is untouched by this.
+  - ⚠️ **These screens get NO "Retired" shelf, and that is what one entry per screen BUYS.** Home
+    needs a shelf because its only hide affordance is per-card, so something else has to name what
+    is gone. Here the entry point already lists every card, present or not — a shelf would be a
+    second place saying the same thing. Don't add one.
+  - **A FOURTH axis, and the four are worth reading together before touching any of them**:
+    `lib/cardLayout.ts` is how much DETAIL a row shows; `lib/padState.ts` is HOW MANY rows;
+    `lib/collapsedCards.ts` is whether the BODY is drawn; this is whether the card is on the screen
+    AT ALL. A collapsed card keeps its header, its count and its chevron, so the way back is on
+    screen. A hidden one is not drawn, and the only way back is the sheet that hid it — which is
+    exactly why the entry point is permanent header chrome and why **a screen may be emptied**
+    (the same reasoning that let Home's old "floor of one card" go).
+  - **An ARRAY, not a bag of booleans** — where it deliberately differs from `collapsedCards`.
+    That one stores only what the user moved OFF a card's resting state, so `{}` keeps meaning
+    "the app as designed". Hiding has no per-card default to diverge from, so the honest shape is
+    "the ones you put away". Sanitized on READ against `CARD_KEYS`, so a card dropped from the
+    registry cannot leave a sheet row pointing at nothing.
+  - **`components/Card.tsx` returns `null` when its id is hidden** — one place, after the pane-body
+    early return, so this works for every card in the app without editing any of the four surfaces
+    that draw them. A `null` child in a `gap` container is not laid out, so the screen rhythm needs
+    nothing.
+  - **Home is deliberately not a caller.** Its cards are PREVIEWS of other tabs and carry
+    `lib/homeCards.ts`'s forced-restore rule that exists *because* they are previews; a card on
+    Shop/To-do/Habits/Health **is** the thing itself, so hiding one is always a real choice. Two
+    mechanisms acting on one card is how a card comes back from one and stays gone in the other —
+    the test asserts the sheet is mounted by exactly the four non-Home tabs.
+  - ⚠️ **REORDER is NOT built, and the reason is measured rather than a shrug.** The plan assumed
+    the data model was all that was missing; that is true of hiding and false of ordering.
+    `cardsForScreen()` existed with **no consumer at all** — every screen's cards are hardcoded
+    JSX across `TodoSurface` / `HabitsSurface` / `HealthSurface` / `shopping.tsx`, **6 369 lines**
+    — so reorder means restructuring those four to render data-driven. To-do's order is semantic
+    anyway (Today → Week → Month → Whenever → Recurring). This sheet is `cardsForScreen`'s first
+    consumer, which is the half of that groundwork it does lay.
+  - Not in `aiSetupApply`'s `SETTINGS_WHITELIST` — an AI-authored file must not be able to hide the
+    app's surfaces, the same carve-out `collapsed_cards` and `design_lab` take, so **no
+    `AI_SETUP_SCHEMA_VERSION` bump** — and not in `SyncTable`: which cards YOU keep on YOUR screen
+    is not household state. Presentation only, enforced like the other three: a hidden card's rows
+    keep their reminders and still count.
+
+- **⚠️ A sheet's dismiss pill has to announce itself as a button — all ten of them did not
+  (2026-08-30, `lib/__tests__/sheetDismiss.test.ts`).** Every bottom sheet's way out was a
+  `PressableScale` with a `<Text>` child and no `accessibilityRole`, so react-native-web rendered a
+  plain `<div>`: obviously a button on screen, a paragraph to anything reading the tree. Since that
+  pill is the ONLY way out of a modal covering the screen, a screen-reader user who opened one had
+  no announced control to leave by.
+  - **Found by a harness, not by reading.** `scripts/preview.mjs`'s new step reached the Manage
+    cards sheet's Done with the same `getByRole('button', …)` it uses everywhere else, and it timed
+    out. `tsc` sees valid props, the pixel gate sees nothing (a role draws no pixels), and
+    `npm run wraps` has no reason to visit it — so nothing else in this repo could have.
+  - ⚠️ **It propagated by COPYING**: `components/LayoutPickerSheet.tsx` was the model the new sheet
+    was written from, and it had the same gap. That is the argument for the test being a structural
+    scan over the shared `styles.doneBtn` shape rather than a list of components — a new sheet is
+    covered the moment it is written, which is the property the ten copies lacked.
+  - ⚠️ **`app/shared.tsx`'s `doneBtn` is NOT one of these** — it is a row's completion toggle that
+    happens to share the style name, and a blanket sweep labelled it `"button"`, which announces
+    neither that it is ticked nor what ticking does. It is `checkbox` + `accessibilityState` now.
+    The lesson is the sweep's, not the file's: a style name is not a semantic. `components/HealthIssuesSheet.tsx`
+    is the other non-case — it uses the shared `Button`, which owns its own role, and the test skips
+    `<Button` rather than making it restate what the component already declares.
+
 - **Folding a card away — the 2026-08-14 collapse pass** (`lib/collapsedCards.ts` +
   `lib/useCollapsedCard.ts` + `components/CardCollapseToggle.tsx`, over the new
   `settings.collapsed_cards` column; pinned by `lib/__tests__/collapsedCards.test.ts`).
@@ -2721,12 +2788,18 @@ device or EAS build.
 
 - **Run it:** `npm run preview` — builds (`expo export --platform web` + wires the
   sql.js fallback), serves `dist/` with COOP/COEP headers, and walks onboarding + all 5
-  tabs with Playwright, screenshotting to `preview-shots/` (gitignored). Also exercises four
+  tabs with Playwright, screenshotting to `preview-shots/` (gitignored). Also exercises **five**
   real write paths — add a task (To-do), add a habit (Habits), add a medicine + log a dose
   (Health), and (2026-08-07) **build a card from blank in the design lab** — the first three
   confirmed to survive a tab round-trip, proving the store→DB path actually works rather than
   just static render, and the fourth checked at BOTH ends (the part's panel opens AND the card
   draws a real slider for it, since the whole point of that feature is that those two agree).
+  **The fifth (2026-08-30)** hides a card from the Manage cards sheet, navigates away, returns and
+  puts it back: a new settings column is only proven by a write followed by a read on the far side
+  of a navigation, which is the one thing `tsc` (a valid FieldMap) and Jest (a mocked DB) both
+  cannot tell you. It runs on Health because nothing later in the walk depends on that card, and it
+  restores the card before moving on — a failure here must not cascade into a missing-card timeout
+  three phases away, which is how this walk's failures usually get expensive.
   The lab step also switches playground screens and back, asserting the card is absent on the
   other screen and present again on its own — **the only automated proof per-screen storage
   works** — and follows the header link to the token knobs. Plus a render pass over the pushed
@@ -2805,13 +2878,49 @@ all 54, because these are PNGs in git history forever.
   picks its line by a RANDOM index on mount and several surfaces print the current date, so
   `--deterministic` (in the screenshot walk) pins `Math.random` to a seeded mulberry32 and the
   ZERO-ARGUMENT `Date` to a fixed local noon on a Wednesday. Page-level overrides; nothing in the
-  app changes. Verified stable: two independent runs on one unchanged build, 21/21.
+  app changes. Verified stable: two independent runs on one unchanged build, **44/44 shots
+  bit-identical** (2026-08-30; it was 43/44 until the settle below).
+  - ⚠️ **`Math.random` is a seeded STREAM, not a constant, and that bites whenever you edit the
+    walk.** The narrator's line depends on how many draws happened *earlier*, so inserting one
+    step upstream re-rolls every quote downstream of it — a screen the commit never touched,
+    differing only in one italic sentence. Look at the diff and confirm it is only the quote
+    before blessing; the failure it resembles (a card's content changing) is real. It cannot be
+    a constant: `lib/id.ts` is `Date.now().toString(36) + Math.random()…` and `Date.now()` is
+    frozen here, so the random half is the only thing keeping two rows in one walk from sharing
+    an id. And `Date.now()` must STAY frozen — goal strength and `isWashedAway` compare stored
+    timestamps written through the frozen `new Date()`, so a live clock would wash every seeded
+    task away before it could be photographed.
+  - ⚠️ **One screen needed a measured settle, and the number is not a guess.** `habits-empty` was
+    the only shot that was not bit-identical run to run; the leftover pixels sat on the
+    TabSlider's own sliding pill, i.e. an animation still in flight rather than a fractional
+    layout, so it converges: **374 px at 1100 ms → 73 at 2600 → 0 at 4200.** Found by running the
+    walk in PAIRS and diffing the two outputs against each other — which is the technique to
+    reach for whenever this gate looks flaky, because a baseline comparison cannot tell "the app
+    changed" from "the harness did not settle".
 - **It is proven to FAIL, not just to pass** — a probe changing `SCREEN_GAP` 16→12 turned 13 of
   21 red, and the 8 that stayed green were exactly the forms and single-card screens where a card
   gap does not apply.
 - ⚠️ **`--update` refuses to bless a partial set**, and four screens the set wants but the walk
   cannot reach are PRINTED on every run (`WANTED_BUT_UNCAPTURED`) rather than dropped. Move one
   into `BASELINE_SET` when its excursion is repaired; the ratchet only goes one way.
+- ⚠️ **The budget is an absolute 24 px, and the 200 px it replaced was hiding real changes
+  (2026-08-30).** `MAX_DIFF_RATIO` was 0.0005 on the stated premise that Chromium's text
+  rasterisation is not bit-identical across runs — never measured, and false: **nine untouched
+  screens came back at exactly 0.** What the tolerance actually bought was a blind spot its own
+  size. The commit that measured it added ONE header icon to twelve screens and every one
+  differed by **exactly 84 px** (a thin 22px outline glyph is mostly its own background), so the
+  gate reported `unchanged` on twelve screens that had visibly gained a control. An absolute
+  count, not a ratio, because stray rasteriser pixels do not scale with the frame. ⚠️ If CI ever
+  shows a floor of its own, raise it **with the measurement in hand**.
+- ⚠️ **A shot is only as good as the tab it clicks, and one of them had been wrong for eight
+  days.** `health-empty` clicked **Home**, carrying a comment that was true during the 5→3 merge
+  (Health was a card on Me) and stopped being true on 2026-08-22 when the five tabs came back.
+  Nothing failed — the walk kept producing a `health-empty.png`; it was just a second copy of
+  `home-empty`, so the committed baseline for the Health tab was a picture of a different screen.
+  Caught only because the gate reported 0 changed pixels on a commit that demonstrably added a
+  header icon there: **a shot that cannot move is what this rot looks like.** Re-read the walk's
+  tab clicks against `components/BottomNav.tsx` whenever the bar changes, exactly as
+  `npm run wraps` requires.
 - ⚠️ **Shots are `fullPage: false`.** The app scrolls inside a fixed-height ScrollView, so
   "full page" never reached below the fold — it only added ~61px of bare document under the
   932px viewport, which renders as whatever the outermost background is. That strip produced 18

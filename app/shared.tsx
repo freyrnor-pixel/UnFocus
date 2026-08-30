@@ -195,6 +195,12 @@ function SharedShoppingRow({
         style={[styles.doneBtn, { borderColor: theme.accent }, item.done && { backgroundColor: theme.accent }]}
         onPress={onToggle}
         scaleTo={0.97}
+        // Not a "button": this is the row's completion state, and a screen reader that says
+        // "button" for it announces neither that it is ticked nor that ticking is what it does.
+        // It shares `styles.doneBtn` with the sheets' dismiss pills and is not one of them —
+        // which is exactly how a blanket sweep over that style name mislabels it.
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.done }}
       >
         {item.done && <Text style={[styles.doneMark, { color: theme.accentInk }]}>✓</Text>}
       </PressableScale>
@@ -230,6 +236,12 @@ function SharedTaskRow({
         style={[styles.doneBtn, { borderColor: theme.accent }, item.done && { backgroundColor: theme.accent }]}
         onPress={onToggle}
         scaleTo={0.97}
+        // Not a "button": this is the row's completion state, and a screen reader that says
+        // "button" for it announces neither that it is ticked nor that ticking is what it does.
+        // It shares `styles.doneBtn` with the sheets' dismiss pills and is not one of them —
+        // which is exactly how a blanket sweep over that style name mislabels it.
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.done }}
       >
         {item.done && <Text style={[styles.doneMark, { color: theme.accentInk }]}>✓</Text>}
       </PressableScale>

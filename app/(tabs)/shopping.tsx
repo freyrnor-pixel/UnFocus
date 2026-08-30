@@ -508,6 +508,7 @@ import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
 import LayoutPickerSheet from '@/components/LayoutPickerSheet';
+import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
@@ -720,6 +721,7 @@ export default function ShoppingScreen() {
   // and feeds nothing but rendering — no reminder, automation, or sync path consults it.
   const layoutSpec = useSurfaceLayout('shopping');
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
+  const [manageCardsOpen, setManageCardsOpen] = useState(false);
   // Arrived from a note's ⋯ → Send it to… → Shopping list (2026-07-30). The text seeds the add
   // row of the list that covers today — `currentList` is the same helper Home's card uses to
   // pick its default target, so both entry points agree on which list "the shopping list" is.
@@ -2555,7 +2557,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2630,6 +2632,11 @@ export default function ShoppingScreen() {
         visible={layoutPickerOpen}
         surface="shopping"
         onClose={() => setLayoutPickerOpen(false)}
+      />
+      <ManageCardsSheet
+        visible={manageCardsOpen}
+        screen="shop"
+        onClose={() => setManageCardsOpen(false)}
       />
       <ShoppingItemSheet
         visible={detailItem !== null}
