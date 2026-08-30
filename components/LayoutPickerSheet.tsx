@@ -146,6 +146,7 @@ export default function LayoutPickerSheet({ visible, surface, onClose }: Props) 
           style={[styles.doneBtn, glassKey(theme.accent, isDark)]}
           onPress={onClose}
           scaleTo={0.95}
+          accessibilityRole="button"
         >
           <Text style={[styles.doneBtnText, { color: theme.text }]}>{t.config.layouts.close}</Text>
         </PressableScale>

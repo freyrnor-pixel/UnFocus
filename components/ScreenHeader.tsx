@@ -167,9 +167,15 @@ type Props = {
   onScanPress?: () => void;
   /** Opens this surface's card-layout picker (components/LayoutPickerSheet.tsx). */
   onLayoutPress?: () => void;
+  /**
+   * "Manage cards" — opens the screen's own components/ManageCardsSheet.tsx (2026-08-30).
+   * Maintainer: *"One for each screen, not per card."* Same shape as `onLayoutPress`: a screen
+   * that passes it gets the icon, and one that does not draws nothing.
+   */
+  onManageCardsPress?: () => void;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress, onManageCardsPress }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -341,6 +347,22 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
     </PressableScale>
   ) : null;
 
+  // "Manage cards" — which cards this screen shows at all, opening its ManageCardsSheet. Sits
+  // beside the layout icon because the two are the same KIND of control: both are about how this
+  // screen presents its own content, and both are deliberately not in Settings, where the choice
+  // would be made three screens away from the thing it changes.
+  const manageCardsButton = onManageCardsPress ? (
+    <PressableScale
+      onPress={onManageCardsPress}
+      hitSlop={HitSlop.base}
+      accessibilityRole="button"
+      accessibilityLabel={t.manageCards.title}
+      scaleTo={0.9}
+    >
+      <Ionicons name="albums-outline" size={22} color={theme.text} />
+    </PressableScale>
+  ) : null;
+
   // Home-only OTA update icon (see edit notes) — a small spinner while fetching.
   const updateButton = isHome && updateAvailable ? (
     <PressableScale
@@ -406,13 +428,13 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
 
   // Site-tier control count, needed before titleNode below decides whether to shrink-to-fit.
   // Grouped controls order (right-handed, left-to-right): [update] [bug] [✓ email] [✕ delete]
-  // [layout] [scan] [share] [ⓘ info] [gear]. Bug + email + delete all render only while debug
+  // [cards] [layout] [scan] [share] [ⓘ info] [gear]. Bug + email + delete all render only while debug
   // mode is on (null otherwise), so the default header is two icons lighter than it used to be;
   // layout/share/scan only render when the screen passes onLayoutPress/onSharePress/onScanPress,
   // which Shopping now does only when the matching feature flag is on. Gear is outermost on
   // whichever side the group sits (Decision 034). Items that don't apply are null/filtered.
   const siteControls = tier === 'site'
-    ? ([updateButton, bugButton, emailButton, deleteButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
+    ? ([updateButton, bugButton, emailButton, deleteButton, manageCardsButton, layoutButton, scanButton, shareButton, gearButton].filter(Boolean) as React.ReactNode[])
     : [];
 
   // **List controls follow the LIST, not the tier (2026-08-20).** The layout and share icons
@@ -424,7 +446,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // screen's layout picker — the only way to reach the timeline and focus layouts — with no
   // error anywhere, since a prop the header ignores looks exactly like a prop it honours.
   const subListControls = tier === 'sub'
-    ? ([layoutButton, shareButton].filter(Boolean) as React.ReactNode[])
+    ? ([manageCardsButton, layoutButton, shareButton].filter(Boolean) as React.ReactNode[])
     : [];
 
   // The card itself (see the file header's "The card is ALWAYS there" note): one opaque

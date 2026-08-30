@@ -221,15 +221,17 @@
  *     long-press) to edit the rest in /habit-form. This
  *     replaced the old header "+" AddFAB (which navigated straight to the form).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HabitsSurface from '@/components/HabitsSurface';
+import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useT } from '@/lib/i18n';
 import { Spacing } from '@/constants/theme';
 
 export default function HabitsScreen() {
   const t = useT();
+  const [manageCardsOpen, setManageCardsOpen] = useState(false);
   return (
     <ScreenScaffold
       title={t.habitsTitle}
@@ -238,10 +240,12 @@ export default function HabitsScreen() {
       bottomNav={false}
       pagerFloatingNav
       ownBackground={false}
+      onManageCardsPress={() => setManageCardsOpen(true)}
     >
       <View style={styles.content}>
         <HabitsSurface />
       </View>
+      <ManageCardsSheet visible={manageCardsOpen} screen="habits" onClose={() => setManageCardsOpen(false)} />
     </ScreenScaffold>
   );
 }

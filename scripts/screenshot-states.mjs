@@ -57,6 +57,33 @@ const captions = [];
 const problems = [];
 let shotIndex = 0;
 
+/**
+ * Wait until the page has stopped moving, by asking it rather than by guessing how long.
+ *
+ * ⚠️ **This replaces a `waitForTimeout` that was machine-speed-dependent, and that dependence is
+ * what broke the gate in CI (2026-08-30).** `habits-empty` needed a settle — its TabSlider's
+ * sliding pill was still in flight — and a fixed wait tuned on this machine (374 px at 1100 ms →
+ * 73 at 2600 → 0 at 4200) landed the RUNNER at a different point in the same animation, so CI
+ * reported exactly the 73 px the 2600 ms run produced here. A timeout cannot be right on two
+ * machines at once; a predicate can.
+ *
+ * Two viewport screenshots a beat apart, compared byte for byte — the same question the pixel
+ * gate itself asks, which is what makes it the honest predicate here. A screen that is already
+ * static costs one extra capture and returns immediately. A screen with a genuinely endless
+ * animation spends the budget and proceeds, which is no worse than the bare wait it replaces —
+ * so this can be unconditional without any screen being able to hang the walk.
+ */
+async function settle(page, { budgetMs = 3000, step = 250 } = {}) {
+  let previous = null;
+  for (let waited = 0; waited <= budgetMs; waited += step) {
+    const frame = await page.screenshot({ fullPage: false });
+    if (previous && previous.equals(frame)) return true;
+    previous = frame;
+    await page.waitForTimeout(step);
+  }
+  return false;
+}
+
 async function shot(page, name, meta = {}) {
   // A full-page screenshot here captures the VIEWPORT, not the whole scroll content: the app
   // scrolls inside a fixed-height ScrollView, not the document. So framing depends on wherever
@@ -70,6 +97,9 @@ async function shot(page, name, meta = {}) {
     await page.mouse.wheel(0, -6000);
     await page.waitForTimeout(400);
   }
+  // Ask the page whether it has stopped moving. See `settle` — a fixed wait is only ever right
+  // on the machine it was tuned on, and this walk runs on at least two.
+  await settle(page);
   shotIndex += 1;
   const file = `${prefix}${String(shotIndex).padStart(2, '0')}-${name}.png`;
   // ⚠️ **`fullPage: false` since 2026-08-29, and it captures strictly MORE useful area than the
@@ -431,6 +461,28 @@ async function forceAppearance(page, mode) {
  * `date.getTime()` all over `lib/date.ts`. Only the ZERO-ARGUMENT construction and `Date.now`
  * are pinned; every other overload passes straight through.
  */
+/**
+ * Pin the two things that make an identical build produce two different pictures.
+ *
+ * ⚠️ **`Math.random` is a seeded STREAM, not a constant, and the difference bites when you edit
+ * this walk.** components/NarratorQuote.tsx picks its line by a random index ON MOUNT, so which
+ * line a screen shows depends on how many draws happened *earlier in the walk* — insert one step
+ * upstream and every narrator line downstream of it re-rolls. That is what it looks like: a
+ * screen the commit never touched, differing only in one italic sentence. **Look at the diff and
+ * confirm it is only the quote before blessing it** — the failure it resembles (a card's content
+ * changing) is a real regression.
+ *
+ * It cannot simply return a constant, and the reason is the other consumer: lib/id.ts is
+ * `Date.now().toString(36) + Math.random().toString(36).slice(2, 7)`, and `Date.now()` is frozen
+ * here — so the random half is the ONLY thing keeping two rows created in one walk from sharing
+ * an id. A constant would silently corrupt the seeded data instead of merely re-rolling a
+ * sentence. The stream serves both; the cost is this caveat.
+ *
+ * And `Date.now()` must stay frozen with the constructor rather than running live: the goal
+ * strength bands (lib/goalStrength.ts) and task decay (`isWashedAway`) both compare a stored
+ * timestamp — written through the FROZEN `new Date()` — against it. A live clock against frozen
+ * rows would wash every seeded task away before it could be photographed.
+ */
 async function freezeNondeterminism(page) {
   await page.addInitScript(() => {
     let seed = 0x9e3779b9;
@@ -499,13 +551,19 @@ async function main() {
       ['Shop', 'shopping-empty', 'Shopping — empty', 'app/(tabs)/shopping.tsx',
         'EMPTY. Green screen hue. Week lists / Monthly list / Whenever, with Food, Catalogue and Scan as buttons rather than tabs. A migration seeds one empty monthly list, which is why this surface\'s empty-state gate has to count items too, not just lists.',
         'WeekListCard, ShoppingRow, InlineAddItem, StarterCard, ShoppingFilterBar, NewMonthlyListRow'],
-      // To-do and Habits left this loop on 2026-08-20 (5 tabs → 3). They are pushed
-      // sub-screens now and are shot in phase 4 as their own excursions; their DAILY content
-      // is on Home, which 'home-empty' above already captures.
-      // Health is a CARD on the Me tab, not a tab of its own — it left the bottom nav on
-      // 2026-08-20. Clicking 'Me' lands on the screen that holds it; the card is below Habits
-      // and Notes, so this frame shows it in its stack rather than full-bleed.
-      ['Home', 'health-empty', 'Health — empty (a card on the Me tab)', 'components/HealthSurface.tsx',
+      // ⚠️ **This clicked 'Home' until 2026-08-30, and had done since the 5→3 tab merge.** The
+      // comment it carried was true then — Health was a CARD on the Me tab and 'Me' was the
+      // screen that held it — and stopped being true on 2026-08-22, when the five tabs came
+      // back. Nothing failed: the walk kept producing a `health-empty.png`, it was just a second
+      // copy of `home-empty`, so the committed baseline for the Health tab was a picture of a
+      // different screen for eight days. Found by the pixel gate reporting 0 changed pixels here
+      // on a commit that demonstrably added a header icon to this screen — a shot that cannot
+      // move is the shape this class of rot takes. **A tab click is only as good as the nav
+      // label beside it**; re-read this loop against `components/BottomNav.tsx` whenever the bar
+      // changes, the same way `npm run wraps`'s walk has to be.
+      // To-do and Habits are also tabs again, but they stay in phase 4: they are shot there as
+      // excursions that open a specific card, which the plain tab click here cannot do.
+      ['Health', 'health-empty', 'Health — empty', 'components/HealthSurface.tsx',
         'EMPTY. Rose card hue. Medicine trays (morning / midday / evening / night — windows, not clock times) sit above the symptom log. Nothing on this surface is a scoreboard: a count of migraines is not an achievement in either direction, so there is no streak, no total, no escalating colour, and — the trap specific to this domain — no congratulation for a quiet week.',
         'MedicineTrayCard, OpenEpisodeCard, AddRow, StarterCard, StarterExampleRow'],
     ]) {
@@ -612,6 +670,11 @@ async function main() {
       await excursion(page, 'habits-empty', async () => {
         await tab(page, 'Habits');
         await clickOnScreenText(page, 'Habits');
+        // This shot is why `settle()` exists — see its header. It was the one screen in the set
+        // that was not bit-identical between two runs of an unchanged build (its TabSlider's
+        // pill was still sliding), and the fixed wait that fixed it HERE reproduced the defect
+        // on the CI runner instead. `shot()` waits on the page rather than on a number now, so
+        // this is back to its siblings' value.
         await page.waitForTimeout(1100);
         await shot(page, 'habits-empty', {
           title: 'Habits — empty (a pushed screen since the 3-tab merge)',

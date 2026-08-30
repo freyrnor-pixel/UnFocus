@@ -161,3 +161,48 @@ describe('the design lab bag', () => {
     expect(loaded.playground).toEqual(EMPTY_PLAYGROUND);
   });
 });
+
+/**
+ * `hidden_cards` (2026-08-30) — the column behind components/ManageCardsSheet.tsx.
+ *
+ * The load path is the half worth pinning: a hidden card is not DRAWN, so a value that
+ * half-applies removes a surface with no error anywhere. `sanitizeHiddenCards` is what stands
+ * between a malformed column and a blank screen, and it is called on read here rather than at
+ * every consumer — the same shape `collapsed_cards` and `home_card_order` use.
+ */
+describe('hiddenCards', () => {
+  it('defaults to nothing hidden when the settings row has no value', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().hiddenCards).toEqual([]);
+  });
+
+  it('reads a persisted list back from the JSON column', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoMonth"]' });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+  });
+
+  it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
+    // A card removed from lib/cardRegistry.ts, or a backup restored from an older build. Dropping
+    // it here is what keeps the sheet from drawing a row for something that no longer exists.
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoMonth","goneCard"]' });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+  });
+
+  it('reads a malformed column as nothing hidden rather than blanking a screen', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: 'not json' });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().hiddenCards).toEqual([]);
+  });
+
+  it('update() writes the list as a JSON string to hidden_cards', () => {
+    (db.runSync as jest.Mock).mockClear();
+    useSettingsStore.getState().update({ hiddenCards: ['todoMonth'] });
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+    const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
+    expect(sql).toContain('hidden_cards');
+    expect(params).toContain(JSON.stringify(['todoMonth']));
+  });
+});

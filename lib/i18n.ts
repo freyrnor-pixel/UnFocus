@@ -550,6 +550,17 @@ const en = {
   addItemBtn: 'Add item',
   // Settings
   settingsTitle: 'Settings',
+  /**
+   * "Manage cards" — one per screen (2026-08-30), not one per card. `close` is a DISMISS, not a
+   * commit: every switch applies the moment it is tapped, so backing out never discards
+   * anything. The hint exists because "off" here is not "deleted", which is the one thing a user
+   * could reasonably fear about a switch that makes a surface disappear.
+   */
+  manageCards: {
+    title: 'Cards on this screen',
+    hint: 'Turn one off to put it away. Nothing is deleted — reminders keep working, and you can turn it back on here.',
+    close: 'Done',
+  },
   version: {
     title: 'Version & updates',
     appVersion: 'App version',
@@ -2779,6 +2790,11 @@ const no: typeof en = {
   addedBody: (n: number) => `${n} varer ble lagt til i handlelisten.`,
   addItemBtn: 'Legg til vare',
   settingsTitle: 'Innstillinger',
+  manageCards: {
+    title: 'Kort på denne skjermen',
+    hint: 'Slå av et kort for å legge det bort. Ingenting slettes — påminnelser virker som før, og du kan slå det på igjen her.',
+    close: 'Ferdig',
+  },
   version: {
     title: 'Versjon og oppdateringer',
     appVersion: 'App-versjon',
@@ -4621,6 +4637,11 @@ const is: typeof en = {
   addedBody: (n: number) => `${n} ${isCount(n, 'vara fór', 'vörur fóru')} á innkaupalistann.`,
   addItemBtn: 'Bæta við vöru',
   settingsTitle: 'Stillingar',
+  manageCards: {
+    title: 'Spjöld á þessum skjá',
+    hint: 'Slökktu á spjaldi til að leggja það til hliðar. Engu er eytt — áminningar virka áfram og þú getur kveikt á því aftur hér.',
+    close: 'Lokið',
+  },
   version: {
     title: 'Útgáfa og uppfærslur',
     appVersion: 'Útgáfa forrits',

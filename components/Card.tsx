@@ -96,6 +96,7 @@ import type { CardId } from '@/lib/collapsedCards';
 import type { ExpandableCardId } from '@/lib/expandableCards';
 import { getScreenColor } from '@/lib/screenColor';
 import { PaneCardContext, useIsPaneBody } from '@/lib/cardPane';
+import { useIsCardHidden } from '@/lib/useHiddenCard';
 import { useCardExpand } from '@/lib/useCardExpand';
 import { useCollapsedCard } from '@/lib/useCollapsedCard';
 import CardHintLine from '@/components/CardHintLine';
@@ -151,6 +152,15 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
   // already paints the title and the close control, so drawing a card here is the title twice
   // over plus a fold chevron and an ⤢ that cannot mean anything inside a pane.
   const isPaneBody = useIsPaneBody(id);
+  // ── Put away entirely (2026-08-30) ───────────────────────────────────────────────────────
+  // Hiding lives HERE rather than at ~15 call sites, and that is the whole reason this feature
+  // needed no edit to TodoSurface / HabitsSurface / HealthSurface / shopping.tsx — 6 369 lines
+  // between them, every card in hardcoded JSX. A `null` child in a `gap` container is simply not
+  // laid out, so the screen rhythm needs nothing either.
+  //   ⚠️ Read AFTER `isPaneBody` deliberately: a pane draws the card it was opened from, and a
+  // card cannot be hidden while its own full-screen pane is open. Checking first would blank the
+  // pane instead of closing it.
+  const cardHidden = useIsCardHidden(id);
 
   const folds = spec.fold === 'persisted';
   const expands = spec.expand === 'surface';
@@ -171,6 +181,9 @@ export default function Card({ id, count, peek, hint, countRef, controls, embedd
       </PaneCardContext.Provider>
     );
   }
+
+  // Nothing is unloaded — the rows keep their reminders and still count. See lib/hiddenCards.ts.
+  if (cardHidden) return null;
 
   const shell = (
     <CardShell

@@ -256,6 +256,7 @@ export default function ShareModal() {
               style={[styles.doneBtn, { backgroundColor: theme.goodSoft }]}
               onPress={() => { router.dismissAll(); router.push('/shared'); }}
               scaleTo={0.95}
+              accessibilityRole="button"
             >
               <Text style={[styles.doneBtnText, { color: theme.good }]}>{t.sharedTitle} →</Text>
             </PressableScale>

@@ -1418,6 +1418,14 @@ export function initDb() {
     // for the measurement that motivated it (an Android HWUI trace running 5-10x over budget
     // on a nearly EMPTY screen, dominated by the two GPU-side bands).
     'ALTER TABLE settings ADD COLUMN reduce_effects INTEGER DEFAULT 0',
+
+    // ── 2026-08-30: "Manage cards" — which cards the user has put away ──────────────────────
+    // One header control per screen (maintainer: "One for each screen, not per card") opening
+    // components/ManageCardsSheet.tsx. A JSON array of registry card ids; `[]` is the app as
+    // designed. Validated on read by lib/hiddenCards.ts, so an id dropped from the registry
+    // cannot keep a row in that sheet. Presentation only — a hidden card's rows keep their
+    // reminders and still count everywhere else.
+    'ALTER TABLE settings ADD COLUMN hidden_cards TEXT DEFAULT \'[]\'',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

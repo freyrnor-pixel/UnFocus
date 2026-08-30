@@ -33,15 +33,17 @@
  *             app/(tabs)/_layout.tsx
  *   Data    → none directly — HealthSurface drives store/useHealthStore and useMedicineStore
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import HealthSurface from '@/components/HealthSurface';
+import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useT } from '@/lib/i18n';
 import { Spacing } from '@/constants/theme';
 
 export default function HealthScreen() {
   const t = useT();
+  const [manageCardsOpen, setManageCardsOpen] = useState(false);
 
   return (
     <ScreenScaffold
@@ -51,10 +53,12 @@ export default function HealthScreen() {
       bottomNav={false}
       pagerFloatingNav
       ownBackground={false}
+      onManageCardsPress={() => setManageCardsOpen(true)}
     >
       <View style={styles.content}>
         <HealthSurface />
       </View>
+      <ManageCardsSheet visible={manageCardsOpen} screen="health" onClose={() => setManageCardsOpen(false)} />
     </ScreenScaffold>
   );
 }
