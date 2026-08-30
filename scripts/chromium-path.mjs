@@ -1,29 +1,38 @@
 /**
- * chromium-path.mjs — find the Chromium these harnesses should drive
+ * chromium-path.mjs — which Chromium these harnesses drive
  *
- * Every Playwright script in this repo hardcoded the same fallback:
+ * **There is no path here any more, and that is the fix (2026-08-30).**
  *
- *   `${PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`
+ * Every Playwright script in this repo used to hardcode
+ * `${PLAYWRIGHT_BROWSERS_PATH}/chromium-1194/chrome-linux/chrome`. That worked in the remote dev
+ * environment, where Chromium is pre-installed and `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`,
+ * and it quietly broke the pixel gate everywhere else — because a hardcoded REVISION is a claim
+ * about which Playwright the project pins, made in a file that has no way to check.
  *
- * which is exactly right for the remote dev environment (AGENTS.md: Chromium is pre-installed
- * there, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`, and "never run playwright install") and
- * wrong everywhere else — a CI runner installs into `~/.cache/ms-playwright`, and the pinned
- * `chromium-1194` directory name changes with every Playwright bump. Four copies of a path that
- * is right in one place is the shape this repo keeps getting bitten by; this is the one copy.
+ * It was wrong. `@playwright/test` had drifted to `^1.61.1`, which expects **chromium-1228**,
+ * while this environment has **1194**. So CI installed 1228, the baselines had been blessed on
+ * 1194, and `npm run visual` failed there with all 21 screens differing by a uniform 0.1-1.05%
+ * — the signature of a different text rasteriser, not of a changed app. That is what took the
+ * gate out of CI (see DECISIONS_OPEN.md).
  *
- * Order: the explicit override, then the pre-installed path if it actually exists, then
- * Playwright's own resolution. Returning `undefined` is the point of the last case —
- * `chromium.launch({ executablePath: undefined })` is how you say "use whatever you installed",
- * whereas launching with a path that does not exist fails with a message about a missing file
- * rather than about a missing browser.
+ * The dependency is pinned to `~1.56.0` now, which is the version that ships **1194** — so the
+ * library and the pre-installed browser agree again, and every environment can resolve the
+ * browser its own Playwright pins:
+ *   · dev container — `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` already holds `chromium-1194`,
+ *     so nothing is downloaded and the env's "never run playwright install" rule is honoured;
+ *   · CI — `npx playwright install chromium` fetches 1194, the same build.
+ *
+ * ⚠️ **Keep `@playwright/test` on a `~` range.** A caret is what let the library outrun the
+ * browser in the first place, and the failure mode is a pixel gate that reports the whole app
+ * has changed. `lib/__tests__/buildInfo.test.ts`'s sibling guard in `visual-diff.mjs`'s header
+ * explains what a drifting baseline looks like from the other end.
+ *
+ * `PLAYWRIGHT_CHROMIUM_PATH` remains as a manual override for anyone driving a browser that
+ * Playwright did not install.
  */
-import fs from 'node:fs';
-
-const PINNED = `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/chromium-1194/chrome-linux/chrome`;
 
 export function resolveChromium() {
-  const explicit = process.env.PLAYWRIGHT_CHROMIUM_PATH;
-  if (explicit) return explicit;
-  if (fs.existsSync(PINNED)) return PINNED;
-  return undefined; // let Playwright find the browser it installed
+  // `undefined` is the point: `chromium.launch({ executablePath: undefined })` means "use the
+  // browser you installed", which is the only answer that is correct in every environment.
+  return process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined;
 }
