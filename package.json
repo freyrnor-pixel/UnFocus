@@ -56,7 +56,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "~1.56.0",
     "@react-native/jest-preset": "^0.86.0",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",

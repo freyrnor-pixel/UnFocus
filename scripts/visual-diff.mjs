@@ -24,15 +24,16 @@
  * means "nothing changed that I did not intend", never "this looks right on a phone". Do not
  * let a later session read a blessed baseline as a device screenshot.
  *
- * ⚠️ **BASELINES ARE ENVIRONMENT-BOUND — this cannot currently run in CI.** Blessed here and
- * compared on a GitHub runner, all 21 screens come back "changed" at 0.1-1.05% each: uniform,
- * on every screen, including ones the commit never touched. The runner installs Chromium v1228
- * where the blessing environment has v1194 pre-installed, and different browser builds rasterise
- * text differently. A baseline is a fact about the machine that took it as well as about the
- * app. So this gate runs where the baselines were blessed, and CI runs the three audits that
- * measure geometry rather than pixels. The options for changing that, with their costs, are in
- * DECISIONS_OPEN.md — do not just raise MAX_DIFF_RATIO past the noise floor, which is exactly
- * where a single-card regression hides.
+ * ⚠️ **BASELINES ARE TOOLCHAIN-BOUND — pin `@playwright/test`, do not raise the tolerance.**
+ * For one day this could not run in CI at all: all 21 baselines came back "changed" by a uniform
+ * 0.1-1.05%, on screens the commit never touched. It read as an environment difference; it was a
+ * dependency range. The library was on a caret and had drifted to a version whose launch defaults
+ * rasterise text differently from the one that blessed the shots.
+ *   ⚠️ The browser BINARY was not the variable — `chromium.executablePath()` resolves to the same
+ * build either way. It is the LIBRARY. It is pinned to `~1.56.0`, the revision is gone from every
+ * script (`scripts/chromium-path.mjs`), and `lib/__tests__/visualGate.test.ts` keeps it that way.
+ *   If this ever goes uniformly red again, check the toolchain BEFORE touching MAX_DIFF_RATIO —
+ * raising it past the noise floor is exactly where a single-card regression hides.
  *
  * ⚠️ BLESSING IS THE WHOLE RISK. `--update` is how an intentional redesign lands, and it is also
  * how a real regression gets laundered into the baseline. So the diff PNGs are written for every

@@ -88,27 +88,26 @@ jobs:
 
       # Every gate runs even if an earlier one fails: they answer different questions, and
       # seeing only the first failure is what turns a multi-audit run into a one-audit run.
-      # ⚠️ **`npm run visual` is deliberately NOT run here — pixel baselines are environment-bound.**
+      # Both themes. Dark is the DEFAULT appearance, and every glass, edge and glow decision in
+      # this app is tuned for it — a light-only gate would guard the mode fewer people see, and
+      # the 2026-08-29 backdrop change fired ONLY in dark.
       #
-      # It was, on this job's first two runs, and it failed with all 21 screens "changed" at
-      # **0.1–1.05%** each: tiny, uniform, and on every screen including ones no commit had
-      # touched. The cause is in this job's own log — the runner installs **Chromium v1228**
-      # while the environment that blessed the baselines has **v1194** pre-installed. Different
-      # browser builds rasterise text differently, so a baseline is a fact about the machine that
-      # took it, not only about the app.
-      #
-      # Three ways out, and none is free: pin the exact Playwright build in both places (still
-      # leaves fontconfig differences), bless from CI (then every local run is red, and local is
-      # where the work happens), or raise the tolerance past ~1.1% (which is where a
-      # single-card regression hides — the real one caught on 2026-08-29 was 11%, but a one-row
-      # shift would be well under it). That is a real trade, so it is filed in DECISIONS_OPEN.md
-      # rather than picked quietly.
-      #
-      # The gate still runs — in the environment that blessed it, where it has already caught two
-      # real regressions. What runs HERE is the three audits that measure GEOMETRY rather than
-      # pixels, and are therefore machine-independent: verified on this runner, they returned
-      # byte-identical findings to local (geometry clean, wraps 22/22 with the same 7 clipped and
-      # 18 truncated, halos 0 clipped / 12 fields).
+      # ⚠️ **This ran for one day with `npm run visual` REMOVED, and the reason it is back is a
+      # dependency pin, not a tolerance.** The gate failed here with all 21 baselines "changed"
+      # by a uniform 0.1-1.05% — because `@playwright/test` was on a caret and had drifted to a
+      # version whose launch defaults render text differently from the one that blessed them.
+      # Pinned to `~1.56.0` (the version matching the dev environment's pre-installed browser),
+      # both sides render identically. `lib/__tests__/visualGate.test.ts` keeps the range on `~`.
+      #   Do NOT re-fix a red visual run by raising MAX_DIFF_RATIO past the noise floor — that is
+      # precisely where a single-card regression hides. See DECISIONS_OPEN.md.
+      - name: Visual regression (light)
+        if: always()
+        run: npm run visual
+
+      - name: Visual regression (dark)
+        if: always()
+        run: npm run visual -- --theme=dark
+
       - name: Geometry
         if: always()
         run: npm run geometry

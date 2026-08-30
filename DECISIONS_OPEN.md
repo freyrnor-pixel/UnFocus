@@ -32,36 +32,36 @@ that will be re-derived, not made.**
 
 ## Open
 
-### Should the pixel gate run in CI, and what would we pay for it?
-**Asked:** 2026-08-29 · **Blocks:** `npm run visual` catching a regression that an agent session
-does not run locally — i.e. anything a human pushes, and anything an agent forgets.
-
-`npm run visual` works and has already caught two real regressions. It cannot currently run in
-GitHub Actions: **pixel baselines are environment-bound.** On its first two CI runs all 21
-screens came back "changed" at **0.1–1.05%** each — uniform, on every screen, including ones the
-commit never touched. The job's own log has the cause: the runner installs **Chromium v1228**
-while the environment that blesses the baselines has **v1194** pre-installed, and different
-browser builds rasterise text differently.
-
-So today the gate runs where the baselines were blessed, and CI runs the three audits that
-measure geometry rather than pixels (`geometry`, `wraps`, `halos`) — verified machine-independent:
-identical findings on the runner and locally.
-
-| option | cost |
-|---|---|
-| Leave it (today) | A push that skips the local gate is unguarded. Cheapest, and the three geometry audits still run. |
-| Pin the exact Playwright build in both places | Should work; still leaves fontconfig/OS font differences, so it may not fully converge. Needs a couple of CI round-trips to find out. |
-| Bless baselines from CI | CI goes green; **every local run goes red**, and local is where the work happens. Probably the worst of the three. |
-| Raise the tolerance past ~1.1% | One line. But that is where a single-card regression hides — the real one caught on 2026-08-29 was ~11%, and the density change 3.8–7.5%, so the *global* changes stay caught; a one-row shift would not be. |
-| Containerise the capture (run CI's capture in the same image) | The robust industry answer, and the most work by some distance. |
-
-**Not picked, because it is a genuine trade rather than a defect.**
-
----
+_None._
 
 ---
 
 ## Answered
+
+### Should the pixel gate run in CI, and what would we pay for it?
+**Asked:** 2026-08-29 · **Answered:** 2026-08-30 · **It was a bug, not a trade.**
+
+The premise was wrong. This was filed as a cost question — pin the toolchain, bless from CI,
+raise the tolerance, or containerise the capture — because all 21 baselines came back "changed"
+by a uniform 0.1-1.05% on the runner and that looked like an environment difference nobody could
+close cheaply.
+
+It was a **dependency range**. `@playwright/test` sat on `^1.61.1`, so the library had drifted
+to a version whose launch defaults render text differently from the one that blessed the
+baselines, while this environment's pre-installed Chromium stayed at the 1194 build that
+Playwright **1.56** pins. CI installed what the library asked for; local used what the machine
+had; neither was wrong and they disagreed.
+
+⚠️ **The browser BINARY was not the variable** — `chromium.executablePath()` resolves to the same
+`chromium-1194` on either library version, and launching it reports the same `141.0.7390.37`.
+Re-blessing was still needed when the library moved. So the thing to pin is the LIBRARY, and the
+hardcoded browser path this repo used to carry in seven scripts actively hid the problem by
+making the local run look stable while CI diverged.
+
+Fixed by pinning to `~1.56.0` and deleting the revision from the code entirely (every harness now
+lets Playwright resolve the browser it pins). `lib/__tests__/visualGate.test.ts` keeps the range
+on `~`, keeps a revision out of the scripts, and asserts CI still runs the gate. None of the four
+costed options was paid.
 
 ### Card density: the mockup's 12px against a 6-rung spacing scale
 **Asked:** 2026-08-29 · **Answered:** 2026-08-29 · **Blocked:** round 20 phase 1, and every
