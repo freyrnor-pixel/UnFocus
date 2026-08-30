@@ -2890,13 +2890,23 @@ all 54, because these are PNGs in git history forever.
     an id. And `Date.now()` must STAY frozen — goal strength and `isWashedAway` compare stored
     timestamps written through the frozen `new Date()`, so a live clock would wash every seeded
     task away before it could be photographed.
-  - ⚠️ **One screen needed a measured settle, and the number is not a guess.** `habits-empty` was
-    the only shot that was not bit-identical run to run; the leftover pixels sat on the
-    TabSlider's own sliding pill, i.e. an animation still in flight rather than a fractional
-    layout, so it converges: **374 px at 1100 ms → 73 at 2600 → 0 at 4200.** Found by running the
-    walk in PAIRS and diffing the two outputs against each other — which is the technique to
-    reach for whenever this gate looks flaky, because a baseline comparison cannot tell "the app
-    changed" from "the harness did not settle".
+  - ⚠️ **One screen needed a settle, and the fix is a PREDICATE, not a longer wait — that
+    distinction is the whole lesson.** `habits-empty` was the only shot that was not bit-identical
+    run to run; the leftover pixels sat on the TabSlider's own sliding pill, i.e. an animation
+    still in flight rather than a fractional layout, so it converges: **374 px at 1100 ms → 73 at
+    2600 → 0 at 4200** on this machine. Tuning that number fixed it here and **reproduced it on
+    the CI runner**, which came back with exactly the 73 px the 2600 ms run had produced —
+    because a timeout cannot be right on two machines at once. `shot()` calls `settle(page)`
+    instead: two viewport screenshots a beat apart, compared byte for byte, until they match or a
+    3 s budget runs out. A static screen costs one extra capture; an endlessly animating one
+    spends the budget and proceeds, so it is unconditional without being able to hang the walk.
+    Verified 44/44 bit-identical across two runs AND byte-identical to the baselines the tuned
+    wait had produced — the predicate lands on the same settled frame, it just gets there on any
+    machine.
+  - **When this gate looks flaky, run the walk in PAIRS and diff the two outputs against each
+    other.** A baseline comparison cannot tell "the app changed" from "the harness did not
+    settle"; two runs of one build can. That is how the wobble above was found, and how it was
+    confirmed fixed.
 - **It is proven to FAIL, not just to pass** — a probe changing `SCREEN_GAP` 16→12 turned 13 of
   21 red, and the 8 that stayed green were exactly the forms and single-card screens where a card
   gap does not apply.

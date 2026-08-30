@@ -57,6 +57,33 @@ const captions = [];
 const problems = [];
 let shotIndex = 0;
 
+/**
+ * Wait until the page has stopped moving, by asking it rather than by guessing how long.
+ *
+ * ⚠️ **This replaces a `waitForTimeout` that was machine-speed-dependent, and that dependence is
+ * what broke the gate in CI (2026-08-30).** `habits-empty` needed a settle — its TabSlider's
+ * sliding pill was still in flight — and a fixed wait tuned on this machine (374 px at 1100 ms →
+ * 73 at 2600 → 0 at 4200) landed the RUNNER at a different point in the same animation, so CI
+ * reported exactly the 73 px the 2600 ms run produced here. A timeout cannot be right on two
+ * machines at once; a predicate can.
+ *
+ * Two viewport screenshots a beat apart, compared byte for byte — the same question the pixel
+ * gate itself asks, which is what makes it the honest predicate here. A screen that is already
+ * static costs one extra capture and returns immediately. A screen with a genuinely endless
+ * animation spends the budget and proceeds, which is no worse than the bare wait it replaces —
+ * so this can be unconditional without any screen being able to hang the walk.
+ */
+async function settle(page, { budgetMs = 3000, step = 250 } = {}) {
+  let previous = null;
+  for (let waited = 0; waited <= budgetMs; waited += step) {
+    const frame = await page.screenshot({ fullPage: false });
+    if (previous && previous.equals(frame)) return true;
+    previous = frame;
+    await page.waitForTimeout(step);
+  }
+  return false;
+}
+
 async function shot(page, name, meta = {}) {
   // A full-page screenshot here captures the VIEWPORT, not the whole scroll content: the app
   // scrolls inside a fixed-height ScrollView, not the document. So framing depends on wherever
@@ -70,6 +97,9 @@ async function shot(page, name, meta = {}) {
     await page.mouse.wheel(0, -6000);
     await page.waitForTimeout(400);
   }
+  // Ask the page whether it has stopped moving. See `settle` — a fixed wait is only ever right
+  // on the machine it was tuned on, and this walk runs on at least two.
+  await settle(page);
   shotIndex += 1;
   const file = `${prefix}${String(shotIndex).padStart(2, '0')}-${name}.png`;
   // ⚠️ **`fullPage: false` since 2026-08-29, and it captures strictly MORE useful area than the
@@ -640,18 +670,12 @@ async function main() {
       await excursion(page, 'habits-empty', async () => {
         await tab(page, 'Habits');
         await clickOnScreenText(page, 'Habits');
-        // ⚠️ **Longer than its siblings' 1100 on purpose, and the number is measured (2026-08-30).**
-        // This was the ONE shot in the set that was not bit-identical between two runs of an
-        // unchanged build, which mattered the moment `scripts/visual-diff.mjs` dropped its budget
-        // to 24 px: one permanently-wobbling screen is worse than no screen, because it trains
-        // whoever runs the gate to re-bless on reflex, which is the exact laundering the diff
-        // script's header warns about. The remaining pixels sat on the TabSlider's own sliding
-        // pill and its chip glyphs — an animation still in flight, not a fractional layout — so
-        // it converges rather than plateauing, and the walk was run in pairs to find where:
-        // **374 px at 1100 ms → 73 at 2600 → 0 at 4200.** The other 43 shots are bit-identical at
-        // their existing waits; don't copy this number around, and don't trim it without
-        // re-running the pair.
-        await page.waitForTimeout(4200);
+        // This shot is why `settle()` exists — see its header. It was the one screen in the set
+        // that was not bit-identical between two runs of an unchanged build (its TabSlider's
+        // pill was still sliding), and the fixed wait that fixed it HERE reproduced the defect
+        // on the CI runner instead. `shot()` waits on the page rather than on a number now, so
+        // this is back to its siblings' value.
+        await page.waitForTimeout(1100);
         await shot(page, 'habits-empty', {
           title: 'Habits — empty (a pushed screen since the 3-tab merge)',
           screen: 'app/habits.tsx',
