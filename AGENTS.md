@@ -2890,19 +2890,27 @@ all 54, because these are PNGs in git history forever.
     an id. And `Date.now()` must STAY frozen — goal strength and `isWashedAway` compare stored
     timestamps written through the frozen `new Date()`, so a live clock would wash every seeded
     task away before it could be photographed.
-  - ⚠️ **One screen needed a settle, and the fix is a PREDICATE, not a longer wait — that
-    distinction is the whole lesson.** `habits-empty` was the only shot that was not bit-identical
-    run to run; the leftover pixels sat on the TabSlider's own sliding pill, i.e. an animation
-    still in flight rather than a fractional layout, so it converges: **374 px at 1100 ms → 73 at
-    2600 → 0 at 4200** on this machine. Tuning that number fixed it here and **reproduced it on
-    the CI runner**, which came back with exactly the 73 px the 2600 ms run had produced —
-    because a timeout cannot be right on two machines at once. `shot()` calls `settle(page)`
-    instead: two viewport screenshots a beat apart, compared byte for byte, until they match or a
-    3 s budget runs out. A static screen costs one extra capture; an endlessly animating one
-    spends the budget and proceeds, so it is unconditional without being able to hang the walk.
-    Verified 44/44 bit-identical across two runs AND byte-identical to the baselines the tuned
-    wait had produced — the predicate lands on the same settled frame, it just gets there on any
-    machine.
+  - ⚠️ **A settle is a PREDICATE, never a longer wait — and one screen turned out not to be a
+    settle problem at all.** `habits-empty` was the only shot not bit-identical run to run; the
+    pixels sat on the TabSlider's own sliding pill and converged with time — **374 px at 1100 ms
+    → 73 at 2600 → 0 at 4200** on this machine. Tuning that number fixed it here and
+    **reproduced it on the CI runner**, which came back with exactly the 73 px the 2600 ms run
+    had produced, because a timeout cannot be right on two machines at once. So `shot()` calls
+    `settle(page)`: two viewport screenshots a beat apart compared byte for byte, until they
+    match or a 3 s budget runs out. A static screen costs one extra capture; an endlessly
+    animating one spends the budget and proceeds, so it is unconditional and cannot hang the
+    walk. It is the right fix and it stays — verified 44/44 bit-identical across two runs AND
+    byte-identical to the baselines the tuned wait produced.
+  - ⚠️ **…and it did not fix that screen, which is the more useful half.** With the predicate,
+    CI's `habits-empty` is *stable* at the same 73 px. So it was never a race there: the pill has
+    two stable resting positions and the two machines pick different ones. That screen is in
+    `MACHINE_DEPENDENT` in `scripts/visual-diff.mjs` now — captured, printed on every run,
+    excluded from the comparison — because the only other way to green was raising the budget
+    past 73, which is 11 px under what one header icon costs, i.e. re-opening the blind spot this
+    gate had just closed. It is not a coverage hole: `habits-populated` shoots the same surface
+    and is stable on both machines. **A stably-red screen is worse than an excluded one** — it
+    trains whoever reads the output to re-bless on reflex, which is the failure `--update`'s
+    warning exists for.
   - **When this gate looks flaky, run the walk in PAIRS and diff the two outputs against each
     other.** A baseline comparison cannot tell "the app changed" from "the harness did not
     settle"; two runs of one build can. That is how the wobble above was found, and how it was

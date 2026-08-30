@@ -108,7 +108,8 @@ const BASELINE_SET = [
   'home-populated',
   'plans-empty',
   'plans-today-populated',
-  'habits-empty',
+  // ⚠️ `habits-empty` was here and is now in MACHINE_DEPENDENT below — read that entry
+  // before putting it back.
   'habits-populated',
   'notes-empty',
   'notes-populated',
@@ -150,6 +151,37 @@ const BASELINE_SET = [
 const WANTED_BUT_UNCAPTURED = [
   ['day-log-screen', 'the walk’s `day-log` excursion times out — Earlier days is a SECTION inside To-do’s Today card since 2026-08-26, and retargeting the tab was not enough'],
   ['shopping-list-expanded-empty', 'needs a list created first; the `food` excursion above it times out for a related reason'],
+];
+
+/**
+ * Screens the walk DOES produce, stably, that two machines nonetheless disagree about.
+ *
+ * ⚠️ **A different thing from the list above, and the distinction is the point.** Those are not
+ * captured at all. These are captured perfectly and reproducibly — and the picture this machine
+ * settles on is not the picture the CI runner settles on, so whichever one blesses the baseline
+ * makes the other permanently red. Keeping such a screen in the set does not buy coverage; it
+ * buys a standing red that trains whoever reads this output to re-bless on reflex, which is the
+ * one failure mode `--update`'s whole warning is about.
+ *
+ * `habits-empty` (2026-08-30) is the only member, and it was chased properly before landing
+ * here. Its differing pixels sit on the TabSlider's own sliding pill. On this machine it is a
+ * settle race that converges — **374 px at 1100 ms → 73 at 2600 → 0 at 4200** — so a tuned wait
+ * fixed it locally and CI came back with exactly the 73 px the 2600 ms run had produced.
+ * Replacing the wait with a predicate (`settle()` in the screenshot walk, which is the right fix
+ * regardless and stays) made CI's frame *stable* at that same 73 px. So it is not a race there:
+ * the pill has two stable resting positions a fraction of a pixel apart, and the two machines
+ * pick different ones.
+ *
+ * The alternative was raising the pixel budget past 73 — which is 11 px under the 84 that one
+ * header icon costs, i.e. re-opening precisely the blind spot this gate had just closed. One
+ * screen is the cheaper loss, and it is not a coverage hole: `habits-populated` shoots the same
+ * surface with content and is stable on both machines.
+ *
+ * Fix it by making the pill's resting position not depend on animation timing, then move the
+ * name back into BASELINE_SET and bless. Do NOT resolve it by raising MAX_DIFF_PIXELS.
+ */
+const MACHINE_DEPENDENT = [
+  ['habits-empty', 'the TabSlider pill settles 73 px differently here and on CI — see this constant’s note; do not fix by raising the pixel budget'],
 ];
 
 function log(...m) {
@@ -289,6 +321,10 @@ log(`\n── visual diff (${THEME}) ──────────────�
 if (WANTED_BUT_UNCAPTURED.length) {
   log(`  coverage gap     ${WANTED_BUT_UNCAPTURED.length} screen(s) this set wants and the walk does not produce:`);
   for (const [name, why] of WANTED_BUT_UNCAPTURED) log(`                     · ${name} — ${why}`);
+}
+if (MACHINE_DEPENDENT.length) {
+  log(`  not comparable   ${MACHINE_DEPENDENT.length} screen(s) captured but excluded — two machines settle differently:`);
+  for (const [name, why] of MACHINE_DEPENDENT) log(`                     · ${name} — ${why}`);
 }
 log(`  unchanged        ${ok.length}/${BASELINE_SET.length}`);
 log(`  changed          ${changed.length}`);
