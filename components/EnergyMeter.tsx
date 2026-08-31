@@ -250,7 +250,7 @@ import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, ligh
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { energyDeltaForDay, energyDeltaForWeek, energyPipCount } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, energyPipCount, MAX_PIPS } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -699,15 +699,11 @@ export default function EnergyMeter() {
           will stand, and the button is the same pop-up the ✏️ opens, so the first thing a new
           user can do here is the deliberate thing rather than a nudge. */}
       {!pause.paused && showTutorial && (
-        // **No watermark (2026-08-19, maintainer: *"remove the Tree in Energy"*).** This card
-        // stands where the meter will stand on the app's landing screen, so it was the tallest
-        // StarterCard in the app and drew the biggest tree in it — `stage="sapling"` since
-        // 2026-08-04, on the reasoning that a big empty card has room for a fuller drawing. It
-        // does; it just isn't wanted here. `noTree` drops only the watermark, keeping the card's
-        // Surface, padding and the one button (which `embedded` would have taken with it), and
-        // the flag is scoped to this one call site — every other StarterCard keeps its tree, and
-        // components/StageTree.tsx is untouched. With nothing drawn, `stage` would now be a prop
-        // that does nothing, so it is gone too rather than left as a decoy.
+        // **No watermark, and no `noTree` prop any more (2026-09-01).** This card carried the
+        // biggest tree in the app until 2026-08-19 ("remove the Tree in Energy"), when it took a
+        // one-call-site `noTree` flag. The tree is now gone from the whole app — same
+        // instruction, applied everywhere — so `components/StageTree.tsx` and both props are
+        // deleted and there is nothing left to opt out of.
         // No explanatory paragraph any more (2026-08-17, "kill the text bloat"): the two
         // sentences that used to lead this card — "Energy is how much a day holds…" — were the
         // longest block of teaching on Home, standing above every piece of real content on the
@@ -721,7 +717,31 @@ export default function EnergyMeter() {
         // bug, not the design: Home simply never passed a `screenKey`, so the one button on the
         // app's first screen wore the accent on a tab the mockup draws gold. Nothing changed
         // here; app/(tabs)/index.tsx names the hue and Button.tsx already resolved it.
-        <StarterCard noTree>
+        <StarterCard>
+          {/* ⚠️ **A row of EMPTY pips above the button (2026-09-01).** Maintainer: *"insert empty
+              energy bubbles in the empty state energy card so it's not so empty."* The card was
+              one small button on a large panel, on the app's landing screen, in the state a new
+              user meets first — it read as a placeholder rather than as an invitation.
+                These are the meter's own `pipEmpty` recipe at the meter's own `PIP_SIZE`/`PIP_GAP`,
+              not a decoration drawn to look like one: the point is that this is the SHAPE of the
+              thing you are being invited to fill in, so it has to be that shape exactly. Ten of
+              them, matching `energyPipCount`'s `maxPips`.
+                Decorative to a screen reader — the button beside them says what to do, and "flash
+              outline, flash outline, …" ten times says nothing. */}
+          <View
+            style={styles.tutorialPips}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            {Array.from({ length: MAX_PIPS }, (_, i) => (
+              <View
+                key={i}
+                style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}
+              >
+                <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.textMuted} />
+              </View>
+            ))}
+          </View>
           <Button
             label={t.starters.energy.action}
             variant="primary"
@@ -878,6 +898,10 @@ const styles = StyleSheet.create({
   // the card's full width: StarterCard's action slot is documented as "lightweight chips — this
   // is an explainer, not a form", and a full-width CTA on the topmost card of Home reads as
   // setup the user owes the app, which is the one thing this state must not do.
+  // The empty-state pip row. Same PIP_GAP as a live meter's `pipRow`, and it WRAPS — the
+  // tutorial card is narrower than the strip, and ten pips that overflow would be worse than
+  // ten that take two lines.
+  tutorialPips: { flexDirection: 'row', flexWrap: 'wrap', gap: PIP_GAP },
   tutorialAction: { alignSelf: 'flex-start' },
   // The paused day's single line. The app's caption tier (FontSize.xs,
   // italic, theme.textMuted) so it reads as the quietest thing on Home, but hand-rolled

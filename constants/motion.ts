@@ -95,7 +95,9 @@ export const Duration = {
    *  reward animation firing off a tap. Sat alongside the retired ParticleBackground's multi-second
    *  drifts rather than the §1 interaction bands. */
   ambient: 2400,
-  /** Half of the stage tree's idle sway cycle (components/StageTree.tsx) — the design
+  /** ⚠️ **No caller since 2026-09-01** — components/StageTree.tsx is deleted with the tree.
+   * Kept as a token rather than removed: it is the app's one "ambient, barely-moving" duration
+   * and the next such thing should not re-pick a number. Half of the old sway cycle — the design
    *  system's "Natural tree" card specifies ±1.1° over ~6s, and the sway is one
    *  `withRepeat(..., -1, true)` so a 3000ms leg is a 6000ms round trip. Above `ambient`
    *  for the same reason `ambient` is above the §1 bands, only more so: this is scenery

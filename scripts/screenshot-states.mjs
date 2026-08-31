@@ -680,7 +680,7 @@ async function main() {
           title: 'Habits — empty (a pushed screen since the 3-tab merge)',
           screen: 'app/habits.tsx',
           state: 'EMPTY. Sky screen hue. Where a habit is SET UP and browsed; the day\'s due habits are a section of the merged card on Home. Offers one-tap starter habits instead of an empty list. There is no negative habit, no slip log and no broken streak anywhere in the app.',
-          components: 'PadRow, PadTypeRow, StarterCard, StageTree, HabitIcon, CollapsedSection',
+          components: 'PadRow, PadTypeRow, StarterCard, HabitIcon, CollapsedSection',
         });
       });
 
@@ -958,7 +958,7 @@ async function main() {
       title: 'Habits — with habits, none registered yet',
       screen: 'app/habits.tsx',
       state: 'POPULATED. Every habit registers through a −/+ pair rather than a check circle. A habit enters the day log on the FIRST log of the day, not on "met" — 5 of 7 glasses of water still leaves a trace, which is exactly the kind of day the log exists for.',
-      components: 'PadRow, HabitIcon, HabitLeading, Stepper, StageTree',
+      components: 'PadRow, HabitIcon, HabitLeading, Stepper',
     });
 
     const plus = page.getByRole('button', { name: 'Increase quantity Drink water', exact: true }).first();

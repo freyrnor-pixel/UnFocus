@@ -25,7 +25,7 @@
  * "instructions for this screen".
  *
  * Connections:
- *   Imports → components/Surface, components/StageTree (the growth-stage watermark),
+ *   Imports → components/Surface,
  *             components/PressableScale (the dismiss "X" and the `collapsible` trigger row),
  *             components/Badge (via StarterExampleRow), constants/theme, constants/motion is
  *             NOT used here (LayoutAnimation comes straight from react-native), lib/useAppTheme
@@ -177,39 +177,25 @@
  *     note-sized card still has it. `compact` and `collapsible` have never been combined by a
  *     caller — untested together. List surfaces (Habits/Plans/Shopping/Health) keep the
  *     default size.
- *   - **The watermark is a growth-stage tree as of 2026-08-04** (design comparison task 01).
- *     It was `empty-branch` tinted in `theme.border` — a bare, leafless line, which was the
- *     one place the app's art read as absence rather than potential. The design system's rule
- *     is "floor at seed, never bare": the tree has no dead or leafless-in-decline state, the
- *     same shame-free framing the rest of the app already applies to streaks and goals.
- *   - **`stage` (2026-08-04, design comparison task 03) is a CALL-SITE choice, never data.**
- *     It defaults to `'seed'` — the floor — and a caller only raises it because its card is
- *     large enough to carry a fuller drawing (Habits' full-screen empty state takes `sprout`;
- *     the Energy tutorial, which replaces the whole meter, takes `sapling`). Nothing the user
- *     does moves it. See components/StageTree.tsx's header for why binding it to Energy, a
- *     streak or a focus session is declined by the design project *and* by lib/growth.ts.
- *   - **One tree per screen.** This card draws one whenever it is visible, so a screen that
- *     also wants an ambient tree of its own has to suppress one of them —
- *     app/habits.tsx is the worked example. A card may also draw NO tree (`noTree`, 2026-08-19);
- *     components/EnergyMeter.tsx is the only caller, and that is a removal asked for by name,
- *     not a general opt-out to reach for whenever a card looks busy.
- *   - **It takes no `color` prop, and that is not an omission.** Every stage is an
- *     ILLUSTRATION (each carries its own baked light/dark `pal`), and components/Motif ignores
- *     `color` for those — passing one would be a prop that silently does nothing. Its
- *     strength is set with StageTree's `opacity` multiplier instead. Keep it well under the
- *     copy: a full-colour illustration is a bigger visual event than the line art it replaced,
- *     and if it starts competing with the HintCard that can sit above it, the answer is lower
- *     opacity, not a redesign of the card.
- *   - The watermark sways (±1.1°, ~6s, frozen under reduced motion). That lives in StageTree,
- *     not here — don't add a second transform on `styles.branch`.
- *   - The watermark is also the reason `card` sets `overflow: 'hidden'`.
+ *   - ⚠️ **THERE IS NO WATERMARK. `components/StageTree.tsx` is deleted (2026-09-01), with its
+ *     four `tree-natural-*` motifs and this card's `stage`/`noTree` props.** Maintainer: *"remove
+ *     the Tree in Energy (and wherever else it may be)."* The Energy card had taken a
+ *     one-call-site `noTree` on 2026-08-19 for the first half of that instruction; this is the
+ *     second half, applied everywhere. Three surfaces were still drawing one — To-do's empty
+ *     state, the Health-issues surface and Shopping.
+ *       What went with it, so none of it is hunted for again: the `<StageTree>` render and its
+ *     `compact || embedded || noTree` gate, `styles.branch`, the sway (`Duration.sway` survives
+ *     as an unused token — see its own note), and the "one tree per screen" rule that
+ *     app/(tabs)/habits.tsx used to have to obey. `lib/__tests__/exampleRows.test.ts` asserts
+ *     this file draws no tree, so a revival has to be deliberate.
+ *   - `card` still sets `overflow: 'hidden'` — the watermark was its original reason and is
+ *     gone, but the clip is what keeps a collapsible body inside the card's rounded corners.
  */
 import React, { useState } from 'react';
 import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
-import StageTree, { type TreeStage } from '@/components/StageTree';
 import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
@@ -250,13 +236,6 @@ type Props = {
    */
   compact?: boolean;
   /**
-   * Which growth stage the watermark draws. Default `'seed'` — the floor, and right for
-   * almost every caller. Raise it only because the card is physically large enough to carry
-   * a fuller drawing; it is a layout decision, never a reading of the user's data. See the
-   * Edit notes and components/StageTree.tsx.
-   */
-  stage?: TreeStage;
-  /**
    * Stable per-surface id (e.g. `'habits'`) that makes this card dismissible. See the
    * "Universal dismiss" edit note above. Omit to keep the card non-dismissible (unchanged
    * behavior for every existing call site until it opts in).
@@ -275,18 +254,6 @@ type Props = {
    * note above. Default `false`.
    */
   embedded?: boolean;
-  /**
-   * Draw the card WITHOUT its growth-tree watermark, keeping everything else (2026-08-19,
-   * maintainer: *"remove the Tree in Energy"*). One caller: components/EnergyMeter.tsx's
-   * tutorial state, which stands where the meter itself will stand on the app's landing
-   * screen — the biggest StarterCard in the app, and so the biggest tree.
-   *
-   * Deliberately a separate flag rather than a `stage: 'none'`: `stage` is a size choice among
-   * four drawings and "don't draw one" is a different question, and rather than `embedded`,
-   * which ALSO drops the Surface and the padding this card still wants. Everywhere else keeps
-   * its watermark — this is one call site's removal, not a retirement of components/StageTree.tsx.
-   */
-  noTree?: boolean;
 };
 
 export default function StarterCard({
@@ -294,11 +261,9 @@ export default function StarterCard({
   example,
   children,
   compact,
-  stage,
   dismissKey,
   collapsible,
   embedded,
-  noTree,
 }: Props) {
   const theme = useAppTheme();
   const t = useT();
@@ -336,9 +301,6 @@ export default function StarterCard({
           carry a watermark without crowding its one line of text — and on `embedded`, where
           there is no card of ours for it to be a watermark ON, and the host screen already
           has its own tree ("one tree per screen"). */}
-      {compact || embedded || noTree ? null : (
-        <StageTree stage={stage} opacity={0.34} style={styles.branch} />
-      )}
       {/* Corner-anchored, matching components/HintCard.tsx's (2026-08-14). It used to be the
           third child of `textRow`, which put it beside the LAST line of a wrapping sentence
           rather than in the card's corner, and gated it on `text` being present. Both are the
@@ -445,36 +407,10 @@ const baseStyles = StyleSheet.create({
   card: {
     padding: Spacing.md,
     gap: Spacing.xs,
-    // The branch watermark is absolutely positioned inside; without this it would paint
-    // outside the card's rounded corners.
+    // The branch watermark was the original reason and is gone (2026-09-01); the clip stays
+    // because the dismiss control is pinned to a corner and Android clips touches to the
+    // parent's bounds — see `styles.dismiss`.
     overflow: 'hidden',
-  },
-  // Tucked into the trailing edge, vertically centred, sized so it reads as texture behind
-  // the copy rather than an illustration competing with it. pointerEvents is already 'none'
-  // inside Motif, so it can never intercept a tap on the example row.
-  branch: {
-    position: 'absolute',
-    // `right: 0`, not the -Spacing.sm this carried while the watermark was a bare <Svg>
-    // (2026-08-04). StageTree wraps the Motif in a View to carry the sway transform, and
-    // `npm run wraps`' clipped-controls detector deliberately skips <svg> elements but not a
-    // plain wrapper — so the 8px overhang went from invisible to 8 reported "sliced control"
-    // findings across every screen with a StarterCard. The overhang bought nothing: `fit="meet"`
-    // letterboxes the 300×340 art inside this box, so the tree sat inside the card's edge
-    // either way. Don't reintroduce a negative offset here to "tuck" it.
-    //
-    // A small POSITIVE inset, not 0: on the three surfaces where a StarterCard is nested inside
-    // another card (Home's and the config sheet's Energy tutorial, the Habits list), the nearest
-    // overflow-clipping ancestor is that outer card, not this one, so `right: 0` still left the
-    // wrapper 2–3px past the real mask. Spacing.xs clears every nesting depth in the app.
-    right: Spacing.xs,
-    top: 0,
-    bottom: 0,
-    width: 96,
-    // No `opacity` here: every stage is an ILLUSTRATION with its own baked palette, so its
-    // strength is set once via StageTree's `opacity` prop at the call site. Two opacity
-    // controls on one watermark is how it ends up invisible in one theme and loud in the other.
-    // No `transform` here either — the idle sway is StageTree's, and a second transform on the
-    // same view would replace it outright rather than compose with it.
   },
   // Same internal rhythm as `card`, without the Surface, the padding or the overflow mask —
   // an embedded card is a block in somebody else's list, so its host owns both the inset and
