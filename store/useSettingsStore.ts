@@ -99,19 +99,21 @@
  *     a default nobody chose, deciding the first thing they saw. `lib/__tests__/firstRunOptions.test.ts`
  *     asserts no surface reads the field, because wiring a new control to it would typecheck
  *     perfectly and quietly re-create exactly that.
- *   - **`particlesEnabled` joined the inert list on 2026-08-27** (round 20's stray artefacts).
+ *   - ⚠️ **`particlesEnabled` is NOT inert. It was, from 2026-08-27 to 2026-09-01, and the round
+ *     trip is worth reading before touching it.** Round 20 deleted
  *     `components/ParticleBackground.tsx` — the ambient field of drifting dots, and this flag's
- *     only consumer — is DELETED, so the Settings → Accessibility row that wrote it was toggling
- *     a column nothing reads; the row and its `settings.accessibility.particles*` copy went with
- *     it, so nothing can be quietly rewired to the flag.
- *     ⚠️ **It also took a rung off the onboarding motion ladder, and that is the part to know
- *     before reviving it.** `lib/firstRunOptions.ts`'s ladder was full → reduced → none, and
- *     `'reduced'` was defined as EXACTLY `particlesEnabled: false` — so with the field gone that
- *     rung wrote nothing and its shipped copy ("Transitions stay, moving background goes")
- *     described a no-op. The ladder is two rungs now. Reviving this flag therefore means giving
- *     the middle rung something real to turn off first, not just re-adding the word; the test
- *     that fails if you don't is `firstRunOptions.test.ts`'s "no rung is offered that changes
- *     nothing".
+ *     only consumer — as a "stray artefact", which left the Settings row toggling a column
+ *     nothing read, so the row and its copy went too. It also silently took a rung off the
+ *     onboarding motion ladder: `lib/firstRunOptions.ts`'s `'reduced'` was defined as EXACTLY
+ *     `particlesEnabled: false`, so with the field gone that rung wrote nothing and its shipped
+ *     copy ("Transitions stay, moving background goes") described a no-op, and the ladder was
+ *     collapsed to two the same day.
+ *     The maintainer's report was *"backdrop is too empty, don't know why we removed particles
+ *     and movement"*, so the component, the Settings row and the third rung are all back, and
+ *     the flag is live again. **The lesson, which generalises past this flag: deleting a visual
+ *     element can silently empty a SETTING two files away, and `firstRunOptions.test.ts`'s "no
+ *     rung is offered that changes nothing" could not see it — distinctness is not effect. That
+ *     test now also asserts the field has a real consumer.**
  *   - **`habitViewTab` joined the inert list on 2026-08-06** — app/habits.tsx dropped
  *     its Today/Week/Month switcher entirely (a habit is set up once with a recurrence and
  *     an optional reminder time; the maintainer's call was that browsing by day/week/month

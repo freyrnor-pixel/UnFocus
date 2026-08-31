@@ -410,11 +410,16 @@ describe('DESIGN_RULES.md — no bare design literals at call sites', () => {
   });
 
   test('no raw millisecond literals in animated code — use Duration.*', () => {
-    // **Empty since 2026-08-27**, and worth leaving as an empty set rather than deleting the
-    // mechanism: its one entry was `components/ParticleBackground.tsx`, whose per-particle drift
-    // times were scene data rather than interaction timing. That file is gone (round 20's stray
-    // artefacts), so the rule now has no exceptions at all.
-    const ALLOW = new Set<string>([]);
+    // One entry, and it has been in and out of this set once already — worth stating so the
+    // round trip is not repeated. `components/ParticleBackground.tsx` holds per-particle drift
+    // periods (7–10.5s, one per dot so the five never pulse in sync). Those are SCENE DATA, not
+    // interaction timing: `Duration.*` is the vocabulary for how long a control takes to respond,
+    // and the longest rung in it is `ambient` at 2400ms. Expressing a 10.5s loop as
+    // `Duration.ambient * 4.375` would satisfy the scan and tell the reader less.
+    //   The set was emptied on 2026-08-27 because the file was deleted (round 20's stray
+    // artefacts) and refilled on 2026-09-01 because it came back. Leaving the mechanism in place
+    // while empty is what made that cheap.
+    const ALLOW = new Set<string>(['components/ParticleBackground.tsx']);
     const offenders: string[] = [];
     for (const f of SCANNED) {
       if (ALLOW.has(rel(f))) continue;

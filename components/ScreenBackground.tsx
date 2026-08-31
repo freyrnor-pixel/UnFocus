@@ -432,11 +432,16 @@ function ScreenBackground({ activeRoute }: Props) {
   // immediately instead of fading up into it every time the app opens.
   const tint = useSharedValue(intensity);
 
+  // `still` folds `reduceEffects` in beside `reducedMotion` (2026-09-01). The orb layers are not
+  // mounted at all when `reduceEffects` is on, so every `withTiming` below was animating an
+  // opacity that drove nothing — and on a tab change that is two of them, per swipe, forever.
+  const still = reducedMotion || reduceEffects;
+
   useEffect(() => {
-    tint.value = reducedMotion
+    tint.value = still
       ? intensity
       : withTiming(intensity, { duration: Duration.ambient, easing: Ease.move });
-  }, [intensity, reducedMotion, tint]);
+  }, [intensity, still, tint]);
 
   const tintStyle = useAnimatedStyle(() => ({ opacity: tint.value }));
 
@@ -466,10 +471,10 @@ function ScreenBackground({ activeRoute }: Props) {
     setBuffers((prev) => (showB ? [screenHue, prev[1]] : [prev[0], screenHue]));
     const next = !showB;
     setShowB(next);
-    cross.value = reducedMotion
+    cross.value = still
       ? (next ? 1 : 0)
       : withTiming(next ? 1 : 0, { duration: Duration.ambient, easing: Ease.move });
-  }, [screenHue, showB, buffers, cross, reducedMotion]);
+  }, [screenHue, showB, buffers, cross, still]);
   const hueAStyle = useAnimatedStyle(() => ({ opacity: 1 - cross.value }));
   const hueBStyle = useAnimatedStyle(() => ({ opacity: cross.value }));
 

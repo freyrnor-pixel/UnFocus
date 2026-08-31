@@ -247,6 +247,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
+import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
@@ -933,7 +934,10 @@ export default function ScreenScaffold({
         </>
       )}
 
-      {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground. */}
+      {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground.
+          Restored 2026-09-01 with the component; this is the sub-tier / non-pager path, where the
+          pager's own single instance does not reach. */}
+      {ownBackground && !plainBackground && <ParticleBackground />}
 
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in

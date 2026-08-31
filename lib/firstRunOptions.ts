@@ -72,45 +72,46 @@ export type BasicsRow = (typeof BASICS_ROWS)[number];
 /* ── Step 1: motion ──────────────────────────────────────────────────────── */
 
 /**
- * ⚠️ **TWO rungs since 2026-08-27, not three — `'reduced'` is gone.**
+ * ⚠️ **THREE rungs again (2026-09-01). Two from 2026-08-27 to then, and the round trip is the
+ * lesson: this rung is only allowed to exist while something real sits under it.**
  *
- * The ladder was full → reduced → none, and the middle rung's ONLY job was
- * `particlesEnabled: false`: it turned off the ambient drifting-dot field and kept the
- * functional transitions. Round 20's stray-artefacts list deleted that field
- * (`components/ParticleBackground.tsx`), and with it the only ambient motion in the app — the
- * backdrop's other two animations are a growth crossfade (off by default) and a hue crossfade
- * on tab change, and the latter is a TRANSITION, which is exactly what the middle rung
- * promised to keep. So `'reduced'` would have gone on being offered while doing nothing, and
- * its shipped copy ("Transitions stay, moving background goes") would have described a no-op.
+ * The middle rung's only job is `particlesEnabled: false` — the ambient drifting-dot field off,
+ * the functional transitions kept. Round 20 deleted that field
+ * (`components/ParticleBackground.tsx`) as a "stray artefact", so `'reduced'` was left being
+ * offered while writing nothing, and its shipped copy ("Transitions stay, moving background
+ * goes") described a no-op. Collapsing to two was the right call *on that code*.
+ *
+ * The field is back — maintainer: *"backdrop is too empty, don't know why we removed particles
+ * and movement"* — so the rung has something to turn off again and comes back with it. The rule
+ * to keep: **a rung must write something the user can see; check the field still exists before
+ * defending the word.** `lib/__tests__/firstRunOptions.test.ts` asserts exactly that.
  *
  * **The OS reduce-motion path costs nothing here, and that is measured rather than assumed**:
  * `useAccessibility()` ORs the OS flag into `reducedMotion`, so on a phone asking for reduced
- * motion all three rungs already behaved identically and the pre-selection was cosmetic. That
- * is why collapsing to two is safe — see app/onboarding/basics.tsx's seeding, which now floors
- * such a phone at `'none'` instead of at a rung that no longer exists.
- *
- * Restoring a middle rung means first giving it something real to turn off; don't re-add the
- * word on its own.
+ * motion every rung behaves identically and the pre-selection is cosmetic — which is why
+ * app/onboarding/basics.tsx floors such a phone at `'none'`.
  */
-export type MotionChoice = 'full' | 'none';
+export type MotionChoice = 'full' | 'reduced' | 'none';
 
 /** The settings a motion choice actually writes. */
-export type MotionSettings = { reducedMotion: boolean };
+export type MotionSettings = { reducedMotion: boolean; particlesEnabled: boolean };
 
-export const MOTION_CHOICES: readonly MotionChoice[] = ['full', 'none'];
+export const MOTION_CHOICES: readonly MotionChoice[] = ['full', 'reduced', 'none'];
 
 /** Most movement first, least last. */
 export const MOTION_SETTINGS: Record<MotionChoice, MotionSettings> = {
-  full: { reducedMotion: false },
-  none: { reducedMotion: true },
+  full: { reducedMotion: false, particlesEnabled: true },
+  reduced: { reducedMotion: false, particlesEnabled: false },
+  none: { reducedMotion: true, particlesEnabled: false },
 };
 
 /**
- * Which card to pre-select for a settings row. `reducedMotion` is now the whole ladder, so
- * this is a straight read — it used to also have to rank the particles flag beneath it.
+ * Which card to pre-select for a settings row. `reducedMotion` outranks the particles flag —
+ * a phone whose OS asks for reduced motion is at the bottom rung whatever the field says.
  */
 export function motionChoiceOf(s: MotionSettings): MotionChoice {
-  return s.reducedMotion ? 'none' : 'full';
+  if (s.reducedMotion) return 'none';
+  return s.particlesEnabled ? 'full' : 'reduced';
 }
 
 /* ── Text size and appearance ─────────────────────────────────────────────── */
