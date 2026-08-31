@@ -199,11 +199,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
+import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
+import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 import { CHROME_FLOAT_INSET } from '@/constants/theme';
@@ -307,7 +309,10 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
         right: 0,
         bottom: 0,
         zIndex: 100,
-        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
+        // NAV_PAINTED_HEIGHT, not BOTTOM_NAV_HEIGHT — the bar's card is taller than its
+        // content box by the Surface mask's border, and reserving the content box let it hang
+        // 3px past the bottom of this wrapper into the float gap.
+        height: NAV_PAINTED_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
         paddingBottom: insetsBottom + NAV_FLOAT_GAP,
         // ⚠️ **The SIDE inset is `CHROME_FLOAT_INSET`, not `NAV_FLOAT_GAP` (2026-08-27, round
         // 20).** These were the same number (8) and are two different questions: the gap is how
@@ -352,6 +357,17 @@ export const unstable_settings = { initialRouteName: START_TAB_ROUTE };
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { reducedMotion } = useAccessibility();
+  // ⚠️ **`reduceEffects` reaches this file as of 2026-09-01, and until then it did not reach the
+  // swipe at all.** The switch had exactly three consumers — two in `components/Surface.tsx`, one
+  // in `components/ScreenBackground.tsx` — so "reduce visual effects" turned off card blur, card
+  // shadows and the orb field and left every per-frame animation in the pager running. The report
+  // was *"even when visual effects turned off it stutters"*, and that is the gap it names: the
+  // parallax below runs a JS listener on EVERY frame of every swipe and an eased tween on every
+  // settle, and the hero layer cross-fades a full-screen SVG on every tab change.
+  //   Folded into one flag rather than checked separately at each site: `reducedMotion` already
+  // stills all of this, and a user who asked for fewer effects is asking for the same thing here.
+  const reduceEffects = useSettingsStore((st) => st.reduceEffects);
+  const stillBackdrop = reducedMotion || reduceEffects;
   // Which tab is currently showing. It STARTS on the centre tab, always — see
   // `START_TAB_ROUTE` above for why this stopped reading `settings.startScreen` on 2026-08-21.
   // This is still state because the pager writes the live tab back into it (the backdrop and
@@ -389,6 +405,10 @@ export default function TabsLayout() {
   // swipe already arrives smoothly one small delta at a time.
   useEffect(() => {
     if (!pagerPosition) return;
+    // ⚠️ Not installed at all when the backdrop is still (2026-09-01). This is a JS callback on
+    // EVERY frame of every swipe, and with `bgParallax` null there is nothing for it to drive —
+    // it was writing a shared value nobody read, which is the most expensive kind of no-op.
+    if (stillBackdrop) return;
     const id = pagerPosition.addListener(({ value }) => {
       bgIndexRef.current = value;
       if (!suppressLiveMirrorRef.current) {
@@ -396,7 +416,7 @@ export default function TabsLayout() {
       }
     });
     return () => pagerPosition.removeListener(id);
-  }, [pagerPosition, bgIndexAnim]);
+  }, [pagerPosition, bgIndexAnim, stillBackdrop]);
 
   // On every settle (activeRouteName changing — fires for both a BottomNav tap and a swipe
   // landing), give a still-distant bgIndexAnim an explicit eased tween to the new index. A
@@ -406,7 +426,7 @@ export default function TabsLayout() {
   useEffect(() => {
     const targetIndex = TAB_ROUTE_ORDER.indexOf(activeRouteName);
     if (targetIndex < 0) return;
-    if (reducedMotion) {
+    if (stillBackdrop) {
       bgIndexAnim.setValue(targetIndex);
       bgIndexRef.current = targetIndex;
       return;
@@ -422,9 +442,9 @@ export default function TabsLayout() {
       if (finished) bgIndexRef.current = targetIndex;
       suppressLiveMirrorRef.current = false;
     });
-  }, [activeRouteName, reducedMotion, bgIndexAnim]);
+  }, [activeRouteName, stillBackdrop, bgIndexAnim]);
 
-  const bgParallax = reducedMotion
+  const bgParallax = stillBackdrop
     ? null
     : {
         transform: [
@@ -449,7 +469,7 @@ export default function TabsLayout() {
   const heroOpacity = useRef(new Animated.Value(isHomeActive ? 1 : 0)).current;
   useEffect(() => {
     const to = isHomeActive ? 1 : 0;
-    if (reducedMotion) {
+    if (stillBackdrop) {
       heroOpacity.setValue(to);
       return;
     }
@@ -460,7 +480,7 @@ export default function TabsLayout() {
     });
     anim.start();
     return () => anim.stop();
-  }, [isHomeActive, reducedMotion, heroOpacity]);
+  }, [isHomeActive, stillBackdrop, heroOpacity]);
 
   return (
       <View style={{ flex: 1 }}>
@@ -476,7 +496,12 @@ export default function TabsLayout() {
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
           </Animated.View>
-
+          {/* L2: the ambient particle field, restored 2026-09-01 — see that file's header for
+              why it was deleted and why it came back. Mounted ONCE here, inside the parallax
+              layer, so the dots drift with the backdrop on a swipe instead of sitting still over
+              a moving field. It gates itself on `particlesEnabled`/`reducedMotion`/`reduceEffects`
+              and renders `null` when off, so this costs a mount and nothing else. */}
+          <ParticleBackground />
         </Animated.View>
 
         <TopTabs

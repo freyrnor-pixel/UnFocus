@@ -248,6 +248,12 @@ export default function TabSlider<T extends string | number>({
       {active && (
         <Animated.View
           pointerEvents="none"
+          // `testID` is what makes this pill MEASURABLE (2026-08-31). It has no role, no
+          // accessible name and `pointerEvents="none"`, so `scripts/measure-geometry.mjs` could
+          // never see it: that audit measured where the SEGMENTS sit and never where the pill
+          // sits inside them, which is the one thing "the tab slider is off-centre" is actually
+          // about. Reported by eye three times with no check able to see it. Keep the id stable.
+          testID="tabslider-pill"
           // Android only (2026-08-05): a view whose only visual is a Reanimated-driven
           // backgroundColor/width, and nothing else — no children, no static size — is exactly
           // what Android's native-view-flattening optimization targets for removal, and once an

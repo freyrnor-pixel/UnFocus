@@ -102,6 +102,28 @@ describe('invariant 2: no pick can produce an invalid state', () => {
     expect(new Set(seen).size).toBe(MOTION_CHOICES.length);
   });
 
+  test("the 'reduced' rung's field is real — something actually reads particlesEnabled", () => {
+    // ⚠️ **This is the assertion the 2026-08-27 deletion needed and did not have.** The test
+    // above only proves the three rungs write DIFFERENT settings, which stayed true when
+    // `components/ParticleBackground.tsx` was deleted: `reduced` went on writing
+    // `particlesEnabled: false` and nothing anywhere read it, so a distinct-but-inert rung was
+    // shipped with copy describing a no-op, and the ladder had to be collapsed a day later.
+    //   Distinctness is not effect. A rung is only honest while some component gates on the
+    // field it moves, so assert that directly: the file exists, it reads the flag, and it is
+    // mounted. If the field is ever deleted again this fails here rather than in a report.
+    const particles = readFileSync(
+      join(__dirname, '..', '..', 'components', 'ParticleBackground.tsx'),
+      'utf8'
+    );
+    expect(particles).toMatch(/useSettingsStore\(\(s\) => s\.particlesEnabled\)/);
+    expect(particles).toMatch(/particlesEnabled && !reducedMotion && !reduceEffects/);
+    const pager = readFileSync(
+      join(__dirname, '..', '..', 'app', '(tabs)', '_layout.tsx'),
+      'utf8'
+    );
+    expect(pager).toMatch(/<ParticleBackground \/>/);
+  });
+
   test('the fixed start tab names a real tab route and a real path', () => {
     // ⚠️ **This used to check all three CHOICES; there is no choice since 2026-08-21.** The app
     // always opens on the centre tab (`START_TAB_ROUTE`, lib/siteNav.ts) — see that constant's
@@ -174,13 +196,13 @@ describe('invariant 5: the commit is one atomic, complete patch', () => {
       // the two writes would leave the flow "done" with nothing applied. One object, so it
       // can't be.
       // `particlesEnabled` left this list on 2026-08-27 with the ambient particle field it
-      // switched (round 20's stray artefacts) — the motion row writes `reducedMotion` alone now.
-      // The assertion is still an exact key list rather than a subset: the whole point is that
-      // a row can't quietly stop being committed.
+      // switched, and REJOINED it on 2026-09-01 when that field was restored. The assertion is
+      // an exact key list rather than a subset precisely so a round trip like that cannot happen
+      // quietly: a row that stops being committed fails here.
       expect(Object.keys(patch).sort()).toEqual(
         [
           'darkMode', 'firstRunComplete', 'fontSize', 'language', 'leftHanded',
-          'reducedMotion',
+          'particlesEnabled', 'reducedMotion',
         ].sort(),
       );
       expect(patch.firstRunComplete).toBe(true);
@@ -200,29 +222,36 @@ describe('re-running the flow is idempotent (invariant 3 / "Re-run setup")', () 
     // The real "re-run and press straight through" case: whatever a user's current
     // settings are, seeding the flow from them and committing writes them back unchanged.
     for (const reducedMotion of [false, true])
-      for (const fontSize of FONT_SIZE_CHOICES)
-        for (const darkMode of DARK_MODE_CHOICES)
-          for (const language of LANGUAGE_CHOICES)
-            for (const leftHanded of [false, true]) {
-              const current: FirstRunSettings = {
-                reducedMotion,
-                fontSize,
-                darkMode,
-                language,
-                leftHanded,
-              };
-              const { firstRunComplete, ...writtenBack } = settingsPatchFromPicks(picksFromSettings(current));
-              expect(firstRunComplete).toBe(true);
-              expect(writtenBack.fontSize).toBe(current.fontSize);
-              expect(writtenBack.darkMode).toBe(current.darkMode);
-              expect(writtenBack.language).toBe(current.language);
-              expect(writtenBack.leftHanded).toBe(current.leftHanded);
-              // Motion is no longer a lossy axis. It used to be: `reducedMotion` true with
-              // particles ON was a state the three cards could not express, so it normalised
-              // to 'none'. With the particle field deleted (2026-08-27) the ladder is exactly
-              // one boolean, so the round trip is now exact on every row.
-              expect(writtenBack.reducedMotion).toBe(current.reducedMotion);
-            }
+      for (const particlesEnabled of [false, true])
+        for (const fontSize of FONT_SIZE_CHOICES)
+          for (const darkMode of DARK_MODE_CHOICES)
+            for (const language of LANGUAGE_CHOICES)
+              for (const leftHanded of [false, true]) {
+                const current: FirstRunSettings = {
+                  reducedMotion,
+                  particlesEnabled,
+                  fontSize,
+                  darkMode,
+                  language,
+                  leftHanded,
+                };
+                const { firstRunComplete, ...writtenBack } = settingsPatchFromPicks(picksFromSettings(current));
+                expect(firstRunComplete).toBe(true);
+                expect(writtenBack.fontSize).toBe(current.fontSize);
+                expect(writtenBack.darkMode).toBe(current.darkMode);
+                expect(writtenBack.language).toBe(current.language);
+                expect(writtenBack.leftHanded).toBe(current.leftHanded);
+                // ⚠️ Motion is a LOSSY axis again (2026-09-01), and deliberately so: three cards
+                // cannot express four boolean pairs. `reducedMotion` true with particles ON is
+                // not a rung, so it normalises down to 'none' — the safe direction, never up.
+                // This was exact from 2026-08-27 to now only because the ladder was one boolean.
+                expect(writtenBack.reducedMotion).toBe(current.reducedMotion);
+                if (!current.reducedMotion) {
+                  expect(writtenBack.particlesEnabled).toBe(current.particlesEnabled);
+                } else {
+                  expect(writtenBack.particlesEnabled).toBe(false);
+                }
+              }
   });
 });
 
@@ -230,12 +259,18 @@ describe('motionChoiceOf pre-selects honestly', () => {
   test('reducedMotion decides the rung', () => {
     // A user who turned reduced motion on in Settings and then re-runs the flow must not
     // be offered "Full" as the pre-selection.
-    expect(motionChoiceOf({ reducedMotion: true })).toBe('none');
+    expect(motionChoiceOf({ reducedMotion: true, particlesEnabled: false })).toBe('none');
+    // …and it outranks the particle flag, so a phone whose OS forces reduced motion cannot be
+    // pre-selected onto a rung above the bottom one whatever the field says.
+    expect(motionChoiceOf({ reducedMotion: true, particlesEnabled: true })).toBe('none');
   });
 
   test('the shipped defaults pre-select Full', () => {
     // defaultSettings in store/useSettingsStore.ts — a fresh install starts at the top of
     // the ladder, so step 1 opens on the state the app is already in.
-    expect(motionChoiceOf({ reducedMotion: false })).toBe('full');
+    expect(motionChoiceOf({ reducedMotion: false, particlesEnabled: true })).toBe('full');
+    // The middle rung is the one that has to be REAL — see MOTION_SETTINGS' note on the
+    // 2026-08-27 deletion and the 2026-09-01 restore.
+    expect(motionChoiceOf({ reducedMotion: false, particlesEnabled: false })).toBe('reduced');
   });
 });

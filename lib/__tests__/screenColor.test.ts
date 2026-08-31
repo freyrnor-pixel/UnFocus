@@ -47,19 +47,22 @@ describe('getScreenColor', () => {
     expect(getScreenColor(dark, 'goals').base).toBe(dark.featPlan);
   });
 
-  it("'index' wears the TO-DO hue, because it is the to-do screen now", () => {
-    // 2026-08-20, the 5→3 tab merge: app/(tabs)/index.tsx is the "I dag" tab and the day's
-    // tasks and habits live on it, so it reads the same token app/plans.tsx does. It was
-    // neutral while Home was an index of previews that each borrowed their source screen's
-    // hue — those previews still borrow theirs for their BADGES, but the screen itself names
-    // this key as of 2026-08-27 (round 20). It had not, which was the bug: `useScreenColor()`
-    // was null for all of Home, so every categorical control on it fell back to `theme.accent`
-    // and the Energy button glowed blue on the one tab the mockup draws gold.
-    // The consumer that forced this is components/BottomNav.tsx: the active tab is marked by
-    // its categorical hue and nothing else, and a neutral key falls back to `theme.accent`.
-    expect(getScreenColor(light, 'index').base).toBe(light.featTask);
-    expect(getScreenColor(dark, 'index').base).toBe(dark.featTask);
+  it("'index' wears its OWN hue — the app's blue, not To-do's gold", () => {
+    // Lineage, because this key has been all three things it can be. It was `null` (neutral)
+    // while Home was an index of previews each borrowing their source screen's hue; it took
+    // `featTask` at the 2026-08-20 5→3 merge, when Home genuinely WAS the day's tasks; and it
+    // gets its own `featHome` on 2026-09-01, because the five tabs came back on 2026-08-22 and
+    // To-do is a swipe away wearing that same gold.
+    //   Neutral is what must not come back: components/BottomNav.tsx marks the active tab by its
+    // categorical hue and nothing else, so a null key is a tab with no cue. `featHome` IS the
+    // accent, so the pixels match the old fallback — what changes is that it is now named, which
+    // is what stops every categorical control on Home reading as To-do's.
+    expect(getScreenColor(light, 'index').base).toBe(light.featHome);
+    expect(getScreenColor(dark, 'index').base).toBe(dark.featHome);
     expect(getScreenColor(light, 'index').neutral).toBeFalsy();
+    // ⚠️ And it must NOT be To-do's, which is what it was until 2026-09-01. Two neighbouring
+    // tabs in one colour is the defect; asserting only "not neutral" would let it back.
+    expect(getScreenColor(dark, 'index').base).not.toBe(dark.featTask);
   });
 
   it("'home' and Settings deliberately have NO hue", () => {

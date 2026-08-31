@@ -952,12 +952,30 @@ const GLASS_EDGE: Record<
   BorderWeight,
   { lit: number; litDark: number; shade: number; shadeDark?: number }
 > = {
-  card: { lit: 0.95, litDark: 0.16, shade: 1 },
-  field: { lit: 0.75, litDark: 0.12, shade: 0.68 },
-  button: { lit: 0.62, litDark: 0.1, shade: 0.52 },
+  card: { lit: 0.3, litDark: 0.16, shade: 1 },
+  field: { lit: 0.26, litDark: 0.12, shade: 0.68 },
+  button: { lit: 0.22, litDark: 0.1, shade: 0.52 },
 };
 
-/** The light source, per the brief: a white lip on the top and left edges. */
+/**
+ * ⚠️ **`lit` is an alpha on TWO DIFFERENT COLOURS, and which one depends on the mode
+ * (2026-09-01).** In DARK the lit side is white — light landing on glass over a black ground. In
+ * LIGHT it is the SHADE colour at a low alpha, i.e. the same boundary line, quieter on the side
+ * the light comes from.
+ *
+ * The old light values were `lit: 0.95` on white, and they were the "edges look off" report: a
+ * card is `#FDFEFF`, so a 95%-white lip on its top and left is *invisible*, while the bottom and
+ * right carried `theme.border` at full alpha. Every card in light mode was a hard slate line on
+ * two sides and nothing at all on the other two. That is not the brief's asymmetry, it is a
+ * missing boundary — and `components/ScreenScaffold.tsx`'s 16px viewport inset had meanwhile
+ * clipped the side shadows that used to soften it.
+ *
+ * Translating the brief honestly rather than literally: on a black ground the lit edge is where
+ * light LANDS, so it is brighter; on a white ground the card is already the bright thing, so the
+ * lit edge is where the boundary is WEAKEST. Same diagonal, same light source, opposite sign.
+ * The shaded side is unchanged in both modes and is still the one contrast promise
+ * (`__tests__/glassMaterial.test.ts`); the lit side never was one.
+ */
 const GLASS_LIGHT = '#FFFFFF';
 
 /**
@@ -997,20 +1015,23 @@ export function getGlassEdge(
   // light source instead.
   const lit = (isDark ? w.litDark : w.lit) * strength;
   const shadeAlpha = (isDark && w.shadeDark !== undefined ? w.shadeDark : w.shade) * strength;
+  // See GLASS_LIGHT's note: white is the light source on a dark ground; on a light one the lit
+  // side is the boundary colour held back, because the card is already the brightest thing.
+  const litPaint = rgba(isDark ? GLASS_LIGHT : shade, lit);
   // Only the top-left catches light; the rest of the ring fades out rather than closing into a
   // frame. `rgba(GLASS_LIGHT, 0)` and not `'transparent'`, because interpolating a named
   // transparent against an rgba white goes through black on Android and leaves a dirty smudge
   // along the bottom-right instead of nothing at all.
   if (shadeAlpha === 0) {
     return {
-      colors: [rgba(GLASS_LIGHT, lit), rgba(GLASS_LIGHT, lit * 0.34), rgba(GLASS_LIGHT, 0)],
+      colors: [litPaint, rgba(isDark ? GLASS_LIGHT : shade, lit * 0.34), rgba(isDark ? GLASS_LIGHT : shade, 0)],
       locations: [0, 0.34, 1],
       start: { x: 0, y: 0 },
       end: { x: 1, y: 1 },
     };
   }
   return {
-    colors: [rgba(GLASS_LIGHT, lit), rgba(shade, shadeAlpha)],
+    colors: [litPaint, rgba(shade, shadeAlpha)],
     locations: [0, 1],
     start: { x: 0, y: 0 },
     end: { x: 1, y: 1 },

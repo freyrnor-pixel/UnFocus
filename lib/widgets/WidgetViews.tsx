@@ -165,8 +165,11 @@ type Palette = {
 // copies, and lib/widgets/__tests__/widgetPalette.test.ts recomputes them from the real palette
 // and fails the PR on a drift. That is what caught this pair; keep them moving together.
 const LIGHT: Palette = {
-  card: '#FDFEFF', text: '#1B2432', muted: '#535D6B', line: '#65768F',
-  plate: '#EFF0F2', rowFill: '#F3F4F6', rowEdge: '#E6E8EB', edgeLit: '#FFFFFF',
+  // ⚠️ Re-derived 2026-09-01 with light `surfaceGlass` 0.94 -> 0.82, which moved `surface` to
+  // `#FAFCFE`. Everything below that composites over the card moved with it — exactly the drift
+  // the palette test exists to catch, and it caught all five.
+  card: '#FAFCFE', text: '#1B2432', muted: '#535D6B', line: '#65768F',
+  plate: '#ECEEF1', rowFill: '#F0F2F5', rowEdge: '#E4E6EA', edgeLit: '#CDD4DD',
   dark: false,
 };
 const DARK: Palette = {
@@ -195,12 +198,12 @@ const DARK: Palette = {
  * `plate` and 3:1 on `rowFill`, which is every ground a hue actually lands on in a widget.
  */
 const LIGHT_INK: Record<string, Hex> = {
-  '#FFD700': '#8A7400', // To-do gold
-  '#05D9E8': '#03828B', // Habits cyan
-  '#FF8CB2': '#AB5E77', // Health rose
-  '#24B451': '#1B873D', // Shopping emerald
-  '#B660FF': '#9B52D9', // Notes violet
-  '#298AFF': '#2375D9', // accent (the overview's stand-in for an identity hue)
+  '#FFD700': '#877200', // To-do gold
+  '#05D9E8': '#038089', // Habits cyan
+  '#FF8CB2': '#A85C75', // Health rose
+  '#24B451': '#1B853C', // Shopping emerald
+  '#B660FF': '#9951D6', // Notes violet
+  '#298AFF': '#2274D6', // accent (the overview's stand-in for an identity hue)
 };
 
 /** The accent as it may actually be drawn in this palette. Identity hues pass through in dark. */
