@@ -34,7 +34,7 @@
  *     keep this file and that file's `newListTrigger` identical; they are twins on purpose.
  *   - The collapsed "+" tile and the expanded name-entry panel are very different heights, so
  *     every expand/collapse wraps the state change in `LayoutAnimation.configureNext` (gated on
- *     `!reducedMotion`, same idiom as InlineAddItem.tsx/HomeCardManager/MonthlyResetReviewSheet)
+ *     `!reducedMotion`, same idiom as InlineAddItem.tsx/MonthlyResetReviewSheet)
  *     so the height change glides instead of popping.
  *   - **Keyboard-avoidance (2026-07-31)**: `useKeyboardLift` lifts the whole panel (not just the
  *     field) above the keyboard — this row sits below the last Monthly list card, so on a

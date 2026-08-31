@@ -64,7 +64,7 @@
  */
 import React from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Fonts, FontSize, MIN_TAP_TARGET, Spacing, TabularNums, Type } from '@/constants/theme';
+import { CARD_BADGE_SIZE, Fonts, FontSize, MIN_TAP_TARGET, Spacing, TabularNums, Type } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import PressableScale from '@/components/PressableScale';
@@ -246,7 +246,7 @@ export default function SectionRail({ hue, domain, icon, label, count, countRef,
           carries one reads as a card itself, which is what every drawer in the app did. A `sub`
           section takes a 6px dot; a group heading takes nothing at all. */}
       {domain && isCard ? (
-        <CardAccentBadge domain={domain} icon={icon} size={24} accentOverride={badgeHue ? hue : undefined} />
+        <CardAccentBadge domain={domain} icon={icon} size={CARD_BADGE_SIZE} accentOverride={badgeHue ? hue : undefined} />
       ) : sub ? (
         <View style={[styles.subDot, { backgroundColor: hue }]} />
       ) : null}

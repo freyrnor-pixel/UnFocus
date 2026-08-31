@@ -34,7 +34,7 @@
  *     nested panel — same rule Shopping's `embedded` FoodTab/CatalogueTab follow. Goal rows
  *     go through PadRow/PadSheet at the field rung; the empty state is
  *     `<StarterCard embedded>`, i.e. that component's real contents with its Surface,
- *     padding and StageTree dropped.
+ *     padding dropped.
  *     Until 2026-08-12 this file HAND-COPIED that card's bulb row and chip slot, for want of
  *     a way to mount it without its card — the `embedded` prop is that way, and it is what
  *     the same pass gave Health and Habits so their examples stop being a card inside a card.

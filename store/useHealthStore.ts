@@ -16,7 +16,7 @@
  *             — debounced widget/notification refresh on add/update/remove, so live widgets don't
  *             wait for foreground/background)
  *   Used by → app/(tabs)/health.tsx, app/health-form.tsx, app/health-log.tsx, app/health-detail.tsx,
- *             components/HealthIssuesPreviewList.tsx + components/HealthIssuesSheet.tsx
+ *             components/HealthIssuesPreviewList.tsx + components/HealthIssuesEditor.tsx
  *             (2026-08-11 — the "Health issues" drawer/popup, the Goals-shaped standing list)
  *   Data    → defines a Zustand store; owns SQLite tables health_logs and symptoms
  *
@@ -125,7 +125,7 @@ export type Symptom = {
    * typeahead — so it is NOT the list a user would recognise as theirs. This flag is.
    *
    * Set on first log (via `ensureSymptom`, which every log path goes through) or by hand in
-   * components/HealthIssuesSheet.tsx. Cleared by untracking there, which **deletes nothing** —
+   * components/HealthIssuesEditor.tsx. Cleared by untracking there, which **deletes nothing** —
    * every `health_logs` row survives and stays readable in /health-log and on the symptom's
    * own page. See the migration in lib/db.ts for why that asymmetry is deliberate.
    */

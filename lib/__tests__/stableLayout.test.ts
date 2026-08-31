@@ -241,21 +241,32 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // worst. The tutorial stands where the meter will stand, with the same pop-up behind its
     // button.
     // `[^>]*` so a presentational prop can be added without failing this: what matters is that
-    // the tutorial card is mounted at all, not the exact attribute list. It grew
-    // `stage="sapling"` on 2026-08-04 (design comparison task 03) and lost the watermark
-    // outright on 2026-08-19 (*"remove the Tree in Energy"*) — `noTree` now, and `stage` went
-    // with the drawing rather than staying as a prop that does nothing. Either way the tree
-    // was never bound to `current / capacity`, which is one of the bindings both the design
-    // project and lib/growth.ts decline.
+    // the tutorial card is mounted at all, not the exact attribute list. Its watermark history is
+    // over: it grew `stage="sapling"` on 2026-08-04, took a one-call-site `noTree` on 2026-08-19
+    // (*"remove the Tree in Energy"*), and on 2026-09-01 the tree left the whole app — same
+    // instruction applied everywhere — so `components/StageTree.tsx` and both props are deleted
+    // and there is nothing left to assert but their absence. Either way the tree was never bound
+    // to `current / capacity`, which is one of the bindings both the design project and
+    // lib/growth.ts decline.
     //
     // ⚠️ It LOST its `text` on 2026-08-17 (*"Remove the 'Energy is how much a day holds…'
     // block"*), and that half is asserted as an absence below. The card itself is what this test
     // is really about — the point was never the paragraph, it was that this spot must not draw a
     // full ten-pip bar before anything can spend it.
-    expect(src).toMatch(/<StarterCard[^>]*\bnoTree\b[^>]*>/);
+    expect(src).toMatch(/<StarterCard[^>]*>/);
     expect(src).not.toMatch(/<StarterCard[^>]*stage=/);
+    // Scoped to the JSX rather than the whole file: the source's own comment explains where the
+    // prop went, and a bare word-match would forbid saying so.
+    expect(src).not.toMatch(/<StarterCard[^>]*noTree/);
     expect(src).not.toMatch(/<StarterCard[^>]*\btext=/);
     expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
+    // ⚠️ **The EMPTY pips (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
+    // state energy card so it's not so empty."* They are the meter's own `pipEmpty` recipe at
+    // `MAX_PIPS`, which is the point: this state has to be the SHAPE of the thing it is inviting
+    // you to fill in. It does NOT reopen the rule above — an EMPTY row is the opposite of the
+    // full ten-pip bar that reads as a score, and nothing here is bound to `current / capacity`.
+    expect(src).toMatch(/length: MAX_PIPS/);
+    expect(src).toMatch(/styles\.pipEmpty/);
     expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
     // Either kind of "something added" sends the meter back: an energy value on a task/habit,
     // or a capacity the user set themselves (any energy_budgets override row).

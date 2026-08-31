@@ -177,7 +177,6 @@ import Button from '@/components/Button';
 import DisclosureRow from '@/components/DisclosureRow';
 import Collapsible from '@/components/Collapsible';
 import PressableScale from '@/components/PressableScale';
-import ShoppingChip from '@/components/ShoppingChip';
 import { SHOPPING_STARTERS, type StarterItem } from '@/lib/shoppingStarters';
 import ShoppingRow, { CHECKED_OPACITY } from '@/components/ShoppingRow';
 import { LAYOUT_SPECS, type LayoutSpec } from '@/lib/cardLayout';
@@ -679,74 +678,6 @@ export default function WeekListCard({
                   ))}
                 </View>
               )
-            ) : spec.chips ? (
-              /* "In the store" (chip layout, 2026-08-20): the same aisle sections, drawn as a
-                 wrapping grid of tap-to-tick chips instead of ruled rows. One tap ticks an
-                 item and it moves to the "Brukt nylig" drawer below — that IS the existing
-                 In-cart bucket, relabelled for this layout only, so nothing new is stored.
-                 Deliberately no dividers: chips are separated by whitespace, and a rule
-                 between them would be the border the blueprint pass took off. */
-              aisleGroups.length > 0 && (
-                <View style={styles.chipSections}>
-                  {aisleGroups.map(([category, aisleItems]) => (
-                    <View key={category}>
-                      <Text style={[styles.aisleHeader, { color: theme.textMuted }]}>
-                        {categoryLabel(t, category)}
-                      </Text>
-                      <View style={styles.chipGrid}>
-                        {aisleItems.map((item) => (
-                          <ShoppingChip
-                            key={item.id}
-                            item={item}
-                            ticked={false}
-                            onToggle={() => onToggleItem(item)}
-                            onOpenDetail={() => onOpenItem(item)}
-                            locked={list.locked}
-                            spec={spec}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              )
-            ) : spec.groupByAisle ? (
-              /* "In the store": one section per aisle, in the order you walk the shop.
-                 Deliberately drops drag-reorder and the dish grouping for the duration —
-                 nobody rearranges their list mid-aisle, and both would fight the grouping.
-                 Presentation only: every row keeps its stored orderIndex, so switching back
-                 to any other layout restores the dragged order untouched. */
-              aisleGroups.length > 0 && (
-                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
-                  {aisleGroups.map(([category, aisleItems], groupIdx) => (
-                    <View key={category}>
-                      <Text style={[styles.aisleHeader, { color: theme.textMuted }]}>
-                        {categoryLabel(t, category)}
-                      </Text>
-                      {aisleItems.map((item, idx) => (
-                        <View key={item.id}>
-                          <ShoppingRow
-                            item={item}
-                            variant="planned"
-                            onToggle={() => onToggleItem(item)}
-                            onRemove={() => onRemoveItem(item)}
-                            onOpenDetail={() => onOpenItem(item)}
-                            inStockLabel={t.inStockLabel}
-                            locked={list.locked}
-                            spec={spec}
-                            isNewSince={newSinceIds?.has(item.id)}
-                            newFields={newFields}
-                            onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                          />
-                          {(idx < aisleItems.length - 1 || groupIdx < aisleGroups.length - 1) && (
-                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  ))}
-                </View>
-              )
             ) : (
               (ungroupedUnchecked.length > 0 || dishUnchecked.length > 0) && (
                 <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
@@ -879,28 +810,11 @@ export default function WeekListCard({
               style={[styles.sectionHeaderRow, { backgroundColor: theme.surfaceMuted }]}
             >
               <Text style={[styles.sectionLabel, { color: theme.accent }]}>
-                {spec.chips ? t.recentlyUsedSection(totalInCart) : t.inCartSection(totalInCart)}
+                {t.inCartSection(totalInCart)}
               </Text>
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
-            {spec.chips ? (
-              /* The same bucket the rows branch below draws — ticked items — as chips. Tapping
-                 one puts it straight back in the list, so the drawer is a way back and not a
-                 dead end. */
-              <View style={styles.chipGrid}>
-                {(filterActive ? filteredInCart : allChecked).map((item) => (
-                  <ShoppingChip
-                    key={item.id}
-                    item={item}
-                    ticked
-                    onToggle={() => onToggleItem(item)}
-                    onOpenDetail={() => onOpenItem(item)}
-                    locked={list.locked}
-                    spec={spec}
-                  />
-                ))}
-              </View>
-            ) : (
+
             <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.accent }]}>
               {(filterActive ? filteredInCart : allChecked).map((item, idx, arr) => (
                 <View key={item.id}>
@@ -921,7 +835,6 @@ export default function WeekListCard({
                 </View>
               ))}
             </View>
-            )}
             {inCartTotal > 0 && spec.showPrice && (
               <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                 {t.weekListTotal(formatKr(inCartTotal, 0))}

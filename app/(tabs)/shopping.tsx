@@ -503,11 +503,12 @@ import { useMealStore } from '@/store/useMealStore';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useMonthlyListStore, MonthlyList, monthlyListLabel } from '@/store/useMonthlyListStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import type { CardKey } from '@/lib/cardRegistry';
+import { useOrderedCards } from '@/lib/useCardOrder';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
-import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
@@ -535,7 +536,6 @@ import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
-import KeepAwakeInStore from '@/components/KeepAwakeInStore';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import NarratorQuote from '@/components/NarratorQuote';
@@ -720,8 +720,8 @@ export default function ShoppingScreen() {
   // Card layout (2026-07-27). `layoutSpec` decides how rows are DRAWN; it is read-only here
   // and feeds nothing but rendering — no reminder, automation, or sync path consults it.
   const layoutSpec = useSurfaceLayout('shopping');
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [manageCardsOpen, setManageCardsOpen] = useState(false);
+  const cardOrder = useOrderedCards('shop');
   // Arrived from a note's ⋯ → Send it to… → Shopping list (2026-07-30). The text seeds the add
   // row of the list that covers today — `currentList` is the same helper Home's card uses to
   // pick its default target, so both entry points agree on which list "the shopping list" is.
@@ -2501,10 +2501,9 @@ export default function ShoppingScreen() {
     </Card>
   );
 
-  const foodCatalogueLinks = (
-    <>
-      <View>
-        {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
+  const dishesCard = (
+    <View>
+      {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
             2026-08-21).** Maintainer: *"Dishes color coding is weak/pale"* and *"color coding
             must be based on visual navigation."* Both were true, and the cause was not the
             drawing — it was that Dishes had no colour of its own to draw. `domain="meal"`
@@ -2519,12 +2518,15 @@ export default function ShoppingScreen() {
               `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
             rather than the aliased domain colour. The CARD's edge is untouched and still the
             screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
-        <Card id="shopDishes" count={dishCount} peek={t.peek.shopDishes(dishCount)}>
-          <FoodTab embedded onNotify={setConfirm} />
-        </Card>
-      </View>
-      <View>
-        {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
+      <Card id="shopDishes" count={dishCount} peek={t.peek.shopDishes(dishCount)}>
+        <FoodTab embedded onNotify={setConfirm} />
+      </Card>
+    </View>
+  );
+
+  const catalogueCard = (
+    <View>
+      {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
             (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
             lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
             top part"* and the 2026-08-21 pass gave every card a fold. Something had to yield,
@@ -2549,15 +2551,25 @@ export default function ShoppingScreen() {
           // right-most thing in the header.
           controls={<CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />}
         >
-          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
-        </Card>
-      </View>
-    </>
+        <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+      </Card>
+    </View>
   );
+
+  // ⚠️ **The cards are DATA now (2026-09-01), not three hardcoded render calls.** Each registry
+  // id resolves to its already-built node and the screen renders `orderedCards('shop')`, which
+  // is what makes the Manage cards sheet's reorder reach this tab. The maintainer's 2026-08-21
+  // order — *"Shopping lists, food and Catalogue, Monthly"* — is still what the registry
+  // declares and still what anyone who never opens that sheet gets.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    shopLists: weeklyGroup,
+    shopDishes: dishesCard,
+    shopCatalogue: catalogueCard,
+  };
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2576,15 +2588,14 @@ export default function ShoppingScreen() {
               on 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md — see
               lib/cardRegistry.ts's note at `shopMonthly`'s old position), so it is no longer a
               separate render call here at all; `monthlySection` is mounted INSIDE `weeklyGroup`,
-              near its foot, below the week sections and above the New-list/Archive triggers. */}
-          {weeklyGroup}
-
-          {/* Doors out of this screen go at the FOOT of it (2026-08-10). They sat above the
-              lists while they were a compact two-tile row; as full drawers that would put the
-              two least-visited surfaces on the screen ahead of the thing you opened Shopping
-              to do (DESIGN_RULES.md rule 7). Bottom-of-screen is also where To-do and Habits
-              put theirs, so the placement matches the shape. */}
-          {foodCatalogueLinks}
+              near its foot, below the week sections and above the New-list/Archive triggers.
+                ⚠️ **And the user can reorder it from 2026-09-01** — `useOrderedCards` layers
+              settings.cardOrder over the registry's declared order, so the maintainer's order is
+              what anyone who never opens the Manage cards sheet gets. The reason Dishes and
+              Catalogue are LAST by default is still the 2026-08-10 one: doors out of a screen go
+              at the foot of it, or the two least-visited surfaces sit ahead of the thing you
+              opened Shopping to do (DESIGN_RULES.md rule 7). */}
+          {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
         </DebugNoteAnchor>
 
@@ -2628,11 +2639,6 @@ export default function ShoppingScreen() {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
       />
-      <LayoutPickerSheet
-        visible={layoutPickerOpen}
-        surface="shopping"
-        onClose={() => setLayoutPickerOpen(false)}
-      />
       <ManageCardsSheet
         visible={manageCardsOpen}
         screen="shop"
@@ -2647,7 +2653,6 @@ export default function ShoppingScreen() {
     {/* Conditionally mounted, and that IS the lock's scope — see components/KeepAwakeInStore.tsx.
         Once, at screen level: the layout is a per-surface setting, so every week list shares
         this spec, and useKeepAwake's shared tag makes per-card mounts release each other's lock. */}
-    {layoutSpec.chips && <KeepAwakeInStore />}
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     <ConfirmationBanner
       message={confirmMessage}

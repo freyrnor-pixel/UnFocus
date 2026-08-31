@@ -36,7 +36,6 @@
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (the Details row
  *             on the quick-add's labelled panel),
  *             components/PadFooterToggle, components/SendToSheet, components/Surface,
- *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             components/PressableScale, components/CardAccent (CardAccentBadge), components/Badge,
  *             components/Collapsible + components/AnimatedChevron (checked-zone reveal),
  *             constants/theme, lib/haptics, lib/i18n, lib/date (todayStr), lib/useAppTheme,
@@ -76,10 +75,6 @@
  *   - **`onMore` / "…" (2026-08-01)**: commits the same draft as the checkmark, then navigates
  *     to `/notes`. Unlike Habits/To-do there's nothing further to pre-fill — a note's header and
  *     body are both already editable per-row on that screen — so this is just "take me to it".
- *   - **The header "⋮" (2026-08-04, workstream A)**: `cardMenu` is optional and BUILT BY HOME
- *     (app/(tabs)/index.tsx), not here — the rows it carries change `settings.homeCardOrder`
- *     and Home's reorder mode, neither of which this card can reach. No prop, no ⋮; this card
- *     has no card-scoped settings of its own to add to the list.
  *   - **Historical trap, now avoided rather than worked around**: the badge used to be
  *     absolutely positioned, which meant its origin inherited the parent's padding on native
  *     but NOT on react-native-web (which compiles to CSS, where the containing block is the
@@ -103,7 +98,6 @@ import { Input } from '@/components/FormControls';
 import Card from '@/components/Card';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import SendToSheet, { SendToTarget } from '@/components/SendToSheet';
-import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
 import { Fonts, FontSize, HitSlop, IconSize, Radius, rgba, Spacing } from '@/constants/theme';
@@ -118,11 +112,6 @@ import { useNotesStore } from '@/store/useNotesStore';
 import { getScreenColor } from '@/lib/screenColor';
 import { useVoiceCapture } from '@/lib/useVoiceCapture';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
-
-type Props = {
-  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
-  cardMenu?: CardMenu;
-};
 
 /**
  * The card's quick-add, as its own component — and the SPLIT is the point, not the tidiness
@@ -238,7 +227,7 @@ function NotesComposer({ accent, onCommit, voice }: {
   );
 }
 
-export default function HomeNotesCard({ cardMenu }: Props) {
+export default function HomeNotesCard() {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -357,7 +346,6 @@ export default function HomeNotesCard({ cardMenu }: Props) {
       id="homeNotes"
       count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}
       peek={t.peek.homeNotes(notes.length)}
-      controls={cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : undefined}
     >
         <PadSheet
           state={state}
@@ -449,7 +437,7 @@ const baseStyles = StyleSheet.create({
 
 
   micButton: {
-    // `IconSize.action` (2026-08-21) — see CardMenuSheet's kebab note. This sits in the same
+    // `IconSize.action` (2026-08-21). This sits in the same
     // header cluster as that ⋯ and the ⤢, and was the third diameter in a row of three controls.
     width: IconSize.action,
     height: IconSize.action,

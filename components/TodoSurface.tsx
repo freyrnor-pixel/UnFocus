@@ -73,7 +73,7 @@
  *     singleton rule: a section drawn once per weekday has nothing stable to store since it's
  *     data-generated, not a fixed id). Only the Week card's own outer wrapper expands.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
@@ -81,6 +81,9 @@ import SharedTasksSection from '@/components/SharedTasksSection';
 import SectionRail from '@/components/SectionRail';
 import Card from '@/components/Card';
 import SectionCard from '@/components/SectionCard';
+import { triagePatch, triageTargetAt, type TriageTarget, type TriageZone } from '@/lib/todoTriage';
+import IconButton from '@/components/IconButton';
+import { SegmentedControl } from '@/components/FormControls';
 import TaskCard from '@/components/TaskCard';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
@@ -94,18 +97,19 @@ import Button from '@/components/Button';
 import { DayEntry } from '@/lib/dayLog';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
+import type { CardKey } from '@/lib/cardRegistry';
+import { useOrderedCards } from '@/lib/useCardOrder';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import GoalsEditor from '@/components/GoalsEditor';
 import { RecentDaysList } from '@/components/DayPickerSheet';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterExampleRow from '@/components/StarterExampleRow';
-import { todayStr, getWeekDates, getMonthDates, dayOfWeekMon0 } from '@/lib/date';
+import { todayStr, getWeekDates, getMonthDates, dayOfWeekMon0, addDays, formatDateRange, parseDateStr } from '@/lib/date';
 import TimeBoxInput from '@/components/TimeBoxInput';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -118,7 +122,7 @@ import { useAppTheme } from '@/lib/useAppTheme';
 import { usePrefill } from '@/lib/prefill';
 import { useDragReorder } from '@/lib/useDragReorder';
 import { useEnergyPause } from '@/lib/useEnergyPause';
-import { tap, success, confirm } from '@/lib/haptics';
+import { tap, success, confirm, selection } from '@/lib/haptics';
 import { PLAN_STARTER_STEPS, PLAN_STARTER_TIME, PLAN_STARTER_FINISH_TIME } from '@/lib/taskStarters';
 import { Recurring, Task, useTaskStore } from '@/store/useTaskStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -131,13 +135,13 @@ import { useTagStore } from '@/store/useTagStore';
 import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
-import { FontSize, Radius, SCREEN_GAP, Spacing, Type } from '@/constants/theme';
+import { FontSize, Radius, SCREEN_GAP, Spacing, Type, IconSize, Fonts } from '@/constants/theme';
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
 import { getScreenColor } from '@/lib/screenColor';
 
-export type TodoSection = 'whenever' | 'today' | 'week' | 'month' | 'recurring';
+export type TodoSection = 'whenever' | 'today' | 'calendar' | 'recurring';
 
 /** Time-order comparator: timed tasks first (by HH:MM), then untimed by title. */
 function byTime(a: Task, b: Task): number {
@@ -273,7 +277,7 @@ function InlineTaskAdd({
   assignee?: string;
   wrapped?: boolean;
   /** Which options panel this mount offers — omit for a bare line with no options at all. */
-  compose?: 'today' | 'week' | 'month';
+  compose?: 'today' | 'calendar';
   /** The Day/Date option's pickable dates (`'week'`/`'month'` only) — the composer's own `date`
    *  is the default selection. */
   dateChoices?: DateChoice[];
@@ -288,7 +292,7 @@ function InlineTaskAdd({
   const [goalId, setGoalId] = useState<string | null>(null);
   const [chosenDate, setChosenDate] = useState(date);
 
-  const commitDate = compose === 'week' || compose === 'month' ? chosenDate || date : date;
+  const commitDate = compose === 'calendar' ? chosenDate || date : date;
 
   const commit = useCallback(() => {
     const title = value.trim();
@@ -297,7 +301,7 @@ function InlineTaskAdd({
     addTask({
       title,
       date: commitDate,
-      time: (compose === 'today' || compose === 'week') && time ? time : undefined,
+      time: time ? time : undefined,
       taskType: 'start-at',
       done: false,
       recurring: 'none',
@@ -325,7 +329,7 @@ function InlineTaskAdd({
   function pickDate() {
     if (!dateChoices || dateChoices.length === 0) return;
     tap();
-    showAppModal(compose === 'week' ? t.pad.dayOption : t.dateLabel, undefined, [
+    showAppModal(t.pad.dayOption, undefined, [
       ...dateChoices.map((d) => ({
         text: d.date === commitDate ? `• ${d.label}` : d.label,
         onPress: () => setChosenDate(d.date),
@@ -338,20 +342,20 @@ function InlineTaskAdd({
 
   const panel = compose ? (
     <QuickAddOptionsPanel>
-      {(compose === 'week' || compose === 'month') && dateChoices && dateChoices.length > 0 && (
+      {compose === 'calendar' && dateChoices && dateChoices.length > 0 && (
         <QuickAddOptionRow
-          opt={compose === 'week' ? 'day' : 'date'}
+          opt="day"
           icon="calendar-outline"
-          label={compose === 'week' ? t.pad.dayOption : t.dateLabel}
+          label={t.pad.dayOption}
           value={chosen?.short ?? ''}
           isSet={!!chosen}
           accent={accent}
           onPress={pickDate}
           showsMore
-          accessibilityLabel={`${compose === 'week' ? t.pad.dayOption : t.dateLabel}: ${chosen?.label ?? ''}`}
+          accessibilityLabel={`${t.pad.dayOption}: ${chosen?.label ?? ''}`}
         />
       )}
-      {(compose === 'today' || compose === 'week') && (
+      {(
         <QuickAddOptionRow
           opt="time"
           icon="time-outline"
@@ -509,11 +513,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const [todayCardState, setTodayCardState] = useCardState('plans');
   const planTimelineHorizontal = useSettingsStore((s) => s.planTimelineHorizontal);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
-  const tasksForWeek = useTaskStore((s) => s.tasksForWeek);
   const toggle = useTaskStore((s) => s.toggle);
   const addTask = useTaskStore((s) => s.add);
   const reorderTasks = useTaskStore((s) => s.reorderTasks);
   const setTasksDated = useTaskStore((s) => s.setTasksDated);
+  // The cross-card drop's write — see `wheneverRowProps`.
+  const updateTask = useTaskStore((s) => s.update);
   const washedAwayTasks = useTaskStore((s) => s.washedAwayTasks);
   const bringBack = useTaskStore((s) => s.bringBack);
   const addTaskStep = useTaskStore((s) => s.addStep);
@@ -712,13 +717,22 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     [washedAwayTasks, taskDecayOn, today, tasks, nowMinutes]
   );
 
-  const weekDates = useMemo(() => getWeekDates(today), [today]);
-  const weekStart = weekDates[0];
-
+  /**
+   * ⚠️ **`!tk.hasStartDate` joined this predicate on 2026-09-01, and its absence was a real
+   * defect.** Whenever showed EVERY non-recurring, non-shared-out task — so a task dated today
+   * appeared in the Today card AND here, and one dated next Tuesday appeared in Calendar AND
+   * here. The card's own name and its peek ("N waiting") both said otherwise.
+   *   It matters more now than it did: the maintainer's ruling is *"unassigned is whenever, use
+   * whenever"*, so this is the app's single undated bucket — where a note sent to To-do lands, and
+   * where Plan mode puts everything. A bucket that also contains the dated tasks is not one.
+   *   `hasStartDate: false` is exactly what "undated" means in this model (`setTasksDated` writes
+   * that field ALONE and deliberately leaves `date` alone, so a task parked from next Thursday
+   * keeps Thursday and putting it back restores the day) — so this needs no new column.
+   */
   const wheneverAll = useMemo(
     () =>
       tasks
-        .filter((tk) => tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk))
+        .filter((tk) => !tk.hasStartDate && tk.recurring === 'none' && !tk.sharedOut && matchFilters(tk))
         .sort((a, b) => a.sortOrder - b.sortOrder),
     [tasks, matchFilters]
   );
@@ -778,43 +792,131 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     (tk: Task) => ({ pinned: tk.id === pinnedTaskId, dimmed: !!pinnedTaskId && tk.id !== pinnedTaskId }),
     [pinnedTaskId]
   );
-  const weekGroups = useMemo(
-    () => tasksForWeek(weekStart).map((g) => ({ ...g, tasks: g.tasks.filter(matchFilters) })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tasks` drives recompute (tasksForWeek reads the store, not this var), not read directly
-    [tasksForWeek, weekStart, tasks, matchFilters]
-  );
-
-  // The Week card's own tally — the seven days' filtered tasks, so the count on the rail is the
-  // count of what the card would draw, exactly as `count={group.tasks.length}` is per day.
-  const weekTaskCount = useMemo(
-    () => weekGroups.reduce((n, g) => n + g.tasks.length, 0),
-    [weekGroups]
-  );
-
-  // The Week composer's "Day" option (phase 7) — one choice per date the card actually draws,
-  // short for the cell, full for the picker's own list.
-  const weekDateChoices = useMemo(
-    () => weekGroups.map((g, i): DateChoice => ({ date: g.date, short: t.dayLabels[i], label: t.dayFull[i] })),
-    [weekGroups, t]
-  );
-
-  // Per-weekday fold state for the Week card (2026-08-20, card-element standardization pass —
-  // "avoid always having 7 days showing"). Local and NOT persisted: a day's own SectionCard is
-  // data-generated (one per date in the current week), and lib/collapsedCards.ts's singleton
-  // rule is exactly why a per-day id can't take a `collapseKey` — see SectionCard.tsx's edit
-  // note.
+  // ── The Calendar card (2026-09-01) ──────────────────────────────────────────────────────
   //
-  // **EVERY day starts folded, today's included** (2026-08-19, maintainer: *"the current day
-  // does not need to be open. The days are just for an overview, while 'Today' and 'Whenever'
-  // at the top is for use."*). The card above this one is already today, in full, with its own
-  // composer — so auto-opening today here drew the same day twice and made the one card that is
-  // meant to read as a seven-row overview open at whatever height today happens to be. This
-  // used to be `.filter((d) => d !== today)`; don't restore it.
-  const [collapsedWeekdays, setCollapsedWeekdays] = useState<Set<string>>(
-    () => new Set(weekGroups.map((g) => g.date))
+  // ⚠️ **ONE card where there were two.** Maintainer: *"Calendar (for selecting week/month and
+  // interval instead of week AND month card)."* `todoWeek` and `todoMonth` asked the same
+  // question — "what is dated in this range" — at two ranges each hard-wired to the card's own
+  // name, so there was no card at all for next week or next month.
+  //   It also removes a seam that was a real defect risk: `todoMonth` had to EXCLUDE the seven
+  // dates `todoWeek` was drawing, or a task appeared on both cards. One card, one range, no
+  // exclusion, and the arrows make "later" reachable instead of implied.
+  //
+  // Both pieces of state are LOCAL and unpersisted, deliberately. A range is where you are
+  // looking right now, not a preference — coming back to the tab tomorrow should show this week,
+  // not whichever week you last scrolled to. Same reasoning as the weekday folds below.
+  const language = useSettingsStore((st) => st.language);
+
+  /**
+   * **Plan mode (2026-09-01).** Maintainer: *"introduce a Plan-mode there so the user can just
+   * make a bunch of tasks that are unassigned. When they are done planning they can easily move
+   * it to the desired card by drag-and-drop or just setting time/interval."*
+   *
+   * It is one behaviour, not a feature: the Whenever composer stays open and refocused after each
+   * commit instead of collapsing to its "+" bar. Everything it writes is already
+   * `hasStartDate: false` — `commitWhenever` has always written that — so there is no new field,
+   * no column and no migration. The triage half is the app's existing one: a Whenever row's own
+   * "Move to today" shortcut, or setting a time or a repeat on it, which moves it out by itself.
+   *
+   * LOCAL state, not a setting. It is a mode you are in for two minutes while emptying your head,
+   * not a preference you hold — and a preference would silently change what the composer does for
+   * someone who turned it on once.
+   */
+  const [planMode, setPlanMode] = useState(false);
+  const [calRange, setCalRange] = useState<'week' | 'month'>('week');
+  const [calOffset, setCalOffset] = useState(0);
+  // Reset to the current range whenever the day rolls over, so a tab left open overnight does not
+  // silently show "this week" meaning last week.
+  useEffect(() => { setCalOffset(0); }, [today]);
+
+  /** Every date the card is currently showing, in order. */
+  const calDates = useMemo(() => {
+    if (calRange === 'week') return getWeekDates(addDays(today, calOffset * 7));
+    const [y, m] = today.slice(0, 7).split('-').map(Number);
+    // `m` is 1-based here and `getMonthDates` takes it that way; the Date constructor normalises
+    // an out-of-range month, which is what makes December → January work without a special case.
+    const shifted = new Date(y, m - 1 + calOffset, 1);
+    return getMonthDates(shifted.getFullYear(), shifted.getMonth() + 1);
+  }, [calRange, calOffset, today]);
+
+  const calDateSet = useMemo(() => new Set(calDates), [calDates]);
+
+  /** The card's tasks, grouped by date, in date order. Dated, non-recurring, not shared out. */
+  const calGroups = useMemo(() => {
+    const byDate = new Map<string, Task[]>();
+    for (const d of calDates) byDate.set(d, []);
+    for (const tk of tasks) {
+      if (!tk.hasStartDate || tk.recurring !== 'none' || tk.sharedOut) continue;
+      if (!calDateSet.has(tk.date) || !matchFilters(tk)) continue;
+      byDate.get(tk.date)!.push(tk);
+    }
+    // ⚠️ **A WEEK draws all seven days; a MONTH draws only the dates with something on them.**
+    // The asymmetry is deliberate and is the maintainer's own reason for the week view existing:
+    // *"the days are just for an overview"* — seven rows read as a week, and an empty Thursday is
+    // information. Thirty rows do not read as anything, and twenty-six empty ones are noise.
+    return calDates
+      .map((date) => ({ date, tasks: byDate.get(date)!.sort(byTime) }))
+      .filter((g) => calRange === 'week' || g.tasks.length > 0);
+  }, [calDates, calDateSet, tasks, matchFilters, calRange]);
+
+  const calTaskCount = useMemo(
+    () => calGroups.reduce((n, g) => n + g.tasks.length, 0),
+    [calGroups]
   );
-  const toggleWeekday = useCallback((date: string) => {
-    setCollapsedWeekdays((prev) => {
+
+  // The composer's "Day" option — one choice per date the card actually draws, so a row always
+  // lands inside the range that created it. A week is labelled by weekday, a month by day number
+  // (there is no room in a half-width cell for "26 August").
+  const calDateChoices = useMemo(
+    () =>
+      calDates.map((d, i): DateChoice =>
+        calRange === 'week'
+          ? { date: d, short: t.dayLabels[i], label: t.dayFull[i] }
+          : { date: d, short: String(Number(d.slice(8, 10))), label: d }
+      ),
+    [calDates, calRange, t]
+  );
+
+  /**
+   * A date's own row label. A week names the weekday (seven rows read as a week); a month names
+   * the day and weekday, because "12" alone in a list of dates says nothing about which day it
+   * lands on and that is usually what the question is.
+   */
+  const calDateLabel = useCallback(
+    (date: string) =>
+      calRange === 'week'
+        ? t.dayFull[dayOfWeekMon0(parseDateStr(date))]
+        : `${Number(date.slice(8, 10))}. ${t.dayLabels[dayOfWeekMon0(parseDateStr(date))]}`,
+    [calRange, t]
+  );
+
+  // Committing on the line alone must always produce a row this card draws (tier 1's rule), so
+  // the default is today when today is in range and the range's first day otherwise.
+  const calDefaultDate = calDateSet.has(today) ? today : (calDates[0] ?? today);
+
+  /** What the header says the range IS — a date span for a week, a month name for a month. */
+  const calRangeLabel = useMemo(() => {
+    if (calRange === 'week') {
+      // `formatDateRange` already handles the same-month and cross-month cases and the
+      // Norwegian/English word order. Reuse rather than a fourth date formatter.
+      return formatDateRange(calDates[0], calDates[calDates.length - 1], t.monthsShort, language);
+    }
+    const d = parseDateStr(calDates[0] ?? today);
+    return `${t.months[d.getMonth()]} ${d.getFullYear()}`;
+  }, [calRange, calDates, today, t, language]);
+
+  // Per-date fold state. Local and NOT persisted: these sections are data-generated (one per date
+  // in whatever range is showing), and lib/collapsedCards.ts's singleton rule is exactly why a
+  // per-date id cannot take a `collapseKey` — a bag keyed by date grows forever.
+  //
+  // **EVERY date starts folded, today's included** (2026-08-19, maintainer: *"the current day
+  // does not need to be open. The days are just for an overview, while 'Today' and 'Whenever' at
+  // the top is for use."*). The card above this one is already today, in full, with its own
+  // composer. Keyed off the RANGE so changing week or granularity opens nothing by surprise.
+  const [openDates, setOpenDates] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setOpenDates(new Set()); }, [calRange, calOffset]);
+  const toggleCalDate = useCallback((date: string) => {
+    setOpenDates((prev) => {
       const next = new Set(prev);
       if (next.has(date)) next.delete(date);
       else next.add(date);
@@ -822,45 +924,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     });
   }, []);
 
-  // **The Month card — a DATE FILTER, not monthly recurrence** (2026-08-26, new). Every date in
-  // the current calendar month, minus the seven Week already draws — the same question
-  // `todoWeek` already asks, one rung out, so it reads `taskOccursOn` the identical way
-  // `tasksForWeek` does rather than adding a second occurrence engine. Recurring tasks stay out
-  // (they belong to `todoRecurring`); this is only the dated, non-recurring backlog for later
-  // this month.
-  const monthDates = useMemo(() => {
-    const [y, m] = today.slice(0, 7).split('-').map(Number);
-    return getMonthDates(y, m);
-  }, [today]);
-  // New tasks composed on this card default to the month's last day, so committing on the line
-  // alone (tier 1's rule) always lands a row this card actually draws.
-  const monthDefaultDate = monthDates[monthDates.length - 1] ?? today;
-  // The Month composer's "Date" option (phase 7) — every date this card draws, labelled by day
-  // number (there's no room in a half-width cell for a full "26 August").
-  const monthDateChoices = useMemo(
-    () => monthDates.map((d): DateChoice => ({ date: d, short: String(Number(d.slice(8, 10))), label: d })),
-    [monthDates]
-  );
-  const monthAll = useMemo(() => {
-    const weekSet = new Set(weekDates);
-    return tasks
-      .filter(
-        (tk) =>
-          tk.hasStartDate &&
-          tk.recurring === 'none' &&
-          !tk.sharedOut &&
-          monthDates.includes(tk.date) &&
-          !weekSet.has(tk.date) &&
-          matchFilters(tk)
-      )
-      .sort((a, b) => a.date.localeCompare(b.date) || byTime(a, b));
-  }, [tasks, monthDates, weekDates, matchFilters]);
-
   // Goals/Earlier days (inside Today) and Washed away (inside Whenever) are SECTIONS now, not
   // registry cards — see lib/cardRegistry.ts's note at their old position. A section's fold is
   // LOCAL and unpersisted, the same shape the Week card's seven weekday sections already use;
   // there is nothing stable here to key a persisted `collapseKey` on.
-  const [todayGoalsOpen, setTodayGoalsOpen] = useState(false);
   const [todayEarlierOpen, setTodayEarlierOpen] = useState(false);
   const [wheneverWashedOpen, setWheneverWashedOpen] = useState(false);
 
@@ -868,12 +935,102 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     useMemo(() => wheneverAll.map((tk) => tk.id), [wheneverAll]),
     reorderTasks
   );
+  /**
+   * ── Dragging a Whenever row onto another card (2026-09-01) ────────────────────────────────
+   *
+   * Maintainer: *"when they are done planning they can easily move it to the desired card by
+   * drag-and-drop or just setting time/interval."* The second half already existed — a row's own
+   * "Move to today" shortcut and its repeat picker both move it out — so this is the first.
+   *
+   * It wraps `useDragReorder`'s row props rather than replacing them: inside the Whenever card
+   * the gesture is still a reorder, and only a finger that has left the card entirely is a
+   * triage. `lib/todoTriage.ts` owns both decisions and is unit-tested, because **Playwright
+   * cannot activate this gesture in the web build at all** (AGENTS.md, measured against the
+   * app's own shipped drag), so nothing else here can see it.
+   *
+   * ⚠️ Zones are measured at drag START, never at layout: these cards scroll inside a scrolling
+   * screen and a scroll fires no `onLayout`, so a rect captured at layout time has since moved.
+   * Same reason `useDragReorder` measures its rows there.
+   */
+  const todayCardRef = useRef<View | null>(null);
+  const calendarCardRef = useRef<View | null>(null);
+  const recurringCardRef = useRef<View | null>(null);
+  const triageZones = useRef<TriageZone[]>([]);
+  const [triageHover, setTriageHover] = useState<TriageTarget | null>(null);
+  const triageHoverRef = useRef<TriageTarget | null>(null);
+
+  const measureTriageZones = useCallback(() => {
+    triageZones.current = [];
+    const add = (target: TriageTarget, node: View | null) => {
+      node?.measureInWindow?.((_x, y, _w, h) => {
+        // Pushed rather than assigned by index: a card the screen is not drawing (a `section`
+        // pane, or one hidden from the Manage cards sheet) never calls back, and a hole in the
+        // array would be a zone matching `undefined`.
+        triageZones.current.push({ target, top: y, bottom: y + h });
+      });
+    };
+    add('today', todayCardRef.current);
+    add('calendar', calendarCardRef.current);
+    add('recurring', recurringCardRef.current);
+  }, []);
+
   const wheneverDragged = useMemo(
     () =>
       wheneverDrag.order
         .map((id) => wheneverAll.find((tk) => tk.id === id))
         .filter((tk): tk is Task => !!tk),
     [wheneverDrag.order, wheneverAll]
+  );
+
+  /**
+   * The row props the Whenever list actually uses: `useDragReorder`'s, with the cross-card drop
+   * layered over them.
+   *
+   * The layering rule is the whole design. While the finger is over another card the reorder is
+   * told NOTHING — no `onDragMove` — so the list underneath stops reflowing and the drag reads as
+   * "leaving" rather than as a confused reorder. The moment the finger comes back, the reorder
+   * resumes from the position it actually has.
+   */
+  const wheneverRowProps = useCallback(
+    (id: string) => {
+      const base = wheneverDrag.rowProps(id);
+      return {
+        ...base,
+        onDragStart: () => {
+          measureTriageZones();
+          triageHoverRef.current = null;
+          setTriageHover(null);
+          base.onDragStart();
+        },
+        onDragMove: (centerY: number) => {
+          const target = triageTargetAt(centerY, triageZones.current);
+          if (target !== triageHoverRef.current) {
+            triageHoverRef.current = target;
+            setTriageHover(target);
+            // One tick when the finger crosses into a card, so a drop target announces itself
+            // without a visual the finger is covering.
+            if (target) selection();
+          }
+          if (target) return;
+          base.onDragMove(centerY);
+        },
+        onDragEnd: () => {
+          const target = triageHoverRef.current;
+          triageHoverRef.current = null;
+          setTriageHover(null);
+          if (target) {
+            // ⚠️ Do NOT also call `base.onDragEnd()` here. That commits a reorder, and this row is
+            // leaving the list — committing an order that includes it would write a position for
+            // a task the next render does not draw.
+            updateTask(id, triagePatch(target, { today, calendarDate: calDefaultDate }));
+            success();
+            return;
+          }
+          base.onDragEnd();
+        },
+      };
+    },
+    [wheneverDrag, measureTriageZones, updateTask, today, calDefaultDate]
   );
   const [openEditorIds, setOpenEditorIds] = useState<Set<string>>(new Set());
   const setEditorOpen = useCallback((id: string, open: boolean) => {
@@ -986,10 +1143,10 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
 
 
+  const cardOrder = useOrderedCards('todo');
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
-  const showWeek = full || section === 'week';
-  const showMonth = full || section === 'month';
+  const showCalendar = full || section === 'calendar';
   const showRecurring = full || section === 'recurring';
 
   // The washed-away rows, drawn as a section inside the Whenever card's own body (2026-08-26 —
@@ -1010,11 +1167,15 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
   const wheneverCard = showWhenever && (
     <View key="whenever">
-      <Card id="todoWhenever" count={wheneverAll.length} peek={t.peek.todoWhenever(wheneverAll.length)}>
+      <Card
+        id="todoWhenever"
+        count={wheneverAll.length}
+        peek={t.peek.todoWhenever(wheneverAll.length)}
+      >
         {wheneverAll.length > 0 && (
           <View style={styles.cardStack}>
             {wheneverDragged.map((tk) => (
-              <DraggableTaskRow key={tk.id} isOpen={openEditorIds.has(tk.id)} {...wheneverDrag.rowProps(tk.id)}>
+              <DraggableTaskRow key={tk.id} isOpen={openEditorIds.has(tk.id)} {...wheneverRowProps(tk.id)}>
                 <TaskCard
                   task={tk}
                   showDelete
@@ -1035,9 +1196,32 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             onSubmit={commitWhenever}
             accent={wheneverHue}
             showDivider={false}
+            stayOpen={planMode}
             accessibilityLabel={t.newTask}
             panel={
               <QuickAddOptionsPanel>
+                {/* ⚠️ **Plan mode lives in the composer's options, not the card header — and the
+                    header is where I put it first.** It cost the title its width: "Når som helst"
+                    is this app's longest card title and it began truncating on every screen at
+                    360px, which `npm run wraps` caught immediately (6 → 17 findings, eleven of
+                    them this one title, because all five tabs are mounted at once and it is
+                    measured wherever the walk looks). That is exactly what the 2026-08-31 header
+                    cap is about, and its own remedy is the one taken here: two cards that were
+                    over it moved a control into the BODY rather than losing it.
+                      It reads better here anyway. Plan mode is a property of the COMPOSER — it
+                    keeps the field open after each commit — so it belongs beside the field's
+                    other options, the same way dictating a note went into the note composer
+                    rather than staying wedged into the Notes header. */}
+                <QuickAddOptionRow
+                  opt="planMode"
+                  icon={planMode ? 'create' : 'create-outline'}
+                  label={t.todoPlanModeLabel}
+                  value={planMode ? t.todoPlanModeOn : t.todoPlanModeOff}
+                  isSet={planMode}
+                  accent={wheneverHue}
+                  onPress={() => { tap(); setPlanMode((v) => !v); }}
+                  accessibilityLabel={`${t.todoPlanModeLabel}: ${planMode ? t.todoPlanModeOn : t.todoPlanModeOff}`}
+                />
                 <QuickAddOptionRow
                   opt="time"
                   icon="time-outline"
@@ -1108,7 +1292,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // only its body, unwrapped. The per-shape header node is gone with the shapes.
 
   const todayCard = showToday && (
-    <View key="today">
+    <View key="today" ref={todayCardRef} style={triageHover === 'today' && styles.triageHover}>
       <DebugNoteAnchor id="plans.dayView" label="Plans — Today">
         <Card
           id="todoToday"
@@ -1185,18 +1369,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               `todoGoals`/`todoEarlierDays`, ordinary registry cards under one "Elsewhere" group
               rail; see lib/cardRegistry.ts's note at their old position). Drawn below whichever
               of the four shapes above is active, so an expanded Today pane carries them too. */}
-          {featureGoals && (
-            <SectionCard
-              embedded
-              hue={screenHue}
-              icon="flag"
-              label={t.goals.editLinkPractical}
-              collapsed={!todayGoalsOpen}
-              onToggleCollapse={() => setTodayGoalsOpen((v) => !v)}
-            >
-              <GoalsEditor accent={screenHue} />
-            </SectionCard>
-          )}
+        {/* ⚠️ **The "Practical goals" section is DELETED (2026-09-01).** It was a folded
+            `SectionCard` holding `components/GoalsEditor.tsx` — the same editor the Habits card
+            held under "Personal goals", over the same store, in two places on two tabs. Goal
+            editing is reached from the goal PICKER's own "Edit goals" row now
+            (components/GoalQuickCell.tsx and components/GoalPicker.tsx), which is where you
+            already are when you find you need a goal that does not exist yet. */}
           {featureDayLog && (
             <SectionCard
               embedded
@@ -1225,76 +1403,87 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     </View>
   );
 
-  const weekCard = showWeek && (
-    // **One card holding all seven days (2026-08-20)**, maintainer: *"The fullscreen button has
-    // to be in the top right corner for each card. To fix this for the week the cards themselves
-    // can be inside a larger card covering them all."* The header used to be a bare row sitting
-    // on the screen backdrop above seven loose cards, so its ⤢ was in the corner of nothing.
-    // Now the header is this card's own top-right corner and the days are `embedded`
-    // SectionCards — rails and folds, no Surface each — because a Surface inside a Surface
-    // reads as a nested panel.
-    // ⚠️ **This is a `Card` like its three neighbours (2026-08-21).** It was the last hand-rolled
-    // card header on the tab — its own `Surface`, its own `SectionRail`, its own closed-state
-    // inset copied from `SectionCard`, its own fold chevron — kept that way on the reasoning
-    // that its `Collapsible` has to wrap SEVEN embedded sections rather than one content view.
-    // That was never a reason: `Card`'s body is whatever the caller passes, and seven embedded
-    // `SectionCard`s are one child like any other.
-    <View key="week">
+  const calendarCard = showCalendar && (
+    // **One card holding the range (2026-09-01)**, replacing the Week and Month cards. The
+    // seven-embedded-SectionCards shape is inherited from the Week card and is why the header
+    // has to be this card's own: *"The fullscreen button has to be in the top right corner for
+    // each card. To fix this for the week the cards themselves can be inside a larger card
+    // covering them all."* The days are `embedded` SectionCards — rails and folds, no Surface
+    // each — because a Surface inside a Surface reads as a nested panel.
+    <View key="calendar" ref={calendarCardRef} style={triageHover === 'calendar' && styles.triageHover}>
       <Card
-        id="todoWeek"
-        count={weekTaskCount}
-        peek={t.peek.todoWeek(weekTaskCount)}
-        hint={weekTaskCount > 0 ? t.cardHint.todoWeek : undefined}
+        id="todoCalendar"
+        count={calTaskCount}
+        peek={t.peek.todoCalendar(calTaskCount, calRangeLabel)}
+        hint={calTaskCount > 0 ? t.cardHint.todoCalendar : undefined}
       >
+        {/* The range control. A `SegmentedControl` for the granularity — this is the FORM tier
+            (rule 19a's two shapes: a screen gets at most one accent-filled TabSlider, and this
+            tab has none to spare), and it is an exclusive pick, which is the test that decides
+            between a segment and a chip row. The arrows are a separate question — which range,
+            not which kind — so they are their own pair either side of the label. */}
+        <View style={styles.calRangeRow}>
+          <SegmentedControl
+            options={[
+              { value: 'week', label: t.todoWeekTitle },
+              { value: 'month', label: t.todoMonthTitle },
+            ]}
+            value={calRange}
+            onChange={(v) => setCalRange(v as 'week' | 'month')}
+          />
+          <View style={styles.calNavRow}>
+            <IconButton
+              icon="chevron-back"
+              label={t.todoCalendarPrev}
+              onPress={() => setCalOffset((n) => n - 1)}
+              size={IconSize.inline}
+            />
+            <Text style={[styles.calRangeLabel, { color: theme.textMuted }]} numberOfLines={1}>
+              {calRangeLabel}
+            </Text>
+            <IconButton
+              icon="chevron-forward"
+              label={t.todoCalendarNext}
+              onPress={() => setCalOffset((n) => n + 1)}
+              size={IconSize.inline}
+            />
+          </View>
+        </View>
+
         <View style={styles.weekDays}>
-          {weekGroups.map((group, i) => (
+          {calGroups.map((group) => (
             <SectionCard
               key={group.date}
               embedded
               hue={screenHue}
-              label={t.dayFull[i]}
+              label={calDateLabel(group.date)}
               count={group.tasks.length}
-              collapsed={collapsedWeekdays.has(group.date)}
-              onToggleCollapse={() => toggleWeekday(group.date)}
+              collapsed={!openDates.has(group.date)}
+              onToggleCollapse={() => toggleCalDate(group.date)}
             >
               <DoneSplitList
-                tasks={[...group.tasks].sort(byTime)}
+                tasks={group.tasks}
                 focusMode={layoutSpec.focusMode}
-                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="week" dateChoices={weekDateChoices} />}
+                footer={<InlineTaskAdd date={group.date} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />}
                 renderCard={(tk) => (
                   <TaskCard key={tk.id + group.date} task={tk} variant="steps" tinted={tk.sharedOut} spec={layoutSpec} isNewSince={newSinceIds.has(tk.id)} newFields={newFields} onToggleDone={handleToggleDone} />
                 )}
               />
             </SectionCard>
           ))}
+          {/* A month with nothing dated in it draws no sections at all, so it needs a composer of
+              its own or the card would be a header with no way to add to it. A week always has
+              seven, each with its own. */}
+          {calGroups.length === 0 && (
+            <InlineTaskAdd date={calDefaultDate} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />
+          )}
         </View>
       </Card>
     </View>
   );
 
-  const monthCard = showMonth && (
-    <View key="month">
-      <Card id="todoMonth" count={monthAll.length} peek={t.peek.todoMonth(monthAll.length)}>
-        <DoneSplitList
-          tasks={monthAll}
-          footer={<InlineTaskAdd date={monthDefaultDate} accent={screenHue} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="month" dateChoices={monthDateChoices} />}
-          renderCard={(tk) => (
-            <TaskCard
-              key={tk.id}
-              task={tk}
-              showDelete
-              showShareOut
-              autoExpand={tk.id === expandTaskId}
-              onToggleDone={handleToggleDone}
-            />
-          )}
-        />
-      </Card>
-    </View>
-  );
-
   const recurringCard = showRecurring && (
-    <View key="recurring">
+    <View key="recurring" ref={recurringCardRef} style={triageHover === 'recurring' && styles.triageHover}>
       <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
         <Card
           id="todoRecurring"
@@ -1396,6 +1585,16 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     </View>
   );
 
+  // ⚠️ **The cards are DATA now (2026-09-01), not four hardcoded lines.** Each registry id
+  // resolves to its already-built node; a `section` mount leaves the other three `false`, and
+  // the map skips them. This is what makes the Manage cards sheet's reorder reach this screen.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    todoToday: todayCard || undefined,
+    todoCalendar: calendarCard || undefined,
+    todoWhenever: wheneverCard || undefined,
+    todoRecurring: recurringCard || undefined,
+  };
+
   return (
     <View style={styles.content}>
       {/* ⚠️ No ⓘ banner here since 2026-08-20 — see components/StarterCard.tsx below, which is
@@ -1460,12 +1659,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           Month → Whenever → Recurring. Goals, Earlier days and Washed away are no longer
           top-level cards here — they are sections drawn INSIDE Today and Whenever's own bodies
           (see those two cards above), so there is no "Elsewhere" group rail left to draw.
-          lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent. */}
-      {todayCard}
-      {weekCard}
-      {monthCard}
-      {wheneverCard}
-      {recurringCard}
+          lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent.
+          ⚠️ **The user can reorder it from 2026-09-01** — `useOrderedCards` layers
+          settings.cardOrder over that registry order, and the registry's numbering is what
+          anyone who never opens the Manage cards sheet still gets. A `section` mount draws
+          exactly one of these, so the map is a no-op there rather than a second ordering. */}
+      {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
       {full && featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
 
@@ -1500,6 +1699,18 @@ const styles = StyleSheet.create({
   // The Week card's own box (2026-08-20). Same shape SectionCard draws for every other card on
   // this screen, spelled out here because this one's header is hand-rolled rather than a
   // SectionRail — the seven days inside supply their own rails.
+  // The Calendar card's range control — the granularity segment above, the arrows and the label
+  // below it. A column, not a row: a SegmentedControl wants the full width, and pairing it with
+  // the arrows on one line is what makes both of them cramped at 360px.
+  // The card a dragged Whenever row is currently over. Opacity ALONE, deliberately: a border or a
+  // fill would be a second card edge inside the screen's one-edge-per-card rule, and the finger
+  // is covering the middle of the card anyway — the tell has to work at the card's outline.
+  triageHover: { opacity: 0.6 },
+  calRangeRow: { gap: Spacing.sm, marginBottom: Spacing.sm },
+  calNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm },
+  // `flex: 1` + `minWidth: 0` so the label yields to the two arrows rather than pushing them out
+  // — the arrows have no width to give (see the task editor's own note on this shape).
+  calRangeLabel: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: FontSize.sm, fontFamily: Fonts.semibold },
   weekCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.md },
   weekCardCollapsed: { paddingBottom: Spacing.sm },
   // Tighter than `cardStack`'s SCREEN_GAP: these seven are sections of ONE card, not seven

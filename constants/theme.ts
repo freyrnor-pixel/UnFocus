@@ -412,6 +412,26 @@ export const IconSize = {
 } as const;
 
 /**
+ * The round identity badge left of a CARD's title — `components/SectionRail.tsx`'s `'card'` tier.
+ *
+ * **24 → 32 (2026-09-01).** Maintainer: *"card icons look small and not like an identificator."*
+ * They were: a 24px disc with a glyph derived at `Math.round(size * 0.44)`, i.e. **11px** — small
+ * enough that the hue read as a coloured dot and the glyph as texture, which is the opposite of
+ * what a badge is for. `DESIGN_COMPARISON/20-MEASUREMENTS.md` §1 measures the mockup's at 34.
+ *
+ * 32 rather than 34, for two reasons that both come from the row it sits in. The header row is
+ * floored at `MIN_TAP_TARGET` (48), so 32 leaves `Spacing.sm` of air top and bottom and the row
+ * does not grow; and every pixel here comes off the peek line, whose budget is genuinely tight
+ * (~190px, and ~67–91px on a card that also passes controls). `npm run wraps` has a CARD PEEK
+ * gate — check it after moving this, not before.
+ *
+ * ⚠️ Named here rather than passed at the call site on purpose: it was a bare `24` literal in
+ * `SectionRail`, which is how one badge size becomes three. `CardAccentBadge`'s own default is
+ * 44 and is for its other callers.
+ */
+export const CARD_BADGE_SIZE = 32;
+
+/**
  * The slop needed to lift a `visualSize`-px control up to MIN_TAP_TARGET of touch area.
  * **Prefer this over a hand-picked `HitSlop.*` constant** — it takes the one number you
  * actually know (how big the icon/glyph is) and does the arithmetic, so the target can't

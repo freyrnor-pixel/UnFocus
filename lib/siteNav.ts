@@ -28,7 +28,7 @@
  *     second, shorter copy of that tab* — and it is overruled, not forgotten. Home is the daily
  *     hub, and previews of the day's tasks, notes and shopping are the POINT of it: the thing a
  *     hub is for is seeing three surfaces at once without swiping to any of them. Read
- *     lib/homeCards.ts for what Home draws now.
+ *     lib/cardRegistry.ts's `home` entries for what Home draws now.
  *
  *     Two consequences worth stating, because each one settles a question that kept reopening:
  *       1. **Home is genuinely the middle tab**, so "the app opens on the centre screen" and
@@ -41,7 +41,7 @@
  *          worth avoiding — which is the surviving half of the argument above.
  *     ⚠️ **`'home'` is still the KEY and `/` is still the route.** Only the label, the icon and
  *     the position have ever moved. Renaming the key would touch `settings.startScreen`,
- *     `homeCardOrder`'s owner screen and every `TAB_ROUTE_NAME` consumer for a word.
+ *     Home's owner screen and every `TAB_ROUTE_NAME` consumer for a word.
  *     Full history: Shopping/Plans/Home/Habits/Health (Decision 036) → Shopping/Home/Health
  *     (the 2026-08-20 5→3 merge, To-do and Habits folded onto Home) → Shopping/Home/To-do (the
  *     same-day "full-screen card expansion" pass, which took Health off the bar and gave To-do

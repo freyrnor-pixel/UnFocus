@@ -657,8 +657,9 @@ export function initDb() {
     // Runs once; the setting was new + defaulted off, so nobody had deliberately turned it off.
     "UPDATE settings SET voice_notes_enabled = 1",
     // Home preview card management (2026-07-19): user-chosen order/visibility of Home's
-    // Notes/Plans/Shopping previews — see store/useSettingsStore.ts (homeCardOrder) and
-    // components/HomeCardManager.tsx. JSON array of kind ids; a kind missing from the array
+    // Notes/Plans/Shopping previews. ⚠️ INERT since 2026-09-01 — Home orders and hides its
+    // cards through `card_order` + `hidden_cards` like every other screen; see
+    // store/useSettingsStore.ts's "Inert columns" note. JSON array of kind ids; a kind missing
     // is a removed card, re-addable from the "Add a card" picker.
     "ALTER TABLE settings ADD COLUMN home_card_order TEXT DEFAULT '[\"notes\",\"plans\",\"shopping\"]'",
     // Home preview card default order → Tasks/Notes/Shopping (2026-07-20). The column above
@@ -1344,7 +1345,7 @@ export function initDb() {
     // honest landing. See lib/firstRunOptions.ts's START_SCREEN_ROUTES.
     "UPDATE settings SET start_screen = 'home' WHERE start_screen = 'health'",
     // NOTE — Home becoming "Me" in the same pass deliberately gets NO migration.
-    // 'plans' and 'shopping' leave `HOME_CARD_KINDS`, and lib/homeCards.ts's
+    // 'plans' and 'shopping' leave the Home card set, and the (now deleted) lib/homeCards.ts's
     // `sanitizeHomeCardOrder` already drops an unknown kind on READ — which is the shape that
     // also covers a row written by an older build or restored from a backup, where a one-shot
     // migration cannot reach. Rewriting the column here would additionally throw away whatever
@@ -1388,7 +1389,7 @@ export function initDb() {
     // and appends the two returning ones — but appending puts them at the END, so a stored
     // ['habits','notes','health','medicine'] resolves to ['notes','plans','shopping'] and every
     // existing install would open with Notes above the day's tasks. Emptying the column instead
-    // puts everyone on lib/homeCards.ts's default order, which is the order the maintainer
+    // puts everyone on the (now deleted) lib/homeCards.ts's default order, which the maintainer
     // named ("todays tasks, Notes, and shopping"). Same "we're not live yet, so just force"
     // ruling as the two collapsed_cards lines above, and for the same reason: it costs a
     // drag-reorder nobody has had a chance to make against the new set of cards.
@@ -1426,6 +1427,17 @@ export function initDb() {
     // cannot keep a row in that sheet. Presentation only — a hidden card's rows keep their
     // reminders and still count everywhere else.
     'ALTER TABLE settings ADD COLUMN hidden_cards TEXT DEFAULT \'[]\'',
+
+    // ── 2026-09-01: "Manage cards" gets the other half — the ORDER cards are drawn in ────────
+    // The 2026-08-30 sheet hid cards and could not move them; reorder was deferred because the
+    // data model was never the missing piece (cardsForScreen() had no consumer and every
+    // screen's cards were hardcoded JSX). Reported back as "not how we agreed to do it", so
+    // this is that half. JSON `{screen: [cardId, ...]}`; `{}` is registry order everywhere.
+    // Validated on read by lib/cardOrder.ts, which drops an unknown id AND an id filed under
+    // the wrong screen, and whose orderedCards() treats a stored list as a PREFERENCE rather
+    // than the truth — so a card added later appears instead of vanishing for anyone who has
+    // ever reordered. Presentation only, device-local, same as hidden_cards above.
+    'ALTER TABLE settings ADD COLUMN card_order TEXT DEFAULT \'{}\'',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

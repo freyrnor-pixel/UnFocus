@@ -2,7 +2,7 @@
  * HealthIssuesPreviewList.tsx — the read-only issue list shown inside a "Health issues" drawer.
  *
  * One row per tracked issue: how many entries it has, and when it was last logged. Nothing here
- * edits anything — adding and untracking live in components/HealthIssuesSheet.tsx, which the
+ * edits anything — adding and untracking live in components/HealthIssuesEditor.tsx, which the
  * drawer's title opens.
  *
  * Was the direct counterpart of components/GoalsPreviewList.tsx, and deliberately built from
@@ -38,7 +38,7 @@
  *     bands — a goal's momentum is something the user drives, a symptom is not.
  *   - The empty state is the quiet inset line, the same shape app/plans.tsx uses for an
  *     empty section. It lives HERE rather than at the call site so this drawer and
- *     components/HealthIssuesSheet.tsx's own empty state can't drift apart — the same reason
+ *     components/HealthIssuesEditor.tsx's own empty state can't drift apart — the same reason
  *     the now-deleted GoalsPreviewList.tsx kept its empty state in one place before Goals
  *     dropped its popup entirely.
  */

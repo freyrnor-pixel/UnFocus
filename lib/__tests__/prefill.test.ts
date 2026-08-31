@@ -38,15 +38,25 @@ describe('prefillRoute', () => {
     }
   });
 
-  it('sends Goals to the Habits tab, in its own slot', () => {
+  it('sends Goals to its own pop-up, still in its own slot', () => {
+    // ⚠️ **Was `/(tabs)/habits` until 2026-09-01**, because the Goals editor was a folded section
+    // inside that tab's card. That section is deleted — goal editing is reached from the goal
+    // picker's own "Edit goals" row — so the old route would have dropped the note's text while
+    // still ticking the note off, which is the exact failure `SendToSheet` hides this target for
+    // when the feature is switched off.
     const route = prefillRoute('goals', 'Less time on my phone');
-    expect(route.pathname).toBe('/(tabs)/habits');
+    expect(route.pathname).toBe('/goals-editor');
     expect(route.params[PREFILL_PARAM]).toBe('Less time on my phone');
     expect(route.params[PREFILL_SLOT_PARAM]).toBe('goals');
   });
 
-  it('puts Goals and Habits on the same route — which is why the slot exists', () => {
-    expect(prefillRoute('goals', 'x').pathname).toBe(prefillRoute('habits', 'x').pathname);
+  it('keeps the slot even though Goals now has a route to itself', () => {
+    // The slot no longer separates Goals from a co-located habit composer — nothing else lives
+    // on `/goals-editor`. It stays because `usePrefill(slot)` is what makes a prefill ADDRESSED
+    // rather than ambient: an unslotted prefill is given to a screen's own composer, so dropping
+    // the slot here would hand a goal's text to whatever composer that route grows next.
+    expect(prefillRoute('goals', 'x').pathname).not.toBe(prefillRoute('habits', 'x').pathname);
+    expect(prefillRoute('goals', 'x').params[PREFILL_SLOT_PARAM]).toBe('goals');
   });
 });
 
@@ -77,27 +87,28 @@ describe('prefillIsFor', () => {
   });
 });
 
-describe('the Habits tab hosts both consumers', () => {
-  // components/HabitsSurface.tsx since 2026-08-20 — app/habits.tsx is a thin ScreenScaffold
-  // wrapper now, and both prefill consumers moved with the content. Scanning the wrapper would
-  // pass vacuously over a file that has neither.
+describe('the two prefill consumers are on two routes now', () => {
+  // ⚠️ **Was "the Habits tab hosts both consumers" until 2026-09-01.** The Goals editor was a
+  // folded section inside the Habits card, so that one screen took the unslotted prefill for its
+  // habit quick-add AND the `goals` slot for the editor — and the slot existed precisely to keep
+  // them apart. The section is deleted (goal editing is reached from the goal picker's own "Edit
+  // goals" row), so Goals has a route to itself and the two consumers are one file apart.
   const habits = read('components/HabitsSurface.tsx');
+  const goalsPopup = read('app/goals-editor.tsx');
 
-  it('asks for the two prefills separately', () => {
-    // The habit quick-add takes the unslotted one; the Goals drawer takes the `goals` slot.
-    // If this ever collapses back to a single usePrefill() call, a goal becomes a habit.
+  it('leaves the Habits tab with only its own habit composer', () => {
+    // The unslotted prefill is the habit quick-add's. If a `usePrefill('goals')` ever reappears
+    // here, the editor is being mounted in two places again — which is what this whole pass
+    // removed.
     expect(habits).toMatch(/usePrefill\(\)/);
-    expect(habits).toMatch(/usePrefill\('goals'\)/);
+    expect(habits).not.toMatch(/usePrefill\('goals'\)/);
   });
 
-  it('seeds the editor itself', () => {
-    // ⚠️ **`openSignal` is gone (2026-08-21).** The Goals drawer was a `CollapsedSection`, and
-    // the signal popped it open so a note routed here did not land two levels inside something
-    // closed. It is an ordinary `Card` now, and a card's fold is a stored user choice that an
-    // incoming navigation must not overwrite. What still has to be true — and is what this test
-    // was really about — is that the text reaches the editor, and that `AddRow`'s own
-    // `expandSignal` puts it on screen inside it.
-    expect(habits).toMatch(/<GoalsEditor[^>]*prefill=\{goalPrefill\}/s);
+  it('seeds the editor from the pop-up that now owns it', () => {
+    // What has to be true is unchanged from when this lived on Habits: the text reaches the
+    // editor, and `AddRow`'s own `expandSignal` puts it on screen inside it. Only the host moved.
+    expect(goalsPopup).toMatch(/usePrefill\('goals'\)/);
+    expect(goalsPopup).toMatch(/<GoalsEditor[^>]*prefill=\{prefill\}/s);
   });
 });
 

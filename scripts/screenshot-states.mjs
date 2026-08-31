@@ -584,30 +584,16 @@ async function main() {
         });
         await closeOverlays(page);
       }
-      // The ⋯ on a Home card. It was the To-do preview's until 2026-08-19; Habits is the
-      // first card on the Me tab now, and the sheet it opens is identical.
-      if (await tryButton(page, 'Card settings for Habits')) {
-        await shot(page, 'home-card-menu-sheet', {
-          title: 'A Home card\'s ⋯ settings sheet',
-          screen: 'components/CardMenuSheet.tsx',
-          state: 'SHEET. Home\'s cards can be reordered (hold and drag) and configured per card. Home dropped a fifth card (Goals) one day after shipping it — "Home had too many lists" — so what is NOT here is deliberate.',
-          components: 'CardMenuSheet, HomeCardManager',
-        });
-        await closeOverlays(page);
-      }
-
-      // Goals is a SECTION inside To-do's Today card since 2026-08-26 (registry phase 5).
-      await tab(page, 'To-do');
-      await openCard(page, 'Today');
-      if (await tryButton(page, 'Goals')) {
-        await shot(page, 'goals-drawer', {
-          title: 'The Goals drawer, expanded (from To-do and from Habits)',
-          screen: 'components/GoalsEditor.tsx',
-          state: 'DRAWER, EMPTY, with the explanation + starter suggestions shown inline (2026-08-12 — no popup any more; add/edit/delete all happen in this same card). A goal\'s strength rises on progress and cools back toward neutral but NEVER below — there is no state in which a goal is failing. Something you want to do LESS of ("Less time on my phone") is a goal whose linked tasks are the replacement behaviour; that is why habits have no negative kind.',
-          components: 'GoalsEditor, GoalGlowDot, AddRow',
-        });
-        await tryButton(page, 'Goals'); // collapse the drawer back closed
-      }
+      // ⚠️ **No per-card ⋯ to shoot since 2026-09-01.** Home hid and arranged its cards from a
+      // per-card kebab over its own `settings.homeCardOrder` column; that whole mechanism —
+      // components/CardMenuSheet.tsx, components/HomeCardManager.tsx, lib/homeCards.ts and the
+      // "Retired" shelf — is deleted. Home uses the same "Manage cards" header control as the
+      // other four screens now (maintainer: *"One button per screen for reordering and/or hiding
+      // cards instead of the three dots was disregarded"*), which this walk already shoots.
+      // ⚠️ **No Goals drawer to shoot (2026-09-01).** It was a folded section inside To-do's
+      // Today card; goal editing is a centre pop-up reached from a goal picker's "Edit goals"
+      // row now, and it is shot as `goals-editor` in the data-bearing phase at the end of this
+      // walk — where a picker actually exists to open it from.
       if (await tryButton(page, 'How lists look')) {
         await shot(page, 'layout-picker', {
           title: 'The layout picker (per surface, from that surface\'s own header)',
@@ -680,7 +666,7 @@ async function main() {
           title: 'Habits — empty (a pushed screen since the 3-tab merge)',
           screen: 'app/habits.tsx',
           state: 'EMPTY. Sky screen hue. Where a habit is SET UP and browsed; the day\'s due habits are a section of the merged card on Home. Offers one-tap starter habits instead of an empty list. There is no negative habit, no slip log and no broken streak anywhere in the app.',
-          components: 'PadRow, PadTypeRow, StarterCard, StageTree, HabitIcon, CollapsedSection',
+          components: 'PadRow, PadTypeRow, StarterCard, HabitIcon, CollapsedSection',
         });
       });
 
@@ -958,7 +944,7 @@ async function main() {
       title: 'Habits — with habits, none registered yet',
       screen: 'app/habits.tsx',
       state: 'POPULATED. Every habit registers through a −/+ pair rather than a check circle. A habit enters the day log on the FIRST log of the day, not on "met" — 5 of 7 glasses of water still leaves a trace, which is exactly the kind of day the log exists for.',
-      components: 'PadRow, HabitIcon, HabitLeading, Stepper, StageTree',
+      components: 'PadRow, HabitIcon, HabitLeading, Stepper',
     });
 
     const plus = page.getByRole('button', { name: 'Increase quantity Drink water', exact: true }).first();
@@ -1068,8 +1054,8 @@ async function main() {
     await shot(page, 'home-populated', {
       title: 'Me — with everything seeded',
       screen: 'app/(tabs)/index.tsx',
-      state: 'POPULATED. Three cards, each carrying the hue of the surface it comes from — the one legitimate use of an explicit borderColor override in the whole app. Card order is user-draggable, but Habits and Health are re-appended on read if a stored order does not name them: neither has anywhere else to be, so hiding one for good would take the surface with it.',
-      components: 'HomeHabitsCard, HomeNotesCard, HomeHealthCard, EnergyMeter, HomeCardManager',
+      state: 'POPULATED. Three cards, each carrying the hue of the surface it comes from — the one legitimate use of an explicit borderColor override in the whole app. Order and visibility come from settings.cardOrder + settings.hiddenCards, through the same "Manage cards" header control every other screen has (2026-09-01). Nothing is force-restored on read any more: each of these previews a TAB, so hiding one costs the shortcut and nothing else.',
+      components: 'PlanTaskCard, HomeNotesCard, HomeShoppingCard, EnergyMeter, ManageCardsSheet',
     });
 
     if (await typeInto(page, 'Type note', 'Ask about the bike lock')) {
@@ -1132,7 +1118,7 @@ async function main() {
     //   Reloading is free here for the same reason phase 6's push is: nothing follows, so the
     // in-memory DB wipe costs nothing. That is the licence this phase takes.
     if (FULL) {
-      console.log('> task editor + goals drawer (fresh app)');
+      console.log('> task editor (fresh app)');
       try {
         await runOnboarding(page, {});
         await walkTour(page, { capture: false });
@@ -1162,20 +1148,17 @@ async function main() {
           components: 'TaskCard, GoalPicker, Stepper, SegmentedControl, PersonChip, TagChip',
         });
 
-        // `.last()` again: the editor left open above carries its own Goal PICKER with the same
-        // word, inside a collapsed section that cannot be scrolled to. The drawer is at the foot.
-        const goals = page.getByText('Practical goals', { exact: true }).last();
-        await goals.scrollIntoViewIfNeeded({ timeout: 5000 });
-        await goals.click({ timeout: 10000 });
-        await page.waitForTimeout(900);
-        await shot(page, 'goals-drawer', {
-          title: 'The Goals drawer, expanded',
-          screen: 'components/GoalsEditor.tsx',
-          state: 'An in-card editor since 2026-08-12, not a pop-up (maintainer: "making, editing and deleting in the card, not a pop up"). A goal has three fine-to-be-in strength bands and deliberately no fourth, worse one — the mechanic floors at neutral, so there is no state in which a goal is failing.',
-          components: 'GoalsEditor, StarterCard, AddRow',
-        });
+        // ⚠️ **No goals shot here (2026-09-01).** This used to click a "Practical goals" drawer
+        // at the foot of the To-do tab — a folded `GoalsEditor` section, now deleted. The editor
+        // is a centre pop-up reached from the "Edit goals" row at the foot of a goal picker, and
+        // the task editor left open above carries one — but its trigger is not findable by name
+        // in the web build, so the attempt timed out rather than producing a shot.
+        //   Listed as a coverage gap in `scripts/visual-diff.mjs`'s `WANTED_BUT_UNCAPTURED`
+        // instead of faked: a step that pretends is worse than a gap that is written down. The
+        // component itself is still exercised — `GoalsEditor` renders inside the pop-up, and
+        // `lib/__tests__/prefill.test.ts` pins the route and the prefill that reach it.
       } catch (e) {
-        problems.push(`task-editor/goals-drawer: ${e.message.split('\n')[0]}`);
+        problems.push(`task-editor: ${e.message.split('\n')[0]}`);
       }
     }
 

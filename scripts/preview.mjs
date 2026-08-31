@@ -309,32 +309,17 @@ async function main() {
       pageErrors.push('No "Food: Expand list" chevron — the Food card may have lost its fold');
     }
 
-    // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
-    // surface-specific layout and then to the sparsest one, confirming both that the picker
-    // renders and that the rows actually redraw. The second switch is the one that matters —
-    // ShoppingRow is memoized on prop identity, so a layout change that didn't reach the
-    // comparator would leave the list looking identical and this step would catch it.
-    console.log('> Shopping -> layout picker');
-    await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(800);
-    await dismissModalIfPresent(page);
-    const layoutBtn = page.getByRole('button', { name: 'How lists look' }).first();
-    const layoutRowsBefore = await page.getByText(/kr/).count();
-    await layoutBtn.click({ timeout: 10000 });
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-picker');
-    await clickText(page, 'In the store');
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-in-the-store');
-    await clickText(page, 'Just the basics');
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-just-the-basics');
-    // "Just the basics" hides money entirely, so any price text present before must be gone.
-    const layoutRowsAfter = await page.getByText(/kr/).count();
-    console.log(`  price cells before/after switching to basics: ${layoutRowsBefore}/${layoutRowsAfter}`);
-    console.log(`  layout switch changed the rendering: ${layoutRowsAfter <= layoutRowsBefore}`);
-    await clickText(page, 'Done');
-    await page.waitForTimeout(500);
+    // ⚠️ **The layout-picker step is DELETED (2026-09-01).** It opened Shopping's "How lists
+    // look" header button, switched to "In the store" and then to "Just the basics", and
+    // asserted that price cells disappeared — a real test of the memo comparator on
+    // `ShoppingRow`. All of it is gone with the picker itself: the maintainer asked for that
+    // header button to go, and the per-surface override went with it, which took `inStore`
+    // (its only content not reachable from Settings) and the `chips` flag with them.
+    //
+    // Not re-pointed at Settings' global detail level instead: that control is on a pushed dead
+    // end at the very end of this walk, and re-entering the tabs from it costs a full
+    // re-onboarding. The memo-comparator claim is worth keeping somewhere — if a layout bug ever
+    // shows up again, that is the step to rebuild, on Settings and at the end.
 
     console.log('> back to the Home tab');
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
@@ -611,31 +596,35 @@ async function main() {
     // when the user acts here is an explicit `false` — "I opened this one" — which is a value
     // the bag could not hold at all while open was the default. Round-tripping an OPENED card is
     // therefore the case worth walking: it is the one the storage rewrite introduced.
-    console.log('> Week card unfolds as one, and remembers');
-    const weekUnfold = page.getByRole('button', { name: 'Week: Expand list', exact: true }).first();
+    // ⚠️ **`Week` → `Calendar` (2026-09-01).** The Week and Month cards merged into one card that
+    // owns its own range — a week/month segment and a pair of arrows — so the fold under test is
+    // that card's. Everything the step is FOR is unchanged: the chevron adds and removes the day
+    // sections, and the choice survives leaving the tab.
+    console.log('> Calendar card unfolds as one, and remembers');
+    const weekUnfold = page.getByRole('button', { name: 'Calendar: Expand list', exact: true }).first();
     if (await weekUnfold.count()) {
       const mondayBefore = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays absent while the card rests closed: ${!mondayBefore}`);
-      if (mondayBefore) pageErrors.push('Week card: weekday sections drawn while the card rests collapsed');
+      if (mondayBefore) pageErrors.push('Calendar card: day sections drawn while the card rests collapsed');
       await weekUnfold.scrollIntoViewIfNeeded();
       await weekUnfold.click({ timeout: 10000 });
       await page.waitForTimeout(700);
       const mondayAfter = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays drawn after unfolding: ${mondayAfter}`);
-      if (!mondayAfter) pageErrors.push('Week card: unfolding it drew no weekday sections');
-      await shot(page, 'todo-week-unfolded');
+      if (!mondayAfter) pageErrors.push('Calendar card: unfolding it drew no day sections');
+      await shot(page, 'todo-calendar-unfolded');
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       const stillOpen = await anyVisibleText(page, 'Monday');
       console.log(`  the opened state survived a tab round-trip: ${stillOpen}`);
-      if (!stillOpen) pageErrors.push('Week card: an explicit open did not persist across a tab round-trip');
+      if (!stillOpen) pageErrors.push('Calendar card: an explicit open did not persist across a tab round-trip');
       // Put it back, so the screenshots further down show the ordinary resting state.
-      await page.getByRole('button', { name: 'Week: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Calendar: Collapse list', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     } else {
-      pageErrors.push('No "Week: Expand list" chevron on the To-do tab — the whole-week fold may not be wired');
+      pageErrors.push('No "Calendar: Expand list" chevron on the To-do tab — the card fold may not be wired');
     }
 
     // Exercise a second store's write path: add a habit from components/HabitsSurface.tsx's
@@ -843,6 +832,110 @@ async function main() {
       if (!restored) pageErrors.push('A hidden card could not be restored from the Manage cards sheet');
       await shot(page, 'manage-cards-restored');
     }
+
+    // ---- …and REORDER a card, which is the other half of the same column -------------------
+    //
+    // The SIXTH write path, and the one that most needs a harness. `settings.card_order`
+    // (2026-09-01) is written by the sheet's ↑/↓ and read by every screen's `useOrderedCards`,
+    // so a break shows up as "the cards are in the wrong order", which nothing else in this repo
+    // can see: `tsc` sees a valid FieldMap, Jest sees a mocked DB, and `npm run visual` would
+    // report a diff without saying whether the write or the read is at fault.
+    //
+    // ⚠️ **It has to be the ARROWS, not the drag.** Playwright cannot activate
+    // `Gesture.Pan().activateAfterLongPress(400)` in the web build at all — measured against the
+    // app's own shipped drag, not assumed (AGENTS.md) — so a drag-only reorder would be a
+    // capability no check here can reach. That is exactly why the arrows exist.
+    console.log('> Health -> manage cards (reorder)');
+    await manageBtn.click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    // Health's registry order is This week → Health issues → Medicine, so moving Medicine up
+    // twice puts it first. Two presses rather than one, so a single accidental swap cannot pass.
+    const moveUp = page.getByRole('button', { name: /^Move .*Medicine.* up$/i }).first();
+    const canMove = (await moveUp.count()) > 0;
+    console.log(`  the sheet offers an arrow: ${canMove}`);
+    if (!canMove) pageErrors.push('Manage cards drew no reorder arrow');
+    if (canMove) {
+      await moveUp.click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      await page.getByRole('button', { name: /^Move .*Medicine.* up$/i }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(400);
+      await shot(page, 'manage-cards-reordered');
+      await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+
+      // The read half, across a navigation, same shape as the hide step above.
+      //
+      // ⚠️ Compare the fold chevrons' Y POSITIONS, not their text or their document order. The
+      // chevron is the one control every card header has, and it is named "<title>: <hint>" — but
+      // it is an IconButton, so `allTextContents()` on it returns "" for every card and an
+      // order read that way is three empty strings. (That is exactly how this step failed on its
+      // first run, with the reorder itself working perfectly in the screenshot beside it.)
+      await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: 'Health', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(800);
+      const topOf = async (title) => {
+        const box = await page.getByRole('button', { name: new RegExp(`^${title}: `) }).first().boundingBox();
+        return box ? box.y : null;
+      };
+      const medY = await topOf('Medicine');
+      const weekY = await topOf('This week');
+      const movedToTop = medY !== null && weekY !== null && medY < weekY;
+      console.log(`  Medicine at y=${medY}, This week at y=${weekY} (moved above: ${movedToTop})`);
+      if (!movedToTop) pageErrors.push('A reordered card did not survive navigating away and returning');
+
+      // Put it back, so nothing later in the walk is looking at a rearranged screen.
+      await manageBtn.click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+      for (let i = 0; i < 2; i++) {
+        await page.getByRole('button', { name: /^Move .*Medicine.* down$/i }).first().click({ timeout: 10000 });
+        await page.waitForTimeout(400);
+      }
+      await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(700);
+    }
+
+    // ---- a card's fold survives a tab change ------------------------------
+    //
+    // Added 2026-09-01 against the report *"card collapse/expand resets when swiping between
+    // screens"*. Three cases were probed by hand first and NONE of them reset on web: a
+    // registry card across a tab change, a locally-folded SECTION across a tab change, and a
+    // section across a fold/unfold of its parent card. (That last one was expected to fail —
+    // `Collapsible` unmounts its children when closed — and does not, because the state lives in
+    // the SURFACE, which stays mounted, not inside the Collapsible.)
+    //
+    // So this step exists to keep the case that is provably fine provably fine, and to make the
+    // non-reproduction a standing fact rather than one session's memory. `useCollapsedCard`
+    // writes through SQLite, so a regression here is a real storage bug and not a rendering one.
+    // ⚠️ If the report turns out to be native-only, this step will go on passing — it is a guard,
+    // not a diagnosis.
+    console.log('> Home -> a card fold survives a tab change');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    // The control names itself with its own state, so the fold is readable without guessing at
+    // which body element should or should not be on screen.
+    const notesFold = () => page.getByRole('button', { name: /^Notes: / }).first();
+    const foldLabel = async () => (await notesFold().getAttribute('aria-label')) ?? '';
+    const openedLabel = await foldLabel();
+    await notesFold().click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    const foldedLabel = await foldLabel();
+    if (foldedLabel === openedLabel) {
+      pageErrors.push(`Folding a card did not change its control ("${openedLabel}")`);
+    }
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    const afterSwipe = await foldLabel();
+    console.log(`  fold survived the round trip: ${afterSwipe === foldedLabel}`);
+    if (afterSwipe !== foldedLabel) {
+      pageErrors.push(`A card's fold reset on a tab change ("${foldedLabel}" -> "${afterSwipe}")`);
+    }
+    // Put it back so nothing downstream meets a folded Notes card.
+    await notesFold().click({ timeout: 10000 });
+    await page.waitForTimeout(600);
 
     // ⚠️ **The "Habits card, expanded in place" excursion is DELETED (2026-08-22).** Habits is a
     // bottom-nav tab again, so its surface is shot directly by the tab loop near the top of this

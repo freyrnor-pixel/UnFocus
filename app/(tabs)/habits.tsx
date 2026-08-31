@@ -61,9 +61,10 @@
  *             components/GlowPulse (done-state static halo),
  *             components/HabitIcon (starter chips only — every ROW's leading mark goes through
  *             components/HabitLeading, 2026-08-04, which draws the brand leaf when a habit has
- *             no chosen icon), components/StageTree (2026-08-04 — the ambient `full`-stage
- *             corner watermark at the foot of the list; no longer shares a "one tree per
- *             screen" rule with anything since 2026-08-06 v2 — see below),
+ *             no chosen icon). ⚠️ **components/StageTree is DELETED (2026-09-01)** — this line
+ *             claimed an ambient `full`-stage corner watermark at the foot of the list, which
+ *             had already been removed on 2026-08-20; the component and its four motifs are now
+ *             gone from the app entirely.
  *             components/PressableScale (the suggested-habits collapse/expand control lives in
  *             components/StarterCard now, not here),
  *             components/CollapsedSection + components/GoalsEditor (the "Goals" drawer —

@@ -11,7 +11,8 @@
  *   Imports → components/NarratorQuote, components/HintCard,
  *             components/StarterCard, components/StarterExampleRow, components/OpenEpisodeCard
  *             + components/EpisodeCloseSheet, components/CollapsedSection +
- *             components/HealthIssuesPreviewList + components/HealthIssuesSheet,
+ *             components/HealthIssuesPreviewList (the `healthIssues` card's body; its
+ *             fuller surface is components/HealthIssuesEditor.tsx, mounted as that card's pane),
  *             components/Surface, components/CardAccent, components/PadRow,
  *             components/PadTypeRow + components/QuickAddOptionsPanel +
  *             components/QuickAddOptionRow, components/Collapsible, components/PressableScale,
@@ -68,10 +69,10 @@ import StarterExampleRow from '@/components/StarterExampleRow';
 import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
 import Card from '@/components/Card';
+import type { CardKey } from '@/lib/cardRegistry';
+import { useOrderedCards } from '@/lib/useCardOrder';
 import MedicineCard from '@/components/MedicineCard';
-import IconButton from '@/components/IconButton';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
-import HealthIssuesSheet from '@/components/HealthIssuesSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import PadRow from '@/components/PadRow';
@@ -238,7 +239,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   const [quickOngoing, setQuickOngoing] = useState(false);
   const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState<HealthLog | null>(null);
-  const [issuesSheetOpen, setIssuesSheetOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -278,6 +278,7 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   }, [logs, weekDates]);
 
   const trackedCount = useMemo(() => symptoms.filter((s) => s.tracked).length, [symptoms]);
+  const order = useOrderedCards('health');
 
   function openDetail(symptomId: string, ailment: string, name: string) {
     router.push({ pathname: '/health-detail', params: { symptomId, ailment, name } });
@@ -526,10 +527,51 @@ export default function HealthSurface({ embedded = false, section }: Props) {
       <View style={styles.embeddedContent}>
         {weekCard}
         <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
-        <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />
       </View>
     );
   }
+
+  // ⚠️ **The cards are DATA now (2026-09-01), not a hardcoded column.** Each registry id resolves
+  // to its node here and the screen renders `orderedCards()` — which is what makes the Manage
+  // cards sheet's reorder reach this screen at all. A gated card (Medicine behind
+  // `featureMedicine`, and every card while `embedded`) simply has no entry, so it is skipped
+  // rather than rendered-then-hidden: `orderedCards` returns every card the REGISTRY has, and
+  // only this table knows which of them this mount site can actually draw.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    healthWeek: weekCard,
+    /* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21).** The drawer was a card
+       shape with a fold, a badge on a group-tier rail and no ⤢, and its two-tap-target header
+       (chevron previews, name opens the sheet) was a deliberate exception to DESIGN_RULES
+       rule 4. Both are gone: this is an ordinary card, and the fuller surface — where a symptom
+       is added or untracked — is its pane (components/HealthIssuesEditor.tsx), reached by the
+       ⤢ and the title like every other card's. */
+    healthIssues: (
+      <Card id="healthIssues" count={trackedCount} peek={t.peek.healthIssues(trackedCount)}>
+        <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
+        <PressableScale
+          onPress={() => router.push('/health-log')}
+          accessibilityRole="button"
+          accessibilityLabel={t.healthLogTitle}
+          scaleTo={0.98}
+          style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
+        >
+          <Ionicons name="document-text-outline" size={18} color={theme.accent} />
+          <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
+          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
+        </PressableScale>
+      </Card>
+    ),
+    /* ⚠️ **Medicine is a PEER card here, not a card drawn inside Health's** (2026-08-22). It
+       moved from the Me tab when the nav went back to five tabs; it had been drawn inside
+       HomeHealthCard's Surface until 2026-08-21, which is the card-in-a-card
+       CONSISTENCY_AUDIT.md §11 measured, and changing screens is not a reason to rebuild it.
+       The `featureMedicine` gate lives HERE, at the mount site — a flag that hides a surface
+       has to hide it wherever it is mounted, and components/MedicineCard.tsx deliberately
+       does not check its own flag.
+       It is skipped while `embedded` for the same reason it is a peer: inside the expanded
+       Health pane it would be a card inside the card you just opened. */
+    healthMedicine: featureMedicine && !embedded ? <MedicineCard /> : undefined,
+  };
 
   return (
     <View style={embedded ? styles.embeddedContent : styles.content}>
@@ -551,55 +593,13 @@ export default function HealthSurface({ embedded = false, section }: Props) {
         </PressableScale>
       )}
 
-      {weekCard}
+      {order.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
-      {/* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21).** The drawer was a card
-          shape with a fold, a badge on a group-tier rail and no ⤢, and its two-tap-target header
-          (chevron previews, name opens the sheet) was a deliberate exception to DESIGN_RULES
-          rule 4. Both are gone: this is an ordinary card, and the sheet — the fuller surface,
-          where a symptom is added or untracked — is a header control, which is where a card's
-          own controls go. */}
-      <Card
-        id="healthIssues"
-        count={trackedCount}
-        peek={t.peek.healthIssues(trackedCount)}
-        controls={
-          <IconButton
-            icon="open-outline"
-            label={t.healthIssues.openLabel}
-            onPress={() => setIssuesSheetOpen(true)}
-          />
-        }
-      >
-        <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
-        <PressableScale
-          onPress={() => router.push('/health-log')}
-          accessibilityRole="button"
-          accessibilityLabel={t.healthLogTitle}
-          scaleTo={0.98}
-          style={[styles.overviewLogLink, { borderTopColor: theme.border }]}
-        >
-          <Ionicons name="document-text-outline" size={18} color={theme.accent} />
-          <Text style={[styles.navCardText, { color: theme.text }]}>{t.healthLogTitle}</Text>
-          <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
-        </PressableScale>
-      </Card>
-
-      {/* ⚠️ **Medicine is a PEER card here, not a card drawn inside Health's** (2026-08-22). It
-          moved from the Me tab when the nav went back to five tabs; it had been drawn inside
-          HomeHealthCard's Surface until 2026-08-21, which is the card-in-a-card
-          CONSISTENCY_AUDIT.md §11 measured, and changing screens is not a reason to rebuild it.
-          The `featureMedicine` gate lives HERE, at the mount site — a flag that hides a surface
-          has to hide it wherever it is mounted, and components/MedicineCard.tsx deliberately
-          does not check its own flag.
-          It is skipped while `embedded` for the same reason it is a peer: inside the expanded
-          Health pane it would be a card inside the card you just opened. */}
-      {featureMedicine && !embedded && <MedicineCard />}
-
-      {!embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
-      {!embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}
-      {embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
-      {embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}
+      {/* The Health issues sheet was mounted beside this and is DELETED (2026-09-01) — its body
+          is the `healthIssues` card's own pane now (components/HealthIssuesEditor.tsx). The
+          `embedded`/`!embedded` pair is kept for EpisodeCloseSheet, which still needs to mount in
+          both hosts. */}
+      <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
     </View>
   );
 }

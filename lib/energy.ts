@@ -105,10 +105,18 @@ export const MAX_SURPLUS_PIPS = 4;
  * filled pip) and capped at `MAX_SURPLUS_PIPS`. It is 0 whenever `current <= capacity`, and
  * 0 for a zero/negative capacity along with everything else.
  */
+/**
+ * The most pips a meter row ever draws — the ceiling `energyPipCount` scales a large capacity
+ * down to. Exported since 2026-09-01 so `components/EnergyMeter.tsx`'s empty-state row can draw
+ * exactly as many placeholders as a full meter has pips; it was a default parameter, and a
+ * literal `10` at that call site would be the same number in two places.
+ */
+export const MAX_PIPS = 10;
+
 export function energyPipCount(
   current: number,
   capacity: number,
-  maxPips = 10
+  maxPips = MAX_PIPS
 ): { pipCount: number; filled: number; surplus: number } {
   if (capacity <= 0) return { pipCount: 0, filled: 0, surplus: 0 };
   const pipCount = Math.min(maxPips, capacity);

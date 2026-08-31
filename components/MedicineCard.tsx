@@ -18,7 +18,7 @@
  * in the app as of 2026-08-22.
  *
  * Connections:
- *   Imports → components/Card, components/CardMenuSheet (CardMenuButton),
+ *   Imports → components/Card,
  *             components/MedicineReminderBell, components/MedicineSurface
  *   Used by → components/HealthSurface.tsx
  *   Data    → none directly — MedicineSurface drives store/useMedicineStore
@@ -34,18 +34,12 @@
  */
 import React from 'react';
 import Card from '@/components/Card';
-import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import MedicineSurface from '@/components/MedicineSurface';
 import { useT } from '@/lib/i18n';
 import { useMedicineStore } from '@/store/useMedicineStore';
 
-type Props = {
-  /** The host screen's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮". */
-  cardMenu?: CardMenu;
-};
-
-export default function MedicineCard({ cardMenu }: Props) {
+export default function MedicineCard() {
   const t = useT();
   // The peek counts medicines on a TRAY (morning/midday/evening/night), not every medicine the
   // person has: an as-needed medicine belongs to no tray and nothing ever nudges you to take
@@ -55,12 +49,7 @@ export default function MedicineCard({ cardMenu }: Props) {
     <Card
       id="healthMedicine"
       peek={t.peek.healthMedicine(dailyCount)}
-      controls={
-        <>
-          <MedicineReminderBell />
-          {cardMenu ? <CardMenuButton cardTitle={t.medicine.title} {...cardMenu} /> : null}
-        </>
-      }
+      controls={<MedicineReminderBell />}
     >
       <MedicineSurface />
     </Card>

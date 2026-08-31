@@ -10,8 +10,9 @@
  *
  * Connections:
  *   Imports → react-native-svg, constants/motifs, lib/useAppTheme (useIsDark)
- *   Used by → components/StageTree.tsx (the four
- *             tree-natural-* growth stages — and through it components/StarterCard.tsx and
+ *   Used by → components/HabitLeading.tsx (the brand leaf) and
+ *             components/TourSpotlight.tsx (the halo ring). ⚠️ components/StageTree.tsx and its
+ *             four `tree-natural-*` motifs were deleted 2026-09-01 — and through it
  *             app/habits.tsx), components/TourSpotlight.tsx (halo-ring),
  *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx
  *             (leaf-icon corner accent, DESIGN_COMPARISON/04 option (b)),

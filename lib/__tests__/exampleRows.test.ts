@@ -259,7 +259,7 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
     // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
     // is the two habit surfaces and the health sheet, all of them short-label clouds that
     // genuinely pair up on a line, which is what the chip is for.
-    'components/HealthIssuesSheet.tsx',
+    'components/HealthIssuesEditor.tsx',
   ] as const) {
     it(`${file} mounts the shared chip instead of a local copy`, () => {
       const source = code(file);
@@ -308,12 +308,16 @@ describe('PlanTaskCard — the two empty-day rows are one shape', () => {
 // ── 3. No explainer is a card inside a card ──────────────────────────────────
 
 describe('StarterCard — `embedded` wherever it is mounted inside another card', () => {
-  it('drops the Surface, the padding and the watermark, and nothing else', () => {
+  it('drops the Surface and the padding, and nothing else', () => {
     const source = code('components/StarterCard.tsx');
     expect(source).toMatch(/if \(embedded\) return <View style=\{styles\.embedded\}>\{body\}<\/View>;/);
-    // `noTree` joined the gate on 2026-08-19 (Energy's card draws no watermark) — the
-    // assertion still pins that `embedded` is one of the terms that suppresses it.
-    expect(source).toMatch(/\{compact \|\| embedded \|\| noTree \? null : \(/);
+    // ⚠️ **There is no watermark left to suppress (2026-09-01).** This asserted the gate
+    // `{compact || embedded || noTree ? null : …}` around the growth tree. The tree is deleted
+    // app-wide — `components/StageTree.tsx`, its four `tree-natural-*` motifs and both props —
+    // on the maintainer's *"remove the Tree in Energy (and wherever else it may be)"*, so the
+    // assertion is inverted: nothing in this file may draw one again.
+    expect(source).not.toMatch(/StageTree/);
+    expect(source).not.toMatch(/\bnoTree\b/);
     // Presentation only — the same contract FoodTab/CatalogueTab's `embedded` carries. The
     // body is built once and used by both branches, which is what makes that true structurally
     // rather than by review.

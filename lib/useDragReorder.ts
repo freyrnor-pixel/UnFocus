@@ -18,7 +18,7 @@
  *
  * Connections:
  *   Imports → lib/reorder (reorderByDrag), lib/useAppTheme (useAccessibility — reduced motion)
- *   Used by → components/HomeCardManager.tsx (Home's preview cards), app/notes.tsx,
+ *   Used by → components/ManageCardsSheet.tsx (card reorder, every screen), app/notes.tsx,
  *             app/habits.tsx, app/plans.tsx (the undated "Whenever" list only —
  *             see that screen for why a time-ordered list is deliberately not draggable)
  *   Data    → none — the caller persists the committed order (a store's `reorder*(orderedIds)`)

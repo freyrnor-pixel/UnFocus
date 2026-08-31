@@ -33,7 +33,6 @@
  *             footer), components/Card (the shell, the header and the fold — this file
  *             draws none of them any more), components/IconButton (the week arrows),
  *             components/PressableScale,
- *             components/CardMenuSheet (CardMenuButton — the header "⋮", when Home passes a menu),
  *             components/ProgressBar, components/Stepper (quick-add quantity),
  *             components/QuickAddOptionsPanel + components/QuickAddOptionRow (the quick-add's
  *             labelled Quantity + Add-to rows), components/AppModal (showAppModal — the
@@ -55,10 +54,6 @@
  *             Card size persists to settings.cardStates via the `padState` props.
  *
  * Edit notes:
- *   - **The header "⋮" (2026-08-04, workstream A)**: `cardMenu` is optional and BUILT BY HOME
- *     (app/(tabs)/index.tsx), not here — its rows write `settings.homeCardOrder` and flip Home's
- *     reorder mode, neither of which this card can reach. No prop, no ⋮ (the To-do tab's own
- *     mount passes none). See components/CardMenuSheet.tsx's header before moving it.
  *   - **Quantity READS here and is EDITED in the sheet** (row rule, 2026-07-28) — it is the
  *     row's one right-hand value, and `components/ShoppingItemSheet.tsx` is still the only
  *     editor for a weekly item's quantity/unit/price/category. Don't add a stepper to a row.
@@ -94,7 +89,6 @@ import DraftComposer from '@/components/DraftComposer';
 import PadFooterToggle from '@/components/PadFooterToggle';
 import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
-import { CardMenuButton, CardMenu } from '@/components/CardMenuSheet';
 import Stepper from '@/components/Stepper';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -136,8 +130,6 @@ export type ShoppingWeek = {
 };
 
 type Props = {
-  /** Home's per-card menu (components/CardMenuSheet.tsx). Omitted → no "⋮" is drawn. */
-  cardMenu?: CardMenu;
   /** The four cycle weeks, in order. Built by app/(tabs)/index.tsx — see its `shoppingWeeks`. */
   weeks: ShoppingWeek[];
   /** Which week to open on — the one containing today. */
@@ -163,7 +155,6 @@ type Props = {
 };
 
 export default function HomeShoppingCard({
-  cardMenu,
   weeks,
   initialWeek,
   onToggle,
@@ -212,7 +203,7 @@ export default function HomeShoppingCard({
   }, [initialWeek, weeks.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // This card owns its own item detail sheet rather than threading one up through Home and
-  // HomeCardManager: AnimatedBottomSheet renders into a Modal, so mounting depth doesn't
+  // AnimatedBottomSheet renders into a Modal, so mounting depth doesn't
   // affect where the sheet appears, and Home's card set stays a plain list of cards.
   const [detailItem, setDetailItem] = useState<ShoppingItem | null>(null);
   const badgeRef = useRef<any>(null);
@@ -381,7 +372,6 @@ export default function HomeShoppingCard({
       // the node it lands on comes back through this ref rather than being a badge this file
       // builds — see components/SectionRail.tsx's `countRef`.
       countRef={badgeRef}
-      controls={cardMenu ? <CardMenuButton cardTitle={t.shoppingTitle} {...cardMenu} /> : null}
     >
 
         {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}

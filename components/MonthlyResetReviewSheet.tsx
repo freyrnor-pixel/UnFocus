@@ -22,7 +22,7 @@
  *             until `onFinalize` fires, so it stays reversible while the sheet is open.
  *
  * Edit notes:
- *   - Reorder follows components/HomeCardManager.tsx's pattern (own drag/snapshot state,
+ *   - Reorder follows the lib/useDragReorder.ts pattern (own drag/snapshot state,
  *     flat single list, no cross-section hit-testing) rather than app/(tabs)/shopping.tsx's
  *     own dish-merge version — this sheet has no dish groups to reconcile against.
  *     `onReorderLists` fires once per completed drag with the full new id order; the caller

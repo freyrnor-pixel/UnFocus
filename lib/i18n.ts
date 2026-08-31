@@ -346,6 +346,7 @@ const en = {
   cardHint: {
     todoToday: 'Break it down until it feels slightly ridiculous. That is when it starts working.',
     todoWeek: 'A week is for seeing what is coming, not for deciding it now.',
+    todoCalendar: 'A range is for seeing what is coming, not for deciding it now.',
     shopLists: 'Add things as you run out — the weekly list clears itself.',
     habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
@@ -355,6 +356,9 @@ const en = {
       left === 0 && done === 0 ? 'Nothing due today' : `${left} left · ${done} done`,
     todoWeek: (n: number) => (n === 0 ? 'Nothing this week yet' : `${n} this week`),
     todoMonth: (n: number) => (n === 0 ? 'Nothing this month yet' : `${n} this month`),
+    // The range is named rather than counted when there is nothing in it — a bare 0 beside a
+    // date span reads as a verdict on the span (the 2026-08-27 peek rule).
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
@@ -559,6 +563,9 @@ const en = {
   manageCards: {
     title: 'Cards on this screen',
     hint: 'Turn one off to put it away. Nothing is deleted — reminders keep working, and you can turn it back on here.',
+    reorderHint: 'Hold a card to drag it, or use the arrows.',
+    moveUp: (label: string) => `Move ${label} up`,
+    moveDown: (label: string) => `Move ${label} down`,
     close: 'Done',
   },
   version: {
@@ -999,6 +1006,14 @@ const en = {
   // The To-do tab's Week card (Mon–Sun), replacing the old "This week" tab.
   todoWeekTitle: 'Week',
   todoMonthTitle: 'Month',
+  // The card that replaced the two above (2026-09-01) — it owns the range now.
+  todoCalendarTitle: 'Calendar',
+  todoCalendarPrev: 'Earlier',
+  todoCalendarNext: 'Later',
+  // Plan mode: the Whenever composer stays open so a run of tasks costs one gesture each.
+  todoPlanModeLabel: 'Plan mode',
+  todoPlanModeOn: 'Keep writing',
+  todoPlanModeOff: 'One at a time',
   // The To-do tab's one group rail (2026-08-21): the three cards below it are not the day's
   // work — what you're aiming at, what's behind you, what quietly stopped mattering.
   todoElsewhereTitle: 'Elsewhere',
@@ -1338,27 +1353,13 @@ const en = {
     // The row label the Details field sits on since it moved into the notes quick-add's
     // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
     extraInfoLabel: 'Details',
-    // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
-    // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
-    manageCards: {
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health', medicine: 'Medicine' },
-    },
-    // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
-    // "Removed": nothing is gone, it has just stopped being on duty here.
-    retired: {
-      title: 'Retired',
-      restore: (label: string) => `Bring ${label} back`,
-    },
-    // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
-    // says "this card" rather than naming a screen — the sheet's title already names it.
-    cardMenu: {
-      open: (card: string) => `Card settings for ${card}`,
-      subtitle: 'Settings for this card',
-      close: 'Done',
-      hide: 'Hide this card',
-      hideHint: 'It waits under Retired, at the foot of this screen',
-      arrangeHint: 'Hold a card to drag it up or down',
-    },
+    // ⚠️ **`manageCards.kinds`, `retired.*` and `cardMenu.*` are all GONE (2026-09-01).** Home
+    // hid and reordered its cards through a per-card ⋮ and a "Retired" shelf, over its own
+    // `settings.homeCardOrder` column, with its own names for cards the registry already names.
+    // All of it is replaced by the one control every screen has — components/ManageCardsSheet.tsx
+    // over `settings.hiddenCards` + `settings.cardOrder`, whose rows read `cardSpec(id).title(t)`.
+    // Deleted rather than left unused, so the ⋮ cannot be quietly rebuilt against strings that
+    // outlived it. The sheet's own copy is `t.manageCards.*`.
   },
   health: {
     habits: 'Habits',
@@ -1556,6 +1557,9 @@ const en = {
      */
     editLinkPersonal: 'Personal goals',
     editLinkPractical: 'Practical goals',
+    // The row at the foot of the goal picker, and the title of the pop-up it opens (2026-09-01).
+    editTitle: 'Goals',
+    editGoals: 'Edit goals',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -2637,6 +2641,7 @@ const no: typeof en = {
   cardHint: {
     todoToday: 'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
     todoWeek: 'En uke er for å se hva som kommer, ikke for å bestemme det nå.',
+    todoCalendar: 'En periode er for å se hva som kommer, ikke for å bestemme det nå.',
     shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
@@ -2646,6 +2651,7 @@ const no: typeof en = {
       left === 0 && done === 0 ? 'Ingenting i dag' : `${left} igjen · ${done} gjort`,
     todoWeek: (n: number) => (n === 0 ? 'Ingen ennå denne uken' : `${n} denne uken`),
     todoMonth: (n: number) => (n === 0 ? 'Ingen ennå denne måneden' : `${n} denne måneden`),
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
@@ -2796,6 +2802,9 @@ const no: typeof en = {
   manageCards: {
     title: 'Kort på denne skjermen',
     hint: 'Slå av et kort for å legge det bort. Ingenting slettes — påminnelser virker som før, og du kan slå det på igjen her.',
+    reorderHint: 'Hold på et kort for å dra det, eller bruk pilene.',
+    moveUp: (label: string) => `Flytt ${label} opp`,
+    moveDown: (label: string) => `Flytt ${label} ned`,
     close: 'Ferdig',
   },
   version: {
@@ -3134,6 +3143,12 @@ const no: typeof en = {
   collapseCardLabel: 'Skjul fullskjerm',
   todoWeekTitle: 'Uke',
   todoMonthTitle: 'Måned',
+  todoCalendarTitle: 'Kalender',
+  todoCalendarPrev: 'Tidligere',
+  todoCalendarNext: 'Senere',
+  todoPlanModeLabel: 'Planmodus',
+  todoPlanModeOn: 'Fortsett å skrive',
+  todoPlanModeOff: 'Én om gangen',
   todoElsewhereTitle: 'Ellers',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
@@ -3223,6 +3238,8 @@ const no: typeof en = {
     strengthLabel: 'Driv — vokser når du jobber med det, avtar rolig ellers',
     editLinkPersonal: 'Personlige mål',
     editLinkPractical: 'Praktiske mål',
+    editTitle: 'Mål',
+    editGoals: 'Rediger mål',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',
@@ -3741,21 +3758,8 @@ const no: typeof en = {
     addToListLabel: 'Legg i',
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
-    manageCards: {
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse', medicine: 'Medisin' },
-    },
-    retired: {
-      title: 'Satt bort',
-      restore: (label: string) => `Hent ${label} tilbake`,
-    },
-    cardMenu: {
-      open: (card: string) => `Kortinnstillinger for ${card}`,
-      subtitle: 'Innstillinger for dette kortet',
-      close: 'Ferdig',
-      hide: 'Skjul dette kortet',
-      hideHint: 'Det venter under Satt bort, nederst på denne skjermen',
-      arrangeHint: 'Hold på et kort for å dra det opp eller ned',
-    },
+    // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
+    // were all deleted on 2026-09-01; the sheet names a card from the registry now.
   },
   health: {
     habits: 'Vaner',
@@ -4488,6 +4492,7 @@ const is: typeof en = {
   cardHint: {
     todoToday: 'Skiptu því niður þar til það verður hálf hlægilegt. Þá fer það að virka.',
     todoWeek: 'Vika er til að sjá hvað er framundan, ekki til að ákveða það núna.',
+    todoCalendar: 'Tímabil er til að sjá hvað er framundan, ekki til að ákveða það núna.',
     shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
@@ -4497,6 +4502,7 @@ const is: typeof en = {
       left === 0 && done === 0 ? 'Ekkert í dag' : `${left} eftir · ${done} lokið`,
     todoWeek: (n: number) => (n === 0 ? 'Ekkert í þessari viku' : `${n} í þessari viku`),
     todoMonth: (n: number) => (n === 0 ? 'Ekkert í þessum mánuði' : `${n} í þessum mánuði`),
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
@@ -4646,6 +4652,9 @@ const is: typeof en = {
   manageCards: {
     title: 'Spjöld á þessum skjá',
     hint: 'Slökktu á spjaldi til að leggja það til hliðar. Engu er eytt — áminningar virka áfram og þú getur kveikt á því aftur hér.',
+    reorderHint: 'Haltu inni spjaldi til að draga það, eða notaðu örvarnar.',
+    moveUp: (label: string) => `Færa „${label}“ upp`,
+    moveDown: (label: string) => `Færa „${label}“ niður`,
     close: 'Lokið',
   },
   version: {
@@ -4987,6 +4996,12 @@ const is: typeof en = {
   collapseCardLabel: 'Fela fullan skjá',
   todoWeekTitle: 'Vika',
   todoMonthTitle: 'Mánuður',
+  todoCalendarTitle: 'Dagatal',
+  todoCalendarPrev: 'Fyrr',
+  todoCalendarNext: 'Síðar',
+  todoPlanModeLabel: 'Skipulagsstilling',
+  todoPlanModeOn: 'Halda áfram að skrifa',
+  todoPlanModeOff: 'Eitt í einu',
   todoElsewhereTitle: 'Annað',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',
@@ -5070,6 +5085,8 @@ const is: typeof en = {
     strengthLabel: 'Kraftur — vex þegar þú vinnur í því, dvínar rólega annars',
     editLinkPersonal: 'Persónuleg markmið',
     editLinkPractical: 'Hagnýt markmið',
+    editTitle: 'Markmið',
+    editGoals: 'Breyta markmiðum',
     strengthStrong: 'Gengur vel',
     strengthWarm: 'Komið af stað',
     strengthNeutral: 'Tilbúið þegar þú ert það',
@@ -5594,22 +5611,8 @@ const is: typeof en = {
     addToListLabel: 'Setja í',
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
-    manageCards: {
-      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa', medicine: 'Lyf' },
-    },
-    /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
-    retired: {
-      title: 'Í hvíld',
-      restore: (label: string) => `Sækja „${label}“ aftur`,
-    },
-    cardMenu: {
-      open: (card: string) => `Stillingar korts: ${card}`,
-      subtitle: 'Stillingar fyrir þetta kort',
-      close: 'Búið',
-      hide: 'Fela þetta kort',
-      hideHint: 'Það bíður undir „Í hvíld“, neðst á þessum skjá',
-      arrangeHint: 'Haltu á korti til að draga það upp eða niður',
-    },
+    // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
+    // were all deleted on 2026-09-01; the sheet names a card from the registry now.
   },
   health: {
     habits: 'Venjur',

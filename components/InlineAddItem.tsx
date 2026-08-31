@@ -58,7 +58,7 @@
  *   - Unlike AddRow (whose collapsed/expanded states share one ~44px row height, so no reflow
  *     animation is needed), this panel's expanded form is much taller than the collapsed "+" bar
  *     — every expand/collapse is wrapped in `LayoutAnimation.configureNext` (gated on
- *     `!reducedMotion`, same idiom as HomeCardManager/MonthlyResetReviewSheet/shopping.tsx) so
+ *     `!reducedMotion`, same idiom as MonthlyResetReviewSheet/shopping.tsx) so
  *     the height change glides instead of popping.
  *   - Suggestions come from useCatalogStore.suggest(name, limit) (case-insensitive substring,
  *     startsWith-priority) — just render its result; dismissed once a suggestion is picked or

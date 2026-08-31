@@ -60,7 +60,7 @@ function sourceFiles(): string[] {
  * ⚠️ **The scan is scoped to `<AnimatedChevron>` and to a raw `chevron-up`/`chevron-down`, and
  * that scoping is load-bearing.** The first draft also matched `chevron-forward`/`chevron-back`
  * and immediately flagged twelve files — `app/day-log.tsx`, `components/SendToSheet.tsx`,
- * `components/CardMenuSheet.tsx` and the rest — none of which draws a card fold at all. Those
+ * the old per-card ⋮ sheet and the rest — none of which draws a card fold at all. Those
  * are NAVIGATION affordances (go there, close this), a different control with a different glyph
  * axis. Widening the net would have meant either twelve fake allowlist entries or a rule nobody
  * could satisfy, and both roads end with the guard being switched off. Up/down is the fold axis;
@@ -585,7 +585,7 @@ describe('the peek line — every card says what it holds, none shows a bare cou
       if (rel === 'components/Card.tsx') continue; // where <Card> is DEFINED, not called
       const src = code(rel);
       // Each `<Card` opening tag up to its `>`; `id=` is what distinguishes a real call site
-      // from CardShell/CardMenuButton/CardExpandButton and friends.
+      // from CardShell/CardExpandButton and friends.
       //   ⚠️ **Scan to the `>` at brace depth ZERO, not the first one.** A non-greedy `.*?>` ends
       // inside the first prop that contains a comparison — `count={notes.length > 0 ? … }` — and
       // then reports three cards that do pass a peek as offenders. Caught by exactly that.

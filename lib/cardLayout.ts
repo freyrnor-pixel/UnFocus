@@ -65,7 +65,6 @@ export type DetailLevel = 'basic' | 'normal' | 'everything';
 /** Every layout id known to the app. */
 export type LayoutId =
   | DetailLevel
-  | 'inStore'
   | 'nowNext'
   | 'byPerson'
   | 'focusFirst'
@@ -81,7 +80,10 @@ export const FALLBACK_LAYOUT: DetailLevel = 'normal';
  * detail levels so the global default is always applicable, then adds its own shapes.
  */
 export const SURFACE_LAYOUTS: Record<LayoutSurface, readonly LayoutId[]> = {
-  shopping: ['basic', 'normal', 'everything', 'inStore'],
+  // ⚠️ **`inStore` left on 2026-09-01 with the picker that was its only entry point.**
+  // Shopping has no per-surface layouts of its own any more — the three DETAIL_LEVELS come from
+  // Settings like every other surface's.
+  shopping: ['basic', 'normal', 'everything'],
   plans: ['basic', 'normal', 'everything', 'timeline', 'nowNext', 'focusFirst', 'byPerson'],
   // Home's to-do card offers the timeline too — it just doesn't default to it. `byPerson`
   // is deliberately absent: a Home preview card is not the place for a second person filter
@@ -129,21 +131,6 @@ export type LayoutSpec = {
    */
   groupByAisle?: boolean;
   /**
-   * Draw the list as a wrapping grid of tap-to-tick CHIPS instead of ruled rows, and put the
-   * ticked ones in a "recently used" drawer under it.
-   *
-   * Rides on `inStore` rather than being its own layout id, deliberately: that layout already
-   * means "big targets, name only, no money, walked in aisle order", and a second id meaning
-   * the same thing would need a name that explained the difference from it. This flag says
-   * what SHAPE that intent takes; `bigTouch`/`showPrice`/`groupByAisle` still say what a row
-   * may draw, so the chip honours them rather than re-deciding.
-   *
-   * Like every flag here it can only SUBTRACT — a chip drops price and drag-reorder because
-   * one tap is already spent on ticking. Nothing is written: switching back to any other
-   * layout restores the dragged order and every field untouched.
-   */
-  chips?: boolean;
-  /**
    * Draw the day as a clock-time calendar grid (lib/dayGrid + components/DayGridLines)
    * instead of a ruled list. A surface asks for this flag, never for the `timeline` id — same
    * rule as every other flag here.
@@ -168,13 +155,6 @@ export const LAYOUT_SPECS: Record<LayoutId, LayoutSpec> = {
   normal: spec('normal', 'normal', true, true, false),
   // "Show everything" — every field inline.
   everything: spec('everything', 'roomy', true, true, true),
-  // "In the store" — big rows, name only, no money; read at arm's length in a shop, and
-  // grouped by aisle because that's the order you physically walk it in.
-  inStore: {
-    ...spec('inStore', 'roomy', false, false, false, false, true),
-    groupByAisle: true,
-    chips: true,
-  },
   // "Now and next" — the current item large, the next one small, the rest behind a count.
   nowNext: spec('nowNext', 'normal', true, false, false, true, false),
   // "One thing at a time" (design-system v6's `Focus First (1c)`) — ONE task as a hero card,

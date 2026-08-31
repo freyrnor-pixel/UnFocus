@@ -35,33 +35,32 @@
  *      actually arrived (`hasIncomingShared`). Above the cards on purpose: it is transient,
  *      time-sensitive and from another person, so below them it would be missed. Interruptive
  *      content goes high or it does not work. Don't demote it.
- *   4–6. Habits / Notes / Health — the ONLY reorderable, retirable cards, driven by
- *      `settings.homeCardOrder` through components/HomeCardManager.tsx (long-press to drag, the
- *      card's own ⋮ → Hide to retire it, the Retired shelf at the foot to bring it back). There
- *      is no floor of one card any more, and no edit mode — see the 2026-08-20 note below.
- *      ⚠️ Habits and Health are re-appended on read if a stored order does not name them — see
- *      lib/homeCards.ts, which also explains why 'notes' deliberately is not.
+ *   4–6. Today / Notes / Shopping — the ONLY reorderable, hideable cards. ⚠️ **Driven by
+ *      `settings.cardOrder` + `settings.hiddenCards` since 2026-09-01, the same two columns
+ *      every other screen uses**, through the one "Manage cards" header control
+ *      (components/ManageCardsSheet.tsx). `settings.homeCardOrder`, the per-card ⋮
+ *      (components/CardMenuSheet.tsx), the Retired shelf and components/HomeCardManager.tsx
+ *      are all GONE — see the edit note below. There is no floor of one card.
  *   7. The cumulative "you've done N things" line — fixed to the bottom, and the last child of
  *      `content` so it cannot be reordered into the stack. It counts tasks, which now live one
  *      tab over; it stays because it is a lifetime figure about the user, not a view of that
  *      tab's list.
- * Items 1–3 and 7 are fixed *structurally*: they are siblings of `HomeCardManager`, not entries
- * in `HOME_CARD_KINDS`, so no code path can drag or delete them.
+ * Items 1–3 and 7 are fixed *structurally*: they are not cards in lib/cardRegistry.ts at all,
+ * so no code path can drag or hide them.
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/EnergyMeter (the fixed Energy strip, gated
  *             on settings.energySystemEnabled), components/HomeHabitsCard, components/HomeNotesCard,
  *             components/HomeHealthCard, components/HomeMedicineCard (each self-contained — they read their own stores and
  *             own their own useCardExpand), components/HomeSharedCard (gated on
- *             settings.featureSharing + SHARING_VISIBLE), components/HomeCardManager,
- *             components/CardMenuSheet (the CardMenu type),
+ *             settings.featureSharing + SHARING_VISIBLE), components/ManageCardsSheet,
  *             components/DebugNoteAnchor, components/TourTarget, components/PressableScale,
- *             constants/theme, lib/i18n, lib/useAppTheme, lib/haptics, lib/homeCards,
+ *             constants/theme, lib/i18n, lib/useAppTheme, lib/haptics, lib/useCardOrder,
  *             lib/sharingVisibility,
  *             store/useSettingsStore, store/useSharedStore
  *   Used by → Expo Router route "/" — one of 3 co-mounted pager tabs under app/(tabs)/_layout.tsx
  *   Data    → reads useSharedStore (incoming shared tasks/shopping, for the self-hide check) and
- *             a handful of useSettingsStore fields; writes settings.homeCardOrder and nothing
+ *             a handful of useSettingsStore fields; writes nothing
  *             else. The three preview cards own all their own reads and writes — nothing is
  *             threaded down as props any more.
  *
@@ -95,11 +94,22 @@
  *     and BOTH halves of that reason expired in this same pass. `t.home.cardMenu.hideLastHint`
  *     is deleted rather than left unused, so the guard cannot be quietly restored against a
  *     reason that is gone.
- *     What survives untouched: `renderHomeCard(kind)` is still the per-kind render function
- *     passed down, `sanitizeHomeCardOrder` still defends against a corrupt/legacy settings row,
- *     and holding any card still drag-reorders it — the drag was NEVER gated on the mode
- *     (components/HomeCardManager.tsx documents that), which is why the mode could go without
- *     taking a capability with it.
+ *     ⚠️ **The rest of that machinery is gone too as of 2026-09-01** — see the next note.
+ *   - ⚠️ **Home has no per-card ⋮, no Retired shelf and no order column of its own
+ *     (2026-09-01).** Maintainer, against the shipped app: *"One button per screen for
+ *     reordering and/or hiding cards instead of the three dots was disregarded, and now it's
+ *     not how we agreed to do it."* So this screen joined the other four:
+ *     `settings.hiddenCards` + `settings.cardOrder` through one header control
+ *     (components/ManageCardsSheet.tsx). Deleted with it: `components/HomeCardManager.tsx`,
+ *     `components/CardMenuSheet.tsx` and its `CardMenuButton`, the `cardMenu` prop on all three
+ *     cards, `lib/homeCards.ts`, the `homeRetired` registry entry, and `t.home.cardMenu.*`.
+ *     `settings.homeCardOrder` survives as an INERT column (this repo never drops one) — see
+ *     store/useSettingsStore.ts's "Inert columns" note.
+ *       **`RESTORED_KINDS`' forced-restore rule goes with it, and that is a real behaviour
+ *     change worth stating.** It existed because a card with no other surface in the app must
+ *     come back if a stored row does not name it. Every Home card previews a TAB, and the sheet
+ *     lists every card present-or-absent, so "nobody sees the card that used to be a whole tab"
+ *     cannot happen through this route any more — the naming IS the restore path.
  *   - **The flight animation is gone from this screen** (2026-08-19) — only the shopping preview
  *     card ever started one, so `flights`/`FlightOverlay`/`handleScreenScroll` went with it. The
  *     pattern still lives on app/(tabs)/shopping.tsx; see ANIMATION_GUIDELINES.md.
@@ -121,8 +131,7 @@ import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
 import HomeShoppingCard from '@/components/HomeShoppingCard';
-import HomeCardManager from '@/components/HomeCardManager';
-import type { CardMenu } from '@/components/CardMenuSheet';
+import ManageCardsSheet from '@/components/ManageCardsSheet';
 import FlightOverlay, { FlightPill, Flight, FlightRect } from '@/components/FlightOverlay';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
@@ -149,12 +158,11 @@ import { useReceiptStore } from '@/store/useReceiptStore';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
-import { sanitizeHomeCardOrder, type HomeCardKind } from '@/lib/homeCards';
+import type { CardKey } from '@/lib/cardRegistry';
+import { useOrderedCards } from '@/lib/useCardOrder';
 
-// Home preview card management (hold-to-manage, components/HomeCardManager.tsx). The kinds
-// and the persisted-order parse moved to lib/homeCards.ts on 2026-08-20 so the 'habits' →
-// 'plans' fold-in could be unit-tested; HomeSharedCard is a separate, automatic/data-driven
-// inbox, not a discretionary card, so it stays outside that set either way.
+// HomeSharedCard is a separate, automatic/data-driven inbox rather than a discretionary card,
+// which is why it is not in lib/cardRegistry.ts and cannot be hidden or moved.
 export default function HomeScreen() {
   const t = useT();
   const router = useRouter();
@@ -246,48 +254,22 @@ export default function HomeScreen() {
   // below. These select only the fields Home actually reads.
   const settingsLoaded = useSettingsStore((s) => s.loaded);
   const setupComplete = useSettingsStore((s) => s.setupComplete);
-  const homeCardOrderRaw = useSettingsStore((s) => s.homeCardOrder);
-  // Gates the 'medicine' card only — see `renderHomeCard`'s note on why the gate is here and
-  // not in lib/homeCards.ts.
-  const featureMedicine = useSettingsStore((s) => s.featureMedicine);
-  const updateSettings = useSettingsStore((s) => s.update);
   // All-time counter, maintained by useTaskStore (toggle/completeDirect/remove/
   // clearAll) so it survives pruneOldData() pruning old completed tasks — see
   // store/useTaskStore.ts's "All-time completed-task counter" edit note.
   const completedCount = useSettingsStore((s) => s.lifetimeCompletedTasks);
 
-  const homeCardOrder = useMemo(() => sanitizeHomeCardOrder(homeCardOrderRaw), [homeCardOrderRaw]);
-  const homeCardLabels = useMemo(
-    () => ({
-      plans: t.home.manageCards.kinds.plans,
-      notes: t.home.manageCards.kinds.notes,
-      shopping: t.home.manageCards.kinds.shopping,
-    }),
-    [t]
-  );
+  // The same hook the other four screens read, over the same column — see the header note on
+  // why Home stopped having its own.
+  const cardOrder = useOrderedCards('home');
+  const [manageCardsOpen, setManageCardsOpen] = useState(false);
 
   // ⚠️ **No greeting and no edit mode here since 2026-08-20** (UI-consistency pass: *"remove
   // the 'Good day' in home"*, *"remove the 'Edit cards' button as well"*). Both are DELETED,
   // not hidden — the greeting helper, the date line and the `cardsEditMode` state that used to
-  // sit in that header row are gone, and the screen opens on its first card. Hiding a card is
-  // the ⋮ menu's "Hide" row (below) and un-hiding it is the Retired drawer at the foot of
-  // components/HomeCardManager.tsx; neither needs a mode. Drag-to-reorder never needed one
-  // either — lib/useDragReorder's long-press has always been live regardless of `editMode`,
-  // which is exactly why the mode could go without taking a capability with it.
+  // sit in that header row are gone, and the screen opens on its first card. Hiding and moving
+  // a card are both the "Manage cards" header control since 2026-09-01; neither needs a mode.
 
-  // The per-card "⋮" menu (components/CardMenuSheet.tsx, workstream A / the design project's
-  // one un-filled component gap). Built HERE and passed down, never built by the card: every
-  // row it carries writes `settings.homeCardOrder` or flips `cardsEditMode`, and a preview
-  // card can reach neither. See CardMenuSheet's "The menu is built by whoever owns the state
-  // it changes" note before moving this into a card.
-  //
-  // Two rows for now, which is the honest size of what a Home card can currently be told to
-  // do — hide, and arrange. Deliberately NOT a "delete": a hidden card keeps its screen, its
-  // rows and its reminders, and calling that delete would be the one line in this sheet that
-  // lies about what it does. Layout ("How lists look") stays on its own header icon rather
-  // than moving in here: it is a *surface* setting shared with the To-do tab
-  // (lib/useSurfaceLayout.ts), not a Home-card setting, so folding it in would put one
-  // control in two places with different scopes.
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
 
   // The day log (2026-08-02) — the same hook and the same 60s "now" tick the To-do tab's
@@ -516,63 +498,21 @@ export default function HomeScreen() {
     [router, pathname]
   );
 
-  // The per-card "⋮" menu (components/CardMenuSheet.tsx, workstream A / the design project's
-  // one un-filled component gap). Built HERE and passed down, never built by the card: every
-  // row it carries writes `settings.homeCardOrder` or flips `cardsEditMode`, and a preview
-  // card can reach neither. See CardMenuSheet's "The menu is built by whoever owns the state
-  // it changes" note before moving this into a card.
-  //
-  // Two rows for now, which is the honest size of what a Home card can currently be told to
-  // do — hide, and arrange. Deliberately NOT a "delete": a hidden card keeps its screen, its
-  // rows and its reminders, and calling that delete would be the one line in this sheet that
-  // lies about what it does. Layout ("How lists look") stays on its own header icon rather
-  // than moving in here: it is a *surface* setting shared with the To-do tab
-  // (lib/useSurfaceLayout.ts), not a Home-card setting, so folding it in would put one
-  // control in two places with different scopes.
 
-  const buildCardMenu = useCallback(
-    (kind: HomeCardKind): CardMenu => {
-      // **The last card may now be hidden (2026-08-20), and that is a real reversal.** It was
-      // blocked because hiding everything left "a screen with a greeting and nothing else, and
-      // no visible way back — the add-picker lives inside edit mode". Both halves of that
-      // expired in the same pass: there is no greeting, and the Retired drawer is always on
-      // screen with every hidden card one tap from returning. A guard whose reason is gone is
-      // a control that refuses for no stated cause, which is worse than the state it prevents.
-      return {
-        options: [
-          {
-            key: 'hide',
-            label: t.home.cardMenu.hide,
-            icon: 'eye-off-outline',
-            hint: t.home.cardMenu.hideHint,
-            onPress: () => updateSettings({ homeCardOrder: homeCardOrder.filter((k) => k !== kind) }),
-          },
-        ],
-        // No `onEditLayout`: the mode it handed off to does not exist any more, and the drag
-        // it described is always available on a long-press. `arrangeHint` still says so.
-      };
-    },
-    [homeCardOrder, updateSettings, t]
-  );
-
-  // Renders one managed Home card by kind — HomeCardManager owns the reorder/delete/add
-  // chrome around this, Home still owns the actual card JSX/props (unchanged from before
-  // the hold-to-manage refactor, just split into a per-kind function so it can be driven
-  // by the user's homeCardOrder instead of a fixed block).
-  function renderHomeCard(kind: string) {
-    switch (kind as HomeCardKind) {
-      case 'notes':
-        return (
-          <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
-            <HomeNotesCard cardMenu={buildCardMenu('notes')} />
-          </DebugNoteAnchor>
-        );
-      case 'plans':
-        return (
-          <TourTarget id="tour.home.today">
-            <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
+  // ⚠️ **The cards are DATA now (2026-09-01), keyed by REGISTRY ID rather than by a
+  // `HomeCardKind` string.** It was a `switch (kind)` over lib/homeCards.ts's own three-kind
+  // union, driven by `settings.homeCardOrder`; both are gone and this screen reads the same
+  // `cardOrder`/`hiddenCards` columns as the other four. The card JSX itself is unchanged.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    homeNotes: (
+      <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
+        <HomeNotesCard />
+      </DebugNoteAnchor>
+    ),
+    homeToday: (
+      <TourTarget id="tour.home.today">
+        <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
                 <PlanTaskCard
-                  cardMenu={buildCardMenu('plans')}
                   tasks={todayTasks}
                   allTasks={tasks}
                   readOnly
@@ -609,14 +549,12 @@ export default function HomeScreen() {
                   // one Card already measures. (`onSeeMore` still exists on the component for
                   // its empty-day ghost add-row, which is suppressed here by `onAddTask`.)
                 />
-            </DebugNoteAnchor>
-          </TourTarget>
-        );
-      case 'shopping':
-        return (
-          <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
+        </DebugNoteAnchor>
+      </TourTarget>
+    ),
+    homeShopping: (
+      <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
             <HomeShoppingCard
-              cardMenu={buildCardMenu('shopping')}
               // Four pages, one per cycle week (2026-07-30) — see the `shoppingWeeks` memo.
               weeks={shoppingWeeks}
               initialWeek={currentShoppingWeek}
@@ -632,12 +570,9 @@ export default function HomeScreen() {
               padState={shoppingCardState}
               onPadStateChange={setShoppingCardState}
             />
-          </DebugNoteAnchor>
-        );
-      default:
-        return null;
-    }
-  }
+      </DebugNoteAnchor>
+    ),
+  };
 
   // All hooks above must run on every render (Rules of Hooks), so this loading
   // guard sits below them rather than up among the useMemo block.
@@ -664,6 +599,7 @@ export default function HomeScreen() {
         pagerFloatingNav
         ownBackground={false}
         onScroll={handleScreenScroll}
+        onManageCardsPress={() => setManageCardsOpen(true)}
       >
         <View style={styles.content}>
           {/* ⚠️ **The ⓘ hint banner is GONE (2026-08-20)** — see the header. Its BODY was two
@@ -673,7 +609,7 @@ export default function HomeScreen() {
               `applyAndSync` — which these two hand-rolled ones only half did. */}
           {/* Energy STRIP (2026-07-31, addendum task B.2) — no longer a card: one thin line of
               pips + `n / n` + an edit glyph, with its permanent explainer under it. It is FIXED
-              here: outside HOME_CARD_KINDS/HomeCardManager, so it can be neither dragged nor
+              here: not a card in lib/cardRegistry.ts, so it can be neither reordered nor
               removed with the × — the only way to make it go away is turning Energy off in
               Settings → Advanced → Features, which is what `energySystemEnabled` gates (on by
               default; the meter was unconditional 2026-07-26→2026-07-31). It uses `energyStrip`,
@@ -701,16 +637,11 @@ export default function HomeScreen() {
             </DebugNoteAnchor>
           )}
 
-          {/* Notes/Plans/Shopping previews — user-manageable (hold-to-reorder/remove/add,
-              components/HomeCardManager.tsx), order+visibility from settings.homeCardOrder. */}
-          <HomeCardManager
-            order={homeCardOrder}
-            labels={homeCardLabels}
-            onReorder={(next) => updateSettings({ homeCardOrder: next })}
-            onAdd={(kind) => updateSettings({ homeCardOrder: [...homeCardOrder, kind] })}
-            renderCard={renderHomeCard}
-            retiredCardId="homeRetired"
-          />
+          {/* Today/Notes/Shopping previews — order from settings.cardOrder, visibility from
+              settings.hiddenCards, both through the one "Manage cards" header control. The
+              Retired shelf that used to sit under these is GONE: the sheet lists every card
+              present-or-absent, so a shelf would be a second place saying the same thing. */}
+          {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
           {/* Gentle points */}
           {completedCount > 0 && (
@@ -722,6 +653,7 @@ export default function HomeScreen() {
           )}
         </View>
       </ScreenScaffold>
+      <ManageCardsSheet visible={manageCardsOpen} screen="home" onClose={() => setManageCardsOpen(false)} />
       {/* ⚠️ A SIBLING of ScreenScaffold, never a child: the scaffold's children scroll inside its
           own clipped viewport, and a flight has to cross the whole screen. Back on Home since
           2026-08-22 with the Shopping card it belongs to — see handleFlightStart above and

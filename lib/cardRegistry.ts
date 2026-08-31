@@ -59,7 +59,8 @@
  *     on 2026-08-21 (`ComingSoonBody` is deleted), so declining is the supported answer and a
  *     placeholder is not — but it has to be a decision somebody wrote down, not a gap.
  *   - **`order` is the screen's deliberate sequence.** On Home it is the DEFAULT only: that tab
- *     keeps its drag-reorder (`settings.homeCardOrder`), so this decides where a card lands for
+ *     is reorderable from the Manage cards sheet like every other screen, so this decides where
+ *     a card lands for
  *     a user who has never dragged one.
  *   - **`nested` marks a card drawn INSIDE another card** rather than at screen level. Those
  *     take no `order` (they have no position on the screen to hold) and are excluded from the
@@ -126,7 +127,12 @@ export type ComposeOption =
   | 'target'
   | 'remind'
   | 'dose'
-  | 'trays';
+  | 'trays'
+  // 2026-09-01 — To-do's Plan mode. It is not a property of the TASK like every other option
+  // here, it is a property of the composer (keep the field open after each commit), and it sits
+  // in this panel for the reason the 2026-08-31 header cap gives: it was in the card header
+  // first and cost "Når som helst" its width on every screen.
+  | 'planMode';
 
 export type ComposeSpec = {
   /** The tier-2 "options" shape (AGENTS.md's three-tier contract) — `'panel'` for the labelled
@@ -213,40 +219,36 @@ export const CARDS = {
     // `energySystemEnabled`, Goal `components/GoalQuickCell.tsx` gated on `featureGoals`.
     compose: { depth: 'panel', opts: ['time', 'energy', 'goal'] },
   },
-  todoWeek: {
+  // ⚠️ **ONE card since 2026-09-01, replacing `todoWeek` (order 2) and `todoMonth` (order 3).**
+  // Maintainer: *"Calendar (for selecting week/month and interval instead of week AND month
+  // card)."* The two were the same question at two fixed ranges — "what is dated in the next
+  // seven days" and "what is dated in the rest of this month" — each hard-wired to the range it
+  // was named after, so a user who wanted next week or next month had no card at all.
+  //   The card owns the range now: a week/month toggle and a pair of arrows. That also removes a
+  // seam the pair had, and it was a real one — `todoMonth`'s selector had to EXCLUDE the seven
+  // dates `todoWeek` was already showing, or a task appeared twice. One card, one range, no
+  // exclusion.
+  //   Still a DATE FILTER, not monthly recurrence: AGENTS.md excludes monthly recurrence from
+  // `normalizeRecurringTasks` because there is no per-occurrence completion row, and this asks
+  // only the question `taskOccursOn` already answers.
+  todoCalendar: {
     screen: 'todo',
     order: 2,
     hue: 'plans',
     domain: 'task',
     icon: 'calendar',
-    title: (t) => t.todoWeekTitle,
+    title: (t) => t.todoCalendarTitle,
     fold: 'persisted',
     expand: 'surface',
-    // Wired into InlineTaskAdd via `compose="week"` + `dateChoices` — Day is a picker over the
-    // week's own seven dates (defaulting to the weekday section the row was added on).
+    // Wired into InlineTaskAdd via `compose="calendar"` + `dateChoices` — Day picks among the
+    // dates the card is currently showing, so a new row always lands inside the range that
+    // created it. One `day` opt for both granularities: the picker's CONTENTS change with the
+    // range, its question does not.
     compose: { depth: 'panel', opts: ['day', 'time', 'goal'] },
-  },
-  // NEW (2026-08-26). A DATE FILTER, not monthly recurrence — AGENTS.md excludes monthly
-  // recurrence from normalizeRecurringTasks because there's no per-occurrence completion row;
-  // this asks the same question todoWeek already does, one rung out ("what's dated later this
-  // month"), and is wired to nothing in lib/taskRecurrence.ts beyond the same taskOccursOn every
-  // other dated card already reads.
-  todoMonth: {
-    screen: 'todo',
-    order: 3,
-    hue: 'plans',
-    domain: 'task',
-    icon: 'calendar-outline',
-    title: (t) => t.todoMonthTitle,
-    fold: 'persisted',
-    expand: 'surface',
-    // Wired via `compose="month"` + `dateChoices` — Date picks among this card's own dates
-    // (the month's days not already claimed by This week), labelled by day number.
-    compose: { depth: 'panel', opts: ['date', 'goal'] },
   },
   todoWhenever: {
     screen: 'todo',
-    order: 4,
+    order: 3,
     hue: 'plans',
     domain: 'task',
     title: (t) => t.tasksSectionWhenever,
@@ -258,11 +260,11 @@ export const CARDS = {
     // the table exactly: Whenever already doubled as the general "add any task" composer, and
     // Repeat here creates a genuinely recurring task, which is shipped, tested behaviour). This
     // field states the table's own two; it is not a claim that Time/Repeat are absent.
-    compose: { depth: 'panel', opts: ['time', 'repeat', 'energy', 'goal'] },
+    compose: { depth: 'panel', opts: ['planMode', 'time', 'repeat', 'energy', 'goal'] },
   },
   todoRecurring: {
     screen: 'todo',
-    order: 5,
+    order: 4,
     // Borrows the health hue so three To-do cards in a column aren't one colour — see
     // constants/colors.ts's card-identity addendum. The glyph is what names it.
     hue: 'health',
@@ -358,7 +360,7 @@ export const CARDS = {
   // Exactly those three, in that order, and nothing else. Habits and Health were cards here
   // until this pass and are tabs again — a card AND a tab for one surface is the duplication
   // worth avoiding, which is the surviving half of the argument that took them OFF the bar.
-  // Order is this tab's DEFAULT; drag-reorder still owns the stored one (settings.homeCardOrder).
+  // Order is this tab's DEFAULT; settings.cardOrder owns the stored one, same as every screen.
   homeToday: {
     screen: 'home',
     order: 1,
@@ -405,19 +407,13 @@ export const CARDS = {
     openAtRest: true,
   },
 
-  homeRetired: {
-    screen: 'home',
-    order: 4,
-    hue: 'home',
-    domain: 'task',
-    icon: 'archive-outline',
-    badgeHue: true,
-    title: (t) => t.home.retired.title,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      'The shelf a hidden card falls to. Its body is a short list of names, one tap from coming back — a full-screen copy of it is the same three names, larger.',
-  },
+  // ⚠️ **`homeRetired` is GONE as of 2026-09-01.** It was the shelf a hidden Home card fell to,
+  // which only existed because Home hid cards from a per-card ⋮ and so needed something else to
+  // NAME what was gone. Home uses components/ManageCardsSheet.tsx now, like the other four
+  // screens, and that sheet lists every card present-or-absent — so the shelf would be a second
+  // place saying the same thing, which is exactly what lib/hiddenCards.ts's own header says not
+  // to add. Removing a key here is tsc-guided (CardId/ExpandableCardId are derived) and needs no
+  // migration: sanitizeCollapsedCards and sanitizeHiddenCards both drop an unknown id on read.
 
   // ── Habits ─────────────────────────────────────────────────────────────────────────────
   // Top-level cards on their own tab again since 2026-08-22. They were `nested` under the Me
@@ -496,9 +492,17 @@ export const CARDS = {
     icon: 'medical-outline',
     title: (t) => t.healthIssues.title,
     fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "A standing list of what is being kept an eye on. Its fuller surface is the Health issues sheet — where a symptom is added or untracked — reached from this card's own header control, so a pane would be a third way to see the same names.",
+    // ⚠️ **`'none'` → `'surface'` (2026-09-01), REVERSING a written `expandDeclined`.** It said:
+    // *"a pane would be a third way to see the same names"*, because the fuller surface was a
+    // bottom sheet reached from this card's own header control. That was true and it is what the
+    // maintainer reported — *"Helseplager in Health screen has a different button than the
+    // fullscreen"* — since the control was an `IconButton open-outline` at `IconSize.action` in
+    // the `controls` slot where every other card draws a `CardExpandButton expand-outline` at
+    // `IconSize.compact` one position further out, with its title inert on top.
+    //   The sheet is deleted and its body is this card's pane (`components/HealthIssuesEditor.tsx`),
+    // so there is no third way left — there are two, the same two every other card has: the ⤢ and
+    // the title.
+    expand: 'surface',
   },
   healthMedicine: {
     screen: 'health',

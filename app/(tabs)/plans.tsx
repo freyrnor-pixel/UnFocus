@@ -34,7 +34,6 @@ import { StyleSheet, View } from 'react-native';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import TodoSurface from '@/components/TodoSurface';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
-import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import TourTarget from '@/components/TourTarget';
 import { useT } from '@/lib/i18n';
@@ -49,7 +48,6 @@ export default function TasksScreen() {
   const t = useT();
   const featureSharing = useSettingsStore((s) => s.featureSharing) && SHARING_VISIBLE;
   const setTasksDated = useTaskStore((s) => s.setTasksDated);
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [manageCardsOpen, setManageCardsOpen] = useState(false);
 
   const [dayResetUndoIds, setDayResetUndoIds] = useState<string[] | null>(null);
@@ -76,7 +74,7 @@ export default function TasksScreen() {
         pagerFloatingNav
         ownBackground={false}
         onSharePress={featureSharing ? () => router.push('/share-modal?kind=t') : undefined}
-        onLayoutPress={() => setLayoutPickerOpen(true)}
+       
         onManageCardsPress={() => setManageCardsOpen(true)}
       >
         <View style={styles.content}>
@@ -84,7 +82,6 @@ export default function TasksScreen() {
             <TodoSurface onDayReset={handleDayReset} />
           </TourTarget>
         </View>
-        <LayoutPickerSheet visible={layoutPickerOpen} surface="plans" onClose={() => setLayoutPickerOpen(false)} />
         <ManageCardsSheet visible={manageCardsOpen} screen="todo" onClose={() => setManageCardsOpen(false)} />
       </ScreenScaffold>
       <ConfirmationBanner

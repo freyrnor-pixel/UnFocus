@@ -153,46 +153,44 @@ describe('unmarkPurchased', () => {
   });
 });
 
-// ── 2. The keep-awake lock is scoped to the in-store layout ─────────────────
+// ── 2. The keep-awake lock is GONE with the layout that needed it ───────────
 
-describe('the screen lock cannot outlive the in-store layout', () => {
+describe('nothing holds the screen awake any more', () => {
   const strip = (src: string) =>
     src
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/^\s*\/\/.*$/gm, '')
       .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-  const holder = strip(
-    readFileSync(join(__dirname, '..', 'components', 'KeepAwakeInStore.tsx'), 'utf8')
-  );
   const screen = strip(
     readFileSync(join(__dirname, '..', 'app', '(tabs)', 'shopping.tsx'), 'utf8')
   );
+
+  // ⚠️ **Rewritten 2026-09-01.** This block used to assert that `components/KeepAwakeInStore.tsx`
+  // held `useKeepAwake()` exactly once, rendered null, and was mounted CONDITIONALLY on
+  // `layoutSpec.chips` — because a lock acquired at the top level of a co-mounted tab is held for
+  // the life of the app.
+  //   That whole apparatus went with the "In the store" layout, which went with the per-surface
+  // layout picker, which the maintainer asked to delete along with Shopping's "how things look"
+  // header button. `chips` was the flag, `inStore` was its only carrier, and the picker was its
+  // only entry point — so all four are deleted rather than left unreachable.
+  //   The assertions are inverted rather than dropped, and that is the point: the original bug
+  // here was a battery drain with no visible symptom, which no screenshot and no shape test can
+  // catch. If a keep-awake ever comes back it must come back deliberately, in a component that
+  // unmounts, not by someone adding a hook call to the screen.
 
   it('store mode is gone, so nothing can quietly re-mount its copy of the lock', () => {
     expect(existsSync(join(__dirname, '..', 'components', 'ShoppingStoreMode.tsx'))).toBe(false);
   });
 
-  it('the holder calls useKeepAwake exactly once', () => {
-    expect(holder.match(/useKeepAwake\(/g) ?? []).toHaveLength(1);
-  });
-
-  it('the holder renders nothing, so its only effect is the lock', () => {
-    expect(holder).toMatch(/return null/);
+  it('the holder component is deleted too', () => {
+    expect(existsSync(join(__dirname, '..', 'components', 'KeepAwakeInStore.tsx'))).toBe(false);
   });
 
   it('the Shopping screen never calls the hook itself', () => {
-    // This is the whole point: at the top level of the screen the lock would be held for the
-    // life of the tab, which on a co-mounted pager (lazy: false) is the life of the app.
+    // Unchanged and still the load-bearing one: at the top level of the screen the lock would be
+    // held for the life of the tab, which on a co-mounted pager (lazy: false) is the life of the
+    // app.
     expect(screen).not.toMatch(/useKeepAwake/);
-  });
-
-  it('the screen mounts the holder CONDITIONALLY, gated on the in-store layout', () => {
-    // A mount that is not conditional is a lock that is never released.
-    expect(screen).toMatch(/layoutSpec\.chips\s*&&\s*<KeepAwakeInStore\s*\/>/);
-  });
-
-  it('mounts it exactly once — a per-card mount would release a shared tag early', () => {
-    expect(screen.match(/<KeepAwakeInStore/g) ?? []).toHaveLength(1);
   });
 });

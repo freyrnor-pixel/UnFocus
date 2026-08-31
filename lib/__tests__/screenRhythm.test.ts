@@ -46,7 +46,7 @@ const SCREENS = [
 
 /**
  * Cards that stack inside one of those screens (or, for the Home four, inside
- * HomeCardManager's list). Each of these carried its own vertical margin before the pass —
+ * Home's card list). Each of these carried its own vertical margin before the pass —
  * which is exactly why they are the list worth watching.
  */
 const STACKED_CARDS: { file: string; style: string }[] = [
@@ -152,6 +152,8 @@ const CENTRE_MODAL_SCREENS = [
   'app/habit-form.tsx', 'app/medicine-form.tsx', 'app/health-form.tsx', 'app/health-detail.tsx',
   'app/health-log.tsx', 'app/day-log.tsx', 'app/food.tsx', 'app/budget.tsx',
   'app/inventory-edit.tsx',
+  // 2026-09-01 — Goals left the two cards it was folded into; see app/goals-editor.tsx.
+  'app/goals-editor.tsx',
 ] as const;
 
 describe('content meets the chrome flush — no screen re-adds the blank strip', () => {
