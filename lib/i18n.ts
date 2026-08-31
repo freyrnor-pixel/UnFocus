@@ -1556,6 +1556,9 @@ const en = {
      */
     editLinkPersonal: 'Personal goals',
     editLinkPractical: 'Practical goals',
+    // The row at the foot of the goal picker, and the title of the pop-up it opens (2026-09-01).
+    editTitle: 'Goals',
+    editGoals: 'Edit goals',
     strengthStrong: 'Going strong',
     strengthWarm: 'Warming up',
     strengthNeutral: 'Ready when you are',
@@ -3223,6 +3226,8 @@ const no: typeof en = {
     strengthLabel: 'Driv — vokser når du jobber med det, avtar rolig ellers',
     editLinkPersonal: 'Personlige mål',
     editLinkPractical: 'Praktiske mål',
+    editTitle: 'Mål',
+    editGoals: 'Rediger mål',
     strengthStrong: 'Går sterkt',
     strengthWarm: 'Er i gang',
     strengthNeutral: 'Klart når du er det',
@@ -5070,6 +5075,8 @@ const is: typeof en = {
     strengthLabel: 'Kraftur — vex þegar þú vinnur í því, dvínar rólega annars',
     editLinkPersonal: 'Persónuleg markmið',
     editLinkPractical: 'Hagnýt markmið',
+    editTitle: 'Markmið',
+    editGoals: 'Breyta markmiðum',
     strengthStrong: 'Gengur vel',
     strengthWarm: 'Komið af stað',
     strengthNeutral: 'Tilbúið þegar þú ert það',

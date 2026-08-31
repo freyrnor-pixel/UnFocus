@@ -37,6 +37,7 @@
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import IconButton from '@/components/IconButton';
 import PressableScale from '@/components/PressableScale';
@@ -44,7 +45,7 @@ import { Input } from '@/components/FormControls';
 import { GoalGlowDot } from '@/components/GoalGlowDot';
 import { confirmDestructive } from '@/components/AppModal';
 import OptionalTag from '@/components/OptionalTag';
-import { Fonts, FontSize, IconSize, Radius, Spacing } from '@/constants/theme';
+import { Fonts, FontSize, IconSize, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { selection, tap } from '@/lib/haptics';
@@ -57,6 +58,7 @@ type Props = {
 };
 
 export function GoalPicker({ value, onChange }: Props) {
+  const router = useRouter();
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -205,6 +207,31 @@ export function GoalPicker({ value, onChange }: Props) {
             </View>
             <IconButton icon="add" label={t.goals.add} onPress={handleCreate} />
           </View>
+          {/* ⚠️ **"Edit goals", pinned last (2026-09-01).** The two folded `GoalsEditor` sections
+              — To-do's "Practical goals" and Habits' "Personal goals", the same editor over the
+              same store under two labels on two tabs — are deleted, and the picker is the way in
+              now. Maintainer: *"Goal editing is done by an 'Edit Goals' button that appears at
+              the bottom of the drop-down-menu when user presses 'Goal' in card."*
+                BELOW the inline new-goal row rather than instead of it: creating a goal you have
+              already thought of should not cost a screen, and this is for everything the field
+              cannot do (deleting several, reading strength — not renaming, which stays impossible
+              because a goal's id is derived from its name).
+                It closes the dropdown on the way out, so returning from the pop-up does not land
+              on a menu the user has finished with. */}
+          <PressableScale
+            style={[styles.editRow, { borderTopColor: theme.border }]}
+            onPress={() => {
+              tap();
+              setOpen(false);
+              router.push('/goals-editor');
+            }}
+            scaleTo={0.97}
+            accessibilityRole="button"
+            accessibilityLabel={t.goals.editGoals}
+          >
+            <Ionicons name="options-outline" size={16} color={theme.textMuted} />
+            <Text style={[styles.rowText, { color: theme.textMuted }]}>{t.goals.editGoals}</Text>
+          </PressableScale>
         </View>
       )}
     </View>
@@ -241,6 +268,17 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+  },
+  // The "Edit goals" row at the foot of the open dropdown — see the call site. Floored at
+  // MIN_TAP_TARGET because it is the last thing in a list of tappable rows and must not be the
+  // one that is harder to hit.
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    minHeight: MIN_TAP_TARGET,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   newRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, padding: Spacing.sm },
   newInputWrap: { flex: 1 },

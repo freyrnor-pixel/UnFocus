@@ -100,7 +100,6 @@ import DraggableTaskRow from '@/components/DraggableTaskRow';
 import PressableScale from '@/components/PressableScale';
 import Collapsible from '@/components/Collapsible';
 import AnimatedChevron from '@/components/AnimatedChevron';
-import GoalsEditor from '@/components/GoalsEditor';
 import { RecentDaysList } from '@/components/DayPickerSheet';
 import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
@@ -860,7 +859,6 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // registry cards — see lib/cardRegistry.ts's note at their old position. A section's fold is
   // LOCAL and unpersisted, the same shape the Week card's seven weekday sections already use;
   // there is nothing stable here to key a persisted `collapseKey` on.
-  const [todayGoalsOpen, setTodayGoalsOpen] = useState(false);
   const [todayEarlierOpen, setTodayEarlierOpen] = useState(false);
   const [wheneverWashedOpen, setWheneverWashedOpen] = useState(false);
 
@@ -1185,18 +1183,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               `todoGoals`/`todoEarlierDays`, ordinary registry cards under one "Elsewhere" group
               rail; see lib/cardRegistry.ts's note at their old position). Drawn below whichever
               of the four shapes above is active, so an expanded Today pane carries them too. */}
-          {featureGoals && (
-            <SectionCard
-              embedded
-              hue={screenHue}
-              icon="flag"
-              label={t.goals.editLinkPractical}
-              collapsed={!todayGoalsOpen}
-              onToggleCollapse={() => setTodayGoalsOpen((v) => !v)}
-            >
-              <GoalsEditor accent={screenHue} />
-            </SectionCard>
-          )}
+        {/* ⚠️ **The "Practical goals" section is DELETED (2026-09-01).** It was a folded
+            `SectionCard` holding `components/GoalsEditor.tsx` — the same editor the Habits card
+            held under "Personal goals", over the same store, in two places on two tabs. Goal
+            editing is reached from the goal PICKER's own "Edit goals" row now
+            (components/GoalQuickCell.tsx and components/GoalPicker.tsx), which is where you
+            already are when you find you need a goal that does not exist yet. */}
           {featureDayLog && (
             <SectionCard
               embedded

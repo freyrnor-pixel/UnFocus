@@ -289,6 +289,9 @@ const CENTRE_MODAL_ROUTES = [
   // tab cannot also be a transparent-modal route.
   'budget',
   'inventory-edit',
+  // 2026-09-01 — Goals left the two cards it was folded into and is reached from the goal
+  // picker's own "Edit goals" row now. See app/goals-editor.tsx.
+  'goals-editor',
 ] as const;
 
 const CENTRE_MODAL_OPTIONS = {

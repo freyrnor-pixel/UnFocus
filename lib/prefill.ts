@@ -47,14 +47,23 @@ export type PrefillSlot = 'goals';
 
 /** The route to send `text` to for each SendToSheet target. */
 export function prefillRoute(target: 'todo' | 'shopping' | 'habits' | 'goals', text: string) {
+  // ⚠️ **'goals' routes to the POP-UP as of 2026-09-01, not to the Habits tab.** It used to land
+  // on `/(tabs)/habits`, whose card held a folded `GoalsEditor` consuming the `goals` slot. That
+  // section is deleted — goal editing is reached from the goal picker's own "Edit goals" row now
+  // — so the old route would have dropped the note's text on the floor while still ticking the
+  // note off, which is precisely the failure components/SendToSheet.tsx hides the Goals target
+  // for when the feature is switched off.
   const pathname =
     target === 'todo'
       ? '/(tabs)/plans'
       : target === 'shopping'
         ? '/(tabs)/shopping'
-        : '/(tabs)/habits';
-  // Goals rides the Habits tab — its editor is a drawer there — so it needs a slot to tell
-  // itself apart from that screen's own habit composer. See the Edit notes.
+        : target === 'goals'
+          ? '/goals-editor'
+          : '/(tabs)/habits';
+  // The slot survives the move. It is no longer needed to tell Goals apart from the Habits tab's
+  // own composer (nothing else lives on that route), but `usePrefill(slot)` is what makes a
+  // prefill addressed rather than ambient, and a route with one consumer today can gain a second.
   const params =
     target === 'goals'
       ? { [PREFILL_PARAM]: text, [PREFILL_SLOT_PARAM]: 'goals' }

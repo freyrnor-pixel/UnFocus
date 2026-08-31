@@ -596,18 +596,10 @@ async function main() {
         await closeOverlays(page);
       }
 
-      // Goals is a SECTION inside To-do's Today card since 2026-08-26 (registry phase 5).
-      await tab(page, 'To-do');
-      await openCard(page, 'Today');
-      if (await tryButton(page, 'Goals')) {
-        await shot(page, 'goals-drawer', {
-          title: 'The Goals drawer, expanded (from To-do and from Habits)',
-          screen: 'components/GoalsEditor.tsx',
-          state: 'DRAWER, EMPTY, with the explanation + starter suggestions shown inline (2026-08-12 — no popup any more; add/edit/delete all happen in this same card). A goal\'s strength rises on progress and cools back toward neutral but NEVER below — there is no state in which a goal is failing. Something you want to do LESS of ("Less time on my phone") is a goal whose linked tasks are the replacement behaviour; that is why habits have no negative kind.',
-          components: 'GoalsEditor, GoalGlowDot, AddRow',
-        });
-        await tryButton(page, 'Goals'); // collapse the drawer back closed
-      }
+      // ⚠️ **No Goals drawer to shoot (2026-09-01).** It was a folded section inside To-do's
+      // Today card; goal editing is a centre pop-up reached from a goal picker's "Edit goals"
+      // row now, and it is shot as `goals-editor` in the data-bearing phase at the end of this
+      // walk — where a picker actually exists to open it from.
       if (await tryButton(page, 'How lists look')) {
         await shot(page, 'layout-picker', {
           title: 'The layout picker (per surface, from that surface\'s own header)',
@@ -1132,7 +1124,7 @@ async function main() {
     //   Reloading is free here for the same reason phase 6's push is: nothing follows, so the
     // in-memory DB wipe costs nothing. That is the licence this phase takes.
     if (FULL) {
-      console.log('> task editor + goals drawer (fresh app)');
+      console.log('> task editor (fresh app)');
       try {
         await runOnboarding(page, {});
         await walkTour(page, { capture: false });
@@ -1162,20 +1154,17 @@ async function main() {
           components: 'TaskCard, GoalPicker, Stepper, SegmentedControl, PersonChip, TagChip',
         });
 
-        // `.last()` again: the editor left open above carries its own Goal PICKER with the same
-        // word, inside a collapsed section that cannot be scrolled to. The drawer is at the foot.
-        const goals = page.getByText('Practical goals', { exact: true }).last();
-        await goals.scrollIntoViewIfNeeded({ timeout: 5000 });
-        await goals.click({ timeout: 10000 });
-        await page.waitForTimeout(900);
-        await shot(page, 'goals-drawer', {
-          title: 'The Goals drawer, expanded',
-          screen: 'components/GoalsEditor.tsx',
-          state: 'An in-card editor since 2026-08-12, not a pop-up (maintainer: "making, editing and deleting in the card, not a pop up"). A goal has three fine-to-be-in strength bands and deliberately no fourth, worse one — the mechanic floors at neutral, so there is no state in which a goal is failing.',
-          components: 'GoalsEditor, StarterCard, AddRow',
-        });
+        // ⚠️ **No goals shot here (2026-09-01).** This used to click a "Practical goals" drawer
+        // at the foot of the To-do tab — a folded `GoalsEditor` section, now deleted. The editor
+        // is a centre pop-up reached from the "Edit goals" row at the foot of a goal picker, and
+        // the task editor left open above carries one — but its trigger is not findable by name
+        // in the web build, so the attempt timed out rather than producing a shot.
+        //   Listed as a coverage gap in `scripts/visual-diff.mjs`'s `WANTED_BUT_UNCAPTURED`
+        // instead of faked: a step that pretends is worse than a gap that is written down. The
+        // component itself is still exercised — `GoalsEditor` renders inside the pop-up, and
+        // `lib/__tests__/prefill.test.ts` pins the route and the prefill that reach it.
       } catch (e) {
-        problems.push(`task-editor/goals-drawer: ${e.message.split('\n')[0]}`);
+        problems.push(`task-editor: ${e.message.split('\n')[0]}`);
       }
     }
 

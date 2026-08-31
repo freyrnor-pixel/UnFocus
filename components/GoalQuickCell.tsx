@@ -27,6 +27,7 @@
  *   - No "no blind tap-cycles" trap here: this is a picker (showsMore's `›`), not a cycle.
  */
 import React from 'react';
+import { useRouter } from 'expo-router';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
@@ -40,6 +41,7 @@ type Props = {
 };
 
 export default function GoalQuickCell({ value, onChange, accent }: Props) {
+  const router = useRouter();
   const t = useT();
   const goals = useGoalStore((s) => s.goals);
   const selected = value ? (goals.find((g) => g.id === value) ?? null) : null;
@@ -52,6 +54,17 @@ export default function GoalQuickCell({ value, onChange, accent }: Props) {
         text: g.id === value ? `• ${g.title}` : g.title,
         onPress: () => onChange(g.id),
       })),
+      // ⚠️ **The way IN to goal editing, and since 2026-09-01 the only one.** Maintainer:
+      // *"Goal editing is done by an 'Edit Goals' button that appears at the bottom of the
+      // drop-down-menu when user presses 'Goal' in card."* The two folded `GoalsEditor` sections
+      // (To-do's "Practical goals", Habits' "Personal goals" — the same editor over the same
+      // store, under two labels on two tabs) are deleted, and this row replaces both.
+      //   Last before Cancel, deliberately: the list above is what you came here to do, and this
+      // is the escape hatch for the case the list cannot serve — the goal you want does not
+      // exist yet. That also keeps this file's own rule intact, that a quick-add's options tier
+      // LINKS an existing goal and does not create one; it now names where creating happens
+      // instead of leaving the user to find it.
+      { text: t.goals.editGoals, onPress: () => router.push('/goals-editor') },
       { text: t.cancel, style: 'cancel' as const },
     ]);
   }

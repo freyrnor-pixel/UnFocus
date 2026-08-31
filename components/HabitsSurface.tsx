@@ -40,7 +40,7 @@
  *             ⚠️ BOTH are panes that supply their own title bar — see the note on the missing
  *             `embedded` prop below.
  *   Data    → useHabitStore (habits, logs, reorder, the ghost-undo trio), useSettingsStore
- *             (language, peopleModeEnabled, featureGoals), usePeopleStore
+ *             (language, peopleModeEnabled), usePeopleStore
  *
  * Edit notes:
  *   - **There is no `embedded` flag here**, unlike the three sibling surfaces — both callers are
@@ -70,8 +70,6 @@ import NarratorQuote from '@/components/NarratorQuote';
 import StarterCard from '@/components/StarterCard';
 import StarterSuggestionChip from '@/components/StarterSuggestionChip';
 import Card from '@/components/Card';
-import SectionCard from '@/components/SectionCard';
-import GoalsEditor from '@/components/GoalsEditor';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import PadRow from '@/components/PadRow';
 import DraftComposer from '@/components/DraftComposer';
@@ -499,7 +497,6 @@ export default function HabitsSurface() {
   // intact when the switch flips back; only the UI stands down.
   const peopleModeEnabled = useSettingsStore((s) => s.peopleModeEnabled) && SHARING_VISIBLE;
   // Gates the "Goals" drawer at the bottom of the screen (2026-07-29).
-  const featureGoals = useSettingsStore((s) => s.featureGoals);
 
   // The ⓘ hint is collapsed until tapped (2026-07-31 — the first-visit auto-open and its
   // `autoOpen` arg are gone); the card's own tips line + suggested-habits card already teach
@@ -520,7 +517,6 @@ export default function HabitsSurface() {
   // an ordinary registry card; see lib/cardRegistry.ts's note at its old position, and
   // components/TodoSurface.tsx's identical move for Goals/Earlier days/Washed away). A
   // section's fold is LOCAL and unpersisted, same as every other section in the app.
-  const [habitsGoalsOpen, setHabitsGoalsOpen] = useState(false);
   // Inline quick-add (replaces the old "+" bubble → form nav): create a habit from just a
   // title with sensible defaults; the rest (icon/goal/recurrence) is edited later via
   // the card's settings-gear icon → /habit-form. Mirrors Plans' AddRow → addTask flow.
@@ -553,7 +549,6 @@ export default function HabitsSurface() {
   // slot is what keeps the two apart — without it the quick-add above would take a goal and
   // silently create a habit named after the note. It seeds GoalsEditor's own add row and
   // opens the drawer around it, so the text lands somewhere the user can see it.
-  const goalPrefill = usePrefill('goals');
 
   // **The minute tick is what keeps this date HONEST — it is not decoration (2026-08-13).**
   // `today` is threaded into HabitCard as a prop and is what `increment`/`decrement`/
@@ -1027,18 +1022,9 @@ export default function HabitsSurface() {
                   making, editing and deleting in the card, not a pop up."). See
                   components/GoalsEditor.tsx. Same `featureGoals` gate — turning the feature off
                   removes the section entirely, editor included. */}
-              {featureGoals && (
-                <SectionCard
-                  embedded
-                  hue={screenHue}
-                  icon="flag"
-                  label={t.goals.editLinkPersonal}
-                  collapsed={!habitsGoalsOpen}
-                  onToggleCollapse={() => setHabitsGoalsOpen((v) => !v)}
-                >
-                  <GoalsEditor accent={screenHue} prefill={goalPrefill} />
-                </SectionCard>
-              )}
+        {/* ⚠️ **The "Personal goals" section is DELETED (2026-09-01)** — see the twin note in
+            components/TodoSurface.tsx. Goal editing lives in the goal picker's own "Edit goals"
+            row, so there is one way in rather than two labels for one editor. */}
             </Card>
             </DebugNoteAnchor>
 

@@ -153,7 +153,6 @@ const BASELINE_SET = [
   // app and the one that produced the sliced-microphone bug — the single most valuable shot in
   // this set, and it was missing from it until now.
   'task-editor',
-  'goals-drawer',
 ];
 
 /**
@@ -171,6 +170,12 @@ const BASELINE_SET = [
 const WANTED_BUT_UNCAPTURED = [
   ['day-log-screen', 'the walk’s `day-log` excursion times out — Earlier days is a SECTION inside To-do’s Today card since 2026-08-26, and retargeting the tab was not enough'],
   ['shopping-list-expanded-empty', 'needs a list created first; the `food` excursion above it times out for a related reason'],
+  // ⚠️ **Replaces `goals-drawer`, which this set held until 2026-09-01 and which no longer
+  // exists** — the Goals editor was a folded section inside To-do's Today card and is a centre
+  // pop-up now, reached from the "Edit goals" row at the foot of a goal picker. The walk tries
+  // for it through the task editor's own `GoalPicker` and cannot reach that field; the shot is
+  // listed rather than dropped so the ratchet only goes one way.
+  ['goals-editor', 'the walk cannot reach a goal picker to open it from — the editor is a pop-up off the picker’s "Edit goals" row since 2026-09-01, and the task editor’s own picker is not findable by name in the web build'],
 ];
 
 /**
