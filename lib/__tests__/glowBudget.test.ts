@@ -315,6 +315,11 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // sanity check that the orb definitions are still present, so a future edit that deletes
     // them wholesale (rather than just re-tuning alpha) is at least visible here too.
     expect(src).toMatch(/const ORB_STOPS:/);
-    expect(src).toMatch(/function OrbField/);
+    // `OrbField`/`ScreenHueField` became `OrbCanvas`/`OrbLayer` on 2026-08-31 — one canvas per
+    // layer so the crossfades animate a View's alpha instead of an `<AnimatedG>`. A rename, not
+    // a geometry change: `ORBS` and `ORB_STOPS` are byte-identical and the pixel gate came back
+    // 22/22 unchanged. What this line is for is a wholesale deletion, so it tracks the name.
+    expect(src).toMatch(/function OrbCanvas/);
+    expect(src).toMatch(/const ORBS: Orb\[\]|const ORBS =/);
   });
 });

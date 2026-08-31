@@ -1183,6 +1183,45 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     documented exception to "flat and translucent": it floats over a scrolling list, so its
     glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
     in this pass, for the same reason.
+- **⚠️ The orb crossfades animate a VIEW's alpha, never an `<AnimatedG>` — 2026-08-31**
+  (`components/ScreenBackground.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts`). Maintainer,
+  for the third time: *"Enabling/disabling visual effects helps a lot, but should not — visual
+  effects should be possible without the app lagging."* That is the right complaint, and the two
+  passes before this one had the target right and the mechanism wrong.
+  - **What `reduceEffects` actually turns off in DARK is one thing, and that is how the cost was
+    located.** Measured rather than assumed: an ambient card in dark already mounts no `BlurView`
+    and casts no shadow (`flatDarkGround`, 2026-08-29), the header is opaque by design, and the
+    web build reports **zero** `backdrop-filter` layers on every tab. So the switch was removing
+    essentially one surface — the backdrop SVG — and the report says removing it "helps a lot".
+    **A switch whose effect is that lopsided is a measurement, not a preference.**
+  - **The mechanism: an animated prop INSIDE an SVG invalidates the whole canvas.** The field was
+    four groups in one `<Svg>` with three cross-fading through `useAnimatedProps` on an
+    `<AnimatedG>`. react-native-svg redraws on a prop change, so every frame of a fade re-ran all
+    thirteen gradient-filled shapes and their shaders, full-screen — and `<G opacity>` is not a
+    per-shape alpha, it is an offscreen buffer, i.e. a `saveLayer` per group per draw on Android,
+    the classic Canvas cliff. Three animated groups, three of them, every frame. The fade fires on
+    **every tab change**, which is exactly the gesture that was reported as laggy, and the whole
+    group sits in a parallax layer that is translating at the same time.
+  - **The fix keeps the picture exactly and is one canvas per layer**: `OrbCanvas` draws one
+    colour's discs into its own `<Svg>`; `OrbLayer` wraps an animating one in an `Animated.View`
+    and marks it `renderToHardwareTextureAndroid`. A swipe now costs a transform plus three alpha
+    blends of already-rasterised textures and **no shader work at all**. Verified byte-identical:
+    `npm run visual` came back 22/22 unchanged in both themes.
+  - ⚠️ **Gradient def ids are suffixed per canvas, and that only matters on WEB** — every `<Svg>`
+    renders into the one document there, so two canvases sharing an id would have the second win
+    for both. It surfaces as "the growth tint is the wrong colour" and native never reproduces it.
+  - ⚠️ **NOTHING in this repo can see this change** — the web preview composites a div's opacity
+    the same way, so the pixel gate reports `unchanged`, which is both the proof it is safe and
+    the reason it needs a source scan. Same family as the widget-palette copy and the
+    `flex`-with-`flexBasis:'auto'` collapse: a difference no local harness can reach. The guard
+    bans `AnimatedG`, `createAnimatedComponent(G)` and `animatedProps=` in that file outright.
+  - **A native radial gradient was considered and refused.** RN 0.85 does support
+    `experimental_backgroundImage: radial-gradient(…)`, which would delete react-native-svg from
+    the backdrop entirely — but `react-native-web` implements none of it, so the orbs would vanish
+    from `npm run preview`, every screenshot and every baseline while still shipping on device.
+    That is the permanent blind spot this file has been bitten by twice. Revisit it only with a
+    way to see the result.
+
 - **The backdrop is ambient orbs, and it is pinned under everything — 2026-08-17**
   (`components/ScreenBackground.tsx` + `HomeHeroBackground.tsx` + `ParticleBackground.tsx` +
   `app/(tabs)/_layout.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts` §6). Maintainer: *"The

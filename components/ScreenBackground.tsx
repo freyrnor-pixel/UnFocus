@@ -117,8 +117,8 @@
  */
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle, G } from 'react-native-svg';
-import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
@@ -126,7 +126,6 @@ import { useGrowth } from '@/lib/useGrowth';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
 
-const AnimatedG = Animated.createAnimatedComponent(G);
 
 type Props = {
   /**
@@ -218,6 +217,15 @@ const ORBS: Orb[] = [
  * `lib/__tests__/chromeRhythm.test.ts` §6 checks. Adding a hue must not become adding a disc.
  */
 const SCREEN_HUE_ORB_INDEXES = [0, 1] as const;
+
+/**
+ * Which discs each neutral colour paints, derived from `ORBS`' own `tone` rather than restated.
+ * The neutral pair is TWO canvases now (one per colour) instead of one canvas picking a gradient
+ * per disc: a canvas has a single `<Defs>`, and two colours in one would put the colour back
+ * inside the disc loop, which is the coupling the split exists to remove.
+ */
+const COOL_ORB_INDEXES = ORBS.flatMap((o, i) => (o.tone === 'cool' ? [i] : []));
+const WARM_ORB_INDEXES = ORBS.flatMap((o, i) => (o.tone === 'warm' ? [i] : []));
 
 const ORB_STOPS: { offset: number; alpha: number }[] = [
   { offset: 0, alpha: 1 },
@@ -329,41 +337,72 @@ function orbStops(color: string, peak: number) {
 }
 
 /**
- * One full copy of the orb field — all three discs at their current growth radius — filled from
- * the given gradient ids. Rendered twice by ScreenBackground (neutral underneath, growth-green on
- * top at `intensity`) so the tint is an opacity crossfade rather than an animated colour; see this
- * file's edit notes.
+ * One orb canvas: its own `<Svg>`, its own `<Defs>`, filling the screen.
  *
- * `cool`/`warm` take a gradient id each, which is what lets the growth copy paint all three orbs
- * in one colour while the neutral copy paints two.
+ * ⚠️ **The gradient id is suffixed per layer and that is load-bearing on WEB.** Every `<Svg>`
+ * renders into the one document there, so two canvases sharing a def id would have the second
+ * silently win for both — a bug that surfaces as "the growth tint is the wrong colour" long
+ * after the change that caused it, and that native would not reproduce.
  */
-function OrbField({ cool, warm, level }: { cool: string; warm: string; level: number }) {
+function OrbCanvas({ id, color, peak, level, indexes }: {
+  id: string;
+  color: string;
+  peak: number;
+  level: number;
+  indexes?: readonly number[];
+}) {
   const grow = level * ORB_GROWTH_STEP;
+  const discs = (indexes ?? ORBS.map((_, i) => i)).map((i) => ORBS[i]);
   return (
-    <>
-      {ORBS.map((o, i) => (
-        <Circle
-          key={i}
-          cx={o.cx}
-          cy={o.cy}
-          r={o.r + grow}
-          fill={`url(#${o.tone === 'cool' ? cool : warm})`}
-        />
+    <Svg pointerEvents="none" style={styles.backdrop} viewBox="0 0 280 607" preserveAspectRatio="xMidYMid slice">
+      <Defs>
+        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
+          {orbStops(color, peak)}
+        </RadialGradient>
+      </Defs>
+      {discs.map((o, k) => (
+        <Circle key={k} cx={o.cx} cy={o.cy} r={o.r + grow} fill={`url(#${id})`} />
       ))}
-    </>
+    </Svg>
   );
 }
 
-/** The screen-hue copy: the same discs as `OrbField`, but only the two `SCREEN_HUE_ORB_INDEXES`
- *  names, all filled from one gradient. */
-function ScreenHueField({ gradient, level }: { gradient: string; level: number }) {
-  const grow = level * ORB_GROWTH_STEP;
+/**
+ * An orb canvas whose OPACITY animates — wrapped in an `Animated.View`, never an `<AnimatedG>`.
+ *
+ * ⚠️ **This is the 2026-08-31 performance fix, and the distinction it rests on is the point.**
+ * Reported three times: *"Enabling/disabling visual effects helps a lot, but should not — visual
+ * effects should be possible without the app lagging."* This file already knew it was the app's
+ * single largest fixed per-frame cost; what it had wrong was WHY.
+ *
+ * The orbs were four groups inside ONE `<Svg>`, three of them cross-fading via
+ * `useAnimatedProps` on an `<AnimatedG>`. Two consequences, both per-frame:
+ *
+ *   1. **Animating a prop INSIDE an SVG invalidates the canvas.** react-native-svg redraws on a
+ *      prop change, so every frame of a crossfade re-ran all thirteen gradient-filled shapes and
+ *      the shaders behind them, full-screen. A wrapping View's opacity is a LAYER ALPHA change
+ *      instead: the canvas is already rasterised and the compositor just blends it.
+ *   2. **`<G opacity>` forces an offscreen buffer.** Group opacity is not a per-shape alpha — the
+ *      renderer draws the group into a scratch layer and composites, which on Android is a
+ *      `saveLayer`, the classic Canvas performance cliff. Three animated groups meant three per
+ *      draw. A View's alpha needs none; RN sets it on the view.
+ *
+ * The crossfade fires on every tab change — exactly the gesture reported as laggy. After this a
+ * swipe costs three alpha blends of already-drawn textures and no shader work at all.
+ * `renderToHardwareTextureAndroid` asks Android to keep each as a texture so that stays true
+ * while the value is moving.
+ *
+ * ⚠️ **Do not "simplify" this back into one `<Svg>` with `<AnimatedG>` children.** It renders
+ * identically in every harness this repo has — the web preview composites a div's opacity the
+ * same way, and the pixel gate cannot tell the two apart — so nothing here could catch the
+ * regression. `lib/__tests__/chromeRhythm.test.ts` scans for it instead.
+ */
+function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
+  & { style: React.ComponentProps<typeof Animated.View>['style'] }) {
   return (
-    <>
-      {SCREEN_HUE_ORB_INDEXES.map((i) => (
-        <Circle key={i} cx={ORBS[i].cx} cy={ORBS[i].cy} r={ORBS[i].r + grow} fill={`url(#${gradient})`} />
-      ))}
-    </>
+    <Animated.View pointerEvents="none" renderToHardwareTextureAndroid style={[styles.backdrop, style]}>
+      <OrbCanvas {...canvas} />
+    </Animated.View>
   );
 }
 
@@ -389,7 +428,7 @@ function ScreenBackground({ activeRoute }: Props) {
       : withTiming(intensity, { duration: Duration.ambient, easing: Ease.move });
   }, [intensity, reducedMotion, tint]);
 
-  const tintProps = useAnimatedProps(() => ({ opacity: tint.value }));
+  const tintStyle = useAnimatedStyle(() => ({ opacity: tint.value }));
 
   /**
    * The screen-hue field, double-buffered (2026-08-27, round 20).
@@ -421,8 +460,8 @@ function ScreenBackground({ activeRoute }: Props) {
       ? (next ? 1 : 0)
       : withTiming(next ? 1 : 0, { duration: Duration.ambient, easing: Ease.move });
   }, [screenHue, showB, buffers, cross, reducedMotion]);
-  const hueAProps = useAnimatedProps(() => ({ opacity: 1 - cross.value }));
-  const hueBProps = useAnimatedProps(() => ({ opacity: cross.value }));
+  const hueAStyle = useAnimatedStyle(() => ({ opacity: 1 - cross.value }));
+  const hueBStyle = useAnimatedStyle(() => ({ opacity: cross.value }));
 
   // ── The base layer left the SVG (2026-08-29, the GPU pass) ──────────────────────────────
   //
@@ -496,25 +535,6 @@ function ScreenBackground({ activeRoute }: Props) {
           <Stop offset="0" stopColor={p.botGlow} stopOpacity={p.botGlowOpacity} />
           <Stop offset="1" stopColor={p.botGlow} stopOpacity="0" />
         </RadialGradient>
-        {/* The three orb gradients. Default (objectBoundingBox) units, so each is relative to the
-            circle it fills — one def per COLOUR serves any number of orbs at any size. */}
-        <RadialGradient id="sbOrbCool" cx="50%" cy="50%" r="50%">
-          {orbStops(p.orbCool, p.orbOpacity)}
-        </RadialGradient>
-        <RadialGradient id="sbOrbWarm" cx="50%" cy="50%" r="50%">
-          {orbStops(p.orbWarm, p.orbOpacity)}
-        </RadialGradient>
-        <RadialGradient id="sbOrbGrowth" cx="50%" cy="50%" r="50%">
-          {orbStops(p.orbGrowth, p.orbOpacity)}
-        </RadialGradient>
-        {/* The two screen-hue buffers. Drawn at `orbScreenOpacity`, which is lower than the
-            neutral peak because this layer sits OVER that one and the two add. */}
-        <RadialGradient id="sbOrbHueA" cx="50%" cy="50%" r="50%">
-          {orbStops(buffers[0] ?? p.orbCool, buffers[0] ? p.orbScreenOpacity : 0)}
-        </RadialGradient>
-        <RadialGradient id="sbOrbHueB" cx="50%" cy="50%" r="50%">
-          {orbStops(buffers[1] ?? p.orbCool, buffers[1] ? p.orbScreenOpacity : 0)}
-        </RadialGradient>
       </Defs>
 
       {/* Drawn only where the base is a REAL gradient (light). In dark all three stops are
@@ -543,26 +563,36 @@ function ScreenBackground({ activeRoute }: Props) {
           consequence and is stated in lib/growth.ts's terms: the backdrop IS the reward
           surface, so a user who turns effects off is choosing not to see it. Nothing is
           un-earned — `lifetimeGrowth` keeps accruing (see lib/useGrowth.ts). */}
+    </Svg>
+      )}
+      {/* ── The orb field: one canvas per layer, opacity on the VIEW ──────────────────────────
+          Four sibling canvases rather than four groups in one — see `OrbLayer` for the two
+          per-frame costs that buys back. Document order is paint order among siblings sharing
+          `zIndex: -1`: the neutral pair underneath, the screen's own hue over it, growth on top,
+          because growth is the thing the user earned and stays the top note. Only two of the
+          three discs take the screen hue — see SCREEN_HUE_ORB_INDEXES. */}
       {reduceEffects ? null : (
         <>
-      <G>
-        <OrbField cool="sbOrbCool" warm="sbOrbWarm" level={level} />
-      </G>
-      {/* The screen's own hue, over the neutral pair and UNDER the growth tint — growth is the
-          thing the user earned and stays the top note. Only two of the three discs take it; see
-          SCREEN_HUE_ORB_INDEXES. */}
-      <AnimatedG animatedProps={hueAProps}>
-        <ScreenHueField gradient="sbOrbHueA" level={level} />
-      </AnimatedG>
-      <AnimatedG animatedProps={hueBProps}>
-        <ScreenHueField gradient="sbOrbHueB" level={level} />
-      </AnimatedG>
-      <AnimatedG animatedProps={tintProps}>
-        <OrbField cool="sbOrbGrowth" warm="sbOrbGrowth" level={level} />
-      </AnimatedG>
+          <OrbCanvas id="sbOrbCool" color={p.orbCool} peak={p.orbOpacity} level={level} indexes={COOL_ORB_INDEXES} />
+          <OrbCanvas id="sbOrbWarm" color={p.orbWarm} peak={p.orbOpacity} level={level} indexes={WARM_ORB_INDEXES} />
+          <OrbLayer
+            style={hueAStyle}
+            id="sbOrbHueA"
+            color={buffers[0] ?? p.orbCool}
+            peak={buffers[0] ? p.orbScreenOpacity : 0}
+            level={level}
+            indexes={SCREEN_HUE_ORB_INDEXES}
+          />
+          <OrbLayer
+            style={hueBStyle}
+            id="sbOrbHueB"
+            color={buffers[1] ?? p.orbCool}
+            peak={buffers[1] ? p.orbScreenOpacity : 0}
+            level={level}
+            indexes={SCREEN_HUE_ORB_INDEXES}
+          />
+          <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />
         </>
-      )}
-    </Svg>
       )}
     </>
   );

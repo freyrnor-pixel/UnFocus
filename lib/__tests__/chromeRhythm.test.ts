@@ -809,6 +809,31 @@ describe('the backdrop — under everything, and out of the middle', () => {
     }
   });
 
+  it('animates the orb crossfades on a VIEW, never inside the SVG', () => {
+    // ⚠️ **The 2026-08-31 performance fix, and nothing else in this repo can see it.** The orb
+    // field used to be four groups in one `<Svg>` with three of them cross-fading through
+    // `useAnimatedProps` on an `<AnimatedG>`. That invalidates the whole canvas every frame
+    // (react-native-svg redraws on a prop change) AND forces an offscreen `saveLayer` per group
+    // on Android — during a tab swipe, the exact gesture reported as laggy, three times over.
+    // Moved onto a wrapping `Animated.View`, the same crossfade is a layer-alpha blend of an
+    // already-rasterised texture.
+    //   It renders IDENTICALLY everywhere this repo can look: the web preview composites a div's
+    // opacity the same way, so `npm run visual` cannot tell the two apart and neither can a
+    // screenshot. Same shape as the widget-palette and `flex`-with-`flexBasis` lessons — a
+    // difference no local harness can see, so the guard has to be a source scan.
+    const s = code('components/ScreenBackground.tsx');
+    expect(s).not.toMatch(/AnimatedG/);
+    expect(s).not.toMatch(/createAnimatedComponent\(\s*G\s*\)/);
+    // No animated prop may be driven inside the canvas at all — `animatedProps` is the door.
+    expect(s).not.toMatch(/animatedProps=/);
+    // The three fades are View styles instead.
+    for (const name of ['hueAStyle', 'hueBStyle', 'tintStyle']) {
+      expect(`${name}: ${new RegExp(`const ${name} = useAnimatedStyle`).test(s)}`).toBe(`${name}: true`);
+    }
+    // Android is asked to hold each animating layer as a texture, or the blend re-rasterises.
+    expect(s).toMatch(/renderToHardwareTextureAndroid/);
+  });
+
   it('draws the screen-hue copy on the SAME discs, never new ones', () => {
     // ⚠️ **The card surface has NO contrast headroom, and that is why this is checked rather
     // than trusted** (measured 2026-08-27, round 20). `surfaceGlass` over `#000000` composites
@@ -823,8 +848,13 @@ describe('the backdrop — under everything, and out of the middle', () => {
     // The hue field indexes into ORBS rather than declaring geometry of its own. Anything else
     // (a literal cx/cy/r, a second array) is a disc this file's centre check never sees.
     expect(s).toMatch(/const SCREEN_HUE_ORB_INDEXES = \[[\d,\s]+\] as const;/);
-    expect(s).toMatch(/SCREEN_HUE_ORB_INDEXES\.map\(\(i\) => \(/);
-    expect(s).toMatch(/cx=\{ORBS\[i\]\.cx\} cy=\{ORBS\[i\]\.cy\} r=\{ORBS\[i\]\.r \+ grow\}/);
+    // Every canvas resolves its discs through ORBS by index and draws them from that record —
+    // the shape changed on 2026-08-31 (one canvas per layer), the property did not.
+    expect(s).toMatch(/\(indexes \?\? ORBS\.map\(\(_, i\) => i\)\)\.map\(\(i\) => ORBS\[i\]\)/);
+    expect(s).toMatch(/cx=\{o\.cx\} cy=\{o\.cy\} r=\{o\.r \+ grow\}/);
+    // …and NOTHING draws a disc from a literal. A hand-written cx is a disc the centre check
+    // above never sees, which is the whole failure this test exists to prevent.
+    expect(s).not.toMatch(/<Circle[^>]*cx=\{-?[\d.]+\}/);
     // Every index it names must exist in ORBS.
     const orbCount = [...s.matchAll(/\{\s*cx:\s*-?[\d.]+,\s*cy:\s*-?[\d.]+,\s*r:\s*[\d.]+,\s*tone:/g)].length;
     const idx = s.match(/const SCREEN_HUE_ORB_INDEXES = \[([\d,\s]+)\]/)![1]
