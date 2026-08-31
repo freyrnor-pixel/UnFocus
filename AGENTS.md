@@ -1183,6 +1183,28 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     documented exception to "flat and translucent": it floats over a scrolling list, so its
     glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
     in this pass, for the same reason.
+- **⚠️ A card header is two icons plus at most ONE of the caller's own — 2026-08-31**
+  (pinned by `lib/__tests__/cardAnatomy.test.ts`). The corrected screens count what shipped:
+  *"Headers carried three to five controls — bell, mic, camera, lock, ⋮, expand, chevron — in
+  different orders."* Its own answer is exactly two; the maintainer's ruling is **two plus at most
+  one card-specific control**, which is what keeps the medicine bell (a live reminder switch, and
+  rule 19a's documented exception) and Home's ⋮ where they are.
+  - ⚠️ **Home's ⋮ is why the cap is one and not zero.** It is that tab's only way to put a card
+    away — `components/ManageCardsSheet.tsx` is the four non-Home tabs' answer and Home is
+    deliberately not one of its callers — so deleting it would strand hiding on the one screen
+    that has no other route to it.
+  - **Two cards were over, and both moved a control into the BODY rather than losing it.** Katalog:
+    the camera went to the search row beside the "+" — a lock is a STATE the card is in, a scan is
+    an ADD, and it belongs with the other add (which is also the mockup's own note, *"scan lives in
+    its body"*). Notater: the mic went into the composer's options panel as a labelled
+    `QuickAddOptionRow`, because dictating a note is a way of FILLING the field, so it belongs
+    beside the field's other option rather than wedged into it — again the mockup's own words,
+    *"voice capture lives in the note composer"*.
+  - The guard counts the `controls` prop, since `Card` owns the fold and the ⤢ itself: a
+    `controls={<>…</>}` FRAGMENT is how a caller passes more than one, so a fragment is the tell.
+    Measured side effect worth knowing — `npm run wraps` went from **18 truncated to 6**: two
+    fewer icons in a header is width a title gets back.
+
 - **⚠️ The orb field is at 0.26 in dark, double the brief, and it costs no contrast — 2026-08-31.**
   Maintainer, against the round-20 mockups: the app is flat black where the mockup's frames are
   visibly lit. The ruling was *"light the frame, not the card column"* — the one option that pays

@@ -370,27 +370,13 @@ export function CatalogueHeaderControls({
   locked: boolean;
   onToggleLock: () => void;
 }) {
-  const router = useRouter();
   const t = useT();
   return (
     <>
-      {/* Scan → 'catalogue' target (2026-08-13): add unknown names, update known prices, and
-          write to no shopping list at all. The camera used to be a single header icon on
-          Shopping with no idea what you meant by it. See lib/scanTarget.ts. */}
-      {/* ⚠️ **No `size` — the IconButton default (36) is deliberate (consistency audit,
-          2026-08-21).** Both of these were `size={22}`, which the maintainer reported as
-          *"some buttons are too small, like the lock and camera"*. The TOUCH target was never
-          the problem — components/IconButton.tsx floors the hit area at `MIN_TAP_TARGET`
-          whatever `size` says — so no test could see it. What the eye sees is the comparison:
-          these sit in a card header 8px from a `CardExpandButton`, which passes no `size` and
-          so renders at 36, and a 22px disc beside a 36px one reads as 61% of its neighbour.
-          Leave the `size` prop OFF rather than writing 36, so the pair tracks the default if it
-          ever moves. */}
-      <IconButton
-        icon="camera-outline"
-        label={t.scanForCatalogueLabel}
-        onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
-      />
+      {/* ⚠️ **The camera is NOT here since 2026-08-31 — it is in the search row of the body**
+          (see its note there). The ruling was two icons plus at most ONE card-specific control,
+          and this header had two. What is left is the lock, because a lock is a state the card
+          is IN; an add belongs with the other add. Do not put a second control back here. */}
       {/* ⚠️ **`active={locked}`, not `active={!locked}` (consistency audit, 2026-08-21).** The
           app draws three of these locks and this one lit the button when the list was UNlocked
           while app/(tabs)/shopping.tsx and components/WeekListCard.tsx both lit it when locked —
@@ -407,6 +393,8 @@ export function CatalogueHeaderControls({
 }
 
 export default function CatalogueTab({ onNotify, header, embedded = false, locked }: Props) {
+  // For the search row's camera — see its note there; it moved out of CatalogueHeaderControls.
+  const router = useRouter();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
@@ -862,6 +850,19 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
               hue now, so the glyph was black-on-near-black and the "+" simply did not render.
               `theme.text` (the default) is what every other filled control uses since that pass
               — "nothing is written ON a hue any more". */}
+          {/* ⚠️ **The camera moved here from the card HEADER on 2026-08-31.** The ruling on the
+              corrected screens' "control cluster drifted" finding was *two icons plus at most
+              one card-specific control*, and Katalog was carrying two — camera and lock. The
+              lock stays in the header because it is a STATE the card is in; scanning is an
+              ADD, so it belongs beside the other add. That is also where it is more findable:
+              the mockup's own note says "scan lives in its body". Same destination, same
+              `lib/scanTarget.ts` target — only the seat changed. */}
+          <IconButton
+            icon="camera-outline"
+            label={t.scanForCatalogueLabel}
+            onPress={() => router.push({ pathname: '/scan', params: { target: 'catalogue' } })}
+            size={IconSize.compact}
+          />
           <IconButton
             icon="add"
             label={t.catalogueAddNewBtn}

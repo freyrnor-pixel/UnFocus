@@ -632,3 +632,40 @@ describe('the peek line — every card says what it holds, none shows a bare cou
     }
   });
 });
+
+
+describe('a card header is two icons plus at most ONE of the caller\'s own', () => {
+  /**
+   * ⚠️ **The 2026-08-31 ruling on the corrected screens' "control cluster drifted" finding.**
+   * That document counts what shipped: *"Headers carried three to five controls — bell, mic,
+   * camera, lock, ⋮, expand, chevron — in different orders."* Its own answer is exactly two; the
+   * maintainer's is **two plus at most one card-specific control**, which keeps the medicine bell
+   * (a live reminder switch and rule 19a's documented exception) and Home's ⋮ (its only way to
+   * put a card away — the Manage cards sheet is the four non-Home tabs' answer and Home is
+   * deliberately not one of its callers) where they are.
+   *
+   * Two cards were over budget and both moved a control into the BODY rather than losing it:
+   *   · Katalog — camera → the search row, beside the "+". A lock is a state the card is in; a
+   *     scan is an add, and it belongs with the other add.
+   *   · Notater — mic → the composer's options panel, which is what the mockup names.
+   *
+   * `Card` owns the fold and the ⤢, so what this counts is the `controls` prop: the number of
+   * top-level elements a caller hands it. Anything above one is the drift itself.
+   */
+  const CALLERS = ['components/HomeNotesCard.tsx', 'components/CatalogueTab.tsx', 'components/MedicineSurface.tsx'];
+
+  it.each(CALLERS)('%s hands Card at most one control', (file) => {
+    const src = read(file);
+    // A `controls={<>…</>}` fragment is how a caller passes more than one. A single element (or
+    // a ternary yielding one) is fine; a fragment is the tell.
+    const fragments = [...src.matchAll(/controls=\{\s*\n?\s*<>/g)].length;
+    expect(`${file}: ${fragments} fragment(s)`).toBe(`${file}: 0 fragment(s)`);
+  });
+
+  it('no card header still draws a mic or a camera', () => {
+    // Both moved into bodies. A header is where they kept reappearing, so name them.
+    const notes = read('components/HomeNotesCard.tsx');
+    const header = notes.slice(notes.indexOf('controls='), notes.indexOf('controls=') + 400);
+    expect(header).not.toMatch(/mic|camera/i);
+  });
+});
