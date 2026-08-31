@@ -178,17 +178,20 @@ describe('hiddenCards', () => {
   });
 
   it('reads a persisted list back from the JSON column', () => {
-    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoMonth"]' });
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoCalendar"]' });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
   });
 
   it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
     // A card removed from lib/cardRegistry.ts, or a backup restored from an older build. Dropping
     // it here is what keeps the sheet from drawing a row for something that no longer exists.
-    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoMonth","goneCard"]' });
+    // ⚠️ `todoMonth` is a REAL example of the case this test names: it was a card until
+    // 2026-09-01, when it merged into `todoCalendar`. An install that had hidden it has that
+    // string in its column right now.
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoCalendar","todoMonth"]' });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
   });
 
   it('reads a malformed column as nothing hidden rather than blanking a screen', () => {
@@ -199,10 +202,10 @@ describe('hiddenCards', () => {
 
   it('update() writes the list as a JSON string to hidden_cards', () => {
     (db.runSync as jest.Mock).mockClear();
-    useSettingsStore.getState().update({ hiddenCards: ['todoMonth'] });
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoMonth']);
+    useSettingsStore.getState().update({ hiddenCards: ['todoCalendar'] });
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain('hidden_cards');
-    expect(params).toContain(JSON.stringify(['todoMonth']));
+    expect(params).toContain(JSON.stringify(['todoCalendar']));
   });
 });

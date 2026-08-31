@@ -253,10 +253,10 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   healthWeek: { title: (t) => t.thisWeekLabel, Body: () => <HealthSurface section="week" /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
-  todoWeek: { title: (t) => t.todoWeekTitle, Body: () => <TodoSurface section="week" /> },
-  // NEW (2026-08-26) — see lib/cardRegistry.ts's `todoMonth` note. Same "one rendering, two
-  // hosts" contract as its three siblings.
-  todoMonth: { title: (t) => t.todoMonthTitle, Body: () => <TodoSurface section="month" /> },
+  // ⚠️ **`todoWeek` and `todoMonth` merged into `todoCalendar` (2026-09-01)** — one card that
+  // owns its own range, week or month, rather than two hard-wired to the ranges they were named
+  // after. Same "one rendering, two hosts" contract as its siblings.
+  todoCalendar: { title: (t) => t.todoCalendarTitle, Body: () => <TodoSurface section="calendar" /> },
   todoRecurring: { title: (t) => t.tasksSectionRecurring, Body: () => <TodoSurface section="recurring" /> },
   // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` left this registry on 2026-08-26** —
   // they are SECTIONS now, drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever`

@@ -126,7 +126,12 @@ export type ComposeOption =
   | 'target'
   | 'remind'
   | 'dose'
-  | 'trays';
+  | 'trays'
+  // 2026-09-01 — To-do's Plan mode. It is not a property of the TASK like every other option
+  // here, it is a property of the composer (keep the field open after each commit), and it sits
+  // in this panel for the reason the 2026-08-31 header cap gives: it was in the card header
+  // first and cost "Når som helst" its width on every screen.
+  | 'planMode';
 
 export type ComposeSpec = {
   /** The tier-2 "options" shape (AGENTS.md's three-tier contract) — `'panel'` for the labelled
@@ -213,40 +218,36 @@ export const CARDS = {
     // `energySystemEnabled`, Goal `components/GoalQuickCell.tsx` gated on `featureGoals`.
     compose: { depth: 'panel', opts: ['time', 'energy', 'goal'] },
   },
-  todoWeek: {
+  // ⚠️ **ONE card since 2026-09-01, replacing `todoWeek` (order 2) and `todoMonth` (order 3).**
+  // Maintainer: *"Calendar (for selecting week/month and interval instead of week AND month
+  // card)."* The two were the same question at two fixed ranges — "what is dated in the next
+  // seven days" and "what is dated in the rest of this month" — each hard-wired to the range it
+  // was named after, so a user who wanted next week or next month had no card at all.
+  //   The card owns the range now: a week/month toggle and a pair of arrows. That also removes a
+  // seam the pair had, and it was a real one — `todoMonth`'s selector had to EXCLUDE the seven
+  // dates `todoWeek` was already showing, or a task appeared twice. One card, one range, no
+  // exclusion.
+  //   Still a DATE FILTER, not monthly recurrence: AGENTS.md excludes monthly recurrence from
+  // `normalizeRecurringTasks` because there is no per-occurrence completion row, and this asks
+  // only the question `taskOccursOn` already answers.
+  todoCalendar: {
     screen: 'todo',
     order: 2,
     hue: 'plans',
     domain: 'task',
     icon: 'calendar',
-    title: (t) => t.todoWeekTitle,
+    title: (t) => t.todoCalendarTitle,
     fold: 'persisted',
     expand: 'surface',
-    // Wired into InlineTaskAdd via `compose="week"` + `dateChoices` — Day is a picker over the
-    // week's own seven dates (defaulting to the weekday section the row was added on).
+    // Wired into InlineTaskAdd via `compose="calendar"` + `dateChoices` — Day picks among the
+    // dates the card is currently showing, so a new row always lands inside the range that
+    // created it. One `day` opt for both granularities: the picker's CONTENTS change with the
+    // range, its question does not.
     compose: { depth: 'panel', opts: ['day', 'time', 'goal'] },
-  },
-  // NEW (2026-08-26). A DATE FILTER, not monthly recurrence — AGENTS.md excludes monthly
-  // recurrence from normalizeRecurringTasks because there's no per-occurrence completion row;
-  // this asks the same question todoWeek already does, one rung out ("what's dated later this
-  // month"), and is wired to nothing in lib/taskRecurrence.ts beyond the same taskOccursOn every
-  // other dated card already reads.
-  todoMonth: {
-    screen: 'todo',
-    order: 3,
-    hue: 'plans',
-    domain: 'task',
-    icon: 'calendar-outline',
-    title: (t) => t.todoMonthTitle,
-    fold: 'persisted',
-    expand: 'surface',
-    // Wired via `compose="month"` + `dateChoices` — Date picks among this card's own dates
-    // (the month's days not already claimed by This week), labelled by day number.
-    compose: { depth: 'panel', opts: ['date', 'goal'] },
   },
   todoWhenever: {
     screen: 'todo',
-    order: 4,
+    order: 3,
     hue: 'plans',
     domain: 'task',
     title: (t) => t.tasksSectionWhenever,
@@ -258,11 +259,11 @@ export const CARDS = {
     // the table exactly: Whenever already doubled as the general "add any task" composer, and
     // Repeat here creates a genuinely recurring task, which is shipped, tested behaviour). This
     // field states the table's own two; it is not a claim that Time/Repeat are absent.
-    compose: { depth: 'panel', opts: ['time', 'repeat', 'energy', 'goal'] },
+    compose: { depth: 'panel', opts: ['planMode', 'time', 'repeat', 'energy', 'goal'] },
   },
   todoRecurring: {
     screen: 'todo',
-    order: 5,
+    order: 4,
     // Borrows the health hue so three To-do cards in a column aren't one colour — see
     // constants/colors.ts's card-identity addendum. The glyph is what names it.
     hue: 'health',

@@ -181,6 +181,14 @@ type Props = {
    * committed text in `value` would re-open the row every time it was used.
    */
   expandSignal?: string;
+  /**
+   * Keep the field open and focused after a commit instead of collapsing to the "+" bar.
+   *
+   * One caller: To-do's Plan mode (`components/TodoSurface.tsx`). See `commit()` for why this is
+   * opt-in rather than the default — the discrete behaviour is deliberate, and this is the one
+   * situation that asks for the opposite.
+   */
+  stayOpen?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 };
@@ -197,6 +205,7 @@ export default function AddRow({
   panel,
   showDivider = true,
   expandSignal,
+  stayOpen,
   accessibilityLabel,
   style,
 }: Props) {
@@ -300,6 +309,16 @@ export default function AddRow({
     if (!active) return;
     onSubmit();
     hapticConfirm();
+    // ⚠️ **`stayOpen` is Plan mode, and it inverts the rule above rather than bending it.**
+    // The default is discrete — one row at a time, back to the "+" bar after each save — because
+    // a composer that stays open is a form, and capture should cost one gesture and then get out
+    // of the way. Plan mode is the case where the user has said the opposite: they are writing a
+    // BATCH, and re-opening the bar between every line is the whole friction. So the field stays
+    // and refocuses, and nothing else about the composer changes.
+    if (stayOpen) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
     setExpanded(false); // discrete: back to the "+" bar after each save
   }
 

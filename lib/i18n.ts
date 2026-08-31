@@ -346,6 +346,7 @@ const en = {
   cardHint: {
     todoToday: 'Break it down until it feels slightly ridiculous. That is when it starts working.',
     todoWeek: 'A week is for seeing what is coming, not for deciding it now.',
+    todoCalendar: 'A range is for seeing what is coming, not for deciding it now.',
     shopLists: 'Add things as you run out — the weekly list clears itself.',
     habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
@@ -355,6 +356,9 @@ const en = {
       left === 0 && done === 0 ? 'Nothing due today' : `${left} left · ${done} done`,
     todoWeek: (n: number) => (n === 0 ? 'Nothing this week yet' : `${n} this week`),
     todoMonth: (n: number) => (n === 0 ? 'Nothing this month yet' : `${n} this month`),
+    // The range is named rather than counted when there is nothing in it — a bare 0 beside a
+    // date span reads as a verdict on the span (the 2026-08-27 peek rule).
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
@@ -999,6 +1003,14 @@ const en = {
   // The To-do tab's Week card (Mon–Sun), replacing the old "This week" tab.
   todoWeekTitle: 'Week',
   todoMonthTitle: 'Month',
+  // The card that replaced the two above (2026-09-01) — it owns the range now.
+  todoCalendarTitle: 'Calendar',
+  todoCalendarPrev: 'Earlier',
+  todoCalendarNext: 'Later',
+  // Plan mode: the Whenever composer stays open so a run of tasks costs one gesture each.
+  todoPlanModeLabel: 'Plan mode',
+  todoPlanModeOn: 'Keep writing',
+  todoPlanModeOff: 'One at a time',
   // The To-do tab's one group rail (2026-08-21): the three cards below it are not the day's
   // work — what you're aiming at, what's behind you, what quietly stopped mattering.
   todoElsewhereTitle: 'Elsewhere',
@@ -2640,6 +2652,7 @@ const no: typeof en = {
   cardHint: {
     todoToday: 'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
     todoWeek: 'En uke er for å se hva som kommer, ikke for å bestemme det nå.',
+    todoCalendar: 'En periode er for å se hva som kommer, ikke for å bestemme det nå.',
     shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
@@ -2649,6 +2662,7 @@ const no: typeof en = {
       left === 0 && done === 0 ? 'Ingenting i dag' : `${left} igjen · ${done} gjort`,
     todoWeek: (n: number) => (n === 0 ? 'Ingen ennå denne uken' : `${n} denne uken`),
     todoMonth: (n: number) => (n === 0 ? 'Ingen ennå denne måneden' : `${n} denne måneden`),
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
@@ -3137,6 +3151,12 @@ const no: typeof en = {
   collapseCardLabel: 'Skjul fullskjerm',
   todoWeekTitle: 'Uke',
   todoMonthTitle: 'Måned',
+  todoCalendarTitle: 'Kalender',
+  todoCalendarPrev: 'Tidligere',
+  todoCalendarNext: 'Senere',
+  todoPlanModeLabel: 'Planmodus',
+  todoPlanModeOn: 'Fortsett å skrive',
+  todoPlanModeOff: 'Én om gangen',
   todoElsewhereTitle: 'Ellers',
   listOptionsButtonLabel: 'Listevalg',
   addFromMonthlyOption: 'Fra månedsliste',
@@ -4493,6 +4513,7 @@ const is: typeof en = {
   cardHint: {
     todoToday: 'Skiptu því niður þar til það verður hálf hlægilegt. Þá fer það að virka.',
     todoWeek: 'Vika er til að sjá hvað er framundan, ekki til að ákveða það núna.',
+    todoCalendar: 'Tímabil er til að sjá hvað er framundan, ekki til að ákveða það núna.',
     shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
@@ -4502,6 +4523,7 @@ const is: typeof en = {
       left === 0 && done === 0 ? 'Ekkert í dag' : `${left} eftir · ${done} lokið`,
     todoWeek: (n: number) => (n === 0 ? 'Ekkert í þessari viku' : `${n} í þessari viku`),
     todoMonth: (n: number) => (n === 0 ? 'Ekkert í þessum mánuði' : `${n} í þessum mánuði`),
+    todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
@@ -4992,6 +5014,12 @@ const is: typeof en = {
   collapseCardLabel: 'Fela fullan skjá',
   todoWeekTitle: 'Vika',
   todoMonthTitle: 'Mánuður',
+  todoCalendarTitle: 'Dagatal',
+  todoCalendarPrev: 'Fyrr',
+  todoCalendarNext: 'Síðar',
+  todoPlanModeLabel: 'Skipulagsstilling',
+  todoPlanModeOn: 'Halda áfram að skrifa',
+  todoPlanModeOff: 'Eitt í einu',
   todoElsewhereTitle: 'Annað',
   listOptionsButtonLabel: 'Valkostir lista',
   addFromMonthlyOption: 'Úr mánaðarlista',

@@ -596,31 +596,35 @@ async function main() {
     // when the user acts here is an explicit `false` — "I opened this one" — which is a value
     // the bag could not hold at all while open was the default. Round-tripping an OPENED card is
     // therefore the case worth walking: it is the one the storage rewrite introduced.
-    console.log('> Week card unfolds as one, and remembers');
-    const weekUnfold = page.getByRole('button', { name: 'Week: Expand list', exact: true }).first();
+    // ⚠️ **`Week` → `Calendar` (2026-09-01).** The Week and Month cards merged into one card that
+    // owns its own range — a week/month segment and a pair of arrows — so the fold under test is
+    // that card's. Everything the step is FOR is unchanged: the chevron adds and removes the day
+    // sections, and the choice survives leaving the tab.
+    console.log('> Calendar card unfolds as one, and remembers');
+    const weekUnfold = page.getByRole('button', { name: 'Calendar: Expand list', exact: true }).first();
     if (await weekUnfold.count()) {
       const mondayBefore = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays absent while the card rests closed: ${!mondayBefore}`);
-      if (mondayBefore) pageErrors.push('Week card: weekday sections drawn while the card rests collapsed');
+      if (mondayBefore) pageErrors.push('Calendar card: day sections drawn while the card rests collapsed');
       await weekUnfold.scrollIntoViewIfNeeded();
       await weekUnfold.click({ timeout: 10000 });
       await page.waitForTimeout(700);
       const mondayAfter = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays drawn after unfolding: ${mondayAfter}`);
-      if (!mondayAfter) pageErrors.push('Week card: unfolding it drew no weekday sections');
-      await shot(page, 'todo-week-unfolded');
+      if (!mondayAfter) pageErrors.push('Calendar card: unfolding it drew no day sections');
+      await shot(page, 'todo-calendar-unfolded');
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(500);
       await page.getByRole('button', { name: 'To-do', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       const stillOpen = await anyVisibleText(page, 'Monday');
       console.log(`  the opened state survived a tab round-trip: ${stillOpen}`);
-      if (!stillOpen) pageErrors.push('Week card: an explicit open did not persist across a tab round-trip');
+      if (!stillOpen) pageErrors.push('Calendar card: an explicit open did not persist across a tab round-trip');
       // Put it back, so the screenshots further down show the ordinary resting state.
-      await page.getByRole('button', { name: 'Week: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Calendar: Collapse list', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     } else {
-      pageErrors.push('No "Week: Expand list" chevron on the To-do tab — the whole-week fold may not be wired');
+      pageErrors.push('No "Calendar: Expand list" chevron on the To-do tab — the card fold may not be wired');
     }
 
     // Exercise a second store's write path: add a habit from components/HabitsSurface.tsx's

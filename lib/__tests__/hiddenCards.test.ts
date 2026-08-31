@@ -36,39 +36,39 @@ describe('sanitizeHiddenCards — anything unrecognised becomes "the app as desi
     // The bag shape collapsedCards uses is the most plausible wrong value here, since the two
     // columns sit next to each other and are edited by the same kind of pass.
     expect(sanitizeHiddenCards({ todoMonth: true })).toEqual([]);
-    expect(sanitizeHiddenCards('todoMonth')).toEqual([]);
+    expect(sanitizeHiddenCards('todoCalendar')).toEqual([]);
     expect(sanitizeHiddenCards(7)).toEqual([]);
   });
 
   it('drops unknown ids and keeps the rest', () => {
-    expect(sanitizeHiddenCards(['todoMonth', 'notACard', 42, null])).toEqual(['todoMonth']);
+    expect(sanitizeHiddenCards(['todoCalendar', 'notACard', 42, null])).toEqual(['todoCalendar']);
   });
 
   it('de-duplicates, so a row cannot be listed twice', () => {
-    expect(sanitizeHiddenCards(['todoMonth', 'todoMonth'])).toEqual(['todoMonth']);
+    expect(sanitizeHiddenCards(['todoCalendar', 'todoCalendar'])).toEqual(['todoCalendar']);
   });
 
   it('round-trips a clean value', () => {
-    const value = ['todoMonth', 'todoRecurring'];
+    const value = ['todoCalendar', 'todoRecurring'];
     expect(sanitizeHiddenCards(value)).toEqual(value);
   });
 });
 
 describe('withHidden — one id moves, every other card is left alone', () => {
   it('adds and removes', () => {
-    expect(withHidden([], 'todoMonth', true)).toEqual(['todoMonth']);
-    expect(withHidden(['todoMonth'], 'todoMonth', false)).toEqual([]);
+    expect(withHidden([], 'todoCalendar', true)).toEqual(['todoCalendar']);
+    expect(withHidden(['todoCalendar'], 'todoCalendar', false)).toEqual([]);
   });
 
   it('is idempotent in both directions', () => {
-    expect(withHidden(['todoMonth'], 'todoMonth', true)).toEqual(['todoMonth']);
-    expect(withHidden([], 'todoMonth', false)).toEqual([]);
+    expect(withHidden(['todoCalendar'], 'todoCalendar', true)).toEqual(['todoCalendar']);
+    expect(withHidden([], 'todoCalendar', false)).toEqual([]);
   });
 
   it('does not disturb its neighbours', () => {
-    const before: CardKey[] = ['todoMonth', 'todoRecurring'];
-    expect(withHidden(before, 'todoWeek', true)).toEqual([...before, 'todoWeek']);
-    expect(withHidden(before, 'todoMonth', false)).toEqual(['todoRecurring']);
+    const before: CardKey[] = ['todoCalendar', 'todoRecurring'];
+    expect(withHidden(before, 'todoWhenever', true)).toEqual([...before, 'todoWhenever']);
+    expect(withHidden(before, 'todoCalendar', false)).toEqual(['todoRecurring']);
   });
 
   it('never returns a value the sanitizer would change', () => {
@@ -84,8 +84,8 @@ describe('isHidden', () => {
   });
 
   it('reads a stored id', () => {
-    expect(isHidden(['todoMonth'], 'todoMonth')).toBe(true);
-    expect(isHidden(['todoMonth'], 'todoWeek')).toBe(false);
+    expect(isHidden(['todoCalendar'], 'todoCalendar')).toBe(true);
+    expect(isHidden(['todoCalendar'], 'todoRecurring')).toBe(false);
   });
 });
 
