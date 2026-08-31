@@ -89,12 +89,12 @@
  *     maintainer asked for. Keep this in step with `ScreenScaffold`'s header radii.
  */
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import { useT } from '@/lib/i18n';
-import { Fonts, FontSize, Radius, Spacing, HitSlop, MIN_TAP_TARGET } from '@/constants/theme';
+import { BORDER_WIDTH, Fonts, FontSize, Radius, Spacing, HitSlop, MIN_TAP_TARGET, OpticalCenter } from '@/constants/theme';
 import { getScreenColor } from '@/lib/screenColor';
 import type { ThemePalette } from '@/constants/colors';
 import { Travel } from '@/constants/motion';
@@ -121,11 +121,42 @@ import Surface from '@/components/Surface';
  * or 3px of padding, which is not a rung. 56 = 48 + `Spacing.xs` × 2, every number a token.
  */
 export const BOTTOM_NAV_HEIGHT = 56;
+
+/**
+ * What the bar actually PAINTS — `BOTTOM_NAV_HEIGHT` plus the Surface mask's border on both ends.
+ *
+ * ⚠️ **These are two different numbers and every clearance in the app wants this one
+ * (2026-09-01).** `BOTTOM_NAV_HEIGHT` is the bar's CONTENT box: 48 (`MIN_TAP_TARGET`) + `Spacing.xs`
+ * of padding at each end. `components/Surface.tsx` then draws `BORDER_WIDTH.card` on all four
+ * sides of its mask, and the bar does not shrink (RN's `flexShrink` default is 0), so the card on
+ * screen is 59 tall in a box reserved for 56 and hangs 3px past it into the float gap.
+ *
+ * Nothing failed, which is why it survived: the items are still centred in the card (measured
+ * 5/5 by `scripts/measure-geometry.mjs`), the bar just sits 3px lower than `NAV_FLOAT_GAP` says
+ * and every content clearance stops 3px short of it. Reserve THIS; centre against it too.
+ */
+export const NAV_PAINTED_HEIGHT = BOTTOM_NAV_HEIGHT + BORDER_WIDTH.card * 2;
 // Float gap for the bottom-nav bar: left/right margin AND a matching gap below (on top of the
 // safe-area inset) so the bar's rounded corners read as a floating panel — shared between
 // app/(tabs)/_layout.tsx (which positions the real bar) and ScreenScaffold (which reserves
 // scroll-content clearance for it) so the two can never drift apart.
 export const NAV_FLOAT_GAP = Spacing.sm;
+
+/**
+ * The centre slot's standing mark — a 4px dot under Home's label, drawn in every state.
+ *
+ * **Why a mark and not a colour (2026-09-01).** Maintainer: *"no visual distinction for Home vs
+ * the others."* Colour cannot carry this on its own: `navTabHue` is dark-mode only, and in LIGHT
+ * every active tab resolves to `theme.accent`, so Home and Shop light up identically. A mark
+ * works in both themes and in both states, which is the whole requirement.
+ *
+ * **Why it is this small.** The 2026-08-18 ruling deleted the 56px centre FAB and the sliding
+ * pill — *"do not use massive asymmetrical background circles for the active bottom nav icon"* —
+ * and that stands. This is symmetric, unfilled by anything, inside the slot's own box, and does
+ * not change the item's height or its 48px target: five equal slots, one of which is annotated.
+ * It is NOT a selection cue (the filled glyph is), so it does not brighten when Home is active.
+ */
+const HOME_MARK_SIZE = 4;
 
 type Props = Partial<Pick<MaterialTopTabBarProps, 'state' | 'navigation'>>;
 
@@ -161,6 +192,7 @@ export default function BottomNav({ state, navigation }: Props = {}) {
           item={item}
           label={t.nav[item.key]}
           active={isActive(item)}
+          isHome={item.key === 'home'}
           onPress={() => handlePress(item)}
           styles={styles}
         />
@@ -201,11 +233,13 @@ type NavTabItemProps = {
   item: SiteItem;
   label: string;
   active: boolean;
+  /** The centre slot. Draws the standing mark — see HOME_MARK_SIZE. */
+  isHome: boolean;
   onPress: () => void;
   styles: typeof baseStyles;
 };
 
-function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
+function NavTabItem({ item, label, active, isHome, onPress, styles }: NavTabItemProps) {
   const theme = useAppTheme();
   const isDark = useIsDark();
   // The one difference between an active tab and an inactive one: a FILLED glyph in the
@@ -233,6 +267,15 @@ function NavTabItem({ item, label, active, onPress, styles }: NavTabItemProps) {
       >
         {label}
       </Text>
+      {isHome ? (
+        <View
+          // Decorative: the slot already announces itself by name, and a screen reader saying
+          // "Home, dot" is worse than nothing.
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          style={[styles.homeMark, { backgroundColor: active ? tint : theme.textMuted }]}
+        />
+      ) : null}
     </PressableScale>
   );
 }
@@ -276,5 +319,29 @@ const baseStyles = StyleSheet.create({
   label: {
     fontSize: FontSize.xs,
     fontFamily: Fonts.semibold,
+    // `OpticalCenter` (2026-09-01): this was the ONE chrome label in the app without it —
+    // components/TabSlider.tsx and components/ScreenHeader.tsx have both carried it for weeks.
+    // The item is a fixed 48px box with `justifyContent: 'center'`, i.e. exactly the case the
+    // token exists for: Android pads the line box with the font's own asymmetric ascent/descent
+    // metrics, so the glyphs ride high inside a box that measures perfectly. Reported as "bottom
+    // nav buttons are slightly too high"; invisible on web and to `npm run geometry` by
+    // construction, which is why `lib/__tests__/designTokens.test.ts` scans for it instead.
+    ...OpticalCenter,
+  },
+  // The centre slot's standing mark — see HOME_MARK_SIZE.
+  //
+  // ⚠️ **Absolutely positioned, and that is load-bearing.** As a flow child it added its own
+  // height plus the item's `gap` to Home's slot — 8px — and since the bar sizes to its tallest
+  // item, the whole bar grew and stopped matching `NAV_PAINTED_HEIGHT`. Caught immediately by
+  // `scripts/measure-geometry.mjs`, which reported Home's item at 5/5 where the other four sat
+  // at 9.5/9.5: four slots centred in a bar the fifth had stretched. Out of flow, it annotates
+  // the slot without resizing it, which is the whole idea of an equal five-slot bar.
+  homeMark: {
+    position: 'absolute',
+    bottom: 2,
+    alignSelf: 'center',
+    width: HOME_MARK_SIZE,
+    height: HOME_MARK_SIZE,
+    borderRadius: HOME_MARK_SIZE / 2,
   },
 });

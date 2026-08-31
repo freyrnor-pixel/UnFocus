@@ -199,7 +199,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
+import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
@@ -307,7 +307,10 @@ function PagerFloatingNav({ activeRouteName, insetsBottom, navigationRef }: Page
         right: 0,
         bottom: 0,
         zIndex: 100,
-        height: BOTTOM_NAV_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
+        // NAV_PAINTED_HEIGHT, not BOTTOM_NAV_HEIGHT — the bar's card is taller than its
+        // content box by the Surface mask's border, and reserving the content box let it hang
+        // 3px past the bottom of this wrapper into the float gap.
+        height: NAV_PAINTED_HEIGHT + insetsBottom + NAV_FLOAT_GAP,
         paddingBottom: insetsBottom + NAV_FLOAT_GAP,
         // ⚠️ **The SIDE inset is `CHROME_FLOAT_INSET`, not `NAV_FLOAT_GAP` (2026-08-27, round
         // 20).** These were the same number (8) and are two different questions: the gap is how

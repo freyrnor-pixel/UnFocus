@@ -281,11 +281,21 @@ describe('the material system stays deleted, and stays matte', () => {
   //
   // The two modes diverged on 2026-08-16 (brief §3) and now assert opposite things, which is
   // the point rather than an inconsistency — see constants/theme.ts's GLASS_EDGE block.
-  it('light: the pane edge catches light on one side and is a real boundary on the other', () => {
+  it('light: the pane edge is the SAME colour on both sides, quieter where the light lands', () => {
+    // ⚠️ **Reversed 2026-09-01, and the old assertion was pinning the defect.** It required the
+    // lit stop to be `rgba(255, 255, 255, …)` — 95% white on a `#FDFEFF` card, i.e. nothing at
+    // all — while the shaded stop carried `theme.border` at full alpha. That is a card with a
+    // hard slate line on two sides and no boundary whatever on the other two, which is what
+    // "edges look off" was reporting.
+    //   White is the light source on a BLACK ground. On a white one the card is already the
+    // brightest thing, so the same diagonal has to run the other way: one hue, held back on the
+    // top-left, full on the bottom-right. The contrast promise is unchanged and is still only
+    // ever the shaded side.
     const p = THEMES.default.light;
     const [lit, shade] = getGlassEdge(p.border, false).colors;
-    expect(lit).toMatch(/^rgba\(255, 255, 255,/);
     expect(shade).toBe(rgba(p.border, 1));
+    expect(lit).toBe(rgba(p.border, 0.3));
+    expect(lit).not.toMatch(/^rgba\(255, 255, 255,/);
   });
 
   // ── REVERSED 2026-08-26 (DESIGN_COMPARISON/19 phase 1, "the card surface") ────────────────

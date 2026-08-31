@@ -195,7 +195,11 @@ describe('getGlassEdge — the light-catching pane edge', () => {
       const edge = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark, 'card', 0);
       expect(edge.colors).toHaveLength(3);
       expect(edge.locations).toEqual([0, 0.34, 1]);
-      edge.colors.forEach((c) => expect(c).toMatch(/^rgba\(255, 255, 255, 0\)$/));
+      // The lit COLOUR is mode-dependent as of 2026-09-01 (white on dark, the boundary hue held
+      // back on light — see GLASS_LIGHT's note), so assert the shape and the zero alpha rather
+      // than a literal white. At strength 0 every alpha is zero either way.
+      const litHex = isDark ? '255, 255, 255' : '114, 132, 162';
+      edge.colors.forEach((c) => expect(c).toBe(`rgba(${litHex}, 0)`));
     }
   });
 
@@ -212,11 +216,17 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     }
   });
 
-  it('the lit side is white in both modes — the light source is not themed', () => {
-    for (const isDark of [false, true]) {
-      const [lit] = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark).colors;
-      expect(lit).toMatch(/^rgba\(255, 255, 255,/);
-    }
+  it('the lit side is white on a dark ground and the boundary hue on a light one', () => {
+    // ⚠️ **Reversed 2026-09-01.** This asserted white in BOTH modes — "the light source is not
+    // themed" — and that is exactly what made a light-mode card have no top-left edge: 30% (then
+    // 95%) white on a `#FDFEFF` pane is invisible, so the card was a hard slate line on its
+    // bottom and right and nothing on its top and left.
+    //   The light source is still not themed; what changed is the recognition that on a WHITE
+    // ground the card is the light. Same diagonal, same story, opposite sign: the lit side is the
+    // side where the boundary is weakest.
+    expect(getGlassEdge(BORDER_DARK, true).colors[0]).toMatch(/^rgba\(255, 255, 255,/);
+    const [br, bg, bb] = [1, 3, 5].map((i) => parseInt(BORDER_LIGHT.slice(i, i + 2), 16));
+    expect(getGlassEdge(BORDER_LIGHT, false).colors[0]).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, `));
   });
 
   it('light: inherits the card > field > button family from the ramp it replaced', () => {
@@ -270,12 +280,17 @@ describe('getGlassEdge — the light-catching pane edge', () => {
     expect(ramp.colors[1]).toBe(`rgba(${br}, ${bg}, ${bb}, 1)`);
   });
 
-  it('the lit catch is far weaker in dark mode than in light', () => {
-    // A 95%-white lip on a near-white pane is a highlight; the same lip on near-black would
-    // be a bright outline, which is the "glowing rim" look the flat-rim pass rejected.
-    const light = alphaOf(getGlassEdge(BORDER_LIGHT, false).colors[0]);
-    const dark = alphaOf(getGlassEdge(BORDER_DARK, true).colors[0]);
-    expect(dark).toBeLessThan(light / 3);
+  it('the lit side is always the weaker end of its own diagonal', () => {
+    // ⚠️ **Rewritten 2026-09-01.** This compared LIGHT's lit alpha against DARK's, which only
+    // made sense while both were alphas on the same colour (white). They are alphas on two
+    // different colours now, so the cross-mode ratio measures nothing.
+    //   The property that actually matters, and that holds in both modes: the lit end is quieter
+    // than the shaded end. That is what makes the edge a diagonal rather than a frame, and it is
+    // the one claim that survives the colours differing.
+    for (const isDark of [false, true]) {
+      const ramp = getGlassEdge(isDark ? BORDER_DARK : BORDER_LIGHT, isDark, 'card');
+      expect(alphaOf(ramp.colors[0])).toBeLessThan(alphaOf(ramp.colors[ramp.colors.length - 1]));
+    }
   });
 
   it('scales both sides together under the design lab’s strength knob', () => {

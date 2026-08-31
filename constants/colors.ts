@@ -229,6 +229,21 @@ export interface ThemePalette {
   featNote: string;        // Note type bubble
   featHealth: string;      // Health type bubble
   featScan: string;        // Scan screen hue (violet) — per-screen color, no domain bubble
+  /**
+   * Home's screen hue — the app's own blue, and deliberately NOT on the identity ladder.
+   *
+   * Added 2026-09-01. `SCREEN_TOKEN.index` aliased `featTask` from the 5→3 merge onward, so Home
+   * wore To-do's gold: the two tabs lit up in the same colour side by side, and every categorical
+   * control on Home — the Energy tutorial button's halo most visibly — came out gold on a screen
+   * whose whole point is that it is the neutral hub. Maintainer: *"Energy is blue, not yellow (to
+   * keep in tune with apps Main color which is blue and light)"*, and separately *"no visual
+   * distinction for Home vs the others"*.
+   *
+   * It is the accent verbatim rather than a new hue, which is the point: Home is not a category,
+   * it is the app. That also makes it contrast-safe by construction — `accent` already clears AA
+   * on `surface` and on `bg` in both modes, asserted in lib/__tests__/colors.test.ts.
+   */
+  featHome: string;
 
   // ── Card identity hues (FOUR values behind nine token names) ─────────────
   // Colours each CARD TYPE (lib/domainColor.ts), distinct from the feat* screen hues above; the
@@ -570,7 +585,10 @@ const defaultLight: ThemePalette = {
   // for why this is the SMALLER of the two moves despite the bigger alpha jump. bg↔surface
   // goes 1.170 → 1.201:1 (still clears rule 10b's 1.15 floor, with more room than before).
   bg: '#E2EAF5',
-  surface: '#FDFEFF',      // = surfaceGlass composited over the backdrop's darkest stop
+  // = surfaceGlass composited over the backdrop's darkest stop. ⚠️ **Re-derived 2026-09-01 with
+  // the alpha below (0.94 -> 0.82).** Change one, change both — `__tests__/glassMaterial.test.ts`
+  // asserts the composite.
+  surface: '#FAFCFE',
   surfaceMuted: '#E6EDF6',
   surfaceInset: '#D8E1EE',
   // 2026-08-20 contrast pass: #D3DBE6 → #C7D1DF, 1.346:1 → 1.488:1 on `surface`. Decorative
@@ -578,7 +596,20 @@ const defaultLight: ThemePalette = {
   // into `border`'s job. (Re-measured against the 2026-08-26 `surface` bump: 1.528:1 — still
   // inside the band.)
   rule: '#C7D1DF',
-  surfaceGlass: 'rgba(255,255,255,0.94)',
+  // ⚠️ **0.94 -> 0.82 (2026-09-01), because at 0.94 the reduce-transparency switch did nothing.**
+  // Maintainer: *"Glass effect enabled makes no difference, while in dark it looks good."* That
+  // was arithmetic, not perception: `getGlassFill` picks between this and `surface`, and `surface`
+  // IS this composited over the ground, so the two differ only by however much the ground varies
+  // — 6% of a backdrop whose own range is ~19/255. Two hundred-and-fifty-fifths. At 0.82 the pane
+  // transmits 18%, which is ~3x the spread and enough for `BLUR_AMBIENT` to have something to do.
+  //   It also un-flattens the tier ladder, which A3's header edge needed: `surfaceRaised` over
+  // `surface` was 1.002:1 and is 1.020:1 now.
+  //   ⚠️ **Light will always be subtler than dark here, and that is structural, not a shortfall.**
+  // `lib/__tests__/chromeRhythm.test.ts` §6 forbids any orb reaching the card band, so the ground
+  // under a card is the base gradient alone and a translucent pane has little to transmit *there*.
+  // The visible difference lives at the gutters and down a tall screen. Do not "fix" that by
+  // lighting the middle — that is the one thing the contrast geometry cannot afford.
+  surfaceGlass: 'rgba(255,255,255,0.82)',
   // ⚠️ **0.95, not 0.88, as of 2026-08-26** — a forced companion to the `surface` bump above,
   // same reasoning as dark's `surfaceGlassStrong`. At 0.88 (→ `#FCFDFF`) it was LIGHTER than
   // the old `surface` (`#F9FBFE`) but DARKER than the new one (`#FDFEFF`) — the overlay/nav
@@ -693,6 +724,8 @@ const defaultLight: ThemePalette = {
   // Scan screen hue — violet, distinct from featPlan indigo. Per-screen color only
   // (Scan has no domain bubble); read via lib/screenColor.ts (2026-07-18).
   featScan: '#A855F7',
+  // The app's own blue — identical to light `accent`. See the type's note.
+  featHome: '#235EE0',
 
   // ── Card identity: NINE NAMES, FOUR VALUES (2026-07-31, addendum A.3) ────────────────
   // Superseded the 2026-07-28 nine-hue "widened ramp". That pass fixed the wrong problem: the
@@ -983,6 +1016,8 @@ const defaultDark: ThemePalette = {
   // pre-2026-08-26 value) and is left alone on purpose: rotating it further toward blue just
   // trades that for a collision with `accent` (`#298AFF` as of the same retune, ΔE 19.64
   // today), and Scan is a pushed sub-screen that shares no view with either.
+  // The app's own blue — identical to dark `accent`. See the type's note.
+  featHome: '#298AFF',
 
   // Card identity (dark) — IDENTICAL to light as of 2026-07-31 (addendum A.3). The old ramp
   // lightened every stop ~0.20 for the dark surface; the five collapsed hues do NOT, because

@@ -280,10 +280,20 @@ const LIGHT: Palette = {
   // since light mode has far less headroom before an ambient wash starts competing with a card.
   orbCool: '#4FB6C4', orbWarm: '#9E7BD6',
   orbGrowth: '#5FB899',
-  orbOpacity: 0.1,
-  // Light has far less headroom before an ambient wash competes with a card, so the hue layer
-  // is barely there — it says which screen you are on, it does not light anything.
-  orbScreenOpacity: 0.05,
+  // ⚠️ **0.10 → 0.18 (2026-09-01).** Dark was doubled to 0.26 on 2026-08-31 under the "light the
+  // frame, not the card column" ruling and light was deliberately left alone, because none of the
+  // measurement behind that licence had been taken on it. This is the follow-through, at a
+  // smaller step: the ruling is about the FRAME, and light's frame was so faint it read as a flat
+  // pale field — reported as "backdrop is too empty".
+  //   Still well under dark's, and for a real reason rather than caution: light's ground is
+  // `#f7faff`–`#e4ecfb`, so an orb here is a wash ON something rather than a light in the dark,
+  // and it reaches its ceiling — where it starts competing with a card instead of framing one —
+  // far sooner. **The geometry is what keeps this safe at any value** (no orb reaches the card
+  // band, `lib/__tests__/chromeRhythm.test.ts` §6); the alpha is a taste call inside that.
+  orbOpacity: 0.18,
+  // The per-tab hue layer, in step with the pair above (0.05 → 0.10) so a screen still says which
+  // one it is by the same relative amount. Half the neutral field, as in dark.
+  orbScreenOpacity: 0.1,
 };
 
 // ⚠️ TRUE BLACK, and this block is still the reason `theme.bg` alone was never enough. This

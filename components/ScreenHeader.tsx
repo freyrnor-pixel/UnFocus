@@ -173,9 +173,14 @@ type Props = {
    * that passes it gets the icon, and one that does not draws nothing.
    */
   onManageCardsPress?: () => void;
+  /**
+   * True when a sticky tab bar is attached directly under this header, i.e. the two are drawn as
+   * ONE card. Suppresses the bottom edge — see `headerBackdrop`.
+   */
+  attachedBelow?: boolean;
 };
 
-export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress, onManageCardsPress }: Props) {
+export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onLayoutPress, onManageCardsPress, attachedBelow }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const router = useRouter();
@@ -456,7 +461,25 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // frost would make the app's own cards legible through the title. `styles.headerClip` is what
   // keeps it inside whatever corner radius ScreenScaffold passes.
   const headerBackdrop = (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
+    <>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
+      {/* ⚠️ **The card's bottom edge (2026-09-01), and it is a LIGHT-MODE fix.** The wash above is
+          the whole of what separated this header from the content under it, and in light that is
+          `surfaceRaised` `#FEFEFF` against a first card of `surface` `#FDFEFF` — a 1/255 step. At
+          rest `CHROME_REST_GAP` shows some backdrop, but while scrolling a card passes under the
+          header and simply *stops existing* at a coordinate with no line, no shadow and no tonal
+          change: reported as "light top header looks like it's part of content while scrolling".
+            Absolutely positioned rather than a `borderBottomWidth`, because this view is inside
+          `headerClip` and a real border would round with the corners and change the box. Skipped
+          when a sticky bar is attached: there the two are ONE card by construction (2026-08-14),
+          so the boundary belongs under the bar, not through the middle of the pair. */}
+      {attachedBelow ? null : (
+        <View
+          pointerEvents="none"
+          style={[styles.headerEdge, { backgroundColor: theme.border }]}
+        />
+      )}
+    </>
   );
 
   const titleNode = (align: 'left' | 'right') => (
@@ -557,6 +580,13 @@ const styles = StyleSheet.create({
   // passes for a floating header. Load-bearing since 2026-08-20: the wash is opaque and always
   // mounted, so an unclipped one would paint over the very corner notches that are supposed to
   // show the content scrolling behind it.
+  headerEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+  },
   headerClip: {
     overflow: 'hidden',
   },

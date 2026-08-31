@@ -46,6 +46,9 @@ const REQUIRED_TOKENS = [
   'shadow', 'overlay',
   'hintBg', 'hintBorder', 'hintAccent',
   'featTask', 'featPlan', 'featHabit', 'featShop', 'featMeal', 'featBudget', 'featNote', 'featHealth', 'featScan',
+  // `featHome` (2026-09-01) — Home's own hue, the app's blue. Listed here for the same reason as
+  // every other token: one in no list is one nothing checks.
+  'featHome',
   'cardPlan', 'cardTask', 'cardHabit', 'cardHealth', 'cardMeal', 'cardShop', 'cardBudget', 'cardNote', 'cardScan',
 ] as const;
 
@@ -306,8 +309,15 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
         // touched by the dark correction. `surfaceMuted`/`surfaceInset` did NOT move on either
         // side, so `ladderB` (surfaceMuted↔surfaceInset) is unchanged; `ladderA` and `rule` move
         // because `surface` is one of their two inputs.
+        //
+        // ── 2026-09-01: light's glass alpha 0.94 → 0.82 ───────────────────────────────────
+        // The reduce-transparency switch was doing nothing visible in light — `getGlassFill`
+        // picks between `surfaceGlass` and `surface`, and `surface` IS that colour composited,
+        // so at 94% they differed by ~2/255. Re-derived `surface` `#FDFEFF` → `#FAFCFE`, which
+        // moves `bgSurface` 1.201 → 1.179 and `ladderA` with it. Still over rule 10b's relaxed
+        // 1.15 light floor, and every chromatic token gains a little (the card got darker).
         const expected = mode === 'light'
-          ? { bgSurface: 1.201, ladderA: 1.168, ladderB: 1.118, rule: 1.528 }
+          ? { bgSurface: 1.179, ladderA: 1.147, ladderB: 1.118, rule: 1.500 }
           : { bgSurface: 1.353, ladderA: 1.207, ladderB: 1.057, rule: 1.378 };
         expect(contrastRatio(p.bg, p.surface)).toBeCloseTo(expected.bgSurface, 2);
         expect(contrastRatio(p.surface, p.surfaceMuted)).toBeCloseTo(expected.ladderA, 2);

@@ -174,8 +174,12 @@
  *     through it while scrolling (user report). `headerBlock` (zIndex 100, above the sticky
  *     block's zIndex 99) paints one `StyleSheet.hairlineWidth` taller than `headerBlockHeight`
  *     when attached, so the opaque header card overlaps the seam instead of relying on the two
- *     edges rounding identically. `contentTopClear` and the sticky block's own `top` are
- *     deliberately NOT bumped by this — only the header's paint extends, nothing else moves.
+ *     edges rounding identically. `contentTopClear` is deliberately NOT bumped by it — that is
+ *     where content RESTS, and bumping it grows a hairline band on every screen. The STICKY
+ *     BLOCK is bumped (2026-09-01): the header paints into it, so leaving its `top` un-overlapped
+ *     took the hairline off its top edge while its content stayed centred in the full height, and
+ *     every segment in every sticky bar sat 1px high. It gives the same hairline back off its
+ *     height, so its bottom edge does not move.
  *   - **Floated header (2026-07-23, nothing-touches-the-edges; top gap dropped 2026-07-25,
  *     bottom gap dropped 2026-08-19)**: `floatChrome` (= !plainBackground) insets the header
  *     with `headerFloatH` (side margins), rounds the glass on all four corners (Radius.lg, via
@@ -244,7 +248,7 @@ import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ScreenHeader from '@/components/ScreenHeader';
-import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
+import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
 
@@ -321,7 +325,7 @@ export function resolveTopInset(insetTop: number): number {
 export function tabChromeBand(insets: { top: number; bottom: number }, fontScale: number) {
   return {
     top: resolveTopInset(insets.top) + getHeaderMetrics(fontScale).headerHeight,
-    bottom: BOTTOM_NAV_HEIGHT + insets.bottom + NAV_FLOAT_GAP,
+    bottom: NAV_PAINTED_HEIGHT + insets.bottom + NAV_FLOAT_GAP,
   };
 }
 
@@ -526,9 +530,16 @@ export default function ScreenScaffold({
   // sticky block's top edge), and on some pixel densities that shared coordinate rounds to two
   // adjacent device pixels rather than one, leaving a hairline where the clipped scroll content
   // underneath shows through while scrolling. `headerBlock` is zIndex 100 (above the zIndex-99
-  // sticky block), so painting it a hairline TALLER — without moving `contentTopClear` or the
-  // sticky block's own `top`, both still keyed to the un-overlapped `headerBlockHeight` — lets
-  // the header's opaque card cover that seam from above instead of relying on exact abutment.
+  // sticky block), so painting it a hairline TALLER lets the header's opaque card cover that seam
+  // from above instead of relying on exact abutment.
+  //   ⚠️ **The sticky block DOES move with it (2026-09-01), and `contentTopClear` still does
+  // not.** Those two are different questions and the original edit answered both the same way,
+  // wrongly for one of them. `contentTopClear` is where content RESTS and must stay keyed to the
+  // un-overlapped `headerBlockHeight`, or every screen gains a hairline of blank band. The sticky
+  // block is a box the header paints INTO: leaving its `top` un-overlapped meant the hairline came
+  // off its top edge while its content stayed centred in the full declared height, so every
+  // segment in it sat 1px high. It now starts where the header actually stops painting and gives
+  // the same hairline back off its height, so its bottom edge is unmoved.
   //   **Back to the attached case only (2026-08-20).** It was widened to every floating screen on
   // 2026-08-19, when the viewport's top edge abutted the header's bottom edge and could show the
   // same hairline. The viewport starts ABOVE the header again (see `viewportInset`), so there is
@@ -696,7 +707,7 @@ export default function ScreenScaffold({
   // clamps itself to are the same number, not two copies of the same sum.
   const bottomNavClearance = pagerFloatingNav
     ? tabChromeBand(insets, PixelRatio.getFontScale()).bottom
-    : BOTTOM_NAV_HEIGHT + bottomInset;
+    : NAV_PAINTED_HEIGHT + bottomInset;
   // 'top' is applied by hand below rather than listed here (2026-08-10). SafeAreaView pads a
   // listed edge with the RAW `insets.top`, while the header block floors the same inset with
   // StatusBar.currentHeight — and the two disagree on Android until the first insets dispatch.
@@ -791,28 +802,22 @@ export default function ScreenScaffold({
     // other screen SafeAreaView has already ended the box at the safe-area edge, which is where
     // a standalone bottom block's card ends too. The bar's own height is `contentPad`'s
     // paddingBottom, so content passes behind the bar and fills its top-corner notches.
-    // ⚠️ **The bar's own height joined this on 2026-08-31, so content stops AT the bar's top
-    // edge instead of travelling behind it.** Maintainer, against a screenshot of Home with the
-    // Shopping card sliced through the middle of "Uke 4": *"Pad the stack so the last card clears
-    // the bar."* The corrected screens say the same — *"the last card was cut in half behind the
-    // bar."*
-    //   This is the seventh flip of this window and it is a HALF one, which is the part to keep
-    // straight: the TOP is untouched, so a card still travels behind the header and still fills
-    // its two bottom-corner notches. Only the bottom edge moved, because only the bottom edge was
-    // reported. What it knowingly gives up is the matching peek under the nav — the same trade
-    // 2026-08-18 made for both ends and 2026-08-20 took back for both ends; this splits them,
-    // because the two edges are not symmetrical in use. Content arrives at the header from below
-    // and is read as it goes; it LEAVES at the bottom, and a row half-erased by the bar on its
-    // way out reads as a rendering fault rather than as depth.
-    //   The one-clearance-each rule is intact and is what makes this a move rather than an
-    // addition: `contentPad.paddingBottom` gives up `BOTTOM_NAV_HEIGHT` in the same edit, so the
-    // resting position of the last card does not shift by a pixel — only the scrollable extent
-    // does. Put the height on both and every screen grows a blank band the height of its nav.
-    marginBottom: pagerFloatingNav
-      ? bottomInset + NAV_FLOAT_GAP + BOTTOM_NAV_HEIGHT
-      : reserveBottomNav
-        ? BOTTOM_NAV_HEIGHT
-        : 0,
+    // ⚠️ **The bar's own height was added here on 2026-08-31 and TAKEN BACK OUT the next day.
+    // Do not put it back.** It was added against "the last card was cut in half behind the bar",
+    // which is a RESTING-clearance report and is `contentPad.paddingBottom`'s job — and that
+    // edit's own note conceded the point: *"the resting position of the last card does not shift
+    // by a pixel — only the scrollable extent does."* So it did not move the thing that was
+    // reported, and it broke a different thing that had been ruled on.
+    //   What it broke: the bar is a card with `Radius.lg` on all four corners, and its two TOP
+    // corners sit mid-viewport. Ending the window at the bar's top edge means nothing can enter
+    // those corner boxes, so each one is ~124px² of bare backdrop — the 2026-08-20 ruling read in
+    // reverse (*"the corners should show content behind it, no gaps like has been before"*).
+    // `scripts/measure-geometry.mjs`'s `nav-corner-notch` check measures exactly this now and
+    // fails on it, on all five tabs, which is what stops the seventh flip becoming an eighth.
+    //   The bar is OPAQUE, so a card travelling under it is hidden, not sliced. There is no
+    // half-erased row to protect against here; that was true of the frosted chrome this window
+    // was first written for and stopped being true on 2026-08-18.
+    marginBottom: pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0,
     // **⚠️ ROUNDED on the two pairs the window MEETS, and square nowhere (2026-08-20).** This is
     // the sixth flip of this line; the previous five all followed the window moving, and this one
     // follows it moving back — with the chrome opaque, the window is the chrome's OUTER footprint
@@ -829,12 +834,14 @@ export default function ScreenScaffold({
     // content away from a straight edge. And with no nav reserved, the window's bottom edge is
     // the safe area, i.e. nothing at all.
     ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
-    // ⚠️ **SQUARE at the bottom since 2026-08-31, and that follows from the window moving.**
-    // These were rounded to match the nav card's BOTTOM pair, which is what the window used to
-    // land on. It lands on the bar's TOP edge now — and an edge that faces content is square
-    // (the 2026-08-19 seam pass, `chromeFacingSquare`), so a rounded window there would bow away
-    // from a straight edge and leave a lens of bare backdrop in each corner. That is the exact
-    // failure that pass was reported for, from the other direction.
+    // ROUNDED again (2026-09-01), following the window's bottom edge back down past the bar. The
+    // window lands on the nav card's BOTTOM pair once more, which is where the chrome curves away
+    // from the screen's own corner with nothing behind it — so a square window there would let
+    // content show OUTSIDE the card. Both pairs are the same rule: round the corners the window
+    // MEETS, and leave the two that sit mid-viewport alone so a card fills them on the way past.
+    ...(reserveBottomNav || pagerFloatingNav
+      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
+      : null),
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
   // The RESTING clearance — where the first and last card sit before any scrolling — as opposed
@@ -850,7 +857,7 @@ export default function ScreenScaffold({
   // round 20 mockup fixes here and the maintainer's own report ("the top card is still touching
   // the header when scrolled fully up, no breathing room").
   //   ⚠️ **Both ends or neither.** `contentTopClear` folds in `headerFloatBottom` (0), so the top
-  // is the header card's bottom edge plus the gap; `BOTTOM_NAV_HEIGHT` is the bar's card alone —
+  // is the header card's bottom edge plus the gap; `NAV_PAINTED_HEIGHT` is the bar's card alone —
   // the band beneath it is already margin above — so the bottom is the bar's top edge plus the
   // same gap. The mockup shipped 12 above and 28 below, from a bottom padding that overshot its
   // own nav, and an asymmetry nobody chose is what this symmetry is guarding against.
@@ -859,11 +866,12 @@ export default function ScreenScaffold({
       contentTopClear +
       CHROME_REST_GAP +
       (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
-    // The bar's height moved to `viewportInset.marginBottom` (2026-08-31) — the window ends at
-    // the bar's top edge now, so all that is left down here is the resting gap itself. The last
-    // card comes to rest in exactly the same place; what changed is that it can no longer be
-    // drawn past the bar's edge on the way there.
-    paddingBottom: reserveBottomNav ? CHROME_REST_GAP : 0,
+    // The bar's card plus the resting gap — the mirror of `paddingTop` above, and back here
+    // rather than on `viewportInset.marginBottom` (see that note). This is what "the last card
+    // clears the bar" is actually made of; the window is where content is CUT, this is where it
+    // COMES TO REST, and the one-clearance-each rule is that a number appears in exactly one of
+    // them.
+    paddingBottom: reserveBottomNav ? NAV_PAINTED_HEIGHT + CHROME_REST_GAP : 0,
   };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
@@ -980,6 +988,7 @@ export default function ScreenScaffold({
           onScanPress={onScanPress}
           onLayoutPress={onLayoutPress}
           onManageCardsPress={onManageCardsPress}
+          attachedBelow={headerAttachedBelow}
         />
       </View>
 
@@ -992,7 +1001,17 @@ export default function ScreenScaffold({
           <View pointerEvents="none" style={[styles.stickyGapFiller, { top: headerBlockHeight, height: stickyGap, backgroundColor: stickyGapColor ?? bgColor }]} />
           {/* box-none for the same reason as the header block above — its own side margins are
               transparent and were eating taps. */}
-          <View pointerEvents="box-none" style={[styles.stickyBlock, { top: headerBlockHeight + stickyGap, height: stickyBelowHeaderHeight }]}>
+          {/* ⚠️ `HEADER_SEAM_OVERLAP` is added to the TOP and taken off the HEIGHT (2026-09-01),
+              so the bar's visible band and its declared band are the same box. The header is
+              zIndex 100 and paints one hairline past `headerBlockHeight` to cover a rounding
+              seam; this block is zIndex 99 and used to start at the un-overlapped coordinate, so
+              that hairline came off its top while its content stayed centred in the full height.
+              Result: every segment sat 1px high, on every screen with a sticky bar — measured at
+              3px above / 4px below by `scripts/measure-geometry.mjs`, printed under the old 1.0px
+              tolerance and never failed by it. Reported by eye three times as "the tab slider is
+              not vertically centred", which it was, for a reason nobody had looked for in the
+              chrome above it. The bottom edge does not move, so nothing below shifts. */}
+          <View pointerEvents="box-none" style={[styles.stickyBlock, { top: headerBlockHeight + stickyGap + HEADER_SEAM_OVERLAP, height: stickyBelowHeaderHeight - HEADER_SEAM_OVERLAP }]}>
             {stickyBelowHeader}
           </View>
         </>
@@ -1002,7 +1021,7 @@ export default function ScreenScaffold({
           navigation bar and padded up by the bottom inset. Tab screens skip this;
           app/(tabs)/_layout.tsx's pager already renders BottomNav as its tab bar. */}
       {tier === 'site' && bottomNav && (
-        <View style={[styles.bottomBlock, { height: BOTTOM_NAV_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
+        <View style={[styles.bottomBlock, { height: NAV_PAINTED_HEIGHT + bottomInset, paddingBottom: bottomInset }]}>
           <BottomNav />
         </View>
       )}

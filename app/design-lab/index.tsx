@@ -57,7 +57,7 @@ import ScreenScaffold from '@/components/ScreenScaffold';
 import Surface from '@/components/Surface';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
-import BottomNav, { BOTTOM_NAV_HEIGHT, NAV_FLOAT_GAP } from '@/components/BottomNav';
+import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DesignLabCard, { type BodyMetrics, type SlotRect } from '@/components/DesignLabCard';
 import PartPalette from '@/components/PartPalette';
 import PartControls from '@/components/PartControls';
@@ -313,7 +313,7 @@ export default function DesignLabScreen() {
     </View>
   );
 
-  const navClearance = BOTTOM_NAV_HEIGHT + NAV_FLOAT_GAP + insets.bottom;
+  const navClearance = NAV_PAINTED_HEIGHT + NAV_FLOAT_GAP + insets.bottom;
 
   return (
     <View style={styles.root}>

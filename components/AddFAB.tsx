@@ -57,7 +57,7 @@ import { StyleSheet, Text, View, ViewStyle, StyleProp } from 'react-native';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { darken, filledEdge, Fonts, hitSlopFor, OpticalCenter, Radius, Shadow, Spacing } from '@/constants/theme';
-import { BOTTOM_NAV_HEIGHT } from '@/components/BottomNav';
+import { NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import PressableScale from '@/components/PressableScale';
 import { Travel } from '@/constants/motion';
 
@@ -78,7 +78,7 @@ type Props = {
 
 const DIMENSION = { lg: 56, sm: 32 };
 const PLUS_SIZE = { lg: 28, sm: 18 };
-const DEFAULT_BOTTOM = Spacing.xs + BOTTOM_NAV_HEIGHT;
+const DEFAULT_BOTTOM = Spacing.xs + NAV_PAINTED_HEIGHT;
 
 export const FAB_LG_SIZE = DIMENSION.lg;
 export const FAB_DEFAULT_BOTTOM = DEFAULT_BOTTOM;

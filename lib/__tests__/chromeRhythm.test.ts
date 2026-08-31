@@ -221,20 +221,22 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // *"both header card and bottom nav should only have rounded corners. And yes, the corners
     // should show content behind it"* — which cannot happen unless content gets behind the bar.
     const source = code('components/ScreenScaffold.tsx');
-    // ⚠️ **Seventh flip, and a HALF one (2026-08-31).** Maintainer, against a screenshot of Home
-    // with the Shopping card sliced through the middle of "Uke 4": *"Pad the stack so the last
-    // card clears the bar."* The corrected screens say it too. The bar's own height joins the
-    // margin, so content stops AT the bar's top edge.
-    //   The TOP is deliberately untouched, and that asymmetry is the point: content arrives at
-    // the header from below and is read on the way past, so travelling behind it reads as depth;
-    // it LEAVES at the bottom, where a row half-erased by the bar reads as a rendering fault.
-    // Every previous pass moved both ends together and got re-reported from one end or the other.
-    expect(source).toMatch(/bottomInset \+ NAV_FLOAT_GAP \+ BOTTOM_NAV_HEIGHT/);
-    // The one rule that has survived every one of these passes: ONE clearance each. The height
-    // moved OFF the padding in the same edit, so the last card rests exactly where it did and
-    // only the scrollable extent changed. Both would grow a blank nav-height band on every screen.
-    expect(source).toMatch(/paddingBottom: reserveBottomNav \? CHROME_REST_GAP : 0,/);
-    expect(source).not.toMatch(/paddingBottom: reserveBottomNav \? BOTTOM_NAV_HEIGHT/);
+    // ⚠️ **The 2026-08-31 half-flip is REVERTED (2026-09-01), and this assertion is now the
+    // opposite of what it was for one day.** That edit put the bar's height on the margin so
+    // content stopped AT the bar's top edge, against "the last card was cut in half behind the
+    // bar" — but that is a RESTING-clearance report, and the edit's own note conceded it did not
+    // move the resting position by a pixel. It changed only the scroll travel, and in doing so
+    // re-opened the corner notch: the bar rounds all four corners, so ending the window at its
+    // top edge leaves ~124px² of bare backdrop in each one. That is the 2026-08-20 ruling read
+    // backwards, and it came back as a report the next day.
+    //   `scripts/measure-geometry.mjs`'s `nav-corner-notch` check measures this directly now, on
+    // all five tabs, which is what makes an eighth flip cost something.
+    expect(source).toMatch(/marginBottom: pagerFloatingNav \? bottomInset \+ NAV_FLOAT_GAP : 0,/);
+    expect(source).not.toMatch(/bottomInset \+ NAV_FLOAT_GAP \+ (BOTTOM_)?NAV_(PAINTED_)?HEIGHT/);
+    // The one rule that has survived every one of these passes: ONE clearance each. The bar's
+    // height lives on the padding, where the resting position is decided; the margin is where
+    // content is CUT. Both would grow a blank nav-height band on every screen.
+    expect(source).toMatch(/paddingBottom: reserveBottomNav \? NAV_PAINTED_HEIGHT \+ CHROME_REST_GAP : 0,/);
     // And still never spelled as the whole clearance constant, which is only the
     // DebugGeneralNoteButton's offset from the screen edge.
     expect(source).not.toMatch(/(margin|padding)Bottom: bottomNavClearance/);
@@ -433,12 +435,14 @@ describe('ScreenScaffold — the clipped viewport matches the floating chrome', 
     expect(source).toMatch(
       /\.\.\.\(floatChrome \? \{ borderTopLeftRadius: Radius\.lg, borderTopRightRadius: Radius\.lg \} : null\)/,
     );
-    // ⚠️ **The bottom pair is SQUARE as of 2026-08-31, and it follows from the window moving.**
-    // These matched the nav card's BOTTOM pair, which is what the window used to land on. It
-    // lands on the bar's TOP edge now, and an edge that faces content is square (the 2026-08-19
-    // seam pass) — so a rounded window there would bow away from a straight edge and leave a lens
-    // of bare backdrop in each corner, which is the failure that pass was reported for.
-    expect(source).not.toMatch(/borderBottomLeftRadius: Radius\.lg, borderBottomRightRadius: Radius\.lg/);
+    // ⚠️ **ROUNDED again (2026-09-01)**, following the window's bottom edge back down past the
+    // bar — the 2026-08-31 squaring lasted one day and went with the margin term that justified
+    // it. Both pairs are the same rule: round the corners the window MEETS (the header's top and
+    // the bar's bottom, where the chrome curves away from the screen's own corner with nothing
+    // behind it), and leave the two mid-viewport pairs alone so a card fills them on the way past.
+    expect(source).toMatch(
+      /borderBottomLeftRadius: Radius\.lg, borderBottomRightRadius: Radius\.lg/,
+    );
   });
 
   it('rounds every corner of both chrome cards, squaring only the chrome-to-chrome seam', () => {

@@ -316,10 +316,22 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     expect(value).toBeCloseTo(0.26, 5);
   });
 
-  it('LIGHT.orbOpacity is untouched — it already sat below the band', () => {
+  it('LIGHT.orbOpacity was raised too, but stays well under dark', () => {
+    // ⚠️ **0.10 → 0.18 (2026-09-01).** This test used to say light was "untouched — it already
+    // sat below the band", which was true of the 2026-08-31 pass and was not a decision: that
+    // pass took its licence from a pixel measurement made only in dark, so leaving light alone
+    // was the honest thing to do at the time. The follow-up report was "backdrop is too empty",
+    // and it is a light-mode screenshot.
+    //   The ceiling here is lower and the reason is structural, not caution: light's ground is
+    // `#f7faff`–`#e4ecfb`, so an orb is a wash ON something rather than a light in the dark and
+    // starts competing with a card much sooner. What keeps ANY value safe is the geometry
+    // asserted below — no orb reaches the card band — not the alpha.
     const m = src.match(/const LIGHT: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
-    expect(Number(m![1])).toBeCloseTo(0.1, 5);
+    const value = Number(m![1]);
+    expect(value).toBeCloseTo(0.18, 5);
+    // Still meaningfully under dark's 0.26, which is the half of this that must not drift.
+    expect(value).toBeLessThan(0.26);
   });
 
   it('no orb reaches the middle of the canvas (still true — this file did not touch geometry)', () => {
