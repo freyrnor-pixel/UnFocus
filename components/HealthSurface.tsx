@@ -11,7 +11,8 @@
  *   Imports → components/NarratorQuote, components/HintCard,
  *             components/StarterCard, components/StarterExampleRow, components/OpenEpisodeCard
  *             + components/EpisodeCloseSheet, components/CollapsedSection +
- *             components/HealthIssuesPreviewList + components/HealthIssuesSheet,
+ *             components/HealthIssuesPreviewList (the `healthIssues` card's body; its
+ *             fuller surface is components/HealthIssuesEditor.tsx, mounted as that card's pane),
  *             components/Surface, components/CardAccent, components/PadRow,
  *             components/PadTypeRow + components/QuickAddOptionsPanel +
  *             components/QuickAddOptionRow, components/Collapsible, components/PressableScale,
@@ -69,9 +70,7 @@ import OpenEpisodeCard from '@/components/OpenEpisodeCard';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
 import Card from '@/components/Card';
 import MedicineCard from '@/components/MedicineCard';
-import IconButton from '@/components/IconButton';
 import HealthIssuesPreviewList from '@/components/HealthIssuesPreviewList';
-import HealthIssuesSheet from '@/components/HealthIssuesSheet';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import PadRow from '@/components/PadRow';
@@ -238,7 +237,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   const [quickOngoing, setQuickOngoing] = useState(false);
   const [dismissedEpisodes, setDismissedEpisodes] = useState<Set<string>>(new Set());
   const [closing, setClosing] = useState<HealthLog | null>(null);
-  const [issuesSheetOpen, setIssuesSheetOpen] = useState(false);
   const t = useT();
   const theme = useAppTheme();
   const styles = useScaledStyles(baseStyles);
@@ -526,7 +524,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
       <View style={styles.embeddedContent}>
         {weekCard}
         <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
-        <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />
       </View>
     );
   }
@@ -563,13 +560,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
         id="healthIssues"
         count={trackedCount}
         peek={t.peek.healthIssues(trackedCount)}
-        controls={
-          <IconButton
-            icon="open-outline"
-            label={t.healthIssues.openLabel}
-            onPress={() => setIssuesSheetOpen(true)}
-          />
-        }
       >
         <HealthIssuesPreviewList accent={screenHue} onOpenIssue={openDetail} />
         <PressableScale
@@ -596,10 +586,11 @@ export default function HealthSurface({ embedded = false, section }: Props) {
           Health pane it would be a card inside the card you just opened. */}
       {featureMedicine && !embedded && <MedicineCard />}
 
-      {!embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
-      {!embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}
-      {embedded && <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />}
-      {embedded && <HealthIssuesSheet visible={issuesSheetOpen} onClose={() => setIssuesSheetOpen(false)} accent={screenHue} />}
+      {/* The Health issues sheet was mounted beside this and is DELETED (2026-09-01) — its body
+          is the `healthIssues` card's own pane now (components/HealthIssuesEditor.tsx). The
+          `embedded`/`!embedded` pair is kept for EpisodeCloseSheet, which still needs to mount in
+          both hosts. */}
+      <EpisodeCloseSheet log={closing} onClose={() => setClosing(null)} />
     </View>
   );
 }

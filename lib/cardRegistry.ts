@@ -496,9 +496,17 @@ export const CARDS = {
     icon: 'medical-outline',
     title: (t) => t.healthIssues.title,
     fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      "A standing list of what is being kept an eye on. Its fuller surface is the Health issues sheet — where a symptom is added or untracked — reached from this card's own header control, so a pane would be a third way to see the same names.",
+    // ⚠️ **`'none'` → `'surface'` (2026-09-01), REVERSING a written `expandDeclined`.** It said:
+    // *"a pane would be a third way to see the same names"*, because the fuller surface was a
+    // bottom sheet reached from this card's own header control. That was true and it is what the
+    // maintainer reported — *"Helseplager in Health screen has a different button than the
+    // fullscreen"* — since the control was an `IconButton open-outline` at `IconSize.action` in
+    // the `controls` slot where every other card draws a `CardExpandButton expand-outline` at
+    // `IconSize.compact` one position further out, with its title inert on top.
+    //   The sheet is deleted and its body is this card's pane (`components/HealthIssuesEditor.tsx`),
+    // so there is no third way left — there are two, the same two every other card has: the ⤢ and
+    // the title.
+    expand: 'surface',
   },
   healthMedicine: {
     screen: 'health',

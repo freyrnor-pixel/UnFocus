@@ -118,6 +118,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { DOMAIN_ICON } from '@/components/CardAccent';
 import PressableScale from '@/components/PressableScale';
 import { CardKey, cardSpec, cardsInGroup } from '@/lib/cardRegistry';
+import HealthIssuesEditor from '@/components/HealthIssuesEditor';
 import { PaneCardContext } from '@/lib/cardPane';
 import { ScreenColorContext, getScreenColor } from '@/lib/screenColor';
 import { ExpandableCardId, ExpandRect, isExpandableCardId } from '@/lib/expandableCards';
@@ -188,6 +189,15 @@ function CatalogueExpandedBody() {
  * instead rather than dropped — a control that disappears when a card grows is a control the
  * user has to shrink the card to reach.
  */
+/**
+ * The `healthIssues` pane. It supplies the screen hue the editor's add row wears — the same
+ * value the card's own header badge uses, so the pane and the card agree.
+ */
+function HealthIssuesExpandedBody() {
+  const theme = useAppTheme();
+  return <HealthIssuesEditor accent={getScreenColor(theme, 'health').base} />;
+}
+
 function MedicineExpandedBody() {
   return (
     <>
@@ -235,6 +245,11 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // rather than the Health tab over again. Both are members of the `growth` group, which is what
   // the panes exist for — the strip below can only switch to a card that has one.
   habitsList: { title: (t) => t.nav.habits, Body: () => <HabitsSurface /> },
+  // ⚠️ **Arrived 2026-09-01 by reversing another written `expandDeclined`** — see
+  // lib/cardRegistry.ts's note. The body is the old HealthIssuesSheet's content, extracted to
+  // components/HealthIssuesEditor.tsx; the sheet itself is deleted, so this is the fuller
+  // surface now rather than a third rendering of the same names.
+  healthIssues: { title: (t) => t.healthIssues.title, Body: HealthIssuesExpandedBody },
   healthWeek: { title: (t) => t.thisWeekLabel, Body: () => <HealthSurface section="week" /> },
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },

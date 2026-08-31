@@ -507,7 +507,6 @@ import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
 import ShoppingRow from '@/components/ShoppingRow';
-import LayoutPickerSheet from '@/components/LayoutPickerSheet';
 import ManageCardsSheet from '@/components/ManageCardsSheet';
 import { useSurfaceLayout } from '@/lib/useSurfaceLayout';
 import { usePrefill } from '@/lib/prefill';
@@ -535,7 +534,6 @@ import SavedListsModal from '@/components/SavedListsModal';
 import SavedListsSection from '@/components/SavedListsSection';
 import ListSettingsSheet from '@/components/ListSettingsSheet';
 import ShoppingItemSheet from '@/components/ShoppingItemSheet';
-import KeepAwakeInStore from '@/components/KeepAwakeInStore';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import NarratorQuote from '@/components/NarratorQuote';
@@ -720,7 +718,6 @@ export default function ShoppingScreen() {
   // Card layout (2026-07-27). `layoutSpec` decides how rows are DRAWN; it is read-only here
   // and feeds nothing but rendering — no reminder, automation, or sync path consults it.
   const layoutSpec = useSurfaceLayout('shopping');
-  const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [manageCardsOpen, setManageCardsOpen] = useState(false);
   // Arrived from a note's ⋯ → Send it to… → Shopping list (2026-07-30). The text seeds the add
   // row of the list that covers today — `currentList` is the same helper Home's card uses to
@@ -2557,7 +2554,7 @@ export default function ShoppingScreen() {
 
   return (
     <>
-    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onLayoutPress={() => setLayoutPickerOpen(true)} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
+    <ScreenScaffold title={t.shoppingTitle} tier="site" screenKey="shopping" bottomNav={false} pagerFloatingNav ownBackground={false} onSharePress={featureSharing ? () => router.push('/share-modal?kind=s') : undefined} onManageCardsPress={() => setManageCardsOpen(true)} onScroll={handleScreenScroll}>
       {/* Debug notes: one anchor for the whole list region. Don't also wrap the inner
           cards/rows — one DebugNoteAnchor per region (no nesting). */}
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
@@ -2628,11 +2625,6 @@ export default function ShoppingScreen() {
           if (listSettingsListId) setListActiveWeeks(listSettingsListId, weeks);
         }}
       />
-      <LayoutPickerSheet
-        visible={layoutPickerOpen}
-        surface="shopping"
-        onClose={() => setLayoutPickerOpen(false)}
-      />
       <ManageCardsSheet
         visible={manageCardsOpen}
         screen="shop"
@@ -2647,7 +2639,6 @@ export default function ShoppingScreen() {
     {/* Conditionally mounted, and that IS the lock's scope — see components/KeepAwakeInStore.tsx.
         Once, at screen level: the layout is a per-surface setting, so every week list shares
         this spec, and useKeepAwake's shared tag makes per-card mounts release each other's lock. */}
-    {layoutSpec.chips && <KeepAwakeInStore />}
     <FlightOverlay flights={flights} onFlightEnd={handleFlightEnd} />
     <ConfirmationBanner
       message={confirmMessage}

@@ -13,7 +13,7 @@
  *   Imports → components/PressableScale, constants/theme, lib/useAppTheme
  *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both pass `leading`, a
  *             components/HabitIcon — a habit's glyph may be a legacy emoji, which Ionicons
- *             cannot draw) and components/HealthIssuesSheet.tsx (passes `icon`, an Ionicons
+ *             cannot draw) and components/HealthIssuesEditor.tsx (passes `icon`, an Ionicons
  *             name). Every caller renders these inside components/StarterCard's `children`
  *             slot. components/GoalsEditor.tsx was the fourth until 2026-08-13 and now uses
  *             components/StarterExampleRow — see the "which shape" note below.

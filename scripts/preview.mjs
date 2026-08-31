@@ -309,32 +309,17 @@ async function main() {
       pageErrors.push('No "Food: Expand list" chevron — the Food card may have lost its fold');
     }
 
-    // Card layouts (2026-07-27): open Shopping's layout picker from the header, switch to a
-    // surface-specific layout and then to the sparsest one, confirming both that the picker
-    // renders and that the rows actually redraw. The second switch is the one that matters —
-    // ShoppingRow is memoized on prop identity, so a layout change that didn't reach the
-    // comparator would leave the list looking identical and this step would catch it.
-    console.log('> Shopping -> layout picker');
-    await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
-    await page.waitForTimeout(800);
-    await dismissModalIfPresent(page);
-    const layoutBtn = page.getByRole('button', { name: 'How lists look' }).first();
-    const layoutRowsBefore = await page.getByText(/kr/).count();
-    await layoutBtn.click({ timeout: 10000 });
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-picker');
-    await clickText(page, 'In the store');
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-in-the-store');
-    await clickText(page, 'Just the basics');
-    await page.waitForTimeout(700);
-    await shot(page, 'layout-just-the-basics');
-    // "Just the basics" hides money entirely, so any price text present before must be gone.
-    const layoutRowsAfter = await page.getByText(/kr/).count();
-    console.log(`  price cells before/after switching to basics: ${layoutRowsBefore}/${layoutRowsAfter}`);
-    console.log(`  layout switch changed the rendering: ${layoutRowsAfter <= layoutRowsBefore}`);
-    await clickText(page, 'Done');
-    await page.waitForTimeout(500);
+    // ⚠️ **The layout-picker step is DELETED (2026-09-01).** It opened Shopping's "How lists
+    // look" header button, switched to "In the store" and then to "Just the basics", and
+    // asserted that price cells disappeared — a real test of the memo comparator on
+    // `ShoppingRow`. All of it is gone with the picker itself: the maintainer asked for that
+    // header button to go, and the per-surface override went with it, which took `inStore`
+    // (its only content not reachable from Settings) and the `chips` flag with them.
+    //
+    // Not re-pointed at Settings' global detail level instead: that control is on a pushed dead
+    // end at the very end of this walk, and re-entering the tabs from it costs a full
+    // re-onboarding. The memo-comparator claim is worth keeping somewhere — if a layout bug ever
+    // shows up again, that is the step to rebuild, on Settings and at the end.
 
     console.log('> back to the Home tab');
     await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
@@ -843,6 +828,48 @@ async function main() {
       if (!restored) pageErrors.push('A hidden card could not be restored from the Manage cards sheet');
       await shot(page, 'manage-cards-restored');
     }
+
+    // ---- a card's fold survives a tab change ------------------------------
+    //
+    // Added 2026-09-01 against the report *"card collapse/expand resets when swiping between
+    // screens"*. Three cases were probed by hand first and NONE of them reset on web: a
+    // registry card across a tab change, a locally-folded SECTION across a tab change, and a
+    // section across a fold/unfold of its parent card. (That last one was expected to fail —
+    // `Collapsible` unmounts its children when closed — and does not, because the state lives in
+    // the SURFACE, which stays mounted, not inside the Collapsible.)
+    //
+    // So this step exists to keep the case that is provably fine provably fine, and to make the
+    // non-reproduction a standing fact rather than one session's memory. `useCollapsedCard`
+    // writes through SQLite, so a regression here is a real storage bug and not a rendering one.
+    // ⚠️ If the report turns out to be native-only, this step will go on passing — it is a guard,
+    // not a diagnosis.
+    console.log('> Home -> a card fold survives a tab change');
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(800);
+    await dismissModalIfPresent(page);
+    // The control names itself with its own state, so the fold is readable without guessing at
+    // which body element should or should not be on screen.
+    const notesFold = () => page.getByRole('button', { name: /^Notes: / }).first();
+    const foldLabel = async () => (await notesFold().getAttribute('aria-label')) ?? '';
+    const openedLabel = await foldLabel();
+    await notesFold().click({ timeout: 10000 });
+    await page.waitForTimeout(700);
+    const foldedLabel = await foldLabel();
+    if (foldedLabel === openedLabel) {
+      pageErrors.push(`Folding a card did not change its control ("${openedLabel}")`);
+    }
+    await page.getByRole('button', { name: 'Habits', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: 'Home', exact: true }).first().click({ timeout: 10000 });
+    await page.waitForTimeout(900);
+    const afterSwipe = await foldLabel();
+    console.log(`  fold survived the round trip: ${afterSwipe === foldedLabel}`);
+    if (afterSwipe !== foldedLabel) {
+      pageErrors.push(`A card's fold reset on a tab change ("${foldedLabel}" -> "${afterSwipe}")`);
+    }
+    // Put it back so nothing downstream meets a folded Notes card.
+    await notesFold().click({ timeout: 10000 });
+    await page.waitForTimeout(600);
 
     // ⚠️ **The "Habits card, expanded in place" excursion is DELETED (2026-08-22).** Habits is a
     // bottom-nav tab again, so its surface is shot directly by the tab loop near the top of this

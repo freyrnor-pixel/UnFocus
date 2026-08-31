@@ -51,8 +51,9 @@ describe('every sheet dismiss pill is an announced button', () => {
     for (const m of opens) {
       // Walk back to the tag this style belongs to. `<Button>` owns its own role, so a caller
       // that uses the shared component is correct by construction and is not the subject here —
-      // components/HealthIssuesSheet.tsx is the one that does, and it should not be made to
-      // restate what Button already declares.
+      // components/HealthIssuesSheet.tsx was the one that did; it is deleted (2026-09-01) and
+      // its body is a card pane now, but the carve-out stands for whichever sheet uses the
+      // shared component next — it should not be made to restate what Button already declares.
       const head = src.slice(0, m.index);
       const tagStart = head.lastIndexOf('<');
       const tag = src.slice(tagStart, tagStart + 40);

@@ -132,8 +132,11 @@ const SUB_SCREENS = [
 // below: they are controls belonging to a list, not chrome belonging to a tab, and the 5→3 merge
 // turned the app's biggest list screen into a pushed one. ScreenHeader renders them in the
 // sub-tier right slot now (`subListControls`).
+// ⚠️ **`onLayoutPress` is gone entirely as of 2026-09-01** — the maintainer asked for Shopping's
+// "how things look" button to go, and the per-surface picker with it. `onSharePress` is the only
+// list control left.
 const SITE_ONLY_PROPS = ['isHome', 'infoActive', 'onInfoToggle', 'onScanPress'] as const;
-const LIST_CONTROL_PROPS = ['onLayoutPress', 'onSharePress'] as const;
+const LIST_CONTROL_PROPS = ['onSharePress'] as const;
 
 // ── (a) ScreenHeader's own gating ────────────────────────────────────────────────────────
 
@@ -152,7 +155,6 @@ describe('ScreenHeader gates each icon off exactly one thing', () => {
   test.each([
     ['scanButton', 'onScanPress'],
     ['shareButton', 'onSharePress'],
-    ['layoutButton', 'onLayoutPress'],
   ])('%s renders only when the screen passes %s', (button, prop) => {
     expect(header).toMatch(new RegExp(`const ${button} = ${prop} \\? \\(`));
   });
@@ -255,18 +257,16 @@ describe('every top-level tab header is title + gear', () => {
 
   test('the two list-bearing tabs are the only ones with the extra list controls', () => {
     // DELIBERATE deviation from a flat "ⓘ + gear everywhere", left in place on purpose:
-    //   • the layout icon opens that surface's own LayoutPickerSheet, and the whole point of
-    //     it living on the header is that the choice is made while looking at the list it
-    //     changes (the global default is in Settings → Personal → Layout);
     //   • the share icon is gated on `settings.featureSharing`, which is OFF for a fresh
     //     install — a default header never shows it.
     // Pinned here rather than deleted so the set can't quietly grow to a third screen.
-    // Shopping AND the To-do tab carry both now (2026-08-20) — To-do kept them when it was a
-    // pushed screen (app/plans.tsx) and took them along when it became a tab
-    // (app/(tabs)/plans.tsx); Home is still the one screen with neither.
+    // ⚠️ **The layout icon is gone (2026-09-01)** and so is the picker it opened — deleted on the
+    // maintainer's ruling, with the `inStore` layout that was its only unreachable-from-Settings
+    // content. Asserted as an ABSENCE rather than dropped, because a header control that comes
+    // back by being re-added to one screen is exactly what this file exists to notice.
     const withLayout = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onLayoutPress'));
     const withShare = TAB_SCREENS.filter((rel) => passes(scaffoldTags(rel)[0], 'onSharePress'));
-    expect(withLayout).toEqual(['app/(tabs)/shopping.tsx', 'app/(tabs)/plans.tsx']);
+    expect(withLayout).toEqual([]);
     expect(withShare).toEqual(['app/(tabs)/shopping.tsx', 'app/(tabs)/plans.tsx']);
   });
 

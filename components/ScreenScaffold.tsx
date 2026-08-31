@@ -349,7 +349,6 @@ type Props = {
   /** Site-tier only — forwarded to the header's optional scan icon. */
   onScanPress?: () => void;
   /** Site-tier only — forwarded to the header's optional card-layout icon. */
-  onLayoutPress?: () => void;
   /** Opens the screen's components/ManageCardsSheet.tsx — see ScreenHeader's own prop doc. */
   onManageCardsPress?: () => void;
   /**
@@ -433,7 +432,6 @@ export default function ScreenScaffold({
   stickyBelowHeaderHeight = 0,
   onSharePress,
   onScanPress,
-  onLayoutPress,
   onManageCardsPress,
   bottomNav = true,
   pagerFloatingNav = false,
@@ -990,7 +988,6 @@ export default function ScreenScaffold({
           headerRight={headerRight}
           onSharePress={onSharePress}
           onScanPress={onScanPress}
-          onLayoutPress={onLayoutPress}
           onManageCardsPress={onManageCardsPress}
           attachedBelow={headerAttachedBelow}
         />

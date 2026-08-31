@@ -259,7 +259,7 @@ describe('StarterSuggestionChip — the same finish as the row, the shape kept d
     // components/GoalsEditor.tsx until 2026-08-13 — see the test directly above. What is left
     // is the two habit surfaces and the health sheet, all of them short-label clouds that
     // genuinely pair up on a line, which is what the chip is for.
-    'components/HealthIssuesSheet.tsx',
+    'components/HealthIssuesEditor.tsx',
   ] as const) {
     it(`${file} mounts the shared chip instead of a local copy`, () => {
       const source = code(file);

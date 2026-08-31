@@ -31,7 +31,7 @@ const SURFACES = Object.keys(SURFACE_LAYOUTS) as LayoutSurface[];
 
 describe('resolveLayout', () => {
   it('prefers a valid per-surface override over the global default', () => {
-    expect(resolveLayout('shopping', { shopping: 'inStore' }, 'basic')).toBe('inStore');
+    expect(resolveLayout('shopping', { shopping: 'everything' }, 'basic')).toBe('everything');
   });
 
   it('falls back to the global default when there is no override', () => {
@@ -40,8 +40,8 @@ describe('resolveLayout', () => {
   });
 
   it('ignores an override that belongs to a different surface', () => {
-    // 'inStore' is a Shopping layout; Notes must not accept it.
-    expect(resolveLayout('notes', { notes: 'inStore' }, 'basic')).toBe('basic');
+    // 'timeline' is a to-do layout; Notes must not accept it.
+    expect(resolveLayout('notes', { notes: 'timeline' }, 'basic')).toBe('basic');
   });
 
   it('ignores an unknown override id and an unknown global default', () => {
@@ -150,22 +150,22 @@ describe('surface/layout registry integrity', () => {
     }
   });
 
-  it('groups by aisle ONLY in "In the store"', () => {
-    // Every other layout leaves Weekly rows in the order the user dragged them into. If
-    // groupByAisle ever leaked onto another layout it would silently re-cluster that list
-    // and undo a manual drag every time it rendered — the exact reason
-    // lib/shoppingGroups.ts keeps groupByCategory off the Weekly tab by default.
-    expect(LAYOUT_SPECS.inStore.groupByAisle).toBe(true);
+  it('no layout groups by aisle any more — "In the store" is gone', () => {
+    // ⚠️ **`inStore` was deleted on 2026-09-01 with the layout picker**, which was its only
+    // entry point (maintainer: remove Shopping's "how things look" button, and the picker with
+    // it). It was the sole carrier of `groupByAisle` and of the `chips` flag, so
+    // `components/ShoppingChip.tsx` and `components/KeepAwakeInStore.tsx` went with it.
+    //   The assertion is kept, inverted: `groupByAisle` re-clusters a list the user has dragged
+    // into their own order, so a layout quietly acquiring it would undo a manual drag on every
+    // render — the exact reason lib/shoppingGroups.ts keeps groupByCategory off the Weekly tab.
+    // Nothing may set it now that nothing reaches it.
     for (const id of Object.keys(LAYOUT_SPECS) as (keyof typeof LAYOUT_SPECS)[]) {
-      if (id !== 'inStore') expect(LAYOUT_SPECS[id].groupByAisle).toBeFalsy();
+      expect(LAYOUT_SPECS[id].groupByAisle).toBeFalsy();
     }
   });
 
-  it('offers "In the store" on shopping only', () => {
-    expect(isLayoutValidFor('shopping', 'inStore')).toBe(true);
-    for (const surface of SURFACES.filter((s) => s !== 'shopping')) {
-      expect(isLayoutValidFor(surface, 'inStore')).toBe(false);
-    }
+  it('leaves shopping with the three shared detail levels and nothing of its own', () => {
+    expect(SURFACE_LAYOUTS.shopping).toEqual(['basic', 'normal', 'everything']);
   });
 
   it('keeps "basic" strictly less detailed than "everything"', () => {
@@ -182,22 +182,22 @@ describe('surface/layout registry integrity', () => {
 
 describe('withSurfaceLayout', () => {
   it('sets an override without disturbing other surfaces', () => {
-    expect(withSurfaceLayout({ plans: 'nowNext' }, 'shopping', 'inStore')).toEqual({
+    expect(withSurfaceLayout({ plans: 'nowNext' }, 'shopping', 'everything')).toEqual({
       plans: 'nowNext',
-      shopping: 'inStore',
+      shopping: 'everything',
     });
   });
 
   it('clearing an override removes the key so the surface follows the global default again', () => {
-    const next = withSurfaceLayout({ plans: 'nowNext', shopping: 'inStore' }, 'shopping', null);
+    const next = withSurfaceLayout({ plans: 'nowNext', shopping: 'everything' }, 'shopping', null);
     expect(next).toEqual({ plans: 'nowNext' });
     expect(resolveLayout('shopping', next, 'basic')).toBe('basic');
   });
 
   it('does not mutate the input', () => {
-    const before = { shopping: 'inStore' };
+    const before = { shopping: 'everything' };
     withSurfaceLayout(before, 'plans', 'nowNext');
-    expect(before).toEqual({ shopping: 'inStore' });
+    expect(before).toEqual({ shopping: 'everything' });
   });
 });
 
@@ -205,25 +205,25 @@ describe('sanitizers', () => {
   it('drops unknown surfaces, wrong-surface ids, and non-string values', () => {
     expect(
       sanitizeCardLayouts({
-        shopping: 'inStore',
-        plans: 'inStore', // valid id, wrong surface
+        shopping: 'everything',
+        plans: 'inStore', // an id that no longer exists at all
         bogusSurface: 'normal',
         notes: 42,
         health: 'everything',
       })
-    ).toEqual({ shopping: 'inStore', health: 'everything' });
+    ).toEqual({ shopping: 'everything', health: 'everything' });
   });
 
   it('survives non-object input', () => {
     expect(sanitizeCardLayouts(null)).toEqual({});
     expect(sanitizeCardLayouts(undefined)).toEqual({});
     expect(sanitizeCardLayouts('nope')).toEqual({});
-    expect(sanitizeCardLayouts(['inStore'])).toEqual({});
+    expect(sanitizeCardLayouts(['everything'])).toEqual({});
   });
 
   it('normalizes the global detail level', () => {
     expect(sanitizeDetailLevel('everything')).toBe('everything');
-    expect(sanitizeDetailLevel('inStore')).toBe(FALLBACK_LAYOUT); // not a global-level value
+    expect(sanitizeDetailLevel('timeline')).toBe(FALLBACK_LAYOUT); // not a global-level value
     expect(sanitizeDetailLevel(undefined)).toBe(FALLBACK_LAYOUT);
     expect(sanitizeDetailLevel(7)).toBe(FALLBACK_LAYOUT);
   });
