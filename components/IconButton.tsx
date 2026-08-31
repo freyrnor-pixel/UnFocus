@@ -146,7 +146,19 @@ export default function IconButton({
   // deepens the body rather than swapping its colour for a solid plate.
   const restKey = glassKey(tint ?? theme.text, isDark, 'quiet');
   const activeKey = glassKey(controlHue, isDark, 'key');
-  const edge = active ? activeKey : restKey;
+  // The third on/off channel, replacing the halo (2026-08-31). `glassKey` sets four per-side
+  // edge colours — the lit top-left / shaded bottom-right split that is the 3D cue — so the
+  // active state overrides all four to the hue rather than adding a fifth: a border that is the
+  // hue on two sides and white on the other two reads as a rendering fault, not as a state.
+  const activeEdge = active && !disabled
+    ? {
+      borderTopColor: controlHue,
+      borderLeftColor: controlHue,
+      borderBottomColor: controlHue,
+      borderRightColor: controlHue,
+    }
+    : null;
+  const edge = active ? { ...activeKey, ...activeEdge } : restKey;
   // Only the BODY crossfades. The four edge colours are set statically below, because the
   // top-left lit / bottom-right shaded split is the whole 3D cue and `useToggleColor` collapses
   // `borderColor` to one tone for all four sides. Called unconditionally (rules-of-hooks) even
@@ -227,10 +239,17 @@ export default function IconButton({
       // sunk while `active` (2026-08-24)** — see the header note; the resting offset put an
       // active button 4px below the inactive one beside it.
       travel={Travel.md}
-      // Outward halo on the active state only, the one light a matte key is allowed (see
-      // Button.tsx). No `depth="raised"` — that was a black cast shadow, i.e. the "inner
-      // shadows / heavy" family the brief rules out.
-      glow={active && !disabled ? { color: controlHue, radius: Radius.full } : undefined}
+      // ⚠️ **No halo, since 2026-08-31 — and losing it needed something in its place.** The
+      // corrected screens' glow budget is *"accent icons, the active chip and the primary button
+      // only"*, and this is none of those: the maintainer's screenshots show the Medisin bell and
+      // the Katalog lock blooming hard in the middle of otherwise quiet chrome. Two always-lit
+      // two-pass shadows per screen went with it.
+      //   What made it not a straight deletion is that this component is also a SWITCH
+      // (components/ReminderBell.tsx, rule 19a's one documented exception), and that file's whole
+      // argument is that on/off needs more than two channels to read at a glance. Dropping the
+      // halo would have left glyph + plate. So the third channel is a hue EDGE on the active
+      // plate instead — see `activeEdge` above. Same information, no blur: a border is one stroke
+      // where `getGlow` is two full passes, and it is drawn whether or not the button moves.
       accessibilityLabel={label}
       accessibilityRole={role}
       accessibilityState={role === 'switch' ? { disabled, checked: active } : { disabled, selected: active }}

@@ -791,7 +791,28 @@ export default function ScreenScaffold({
     // other screen SafeAreaView has already ended the box at the safe-area edge, which is where
     // a standalone bottom block's card ends too. The bar's own height is `contentPad`'s
     // paddingBottom, so content passes behind the bar and fills its top-corner notches.
-    marginBottom: pagerFloatingNav ? bottomInset + NAV_FLOAT_GAP : 0,
+    // ⚠️ **The bar's own height joined this on 2026-08-31, so content stops AT the bar's top
+    // edge instead of travelling behind it.** Maintainer, against a screenshot of Home with the
+    // Shopping card sliced through the middle of "Uke 4": *"Pad the stack so the last card clears
+    // the bar."* The corrected screens say the same — *"the last card was cut in half behind the
+    // bar."*
+    //   This is the seventh flip of this window and it is a HALF one, which is the part to keep
+    // straight: the TOP is untouched, so a card still travels behind the header and still fills
+    // its two bottom-corner notches. Only the bottom edge moved, because only the bottom edge was
+    // reported. What it knowingly gives up is the matching peek under the nav — the same trade
+    // 2026-08-18 made for both ends and 2026-08-20 took back for both ends; this splits them,
+    // because the two edges are not symmetrical in use. Content arrives at the header from below
+    // and is read as it goes; it LEAVES at the bottom, and a row half-erased by the bar on its
+    // way out reads as a rendering fault rather than as depth.
+    //   The one-clearance-each rule is intact and is what makes this a move rather than an
+    // addition: `contentPad.paddingBottom` gives up `BOTTOM_NAV_HEIGHT` in the same edit, so the
+    // resting position of the last card does not shift by a pixel — only the scrollable extent
+    // does. Put the height on both and every screen grows a blank band the height of its nav.
+    marginBottom: pagerFloatingNav
+      ? bottomInset + NAV_FLOAT_GAP + BOTTOM_NAV_HEIGHT
+      : reserveBottomNav
+        ? BOTTOM_NAV_HEIGHT
+        : 0,
     // **⚠️ ROUNDED on the two pairs the window MEETS, and square nowhere (2026-08-20).** This is
     // the sixth flip of this line; the previous five all followed the window moving, and this one
     // follows it moving back — with the chrome opaque, the window is the chrome's OUTER footprint
@@ -808,9 +829,12 @@ export default function ScreenScaffold({
     // content away from a straight edge. And with no nav reserved, the window's bottom edge is
     // the safe area, i.e. nothing at all.
     ...(floatChrome ? { borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg } : null),
-    ...(floatChrome && reserveBottomNav
-      ? { borderBottomLeftRadius: Radius.lg, borderBottomRightRadius: Radius.lg }
-      : null),
+    // ⚠️ **SQUARE at the bottom since 2026-08-31, and that follows from the window moving.**
+    // These were rounded to match the nav card's BOTTOM pair, which is what the window used to
+    // land on. It lands on the bar's TOP edge now — and an edge that faces content is square
+    // (the 2026-08-19 seam pass, `chromeFacingSquare`), so a rounded window there would bow away
+    // from a straight edge and leave a lens of bare backdrop in each corner. That is the exact
+    // failure that pass was reported for, from the other direction.
   };
   const viewportBleed = { marginHorizontal: -headerFloatH };
   // The RESTING clearance — where the first and last card sit before any scrolling — as opposed
@@ -835,7 +859,11 @@ export default function ScreenScaffold({
       contentTopClear +
       CHROME_REST_GAP +
       (stickyBelowHeader ? stickyBelowHeaderHeight + stickyGap : 0),
-    paddingBottom: reserveBottomNav ? BOTTOM_NAV_HEIGHT + CHROME_REST_GAP : 0,
+    // The bar's height moved to `viewportInset.marginBottom` (2026-08-31) — the window ends at
+    // the bar's top edge now, so all that is left down here is the resting gap itself. The last
+    // card comes to rest in exactly the same place; what changed is that it can no longer be
+    // drawn past the bar's edge on the way there.
+    paddingBottom: reserveBottomNav ? CHROME_REST_GAP : 0,
   };
 
   // The clipping wrapper. Both branches share it so a FlatList screen (scrollable={false})
