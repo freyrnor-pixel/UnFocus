@@ -3057,6 +3057,15 @@ all 54, because these are PNGs in git history forever.
   A pixel now counts if EITHER pixelmatch at 0.02 says so, OR any channel differs by ≥ 4; the
   second is what catches dark-on-dark, and 4 only has to clear rasteriser jitter because the
   measured run-to-run noise floor is zero.
+  ⚠️ **The ≥ 4 rule has a sub-threshold blind spot in LIGHT too, measured 2026-09-01.** A light
+  token retune (`surfaceGlass` 0.94 → 0.82, `surface` `#FDFEFF` → `#FAFCFE`) shifted the whole
+  backdrop and every card fill of `light/plans-today-populated` by **1 level over 46 329 pixels**
+  and the gate reported it `unchanged`, because no channel moved 4 and a 1/255 step is far under
+  0.02 perceptually. It surfaced only because `--update` rewrote the file and `git status` showed
+  it. **So a re-bless is worth a `git status` read**: a file the gate called unchanged that
+  changed on disk is a real difference the gate could not see. It is not noise — two independent
+  walks came back bit-identical to each other and to the blessed file. Lowering the 4 is not
+  obviously right (it would admit genuine jitter on other machines); knowing the floor exists is.
 - ⚠️ **The budget is an absolute 24 px, and the 200 px it replaced was hiding real changes
   (2026-08-30).** `MAX_DIFF_RATIO` was 0.0005 on the stated premise that Chromium's text
   rasterisation is not bit-identical across runs — never measured, and false: **nine untouched
