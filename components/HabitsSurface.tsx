@@ -860,7 +860,7 @@ export default function HabitsSurface() {
                         {/* isOpen={false}: a card's week-strip drawer is HabitCard's own private
                             state, and threading it up here just to disable the drag isn't worth
                             it — dragging an open card works, it simply reflows a taller block.
-                            components/HomeCardManager.tsx made the same call for the same reason. */}
+                            Home's old card manager made the same call for the same reason. */}
                         <DraggableTaskRow isOpen={false} {...habitDrag.rowProps(h.id)}>
                           <HabitCard habit={h} today={today} onEdit={onEditHabit} lang={lang} theme={theme} first={hi === 0} last={hi === draggedHabits.length - 1} />
                         </DraggableTaskRow>

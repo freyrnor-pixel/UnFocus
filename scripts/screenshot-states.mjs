@@ -584,18 +584,12 @@ async function main() {
         });
         await closeOverlays(page);
       }
-      // The ⋯ on a Home card. It was the To-do preview's until 2026-08-19; Habits is the
-      // first card on the Me tab now, and the sheet it opens is identical.
-      if (await tryButton(page, 'Card settings for Habits')) {
-        await shot(page, 'home-card-menu-sheet', {
-          title: 'A Home card\'s ⋯ settings sheet',
-          screen: 'components/CardMenuSheet.tsx',
-          state: 'SHEET. Home\'s cards can be reordered (hold and drag) and configured per card. Home dropped a fifth card (Goals) one day after shipping it — "Home had too many lists" — so what is NOT here is deliberate.',
-          components: 'CardMenuSheet, HomeCardManager',
-        });
-        await closeOverlays(page);
-      }
-
+      // ⚠️ **No per-card ⋯ to shoot since 2026-09-01.** Home hid and arranged its cards from a
+      // per-card kebab over its own `settings.homeCardOrder` column; that whole mechanism —
+      // components/CardMenuSheet.tsx, components/HomeCardManager.tsx, lib/homeCards.ts and the
+      // "Retired" shelf — is deleted. Home uses the same "Manage cards" header control as the
+      // other four screens now (maintainer: *"One button per screen for reordering and/or hiding
+      // cards instead of the three dots was disregarded"*), which this walk already shoots.
       // ⚠️ **No Goals drawer to shoot (2026-09-01).** It was a folded section inside To-do's
       // Today card; goal editing is a centre pop-up reached from a goal picker's "Edit goals"
       // row now, and it is shot as `goals-editor` in the data-bearing phase at the end of this
@@ -1060,8 +1054,8 @@ async function main() {
     await shot(page, 'home-populated', {
       title: 'Me — with everything seeded',
       screen: 'app/(tabs)/index.tsx',
-      state: 'POPULATED. Three cards, each carrying the hue of the surface it comes from — the one legitimate use of an explicit borderColor override in the whole app. Card order is user-draggable, but Habits and Health are re-appended on read if a stored order does not name them: neither has anywhere else to be, so hiding one for good would take the surface with it.',
-      components: 'HomeHabitsCard, HomeNotesCard, HomeHealthCard, EnergyMeter, HomeCardManager',
+      state: 'POPULATED. Three cards, each carrying the hue of the surface it comes from — the one legitimate use of an explicit borderColor override in the whole app. Order and visibility come from settings.cardOrder + settings.hiddenCards, through the same "Manage cards" header control every other screen has (2026-09-01). Nothing is force-restored on read any more: each of these previews a TAB, so hiding one costs the shortcut and nothing else.',
+      components: 'PlanTaskCard, HomeNotesCard, HomeShoppingCard, EnergyMeter, ManageCardsSheet',
     });
 
     if (await typeInto(page, 'Type note', 'Ask about the bike lock')) {

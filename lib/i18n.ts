@@ -563,6 +563,9 @@ const en = {
   manageCards: {
     title: 'Cards on this screen',
     hint: 'Turn one off to put it away. Nothing is deleted — reminders keep working, and you can turn it back on here.',
+    reorderHint: 'Hold a card to drag it, or use the arrows.',
+    moveUp: (label: string) => `Move ${label} up`,
+    moveDown: (label: string) => `Move ${label} down`,
     close: 'Done',
   },
   version: {
@@ -1350,27 +1353,13 @@ const en = {
     // The row label the Details field sits on since it moved into the notes quick-add's
     // labelled panel (2026-08-05) — the placeholder alone was the only thing naming it.
     extraInfoLabel: 'Details',
-    // Only the NAMES are left here (2026-08-20). `edit`/`done`/`add`/`remove` described the
-    // edit mode and its × badges, and went with them — see components/HomeCardManager.tsx.
-    manageCards: {
-      kinds: { notes: 'Notes', plans: 'To-do list', shopping: 'Shopping', habits: 'Habits', goals: 'Goals', health: 'Health', medicine: 'Medicine' },
-    },
-    // The shelf a hidden card falls to, at the foot of the stack. "Retired", not "Hidden" or
-    // "Removed": nothing is gone, it has just stopped being on duty here.
-    retired: {
-      title: 'Retired',
-      restore: (label: string) => `Bring ${label} back`,
-    },
-    // Per-card "⋮" menu (components/CardMenuSheet.tsx). Scoped to one card, so every line
-    // says "this card" rather than naming a screen — the sheet's title already names it.
-    cardMenu: {
-      open: (card: string) => `Card settings for ${card}`,
-      subtitle: 'Settings for this card',
-      close: 'Done',
-      hide: 'Hide this card',
-      hideHint: 'It waits under Retired, at the foot of this screen',
-      arrangeHint: 'Hold a card to drag it up or down',
-    },
+    // ⚠️ **`manageCards.kinds`, `retired.*` and `cardMenu.*` are all GONE (2026-09-01).** Home
+    // hid and reordered its cards through a per-card ⋮ and a "Retired" shelf, over its own
+    // `settings.homeCardOrder` column, with its own names for cards the registry already names.
+    // All of it is replaced by the one control every screen has — components/ManageCardsSheet.tsx
+    // over `settings.hiddenCards` + `settings.cardOrder`, whose rows read `cardSpec(id).title(t)`.
+    // Deleted rather than left unused, so the ⋮ cannot be quietly rebuilt against strings that
+    // outlived it. The sheet's own copy is `t.manageCards.*`.
   },
   health: {
     habits: 'Habits',
@@ -2813,6 +2802,9 @@ const no: typeof en = {
   manageCards: {
     title: 'Kort på denne skjermen',
     hint: 'Slå av et kort for å legge det bort. Ingenting slettes — påminnelser virker som før, og du kan slå det på igjen her.',
+    reorderHint: 'Hold på et kort for å dra det, eller bruk pilene.',
+    moveUp: (label: string) => `Flytt ${label} opp`,
+    moveDown: (label: string) => `Flytt ${label} ned`,
     close: 'Ferdig',
   },
   version: {
@@ -3766,21 +3758,8 @@ const no: typeof en = {
     addToListLabel: 'Legg i',
     extraInfoPlaceholder: 'Detaljer…',
     extraInfoLabel: 'Detaljer',
-    manageCards: {
-      kinds: { notes: 'Notater', plans: 'Gjøremål', shopping: 'Handleliste', habits: 'Vaner', goals: 'Mål', health: 'Helse', medicine: 'Medisin' },
-    },
-    retired: {
-      title: 'Satt bort',
-      restore: (label: string) => `Hent ${label} tilbake`,
-    },
-    cardMenu: {
-      open: (card: string) => `Kortinnstillinger for ${card}`,
-      subtitle: 'Innstillinger for dette kortet',
-      close: 'Ferdig',
-      hide: 'Skjul dette kortet',
-      hideHint: 'Det venter under Satt bort, nederst på denne skjermen',
-      arrangeHint: 'Hold på et kort for å dra det opp eller ned',
-    },
+    // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
+    // were all deleted on 2026-09-01; the sheet names a card from the registry now.
   },
   health: {
     habits: 'Vaner',
@@ -4673,6 +4652,9 @@ const is: typeof en = {
   manageCards: {
     title: 'Spjöld á þessum skjá',
     hint: 'Slökktu á spjaldi til að leggja það til hliðar. Engu er eytt — áminningar virka áfram og þú getur kveikt á því aftur hér.',
+    reorderHint: 'Haltu inni spjaldi til að draga það, eða notaðu örvarnar.',
+    moveUp: (label: string) => `Færa „${label}“ upp`,
+    moveDown: (label: string) => `Færa „${label}“ niður`,
     close: 'Lokið',
   },
   version: {
@@ -5629,22 +5611,8 @@ const is: typeof en = {
     addToListLabel: 'Setja í',
     extraInfoPlaceholder: 'Nánar…',
     extraInfoLabel: 'Nánar',
-    manageCards: {
-      kinds: { notes: 'Minnispunktar', plans: 'Verkefni', shopping: 'Innkaupalisti', habits: 'Venjur', goals: 'Markmið', health: 'Heilsa', medicine: 'Lyf' },
-    },
-    /* Kortaheitið er í tilvitnun — nefnifall dugar þá, sjá i18n-regluna um fallbeygingu. */
-    retired: {
-      title: 'Í hvíld',
-      restore: (label: string) => `Sækja „${label}“ aftur`,
-    },
-    cardMenu: {
-      open: (card: string) => `Stillingar korts: ${card}`,
-      subtitle: 'Stillingar fyrir þetta kort',
-      close: 'Búið',
-      hide: 'Fela þetta kort',
-      hideHint: 'Það bíður undir „Í hvíld“, neðst á þessum skjá',
-      arrangeHint: 'Haltu á korti til að draga það upp eða niður',
-    },
+    // See `t.manageCards.*` — the per-card ⋮, the Retired shelf and Home's own card names
+    // were all deleted on 2026-09-01; the sheet names a card from the registry now.
   },
   health: {
     habits: 'Venjur',

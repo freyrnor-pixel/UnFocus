@@ -9,7 +9,7 @@
  * Connections:
  *   Imports → —
  *   Used by → app/(tabs)/shopping.tsx (handleDragMove reorder preview),
- *             components/HomeCardManager.tsx (Home preview-card reorder)
+ *             components/ManageCardsSheet.tsx (card reorder, on every screen)
  *   Data    → none — pure
  *
  * Edit notes:

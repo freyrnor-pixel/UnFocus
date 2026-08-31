@@ -41,7 +41,11 @@ describe('every sheet dismiss pill is an announced button', () => {
   it('finds the sheets to check', () => {
     // A guard on the guard: if the pill is ever renamed, this test would otherwise pass by
     // checking nothing — the silent-skip failure this repo's audits keep getting bitten by.
-    expect(files.length).toBeGreaterThanOrEqual(8);
+    // ⚠️ 8 → 7 on 2026-09-01: components/LayoutPickerSheet.tsx was deleted with the "how things
+    // look" header button (maintainer: *"remove the one for how things look"*). It is also the
+    // sheet this rule was FOUND on — it was the model components/ManageCardsSheet.tsx was copied
+    // from, and both had the gap — so the floor drops rather than the rule.
+    expect(files.length).toBeGreaterThanOrEqual(7);
   });
 
   it.each(files)('%s declares accessibilityRole on every doneBtn pressable', (file) => {

@@ -97,6 +97,8 @@ import Button from '@/components/Button';
 import { DayEntry } from '@/lib/dayLog';
 import { useMomentsStore } from '@/store/useMomentsStore';
 import { useCardState } from '@/lib/useCardState';
+import type { CardKey } from '@/lib/cardRegistry';
+import { useOrderedCards } from '@/lib/useCardOrder';
 import { useNewSinceSeen } from '@/lib/useNewSinceSeen';
 import AddRow from '@/components/AddRow';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
@@ -1141,6 +1143,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 
 
 
+  const cardOrder = useOrderedCards('todo');
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
   const showCalendar = full || section === 'calendar';
@@ -1582,6 +1585,16 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     </View>
   );
 
+  // ⚠️ **The cards are DATA now (2026-09-01), not four hardcoded lines.** Each registry id
+  // resolves to its already-built node; a `section` mount leaves the other three `false`, and
+  // the map skips them. This is what makes the Manage cards sheet's reorder reach this screen.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    todoToday: todayCard || undefined,
+    todoCalendar: calendarCard || undefined,
+    todoWhenever: wheneverCard || undefined,
+    todoRecurring: recurringCard || undefined,
+  };
+
   return (
     <View style={styles.content}>
       {/* ⚠️ No ⓘ banner here since 2026-08-20 — see components/StarterCard.tsx below, which is
@@ -1646,11 +1659,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           Month → Whenever → Recurring. Goals, Earlier days and Washed away are no longer
           top-level cards here — they are sections drawn INSIDE Today and Whenever's own bodies
           (see those two cards above), so there is no "Elsewhere" group rail left to draw.
-          lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent. */}
-      {todayCard}
-      {calendarCard}
-      {wheneverCard}
-      {recurringCard}
+          lib/__tests__/cardRegistry.test.ts pins the numbering; this is where it is spent.
+          ⚠️ **The user can reorder it from 2026-09-01** — `useOrderedCards` layers
+          settings.cardOrder over that registry order, and the registry's numbering is what
+          anyone who never opens the Manage cards sheet still gets. A `section` mount draws
+          exactly one of these, so the map is a no-op there rather than a second ordering. */}
+      {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
       {full && featureSharing && <SharedTasksSection sentTasks={sharedOutAll} onToggleDone={handleToggleDone} />}
 

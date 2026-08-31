@@ -59,7 +59,8 @@
  *     on 2026-08-21 (`ComingSoonBody` is deleted), so declining is the supported answer and a
  *     placeholder is not — but it has to be a decision somebody wrote down, not a gap.
  *   - **`order` is the screen's deliberate sequence.** On Home it is the DEFAULT only: that tab
- *     keeps its drag-reorder (`settings.homeCardOrder`), so this decides where a card lands for
+ *     is reorderable from the Manage cards sheet like every other screen, so this decides where
+ *     a card lands for
  *     a user who has never dragged one.
  *   - **`nested` marks a card drawn INSIDE another card** rather than at screen level. Those
  *     take no `order` (they have no position on the screen to hold) and are excluded from the
@@ -359,7 +360,7 @@ export const CARDS = {
   // Exactly those three, in that order, and nothing else. Habits and Health were cards here
   // until this pass and are tabs again — a card AND a tab for one surface is the duplication
   // worth avoiding, which is the surviving half of the argument that took them OFF the bar.
-  // Order is this tab's DEFAULT; drag-reorder still owns the stored one (settings.homeCardOrder).
+  // Order is this tab's DEFAULT; settings.cardOrder owns the stored one, same as every screen.
   homeToday: {
     screen: 'home',
     order: 1,
@@ -406,19 +407,13 @@ export const CARDS = {
     openAtRest: true,
   },
 
-  homeRetired: {
-    screen: 'home',
-    order: 4,
-    hue: 'home',
-    domain: 'task',
-    icon: 'archive-outline',
-    badgeHue: true,
-    title: (t) => t.home.retired.title,
-    fold: 'persisted',
-    expand: 'none',
-    expandDeclined:
-      'The shelf a hidden card falls to. Its body is a short list of names, one tap from coming back — a full-screen copy of it is the same three names, larger.',
-  },
+  // ⚠️ **`homeRetired` is GONE as of 2026-09-01.** It was the shelf a hidden Home card fell to,
+  // which only existed because Home hid cards from a per-card ⋮ and so needed something else to
+  // NAME what was gone. Home uses components/ManageCardsSheet.tsx now, like the other four
+  // screens, and that sheet lists every card present-or-absent — so the shelf would be a second
+  // place saying the same thing, which is exactly what lib/hiddenCards.ts's own header says not
+  // to add. Removing a key here is tsc-guided (CardId/ExpandableCardId are derived) and needs no
+  // migration: sanitizeCollapsedCards and sanitizeHiddenCards both drop an unknown id on read.
 
   // ── Habits ─────────────────────────────────────────────────────────────────────────────
   // Top-level cards on their own tab again since 2026-08-22. They were `nested` under the Me

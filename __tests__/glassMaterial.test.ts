@@ -222,7 +222,7 @@ describe('the material system stays deleted, and stays matte', () => {
   });
 
   it('a sheet — and now the nav bar — never lets the card behind it through', () => {
-    // Maintainer, 2026-08-18, against a screenshot of components/CardMenuSheet.tsx: *"Cards
+    // Maintainer, 2026-08-18, against a screenshot of the per-card ⋮ sheet: *"Cards
     // that overlap other cards should never be translucent."* The shot showed the Home
     // shopping card's title and badge legible THROUGH the menu, and the bottom nav's five
     // labels reading through the Done key on top of it.

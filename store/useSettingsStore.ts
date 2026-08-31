@@ -28,9 +28,9 @@
  * planTimelineHorizontal switches the Plans day-view rail (components/PlanTaskCard.tsx)
  * between the default vertical rail and a horizontal one; read by app/(tabs)/index.tsx
  * and passed down as a prop (PlanTaskCard itself stays store-free/presentational).
- * homeCardOrder is the ordered/filtered list of Home preview "kind" ids the user has
- * chosen to keep visible (hold-to-manage, components/HomeCardManager.tsx) — a kind
- * missing from the array is a user-removed card.
+ * homeCardOrder is INERT as of 2026-09-01 — Home orders and hides its cards through
+ * settings.cardOrder + settings.hiddenCards now, like every other screen. See the
+ * inert-columns note in the Edit notes below.
  * lifetimeCompletedTasks (2026-07-20) is an internal, non-UI counter — the all-time
  * completed-task count, maintained by store/useTaskStore.ts so it survives
  * pruneOldData() pruning old completed tasks out of the `tasks` table; read
@@ -87,6 +87,14 @@
  *     `showHints`, `backgroundLocationEnabled`, `monthlyBudgetNok`
  *     (superseded by per-list budgets in store/useMonthlyListStore.ts). Do NOT wire new
  *     UI to these without building the behaviour they imply.
+ *   - **`homeCardOrder` joined the inert list on 2026-09-01, and `cardLayouts` with it.** Home's
+ *     own order/hide column was superseded by `cardOrder` + `hiddenCards`, the two every other
+ *     screen already used; `card_layouts` lost its picker when the "how things look" header
+ *     button was deleted (maintainer: *"remove the one for how things look"*). Both columns are
+ *     still loaded, sanitised and written — the never-drop rule — and both are read by nothing.
+ *     The live replacements are `cardOrder` (lib/cardOrder.ts) and `hiddenCards`
+ *     (lib/hiddenCards.ts); the global three detail levels in Settings → Personal
+ *     (`layoutDetail`) are untouched and still live.
  *   - **`startScreen` joined the inert list on 2026-08-21** (the consistency audit). The app
  *     always opens on the CENTRE tab now — `START_TAB_ROUTE` in lib/siteNav.ts — so there is no
  *     choice to store. Maintainer: *"Middle screen is to be the Main one where app always starts
@@ -233,6 +241,7 @@ import { DetailLevel, sanitizeCardLayouts, sanitizeDetailLevel } from '@/lib/car
 import { sanitizeCardStates } from '@/lib/padState';
 import { CollapsedCards, sanitizeCollapsedCards } from '@/lib/collapsedCards';
 import { HiddenCards, sanitizeHiddenCards } from '@/lib/hiddenCards';
+import { CardOrder, sanitizeCardOrder } from '@/lib/cardOrder';
 import { EMPTY_OVERRIDES, sanitizeLabOverrides, type LabOverrides } from '@/lib/designLab';
 
 // The app ships a single palette ("Default"). The union is kept as a type so
@@ -411,10 +420,17 @@ export type Settings = {
   // ⓘ hint has already auto-expanded once; a key not present means "first visit — open
   // the hint". Replaces the old setup-wizard steps, which taught these settings up front.
   seenScreenHints: string[];
-  // Home preview card management (2026-07-19) — ordered list of visible Home preview
-  // "kind" ids ('notes'/'plans'/'shopping'); a kind missing from the array is a
-  // user-removed card. Managed by components/HomeCardManager.tsx via hold-to-edit on
-  // Home; see app/(tabs)/index.tsx.
+  /**
+   * ⚠️ **INERT since 2026-09-01** — read by nothing, still written by `update()`, still
+   * defaulted, never dropped (this repo never drops a column). It was Home's own ordered list
+   * of preview "kind" ids, with a kind's absence meaning "hidden", managed by the per-card ⋮
+   * and a "Retired" shelf. Maintainer: *"One button per screen for reordering and/or hiding
+   * cards instead of the three dots was disregarded, and now it's not how we agreed to do it."*
+   * So Home joined the other four screens on `cardOrder` + `hiddenCards`, through
+   * components/ManageCardsSheet.tsx. `lib/homeCards.ts`, `components/HomeCardManager.tsx` and
+   * `components/CardMenuSheet.tsx` were deleted with it. Do NOT wire new UI to this field — see
+   * "Inert columns" below; the two live columns are the ones to reach for.
+   */
   homeCardOrder: string[];
   // Energy system (2026-07-20) — optional per-task energy-budget model replacing the
   // removed Focus mode / task Importance. energySystemEnabled is a REAL on-by-default
@@ -570,6 +586,17 @@ export type Settings = {
    * hidden card's rows keep their reminders and still count.
    */
   hiddenCards: HiddenCards;
+  /**
+   * The order each screen's cards are drawn in (2026-09-01) — a FIFTH axis, and the other half
+   * of the "Manage cards" ask the fourth one only answered halfway.
+   *
+   * Validated on read through lib/cardOrder.ts's sanitizeCardOrder, which drops an unknown id
+   * and an id filed under the wrong screen. ⚠️ **A stored list is a PREFERENCE, not the truth**:
+   * `orderedCards()` returns every card the registry gives a screen, stored ids first and the
+   * rest in registry order, so a card added in a later build appears instead of vanishing for
+   * everyone who has ever reordered. Presentation only, device-local, same as hiddenCards.
+   */
+  cardOrder: CardOrder;
   // ---- Design lab (2026-08-06) ----
   // The override bag the lab writes: colour tokens (per light/dark), geometry scales, control
   // variants and row-slot assignments, plus the maintainer's own note. Same JSON-blob-in-TEXT
@@ -707,12 +734,10 @@ function rowToSettings(row: Row): Settings {
     seenScreenHints: readJson<string[]>(row, 'seen_screen_hints', []),
     dismissedStarters: readJson<string[]>(row, 'dismissed_starters', []),
     dismissedHints: readJson<string[]>(row, 'dismissed_hints', []),
-    // 'habits' left this list for one same-day window on 2026-08-20 (5 tabs → 3: it became a
-    // SECTION inside the 'plans' card), then rejoined it hours later in the "full-screen card
-    // expansion" pass as a first-class card again, alongside the new 'health' kind (Health left
-    // the bottom nav the same pass). A stored order from that window is un-folded on read by
-    // sanitizeHomeCardOrder in lib/homeCards.ts — deliberately there rather than as a lib/db.ts
-    // migration, so a row written later by an older build/paired device is covered too.
+    // Inert since 2026-09-01 — still read into memory and still written back, so a downgrade
+    // finds the column as it left it, but nothing renders from it. `sanitizeHomeCardOrder` went
+    // with lib/homeCards.ts; there is nothing left to defend against, since no surface reads
+    // this value at all.
     homeCardOrder: readJson<string[]>(row, 'home_card_order', ['plans', 'notes', 'shopping']),
     energySystemEnabled: readBool(row, 'energy_system_enabled'),
     energyDailyCapacity: readInt(row, 'energy_daily_capacity', 10),
@@ -744,6 +769,7 @@ function rowToSettings(row: Row): Settings {
     cardStates: sanitizeCardStates(readJson<unknown>(row, 'card_states', {})),
     collapsedCards: sanitizeCollapsedCards(readJson<unknown>(row, 'collapsed_cards', {})),
     hiddenCards: sanitizeHiddenCards(readJson<unknown>(row, 'hidden_cards', [])),
+    cardOrder: sanitizeCardOrder(readJson<unknown>(row, 'card_order', {})),
     designLab: sanitizeLabOverrides(readJson<unknown>(row, 'design_lab', {})),
     designLabApply: readBool(row, 'design_lab_apply'),
     tourProgress: readStr(row, 'tour_progress', ''),
@@ -839,6 +865,7 @@ const SETTINGS_COLUMNS: FieldMap<Settings> = {
   cardStates: { col: 'card_states', to: (v) => JSON.stringify(v) },
   collapsedCards: { col: 'collapsed_cards', to: (v) => JSON.stringify(v) },
   hiddenCards: { col: 'hidden_cards', to: (v) => JSON.stringify(v) },
+  cardOrder: { col: 'card_order', to: (v) => JSON.stringify(v) },
   designLab: { col: 'design_lab', to: (v) => JSON.stringify(v) },
   designLabApply: { col: 'design_lab_apply', to: bool },
   tourProgress: { col: 'tour_progress' },
@@ -960,6 +987,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   // Same "only what the user moved" storage rule as cardStates above.
   collapsedCards: {},
   hiddenCards: [],
+  // Empty = every screen draws its cards in lib/cardRegistry.ts's declared order. Only a screen
+  // the user has actually rearranged is stored, so this stays `{}` for anyone who never opens
+  // the sheet — and a card added later slots in at its registry position for them.
+  cardOrder: {},
   // The lab starts empty and preview-only every time — see the field docs above.
   designLab: EMPTY_OVERRIDES,
   designLabApply: false,

@@ -11,13 +11,18 @@
  *    source scan lib/__tests__/collapsedCards.test.ts runs, for the same reason.
  * 2. **Unknown ids are dropped on read**, so a card removed from the registry or a backup from an
  *    older build cannot leave a sheet row pointing at nothing.
- * 3. **Nothing hides a Home card.** Home has its own mechanism (components/HomeCardManager.tsx +
- *    lib/homeCards.ts's forced-restore rule, which exists because Home's cards are PREVIEWS of
- *    other tabs). Two mechanisms acting on one card is how a card comes back from one and stays
- *    gone in the other, so the sheet is only mounted by the four non-Home tabs — asserted here
- *    against their real source rather than promised in a header.
+ * 3. **There is ONE mechanism, on all five screens.** ⚠️ This assertion was the opposite until
+ *    2026-09-01: it pinned the sheet to the four non-Home tabs, because Home hid cards through
+ *    a per-card ⋮ over its own `settings.homeCardOrder` column and two mechanisms acting on one
+ *    card is how a card comes back from one and stays gone in the other. The maintainer's
+ *    ruling — *"One button per screen for reordering and/or hiding cards instead of the three
+ *    dots was disregarded"* — settles that by removing the OTHER mechanism, not by adding a
+ *    second one: `lib/homeCards.ts`, `components/HomeCardManager.tsx` and
+ *    `components/CardMenuSheet.tsx` are deleted, so what the old assertion was protecting
+ *    against no longer exists to conflict with. What is pinned now is the absence of a second
+ *    route: no screen may draw a per-card ⋮ again.
  */
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { CARD_KEYS, cardsForScreen } from '@/lib/cardRegistry';
 import type { CardKey } from '@/lib/cardRegistry';
@@ -103,19 +108,43 @@ describe('lib/hiddenCards.ts stays dependency-free', () => {
   });
 });
 
-describe('the sheet is scoped to the four non-Home tabs', () => {
-  // Home's cards are previews of other tabs and carry lib/homeCards.ts's forced-restore rule.
-  // If both mechanisms could act on one card, a card put away here would come back there.
-  it('is mounted by exactly the four tab screens, and never for Home', () => {
-    const mounts = ['shopping', 'plans', 'habits', 'health'].map((f) => read(`app/(tabs)/${f}.tsx`));
-    for (const src of mounts) expect(src).toMatch(/<ManageCardsSheet/);
-    expect(read('app/(tabs)/index.tsx')).not.toMatch(/ManageCardsSheet/);
+describe('one mechanism, on all five screens', () => {
+  it('is mounted by every tab screen, Home included', () => {
+    const tabs = ['index', 'shopping', 'plans', 'habits', 'health'];
+    for (const f of tabs) expect(read(`app/(tabs)/${f}.tsx`)).toMatch(/<ManageCardsSheet/);
   });
 
   it('names a screen the registry actually has cards for', () => {
-    const screens = ['shop', 'todo', 'habits', 'health'] as const;
+    const screens = ['shop', 'todo', 'habits', 'health', 'home'] as const;
     for (const screen of screens) expect(cardsForScreen(screen).length).toBeGreaterThan(0);
-    // Home's cards exist and are deliberately unreachable from this sheet.
-    expect(cardsForScreen('home').length).toBeGreaterThan(0);
+  });
+
+  it('⚠️ nothing rebuilds the per-card ⋮ the sheet replaced', () => {
+    // The three files are deleted; this is what stops the SHAPE coming back under a new name.
+    // A card-level hide route is not a smaller version of this sheet — it is the second
+    // mechanism the old scoping rule existed to prevent, and the reason it could be dropped is
+    // that the first one went away.
+    //
+    // IMPORTS and JSX only, deliberately, not a bare string scan: several files legitimately
+    // mention these names in prose ("same idiom as HomeCardManager"), and a scan that fails on
+    // a comment teaches the next session to delete the history rather than the code.
+    const offenders: string[] = [];
+    for (const dir of ['components', 'app/(tabs)']) {
+      for (const file of readdirSync(join(ROOT, dir))) {
+        if (!file.endsWith('.tsx')) continue;
+        const src = read(`${dir}/${file}`);
+        if (/from '@\/(components\/(CardMenuSheet|HomeCardManager)|lib\/homeCards)'/.test(src)) offenders.push(file);
+        if (/<CardMenu(Button|Sheet)\b/.test(src)) offenders.push(file);
+        if (/\bhomeCardOrder:/.test(src)) offenders.push(file); // a write, not a mention
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('⚠️ no screen with the sheet also draws a "Retired" shelf', () => {
+    // lib/hiddenCards.ts's own header: the sheet lists every card present-or-absent, so a shelf
+    // would be a second place saying the same thing. Home had one BECAUSE its hide affordance
+    // was per-card; that reason left with the ⋮.
+    expect(read('lib/cardRegistry.ts')).not.toMatch(/^\s*homeRetired: \{/m);
   });
 });

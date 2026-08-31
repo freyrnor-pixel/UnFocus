@@ -114,7 +114,7 @@
  *
  * **Rendered only when `settings.energySystemEnabled` (2026-07-31)** — Energy is a real toggle
  * again (it was unconditional 2026-07-26 → 2026-07-31), so app/(tabs)/index.tsx gates this
- * mount. The strip is FIXED on Home: it sits outside `HOME_CARD_KINDS`/`HomeCardManager`, so it
+ * mount. The strip is FIXED on Home: it is not a card in lib/cardRegistry.ts, so it
  * can be neither dragged nor removed with the ×; turning the feature off in Settings → Advanced
  * → Features is the only way to make it go away.
  * settings.energyMode (2026-07-24) picks which meter(s) show: 'daily' hides the week
@@ -229,7 +229,7 @@
  *              components/Stepper and components/Collapsible are gone with the inline editor —
  *              every number is set in EnergyConfigSheet now, see correction 1 above)
  *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
- *             HomeCardManager stack, gated on settings.energySystemEnabled
+ *             card stack, gated on settings.energySystemEnabled
  *   Data    → reads tasks/habits/habitLogs + energy_budgets overrides (base capacity AND the
  *             'b:' boost row); writes those overrides, plus today's pause/pin state through
  *             lib/useEnergyPause.ts (device-local `app_meta`, never synced)

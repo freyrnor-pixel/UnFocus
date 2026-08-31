@@ -1491,11 +1491,12 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
   So a screen carries a single header icon (`ScreenScaffold`'s `onManageCardsPress`, the same shape
   as `onLayoutPress`), and no card gains a control — which is also why the registry-governed header
   cluster (`cardAnatomy.test.ts`) is untouched by this.
-  - ⚠️ **These screens get NO "Retired" shelf, and that is what one entry per screen BUYS.** Home
-    needs a shelf because its only hide affordance is per-card, so something else has to name what
-    is gone. Here the entry point already lists every card, present or not — a shelf would be a
-    second place saying the same thing. Don't add one.
-  - **A FOURTH axis, and the four are worth reading together before touching any of them**:
+  - ⚠️ **NO "Retired" shelf, anywhere, and that is what one entry per screen BUYS.** A shelf is
+    only needed where the hide affordance is per-card, so something else has to name what is
+    gone. The entry point already lists every card, present or not — a shelf would be a second
+    place saying the same thing. Don't add one. (Home had one until 2026-09-01, for exactly that
+    reason; it went with the ⋮.)
+  - **A FOURTH axis, and the five are worth reading together before touching any of them**:
     `lib/cardLayout.ts` is how much DETAIL a row shows; `lib/padState.ts` is HOW MANY rows;
     `lib/collapsedCards.ts` is whether the BODY is drawn; this is whether the card is on the screen
     AT ALL. A collapsed card keeps its header, its count and its chevron, so the way back is on
@@ -1511,23 +1512,64 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     early return, so this works for every card in the app without editing any of the four surfaces
     that draw them. A `null` child in a `gap` container is not laid out, so the screen rhythm needs
     nothing.
-  - **Home is deliberately not a caller.** Its cards are PREVIEWS of other tabs and carry
-    `lib/homeCards.ts`'s forced-restore rule that exists *because* they are previews; a card on
-    Shop/To-do/Habits/Health **is** the thing itself, so hiding one is always a real choice. Two
-    mechanisms acting on one card is how a card comes back from one and stays gone in the other —
-    the test asserts the sheet is mounted by exactly the four non-Home tabs.
-  - ⚠️ **REORDER is NOT built, and the reason is measured rather than a shrug.** The plan assumed
-    the data model was all that was missing; that is true of hiding and false of ordering.
-    `cardsForScreen()` existed with **no consumer at all** — every screen's cards are hardcoded
-    JSX across `TodoSurface` / `HabitsSurface` / `HealthSurface` / `shopping.tsx`, **6 369 lines**
-    — so reorder means restructuring those four to render data-driven. To-do's order is semantic
-    anyway (Today → Week → Month → Whenever → Recurring). This sheet is `cardsForScreen`'s first
-    consumer, which is the half of that groundwork it does lay.
+  - ⚠️ **Home was NOT a caller until 2026-09-01, and the reversal is worth reading with the
+    reorder entry below it.** The note read: *"Home is deliberately not a caller — its cards are
+    PREVIEWS of other tabs and carry `lib/homeCards.ts`'s forced-restore rule that exists because
+    they are previews. Two mechanisms acting on one card is how a card comes back from one and
+    stays gone in the other."* That argument was sound and it was an argument for deleting the
+    OTHER mechanism, which is what the maintainer ruled. `settings.homeCardOrder`,
+    `components/CardMenuSheet.tsx`, `components/HomeCardManager.tsx`, `lib/homeCards.ts` and the
+    `homeRetired` registry entry are all gone; the test pins that no file imports or draws any of
+    them again.
   - Not in `aiSetupApply`'s `SETTINGS_WHITELIST` — an AI-authored file must not be able to hide the
     app's surfaces, the same carve-out `collapsed_cards` and `design_lab` take, so **no
     `AI_SETUP_SCHEMA_VERSION` bump** — and not in `SyncTable`: which cards YOU keep on YOUR screen
     is not household state. Presentation only, enforced like the other three: a hidden card's rows
     keep their reminders and still count.
+
+- **…and REORDERING one — the fifth axis (2026-09-01)** (`lib/cardOrder.ts` + `lib/useCardOrder.ts`
+  + the reorder half of `components/ManageCardsSheet.tsx`, over the new `settings.card_order`
+  column; pinned by `lib/__tests__/cardOrder.test.ts`). Maintainer, against the shipped app:
+  *"One button per screen for reordering and/or hiding cards instead of the three dots was
+  disregarded, and now it's not how we agreed to do it."* The 2026-08-30 pass built the button and
+  the hiding and deferred the order; this is the rest, and it converts **Home** onto the same two
+  columns in the same pass — so there is one mechanism for every card on every screen.
+  - ⚠️ **The deferral's stated reason was right, and doing it meant paying it.** `cardsForScreen()`
+    had exactly one consumer (the sheet) and every screen's cards were hardcoded JSX. All five
+    screens now build a `Partial<Record<CardKey, ReactNode>>` and render `useOrderedCards(screen)`
+    over it. A gated card (Medicine behind `featureMedicine`, every card while `embedded`, three of
+    To-do's four in a `section` mount) simply has no entry and is skipped: `orderedCards` returns
+    what the REGISTRY has, and only the mount site knows what it can actually draw.
+  - ⚠️ **A stored order is a PREFERENCE LIST, not the truth, and that is the load-bearing bit.**
+    `orderedCards` returns every card the registry gives a screen — stored ids first, then anything
+    the list does not mention, in registry order. So a card added in a LATER build appears, at its
+    registry position, instead of vanishing for everyone who has ever reordered that screen. A
+    partial list is normal, not damage. Unknown ids and ids filed under the wrong screen are
+    dropped on read.
+  - **Two ways to move a card, and the arrows are not a convenience.** Drag is `lib/useDragReorder.ts`,
+    the app's one reorder gesture. The ↑/↓ buttons are what makes the capability CHECKABLE:
+    Playwright cannot activate `activateAfterLongPress(400)` in the web build at all, so a
+    drag-only control is one no harness here can reach — and a hold-and-drag is not operable by a
+    screen-reader user either. `scripts/preview.mjs` drives the arrows and asserts the new order
+    survives a tab round-trip, which is the only proof the column round-trips through SQLite.
+    ⚠️ They are **arrows, not chevrons** — a chevron means FOLD everywhere else, and
+    `cardAnatomy.test.ts` fails any file but `CardCollapseToggle` that draws one.
+  - **Same-object no-op contract on both mutators** (`withCardMoved`, `withCardOrder`), so a move
+    at either end or a drag that ends where it started writes nothing — the guard `lib/storeCrud.ts`
+    exists for one rung down, and the reason is the same: a no-op that costs nothing visible is not
+    missed by a test suite unless it is pinned deliberately.
+  - **`settings.homeCardOrder` and `settings.cardLayouts` are INERT now** (never dropped — see
+    `store/useSettingsStore.ts`'s "Inert columns"). The first was Home's own order/hide column; the
+    second lost its picker when the "how things look" header button was deleted in the same round.
+    `layoutDetail`, the global three detail levels in Settings → Personal, is untouched and live.
+  - ⚠️ **REORDER of the SCREENS themselves is still not a thing, and neither is a per-screen
+    default other than the registry's.** `order:` in `lib/cardRegistry.ts` is still what a user who
+    never opens the sheet gets, and the per-screen rules that ride on it (`openAtRest` must be the
+    screen's lowest `order`, `cardRegistry.test.ts`) are unaffected: this layers a preference over
+    that order, it does not replace it.
+  - Not in `aiSetupApply`'s `SETTINGS_WHITELIST` (an AI-authored file must not be able to rearrange
+    the app's surfaces — **no `AI_SETUP_SCHEMA_VERSION` bump**) and not in `SyncTable`: the order
+    YOU keep YOUR cards in is not household state.
 
 - **⚠️ A sheet's dismiss pill has to announce itself as a button — all ten of them did not
   (2026-08-30, `lib/__tests__/sheetDismiss.test.ts`).** Every bottom sheet's way out was a

@@ -46,7 +46,7 @@ const SCREENS = [
 
 /**
  * Cards that stack inside one of those screens (or, for the Home four, inside
- * HomeCardManager's list). Each of these carried its own vertical margin before the pass —
+ * Home's card list). Each of these carried its own vertical margin before the pass —
  * which is exactly why they are the list worth watching.
  */
 const STACKED_CARDS: { file: string; style: string }[] = [

@@ -899,7 +899,7 @@ describe('the backdrop — under everything, and out of the middle', () => {
 describe('an expanded card is an overlay-tier surface — no blur, opaque fill', () => {
   // 2026-08-20, "full-screen card expansion": components/CardExpandHost.tsx's pane sits over
   // the app's own card stack by definition (that IS what it expanded from), so the 2026-08-18
-  // rule for anything that overlaps cards applies — same reasoning components/CardMenuSheet.tsx
+  // rule for anything that overlaps cards applies — the same reasoning the old ⋮ sheet
   // and every other `overlay`-tier Surface already follow (see this file's earlier
   // `surfaceContext` assertions and __tests__/glassMaterial.test.ts).
   it("passes surfaceContext=\"overlay\" to its Surface, never the ambient default", () => {

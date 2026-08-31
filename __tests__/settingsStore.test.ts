@@ -1,6 +1,6 @@
 /**
  * settingsStore.test.ts — unit tests for single-field load/update round-trips:
- * homeCardOrder (Home preview card management, components/HomeCardManager.tsx)
+ * hiddenCards + cardOrder (the "Manage cards" sheet's two columns)
  * and lifetimeCompletedTasks (the all-time completed-task counter, 2026-07-20 —
  * see store/useTaskStore.ts's "All-time completed-task counter" edit note).
  *
@@ -22,34 +22,22 @@ jest.mock('@/lib/db', () => ({
   },
 }));
 
-describe('homeCardOrder', () => {
-  it('defaults to plans/notes/shopping when the settings row has no value', () => {
-    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
-    useSettingsStore.getState().load();
-    // ⚠️ **The maintainer's sentence, in order** (2026-08-22): *"'Home' had easy access to todays
-    // tasks, Notes, and shopping."* Home is the middle tab of five again, and the three cards it
-    // carries are the three that sentence names. 'habits', 'health' and 'medicine' left in the
-    // same pass — Habits and Health are tabs, Medicine is a card on the Health tab, so a preview
-    // here would be a second copy of a surface that already has a home. That is the exact
-    // argument the 2026-08-19 pass used to remove 'plans' and 'shopping'; what changed is which
-    // surfaces it applies to, not the rule.
-    //
-    // Note this is the RAW column value — the Home screen reads it through
-    // sanitizeHomeCardOrder (lib/homeCards.ts), which is what handles a stored order written by
-    // an older build, and which is where the append that reaches existing installs lives.
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes', 'shopping']);
-  });
-
-  it('reads a persisted order back from the JSON column', () => {
+/**
+ * `home_card_order` is INERT as of 2026-09-01 — Home orders and hides its cards through
+ * `card_order` + `hidden_cards` like every other screen. The column is still loaded and still
+ * written (this repo never drops one), and that round-trip is what is pinned here: a downgrade
+ * must find the column as it left it. Nothing RENDERS from it, so there is deliberately no
+ * assertion about what any screen does with the value. The old `sanitizeHomeCardOrder` tests
+ * went with lib/homeCards.ts.
+ */
+describe('homeCardOrder (inert, but still persisted)', () => {
+  it('still round-trips through the column', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, home_card_order: '["shopping","notes"]' });
     useSettingsStore.getState().load();
     expect(useSettingsStore.getState().homeCardOrder).toEqual(['shopping', 'notes']);
-  });
 
-  it('update() writes the new order as a JSON string to home_card_order', () => {
     (db.runSync as jest.Mock).mockClear();
     useSettingsStore.getState().update({ homeCardOrder: ['plans', 'notes'] });
-    expect(useSettingsStore.getState().homeCardOrder).toEqual(['plans', 'notes']);
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain('home_card_order');
     expect(params).toContain(JSON.stringify(['plans', 'notes']));
@@ -207,5 +195,57 @@ describe('hiddenCards', () => {
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain('hidden_cards');
     expect(params).toContain(JSON.stringify(['todoCalendar']));
+  });
+});
+
+/**
+ * `card_order` (2026-09-01) — the other half of the "Manage cards" sheet.
+ *
+ * The load path is what matters, for the same reason `hidden_cards`' does and one more: this
+ * column decides the ORDER of what is drawn, so a value that half-applies rearranges a screen
+ * with no error anywhere. `sanitizeCardOrder` is called on read here rather than at every
+ * consumer, the same shape `hidden_cards`/`collapsed_cards`/`home_card_order` use.
+ */
+describe('cardOrder', () => {
+  it('defaults to no preference when the settings row has no value', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1 });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().cardOrder).toEqual({});
+  });
+
+  it('reads a persisted order back from the JSON column', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({
+      id: 1,
+      card_order: '{"todo":["todoRecurring","todoToday"]}',
+    });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoRecurring', 'todoToday'] });
+  });
+
+  it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
+    // ⚠️ `todoMonth` is a REAL example: it was a card until 2026-09-01, when it merged into
+    // `todoCalendar`. An install that had reordered To-do has that string in its column now.
+    (db.getFirstSync as jest.Mock).mockReturnValue({
+      id: 1,
+      card_order: '{"todo":["todoMonth","todoToday"],"notAScreen":["todoToday"]}',
+    });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoToday'] });
+  });
+
+  it('reads a malformed column as no preference rather than rearranging a screen', () => {
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, card_order: 'not json' });
+    useSettingsStore.getState().load();
+    expect(useSettingsStore.getState().cardOrder).toEqual({});
+  });
+
+  it('update() writes the bag as a JSON string to card_order', () => {
+    (db.runSync as jest.Mock).mockClear();
+    const bag = { todo: ['todoRecurring' as const, 'todoToday' as const] };
+    useSettingsStore.getState().update({ cardOrder: bag });
+    expect(useSettingsStore.getState().cardOrder).toEqual(bag);
+    const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
+    expect(sql).toContain('card_order');
+    expect(params).toContain(JSON.stringify(bag));
   });
 });
