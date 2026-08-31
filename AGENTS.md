@@ -1183,6 +1183,88 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     documented exception to "flat and translucent": it floats over a scrolling list, so its
     glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
     in this pass, for the same reason.
+- **⚠️ A card header is two icons plus at most ONE of the caller's own — 2026-08-31**
+  (pinned by `lib/__tests__/cardAnatomy.test.ts`). The corrected screens count what shipped:
+  *"Headers carried three to five controls — bell, mic, camera, lock, ⋮, expand, chevron — in
+  different orders."* Its own answer is exactly two; the maintainer's ruling is **two plus at most
+  one card-specific control**, which is what keeps the medicine bell (a live reminder switch, and
+  rule 19a's documented exception) and Home's ⋮ where they are.
+  - ⚠️ **Home's ⋮ is why the cap is one and not zero.** It is that tab's only way to put a card
+    away — `components/ManageCardsSheet.tsx` is the four non-Home tabs' answer and Home is
+    deliberately not one of its callers — so deleting it would strand hiding on the one screen
+    that has no other route to it.
+  - **Two cards were over, and both moved a control into the BODY rather than losing it.** Katalog:
+    the camera went to the search row beside the "+" — a lock is a STATE the card is in, a scan is
+    an ADD, and it belongs with the other add (which is also the mockup's own note, *"scan lives in
+    its body"*). Notater: the mic went into the composer's options panel as a labelled
+    `QuickAddOptionRow`, because dictating a note is a way of FILLING the field, so it belongs
+    beside the field's other option rather than wedged into it — again the mockup's own words,
+    *"voice capture lives in the note composer"*.
+  - The guard counts the `controls` prop, since `Card` owns the fold and the ⤢ itself: a
+    `controls={<>…</>}` FRAGMENT is how a caller passes more than one, so a fragment is the tell.
+    Measured side effect worth knowing — `npm run wraps` went from **18 truncated to 6**: two
+    fewer icons in a header is width a title gets back.
+
+- **⚠️ The orb field is at 0.26 in dark, double the brief, and it costs no contrast — 2026-08-31.**
+  Maintainer, against the round-20 mockups: the app is flat black where the mockup's frames are
+  visibly lit. The ruling was *"light the frame, not the card column"* — the one option that pays
+  no identity hue — and the licence for doubling is a MEASUREMENT, not an argument.
+  - **The card ground does not move.** Measured on the real render before and after, by finding
+    the Notes badge and taking the modal fill of the card under it: **rgb(36,36,36) both times**,
+    exactly `surface`. So all five hues keep their ratios and Notes stays at 4.51:1 — a floor it
+    has **no** headroom above (4.51 against 4.5). The corrected screens' own washes are 16–30% of
+    the accent, so 0.26 is inside what they draw.
+  - ⚠️ **LIGHT stays at 0.10.** None of that measurement was taken on it, and it has far less
+    headroom before an ambient wash competes with a card.
+  - ⚠️ **Three claims about this field were wrong, and the order they fell in is the lesson.**
+    The file's prose said the orbs reach the card box at *"2-3% of an already-14% peak"*; a model
+    built from `ORB_STOPS` said 42% and predicted a live AA failure; the actual pixels said the
+    card fill is `#242424` and every hue passes. **Prose, then model, then pixels — and only the
+    pixels were right.** Anything that raises this again needs the pixel measurement repeated.
+  - ⚠️ **Why a whole-canvas wash was refused, with the number**: a card is translucent, so a wash
+    behind it reaches the text on it. At 5% Notes drops to 4.01:1 and leaves the ladder; at 10%
+    Shopping goes too; at the mockup's 16–30% only one to three of the five survive. The lit look
+    is affordable *only* in the corners, which is what the geometry already guarantees.
+
+- **⚠️ The orb crossfades animate a VIEW's alpha, never an `<AnimatedG>` — 2026-08-31**
+  (`components/ScreenBackground.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts`). Maintainer,
+  for the third time: *"Enabling/disabling visual effects helps a lot, but should not — visual
+  effects should be possible without the app lagging."* That is the right complaint, and the two
+  passes before this one had the target right and the mechanism wrong.
+  - **What `reduceEffects` actually turns off in DARK is one thing, and that is how the cost was
+    located.** Measured rather than assumed: an ambient card in dark already mounts no `BlurView`
+    and casts no shadow (`flatDarkGround`, 2026-08-29), the header is opaque by design, and the
+    web build reports **zero** `backdrop-filter` layers on every tab. So the switch was removing
+    essentially one surface — the backdrop SVG — and the report says removing it "helps a lot".
+    **A switch whose effect is that lopsided is a measurement, not a preference.**
+  - **The mechanism: an animated prop INSIDE an SVG invalidates the whole canvas.** The field was
+    four groups in one `<Svg>` with three cross-fading through `useAnimatedProps` on an
+    `<AnimatedG>`. react-native-svg redraws on a prop change, so every frame of a fade re-ran all
+    thirteen gradient-filled shapes and their shaders, full-screen — and `<G opacity>` is not a
+    per-shape alpha, it is an offscreen buffer, i.e. a `saveLayer` per group per draw on Android,
+    the classic Canvas cliff. Three animated groups, three of them, every frame. The fade fires on
+    **every tab change**, which is exactly the gesture that was reported as laggy, and the whole
+    group sits in a parallax layer that is translating at the same time.
+  - **The fix keeps the picture exactly and is one canvas per layer**: `OrbCanvas` draws one
+    colour's discs into its own `<Svg>`; `OrbLayer` wraps an animating one in an `Animated.View`
+    and marks it `renderToHardwareTextureAndroid`. A swipe now costs a transform plus three alpha
+    blends of already-rasterised textures and **no shader work at all**. Verified byte-identical:
+    `npm run visual` came back 22/22 unchanged in both themes.
+  - ⚠️ **Gradient def ids are suffixed per canvas, and that only matters on WEB** — every `<Svg>`
+    renders into the one document there, so two canvases sharing an id would have the second win
+    for both. It surfaces as "the growth tint is the wrong colour" and native never reproduces it.
+  - ⚠️ **NOTHING in this repo can see this change** — the web preview composites a div's opacity
+    the same way, so the pixel gate reports `unchanged`, which is both the proof it is safe and
+    the reason it needs a source scan. Same family as the widget-palette copy and the
+    `flex`-with-`flexBasis:'auto'` collapse: a difference no local harness can reach. The guard
+    bans `AnimatedG`, `createAnimatedComponent(G)` and `animatedProps=` in that file outright.
+  - **A native radial gradient was considered and refused.** RN 0.85 does support
+    `experimental_backgroundImage: radial-gradient(…)`, which would delete react-native-svg from
+    the backdrop entirely — but `react-native-web` implements none of it, so the orbs would vanish
+    from `npm run preview`, every screenshot and every baseline while still shipping on device.
+    That is the permanent blind spot this file has been bitten by twice. Revisit it only with a
+    way to see the result.
+
 - **The backdrop is ambient orbs, and it is pinned under everything — 2026-08-17**
   (`components/ScreenBackground.tsx` + `HomeHeroBackground.tsx` + `ParticleBackground.tsx` +
   `app/(tabs)/_layout.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts` §6). Maintainer: *"The
@@ -2921,6 +3003,18 @@ all 54, because these are PNGs in git history forever.
 - ⚠️ **`--update` refuses to bless a partial set**, and four screens the set wants but the walk
   cannot reach are PRINTED on every run (`WANTED_BUT_UNCAPTURED`) rather than dropped. Move one
   into `BASELINE_SET` when its excursion is repaired; the ratchet only goes one way.
+- ⚠️ **pixelmatch's threshold is BLIND to this app's ambient layer — 0.02 plus an absolute
+  channel rule (2026-08-31).** Its metric is perceptual and normalised against the maximum
+  possible difference, so a change between two very dark colours scores far below the same
+  magnitude in the midtones — and this is a true-black OLED design whose whole backdrop lives
+  there. The number that settled it: **doubling the backdrop's orb field**, a change over ~40% of
+  the screen with corner pixels going rgb(22,31,15) → rgb(44,59,27), was reported at the shipped
+  `threshold: 0.1` as **9 differing pixels**. The truth was **162 166**, max channel delta 31.
+  The gate called it `unchanged` — the same failure as the 200 px tolerance one rung deeper, and
+  the reason "it still looks the same as before" could be true while every check was green.
+  A pixel now counts if EITHER pixelmatch at 0.02 says so, OR any channel differs by ≥ 4; the
+  second is what catches dark-on-dark, and 4 only has to clear rasteriser jitter because the
+  measured run-to-run noise floor is zero.
 - ⚠️ **The budget is an absolute 24 px, and the 200 px it replaced was hiding real changes
   (2026-08-30).** `MAX_DIFF_RATIO` was 0.0005 on the stated premise that Chromium's text
   rasterisation is not bit-identical across runs — never measured, and false: **nine untouched

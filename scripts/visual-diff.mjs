@@ -57,11 +57,31 @@ const WORK_DIR = path.join(ROOT, '.visual-work', THEME);
 const DIFF_DIR = path.join(ROOT, 'visual-diff-out', THEME);
 
 /**
- * How different a single pixel must be before it counts. pixelmatch's own YIQ metric, 0–1.
- * 0.1 is its documented default and absorbs anti-aliasing on text edges without absorbing a
- * colour or position change.
+ * How different a single pixel must be before it counts.
+ *
+ * ⚠️ **pixelmatch's threshold alone is BLIND to this app's ambient layer, and that is measured
+ * (2026-08-31).** Its metric is perceptual (YIQ, normalised against the maximum possible
+ * difference), so a change between two very dark colours scores far below a change of the same
+ * magnitude in the midtones. This app is a true-black OLED design whose backdrop lives entirely
+ * in that range.
+ *
+ * The number that settled it: DOUBLING the backdrop's orb field — a change affecting roughly 40%
+ * of the screen, corner pixels going rgb(22,31,15) → rgb(44,59,27) — was reported by pixelmatch
+ * at `threshold: 0.1` as **9 differing pixels**. The truth was **162 166**, with a max channel
+ * delta of 31. The gate would have called that "unchanged", which is the same failure as the old
+ * 200px tolerance one rung deeper: a tolerance quietly sized larger than the thing it guards.
+ *
+ * So a pixel counts if EITHER metric says it changed:
+ *   · pixelmatch at a much tighter 0.02 — still absorbs text anti-aliasing, and at this value it
+ *     saw 76 801 of those 162 166; and
+ *   · an ABSOLUTE channel delta of 4 or more, which is what actually catches dark-on-dark. Four,
+ *     because the measured run-to-run noise floor on an unchanged build is **zero** differing
+ *     pixels (44/44 bit-identical), so this only has to clear rasteriser jitter, not real noise.
  */
-const PIXEL_THRESHOLD = 0.1;
+const PIXEL_THRESHOLD = 0.02;
+
+/** Minimum per-channel difference for a pixel to count regardless of the perceptual metric. */
+const CHANNEL_DELTA = 4;
 
 /**
  * How many changed pixels a screen may have before it is a finding — an ABSOLUTE count.
@@ -254,10 +274,28 @@ function compareOne(name, shotPath) {
   }
 
   const diff = new PNG({ width: shot.width, height: shot.height });
-  const changed = pixelmatch(base.data, shot.data, diff.data, shot.width, shot.height, {
+  // pixelmatch still paints the diff image — it is the readable artefact — but the COUNT is the
+  // union of its verdict and a plain channel delta. See PIXEL_THRESHOLD for why the perceptual
+  // metric on its own cannot see a backdrop change on a black ground.
+  let changed = pixelmatch(base.data, shot.data, diff.data, shot.width, shot.height, {
     threshold: PIXEL_THRESHOLD,
     includeAA: false,
   });
+  let darkOnly = 0;
+  for (let i = 0; i < base.data.length; i += 4) {
+    const d = Math.max(
+      Math.abs(base.data[i] - shot.data[i]),
+      Math.abs(base.data[i + 1] - shot.data[i + 1]),
+      Math.abs(base.data[i + 2] - shot.data[i + 2]),
+    );
+    // Already counted (and already painted) if pixelmatch flagged it: its diff image writes a
+    // red pixel, so the red channel is the marker.
+    if (d >= CHANNEL_DELTA && !(diff.data[i] > 200 && diff.data[i + 1] < 100)) {
+      darkOnly += 1;
+      diff.data[i] = 255; diff.data[i + 1] = 130; diff.data[i + 2] = 0; diff.data[i + 3] = 255;
+    }
+  }
+  changed += darkOnly;
   const ratio = changed / (shot.width * shot.height);
   if (changed <= MAX_DIFF_PIXELS) return { name, status: 'ok', changed, ratio };
 

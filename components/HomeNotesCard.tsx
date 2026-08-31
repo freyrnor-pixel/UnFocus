@@ -144,7 +144,24 @@ type Props = {
  * composer's draft inside the composer; a surface that renders a list must not hold the text
  * of the field at the bottom of it.
  */
-function NotesComposer({ accent, onCommit }: { accent: string; onCommit: (header: string, body: string) => void }) {
+function NotesComposer({ accent, onCommit, voice }: {
+  accent: string;
+  onCommit: (header: string, body: string) => void;
+  /**
+   * The voice-capture control, built by the card (it owns the recogniser state) and drawn here.
+   *
+   * ⚠️ **It moved out of the card HEADER on 2026-08-31.** The ruling on the corrected screens'
+   * "control cluster drifted" finding was *two icons plus at most one card-specific control*,
+   * and this card's header carried two — the mic and the ⋮. The ⋮ stays because it is Home's
+   * only way to put a card away (the Manage cards sheet is the four non-Home tabs' answer, and
+   * Home is deliberately not one of its callers), so the mic is the one that moves. The mockup
+   * names the same destination: *"voice capture lives in the note composer"*.
+   *   A labelled `QuickAddOptionRow` rather than a glyph wedged into the field, because that is
+   * what tier 2 IS on this app's composers — and dictating a note is a way of FILLING the field,
+   * so it belongs beside the field's other option rather than inside it.
+   */
+  voice?: React.ReactNode;
+}) {
   const t = useT();
   const styles = useScaledStyles(baseStyles);
   // ⚠️ **Only the BODY lives here; the title lives in DraftComposer.** This card is the one
@@ -207,6 +224,14 @@ function NotesComposer({ accent, onCommit }: { accent: string; onCommit: (header
             }
             accent={accent}
           />
+          {voice ? (
+            <QuickAddOptionRow
+              icon="mic-outline"
+              label={t.notes.recordVoiceNote}
+              value={voice}
+              accent={accent}
+            />
+          ) : null}
         </QuickAddOptionsPanel>
       }
     />
@@ -295,15 +320,11 @@ export default function HomeNotesCard({ cardMenu }: Props) {
     router.push(prefillRoute(target, text));
   }
 
-  return (
-    <>
-    <Card
-      id="homeNotes"
-      count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}
-      peek={t.peek.homeNotes(notes.length)}
-      controls={
-        <>
-          <PressableScale
+  // ⚠️ **Built here, drawn in the composer (2026-08-31).** The card owns the recogniser state,
+  // so the control is constructed here — but it is no longer a header control; see
+  // NotesComposer's `voice` prop for the ruling that moved it.
+  const voiceButton = (
+    <PressableScale
             onPress={toggleVoiceCapture}
             hitSlop={HitSlop.base}
             accessibilityRole="button"
@@ -328,13 +349,19 @@ export default function HomeNotesCard({ cardMenu }: Props) {
               />
             </View>
           </PressableScale>
-          {cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : null}
-        </>
-      }
+  );
+
+  return (
+    <>
+    <Card
+      id="homeNotes"
+      count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}
+      peek={t.peek.homeNotes(notes.length)}
+      controls={cardMenu ? <CardMenuButton cardTitle={t.notes.title} {...cardMenu} /> : undefined}
     >
         <PadSheet
           state={state}
-          typeRow={<NotesComposer accent={screenColor.base} onCommit={commitNote} />}
+          typeRow={<NotesComposer accent={screenColor.base} onCommit={commitNote} voice={voiceButton} />}
           footer={
             sunkNotes.length > 0 ? (
               <View>

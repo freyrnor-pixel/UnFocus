@@ -291,15 +291,29 @@ describe('a non-field halo is one of the five sanctioned "always lit" cases', ()
 describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)', () => {
   const src = code('components/ScreenBackground.tsx');
 
-  it('DARK.orbOpacity is in the 10–15% range the brief specifies, not the old 14%', () => {
+  it('DARK.orbOpacity is the corrected screens\' band, and it costs no contrast', () => {
+    // ⚠️ **0.26 since 2026-08-31, double the brief's own 10–15%, and the licence is a ruling
+    // plus a measurement.** The maintainer's screenshots are flat black beside a mockup whose
+    // frames are visibly lit, and the ruling was *"light the frame, not the card column"* — the
+    // one option in that question that costs no identity hue. The corrected screens' own CSS
+    // washes are 16–30% of the accent, so this lands inside what they draw.
+    //
+    // It is free because of the GEOMETRY, which is the property `ORBS` has always been built on
+    // and which nothing had ever checked: every orb sits at or outside a corner and reaches zero
+    // before the card column. Measured on the real render, before and after the doubling, by
+    // finding the Notes badge and taking the modal fill of the card it sits on:
+    // **rgb(36,36,36) both times** — exactly `surface` — so all five hues keep their exact
+    // ratios and Notes stays at 4.51:1 against a 4.5 floor it has no headroom above.
+    //
+    // ⚠️ **Raising this again needs that measurement repeated, not this comment trusted.** The
+    // file's prose used to claim the field reached the card box at "2-3% of peak"; a model built
+    // from `ORB_STOPS` said 42%, and the pixels said neither — it is the pixels that decide.
     const m = src.match(/const DARK: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
-    expect(value).toBeGreaterThanOrEqual(0.10);
-    expect(value).toBeLessThanOrEqual(0.15);
-    // The specific 2026-08-26 move: 0.14 → 0.13. Pinned exactly, not just to the band, so a
-    // silent revert back to 0.14 is caught even though 0.14 is still technically inside 10–15%.
-    expect(value).toBeCloseTo(0.13, 5);
+    expect(value).toBeGreaterThanOrEqual(0.16);
+    expect(value).toBeLessThanOrEqual(0.30);
+    expect(value).toBeCloseTo(0.26, 5);
   });
 
   it('LIGHT.orbOpacity is untouched — it already sat below the band', () => {
@@ -315,6 +329,11 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // sanity check that the orb definitions are still present, so a future edit that deletes
     // them wholesale (rather than just re-tuning alpha) is at least visible here too.
     expect(src).toMatch(/const ORB_STOPS:/);
-    expect(src).toMatch(/function OrbField/);
+    // `OrbField`/`ScreenHueField` became `OrbCanvas`/`OrbLayer` on 2026-08-31 — one canvas per
+    // layer so the crossfades animate a View's alpha instead of an `<AnimatedG>`. A rename, not
+    // a geometry change: `ORBS` and `ORB_STOPS` are byte-identical and the pixel gate came back
+    // 22/22 unchanged. What this line is for is a wholesale deletion, so it tracks the name.
+    expect(src).toMatch(/function OrbCanvas/);
+    expect(src).toMatch(/const ORBS: Orb\[\]|const ORBS =/);
   });
 });
