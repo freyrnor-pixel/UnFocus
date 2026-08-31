@@ -319,8 +319,8 @@ const DARK: Palette = {
   botGlow: 'rgb(60,120,255)', botGlowOpacity: 0,
   orbCool: '#0E7C8C', orbWarm: '#5B2E8C',
   orbGrowth: '#1E7A5E',
-  orbOpacity: 0.13,
-  orbScreenOpacity: 0.09,
+  orbOpacity: 0.26,
+  orbScreenOpacity: 0.18,
 };
 
 /**

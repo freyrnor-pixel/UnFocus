@@ -797,11 +797,17 @@ describe('the backdrop — under everything, and out of the middle', () => {
     expect(orbs.length).toBeGreaterThanOrEqual(2);
     expect(orbs.length).toBeLessThanOrEqual(3);
 
+    // ⚠️ **The two themes have DIFFERENT bands as of 2026-08-31, and that asymmetry is the
+    // ruling.** Dark doubled to 0.26 — *"light the frame, not the card column"* — because on a
+    // black ground the light lands in the corners and the card fill measured rgb(36,36,36)
+    // before and after, i.e. it cost no identity hue. LIGHT is untouched at 0.10 and must stay
+    // there: it has far less headroom before an ambient wash competes with a card, and none of
+    // the measurement above was taken on it. See lib/__tests__/glowBudget.test.ts for the number.
     const peaks = [...s.matchAll(/orbOpacity:\s*([\d.]+)/g)].map((m) => Number(m[1]));
     expect(peaks).toHaveLength(2); // one per theme, and neither may be forgotten
     for (const peak of peaks) {
       expect(peak).toBeGreaterThanOrEqual(0.1);
-      expect(peak).toBeLessThanOrEqual(0.15);
+      expect(peak).toBeLessThanOrEqual(0.30);
     }
   });
 

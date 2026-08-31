@@ -1183,6 +1183,27 @@ render site so the stored order keeps it while the flag is off. **'plans' and 's
     documented exception to "flat and translucent": it floats over a scrolling list, so its
     glass body is painted over an opaque `theme.surface` disc — the same answer the chrome got
     in this pass, for the same reason.
+- **⚠️ The orb field is at 0.26 in dark, double the brief, and it costs no contrast — 2026-08-31.**
+  Maintainer, against the round-20 mockups: the app is flat black where the mockup's frames are
+  visibly lit. The ruling was *"light the frame, not the card column"* — the one option that pays
+  no identity hue — and the licence for doubling is a MEASUREMENT, not an argument.
+  - **The card ground does not move.** Measured on the real render before and after, by finding
+    the Notes badge and taking the modal fill of the card under it: **rgb(36,36,36) both times**,
+    exactly `surface`. So all five hues keep their ratios and Notes stays at 4.51:1 — a floor it
+    has **no** headroom above (4.51 against 4.5). The corrected screens' own washes are 16–30% of
+    the accent, so 0.26 is inside what they draw.
+  - ⚠️ **LIGHT stays at 0.10.** None of that measurement was taken on it, and it has far less
+    headroom before an ambient wash competes with a card.
+  - ⚠️ **Three claims about this field were wrong, and the order they fell in is the lesson.**
+    The file's prose said the orbs reach the card box at *"2-3% of an already-14% peak"*; a model
+    built from `ORB_STOPS` said 42% and predicted a live AA failure; the actual pixels said the
+    card fill is `#242424` and every hue passes. **Prose, then model, then pixels — and only the
+    pixels were right.** Anything that raises this again needs the pixel measurement repeated.
+  - ⚠️ **Why a whole-canvas wash was refused, with the number**: a card is translucent, so a wash
+    behind it reaches the text on it. At 5% Notes drops to 4.01:1 and leaves the ladder; at 10%
+    Shopping goes too; at the mockup's 16–30% only one to three of the five survive. The lit look
+    is affordable *only* in the corners, which is what the geometry already guarantees.
+
 - **⚠️ The orb crossfades animate a VIEW's alpha, never an `<AnimatedG>` — 2026-08-31**
   (`components/ScreenBackground.tsx`; pinned by `lib/__tests__/chromeRhythm.test.ts`). Maintainer,
   for the third time: *"Enabling/disabling visual effects helps a lot, but should not — visual
@@ -2960,6 +2981,18 @@ all 54, because these are PNGs in git history forever.
 - ⚠️ **`--update` refuses to bless a partial set**, and four screens the set wants but the walk
   cannot reach are PRINTED on every run (`WANTED_BUT_UNCAPTURED`) rather than dropped. Move one
   into `BASELINE_SET` when its excursion is repaired; the ratchet only goes one way.
+- ⚠️ **pixelmatch's threshold is BLIND to this app's ambient layer — 0.02 plus an absolute
+  channel rule (2026-08-31).** Its metric is perceptual and normalised against the maximum
+  possible difference, so a change between two very dark colours scores far below the same
+  magnitude in the midtones — and this is a true-black OLED design whose whole backdrop lives
+  there. The number that settled it: **doubling the backdrop's orb field**, a change over ~40% of
+  the screen with corner pixels going rgb(22,31,15) → rgb(44,59,27), was reported at the shipped
+  `threshold: 0.1` as **9 differing pixels**. The truth was **162 166**, max channel delta 31.
+  The gate called it `unchanged` — the same failure as the 200 px tolerance one rung deeper, and
+  the reason "it still looks the same as before" could be true while every check was green.
+  A pixel now counts if EITHER pixelmatch at 0.02 says so, OR any channel differs by ≥ 4; the
+  second is what catches dark-on-dark, and 4 only has to clear rasteriser jitter because the
+  measured run-to-run noise floor is zero.
 - ⚠️ **The budget is an absolute 24 px, and the 200 px it replaced was hiding real changes
   (2026-08-30).** `MAX_DIFF_RATIO` was 0.0005 on the stated premise that Chromium's text
   rasterisation is not bit-identical across runs — never measured, and false: **nine untouched
