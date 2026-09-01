@@ -4931,3 +4931,71 @@ whole app at 0 page / 0 console errors, `npm run halos` 0 clipped, and
 Left open, deliberately: `SCREEN_GAP` is still 16. The mockup's figure translates to ~12 at this
 width, which is not a rung on the deliberate 4/8/16/24/32/48 scale — a design-system decision
 about adding a rung, not a defect.
+
+## 2026-09-01 — S0.1: instruction surface — verify, then relocate
+
+Documentation + tests only, no behaviour change. `AGENTS.md` had grown to 3845 lines mixing four
+genres (binding invariants, expensive findings, dated narrative, one-off prohibitions) with no
+marking between them — the measurable problem the session brief named, not the unverified "it's
+too long" complaint.
+
+**Preconditions:** clean tree on `claude/new-session-ezmxss` (off current `main`); no in-flight
+session in this log; `INVARIANTS.md`/`HARNESS.md` did not already exist.
+
+**Baseline** (captured before any edit): `npx tsc --noEmit` — exit 0, 0 errors. `npm run lint` —
+exit 0, 0 errors, 24 warnings. `scripts/test-changed.sh --all` — 130 suites, 2464 tests (1
+skipped, 2463 passed), ~25s.
+
+**Phase A — inventory.** `docs/audit/INSTRUCTION_SURFACE_AUDIT.md`: 107 rows at **section**
+granularity (56 dated architecture bullets as one row each, plus the invariants table, cookbook,
+harness sections, known gotchas, and build/deploy sections) — sentence-level auditing of ~150
+individual embedded claims across 2700+ lines of narrative was not attainable at this session's
+budget, and the brief's own definition of `narrative` doesn't require re-deriving each one.
+Genres: narrative 61 · invariant 29 · finding 14 · prohibition 3. Status: true 29 (each backed by
+an actual grep/ls/constant-value check, recorded in the row) · unverifiable 78 · false 0 — one
+`false` verdict was drafted and retracted: it wrongly attributed a stale `SCREEN_GAP` value to an
+`AGENTS.md` bullet, but the sentence in question ("Left open, deliberately: `SCREEN_GAP` is still
+16" — the paragraph directly above this entry) lives in **this file**, not `AGENTS.md`, and was
+misread from this file's own tail (shown as session-start context) rather than from the document
+under audit. Caught and corrected before publishing the ledger; left visible in the audit's own
+text as a record rather than silently fixed.
+
+**Phase B — relocate.** `AGENTS.md` is now a 33-line router (app statement + four destination
+pointers + a short reference list). `INVARIANTS.md` (new, 160 lines, well under the 400-line cap)
+holds condensed, pointer-based rules: registration/build identity, data-flow contracts, the card
+registry ban (verified: only documented exception is `CardExpandHost.tsx` importing
+`CardExpandButton`), copy tone, tap targets, publishing/build sequencing, six known crash-class
+traps each pointing at its regression test, feature-flag rules, and a condensed cookbook.
+`HARNESS.md` (new, 539 lines) relocates the four visual-audit sections
+(`wraps`/`halos`/`visual`/`geometry`) plus headless-verification guidance, near-verbatim — that
+content was already well-organized. `docs/archive/AGENTS_HISTORY.md` (new, 3158 lines) holds all
+61 narrative rows plus the long-form reasoning behind the findings/prohibitions, verbatim, headed
+with a not-current banner. One call-site check was done as the worked example (`components/
+Card.tsx`'s header already states the import ban verbatim — no duplicate comment needed).
+Exhaustive call-site commenting for the remaining ~150 individual claims was judged out of
+budget and is recorded as a stated limitation in the audit rather than silently skipped.
+
+**Phase C — proof.** `npx tsc --noEmit`: exit 0, 0 errors — matches baseline exactly.
+`npm run lint`: exit 0, 0 errors, 24 warnings — matches baseline exactly.
+`scripts/test-changed.sh --all`: 130 suites, 2464 tests (1 skipped, 2463 passed) — matches
+baseline exactly; no new tests were added this session (relocation only), so no probe-fail/pass
+step applied. `git diff --stat`: five files changed, all `.md` — `AGENTS.md` (rewritten),
+`INVARIANTS.md`/`HARNESS.md`/`docs/audit/INSTRUCTION_SURFACE_AUDIT.md`/
+`docs/archive/AGENTS_HISTORY.md` (new). Zero executable source lines touched.
+
+**STOP gates hit:** none. No `false`-verdict row governs shipped behaviour (the one drafted false
+verdict was self-corrected before publishing and didn't describe `AGENTS.md` at all); no
+prohibition's reason was unlocatable; nothing found reads as an undecided design question;
+`INVARIANTS.md` closed at 160 lines without dropping anything judged binding; nothing in scope
+needed a device.
+
+```
+S0.1 — instruction surface
+Claims inventoried: 107  (invariant 29 / finding 14 / narrative 61 / prohibition 3)
+Status: true 29 · false 0 · unverifiable 78
+Relocated to: call-site comments 1 (pre-existing, pointed-to) · tests 0 (pointed-to existing) · HARNESS 8 · INVARIANTS 29 (condensed) · archive 61+
+INVARIANTS.md: 160 lines
+STOP gates hit: none
+Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
+Source behaviour changed: none
+```
