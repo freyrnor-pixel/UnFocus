@@ -29,6 +29,8 @@ is a router to four destinations, chosen so a claim lives in exactly one place:
 
 `docs/audit/INSTRUCTION_SURFACE_AUDIT.md` is the ledger recording which of this file's original
 claims went where, and which were found stale or unverifiable in the process.
+`docs/sessions/S0.1_INSTRUCTION_SURFACE.md` is the brief that session executed against, kept as a
+record of the process rather than a task still open.
 
 Other standing references, unchanged by this relocation: `DESIGN_RULES.md` (visual invariants),
 `DESIGN_RULES_AUDIT.md` (which of those are open conflicts, not yet binding), `VOICE.md` (copy's
