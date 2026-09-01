@@ -38,6 +38,7 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveChromium } from './chromium-path.mjs';
+import { forceAppearance } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -399,44 +400,9 @@ async function seedMedicine(page, name) {
   return true;
 }
 
-/**
- * Put the app in dark mode. There is no UI route to it in this harness: appearance lives in
- * Settings (or in onboarding's `?rows=all` re-run), Settings is a pushed dead end with no
- * in-app back on web, and the only way out — a history navigation — reloads the document and
- * wipes the in-memory DB, taking the setting with it. So set it under the app instead.
- *
- * `window.__unfocusSqlJsDb__` is created by the index.html bootstrap before the app bundle is
- * even inserted (see scripts/build-web.mjs), so an init script can intercept the assignment
- * and wrap the handle. `lib/sqlite.web.ts` reads through `prepare()`, so re-asserting the
- * value before every read of the settings table also survives onboarding writing its own
- * appearance pick back over it.
- */
-async function forceAppearance(page, mode) {
-  await page.addInitScript((wanted) => {
-    Object.defineProperty(window, '__unfocusSqlJsDb__', {
-      configurable: true,
-      set(db) {
-        const prepare = db.prepare.bind(db);
-        const run = db.run.bind(db);
-        db.prepare = (sql, ...rest) => {
-          if (typeof sql === 'string' && /\bfrom\s+settings\b/i.test(sql)) {
-            try {
-              run(`UPDATE settings SET dark_mode = '${wanted}'`);
-            } catch {
-              /* table not created yet — the next read will catch it */
-            }
-          }
-          return prepare(sql, ...rest);
-        };
-        Object.defineProperty(window, '__unfocusSqlJsDb__', {
-          value: db,
-          writable: true,
-          configurable: true,
-        });
-      },
-    });
-  }, mode);
-}
+// forceAppearance is now shared — see scripts/force-appearance.mjs. It moved there
+// 2026-09-01 so measure-geometry.mjs/measure-wraps.mjs/measure-halos.mjs (which ran
+// light-mode-only in CI) could force dark mode the same way this file always has.
 
 /**
  * Pin the two sources of run-to-run variation, so a screenshot can be DIFFED and not merely

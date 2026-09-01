@@ -16,6 +16,7 @@
  * Usage:
  *   npm run geometry
  *   npm run geometry -- --width=360
+ *   npm run geometry -- --theme=dark
  *   FORCE_BUILD=1 npm run geometry
  *
  * Exits 1 on any finding.
@@ -43,11 +44,15 @@
  */
 import { chromium } from '@playwright/test';
 import { resolveChromium } from './chromium-path.mjs';
+import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
 const WIDTH = Number(args.find((a) => a.startsWith('--width='))?.split('=')[1] || 430);
 const CHROMIUM_PATH = resolveChromium();
+// ⚠️ Dark is the DEFAULT app appearance, and this audit ran light-only in CI until 2026-09-01 —
+// see AGENTS.md's visual-gate section. `--theme=dark` forces it via force-appearance.mjs.
+const { theme: THEME, darkModeValue: DARK_MODE_VALUE } = themeFromArgs(args);
 
 /**
  * How far out of true a measurement may be before it is a finding, in CSS px.
@@ -521,6 +526,7 @@ const browser = await chromium.launch({
 });
 try {
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 932 } });
+  await forceAppearance(page, DARK_MODE_VALUE);
   await runOnboarding(page);
 
   for (const name of TABS) {
@@ -543,7 +549,7 @@ try {
 // report
 // ---------------------------------------------------------------------------
 
-console.log(`\n── geometry (${WIDTH}px) ──────────────────────────────────`);
+console.log(`\n── geometry (${WIDTH}px, ${THEME}) ──────────────────────────────────`);
 console.log(`coverage: ${screensScanned} screens scanned, expected ${EXPECTED_SCREENS}`);
 
 // Print the measurements even when nothing trips the gate. A verdict alone is what let the

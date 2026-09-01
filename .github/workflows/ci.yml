@@ -108,17 +108,33 @@ jobs:
         if: always()
         run: npm run visual -- --theme=dark
 
-      - name: Geometry
+      # ⚠️ Each of these ran LIGHT-MODE ONLY until 2026-09-01, even though dark is the app's
+      # DEFAULT appearance and every glass/edge/glow decision is tuned for it — only `visual`
+      # was checked in both themes. A dark-only regression (like the 2026-08-29 backdrop change)
+      # was invisible to three of the four visual gates by construction. See AGENTS.md.
+      - name: Geometry (light)
         if: always()
         run: npm run geometry
 
-      - name: Wrap audit (Norwegian, 360px)
+      - name: Geometry (dark)
+        if: always()
+        run: npm run geometry -- --theme=dark
+
+      - name: Wrap audit (Norwegian, 360px, light)
         if: always()
         run: npm run wraps -- --lang=no --width=360
 
-      - name: Halo audit
+      - name: Wrap audit (Norwegian, 360px, dark)
+        if: always()
+        run: npm run wraps -- --lang=no --width=360 --theme=dark
+
+      - name: Halo audit (light)
         if: always()
         run: npm run halos
+
+      - name: Halo audit (dark)
+        if: always()
+        run: npm run halos -- --theme=dark
 
       # The diffs are the whole point of a red visual run — without them the failure says a
       # number and nothing else.

@@ -36,8 +36,9 @@
 // walk the real app in the web preview, FOCUS every field-shaped element, and compare the blur
 // radius against the room it has before the clip.
 //
-//   npm run halos              # 430px, English
+//   npm run halos              # 430px, English, light mode
 //   npm run halos -- --width=360
+//   npm run halos -- --theme=dark
 //
 // Exits 1 if anything is clipped, so it can gate a change the way `npm run wraps` reports do.
 // A NO HALO finding does NOT fail the run on its own — it is reported for a human to judge,
@@ -49,10 +50,14 @@
 // scripts/run-halos.sh wires both up, the same way run-preview.sh does.
 import { chromium } from '@playwright/test';
 import { resolveChromium } from './chromium-path.mjs';
+import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const CHROMIUM_PATH = resolveChromium();
 const width = Number(process.argv.find((a) => a.startsWith('--width='))?.split('=')[1] || 430);
+// ⚠️ Dark is the DEFAULT app appearance, and this audit ran light-only in CI until 2026-09-01 —
+// see AGENTS.md's visual-gate section. `--theme=dark` forces it via force-appearance.mjs.
+const { theme, darkModeValue } = themeFromArgs(process.argv);
 
 async function clickText(page, text) {
   const loc = page.getByText(text, { exact: true });
@@ -241,6 +246,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width, height: 932 } });
 let clipped = 0, clean = 0, noHalo = 0;
 try {
+  await forceAppearance(page, darkModeValue);
   await page.goto(BASE_URL, { waitUntil: 'networkidle', timeout: 30000 });
   await page.waitForTimeout(1000);
   await page.getByRole('radio', { name: /^Språk: English\./ }).first().click({ timeout: 10000 });
@@ -437,7 +443,7 @@ try {
 } finally {
   await browser.close();
 }
-console.log(`\n${clipped} clipped, ${clean} clean, ${noHalo} no-halo (at ${width}px)`);
+console.log(`\n${clipped} clipped, ${clean} clean, ${noHalo} no-halo (at ${width}px, ${theme})`);
 if (clipped) {
   console.log('\nA clipped halo means the field has less room than its own light needs. Give the');
   console.log('component that owns the field `FIELD_GLOW_CLEARANCE` of padding (constants/theme.ts),');

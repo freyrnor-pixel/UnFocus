@@ -87,7 +87,7 @@
  *     app/scan.web.tsx and measuring it would report on a screen that isn't the real one.
  *
  * Usage:
- *   node scripts/measure-wraps.mjs [--lang=no|en|is] [--width=393] [--json]
+ *   node scripts/measure-wraps.mjs [--lang=no|en|is] [--width=393] [--theme=light|dark] [--json]
  *
  * Widths worth checking: 430 (iPhone Pro Max), 393 (iPhone 15 / Pixel 8), 360 (common
  * small Android). Large-font pressure: the app's `large` font setting is 1.2x, so
@@ -99,6 +99,7 @@
  */
 import { chromium } from '@playwright/test';
 import { resolveChromium } from './chromium-path.mjs';
+import { forceAppearance, themeFromArgs } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const CHROMIUM_PATH = resolveChromium();
@@ -110,6 +111,9 @@ const arg = (name, dflt) => {
 const LANG = arg('lang', 'no');
 const WIDTH = parseInt(arg('width', '393'), 10);
 const AS_JSON = process.argv.includes('--json');
+// ⚠️ Dark is the DEFAULT app appearance, and this audit ran light-only in CI until 2026-09-01 —
+// see AGENTS.md's visual-gate section. `--theme=dark` forces it via force-appearance.mjs.
+const { theme: THEME, darkModeValue: DARK_MODE_VALUE } = themeFromArgs(process.argv);
 
 // Every string the walk clicks, per language, so adding a language is a table edit.
 const L = {
@@ -669,6 +673,7 @@ async function main() {
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
   });
   const page = await browser.newPage({ viewport: { width: WIDTH, height: 852 } });
+  await forceAppearance(page, DARK_MODE_VALUE);
   try {
     // ── Pass 1: onboarding, the tabs, health-form, Settings, design lab.
     await walkToTabs(page, { scanning: true });
@@ -933,7 +938,7 @@ async function main() {
     return arr.filter((x) => { const k = key(x); if (seen.has(k)) return false; seen.add(k); return true; });
   };
 
-  console.log(`\n=== wrap audit — lang=${LANG} width=${WIDTH}px ===\n`);
+  console.log(`\n=== wrap audit — lang=${LANG} width=${WIDTH}px theme=${THEME} ===\n`);
 
   // Listed first, and deliberately: unlike the other three this one has no "confirm on
   // device" caveat and no judgement call. A control sliced by an overflow mask is a bug at
