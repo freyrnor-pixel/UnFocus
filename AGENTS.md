@@ -3108,12 +3108,23 @@ would have hidden it.
 mis-centred by Android font padding is invisible here **by construction**. That class still needs
 a device.
 
-### The visual gates run in CI (2026-08-29)
-`.github/workflows/ci.yml` has a second job that builds the bundle once and runs `visual` (both
-themes), `geometry`, `wraps` and `halos`, each `if: always()` so one failure does not hide the
-others, uploading pixel diffs on failure. ⚠️ **Chromium is resolved by `scripts/chromium-path.mjs`**,
+### The visual gates run in CI (2026-08-29; both themes since 2026-09-01)
+`.github/workflows/ci.yml` has a second job that builds the bundle once and runs `visual`,
+`geometry`, `wraps` and `halos`, each `if: always()` so one failure does not hide the others,
+uploading pixel diffs on failure. ⚠️ **Chromium is resolved by `scripts/chromium-path.mjs`**,
 not by the hardcoded `/opt/pw-browsers/chromium-1194/...` seven scripts used to carry — that path
 is right only in the remote dev env, and it is what made this job fail on its first run.
+
+⚠️ **`geometry`, `wraps` and `halos` ran LIGHT-MODE ONLY from 2026-08-29 to 2026-08-31 — only
+`visual` was checked in both themes.** Dark is the app's DEFAULT appearance and every glass/edge/
+glow decision is tuned for it, so a dark-only regression (the 2026-08-29 backdrop/orb doubling is
+the worked example — see that bullet above) was invisible to three of the four gates by
+construction, even though CI was green. Fixed by giving each script a `--theme=light|dark` flag
+(`scripts/force-appearance.mjs`, factored out of `screenshot-states.mjs`'s existing
+`forceAppearance` — it sets `dark_mode` on the in-memory sql.js DB from an `addInitScript`, since
+there is no in-app route to appearance in this harness) and running each audit twice in CI, once
+per theme. **A new geometry/wraps/halos check that only makes sense in one theme is fine** — the
+flag exists so a dark-only defect CAN be seen, not so every finding must be theme-symmetric.
 
 ### Halo audit — `npm run halos` (2026-08-24)
 Answers one question the other checks cannot: **is a field's neon actually being drawn, or is it
