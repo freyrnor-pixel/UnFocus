@@ -39,6 +39,7 @@
  *             components/QuickAddOptionRow (the quick-add's Dose/Trays cells, phase 7 of
  *             DESIGN_COMPARISON/19-IMPLEMENTATION.md), constants/theme, lib/date (todayStr), lib/haptics, lib/i18n,
  *             lib/screenColor, lib/medicineSchedule (all tray/dose math), lib/useAppTheme,
+ *             lib/commitOnce (the composer's tier-3 More hand-off — one create per press),
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
  *             store/useSettingsStore
@@ -56,6 +57,13 @@
  *     picking any tray in the panel overrides it. No Modal is opened by either cell (Dose is a
  *     plain field, Trays a direct multi-select toggle), so neither needs anything beyond the
  *     panel slot's own `controlsResponderProps`.
+ *   - **Tier 3 "More" (2026-09-05, R20.6)** — `MedicineComposer` takes an optional `onMore`,
+ *     wired to `handleComposerMore`: commit the medicine, then `router.push` to
+ *     app/medicine-form.tsx on the NEW id. That deliberately reuses the form's existing
+ *     edit-by-id path rather than teaching it a create mode with a name prefill — a second entry
+ *     path to the same job — and it carries the dose/trays the composer already collected.
+ *     Empty line is inert (nothing created, nothing opened); `lib/commitOnce.ts` makes the press
+ *     write exactly one medicine even when the blur also fires the submit.
  *   - Quick-add puts the new medicine in the tray whose window contains NOW (falling back
  *     to the first tray of the day when it's before the earliest one), because that's what
  *     someone adding a medicine mid-dose is almost always doing — UNLESS the Trays option
@@ -90,6 +98,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useCommitOnce } from '@/lib/commitOnce';
 import { Ionicons } from '@expo/vector-icons';
 import AddRow from '@/components/AddRow';
 import PressableScale from '@/components/PressableScale';
@@ -162,6 +171,7 @@ function MedicineComposer({
   showDivider,
   accessibilityLabel,
   onSubmit,
+  onMore,
 }: {
   placeholder: string;
   accent: string;
@@ -169,6 +179,9 @@ function MedicineComposer({
   showDivider?: boolean;
   accessibilityLabel?: string;
   onSubmit: (name: string) => void;
+  /** Tier 3 — commit the typed name, then leave for `app/medicine-form.tsx` on the new id.
+   *  Receives the trimmed draft; the caller decides what an empty one does (nothing). */
+  onMore?: (name: string) => void;
 }) {
   const [draft, setDraft] = useState('');
   return (
@@ -182,6 +195,14 @@ function MedicineComposer({
         onSubmit(name);
         setDraft('');
       }}
+      onMore={
+        onMore &&
+        ((name) => {
+          if (!name) return;
+          onMore(name);
+          setDraft('');
+        })
+      }
       accent={accent}
       showDivider={showDivider}
       accessibilityLabel={accessibilityLabel}
@@ -204,6 +225,7 @@ export default function MedicineSurface() {
   const takeDose = useMedicineStore((s) => s.takeDose);
   const untakeDose = useMedicineStore((s) => s.untakeDose);
   const addMedicine = useMedicineStore((s) => s.add);
+  const commitOnce = useCommitOnce();
   const syncReminders = useMedicineStore((s) => s.syncTrayReminders);
 
   const trayTimes = useSettingsStore((s) => s.medicineTrayTimes);
@@ -305,7 +327,7 @@ export default function MedicineSurface() {
     // Default to the tray we're standing in — before the day's first tray, use that one —
     // unless the Trays option picked something else.
     const tray = currentTray(trayTimes, now) ?? sortedTrays(trayTimes)[0];
-    addMedicine({
+    const med = addMedicine({
       name,
       dose: doseDraft.trim(),
       trays: traysDraft.length > 0 ? traysDraft : [tray],
@@ -314,6 +336,22 @@ export default function MedicineSurface() {
     setDoseDraft('');
     setTraysDraft([]);
     success();
+    return med;
+  }
+
+  /**
+   * Tier 3 — commit the medicine, then hand it to the full editor by id.
+   *
+   * Deliberately reuses `app/medicine-form.tsx`'s existing edit-by-id path
+   * (`useLocalSearchParams<{ id?: string }>`) rather than teaching it a create mode with a
+   * name prefill: that would be a second entry path to the same job, and this one already
+   * carries the dose and trays the composer collected.
+   */
+  function handleComposerMore(name: string) {
+    commitOnce(
+      () => commitAdd(name),
+      (med) => router.push({ pathname: '/medicine-form', params: { id: med.id } })
+    );
   }
 
   function commitTrayTime(tray: TrayId) {
@@ -591,6 +629,7 @@ export default function MedicineSurface() {
       <MedicineComposer
         placeholder={t.medicine.addPlaceholder}
         onSubmit={commitAdd}
+        onMore={handleComposerMore}
         accent={screenHue}
         showDivider={medicines.length > 0}
         accessibilityLabel={t.medicine.addPlaceholder}
