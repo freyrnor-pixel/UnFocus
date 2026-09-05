@@ -40,7 +40,7 @@
  * Edit notes:
  *   - NATIVE modules (expo-file-system / expo-sharing / expo-document-picker) —
  *     adding these is a native-surface change, so it is gated behind a new APK/AAB
- *     build (see AGENTS.md "Runtime version"). Do NOT bump runtimeVersion until
+ *     build (see INVARIANTS.md's Publishing section). Do NOT bump runtimeVersion until
  *     that build exists.
  *   - Auto-backup is a SINGLE self-updating file that must SURVIVE UNINSTALL, so it
  *     never writes to the sandbox (cache/document dir on Android). Android points at

@@ -71,7 +71,7 @@ const mountsTextInput = (rel: string) => /(^|[^\w$])<TextInput[\s/]/.test(code(r
  * The four sanctioned composers, plus the one primitive they are built on.
  *
  * `FormControls`' `Input` is the general field. `PadTypeRow`, `AddRow` and `InlineAddItem` are
- * the three tiered quick-add composers (AGENTS.md's "hierarchy of settings when making a row").
+ * the three tiered quick-add composers (docs/archive/AGENTS_HISTORY.md's "hierarchy of settings when making a row").
  * There are three because they differ in TIERING, not in appearance — the field itself is the
  * same shape in all of them, which is the property this file protects. **Do not add a fourth**;
  * AGENTS.md says so in as many words.

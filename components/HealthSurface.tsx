@@ -504,8 +504,9 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   // them, and `section` (the expanded pane, 2026-08-27) must not either: `TourTarget` registers a
   // measurable rect under `'tour.health.log'`, and two live mounts of one id race to be the rect
   // the spotlight cuts to — the pane's copy would win while the tour is pointing at the tab's.
-  // That is invisible to tsc and to a screenshot, and the tour's own history (AGENTS.md, "a rect
-  // being present does not mean its screen is visible") is this bug one step removed.
+  // That is invisible to tsc and to a screenshot, and the tour's own history
+  // (docs/archive/AGENTS_HISTORY.md, "a rect being present does not mean its screen is visible")
+  // is this bug one step removed.
   const weekCard =
     embedded || section ? (
       weekCardInner

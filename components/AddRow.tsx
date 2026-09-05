@@ -35,9 +35,9 @@
  * What differs is the TIERING of settings, and this file's gap is specific: **it has no tier 3.**
  * `PadTypeRow` carries an `onMore` button opening a fuller editor; there is no equivalent here,
  * so a surface built on this composer cannot offer one from the line. That is a known gap, not
- * an oversight — see AGENTS.md "The hierarchy of settings when making a row" for the contract
- * and the who-implements-what table. Don't cite this file as the settled shape, and don't add
- * a fourth composer.
+ * an oversight — see docs/archive/AGENTS_HISTORY.md "The hierarchy of settings when making a
+ * row" for the contract and the who-implements-what table. Don't cite this file as the settled
+ * shape, and don't add a fourth composer.
  *
  * A two-state add control mounted at the bottom of (or within) whatever list/section it
  * feeds — so the add control stays visually connected to the thing it adds to (criterion 1).

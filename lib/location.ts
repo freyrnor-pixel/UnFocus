@@ -2,7 +2,7 @@
  * location.ts — foreground "tag task with my current location" helper.
  *
  * Reserve-only (expo-location, already installed + plugin-registered — see
- * app.json / AGENTS.md "Known gotchas"). One-shot foreground fix only.
+ * app.json / docs/archive/AGENTS_HISTORY.md "Known gotchas"). One-shot foreground fix only.
  * Background geofencing (location_radius_m/geofence_id, backgroundLocationEnabled)
  * is explicitly out of scope for this file.
  *

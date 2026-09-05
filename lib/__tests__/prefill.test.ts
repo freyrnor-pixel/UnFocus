@@ -14,8 +14,8 @@
  * never sees it. Neither half shows up in a screenshot.
  *
  * Testing the two pure pieces rather than the hook: this repo has no hook renderer (no
- * @testing-library/react-hooks, no react-test-renderer), which is exactly the situation
- * AGENTS.md's "split the arithmetic out into a pure function and test that" note describes.
+ * @testing-library/react-hooks, no react-test-renderer) — split the arithmetic out into a pure
+ * function and test that, rather than the hook itself.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';

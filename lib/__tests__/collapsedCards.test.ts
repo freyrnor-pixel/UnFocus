@@ -163,8 +163,8 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   });
 });
 
-// The module header claims this and nothing checked it — the shape AGENTS.md's "a header that
-// ASSERTS a safety property is not evidence the property holds" gotcha is about. It matters
+// The module header claims this and nothing checked it — a header that ASSERTS a safety
+// property is not evidence the property holds, so this test checks it directly. It matters
 // more now that the module imports something: a card's resting state is read on every tab's
 // render path, so it must not be able to reach a store, the DB or the notification layer.
 describe('lib/cardRegistry.ts and lib/collapsedCards.ts stay dependency-free', () => {

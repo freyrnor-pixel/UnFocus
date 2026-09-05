@@ -13,6 +13,78 @@ Relocated verbatim from `AGENTS.md`'s "Architecture at a glance" section, sessio
 unverified (most of this file is `unverifiable` in that ledger — narrative believed from prose,
 not re-derived from the code during this relocation pass).
 
+**Session S0.3 (2026-09-05) classified every row below as `live-ruling` or `history`** — see
+`docs/audit/LOG_RECONCILE_AUDIT.md`. Rows marked `live-ruling` in the table of contents have been
+promoted to `INVARIANTS.md` and are current **there**, not here — this file's own text was left
+untouched even for those rows, so read the invariant, not the archive copy, when one exists.
+Everything else keeps the banner above at full force: not current, kept for reasoning only.
+
+## Table of contents
+
+| id | lines | subject | class |
+|---|---|---|---|
+| A1 | 96-173 | Navigation (five tabs, `HOME_CARD_KINDS`, `HomeCardManager`) | history |
+| A2 | 174-201 | `useRef` read inside a worklet is frozen at mount | live-ruling (already in INVARIANTS.md) |
+| A3 | 202-218 | To-do Week card folds as one unit, starts folded | history |
+| A4 | 219-233 | Energy tutorial draws no tree, branch divider gone | history |
+| A5 | 234-277 | Onboarding — `showGrowth`, deleted `intro.tsx` slideshow | history |
+| A6 | 278-312 | Guided tour — pager `lazy: false`, `measure()` trap | live-ruling → INVARIANTS.md |
+| A7 | 313-358 | Empty-state explainers (`StarterCard`, per-caller gates) | history |
+| A8 | 359-372 | Medicine trays — own top-level card, tray windows | history |
+| A9 | 373-448 | Widgets drawn like the app's CARD (2026-08-28) | history |
+| A10 | 449-545 | Outside surfaces caught up with the app (2026-08-15) | history |
+| A11 | 546-760 | The row rule + matte buttons | history (successor rule in INVARIANTS.md) |
+| A12 | 761-815 | The blueprint pass (2026-08-18) | history |
+| A13 | 816-884 | The UI-consistency pass (2026-08-20) | history |
+| A14 | 885-958 | Round 20's stray artefacts (2026-08-27) | history |
+| A15 | 959-1027 | One connected list, and a pane that draws one header (2026-08-28) | history (duplicate of PROGRESS_LOG.md) |
+| A16 | 1028-1088 | The clean reveal + the narrator (2026-08-19) | history |
+| A17 | 1089-1132 | The seam pass (2026-08-19) | history |
+| A18 | 1133-1185 | A field's halo is cut to the field's own shape — `getFieldGlow` | live-ruling → INVARIANTS.md |
+| A19 | 1186-1207 | A card header is two icons plus at most one caller's own (2026-08-31) | live-ruling |
+| A20 | 1208-1228 | The orb field is at 0.26 in dark, double the brief | live-ruling → INVARIANTS.md |
+| A21 | 1229-1267 | Orb crossfades animate a VIEW's alpha, never an `<AnimatedG>` (2026-08-31) | live-ruling → INVARIANTS.md |
+| A22 | 1268-1323 | The backdrop is ambient orbs, pinned under everything (2026-08-17) | live-ruling → INVARIANTS.md |
+| A23 | 1324-1368 | No full-screen ⤢ button anywhere (2026-08-22) | history (contradicted — the ⤢ returned) |
+| A25 | 1432-1466 | The registry restructure — phase 5 of `DESIGN_COMPARISON` | live-ruling (escalation still open, see R20.5) |
+| A26 | 1467-1485 | Shop's Archive — phase 6 of the same handoff (2026-08-26) | history |
+| A27 | 1486-1529 | Putting a card away — one "Manage cards" entry per screen (2026-08-30) | history (superseded by `ManageCardsSheet.tsx`) |
+| A28 | 1530-1573 | …and reordering one — the fifth axis (2026-09-01) | live-ruling |
+| A29 | 1574-1594 | A sheet's dismiss pill has to announce itself as a button | history |
+| A30 | 1595-1644 | Folding a card away — the 2026-08-14 collapse pass | history |
+| A31 | 1645-1676 | One rhythm — the 2026-08-08 spacing pass | history |
+| A32 | 1677-1764 | One chrome edge — the 2026-08-10 clipping pass | history |
+| A33 | 1765-1794 | Two shapes for a pick-one question, and only two | history |
+| A34 | 1795-1855 | One card for every sub-screen link | history |
+| A35 | 1856-1904 | The Health tab is built like the Habits tab (2026-08-11) | history |
+| A36 | 1905-1943 | The Shopping declutter pass (2026-08-13) | history |
+| A37 | 1944-1965 | The catalogue header is two boxes (2026-08-14) | history |
+| A38 | 1966-2003 | Dark mode is true black, the default (2026-08-10) | live-ruling |
+| A39 | 2004-2095 | Tactile Glass — the 2026-08-15 material | history |
+| A40 | 2096-2242 | The neon/OLED pass (2026-08-16) | history |
+| A41 | 2243-2279 | Ongoing symptom episodes | history |
+| A42 | 2280-2349 | The day log — the now-line as a boundary | history |
+| A43 | 2350-2369 | Drag to reorder is universal | live-ruling |
+| A44 | 2370-2408 | Card layouts + the "what was hidden" glow | history |
+| A45 | 2409-2448 | Per-item card types | history |
+| A46 | 2449-2511 | The state-based reset — no overdue backlog | live-ruling (copy-tone rule already CI-enforced) |
+| A47 | 2512-2546 | To-do sharing: people, tags, shared load, rotation | history |
+| A48 | 2547-2585 | Goals — and where "cutting back" lives | history |
+| A49 | 2586-2606 | The decorative motif system | history |
+| A50 | 2607-2630 | The reward system is the backdrop | history |
+| A51 | 2631-2661 | First-run personalization | history |
+| A52 | 2662-2666 | Settings | history |
+| A53 | 2667-2682 | Feature flags | live-ruling |
+| A54 | 2683-2812 | The design lab | history |
+| A55 | 2813-2816 | i18n | history |
+| A56 | 2817-2818 | AI setup guide | history |
+| G1-G9, G11-G12 | 2744-3665 | Assorted one-line gotchas | history |
+| G10 | 3619-3622 | Notifications architecture, retention, materials/animation pointers | live-ruling |
+| D1-D2, D4, D8-D9 | 3668-3809 | Deployment invariants | live-ruling (already in INVARIANTS.md/CLAUDE.md) |
+| D3, D5-D7, D10 | 3701-3815 | Deployment narrative | history |
+
+Full evidence per row: `docs/audit/LOG_RECONCILE_AUDIT.md`.
+
 ---
 
 - **Navigation**: file-based Expo Router. Primary nav is `components/BottomNav.tsx` — **five tabs since 2026-08-22**: Shop · To-do · **Home (CENTRE)** · Habits · Health (`Handle` · `Gjøremål` · `Hjem` · `Vaner` · `Helse`). The real `<TopTabs.Screen>` order is in `app/(tabs)/_layout.tsx`; a prose ordering here was once wrong for months and building against it put every tab's backdrop panel on its neighbour, so **trust the navigator, not this line**. Maintainer: *"The logic was sound before. 'Home' had easy access to todays tasks, Notes, and shopping. I think 5 screens might be needed again, so we can split at least into Shopping, To-do, Home, Habits and Health."*

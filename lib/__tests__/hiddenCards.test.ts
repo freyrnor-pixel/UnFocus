@@ -95,8 +95,8 @@ describe('isHidden', () => {
 });
 
 describe('lib/hiddenCards.ts stays dependency-free', () => {
-  // The header claims it; AGENTS.md's "a header that ASSERTS a safety property is not evidence
-  // the property holds" gotcha is why it is checked. This one runs on every card's render.
+  // The header claims it; a header that ASSERTS a safety property is not evidence the property
+  // holds, which is why it is checked directly. This one runs on every card's render.
   const banned = [/@\/store\//, /@\/lib\/db/, /@\/lib\/notifications/, /@\/lib\/reminders/, /@\/lib\/liveSync/, /expo-/];
 
   it('imports nothing heavy', () => {
