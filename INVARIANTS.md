@@ -8,6 +8,10 @@ here if it already lives at one of those destinations — this file points, it d
 Session S0.1 (2026-09-01) relocated this from `AGENTS.md`. See
 `docs/audit/INSTRUCTION_SURFACE_AUDIT.md` for per-claim verification status.
 
+**The reporting contract for visual/rendering changes (evidence tags, blind classes, the
+verification card, enumerate-before-fixing) lives in `CLAUDE.md`** (session S0.2, 2026-09-05) —
+read it before claiming a visual change is done.
+
 ---
 
 ## Registration / build identity
