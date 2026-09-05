@@ -5372,3 +5372,48 @@ Claim: unverified — verification card issued, awaiting device
 STOP gates hit: none
 Round 20 status: phases 1-6 complete in code; phase 5 closes when R20.6's card passes.
 ```
+
+## 2026-09-05 — S1.1-PRE: row-drawing surface enumeration, no fix
+
+Docs-only, precondition-gated (R20.6 entry present, `docs/audit/ROW_ENUMERATION.md`
+did not exist). Enumerated every repeating-list row surface in the app with
+`file:line`, whether it imports `lib/rowList.ts`, and where its done/delete
+column sits. Wrote `docs/audit/ROW_ENUMERATION.md`.
+
+Findings: 10 surfaces enumerated. 3 (`PadSheet`, `HabitsSurface`,
+`PlanTaskCard`) are named by `lib/__tests__/screenRhythm.test.ts`'s guard;
+1 (`HealthIssuesPreviewList`) is covered by delegating its whole list to
+`PadSheet`; 6 are not covered and each hand-rolls a different shape
+(`TaskCard`/`TodoSurface` and `NoteRow`/`NotesSurface` both draw separate
+floating cards with a gap — the pre-`rowList` failure mode `lib/rowList.ts`'s
+own header describes fixing elsewhere; `ShoppingRow`/`WeekListCard` draws a
+left-border-hue box; `MonthlyTableRow` and `MedicineSurface` are fully flush
+rows with no box at all). `SettingRow` is judged a legitimately different
+design object (grouped settings list), not a gap.
+
+Resolved the `HabitsSurface` "does it hand-roll or import" question as
+non-contradictory: it hand-rolled until 2026-08-28 (its own header says so)
+and has imported+called `rowListStyle()` since — a planning note describing
+the pre-2026-08-28 state is simply stale, not a live discrepancy.
+
+The guard test itself asserts import-string presence via a source read
+(`read(file).includes("from '@/lib/rowList'")`), not rendered output or even
+that `rowListStyle()` is called — `PadSheet` passes it on the strength of
+importing the module's constants alone, not by calling the function.
+
+Part 4: the `cardRegistry.ts` compile-time-guard trick does not transfer as
+a type annotation over the existing `rowListStyle()` (a style-object
+function, not a gate on usage) — it would need a new `<RowBox>` wrapper
+component, analogous to `Card.tsx`, that becomes the only caller of
+`rowListStyle()`, with every current and future row-drawing file migrated
+onto it.
+
+STOP-gate on scope: converging the 6 hand-rolled surfaces onto one recipe
+is more than one session — at least five independent conversions plus the
+`<RowBox>` extraction if the compile-time guarantee is also wanted. Recorded
+rather than narrowed.
+
+Verification: none — nothing renders, this is a source enumeration only.
+`git diff --stat` shows one file changed (`docs/audit/ROW_ENUMERATION.md`).
+`npx tsc --noEmit` and the test suite untouched (nothing in `components/`,
+`app/`, or `lib/` was edited).
