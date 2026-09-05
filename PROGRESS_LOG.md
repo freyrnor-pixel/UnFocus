@@ -5265,3 +5265,110 @@ STOP gates hit: none
 Round 20 status after this session: phases 1-6 complete (phase 5's escalation was the last open
   piece; phase 2's wash question was already closed per 20-MEASUREMENTS.md §184, not reopened)
 ```
+
+## 2026-09-05 — R20.6: wire `onMore` at all three call sites, close round 20 phase 5
+
+**Status: code complete, `unverified`** (per `CLAUDE.md`'s reporting contract — the change is a
+sheet/navigation behaviour and no harness in this repo can see it; verification card below).
+
+R20.5 gave `components/AddRow.tsx` an `onMore` prop and deliberately wired no caller. This
+session wires the three, and converts R20.5's four `n/a` verification lines into real ones.
+
+**The one shape, four callers.** All three sites are commit-then-hand-off, already proven in-repo
+by `handleTimelineAddTaskAndEdit`. Rather than leave four near-copies standing:
+
+- **`lib/commitOnce.ts` (new)** — `createCommitOnce()` / `useCommitOnce()`. Single-flight: the
+  `create` runs at most once per event-loop turn, and its result reaches `handOff` only if
+  something was actually written.
+- **`useCommitAndEdit()` in `TodoSurface.tsx`** — the task-side hand-off (commit → push the new
+  id into `expandTaskId`, read at every `TaskCard autoExpand`). A module-level hook because
+  `InlineTaskAdd` is its own component and could not otherwise reach it.
+
+| # | Site | Commit | Hand-off |
+|---|---|---|---|
+| 1 | `TodoSurface.tsx` — Whenever's `commitWhenever` | returns the `Task` | `expandTaskId` |
+| 2 | `TodoSurface.tsx` — the shared Today/Calendar/Recurring `commit` | returns the `Task` | `expandTaskId` |
+| 3 | `MedicineSurface.tsx` — `handleComposerMore` → `commitAdd` | returns the `Medicine` | `router.push('/medicine-form', { id })` |
+
+Site 3 does **not** touch `app/medicine-form.tsx` — committing first and pushing the id reuses
+its existing `useLocalSearchParams<{ id?: string }>` edit path, and carries the dose/trays the
+composer already collected. A create-mode name-prefill would have been a second entry path to
+the same job; a test asserts the form did not grow one.
+
+**Extraction at `:694` is pure** in calls, order and params: it still guards an empty title and
+still calls `handleTimelineAddTask(title, extra)` exactly once, then navigates.
+**One behaviour delta, deliberate:** it now also passes through the single-flight guard. Its
+normal single-press path is byte-for-byte the same; what changes is that a duplicate dispatch in
+the same turn is dropped, which is a fix for a latent bug rather than a regression. Reported here
+rather than left implicit, per the brief's "behaviour delta: none / describe".
+
+**Decisions honoured from the brief.** *More on an empty line is inert* — every site early-returns
+on empty text, `commit` returns `undefined`, and nothing is written or navigated to (committing a
+blank row to have something to open would leave a blank row behind). *Single-flight* — the guard
+exists because `onMore` calls `setExpanded(false)`, which blurs the field, and on a blur path
+that also fires `onSubmitEditing` the composer commits a second time inside the same press; it
+cannot defend itself by reading its own draft, because the `setValue('')` every commit ends with
+has not flushed within that frame.
+
+**No new i18n keys** — `t.pad.moreOptions` reused, as R20.5 intended.
+
+**Tests (2 new suites, 17 new tests, all confirmed fail→pass).** With the two components stashed
+and `lib/commitOnce.ts` moved aside: 9 failed and `commitOnce.test.ts` failed to resolve at all;
+restored, 17/17 pass. `lib/__tests__/commitOnce.test.ts` is a real behavioural test of the guard
+(exactly-once, releases next turn, inert on a falsy create, one composer's guard independent of
+another's) — the guard is a plain factory precisely so it is testable, since this repo has no
+hook-rendering library. `lib/__tests__/tier3Handoff.test.ts` is a source scan in the established
+`composerFocusSteal.test.ts` style: per-site wiring, the empty-line guard, that no second
+hand-off shape exists, and that `:694` is unchanged.
+
+**Harness note.** `wraps` raw wrapped-string count moved 73 → 66; `truncated`, `wrapped rows`,
+`clipped` and screens measured are all identical to baseline. Same count noise R20.5 recorded —
+measured explicitly this time by running the harness on a stashed tree rather than assumed.
+
+```
+## Verification — R20.6
+Fixed at 3 call sites: TodoSurface.tsx (Whenever composer), TodoSurface.tsx (shared
+  Today/Calendar/Recurring composer), MedicineSurface.tsx (MedicineComposer)
+Helper adopted by: handleTimelineAddTaskAndEdit (:694), the shared commit, commitWhenever
+Harnesses that saw it: tsc, jest, halos, wraps, preview
+Blind to this change: sheet/screen presentation, focus and blur behaviour on device,
+  navigation animation
+
+Check on device, both themes:
+1.  [dark]  To-do → Whenever → type a task → More: the task's card opens
+            expanded, carrying the typed name.                    pass / fail
+2.  [light] Same.                                                 pass / fail
+3.  [dark]  To-do → Today → type a task → More: same.             pass / fail
+4.  [light] Same.                                                 pass / fail
+5.  [dark]  Health → Medicine → type a name → More: medicine-form
+            opens on that medicine, name already there.           pass / fail
+6.  [light] Same.                                                 pass / fail
+7.  [dark]  Press More on an EMPTY line: nothing is created, nothing
+            opens, no error.                                      pass / fail
+8.  [dark]  After any of the above, back out: exactly ONE item was
+            created, not two.                                     pass / fail
+9.  [dark]  Timeline add (the pre-existing path) still works.     pass / fail
+10. [dark]  The More label fits without truncation at all 3 sites. pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+```
+
+**STOP gates hit:** none. `:694` adopted the helper without a behaviour change beyond the
+declared guard; site 3 needed no change in `app/medicine-form.tsx`; no fourth composer, no new
+`Card`/`SectionCard` prop, no new string; `halos` stayed at 0 clipped and `wraps` measured the
+same 21 screens.
+
+```
+R20.6 — phase 5 callers
+Sites wired: 3 of 3   ·   Helper adopted by: 694, the shared commit, commitWhenever
+Extraction at :694 pure? yes — same calls, order and params
+Behaviour delta: single-flight guard now also covers :694 (declared above, deliberate)
+New strings: none — t.pad.moreOptions reused
+Tests added: lib/__tests__/commitOnce.test.ts (5), lib/__tests__/tier3Handoff.test.ts (12) —
+  all 17 confirmed fail→pass
+Harnesses: tsc 0 errors · jest 132 suites / 2484 passed (baseline 130/2468) · halos 0 clipped ·
+  wraps 21/21 screens · preview 0 page/console errors
+Claim: unverified — verification card issued, awaiting device
+STOP gates hit: none
+Round 20 status: phases 1-6 complete in code; phase 5 closes when R20.6's card passes.
+```

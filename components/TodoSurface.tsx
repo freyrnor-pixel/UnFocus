@@ -16,6 +16,8 @@
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
  *             lib/prefill, lib/tags, lib/taskRotation, lib/personColor, lib/domainColor,
+ *             lib/commitOnce (single-flight behind `useCommitAndEdit`, this file's one
+ *             commit-then-open-the-editor shape — see its doc above `InlineTaskAdd`),
  *             lib/screenColor, store/useTaskStore, store/useSettingsStore, store/usePeopleStore,
  *             store/useTagStore, store/useMomentsStore — the same set app/(tabs)/plans.tsx's
  *             predecessor (app/plans.tsx) imported; this file IS that logic, moved
@@ -116,6 +118,7 @@ import QuickAddOptionRow from '@/components/QuickAddOptionRow';
 import Stepper from '@/components/Stepper';
 import GoalQuickCell from '@/components/GoalQuickCell';
 import { energyFieldsFromStepper } from '@/lib/energy';
+import { useCommitOnce } from '@/lib/commitOnce';
 import { showAppModal } from '@/components/AppModal';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
@@ -253,6 +256,30 @@ function DoneSplitList({
 type DateChoice = { date: string; short: string; label: string };
 
 /**
+ * The one commit-then-hand-off in this file: write the task, then open its own card expanded by
+ * pushing the new id into `expandTaskId` (read at every `TaskCard autoExpand` on this surface).
+ *
+ * Three callers share it — the timeline's add-and-edit, the Whenever composer's More, and the
+ * shared Today/Calendar/Recurring composer's More. It is a module-level hook rather than a
+ * function inside `TodoSurface` because `InlineTaskAdd` is its own component and could not
+ * otherwise reach it without a prop drilled through every mount.
+ *
+ * `create` returning nothing means nothing was written — More on an empty line — and then
+ * nothing navigates either. Single-flight comes from `useCommitOnce`; see its header for the
+ * blur-fires-`onSubmitEditing` double this exists to stop.
+ */
+function useCommitAndEdit() {
+  const router = useRouter();
+  const commitOnce = useCommitOnce();
+  return useCallback(
+    (create: () => Task | null | undefined) => {
+      commitOnce(create, (task) => router.setParams({ expandTaskId: task.id }));
+    },
+    [commitOnce, router]
+  );
+}
+
+/**
  * Inline "add a task" row scoped to a specific date.
  *
  * **`compose` is this mount's slice of `lib/cardRegistry.ts`'s per-card options table
@@ -294,11 +321,13 @@ function InlineTaskAdd({
 
   const commitDate = compose === 'calendar' ? chosenDate || date : date;
 
+  // Returns the created Task so the More hand-off can open its editor — see `useCommitAndEdit`.
+  // Committing alone ignores the return; `onSubmit` is typed void and discards it.
   const commit = useCallback(() => {
     const title = value.trim();
-    if (!title) return;
+    if (!title) return undefined;
     const energy = energyFieldsFromStepper(energyValue);
-    addTask({
+    const task = addTask({
       title,
       date: commitDate,
       time: time ? time : undefined,
@@ -324,7 +353,10 @@ function InlineTaskAdd({
     setEnergyValue(0);
     setGoalId(null);
     setChosenDate(date);
+    return task;
   }, [value, commitDate, time, energyValue, goalId, date, compose, assigneeId, assignee, addTask]);
+
+  const commitAndEdit = useCommitAndEdit();
 
   function pickDate() {
     if (!dateChoices || dateChoices.length === 0) return;
@@ -383,6 +415,13 @@ function InlineTaskAdd({
       value={value}
       onChangeText={setValue}
       onSubmit={commit}
+      onMore={(text) => {
+        // Inert on an empty line: `commit` returns undefined, so nothing is written and
+        // `useCommitAndEdit` skips the navigation. Committing a blank row to have something to
+        // open would leave a blank row behind.
+        if (!text) return;
+        commitAndEdit(commit);
+      }}
       accent={accent}
       showDivider={!wrapped}
       accessibilityLabel={t.newTask}
@@ -691,13 +730,13 @@ export default function TodoSurface({ section, onDayReset }: Props) {
       }),
     [addTask, today, personFilter, addAssigneeName]
   );
+  const commitAndEdit = useCommitAndEdit();
   const handleTimelineAddTaskAndEdit = useCallback(
     (title: string, extra: { time?: string; recurring: Recurring; recurringDays: number[] }) => {
       if (!title) return;
-      const task = handleTimelineAddTask(title, extra);
-      router.setParams({ expandTaskId: task.id });
+      commitAndEdit(() => handleTimelineAddTask(title, extra));
     },
-    [handleTimelineAddTask, router]
+    [handleTimelineAddTask, commitAndEdit]
   );
 
   const matchFilters = useCallback(
@@ -1088,11 +1127,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     tasksLoaded
   );
 
+  // Returns the created Task for the More hand-off, exactly as `InlineTaskAdd`'s `commit` does.
   const commitWhenever = useCallback(() => {
     const title = wheneverInput.trim();
-    if (!title) return;
+    if (!title) return undefined;
     const energy = energyFieldsFromStepper(wheneverEnergyValue);
-    addTask({
+    const task = addTask({
       title,
       date: today,
       time: wheneverTime || undefined,
@@ -1118,6 +1158,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     setWheneverRecurringDays([]);
     setWheneverEnergyValue(0);
     setWheneverGoalId(null);
+    return task;
   }, [wheneverInput, wheneverTime, wheneverRecurring, wheneverRecurringDays, wheneverEnergyValue, wheneverGoalId, addTask, today]);
 
   function addPlanStarterTask() {
@@ -1194,6 +1235,11 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             value={wheneverInput}
             onChangeText={setWheneverInput}
             onSubmit={commitWhenever}
+            onMore={(text) => {
+              // Inert on an empty line — see `InlineTaskAdd`'s onMore for why.
+              if (!text) return;
+              commitAndEdit(commitWhenever);
+            }}
             accent={wheneverHue}
             showDivider={false}
             stayOpen={planMode}
