@@ -10,8 +10,8 @@
  *      shapes it expects are the shapes here. Asserted directly against the script's source.
  *   2. Someone "helpfully" commits a real SHA. Then every build after that commit reports the
  *      wrong one, which is worse than reporting none — this is the exact failure mode
- *      AGENTS.md records for the widget palette ("a hand-copied constant with a comment
- *      telling you to keep it in step is not a mechanism").
+ *      docs/archive/AGENTS_HISTORY.md records for the widget palette ("a hand-copied constant
+ *      with a comment telling you to keep it in step is not a mechanism").
  *
  * Cheap and dependency-free, like the module it guards.
  */

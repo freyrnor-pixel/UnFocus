@@ -1041,8 +1041,9 @@ const baseStyles = StyleSheet.create({
   // `CardExpandHost`'s `bodyFlex` (`paddingHorizontal: Spacing.md`) in the expanded pane — so
   // the catalogue was the one surface in the app drawn at a 32px side inset. That is the
   // "three stacked horizontal paddings" shape the wrap audit keeps finding, and it is what
-  // AGENTS.md's centre-modal rule already forbids ("a converted screen must NOT pad its own
-  // content"); this style predates that conversion by a day and was simply never revisited.
+  // docs/archive/AGENTS_HISTORY.md's centre-modal rule already forbids ("a converted screen must
+  // NOT pad its own content"); this style predates that conversion by a day and was simply never
+  // revisited.
   //   `paddingBottom` stays: `bodyFlex` has no bottom inset of its own, so removing it would
   //   run the list into the pane's edge in the expanded view. It does still double at the foot
   //   of the /catalogue pane — 16 from `bodyContent` plus this — which is a real but much

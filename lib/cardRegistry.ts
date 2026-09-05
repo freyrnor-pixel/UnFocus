@@ -101,7 +101,7 @@ export type CardGroup = 'growth';
 
 /**
  * A card's per-card quick-add options — the "options" tier of the three-tier composer contract
- * (AGENTS.md "The hierarchy of settings when making a row"), made DATA (phase 7 of
+ * (docs/archive/AGENTS_HISTORY.md "The hierarchy of settings when making a row"), made DATA (phase 7 of
  * DESIGN_COMPARISON/19-IMPLEMENTATION.md). This does not draw anything by itself — it is the
  * table the real composer (in the card's own surface component: TodoSurface, HabitsSurface,
  * MedicineSurface, …) is built against, so the shipped options and this list can be diffed

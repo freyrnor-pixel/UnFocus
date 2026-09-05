@@ -24,7 +24,7 @@
  *
  * Edit notes:
  *   - The settings whitelist here MUST stay in sync with lib/aiSetupGuide.ts's guide
- *     text and AiSettingsPatch type — see AGENTS.md's "Add a new setting toggle"
+ *     text and AiSettingsPatch type — see INVARIANTS.md's "New setting toggle"
  *     cookbook step for the process rule.
  *   - Non-whitelisted settings keys in the AI's JSON are silently dropped, not
  *     reported as an error — the guide never documents them, so a well-behaved AI

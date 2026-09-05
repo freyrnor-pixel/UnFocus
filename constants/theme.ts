@@ -194,8 +194,9 @@ export const Spacing = {
    * ⚠️ **This is a deliberate widening of the scale, not a stray value.** The scale was
    * 4/8/16/24/32/48 and `DESIGN_COMPARISON/20-MEASUREMENTS.md` §1 measured the round-20 mockup
    * wanting **12** for the card gap and the chrome's resting gap. Round 20 declined to take it
-   * — correctly, on the rules as they stood — and recorded the refusal in `AGENTS.md` as "a
-   * design-system decision (add a rung, or don't), not a defect".
+   * — correctly, on the rules as they stood — and recorded the refusal (see
+   * `docs/archive/AGENTS_HISTORY.md`, 2026-08-28 entry) as "a design-system decision (add a rung,
+   * or don't), not a defect".
    *
    * Nobody was asked. The symptom ("visual condensing has not landed") was then re-reported two
    * days later, which is what `DECISIONS_OPEN.md` now exists to prevent. Asked and answered:

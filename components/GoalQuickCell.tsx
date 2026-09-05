@@ -3,7 +3,7 @@
  * phase 7).
  *
  * One `QuickAddOptionRow` cell, at the "options" tier of the three-tier composer contract
- * (AGENTS.md "The hierarchy of settings when making a row"). Tapping it opens the SAME kind of
+ * (docs/archive/AGENTS_HISTORY.md "The hierarchy of settings when making a row"). Tapping it opens the SAME kind of
  * picker `TodoSurface.tsx`'s existing repeat cell already uses — a `showAppModal` list — rather
  * than the full `components/GoalPicker.tsx` field (label + inline expanding list + a "new goal"
  * row): a quick-add's options tier links an EXISTING goal, it does not create one. Creating a

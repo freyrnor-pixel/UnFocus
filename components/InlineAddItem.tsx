@@ -48,7 +48,7 @@
  *     which is why it is the only composer that reads as a form. That is a real design question
  *     rather than drift — a catalog lookup genuinely IS the point of this surface, and the
  *     tier-2 content here is richer than anywhere else — so it is recorded, not "fixed". See
- *     AGENTS.md "The hierarchy of settings when making a row". **Don't flatten the other two
+ *     docs/archive/AGENTS_HISTORY.md "The hierarchy of settings when making a row". **Don't flatten the other two
  *     toward this shape**, and don't add a fourth composer.
  *   - Its FIELD is already the shared one: it uses `FormControls`' `Input`, the same bordered,
  *     focus-showing shape `PadTypeRow` and `AddRow` draw. Converging fields is done; only the

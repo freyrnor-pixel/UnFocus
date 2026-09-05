@@ -118,6 +118,27 @@ Session S0.1 (2026-09-01) relocated this from `AGENTS.md`. See
   "succeeds" with 0 errors — confirm with a unique literal + grep the built bundle before
   debugging a component that looks unchanged. `rm -rf /tmp/metro-* /tmp/haste-* .expo dist` fixes
   it; `node_modules/.cache` alone does not (worktrees share one `node_modules`/`/tmp`).
+- **Don't measure the guided tour's target rects with `measure()`.** Its root-relative
+  `pageX`/`pageY` are correct on native but wrong on web (`react-native-web` implements
+  `measure()` as an `offsetParent` walk that never subtracts the pager's `scrollLeft`) — switching
+  to it silently breaks the tour in `npm run preview`, trading a device bug for a permanent blind
+  spot in the one harness that can see this component. `components/TourSpotlight.tsx` uses the
+  `−statusBarHeight` root-coordinate approach instead; keep it. (source: docs/archive/AGENTS_HISTORY.md A6)
+- **A field's focus halo is cut to the field's own shape and shown only while focused, never at
+  rest** — `getFieldGlow`/`getRecessedField` (`constants/theme.ts`), consumed by `PadTypeRow.tsx`,
+  `FormControls.tsx`, `AddRow.tsx`, `CatalogueTab.tsx` and pinned by `chromeRhythm.test.ts`,
+  `fieldAnatomy.test.ts`, `glowBudget.test.ts`. A field built without it will look wrong at rest
+  or glow when it shouldn't. (source: docs/archive/AGENTS_HISTORY.md A18)
+- **One row recipe, `lib/rowList.ts`, enforced by import rather than by comparing literals.**
+  Three files (`PadSheet.tsx`, `HabitsSurface.tsx`, `PlanTaskCard.tsx`) once each hand-drew a row
+  and a test compared only two of them — the third silently diverged. Any new row-drawing surface
+  imports `lib/rowList.ts`; don't hand-roll the box/hairline/hue logic again. (source:
+  PROGRESS_LOG.md 2026-08-28)
+- **The backdrop's categorical hue rides the corner discs, never the card band.** Measured cost of
+  drawing it at the card level: fails AA contrast for 3 of 5 identity hues and cuts the accent
+  ladder from five rungs to three (`DESIGN_COMPARISON/20-MEASUREMENTS.md` §184). This is closed,
+  not an open question — don't re-propose a per-card wash. (source:
+  docs/archive/AGENTS_HISTORY.md A20-A22, `components/ScreenBackground.tsx`)
 
 ## Feature flags
 

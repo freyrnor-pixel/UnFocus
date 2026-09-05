@@ -4,7 +4,7 @@
  *
  * Added 2026-07-26 after a user report: opening the Catalogue screen crashed the
  * app outright on Android, every time, with no error visible anywhere (no crash
- * reporting SDK is wired into this app — see AGENTS.md's "Known gotchas"). An
+ * reporting SDK is wired into this app — see docs/archive/AGENTS_HISTORY.md's "Known gotchas"). An
  * uncaught exception thrown during React's render phase is the one failure mode
  * that matches "freezes, then the app closes" on a completely ordinary-sized
  * dataset — that's React Native's default fatal-JS-exception handler, which this

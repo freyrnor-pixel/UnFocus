@@ -78,7 +78,7 @@
  *     link.
  *   - No progress bar and no exclamation marks (the latter is enforced by
  *     lib/__tests__/copyTone.test.ts).
- *   - Options pills use `flex: 1` with no minWidth — see AGENTS.md's "horizontal chrome
+ *   - Options pills use `flex: 1` with no minWidth — see HARNESS.md's "horizontal chrome
  *     stacks" note. A row of three Norwegian labels is the tightest case in the app.
  *   - **The real app icon (assets/icon.png), fresh-install only (2026-08-09).** This screen
  *     used to open on nothing but text and pills, with the onboarding backdrop's abstract

@@ -167,8 +167,8 @@ describe('withCardOrder — the drag commit', () => {
 });
 
 describe('lib/cardOrder.ts stays dependency-free', () => {
-  // The header claims it; AGENTS.md's "a header that ASSERTS a safety property is not evidence
-  // the property holds" gotcha is why it is checked. This one runs on every screen's render.
+  // The header claims it; a header that ASSERTS a safety property is not evidence the property
+  // holds, which is why it is checked directly. This one runs on every screen's render.
   const banned = [
     /@\/store\//,
     /@\/lib\/db/,

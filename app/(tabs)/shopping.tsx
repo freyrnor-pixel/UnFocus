@@ -2533,7 +2533,7 @@ export default function ShoppingScreen() {
             and a tally of how many items the catalogue holds is the one thing in that row that
             neither acts nor names: the list saying so is directly below it. Measured, not
             guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
-              The count rule (AGENTS.md: *"a size yes, a score no"*) governs what a count may
+              The count rule (docs/archive/AGENTS_HISTORY.md: *"a size yes, a score no"*) governs what a count may
             MEAN, not that every card owes one. */}
         <Card
           id="shopCatalogue"

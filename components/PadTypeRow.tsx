@@ -50,8 +50,8 @@
  * so the app has one field, not two. **All three composers now draw it** — this one,
  * `components/AddRow.tsx` and `components/InlineAddItem.tsx` (the last by using `Input`
  * outright) — so "converge the composers' fields" is finished; what still differs between them
- * is the TIERING of their settings. See AGENTS.md "The hierarchy of settings when making a
- * row" for the three-tier contract and the table of who implements which tier.
+ * is the TIERING of their settings. See docs/archive/AGENTS_HISTORY.md "The hierarchy of
+ * settings when making a row" for the three-tier contract and the table of who implements which tier.
  * **This is not the boxed-ROWS design that `DESIGN_COMPARISON/10-boxed-vs-ruled-rows.md`
  * rejected.** That decision was about giving every LIST row its own border and gap — cards
  * inside a card. List rows are still flush and ruled on one `PadSheet`. Only the composer —

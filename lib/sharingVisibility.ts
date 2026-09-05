@@ -28,8 +28,8 @@
  * Edit notes:
  *   - **Gate the SURFACE, never the data.** Every call site should hide a component or a
  *     button; none should skip a store load, a migration, a sync pass or a reminder. The
- *     repo's standing rule for feature flags applies here unchanged (AGENTS.md, "For a feature
- *     flag specifically") — turning this back on must restore everything untouched, which it
+ *     repo's standing rule for feature flags applies here unchanged (INVARIANTS.md's Feature
+ *     flags section) — turning this back on must restore everything untouched, which it
  *     can only do if nothing was ever prevented from being written.
  *   - Live sync (`lib/liveSync`) and the `people` table keep working while this is false. A
  *     user who had already paired a device does not lose their pairing; they lose the screen

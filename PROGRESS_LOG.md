@@ -4999,3 +4999,114 @@ STOP gates hit: none
 Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
 Source behaviour changed: none
 ```
+
+## 2026-09-05 — Bridge: 2026-07-10 → 2026-08-31
+
+This log has a gap: nothing between 2026-07-10 and 2026-08-28 was recorded here. That period's
+work — round 19 (the card surface reset), round 20 (chrome/backdrop/header/hint/composer
+convergence against the design-comparison mockups), the button pass, the glass-material rebuilds,
+and the 2026-08-31 orb/hue ruling — was instead recorded as dated bullets directly in `AGENTS.md`.
+Session S0.1 (2026-09-01) correctly classified those bullets as narrative and relocated them
+verbatim to `docs/archive/AGENTS_HISTORY.md`, which opens with a "NOT CURRENT" banner. Net effect:
+roughly seven weeks of work — some of it still-binding rulings, most of it superseded detail —
+ended up in a file that tells a reader to disregard it, while this log stayed silent for the same
+period.
+
+**This entry does not reconstruct that history.** Those sessions were not logged as they happened,
+and inventing per-session entries now would read as an authoritative contemporaneous record when
+it is actually a same-day reconstruction — worse than an acknowledged gap. What follows is an
+index by subject, pointing into the archive, not a narrative.
+
+**Index, by subject, into `docs/archive/AGENTS_HISTORY.md`:**
+
+- Navigation / five-tab restructure, Home's three cards, `HomeCardManager` → `ManageCardsSheet` —
+  archive lines 96-173 (A1), and the 2026-08-30/09-01 Manage-cards + reorder work, lines 1486-1573
+  (A27-A28).
+- Card system: registry restructure (`compose` field), card header consolidation, expand/collapse
+  mechanics — lines 373-1466, 1186-1466 (A9, A19, A23, A25).
+- Visual material chain — Tactile Glass (2026-08-15) → neon/OLED (2026-08-16) → round 20's chrome
+  pass: lines 2004-2242 (A39-A40), and the round-20 mockups in `DESIGN_COMPARISON/19-*` /
+  `DESIGN_COMPARISON/20-*`.
+- Backdrop / orb rendering — ambient-orb architecture, 0.26 opacity, crossfade mechanics: lines
+  1208-1323 (A20-A22).
+- Row rendering — the pre-consolidation "row rule + matte buttons" pass superseded by
+  `lib/rowList.ts` (see the `## 2026-08-28` entry above, which already correctly logged the
+  consolidation itself): archive lines 546-760 (A11).
+- Composer / field system — recessed wells, `getFieldGlow`, the three composers' convergence and
+  remaining tier-3 gap: lines 1133-1185 (A18), and `components/AddRow.tsx`'s own header for the
+  gap still open as of this entry.
+- Onboarding, guided tour, empty-state explainers, medicine trays, energy tutorial: lines 174-372
+  (A2-A8).
+- To-do sharing, goals, shopping declutter, health/habits parity, day log, drag-reorder,
+  first-run personalization, settings, feature flags, the design lab, i18n, AI setup guide: lines
+  1645-2818 (A31-A56).
+- Deployment/build findings from this period: lines 3668-3815 (D1-D10) — mostly already promoted
+  to `INVARIANTS.md`/`CLAUDE.md`'s publishing section by S0.1.
+
+See `docs/audit/LOG_RECONCILE_AUDIT.md` (session S0.3) for which of the above are still live
+rulings versus settled history, with the code-level evidence for each.
+
+## 2026-09-05 — S0.3: log reconcile — verify, then relocate
+
+Documentation only, no behaviour change. Two defects, both created by S0.1's otherwise-correct
+relocation: the log gap bridged above, and source comments pointing at `AGENTS.md` sections that
+no longer exist there since it became a 33-line router.
+
+**Preconditions:** clean tree off `origin/main` (`230829f`); `PROGRESS_LOG.md` contained the
+2026-09-01 S0.1 entry; `INVARIANTS.md`/`HARNESS.md`/`docs/archive/AGENTS_HISTORY.md`/
+`docs/audit/INSTRUCTION_SURFACE_AUDIT.md` all present.
+
+**Baseline:** `npx tsc --noEmit` — 0 errors. `npm run lint` — 0 errors, 24 warnings.
+`scripts/test-changed.sh --all` — 130 suites, 2464 tests (1 skipped, 2463 passed). All match
+S0.1's own recorded baseline exactly — nothing else has landed on `main` since.
+
+**Phase A — classify.** `docs/audit/LOG_RECONCILE_AUDIT.md`: every one of the 56 narrative rows
+(A1-A56) plus 12 gotchas rows and 10 deployment rows S0.1's own ledger enumerated, classed
+`live-ruling` or `history`. Verification depth is stated per row and is honestly two-tier, the
+same budget constraint S0.1 recorded for its own Phase A: 11 rows deep-checked against current
+code (grep/read confirming the named mechanism still exists and still matches), the remainder
+existence-checked (does the named file still exist) with recency as a tiebreaker. No row was
+classed `live-ruling` from prose alone.
+
+**Phase B — repair.**
+1. This bridge entry (above), one dated entry, no invented per-session history.
+2. Five `live-ruling` findings not already covered were promoted into `INVARIANTS.md`'s
+   crash-class-traps section: the tour `measure()` trap (A6), the `getFieldGlow` shape-cut/
+   focus-only rule (A18), the one-row-recipe rule sourced from the 2026-08-28 log entry rather
+   than A11's own superseded text, and the backdrop-hue-on-corner-discs-never-the-card-band
+   ruling condensed from A20-A22. A2 (`useRef`-in-worklet) was found already present verbatim and
+   was not duplicated. `INVARIANTS.md` is now 181 lines (was 160), under the 400-line cap.
+3. `docs/archive/AGENTS_HISTORY.md` gets a table of contents (date/subject/class per row) at the
+   top, and its banner now states that `live-ruling`-classed entries have been promoted to
+   `INVARIANTS.md` and are current there — everything else in the file stays exactly what its
+   original banner already said: not current.
+4. Dangling-pointer sweep: `grep -rn "AGENTS\.md"` across `.ts`/`.tsx`. ~102 total hits. 22
+   carried an explicit quoted section-name citation ("AGENTS.md's 'X'") that no longer resolves
+   against the 33-line router — all 22 repointed to wherever the content actually lives now
+   (`docs/archive/AGENTS_HISTORY.md` for narrative that stayed narrative, `INVARIANTS.md` for
+   content that was promoted, `HARNESS.md` for the wrap-audit note), including the confirmed
+   instance from S0.3's own brief (`components/AddRow.tsx`'s "hierarchy of settings when making a
+   row" pointer) and one (`lib/i18n.ts`) that named a component (`CollapsedSection.tsx`) since
+   deleted, corrected in the same edit. The remaining ~80 hits are informal, unquoted references
+   ("AGENTS.md's wrap-audit lesson", "the row rule (AGENTS.md)") that don't name a specific
+   section and mostly point at content now in `HARNESS.md`'s wraps-audit section or the archive's
+   row-rule/gotchas material — left unfixed this session; a future pass repointing these
+   wholesale is its own session, not a comment-sweep footnote. Out of scope was held: no
+   `components/`/`app/` executable line moved, only comment text.
+
+**STOP gates hit:** none. No two archived rulings were found to contradict each other (the
+Tactile-Glass → neon/OLED → round-20 chain is sequential supersession, not contradiction). No
+`live-ruling` subject was found deleted from the code. No promotion breached the 400-line cap. No
+entry read as an undecided design question.
+
+```
+S0.3 — log reconcile
+Archive entries classified: 78  (live-ruling 19 / history 59)
+Promoted to INVARIANTS: 4 net-new   ·  INVARIANTS.md now: 181 lines
+Dangling AGENTS.md references found / repointed: 22 quoted-section hits / 22 repointed
+  (~80 unquoted informal hits left for a future sweep — see entry above)
+Bridge entry: 2026-07-10 → 2026-08-31, indexed by subject
+STOP gates hit: none
+Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
+Source behaviour changed: none
+```

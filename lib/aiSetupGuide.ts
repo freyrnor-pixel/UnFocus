@@ -25,8 +25,8 @@
  *
  * Edit notes:
  *   - AI_SETUP_SCHEMA_VERSION must bump whenever the guide's schema or documented
- *     content changes — see AGENTS.md's "Add a new setting toggle" / "Add a new
- *     SQLite column" cookbook steps for when to touch this file. A downloaded guide
+ *     content changes — see INVARIANTS.md's "New setting toggle" / "New SQLite column"
+ *     cookbook steps for when to touch this file. A downloaded guide
  *     embeds this version; on import, an older version is a 'stale' warning (proceed
  *     anyway), a newer version is 'invalid' (this build can't safely interpret fields
  *     it doesn't know about).

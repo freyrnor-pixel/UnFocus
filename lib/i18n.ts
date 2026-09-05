@@ -1453,9 +1453,11 @@ const en = {
   editHealthEntryTitle: 'Edit entry',
   unnamedIssue: 'Untitled issue',
   /**
-   * Health issues (2026-08-11) — the standing list at the foot of the Health tab, drawn by the
-   * same components/CollapsedSection.tsx drawer + popup pair that Goals uses on Habits and
-   * To-do (see AGENTS.md's "One card for every sub-screen link").
+   * Health issues (2026-08-11) — the standing list at the foot of the Health tab. Originally
+   * drawn by a shared `components/CollapsedSection.tsx` drawer + popup pair with Goals on Habits
+   * and To-do (see docs/archive/AGENTS_HISTORY.md's "One card for every sub-screen link"), which
+   * no longer exists in this repo — check the current Health/Habits/To-do surfaces directly
+   * rather than assuming that shared component is still how this renders.
    *
    * Wording rule for this whole group, and it is `goals.*`'s rule pointed the other way. A goal
    * is never failing; an issue is never a failure either, and — the trap specific to this
