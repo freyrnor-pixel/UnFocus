@@ -5417,3 +5417,25 @@ Verification: none — nothing renders, this is a source enumeration only.
 `git diff --stat` shows one file changed (`docs/audit/ROW_ENUMERATION.md`).
 `npx tsc --noEmit` and the test suite untouched (nothing in `components/`,
 `app/`, or `lib/` was edited).
+
+## 2026-09-05 — INVARIANTS.md + DESIGN_RULES_AUDIT.md brought in line with ROW_ENUMERATION.md
+
+Docs-only follow-up to the enumeration above, at the maintainer's request.
+
+`INVARIANTS.md`'s "One row recipe" bullet (previously lines 136-140) claimed
+the recipe was simply enforced-by-import across the three files it named.
+Replaced with: PARTIAL, NOT CLOSED — 10 surfaces exist, the guard names 3
+and covers 1 more by delegation, 6 hand-roll distinct shapes and aren't
+covered, and the guard itself only checks an import string, not that
+`rowListStyle()` is called. "We have one row recipe" is to be treated as
+false until Phase 1 S1.1 lands. Source: `docs/audit/ROW_ENUMERATION.md`.
+
+`DESIGN_RULES_AUDIT.md:1304-1312` stated, presently, that `HabitsSurface.tsx`
+hand-rolls its own row box — true when that audit entry was written, false
+since 2026-08-28 (`HabitsSurface.tsx` imports and calls `rowListStyle()`
+directly, per `ROW_ENUMERATION.md` Part 2). Left the original paragraph as
+historical record (this doc's own convention for superseded findings) and
+appended a dated "Superseded 2026-08-28" note rather than deleting the
+paragraph outright, so the audit trail stays intact.
+
+No test, no device, no code touched.

@@ -133,11 +133,14 @@ read it before claiming a visual change is done.
   `FormControls.tsx`, `AddRow.tsx`, `CatalogueTab.tsx` and pinned by `chromeRhythm.test.ts`,
   `fieldAnatomy.test.ts`, `glowBudget.test.ts`. A field built without it will look wrong at rest
   or glow when it shouldn't. (source: docs/archive/AGENTS_HISTORY.md A18)
-- **One row recipe, `lib/rowList.ts`, enforced by import rather than by comparing literals.**
-  Three files (`PadSheet.tsx`, `HabitsSurface.tsx`, `PlanTaskCard.tsx`) once each hand-drew a row
-  and a test compared only two of them — the third silently diverged. Any new row-drawing surface
-  imports `lib/rowList.ts`; don't hand-roll the box/hairline/hue logic again. (source:
-  PROGRESS_LOG.md 2026-08-28)
+- **One row recipe, `lib/rowList.ts` — PARTIAL, NOT CLOSED (measured 2026-09-05).** 10
+  row-drawing surfaces exist. The guard (`lib/__tests__/screenRhythm.test.ts:429-434`) names 3
+  (`PadSheet.tsx`, `HabitsSurface.tsx`, `PlanTaskCard.tsx`) and covers 1 more by delegation
+  (`HealthIssuesPreviewList`). **6 hand-roll distinct shapes and are not covered at all.** The
+  guard also only asserts that the import STRING appears in the file — not that `rowListStyle()`
+  is called or rendered; `PadSheet` satisfies it via a constants import. Treat "we have one row
+  recipe" as false until Phase 1 S1.1 lands. Any new row-drawing surface still imports and CALLS
+  `rowListStyle()`. (source: docs/audit/ROW_ENUMERATION.md, 2026-09-05)
 - **The backdrop's categorical hue rides the corner discs, never the card band.** Measured cost of
   drawing it at the card level: fails AA contrast for 3 of 5 identity hues and cuts the accent
   ladder from five rungs to three (`DESIGN_COMPARISON/20-MEASUREMENTS.md` §184). This is closed,
