@@ -5110,3 +5110,62 @@ STOP gates hit: none
 Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
 Source behaviour changed: none
 ```
+
+## 2026-09-05 — S0.2: reporting contract + both-theme harness coverage
+
+Documentation + one CI/harness-confirmation session. No product behaviour change, no change under
+`components/` or `app/`.
+
+**Precondition:** `PROGRESS_LOG.md` contained the `S0.3 — log reconcile` entry (merged as PR #666
+before this session started).
+
+**Why this session exists:** the maintainer's recurring report is that a change is announced as
+done and the app doesn't change. CI proves types, logic and an unchanged web render — it can't see
+native appearance — so a session can honestly believe it fixed something the harness never saw.
+Two fixes: (1) a session may only claim what something actually saw, stated as an evidence tag;
+(2) the visual harnesses must run both themes, verified rather than assumed.
+
+**Phase A — the reporting contract.** Added to `CLAUDE.md` (the file governing session behaviour,
+confirmed present and authoritative — no STOP gate hit): evidence tags
+(`verified-by-<harness>` / `verified-by-device` / `unverified`), the declared blind-class list
+(optical centering, `Fonts.italic` on Android, native shadow/blur, gestures/haptics,
+`app/scan.tsx`'s web placeholder, dark-on-dark / 1-level-light shifts), the verification-card
+template (two failures on one line stops the item, goes to `DECISIONS_OPEN.md`), and
+enumerate-before-fixing. `INVARIANTS.md` got a one-line pointer, not a copy — it's now 185 lines.
+
+**Phase B — both-theme coverage.** `docs/audit/HARNESS_THEME_COVERAGE.md` has the full finding.
+Short version: **all four harnesses (`visual`, `geometry`, `wraps`, `halos`) already ran both
+themes in CI** as of 2026-09-01 (`.github/workflows/ci.yml`'s `visual` job) — a prior session
+closed this gap before S0.1/S0.3 ran, so Phase B2 ("close any gap") was a no-op. Phase B3 (prove
+it with a probe) still ran, since the existing coverage had never itself been probed:
+
+- Injected a deliberate light-only defect (`constants/colors.ts`'s light `surface` color,
+  `#FAFCFE` → `#FF00FF`, dark untouched). `npm run visual` (light): **17 findings**, `medicine-form`
+  alone at 13.793% changed. `npm run visual -- --theme=dark`: **clean, 21/21 unchanged** —
+  genuinely unaffected. Reverted, rebuilt, re-ran light: clean again, matching the original
+  baseline exactly.
+- `geometry`, `wraps`, `halos` confirmed clean and matching coverage in both themes (`wraps`:
+  21/21 screens measured both themes, no un-measuring; `halos`: 0 clipped/10 clean both themes;
+  `geometry`: clean both themes) — but a color-only probe doesn't apply to them **by design**:
+  checked their source directly (`measure-geometry.mjs`, `measure-wraps.mjs`, `measure-halos.mjs`)
+  and confirmed none of the three reads a pixel color or branches on theme in its measurement
+  logic — only in the OS-appearance-forcing step. A light-mode-only layout/wrap/halo regression
+  isn't a constructible class in this codebase (colors vary by theme; layout does not), so no
+  fabricated probe was invented for these three. Recorded as an honest finding, not a gap.
+
+**STOP gates hit:** none. `CLAUDE.md` exists and governs session behaviour. No harness required
+restructuring. The light-only probe did not reveal any pre-existing failure (light and dark were
+both clean before the probe, and clean again after revert) — nothing to record-and-not-fix.
+
+```
+S0.2 — reporting contract + both-theme coverage
+Contract: CLAUDE.md A1-A4 written · INVARIANTS.md pointer added
+Theme coverage before: visual both · geometry both · wraps both · halos both (all since 2026-09-01)
+Theme coverage after:  unchanged — already complete
+Light-only probes: visual (fail→pass on revert, 17 findings → 0) · geometry/wraps/halos (not
+  applicable — measure layout, not color; confirmed via source read, not fabricated)
+wraps screens measured: 21 → 21 (light), 21 → 21 (dark) — no change, no regression
+CI runtime: not independently measured (no CI run available headlessly); unchanged from before
+STOP gates hit: none
+Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
+```
