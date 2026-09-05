@@ -116,6 +116,65 @@ remote env (the session-start hook installs deps):
 - **Open only what the task touches.** For cookbook tasks, read just the files named in that task's steps — not the whole `app/`, `store/`, or `lib/` directory.
 - **Skip multi-agent delegation.** This is a single-branch, single-dev codebase; coordinate overhead has no payoff at this scale.
 
+## Reporting contract for visual/rendering changes (session S0.2, 2026-09-05)
+
+The recurring failure mode this exists to close: a session announces a visual change as done, and
+the shipped app doesn't change. The cause is structural — CI proves types, logic and an unchanged
+**web** render, but cannot see native appearance. A session can honestly believe it fixed
+something the harness never actually saw. `INVARIANTS.md` carries a one-line pointer to this
+section; the rules themselves live here, not duplicated there.
+
+**A1 — Evidence tags.** No session writes "fixed" for a visual change. Every claim carries one of:
+
+| tag | means |
+|---|---|
+| `verified-by-<harness>` | a named harness saw it — `visual`, `geometry`, `wraps`, `halos`, jest |
+| `verified-by-device` | the maintainer confirmed it on an install |
+| `unverified` | nothing could see it — **the item stays open** |
+
+**A2 — Blind classes declared up front.** Before coding, a session states whether the change lands
+in a class no harness can see. Known classes, from `HARNESS.md` and the round-20 findings:
+
+- Android optical centering — `OpticalCenter` is a no-op on web.
+- `Fonts.italic` — RN does not synthesise italic onto a named custom family on Android; every
+  harness renders a perfect slant over what would ship upright.
+- Native shadow and corner rendering; `expo-blur` output.
+- Gestures and haptics.
+- `app/scan.tsx` — the web bundle resolves a placeholder.
+- Dark-on-dark and 1-level light shifts: `HARNESS.md` records `visual` reporting a 46,329-pixel
+  1-level light change as `unchanged`. After a re-bless, read `git status` — a file the gate
+  called unchanged that changed on disk is a real difference the gate couldn't see.
+
+**A3 — The verification card.** Every session touching rendering ends with one, only after fixing
+**all** call sites and checking **both** themes. Budget: one round trip per item.
+
+```
+## Verification — <session id>
+Fixed at N call sites: <file:line list>
+Harnesses that saw it: <names>  ·  Blind to this change: <names or "none">
+
+Check on device, both themes:
+1. [dark]  <screen> → <element>: <observable>.     pass / fail
+2. [light] <same>                                  pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+```
+
+Two failures on one line stops the item — it goes to `DECISIONS_OPEN.md` rather than a third
+attempt. Two failures means the diagnosis is wrong, not the implementation.
+
+**A4 — Enumerate before fixing.** Every visual fix opens by grepping every implementation of the
+thing being changed and listing them `file:line`. Fix all, or write down why not. Precedent:
+`PadSheet`, `HabitsSurface` and `PlanTaskCard` once drew three different rows while the guard
+compared only two of them (`lib/rowList.ts` is the fix — see `INVARIANTS.md`'s crash-class-traps
+section).
+
+**Both-theme harness coverage.** As of 2026-09-01, `visual`, `geometry`, `wraps` and `halos` all
+run both themes in CI (`.github/workflows/ci.yml`'s `visual` job) — verified again by session
+S0.2 (2026-09-05), which also probed each harness with a deliberate light-mode-only defect to
+confirm it actually fails on one, not just executes twice. See
+`docs/audit/HARNESS_THEME_COVERAGE.md` for the probe results.
+
 ## After Completing a Cookbook Task
 
 - Run `npx tsc --noEmit` to typecheck (works in the remote env now)
