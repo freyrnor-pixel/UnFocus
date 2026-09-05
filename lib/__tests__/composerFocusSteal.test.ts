@@ -123,6 +123,43 @@ describe('AddRow — an empty row is not collapsed by its own controls', () => {
   });
 });
 
+describe('AddRow — the tier-3 "More" escalation (session R20.5, 2026-09-05)', () => {
+  const source = code('components/AddRow.tsx');
+
+  // Same "source scan, not a render test" rationale as the rest of this file: the sheet AddRow's
+  // caller opens from `onMore` is typically a native Modal/route, which the node env has no
+  // concept of. What's checked here is the SHAPE of the hand-off: the typed value reaches the
+  // caller, the button isn't gated the way commit is, and it lives inside the same
+  // capture-phase-protected slots the rest of this file already guards — so type → More →
+  // "sheet" (the caller's onMore) opens with the value present → dismiss → AddRow itself was
+  // never unmounted (it only collapses to its own "+" bar, which is this same component).
+
+  it('hands the caller the trimmed typed value, not the raw one', () => {
+    expect(source).toMatch(/const\s+text\s*=\s*value\.trim\(\);\s*\n\s*onMore\(text\)/);
+  });
+
+  it('is not gated on `active` — fires for an empty line same as PadTypeRow’s onMore', () => {
+    const moreButton = source.match(/const\s+moreButton\s*=\s*onMore\s*\?[\s\S]*?:\s*null;/)?.[0];
+    expect(moreButton).toBeTruthy();
+    expect(moreButton).not.toMatch(/active\s*&&/);
+    expect(moreButton).not.toMatch(/disabled=\{!active\}/);
+  });
+
+  it('collapses back to the "+" bar after handing off, even with stayOpen', () => {
+    // Unlike commit() (which respects stayOpen for Plan-mode batch entry), the tier-3 hand-off
+    // always ends the line — handing a draft to a full editor is not "another line in the same
+    // batch".
+    const moreButton = source.match(/const\s+moreButton\s*=\s*onMore\s*\?[\s\S]*?:\s*null;/)?.[0];
+    expect(moreButton).toMatch(/onMore\(text\);\s*\n[\s\S]{0,120}setExpanded\(false\);/);
+    expect(moreButton).not.toMatch(/stayOpen/);
+  });
+
+  it('renders inside the same capture-protected slots as Save/Delete, not bare beside them', () => {
+    expect(source).toMatch(/styles\.trailingSlot[\s\S]{0,80}\{moreButton\}/);
+    expect(source).toMatch(/styles\.panelButtonRow[\s\S]{0,80}\{moreButton\}/);
+  });
+});
+
 describe('the composers this protects are the ones that open a focus-stealing picker', () => {
   // A map of the surfaces the fix covers, asserted so that a caller moving its picker
   // somewhere else shows up here rather than as another "it froze" report.

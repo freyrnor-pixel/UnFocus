@@ -5169,3 +5169,99 @@ CI runtime: not independently measured (no CI run available headlessly); unchang
 STOP gates hit: none
 Baselines: tsc 0→0 · lint 0/24→0/24 · jest 130/2464→130/2464
 ```
+
+## 2026-09-05 — R20.5: close phase 5 — More carries the typed value into the sheet
+
+Product behaviour change, first session under S0.2's reporting contract. Ends **unverified by
+design** — device confirmation is the last step, per its own brief.
+
+**Precondition:** `PROGRESS_LOG.md` contained the `S0.2 — reporting contract` entry (merged as
+PR #667 before this session started).
+
+**What was built.** `components/AddRow.tsx` gains an optional `onMore?: (text: string) => void`
+prop, mirroring `PadTypeRow`'s `onMore` contract exactly rather than inventing a fourth composer
+(the header's own long-standing warning): a worded "More options" button (reusing
+`t.pad.moreOptions` — already translated EN/NO/IS, no new string needed), fires for **any** press
+including an empty line (not gated on `active`, same as `PadTypeRow`'s), and hands the caller the
+**trimmed typed value directly** — `AddRow`'s `value` is already the caller's own controlled
+state (unlike `PadTypeRow`, which needs `DraftComposer` to own the draft before it can pass one).
+The button renders inside the same `controlsResponderProps`-wrapped slots
+(`styles.trailingSlot`, `styles.panelButtonRow`) the composer-focus-steal fix already protects,
+so a picker or sheet opened from `onMore` can't fold the row away out from under it — the exact
+trap the brief called out. Pressing it always collapses the row back to the "+" bar, even with
+`stayOpen` set: handing a draft to a full editor is not "another line in the same batch," so it
+doesn't inherit Plan mode's stay-open behaviour.
+
+**What wasn't built.** No caller wires `onMore` yet. The session brief scoped this to the
+composer mechanism itself ("`AddRow` gains a tier-3 escalation matching `PadTypeRow`'s `onMore`
+contract... The typed value transfers"), not to picking a specific surface to escalate from —
+none of `AddRow`'s current callers (`app/plans.tsx`, `app/(tabs)/health.tsx`, `app/health-log.tsx`,
+`GoalsEditor`, `FoodTab`, `MedicineSurface`) were named as needing one in the brief, and adding a
+speculative call site risks guessing wrong at what "the fuller editor" should be for each. Wiring
+a first caller is a natural follow-up, not left silently undone.
+
+**Regression test.** `lib/__tests__/composerFocusSteal.test.ts` gets four new source-scan tests
+(same style as the rest of the file, since a native Modal/route stealing focus has no node-env
+equivalent): the typed value transfers trimmed, the button isn't gated on `active`, it collapses
+even with `stayOpen`, and it renders inside the protected slots rather than bare beside them.
+**Confirmed fail→pass**: stashing the `AddRow.tsx` change and re-running showed all 4 new tests
+failing (`git stash push -- components/AddRow.tsx` → 4 failed, 12 skipped → `git stash pop`); with
+the fix, all 16 tests in the file (12 existing + 4 new) pass.
+
+**Harness results, per S0.2's evidence-tag contract:**
+
+- `tsc`: 0 errors.
+- `lint`: 0 errors / 24 warnings (baseline).
+- `jest` (`scripts/test-changed.sh --all`): 130 suites / 2468 tests (1 skipped, 2467 passed) —
+  4 more than baseline's 2464, all new and passing.
+- `halos`: 0 clipped, 10 clean, coverage 10 fields — matches baseline exactly. A sheet/button
+  appearing from a focused field is exactly this audit's job, and it stayed clean.
+- `wraps --lang=no --width=360`: 21/21 screens measured (matches baseline, no un-measuring),
+  4 clipped / 6 truncated / 11 wrapped rows — all match baseline exactly. The one number that
+  moved is the raw wrapped-string total (66 → 75, light) — since `onMore` has no caller yet, the
+  new UI cannot appear on any scanned screen, so this isn't attributable to this change; recorded
+  as unexplained run-to-run noise on a non-gating metric, not a regression, consistent with
+  `wraps`' own documented settling variance (see `habits-empty`'s TabSlider note in `HARNESS.md`).
+- `preview`: 0 page errors, 0 console errors across the full onboarding + 5-tab + design-lab walk
+  (`preview-shots/`).
+
+```
+## Verification — R20.5
+Fixed at N call sites: components/AddRow.tsx (onMore prop + moreButton, wired into
+  styles.trailingSlot and styles.panelButtonRow) — the mechanism, not a specific screen's
+  escalation (no caller passes onMore yet, see "what wasn't built" above)
+Harnesses that saw it: tsc, jest (new regression, fail→pass confirmed), halos, wraps, preview
+Blind to this change: sheet presentation, focus/blur on device, modal animation — all native,
+  and moot until a caller actually opens a sheet from onMore
+
+Check on device, both themes:
+1. [dark]  N/A — no caller wires onMore yet, so there is nothing to press.        n/a
+2. [light] N/A — same.                                                            n/a
+3. [dark]  N/A — same.                                                            n/a
+4. [light] N/A — same.                                                            n/a
+5. [dark]  The button itself: mount AddRow with onMore anywhere and confirm the
+           "More options" label doesn't truncate at any supported width.          pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+```
+
+**STOP gates hit:** none. Closing the gap did not require a fourth composer or a `Card`/
+`SectionCard` prop — `PadTypeRow`'s existing shape covered it. The typed value transferred
+without restructuring `AddRow`'s state ownership (it was already controlled). No new string was
+needed (`t.pad.moreOptions` reused). `halos` stayed at 0.
+
+```
+R20.5 — phase 5 escalation
+Call sites enumerated: components/AddRow.tsx (onMore prop, 2 render sites) · Fixed: 1 of 1
+New strings: none — reused t.pad.moreOptions (EN/NO/IS)
+Tests: composerFocusSteal regression fail→pass confirmed (4 new tests, 4/4 fail before fix)
+Harnesses: tsc 0 errors · jest 130/2468 (4 new, all pass) · halos 0 clipped · wraps 21/21 screens
+  (clipped/truncated/wrapped-rows unchanged; raw wrapped-string count noise, see above) ·
+  preview 0 page/console errors
+Claim: unverified — verification card issued above, awaiting device (no caller wired yet, so
+  device check #5 above is the only one currently exercisable — the rest are n/a until a caller
+  passes onMore)
+STOP gates hit: none
+Round 20 status after this session: phases 1-6 complete (phase 5's escalation was the last open
+  piece; phase 2's wash question was already closed per 20-MEASUREMENTS.md §184, not reopened)
+```
