@@ -32,12 +32,15 @@
  * one-of-`extras`/`panel` contract as `PadTypeRow`'s prop of the same name. So "converge the
  * composers" is not the open work and shouldn't be re-proposed.
  *
- * What differs is the TIERING of settings, and this file's gap is specific: **it has no tier 3.**
- * `PadTypeRow` carries an `onMore` button opening a fuller editor; there is no equivalent here,
- * so a surface built on this composer cannot offer one from the line. That is a known gap, not
- * an oversight — see docs/archive/AGENTS_HISTORY.md "The hierarchy of settings when making a
- * row" for the contract and the who-implements-what table. Don't cite this file as the settled
- * shape, and don't add a fourth composer.
+ * What differs is the TIERING of settings. **This file now has a tier 3** (2026-09-05, session
+ * R20.5, closing `DESIGN_COMPARISON/20-IMPLEMENTATION.md`'s phase 5 escalation): an optional
+ * `onMore` prop, mirroring `PadTypeRow`'s contract exactly — same worded button
+ * (`t.pad.moreOptions`, reused rather than a new string), same "fires for ANY press, including
+ * an empty line" rule (a caller's handler must never no-op), same "the caller owns what commit
+ * vs. hand-off means" split. Unlike `PadTypeRow` (which needs `DraftComposer` to own the draft
+ * before it can hand `onMore` the typed text), `AddRow`'s `value` is already a controlled prop
+ * from the caller, so `onMore` here receives the trimmed value directly — no wrapper needed.
+ * See the `onMore` prop's own doc for the exact contract. Don't add a fourth composer.
  *
  * A two-state add control mounted at the bottom of (or within) whatever list/section it
  * feeds — so the add control stays visually connected to the thing it adds to (criterion 1).
@@ -132,6 +135,7 @@ import { confirm as hapticConfirm } from '@/lib/haptics';
 import { BORDER_WIDTH, FIELD_GLOW_CLEARANCE, FIELD_RADIUS, FontSize, Fonts, Radius, Shadow, Spacing, contrastOn, getFieldGlow, getRecessedField, MIN_TAP_TARGET, HitSlop } from '@/constants/theme';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import PressableScale from '@/components/PressableScale';
+import Button from '@/components/Button';
 import { ScrollIntoViewContext } from '@/components/ScreenScaffold';
 
 type Props = {
@@ -191,6 +195,28 @@ type Props = {
   stayOpen?: boolean;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Tier 3 — an optional "More options" button that hands the typed line to a fuller editor
+   * instead of just saving it here. Mirrors `PadTypeRow`'s `onMore` contract exactly:
+   *   - **Fires for ANY press, including an empty line** — deliberately NOT gated on `active`
+   *     the way the confirm button is. The button is visible as soon as the row is expanded, so
+   *     a handler wired here MUST always produce something visible; if there is genuinely
+   *     nothing to open for a surface, pass no `onMore` at all rather than a handler that can
+   *     no-op.
+   *   - Receives the trimmed `value` directly (`AddRow`'s draft is already the caller's own
+   *     controlled state, unlike `PadTypeRow`, which needs `DraftComposer` to own the draft
+   *     first).
+   *   - The caller decides whether this also commits — some surfaces want "save, then open the
+   *     full editor on the saved row"; others want "open the editor on an unsaved draft". This
+   *     component only renders the button, fires the callback with the current text, and
+   *     collapses back to the "+" bar (the tier-3 hand-off leaves this surface for a full
+   *     editor, same reasoning as `commit`'s reset — including when `stayOpen` is set, since
+   *     handing off to an editor is not "another line in the same batch").
+   */
+  onMore?: (text: string) => void;
+  /** Label for the `onMore` button. Defaults to `t.pad.moreOptions` — the same string
+   *  `PadTypeRow` already uses, reused rather than duplicated. */
+  moreLabel?: string;
 };
 
 export default function AddRow({
@@ -208,6 +234,8 @@ export default function AddRow({
   stayOpen,
   accessibilityLabel,
   style,
+  onMore,
+  moreLabel,
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
@@ -443,6 +471,26 @@ export default function AddRow({
     </PressableScale>
   );
 
+  // Worded, and fires for ANY press including an empty line — mirroring PadTypeRow's onMore
+  // exactly (see the prop's doc). Deliberately NOT gated on `active`: the caller's handler opens
+  // an editor rather than saving, so an empty line is a valid press, not a disabled one.
+  const moreButton = onMore ? (
+    <Button
+      label={moreLabel ?? t.pad.moreOptions}
+      onPress={() => {
+        const text = value.trim();
+        onMore(text);
+        // The tier-3 hand-off leaves this surface for a full editor — same reset as commit(),
+        // and unconditionally (even with stayOpen): handing a line to an editor is not another
+        // line in the same batch.
+        setExpanded(false);
+      }}
+      variant="secondary"
+      size="sm"
+      icon="options-outline"
+    />
+  ) : null;
+
   const confirmButton = (
     <PressableScale
       style={[
@@ -480,6 +528,7 @@ export default function AddRow({
         <View style={styles.row}>{inputField}</View>
         <View style={styles.panelSlot} {...controlsResponderProps}>{panel}</View>
         <View style={styles.panelButtonRow} {...controlsResponderProps}>
+          {moreButton}
           {discardButton}
           {confirmButton}
         </View>
@@ -505,6 +554,7 @@ export default function AddRow({
         </View>
       ) : null}
       <View style={styles.trailingSlot} {...controlsResponderProps}>
+        {moreButton}
         {discardButton}
         {confirmButton}
       </View>
