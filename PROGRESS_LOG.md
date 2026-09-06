@@ -5459,3 +5459,27 @@ Decision 014 and the corner-discs invariant) against the synced `DESIGN_RULES.md
 reported only.
 
 No test, no device, no code touched.
+
+## 2026-09-06 — S1.1 ShoppingRow conformance brief written
+
+Docs-only. Pinned the one open value the maintainer needed before writing the brief: rule 5's
+"the card's own hue" for the shopping week list resolves to `getScreenColor(theme,
+'shopping').base` (`lib/screenColor.ts`), the same mechanism `PlanTaskCard.tsx` already uses for
+`'plans'` — not a separate `cardRegistry.ts`-stored colour; that file's `hue` field is itself typed
+`ScreenKey` and documented as resolved through `screenColor.ts` at render.
+
+Wrote `docs/sessions/S1.1_SHOPPINGROW_CONFORMANCE.md`: a full session brief for converging
+`WeekListCard.tsx`'s row boxes onto `lib/rowList.ts`. Re-reading `WeekListCard.tsx` for the brief
+surfaced two things `ROW_ENUMERATION.md` didn't need to resolve: the in-cart region's `rowsCard`
+is tinted `theme.accent` while the other two boxed regions use `theme.good` (an existing internal
+inconsistency, not just a mismatch with rule 5), and the Purchased section renders no box at all
+(flush rows with only a `rowDivider` hairline) — a 4th region, not 3. The brief enumerates all 4,
+requires re-confirming the `dishGroup` nesting is transparent-at-rest before treating
+ungrouped+dish-grouped rows as one sequence, and requires the full visual-change reporting
+contract (evidence tags, blind classes, a both-theme verification card) since this is a rendering
+change once executed.
+
+Session itself not run — this turn only produced the brief. `MedicineSurface`/`MonthlyTableRow`
+remain explicitly out of scope, per `DECISIONS_OPEN.md`'s amended option C.
+
+No test, no device, no code touched.
