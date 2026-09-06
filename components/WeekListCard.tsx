@@ -36,6 +36,28 @@
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:
+ *   - **Rule 5 conformance (S1.0, docs/sessions/S1.0_SHOPPINGROW_CONFORMANCE.md).** All four
+ *     "In list"/"In cart"/"Purchased" row regions now pass `first`/`last` (this row's real
+ *     position in its own rendered sequence — dish-grouped rows count against the SAME running
+ *     count as the ungrouped rows ahead of them, so "In list" reads as one continuous list, not
+ *     two) and `rail={screenColor.base}` to every `ShoppingRow`. `ShoppingRow.tsx` is the file
+ *     that actually calls `lib/rowList.ts`'s `rowListStyle()` — this file only supplies the
+ *     positional/colour primitives, the same division PlanTaskCard.tsx's day view uses (the
+ *     list knows position, the row draws itself). `rowsCard`'s old `borderLeftWidth: 3` +
+ *     per-region `theme.good`/`theme.accent` border tint are gone (one rail colour now, on
+ *     every row, not a box-level border that varied by section) and so is `styles.rowDivider`
+ *     (each row's own top edge from `rowListStyle()` IS the hairline now — drawing both painted
+ *     a double line). `rowsCard` itself survives as a plain padded/rounded backdrop
+ *     (`borderRadius`, `paddingHorizontal` — untouched, nothing in `rowListStyle()`'s output
+ *     supersedes either) that the boxed rows sit inside, same nesting `components/PadSheet.tsx`
+ *     uses. The reorderable "In list" rows (`renderReorderableRow`) can't be boxed here directly
+ *     — the actual `<ShoppingRow>` for those lives in `app/(tabs)/shopping.tsx`'s callback — so
+ *     the prop signature grew two booleans (`first`/`last`, computed here against the combined
+ *     ungrouped+dish-grouped count) for that file to forward straight through, alongside its own
+ *     already-resolved `screenHue`. Excluded from this session, deliberately: the Monthly tab's
+ *     purchased-by-trip `ShoppingRow`s (`app/(tabs)/shopping.tsx`'s OWN unrelated `rowsCard`,
+ *     ~line 2073) — a different list, outside this session's stated scope, and untouched because
+ *     `ShoppingRow`'s new props are opt-in (omitting both keeps its pre-S1.0 look exactly).
  *   - **The chip layout + the quick-add tray (2026-08-20).** Two changes that only appear
  *     together, both on "In the store" (`spec.chips`, lib/cardLayout.ts):
  *     1. **"In list" draws as a wrapping grid of chips**, still in aisle sections, and the
@@ -260,8 +282,14 @@ type Props = {
   onDoneShopping: () => void;
   /** Opens the shared AddDishSheet targeted at this list (parent sets dishSheetTarget). */
   onOpenDishSheet: () => void;
-  /** Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow. */
-  renderReorderableRow: (item: ShoppingItem, index: number, total: number) => React.ReactNode;
+  /**
+   * Renders one reorderable "In list" ungrouped row — parent wraps it in DraggableTaskRow.
+   * `first`/`last` (S1.0) are this row's position in the FULL "In list" sequence — ungrouped
+   * rows followed by dish-grouped rows — computed here because only this component knows the
+   * combined count; the parent forwards them straight to its `ShoppingRow`'s own `first`/`last`
+   * props (see lib/rowList.ts's rowListStyle(), which ShoppingRow calls).
+   */
+  renderReorderableRow: (item: ShoppingItem, first: boolean, last: boolean) => React.ReactNode;
   /** Hands the "In cart" section header's native node up so the screen can measureInWindow()
    *  it as a flight destination. React calls this with null when the section unmounts. */
   registerCartHeaderNode?: (node: any) => void;
@@ -655,74 +683,85 @@ export default function WeekListCard({
 
             {filterActive ? (
               filteredInList.length > 0 && (
-                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                   {filteredInList.map((item, idx) => (
-                    <View key={item.id}>
-                      <ShoppingRow
-                        item={item}
-                        variant="planned"
-                        onToggle={() => onToggleItem(item)}
-                        onRemove={() => onRemoveItem(item)}
-                        onOpenDetail={() => onOpenItem(item)}
-                        inStockLabel={t.inStockLabel}
-                        locked={list.locked}
-                        spec={spec}
-                        isNewSince={newSinceIds?.has(item.id)}
-                        newFields={newFields}
-                        onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                      />
-                      {idx < filteredInList.length - 1 && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                      )}
-                    </View>
+                    <ShoppingRow
+                      key={item.id}
+                      item={item}
+                      variant="planned"
+                      onToggle={() => onToggleItem(item)}
+                      onRemove={() => onRemoveItem(item)}
+                      onOpenDetail={() => onOpenItem(item)}
+                      inStockLabel={t.inStockLabel}
+                      locked={list.locked}
+                      spec={spec}
+                      isNewSince={newSinceIds?.has(item.id)}
+                      newFields={newFields}
+                      onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                      first={idx === 0}
+                      last={idx === filteredInList.length - 1}
+                      rail={screenColor.base}
+                    />
                   ))}
                 </View>
               )
             ) : (
               (ungroupedUnchecked.length > 0 || dishUnchecked.length > 0) && (
-                <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.good }]}>
+                <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
                   {ungroupedUnchecked.map((item, idx) => (
-                    <View key={item.id}>
-                      {renderReorderableRow(item, idx, ungroupedUnchecked.length)}
-                      {(idx < ungroupedUnchecked.length - 1 || dishUnchecked.length > 0) && (
-                        <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
+                    <React.Fragment key={item.id}>
+                      {renderReorderableRow(
+                        item,
+                        idx === 0,
+                        idx === ungroupedUnchecked.length - 1 && dishUnchecked.length === 0
                       )}
-                    </View>
+                    </React.Fragment>
                   ))}
-                  {dishUncheckedGroups.map(([dishName, dishItems], groupIdx) => (
-                    <View
-                      key={dishName}
-                      ref={(node) => registerDishGroupNode?.(dishName, node)}
-                      style={[
-                        styles.dishGroup,
-                        mergeHighlightDish === dishName && {
-                          backgroundColor: theme.goodSoft,
-                          borderColor: theme.good,
-                        },
-                      ]}
-                    >
-                      {dishItems.map((item, idx) => (
-                        <View key={item.id}>
-                          <ShoppingRow
-                            item={item}
-                            variant="planned"
-                            onToggle={() => onToggleItem(item)}
-                            onRemove={() => onRemoveItem(item)}
-                            onOpenDetail={() => onOpenItem(item)}
-                            inStockLabel={t.inStockLabel}
-                            locked={list.locked}
-                            spec={spec}
-                            isNewSince={newSinceIds?.has(item.id)}
-                            newFields={newFields}
-                            onFlightStart={(rect) => onFlightStart?.(item, rect)}
-                          />
-                          {(idx < dishItems.length - 1 || groupIdx < dishUncheckedGroups.length - 1) && (
-                            <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                          )}
-                        </View>
-                      ))}
-                    </View>
-                  ))}
+                  {dishUncheckedGroups.map(([dishName, dishItems], groupIdx) => {
+                    // Running offset into the SAME continuous "In list" sequence the ungrouped
+                    // rows above started — so only the very first row overall gets top corners
+                    // and only the very last gets bottom corners, regardless of which dish it's
+                    // grouped under (rule 5: this reads as one list, not one per dish).
+                    const precedingDishCount = dishUncheckedGroups
+                      .slice(0, groupIdx)
+                      .reduce((n, [, its]) => n + its.length, 0);
+                    return (
+                      <View
+                        key={dishName}
+                        ref={(node) => registerDishGroupNode?.(dishName, node)}
+                        style={[
+                          styles.dishGroup,
+                          mergeHighlightDish === dishName && {
+                            backgroundColor: theme.goodSoft,
+                            borderColor: theme.good,
+                          },
+                        ]}
+                      >
+                        {dishItems.map((item, idx) => {
+                          const overallIdx = ungroupedUnchecked.length + precedingDishCount + idx;
+                          return (
+                            <ShoppingRow
+                              key={item.id}
+                              item={item}
+                              variant="planned"
+                              onToggle={() => onToggleItem(item)}
+                              onRemove={() => onRemoveItem(item)}
+                              onOpenDetail={() => onOpenItem(item)}
+                              inStockLabel={t.inStockLabel}
+                              locked={list.locked}
+                              spec={spec}
+                              isNewSince={newSinceIds?.has(item.id)}
+                              newFields={newFields}
+                              onFlightStart={(rect) => onFlightStart?.(item, rect)}
+                              first={overallIdx === 0}
+                              last={overallIdx === totalInList - 1}
+                              rail={screenColor.base}
+                            />
+                          );
+                        })}
+                      </View>
+                    );
+                  })}
                 </View>
               )
             )}
@@ -815,24 +854,23 @@ export default function WeekListCard({
               <View style={[styles.sectionRule, { backgroundColor: theme.accent }]} />
             </View>
 
-            <View style={[styles.rowsCard, { backgroundColor: theme.surface, borderLeftColor: theme.accent }]}>
+            <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
               {(filterActive ? filteredInCart : allChecked).map((item, idx, arr) => (
-                <View key={item.id}>
-                  <ShoppingRow
-                    item={item}
-                    variant="cart"
-                    onToggle={() => onToggleItem(item)}
-                    onRemove={() => onRemoveItem(item)}
-                    onOpenDetail={() => onOpenItem(item)}
-                    locked={list.locked}
-                    spec={spec}
-                    isNewSince={newSinceIds?.has(item.id)}
-                    newFields={newFields}
-                  />
-                  {idx < arr.length - 1 && (
-                    <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                  )}
-                </View>
+                <ShoppingRow
+                  key={item.id}
+                  item={item}
+                  variant="cart"
+                  onToggle={() => onToggleItem(item)}
+                  onRemove={() => onRemoveItem(item)}
+                  onOpenDetail={() => onOpenItem(item)}
+                  locked={list.locked}
+                  spec={spec}
+                  isNewSince={newSinceIds?.has(item.id)}
+                  newFields={newFields}
+                  first={idx === 0}
+                  last={idx === arr.length - 1}
+                  rail={screenColor.base}
+                />
               ))}
             </View>
             {inCartTotal > 0 && spec.showPrice && (
@@ -851,19 +889,23 @@ export default function WeekListCard({
               accentColor={theme.textMuted}
               defaultOpen={false}
             >
-              {purchased.map((item, idx) => (
-                <View key={item.id}>
+              {/* Boxed the same way as every other region now (S1.0) — this used to be flush
+                  rows with only a rowDivider between them, the one region in this card with no
+                  design rationale for reading differently from its siblings. */}
+              <View style={[styles.rowsCard, { backgroundColor: theme.surface }]}>
+                {purchased.map((item, idx) => (
                   <ShoppingRow
+                    key={item.id}
                     item={item}
                     variant="purchased"
                     onToggle={() => {}}
                     onRemove={() => onRemoveItem(item)}
+                    first={idx === 0}
+                    last={idx === purchased.length - 1}
+                    rail={screenColor.base}
                   />
-                  {idx < purchased.length - 1 && (
-                    <View style={[styles.rowDivider, { backgroundColor: theme.border }]} />
-                  )}
-                </View>
-              ))}
+                ))}
+              </View>
               {purchasedTotal > 0 && (
                 <Text style={[styles.sectionTotal, { color: theme.textMuted }]}>
                   {t.weekListTotal(formatKr(purchasedTotal, 0))}
@@ -947,10 +989,14 @@ const baseStyles = StyleSheet.create({
   sectionRule: { flex: 1, height: 2, borderRadius: Radius.full, opacity: 0.4 },
   sectionLabel: { fontSize: FontSize.xs, fontFamily: Fonts.bold, textTransform: 'uppercase', letterSpacing: 0.5 },
   sectionTotal: { fontSize: FontSize.sm, fontFamily: Fonts.semibold, textAlign: 'right', paddingTop: Spacing.xs },
-  rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md, borderLeftWidth: 3 },
-  // Inset past the check so the column of checks reads as one line down the card
-  // Full-width now (2026-07-30): the check moved to the right margin, so there is no leading
-  // column left to inset past, and a rule that crosses the whole line reads as ruled paper.
+  // **No `borderLeftWidth` any more (S1.0).** This used to BE the rail — a left border on the
+  // whole box, in a colour that varied by region (`theme.good` here, `theme.accent` on
+  // in-cart). Rule 5's rail is a per-ROW element now (`lib/rowList.ts`'s `rowListStyle()`,
+  // called inside `components/ShoppingRow.tsx`), one hue everywhere in the list
+  // (`getScreenColor(theme, 'shopping').base`) — this box is just the padded/rounded backdrop
+  // the boxed rows sit inside, same nesting `components/PadSheet.tsx` uses. `borderRadius`/
+  // `paddingHorizontal` survive untouched: nothing `rowListStyle()` returns supersedes either.
+  rowsCard: { borderRadius: Radius.md, paddingHorizontal: Spacing.md },
   // Chip layout (2026-08-20). `gap` only — no border, no fill, no rule between chips; the
   // whitespace IS the separation, same rule PadSheet's flush rows follow.
   chipSections: { gap: Spacing.md },
@@ -967,7 +1013,6 @@ const baseStyles = StyleSheet.create({
   },
   starterChipText: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  rowDivider: { height: 1 },
   // "In the store" aisle header. Quiet — it's a wayfinding label inside a card that already
   // has its own title, not a second section header competing with it.
   aisleHeader: {

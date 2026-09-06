@@ -5522,3 +5522,167 @@ A3 note: R20.6's entry is intact and still `unverified`, awaiting the maintainer
 Deliberately untouched.
 
 Docs-only. No `.ts`/`.tsx` touched. No test run, no device.
+
+## 2026-09-06 — S1.0: ShoppingRow / WeekListCard rule 5 conformance
+
+**Step 0 enumeration (`file:line`, current checkout):**
+
+| region | file:line | in scope? |
+|---|---|---|
+| Filtered planned items | `components/WeekListCard.tsx:684-707` (`styles.rowsCard`) | fixed |
+| Ungrouped unchecked (reorderable) | `components/WeekListCard.tsx:711-719` → `renderReorderableRow` → actual `<ShoppingRow>` at `app/(tabs)/shopping.tsx:2352-2373` | fixed — required a small, deliberate edit to `app/(tabs)/shopping.tsx` (see below) |
+| Dish-grouped unchecked | `components/WeekListCard.tsx:740-761` | fixed |
+| In-cart | `components/WeekListCard.tsx:857-874` | fixed |
+| Purchased (collapsed, was unboxed) | `components/WeekListCard.tsx:895-908` | fixed — newly boxed, matching the other three |
+| Monthly tab's purchased-by-trip `ShoppingRow`s | `app/(tabs)/shopping.tsx:~2076`, its own unrelated `rowsCard` at `~2862` | **excluded** — a different list, outside S1.0's stated scope (`WeekListCard.tsx`/`ShoppingRow.tsx` call sites). `ShoppingRow`'s new `first`/`last`/`rail` props are opt-in, so this call site's pre-S1.0 look is unaffected by the change |
+
+That's 5 in-scope regions (the brief's table listed 4 + the reorderable row as a 5th, confirmed
+real by grep — `grep '<ShoppingRow' app/ components/` finds exactly the two files the brief
+named, `components/WeekListCard.tsx` and `app/(tabs)/shopping.tsx`) plus one deliberately excluded.
+
+**The one design call this session had to make that the brief didn't fully resolve:** the actual
+`rowListStyle()` call lives in `components/ShoppingRow.tsx` (new opt-in `first`/`last`/`rail`
+props), not in `WeekListCard.tsx` — matching `components/PlanTaskCard.tsx`'s own division ("the
+list knows position, the row draws itself"), since the row's real outermost visual element
+(`ShoppingRow.tsx:314`'s `styles.row` — `styles.wrap` above it and `NewSinceGlow`'s wrapper are
+bare `position:'relative'` passthroughs with no fill/border of their own) lives in a different
+component than the one that knows each row's position in the list. `WeekListCard.tsx` only
+computes and passes the primitives. Confirmed compatible with `DraggableTaskRow` by direct
+precedent, not assumption: `components/DraggableTaskRow.tsx:166` (`row: { backgroundColor:
+'transparent' }`, no `overflow:'hidden'` anywhere in the file) plus
+`components/HabitsSurface.tsx:864-866` + `:267,301`, which already wraps a `rowListStyle()`-boxed
+row inside `DraggableTaskRow` successfully.
+
+Because the reorderable ungrouped rows' actual `<ShoppingRow>` lives in `app/(tabs)/shopping.tsx`
+(not `WeekListCard.tsx`), fully converging that region required extending
+`renderReorderableRow`'s prop signature from `(item, index, total)` (index/total were already
+unused by the one real call site) to `(item, first, last)`, and updating that one call site to
+forward `first`/`last`/`rail={screenHue}` into its `ShoppingRow`. This touches a file outside the
+two named in the brief's "Type:" line — flagged here explicitly rather than silently expanded;
+judged in-scope because the alternative (leaving ungrouped rows unboxed while dish-grouped rows in
+the SAME "In list" section are boxed) would ship a visible seam down the middle of the one region
+the brief calls out as the point of this session, and the technical compatibility above was
+already proven, not assumed.
+
+**`git diff --stat`:**
+```
+ app/(tabs)/shopping.tsx     |  20 +++-
+ components/ShoppingRow.tsx  |  63 +++++++++++--
+ components/WeekListCard.tsx | 225 ++++++++++++++++++++++++++------------------
+ lib/rowList.ts              |   6 +-
+ 4 files changed, 216 insertions(+), 98 deletions(-)
+```
+Plus one new file, `lib/__tests__/shoppingRowConformance.test.ts`.
+
+- `components/ShoppingRow.tsx`: new optional `first`/`last`/`rail` props; `styles.row` now carries
+  `rowListStyle({ isDark, first, last, rail })` when both `first`/`last` are passed (opt-in — the
+  two callers that still don't pass them keep the exact pre-S1.0 `{ backgroundColor: theme.surface
+  }` look), plus a new `rowBoxed` style (`paddingHorizontal: Spacing.sm`, matching
+  `PlanTaskCard.tsx`'s `flatRow`) so content doesn't sit flush against the new border. Memo
+  comparator gained `first`/`last`/`rail` — a row's box depends on list position, which can change
+  without `item` itself changing (a neighbour removed).
+- `components/WeekListCard.tsx`: all 4 `rowsCard`-boxed regions plus the newly-boxed Purchased
+  region now pass `first`/`last`/`rail={screenColor.base}` per row (computed against the real
+  combined ungrouped+dish-grouped sequence for "In list", so dish groups don't reset the corner/
+  hairline count). `rowsCard` lost `borderLeftWidth: 3` and the `theme.good`/`theme.accent` split;
+  kept `borderRadius`/`paddingHorizontal` (nothing in `rowListStyle()`'s output supersedes either —
+  it's a plain padded/rounded backdrop the boxed rows sit inside now, same nesting `PadSheet.tsx`
+  uses). Deleted the now-redundant `styles.rowDivider` and every per-row divider `<View>`.
+  `renderReorderableRow`'s prop type changed from `(item, index, total)` to `(item, first, last)`.
+- `app/(tabs)/shopping.tsx`: `renderReorderableRow`'s one implementation forwards `first`/`last`
+  plus the screen's own already-resolved `screenHue` into its `<ShoppingRow>`. The Monthly tab's
+  separate purchased-by-trip `ShoppingRow` call site (~line 2076) is untouched, deliberately.
+- `lib/rowList.ts`: header-only, `Used by →` gained `components/ShoppingRow.tsx`.
+- `docs/audit/ROW_ENUMERATION.md`: the `ShoppingRow`/`WeekListCard` row now reads "converged,
+  S1.0" with the same detail as above. Its top-level "Count: 10... 6 do not" summary sentence and
+  Part 3's "components this test does NOT cover" list were NOT updated — left as a known staleness
+  for whoever next touches that file, since the brief scoped this edit to "the ShoppingRow/
+  WeekListCard row" specifically.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors, both before and after every edit in this session.
+- New test `lib/__tests__/shoppingRowConformance.test.ts` (6 assertions: `ShoppingRow.tsx` calls
+  `rowListStyle(` — an actual invocation shape, not the import string; the call passes `first`/
+  `last`/`rail`; `WeekListCard.tsx` has no `borderLeftWidth: 3` or `theme.good`/`theme.accent` rail
+  tint left and passes `rail={screenColor.base}` at ≥4 call sites; `rowsCard` keeps its radius/
+  padding; `rowDivider` is gone; `app/(tabs)/shopping.tsx` forwards `first`/`last`/`rail`).
+  **Fail→pass confirmed by `git stash` of the 4 implementation files** (test file kept): 6/6 FAIL
+  against the original, unconverted source; 6/6 PASS after `git stash pop` restored the fix.
+- `scripts/test-changed.sh` (git-diff-driven `--findRelatedTests`) found only
+  `lib/__tests__/screenRhythm.test.ts` related (via `rowList.ts`'s static import graph — the new
+  test file uses `fs.readFileSync`, not an import, so it isn't picked up by that mechanism and was
+  run explicitly instead): 55/55 passed, including the untouched "listed rows" describe block
+  (`PAD_SHEET`/`HABITS_SURFACE`/`PLAN_TASK_CARD` — not edited, not asked to be). Also ran every
+  other test file that mentions `ShoppingRow`/`WeekListCard` by grep
+  (`__tests__/glassMaterial.test.ts`, `lib/__tests__/cardAnatomy.test.ts`,
+  `lib/__tests__/fieldAnatomy.test.ts`, `lib/__tests__/screenHeaderContract.test.ts`,
+  `lib/__tests__/destructiveConfirm.test.ts`, `lib/__tests__/designTokens.test.ts`) plus the new
+  conformance test: **8 suites, 211/211 passed.**
+- `halos` (light): baseline (stashed tree, measured first) 0 clipped / 10 clean / 10 scanned,
+  stable across 2 runs. After the fix: 0 clipped / 10 clean / 10 scanned — identical.
+- `halos --theme=dark` (after the fix only — not re-baselined dark, since light already showed no
+  change and the mechanism is theme-symmetric): 0 clipped / 10 clean / 10 scanned.
+- `wraps` (light): baseline (stashed tree) 21/21 screens measured (stable across 3 runs); totals
+  noisy run-to-run (60, 67, 60 wrapped) but wrapped-rows/clipped/truncated stable at 9/4/3 every
+  time. After the fix: 21/21 screens measured; totals 67 then 59 wrapped (inside the baseline
+  noise band), wrapped-rows/clipped/truncated unchanged at 9/4/3.
+- `wraps --theme=dark` (after the fix): 21/21 screens measured; 60 wrapped, 3 truncated, 9 wrapped
+  rows, 4 clipped — same as light, within the same noise band. No new finding attributable to this
+  change in either theme.
+- `npm run visual` (light theme): 21/21 baseline screens `unchanged`, 0 `changed`. **This number is
+  not evidence the change is invisible** — see the blind-spot note below; it is evidence the visual
+  walk's `shopping-populated` capture does not currently show a populated list at all.
+
+**A2 blind classes, plus one found specific to this change:**
+- Standing: Android optical centering, native shadow/corner rendering, `expo-blur` output,
+  gestures/haptics — none apply differently here than anywhere else.
+- **Newly found, not caused by this session:** `scripts/screenshot-states.mjs`'s
+  `shopping-populated`/`shopping-monthly` captures are **byte-identical to `shopping-empty`**,
+  confirmed by `md5sum` on both the pre-existing committed baselines (`visual-baselines/light/`)
+  and on fresh captures from this session's built `dist/`. The seeding step
+  (`tryButton(page, 'Create a new list')` at `scripts/screenshot-states.mjs:952`) is silently
+  skipped when that button isn't found, and every step after it — including the `shot()` calls —
+  still runs, capturing whatever the (still-empty) screen happens to show. This means `npm run
+  visual` has never actually screenshotted a populated `WeekListCard` row list, before or after
+  this session, so its "0 changed" result here says nothing about this change's visibility — it is
+  a pre-existing walk defect, out of this session's scope to fix, worth a maintainer look
+  independent of S1.0.
+
+**STOP gates:** none of the three listed in the task hit (`rowListStyle()` expressed everything
+needed; no edit to `lib/rowList.ts` was needed; `halos` reports 0 clipped both before and after).
+The pre-resolved one (outer card border + row rail both wearing the same shopping hue) is real —
+`WeekListCard.tsx:143`'s outer `Surface` border and every row's rail now both resolve
+`getScreenColor(theme,'shopping').base` — implemented anyway per the brief's instruction, and
+carried as the most heavily weighted line (3/4) on the verification card below, not treated as a
+second attempt.
+
+**`rowsCard`'s `borderRadius`/`paddingHorizontal`: survived, unchanged.** Nothing `rowListStyle()`
+returns (fill, edge, per-row corners, hairline, rail) supersedes a container-level radius or
+horizontal padding — the boxed rows now sit inside `rowsCard` as a plain padded/rounded backdrop,
+the same nesting `components/PadSheet.tsx` already uses for its own `overflow:'hidden'`-clipped
+list.
+
+## Verification — S1.0
+Fixed at 5 call sites: `components/WeekListCard.tsx:684` (filtered planned), `components/WeekListCard.tsx:711` (ungrouped, via `renderReorderableRow`), `components/WeekListCard.tsx:740` (dish-grouped), `components/WeekListCard.tsx:857` (in-cart), `components/WeekListCard.tsx:895` (purchased) — the middle one required forwarding `first`/`last` through `app/(tabs)/shopping.tsx:2344` too.
+Harnesses that saw it: tsc, jest (including a new call-detecting test, fail→pass confirmed), halos, wraps
+Blind to this change: native border/rail rendering, hairline weight, fill against backdrop, plus a newly-found pre-existing defect in `scripts/screenshot-states.mjs`'s `shopping-populated` capture (see above)
+
+Check on device, both themes:
+1. [dark]  Shopping → a week list with 3+ items: the rows read as ONE
+           connected list, not separate boxes.              pass / fail
+2. [light] Same.                                            pass / fail
+3. [dark]  The left rail is thin and shopping-hued, matching the card's
+           own border colour, not green.                    pass / fail
+4. [light] Same.                                            pass / fail
+5. [dark]  A hairline separates rows; top and bottom rows have rounded
+           outer corners, middle rows don't.                pass / fail
+6. [light] Same.                                            pass / fail
+7. [dark]  A ONE-item list looks right — rounded top and bottom, no
+           stray hairline.                                  pass / fail
+8. [dark]  Checking off and removing an item still works exactly as
+           before.                                          pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+
+**unverified** — nothing above saw native rendering; awaiting the maintainer's device pass per the
+card above.

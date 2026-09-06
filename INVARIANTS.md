@@ -151,6 +151,16 @@ read it before claiming a visual change is done.
   appears in 3 named files; it cannot see whether `rowListStyle()` is called
   or rendered. Any new row-drawing surface imports and CALLS it.
   (source: docs/audit/ROW_ENUMERATION.md)
+  **Amended 2026-09-06 (S1.0 landed):** the counts above are the pre-S1.0
+  measurement, kept as the record. `ShoppingRow`/`WeekListCard` has since
+  converged — it calls `rowListStyle()` from inside `ShoppingRow.tsx`, with
+  `WeekListCard.tsx` supplying `first`/`last`/`rail` per row. So the live
+  count is **5 covered, 5 hand-rolling**, and the remaining convergence work
+  is `MonthlyTableRow` (S1.2) and `MedicineSurface` (S1.3). A second guard,
+  `lib/__tests__/shoppingRowConformance.test.ts`, now checks the CALL shape
+  rather than the import string, for those two files only; the
+  `screenRhythm.test.ts` blind spot described above is unchanged and is
+  S1.1's to close with `<RowBox>`.
 - **The backdrop's categorical hue rides the corner discs, never the card band.** Measured cost of
   drawing it at the card level: fails AA contrast for 3 of 5 identity hues and cuts the accent
   ladder from five rungs to three (`DESIGN_COMPARISON/20-MEASUREMENTS.md` §184). This is closed,
