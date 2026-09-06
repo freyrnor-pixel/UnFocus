@@ -250,7 +250,7 @@ import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, ligh
 import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
-import { energyDeltaForDay, energyDeltaForWeek, energyPipCount, MAX_PIPS } from '@/lib/energy';
+import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
 import { useEnergyPause } from '@/lib/useEnergyPause';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -292,6 +292,9 @@ const PIP_SIZE = 18;
 const PIP_GAP = 4;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
 const PIP_ICON_SIZE = 11;
+/** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
+const BAR_ICON_SIZE = 17;
+const LEGEND_ICON_SIZE = 12;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
  *  note. Local to this file (not GlowPulse) because it needs a timed fade in→hold→out
@@ -392,6 +395,11 @@ export default function EnergyMeter() {
   const dayBaseCapacity = dayCapacity - dayBoost;
   const dayCurrent = dayCapacity + energyDeltaForDay(today, tasks, habits, habitLogs);
   const weekCurrent = weekCapacity + energyDeltaForWeek(today, tasks, habits, habitLogs);
+  // The same two numbers, split into the halves the v2 bar draws. `energySplitFor*` re-derives
+  // `energyDeltaFor*` exactly (pinned in __tests__/energy.test.ts), so the bar and the value
+  // beside it cannot tell different stories.
+  const daySplit = energySplitForDay(today, tasks, habits, habitLogs);
+  const weekSplit = energySplitForWeek(today, tasks, habits, habitLogs);
 
   /**
    * The tutorial gate — see the file header's "Tutorial state" note for why this exists.
@@ -555,6 +563,7 @@ export default function EnergyMeter() {
     label: string,
     current: number,
     capacity: number,
+    split: { spent: number; gained: number },
     pulse: { id: number; kind: PulseKind } | null,
     trailing: React.ReactNode,
     /**
@@ -564,74 +573,63 @@ export default function EnergyMeter() {
      */
     badge: React.ReactNode
   ) => {
-    const { pipCount, filled, surplus } = energyPipCount(current, capacity);
+    // ── The v2 Energibudsjett bar (2026-09-06) ──────────────────────────────────────────
+    //
+    // ⚠️ **Filled means SPENT here, which is the inverse of what this row drew until today.**
+    // The glossy `energyPipCount` token filled from `current / capacity`, so a full bar meant a
+    // day still untouched. v2 states its reading outright — *"filled = brukt, empty = igjen"* —
+    // and the arithmetic for it lives in `lib/energy.ts`'s `energyBudgetBar`, once, rather than
+    // being re-derived by eye here. Do not "fix" one to match the other without reading that
+    // function's note: the two readings are both defensible and this one is the maintainer's.
+    //
+    // The glyphs are plain `flash` / `flash-outline`, not the radial-gradient-and-gloss token
+    // that used to draw here. That token was a deliberate object once ("glossy token, not a flat
+    // circle"), but v2 draws a flat row and the gloss is what made ten of them read as a score —
+    // the failure the 2026-08-03 label pass was already working around with words.
+    //
+    // `gitt tilbake` is a THIRD run after a divider, in the habits hue rather than the accent,
+    // because energy handed back by a habit is not the same substance as budget you were given.
+    // Capped in `energyBudgetBar` so it stays a shape and not a tally.
+    const { pipCount, used, left, gain, overspent } = energyBudgetBar(split.spent, split.gained, capacity);
+    const glyph = (name: 'flash' | 'flash-outline', color: string, key: string) => (
+      <Ionicons key={key} name={name} size={BAR_ICON_SIZE} color={color} />
+    );
     const pips = (
       <View
         style={styles.pipRow}
-        accessibilityLabel={surplus > 0 ? t.energyMeter.surplusLabel(surplus) : undefined}
+        accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
       >
-        {Array.from({ length: pipCount }).map((_, i) => {
-          const active = i < filled;
-          if (!active) {
-            return (
-              <View key={i} style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}>
-                <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.textMuted} />
-              </View>
-            );
-          }
-          const fillId = `${pipGradientBaseId}-${rowKey}-${i}-fill`;
-          const glossId = `${pipGradientBaseId}-${rowKey}-${i}-gloss`;
-          return (
-            <View key={i} style={[styles.pipBadge, { backgroundColor: theme.accent, shadowColor: theme.shadow }]}>
-              <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-                <Defs>
-                  <RadialGradient id={fillId} cx="50%" cy="36%" r="80%">
-                    <Stop offset="0%" stopColor={lighten(theme.accent, 0.22)} />
-                    <Stop offset="55%" stopColor={theme.accent} />
-                    <Stop offset="100%" stopColor={darken(theme.accent, 0.22)} />
-                  </RadialGradient>
-                  {/* Gloss highlight — keep this bold (high center opacity), not subtle.
-                      It's the one detail that reads as "glossy token" rather than "flat
-                      circle"; see the file header's "Energy-token pip" note.
-                      The two #FFFFFF here are NOT theme colours and were deliberately left
-                      out of the 2026-08-10 hardcoded-colour sweep: a specular highlight is
-                      white by definition in both modes — tinting it to a palette token is
-                      what would make it read as a coloured smear instead of a shine. */}
-                  <RadialGradient id={glossId} cx="38%" cy="24%" rx="42%" ry="26%">
-                    <Stop offset="0%" stopColor="#FFFFFF" stopOpacity={0.95} />
-                    <Stop offset="85%" stopColor="#FFFFFF" stopOpacity={0} />
-                  </RadialGradient>
-                </Defs>
-                <Circle cx="50%" cy="50%" r="46%" fill={`url(#${fillId})`} stroke={darken(theme.accent, 0.5)} strokeWidth={2} />
-                <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${glossId})`} />
-              </Svg>
-              {/* The glyph sits on the pip's OUTER stop, not on `theme.accent` — the fill is a
-                  radial ramp and the icon covers its darkest ring — so the ink is picked
-                  against that, not against the token. Resolves to white for every accent the
-                  app has shipped (5.6:1 on the current one); was a hardcoded #FFFFFF until
-                  2026-08-10, which happened to be right and would have stayed right silently
-                  even if a later accent made it wrong. */}
-              <Ionicons name="flash" size={PIP_ICON_SIZE} color={contrastOn(darken(theme.accent, 0.22))} />
-            </View>
-          );
-        })}
-        {/* Surplus (2026-08-02): energy EARNED past the day's capacity, which the old clamp
-            swallowed — `12 / 10` used to draw identically to `10 / 10`. Drawn after the full
-            ones and deliberately a third kind of object: neither the saturated glossy token
-            (that's a pip you still have) nor the hollow surfaceInset ring (that's one you've
-            spent), but a soft accent-outlined pip with the OUTLINE glyph. It has to read as
-            "extra, on top" rather than as a bigger day — the count is capped at
-            MAX_SURPLUS_PIPS in lib/energy.ts precisely so it stays a shape and not a score. */}
-        {Array.from({ length: surplus }).map((_, i) => (
-          <View
-            key={`surplus-${i}`}
-            style={[styles.pipSurplus, { backgroundColor: theme.accentSoft, borderColor: theme.accent }]}
-          >
-            <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.accent} />
-          </View>
-        ))}
+        {Array.from({ length: used }).map((_, i) => glyph('flash', theme.accent, `u${i}`))}
+        {Array.from({ length: left }).map((_, i) => glyph('flash-outline', theme.textMuted, `l${i}`))}
+        {gain > 0 && <View style={[styles.barSep, { backgroundColor: theme.border }]} />}
+        {Array.from({ length: gain }).map((_, i) => glyph('flash', theme.good, `g${i}`))}
       </View>
     );
+    // The legend is the only thing that says which way the glyphs read, so all three words stay
+    // even when a run is empty — two of them alone would leave the bar ambiguous.
+    const legend = (
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.accent} />
+          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={theme.textMuted} />
+          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendLeft}</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.good} />
+          <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendGivenBack}</Text>
+        </View>
+      </View>
+    );
+    // A bar clamped at full would otherwise read as a day exactly used up. It says so in words
+    // instead — stating, never scolding (DESIGN_RULES.md rule 23).
+    const overspendNote = overspent > 0 ? (
+      <Text style={[styles.overspendNote, { color: theme.textMuted }]} numberOfLines={2}>
+        {t.energyMeter.budgetOver(overspent)}
+      </Text>
+    ) : null;
     // The title row is gone (strip pass), so this value is the only thing naming the number for
     // a screen reader — `t.energyMeter.title` lives on here rather than as visible text.
     const value = (
@@ -681,6 +679,8 @@ export default function EnergyMeter() {
             {pips}
             {value}
           </View>
+          {legend}
+          {overspendNote}
         </View>
       </View>
     );
@@ -772,13 +772,13 @@ export default function EnergyMeter() {
               total (header, correction 2). The week row never gets one — `capacityForWeek`
               deliberately ignores the boost (store/useEnergyStore.ts), so there is nothing
               temporary about that number to mark. */}
-          {showDay && row('day', t.energyMeter.today, dayCurrent, dayCapacity, dayPulse, trailingControls,
+          {showDay && row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, trailingControls,
             dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null
           )}
           {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
           {/* `showDay ? null : trailingControls` — the glyphs are drawn by whichever meter comes
               FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
-          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekPulse, showDay ? null : trailingControls, null)}
+          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekSplit, weekPulse, showDay ? null : trailingControls, null)}
 
         </>
       )}
@@ -867,6 +867,11 @@ const styles = StyleSheet.create({
   // is the other way out of that squeeze: it costs one line and buys the label plus a
   // settable stepper. Don't collapse this branch back to one line.
   meterRow: { gap: 6 },
+  barSep: { width: 1, height: 14, marginHorizontal: 3, alignSelf: 'center' },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flexWrap: 'wrap' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 0 },
+  legendText: { fontSize: FontSize.xs, fontFamily: Fonts.medium, flexShrink: 1 },
+  overspendNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   // No justifyContent here — topRowTrailing's own marginLeft:'auto' pushes the stepper and
   // glyphs to the right edge, so this layout needs no conditional branch.
   meterTopRow: { flexDirection: 'row', alignItems: 'center' },

@@ -244,6 +244,26 @@ const en = {
     thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
+    /* The v2 Energibudsjett bar (2026-09-06). The mockup's legend is three words and they are
+       the ONLY thing that says which way the glyphs read — filled is energy SPENT here, the
+       inverse of the pip meter above, where a filled pip is energy you still have. Keep all
+       three visible: two of them alone would leave the reading ambiguous, which is the exact
+       confusion the 2026-08-03 label pass was fixing when it found a walkthrough reading ten
+       pips as a score. `givenBack` is deliberately not "earned" or "gained" — the energy came
+       back from a habit, it was not won. */
+    budgetTitle: 'Energy budget',
+    legendSpent: 'spent',
+    legendLeft: 'left',
+    legendGivenBack: 'given back',
+    scopeDay: 'Today',
+    scopeWeek: 'Week',
+    /** Peek line: "4 of 8 spent today · +1 given back". The give-back half is dropped when 0. */
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} of ${cap} spent${back > 0 ? ` · +${back} given back` : ''}`,
+    /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
+    budgetOver: (n: number) => `${n} past today's budget`,
+    budgetAdjust: 'Adjust budget',
+    budgetUnits: (n: number) => `${n} units`,
     /** Title of components/EnergyConfigSheet.tsx, and the ✏️'s accessibility label. */
     editTitle: 'Adjust energy',
     todayCapacity: "Today's energy",
@@ -2610,6 +2630,19 @@ const no: typeof en = {
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
     remaining: (n: number) => `${n} igjen`,
+    /* v2s Energibudsjett-stolpe (2026-09-06) — se den engelske tvillingen for hvorfor alle tre
+       forklaringsordene må stå. Fylt = brukt, som er motsatt av måleren over. */
+    budgetTitle: 'Energibudsjett',
+    legendSpent: 'brukt',
+    legendLeft: 'igjen',
+    legendGivenBack: 'gitt tilbake',
+    scopeDay: 'I dag',
+    scopeWeek: 'Uke',
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
+    budgetOver: (n: number) => `${n} over dagens budsjett`,
+    budgetAdjust: 'Juster budsjett',
+    budgetUnits: (n: number) => `${n} enheter`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
     todayCapacity: 'Energi i dag',
@@ -4461,6 +4494,19 @@ const is: typeof en = {
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
     remaining: (n: number) => `${n} eftir`,
+    /* v2 orkufjárhagsstikan (2026-09-06) — sjá enska tvíburann: fyllt = notað, öfugt við
+       mælinn fyrir ofan, og öll þrjú skýringarorðin þurfa að sjást. */
+    budgetTitle: 'Orkufjárhagur',
+    legendSpent: 'notað',
+    legendLeft: 'eftir',
+    legendGivenBack: 'skilað',
+    scopeDay: 'Í dag',
+    scopeWeek: 'Vika',
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
+    budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
+    budgetAdjust: 'Stilla fjárhag',
+    budgetUnits: (n: number) => `${n} einingar`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} notuð`,
     editTitle: 'Stilla orku',
     todayCapacity: 'Orka í dag',

@@ -643,7 +643,35 @@ async function main() {
           state: 'SHEET. Energy is the app\'s one number. Its explainer under the meter is PERMANENT rather than a card that self-destructs — an explanation that disappears is not there when you come back to the number months later.',
           components: 'EnergyConfigSheet, Stepper, Slider',
         });
+        // ⚠️ **Set a capacity before leaving, or the meter itself is never photographed.**
+        // Home draws `StarterCard` ("Set the day's energy") until a capacity exists, so every
+        // Home baseline in this set has only ever shown the TUTORIAL state. The v2 Energibudsjett
+        // bar — filled = brukt, outline = igjen, a divided run for gitt tilbake, and the legend
+        // that says which way to read them — lives in the populated meter and was invisible to
+        // this walk by construction: the 2026-09-06 pass that built it got `0 changed` across
+        // all 21 baselines in both themes, which is EXECUTION_RULES.md rule 2's "a harness that
+        // reports unchanged must prove it looked" exactly.
+        //   The `+` keys carry no accessible name of their own (components/Stepper.tsx), so they
+        // are reached through the row's label — the last button in the row labelled with
+        // `energyMeter.todayCapacity`.
+        const capRow = page.getByLabel("Today's energy").first();
+        if (await capRow.isVisible({ timeout: 3000 }).catch(() => false)) {
+          const plus = capRow.getByRole('button').last();
+          for (let i = 0; i < 8; i++) await plus.click({ timeout: 4000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        }
         await closeOverlays(page);
+        await page.waitForTimeout(900);
+        // Only shoot it if the starter card is actually gone — otherwise this is another
+        // confident capture of the state it was meant to replace.
+        if (!(await page.getByText("Set the day's energy", { exact: true }).first().isVisible({ timeout: 1500 }).catch(() => false))) {
+          await shot(page, 'home-energy-budget', {
+            title: 'Home — the Energy budget bar (v2)',
+            screen: 'components/EnergyMeter.tsx',
+            state: 'POPULATED METER, and the only baseline that reaches it. Filled = SPENT, outline = left — the inverse of the glossy pip token this row drew until 2026-09-06, and the reading v2 states outright. A third run in the habits hue, after a divider, is energy a habit gave BACK; it is capped so it stays a shape and not a tally. The legend is load-bearing: it is the only thing on screen saying which way the glyphs read.',
+            components: 'EnergyMeter, energyBudgetBar, EnergyConfigSheet',
+          });
+        }
       }
       // ⚠️ **No per-card ⋯ to shoot since 2026-09-01.** Home hid and arranged its cards from a
       // per-card kebab over its own `settings.homeCardOrder` column; that whole mechanism —
@@ -1284,6 +1312,21 @@ async function main() {
         if (!(await page.getByText('Save', { exact: true }).first().isVisible({ timeout: 5000 }).catch(() => false))) {
           throw new Error('task-editor: the row click did not open the editor — refusing to shoot the tab behind it');
         }
+        // ⚠️ **Blur before shooting, or this screen is machine-dependent.** The editor opens with
+        // its Name field focused and the existing text SELECTED, and a selection rectangle is
+        // sized from font metrics — so it lands a few pixels differently on this machine and on
+        // the CI runner. Measured: 137 px (0.034%) light, 150 px (0.037%) dark, against a
+        // MAX_DIFF_PIXELS floor of 24, on a diff where nothing else moved.
+        //   Playwright's screenshot already hides the CARET by default, which is why this looked
+        // deterministic locally and only failed across machines. `quick-add-focused-empty` is
+        // focused too and does NOT drift, because it is empty — there is no selection to draw.
+        //   The alternative was `MACHINE_DEPENDENT`, i.e. dropping the comparison entirely on
+        // what scripts/visual-diff.mjs calls "the densest form in the app… the single most
+        // valuable shot in this set". Removing the focus is the smaller loss by a wide margin:
+        // the editor's layout, spacing and controls — everything this baseline exists to guard —
+        // are unchanged by it.
+        await page.evaluate(() => (document.activeElement instanceof HTMLElement ? document.activeElement.blur() : undefined)).catch(() => {});
+        await page.waitForTimeout(500);
         await shot(page, 'task-editor', {
           title: 'The task editor, open on a row',
           screen: 'components/TaskCard.tsx (variant="full")',
