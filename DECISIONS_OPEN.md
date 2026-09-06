@@ -32,7 +32,71 @@ that will be re-derived, not made.**
 
 ## Open
 
-(none open)
+### v3 mockup: is this a visual pass, or an information-architecture change?
+
+**Asked 2026-09-06.** The brief was *"update visual to match v3 here, with v2 Energy"*, with
+`UnFocus_Screens_v3.html` and `Corrected_Screens_v2_1.html` attached.
+
+The **card system** in v3 — glass on an accent-washed backdrop, one connected row surface with an
+accent rail, a two-control header (chevron then ⤢), peek lines in words instead of a bare `0` —
+is essentially what the app already draws. `docs/audit/DESIGN_GAP_2026-09-06.md` reached the same
+conclusion against round 19/20 and listed what was left. Three of its open items are exactly the
+places v3 still differs, so that part is unambiguous and is being built:
+
+- **gap 6** — Shop's per-week empty state offers two competing actions; v3 wants one line, one button.
+- **gap 7** — Shop's fresh-install empty state has no action button and sits above the card rather than as its body.
+- **gap 8** — group rows draw `SectionRail`'s icon-badge + ALL-CAPS + hairline; v3 draws a boxed dot + label + count + chevron.
+- plus **v2's Energibudsjett card**, which is a different model from the shipped one and is named explicitly in the brief.
+
+**What needs a ruling is that v3 also moves features between tabs, and removes some.** None of
+this is a styling choice, and an agent cannot legitimately choose it:
+
+| tab | shipped today | v3 draws | change implied |
+|---|---|---|---|
+| Hjem | Notater · I dag · **Handleliste** | Notater · I dag · **Vaner** | swap the shopping preview for a habits preview |
+| Handle | Handlelister · **Mat** · Katalog | Handlelister · Katalog *(Varer/Retter tabs)* · **Budsjett** | fold Mat into Katalog as a tab; **build a new Budsjett card** |
+| Gjøremål | I dag · **Kalender** · Når som helst · **Gjentakende** | Når som helst · I dag · **Planlegger** | **drop Kalender and Gjentakende**; build a new Planlegger |
+| Helse | **Denne uken** · Helseplager · Medisin | Helseplager · Medisin | **drop Denne uken** |
+
+v3 also re-models the shopping list itself: one list with three sections a row moves between on
+tap (**I lista → I kurven → Kjøpt**), which is not how `WeekListCard` works today.
+
+**Measured cost.** The additive half (Budsjett, Planlegger, Katalog tabs) is new surfaces and new
+registry entries — large, but it breaks nothing. The subtractive half is different in kind:
+`todoCalendar`, `todoRecurring`, `healthWeek` and `shopDishes` are **shipped cards with user data
+behind them** and `fold: 'persisted'` storage keys. Removing a card does not remove its rows, and
+a user who has recurring tasks or a week of health logs would lose the only surface that shows
+them.
+
+**Options**
+
+| | what gets built | risk |
+|---|---|---|
+| **A** | Visual only — gaps 6/7/8 + the v2 Energibudsjett card. Tabs and cards stay as they are. | None to data. Screens will not match v3's card *lists*. |
+| **B** | A + the additive half: build Budsjett, Planlegger and Katalog's Varer/Retter tabs, keep every existing card. | Larger, but nothing is removed. Some tabs carry more cards than v3 draws. |
+| **C** | Full v3 — B, plus dropping Kalender, Gjentakende, Denne uken and Mat, plus the three-section shopping model. | Removes surfaces that are the only way to reach existing user data. Needs a per-card answer on what happens to that data. |
+
+**Blocks:** everything past the visual pass.
+
+> **ANSWERED 2026-09-06 — option C, full v3.** Maintainer, in the same breath: *"Make sure
+> backdrop and glass looks like V2, and it seems that Energy has not been fixed based on the
+> screenshots."*
+>
+> Two corrections that ruling carries, both accepted:
+> 1. **The v2 Energibudsjett card was never built.** PR #673 only changed the CTA's `variant`
+>    from `primary` to `secondary` (removing its halo). The card itself is still the shipped
+>    pip-row + "Set the day's energy" starter, not v2's filled/outline flash budget with its
+>    brukt / igjen / gitt tilbake legend and I dag / Uke segment. Calling the energy item
+>    "done" after #673 was wrong; it is open and in scope here.
+> 2. **The backdrop and the glass are in scope too.** v2 draws three radial accent washes per
+>    tab behind the stack, which is what gives the card material something to blur — the mockup's
+>    own note is *"Glass had nothing to blur… cards sat on flat near-black, so blur produced
+>    uniform grey slabs."* That has to match v2, not just the card shapes.
+>
+> The subtractive half of C still needs a per-card answer on existing user data before anything
+> is deleted; that is now its own row below rather than a reason to hold the rest.
+
+---
 
 ---
 

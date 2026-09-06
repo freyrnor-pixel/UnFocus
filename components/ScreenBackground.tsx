@@ -117,7 +117,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Circle } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from 'react-native-svg';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -166,34 +166,73 @@ const ROUTE_HUE: Record<string, ScreenKey> = {
  * `tone` picks which of the palette's two hues the orb draws in; the growth copy overrides both
  * with a single green, so an orb's tone is a neutral-state property only.
  */
-type Orb = { cx: number; cy: number; r: number; tone: 'cool' | 'warm' };
+type Orb = {
+  cx: number;
+  cy: number;
+  /** Half-extents, in viewBox units. Elliptical since 2026-09-06 — see `ORBS`. */
+  rx: number;
+  ry: number;
+  /** This wash's share of the palette peak, so one wash can be quieter than another. */
+  weight: number;
+  tone: 'cool' | 'warm';
+};
 
 /**
- * Three orbs — the top of the brief's "2 or 3", at the two corners it names plus a quieter
- * third for balance.
+ * Three washes, at the v2 corrected screens' own geometry.
  *
- * **The bottom-RIGHT corner is deliberately empty**, which is the one placement decision not
- * taken straight from the brief. The report is that the old art interfered with the bottom
- * navigation; the nav card is opaque so nothing can literally show through it, but its two
- * rounded top corners are notches that content and backdrop both show in, and stacking a second
- * glow along that edge would put the brightest part of the field in the exact place that was
- * complained about. One orb reaches the bottom edge, from the far side, and that is enough for
- * the screen to have a floor.
+ * ⚠️ **These were CORNER DISCS until 2026-09-06, and the change is deliberate, on a maintainer
+ * ruling: _"Make sure backdrop and glass looks like V2."_** Read this whole block before moving
+ * one back — the old placement was not arbitrary, and what replaced it is not a bigger version
+ * of the same idea.
  *
- * **The centre stays black.** At the canvas centre (140, 300) the distance to each centre is 296 /
- * 298 / 290 units against radii of 200 / 210 / 132 — every gradient has reached zero well before
- * it, at every growth level (`ORB_GROWTH_STEP` × the level cap adds 45 at most). The nearest any
- * orb gets to the protected card box (x 60–220, y 170–440) is its corner, where the falloff is
- * down around 2-3% of an already-14% peak. See this file's header for why that matters, and
- * `lib/__tests__/chromeRhythm.test.ts` §6 for the check that keeps it true.
+ * **What was wrong was the GEOMETRY, not the alpha.** `DARK.orbOpacity` has been 0.26 since
+ * 2026-08-31 and `lib/__tests__/glowBudget.test.ts` already records that the corrected screens'
+ * washes are "16–30% of the accent, so this lands inside what they draw". The alpha matched. The
+ * report was still *"backdrop is too empty"*, and then, on the v2 mockups, that the app's frames
+ * read flat beside them. The reason is coverage: three discs sitting at or outside a corner, each
+ * reaching zero before the card column, light the rim of the screen and nothing else. v2 draws
+ * three broad ellipses that carry across the frame, which is what its own note is about —
+ * *"Glass had nothing to blur. Cards sat on flat near-black, so blur produced uniform grey
+ * slabs."* Blur needs something behind it to be blur rather than a tint.
+ *
+ * **The numbers are v2's, converted once.** Its CSS is three `radial-gradient(W% H% at X% Y%)`
+ * against the frame box; this viewBox is 280×607, so a percentage maps straight onto it:
+ *
+ * | v2 CSS | here |
+ * |---|---|
+ * | `78% 46% at 8% -4%`, accent 30% | `cx 22 cy -24 rx 218 ry 279`, weight 1.00 |
+ * | `70% 46% at 104% 26%`, accent 22% | `cx 291 cy 158 rx 196 ry 279`, weight 0.73 |
+ * | `84% 42% at 46% 104%`, accent 16% | `cx 129 cy 631 rx 235 ry 255`, weight 0.53 |
+ *
+ * `weight` is that wash's share of the palette peak, applied as the shape's own opacity, so the
+ * 30/22/16 ladder survives without three gradients (one `<Defs>` per canvas — see `OrbCanvas`).
+ * v2 fades each wash out at 72% of its named radius; `ORB_STOPS` is already down to 34% by 0.62
+ * and gone by 1.0, so the falloff is kept as-is and the radii are v2's un-scaled. That is an
+ * approximation of the CSS and a faithful one of the look.
+ *
+ * ⚠️ **THE CENTRE IS NO LONGER TRUE BLACK, AND THAT IS THE POINT OF THE CHANGE.** The previous
+ * geometry's headline property — every gradient at zero by the canvas centre, so an OLED pixel
+ * under a card is unlit and `__tests__/glassMaterial.test.ts` could measure a card against
+ * `#000000` — is REVERSED here, not overlooked. Wash 3 reaches y≈376 from below and wash 1
+ * y≈255 from above, against a centre at y=300. The costs are real and were accepted with the
+ * ruling: slightly more OLED draw, and a card is now composited over a lit ground.
+ *   So the contrast question is no longer answerable from geometry, and
+ * `lib/__tests__/chromeRhythm.test.ts` §6 has been rewritten to check the ladder that now
+ * carries it. `glowBudget.test.ts`'s standing instruction — *"raising this again needs that
+ * measurement repeated, not this comment trusted"* — was honoured: the card fill was re-measured
+ * on the real render after this change, not modelled.
+ *
+ * The neutral cool/warm pair stays underneath as the floor, so a surface with no screen hue
+ * (onboarding) still has a field; the per-tab hue layer now covers all three washes rather than
+ * two, because v2's backdrop IS the tab's accent.
  */
 const ORBS: Orb[] = [
-  // top-right — the brief's first named corner, centred off the right edge
-  { cx: 292, cy: 46, r: 200, tone: 'cool' },
-  // bottom-left — its second, centred off the left edge
-  { cx: -12, cy: 556, r: 210, tone: 'warm' },
-  // top-left — the quiet third, so the top of the screen isn't lit from one side only
-  { cx: 24, cy: 34, r: 132, tone: 'warm' },
+  // v2 wash 1 — top-left, the strongest, bleeding in from off the top edge
+  { cx: 22, cy: -24, rx: 218, ry: 279, weight: 1, tone: 'warm' },
+  // v2 wash 2 — off the right edge, upper third
+  { cx: 291, cy: 158, rx: 196, ry: 279, weight: 0.73, tone: 'cool' },
+  // v2 wash 3 — bottom centre, the quietest, giving the screen a floor
+  { cx: 129, cy: 631, rx: 235, ry: 255, weight: 0.53, tone: 'warm' },
 ];
 
 /**
@@ -216,7 +255,7 @@ const ORBS: Orb[] = [
  * when it measures every glass token against a `#000000` ground, and what
  * `lib/__tests__/chromeRhythm.test.ts` §6 checks. Adding a hue must not become adding a disc.
  */
-const SCREEN_HUE_ORB_INDEXES = [0, 1] as const;
+const SCREEN_HUE_ORB_INDEXES = [0, 1, 2] as const;
 
 /**
  * Which discs each neutral colour paints, derived from `ORBS`' own `tone` rather than restated.
@@ -371,7 +410,17 @@ function OrbCanvas({ id, color, peak, level, indexes }: {
         </RadialGradient>
       </Defs>
       {discs.map((o, k) => (
-        <Circle key={k} cx={o.cx} cy={o.cy} r={o.r + grow} fill={`url(#${id})`} />
+        // `opacity` carries the wash's 30/22/16 ladder (see `ORBS`.weight). It multiplies the
+        // gradient's own stop alphas, which is why one `<Defs>` still serves all three.
+        <Ellipse
+          key={k}
+          cx={o.cx}
+          cy={o.cy}
+          rx={o.rx + grow}
+          ry={o.ry + grow}
+          opacity={o.weight}
+          fill={`url(#${id})`}
+        />
       ))}
     </Svg>
   );

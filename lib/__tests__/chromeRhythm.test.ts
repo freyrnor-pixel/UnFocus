@@ -795,8 +795,10 @@ describe('the backdrop — under everything, and out of the middle', () => {
 
   it('is two or three orbs at the brief\'s opacity, in both themes', () => {
     const s = code('components/ScreenBackground.tsx');
-    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*r:\s*([\d.]+),\s*tone:/g)];
-    // "2 or 3" is a cap, not a starting point: a fourth circle appearing at a growth tier would
+    // ⚠️ **Ellipses since 2026-09-06, not circles** — `rx`/`ry`, and each carries a `weight`.
+    // See `ORBS` in the component for why the geometry changed and what it costs.
+    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*rx:\s*([\d.]+),\s*ry:\s*([\d.]+),\s*weight:\s*([\d.]+),\s*tone:/g)];
+    // "2 or 3" is a cap, not a starting point: a fourth wash appearing at a growth tier would
     // read as a new element rather than as the same field growing.
     expect(orbs.length).toBeGreaterThanOrEqual(2);
     expect(orbs.length).toBeLessThanOrEqual(3);
@@ -815,29 +817,64 @@ describe('the backdrop — under everything, and out of the middle', () => {
     }
   });
 
-  it('leaves the middle of the canvas at a true zero, at every growth level', () => {
-    // **This is the assertion `__tests__/glassMaterial.test.ts` leans on.** That file measures
-    // every glass token against a `#000000` dark ground, which is only honest while nothing
-    // lights the pixels a card sits on. Both of the full-canvas radial glows are held at opacity
-    // 0 for exactly that reason; the orbs are allowed a lift only because they are anchored at or
-    // outside a corner and reach zero before the middle. Move one inward and the composite
-    // assertions over there keep passing while measuring a colour the app no longer draws — the
-    // shape of the PR #540 bug, which is why the geometry is checked here rather than described
-    // in a comment there.
+  it('keeps the washes anchored off-canvas, and the card fill measured rather than assumed', () => {
+    // ⚠️ **This test used to assert "the middle of the canvas is a true zero", and that
+    // invariant was DELIBERATELY REVERSED on 2026-09-06.** Maintainer: *"Make sure backdrop and
+    // glass looks like V2."* The old text is kept here because the reasoning behind it is still
+    // the reasoning that matters — what changed is which fact carries it.
+    //
+    // What it used to say: `__tests__/glassMaterial.test.ts` measures every glass token against
+    // a `#000000` ground, which is only honest while nothing lights the pixels a card sits on.
+    // The orbs were allowed a lift only because each was anchored at or outside a corner and
+    // reached zero before the middle. Move one inward and the composite assertions over there
+    // keep passing while measuring a colour the app no longer draws — the shape of the PR #540
+    // bug.
+    //
+    // That is now exactly what has happened, on purpose: v2's washes are broad ellipses that
+    // carry across the frame, because the report was that the app's frames read flat beside the
+    // mockup and `orbOpacity` was already inside v2's own 16–30% band. The alpha was never the
+    // problem; the coverage was. So the geometry can no longer prove the card fill, and a
+    // geometric assertion here would be a check that cannot fail in the direction that matters.
+    //
+    // **It is replaced by the measurement that thing was a proxy for.** Taken on the real dark
+    // render at 430×932 after this change, sampling inside a card's own fill:
+    //
+    //   card fill        rgb(36,36,36)   L 0.01764   ← identical to the pre-change value
+    //   notes  #B660FF   4.514:1  PASS      task   #F5C542  9.571:1  PASS
+    //   habits #4ADE80   8.908:1  PASS      health #FF5FA2  5.478:1  PASS
+    //   shop   #38BDF8   7.246:1  PASS
+    //
+    // Unchanged because dark `surfaceGlass` is a WHITE lift over whatever is behind it, and the
+    // card column is where all three washes have already fallen off — they light the frame, not
+    // the middle. That is v2's own composition, not a lucky escape, but it is a MEASUREMENT and
+    // it is only as good as its last re-run. `glowBudget.test.ts` says it outright: raising the
+    // alpha again needs the measurement repeated, not this comment trusted. The same now goes
+    // for moving a wash.
+    //
+    // What is still checkable in source, and still worth checking, is that no wash is centred
+    // ON the canvas — every one is anchored at or beyond an edge, so it reads as light from off
+    // the phone rather than as a shape drawn on it. That is the property v2 draws too.
     const s = code('components/ScreenBackground.tsx');
-    const step = Number(s.match(/const ORB_GROWTH_STEP = ([\d.]+);/)![1]);
-    // The widest an orb ever gets: the top growth tier lib/growth.ts can report.
-    const grow = step * (GROWTH_LEVELS.length - 1);
-
-    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*r:\s*([\d.]+),\s*tone:/g)];
+    const orbs = [...s.matchAll(/\{\s*cx:\s*(-?[\d.]+),\s*cy:\s*(-?[\d.]+),\s*rx:\s*([\d.]+),\s*ry:\s*([\d.]+),\s*weight:\s*([\d.]+),\s*tone:/g)];
     expect(orbs.length).toBeGreaterThan(0); // a parse that silently matched nothing proves nothing
-    // The viewBox this file declares, and its centre — where cards and text live.
-    const [, vw, vh] = code('components/ScreenBackground.tsx').match(/viewBox="0 0 (\d+) (\d+)"/)!;
-    const mid = { x: Number(vw) / 2, y: Number(vh) / 2 };
 
-    for (const [, cx, cy, r] of orbs) {
-      const dist = Math.hypot(Number(cx) - mid.x, Number(cy) - mid.y);
-      expect({ cx, cy, reachesMiddle: dist <= Number(r) + grow }).toEqual({ cx, cy, reachesMiddle: false });
+    const [, vw, vh] = s.match(/viewBox="0 0 (\d+) (\d+)"/)!;
+    const W = Number(vw), H = Number(vh);
+    // A wash's CENTRE must sit outside the canvas on at least one axis. v2's three do: two are
+    // off the top/right edges and one is below the bottom.
+    for (const [, cx, cy] of orbs) {
+      const x = Number(cx), y = Number(cy);
+      const offCanvas = x <= 0 || x >= W || y <= 0 || y >= H;
+      expect({ cx, cy, offCanvas }).toEqual({ cx, cy, offCanvas: true });
+    }
+
+    // The 30/22/16 ladder v2 draws, as fractions of the palette peak. Weights are what carry it
+    // (one `<Defs>` per canvas), so a wash silently going to full strength is a real regression.
+    const weights = orbs.map((m) => Number(m[5]));
+    expect(Math.max(...weights)).toBeCloseTo(1, 5);
+    for (const w of weights) {
+      expect(w).toBeGreaterThan(0);
+      expect(w).toBeLessThanOrEqual(1);
     }
   });
 
@@ -883,12 +920,13 @@ describe('the backdrop — under everything, and out of the middle', () => {
     // Every canvas resolves its discs through ORBS by index and draws them from that record —
     // the shape changed on 2026-08-31 (one canvas per layer), the property did not.
     expect(s).toMatch(/\(indexes \?\? ORBS\.map\(\(_, i\) => i\)\)\.map\(\(i\) => ORBS\[i\]\)/);
-    expect(s).toMatch(/cx=\{o\.cx\} cy=\{o\.cy\} r=\{o\.r \+ grow\}/);
+    expect(s).toMatch(/rx=\{o\.rx \+ grow\}/);
+    expect(s).toMatch(/ry=\{o\.ry \+ grow\}/);
     // …and NOTHING draws a disc from a literal. A hand-written cx is a disc the centre check
     // above never sees, which is the whole failure this test exists to prevent.
-    expect(s).not.toMatch(/<Circle[^>]*cx=\{-?[\d.]+\}/);
+    expect(s).not.toMatch(/<Ellipse[^>]*cx=\{-?[\d.]+\}/);
     // Every index it names must exist in ORBS.
-    const orbCount = [...s.matchAll(/\{\s*cx:\s*-?[\d.]+,\s*cy:\s*-?[\d.]+,\s*r:\s*[\d.]+,\s*tone:/g)].length;
+    const orbCount = [...s.matchAll(/\{\s*cx:\s*-?[\d.]+,\s*cy:\s*-?[\d.]+,\s*rx:\s*[\d.]+,\s*ry:\s*[\d.]+,\s*weight:\s*[\d.]+,\s*tone:/g)].length;
     const idx = s.match(/const SCREEN_HUE_ORB_INDEXES = \[([\d,\s]+)\]/)![1]
       .split(',').map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n));
     expect(idx.length).toBeGreaterThan(0);
