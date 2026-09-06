@@ -32,9 +32,15 @@ that will be re-derived, not made.**
 
 ## Open
 
+(none open)
+
+---
+
+## Answered
+
 ### Do runs of tasks and notes read as one connected list, or as separate cards?
-**Asked:** 2026-09-06 · **Blocks:** Phase 1 S1.1, and the scope of every row-convergence session
-after it.
+**Asked:** 2026-09-06 · **Answered:** 2026-09-06 · **Blocked:** Phase 1 S1.1, and the scope of
+every row-convergence session after it.
 
 Measured 2026-09-06 (`docs/audit/ROW_ENUMERATION.md`): 10 row-drawing surfaces exist. 4 use the
 shared recipe `lib/rowList.ts`. 6 don't, and they are six DIFFERENT shapes, not six copies of one.
@@ -52,11 +58,22 @@ answers this question two different ways.
 
 Not a bug and not a cleanup task — the three options produce three different-looking apps.
 
-**Answer:** _pending_
+**Answer: C.** `ShoppingRow`, `MonthlyTableRow`, and `MedicineSurface` are lists of same-kind
+items with no per-item identity worth a card shell — closer in spirit to what `PadSheet` /
+`HabitsSurface` / `PlanTaskCard` already converged than to a card. `TaskCard` and `NoteRow` are
+different: each is a distinct, individually-actionable item on a tab whose 2026-08-28 ruling
+(Plans day view) does not by itself extend to Todo/Notes — pulling those into rows would be a
+visible redesign of two main tabs that nobody has asked for and that this decision alone
+shouldn't authorize. `SettingRow` stays out on its own terms (grouped-list convention, not a
+connected list — `ROW_ENUMERATION.md` Part 1 agrees this one arguably *shouldn't* converge).
 
----
+Follow-through: `MonthlyTableRow` and `MedicineSurface` currently have no box at all (flush rows,
+per `ROW_ENUMERATION.md`), so converging them is new surface, not an import — each is its own
+session, sized and scoped the way S1.1 was for `ShoppingRow`. `INVARIANTS.md`'s row-recipe entry
+should be narrowed to name these three as the target set, with `TaskCard`/`NoteRow`/`SettingRow`
+recorded as deliberately out of scope rather than left looking like an oversight.
 
-## Answered
+### Should the pixel gate run in CI, and what would we pay for it?
 
 ### Should the pixel gate run in CI, and what would we pay for it?
 **Asked:** 2026-08-29 · **Answered:** 2026-08-30 · **It was a bug, not a trade.**
