@@ -5428,7 +5428,7 @@ Replaced with: PARTIAL, NOT CLOSED — 10 surfaces exist, the guard names 3
 and covers 1 more by delegation, 6 hand-roll distinct shapes and aren't
 covered, and the guard itself only checks an import string, not that
 `rowListStyle()` is called. "We have one row recipe" is to be treated as
-false until Phase 1 S1.1 lands. Source: `docs/audit/ROW_ENUMERATION.md`.
+false until Phase 1 S1.0–S1.3 land. Source: `docs/audit/ROW_ENUMERATION.md`.
 
 `DESIGN_RULES_AUDIT.md:1304-1312` stated, presently, that `HabitsSurface.tsx`
 hand-rolls its own row box — true when that audit entry was written, false
@@ -5445,8 +5445,8 @@ No test, no device, no code touched.
 Docs-only, at the maintainer's request. Filed the open decision "Do runs of tasks and notes read
 as one connected list, or as separate cards?" in `DECISIONS_OPEN.md`, with the three-option table
 (converge tasks+notes / narrow the invariant instead / converge only the three already-row-shaped
-surfaces) — blocks Phase 1 S1.1 and the scope of every row-convergence session after it. Answer is
-pending.
+surfaces) — blocks Phase 1 S1.1–S1.3 and the scope of every row-convergence session after it.
+Answer is pending.
 
 Re-synced `INVARIANTS.md`'s row-recipe bullet to the maintainer's 2026-09-06 phrasing: 4 of 10
 surfaces covered (not 3+1), `PadSheet`'s corner-clip explicitly called out as deliberate rather
@@ -5460,7 +5460,7 @@ reported only.
 
 No test, no device, no code touched.
 
-## 2026-09-06 — S1.1 ShoppingRow conformance brief written
+## 2026-09-06 — S1.0 ShoppingRow conformance brief written
 
 Docs-only. Pinned the one open value the maintainer needed before writing the brief: rule 5's
 "the card's own hue" for the shopping week list resolves to `getScreenColor(theme,
@@ -5468,7 +5468,7 @@ Docs-only. Pinned the one open value the maintainer needed before writing the br
 `'plans'` — not a separate `cardRegistry.ts`-stored colour; that file's `hue` field is itself typed
 `ScreenKey` and documented as resolved through `screenColor.ts` at render.
 
-Wrote `docs/sessions/S1.1_SHOPPINGROW_CONFORMANCE.md`: a full session brief for converging
+Wrote `docs/sessions/S1.0_SHOPPINGROW_CONFORMANCE.md`: a full session brief for converging
 `WeekListCard.tsx`'s row boxes onto `lib/rowList.ts`. Re-reading `WeekListCard.tsx` for the brief
 surfaced two things `ROW_ENUMERATION.md` didn't need to resolve: the in-cart region's `rowsCard`
 is tinted `theme.accent` while the other two boxed regions use `theme.good` (an existing internal
@@ -5483,3 +5483,42 @@ Session itself not run — this turn only produced the brief. `MedicineSurface`/
 remain explicitly out of scope, per `DECISIONS_OPEN.md`'s amended option C.
 
 No test, no device, no code touched.
+
+## 2026-09-06 — Section A state verification for Phase 1, three corrections
+
+Docs-only. Ran all nine of the handoff document's Section A state checks against the committed
+files before Phase 1 code work begins. A1, A2, A3, A5, A7, A8 passed as-is. Three failed and are
+fixed here; nothing else changed.
+
+A4 failed: `INVARIANTS.md`'s row-recipe bullet still called the 6 uncovered surfaces "an open
+design question" — true on the morning of 2026-09-06, stale by the same day once the A/B/C
+question was answered option C. Replaced with the resolved text: `ShoppingRow`, `MonthlyTableRow`,
+and `MedicineSurface` converge; `TaskCard`/`TodoSurface`, `NoteRow`/`NotesSurface`, and
+`SettingRow` are recorded as permanently out of scope by decision, not left reading as neglect.
+
+A6 failed partially: `DECISIONS_OPEN.md`'s Answered row for the row-convergence question correctly
+carried option C with its exclusions, but the amendment removing `ShoppingRow` from that decision's
+scope (it's governed by `DESIGN_RULES.md` rule 5 regardless of A/B/C, and is session S1.0 rather
+than depending on this answer) was missing. Appended it, and corrected the row's own
+`sized and scoped the way S1.1 was for ShoppingRow` to `S1.0`, and its `Blocked:` line from
+`Phase 1 S1.1` to `Phase 1 S1.1–S1.3`.
+
+A9 failed: the ShoppingRow conformance brief and its `PROGRESS_LOG.md` entries were labelled
+S1.1; S1.1 is the `<RowBox>` session, not this one. Relabelled to S1.0 throughout — file renamed
+`docs/sessions/S1.1_SHOPPINGROW_CONFORMANCE.md` → `docs/sessions/S1.0_SHOPPINGROW_CONFORMANCE.md`,
+its title, verification-card heading, and self-reference corrected, and a relabel note added near
+its top recording the change and why. `S1.1-PRE` (the enumeration session) is a different, correct
+label and was deliberately left untouched.
+
+A5 note: the only surviving "HabitsSurface hand-rolls its own row box" text is
+`DESIGN_RULES_AUDIT.md:1305`, and it already carries a dated "Superseded 2026-08-28" paragraph
+directly beneath it, so it does not read as current state. No change made — checked, not missed.
+
+A7 note: the Open section is `(none open)`; a stray empty duplicate
+`### Should the pixel gate run in CI, and what would we pay for it?` heading immediately above
+the real entry was removed while in that file.
+
+A3 note: R20.6's entry is intact and still `unverified`, awaiting the maintainer's device pass.
+Deliberately untouched.
+
+Docs-only. No `.ts`/`.tsx` touched. No test run, no device.
