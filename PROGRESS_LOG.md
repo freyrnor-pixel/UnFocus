@@ -5439,3 +5439,23 @@ appended a dated "Superseded 2026-08-28" note rather than deleting the
 paragraph outright, so the audit trail stays intact.
 
 No test, no device, no code touched.
+
+## 2026-09-06 — DECISIONS_OPEN.md gets the row-convergence question; INVARIANTS.md re-synced
+
+Docs-only, at the maintainer's request. Filed the open decision "Do runs of tasks and notes read
+as one connected list, or as separate cards?" in `DECISIONS_OPEN.md`, with the three-option table
+(converge tasks+notes / narrow the invariant instead / converge only the three already-row-shaped
+surfaces) — blocks Phase 1 S1.1 and the scope of every row-convergence session after it. Answer is
+pending.
+
+Re-synced `INVARIANTS.md`'s row-recipe bullet to the maintainer's 2026-09-06 phrasing: 4 of 10
+surfaces covered (not 3+1), `PadSheet`'s corner-clip explicitly called out as deliberate rather
+than drift, and a pointer to `DECISIONS_OPEN.md` for the 6 uncovered surfaces instead of asserting
+they need fixing.
+
+Checked the flagged `WeekListCard.tsx:950` question (3px left border, `theme.good`, against
+Decision 014 and the corner-discs invariant) against the synced `DESIGN_RULES.md` and
+`REBUILD_DECISIONS.md` in this checkout — see chat reply for the finding; not a file change,
+reported only.
+
+No test, no device, no code touched.
