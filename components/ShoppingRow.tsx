@@ -22,13 +22,18 @@
  *             components/NewSinceGlow (row + field "your last view was hiding this" marker),
  *             components/PressableScale, constants/theme, constants/motion (Duration/Ease tokens),
  *             lib/cardLayout (LayoutSpec — what this row is allowed to draw),
- *             lib/date, lib/haptics, lib/i18n, lib/useAppTheme, react-native-reanimated,
+ *             lib/date, lib/haptics, lib/i18n, lib/rowList (rowListStyle — S1.0 rule 5
+ *             conformance, see the `first`/`last`/`rail` props below), lib/useAppTheme,
+ *             react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx (every layout EXCEPT the chip one — where
  *             `spec.chips` is set that card draws components/ShoppingChip.tsx instead, which is
- *             the same item in a different shape, not a different row),
- *             app/(tabs)/shopping.tsx (weekly rows +
- *             purchased-history rows), and — until 2026-08-19 — the Home shopping
+ *             the same item in a different shape, not a different row; every WeekListCard call
+ *             site now passes `first`/`last`/`rail`, S1.0),
+ *             app/(tabs)/shopping.tsx (the reorderable "In list" rows, which now also pass
+ *             `first`/`last`/`rail` forwarded from WeekListCard's `renderReorderableRow` callback,
+ *             S1.0; and the Monthly tab's purchased-by-trip rows, which do NOT — see the S1.0
+ *             edit note below), and — until 2026-08-19 — the Home shopping
  *             preview — planned + cart rows, no drag reorder)
  *   Data    → mutations still bubble up via onToggle/onCollect/onRemove/onOpenDetail
  *             callbacks (the parent screen calls toggleCheck/toggleCollected/
@@ -125,6 +130,20 @@
  *     real category filter, category's only job in this app is sorting/filtering — a
  *     decorative per-row tag contradicted that, so it's gone. Filter by category via the
  *     filter bar (WeekListCard.tsx) instead of reading it off each row.
+ *   - **Rule 5 conformance (S1.0, docs/sessions/S1.0_SHOPPINGROW_CONFORMANCE.md).** `first`/
+ *     `last`/`rail` are new OPTIONAL props: when both `first` and `last` are passed (booleans,
+ *     never just one), `styles.row` — this row's own outermost VISUAL element (`styles.wrap`
+ *     above it and `NewSinceGlow`'s own wrapper are both bare `position:'relative'` passthroughs
+ *     with no fill/border of their own) — draws through `lib/rowList.ts`'s `rowListStyle()`
+ *     instead of the old bare `{ backgroundColor: theme.surface }`, and gains
+ *     `styles.rowBoxed`'s horizontal padding so content doesn't sit flush against the new
+ *     border (matching `components/PlanTaskCard.tsx`'s `flatRow`, which needs the same for the
+ *     same reason). Deliberately opt-in, not a default of `first=last=true`: two callers still
+ *     don't pass them — `app/(tabs)/shopping.tsx`'s Monthly-tab purchased-by-trip rows (a
+ *     different list, out of this session's scope per its own `styles.rowsCard` with no rail at
+ *     all) — and both must keep rendering exactly as before. Every `components/WeekListCard.tsx`
+ *     call site, and the reorderable "In list" rows it delegates to
+ *     `app/(tabs)/shopping.tsx`'s `renderReorderableRow`, now pass all three.
  */
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -142,8 +161,9 @@ import { ShoppingItem, useShoppingStore } from '@/store/useShoppingStore';
 import type { FlightRect } from '@/components/FlightOverlay';
 import { DONE_ROW_OPACITY, Fonts, FontSize, Radius, RowTrailing, Spacing, TabularNums } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
-import { useAccessibility, useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
+import { rowListStyle } from '@/lib/rowList';
 import { formatKr } from '@/lib/money';
 import { heavy } from '@/lib/haptics';
 import InventoryIcon from '@/components/InventoryIcon';
@@ -206,6 +226,18 @@ type Props = {
    * price that just appeared are what the user needs pointing out, not the row itself.
    */
   newFields?: { meta: boolean; price: boolean; extras: boolean };
+  /**
+   * This row's position in the connected list it sits in (rule 5, `lib/rowList.ts`) — pass
+   * BOTH or neither. A run of one takes both (`first={true} last={true}`), same as
+   * `rowListStyle()`'s own convention. Omitting both keeps the pre-S1.0 flush look (a plain
+   * `theme.surface` fill, no border) — see the "Rule 5 conformance" edit note above for which
+   * callers still omit them and why.
+   */
+  first?: boolean;
+  last?: boolean;
+  /** The list's own hue for the rail (`getScreenColor(theme, 'shopping').base`) — only
+   *  meaningful together with `first`/`last`. Omit for a rail-less boxed row. */
+  rail?: string;
 };
 
 function ShoppingRow({
@@ -221,12 +253,21 @@ function ShoppingRow({
   spec = LAYOUT_SPECS.normal,
   isNewSince = false,
   newFields,
+  first,
+  last,
+  rail,
 }: Props) {
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const styles = useScaledStyles(baseStyles);
   const t = useT();
   const { reducedMotion } = useAccessibility();
   const rowRef = useRef<any>(null);
+  // Opt-in per the edit note above: only ONE caller family (WeekListCard + the reorderable
+  // rows it delegates to app/(tabs)/shopping.tsx) passes both, so this can't default to
+  // `first ?? true` without silently reboxing the two callers that still don't.
+  const boxed = typeof first === 'boolean' && typeof last === 'boolean';
+  const rowBox = boxed ? rowListStyle({ isDark, first: !!first, last: !!last, rail }) : { backgroundColor: theme.surface };
 
   const qty = parseInt(item.amount, 10);
   const isNumeric = !isNaN(qty) && qty > 0;
@@ -311,7 +352,7 @@ function ShoppingRow({
       layout={reducedMotion ? undefined : LinearTransition.duration(Duration.listMove).easing(Ease.move)}
     >
       <NewSinceGlow active={isNewSince} suppressed={wasNewOnMount}>
-      <Animated.View style={[styles.row, spec.bigTouch && styles.rowBig, dimmed && styles.rowChecked, { backgroundColor: theme.surface }]}>
+      <Animated.View style={[styles.row, spec.bigTouch && styles.rowBig, dimmed && styles.rowChecked, boxed && styles.rowBoxed, rowBox]}>
         <Animated.View
           pointerEvents="none"
           style={[styles.highlight, { backgroundColor: theme.goodSoft, borderColor: theme.good }, highlightStyle]}
@@ -420,6 +461,10 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.sm,
   },
   rowChecked: { opacity: CHECKED_OPACITY },
+  // Only when `rowListStyle()` is drawing this row's own border (S1.0) — without it content
+  // would sit flush against the new edge/rail. Matches `components/PlanTaskCard.tsx`'s
+  // `flatRow` (`paddingHorizontal: Spacing.sm`), the row shape this converges to.
+  rowBoxed: { paddingHorizontal: Spacing.sm },
   // "In the store": read at arm's length, tapped one-handed while pushing a trolley.
   // Taller rows and a bigger check circle; the name grows via `nameBig`.
   rowBig: { paddingVertical: Spacing.md, gap: Spacing.md },
@@ -483,6 +528,12 @@ function shoppingRowPropsEqual(prev: Props, next: Props): boolean {
     prev.spec === next.spec &&
     prev.isNewSince === next.isNewSince &&
     prev.newFields === next.newFields &&
+    // S1.0: a row's box (fill/edge/corners/rail) depends on where it sits in the list, not
+    // just its own data — removing a neighbour can turn this row into the new first/last
+    // without `item` itself changing, so these must gate the memo too.
+    prev.first === next.first &&
+    prev.last === next.last &&
+    prev.rail === next.rail &&
     // Presence (not identity) of optional callbacks controls what renders (tap-through,
     // flight). Miss one here and the row won't repaint when a parent starts or stops
     // passing it — which is exactly how a layout change can fail to take effect.

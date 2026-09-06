@@ -47,7 +47,11 @@
  *
  * Connections:
  *   Imports → constants/theme (Radius)
- *   Used by → components/PadSheet.tsx, components/HabitsSurface.tsx, components/PlanTaskCard.tsx
+ *   Used by → components/PadSheet.tsx, components/HabitsSurface.tsx, components/PlanTaskCard.tsx,
+ *             components/ShoppingRow.tsx (S1.0, 2026-09-06 — WeekListCard.tsx computes the
+ *             first/last/rail primitives per row and passes them down; ShoppingRow itself calls
+ *             rowListStyle(), same division PlanTaskCard.tsx uses between "the list knows
+ *             position" and "the row draws itself")
  *   Data    → none (pure; no store, no DB — same discipline as lib/cardLayout.ts)
  *
  * Edit notes:

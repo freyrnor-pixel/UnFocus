@@ -133,15 +133,34 @@ read it before claiming a visual change is done.
   `FormControls.tsx`, `AddRow.tsx`, `CatalogueTab.tsx` and pinned by `chromeRhythm.test.ts`,
   `fieldAnatomy.test.ts`, `glowBudget.test.ts`. A field built without it will look wrong at rest
   or glow when it shouldn't. (source: docs/archive/AGENTS_HISTORY.md A18)
-- **One row recipe, `lib/rowList.ts` — PARTIAL COVERAGE, measured 2026-09-06.** 10 row-drawing
-  surfaces exist; 4 are covered (`PadSheet.tsx`, `HabitsSurface.tsx`, `PlanTaskCard.tsx`, and
-  `HealthIssuesPreviewList.tsx` by delegation). `PadSheet` clips corners on its outer wrapper
-  rather than per-row — a documented deliberate alternative (`PadSheet.tsx:33-40`), not drift.
-  6 surfaces hand-roll six DIFFERENT shapes and are uncovered; whether they should converge is
-  an open design question, not a defect — see `DECISIONS_OPEN.md`. The guard
-  (`screenRhythm.test.ts:429-434`) asserts only that the import STRING appears in 3 named files;
-  it cannot see whether `rowListStyle()` is called or rendered. Any new row-drawing surface
-  imports and CALLS it. (source: docs/audit/ROW_ENUMERATION.md)
+- **One row recipe, `lib/rowList.ts` — PARTIAL COVERAGE, measured
+  2026-09-06.** 10 row-drawing surfaces exist; 4 are covered
+  (`PadSheet.tsx`, `HabitsSurface.tsx`, `PlanTaskCard.tsx`, and
+  `HealthIssuesPreviewList.tsx` by delegation). `PadSheet` clips corners on
+  its outer wrapper rather than per-row — a documented deliberate
+  alternative (`PadSheet.tsx:33-40`), not drift. 6 surfaces hand-roll six
+  DIFFERENT shapes. Resolved 2026-09-06 (option C): `ShoppingRow`,
+  `MonthlyTableRow` and `MedicineSurface` converge — they are same-kind item
+  lists with no per-item identity worth a card. `TaskCard`/`TodoSurface`,
+  `NoteRow`/`NotesSurface` and `SettingRow` are PERMANENTLY OUT OF SCOPE, by
+  decision, not by neglect: the first two are a different design object
+  (per-item cards) and converging them would be an unrequested redesign of
+  two main tabs; `SettingRow` is a grouped-list convention. Do not re-open
+  these without reversing the 2026-09-06 ruling. The guard
+  (`screenRhythm.test.ts:429-434`) asserts only that the import STRING
+  appears in 3 named files; it cannot see whether `rowListStyle()` is called
+  or rendered. Any new row-drawing surface imports and CALLS it.
+  (source: docs/audit/ROW_ENUMERATION.md)
+  **Amended 2026-09-06 (S1.0 landed):** the counts above are the pre-S1.0
+  measurement, kept as the record. `ShoppingRow`/`WeekListCard` has since
+  converged — it calls `rowListStyle()` from inside `ShoppingRow.tsx`, with
+  `WeekListCard.tsx` supplying `first`/`last`/`rail` per row. So the live
+  count is **5 covered, 5 hand-rolling**, and the remaining convergence work
+  is `MonthlyTableRow` (S1.2) and `MedicineSurface` (S1.3). A second guard,
+  `lib/__tests__/shoppingRowConformance.test.ts`, now checks the CALL shape
+  rather than the import string, for those two files only; the
+  `screenRhythm.test.ts` blind spot described above is unchanged and is
+  S1.1's to close with `<RowBox>`.
 - **The backdrop's categorical hue rides the corner discs, never the card band.** Measured cost of
   drawing it at the card level: fails AA contrast for 3 of 5 identity hues and cuts the accent
   ladder from five rungs to three (`DESIGN_COMPARISON/20-MEASUREMENTS.md` §184). This is closed,

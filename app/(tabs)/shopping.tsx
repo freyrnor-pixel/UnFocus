@@ -128,6 +128,16 @@
  *             Food/Catalogue drawers — and reads each store only for the drawer's own count.
  *
  * Edit notes:
+ *   - **`renderReorderableRow` forwards row position (S1.0, docs/sessions/
+ *     S1.0_SHOPPINGROW_CONFORMANCE.md).** The prop grew from `(item)` to `(item, first, last)` —
+ *     WeekListCard.tsx computes those two booleans (it knows the combined ungrouped+dish-grouped
+ *     "In list" sequence; this file only ever saw one ungrouped item at a time before) and this
+ *     callback just threads them onto the wrapped `ShoppingRow`'s own `first`/`last`, alongside
+ *     the already-resolved `screenHue` as `rail` — the same rule-5 rail every other row in this
+ *     list now draws. Deliberately NOT extended to the Monthly tab's purchased-by-trip
+ *     `ShoppingRow`s further down this file (~line 2076) — a different list, out of that
+ *     session's stated scope, and `ShoppingRow`'s new props are opt-in so leaving them off there
+ *     keeps that region's pre-S1.0 look exactly.
  *   - **The payday-boundary check also runs on app foreground, not just navigation focus
  *     (2026-08-13).** `runShoppingDateChecks()` (recurring-list roll-forward + the
  *     `resetReviewVisible` detection) used to live entirely inside the `useFocusEffect` below,
@@ -2341,7 +2351,7 @@ export default function ShoppingScreen() {
                           spec={layoutSpec}
                           newSinceIds={newSinceIds}
                           newFields={newFields}
-                          renderReorderableRow={(item) => (
+                          renderReorderableRow={(item, first, last) => (
                             <DraggableTaskRow
                               isOpen={false}
                               registerNode={(node) => handleRegisterRowNode(list.id, item.id, node)}
@@ -2361,6 +2371,14 @@ export default function ShoppingScreen() {
                                 isNewSince={newSinceIds.has(item.id)}
                                 newFields={newFields}
                                 onFlightStart={(rect) => handleFlightStart(list.id, item, rect)}
+                                // S1.0 rule 5 conformance: position forwarded straight from
+                                // WeekListCard.tsx (which knows the combined ungrouped+dish-
+                                // grouped sequence), rail from this screen's own already-resolved
+                                // `screenHue` — the same value WeekListCard's border and every
+                                // other ShoppingRow instance in this list use.
+                                first={first}
+                                last={last}
+                                rail={screenHue}
                               />
                             </DraggableTaskRow>
                           )}
