@@ -85,6 +85,82 @@ async function settle(page, { budgetMs = 3000, step = 250 } = {}) {
   return false;
 }
 
+/**
+ * Freeze, then restore, every horizontal scroll position across `shot()`'s scroll-to-top.
+ *
+ * The tab bar is `react-native-pager-view`, which on web is a horizontally scrolling container.
+ * Chromium CHAINS a vertical wheel into the nearest ancestor that can consume it, so once
+ * `shot()`'s scroll-to-top has bottomed out the inner (vertical) scroller — which is most short
+ * screens — the remaining delta slides the PAGER sideways instead. It parks between two pages
+ * and stays there, so `settle()` sees a perfectly still frame and reports success while the
+ * screenshot shows two half screens, or the wrong tab entirely under the right nav highlight.
+ *
+ * That is how `task-editor` sat at 42-59% changed on a diff that never touched it, and why the
+ * parked frame reads as a stable baseline rather than an animation caught mid-flight.
+ *
+ * ⚠️ Restore, do NOT "snap to the nearest page". Nearest is a guess, and it guesses wrong exactly
+ * when the drift is worst: a wheel that pushes the pager more than half a page puts the nearest
+ * boundary on the WRONG tab, which produced a `shopping-populated` showing the To-do list under a
+ * highlighted Shop pill. The position the app itself set is the only correct answer, so record it
+ * before the wheel and put it back afterwards.
+ */
+async function freezeScrollX(page) {
+  return page
+    .evaluate(() => {
+      const marked = [];
+      let i = 0;
+      for (const el of document.querySelectorAll('*')) {
+        if (el.scrollWidth <= el.clientWidth + 1 || el.clientWidth === 0) continue;
+        const key = `sx${i++}`;
+        el.setAttribute('data-walk-sx', key);
+        marked.push([key, el.scrollLeft]);
+      }
+      return marked;
+    })
+    .catch(() => []);
+}
+
+async function restoreScrollX(page, marked) {
+  if (!marked || !marked.length) return;
+  await page
+    .evaluate((entries) => {
+      for (const [key, left] of entries) {
+        const el = document.querySelector(`[data-walk-sx="${key}"]`);
+        if (el && el.scrollLeft !== left) el.scrollLeft = left;
+        if (el) el.removeAttribute('data-walk-sx');
+      }
+    }, marked)
+    .catch(() => {});
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Force the tab pager onto an exact page index.
+ *
+ * Last resort, and needed because the two gentler moves both fail here:
+ *   · re-tapping the current tab is a no-op — the navigator still believes it is on that tab, so
+ *     nothing calls `jumpTo` and the drifted scroll offset stays exactly where it was;
+ *   · a To-do → Shop round trip does not reseat it either (measured: still straddling pages).
+ * The pager's scroll offset and the navigator's idea of the active tab have genuinely diverged,
+ * and only the offset is wrong, so writing the offset directly is the fix that matches the fault.
+ *
+ * The pager is the horizontally scrollable element whose page width is the viewport width; inner
+ * horizontal strips (week pickers, chip rows) are narrower and are left alone.
+ */
+async function forcePagerTo(page, index) {
+  await page
+    .evaluate((i) => {
+      const vw = window.innerWidth;
+      for (const el of document.querySelectorAll('*')) {
+        if (el.scrollWidth <= el.clientWidth + 1) continue;
+        if (Math.abs(el.clientWidth - vw) > 2) continue;
+        el.scrollLeft = i * el.clientWidth;
+      }
+    }, index)
+    .catch(() => {});
+  await page.waitForTimeout(400);
+}
+
 async function shot(page, name, meta = {}) {
   // A full-page screenshot here captures the VIEWPORT, not the whole scroll content: the app
   // scrolls inside a fixed-height ScrollView, not the document. So framing depends on wherever
@@ -94,9 +170,11 @@ async function shot(page, name, meta = {}) {
   if (meta.top !== false && !isOverlay) {
     // The cursor starts at (0,0), which is outside the scroller on several screens and makes
     // the wheel a no-op — park it over the middle of the content first.
+    const frozenX = await freezeScrollX(page);
     await page.mouse.move(215, 500);
     await page.mouse.wheel(0, -6000);
     await page.waitForTimeout(400);
+    await restoreScrollX(page, frozenX);
   }
   // Ask the page whether it has stopped moving. See `settle` — a fixed wait is only ever right
   // on the machine it was tuned on, and this walk runs on at least two.
@@ -163,6 +241,23 @@ async function tryText(page, text, timeout = 2500) {
 
 async function tryButton(page, name, timeout = 4000) {
   const btn = page.getByRole('button', { name, exact: true }).first();
+  if (!(await btn.isVisible({ timeout }).catch(() => false))) return false;
+  await btn.click({ timeout: 8000 }).catch(() => false);
+  await page.waitForTimeout(700);
+  return true;
+}
+
+/**
+ * Same as `tryButton`, but matches the accessible name as a SUBSTRING.
+ *
+ * `CardCollapseToggle` composes its label as `\`${cardLabel}: ${action}\``, so a week list's
+ * chevron is "Shopping list: Expand list", not "Expand list". The exact-match lookup the walk
+ * used therefore never matched, the card stayed collapsed, and — because `tryButton` reports a
+ * miss by returning false — nothing said so. Substring is the right shape for any control whose
+ * label is composed from a card name.
+ */
+async function tryButtonLike(page, fragment, timeout = 4000) {
+  const btn = page.getByRole('button', { name: fragment }).first();
   if (!(await btn.isVisible({ timeout }).catch(() => false))) return false;
   await btn.click({ timeout: 8000 }).catch(() => false);
   await page.waitForTimeout(700);
@@ -949,16 +1044,50 @@ async function main() {
 
     console.log('> shopping');
     await tab(page, 'Shop');
+    // TWO doors into a new week list, and which one is on screen depends on whether ANY week
+    // list already exists — `isWeeklyEmpty` in app/(tabs)/shopping.tsx, the 2026-08-13 "the
+    // empty state and the trigger are ONE card" ruling:
+    //   empty     → the empty card's body IS the choice; its button is labelled "Start empty".
+    //   not empty → a "Create a new list" trigger that opens a chooser whose first row is
+    //               "Start empty".
+    // The walk only ever knew the SECOND label. On a fresh install — which is every run — the
+    // lookup missed, `tryButton` returned false without throwing, and the entire seeding body
+    // was skipped while every `shot()` below it still fired. That is how `shopping-populated`
+    // and `shopping-monthly` came to be byte-identical to `shopping-empty` in both themes
+    // (md5sum-confirmed), and why the pixel gate has never once photographed a populated list.
+    // See EXECUTION_RULES.md standing debt 1.
+    let listCreated = false;
     if (await tryButton(page, 'Create a new list')) {
+      // Not-empty path: the trigger opened the chooser modal.
       await shot(page, 'shopping-new-list-modal', {
         title: 'Shopping — creating a list',
         screen: 'components/AppModal.tsx',
         state: 'MODAL. The app has ZERO native `Alert.alert` call sites left — every dialog is this in-app modal, which is also why the whole surface is reachable in this web preview at all.',
       });
-      await tryText(page, 'Start empty', 4000);
+      listCreated = await tryText(page, 'Start empty', 4000);
+    } else {
+      // Fresh-install path: no chooser, the card's own button makes the list.
+      listCreated = await tryButton(page, 'Start empty');
+    }
+    // A seeding step that cannot be skipped without failing the run (EXECUTION_RULES.md
+    // rule 1: a check that cannot fail is not a check). If the list was not created there is
+    // nothing to populate, and shooting the empty tab under a "populated" name is worse than
+    // shooting nothing — it is a baseline that looks like evidence.
+    if (!listCreated) {
+      throw new Error(
+        'shopping: could not create a week list via "Create a new list" or "Start empty" — ' +
+          'seeding aborted rather than shooting the empty tab as `shopping-populated`',
+      );
+    }
+    {
       await page.waitForTimeout(1400);
+      // A new list arrives with its NAME FIELD focused for an inline rename. Commit that first,
+      // or the keyboard-focused input swallows the next interaction.
+      await page.keyboard.press('Enter').catch(() => {});
+      await page.waitForTimeout(600);
       // A new list arrives collapsed; its items (and the add affordance) are behind the chevron.
-      if (!(await tryButton(page, 'Expand list'))) await tryText(page, 'Shopping list', 3000);
+      // Substring, not exact: the label is "<list name>: Expand list" (see tryButtonLike).
+      if (!(await tryButtonLike(page, 'Expand list'))) await tryText(page, 'Shopping list', 3000);
       await page.waitForTimeout(900);
       await shot(page, 'shopping-list-expanded-empty', {
         title: 'Shopping — a new, empty week list',
@@ -985,6 +1114,26 @@ async function main() {
         }
       }
     }
+    // Re-assert the tab through the app's OWN navigator before shooting. The seeding above
+    // scrolls elements into view, and `scrollIntoViewIfNeeded` walks up to the horizontal pager
+    // and drags it — leaving Shop parked against a neighbouring page. Restoring scroll positions
+    // cannot help here: by this point the bad position IS the app's position, so the only thing
+    // that puts the pager back on a whole page is navigating to it.
+    //   It has to be a ROUND TRIP. The navigator still believes it is on Shop — only the pager's
+    // scroll offset drifted — so tapping Shop again is a no-op that changes no state and moves
+    // nothing (measured: byte-identical capture, same 240443 px diff). Going to a neighbour and
+    // back forces a real `jumpTo`, which re-seats the pager on a whole page.
+    await tab(page, 'To-do');
+    await tab(page, 'Shop');
+    await forcePagerTo(page, 0); // Shop is SITE_ITEMS index 0 (lib/siteNav.ts).
+    // Same reasoning as the list-creation guard: `shopping-populated` must contain items or
+    // it is not the state its name claims. `Melk` is the first of the three seeded above.
+    if (!(await page.getByText('Melk', { exact: false }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+      throw new Error(
+        'shopping: the list was created but no seeded item is on screen — refusing to shoot ' +
+          'an empty list as `shopping-populated`',
+      );
+    }
     await shot(page, 'shopping-populated', {
       title: 'Shopping — with a list and items',
       screen: 'app/(tabs)/shopping.tsx',
@@ -1005,7 +1154,24 @@ async function main() {
 
     if (await tryText(page, 'Monthly list', 3000)) {
       await page.waitForTimeout(900);
+      // Tapping the LABEL does not open the section — the chevron does, and its accessible name
+      // is composed as "<title>: Expand list". `openCard` already knows that shape and is a
+      // no-op on an already-open card.
+      await openCard(page, 'Monthly list');
+      // The Monthly section sits BELOW the week lists, and `shot()` scrolls every non-overlay
+      // screen back to the top — so expanding Monthly and then shooting produced a frame
+      // byte-identical to `shopping-populated` (md5sum-confirmed). Same family of defect as the
+      // seeding no-op: a distinct name over an indistinct capture. Hold the scroll position
+      // (`top: false`) and bring the section into frame instead.
+      await page
+        .getByText('Monthly list', { exact: true })
+        .first()
+        .scrollIntoViewIfNeeded({ timeout: 5000 })
+        .catch(() => {});
+      // `scrollIntoViewIfNeeded` walks up to the horizontal pager and drags it; put it back.
+      await forcePagerTo(page, 0);
       await shot(page, 'shopping-monthly', {
+        top: false,
         title: 'Shopping — the Monthly list',
         screen: 'app/(tabs)/shopping.tsx',
         state: 'A TABLE, not a list of rows — the one place in the app that draws a table. A migration seeds one empty monthly list on every install, which is why an empty-state gate here has to count items rather than lists.',
@@ -1099,14 +1265,25 @@ async function main() {
         await field.press('Enter');
         await page.waitForTimeout(900);
 
-        // ⚠️ `.last()`, never `.first()`. All five tabs are mounted at once (`lazy: false`) and
-        // Home's preview card renders this same task a full screen-width to the left; both
-        // report `isVisible()`, and an element on another pager page can never be scrolled into
-        // this one's viewport, so the retry loop never converges. To-do is mounted after Home.
-        const probeRow = page.getByText('Screenshot probe', { exact: true }).last();
+        // ⚠️ `.first()`, never `.last()` — this comment used to say the exact opposite, and the
+        // opposite was wrong. All five tabs are mounted at once (`lazy: false`), and BOTH To-do
+        // and Home render a row for this task (Home's is its preview card). DOM order follows
+        // `lib/siteNav.ts`'s SITE_ITEMS — shop(0), plans/To-do(1), home(2) — so Home's copy is
+        // the LAST one and To-do's is the FIRST.
+        //   Targeting `.last()` therefore aimed at Home, and `scrollIntoViewIfNeeded()` obligingly
+        // dragged the horizontal pager off To-do to reach it. The click then landed on Home's
+        // preview row, no editor opened, and the shot below captured the Home tab. The committed
+        // `task-editor` baseline is that frame: a screen named for an editor it has never once
+        // photographed.
+        const probeRow = page.getByText('Screenshot probe', { exact: true }).first();
         await probeRow.scrollIntoViewIfNeeded({ timeout: 5000 });
         await probeRow.click({ timeout: 10000 });
         await page.waitForTimeout(1000);
+        // Prove the editor is actually open before shooting it (EXECUTION_RULES.md rule 2: a
+        // harness must prove it looked). `Save` belongs to the editor and to nothing behind it.
+        if (!(await page.getByText('Save', { exact: true }).first().isVisible({ timeout: 5000 }).catch(() => false))) {
+          throw new Error('task-editor: the row click did not open the editor — refusing to shoot the tab behind it');
+        }
         await shot(page, 'task-editor', {
           title: 'The task editor, open on a row',
           screen: 'components/TaskCard.tsx (variant="full")',

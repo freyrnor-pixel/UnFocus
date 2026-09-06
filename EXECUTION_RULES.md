@@ -160,16 +160,60 @@ Read it before "fixing" one.
 
 ## The standing debt this ruleset exists to clear
 
-Three known-broken checks. Until each is fixed, **do not cite it as evidence**:
+Five entries. Until each is fixed, **do not cite it as evidence**. Items 1 and 2 were cleared on
+2026-09-06 and are kept, struck through, as the record of what the fault actually was — the
+symptoms are the ones most likely to come back.
 
-1. **`scripts/screenshot-states.mjs` seeding no-ops silently.** `shopping-populated` and
-   `shopping-monthly` are byte-identical to `shopping-empty`. `tryButton()` returns without
-   throwing when its target is missing, and every `shot()` after it still runs. Fix: a seeding
-   step that cannot be skipped without failing the run.
-2. **`lib/__tests__/screenRhythm.test.ts:429-434` asserts an import string, not a call.** The
+1. ~~**`scripts/screenshot-states.mjs` seeding no-ops silently.**~~ **CLEARED 2026-09-06.**
+   *(Original text: `shopping-populated` and `shopping-monthly` are byte-identical to
+   `shopping-empty`. `tryButton()` returns without throwing when its target is missing, and every
+   `shot()` after it still runs. Fix: a seeding step that cannot be skipped without failing the
+   run.)*
+
+   Four root causes, all found by making the walk prove it looked:
+
+   | # | fault | fix |
+   |---|---|---|
+   | a | The walk looked for a button labelled **"Create a new list"**. On a fresh install — every run — the empty card's button says **"Start empty"** instead (the 2026-08-13 "empty state and trigger are ONE card" ruling). The lookup missed, `tryButton` returned false, and the whole seeding body was skipped. | Try both doors, then **throw** if neither made a list. |
+   | b | The collapse chevron's accessible name is composed as `"<card>: Expand list"`, so an exact-match lookup for `"Expand list"` never matched and the list stayed shut. | `tryButtonLike()` — substring match, for any control whose label is built from a card name. |
+   | c | A new list arrives with its **name field focused** for an inline rename, which swallowed the next interaction. | Commit it with `Enter` first. |
+   | d | `shopping-monthly` expanded the Monthly section, then `shot()` scrolled back to the top — so the frame came out byte-identical to `shopping-populated`. | `top: false` plus `scrollIntoViewIfNeeded`, and `openCard()` to actually open it. |
+
+   `shopping-list-expanded-empty` — previously a permanent coverage gap — is now captured too.
+
+2. **The horizontal pager drifts, and a drifted frame looks like a stable one.** Found the same
+   day, and the reason `task-editor` sat at 42–59% "changed" on diffs that never touched it.
+   `react-native-pager-view` is a horizontally scrolling container on web; Chromium **chains** a
+   vertical wheel into it once the inner scroller bottoms out, so `shot()`'s own scroll-to-top
+   slid the pager sideways. It parks between two pages and stops moving, so `settle()` reports a
+   still frame and the screenshot shows two half screens — or the wrong tab under the right nav
+   highlight.
+
+   Three fixes, in the order they were needed, because the first two are not sufficient on their
+   own and the notes say why at each call site:
+   - `freezeScrollX`/`restoreScrollX` around the wheel — stops `shot()` causing the drift.
+   - **Never "snap to the nearest page".** Nearest guesses wrong exactly when drift is worst.
+   - `forcePagerTo(index)` where the pager has already diverged from the navigator: re-tapping the
+     current tab is a no-op (no state change → no `jumpTo`), and even a round trip did not reseat
+     it. Writing the offset is the fix that matches the fault.
+
+   Also fixed: the `task-editor` excursion targeted `.last()` on a row that BOTH To-do and Home
+   render, and Home is last in `SITE_ITEMS` — so it aimed at Home and `scrollIntoViewIfNeeded`
+   dragged the pager there. The comment above it asserted the opposite mount order. It is
+   `.first()`, and the shot now asserts the editor is actually open before firing.
+
+3. **Still broken — captures that do not photograph their subject.** Do not cite these as
+   evidence. Found while clearing 1 and 2, all pre-existing and none introduced by that work:
+   - `catalogue` is byte-identical to `shopping-empty` — the Catalogue excursion never opens it.
+   - `health-form` is byte-identical to `health-empty`.
+   - `plans-empty` and the `tour-step-*` shots collapse into one frame. `plans-empty` still
+     drives the pre-2026-08-22 **three-tab** app: it clicks "Today's list" expecting to push
+     `app/plans.tsx`, but To-do has been a tab again since the 5-tab restore, so nothing pushes.
+   - The `food`, `day-log` and `notes-populated` excursions time out on every run.
+4. **`lib/__tests__/screenRhythm.test.ts:429-434` asserts an import string, not a call.** The
    `<RowBox>` work (session S1.1) is the fix: one component that is the sole caller of
    `rowListStyle()`, so the type system sees what the substring cannot.
-3. **The visual gate's coverage gaps are reported but not enforced.** Three screens the baseline
+5. **The visual gate's coverage gaps are reported but not enforced.** Three screens the baseline
    set wants, the walk cannot produce. A gap should fail the run, not print a line.
 
 Rule 2 is why these are listed here rather than left in a harness doc: a broken check is worse
