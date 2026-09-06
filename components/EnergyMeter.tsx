@@ -709,14 +709,26 @@ export default function EnergyMeter() {
         // longest block of teaching on Home, standing above every piece of real content on the
         // first screen a new user sees. What is left is the one thing this state is FOR: the
         // way in to setting the day's energy. The full explanation still lives in the ⓘ.
-        // `variant="primary"` (2026-08-16, "no header pill / tactile glow" polish pass — was
-        // `secondary`): this button is the ONE action on this card, not a quiet alternative to
-        // a louder one beside it, so it earns the halo `isRaised` reserves for primary/danger
-        // (constants/theme.ts's getGlow, via Button.tsx). **Its halo is the to-do gold in dark
-        // as of round 20, not blue** — this said "Home provides no screen hue" and that was the
-        // bug, not the design: Home simply never passed a `screenKey`, so the one button on the
-        // app's first screen wore the accent on a tab the mockup draws gold. Nothing changed
-        // here; app/(tabs)/index.tsx names the hue and Button.tsx already resolved it.
+        // ⚠️ **`variant="secondary"` again as of 2026-09-06 — reversing the 2026-08-16 change,
+        // on a maintainer ruling this time, not a polish pass** (DECISIONS_OPEN.md, "Does Home's
+        // energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?", option
+        // C). The maintainer's own words on the shipped screenshot: *"Energy was a lone glowing
+        // pill floating outside any card."* This card was already a `StarterCard` `Surface` —
+        // the CTA was never literally outside one — but a raised, haloed `primary` pill on a
+        // small, neutral-bordered card read as the loudest thing on Home regardless, which is
+        // the complaint the mockup's "slim card, glow only on the chosen one" line was actually
+        // making. `secondary` is `!isRaised` (constants/theme.ts's `getGlow`, via Button.tsx),
+        // so this control now draws NO halo — the direct way to make it read as the card's own
+        // subordinate action rather than compete with it. The pop-up it opens, the pips above it,
+        // and the budget/capacity model underneath are all otherwise untouched; do not reinstate
+        // `primary` on this button as a "consistency" fix without re-reading this note and
+        // DECISIONS_OPEN.md's answer first.
+        //   *(Superseded history: 2026-08-16 made this `primary`, reasoning "this button is the
+        // ONE action on this card, not a quiet alternative to a louder one beside it, so it
+        // earns the halo `isRaised` reserves for primary/danger." That reasoning was sound on
+        // its own terms — it is what the maintainer's later screenshot report was actually
+        // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
+        // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
         <StarterCard>
           {/* ⚠️ **A row of EMPTY pips above the button (2026-09-01).** Maintainer: *"insert empty
               energy bubbles in the empty state energy card so it's not so empty."* The card was
@@ -744,7 +756,7 @@ export default function EnergyMeter() {
           </View>
           <Button
             label={t.starters.energy.action}
-            variant="primary"
+            variant="secondary"
             size="sm"
             onPress={() => setConfigOpen(true)}
             style={styles.tutorialAction}

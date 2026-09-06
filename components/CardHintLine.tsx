@@ -15,13 +15,28 @@
  * starter copy all on screen at once — so bringing one line back is only safe while the others
  * stay gone.
  *
- * ⚠️ **It draws only on a card that HAS content, and that gate is what keeps it off the empty
- * state.** An empty surface already speaks: `components/StarterCard.tsx`'s one line, or
- * `components/NarratorQuote.tsx`'s aside. Drawing this as well would stack two muted italic
- * lines with nothing between them, which is both ugly and the exact "reads like a manual"
- * failure the deletion was about. The gate lives at the CALL SITE (each card knows what
- * "empty" means for it — `AGENTS.md`'s empty-state note lists five different predicates), not
- * here, so this component takes a string and draws it.
+ * ⚠️ **Flipped 2026-09-06 — it now draws only on a card that is EMPTY** (maintainer ruling,
+ * `DECISIONS_OPEN.md` "Does the 💡 hint line show on a card with content, or on an empty one?").
+ * Verbatim: *"Hint er kun når et kort er tomt."* A hint like "Break it down until it feels
+ * slightly ridiculous" helps someone staring at an empty list, not decoration over rows they
+ * already have — the ADHD-friendly reading, and why it outranks the round-20 mockup (which draws
+ * the hint together with rows on the `I dag` card; do not "correct" this back toward it). The
+ * gate still lives at the CALL SITE (each card knows what "empty" means for it), not here, so
+ * this component still just takes a string and draws it — only the direction of the condition at
+ * each site changed.
+ *   ⚠️ **This reopens the exact stacking the old rule existed to prevent, and that is a known,
+ * accepted cost, not an oversight.** An empty surface already speaks — `components/
+ * StarterCard.tsx`'s one line, or `components/NarratorQuote.tsx`'s aside — and every current call
+ * site (`TodoSurface.tsx`, `HabitsSurface.tsx`, `HealthSurface.tsx`, `shopping.tsx`, and Home's
+ * `PlanTaskCard.tsx`) draws one of those on the same empty state this hint now also draws on, so
+ * an empty card can carry two muted italic lines at once. Flagged in `PROGRESS_LOG.md`'s
+ * 2026-09-06 entry for a device check; not fixed here because the maintainer's ruling is the
+ * point, not a defect to route around.
+ *
+ * *(Superseded history, kept because the reasoning is still sound if a future ruling reverses
+ * this again: the ORIGINAL rule drew this only on a card that HAS content, precisely to keep it
+ * off the empty state and avoid the stacking above — the round-20 mockup agreed, drawing the
+ * hint together with rows on the `I dag` card.)*
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme

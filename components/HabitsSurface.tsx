@@ -794,7 +794,9 @@ export default function HabitsSurface() {
             <Card
               id="habitsList"
               peek={t.peek.habitsList(habitPeek.going, habitPeek.untouched)}
-              hint={visibleHabits.length > 0 ? t.cardHint.habitsList : undefined}
+              // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
+              // only while the card is EMPTY — see components/CardHintLine.tsx's header.
+              hint={visibleHabits.length === 0 ? t.cardHint.habitsList : undefined}
             >
 
 

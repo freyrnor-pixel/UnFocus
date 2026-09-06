@@ -5686,3 +5686,181 @@ Reply with the numbers only. Anything not listed was not changed.
 
 **unverified** — nothing above saw native rendering; awaiting the maintainer's device pass per the
 card above.
+
+## 2026-09-06 — Energy CTA into its card body; hint line flipped to empty-only, wired on Home
+
+Two maintainer-decided changes from `DECISIONS_OPEN.md`'s two answered rows this session
+("Does Home's energy card stay a capacity budget…" → **C**, and "Does the 💡 hint line show on a
+card with content, or on an empty one?" → **empty**). Both touch "which card, which button, what
+layout" — the maintainer's stated priority — so both get the full A1-A4 reporting contract.
+
+### Task 1 — Energy tutorial CTA
+
+**Enumeration of every state `components/EnergyMeter.tsx` can render** (its own `return`, not the
+populated meter's internals):
+- `EnergyMeter.tsx:701` `!pause.paused && showTutorial` — the empty/tutorial `StarterCard` +
+  10 pips + one button. **In scope, changed.**
+- `EnergyMeter.tsx:755` `!pause.paused && !showTutorial` — the populated `current/capacity`
+  meter (day/week rows). **Explicitly out of scope per the brief. Not touched.**
+- `EnergyMeter.tsx:783` `pause.paused` — the "I'm good" one-line acknowledgement. **Not touched.**
+- `EnergyMeter.tsx:792` `EnergyConfigSheet` — always mounted (visibility controlled by its own
+  prop), independent of the three states above. **Not touched.**
+- The whole component's mount is gated at the call site (`settings.energySystemEnabled`,
+  `app/(tabs)/index.tsx`), not inside this file — no additional internal `return null`.
+
+**What changed:** the tutorial state was already structurally inside a card —
+`components/StarterCard.tsx` is a `Surface`, so the CTA was never literally outside one — but the
+button was `variant="primary"`, which is `isRaised` (`constants/theme.ts`'s `getGlow`, via
+`Button.tsx`): always-lit, no focus gate, the halo the rule reserves for a screen's one loudest
+control. On a small, neutral-bordered card that is easy to miss as a card shape at all, that made
+the button the single most visually dominant thing on Home's first screen — which is what the
+maintainer's screenshot report was actually about, even though the mockup's literal words
+("floating outside any card") don't describe this codebase's actual structure. Changed
+`variant="primary"` → `variant="secondary"` at the one call site (`EnergyMeter.tsx:759`, was
+:745 before the rewritten comment above it grew). `secondary` is `!isRaised` — no halo at all,
+same matte-glass button family, same pop-up it opens. The 10 empty pips (2026-09-01, maintainer's
+own request) are untouched — they are the card's content; the button is now legibly the
+subordinate action on that content rather than competing with it.
+**Left alone, deliberately:** the Lav/Middels/Høy level picker (declined — DECISIONS_OPEN.md
+option A), `store/useEnergyStore.ts`, `lib/energy.ts`, the budget/capacity model, what pressing
+the button does, and the two other EnergyMeter states listed above. No height/spacing change to
+the card — it was already shorter than a populated content card below it (a pip row + one `sm`
+button vs. a header + composer + rows), so "slim" was already true structurally; only the glow
+was the problem.
+**Glow budget:** no new `getGlow`/`getFieldGlow` call site — the button's glow call is inside
+`components/PressableScale.tsx` (already `ALWAYS_LIT_ALLOWED` in `glowBudget.test.ts`, "primary
+key" category) and it is simply no longer *reached*, since `secondary` supplies no glow colour.
+`lib/__tests__/glowBudget.test.ts` needed no edit and passes unchanged. Rule 6 ("exactly one
+primary action per screen"): Home's other three cards (`PlanTaskCard`, `HomeNotesCard`,
+`HomeShoppingCard`) carry no `variant="primary"` Button at all, so this was already the only
+primary-styled control on Home's first screen — the fix removes the tension rather than resolving
+a numeric violation of the rule.
+
+### Task 2 — Hint line, empty-only, wired on Home
+
+**Every `hint=` call site**, grepped across `components/` and `app/` (excludes the unrelated
+`hint`/`hint=` used by `SettingRow`/`app/settings.tsx`'s settings rows and
+`components/CardStarterSheet.tsx`'s design-lab picker row — different prop, different component,
+not `CardHintLine`):
+- `components/TodoSurface.tsx:1349`→now `:1352` (`todoToday`), `:1464`→now `:1468`
+  (`todoCalendar`) — flipped.
+- `components/HabitsSurface.tsx:797`→`:799` (`habitsList`) — flipped.
+- `components/HealthSurface.tsx:498`→`:500` (`healthWeek`) — flipped.
+- `app/(tabs)/shopping.tsx:2132`→`:2134` (`shopLists`) — flipped.
+- `components/Card.tsx:198` — the sole mount site (`<CardHintLine>`), unchanged.
+- Home's three cards had **no** `hint` at all — the unshipped half of round 20 phase 4:
+  `components/PlanTaskCard.tsx` (`homeToday`), `components/HomeNotesCard.tsx` (`homeNotes`),
+  `components/HomeShoppingCard.tsx` (`homeShopping`) — all three wired now.
+
+**The flip:** every existing site's ternary inverted from `x.length > 0 ? hint : undefined` to
+`x.length === 0 ? hint : undefined` (or the card's own count variable). `CardHintLine.tsx`'s
+header rule rewritten and dated 2026-09-06, old rule kept as superseded history per the repo's
+convention rather than deleted.
+
+**Home wiring:**
+- `PlanTaskCard.tsx` (`homeToday`, the "I dag" card): `countableTasks.length === 0 ?
+  t.cardHint.todoToday : undefined` — reused the To-do tab's own key; same card idea.
+- `HomeShoppingCard.tsx` (`homeShopping`): `totalCount === 0 ? t.cardHint.shopLists : undefined`
+  — reused Shop tab's key; same feature (the weekly list), surfaced on Home.
+- `HomeNotesCard.tsx` (`homeNotes`): `notes.length === 0 ? t.cardHint.homeNotes : undefined` —
+  no existing key fit Notes, so added `cardHint.homeNotes` to all three locales in `lib/i18n.ts`
+  (en/no/is), all three ≤69/61/65 chars (cap is 90 — `exampleRows.test.ts`'s clamp test), no
+  guilt/urgency words, no counted noun (no `isCount` needed).
+
+**⚠️ This deliberately contradicts `DESIGN_COMPARISON/20-corrected-screens.html`**, whose Home
+`I dag` card draws the hint together with rows. The maintainer's ruling outranks the mockup here
+— verbatim in `DECISIONS_OPEN.md`: *"Hint er kun når et kort er tomt."* Do not "correct" this
+back toward the mockup.
+
+**⚠️ A second, more consequential tension, found while implementing — not only the mockup
+conflict already on record.** Every one of the five now-flipped call sites, and the new
+`PlanTaskCard` wiring, already draws `NarratorQuote` and/or `StarterCard` on the exact same empty
+state the hint now also draws on (confirmed by reading each surface: `TodoSurface.tsx` — Today's
+own empty branch draws `NarratorQuote`; `HabitsSurface.tsx`, `HealthSurface.tsx`,
+`shopping.tsx` — same pattern). This is precisely the stacking the ORIGINAL has-content rule was
+built to prevent (its own words: *"two muted italic lines with nothing between them… both ugly
+and the exact 'reads like a manual' failure the deletion was about"*). The maintainer's ruling is
+explicit and is implemented as given, and `DECISIONS_OPEN.md`'s answer anticipated the mockup
+conflict — but it does not mention this NarratorQuote/StarterCard overlap, which is a different,
+broader mechanism than the mockup disagreement and now affects every wired card, not just Home's.
+No test forbids it (nothing asserts "no two italic lines in one card" — `CardHintLine` and
+`NarratorQuote` are both already-sanctioned italic files per `narratorQuotes.test.ts`), so nothing
+here fails red, but it is a real, visible-on-device consequence worth a maintainer look
+specifically at an empty Today/Habits/Health/Shop card, not folded silently into "matches the
+ruling." Recorded here rather than worked around.
+
+**Verification:**
+- `npx tsc --noEmit` → 0 errors.
+- `scripts/test-changed.sh` (diff-driven): 32 suites, 455/455 passed.
+- Explicitly run: `glowBudget`, `cardAnatomy`, `chromeRhythm`, `copyTone`, `designTokens`,
+  `exampleRows`, `narratorQuotes`, `stableLayout`, `energyModes` → 9 suites, 303/303 passed.
+- Full suite (`npx jest`): 133 suites, 2490 passed, 1 pre-existing skip, 0 failed.
+- **Tests updated** (both in `lib/__tests__/exampleRows.test.ts`, comments/name only — no
+  assertion changed, since the mechanical check ("a ternary exists") does not depend on
+  direction):
+  - The `describe` header's point 4 rewritten from "drawn only while a card has content" to
+    "drawn only while a card is EMPTY," dated and pointing at `DECISIONS_OPEN.md`.
+  - `'every hint fits its two-line clamp…'`'s comment rewritten — it used to assert the wrap
+    walk reliably sees "0 drawn" on a fresh install; after the flip the fresh-install walk (every
+    card empty) should now actually draw hints, confirmed below.
+  - `'every card that passes a hint gates it on having content'` renamed to `'…gates it on a
+    condition (either direction)'` and its comment rewritten to say explicitly that only ternary
+    presence is checked, not which way it points — the direction is exactly what changed
+    app-wide, so asserting a direction here would have been asserting against the very ruling
+    this session implements.
+- `halos` (light + `--theme=dark`, 360px): baseline (stashed tree) 0 clipped / 10 clean / 10
+  scanned in both themes. After: identical — 0 clipped / 10 clean / 10 scanned, both themes. The
+  Energy button change touches a `getGlow` (button), not `getFieldGlow` (field) — this harness
+  only measures fields — so no change was expected here and none appeared.
+- `wraps --lang=no --width=360` (the documented worst case): baseline (stashed tree) **CARD HINT
+  lines — 0 drawn** (expected — old rule + fresh install = every gate false), 21/21 screens, 1
+  CLIPPED (`[tour-step]`, pre-existing), 6 wrapped rows, 5 truncated, 9 near-misses, totals "75
+  wrapped / 6 truncated / 11 wrapped rows / 4 clipped". After: **CARD HINT lines — 50 drawn, 0
+  over the two-line clamp** — the flip made the wrap walk's own CARD HINT pass exercise the real
+  clamp for the first time (a coverage improvement, not a regression). Wrapped-rows and
+  truncated counts unchanged (6, 5). One NEW clipped finding and one NEW near-miss, both
+  `[tour-step]` and both the `shopLists` hint text — this is `HARNESS.md`'s already-documented
+  blind spot ("Anything the tour-step scan reports about a card on ANOTHER TAB… trust the
+  per-screen scans over tour-step") firing on the Shop card's hint while Home's tour overlay is
+  up and Shop is transiently co-mounted; the directly-measured `Handle` (Shop) and `home` scans
+  show no new clipped/truncated/wrapped finding at all. Totals moved to "149 wrapped / 6
+  truncated / 11 wrapped rows / 3 clipped" (wrapped count rose because CARD HINT lines are now
+  measured as text nodes too — expected, not a defect); the clipped-total count (an aggregate the
+  script computes beyond the named list) went 4→3, i.e. it did not increase.
+- Both themes: `halos` run in light and dark explicitly (above). `wraps` run in light only (its
+  default) — no theme dependency expected for text length/wrap layout, and none of this
+  session's changes touch colour.
+
+## Verification — hint-flip + energy-CTA session
+Fixed at 9 call sites: `components/EnergyMeter.tsx:759` (variant), `components/TodoSurface.tsx`
+(2 sites: :1352, :1468), `components/HabitsSurface.tsx:799`, `components/HealthSurface.tsx:500`,
+`app/(tabs)/shopping.tsx:2134`, `components/PlanTaskCard.tsx:1898`,
+`components/HomeNotesCard.tsx:352`, `components/HomeShoppingCard.tsx:378`
+Harnesses that saw it: tsc, jest (9 targeted suites + full 133-suite run), halos (both themes),
+wraps (light; CARD HINT pass now exercised for the first time)
+Blind to this change: native halo rendering (button glow removed — web preview cannot show
+whether the *previous* glow actually read as "loudest thing" on a real screen, only that it is
+gone from the source), native italic rendering of the stacked NarratorQuote+CardHintLine lines,
+Android optical centering — none of these are specific to this change beyond the standing list.
+
+Check on device, both themes:
+1. [dark]  Home → Energy tutorial card (fresh install / no capacity set): the button reads as
+           part of the card, not a separate glowing pill.                    pass / fail
+2. [light] Same.                                                             pass / fail
+3. [dark]  Home → Energy tutorial card: the 10 empty pips are still there, above the button.
+                                                                              pass / fail
+4. [dark]  Home → "I dag" card, empty: the hint line shows under the header. Confirm whether it
+           reads as redundant beside the narrator line already there — this is the flagged
+           tension above, not a pass/fail on its own.                        pass / fail / redundant
+5. [light] Home → "I dag" card, empty: same.                                 pass / fail / redundant
+6. [dark]  Home → Notes card, empty: the new hint line shows and is legible.  pass / fail
+7. [dark]  Home → Shopping card, empty: the hint line shows (reused shopLists copy).
+                                                                              pass / fail
+8. [dark]  To-do tab → Today card, WITH tasks: the hint is now GONE (it used to show here).
+                                                                              pass / fail
+9. [dark]  To-do tab → Today card, EMPTY: the hint now shows.                pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+
+**unverified** — nothing above saw native rendering; awaiting the maintainer's device pass per
+the card above.
