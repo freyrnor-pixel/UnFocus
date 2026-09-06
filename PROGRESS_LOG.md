@@ -5372,3 +5372,114 @@ Claim: unverified — verification card issued, awaiting device
 STOP gates hit: none
 Round 20 status: phases 1-6 complete in code; phase 5 closes when R20.6's card passes.
 ```
+
+## 2026-09-05 — S1.1-PRE: row-drawing surface enumeration, no fix
+
+Docs-only, precondition-gated (R20.6 entry present, `docs/audit/ROW_ENUMERATION.md`
+did not exist). Enumerated every repeating-list row surface in the app with
+`file:line`, whether it imports `lib/rowList.ts`, and where its done/delete
+column sits. Wrote `docs/audit/ROW_ENUMERATION.md`.
+
+Findings: 10 surfaces enumerated. 3 (`PadSheet`, `HabitsSurface`,
+`PlanTaskCard`) are named by `lib/__tests__/screenRhythm.test.ts`'s guard;
+1 (`HealthIssuesPreviewList`) is covered by delegating its whole list to
+`PadSheet`; 6 are not covered and each hand-rolls a different shape
+(`TaskCard`/`TodoSurface` and `NoteRow`/`NotesSurface` both draw separate
+floating cards with a gap — the pre-`rowList` failure mode `lib/rowList.ts`'s
+own header describes fixing elsewhere; `ShoppingRow`/`WeekListCard` draws a
+left-border-hue box; `MonthlyTableRow` and `MedicineSurface` are fully flush
+rows with no box at all). `SettingRow` is judged a legitimately different
+design object (grouped settings list), not a gap.
+
+Resolved the `HabitsSurface` "does it hand-roll or import" question as
+non-contradictory: it hand-rolled until 2026-08-28 (its own header says so)
+and has imported+called `rowListStyle()` since — a planning note describing
+the pre-2026-08-28 state is simply stale, not a live discrepancy.
+
+The guard test itself asserts import-string presence via a source read
+(`read(file).includes("from '@/lib/rowList'")`), not rendered output or even
+that `rowListStyle()` is called — `PadSheet` passes it on the strength of
+importing the module's constants alone, not by calling the function.
+
+Part 4: the `cardRegistry.ts` compile-time-guard trick does not transfer as
+a type annotation over the existing `rowListStyle()` (a style-object
+function, not a gate on usage) — it would need a new `<RowBox>` wrapper
+component, analogous to `Card.tsx`, that becomes the only caller of
+`rowListStyle()`, with every current and future row-drawing file migrated
+onto it.
+
+STOP-gate on scope: converging the 6 hand-rolled surfaces onto one recipe
+is more than one session — at least five independent conversions plus the
+`<RowBox>` extraction if the compile-time guarantee is also wanted. Recorded
+rather than narrowed.
+
+Verification: none — nothing renders, this is a source enumeration only.
+`git diff --stat` shows one file changed (`docs/audit/ROW_ENUMERATION.md`).
+`npx tsc --noEmit` and the test suite untouched (nothing in `components/`,
+`app/`, or `lib/` was edited).
+
+## 2026-09-05 — INVARIANTS.md + DESIGN_RULES_AUDIT.md brought in line with ROW_ENUMERATION.md
+
+Docs-only follow-up to the enumeration above, at the maintainer's request.
+
+`INVARIANTS.md`'s "One row recipe" bullet (previously lines 136-140) claimed
+the recipe was simply enforced-by-import across the three files it named.
+Replaced with: PARTIAL, NOT CLOSED — 10 surfaces exist, the guard names 3
+and covers 1 more by delegation, 6 hand-roll distinct shapes and aren't
+covered, and the guard itself only checks an import string, not that
+`rowListStyle()` is called. "We have one row recipe" is to be treated as
+false until Phase 1 S1.1 lands. Source: `docs/audit/ROW_ENUMERATION.md`.
+
+`DESIGN_RULES_AUDIT.md:1304-1312` stated, presently, that `HabitsSurface.tsx`
+hand-rolls its own row box — true when that audit entry was written, false
+since 2026-08-28 (`HabitsSurface.tsx` imports and calls `rowListStyle()`
+directly, per `ROW_ENUMERATION.md` Part 2). Left the original paragraph as
+historical record (this doc's own convention for superseded findings) and
+appended a dated "Superseded 2026-08-28" note rather than deleting the
+paragraph outright, so the audit trail stays intact.
+
+No test, no device, no code touched.
+
+## 2026-09-06 — DECISIONS_OPEN.md gets the row-convergence question; INVARIANTS.md re-synced
+
+Docs-only, at the maintainer's request. Filed the open decision "Do runs of tasks and notes read
+as one connected list, or as separate cards?" in `DECISIONS_OPEN.md`, with the three-option table
+(converge tasks+notes / narrow the invariant instead / converge only the three already-row-shaped
+surfaces) — blocks Phase 1 S1.1 and the scope of every row-convergence session after it. Answer is
+pending.
+
+Re-synced `INVARIANTS.md`'s row-recipe bullet to the maintainer's 2026-09-06 phrasing: 4 of 10
+surfaces covered (not 3+1), `PadSheet`'s corner-clip explicitly called out as deliberate rather
+than drift, and a pointer to `DECISIONS_OPEN.md` for the 6 uncovered surfaces instead of asserting
+they need fixing.
+
+Checked the flagged `WeekListCard.tsx:950` question (3px left border, `theme.good`, against
+Decision 014 and the corner-discs invariant) against the synced `DESIGN_RULES.md` and
+`REBUILD_DECISIONS.md` in this checkout — see chat reply for the finding; not a file change,
+reported only.
+
+No test, no device, no code touched.
+
+## 2026-09-06 — S1.1 ShoppingRow conformance brief written
+
+Docs-only. Pinned the one open value the maintainer needed before writing the brief: rule 5's
+"the card's own hue" for the shopping week list resolves to `getScreenColor(theme,
+'shopping').base` (`lib/screenColor.ts`), the same mechanism `PlanTaskCard.tsx` already uses for
+`'plans'` — not a separate `cardRegistry.ts`-stored colour; that file's `hue` field is itself typed
+`ScreenKey` and documented as resolved through `screenColor.ts` at render.
+
+Wrote `docs/sessions/S1.1_SHOPPINGROW_CONFORMANCE.md`: a full session brief for converging
+`WeekListCard.tsx`'s row boxes onto `lib/rowList.ts`. Re-reading `WeekListCard.tsx` for the brief
+surfaced two things `ROW_ENUMERATION.md` didn't need to resolve: the in-cart region's `rowsCard`
+is tinted `theme.accent` while the other two boxed regions use `theme.good` (an existing internal
+inconsistency, not just a mismatch with rule 5), and the Purchased section renders no box at all
+(flush rows with only a `rowDivider` hairline) — a 4th region, not 3. The brief enumerates all 4,
+requires re-confirming the `dishGroup` nesting is transparent-at-rest before treating
+ungrouped+dish-grouped rows as one sequence, and requires the full visual-change reporting
+contract (evidence tags, blind classes, a both-theme verification card) since this is a rendering
+change once executed.
+
+Session itself not run — this turn only produced the brief. `MedicineSurface`/`MonthlyTableRow`
+remain explicitly out of scope, per `DECISIONS_OPEN.md`'s amended option C.
+
+No test, no device, no code touched.

@@ -1311,6 +1311,13 @@ files render correctly in isolation — so the guard reads the literals out of P
 and asserts HabitsSurface's source contains the same strings, rather than asserting a fixed
 value twice.
 
+**Superseded 2026-08-28.** `HabitsSurface.tsx` no longer hand-rolls its own row box — it now
+imports and calls `lib/rowList.ts`'s `rowListStyle()` directly, the same recipe `PadSheet.tsx`
+and `PlanTaskCard.tsx` consume, and the literal-comparison describe block referenced above was
+replaced by `lib/__tests__/screenRhythm.test.ts`'s import-based guard (see
+`docs/audit/ROW_ENUMERATION.md`, 2026-09-05, Part 2 and Part 3). The paragraph above describes
+this file's state before that date only.
+
 ### 4. The ⤢ is back, at a measured and accepted cost
 
 Rule 28 flipped `controls → fold` (2026-08-22) to `controls → ⤢ → fold` (now), reversing the

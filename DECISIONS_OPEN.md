@@ -32,7 +32,27 @@ that will be re-derived, not made.**
 
 ## Open
 
-_None._
+### Do runs of tasks and notes read as one connected list, or as separate cards?
+**Asked:** 2026-09-06 · **Blocks:** Phase 1 S1.1, and the scope of every row-convergence session
+after it.
+
+Measured 2026-09-06 (`docs/audit/ROW_ENUMERATION.md`): 10 row-drawing surfaces exist. 4 use the
+shared recipe `lib/rowList.ts`. 6 don't, and they are six DIFFERENT shapes, not six copies of one.
+
+The Plans day view was deliberately changed on 2026-08-28 because four tasks read as four cards.
+The To-do tab still draws exactly that: each task is its own card with an 8px gap
+(`TodoSurface.tsx:1726`). Notes does the same (`NotesSurface.tsx:172`). So the app currently
+answers this question two different ways.
+
+| option | cost |
+|---|---|
+| A. Converge tasks + notes to connected rows | Matches the 2026-08-28 ruling. Visible change on two main tabs. `TaskCard` and `NoteRow` each lose their own card shell. Multiple sessions. |
+| B. Leave them as cards; narrow the invariant to say connected rows is one pattern among several, not a universal target | Nothing changes visually. The invariant stops overclaiming. The 6 stay uncovered permanently, by decision rather than by neglect. |
+| C. Converge only `ShoppingRow`, `MonthlyTableRow`, `MedicineSurface` — the three already trying to be rows — and exclude the card-shaped ones explicitly | Middle. Fixes real drift without restyling two main tabs. |
+
+Not a bug and not a cleanup task — the three options produce three different-looking apps.
+
+**Answer:** _pending_
 
 ---
 
