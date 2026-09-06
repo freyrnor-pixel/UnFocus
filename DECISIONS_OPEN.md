@@ -38,6 +38,70 @@ that will be re-derived, not made.**
 
 ## Answered
 
+### Does Home's energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?
+**Asked:** 2026-09-06 · **Answered:** 2026-09-06 · **Blocked:** the maintainer's Home-screen
+device sign-off, and any further "make Home match the round-20 mockup" work.
+
+The maintainer sent a Home screenshot saying it doesn't look like the design they sent.
+Enumerated against `DESIGN_COMPARISON/20-corrected-screens.html`'s Home entry (its `fixes:`
+array, line ~124), almost everything already matches or was deliberately superseded — except
+this one, which is also the most visually prominent thing on the screen.
+
+The mockup's own words: *"**Energy** was a lone glowing pill floating outside any card — now a
+slim card with three chips, glow only on the chosen one."*
+
+What actually ships (`components/EnergyMeter.tsx:695-748`): on a fresh install, a `StarterCard`
+with a decorative row of 10 empty pips and one large primary button, "Sett dagens energi", which
+opens `EnergyConfigSheet`. Once configured it becomes a `current / capacity` pip strip.
+
+**These are two different mental models, not two renderings of one.** The shipped feature is a
+numeric energy *budget* you spend against (`store/useEnergyStore.ts`, `lib/energy.ts`, ~10
+maintainer revisions 2026-07-20 → 2026-08-17). The mockup draws a daily energy *level*
+check-in. No Lav/Middels/Høy control exists anywhere in the repo, at any commit.
+
+Measured record search: `PROGRESS_LOG.md`, `20-IMPLEMENTATION.md`, `DESIGN_RULES_AUDIT.md`,
+`DECISIONS_OPEN.md` and `docs/archive/AGENTS_HISTORY.md` contain **no** record of this being
+shipped, declined or reversed. Notably `20-IMPLEMENTATION.md` — the doc that turned these
+mockups into phases 0-6 and itemises every other fix by name — never mentions Energy at all.
+Against that, `DESIGN_RULES_AUDIT.md:340-358` records a *different* Energy-mockup divergence
+being explicitly declined in August, so this project does normally write such rejections down.
+Read either way, the round-20 silence is ambiguous — hence this row.
+
+| option | cost |
+|---|---|
+| A. Build the daily Lav/Middels/Høy level picker as drawn | **L.** A new concept alongside the existing budget: new store field, new i18n, new UI, and a ruling on how it interacts with `energyDeltaForDay` and the pips. `EnergyMeter.tsx`'s header carries ~2000 words of accumulated rationale that would need rewriting. Risks two competing energy concepts in one app. |
+| B. Keep the budget; record the mockup's energy card as superseded | **XS, docs only.** Nothing visual changes. The screenshot keeps looking as it does. Honest if the budget system is the intended design. |
+| C. Keep the budget, fix the actual complaint: put the CTA *inside* a slim card instead of a lone glowing pill | **S.** Addresses the mockup's stated problem ("floating outside any card") without adopting its mechanism. Touches `EnergyMeter.tsx`'s empty state only; the budget model is untouched. |
+
+Not a bug and not a cleanup task — A and B produce materially different apps, and C is a third
+thing that resembles the mockup without being it. An agent cannot legitimately choose this.
+
+**Answer: C.** The maintainer kept the capacity/budget model and had the CTA moved inside a slim
+card. The mockup's Lav/Middels/Høy level picker is **not** being built — the complaint it was
+answering was that the button floated outside any card, and that is what gets fixed. Do not
+re-propose the level picker; the budget model is the intended design, and `EnergyMeter.tsx`'s
+header rationale stands. Implemented 2026-09-06, `unverified` pending a device pass.
+
+### Does the 💡 hint line show on a card with content, or on an empty one?
+**Asked:** 2026-09-06 · **Answered:** 2026-09-06 (same turn) · **Blocked:** wiring the hint on
+Home's three cards, which had never been wired at all — the unshipped half of round 20 phase 4.
+
+`components/CardHintLine.tsx` shipped with the rule "draws only on a card that HAS content", and
+all four call sites gate on a non-empty length (`TodoSurface.tsx:1349,1464`,
+`HabitsSurface.tsx:797`, `HealthSurface.tsx:498`). The round-20 mockup agrees — its Home `I dag`
+card draws the hint together with three rows.
+
+**Answer: the opposite — the hint shows when the card is EMPTY.** Maintainer's ruling, in their
+words: *"Hint er kun når et kort er tomt."* The reasoning is the ADHD-friendly one and is why it
+outranks the mockup here: a hint like *"Del det opp til det blir litt latterlig"* is help for
+someone staring at an empty list, not decoration over rows they already have.
+
+⚠️ **This deliberately contradicts `DESIGN_COMPARISON/20-corrected-screens.html`.** A later
+maintainer ruling outranks a mockup. Applied consistently app-wide — every call site flipped,
+not just Home's — because a hint that means "you have nothing here" on one tab and "here is a
+tip about your rows" on another is the inconsistency this project keeps paying for. Do not
+"correct" it back toward the mockup.
+
 ### Do runs of tasks and notes read as one connected list, or as separate cards?
 **Asked:** 2026-09-06 · **Answered:** 2026-09-06 · **Blocked:** Phase 1 S1.1–S1.3, and the scope
 of every row-convergence session after it.

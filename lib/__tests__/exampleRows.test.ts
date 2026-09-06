@@ -598,7 +598,10 @@ describe('the bulb explainer line is back, and only in one place', () => {
   //      card by card, so a single generator is what stops that recurring.
   //   2. Nothing hand-rolls a second one out of the same two ingredients.
   //   3. It uses `Fonts.italic`, never `fontStyle: 'italic'` — see below.
-  //   4. It is drawn only while a card has content, gated at each call site.
+  //   4. It is drawn only while a card is EMPTY, gated at each call site — flipped 2026-09-06
+  //      (maintainer ruling, DECISIONS_OPEN.md); it used to be the opposite (only while a card
+  //      HAS content). Either direction, the requirement checked below is only that a gate
+  //      EXISTS at all, not which way it points.
   // The rest of the tier stays deleted: `HintCard` is still gone (asserted just below), and
   // `StarterCard` is still what an EMPTY surface says.
 
@@ -623,11 +626,15 @@ describe('the bulb explainer line is back, and only in one place', () => {
   });
 
   it('every hint fits its two-line clamp, in all three languages', () => {
-    // ⚠️ **This is the guard that actually RUNS, and `npm run wraps` is not.** That audit has a
-    // `CARD HINT` pass measuring the real clamp in the real app — but a hint only draws on a card
-    // that HAS content, and the wrap walk runs on a fresh install where every card is empty, so
-    // it reports "0 drawn". A gate that can never fire is not a gate; it stays there for a walk
-    // that seeds data, and this stands in for it meanwhile.
+    // ⚠️ **This is the guard that actually RUNS; `npm run wraps` may or may not see it too.**
+    // That audit has a `CARD HINT` pass measuring the real clamp in the real app. Until
+    // 2026-09-06 the hint only drew on a card that HAS content, and the wrap walk runs on a
+    // fresh install where every card is empty, so it reliably reported "0 drawn" — a gate that
+    // can never fire is not a gate, so this source scan stood in for it. **Flipped 2026-09-06**
+    // (maintainer ruling: the hint now shows only on an EMPTY card) — the fresh-install walk
+    // should now actually draw hints and exercise the real clamp, which would be a coverage
+    // improvement worth confirming next time `npm run wraps` runs, not assuming. This scan stays
+    // regardless, since it is the one guard that is guaranteed to run in CI.
     //
     // The budget: `FontSize.xs` (13) in a card ~296px wide at 360px, less the bulb glyph and its
     // gap (22), is ~274px per line. Nunito at 13px averages ~6.4px a character, so ~42 per line
@@ -654,18 +661,21 @@ describe('the bulb explainer line is back, and only in one place', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('every card that passes a hint gates it on having content', () => {
-    // Both drawn at once stacks two muted italic lines with nothing between them — the hint and
-    // either NarratorQuote or StarterCard's line. The gate has to be at the call site because
-    // only the card knows what empty means for it; what is checked here is that there IS one.
+  it('every card that passes a hint gates it on a condition (either direction)', () => {
+    // Renamed 2026-09-06: the rule flipped from "only with content" to "only while EMPTY"
+    // (maintainer ruling, DECISIONS_OPEN.md), but the thing worth catching is unchanged — a
+    // BARE `hint={t.cardHint.foo}` with no gate at all, which would draw regardless of state.
+    // The gate has to be at the call site because only the card knows what empty means for it;
+    // this only checks that some ternary exists, not which way it points — that direction is
+    // exactly what flipped app-wide, so a stricter check here would have failed on purpose.
     const offenders: string[] = [];
     for (const rel of sourceFiles()) {
       for (const tag of cardTags(code(rel))) {
         const hint = tag.match(/hint=\{([^}]*)\}/);
         if (!hint) continue;
-        // A conditional — `x > 0 ? … : undefined`, `x.length ? … : undefined`. A bare
-        // `hint={t.cardHint.foo}` draws on the empty state too.
-        if (!/\?/.test(hint[1])) offenders.push(`${rel}: hint is not gated on content`);
+        // A conditional — `x > 0 ? … : undefined`, `x === 0 ? … : undefined`. A bare
+        // `hint={t.cardHint.foo}` draws unconditionally, in every state.
+        if (!/\?/.test(hint[1])) offenders.push(`${rel}: hint is not gated on a condition`);
       }
     }
     expect(offenders).toEqual([]);

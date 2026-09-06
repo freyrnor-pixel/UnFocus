@@ -350,6 +350,8 @@ const en = {
     shopLists: 'Add things as you run out — the weekly list clears itself.',
     habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
+    // Added 2026-09-06 for Home's Notes card — no existing key fit (see DECISIONS_OPEN.md).
+    homeNotes: 'A stray thought written down is one less thing to carry in your head.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -2647,6 +2649,7 @@ const no: typeof en = {
     shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
+    homeNotes: 'En løs tanke skrevet ned er én ting mindre å bære på i hodet.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -4498,6 +4501,7 @@ const is: typeof en = {
     shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
+    homeNotes: 'Laus hugsun sem er skrifuð niður er einu minna að bera í höfðinu.',
   },
   peek: {
     todoToday: (left: number, done: number) =>

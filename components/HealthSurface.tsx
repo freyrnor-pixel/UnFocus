@@ -495,7 +495,9 @@ export default function HealthSurface({ embedded = false, section }: Props) {
       id="healthWeek"
       embedded={embedded}
       peek={t.peek.healthWeek(thisWeekIssues.length)}
-      hint={thisWeekIssues.length > 0 ? t.cardHint.healthWeek : undefined}
+      // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
+      // only while the card is EMPTY — see components/CardHintLine.tsx's header.
+      hint={thisWeekIssues.length === 0 ? t.cardHint.healthWeek : undefined}
     >
       {cardBody}
     </Card>

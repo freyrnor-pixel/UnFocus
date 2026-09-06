@@ -2129,7 +2129,9 @@ export default function ShoppingScreen() {
       id="shopLists"
       count={nonTemplateLists.length || undefined}
       peek={t.peek.shopLists(nonTemplateLists.length)}
-      hint={nonTemplateLists.length > 0 ? t.cardHint.shopLists : undefined}
+      // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
+      // only while the card is EMPTY — see components/CardHintLine.tsx's header.
+      hint={nonTemplateLists.length === 0 ? t.cardHint.shopLists : undefined}
     >
       {true && (
         <>
