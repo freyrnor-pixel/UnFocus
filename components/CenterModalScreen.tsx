@@ -19,7 +19,7 @@
  *             domain hue its screen always had), react-native-safe-area-context
  *   Used by → the converted editor routes: app/habit-form.tsx, app/medicine-form.tsx,
  *             app/health-form.tsx, app/health-detail.tsx, app/health-log.tsx, app/day-log.tsx,
- *             app/notes.tsx, app/food.tsx, app/catalogue.tsx, app/habits.tsx, app/budget.tsx,
+ *             app/notes.tsx, app/food.tsx, app/catalogue.tsx, app/(tabs)/habits.tsx, app/budget.tsx,
  *             app/inventory-edit.tsx
  *   Data    → none — presentation only.
  *

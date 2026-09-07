@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/Card (CardShell), lib/collapsedCards, lib/useCollapsedCard
- *   Used by → app/plans.tsx, app/habits.tsx, components/TodoSurface.tsx (Week card, local
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx, components/TodoSurface.tsx (Week card, local
  *             per-weekday fold via `onToggleCollapse`)
  *   Data    → settings.collapsedCards, but ONLY when a caller passes `collapseKey` (the
  *             foldable variant is a separate component so the plain one reads no store)

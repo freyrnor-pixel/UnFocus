@@ -11,7 +11,7 @@
  * Connections:
  *   Imports → components/ReminderBell, store/useMedicineStore (syncTrayReminders),
  *             store/useSettingsStore, lib/haptics, lib/i18n
- *   Used by → components/HomeMedicineCard.tsx, components/CardExpandHost.tsx
+ *   Used by → components/MedicineSurface.tsx, components/CardExpandHost.tsx
  *   Data    → settings.medicineRemindersEnabled (the only writer outside app/settings.tsx's
  *             NOTIF_SWITCHES), and useMedicineStore.syncTrayReminders()
  *

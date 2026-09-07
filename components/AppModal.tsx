@@ -11,7 +11,7 @@
  *             (confirmDestructive's two beats), lib/i18n, lib/useAppTheme,
  *             react-native-reanimated
  *   Used by → <AppModalHost/> mounted in app/_layout.tsx (2026-07-02, Session A2·2);
- *             showAppModal() called from app/shopping.tsx (delete-list confirm,
+ *             showAppModal() called from app/(tabs)/shopping.tsx (delete-list confirm,
  *             done-shopping receipt choice, manual monthly-reset confirm, new-list chooser)
  *             and ~20 other sites; confirmDestructive() by every delete/reset confirm in the
  *             app (16 call sites across app/ and components/ as of 2026-08-12)

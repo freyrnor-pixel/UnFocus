@@ -166,9 +166,27 @@ describe('the material system stays deleted, and stays matte', () => {
     //   LIGHT still blurs (a real gradient backdrop), and `overlay`/`nav` still blur in both
     // modes (the app's own cards are behind them). The gate is one hoisted predicate so the two
     // costs it governs cannot drift apart.
-    expect(surface).toMatch(/const flatDarkGround = isAmbient && isDark;/);
-    expect(surface).toMatch(/\{glassOn && !flatDarkGround \? \(/);
-    expect(surface).toMatch(/shadowLevel === 'flat' \|\| reduceEffects \|\| flatDarkGround/);
+    //   ⚠️ **NARROWED ONCE MORE on 2026-09-06, and `flatDarkGround` is GONE.** Every ruling
+    // above — 2026-08-15's "blurring black returns black", 2026-08-29's measurement — rests on
+    // one premise: the dark backdrop under a card is flat black. `components/
+    // ScreenBackground.tsx` now draws v2's three broad washes across the frame on a maintainer
+    // ruling, so that premise is retired and the predicate named after it with it.
+    //   Maintainer, same ruling: *"Just make it so backdrop colors don't pass through, but
+    // maintain the visual."* An ambient card is OPAQUE now, in BOTH themes. That is the same
+    // argument 2026-08-29 made about the blur, applied to the fill: this file's own
+    // 'painted glass and measured composite agree' test derives `surfaceGlass`'s alpha from a
+    // BLACK ground, so once the ground is lit a translucent pane composites to something other
+    // than `#242424` while every assertion here goes on measuring `#242424`. Opaque makes the
+    // drawn colour equal the asserted one on any ground, by construction.
+    //   So the blur is off for ambient in both themes (nothing shows through an opaque pane, so
+    // a BlurView under one is pure GPU cost), and the SHADOW is back in dark — it was withdrawn
+    // only because it fell on flat black, and it now falls on a lit field, which is where v2
+    // puts its own `0 8px 28px rgba(0,0,0,.4)`.
+    expect(surface).not.toMatch(/flatDarkGround = /);
+    expect(surface).toMatch(/&& !isAmbient;/);
+    expect(surface).toMatch(/\{glassOn \? \(/);
+    // The shadow is no longer gated on the ground being black.
+    expect(surface).toMatch(/shadowLevel === 'flat' \|\| reduceEffects$/m);
     // The blur is still context-gated only by the two rules above — never by a bare ambient
     // exclusion that would take LIGHT mode with it.
     expect(surface).not.toMatch(/surfaceContext !== 'ambient'/);
@@ -194,13 +212,16 @@ describe('the material system stays deleted, and stays matte', () => {
     // already opaque — the state it was asking for. Now that translucency is back, the toggle
     // is load-bearing again, and this is the assertion that keeps it honest: the blur is gated
     // on it, and the fill falls back through getGlassFill to the opaque composite.
+    // ⚠️ 2026-09-06: an ambient card is opaque unconditionally now (see the BlurView test), so
+    // this switch governs the `overlay`/`nav` tiers and the ambient FILL path. `glassOn` false
+    // still means no blur anywhere, which is the half that must not weaken.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/glassSurfaces/);
     // The blur's gate must still START with `glassOn`, so switching reduce-transparency on
     // still removes the frost everywhere. It gained a second term on 2026-08-29 (an ambient
     // card in dark blurs nothing — see the BlurView test above), which narrows WHERE the frost
     // is drawn without weakening this switch: `glassOn` false still means no blur, anywhere.
-    expect(surface).toMatch(/\{glassOn && !flatDarkGround \? \(/);
+    expect(surface).toMatch(/\{glassOn \? \(/);
     expect(surface).toMatch(/getGlassFill\(/);
   });
 
@@ -496,7 +517,7 @@ describe('glass settings', () => {
     // over all of them.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
-      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
+      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\) && !isAmbient;/,
     );
     // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
     // turning the switch on would change what lib/__tests__/colors.test.ts measures rather

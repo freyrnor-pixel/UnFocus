@@ -17,7 +17,7 @@
  * exact, so a new key has to be named — but their pipCount/filled expectations are unchanged,
  * which is the point: surplus is purely additive.
  */
-import { dayKey, weekKey, boostKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper, energyPipCount, MAX_SURPLUS_PIPS } from '@/lib/energy';
+import { dayKey, weekKey, boostKey, energyDeltaForDay, energyDeltaForWeek, plannedEnergyDeltaForDay, plannedEnergyDeltaForWeek, energyStepperValue, energyFieldsFromStepper, energyPipCount, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS, MAX_SURPLUS_PIPS } from '@/lib/energy';
 import type { Task } from '@/store/useTaskStore';
 import type { Habit, HabitLog } from '@/store/useHabitStore';
 
@@ -67,6 +67,115 @@ describe('period keys', () => {
     const keys = [dayKey(DAY), weekKey(DAY), boostKey(DAY)];
     expect(new Set(keys).size).toBe(3);
     expect(boostKey(DAY)).not.toBe(dayKey(DAY));
+  });
+});
+
+describe('energySplitForDay / ForWeek — the two halves the v2 budget card draws', () => {
+  // The pip meter only ever needed a NET figure. v2's Energibudsjett draws `brukt`, `igjen` and
+  // `gitt tilbake` as three separate quantities, so a day where a habit returned 2 while tasks
+  // took 3 must not collapse into the same "-1" as a day that simply took 1.
+
+  it('reports spend as a POSITIVE magnitude, not the negative it is stored as', () => {
+    // Every caller draws `spent` as a COUNT OF ICONS. A negative count is the sign error that
+    // only ever shows up on screen, so it is pinned here instead.
+    const { spent, gained } = energySplitForDay(
+      DAY, [task({ done: true, energyEnabled: true, energyValue: -3 })], [], []
+    );
+    expect(spent).toBe(3);
+    expect(gained).toBe(0);
+  });
+
+  it('separates a habit\'s give-back from a task\'s spend on the same day', () => {
+    const tasks = [task({ id: 't1', done: true, energyEnabled: true, energyValue: -3 })];
+    const habits = [habit({ id: 'h1', energyEnabled: true, energyValue: 2, dailyGoal: 1 })];
+    const logs = [log('h1', DAY, 1)];
+    expect(energySplitForDay(DAY, tasks, habits, logs)).toEqual({ spent: 3, gained: 2 });
+    // …and the net figure the old meter shows is still -1, i.e. the two views agree.
+    expect(energyDeltaForDay(DAY, tasks, habits, logs)).toBe(-1);
+  });
+
+  it('re-derives energyDeltaForDay exactly, so the card and the meter cannot disagree', () => {
+    // The property that matters: this is a SPLIT of the existing sum, not a second computation of it.
+    const tasks = [
+      task({ id: 't1', done: true, energyEnabled: true, energyValue: -3 }),
+      task({ id: 't2', done: true, energyEnabled: true, energyValue: -1 }),
+      task({ id: 't3', done: true, energyEnabled: true, energyValue: 4 }),
+    ];
+    const habits = [habit({ id: 'h1', energyEnabled: true, energyValue: 2, dailyGoal: 1 })];
+    const logs = [log('h1', DAY, 1)];
+    const { spent, gained } = energySplitForDay(DAY, tasks, habits, logs);
+    expect(gained - spent).toBe(energyDeltaForDay(DAY, tasks, habits, logs));
+  });
+
+  it('applies the same energyEnabled / wrong-date filters as the net figure', () => {
+    expect(energySplitForDay(DAY, [task({ done: true, energyEnabled: false, energyValue: -5 })], [], []))
+      .toEqual({ spent: 0, gained: 0 });
+    expect(energySplitForDay(DAY, [task({ done: true, energyEnabled: true, energyValue: -5, date: '2026-07-16' })], [], []))
+      .toEqual({ spent: 0, gained: 0 });
+  });
+
+  it('does NOT clamp against a capacity — over-spend is a real state the card draws', () => {
+    const { spent } = energySplitForDay(
+      DAY, [task({ done: true, energyEnabled: true, energyValue: -99 })], [], []
+    );
+    expect(spent).toBe(99);
+  });
+
+  it('week sums the days, and still re-derives the weekly net', () => {
+    const tasks = [
+      task({ id: 't1', done: true, energyEnabled: true, energyValue: -3, date: '2026-07-15' }),
+      task({ id: 't2', done: true, energyEnabled: true, energyValue: -2, date: '2026-07-16' }),
+    ];
+    const habits = [habit({ id: 'h1', energyEnabled: true, energyValue: 1, dailyGoal: 1 })];
+    const logs = [log('h1', '2026-07-15', 1), log('h1', '2026-07-16', 1)];
+    const { spent, gained } = energySplitForWeek(DAY, tasks, habits, logs);
+    expect(spent).toBe(5);
+    expect(gained).toBe(2);
+    expect(gained - spent).toBe(energyDeltaForWeek(DAY, tasks, habits, logs));
+  });
+});
+
+describe('energyBudgetBar — v2 draws filled = BRUKT, the inverse of the pip meter', () => {
+  it('fills from SPEND, which is the opposite of energyPipCount', () => {
+    // The inversion is the whole point and the thing most likely to be "fixed" back by someone
+    // reading the two side by side. 3 of 8 spent => 3 filled, 5 outline…
+    expect(energyBudgetBar(3, 0, 8)).toMatchObject({ pipCount: 8, used: 3, left: 5 });
+    // …whereas the meter, with 5 of 8 remaining, fills 5. Same day, opposite glyphs.
+    expect(energyPipCount(5, 8)).toMatchObject({ pipCount: 8, filled: 5 });
+  });
+
+  it('scales past MAX_PIPS instead of drawing one glyph per unit', () => {
+    const bar = energyBudgetBar(20, 0, 40);
+    expect(bar.pipCount).toBe(MAX_PIPS);
+    expect(bar.used).toBe(5); // half of a 40-capacity day, on a 10-glyph bar
+    expect(bar.left).toBe(5);
+  });
+
+  it('caps the give-back run so it reads as "extra, on top" and not as a score', () => {
+    expect(energyBudgetBar(0, 99, 8).gain).toBe(MAX_SURPLUS_PIPS);
+  });
+
+  it('clamps the bar at full but REPORTS the overspend rather than hiding it', () => {
+    // A full bar that silently means "and then some" is the failure this field exists to stop.
+    const bar = energyBudgetBar(11, 0, 8);
+    expect(bar.used).toBe(8);
+    expect(bar.left).toBe(0);
+    expect(bar.overspent).toBe(3);
+  });
+
+  it('reports no overspend on an exactly-used day', () => {
+    expect(energyBudgetBar(8, 0, 8)).toMatchObject({ used: 8, left: 0, overspent: 0 });
+  });
+
+  it('draws nothing at all when no capacity is set', () => {
+    expect(energyBudgetBar(3, 1, 0)).toEqual({ pipCount: 0, used: 0, left: 0, gain: 0, overspent: 0 });
+  });
+
+  it('always accounts for every glyph — used + left is the bar', () => {
+    for (const [spent, cap] of [[0,8],[1,8],[7,8],[8,8],[13,8],[3,40],[0,1]] as const) {
+      const bar = energyBudgetBar(spent, 0, cap);
+      expect(bar.used + bar.left).toBe(bar.pipCount);
+    }
   });
 });
 

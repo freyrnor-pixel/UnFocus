@@ -34,7 +34,7 @@
  *
  * Connections:
  *   Imports → lib/date (getWeekDates), store/useHabitStore (Habit/HabitLog types)
- *   Used by → lib/energy.ts, app/habits.tsx, lib/widgets/sync.ts
+ *   Used by → lib/energy.ts, app/(tabs)/habits.tsx, lib/widgets/sync.ts
  *   Data    → none (pure functions)
  */
 import { dateStr, getWeekDates } from '@/lib/date';

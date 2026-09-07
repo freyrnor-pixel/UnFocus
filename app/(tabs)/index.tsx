@@ -50,8 +50,8 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/EnergyMeter (the fixed Energy strip, gated
- *             on settings.energySystemEnabled), components/HomeHabitsCard, components/HomeNotesCard,
- *             components/HomeHealthCard, components/HomeMedicineCard (each self-contained — they read their own stores and
+ *             on settings.energySystemEnabled), components/HabitsSurface.tsx, components/HomeNotesCard,
+ *             components/HealthSurface.tsx, components/MedicineSurface.tsx (each self-contained — they read their own stores and
  *             own their own useCardExpand), components/HomeSharedCard (gated on
  *             settings.featureSharing + SHARING_VISIBLE), components/ManageCardsSheet,
  *             components/DebugNoteAnchor, components/TourTarget, components/PressableScale,

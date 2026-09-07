@@ -21,8 +21,8 @@
  *             (showAppModal), constants/theme, constants/motion (Travel), lib/goalStarters,
  *             lib/goalStrength (decayedStrength), lib/haptics, lib/i18n, lib/useAppTheme,
  *             store/useGoalStore, store/useTaskStore, store/useHabitStore (linked counts only)
- *   Used by → app/plans.tsx, app/habits.tsx — both inside a
- *             components/CollapsedSection.tsx "Goals" drawer, with no `onTitlePress`. Habits
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx — both inside a
+ *             components/Card.tsx "Goals" drawer, with no `onTitlePress`. Habits
  *             additionally passes `prefill` (a note sent to Goals lands there — lib/prefill.ts)
  *   Data    → reads/writes useGoalStore (goals table) via add/remove; reads
  *             useTaskStore/useHabitStore only to COUNT what points at each goal. Schedules

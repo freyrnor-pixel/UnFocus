@@ -19,8 +19,8 @@
  *             lib/widgets/sync (scheduleWidgetSync — same debounced refresh every other
  *             mutating store calls)
  *   Used by → app/_layout.tsx (boot load + reminder re-arm + notification "Taken" action),
- *             app/(tabs)/health.tsx (via components/MedicineTrayCard.tsx),
- *             components/MedicineTrayCard.tsx, app/medicine-form.tsx, app/settings.tsx
+ *             app/(tabs)/health.tsx (via components/MedicineSurface.tsx),
+ *             components/MedicineSurface.tsx, app/medicine-form.tsx, app/settings.tsx
  *             (re-syncs reminders when tray times / the master switch / language change)
  *   Data    → defines a Zustand store; owns SQLite tables medicines and medicine_doses;
  *             schedules the four per-tray daily notifications

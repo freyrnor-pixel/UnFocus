@@ -60,7 +60,7 @@
  *
  * Connections:
  *   Imports → lib/dataAccess, lib/id, lib/medicineSchedule (TrayTimes + its normalizer/defaults), constants/theme (AspectRatioKey)
- *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/habits.tsx, app/index.tsx, app/medicine-form.tsx, app/onboarding/* , app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/HintCard.tsx, components/MedicineTrayCard.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
+ *   Used by → app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/habits.tsx, app/(tabs)/index.tsx, app/medicine-form.tsx, app/onboarding/* app/pair-device.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, components/TaskCard.tsx, components/CardHintLine.tsx, components/MedicineSurface.tsx, components/PhotoFrame.tsx, components/SharedRequestsSection.tsx, lib/i18n.ts, lib/reminders.ts, lib/syncService.ts, lib/taskCalendar.ts (deviceCalendarId cache), lib/useAppTheme.ts, store/useAutomationStore.ts, store/useHabitStore.ts, store/useMedicineStore.ts, store/useShoppingStore.ts, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns the single-row SQLite table settings (id = 1)
  *
  * Edit notes:

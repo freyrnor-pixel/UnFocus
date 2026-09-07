@@ -43,7 +43,7 @@
  *             lib/useNowMinutes (60s tick, shared with components/PlanTaskCard.tsx),
  *             lib/useKeyboardLift (per tray-time field), store/useMedicineStore,
  *             store/useSettingsStore
- *   Used by → components/HomeMedicineCard.tsx (the Me tab's card shell) and
+ *   Used by → components/MedicineSurface.tsx (the Me tab's card shell) and
  *             components/CardExpandHost.tsx's `homeMedicine` registry entry (its full-screen
  *             pane) — both gated on settings.featureMedicine at their own call sites
  *   Data    → useMedicineStore (medicines + medicine_doses) via add/takeDose/untakeDose;

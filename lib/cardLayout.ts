@@ -21,9 +21,9 @@
  * Connections:
  *   Imports → (none — deliberately dependency-free so it stays unit-testable and can't
  *             drag notification/DB code into a render path)
- *   Used by → components/ShoppingRow.tsx, components/ShoppingChip.tsx (the `chips` flag),
+ *   Used by → components/ShoppingRow.tsx, components/ShoppingRow.tsx (the `chips` flag),
  *             components/WeekListCard.tsx, app/(tabs)/shopping.tsx,
- *             app/plans.tsx, components/PlanTaskCard.tsx, components/LayoutPickerSheet.tsx,
+ *             app/(tabs)/plans.tsx, components/PlanTaskCard.tsx, lib/cardLayout.ts,
  *             app/settings.tsx, lib/__tests__/cardLayout.test.ts
  *   Data    → none — pure functions over values the caller already has. Reads no store,
  *             writes nothing, schedules nothing.

@@ -23,6 +23,13 @@ jobs:
   verify:
     name: Typecheck, lint & test
     runs-on: ubuntu-latest
+    # ⚠️ **A job with no timeout inherits GitHub's default of 360 minutes.** Every build
+    # workflow in this repo already sets one (45-60); the two CI jobs were the exceptions, and
+    # this is the only workflow that runs on every push to a PR — so a hang here is also the one
+    # that blocks the `concurrency` group and makes the NEXT push look stuck behind it.
+    # Typecheck + lint + test is ~90s; 15 gives an order of magnitude of headroom and still
+    # fails within a coffee break rather than half a working day.
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,6 +69,16 @@ jobs:
   visual:
     name: Visual, geometry & layout audits
     runs-on: ubuntu-latest
+    # This job builds a web bundle and drives Chromium through four audits in both themes, so it
+    # is minutes rather than seconds: measured 15-17 minutes across every run on 2026-09-06.
+    # 35 is roughly double the observed worst case — high enough that a slow runner is not a
+    # false failure, low enough that a genuinely wedged Playwright step is killed while someone
+    # is still looking at the PR.
+    #   ⚠️ Raise this only with a measurement. If runs start timing out, the question is what got
+    # slower — a walk that has begun waiting out a stale locator's full timeout on every step is
+    # exactly the failure this repo keeps finding, and it presents as "CI got slower", not as an
+    # error. See EXECUTION_RULES.md's standing debt.
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4

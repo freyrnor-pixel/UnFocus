@@ -16,8 +16,8 @@
  *             lib/syncRow (syncRow — the shared stamp+broadcast pair),
  *             store/useSettingsStore (deviceId), store/useTaskStore (link cleanup on
  *             remove — call-time only, never at module-eval time)
- *   Used by → app/_layout.tsx (load() in the app-wide bootstrap), app/task-form via
- *             components/TagPickerRow.tsx, app/plans.tsx (tag filter row),
+ *   Used by → app/_layout.tsx (load() in the app-wide bootstrap), components/TaskCard.tsx via
+ *             components/TagPickerRow.tsx, app/(tabs)/plans.tsx (tag filter row),
  *             components/TaskCard.tsx, app/settings.tsx (rename/delete)
  *   Data    → owns reads/writes of the `tags` table; clears deleted ids out of
  *             `tasks.tag_ids`

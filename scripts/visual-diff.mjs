@@ -126,6 +126,13 @@ const BASELINE_SET = [
   // content where a blank list would be, so "empty" is a designed screen, not an absence.
   'home-empty',
   'home-populated',
+  // ⚠️ **The only baseline that reaches the populated Energy METER, added 2026-09-06 — and it
+  // is here because of a defect this set could not see.** Home draws `StarterCard` until a
+  // capacity exists, so every other Home shot is the TUTORIAL state. The pass that replaced the
+  // glossy pip token with v2's Energibudsjett bar came back `0 changed` on all 21 baselines in
+  // BOTH themes — a clean run over a screen the walk had never rendered. That is the ratchet
+  // this list's own note describes: add a screen when a defect is found on one that is not here.
+  'home-energy-budget',
   'plans-empty',
   'plans-today-populated',
   // ⚠️ `habits-empty` was here and is now in MACHINE_DEPENDENT below — read that entry

@@ -23,7 +23,7 @@
  *             components/IconButton, components/Button (the two ghost secondary add paths),
  *             components/InlineAddItem, components/ShoppingFilterBar,
  *             components/Surface, components/CardAccent (CardAccentBadge),
- *             components/ShoppingRow (CHECKED_OPACITY), components/ShoppingChip (the chip
+ *             components/ShoppingRow (CHECKED_OPACITY), components/ShoppingRow.tsx (the chip
  *             layout's row), lib/shoppingStarters (SHOPPING_STARTERS — the quick-add tray's
  *             bundles), constants/theme (incl. getMatte, shared by the chips and the tray),
  *             lib/cardLayout (LayoutSpec),
@@ -32,7 +32,7 @@
  *             lib/shoppingGroups (listProgress, listTotal, groupByCategory), lib/useAppTheme, lib/haptics,
  *             lib/screenColor, store/useShoppingListStore (ShoppingList type),
  *             store/useShoppingStore (ShoppingItem type), store/useMonthlyListStore (MonthlyList type)
- *   Used by → app/shopping.tsx
+ *   Used by → app/(tabs)/shopping.tsx
  *   Data    → none directly — every item/group/callback is owned by the parent
  *
  * Edit notes:

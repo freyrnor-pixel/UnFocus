@@ -11,11 +11,11 @@
  *   Imports → constants/theme, lib/narratorQuotes (the lines + the wrapping index),
  *             lib/useAppTheme (useAppTheme, useScaledStyles), lib/i18n (useLang, for the
  *             active language)
- *   Used by → app/plans.tsx (`DoneSplitList`'s empty branch — Today/This week/Whenever/
+ *   Used by → app/(tabs)/plans.tsx (`DoneSplitList`'s empty branch — Today/This week/Whenever/
  *             a day group — and the Recurring section's own),
  *             app/(tabs)/shopping.tsx (an unlocked monthly list with nothing in it),
  *             app/(tabs)/health.tsx (a week with no entries),
- *             app/habits.tsx (a day with no habits due)
+ *             app/(tabs)/habits.tsx (a day with no habits due)
  *
  *             **Where it is deliberately NOT mounted**, so the gaps read as decisions:
  *             a search that matched nothing (shopping's `filteredCatalogItems`,

@@ -24,7 +24,7 @@
  *             components/TimeBoxInput (the quick-add's Target/Remind cells, phase 7 of
  *             DESIGN_COMPARISON/19-IMPLEMENTATION.md),
  *             components/StarterCard + components/StarterSuggestionChip (the empty state),
- *             components/NarratorQuote (a day with nothing due), components/CollapsedSection +
+ *             components/NarratorQuote (a day with nothing due), components/Card.tsx +
  *             components/GoalsEditor (the "Goals" drawer), components/Surface,
  *             components/Collapsible, components/CardCollapseToggle, components/GlowPulse,
  *             components/HabitIcon, components/HabitLeading,
@@ -35,7 +35,7 @@
  *             lib/personColor, lib/screenColor, lib/useCollapsedCard, lib/useNowMinutes,
  *             lib/sharingVisibility, lib/haptics, lib/i18n, lib/useAppTheme, constants/theme,
  *             constants/motion, store/useHabitStore, store/useSettingsStore, store/usePeopleStore
- *   Used by → app/habits.tsx (the centre pop-up route) and components/CardExpandHost.tsx's
+ *   Used by → app/(tabs)/habits.tsx (the centre pop-up route) and components/CardExpandHost.tsx's
  *             `homeHabits` registry entry (the Me tab's Habits card, grown to fill the screen).
  *             ⚠️ BOTH are panes that supply their own title bar — see the note on the missing
  *             `embedded` prop below.
@@ -794,7 +794,9 @@ export default function HabitsSurface() {
             <Card
               id="habitsList"
               peek={t.peek.habitsList(habitPeek.going, habitPeek.untouched)}
-              hint={visibleHabits.length > 0 ? t.cardHint.habitsList : undefined}
+              // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
+              // only while the card is EMPTY — see components/CardHintLine.tsx's header.
+              hint={visibleHabits.length === 0 ? t.cardHint.habitsList : undefined}
             >
 
 

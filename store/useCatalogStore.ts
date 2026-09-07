@@ -16,7 +16,7 @@
  *             (byPrefixThenName — the suggestion ordering, shared with useHealthStore),
  *             lib/receipt (findFuzzyMatch —
  *             recordPurchases() dedup, 2026-07-20)
- *   Used by → components/AddItemSheet.tsx, components/AddDishSheet.tsx (suggest),
+ *   Used by → components/CatalogueAddSheet.tsx, components/AddDishSheet.tsx (suggest)
  *             components/CatalogueTab.tsx (the Shopping screen's "Catalogue" tab — addItem/
  *             updateItem/removeItem CRUD), components/FoodTab.tsx + components/WeekListCard.tsx
  *             (suggest); app/scan.tsx + app/_layout.tsx (future — startup load / purchase logging)

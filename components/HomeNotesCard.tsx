@@ -346,6 +346,10 @@ export default function HomeNotesCard() {
       id="homeNotes"
       count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}
       peek={t.peek.homeNotes(notes.length)}
+      // Wired 2026-09-06 (round 20 phase 4's unshipped half — DECISIONS_OPEN.md): shows only
+      // while empty. No existing cardHint fit Notes, so this is a new key (cardHint.homeNotes,
+      // all three locales).
+      hint={notes.length === 0 ? t.cardHint.homeNotes : undefined}
     >
         <PadSheet
           state={state}

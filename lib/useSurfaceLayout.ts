@@ -9,9 +9,9 @@
  *
  * Connections:
  *   Imports → lib/cardLayout (resolveLayoutSpec), store/useSettingsStore
- *   Used by → app/(tabs)/shopping.tsx, app/plans.tsx
+ *   Used by → app/(tabs)/shopping.tsx, app/(tabs)/plans.tsx
  *   Data    → reads settings.cardLayouts + settings.layoutDetail. Reads only; the picker
- *             (components/LayoutPickerSheet.tsx) owns the writes.
+ *             (lib/cardLayout.ts) owns the writes.
  *
  * Edit notes:
  *   - The returned spec is a module-level singleton from LAYOUT_SPECS, so its identity is

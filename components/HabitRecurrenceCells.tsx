@@ -25,7 +25,7 @@
  *             components/Stepper, components/PressableScale, constants/theme (AspectRatio,
  *             FontSize, Fonts, Radius, Spacing), lib/useAppTheme, lib/i18n (useT),
  *             lib/haptics (tap), lib/useHabitRecurrenceDraft (HabitRecurrenceDraft type)
- *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both inside their existing
+ *   Used by → app/(tabs)/habits.tsx, components/HabitsSurface.tsx (both inside their existing
  *             `<QuickAddOptionsPanel>`, alongside the energy cell)
  *   Data    → none — presentational; all state lives in the `draft` prop
  *

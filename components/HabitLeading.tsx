@@ -17,8 +17,8 @@
  * Connections:
  *   Imports → components/HabitIcon (the glyph renderer + `hasChosenHabitIcon`), components/Motif
  *             (the tintable `leaf-icon`)
- *   Used by → app/habits.tsx (Today PadRow leading at 22, Week grid label at 16,
- *             Month grid label at 14), components/HomeHabitsCard.tsx (row leading at 16)
+ *   Used by → app/(tabs)/habits.tsx (Today PadRow leading at 22, Week grid label at 16,
+ *             Month grid label at 14), components/HabitsSurface.tsx (row leading at 16)
  *   Data    → none — pure presentation
  *
  * Edit notes:

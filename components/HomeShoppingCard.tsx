@@ -372,6 +372,10 @@ export default function HomeShoppingCard({
       // the node it lands on comes back through this ref rather than being a badge this file
       // builds — see components/SectionRail.tsx's `countRef`.
       countRef={badgeRef}
+      // Wired 2026-09-06 (round 20 phase 4's unshipped half — DECISIONS_OPEN.md): shows only
+      // while empty. Reuses shopLists — same feature (the weekly shopping list), just surfaced
+      // on Home, so the Shop tab's own hint fits without a new key.
+      hint={totalCount === 0 ? t.cardHint.shopLists : undefined}
     >
 
         {/* Week pager. Both arrows always enabled — the pager wraps, so there is no dead end. */}

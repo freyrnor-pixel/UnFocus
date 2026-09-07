@@ -11,7 +11,7 @@
  * mechanism every other card in the app now offers, replacing what used to be a tab switch.
  *
  * Connections:
- *   Imports → components/SectionCard, components/CollapsedSection, components/TaskCard,
+ *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard,
  *             components/PlanTaskCard, components/DraggableTaskRow, components/CardExpandButton,
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
@@ -20,7 +20,7 @@
  *             commit-then-open-the-editor shape — see its doc above `InlineTaskAdd`),
  *             lib/screenColor, store/useTaskStore, store/useSettingsStore, store/usePeopleStore,
  *             store/useTagStore, store/useMomentsStore — the same set app/(tabs)/plans.tsx's
- *             predecessor (app/plans.tsx) imported; this file IS that logic, moved
+ *             predecessor (app/(tabs)/plans.tsx) imported; this file IS that logic, moved
  *   Used by → app/(tabs)/plans.tsx (the To-do tab, `section` omitted — the full stack) and
  *             components/CardExpandHost.tsx's registry, one entry per card id
  *             (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`, each passing `section`)
@@ -1344,9 +1344,12 @@ export default function TodoSurface({ section, onDayReset }: Props) {
           id="todoToday"
           count={todayList.length}
           peek={t.peek.todoToday(todayLeft, todayDone)}
-          // Only while the card has rows — an empty Today already speaks through NarratorQuote,
-          // and two muted italic lines stacked is what the 2026-08-17 deletion was about.
-          hint={todayList.length > 0 ? t.cardHint.todoToday : undefined}
+          // ⚠️ Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows only
+          // while the card is EMPTY, not while it has rows — see components/CardHintLine.tsx's
+          // header for the rule and components/NarratorQuote.tsx's known overlap on this exact
+          // card (an empty Today already speaks through NarratorQuote below; this stacks a second
+          // muted italic line above it, on the maintainer's explicit instruction, not an oversight).
+          hint={todayList.length === 0 ? t.cardHint.todoToday : undefined}
         >
           {groupByPerson ? (
             <View style={styles.cardStack}>
@@ -1461,7 +1464,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
         id="todoCalendar"
         count={calTaskCount}
         peek={t.peek.todoCalendar(calTaskCount, calRangeLabel)}
-        hint={calTaskCount > 0 ? t.cardHint.todoCalendar : undefined}
+        // Flipped 2026-09-06 — see the todayCard hint above for the ruling.
+        hint={calTaskCount === 0 ? t.cardHint.todoCalendar : undefined}
       >
         {/* The range control. A `SegmentedControl` for the granularity — this is the FORM tier
             (rule 19a's two shapes: a screen gets at most one accent-filled TabSlider, and this

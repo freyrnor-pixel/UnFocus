@@ -8,7 +8,7 @@
  * Connections:
  *   Imports → none
  *   Used by → components/TaskCard.tsx (Metro resolves this over lib/location.ts on web;
- *             was app/task-form.tsx, retired 2026-07-23)
+ *             was components/TaskCard.tsx, retired 2026-07-23)
  *   Data    → none
  */
 export type TaskLocation = { lat: number; lng: number };

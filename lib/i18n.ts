@@ -12,7 +12,7 @@
  *   Imports → store/useSettingsStore
  *   Used by → lib/narratorQuotes.ts (the `Lang` TYPE only — it keys its own per-language table
  *             off it; no dictionary, no hook), components/NarratorQuote.tsx (`useLang`),
- *             app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *             app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/index.tsx, app/notes.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/(tabs)/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/(tabs)/shopping.tsx, components/TaskCard.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:
@@ -244,6 +244,26 @@ const en = {
     thisWeek: 'Energy this week',
     remaining: (n: number) => `${n} left`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} used`,
+    /* The v2 Energibudsjett bar (2026-09-06). The mockup's legend is three words and they are
+       the ONLY thing that says which way the glyphs read — filled is energy SPENT here, the
+       inverse of the pip meter above, where a filled pip is energy you still have. Keep all
+       three visible: two of them alone would leave the reading ambiguous, which is the exact
+       confusion the 2026-08-03 label pass was fixing when it found a walkthrough reading ten
+       pips as a score. `givenBack` is deliberately not "earned" or "gained" — the energy came
+       back from a habit, it was not won. */
+    budgetTitle: 'Energy budget',
+    legendSpent: 'spent',
+    legendLeft: 'left',
+    legendGivenBack: 'given back',
+    scopeDay: 'Today',
+    scopeWeek: 'Week',
+    /** Peek line: "4 of 8 spent today · +1 given back". The give-back half is dropped when 0. */
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} of ${cap} spent${back > 0 ? ` · +${back} given back` : ''}`,
+    /** Shown instead of a silently-full bar. Never "over budget" — it states, it does not scold. */
+    budgetOver: (n: number) => `${n} past today's budget`,
+    budgetAdjust: 'Adjust budget',
+    budgetUnits: (n: number) => `${n} units`,
     /** Title of components/EnergyConfigSheet.tsx, and the ✏️'s accessibility label. */
     editTitle: 'Adjust energy',
     todayCapacity: "Today's energy",
@@ -350,6 +370,8 @@ const en = {
     shopLists: 'Add things as you run out — the weekly list clears itself.',
     habitsList: 'A habit you pick up again is the same habit. It does not remember the pause.',
     healthWeek: 'Log what you notice. Patterns show up over weeks, not days.',
+    // Added 2026-09-06 for Home's Notes card — no existing key fit (see DECISIONS_OPEN.md).
+    homeNotes: 'A stray thought written down is one less thing to carry in your head.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -2608,6 +2630,19 @@ const no: typeof en = {
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
     remaining: (n: number) => `${n} igjen`,
+    /* v2s Energibudsjett-stolpe (2026-09-06) — se den engelske tvillingen for hvorfor alle tre
+       forklaringsordene må stå. Fylt = brukt, som er motsatt av måleren over. */
+    budgetTitle: 'Energibudsjett',
+    legendSpent: 'brukt',
+    legendLeft: 'igjen',
+    legendGivenBack: 'gitt tilbake',
+    scopeDay: 'I dag',
+    scopeWeek: 'Uke',
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} av ${cap} brukt${back > 0 ? ` · +${back} gitt tilbake` : ''}`,
+    budgetOver: (n: number) => `${n} over dagens budsjett`,
+    budgetAdjust: 'Juster budsjett',
+    budgetUnits: (n: number) => `${n} enheter`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} brukt`,
     editTitle: 'Juster energi',
     todayCapacity: 'Energi i dag',
@@ -2647,6 +2682,7 @@ const no: typeof en = {
     shopLists: 'Legg til når du går tom — ukelista nullstiller seg selv.',
     habitsList: 'En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.',
     healthWeek: 'Logg det du merker. Mønstre viser seg over uker, ikke dager.',
+    homeNotes: 'En løs tanke skrevet ned er én ting mindre å bære på i hodet.',
   },
   peek: {
     todoToday: (left: number, done: number) =>
@@ -4458,6 +4494,19 @@ const is: typeof en = {
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
     remaining: (n: number) => `${n} eftir`,
+    /* v2 orkufjárhagsstikan (2026-09-06) — sjá enska tvíburann: fyllt = notað, öfugt við
+       mælinn fyrir ofan, og öll þrjú skýringarorðin þurfa að sjást. */
+    budgetTitle: 'Orkufjárhagur',
+    legendSpent: 'notað',
+    legendLeft: 'eftir',
+    legendGivenBack: 'skilað',
+    scopeDay: 'Í dag',
+    scopeWeek: 'Vika',
+    budgetPeek: (used: number, cap: number, back: number) =>
+      `${used} af ${cap} notað${back > 0 ? ` · +${back} skilað` : ''}`,
+    budgetOver: (n: number) => `${n} yfir fjárhag dagsins`,
+    budgetAdjust: 'Stilla fjárhag',
+    budgetUnits: (n: number) => `${n} einingar`,
     usedOf: (used: number, cap: number) => `${used} / ${cap} notuð`,
     editTitle: 'Stilla orku',
     todayCapacity: 'Orka í dag',
@@ -4498,6 +4547,7 @@ const is: typeof en = {
     shopLists: 'Bættu við þegar eitthvað klárast — vikulistinn núllstillir sig sjálfur.',
     habitsList: 'Venja sem þú tekur upp aftur er sama venjan. Hún man ekki hléið.',
     healthWeek: 'Skráðu það sem þú tekur eftir. Mynstur birtast á vikum, ekki dögum.',
+    homeNotes: 'Laus hugsun sem er skrifuð niður er einu minna að bera í höfðinu.',
   },
   peek: {
     todoToday: (left: number, done: number) =>

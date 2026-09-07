@@ -98,7 +98,7 @@
  *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
  *             unconditional as of the 2026-07-25 defaults revision),
  *             components/ShoppingFilterBar, components/ShoppingRow,
- *             components/KeepAwakeInStore (holds the screen awake while the in-store chip
+ *              (holds the screen awake while the in-store chip
  *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
  *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,
@@ -2129,7 +2129,9 @@ export default function ShoppingScreen() {
       id="shopLists"
       count={nonTemplateLists.length || undefined}
       peek={t.peek.shopLists(nonTemplateLists.length)}
-      hint={nonTemplateLists.length > 0 ? t.cardHint.shopLists : undefined}
+      // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
+      // only while the card is EMPTY — see components/CardHintLine.tsx's header.
+      hint={nonTemplateLists.length === 0 ? t.cardHint.shopLists : undefined}
     >
       {true && (
         <>

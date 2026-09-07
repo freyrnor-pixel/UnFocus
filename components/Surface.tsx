@@ -78,7 +78,7 @@
  *             components/PressableScale, expo-linear-gradient, expo-blur
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, app/health-log,
- *             app/health-detail, app/scan. **components/CollapsedSection doesn't use this
+ *             app/health-detail, app/scan. **components/Card.tsx doesn't use this
  *             path**: it is a card whose HEADER is tappable, not one tappable card, so the
  *             press lives on the header's own PressableScale. (Its predecessor
  *             SubScreenLinkButton left this list on 2026-08-08 for the same reason, and was
@@ -393,8 +393,48 @@ export default function Surface({
   //   · **The shadow half is scoped to ambient too**, because the chrome casts onto content
   //     scrolling underneath it where the ground is not black — the objection the previous note
   //     raised, and it survives.
-  const flatDarkGround = isAmbient && isDark;
-  const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !(isAmbient && opaqueCards);
+  // ── An ambient CARD paints an OPAQUE fill, and its shadow is back (2026-09-06) ──────────
+  //
+  // ⚠️ **`flatDarkGround` was true when it was written and is false now, so it is gone.** The
+  // 2026-08-29 ruling above turned the ambient blur and shadow off in dark on one premise,
+  // stated in its own words: *"on a black ground there is nothing to blur"*, and the backdrop
+  // was three corner discs that reached zero before the card column. `components/
+  // ScreenBackground.tsx` now draws v2's three broad washes across the frame, on a maintainer
+  // ruling. The premise is retired, so the conclusions built on it are re-taken here rather
+  // than left standing under a name that no longer describes anything.
+  //
+  // **The fill is the half that matters, and it is a correctness fix, not a taste one.** This
+  // file's own contract says it: *"`surfaceGlass` is what gets PAINTED; `surface` is the same
+  // colour already composited over the backdrop, and is what every contrast test measures.
+  // They are derived from each other by construction — dark's alpha was chosen so the composite
+  // lands exactly on the `#1E1E1E` the palette already had."* That derivation assumed a BLACK
+  // ground. Light one, and a translucent pane composites to something else wherever a wash
+  // falls, while `__tests__/glassMaterial.test.ts` and `lib/__tests__/colors.test.ts` go on
+  // measuring `#242424` — a colour the card no longer draws there. That is the PR #540 shape
+  // again, and it is the same failure the 2026-08-29 note caught the blur committing: *"the
+  // blur's only contribution in dark was to make every card DARKER THAN `theme.surface` SAYS IT
+  // IS, while glassMaterial measured contrast against `surface`."*
+  //
+  // Maintainer, 2026-09-06: *"Just make it so backdrop colors don't pass through, but maintain
+  // the visual."* An opaque ambient pane paints exactly `theme.surface`, on any ground, in both
+  // themes — so every contrast assertion in the app becomes true by construction instead of by
+  // the backdrop's good manners. It is the same move as removing the blur, for the same reason:
+  // make the app draw the colour its contrast system has been asserting all along.
+  //
+  // **What keeps it reading as glass** is what v2 draws: the lit top-left edge (`getGlassEdge`),
+  // the drop shadow below, and a backdrop with real light in it. v2's own card is
+  // `rgba(19,25,40,.52)` over a LIT frame — the light comes from behind and around the card, not
+  // through it, which is why losing 14% transmission costs the look nothing here.
+  //
+  // **The shadow comes back in dark** for the same reason it was withdrawn: it was switched off
+  // because it fell on flat black and did nothing. It now falls on a lit field, which is where
+  // v2 puts its own `0 8px 28px rgba(0,0,0,.4)`.
+  //
+  // The blur stays off for ambient. Nothing shows through an opaque pane, in either theme, so
+  // mounting a BlurView under one is pure GPU cost — the exact cost the 2026-08-29 performance
+  // pass was cutting. `overlay` and `nav` are untouched: they have the app's own scrolling cards
+  // behind them, so their blur does visible work.
+  const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !(isAmbient && opaqueCards) && !isAmbient;
   const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
   // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
   // `glassSurfaces`) changes what is drawn and never how bright the surface reads. `nav`'s
@@ -466,10 +506,10 @@ export default function Surface({
   // channel delta (121/125) is exactly the figure the "shadows are visible" reading rested on.
   // Any future attempt at this question needs a harness that pins the narrator first.
   const shadowStyle = useMemo(
-    () => (shadowLevel === 'flat' || reduceEffects || flatDarkGround
+    () => (shadowLevel === 'flat' || reduceEffects
       ? null
       : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
-    [theme.shadow, shadowLevel, reduceEffects, flatDarkGround],
+    [theme.shadow, shadowLevel, reduceEffects],
   );
 
   // ── Memoised: the flatten + key-partition pass (2026-08-28, perf) ──────────────────────
@@ -655,7 +695,7 @@ export default function Surface({
               a form that looks half-fixed). That is a narrowing by one context, not the ambient
               argument re-opened: what settles each tier is what is BEHIND it, and a sheet is
               the only one with the app's own cards there. See the `overlapsCards` comment. */}
-          {glassOn && !flatDarkGround ? (
+          {glassOn ? (
             <BlurView
               intensity={isAmbient ? BLUR_AMBIENT : BLUR_STRONG}
               tint={isDark ? 'dark' : 'light'}

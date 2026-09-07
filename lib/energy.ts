@@ -129,6 +129,43 @@ export function energyPipCount(
   };
 }
 
+/**
+ * The v2 Energibudsjett bar, as three counts of icons.
+ *
+ * v2 draws the budget as a row of flash glyphs — **filled = `brukt`, outline = `igjen`** — then
+ * a divider and a short run of green for `gitt tilbake`. That is the OPPOSITE reading from the
+ * pip meter above it, where a filled pip is energy you still HAVE (`energyPipCount` fills from
+ * `current / capacity`). Both are defensible and the mockup is explicit — *"filled = brukt,
+ * empty = igjen"* — so the inversion is deliberate, and it lives here, once, rather than being
+ * re-derived by eye in the component.
+ *
+ * Scaling matches `energyPipCount`: 1:1 up to `maxPips`, then proportional, so a capacity of 40
+ * does not draw forty glyphs. `gain` is capped at `MAX_SURPLUS_PIPS` for the same reason the
+ * surplus pips are — it has to read as "extra, on top" and not as a score.
+ *
+ * Over-spend is preserved rather than hidden: `spent` beyond `capacity` clamps the bar to full
+ * (there are only so many glyphs) but `overspent` reports it, so the card can say so calmly in
+ * words instead of silently drawing a full bar that looks like a day exactly used up.
+ */
+export function energyBudgetBar(
+  spent: number,
+  gained: number,
+  capacity: number,
+  maxPips = MAX_PIPS
+): { pipCount: number; used: number; left: number; gain: number; overspent: number } {
+  if (capacity <= 0) return { pipCount: 0, used: 0, left: 0, gain: 0, overspent: 0 };
+  const pipCount = Math.min(maxPips, capacity);
+  const scale = pipCount / capacity;
+  const used = Math.max(0, Math.min(pipCount, Math.round(spent * scale)));
+  return {
+    pipCount,
+    used,
+    left: pipCount - used,
+    gain: Math.max(0, Math.min(MAX_SURPLUS_PIPS, Math.round(gained * scale))),
+    overspent: roundEnergy(Math.max(0, spent - capacity)),
+  };
+}
+
 /** Week period key ('w:'-prefixed Monday) for the Mon–Sun week containing `date`. */
 export function weekKey(date: string): string {
   return `w:${getWeekDates(date)[0]}`;
@@ -193,6 +230,63 @@ export function energyDeltaForDay(
     if (h.energyEnabled && habitMetOn(h, habitLogs, date)) total += h.energyValue;
   }
   return roundEnergy(total);
+}
+
+/**
+ * The same day's energy, split into what was SPENT and what was GIVEN BACK.
+ *
+ * `energyDeltaForDay` sums tasks and habits into one signed number, which is all the pip meter
+ * ever needed: a net figure is enough to say how much of a budget is left. The v2 Energibudsjett
+ * card needs the two halves separately — it draws `brukt` (filled), `igjen` (outline) and
+ * `gitt tilbake` (a divided run of green) as three distinct quantities, so a day where a habit
+ * returned 2 and tasks took 3 reads differently from a day that simply took 1.
+ *
+ * `spent` is a POSITIVE magnitude, not the negative it is stored as — every caller draws it as a
+ * count of icons, and a negative count is the kind of sign error that only shows up on screen.
+ * The two are deliberately not clamped against `capacity`: over-spend is a real state this app
+ * shows calmly (see `MAX_SURPLUS_PIPS`), and clamping here would hide it from the card instead
+ * of letting the card decide how to draw it.
+ *
+ * Same inputs and same filters as `energyDeltaForDay`, so the two cannot disagree:
+ * `spent + gained` re-derives that function's result exactly, which is what
+ * `lib/__tests__/energy.test.ts` pins.
+ */
+export function energySplitForDay(
+  date: string,
+  tasks: Task[],
+  habits: Habit[],
+  habitLogs: HabitLog[]
+): { spent: number; gained: number } {
+  let spent = 0;
+  let gained = 0;
+  const add = (v: number) => {
+    if (v < 0) spent += -v;
+    else gained += v;
+  };
+  for (const t of tasks) {
+    if (!t.energyEnabled || t.date !== date) continue;
+    add(t.energyValue * energySpentFraction(t.cardType, t.done, t.steps));
+  }
+  for (const h of habits) {
+    if (h.energyEnabled && habitMetOn(h, habitLogs, date)) add(h.energyValue);
+  }
+  return { spent: roundEnergy(spent), gained: roundEnergy(gained) };
+}
+
+/** `energySplitForDay` summed across the Mon–Sun week containing `date`. */
+export function energySplitForWeek(
+  date: string,
+  tasks: Task[],
+  habits: Habit[],
+  habitLogs: HabitLog[]
+): { spent: number; gained: number } {
+  return getWeekDates(date).reduce(
+    (acc, d) => {
+      const s = energySplitForDay(d, tasks, habits, habitLogs);
+      return { spent: roundEnergy(acc.spent + s.spent), gained: roundEnergy(acc.gained + s.gained) };
+    },
+    { spent: 0, gained: 0 }
+  );
 }
 
 /** Net signed energy applied across the Mon–Sun week containing `date`. */

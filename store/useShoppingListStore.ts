@@ -22,7 +22,7 @@
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update (covers rename/setRecurring/setActiveWeeks/toggleLocked)/remove/
  *             advanceRecurringLists, so live widgets don't wait for foreground/background)
- *   Used by → app/shopping.tsx, components/WeekListCard.tsx (type), components/ListSettingsSheet.tsx (type),
+ *   Used by → app/(tabs)/shopping.tsx, components/WeekListCard.tsx (type), components/ListSettingsSheet.tsx (type),
  *             components/SavedListsModal.tsx (type), components/SavedListsSection.tsx (type)
  *   Data    → defines a Zustand store; owns SQLite table shopping_lists; also writes
  *             shopping_items rows directly (list_id backfill + recurrence/template item copies)

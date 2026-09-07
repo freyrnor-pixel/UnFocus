@@ -33,8 +33,8 @@
  *             dismiss button's and the collapse trigger's accessibility labels — see below),
  *             store/useSettingsStore (dismissedStarters + dismissStarter, only when a
  *             caller passes `dismissKey`), @expo/vector-icons
- *   Used by → app/habits.tsx (`collapsible`, starter chips in `children`,
- *             `stage="sprout"`), app/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
+ *   Used by → app/(tabs)/habits.tsx (`collapsible`, starter chips in `children`,
+ *             `stage="sprout"`), app/(tabs)/plans.tsx (`collapsible`), app/(tabs)/shopping.tsx,
  *             app/(tabs)/health.tsx (`collapsible`),
  *             components/PlanTaskCard.tsx (2026-08-12 — `embedded collapsible` around the empty
  *             day's example row, and deliberately NO `text` — that card had a head-mounted
@@ -43,7 +43,7 @@
  *             collapsible` since 2026-08-13 — it is mounted inside a drawer's Surface, and this
  *             component always draws its own; that line used to say GoalsEditor hand-copied the
  *             contents instead, which stopped being true when `embedded` landed),
- *             components/HomeHabitsCard.tsx (2026-08-13, `embedded collapsible` and no `text`
+ *             components/HabitsSurface.tsx (2026-08-13, `embedded collapsible` and no `text`
  *             — it hand-rolled a label-plus-bare-cloud stand-in for the trigger row until then,
  *             which made its suggestions the one set in the app that could not be folded away),
  *             components/EnergyMeter.tsx (`stage="sapling"`, NOT

@@ -17,7 +17,7 @@
  *             lib/useAppTheme, components/PressableScale
  *   Used by → app/(tabs)/shopping.tsx (save/add confirmations), app/settings
  *             (rejected numeric input, variant='warn'), app/health-form,
- *             app/plans.tsx (2026-08-20 — "Put the day away" + its Undo)
+ *             app/(tabs)/plans.tsx (2026-08-20 — "Put the day away" + its Undo)
  *   Data    → reads reducedMotion via useAccessibility(); colours from useAppTheme(); scaled fontSize via useScaledStyles()
  *
  * Edit notes:

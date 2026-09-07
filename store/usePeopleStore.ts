@@ -19,8 +19,8 @@
  *             store/useSettingsStore (back-fill source + deviceId),
  *             store/useTaskStore (link cleanup on remove — call-time only)
  *   Used by → app/_layout.tsx (load() in the app-wide bootstrap), app/settings.tsx
- *             (the People card), app/plans.tsx + app/habits.tsx (person
- *             filters), components/TaskCard.tsx, components/MedicineTrayCard.tsx,
+ *             (the People card), app/(tabs)/plans.tsx + app/(tabs)/habits.tsx (person
+ *             filters), components/TaskCard.tsx, components/MedicineSurface.tsx,
  *             app/habit-form.tsx, app/medicine-form.tsx (person pickers)
  *   Data    → owns reads/writes of the `people` table; back-fills `tasks.assignee_id`
  *             once, and nulls it on remove

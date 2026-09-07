@@ -17,7 +17,7 @@
  * Connections:
  *   Imports → components/PadSheet, components/PadRow, constants/theme,
  *             lib/date (todayStr, parseDateStr), lib/i18n, lib/useAppTheme, store/useHealthStore
- *   Used by → app/(tabs)/health.tsx — inside a components/CollapsedSection.tsx
+ *   Used by → app/(tabs)/health.tsx — inside a components/Card.tsx
  *             "Health issues" drawer
  *   Data    → reads useHealthStore only. Schedules nothing, writes nothing.
  *

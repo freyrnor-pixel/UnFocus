@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → react-native-reanimated (Easing)
- *   Used by → components/Collapsible, components/AnimatedChevron, lib/useToggleProgress,
+ *   Used by → components/Collapsible, components/AnimatedChevron,
  *             components/LaunchReveal (launchName/launchHold/launchOut),
  *             components/BottomNav (tabSwitch), components/AppModal, AnimatedBottomSheet,
  *             AddDishSheet, AddFromMonthlyModal, ConfirmationBanner, DraggableTaskRow,

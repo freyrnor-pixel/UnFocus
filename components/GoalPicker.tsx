@@ -17,7 +17,7 @@
  *             components/GoalGlowDot, components/FormControls (Input), components/OptionalTag,
  *             constants/theme, lib/useAppTheme, lib/i18n, lib/haptics, lib/useKeyboardLift,
  *             store/useGoalStore, components/AppModal, @expo/vector-icons (the chevron)
- *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23, UX audit
+ *   Used by → components/TaskCard.tsx (was components/TaskCard.tsx, retired 2026-07-23, UX audit
  *             B1 — see that file's header), app/habit-form.tsx
  *   Data    → reads/writes useGoalStore (goals table) via add/rename/remove; the selected
  *             goalId is owned by the parent form and flows in via `value`/`onChange`

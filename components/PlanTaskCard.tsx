@@ -129,7 +129,7 @@
  *             count pill, DESIGN_COMPARISON/09), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
- *             app/plans.tsx (the To-do tab, interactively, whenever the active layout
+ *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
  *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
  *             and pass it down as the `horizontal` prop; this component stays
  *             store-free/presentational.
@@ -1890,6 +1890,12 @@ export default function PlanTaskCard({
       id="homeToday"
       count={countableTasks.length > 0 ? { left: pendingCount, total: countableTasks.length } : undefined}
       peek={t.peek.homeToday(pendingCount, countableTasks.length - pendingCount)}
+      // Wired 2026-09-06 (round 20 phase 4's unshipped half — DECISIONS_OPEN.md): shows only
+      // while empty, same string the To-do tab's own Today card uses (same idea, same card).
+      // ⚠️ An empty day already draws NarratorQuote below (see the empty branch above) — this
+      // stacks a second muted italic line above it, on the maintainer's explicit ruling that the
+      // hint's emptiness gate applies app-wide, not a "no double explainer" oversight.
+      hint={countableTasks.length === 0 ? t.cardHint.todoToday : undefined}
     >
       {body}
     </Card>

@@ -11,7 +11,7 @@
  *
  * Connections:
  *   Imports → components/ScreenScaffold, components/TodoSurface, components/ConfirmationBanner,
- *             components/LayoutPickerSheet, lib/i18n, lib/useAppTheme, store/useSettingsStore
+ *             lib/cardLayout.ts, lib/i18n, lib/useAppTheme, store/useSettingsStore
  *   Used by → Expo Router route "/plans" — one of 3 co-mounted pager tabs under
  *             app/(tabs)/_layout.tsx; reached from "I dag" via components/PlanTaskCard.tsx's
  *             header link (which now switches the pager tab rather than pushing)
