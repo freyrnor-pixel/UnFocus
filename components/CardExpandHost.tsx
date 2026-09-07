@@ -290,8 +290,12 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // ⚠️ **`todoWeek` and `todoMonth` merged into `todoCalendar` (2026-09-01)** — one card that
   // owns its own range, week or month, rather than two hard-wired to the ranges they were named
   // after. Same "one rendering, two hosts" contract as its siblings.
-  todoCalendar: { title: (t) => t.todoCalendarTitle, Body: () => <TodoSurface section="calendar" /> },
-  todoRecurring: { title: (t) => t.tasksSectionRecurring, Body: () => <TodoSurface section="recurring" /> },
+  // ⚠️ **`todoCalendar` and `todoRecurring` left on 2026-09-07** — both are sections of
+  // `todoPlanner` now (maintainer: *"Calendar, Recurring and this week is part of planning
+  // card"*), so neither has a card left to expand. `section="planner"` draws BOTH: a pane that
+  // dropped one of them would make ⤢ a downgrade from the card, which is the opposite of what
+  // that control promises.
+  todoPlanner: { title: (t) => t.todoPlannerTitle, Body: () => <TodoSurface section="planner" /> },
   // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` left this registry on 2026-08-26** —
   // they are SECTIONS now, drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever`
   // (Washed away), so they travel for free with those two cards' own `section="today"`/

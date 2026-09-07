@@ -971,6 +971,26 @@ async function main() {
       components: 'PlanTaskCard, PadRow, DayGridLines',
     });
 
+    // ⚠️ **The Planner card's two SECTIONS, which nothing else photographs.** `todoCalendar` and
+    // `todoRecurring` became sections of `todoPlanner` on 2026-09-07 (maintainer: *"Calendar,
+    // Recurring and this week is part of planning card"*), and every To-do baseline draws that
+    // card COLLAPSED — so the merge itself would have been invisible to this gate, which is the
+    // same rule-2 gap `home-energy-budget` and `catalogue` were both added to close.
+    if (await openCard(page, 'Planner')) {
+      await page.waitForTimeout(900);
+      // The range segment belongs to the Calendar section and cannot be on screen while the
+      // card is shut, so it proves the card actually opened.
+      if (!(await page.getByText('Week', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('todo-planner: the card did not open — refusing to shoot the collapsed stack');
+      }
+      await shot(page, 'todo-planner', {
+        title: 'To-do — the Planner card, open',
+        screen: 'components/TodoSurface.tsx',
+        state: 'ONE card, two sections. Calendar (with its Week/Month range — "this week" is the week view, not a fourth surface) and Recurring were separate cards until 2026-09-07; both bodies are unchanged, only their `<Card>` wrappers became `SectionRail tier="sub"`. This lands the tab on the three cards v3 draws: Whenever, Today, Planner.',
+        components: 'TodoSurface, SectionRail, TaskCard, DateChipRow',
+      });
+    }
+
     const check = page.getByRole('checkbox', { name: 'Ring the dentist', exact: true }).first();
     if (await check.count()) {
       await check.click({ timeout: 10000 });

@@ -166,20 +166,25 @@ describe('hiddenCards', () => {
   });
 
   it('reads a persisted list back from the JSON column', () => {
-    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoCalendar"]' });
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoPlanner"]' });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoPlanner']);
   });
 
   it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
     // A card removed from lib/cardRegistry.ts, or a backup restored from an older build. Dropping
     // it here is what keeps the sheet from drawing a row for something that no longer exists.
-    // ⚠️ `todoMonth` is a REAL example of the case this test names: it was a card until
-    // 2026-09-01, when it merged into `todoCalendar`. An install that had hidden it has that
-    // string in its column right now.
-    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoCalendar","todoMonth"]' });
+    // ⚠️ Both stale ids here are REAL examples of the case this test names, and the second one
+    // is why the fixture moved on 2026-09-07. `todoMonth` was a card until 2026-09-01, when it
+    // merged into `todoCalendar`; `todoCalendar` was itself a card until 2026-09-07, when it
+    // became a section of `todoPlanner`. An install that hid either has that string in its
+    // column right now, and this is what stops the sheet drawing a row for it.
+    //   That is also how this test earned its keep: the planner merge made `todoCalendar`
+    // genuinely stale, and this assertion went red holding the OLD id as the survivor — the
+    // sanitizer doing exactly what it says while the fixture had gone out of date behind it.
+    (db.getFirstSync as jest.Mock).mockReturnValue({ id: 1, hidden_cards: '["todoPlanner","todoCalendar","todoMonth"]' });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoPlanner']);
   });
 
   it('reads a malformed column as nothing hidden rather than blanking a screen', () => {
@@ -190,11 +195,11 @@ describe('hiddenCards', () => {
 
   it('update() writes the list as a JSON string to hidden_cards', () => {
     (db.runSync as jest.Mock).mockClear();
-    useSettingsStore.getState().update({ hiddenCards: ['todoCalendar'] });
-    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoCalendar']);
+    useSettingsStore.getState().update({ hiddenCards: ['todoPlanner'] });
+    expect(useSettingsStore.getState().hiddenCards).toEqual(['todoPlanner']);
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;
     expect(sql).toContain('hidden_cards');
-    expect(params).toContain(JSON.stringify(['todoCalendar']));
+    expect(params).toContain(JSON.stringify(['todoPlanner']));
   });
 });
 
@@ -216,10 +221,10 @@ describe('cardOrder', () => {
   it('reads a persisted order back from the JSON column', () => {
     (db.getFirstSync as jest.Mock).mockReturnValue({
       id: 1,
-      card_order: '{"todo":["todoRecurring","todoToday"]}',
+      card_order: '{"todo":["todoPlanner","todoToday"]}',
     });
     useSettingsStore.getState().load();
-    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoRecurring', 'todoToday'] });
+    expect(useSettingsStore.getState().cardOrder).toEqual({ todo: ['todoPlanner', 'todoToday'] });
   });
 
   it('sanitizes on READ, so a stale id cannot survive a registry change', () => {
@@ -241,7 +246,7 @@ describe('cardOrder', () => {
 
   it('update() writes the bag as a JSON string to card_order', () => {
     (db.runSync as jest.Mock).mockClear();
-    const bag = { todo: ['todoRecurring' as const, 'todoToday' as const] };
+    const bag = { todo: ['todoPlanner' as const, 'todoToday' as const] };
     useSettingsStore.getState().update({ cardOrder: bag });
     expect(useSettingsStore.getState().cardOrder).toEqual(bag);
     const [sql, params] = (db.runSync as jest.Mock).mock.calls.at(-1)!;

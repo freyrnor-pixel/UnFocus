@@ -135,6 +135,10 @@ const BASELINE_SET = [
   'home-energy-budget',
   'plans-empty',
   'plans-today-populated',
+  // ⚠️ Added 2026-09-07 with the Calendar+Recurring merge. Every other To-do baseline draws the
+  // Planner COLLAPSED, so its two sections — the whole of that change — would have been
+  // invisible here. Same ratchet as `home-energy-budget` and `catalogue-dishes`.
+  'todo-planner',
   // ⚠️ `habits-empty` was here and is now in MACHINE_DEPENDENT below — read that entry
   // before putting it back.
   'habits-populated',

@@ -231,20 +231,43 @@ export const CARDS = {
   //   Still a DATE FILTER, not monthly recurrence: AGENTS.md excludes monthly recurrence from
   // `normalizeRecurringTasks` because there is no per-occurrence completion row, and this asks
   // only the question `taskOccursOn` already answers.
-  todoCalendar: {
+  // ⚠️ **`todoCalendar` and `todoRecurring` are GONE from this registry as of 2026-09-07** —
+  // both are SECTIONS of `todoPlanner` now. Maintainer: *"Calendar, Recurring and this week is
+  // part of planning card."* That lands the To-do tab on exactly the three cards v3 draws:
+  // Når som helst, I dag, Planlegger.
+  //
+  // *"This week"* is not a fourth thing that had to be built: `todoCalendar` already carried a
+  // week/month range (`calRange`), so the week IS the calendar's week view and moves with it.
+  //
+  // Same boundary move `shopMonthly` (2026-08-26) and `shopDishes` (2026-09-07) made, and
+  // nothing is deleted — both bodies render unchanged inside the planner, each under its own
+  // `SectionRail tier="sub"`, reading the same stores.
+  //
+  // ⚠️ **Both keys are STORAGE KEYS and both are retired rather than migrated**, same reasoning
+  // as `shopDishes`: each folded independently, so moving either one's fold state onto
+  // `todoPlanner` would close a card somebody had left open. The stale rows in
+  // settings.collapsedCards name no card and are never asked about.
+  todoPlanner: {
     screen: 'todo',
     order: 2,
+    // Keeps `todoCalendar`'s plans hue rather than `todoRecurring`'s borrowed health one. That
+    // borrow existed so three To-do cards in a column were not one colour (see
+    // constants/colors.ts's card-identity addendum); there are three cards again, and the two
+    // that merged are one of them now, so the reason for the second hue is gone with the second
+    // card. The glyph is what names the sections inside.
     hue: 'plans',
     domain: 'task',
-    icon: 'calendar',
-    title: (t) => t.todoCalendarTitle,
+    icon: 'construct',
+    title: (t) => t.todoPlannerTitle,
     fold: 'persisted',
     expand: 'surface',
-    // Wired into InlineTaskAdd via `compose="calendar"` + `dateChoices` — Day picks among the
-    // dates the card is currently showing, so a new row always lands inside the range that
-    // created it. One `day` opt for both granularities: the picker's CONTENTS change with the
-    // range, its question does not.
-    compose: { depth: 'panel', opts: ['day', 'time', 'goal'] },
+    // The union of what the two cards composed. Calendar's `day` picks among the dates the card
+    // is showing; Recurring's `repeat`/`on` commit a genuinely recurring task without sending
+    // the user to the full editor. Both still do exactly that inside their own section.
+    // ⚠️ `'on'` is here because the Recurring section still BUILDS a weekday picker.
+    // `lib/__tests__/cardRegistry.test.ts` caught its absence the moment the two specs merged:
+    // an opt the UI draws and no card declares is a control the table has stopped describing.
+    compose: { depth: 'panel', opts: ['day', 'time', 'repeat', 'on', 'goal'] },
   },
   todoWhenever: {
     screen: 'todo',
@@ -262,25 +285,6 @@ export const CARDS = {
     // field states the table's own two; it is not a claim that Time/Repeat are absent.
     compose: { depth: 'panel', opts: ['planMode', 'time', 'repeat', 'energy', 'goal'] },
   },
-  todoRecurring: {
-    screen: 'todo',
-    order: 4,
-    // Borrows the health hue so three To-do cards in a column aren't one colour — see
-    // constants/colors.ts's card-identity addendum. The glyph is what names it.
-    hue: 'health',
-    domain: 'health',
-    icon: 'repeat',
-    title: (t) => t.tasksSectionRecurring,
-    fold: 'persisted',
-    expand: 'surface',
-    // Repeat opens a showAppModal picker; On (the weekday multi-select) is the DEPENDENT
-    // option — it only renders once Repeat says Weekly, the exact shape that once froze the
-    // shipped app (see components/TodoSurface.tsx's note by `recurringDays`).
-    compose: { depth: 'panel', opts: ['repeat', 'on', 'time'] },
-  },
-
-  // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` are GONE from this registry as of
-  // 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — not deleted, turned into
   // SECTIONS drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever` (Washed away).
   // They were the app's only cards with `group: 'elsewhere'`; per the registry's own boundary —
   // "a card is registry-named, a section is drawn one-per-row-of-user-data and rides its

@@ -383,6 +383,10 @@ const en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
+    /* Both sections at once — a peek naming only one half would under-report the card.
+       The range comes first because it is what the card opens on. */
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} repeating`,
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
@@ -1034,6 +1038,9 @@ const en = {
   todoMonthTitle: 'Month',
   // The card that replaced the two above (2026-09-01) — it owns the range now.
   todoCalendarTitle: 'Calendar',
+  /* The card that holds Calendar and Recurring as sections (2026-09-07). v3 calls it
+     Planlegger; "planner" is the English the app already uses for the same idea. */
+  todoPlannerTitle: 'Planner',
   todoCalendarPrev: 'Earlier',
   todoCalendarNext: 'Later',
   // Plan mode: the Whenever composer stays open so a run of tasks costs one gesture each.
@@ -2702,6 +2709,8 @@ const no: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} gjentakelser`,
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
@@ -3194,6 +3203,7 @@ const no: typeof en = {
   todoWeekTitle: 'Uke',
   todoMonthTitle: 'Måned',
   todoCalendarTitle: 'Kalender',
+  todoPlannerTitle: 'Planlegger',
   todoCalendarPrev: 'Tidligere',
   todoCalendarNext: 'Senere',
   todoPlanModeLabel: 'Planmodus',
@@ -4572,6 +4582,10 @@ const is: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0
+        ? range
+        : `${dated} · ${range} · ${isCount(repeating, `${repeating} endurtekning`, `${repeating} endurtekningar`)}`,
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
     shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
@@ -5068,6 +5082,7 @@ const is: typeof en = {
   todoWeekTitle: 'Vika',
   todoMonthTitle: 'Mánuður',
   todoCalendarTitle: 'Dagatal',
+  todoPlannerTitle: 'Skipuleggjari',
   todoCalendarPrev: 'Fyrr',
   todoCalendarNext: 'Síðar',
   todoPlanModeLabel: 'Skipulagsstilling',
