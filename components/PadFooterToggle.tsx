@@ -17,7 +17,7 @@
  *             lib/useAppTheme, lib/haptics (tap), lib/i18n, lib/padState (PadState,
  *             nextPadState, padHiddenCount)
  *   Used by → components/{HomeNotesCard,HomeHabitsCard,PlanTaskCard}.tsx,
- *             app/plans.tsx
+ *             app/(tabs)/plans.tsx
  *   Data    → none — presentational; the caller persists via settings.cardStates
  *
  * Edit notes:

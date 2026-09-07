@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → lib/date (dayOfWeekMon0), lib/haptics (tap), components/AppModal (showAppModal),
  *             store/useHabitStore (HabitRecurrence type only)
- *   Used by → app/habits.tsx, components/HomeHabitsCard.tsx (both via
+ *   Used by → app/(tabs)/habits.tsx, components/HabitsSurface.tsx (both via
  *             components/HabitRecurrenceCells.tsx, which renders this hook's state)
  *   Data    → none — in-memory draft only; the caller's own createHabit() writes it via
  *             useHabitStore.add()/toHabitFields(), and openHabitFormWithDraft() via toParams()

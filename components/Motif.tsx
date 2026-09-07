@@ -13,8 +13,8 @@
  *   Used by → components/HabitLeading.tsx (the brand leaf) and
  *             components/TourSpotlight.tsx (the halo ring). ⚠️ components/StageTree.tsx and its
  *             four `tree-natural-*` motifs were deleted 2026-09-01 — and through it
- *             app/habits.tsx), components/TourSpotlight.tsx (halo-ring),
- *             app/onboarding/_layout.tsx (onboarding-triptych), components/HomeHabitsCard.tsx
+ *             app/(tabs)/habits.tsx), components/TourSpotlight.tsx (halo-ring),
+ *             app/onboarding/_layout.tsx (onboarding-triptych), components/HabitsSurface.tsx
  *             (leaf-icon corner accent, DESIGN_COMPARISON/04 option (b)),
  *             components/HabitLeading.tsx (leaf-icon as a habit row's leading mark,
  *             DESIGN_COMPARISON/04 option (a))

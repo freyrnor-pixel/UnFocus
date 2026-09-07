@@ -7,13 +7,13 @@
  *
  * Connections:
  *   Imports → components/Badge, components/PressableScale, constants/theme, lib/useAppTheme
- *   Used by → app/plans.tsx, app/(tabs)/health.tsx, components/PlanTaskCard.tsx and
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, components/PlanTaskCard.tsx and
  *             components/GoalsEditor.tsx (2026-08-13 — its four goal suggestions moved off
  *             components/StarterSuggestionChip: sentence-length labels at Radius.full wrapped
  *             into a ragged staircase, and a row list's even left edge is worth more than the
  *             pill there). All four render it inside a components/StarterCard `example` slot.
- *             **Two corrections to what this line claimed until 2026-08-13**: app/habits.tsx
- *             has passed chips, not rows, since 2026-07-30, and components/HomeHabitsCard.tsx
+ *             **Two corrections to what this line claimed until 2026-08-13**: app/(tabs)/habits.tsx
+ *             has passed chips, not rows, since 2026-07-30, and components/HabitsSurface.tsx
  *             the same — its read-only row was deleted then for rendering the same suggestion
  *             twice. Neither has imported this since. (app/(tabs)/shopping.tsx dropped its own
  *             two example rows 2026-07-28, see that file's StarterCard call; HomeShoppingCard

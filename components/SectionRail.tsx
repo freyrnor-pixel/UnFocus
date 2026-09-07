@@ -21,7 +21,7 @@
  *
  * Connections:
  *   Imports → constants/theme, lib/useAppTheme, components/CardAccent (CardAccentBadge)
- *   Used by → app/plans.tsx, app/habits.tsx (via SectionCard), app/(tabs)/shopping.tsx
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/habits.tsx (via SectionCard), app/(tabs)/shopping.tsx
  *             (both tiers — the two group headers and the four week sub-headers),
  *             components/SharedTasksSection.tsx
  *   Data    → none — presentational

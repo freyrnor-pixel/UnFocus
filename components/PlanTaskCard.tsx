@@ -129,7 +129,7 @@
  *             count pill, DESIGN_COMPARISON/09), components/GlowPulse
  *             (breathing "happening now" halo), store/useTaskStore (Task type only)
  *   Used by → app/(tabs)/index.tsx (Home — read-only day-view preview per Decision 009a) and
- *             app/plans.tsx (the To-do tab, interactively, whenever the active layout
+ *             app/(tabs)/plans.tsx (the To-do tab, interactively, whenever the active layout
  *             is the timeline — `spec.timeline`). Both read settings.planTimelineHorizontal
  *             and pass it down as the `horizontal` prop; this component stays
  *             store-free/presentational.

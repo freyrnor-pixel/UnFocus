@@ -7,7 +7,7 @@
  *
  * Connections:
  *   Imports → store/useShoppingStore (ShoppingItem type)
- *   Used by → app/shopping.tsx, components/WeekListCard.tsx (computeListGroups — all three
+ *   Used by → app/(tabs)/shopping.tsx, components/WeekListCard.tsx (computeListGroups — all three
  *             sections, including the `purchased` bucket, plus dishGroupAllChecked),
  *             components/HomeShoppingCard.tsx (listProgress), app/inventory-edit.tsx
  *             (catalogItemsForList)

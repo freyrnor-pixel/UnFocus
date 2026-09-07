@@ -11,7 +11,7 @@
  * mechanism every other card in the app now offers, replacing what used to be a tab switch.
  *
  * Connections:
- *   Imports → components/SectionCard, components/CollapsedSection, components/TaskCard,
+ *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard,
  *             components/PlanTaskCard, components/DraggableTaskRow, components/CardExpandButton,
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
@@ -20,7 +20,7 @@
  *             commit-then-open-the-editor shape — see its doc above `InlineTaskAdd`),
  *             lib/screenColor, store/useTaskStore, store/useSettingsStore, store/usePeopleStore,
  *             store/useTagStore, store/useMomentsStore — the same set app/(tabs)/plans.tsx's
- *             predecessor (app/plans.tsx) imported; this file IS that logic, moved
+ *             predecessor (app/(tabs)/plans.tsx) imported; this file IS that logic, moved
  *   Used by → app/(tabs)/plans.tsx (the To-do tab, `section` omitted — the full stack) and
  *             components/CardExpandHost.tsx's registry, one entry per card id
  *             (`todoWhenever`/`todoToday`/`todoWeek`/`todoRecurring`, each passing `section`)

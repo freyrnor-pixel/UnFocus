@@ -110,7 +110,7 @@
  *             (2026-07-28 — the editor's Tags row and the collapsed row's tag pills),
  *             lib/taskReset (2026-08-17 — `canPostpone`, which gates the "Not today" button
  *             beside the move shortcut; the rule lives there, not here)
- *   Used by → app/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
+ *   Used by → app/(tabs)/plans.tsx; app/notes.tsx (indirectly — creates the task, then this
  *             screen's `autoExpand` opens its editor, replacing the old push to /task-form)
  *   Data    → reads the passed `task` + its linked goal (useGoalStore, for the glow dot) +
  *             the full task list (useTaskStore, for the Then-follower picker's candidates/

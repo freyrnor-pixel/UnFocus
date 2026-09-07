@@ -12,7 +12,7 @@
  *   Imports → store/useSettingsStore
  *   Used by → lib/narratorQuotes.ts (the `Lang` TYPE only — it keys its own per-language table
  *             off it; no dictionary, no hook), components/NarratorQuote.tsx (`useLang`),
- *             app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/notes.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/intro.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DebugOverlay.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
+ *             app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/index.tsx, app/notes.tsx, app/onboarding/privacy.tsx, app/pair-device.tsx, app/(tabs)/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/(tabs)/shopping.tsx, components/TaskCard.tsx, components/SharedRequestsSection.tsx, components/cover/*, lib/reminders.ts, store/useHabitStore.ts, store/useTaskStore.ts
  *   Data    → reads `language` from the settings Zustand store
  *
  * Edit notes:

@@ -11,7 +11,7 @@
  *   Imports → constants/theme, lib/useAppTheme, lib/useDesignLab (useLabControl — the
  *             design lab's `number` job, see the last Edit note), lib/haptics,
  *             components/PressableScale, components/Slider
- *   Used by → components/TaskCard.tsx (was app/task-form.tsx, retired 2026-07-23),
+ *   Used by → components/TaskCard.tsx (was components/TaskCard.tsx, retired 2026-07-23),
  *             components/EnergyMeter.tsx, components/HomeShoppingCard.tsx,
  *             components/ShoppingItemSheet.tsx, app/settings.tsx, app/habit-form.tsx,
  *             app/medicine-form.tsx

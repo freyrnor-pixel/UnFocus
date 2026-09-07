@@ -17,7 +17,7 @@
  *             lib/useAppTheme, components/PressableScale,
  *             components/Collapsible (body reveal), components/AnimatedChevron (arrow)
  *   Used by → components/WeekListCard.tsx (dish groups + collapsed "bought this week"
- *             history, uncontrolled), app/shopping.tsx (Monthly catalog dish groups),
+ *             history, uncontrolled), app/(tabs)/shopping.tsx (Monthly catalog dish groups),
  *             app/settings.tsx (merged setting-group panels — passes `rounded`, see that
  *             prop's doc below); later Phase 3/6 sessions may also wire this into meals/health
  *             per Decision 009. NOTE: PlanTaskCard does NOT wrap DisclosureRow — Decision

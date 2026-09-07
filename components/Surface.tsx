@@ -78,7 +78,7 @@
  *             components/PressableScale, expo-linear-gradient, expo-blur
  *   Used by → every screen that renders a card (grep `<Surface`). Callers passing `onPress`
  *             (the key-press path): components/OpenEpisodeCard, app/health-log,
- *             app/health-detail, app/scan. **components/CollapsedSection doesn't use this
+ *             app/health-detail, app/scan. **components/Card.tsx doesn't use this
  *             path**: it is a card whose HEADER is tappable, not one tappable card, so the
  *             press lives on the header's own PressableScale. (Its predecessor
  *             SubScreenLinkButton left this list on 2026-08-08 for the same reason, and was

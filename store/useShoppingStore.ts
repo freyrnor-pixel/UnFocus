@@ -42,11 +42,11 @@
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/removeWithSource/restoreDeleted/doneShopping/monthlyReset/
  *             resetMonthlyList, so live widgets don't wait for foreground/background)
- *   Used by → app/shopping.tsx, app/inventory-edit.tsx (add/update/removeWithSource),
- *             components/AddItemSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type),
+ *   Used by → app/(tabs)/shopping.tsx, app/inventory-edit.tsx (add/update/removeWithSource)
+ *             components/CatalogueAddSheet.tsx (type), components/AddDishSheet.tsx (add), components/UpdateSheet.tsx (type)
  *             components/MonthlyTableRow.tsx (type), components/ShoppingRow.tsx (type), components/WeekListCard.tsx (type),
  *             components/SharedRequestsSection.tsx (add), components/MonthlyResetSummaryModal.tsx (MonthlyResetSummary),
- *             lib/shoppingGroups.ts (type); app/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
+ *             lib/shoppingGroups.ts (type); app/(tabs)/shopping.tsx hydrates via load() in its on-focus effect (Phase 5 — no global bootstrap yet)
  *   Data    → defines a Zustand store; owns SQLite tables shopping_items + shopping_trips
  *
  * Edit notes:

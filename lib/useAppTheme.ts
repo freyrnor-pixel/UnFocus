@@ -21,7 +21,7 @@
  *   Imports → constants/colors, constants/theme, store/useSettingsStore,
  *             lib/designLab + lib/useDesignLab (the design-lab override bag — see below)
  *   Used by → components (will be ported to use new ThemePalette token names);
- *             app/first-run.tsx uses the pure buildTheme/resolveIsDark/scaleStyles trio
+ *              uses the pure buildTheme/resolveIsDark/scaleStyles trio
  *   Data    → reads `darkMode`, `reducedMotion`, `fontSize` from the settings Zustand
  *             store; reducedMotion is OR'd with the live OS-level AccessibilityInfo setting
  *

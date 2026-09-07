@@ -10,8 +10,8 @@
  *
  * Connections:
  *   Imports → lib/haptics, lib/useAppTheme, react-native-gesture-handler, react-native-reanimated
- *   Used by → app/shopping.tsx (wraps ShoppingRow for the reorderable "Shopping list"
- *             section, Decision 011 R1 — see app/shopping.tsx's own header for the
+ *   Used by → app/(tabs)/shopping.tsx (wraps ShoppingRow for the reorderable "Shopping list"
+ *             section, Decision 011 R1 — see app/(tabs)/shopping.tsx's own header for the
  *             screen-owned hit-testing/live-reflow it drives); Decision 009 Session B
  *             (Plans phase) will also wrap PlanTaskCard rows once that's built
  *   Data    → none directly — callbacks drive the parent's drag/livePreview state

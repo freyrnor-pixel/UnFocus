@@ -67,7 +67,7 @@
  *             gone from the app entirely.
  *             components/PressableScale (the suggested-habits collapse/expand control lives in
  *             components/StarterCard now, not here),
- *             components/CollapsedSection + components/GoalsEditor (the "Goals" drawer —
+ *             components/Card.tsx + components/GoalsEditor (the "Goals" drawer —
  *             the same shape To-do draws; this link has been a card, then a hand-rolled row,
  *             then a shared `SubScreenLinkRow`, a drawer-onto-a-popup as of 2026-08-10, and
  *             is a drawer with the editor mounted straight in its body as of 2026-08-12 —
@@ -87,7 +87,7 @@
  *   - The person filter row + habit-form "For" chips are gated on settings.peopleModeEnabled
  *     (People/family mode). Profile add/remove lives in app/settings.tsx, not here.
  *   Used by → Expo Router route "/habits" — a PUSHED sub-screen since 2026-08-20 (5 tabs → 3),
- *             reached from "I dag" via components/HomeHabitsCard.tsx's header and its
+ *             reached from "I dag" via components/HabitsSurface.tsx's header and its
  *             "see all" row. It has no BottomNav seat any more; the day's due habits are
  *             drawn on "I dag" itself and this screen is where a habit is set up and browsed.
  *   Data    → useHabitStore (habits + habit_logs) via increment/decrement/markRestDay/add;

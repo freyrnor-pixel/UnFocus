@@ -12,7 +12,7 @@
  * Connections:
  *   Imports → components/AppModal, lib/dataAccess, lib/storeCrud (the guarded by-id delete),
  *             lib/i18n, lib/id, store/useSettingsStore, store/useShoppingStore
- *   Used by → app/automations.tsx, app/shopping.tsx, store/useTaskStore.ts
+ *   Used by → app/automations.tsx, app/(tabs)/shopping.tsx, store/useTaskStore.ts
  *   Data    → defines a Zustand store; owns SQLite table ifttt_rules
  *
  * Edit notes:

@@ -74,7 +74,7 @@
  *             components/ScreenScaffold (ScrollIntoViewContext), @expo/vector-icons
  *             (lib/screenColor left on 2026-08-16 — a recessed field has no resting stroke, so
  *             there is nothing left for the ambient screen hue to colour here)
- *   Used by → app/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
+ *   Used by → app/(tabs)/plans.tsx, app/(tabs)/health.tsx, app/health-log.tsx,
  *             components/GoalsEditor.tsx, components/FoodTab.tsx,
  *             components/MedicineSurface.tsx
  *             (re-measured 2026-08-08 — this list previously named shopping.tsx, habits.tsx

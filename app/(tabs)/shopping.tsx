@@ -98,7 +98,7 @@
  *             Food/Catalogue row, scan icon, Budget pill and spend-pace line are all
  *             unconditional as of the 2026-07-25 defaults revision),
  *             components/ShoppingFilterBar, components/ShoppingRow,
- *             components/KeepAwakeInStore (holds the screen awake while the in-store chip
+ *              (holds the screen awake while the in-store chip
  *             layout is showing — mounted here, once, as a sibling of ScreenScaffold; it
  *             replaced components/ShoppingStoreMode, retired 2026-08-20), components/Surface,
  *             components/UpdateSheet, components/WeekListCard,

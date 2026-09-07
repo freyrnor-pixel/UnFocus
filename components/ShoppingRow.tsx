@@ -27,7 +27,7 @@
  *             react-native-reanimated,
  *             store/useShoppingStore (ShoppingItem type + recentlyAddedIds, see Decision 044b note)
  *   Used by → components/WeekListCard.tsx (every layout EXCEPT the chip one — where
- *             `spec.chips` is set that card draws components/ShoppingChip.tsx instead, which is
+ *             `spec.chips` is set that card draws components/ShoppingRow.tsx instead, which is
  *             the same item in a different shape, not a different row; every WeekListCard call
  *             site now passes `first`/`last`/`rail`, S1.0),
  *             app/(tabs)/shopping.tsx (the reorderable "In list" rows, which now also pass

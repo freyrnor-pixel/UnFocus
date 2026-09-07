@@ -10,7 +10,7 @@
  *
  * Connections:
  *   Imports → components/NoteRow, components/AnimatedListItem, components/DraggableTaskRow,
- *             components/SendToSheet, components/GhostRow, components/HintCard, lib/i18n,
+ *             components/SendToSheet, components/GhostRow, components/CardHintLine.tsx, lib/i18n,
  *             lib/prefill, lib/screenColor, lib/useDragReorder, lib/useGhostTimeout,
  *             lib/useAppTheme, store/useNotesStore
  *   Used by → app/notes.tsx (`embedded` omitted) and components/CardExpandHost.tsx's

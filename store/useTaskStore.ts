@@ -25,8 +25,8 @@
  *             store/useSharedStore (setSharedOut emits an outgoing shared_tasks row),
  *             store/useGoalStore (registerProgress on toggle-to-done when a task has a goalId)
  *   Used by → components/PlanTaskCard.tsx (Task type), components/DraggableTaskRow.tsx (Task type),
- *             components/TaskCard.tsx (the one task editor — app/task-form.tsx retired
- *             2026-07-23, UX audit B1), app/plans.tsx, app/_layout.tsx
+ *             components/TaskCard.tsx (the one task editor — components/TaskCard.tsx retired
+ *             2026-07-23, UX audit B1), app/(tabs)/plans.tsx, app/_layout.tsx
  *             (syncMonthlyTaskNotifications, on boot + every foreground),
  *             store/usePeopleStore.ts (clearPerson, call-time only, when a person is removed),
  *             store/useTagStore.ts (clearTag, call-time only, when a tag is removed)

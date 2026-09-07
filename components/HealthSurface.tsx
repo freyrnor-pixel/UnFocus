@@ -8,9 +8,9 @@
  * mount inside both a full screen and a drawer/card.
  *
  * Connections:
- *   Imports → components/NarratorQuote, components/HintCard,
+ *   Imports → components/NarratorQuote, components/CardHintLine.tsx
  *             components/StarterCard, components/StarterExampleRow, components/OpenEpisodeCard
- *             + components/EpisodeCloseSheet, components/CollapsedSection +
+ *             + components/EpisodeCloseSheet, components/Card.tsx +
  *             components/HealthIssuesPreviewList (the `healthIssues` card's body; its
  *             fuller surface is components/HealthIssuesEditor.tsx, mounted as that card's pane),
  *             components/Surface, components/CardAccent, components/PadRow,
@@ -18,10 +18,10 @@
  *             components/QuickAddOptionRow, components/Collapsible, components/PressableScale,
  *             components/DebugNoteAnchor, components/TourTarget, components/FormControls,
  *             lib/date, lib/episodes, lib/i18n, lib/useNowMinutes, lib/severity,
- *             lib/useAppTheme, lib/useFirstVisitHint, lib/screenColor, lib/haptics,
+ *             lib/useAppTheme, lib/screenColor, lib/haptics
  *             lib/useKeyboardLift, store/useHealthStore, store/useSettingsStore
- *   Used by → app/health.tsx (non-embedded — the back-compat pushed route, nothing in the UI
- *             pushes to it any more), components/HomeHealthCard.tsx (`embedded` — the Home
+ *   Used by → app/(tabs)/health.tsx (non-embedded — the back-compat pushed route, nothing in the UI
+ *             pushes to it any more), components/HealthSurface.tsx (`embedded` — the Home
  *             card) and components/CardExpandHost.tsx's `homeHealth` registry entry (`embedded`
  *             — its pane already supplies the title bar)
  *   Data    → useHealthStore — reads `logs`/`symptoms`, calls `add()`/`ensureSymptom()`

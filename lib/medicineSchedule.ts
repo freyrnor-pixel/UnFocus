@@ -20,7 +20,7 @@
  * Connections:
  *   Imports → lib/date (parseTimeToMinutes)
  *   Used by → store/useMedicineStore.ts, lib/medicineNotifications.ts,
- *             components/MedicineTrayCard.tsx, app/medicine-form.tsx,
+ *             components/MedicineSurface.tsx, app/medicine-form.tsx,
  *             lib/__tests__/medicineSchedule.test.ts
  *   Data    → none (pure functions)
  *

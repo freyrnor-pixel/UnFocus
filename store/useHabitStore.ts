@@ -16,7 +16,7 @@
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
  *             add/update/remove/increment/decrement/markRestDay, so live widgets don't wait for
  *             foreground/background)
- *   Used by → app/habit-form.tsx, app/habits.tsx (its own bottom-nav tab again as of
+ *   Used by → app/habit-form.tsx, app/(tabs)/habits.tsx (its own bottom-nav tab again as of
  *             2026-07-23 — see that file's header for the fold-in/split-out history);
  *             app/_layout.tsx, app/settings.tsx, lib/useGhostTimeout.ts (indirectly, via
  *             habits.tsx's use of `lastDeleted`/`restoreLastDeleted`/`dismissLastDeleted`)

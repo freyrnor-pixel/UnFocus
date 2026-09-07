@@ -20,8 +20,8 @@
  *             runtime dependency)
  *   Used by → components/PadSheet.tsx, components/PadFooterToggle.tsx,
  *             components/{HomeNotesCard,HomeHabitsCard,HomeShoppingCard,PlanTaskCard}.tsx,
- *             app/plans.tsx, store/useSettingsStore.ts (sanitize on read),
- *             lib/__tests__/padRows.test.ts
+ *             app/(tabs)/plans.tsx, store/useSettingsStore.ts (sanitize on read)
+ *
  *   Data    → none — pure functions over values the caller already has. Reads no store,
  *             writes nothing. Persistence is settings.cardStates, owned by the store.
  *

@@ -35,7 +35,7 @@
  *   Imports → —
  *   Used by → constants/colors.ts (relLuminance only — see its doc comment; this file is the
  *             single home of the WCAG maths both modules need), components/Surface.tsx, components/Button.tsx,
- *             components/AddFAB.tsx, components/PhotoFrame.tsx, app/_layout.tsx, app/budget.tsx, app/capture.tsx, app/focus.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/index.tsx, app/meals.tsx, app/onboarding/guided.tsx, app/onboarding/index.tsx, app/onboarding/language.tsx, app/onboarding/privacy.tsx, app/onboarding/step2.tsx, app/onboarding/step3.tsx, app/onboarding/step4.tsx, app/onboarding/step5.tsx, app/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/shopping.tsx, app/task-form.tsx, components/DatePickerCalendar.tsx, components/ExpandableCard.tsx, components/HintCard.tsx, components/ShoppingRow.tsx, components/TimePickerWheel.tsx, lib/useAppTheme.ts
+ *             components/AddFAB.tsx, components/PhotoFrame.tsx, app/_layout.tsx, app/budget.tsx, app/habit-form.tsx, app/(tabs)/health.tsx, app/(tabs)/index.tsx, app/onboarding/privacy.tsx, app/(tabs)/plans.tsx, app/scan.tsx, app/settings.tsx, app/share-modal.tsx, app/shared.tsx, app/(tabs)/shopping.tsx, components/TaskCard.tsx, components/DatePickerCalendar.tsx, components/Card.tsx, components/CardHintLine.tsx, components/ShoppingRow.tsx, lib/useAppTheme.ts
  *   Data    → none (pure constants)
  *
  * Edit notes:
