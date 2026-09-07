@@ -24,7 +24,7 @@
  * `getLayeredShadow` — and `GlassFill.tsx` stays deleted: the new material is ~15 lines inside
  * `Surface`, not a resurrected component.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
@@ -46,6 +46,15 @@ jest.mock('@/lib/db', () => ({
 
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
+/**
+ * Every component/screen source, so an assertion about "nothing in the app does X" can actually
+ * scan the app instead of a hand-listed pair of files that drifts the moment someone adds a third.
+ */
+const ALL_SOURCES: string[] = ['components', 'app'].flatMap(function walk(dir: string): string[] {
+  return readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith('.tsx') ? [join(dir, e.name)] : [],
+  );
+});
 
 /**
  * What a glass token actually lands on. Dark's ground is genuinely `#000000` where a CARD sits —
@@ -142,7 +151,7 @@ describe('the material system stays deleted, and stays matte', () => {
   //     on every scrolling list for no visible difference.
   // That distinction is invisible to a screenshot and to the web preview alike (Chromium
   // renders `backdrop-filter` on both paths), which is exactly why it needs a source scan.
-  it('mounts a BlurView on every pane that is not an overlay, lighter for ambient cards', () => {
+  it('mounts NO BlurView anywhere, and the glass predicate is not a constant', () => {
     // ⚠️ REVERSED on 2026-08-16 (brief §2: "use expo-blur as the absolute foundation for every
     // card"). This used to assert the OPPOSITE — that an ambient card is excluded by an
     // explicit `surfaceContext !== 'ambient'` gate — on the reasoning that blurring a black
@@ -151,7 +160,6 @@ describe('the material system stays deleted, and stays matte', () => {
     // the one context with the app's own CARDS behind it rather than the backdrop — see the
     // 'a sheet never lets the card behind it through' test below for the rule and the ruling.
     const surface = read('components/Surface.tsx');
-    expect(surface).toMatch(/<BlurView/);
     // ⚠️ **NARROWED AGAIN on 2026-08-29 — an ambient card in DARK mounts no blur, and this time
     // the ruling is a measurement rather than an argument.** Both previous rulings reasoned:
     // 2026-08-15 excluded ambient ("blurring black returns black"), 2026-08-16 reversed it.
@@ -183,28 +191,27 @@ describe('the material system stays deleted, and stays matte', () => {
     // only because it fell on flat black, and it now falls on a lit field, which is where v2
     // puts its own `0 8px 28px rgba(0,0,0,.4)`.
     expect(surface).not.toMatch(/flatDarkGround = /);
-    expect(surface).toMatch(/&& !isAmbient;/);
-    expect(surface).toMatch(/\{glassOn \? \(/);
-    // The shadow is no longer gated on the ground being black.
+    // ⚠️ **There is NO `BlurView` in this app as of 2026-09-07, and this test now pins its
+    // absence.** It used to assert the mount and its two intensities. That assertion passed for
+    // a full day while the mount was UNREACHABLE — `glassOn` had gone constant-false (see the
+    // predicate test below), so a source-text scan was reporting a feature the app could not
+    // draw. Pinning the absence is honest; pinning a mount nothing reaches is not.
+    //   What replaces the blur as the pane's material is transmission: dark's `surfaceGlass`
+    // passes 86% of a backdrop that now has real light in it, bounded by `lib/glassBudget.ts`.
+    // A blur is a per-frame render-effect pass per card on scrolling lists; transmission is
+    // static paint. If a blur is ever wanted again, bring it back for ONE tier with a
+    // measurement, and change this test deliberately.
+    expect(surface).not.toMatch(/<BlurView/);
+    expect(surface).not.toMatch(/from 'expo-blur'/);
+    // The shadow is not gated on the ground being black.
     expect(surface).toMatch(/shadowLevel === 'flat' \|\| reduceEffects$/m);
-    // The blur is still context-gated only by the two rules above — never by a bare ambient
-    // exclusion that would take LIGHT mode with it.
+    // Never a bare ambient exclusion — that is what took LIGHT mode down with it in 2026-09-06.
     expect(surface).not.toMatch(/surfaceContext !== 'ambient'/);
-    // The per-tier intensity is the cost mitigation and is the part worth pinning: ~59 ambient
-    // cards to an overlay's one, so an ambient pass must stay the cheaper of the two.
-    // `isAmbient` is `surfaceContext === 'ambient'`, hoisted on 2026-08-15 because the new
-    // `opaqueCards` gate needs the same predicate. Both halves are asserted so the hoist can't
-    // quietly become something else.
+    expect(surface).not.toMatch(/&& !isAmbient;/);
     expect(surface).toMatch(/const isAmbient = surfaceContext === 'ambient';/);
-    expect(surface).toMatch(/intensity=\{isAmbient \? BLUR_AMBIENT : BLUR_STRONG\}/);
-    const ambient = Number(surface.match(/const BLUR_AMBIENT = (\d+)/)?.[1]);
-    const strong = Number(surface.match(/const BLUR_STRONG = (\d+)/)?.[1]);
-    expect(ambient).toBeGreaterThan(0);
-    expect(ambient).toBeLessThan(strong);
-    // Buttons stay solid — a translucent primary action would take its own accent down toward
-    // whatever it happens to sit on, which is the opposite of "one obvious action".
-    const solid = ['components/Button.tsx', 'components/AddFAB.tsx'];
-    expect(solid.filter((f) => /<BlurView/.test(read(f)))).toEqual([]);
+    // Nothing else in the app may quietly become the new blur.
+    const blurMounts = ALL_SOURCES.filter((f) => /<BlurView/.test(read(f)));
+    expect(blurMounts).toEqual([]);
   });
 
   it('turns every bit of it off when the user asks for less transparency', () => {
@@ -217,12 +224,10 @@ describe('the material system stays deleted, and stays matte', () => {
     // still means no blur anywhere, which is the half that must not weaken.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/glassSurfaces/);
-    // The blur's gate must still START with `glassOn`, so switching reduce-transparency on
-    // still removes the frost everywhere. It gained a second term on 2026-08-29 (an ambient
-    // card in dark blurs nothing — see the BlurView test above), which narrows WHERE the frost
-    // is drawn without weakening this switch: `glassOn` false still means no blur, anywhere.
-    expect(surface).toMatch(/\{glassOn \? \(/);
-    expect(surface).toMatch(/getGlassFill\(/);
+    // `glassOn` is what the switch reaches, and it must reach the FILL — that is the whole
+    // material now that there is no blur to turn off. The evaluation below the regex in the
+    // 'opaqueCards is scoped to CARDS' test is what proves the switch can actually flip it.
+    expect(surface).toMatch(/getGlassFill\(glassFill, opaqueFill, glassOn\)/);
   });
 
   it('the painted glass and the measured composite agree', () => {
@@ -233,9 +238,14 @@ describe('the material system stays deleted, and stays matte', () => {
     // shape of the "a comment asserted a safety property nothing checked" bug AGENTS.md
     // records from PR #540.
     //
-    // Dark's ground is genuinely #000000 (ScreenBackground's DARK.base is three black stops
-    // with both glows at 0). Light's is the backdrop gradient's DARKEST stop, so the real pane
-    // is never darker than the value the tests check.
+    // ⚠️ **This is a token-DERIVATION check, and its ground is a reference, not a claim about
+    // every pixel.** Dark's `base` is still three `#000000` stops, but since 2026-09-06 the
+    // washes are lit across the card column, so a real card sits on a ground BRIGHTER than this
+    // — that is the point of the material. What this test pins is that `surface` remains
+    // exactly `surfaceGlass` over the unlit reference, so the two tokens cannot drift apart.
+    // What bounds the lit case is `lib/__tests__/glassBudget.test.ts`, which measures the
+    // composite over the real field; the two tests are complements and neither replaces the
+    // other. Light's ground is the backdrop gradient's DARKEST stop.
     (['light', 'dark'] as const).forEach((mode) => {
       const p = THEMES.default[mode];
       expect(compositeOverGround(p.surfaceGlass, mode)).toBe(p.surface.toUpperCase());
@@ -517,8 +527,55 @@ describe('glass settings', () => {
     // over all of them.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
-      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\) && !isAmbient;/,
+      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
     );
+    // ⚠️ **And then EVALUATE it, because the regex above cannot see a constant.**
+    // On 2026-09-06 a sixth term (`&& !isAmbient`) was appended to this predicate. Since
+    // `!overlapsCards` already excluded the only other two contexts, the expression became
+    // constant-false: no pane in the app was translucent, in either theme, at any setting, and
+    // the BlurView it gated was unreachable. Three source-text assertions in this file were
+    // updated to match the new string and all three passed.
+    //   So the predicate is extracted and run over the whole input space. The property that
+    // matters is not its text but that it still has a `true` in it.
+    const expr = surface.match(/const glassOn = ([^;]+);/)![1];
+    const evalGlass = (ctx: 'ambient' | 'overlay' | 'nav', o: Record<string, unknown>) =>
+      // eslint-disable-next-line no-new-func
+      new Function(
+        'glassPref', 'reduceEffects', 'tint', 'overlapsCards', 'isAmbient', 'opaqueCards',
+        `return (${expr});`,
+      )(
+        o.glassPref, o.reduceEffects, o.tint,
+        ctx === 'overlay' || ctx === 'nav', ctx === 'ambient', o.opaqueCards,
+      );
+    const CONTEXTS = ['ambient', 'overlay', 'nav'] as const;
+    const results: { ctx: string; on: boolean }[] = [];
+    for (const ctx of CONTEXTS) {
+      for (const glassPref of [true, false]) {
+        for (const reduceEffects of [true, false]) {
+          for (const opaqueCards of [true, false]) {
+            for (const tint of [null, '#123456']) {
+              results.push({
+                ctx,
+                on: !!evalGlass(ctx, { glassPref, reduceEffects, opaqueCards, tint }),
+              });
+            }
+          }
+        }
+      }
+    }
+    // Some combination must turn glass ON — otherwise the material does not exist.
+    expect(results.some((r) => r.on)).toBe(true);
+    // Specifically, the DEFAULT settings on an ambient card must be glass: that is ~59 of the
+    // app's ~60 surfaces and the whole population the brief is about.
+    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(true);
+    // And each switch must still be able to turn it off, or the escape hatches are decorative.
+    expect(evalGlass('ambient', { glassPref: false, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
+    expect(evalGlass('ambient', { glassPref: true, reduceEffects: true, opaqueCards: false, tint: null })).toBe(false);
+    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: true, tint: null })).toBe(false);
+    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: '#123456' })).toBe(false);
+    // overlay/nav stay opaque — a sheet has the app's own cards behind it (2026-08-18/20).
+    expect(evalGlass('overlay', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
+    expect(evalGlass('nav', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
     // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
     // turning the switch on would change what lib/__tests__/colors.test.ts measures rather
     // than only what is drawn. getGlassFill's opaque arm is `opaqueFill`, which resolves to

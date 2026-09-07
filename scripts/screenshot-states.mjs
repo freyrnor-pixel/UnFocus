@@ -73,12 +73,40 @@ let shotIndex = 0;
  * static costs one extra capture and returns immediately. A screen with a genuinely endless
  * animation spends the budget and proceeds, which is no worse than the bare wait it replaces —
  * so this can be unconditional without any screen being able to hang the walk.
+ *
+ * ⚠️ **ONE matching pair was not enough, and the screen that proved it is `task-editor`
+ * (2026-09-07).** `components/ScreenBackground.tsx` crossfades the per-tab hue over
+ * `Duration.ambient` — **2400 ms**, far longer than this function's whole 3000 ms budget — on an
+ * ease-out whose tail changes by well under one level per 250 ms step. So two consecutive frames
+ * could compare equal MID-FADE, and this returned "settled" on a screen that was still moving.
+ *   That race is older than the bug it caused; what made it visible was cards becoming
+ * translucent again. While an ambient card painted an opaque fill, the crossfade was invisible
+ * over ~86% of the frame, so a mid-fade capture was byte-identical to a settled one and this
+ * function got the right answer for the wrong reason. Once the pane transmits the backdrop, the
+ * same race prints a card fill a level or two off, run to run: measured on ONE machine against
+ * baselines blessed on it an hour earlier, `task-editor` came back 0 px, then 27 px, then 127 px.
+ *
+ * So the predicate is now **`STABLE_FRAMES` consecutive identical captures**, and the budget
+ * exceeds the longest ambient animation rather than being half of it. A still screen costs one
+ * extra step per additional frame required (~44 shots × 250 ms ≈ 11 s per walk) and that is the
+ * whole price. Do not lower either constant to make a walk faster: the failure they prevent
+ * presents as an unrelated screen drifting by a hundred pixels, which is the most expensive kind
+ * of red this repo produces.
  */
-async function settle(page, { budgetMs = 3000, step = 250 } = {}) {
+const STABLE_FRAMES = 3;   // 750 ms of byte-identical output before a screen counts as still
+const SETTLE_BUDGET_MS = 6000;   // > Duration.ambient (2400) with room for the fade to finish
+
+async function settle(page, { budgetMs = SETTLE_BUDGET_MS, step = 250 } = {}) {
   let previous = null;
+  let matches = 0;
   for (let waited = 0; waited <= budgetMs; waited += step) {
     const frame = await page.screenshot({ fullPage: false });
-    if (previous && previous.equals(frame)) return true;
+    if (previous && previous.equals(frame)) {
+      // `STABLE_FRAMES` CAPTURES in a row means `STABLE_FRAMES - 1` consecutive matches.
+      if (++matches >= STABLE_FRAMES - 1) return true;
+    } else {
+      matches = 0;
+    }
     previous = frame;
     await page.waitForTimeout(step);
   }

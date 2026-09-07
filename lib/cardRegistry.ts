@@ -295,8 +295,14 @@ export const CARDS = {
   // read) — see components/TodoSurface.tsx for where the content actually lives now.
 
   // ── Shop ───────────────────────────────────────────────────────────────────────────────
-  // The maintainer's order, verbatim, and deliberately with NO group headers over it — he
-  // declined an "Inventory" grouping, so nobody should add one back.
+  // ⚠️ **Order is `lists → monthly → dishes → catalogue` as of 2026-09-07**, REVERSING the
+  // 2026-08-21 maintainer order ("Shopping lists, food and Catalogue, Monthly") on an explicit
+  // later instruction to match the four-peer-card Handle mockup (`DESIGN_COMPARISON` Shopping
+  // Screen, 2026-09-07: "now → fast → planlegging → kilde" — Handlelister, Månedsliste, Retter,
+  // Katalog). `shopMonthly` returns as a top-level registry card (see its entry below,
+  // reversing 2026-08-26 phase 5's demotion to a section of `shopLists`) — deliberately still
+  // with NO "Inventory" group header over Dishes/Catalogue, which the 2026-08-21 answer also
+  // declined and this pass leaves alone.
   shopLists: {
     screen: 'shop',
     order: 1,
@@ -322,16 +328,46 @@ export const CARDS = {
     // header. This states what was already true rather than adding anything.
     compose: { depth: 'panel', opts: ['qty', 'category'] },
   },
+  // ⚠️ **Back as a top-level card (2026-09-07), reversing 2026-08-26 phase 5's demotion to a
+  // SECTION inside `shopLists`.** That demotion's reasoning ("the per-list cards are
+  // sections… which never grow to fill the screen on their own") was true of the per-list
+  // Surfaces then and still is now — those stay sections, drawn one-per-row-of-data, same as
+  // before. What changed is the OUTER wrapper: the mockup names Månedsliste as its own peer
+  // card beside Handlelister/Katalog, each with its own fold and peek line, so the outer
+  // wrapper is a registry card again rather than an embedded `SectionCard`. `expand: 'none'`
+  // carries over unchanged — a full-screen pane over a stack of per-list Surfaces is still the
+  // same "nothing to mount that isn't already on screen" refusal.
+  shopMonthly: {
+    screen: 'shop',
+    order: 2,
+    hue: 'shopping',
+    domain: 'shop',
+    icon: 'repeat',
+    title: (t) => t.monthlyTabLabel,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined:
+      "Monthly's per-list Surfaces are already fully expanded in place on the card itself — there is nothing a full-screen pane would show that isn't already on screen.",
+    compose: { depth: 'panel', opts: ['qty', 'category'] },
+  },
+
   // ⚠️ **`shopDishes` is GONE from this registry as of 2026-09-07** — it is the **Retter** tab
   // of `shopCatalogue` now, beside **Varer**. Maintainer: *"Food/Dishes is a tab with Catalogue
   // now in its own card."* v3 draws the same thing: *"Katalog = ett kort, to faner. Varer viser
   // pris per enhet. Retter viser antall varer og totalpris."*
   //
-  // This is the SAME boundary move `shopMonthly` made on 2026-08-26, and for the same reason
-  // that note gives: a card is what the registry names, and Dishes held no position of its own
-  // to justify one once Catalogue could show it. Nothing is deleted — `components/FoodTab.tsx`
-  // is mounted unchanged behind the tab, reading the same store, so no dish and no meal section
-  // is lost. See app/(tabs)/shopping.tsx for where it renders now.
+  // ⚠️ **This does NOT contradict `shopMonthly`'s restoration directly above, and the two
+  // arrived from different rulings on the same day.** #676 read the Handle mockup as four peer
+  // cards (Handlelister/Månedsliste/Retter/Katalog); the maintainer then ruled that Retter is a
+  // TAB of Katalog. Those are compatible — one is about Monthly, the other about Dishes — so
+  // both hold: Monthly keeps its restored card and Dishes becomes a tab. Neither ruling was
+  // reverted to satisfy the other.
+  //
+  // This is the SAME boundary move `shopMonthly` made in the other direction: a card is what
+  // the registry names, and Dishes held no position of its own to justify one once Catalogue
+  // could show it. Nothing is deleted — `components/FoodTab.tsx` is mounted unchanged behind
+  // the tab, reading the same store, so no dish and no meal section is lost. See
+  // app/(tabs)/shopping.tsx for where it renders now.
   //
   // ⚠️ **A key is a STORAGE KEY, and this one is retired rather than renamed.** `shopDishes` was
   // `fold: 'persisted'`, so it has a row in `settings.collapsedCards` on every install that ever
@@ -340,10 +376,9 @@ export const CARDS = {
   // `shopCatalogue`: the two cards folded independently, so moving one card's fold state onto
   // another would close a Catalogue somebody had left open. The stale row ages out with the
   // column's own pruning.
-
   shopCatalogue: {
     screen: 'shop',
-    order: 2,
+    order: 3,
     hue: 'shopping',
     domain: 'shop',
     icon: 'list',
@@ -357,7 +392,7 @@ export const CARDS = {
   },
   shopBudget: {
     screen: 'shop',
-    order: 3,
+    order: 4,
     hue: 'shopping',
     domain: 'shop',
     icon: 'wallet',
@@ -371,15 +406,11 @@ export const CARDS = {
     expandDeclined:
       'app/budget.tsx is already the full-screen budget, with month navigation, the receipt list and the per-store breakdown that this card deliberately omits. A pane here would be a thinner third rendering of a screen the Budget pill already opens.',
   },
-  // ⚠️ **`shopMonthly` is GONE from this registry as of 2026-08-26** (phase 5 of
-  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — turned into a SECTION drawn inside `shopLists`,
-  // the same boundary move that took `todoGoals`/`todoEarlierDays`/`todoWashedAway` out of the
-  // registry: Monthly was already declared `expand: 'none'` for exactly the section reason
-  // ("the per-list cards are sections… which never grow to fill the screen on their own") —
-  // the outer `shopMonthly` wrapper around them was the one piece of that card that was still a
-  // CARD rather than a section, and it held no user data of its own to justify it. See
-  // app/(tabs)/shopping.tsx for where the content lives now (still every bit of it — the
-  // per-list `Surface`s, the filter bar, the empty state — just without an outer registry card).
+  // ⚠️ The "shopMonthly is GONE" note that stood here is DELETED rather than kept as history,
+  // because it is no longer history — #676 brought that card back on 2026-09-07 and its entry
+  // above carries the current reasoning. A superseded note is worth keeping; a note describing
+  // the opposite of what the file now does is the stale-claim failure EXECUTION_RULES.md rule 5
+  // is about.
 
   // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
   // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*

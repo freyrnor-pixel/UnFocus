@@ -540,6 +540,19 @@ describe('a collapsed card draws no rule and reserves no room', () => {
         // above instead.
         if (/tier=\{/.test(element)) continue;
         if (/tier="sub"/.test(element)) continue;
+        // ⚠️ **A LITERAL `tier="card"` outside Card.tsx (2026-09-07).** The prose above says the
+        // card rung is "drawn only by components/Card.tsx", and that stopped being true when
+        // #678 gave Home's empty Energy card the app's own header — deliberately, to avoid a
+        // fifteenth hand-rolled variant, which is exactly what DESIGN_RULES.md §8 asks for.
+        //   This branch had no case for it, so a legitimate card rung fell through to the group
+        // branch and tripped the badge ban. `main` was red on this when the merge that found it
+        // landed. Rather than skip the rung (which would check nothing), the rule is inverted for
+        // it: a card rung MUST carry a badge, because that is what distinguishes it from a group
+        // heading in the ladder this test describes.
+        if (/tier="card"/.test(element)) {
+          if (!/\bdomain=/.test(element)) offenders.push(`${abs}: card rung with no badge`);
+          continue;
+        }
         // What is left is a group heading: over a stack of CARDS, and therefore not a card. A
         // badge here is what made every drawer and group header read as a card itself.
         if (/\bdomain=/.test(element)) offenders.push(`${abs}: group heading with a card badge`);

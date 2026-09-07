@@ -221,9 +221,48 @@ const WANTED_BUT_UNCAPTURED = [
  * Fix it by making the pill's resting position not depend on animation timing, then move the
  * name back into BASELINE_SET and bless. Do NOT resolve it by raising MAX_DIFF_PIXELS.
  */
+/**
+ * ⚠️ **Entries may be scoped to ONE theme (2026-09-07), and the first one is.** A third element,
+ * `'light' | 'dark'`, excludes the screen in that theme only; omit it to exclude it in both, as
+ * `habits-empty` does.
+ *
+ * `task-editor` in LIGHT is the reason. Restoring the translucent card (2026-09-07) made it
+ * cross-machine at ~101 px, and the mechanism is already written down in constants/colors.ts:
+ * **light's base is a 280×607 SVG gradient scaled to COVER** (`preserveAspectRatio="slice"`), so
+ * its stops land at slightly different heights on two rasterisers, and a pane that transmits 18%
+ * of that shifts a value or two wherever it sits. That note recorded the same effect at
+ * 46–51 k px when a native gradient was tried in place of the SVG, which is why the SVG stayed.
+ * DARK has no such exposure — its base is three identical `#000000` stops, which
+ * components/ScreenBackground.tsx draws as a flat `View` fill, so there is no gradient to
+ * misalign. It is stable at 0 px on both machines and stays guarded.
+ *   Chased before landing here, in the order the header above demands: the same screen was ALSO
+ * caught by a genuine settle race in both themes (0 / 27 / 127 px on one machine), and that was
+ * FIXED rather than excluded — see `STABLE_FRAMES` in scripts/screenshot-states.mjs. Dark went
+ * to 0 with it. Light did not, so what is left is not a race, and this is the residue.
+ *   The cost is real and is bounded to one theme rather than the whole screen: `task-editor` is
+ * "the densest form in the app… the single most valuable shot in this set", and every bit of
+ * layout, spacing and control geometry it guards is still guarded — in dark, at 430 px, plus
+ * `npm run wraps` and `npm run geometry`, both of which measure it in both themes.
+ *   Fix it by removing light's dependence on where the SVG's stops land, then delete this entry
+ * and bless. Do NOT resolve it by raising MAX_DIFF_PIXELS.
+ */
 const MACHINE_DEPENDENT = [
   ['habits-empty', 'the TabSlider pill settles 73 px differently here and on CI — see this constant’s note; do not fix by raising the pixel budget'],
+  ['task-editor', 'light only: the base gradient is an SVG scaled to COVER, so its stops land differently on two rasterisers and the translucent card transmits the difference (~101 px) — see this constant’s note; dark has a flat base and stays guarded', 'light'],
 ];
+/** The members that apply to the theme being diffed right now. */
+const machineDependentHere = MACHINE_DEPENDENT.filter(([, , theme]) => !theme || theme === THEME);
+/**
+ * The names actually compared in this theme. A whole-set exclusion is done by leaving the name
+ * out of `BASELINE_SET` (as `habits-empty` is); a THEME-scoped one has to stay in the set — the
+ * other theme still guards it — so it is subtracted here instead.
+ *
+ * ⚠️ Comparison only. `--update` still blesses the full `BASELINE_SET`, deliberately: an excluded
+ * screen's baseline must stay current, or moving it back into comparison later would light up
+ * every change made while it was out.
+ */
+const EXCLUDED_HERE = new Set(machineDependentHere.map(([name]) => name));
+const COMPARED_SET = BASELINE_SET.filter((name) => !EXCLUDED_HERE.has(name));
 
 function log(...m) {
   console.log(...m);
@@ -365,7 +404,7 @@ if (UPDATE) {
   process.exit(0);
 }
 
-const results = BASELINE_SET.map((name) => {
+const results = COMPARED_SET.map((name) => {
   const shot = captured.get(name);
   if (!shot) return { name, status: 'missing-shot' };
   return compareOne(name, shot);
@@ -381,11 +420,11 @@ if (WANTED_BUT_UNCAPTURED.length) {
   log(`  coverage gap     ${WANTED_BUT_UNCAPTURED.length} screen(s) this set wants and the walk does not produce:`);
   for (const [name, why] of WANTED_BUT_UNCAPTURED) log(`                     · ${name} — ${why}`);
 }
-if (MACHINE_DEPENDENT.length) {
-  log(`  not comparable   ${MACHINE_DEPENDENT.length} screen(s) captured but excluded — two machines settle differently:`);
-  for (const [name, why] of MACHINE_DEPENDENT) log(`                     · ${name} — ${why}`);
+if (machineDependentHere.length) {
+  log(`  not comparable   ${machineDependentHere.length} screen(s) captured but excluded — two machines settle differently:`);
+  for (const [name, why] of machineDependentHere) log(`                     · ${name} — ${why}`);
 }
-log(`  unchanged        ${ok.length}/${BASELINE_SET.length}`);
+log(`  unchanged        ${ok.length}/${COMPARED_SET.length}`);
 log(`  changed          ${changed.length}`);
 log(`  no baseline yet  ${missingBaseline.length}`);
 log(`  not captured     ${missingShot.length}`);

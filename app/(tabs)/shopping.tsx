@@ -61,13 +61,13 @@
  * purchased-this-month history — plus a "+ New list" row and a small relocated "reset all
  * lists" link at the bottom. Replaces the old single global Katalog card.
  *
- * ⚠️ **Registry restructure, 2026-08-26 (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md).**
- * `shopMonthly` is gone from lib/cardRegistry.ts — everything the paragraph above still
- * accurately describes is drawn now as `monthlySection`, a section EMBEDDED inside `weeklyGroup`
- * (near its foot, below the week sections, above the New-list/Archive triggers) rather than its
- * own top-level `<Card>`. This is a wrapper change only: not one line of the Monthly body itself
- * (the filter bar, the per-list Surfaces, the empty state) moved. `weeklyGroup` and
- * `foodCatalogueLinks` are the two groups composed in the return now, not three.
+ * ⚠️ **Registry restructure, 2026-08-26 (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md),
+ * then REVERSED 2026-09-07.** `shopMonthly` went from a top-level card to a section embedded in
+ * `weeklyGroup` on 2026-08-26, then back to a top-level card on 2026-09-07 to match the
+ * four-peer-card Handle mockup (Handlelister → Månedsliste → Retter → Katalog, one per
+ * `<Card>`). `monthlySection` is the const's name either way — everything the paragraph above
+ * still accurately describes is unchanged; only which of `cardNodes`/`weeklyGroup`'s children it
+ * is mounted as moved. See lib/cardRegistry.ts's note at `shopMonthly` for the full history.
  *
  * **Shop's Archive (same pass).** A weekly list can be put away without deleting it —
  * `shopping_lists.archived_at`, a DIFFERENT axis from `isTemplate` (a reusable blueprint you
@@ -658,10 +658,8 @@ export default function ShoppingScreen() {
   // Shared across every Monthly list card (one search box, not one per list — 2026-07-22).
   const [monthlyTabSearch, setMonthlyTabSearch] = useState('');
   const [monthlyTabCategory, setMonthlyTabCategory] = useState<string | null>(null);
-  // Monthly is a SECTION inside the shopLists card now (2026-08-26) — was `shopMonthly`, an
-  // ordinary registry card; see lib/cardRegistry.ts's note at its old position. A section's
-  // fold is local and unpersisted, same as every other section in the app.
-  const [monthlySectionOpen, setMonthlySectionOpen] = useState(false);
+  // Monthly is a top-level registry card again (2026-09-07, `shopMonthly`) — its fold is
+  // `Card`'s own persisted `useCollapsedCard`, not local state; see cardRegistry.ts's note.
   // One list's lightweight "reset this list" confirm — id of the list being confirmed, or null.
   const [resetListConfirmId, setResetListConfirmId] = useState<string | null>(null);
   // Tap-to-edit name field, per Monthly list (mirrors WeekListCard's nameEditing/nameInput
@@ -1798,20 +1796,18 @@ export default function ShoppingScreen() {
   // (WeekListCard, the Monthly `catalogCard`s), and a card around a stack of cards reads as the
   // nested panel the 2026-08-18 blueprint pass banned. `components/SectionRail.tsx` alone gives
   // each group the same header language as the rest of the app without adding that box.
-  // Monthly is a SECTION inside the shopLists card as of 2026-08-26 (phase 5 of
-  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — was `shopMonthly`, an ordinary registry card;
-  // see lib/cardRegistry.ts's note at its old position for why. Defined here, ahead of
-  // `weeklyGroup`, because it is now a CHILD of it rather than a sibling — every line of its
-  // own body (the filter bar, the per-list Surfaces, the empty state) is unchanged.
+  // ⚠️ **Top-level registry card again (2026-09-07, `shopMonthly`), reversing the 2026-08-26
+  // demotion to a section inside `weeklyGroup`** — see cardRegistry.ts's note at `shopMonthly`.
+  // Kept as its own const, defined ahead of `weeklyGroup` for no reason but file order (it is a
+  // SIBLING of it now, mounted via `cardNodes`/`cardOrder` below, not a child). Every line of
+  // its own body (the filter bar, the per-list Surfaces, the empty state) is unchanged — only
+  // the wrapper moved from `SectionCard embedded` + local fold state to `Card`'s own registry
+  // fold and peek line.
   const monthlySection = (
-    <SectionCard
-      embedded
-      hue={screenHue}
-      icon="calendar"
-      label={t.monthlyTabLabel}
+    <Card
+      id="shopMonthly"
       count={monthlyLists.length || undefined}
-      collapsed={!monthlySectionOpen}
-      onToggleCollapse={() => setMonthlySectionOpen((v) => !v)}
+      peek={t.peek.shopMonthly(monthlyLists.length)}
     >
 
       {true && (
@@ -2138,7 +2134,7 @@ export default function ShoppingScreen() {
         </>
       )}
 
-    </SectionCard>
+    </Card>
   );
 
   const weeklyGroup = (
@@ -2424,8 +2420,6 @@ export default function ShoppingScreen() {
             );
           })}
 
-          {monthlySection}
-
           {/* Creating a new list has no single text field to fill (it's auto-named by
               date range, then offers a start-empty/from-saved choice), so it genuinely
               doesn't fit the AddRow / pad type-line shape the other tabs use — it's a
@@ -2698,13 +2692,17 @@ export default function ShoppingScreen() {
     </View>
   );
 
-  // ⚠️ **The cards are DATA now (2026-09-01), not three hardcoded render calls.** Each registry
-  // id resolves to its already-built node and the screen renders `orderedCards('shop')`, which
-  // is what makes the Manage cards sheet's reorder reach this tab. The maintainer's 2026-08-21
-  // order — *"Shopping lists, food and Catalogue, Monthly"* — is still what the registry
-  // declares and still what anyone who never opens that sheet gets.
+  // ⚠️ **The cards are DATA now (2026-09-01), not hardcoded render calls.** Each registry id
+  // resolves to its already-built node and the screen renders `orderedCards('shop')`, which is
+  // what makes the Manage cards sheet's reorder reach this tab.
+  //   The order is Handlelister · Månedsliste · Katalog · Budsjett as of 2026-09-07, from two
+  // rulings that landed the same day and turned out to be compatible: #676 restored Monthly as
+  // a peer card, and the maintainer ruled that *"Food/Dishes is a tab with Catalogue"*. One is
+  // about Monthly and the other about Dishes, so both hold — `dishesCard` is gone because
+  // `FoodTab` is mounted inside `catalogueCard`'s Retter tab, not because Monthly came back.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
     shopLists: weeklyGroup,
+    shopMonthly: monthlySection,
     shopCatalogue: catalogueCard,
     shopBudget: budgetCard,
   };
@@ -2717,26 +2715,16 @@ export default function ShoppingScreen() {
       <DebugNoteAnchor id="shopping.list" label="Shopping — List" style={styles.content}>
           {shoppingIntro}
 
-          {/* ⚠️ **Order settled 2026-08-21 by the maintainer**, asked whether Dishes and
-              Catalogue should sit under one "Inventory" header and whether Monthly should move
-              above the lists it feeds: *"Shopping lists, food and Catalogue, Monthly."* So —
-              the lists you open on a trip first, then the two libraries. Two things that answer
-              names by NOT doing them, so the gaps read as decisions: there is no "Inventory"
-              grouping header (Dishes and Catalogue are each their own card, and a header over
-              two cards would be a fourth header idiom on a screen that just got down to one),
-              and Monthly is not presented as the basis the shopping list is built from.
-              `CONSISTENCY_AUDIT.md` §13 has the question.
-                ⚠️ **Monthly moved from its own top-level card to a SECTION inside `weeklyGroup`
-              on 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md — see
-              lib/cardRegistry.ts's note at `shopMonthly`'s old position), so it is no longer a
-              separate render call here at all; `monthlySection` is mounted INSIDE `weeklyGroup`,
-              near its foot, below the week sections and above the New-list/Archive triggers.
-                ⚠️ **And the user can reorder it from 2026-09-01** — `useOrderedCards` layers
-              settings.cardOrder over the registry's declared order, so the maintainer's order is
-              what anyone who never opens the Manage cards sheet gets. The reason Dishes and
-              Catalogue are LAST by default is still the 2026-08-10 one: doors out of a screen go
-              at the foot of it, or the two least-visited surfaces sit ahead of the thing you
-              opened Shopping to do (DESIGN_RULES.md rule 7). */}
+          {/* ⚠️ **Order is `lists → monthly → dishes → catalogue` as of 2026-09-07**, matching
+              the four-peer-card Handle mockup — see cardRegistry.ts's note at the top of the
+              Shop section for the full history (2026-08-21 maintainer order → 2026-08-26
+              Monthly-as-section → this pass's reversal, on explicit instruction). `shopMonthly`
+              (`monthlySection`) is a sibling in `cardNodes` again, not a child mounted inside
+              `weeklyGroup`. There is still no "Inventory" grouping header over Dishes/Catalogue
+              — the 2026-08-21 answer declined that and this pass leaves it alone.
+                ⚠️ **The user can still reorder from 2026-09-01** — `useOrderedCards` layers
+              settings.cardOrder over the registry's declared order, so this is only the default
+              anyone who never opens the Manage cards sheet gets. */}
           {cardOrder.map((id) => (cardNodes[id] ? <React.Fragment key={id}>{cardNodes[id]}</React.Fragment> : null))}
 
         </DebugNoteAnchor>

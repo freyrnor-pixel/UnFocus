@@ -232,6 +232,11 @@ const en = {
   // Home Energy meter (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energy',
+    /* The empty Energy card's subtitle (2026-09-07). Every other card on Home names itself
+       with a title AND one line saying what it holds; Energy's empty state had neither, so a
+       row of grey glyphs and a button sat in a bare panel among titled cards. Neutral by
+       construction — it states a fact about the day, and there is nothing to be behind on. */
+    notSetPeek: 'Not set for today',
     /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
        'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
        screen and something has to tell them apart — the far commoner single-meter case
@@ -388,6 +393,7 @@ const en = {
     todoPlanner: (dated: number, repeating: number, range: string) =>
       dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} repeating`,
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
+    shopMonthly: (n: number) => (n === 0 ? 'No monthly lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
     /* The merged card states BOTH halves, since one card now holds both (2026-09-07). A card
@@ -2659,6 +2665,7 @@ const no: typeof en = {
   // Home Energy-måler (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Energi',
+    notSetPeek: 'Ikke satt for i dag',
     /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
@@ -2728,6 +2735,7 @@ const no: typeof en = {
     todoPlanner: (dated: number, repeating: number, range: string) =>
       dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} gjentakelser`,
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
+    shopMonthly: (n: number) => (n === 0 ? 'Ingen faste lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
     shopCatalogueTabs: (items: number, dishes: number) =>
@@ -4542,6 +4550,7 @@ const is: typeof en = {
   // Orkumælir á heimaskjá (components/EnergyMeter.tsx)
   energyMeter: {
     title: 'Orka',
+    notSetPeek: 'Ekki stillt fyrir daginn',
     /* Sjá enska tvíburann: þetta nefnir mælinn, ekki bara tímabilið (2026-08-03). */
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',
@@ -4614,6 +4623,7 @@ const is: typeof en = {
         ? range
         : `${dated} · ${range} · ${isCount(repeating, `${repeating} endurtekning`, `${repeating} endurtekningar`)}`,
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
+    shopMonthly: (n: number) => (n === 0 ? 'Engir fastir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
     shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
     shopCatalogueTabs: (items: number, dishes: number) =>

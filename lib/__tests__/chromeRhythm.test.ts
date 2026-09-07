@@ -936,7 +936,11 @@ describe('the backdrop — under everything, and out of the middle', () => {
     expect(s).toMatch(/const SCREEN_HUE_ORB_INDEXES = \[[\d,\s]+\] as const;/);
     // Every canvas resolves its discs through ORBS by index and draws them from that record —
     // the shape changed on 2026-08-31 (one canvas per layer), the property did not.
-    expect(s).toMatch(/\(indexes \?\? ORBS\.map\(\(_, i\) => i\)\)\.map\(\(i\) => ORBS\[i\]\)/);
+    // The canvas resolves its discs through ORBS by index — the shape changed on 2026-08-31
+    // (one canvas per layer) and again on 2026-09-07 (the neutral pair merged into one canvas,
+    // so the loop maps over indexes and reads `ORBS[i]` inside), the property did not.
+    expect(s).toMatch(/const idxs = indexes \?\? ORBS\.map\(\(_, i\) => i\);/);
+    expect(s).toMatch(/const o = ORBS\[i\];/);
     expect(s).toMatch(/rx=\{o\.rx \+ grow\}/);
     expect(s).toMatch(/ry=\{o\.ry \+ grow\}/);
     // …and NOTHING draws a disc from a literal. A hand-written cx is a disc the centre check

@@ -308,12 +308,25 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // ⚠️ **Raising this again needs that measurement repeated, not this comment trusted.** The
     // file's prose used to claim the field reached the card box at "2-3% of peak"; a model built
     // from `ORB_STOPS` said 42%, and the pixels said neither — it is the pixels that decide.
+    //
+    // ⚠️ **0.26 → 0.13 on 2026-09-07, and the standing instruction above was honoured: the
+    // measurement WAS repeated, and it came back different because the premise had changed
+    // under it.** Both readings above ("rgb(36,36,36) both times", "no orb reaches the card
+    // column") were true of the CORNER-DISC geometry. 2026-09-06 replaced it with three broad
+    // ellipses that deliberately cross the card column — its own header says so — and the
+    // measurement was not retaken. It has been now, over the real field, and at 0.26 the
+    // brightest point under a card composites to rgb(83,92,75) with `textMuted` at **3.20:1**.
+    //   So the geometry no longer carries this, and the alpha now does: 0.13 is where
+    // `lib/glassBudget.ts`'s derived band is satisfied at every sampled point, in both themes,
+    // at max growth, under every screen hue. `lib/__tests__/glassBudget.test.ts` is the check —
+    // it computes the composite rather than pinning a number, so it stays honest across a
+    // geometry change in a way this assertion could not.
+    //   ⚠️ **Raising this needs `glassBudget.test.ts` to still pass, not this comment trusted.**
     const m = src.match(/const DARK: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
-    expect(value).toBeGreaterThanOrEqual(0.16);
-    expect(value).toBeLessThanOrEqual(0.30);
-    expect(value).toBeCloseTo(0.26, 5);
+    expect(value).toBeGreaterThan(0);
+    expect(value).toBeCloseTo(0.13, 5);
   });
 
   it('LIGHT.orbOpacity was raised too, but stays well under dark', () => {
@@ -324,14 +337,23 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // and it is a light-mode screenshot.
     //   The ceiling here is lower and the reason is structural, not caution: light's ground is
     // `#f7faff`–`#e4ecfb`, so an orb is a wash ON something rather than a light in the dark and
-    // starts competing with a card much sooner. What keeps ANY value safe is the geometry
-    // asserted below — no orb reaches the card band — not the alpha.
+    // starts competing with a card much sooner.
+    //   ⚠️ **"What keeps ANY value safe is the geometry — no orb reaches the card band" was
+    // true when written and is FALSE since 2026-09-06**, which replaced the corner discs with
+    // three ellipses that cross the frame on purpose. Nothing is kept safe by geometry any
+    // more; `lib/__tests__/glassBudget.test.ts` is what keeps it safe, by computing the
+    // composite. Light survives at full strength there because its pane transmits 18%.
     const m = src.match(/const LIGHT: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
     expect(value).toBeCloseTo(0.18, 5);
-    // Still meaningfully under dark's 0.26, which is the half of this that must not drift.
-    expect(value).toBeLessThan(0.26);
+    // ⚠️ **Light is now HIGHER than dark (0.18 vs 0.13), which reverses this test's old
+    // "still meaningfully under dark" clause.** That clause read the two alphas as one scale;
+    // they are not. Light's pane transmits 18% and dark's transmits 86%, so the same field moves
+    // a light card by a fraction of a level and a dark one by tens of them —
+    // `glassBudget.test.ts` passes light at FULL strength and binds dark at half. The ordering
+    // that matters is the composite's, and that is what the budget test measures.
+    expect(value).toBeGreaterThan(0);
   });
 
   it('no orb reaches the middle of the canvas (still true — this file did not touch geometry)', () => {

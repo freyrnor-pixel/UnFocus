@@ -260,13 +260,40 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).not.toMatch(/<StarterCard[^>]*noTree/);
     expect(src).not.toMatch(/<StarterCard[^>]*\btext=/);
     expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
-    // ⚠️ **The EMPTY pips (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
-    // state energy card so it's not so empty."* They are the meter's own `pipEmpty` recipe at
-    // `MAX_PIPS`, which is the point: this state has to be the SHAPE of the thing it is inviting
-    // you to fill in. It does NOT reopen the rule above — an EMPTY row is the opposite of the
-    // full ten-pip bar that reads as a score, and nothing here is bound to `current / capacity`.
+    // ⚠️ **The EMPTY row (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
+    // state energy card so it's not so empty."* Its whole justification is that this state is the
+    // SHAPE of the thing it is inviting you to fill in. It does NOT reopen the rule above — an
+    // EMPTY row is the opposite of the full ten-pip bar that reads as a score, and nothing here
+    // is bound to `current / capacity`.
+    //   ⚠️ **This used to assert `styles.pipEmpty` by NAME, and that is precisely how the state
+    // drifted (2026-09-07).** On 2026-09-06 the meter's bar was rebuilt out of flat
+    // `flash-outline` glyphs at `BAR_ICON_SIZE`; `pipEmpty` — a bordered `surfaceInset` circle —
+    // became a recipe nothing else in the file drew, and this assertion happily went on pinning
+    // it. So the empty state, which is the ONLY Energy a user sees before setting a capacity,
+    // kept drawing ten grey rings that matched nothing. Reported as *"still not visually
+    // upgraded (just look at the Energy icons)"*.
+    //   So assert the PROPERTY instead of the style name: the empty run must use the same glyph
+    // and the same size as the bar's own unspent run in `row()`. A name can go stale silently; a
+    // mismatch between these two cannot.
     expect(src).toMatch(/length: MAX_PIPS/);
-    expect(src).toMatch(/styles\.pipEmpty/);
+    const barLeftRun = src.match(/Array\.from\(\{ length: left \}\)\.map\(\(_, i\) => glyph\('([\w-]+)', ([\w.]+),/);
+    expect(barLeftRun).toBeTruthy();
+    const [, barGlyph, barColor] = barLeftRun!;
+    expect(barGlyph).toBe('flash-outline');
+    // The tutorial row draws that same glyph, at the bar's icon size, in the bar's own colour.
+    const tutorialRow = src.match(
+      /styles\.tutorialPips[\s\S]*?<Ionicons key=\{i\} name="([\w-]+)" size=\{(\w+)\} color=\{([\w.]+)\}/,
+    );
+    expect(tutorialRow).toBeTruthy();
+    expect(tutorialRow![1]).toBe(barGlyph);
+    expect(tutorialRow![2]).toBe('BAR_ICON_SIZE');
+    expect(tutorialRow![3]).toBe(barColor);
+    // …and the retired token recipe is gone rather than merely unused. Scoped to CODE, not
+    // prose — the file's styles block explains at length why these were deleted, and a bare
+    // word-match would forbid saying so (same discipline as the StarterCard checks above).
+    expect(src).not.toMatch(/styles\.(pipEmpty|pipBadge|pipSurplus)/);
+    expect(src).not.toMatch(/^\s*(pipEmpty|pipBadge|pipSurplus):/m);
+    expect(src).not.toMatch(/from 'react-native-svg'/);
     expect(src).toMatch(/const showTutorial = ready && !hasEnergyItems && !hasSetCapacity/);
     // Either kind of "something added" sends the meter back: an energy value on a task/habit,
     // or a capacity the user set themselves (any energy_budgets override row).
