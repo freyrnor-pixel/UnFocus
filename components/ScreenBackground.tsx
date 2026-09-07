@@ -263,8 +263,15 @@ const SCREEN_HUE_ORB_INDEXES = [0, 1, 2] as const;
  * per disc: a canvas has a single `<Defs>`, and two colours in one would put the colour back
  * inside the disc loop, which is the coupling the split exists to remove.
  */
-const COOL_ORB_INDEXES = ORBS.flatMap((o, i) => (o.tone === 'cool' ? [i] : []));
-const WARM_ORB_INDEXES = ORBS.flatMap((o, i) => (o.tone === 'warm' ? [i] : []));
+/**
+ * The neutral field's colour per `ORBS` index, derived from each disc's own `tone` rather than
+ * restated. ONE canvas draws all of them as of 2026-09-07 (see `OrbCanvas.colorByIndex`); this
+ * used to be two index lists feeding two canvases.
+ *
+ * A function of the palette, so light and dark each get their own pair without this file holding
+ * a second copy of the mapping.
+ */
+const neutralOrbColors = (p: Palette) => ORBS.map((o) => (o.tone === 'cool' ? p.orbCool : p.orbWarm));
 
 const ORB_STOPS: { offset: number; alpha: number }[] = [
   { offset: 0, alpha: 1 },
@@ -368,8 +375,33 @@ const DARK: Palette = {
   botGlow: 'rgb(60,120,255)', botGlowOpacity: 0,
   orbCool: '#0E7C8C', orbWarm: '#5B2E8C',
   orbGrowth: '#1E7A5E',
-  orbOpacity: 0.26,
-  orbScreenOpacity: 0.18,
+  // ⚠️ **0.26 → 0.13, and 0.18 → 0.09 (2026-09-07). This is a DERIVED ceiling, not a taste
+  // call — read `lib/glassBudget.ts` before raising either.**
+  //
+  // The 2026-09-06 geometry change carried these washes across the card column on purpose (see
+  // `ORBS`), and it stated the cost it was accepting: *"a card is now composited over a lit
+  // ground."* What it could not state, because nothing had measured it, is how MUCH light a card
+  // can take. `components/Surface.tsx` paints dark's pane at `rgba(255,255,255,0.1412)`, which
+  // **transmits 86%** — so at the old peaks the brightest point under a card composited to
+  // rgb(83,92,75) instead of `#242424`, and `textMuted` measured **3.20:1**, under WCAG AA.
+  //   That is what the 2026-09-06 "make the card opaque" ruling was reacting to, and it fixed it
+  // by removing the transmission — i.e. by removing the material. The other route is to bound the
+  // GROUND, which is what these numbers are: `lib/glassBudget.ts` derives the band a painted card
+  // may occupy (raw 29–64 of 255) and `lib/__tests__/glassBudget.test.ts` samples this field
+  // across the card band, in both themes, at max growth and under every screen hue, and fails if
+  // any point puts the composite outside it. 0.13/0.09 is half the previous peak, which is where
+  // the binding constraint (`border` ≥ 3:1) clears with margin: 3.14:1 at this value, 2.25:1 at
+  // the old one. 0.55× still passed at 3.03:1; 0.5× was taken for the headroom.
+  //   ⚠️ **LIGHT is deliberately untouched at 0.18/0.10.** Its pane is `rgba(255,255,255,0.82)`
+  // and transmits only 18%, so the same field moves its card by a fraction of a level — the
+  // budget test passes light at FULL strength with `border` at 4.32:1. The asymmetry is the
+  // transmission, not a judgement about the two backdrops.
+  //   **This is not a step back from v2's look.** v2's brightness lives at the frame, where
+  // nothing has to meet a contrast floor, and the app now shows the wash through ~86% of the
+  // card area instead of only in the gutters — so the amount of the screen carrying colour goes
+  // sharply UP relative to the opaque-card build this replaces, at half the peak alpha.
+  orbOpacity: 0.13,
+  orbScreenOpacity: 0.09,
 };
 
 /**
@@ -393,35 +425,58 @@ function orbStops(color: string, peak: number) {
  * silently win for both — a bug that surfaces as "the growth tint is the wrong colour" long
  * after the change that caused it, and that native would not reproduce.
  */
-function OrbCanvas({ id, color, peak, level, indexes }: {
+function OrbCanvas({ id, color, colorByIndex, peak, level, indexes }: {
   id: string;
-  color: string;
+  /** One colour for every disc this canvas draws. Mutually exclusive with `colorByIndex`. */
+  color?: string;
+  /**
+   * A colour PER `ORBS` index, for a canvas whose discs are not all the same hue — the neutral
+   * cool/warm pair, which was two canvases until 2026-09-07.
+   *
+   * ⚠️ **The comment this replaces said two colours in one canvas was impossible** — *"a canvas
+   * has a single `<Defs>`, and two colours in one would put the colour back inside the disc
+   * loop"*. A `<Defs>` holds as many gradients as it is given; the id just has to vary per
+   * gradient, which is the same discipline the per-layer id suffix below already enforces. The
+   * split cost a whole extra full-screen `<Svg>` on every screen for a constraint that was not
+   * real, and the cost went up sharply on 2026-09-06 when the discs grew to cover the frame.
+   */
+  colorByIndex?: readonly string[];
   peak: number;
   level: number;
   indexes?: readonly number[];
 }) {
   const grow = level * ORB_GROWTH_STEP;
-  const discs = (indexes ?? ORBS.map((_, i) => i)).map((i) => ORBS[i]);
+  const idxs = indexes ?? ORBS.map((_, i) => i);
+  // One gradient def per DISTINCT colour, not per disc: the neutral pair is two hues over three
+  // discs, so this mints two and shares one of them.
+  const colorFor = (i: number) => colorByIndex?.[i] ?? color ?? '#000000';
+  const palette = [...new Set(idxs.map(colorFor))];
+  const defId = (c: string) => `${id}${palette.length > 1 ? `-${palette.indexOf(c)}` : ''}`;
   return (
     <Svg pointerEvents="none" style={styles.backdrop} viewBox="0 0 280 607" preserveAspectRatio="xMidYMid slice">
       <Defs>
-        <RadialGradient id={id} cx="50%" cy="50%" r="50%">
-          {orbStops(color, peak)}
-        </RadialGradient>
+        {palette.map((c) => (
+          <RadialGradient key={c} id={defId(c)} cx="50%" cy="50%" r="50%">
+            {orbStops(c, peak)}
+          </RadialGradient>
+        ))}
       </Defs>
-      {discs.map((o, k) => (
-        // `opacity` carries the wash's 30/22/16 ladder (see `ORBS`.weight). It multiplies the
-        // gradient's own stop alphas, which is why one `<Defs>` still serves all three.
-        <Ellipse
-          key={k}
-          cx={o.cx}
-          cy={o.cy}
-          rx={o.rx + grow}
-          ry={o.ry + grow}
-          opacity={o.weight}
-          fill={`url(#${id})`}
-        />
-      ))}
+      {idxs.map((i) => {
+        const o = ORBS[i];
+        return (
+          // `opacity` carries the wash's 30/22/16 ladder (see `ORBS`.weight). It multiplies the
+          // gradient's own stop alphas, which is why one def still serves several discs.
+          <Ellipse
+            key={i}
+            cx={o.cx}
+            cy={o.cy}
+            rx={o.rx + grow}
+            ry={o.ry + grow}
+            opacity={o.weight}
+            fill={`url(#${defId(colorFor(i))})`}
+          />
+        );
+      })}
     </Svg>
   );
 }
@@ -637,25 +692,43 @@ function ScreenBackground({ activeRoute }: Props) {
           three discs take the screen hue — see SCREEN_HUE_ORB_INDEXES. */}
       {reduceEffects ? null : (
         <>
-          <OrbCanvas id="sbOrbCool" color={p.orbCool} peak={p.orbOpacity} level={level} indexes={COOL_ORB_INDEXES} />
-          <OrbCanvas id="sbOrbWarm" color={p.orbWarm} peak={p.orbOpacity} level={level} indexes={WARM_ORB_INDEXES} />
-          <OrbLayer
-            style={hueAStyle}
-            id="sbOrbHueA"
-            color={buffers[0] ?? p.orbCool}
-            peak={buffers[0] ? p.orbScreenOpacity : 0}
-            level={level}
-            indexes={SCREEN_HUE_ORB_INDEXES}
-          />
-          <OrbLayer
-            style={hueBStyle}
-            id="sbOrbHueB"
-            color={buffers[1] ?? p.orbCool}
-            peak={buffers[1] ? p.orbScreenOpacity : 0}
-            level={level}
-            indexes={SCREEN_HUE_ORB_INDEXES}
-          />
-          <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />
+          {/* ⚠️ **Three of these five canvases used to mount unconditionally and draw NOTHING
+              (2026-09-07).** Each `OrbCanvas` is a full-screen `<Svg>` with gradient-filled
+              ellipses; since 2026-09-06 those ellipses cover the whole frame rather than a
+              corner, so an empty one is no longer nearly-free. The two hue buffers mounted with
+              `peak={... : 0}` — a canvas painting three shapes at alpha 0 — and the growth layer
+              mounted even with `showGrowth` off (the default), where `intensity` is a flat 0.
+              Gating each on having something to draw takes the default dark screen from FIVE
+              full-screen SVG canvases to TWO, with byte-identical output: a shape at alpha 0 and
+              a shape that is absent rasterise the same.
+                Keep the gates keyed on the same value the layer's opacity uses, so "mounted" and
+              "visible" can never disagree — a buffer that mounts late must not skip its
+              crossfade. `hueA`/`hueB` are gated on their own buffer, which is exactly what the
+              opacity animation reads. */}
+          <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
+          {buffers[0] && (
+            <OrbLayer
+              style={hueAStyle}
+              id="sbOrbHueA"
+              color={buffers[0]}
+              peak={p.orbScreenOpacity}
+              level={level}
+              indexes={SCREEN_HUE_ORB_INDEXES}
+            />
+          )}
+          {buffers[1] && (
+            <OrbLayer
+              style={hueBStyle}
+              id="sbOrbHueB"
+              color={buffers[1]}
+              peak={p.orbScreenOpacity}
+              level={level}
+              indexes={SCREEN_HUE_ORB_INDEXES}
+            />
+          )}
+          {intensity > 0 && (
+            <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />
+          )}
         </>
       )}
     </>

@@ -38,7 +38,8 @@
  * **Surplus pips (2026-08-02)**: `energyPipCount` returns a third number for energy earned PAST
  * capacity, which the old clamp swallowed (`12 / 10` drew identically to `10 / 10`). Those draw
  * after the full ones as soft accent-outlined pips — a third object, distinct from both the
- * glossy token and the hollow spent ring. They are capped at MAX_SURPLUS_PIPS (4) in
+ * retired glossy token and the hollow spent ring (both gone — see below). They are capped at
+ * MAX_SURPLUS_PIPS (4) in
  * lib/energy.ts; do NOT raise that, and read the width math below before assuming they fit.
  *
  * **Strip, not a card (2026-07-31, addendum task B.2)**: this stopped being a `Surface`. It has
@@ -154,17 +155,19 @@
  * it is kept because the arithmetic still governs how much can go on the pip line.
  * Ten pips + the value + the edit glyph only
  * fit on one line because the strip pass took back the card's 32px of horizontal padding AND
- * shrank the pip from 24px to `PIP_SIZE` (18): at the audited 360px worst case that's 328px of
+ * shrank the pip from 24px to 18: at the audited 360px worst case that's 328px of
  * content for 216px of pips (10x18 + 9x4 gap) + ~70px of value at the `large` font scale + 16px
  * of glyph + two 8px gaps ≈ 318px. It is deliberately tight, so `pipRowInline` also carries
  * `flex:1 / minWidth:0 / overflow:'hidden'` — if a future font scale or narrower phone does run
  * out of room the pip row clips instead of painting over the value, which is exactly the
  * 2026-07-28 bug that forced the stacked layout in the first place. Re-check `npm run wraps`
- * before growing `PIP_SIZE` or putting a label back on this line.
+ * before growing `BAR_ICON_SIZE` or putting a label back on this line. (The numbers below are
+ * the retired 18px token's; the bar's glyph is `BAR_ICON_SIZE` 17 with the same `PIP_GAP`, so
+ * the arithmetic is unchanged to within a pixel per pip.)
  * **Two 2026-08-02 additions spend that margin, and both degrade by clipping the pip row —
  * which is the row's documented job, not a new bug.** (1) The overspend control adds a second
  * 16px glyph plus a `RowTrailing.gap` (16) beside the ✏️: +32px, and only while today is over
- * budget. (2) Up to four surplus pips add up to 4 x (PIP_SIZE + PIP_GAP) = 88px, and only on a
+ * budget. (2) Up to four surplus pips add up to 4 x (18 + PIP_GAP) = 88px, and only on a
  * day that has finished above its capacity. At the audited 360px worst case a full ten-pip bar
  * plus four surplus pips does NOT fit and the tail clips — the `current / capacity` readout
  * beside it still states the number in full, and the a11y label on the pip row carries
@@ -184,27 +187,18 @@
  * **The edit affordance travels** (`row()`'s `trailing` param): it rides the end of the FIRST
  * visible meter's top line. It is passed to exactly one row — never render two.
  *
- * **Energy-token pip (2026-07-28, round 3 — after two shadow/bevel "keycap" passes still read
- * as flat or too grey, user then pointed at trading-card game energy-type icons as the actual
- * reference)**: an available pip is a small saturated token/badge, NOT a UI control — solid
- * radial-shaded fill (`react-native-svg` `RadialGradient`, `lighten(accent)` center easing to
- * `darken(accent)` at the rim), a heavy dark rim (`darken(accent, 0.5)` stroke), and one bright
- * gloss ellipse near the top-left (a second `RadialGradient`, high center opacity — this is the
- * detail that sells "glossy token," keep it bold, don't dim it back toward a subtle highlight).
- * A spent pip is a plain hollow ring (`theme.surfaceInset` fill, `theme.border` outline, muted
- * outline icon) — an emptied slot, no gloss, no gradient.
- * **This is a deliberate departure from the app's button system** (`constants/theme.ts`'s
- * matte face-lift + `computeRimGradient`, `components/Button.tsx`/`IconButton.tsx`'s "no
- * specular highlight, moulded ABS" rule): that rule is about every PRESSABLE control reading as
- * one consistent physical material. A pip has never been pressable — it's closer to a
- * scoreboard chip or a collected token than a button — so it's fine, and arguably clearer, for
- * it to read as a different kind of object. Don't "fix" this pip to match Button's matte
- * recipe; that was tried (twice) and explicitly rejected.
- * Each pip's SVG gradients need a unique `id` — react-native-svg on web (`npm run preview`)
- * renders every `<Svg>` into the SAME DOM document, so a literal repeated id string would
- * collide across pips (GlassFill.tsx hit this same issue first; same fix here): one top-level
- * `React.useId()` call (`pipGradientBaseId`, NOT called inside the pip `.map()` — that would
- * break the rules of hooks) suffixed with `rowKey` ('day'/'week') + index.
+ * **The glossy energy-token pip is GONE (2026-09-06), and ~30 lines describing it were still
+ * here until 2026-09-07.** From 2026-07-27 an available pip was a saturated token — a
+ * `react-native-svg` `RadialGradient` fill, a dark rim, and a gloss ellipse, deliberately NOT
+ * matching the app's matte button material because a pip is not pressable. It reached that shape
+ * over three rounds and two explicit rejections, which is why it was documented at length.
+ *   v2's Energibudsjett bar replaced it with a flat run of `flash` / `flash-outline` glyphs (see
+ * `row()`), and the reason is in that renderer's own comment: the gloss is what made ten of them
+ * read as a SCORE, which is the failure this component has been working around with words since
+ * 2026-08-03. So this is a resolution of that problem, not a downgrade — but the token's
+ * `react-native-svg` import, its three styles and this prose all survived the change and had to
+ * be cleared separately. If a token ever comes back, read `docs/archive/AGENTS_HISTORY.md` for
+ * why it was shaped that way before re-deriving it.
  *
  * **Depleted/recovered pulse (2026-07-28)**: `EnergyPulse` fires a single ~1.5s glow (via
  * `getGlow`) the moment a period's `current` crosses the zero line — `theme.good` when it
@@ -225,7 +219,10 @@
  *             lib/useEnergyPause, store/useSettingsStore, store/useTaskStore,
  *             store/useHabitStore, store/useEnergyStore, expo-router (useFocusEffect),
  *             react-native-reanimated
- *             (components/Surface is deliberately NOT imported any more — see "Strip, not a card";
+ *             (react-native-svg is deliberately NOT imported any more — the glossy token that
+ *              needed it was replaced by the Energibudsjett bar on 2026-09-06; the import and
+ *              its three pip styles were cleared on 2026-09-07, see the styles block;
+ *              components/Surface is deliberately NOT imported any more — see "Strip, not a card";
  *              components/Stepper and components/Collapsible are gone with the inline editor —
  *              every number is set in EnergyConfigSheet now, see correction 1 above)
  *   Used by → app/(tabs)/index.tsx (Home) — mounted fixed, above the Shared card and the
@@ -238,7 +235,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import Svg, { Defs, RadialGradient, Stop, Circle, Rect } from 'react-native-svg';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { Badge } from '@/components/Badge';
 import Button from '@/components/Button';
@@ -288,10 +284,8 @@ const OVERSPEND_SLOP = { ...EDIT_SLOP, right: PAIR_CLIP };
 /** Pip diameter + the gap between pips. Down from 24/5 in the 2026-07-31 strip pass — see the
  *  file header's "Two layouts, and the width math behind them" note before changing either;
  *  ten pips have to share one line with the value and the edit glyph now. */
-const PIP_SIZE = 18;
 const PIP_GAP = 4;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
-const PIP_ICON_SIZE = 11;
 /** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
 const BAR_ICON_SIZE = 17;
 const LEGEND_ICON_SIZE = 12;
@@ -359,12 +353,6 @@ export default function EnergyMeter() {
   const [configOpen, setConfigOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [focused, setFocused] = useState(false);
-
-  // Document-unique base id for each active pip's pair of SVG gradients — see the file
-  // header's "Energy-token pip" note. One call per component instance, suffixed per-pip
-  // (rowKey + index) in the row() renderer below rather than calling useId() inside the
-  // pip .map(), which would break the rules of hooks.
-  const pipGradientBaseId = 'pipGrad' + React.useId().replace(/:/g, '');
 
   // energyMode picks which meter(s) apply — 'daily'/'weekly' show only their own
   // meter, 'custom' (per-weekday capacities, set in Settings) shows both since the
@@ -730,14 +718,25 @@ export default function EnergyMeter() {
         // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
         // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
         <StarterCard>
-          {/* ⚠️ **A row of EMPTY pips above the button (2026-09-01).** Maintainer: *"insert empty
-              energy bubbles in the empty state energy card so it's not so empty."* The card was
-              one small button on a large panel, on the app's landing screen, in the state a new
-              user meets first — it read as a placeholder rather than as an invitation.
-                These are the meter's own `pipEmpty` recipe at the meter's own `PIP_SIZE`/`PIP_GAP`,
-              not a decoration drawn to look like one: the point is that this is the SHAPE of the
-              thing you are being invited to fill in, so it has to be that shape exactly. Ten of
-              them, matching `energyPipCount`'s `maxPips`.
+          {/* ⚠️ **A row of EMPTY glyphs above the button (2026-09-01), REDRAWN 2026-09-07 to match
+              the bar it stands in for.** Maintainer: *"insert empty energy bubbles in the empty
+              state energy card so it's not so empty."* The card was one small button on a large
+              panel, on the app's landing screen, in the state a new user meets first — it read as
+              a placeholder rather than as an invitation.
+                **Its whole justification is that it is the SHAPE of the thing you are being
+              invited to fill in**, so when the meter changed shape this had to follow and did
+              not. On 2026-09-06 the glossy `energyPipCount` token row became v2's Energibudsjett
+              bar — a flat run of `flash` / `flash-outline` glyphs at `BAR_ICON_SIZE` (see
+              `row()`), with no ring, no inset fill and no border. This kept drawing the retired
+              recipe: ten `surfaceInset` circles with `theme.border` rims. So the first Energy a
+              new user ever saw was ten flat grey rings that resemble nothing the app goes on to
+              draw — reported as *"still not visually upgraded (just look at the Energy icons)"* —
+              and it was the ONLY Energy state most users saw, because the upgraded bar does not
+              appear until a capacity is set.
+                It is now literally the bar's own empty run: the same glyph, the same size, the
+              same gap, in `textMuted` — i.e. `left` at `used = 0`. Ten of them, matching
+              `MAX_PIPS`. ⚠️ If `row()`'s bar changes again, change this with it; a placeholder
+              that does not match its target is worse than no placeholder.
                 Decorative to a screen reader — the button beside them says what to do, and "flash
               outline, flash outline, …" ten times says nothing. */}
           <View
@@ -746,12 +745,7 @@ export default function EnergyMeter() {
             importantForAccessibility="no-hide-descendants"
           >
             {Array.from({ length: MAX_PIPS }, (_, i) => (
-              <View
-                key={i}
-                style={[styles.pipEmpty, { backgroundColor: theme.surfaceInset, borderColor: theme.border }]}
-              >
-                <Ionicons name="flash-outline" size={PIP_ICON_SIZE} color={theme.textMuted} />
-              </View>
+              <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={theme.textMuted} />
             ))}
           </View>
           <Button
@@ -862,7 +856,7 @@ const styles = StyleSheet.create({
   // EVERY mode now (2026-08-03), not just 'custom'. Stacked (2026-07-28 fix, generalised):
   // label + stepper share a top line, the pip row gets the full width on its own line below.
   // Putting a LABEL on the same line as ten pips and a value ran out of horizontal room on
-  // real phones — that is still true at PIP_SIZE 18, and it is exactly why the single-meter
+  // real phones — that is still true at the bar's glyph size, and it is exactly why the single-meter
   // case went inline (and label-less) in the 2026-07-31 strip pass. Stacking unconditionally
   // is the other way out of that squeeze: it costs one line and buys the label plus a
   // settable stepper. Don't collapse this branch back to one line.
@@ -884,23 +878,15 @@ const styles = StyleSheet.create({
   // now share a line with the value in every mode, so there is no longer a variant where they
   // don't need it (this was `pipRowInline`, applied only to the single-meter case).
   pipRow: { flexDirection: 'row', alignItems: 'center', gap: PIP_GAP, flex: 1, minWidth: 0, overflow: 'hidden' },
-  // Energy-token pip (2026-07-28, round 3 — see file header's "Energy-token pip" note): an
-  // available pip's real fill/rim/gloss are drawn by the Svg in row()'s renderer; this View
-  // only needs a matching backgroundColor so its own shadow casts in the right (circular)
-  // shape — the Svg fully covers it, nothing here is actually visible except the shadow.
-  // Purely visual, never wrapped in PressableScale — nothing here is pressable. Sized from
-  // PIP_SIZE (18, down from 24 in the strip pass) — don't grow it without re-running the
-  // one-line width math in the file header and `npm run wraps`.
-  pipBadge: {
-    width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center',
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.28, shadowRadius: 3, elevation: 4,
-  },
-  // A spent pip is a plain hollow ring — an emptied slot, no gradient, no gloss, no shadow.
-  pipEmpty: { width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  // A surplus pip (2026-08-02) is the third kind: the empty ring's flat outlined shape, but in
-  // accent rather than muted grey, over a soft accent wash. Same geometry as pipEmpty so the
-  // row's rhythm doesn't break where the bar ends — only the colour says "extra".
-  pipSurplus: { width: PIP_SIZE, height: PIP_SIZE, borderRadius: Radius.full, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  // ⚠️ **`pipBadge`, `pipEmpty` and `pipSurplus` are DELETED (2026-09-07), with the
+  // `react-native-svg` import that fed them.** They drew the glossy energy TOKEN — a radial
+  // -gradient fill with a rim and a gloss ellipse, plus a hollow spent ring and an accent
+  // surplus ring. `row()` stopped rendering any of it on 2026-09-06 when the Energibudsjett bar
+  // replaced the token row, but the styles, the `Svg`/`Defs`/`RadialGradient`/`Stop`/`Circle`/
+  // `Rect` import and ~60 lines of this file's header describing the token all stayed — and the
+  // tutorial state went on drawing `pipEmpty`, which is how ten retired grey rings ended up
+  // being the only Energy most users ever saw. `PIP_SIZE`/`PIP_ICON_SIZE` went with them; the
+  // bar sizes from `BAR_ICON_SIZE`. `PIP_GAP` stays — it is the bar's gap now.
   // flexShrink:0 so the value keeps its full width on the strip line and the pip row is what
   // gives, never the number.
   meterValue: { fontSize: FontSize.sm, fontFamily: Fonts.medium, marginLeft: 'auto', flexShrink: 0 },
@@ -918,7 +904,8 @@ const styles = StyleSheet.create({
   // The empty-state pip row. Same PIP_GAP as a live meter's `pipRow`, and it WRAPS — the
   // tutorial card is narrower than the strip, and ten pips that overflow would be worse than
   // ten that take two lines.
-  tutorialPips: { flexDirection: 'row', flexWrap: 'wrap', gap: PIP_GAP },
+  // The bar's own gap and wrapping, so this row and `pipRow` read as the same object.
+  tutorialPips: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: PIP_GAP },
   tutorialAction: { alignSelf: 'flex-start' },
   // The paused day's single line. The app's caption tier (FontSize.xs,
   // italic, theme.textMuted) so it reads as the quietest thing on Home, but hand-rolled
