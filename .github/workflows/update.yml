@@ -10,6 +10,12 @@ jobs:
   update:
     name: Push OTA update
     runs-on: ubuntu-latest
+    # ⚠️ **This is the job whose hang is hardest to notice.** It runs only on push to `main`, and
+    # its whole purpose is to publish — so a wedged `eas update` does not fail loudly, it just
+    # means the change never reaches an installed app while `main` says it shipped. That is the
+    # "I can't see the update" report CLAUDE.md opens with, arriving hours later with no red
+    # anywhere to point at. 20 minutes is well past a normal publish and still the same day.
+    timeout-minutes: 20
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       CI: '1'

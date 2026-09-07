@@ -20,6 +20,9 @@ jobs:
   open-pr:
     name: Open or reuse PR to main
     runs-on: ubuntu-latest
+    # A checkout and one API call — observed at 7-13 seconds. Anything approaching this ceiling
+    # is a stuck API call, not slow work.
+    timeout-minutes: 10
     # Don't act on pushes made by the Actions bot itself (avoids loops).
     if: github.actor != 'github-actions[bot]'
     steps:
