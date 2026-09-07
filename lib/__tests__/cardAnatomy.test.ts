@@ -530,7 +530,38 @@ describe('a collapsed card draws no rule and reserves no room', () => {
    * So a bare `<SectionRail>` outside Card.tsx is either a group heading (no badge) or a `sub`
    * section — and a badge on a group heading is the thing that made a heading over cards read
    * as a card itself.
+   *
+   * ⚠️ **A literal `tier="card"` outside Card.tsx is its own offence, and needs a line in
+   * `CARD_RUNG_ALLOWED` (2026-09-07).** Until then this scan had no card rung to think about
+   * outside Card.tsx, so a literal `tier="card"` fell through to the group branch and was
+   * reported as "group heading with a card badge" — the wrong diagnosis for it, sending the
+   * reader looking for a heading over cards that isn't there. The two are separated now.
    */
+
+  /**
+   * Files allowed to spell a literal `tier="card"` without being components/Card.tsx.
+   *
+   * ⚠️ **The rule this narrows is the one §8 exists for**, so read the KEEP note before adding
+   * a line. A card title is `components/Card.tsx`'s to draw, because a card is declared in
+   * `lib/cardRegistry.ts` and every registry card gets the same header, fold and ⤢ for free. A
+   * surface that wants a card title should normally BECOME a registry card, and "it was easier
+   * to pass tier=\"card\" here" is not an entry — that is the fifteenth-variant road this whole
+   * file exists to close. Same contract as `CHEVRON_ALLOWED`: the point is not that the list is
+   * short, it is that a new one cannot arrive without someone writing down why.
+   */
+  const CARD_RUNG_ALLOWED: Record<string, string> = {
+    'components/EnergyMeter.tsx':
+      'KEEP — the EMPTY-state placeholder only, inside a StarterCard, and it cannot go through '
+      + 'Card.tsx: Energy is deliberately NOT a registry card (app/(tabs)/index.tsx renders the '
+      + 'strip fixed, outside `cardNodes`), so it has no CardKey and must not gain a fold or a '
+      + '⤢. It stands among Home\'s real cards — Today, Notes, Shopping list — and until '
+      + '2026-09-07 was the one panel there with no title, badge or summary line, which read as '
+      + 'unfinished rather than empty. Reusing the canonical rail at the card rung is what keeps '
+      + 'it identical to those neighbours; hand-rolling the row would have been the actual §8 '
+      + 'violation. The LIVE strip is not a card and must not grow this header — see '
+      + 'EnergyMeter\'s "Strip, not a card" note.',
+  };
+
   it('a rail declares which rung it is, and a group heading carries no badge', () => {
     const offenders: string[] = [];
     for (const abs of sourceFiles()) {
@@ -540,12 +571,34 @@ describe('a collapsed card draws no rule and reserves no room', () => {
         // above instead.
         if (/tier=\{/.test(element)) continue;
         if (/tier="sub"/.test(element)) continue;
+        // The card rung, spelled literally. Card.tsx itself reaches it through the `tier={…}`
+        // pass-through skipped above, so anything landing here is a SECOND surface drawing a
+        // card title — allowed only with a written reason, and named for what it actually is.
+        if (/tier="card"/.test(element)) {
+          if (!CARD_RUNG_ALLOWED[abs]) {
+            offenders.push(`${abs}: card-rung rail outside components/Card.tsx`);
+          }
+          continue;
+        }
         // What is left is a group heading: over a stack of CARDS, and therefore not a card. A
         // badge here is what made every drawer and group header read as a card itself.
         if (/\bdomain=/.test(element)) offenders.push(`${abs}: group heading with a card badge`);
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('the card-rung allowlist has no stale entries', () => {
+    // An entry for a file that no longer draws one is a licence nobody is using, and the next
+    // surface to want a card title would inherit it by name rather than by argument.
+    // A DELETED file counts as stale too, and is caught here rather than thrown as an ENOENT
+    // out of `code()` — the entry is equally dead either way, and the reader wants its name.
+    const stale = Object.keys(CARD_RUNG_ALLOWED).filter((f) => {
+      if (!fs.existsSync(path.join(ROOT, f))) return true;
+      return !(code(f).match(/<SectionRail\b[\s\S]*?\/>/g) ?? [])
+        .some((el) => /tier="card"/.test(el));
+    });
+    expect(stale).toEqual([]);
   });
 });
 
