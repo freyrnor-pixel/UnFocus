@@ -397,9 +397,18 @@ const en = {
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
     /* The merged card states BOTH halves, since one card now holds both (2026-09-07). A card
-       whose peek named only its items would under-report itself the moment Dishes moved in. */
+       whose peek named only its items would under-report itself the moment Dishes moved in.
+         ⚠️ The items count is BARE on purpose. This header carries no `count` (see the note at
+       app/(tabs)/shopping.tsx's Catalogue card), so the peek is the only place the size is
+       stated, and its slot measures 112px — `measure-wraps.mjs` clipped
+       "286 varer · 66 retter" by 8px at 360px Norwegian. The card is the catalogue OF items, so
+       the leading number needs no noun; the second does, because it names the other tab. */
     shopCatalogueTabs: (items: number, dishes: number) =>
-      items === 0 && dishes === 0 ? 'None yet' : `${items} items · ${dishes} dishes`,
+      items === 0 && dishes === 0
+        ? 'None yet'
+        : dishes === 0
+          ? `${items} items`
+          : `${items} · ${dishes} dishes`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Nothing to repeat yet' : `${going} going · ${untouched} untouched`,
     healthWeek: (n: number) => (n === 0 ? 'A quiet week' : `${n} logged this week`),
@@ -2739,7 +2748,11 @@ const no: typeof en = {
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
     shopCatalogueTabs: (items: number, dishes: number) =>
-      items === 0 && dishes === 0 ? 'Ingen ennå' : `${items} varer · ${dishes} retter`,
+      items === 0 && dishes === 0
+        ? 'Ingen ennå'
+        : dishes === 0
+          ? `${items} varer`
+          : `${items} · ${dishes} retter`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ingenting å gjenta ennå' : `${going} i gang · ${untouched} urørt`,
     healthWeek: (n: number) => (n === 0 ? 'En rolig uke' : `${n} logget denne uken`),
@@ -4629,7 +4642,9 @@ const is: typeof en = {
     shopCatalogueTabs: (items: number, dishes: number) =>
       items === 0 && dishes === 0
         ? 'Ekkert enn'
-        : `${isCount(items, `${items} vara`, `${items} vörur`)} · ${isCount(dishes, `${dishes} réttur`, `${dishes} réttir`)}`,
+        : dishes === 0
+          ? isCount(items, `${items} vara`, `${items} vörur`)
+          : `${items} · ${isCount(dishes, `${dishes} réttur`, `${dishes} réttir`)}`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ekkert að endurtaka enn' : `${going} í gangi · ${untouched} ósnert`,
     healthWeek: (n: number) => (n === 0 ? 'Róleg vika' : `${n} skráð í vikunni`),

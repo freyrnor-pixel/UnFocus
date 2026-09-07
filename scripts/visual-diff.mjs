@@ -248,7 +248,15 @@ const WANTED_BUT_UNCAPTURED = [
  */
 const MACHINE_DEPENDENT = [
   ['habits-empty', 'the TabSlider pill settles 73 px differently here and on CI — see this constant’s note; do not fix by raising the pixel budget'],
-  ['task-editor', 'light only: the base gradient is an SVG scaled to COVER, so its stops land differently on two rasterisers and the translucent card transmits the difference (~101 px) — see this constant’s note; dark has a flat base and stays guarded', 'light'],
+  // ⚠️ **Both themes since 2026-09-07.** This read "light only … dark has a flat base and stays
+  // guarded" — true when it was written, and false the moment the glass came back (#677). The
+  // dark card is translucent over the same COVER-scaled SVG now, so it transmits the same
+  // rasteriser difference: two runs of `npm run visual -- --theme=dark` on THIS commit, same
+  // machine, reported 124 px and 86 px, both confined to two ~4px arcs at the expanded card's
+  // top corners. A finding whose size changes between identical runs is the rasteriser, not the
+  // app — and leaving it guarded would make this gate intermittently red, which is how a gate
+  // stops being read. Re-narrow it to 'light' if the dark base ever goes flat again.
+  ['task-editor', 'the base gradient is an SVG scaled to COVER, so its stops land differently on two rasterisers and the translucent card transmits the difference (~90-125 px, varying run to run) — see this constant’s note; do not fix by raising the pixel budget'],
 ];
 /** The members that apply to the theme being diffed right now. */
 const machineDependentHere = MACHINE_DEPENDENT.filter(([, , theme]) => !theme || theme === THEME);

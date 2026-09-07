@@ -860,9 +860,30 @@ async function main() {
       });
 
       await excursion(page, 'health-form', async () => {
+        // ⚠️ **Reached through the health LOG, not the Health tab (2026-09-07).** The old route
+        // here was the tab's "This week" card, which this pass retired — so the step went on
+        // calling `tryButton` on a control that no longer exists, the excursion swallowed the
+        // miss, and `health-form.png` stayed a photograph of `health-empty` (identical bytes,
+        // both themes) while claiming to be the form. The entry point that exists is
+        // health-log's AddRow: typing a symptom name and confirming pushes /health-form
+        // prefilled with it (app/health-log.tsx's `startLog`).
         await tab(page, 'Health');
-        await tryButton(page, "What's bothering you?");
+        if (!(await tryButton(page, 'Health log'))) throw new Error('no "Health log" link on the Health tab');
+        // AddRow rests COLLAPSED as a labelled "+ <placeholder>" bar (components/AddRow.tsx):
+        // the a11y label is on the bar, the TextInput mounts only after it is tapped. So this
+        // taps the bar, then fills the field the tap revealed.
+        if (!(await tryButton(page, "What's bothering you?"))) {
+          throw new Error('no "What\'s bothering you?" add row on /health-log');
+        }
+        const symptomField = page.getByPlaceholder("What's bothering you?").first();
+        await symptomField.fill('Headache', { timeout: 10000 });
+        await symptomField.press('Enter');
         await page.waitForTimeout(1000);
+        // Prove we are on the FORM before shooting it — the whole reason this baseline was
+        // wrong is that nothing checked.
+        if (!(await page.getByText('New entry', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+          throw new Error('confirming the symptom name did not open /health-form');
+        }
         await shot(page, 'health-form', {
           title: 'Log a symptom',
           screen: 'app/health-form.tsx',

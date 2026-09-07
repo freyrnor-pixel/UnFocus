@@ -149,6 +149,26 @@ const COLLECT = () => {
 
   // Any control that carries an accessible name and sits inside one of those bands. Used for
   // the centring check: a control in a band the caller sized exactly should sit in its middle.
+  // ⚠️ **Which controls actually LIVE in the bottom bar (2026-09-07).** CHECK 4 used to collect
+  // any button whose box fell inside the painted nav, which is a position, not a parentage — and
+  // the app's own design has content scroll UNDER that floating bar (it is inset 14px and blurs
+  // what passes beneath it). So whenever a card's buttons happened to rest there at scroll-top,
+  // the audit reported them as nav items that were 14px off-centre. It fired on ten of them:
+  // Home's shopping week arrows ("Previous week"/"Next week"), on all five tabs at once, because
+  // every tab is co-mounted in the pager. None of them is a nav item and none was mis-centred.
+  //   `navEl` is the same band `pickNav` chooses, resolved here where the DOM is still in scope,
+  // so membership can be asked rather than inferred from overlap.
+  const navBands = all.filter((el) => {
+    const cs = getComputedStyle(el);
+    if (cs.position !== 'absolute' || parseInt(cs.zIndex, 10) !== 100) return false;
+    const b = el.getBoundingClientRect();
+    return b.width > window.innerWidth * 0.9 && b.bottom >= window.innerHeight - 2 && b.top > 1;
+  });
+  const navEl = navBands.length
+    ? navBands.reduce((best, x) =>
+        (x.getBoundingClientRect().height > best.getBoundingClientRect().height ? x : best), navBands[0])
+    : null;
+
   const controls = [];
   for (const el of all) {
     const label = el.getAttribute('aria-label');
@@ -161,7 +181,13 @@ const COLLECT = () => {
     if (!label && role !== 'button' && !testid) continue;
     const b = el.getBoundingClientRect();
     if (b.height < 8 || b.width < 8) continue;
-    controls.push({ label: label || testid || (el.textContent || '').trim().slice(0, 30), role, testid, ...box(el) });
+    controls.push({
+      label: label || testid || (el.textContent || '').trim().slice(0, 30),
+      role,
+      testid,
+      inNav: !!navEl && navEl.contains(el),
+      ...box(el),
+    });
   }
 
   // The scroll CLIP window — `styles.viewport` in components/ScreenScaffold.tsx, the
@@ -365,8 +391,14 @@ function checkNavCentring(screen, bands, controls, viewportH) {
   const nav = pickNav(bands, viewportH);
   if (!nav || nav.paintedTop == null) return;
 
+  // ⚠️ **`c.inNav` is the load-bearing term (2026-09-07).** Without it this filter is "any button
+  // whose box overlaps the painted bar", which is a POSITION, not membership — and this app
+  // deliberately scrolls content under its floating nav. Ten findings came from that: Home's
+  // shopping week arrows resting beneath the bar at scroll-top, reported on all five tabs
+  // because the pager co-mounts every tab. They are not nav items; nothing was mis-centred.
+  //   The geometric terms stay, because they are still the right question FOR a nav item.
   const inside = controls.filter(
-    (c) => c.role === 'button' &&
+    (c) => c.role === 'button' && c.inNav &&
       c.top >= nav.paintedTop - 1 && c.bottom <= nav.paintedBottom + 1 &&
       c.h < (nav.paintedBottom - nav.paintedTop) - 1 && c.h > 8,
   );

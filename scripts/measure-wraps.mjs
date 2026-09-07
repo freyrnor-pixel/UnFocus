@@ -182,6 +182,7 @@ const L = {
     // and the app's second-densest form was going unmeasured. The tab's composer is a type LINE
     // now, and `moreOptions` on it is the tier-3 route into /health-form.
     logSymptom: 'Log something', logSymptomMore: 'More options',
+    healthLogLink: 'Health log', logSymptomTrigger: "What's bothering you?",
     addMedicine: 'Add a medicine', probeMed: 'Wrap audit med',
     // The design lab (2026-08-06). Off by default, so the walk has to switch it on before the
     // link row exists. Its knob rows are "long label + fixed-width Stepper" thirty times over,
@@ -210,6 +211,7 @@ const L = {
     typeHabit: 'Skriv vane',
     taskAdvanced: 'Avanserte valg', goalField: 'Mål', editGoals: 'Rediger mål',
     logSymptom: 'Logg noe', logSymptomMore: 'Flere valg',
+    healthLogLink: 'Helse-logg', logSymptomTrigger: 'Hva plager deg?',
     advancedTab: 'Avansert', debugMode: 'Feilsøkingsmodus', designLab: 'Designlab',
     labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
     labShelfGroup: 'Kontroller', labAddSlider: 'Legg til en skyvebryter',
@@ -233,6 +235,7 @@ const L = {
     typeHabit: 'Skrifa venju',
     taskAdvanced: 'Ítarlegir valkostir', goalField: 'Markmið', editGoals: 'Breyta markmiðum',
     logSymptom: 'Skrá eitthvað', logSymptomMore: 'Fleiri valkostir',
+    healthLogLink: 'Heilsuskrá', logSymptomTrigger: 'Hvað er að angra þig?',
     advancedTab: 'Ítarlegt', debugMode: 'Villuleitarhamur', designLab: 'Hönnunarstofa',
     labAddCard: 'Bæta við korti', labBlankCard: 'Tómt kort',
     labShelfGroup: 'Stýringar', labAddSlider: 'Bæta við: sleði',
@@ -787,16 +790,27 @@ async function main() {
       // ⚠️ **Health is a bottom-nav TAB again (2026-08-22)**, not a card on Home — this step
       // clicked its way through Home for as long as it was one. Its "This week" card rests
       // closed, and the composer is inside it.
+      // ⚠️ **Through the health LOG since 2026-09-07**, not the Health tab's "This week" card.
+      // That card is retired (lib/cardRegistry.ts's `healthWeek` is gone; Health is two cards
+      // now), so `openCard(L.healthWeekCard)` waited on a chevron that is not in the DOM and
+      // this step skipped again — the third time this same screen has gone unmeasured, and the
+      // exact failure the coverage gate below exists to catch. The entry point that exists is
+      // app/health-log.tsx's AddRow: typing a symptom name and confirming pushes /health-form
+      // prefilled with it (`startLog`).
       await goTab(page, L.tabs[3]);
       await dismissModalIfPresent(page);
-      await openCard(page, L.healthWeekCard);
-      // The composer's option rows (and so "More options") only render once the field is
-      // focused or has text — the same tier-2 rule every quick-add follows.
-      const symptomLine = page.getByLabel(L.logSymptom, { exact: true }).first();
+      await clickText(page, L.healthLogLink);
+      await page.waitForTimeout(900);
+      const symptomLine = page.getByLabel(L.logSymptomTrigger, { exact: true }).first();
       await symptomLine.scrollIntoViewIfNeeded({ timeout: 5000 });
+      // AddRow rests COLLAPSED as a labelled "+ <placeholder>" bar (components/AddRow.tsx) —
+      // the a11y label is on that BAR, and the TextInput only mounts once it is tapped. Filling
+      // the bar itself is what timed out here.
       await symptomLine.click({ timeout: 10000 });
-      await page.waitForTimeout(500);
-      await clickText(page, L.logSymptomMore);
+      await page.waitForTimeout(400);
+      const symptomField = page.getByPlaceholder(L.logSymptomTrigger).first();
+      await symptomField.fill('Wrap audit symptom', { timeout: 10000 });
+      await symptomField.press('Enter');
       await page.waitForTimeout(1100);
       await scan(page, 'health-form');
     } catch (e) {
