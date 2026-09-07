@@ -22,14 +22,20 @@ import {
   withCollapsed,
 } from '@/lib/collapsedCards';
 
+// ⚠️ **The cards used as examples here must REST CLOSED**, and that is why they moved on
+// 2026-09-07. These assertions read "absent means the card's resting state", so an example card
+// that rests OPEN inverts every one of them. `healthIssues` was the stand-in until it inherited
+// `openAtRest: true` from the retired `healthWeek` (lib/cardRegistry.ts) — four tests went red
+// stating the opposite of what the registry now says. `healthMedicine` and `shopBudget` both
+// rest closed; check the registry before swapping either.
 describe('isCollapsed — absent means the card`s resting state', () => {
   it('reads an unset card as closed', () => {
-    expect(isCollapsed({}, 'healthIssues')).toBe(true);
+    expect(isCollapsed({}, 'healthMedicine')).toBe(true);
   });
 
   it('survives an undefined bag', () => {
     // The state before the column has ever been written.
-    expect(isCollapsed(undefined, 'healthIssues')).toBe(true);
+    expect(isCollapsed(undefined, 'healthMedicine')).toBe(true);
   });
 
   it('reads an excepted card as open when unset', () => {
@@ -37,10 +43,10 @@ describe('isCollapsed — absent means the card`s resting state', () => {
   });
 
   it('reads a stored value in both directions', () => {
-    expect(isCollapsed({ healthIssues: true }, 'healthIssues')).toBe(true);
+    expect(isCollapsed({ healthMedicine: true }, 'healthMedicine')).toBe(true);
     // An explicit false is meaningful now: with closed as the default, it is the only way to
     // record "I opened this one". Before the inversion this case was legacy data.
-    expect(isCollapsed({ healthIssues: false }, 'healthIssues')).toBe(false);
+    expect(isCollapsed({ healthMedicine: false }, 'healthMedicine')).toBe(false);
     expect(isCollapsed({ homeToday: true }, 'homeToday')).toBe(true);
   });
 });
@@ -79,13 +85,13 @@ describe('defaultCollapsed — one short exception list', () => {
 
 describe('withCollapsed — the bag holds only what the user moved', () => {
   it('stores a card opened against its resting state', () => {
-    expect(withCollapsed({}, 'healthMedicine', false)).toEqual({ healthMedicine: false });
+    expect(withCollapsed({}, 'shopBudget', false)).toEqual({ shopBudget: false });
   });
 
   it('DELETES when the chosen state IS the resting state', () => {
-    const out = withCollapsed({ healthMedicine: false }, 'healthMedicine', true);
+    const out = withCollapsed({ shopBudget: false }, 'shopBudget', true);
     expect(out).toEqual({});
-    expect('healthMedicine' in out).toBe(false);
+    expect('shopBudget' in out).toBe(false);
   });
 
   it('stores an excepted card the same way, in the other direction', () => {
@@ -94,16 +100,16 @@ describe('withCollapsed — the bag holds only what the user moved', () => {
   });
 
   it('leaves other cards alone', () => {
-    const before: CollapsedCards = { healthMedicine: false, healthIssues: false };
-    expect(withCollapsed(before, 'healthMedicine', true)).toEqual({ healthIssues: false });
+    const before: CollapsedCards = { shopBudget: false, healthMedicine: false };
+    expect(withCollapsed(before, 'shopBudget', true)).toEqual({ healthMedicine: false });
   });
 
   it('does not mutate the bag it was given', () => {
     // The store holds this object; mutating it in place would skip Zustand's identity check and
     // leave the chevron drawn from a value nothing re-rendered for.
-    const before: CollapsedCards = { healthMedicine: true };
-    withCollapsed(before, 'healthIssues', true);
-    expect(before).toEqual({ healthMedicine: true });
+    const before: CollapsedCards = { shopBudget: true };
+    withCollapsed(before, 'healthMedicine', true);
+    expect(before).toEqual({ shopBudget: true });
   });
 
   it('round-trips every id in both directions', () => {
@@ -127,8 +133,8 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   it.each([
     ['null', null],
     ['undefined', undefined],
-    ['an array', ['healthMedicine']],
-    ['a string', 'healthMedicine'],
+    ['an array', ['shopBudget']],
+    ['a string', 'shopBudget'],
     ['a number', 3],
   ])('degrades %s to an empty bag', (_label, raw) => {
     expect(sanitizeCollapsedCards(raw)).toEqual({});
@@ -137,8 +143,8 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
   it('drops an id this build does not know', () => {
     // A card removed in a later build, or a typo in a hand-edited backup. Keeping it would be
     // harmless today and a wrongly-folded card the day someone adds that id back.
-    expect(sanitizeCollapsedCards({ notACard: true, healthMedicine: false })).toEqual({
-      healthMedicine: false,
+    expect(sanitizeCollapsedCards({ notACard: true, shopBudget: false })).toEqual({
+      shopBudget: false,
     });
   });
 
@@ -147,18 +153,18 @@ describe('sanitizeCollapsedCards — a bad value falls back to the resting state
     ['1', 1],
     ['null', null],
   ])('drops %s as a value — only a real boolean counts', (_label, value) => {
-    expect(sanitizeCollapsedCards({ healthMedicine: value })).toEqual({});
+    expect(sanitizeCollapsedCards({ shopBudget: value })).toEqual({});
   });
 
   // Keeps the "only what the user moved" invariant true for a bag that reached us from an
   // older build, where every stored value was a `true` that now agrees with the default.
   it('drops a value that matches the card`s resting state', () => {
-    expect(sanitizeCollapsedCards({ healthMedicine: true, healthIssues: true })).toEqual({});
+    expect(sanitizeCollapsedCards({ shopBudget: true, healthMedicine: true })).toEqual({});
     expect(sanitizeCollapsedCards({ homeToday: false })).toEqual({});
   });
 
   it('passes a clean bag through unchanged', () => {
-    const bag = { healthIssues: false, healthMedicine: false, homeToday: true };
+    const bag = { healthMedicine: false, shopBudget: false, homeToday: true };
     expect(sanitizeCollapsedCards(bag)).toEqual(bag);
   });
 });

@@ -144,7 +144,7 @@ import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
 import { getScreenColor } from '@/lib/screenColor';
 
-export type TodoSection = 'whenever' | 'today' | 'calendar' | 'recurring';
+export type TodoSection = 'whenever' | 'today' | 'calendar' | 'recurring' | 'planner';
 
 /** Time-order comparator: timed tasks first (by HH:MM), then untimed by title. */
 function byTime(a: Task, b: Task): number {
@@ -1187,8 +1187,13 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   const cardOrder = useOrderedCards('todo');
   const showWhenever = full || section === 'whenever';
   const showToday = full || section === 'today';
-  const showCalendar = full || section === 'calendar';
-  const showRecurring = full || section === 'recurring';
+  // ⚠️ **`'planner'` shows BOTH (2026-09-07).** Calendar and Recurring are sections of the one
+  // `todoPlanner` card now (maintainer: *"Calendar, Recurring and this week is part of planning
+  // card"*), so the pane that expands it has to draw both or full-screen would be a downgrade.
+  // `'calendar'` and `'recurring'` stay as their own values: each still names a real section,
+  // and nothing is gained by making the two unaddressable.
+  const showCalendar = full || section === 'calendar' || section === 'planner';
+  const showRecurring = full || section === 'recurring' || section === 'planner';
 
   // The washed-away rows, drawn as a section inside the Whenever card's own body (2026-08-26 —
   // was its own registry card, `todoWashedAway`; see lib/cardRegistry.ts's note). Defined ahead
@@ -1460,13 +1465,16 @@ export default function TodoSurface({ section, onDayReset }: Props) {
     // covering them all."* The days are `embedded` SectionCards — rails and folds, no Surface
     // each — because a Surface inside a Surface reads as a nested panel.
     <View key="calendar" ref={calendarCardRef} style={triageHover === 'calendar' && styles.triageHover}>
-      <Card
-        id="todoCalendar"
+      {/* ⚠️ **A SECTION since 2026-09-07, not a card.** It is `todoPlanner`'s first section —
+          see lib/cardRegistry.ts's note standing where `todoCalendar`'s entry was. `tier="sub"`
+          is the in-card heading rung (components/SectionRail.tsx), the same one Whenever's
+          "More" and "Done" runs use, so nothing here invents a fourth header idiom. */}
+      <SectionRail
+        tier="sub"
+        hue={theme.textMuted}
+        label={t.todoCalendarTitle}
         count={calTaskCount}
-        peek={t.peek.todoCalendar(calTaskCount, calRangeLabel)}
-        // Flipped 2026-09-06 — see the todayCard hint above for the ruling.
-        hint={calTaskCount === 0 ? t.cardHint.todoCalendar : undefined}
-      >
+      />
         {/* The range control. A `SegmentedControl` for the granularity — this is the FORM tier
             (rule 19a's two shapes: a screen gets at most one accent-filled TabSlider, and this
             tab has none to spare), and it is an exclusive pick, which is the test that decides
@@ -1528,18 +1536,19 @@ export default function TodoSurface({ section, onDayReset }: Props) {
             <InlineTaskAdd date={calDefaultDate} accent={theme.accent} assigneeId={personFilter ?? ''} assignee={addAssigneeName} wrapped compose="calendar" dateChoices={calDateChoices} />
           )}
         </View>
-      </Card>
     </View>
   );
 
   const recurringCard = showRecurring && (
     <View key="recurring" ref={recurringCardRef} style={triageHover === 'recurring' && styles.triageHover}>
       <DebugNoteAnchor id="plans.recurring" label="Plans — Recurring">
-        <Card
-          id="todoRecurring"
+        {/* `todoPlanner`'s second section — same rung as Calendar above it. */}
+        <SectionRail
+          tier="sub"
+          hue={theme.textMuted}
+          label={t.tasksSectionRecurring}
           count={recurringAll.length}
-          peek={t.peek.todoRecurring(recurringAll.length)}
-        >
+        />
           {recurringAll.length === 0 ? (
             <NarratorQuote category="todo" />
           ) : (
@@ -1630,8 +1639,28 @@ export default function TodoSurface({ section, onDayReset }: Props) {
               }
             />
           </View>
-        </Card>
       </DebugNoteAnchor>
+    </View>
+  );
+
+  // ⚠️ **One card holding both (2026-09-07).** Maintainer: *"Calendar, Recurring and this week
+  // is part of planning card."* *"This week"* needed nothing built — `calRange` already carried
+  // week/month, so the week IS the calendar section's week view.
+  //   This lands the tab on the three cards v3 draws: Når som helst, I dag, Planlegger. Both
+  // bodies are unchanged inside it; only their `<Card>` wrappers became `SectionRail`s.
+  const plannerCard = (calendarCard || recurringCard) && (
+    <View key="planner">
+      <Card
+        id="todoPlanner"
+        count={calTaskCount + recurringAll.length}
+        peek={t.peek.todoPlanner(calTaskCount, recurringAll.length, calRangeLabel)}
+        // Empty-only, per the 2026-09-06 hint ruling — and it takes BOTH sections being empty,
+        // since a card with repeats in it is not an empty card.
+        hint={calTaskCount === 0 && recurringAll.length === 0 ? t.cardHint.todoCalendar : undefined}
+      >
+        {calendarCard}
+        {recurringCard}
+      </Card>
     </View>
   );
 
@@ -1640,9 +1669,8 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   // the map skips them. This is what makes the Manage cards sheet's reorder reach this screen.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
     todoToday: todayCard || undefined,
-    todoCalendar: calendarCard || undefined,
+    todoPlanner: plannerCard || undefined,
     todoWhenever: wheneverCard || undefined,
-    todoRecurring: recurringCard || undefined,
   };
 
   return (

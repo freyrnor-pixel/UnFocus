@@ -21,9 +21,11 @@
  *             lib/date, lib/episodes (backdatedStart), lib/haptics, lib/i18n, lib/severity,
  *             lib/useAppTheme, store/useHealthStore,
  *             store/useMedicineStore (the "Possibly from" chip row — read-only)
- *   Used by → Expo Router route "/health-form"; pushed from app/(tabs)/health.tsx's "This week"
- *             rows, app/health-log.tsx's AddRow (passes a `name` param to prefill the Issue
- *             field), and app/health-detail.tsx's entry rows
+ *   Used by → Expo Router route "/health-form"; pushed from app/health-log.tsx's AddRow (passes
+ *             a `name` param to prefill the Issue field) and app/health-detail.tsx's entry rows.
+ *             app/(tabs)/health.tsx's "This week" rows were a third caller until that card was
+ *             retired (2026-09-07) — the walk in scripts/screenshot-states.mjs still routed here
+ *             through it and silently photographed the wrong screen for a while afterwards
  *   Data    → useHealthStore (health_logs + symptoms catalog) via add/update/remove/suggest/ensureSymptom;
  *             reads useMedicineStore.medicines to offer the optional `medicineId` attribution
  *

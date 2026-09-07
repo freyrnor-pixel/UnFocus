@@ -32,6 +32,35 @@ that will be re-derived, not made.**
 
 ## Open
 
+### The Budget card's Uke/Måned period
+
+**Asked 2026-09-07**, while building v3's Budsjett card (shipped the same day, monthly-only).
+
+v3 says *"Beløp per uke eller måned, brukeren velger. Lønningsdag setter nullstillingen."* The
+card ships with everything else that line asks for — the amount, the payday, and the two per-day
+figures side by side in the same unit — but **not the period toggle**, because the period is
+monthly all the way down the data model, not a display option:
+
+- `settings.monthlyResetDate` is a day-OF-MONTH payday (1–28), which has no weekly equivalent;
+- each Monthly list carries one `budgetNok` measured against that cycle;
+- `lib/budget.ts`'s `computeSpendPace` derives its period length from payday-to-payday.
+
+**Measured cost.** A weekly option is a new stored field plus a `lib/db.ts` migration, a second
+reset boundary in the automatic payday reset, and a `computeSpendPace` that takes a period rather
+than assuming a month. It is not a segment.
+
+**Why it is not half-built.** A Uke/Måned segment that redrew the same monthly numbers under a
+"Uke" label would be a control that lies — and this repo bans stub surfaces outright
+(`lib/cardRegistry.ts`'s `'none'` note, and the deleted `ComingSoonBody`).
+
+| | |
+|---|---|
+| **A** | Leave it monthly. The card is honest and complete for a monthly household budget. |
+| **B** | Build the weekly period properly: new field, migration, both reset boundaries. |
+
+**Blocks:** nothing — the card ships useful either way.
+
+
 ### v3 mockup: is this a visual pass, or an information-architecture change?
 
 **Asked 2026-09-06.** The brief was *"update visual to match v3 here, with v2 Energy"*, with
@@ -95,6 +124,33 @@ them.
 >
 > The subtractive half of C still needs a per-card answer on existing user data before anything
 > is deleted; that is now its own row below rather than a reason to hold the rest.
+>
+> **ANSWERED 2026-09-07 — nothing is deleted; the surfaces are ABSORBED.** Maintainer:
+> *"Food/Dishes is a tab with Catalogue now in its own card. Calendar, Recurring and this week
+> is part of planning card."*
+>
+> That dissolves the data question rather than answering it, which is the better outcome: no
+> card is removed, so no rows are orphaned and no migration is needed. Each surface moves down
+> one level in the same boundary move `shopMonthly` already made on 2026-08-26 — *"turned into a
+> SECTION drawn inside `shopLists`… it held no user data of its own to justify [being a card]"*.
+>
+> | shipped card | becomes |
+> |---|---|
+> | `shopDishes` (Mat / Food) | the **Retter** tab of `shopCatalogue`, beside **Varer** — v3's *"Katalog = ett kort, to faner"* |
+> | `todoCalendar` (Kalender) | a section of the new **Planlegger** card |
+> | `todoRecurring` (Gjentakende) | a section of the same Planlegger card |
+> | To-do's *this week* | a section of the same Planlegger card |
+>
+> ⚠️ **Each of these keys is a STORAGE KEY** (`fold: 'persisted'` → `settings.collapsedCards`),
+> so retiring one re-opens that surface for anyone who had folded it — `lib/cardRegistry.ts`'s
+> own edit note, and the reason the four To-do keys were renamed with a `lib/db.ts` migration in
+> 2026-08-21. Same treatment applies here.
+>
+> **Still unanswered:** Helse's *"Denne uken"* (`healthWeek`). v3's Helse draws only Helseplager
+> and Medisin, and the ruling above names Calendar, Recurring and "this week" together as
+> planning — which reads as To-do's week rather than Health's. `healthWeek` is therefore left
+> exactly as it is until asked about; it is the one card in the subtractive list with no stated
+> destination, and guessing one would put a week of health logs behind a surface nobody chose.
 
 ---
 

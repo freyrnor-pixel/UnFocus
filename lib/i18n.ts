@@ -388,10 +388,27 @@ const en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
+    /* Both sections at once — a peek naming only one half would under-report the card.
+       The range comes first because it is what the card opens on. */
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} repeating`,
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
     shopMonthly: (n: number) => (n === 0 ? 'No monthly lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
+    /* The merged card states BOTH halves, since one card now holds both (2026-09-07). A card
+       whose peek named only its items would under-report itself the moment Dishes moved in.
+         ⚠️ The items count is BARE on purpose. This header carries no `count` (see the note at
+       app/(tabs)/shopping.tsx's Catalogue card), so the peek is the only place the size is
+       stated, and its slot measures 112px — `measure-wraps.mjs` clipped
+       "286 varer · 66 retter" by 8px at 360px Norwegian. The card is the catalogue OF items, so
+       the leading number needs no noun; the second does, because it names the other tab. */
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0
+        ? 'None yet'
+        : dishes === 0
+          ? `${items} items`
+          : `${items} · ${dishes} dishes`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Nothing to repeat yet' : `${going} going · ${untouched} untouched`,
     healthWeek: (n: number) => (n === 0 ? 'A quiet week' : `${n} logged this week`),
@@ -1036,6 +1053,9 @@ const en = {
   todoMonthTitle: 'Month',
   // The card that replaced the two above (2026-09-01) — it owns the range now.
   todoCalendarTitle: 'Calendar',
+  /* The card that holds Calendar and Recurring as sections (2026-09-07). v3 calls it
+     Planlegger; "planner" is the English the app already uses for the same idea. */
+  todoPlannerTitle: 'Planner',
   todoCalendarPrev: 'Earlier',
   todoCalendarNext: 'Later',
   // Plan mode: the Whenever composer stays open so a run of tasks costs one gesture each.
@@ -1057,6 +1077,12 @@ const en = {
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Food',
   catalogueTabLabel: 'Catalogue',
+  /* The two tabs INSIDE the Catalogue card (2026-09-07). v3: "Katalog = ett kort, to faner.
+     Varer viser pris per enhet. Retter viser antall varer og totalpris." These are deliberately
+     NOT `catalogueTabLabel`/`foodTabLabel` — those name the CARD and the old Food tab, and a tab
+     inside a card called Catalogue cannot also be called Catalogue. */
+  catalogueTabItems: 'Items',
+  catalogueTabDishes: 'Dishes',
   foodEmptyHint: 'No dishes yet — tap + to add one.',
   addDishToMealBtn: 'Add dish',
   // Dish "+" popup
@@ -1965,6 +1991,22 @@ const en = {
   // AP-06B — receipts + monthly grocery budget (app/budget.tsx)
   budget: {
     title: 'Budget',
+    /* The Handle-tab card (2026-09-07, v3's Budsjett). Deliberately NOT `title` — that names
+       app/budget.tsx, the full screen this card links to, and two surfaces sharing one string
+       is how a card and its screen drift apart. */
+    cardTitle: 'Budget',
+    /* v3: "To tall vises: budsjett ÷ dager i perioden og brukt ÷ dager siden nullstilling.
+       Samme enhet, side om side — det ene skal ikke være større enn det andre." Both labels
+       therefore say "per day", and neither is phrased as a target or a verdict. */
+    perDayToSpend: 'To spend per day',
+    perDaySpent: 'Spent per day',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} days`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} days since payday`,
+    paydayLabel: 'Payday',
+    paydayValue: (day: number) => `${day}. of each month`,
+    amountPerMonth: 'Amount per month',
+    resetNote: 'Resets on payday. Shopping lists count against this when items are bought.',
+    notSetUp: 'Not set up yet',
     // Shopping — Monthly redesign (2026-07-22): budget is per Monthly list now; the
     // screen title names which list is being viewed.
     titleForList: (listName: string) => `${listName} — Budget`,
@@ -2699,10 +2741,18 @@ const no: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0 ? range : `${dated} · ${range} · ${repeating} gjentakelser`,
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
     shopMonthly: (n: number) => (n === 0 ? 'Ingen faste lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0
+        ? 'Ingen ennå'
+        : dishes === 0
+          ? `${items} varer`
+          : `${items} · ${dishes} retter`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ingenting å gjenta ennå' : `${going} i gang · ${untouched} urørt`,
     healthWeek: (n: number) => (n === 0 ? 'En rolig uke' : `${n} logget denne uken`),
@@ -3190,6 +3240,7 @@ const no: typeof en = {
   todoWeekTitle: 'Uke',
   todoMonthTitle: 'Måned',
   todoCalendarTitle: 'Kalender',
+  todoPlannerTitle: 'Planlegger',
   todoCalendarPrev: 'Tidligere',
   todoCalendarNext: 'Senere',
   todoPlanModeLabel: 'Planmodus',
@@ -3208,6 +3259,9 @@ const no: typeof en = {
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Mat',
   catalogueTabLabel: 'Katalog',
+  /* Se den engelske tvillingen — v3s to faner i Katalog-kortet. */
+  catalogueTabItems: 'Varer',
+  catalogueTabDishes: 'Retter',
   foodEmptyHint: 'Ingen retter ennå — trykk + for å legge til.',
   addDishToMealBtn: 'Legg til rett',
   // Dish "+" popup
@@ -3944,6 +3998,17 @@ const no: typeof en = {
   // AP-06B — kvitteringer + månedlig handlebudsjett (app/budget.tsx)
   budget: {
     title: 'Budsjett',
+    /* Se den engelske tvillingen. */
+    cardTitle: 'Budsjett',
+    perDayToSpend: 'Å bruke per dag',
+    perDaySpent: 'Brukt per dag',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dager`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dager siden lønning`,
+    paydayLabel: 'Lønningsdag',
+    paydayValue: (day: number) => `${day}. hver måned`,
+    amountPerMonth: 'Beløp per måned',
+    resetNote: 'Nullstilles på lønningsdag. Handlelistene trekker fra dette når varer kjøpes.',
+    notSetUp: 'Ikke satt opp ennå',
     titleForList: (listName: string) => `${listName} — Budsjett`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr av ${budget} kr denne måneden`,
     overBudgetHint: 'Litt over denne måneden — her er hvor pengene gikk.',
@@ -4566,10 +4631,20 @@ const is: typeof en = {
     todoCalendar: (n: number, range: string) => (n === 0 ? range : `${n} · ${range}`),
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
+    todoPlanner: (dated: number, repeating: number, range: string) =>
+      dated === 0 && repeating === 0
+        ? range
+        : `${dated} · ${range} · ${isCount(repeating, `${repeating} endurtekning`, `${repeating} endurtekningar`)}`,
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopMonthly: (n: number) => (n === 0 ? 'Engir fastir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
     shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0
+        ? 'Ekkert enn'
+        : dishes === 0
+          ? isCount(items, `${items} vara`, `${items} vörur`)
+          : `${items} · ${isCount(dishes, `${dishes} réttur`, `${dishes} réttir`)}`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ekkert að endurtaka enn' : `${going} í gangi · ${untouched} ósnert`,
     healthWeek: (n: number) => (n === 0 ? 'Róleg vika' : `${n} skráð í vikunni`),
@@ -5059,6 +5134,7 @@ const is: typeof en = {
   todoWeekTitle: 'Vika',
   todoMonthTitle: 'Mánuður',
   todoCalendarTitle: 'Dagatal',
+  todoPlannerTitle: 'Skipuleggjari',
   todoCalendarPrev: 'Fyrr',
   todoCalendarNext: 'Síðar',
   todoPlanModeLabel: 'Skipulagsstilling',
@@ -5076,6 +5152,9 @@ const is: typeof en = {
   resetAllMonthlyListsConfirmBody: 'Fjarlægir tímabundnar vörur á öllum mánaðarlistum og byrjar nýtt tímabil.',
   foodTabLabel: 'Matur',
   catalogueTabLabel: 'Vöruskrá',
+  /* Sjá enska tvíburann — flipparnir tveir í Vöruskrá-spjaldinu. */
+  catalogueTabItems: 'Vörur',
+  catalogueTabDishes: 'Réttir',
   foodEmptyHint: 'Engir réttir enn — ýttu á + til að bæta við.',
   addDishToMealBtn: 'Bæta við rétti',
   /* Colon rather than a preposition: a dish name is user text and cannot be inflected. */
@@ -5805,6 +5884,17 @@ const is: typeof en = {
   // AP-06B — kvittanir + mánaðarleg innkaupaáætlun (app/budget.tsx)
   budget: {
     title: 'Fjárhagur',
+    /* Sjá enska tvíburann. */
+    cardTitle: 'Fjárhagur',
+    perDayToSpend: 'Til ráðstöfunar á dag',
+    perDaySpent: 'Eytt á dag',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dagar`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dagar frá útborgun`,
+    paydayLabel: 'Útborgunardagur',
+    paydayValue: (day: number) => `${day}. hvers mánaðar`,
+    amountPerMonth: 'Upphæð á mánuði',
+    resetNote: 'Núllstillist á útborgunardegi. Innkaupalistar dragast frá þessu þegar vörur eru keyptar.',
+    notSetUp: 'Ekki sett upp enn',
     titleForList: (listName: string) => `${listName} — Fjárhagur`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr af ${budget} kr í þessum mánuði`,
     overBudgetHint: 'Aðeins yfir í þessum mánuði — hér fóru peningarnir.',

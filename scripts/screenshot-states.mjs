@@ -801,14 +801,36 @@ async function main() {
 
       await excursion(page, 'catalogue', async () => {
         await tab(page, 'Shop');
-        await tryButton(page, 'Catalogue');
+        // ⚠️ **`openCard`, not `tryButton('Catalogue')`.** The exact-match lookup never matched —
+        // the toggle's accessible name is composed as "<card>: Expand list"
+        // (components/CardCollapseToggle.tsx) — so the card stayed shut and this shot was a
+        // second copy of `shopping-empty`, byte-identical to it in both themes. Same locator
+        // drift as the shopping seeding no-op; see EXECUTION_RULES.md standing debt 1.
+        await openCard(page, 'Catalogue');
         await page.waitForTimeout(900);
+        // Prove the card is actually open before shooting it. Its Items/Dishes switch only
+        // exists inside the body, so it is the cheapest thing that cannot be on screen while
+        // the card is collapsed.
+        if (!(await page.getByText('Dishes', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+          throw new Error('catalogue: the card did not open — refusing to shoot the Shop tab behind it');
+        }
         await shot(page, 'catalogue', {
-          title: 'Catalogue (a button on Shopping)',
-          screen: 'app/catalogue.tsx',
-          state: 'SEEDED — the one surface with content on a fresh install. It is the shopping catalogue that powers autocomplete, and receipts scanned by OCR upsert into it.',
-          components: 'CatalogueTab, InlineAddItem',
+          title: 'Catalogue — the Items tab',
+          screen: 'app/(tabs)/shopping.tsx',
+          state: 'SEEDED, and the first capture of this card that has ever actually opened it. ONE card with TWO tabs since 2026-09-07 (v3: "Katalog = ett kort, to faner") — Items is the catalogue that powers autocomplete and that OCR receipts upsert into; Dishes is the old Food card, now a tab. The lock and camera are drawn on Items only: both act on the item list and neither means anything under Dishes.',
+          components: 'CatalogueTab, TabSlider, InlineAddItem',
         });
+        // The other half of the same card. A tab whose content no baseline photographs is a
+        // surface the gate cannot see — the defect this whole excursion just stopped being.
+        if (await tryButton(page, 'Dishes')) {
+          await page.waitForTimeout(700);
+          await shot(page, 'catalogue-dishes', {
+            title: 'Catalogue — the Dishes tab',
+            screen: 'app/(tabs)/shopping.tsx',
+            state: 'The former `shopDishes` card, now Catalogue\'s second tab (maintainer, 2026-09-07). Its meal-type sections and its "Add dish" ghost trigger are unchanged — FoodTab is mounted here exactly as it was mounted in its own card, reading the same store. The header controls are gone on this tab by design.',
+            components: 'FoodTab, TabSlider',
+          });
+        }
       });
 
       await excursion(page, 'notes-empty', async () => {
@@ -838,9 +860,30 @@ async function main() {
       });
 
       await excursion(page, 'health-form', async () => {
+        // ⚠️ **Reached through the health LOG, not the Health tab (2026-09-07).** The old route
+        // here was the tab's "This week" card, which this pass retired — so the step went on
+        // calling `tryButton` on a control that no longer exists, the excursion swallowed the
+        // miss, and `health-form.png` stayed a photograph of `health-empty` (identical bytes,
+        // both themes) while claiming to be the form. The entry point that exists is
+        // health-log's AddRow: typing a symptom name and confirming pushes /health-form
+        // prefilled with it (app/health-log.tsx's `startLog`).
         await tab(page, 'Health');
-        await tryButton(page, "What's bothering you?");
+        if (!(await tryButton(page, 'Health log'))) throw new Error('no "Health log" link on the Health tab');
+        // AddRow rests COLLAPSED as a labelled "+ <placeholder>" bar (components/AddRow.tsx):
+        // the a11y label is on the bar, the TextInput mounts only after it is tapped. So this
+        // taps the bar, then fills the field the tap revealed.
+        if (!(await tryButton(page, "What's bothering you?"))) {
+          throw new Error('no "What\'s bothering you?" add row on /health-log');
+        }
+        const symptomField = page.getByPlaceholder("What's bothering you?").first();
+        await symptomField.fill('Headache', { timeout: 10000 });
+        await symptomField.press('Enter');
         await page.waitForTimeout(1000);
+        // Prove we are on the FORM before shooting it — the whole reason this baseline was
+        // wrong is that nothing checked.
+        if (!(await page.getByText('New entry', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+          throw new Error('confirming the symptom name did not open /health-form');
+        }
         await shot(page, 'health-form', {
           title: 'Log a symptom',
           screen: 'app/health-form.tsx',
@@ -976,6 +1019,26 @@ async function main() {
       state: 'POPULATED. The elastic timeline ahead of the now-line. Device-calendar events (read-only) draw here too, as structure rather than achievement, sharing one layout pass with tasks so an overlapping meeting and task go side by side rather than stacking.',
       components: 'PlanTaskCard, PadRow, DayGridLines',
     });
+
+    // ⚠️ **The Planner card's two SECTIONS, which nothing else photographs.** `todoCalendar` and
+    // `todoRecurring` became sections of `todoPlanner` on 2026-09-07 (maintainer: *"Calendar,
+    // Recurring and this week is part of planning card"*), and every To-do baseline draws that
+    // card COLLAPSED — so the merge itself would have been invisible to this gate, which is the
+    // same rule-2 gap `home-energy-budget` and `catalogue` were both added to close.
+    if (await openCard(page, 'Planner')) {
+      await page.waitForTimeout(900);
+      // The range segment belongs to the Calendar section and cannot be on screen while the
+      // card is shut, so it proves the card actually opened.
+      if (!(await page.getByText('Week', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('todo-planner: the card did not open — refusing to shoot the collapsed stack');
+      }
+      await shot(page, 'todo-planner', {
+        title: 'To-do — the Planner card, open',
+        screen: 'components/TodoSurface.tsx',
+        state: 'ONE card, two sections. Calendar (with its Week/Month range — "this week" is the week view, not a fourth surface) and Recurring were separate cards until 2026-09-07; both bodies are unchanged, only their `<Card>` wrappers became `SectionRail tier="sub"`. This lands the tab on the three cards v3 draws: Whenever, Today, Planner.',
+        components: 'TodoSurface, SectionRail, TaskCard, DateChipRow',
+      });
+    }
 
     const check = page.getByRole('checkbox', { name: 'Ring the dentist', exact: true }).first();
     if (await check.count()) {

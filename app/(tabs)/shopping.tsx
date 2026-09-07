@@ -558,6 +558,7 @@ import PadRow from '@/components/PadRow';
 import SectionRail from '@/components/SectionRail';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
+import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import { success, heavy, warning, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -618,6 +619,15 @@ export default function ShoppingScreen() {
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
   const [catalogueLocked, setCatalogueLocked] = useState(true);
+  // ⚠️ **Which of Catalogue's two tabs is showing (2026-09-07).** Maintainer: *"Food/Dishes is a
+  // tab with Catalogue now in its own card."* v3 draws the same: *"Katalog = ett kort, to
+  // faner."*
+  //   This does NOT reopen the 2026-08-20 "no more tab switch" decision in this file's header.
+  // That pass was about **Weekly vs Monthly** — two lists a user needs in view at once, where
+  // hiding one behind a tab was the defect. These two are reference LIBRARIES, consulted one at
+  // a time, and the mockup asks for exactly this. Different pair, different reason; Weekly and
+  // Monthly still both render unconditionally.
+  const [catalogueTab, setCatalogueTab] = useState<'items' | 'dishes'>('items');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -792,6 +802,26 @@ export default function ShoppingScreen() {
   const language = useSettingsStore((s) => s.language);
 
   const monthlyLists = useMonthlyListStore((s) => s.lists);
+
+  // ⚠️ **The Budget card's two numbers (2026-09-07, v3's Budsjett).** Same aggregation Home's
+  // shopping preview already does (app/(tabs)/index.tsx) and the same `computeSpendPace` behind
+  // app/budget.tsx — one budget maths for the whole app, so a card and its screen cannot report
+  // different figures. Budget is per Monthly list since 2026-07-22, so this sums every list and
+  // paces against the most recently reset one; in the common single-list case that is exactly
+  // that list's own boundary.
+  const budgetPace = useMemo(() => {
+    const totalBudget = monthlyLists.reduce((sum, l) => sum + l.budgetNok, 0);
+    const listIds = new Set(monthlyLists.map((l) => l.id));
+    const tagged = receipts.filter((r) => r.monthlyListId && listIds.has(r.monthlyListId));
+    const latestReset = monthlyLists.map((l) => l.lastReset).filter(Boolean).sort().pop() ?? '';
+    return {
+      pace: computeSpendPace(tagged, totalBudget, monthlyResetDate, latestReset),
+      totalBudget,
+      spent: tagged.filter((r) => r.date >= latestReset).reduce((sum, r) => sum + r.total, 0),
+      latestReset,
+    };
+  }, [receipts, monthlyLists, monthlyResetDate]);
+
   const addMonthlyList = useMonthlyListStore((s) => s.add);
   const renameMonthlyList = useMonthlyListStore((s) => s.rename);
   const toggleMonthlyListLocked = useMonthlyListStore((s) => s.toggleLocked);
@@ -2515,71 +2545,166 @@ export default function ShoppingScreen() {
     </Card>
   );
 
-  const dishesCard = (
-    <View>
-      {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
-            2026-08-21).** Maintainer: *"Dishes color coding is weak/pale"* and *"color coding
-            must be based on visual navigation."* Both were true, and the cause was not the
-            drawing — it was that Dishes had no colour of its own to draw. `domain="meal"`
-            resolves through lib/domainColor.ts to `cardMeal`, which constants/colors.ts aliases
-            onto `IDENTITY_HUES.shopping.hue` — the same emerald as `cardShop`, `cardBudget` and
-            `cardScan` — so every card on this tab was one colour and the badge glyph was the
-            only thing telling them apart.
-              An orange for food already exists (`featMeal`, `#FF7A1A` dark / `#EA580C` light).
-            Its own comment says food *"can't just take Shopping's green"*, and the justification
-            for letting it — that Food has no card sharing a screen with Shopping — stopped being
-            true on 2026-08-20, when Dishes and Catalogue became siblings on this scroll.
-              `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
-            rather than the aliased domain colour. The CARD's edge is untouched and still the
-            screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
-      <Card id="shopDishes" count={dishCount} peek={t.peek.shopDishes(dishCount)}>
-        <FoodTab embedded onNotify={setConfirm} />
-      </Card>
-    </View>
-  );
-
+  // ⚠️ **ONE card, two tabs, as of 2026-09-07.** `dishesCard` and `catalogueCard` were two
+  // top-level cards until today. Maintainer: *"Food/Dishes is a tab with Catalogue now in its
+  // own card."* v3: *"Katalog = ett kort, to faner. Varer viser pris per enhet. Retter viser
+  // antall varer og totalpris."* `shopDishes` left lib/cardRegistry.ts in the same move — see
+  // the note standing where its entry was for why the fold key is retired rather than migrated.
+  //
+  // Nothing about either surface changed: `FoodTab` and `CatalogueTab` are mounted exactly as
+  // before, each `embedded`, each reading its own store. Only which one is on screen is new.
+  //
+  // ⚠️ The Dishes/food hue does NOT come with it. The long note that used to stand here
+  // explained why Dishes wore `featMeal` orange rather than the screen's emerald: it was a CARD
+  // sharing a screen with Shopping's green, and a badge glyph was the only thing telling them
+  // apart. It is not a card any more — it is a tab inside a card that already has a badge and a
+  // title — so the condition that argument rested on is gone. The card keeps `shopCatalogue`'s
+  // shop hue, and the tab label is what says which library you are in.
   const catalogueCard = (
     <View>
-      {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
+      {/* ⚠️ **No `count` on this card, and it is the only content card without one
             (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
             lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
             top part"* and the 2026-08-21 pass gave every card a fold. Something had to yield,
             and a tally of how many items the catalogue holds is the one thing in that row that
             neither acts nor names: the list saying so is directly below it. Measured, not
             guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
-              The count rule (docs/archive/AGENTS_HISTORY.md: *"a size yes, a score no"*) governs what a count may
-            MEAN, not that every card owes one. */}
-        <Card
-          id="shopCatalogue"
-          // ⚠️ **A peek where the COUNT was refused (2026-08-21), and the two are not the same
-          // question.** That note is directly above: this header is the most crowded in the app,
-          // and adding a tally to the title ROW truncated "Catalogue" to "Catal…" at 430px. A
-          // peek is a second storey — it competes with nothing on that row — so the size the
-          // card wanted to state can be stated after all, without reopening the measurement that
-          // kept it off the line.
-          peek={t.peek.shopCatalogue(catalogueSize)}
-          // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
-          // buttons for camera and lock should be in the top part instead"*) — they were inside
-          // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
-          // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
-          // right-most thing in the header.
-          controls={<CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />}
-        >
-        <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+              The count rule (docs/archive/AGENTS_HISTORY.md: *"a size yes, a score no"*) governs
+            what a count may MEAN, not that every card owes one. */}
+      <Card
+        id="shopCatalogue"
+        // ⚠️ **A peek where the COUNT was refused (2026-08-21), and the two are not the same
+        // question.** That note is directly above: this header is the most crowded in the app,
+        // and adding a tally to the title ROW truncated "Catalogue" to "Catal…" at 430px. A
+        // peek is a second storey — it competes with nothing on that row — so the size the
+        // card wanted to state can be stated after all, without reopening the measurement that
+        // kept it off the line.
+        //   It states BOTH halves now that one card holds both: a peek naming only the items
+        // would under-report the card the moment Dishes moved in.
+        peek={t.peek.shopCatalogueTabs(catalogueSize, dishCount)}
+        // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
+        // buttons for camera and lock should be in the top part instead"*) — they were inside
+        // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
+        // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
+        // right-most thing in the header.
+        //   ⚠️ Only on the **Items** tab (2026-09-07): both act on the catalogue's item list —
+        // the lock guards editing it, the camera scans INTO it — and neither has any meaning
+        // while Dishes is showing. Leaving them mounted would put two dead controls in the most
+        // crowded header in the app.
+        controls={
+          catalogueTab === 'items' ? (
+            <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+          ) : undefined
+        }
+      >
+        <TabSlider
+          options={[
+            { value: 'items' as const, label: t.catalogueTabItems },
+            { value: 'dishes' as const, label: t.catalogueTabDishes },
+          ]}
+          value={catalogueTab}
+          onChange={setCatalogueTab}
+          style={styles.catalogueTabs}
+        />
+        {catalogueTab === 'items' ? (
+          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+        ) : (
+          <FoodTab embedded onNotify={setConfirm} />
+        )}
       </Card>
     </View>
   );
 
-  // ⚠️ **The cards are DATA now (2026-09-01), not three hardcoded render calls.** Each registry
-  // id resolves to its already-built node and the screen renders `orderedCards('shop')`, which
-  // is what makes the Manage cards sheet's reorder reach this tab. The maintainer's 2026-08-21
-  // order — *"Shopping lists, food and Catalogue, Monthly"* — is still what the registry
-  // declares and still what anyone who never opens that sheet gets.
+  // ⚠️ **The Budget card (2026-09-07)** — v3's Budsjett, third on Handle.
+  //
+  // v3: *"To tall vises: budsjett ÷ dager i perioden og brukt ÷ dager siden nullstilling. Samme
+  // enhet, side om side — det ene skal ikke være større enn det andre."* Both figures are
+  // per-day for exactly that reason: a monthly budget beside a daily spend is two units pretending
+  // to be a comparison. `computeSpendPace` already produced both — this card is a second READER
+  // of that function, never a second calculation of it.
+  //
+  // ⚠️ **v3's Uke/Måned segment is deliberately NOT built.** The period is monthly throughout the
+  // data model: `settings.monthlyResetDate` is a day-OF-MONTH payday and each Monthly list carries
+  // one `budgetNok` against it. A weekly option is a new stored field and a migration, not a
+  // toggle — and a segment that redrew the same monthly numbers under a "Uke" label would be a
+  // control that lies. Recorded in DECISIONS_OPEN.md rather than half-built; this repo bans stub
+  // surfaces (lib/cardRegistry.ts's `'none'` note).
+  const budgetCard = (
+    <View>
+      <Card
+        id="shopBudget"
+        peek={
+          budgetPace.totalBudget > 0
+            ? t.budget.spentOfBudget(String(Math.round(budgetPace.spent)), String(Math.round(budgetPace.totalBudget)))
+            : t.budget.notSetUp
+        }
+      >
+        {budgetPace.pace ? (
+          <>
+            <View style={styles.budgetFieldRow}>
+              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.budget.amountPerMonth}
+              </Text>
+              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
+                {formatKr(budgetPace.totalBudget, 0, language)}
+              </Text>
+            </View>
+            <View style={styles.budgetFieldRow}>
+              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.budget.paydayLabel}
+              </Text>
+              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
+                {t.budget.paydayValue(monthlyResetDate)}
+              </Text>
+            </View>
+            {/* The two numbers, side by side and in the same unit. Over-pace tints with `warn`,
+                never `bad` — a budget you are ahead of is information, not a failure
+                (DESIGN_RULES.md rule 23, and the same token app/budget.tsx uses). */}
+            <View style={styles.budgetPairRow}>
+              <View style={[styles.budgetCell, { backgroundColor: theme.surfaceInset }]}>
+                <Text style={[styles.budgetCellKey, { color: theme.textMuted }]} numberOfLines={1}>
+                  {t.budget.perDayToSpend}
+                </Text>
+                <Text style={[styles.budgetCellValue, { color: theme.text }]}>
+                  {formatKr(budgetPace.pace.budgetedPerDay, 0, language)}
+                </Text>
+              </View>
+              <View style={[styles.budgetCell, { backgroundColor: theme.surfaceInset }]}>
+                <Text style={[styles.budgetCellKey, { color: theme.textMuted }]} numberOfLines={1}>
+                  {t.budget.perDaySpent}
+                </Text>
+                <Text
+                  style={[
+                    styles.budgetCellValue,
+                    { color: budgetPace.pace.overPace ? theme.warn : theme.good },
+                  ]}
+                >
+                  {formatKr(budgetPace.pace.actualPerDay, 0, language)}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.resetNote}</Text>
+          </>
+        ) : (
+          <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noBudgetSet}</Text>
+        )}
+      </Card>
+    </View>
+  );
+
+  // ⚠️ **The cards are DATA now (2026-09-01), not hardcoded render calls.** Each registry id
+  // resolves to its already-built node and the screen renders `orderedCards('shop')`, which is
+  // what makes the Manage cards sheet's reorder reach this tab.
+  //   The order is Handlelister · Månedsliste · Katalog · Budsjett as of 2026-09-07, from two
+  // rulings that landed the same day and turned out to be compatible: #676 restored Monthly as
+  // a peer card, and the maintainer ruled that *"Food/Dishes is a tab with Catalogue"*. One is
+  // about Monthly and the other about Dishes, so both hold — `dishesCard` is gone because
+  // `FoodTab` is mounted inside `catalogueCard`'s Retter tab, not because Monthly came back.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
     shopLists: weeklyGroup,
     shopMonthly: monthlySection,
-    shopDishes: dishesCard,
     shopCatalogue: catalogueCard,
+    shopBudget: budgetCard,
   };
 
   return (
@@ -2932,5 +3057,15 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
+  budgetFieldRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
+  budgetFieldLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  budgetFieldValue: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  budgetPairRow: { flexDirection: 'row', gap: Spacing.sm },
+  budgetCell: { flex: 1, minWidth: 0, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
+  budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
+  /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
+  catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });

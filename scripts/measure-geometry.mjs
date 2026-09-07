@@ -154,6 +154,16 @@ const COLLECT = () => {
 
   // Any control that carries an accessible name and sits inside one of those bands. Used for
   // the centring check: a control in a band the caller sized exactly should sit in its middle.
+  // ⚠️ **Which controls actually LIVE in the bottom bar (2026-09-07).** CHECK 4 used to collect
+  // any button whose box fell inside the painted nav, which is a position, not a parentage — and
+  // the app's own design has content scroll UNDER that floating bar (it is inset 14px and blurs
+  // what passes beneath it). So whenever a card's buttons happened to rest there at scroll-top,
+  // the audit reported them as nav items that were 14px off-centre. It fired on ten of them:
+  // Home's shopping week arrows ("Previous week"/"Next week"), on all five tabs at once, because
+  // every tab is co-mounted in the pager. None of them is a nav item and none was mis-centred.
+  //   Membership is asked, not inferred: `inBandIds` below records which chrome bands DOM-
+  // CONTAIN each control, and CHECK 4 filters on the nav's own band id.
+
   const controls = [];
   for (const el of all) {
     const label = el.getAttribute('aria-label');

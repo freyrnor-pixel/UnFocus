@@ -231,20 +231,43 @@ export const CARDS = {
   //   Still a DATE FILTER, not monthly recurrence: AGENTS.md excludes monthly recurrence from
   // `normalizeRecurringTasks` because there is no per-occurrence completion row, and this asks
   // only the question `taskOccursOn` already answers.
-  todoCalendar: {
+  // ⚠️ **`todoCalendar` and `todoRecurring` are GONE from this registry as of 2026-09-07** —
+  // both are SECTIONS of `todoPlanner` now. Maintainer: *"Calendar, Recurring and this week is
+  // part of planning card."* That lands the To-do tab on exactly the three cards v3 draws:
+  // Når som helst, I dag, Planlegger.
+  //
+  // *"This week"* is not a fourth thing that had to be built: `todoCalendar` already carried a
+  // week/month range (`calRange`), so the week IS the calendar's week view and moves with it.
+  //
+  // Same boundary move `shopMonthly` (2026-08-26) and `shopDishes` (2026-09-07) made, and
+  // nothing is deleted — both bodies render unchanged inside the planner, each under its own
+  // `SectionRail tier="sub"`, reading the same stores.
+  //
+  // ⚠️ **Both keys are STORAGE KEYS and both are retired rather than migrated**, same reasoning
+  // as `shopDishes`: each folded independently, so moving either one's fold state onto
+  // `todoPlanner` would close a card somebody had left open. The stale rows in
+  // settings.collapsedCards name no card and are never asked about.
+  todoPlanner: {
     screen: 'todo',
     order: 2,
+    // Keeps `todoCalendar`'s plans hue rather than `todoRecurring`'s borrowed health one. That
+    // borrow existed so three To-do cards in a column were not one colour (see
+    // constants/colors.ts's card-identity addendum); there are three cards again, and the two
+    // that merged are one of them now, so the reason for the second hue is gone with the second
+    // card. The glyph is what names the sections inside.
     hue: 'plans',
     domain: 'task',
-    icon: 'calendar',
-    title: (t) => t.todoCalendarTitle,
+    icon: 'construct',
+    title: (t) => t.todoPlannerTitle,
     fold: 'persisted',
     expand: 'surface',
-    // Wired into InlineTaskAdd via `compose="calendar"` + `dateChoices` — Day picks among the
-    // dates the card is currently showing, so a new row always lands inside the range that
-    // created it. One `day` opt for both granularities: the picker's CONTENTS change with the
-    // range, its question does not.
-    compose: { depth: 'panel', opts: ['day', 'time', 'goal'] },
+    // The union of what the two cards composed. Calendar's `day` picks among the dates the card
+    // is showing; Recurring's `repeat`/`on` commit a genuinely recurring task without sending
+    // the user to the full editor. Both still do exactly that inside their own section.
+    // ⚠️ `'on'` is here because the Recurring section still BUILDS a weekday picker.
+    // `lib/__tests__/cardRegistry.test.ts` caught its absence the moment the two specs merged:
+    // an opt the UI draws and no card declares is a control the table has stopped describing.
+    compose: { depth: 'panel', opts: ['day', 'time', 'repeat', 'on', 'goal'] },
   },
   todoWhenever: {
     screen: 'todo',
@@ -262,25 +285,6 @@ export const CARDS = {
     // field states the table's own two; it is not a claim that Time/Repeat are absent.
     compose: { depth: 'panel', opts: ['planMode', 'time', 'repeat', 'energy', 'goal'] },
   },
-  todoRecurring: {
-    screen: 'todo',
-    order: 4,
-    // Borrows the health hue so three To-do cards in a column aren't one colour — see
-    // constants/colors.ts's card-identity addendum. The glyph is what names it.
-    hue: 'health',
-    domain: 'health',
-    icon: 'repeat',
-    title: (t) => t.tasksSectionRecurring,
-    fold: 'persisted',
-    expand: 'surface',
-    // Repeat opens a showAppModal picker; On (the weekday multi-select) is the DEPENDENT
-    // option — it only renders once Repeat says Weekly, the exact shape that once froze the
-    // shipped app (see components/TodoSurface.tsx's note by `recurringDays`).
-    compose: { depth: 'panel', opts: ['repeat', 'on', 'time'] },
-  },
-
-  // ⚠️ **`todoGoals`/`todoEarlierDays`/`todoWashedAway` are GONE from this registry as of
-  // 2026-08-26** (phase 5 of DESIGN_COMPARISON/19-IMPLEMENTATION.md) — not deleted, turned into
   // SECTIONS drawn inside `todoToday` (Goals, Earlier days) and `todoWhenever` (Washed away).
   // They were the app's only cards with `group: 'elsewhere'`; per the registry's own boundary —
   // "a card is registry-named, a section is drawn one-per-row-of-user-data and rides its
@@ -329,10 +333,10 @@ export const CARDS = {
   // sections… which never grow to fill the screen on their own") was true of the per-list
   // Surfaces then and still is now — those stay sections, drawn one-per-row-of-data, same as
   // before. What changed is the OUTER wrapper: the mockup names Månedsliste as its own peer
-  // card beside Handlelister/Retter/Katalog, each with its own fold and peek line, so the
-  // outer wrapper is a registry card again rather than an embedded `SectionCard`. `expand:
-  // 'none'` carries over unchanged — a full-screen pane over a stack of per-list Surfaces is
-  // still the same "nothing to mount that isn't already on screen" refusal.
+  // card beside Handlelister/Katalog, each with its own fold and peek line, so the outer
+  // wrapper is a registry card again rather than an embedded `SectionCard`. `expand: 'none'`
+  // carries over unchanged — a full-screen pane over a stack of per-list Surfaces is still the
+  // same "nothing to mount that isn't already on screen" refusal.
   shopMonthly: {
     screen: 'shop',
     order: 2,
@@ -346,22 +350,35 @@ export const CARDS = {
       "Monthly's per-list Surfaces are already fully expanded in place on the card itself — there is nothing a full-screen pane would show that isn't already on screen.",
     compose: { depth: 'panel', opts: ['qty', 'category'] },
   },
-  shopDishes: {
-    screen: 'shop',
-    order: 3,
-    // Food's own orange, not Shopping's green: lib/domainColor.ts aliases shop/meal/budget/scan
-    // onto one emerald, so `domain="meal"` and `domain="shop"` drew the identical badge.
-    hue: 'food',
-    domain: 'meal',
-    icon: 'fast-food',
-    badgeHue: true,
-    title: (t) => t.foodTabLabel,
-    fold: 'persisted',
-    expand: 'surface',
-  },
+
+  // ⚠️ **`shopDishes` is GONE from this registry as of 2026-09-07** — it is the **Retter** tab
+  // of `shopCatalogue` now, beside **Varer**. Maintainer: *"Food/Dishes is a tab with Catalogue
+  // now in its own card."* v3 draws the same thing: *"Katalog = ett kort, to faner. Varer viser
+  // pris per enhet. Retter viser antall varer og totalpris."*
+  //
+  // ⚠️ **This does NOT contradict `shopMonthly`'s restoration directly above, and the two
+  // arrived from different rulings on the same day.** #676 read the Handle mockup as four peer
+  // cards (Handlelister/Månedsliste/Retter/Katalog); the maintainer then ruled that Retter is a
+  // TAB of Katalog. Those are compatible — one is about Monthly, the other about Dishes — so
+  // both hold: Monthly keeps its restored card and Dishes becomes a tab. Neither ruling was
+  // reverted to satisfy the other.
+  //
+  // This is the SAME boundary move `shopMonthly` made in the other direction: a card is what
+  // the registry names, and Dishes held no position of its own to justify one once Catalogue
+  // could show it. Nothing is deleted — `components/FoodTab.tsx` is mounted unchanged behind
+  // the tab, reading the same store, so no dish and no meal section is lost. See
+  // app/(tabs)/shopping.tsx for where it renders now.
+  //
+  // ⚠️ **A key is a STORAGE KEY, and this one is retired rather than renamed.** `shopDishes` was
+  // `fold: 'persisted'`, so it has a row in `settings.collapsedCards` on every install that ever
+  // folded it. That row now names no card. It is harmless — `lib/collapsedCards.ts` reads by
+  // key and an unknown key is simply never asked about — and deliberately NOT migrated onto
+  // `shopCatalogue`: the two cards folded independently, so moving one card's fold state onto
+  // another would close a Catalogue somebody had left open. The stale row ages out with the
+  // column's own pruning.
   shopCatalogue: {
     screen: 'shop',
-    order: 4,
+    order: 3,
     hue: 'shopping',
     domain: 'shop',
     icon: 'list',
@@ -373,6 +390,27 @@ export const CARDS = {
     // row over lib/shoppingCategories.ts's preset list.
     compose: { depth: 'panel', opts: ['price', 'category'] },
   },
+  shopBudget: {
+    screen: 'shop',
+    order: 4,
+    hue: 'shopping',
+    domain: 'shop',
+    icon: 'wallet',
+    title: (t) => t.budget.cardTitle,
+    fold: 'persisted',
+    // No pane: `app/budget.tsx` already IS the full-screen budget, reached from a Monthly
+    // list's Budget pill, and it does more than this card (month navigation, the receipt list,
+    // the per-store breakdown). A ⤢ here would be a third, thinner rendering of a screen that
+    // already exists — the same "second rendering" test `shopLists` declines on.
+    expand: 'none',
+    expandDeclined:
+      'app/budget.tsx is already the full-screen budget, with month navigation, the receipt list and the per-store breakdown that this card deliberately omits. A pane here would be a thinner third rendering of a screen the Budget pill already opens.',
+  },
+  // ⚠️ The "shopMonthly is GONE" note that stood here is DELETED rather than kept as history,
+  // because it is no longer history — #676 brought that card back on 2026-09-07 and its entry
+  // above carries the current reasoning. A superseded note is worth keeping; a note describing
+  // the opposite of what the file now does is the stale-claim failure EXECUTION_RULES.md rule 5
+  // is about.
 
   // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
   // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*
@@ -484,28 +522,32 @@ export const CARDS = {
   // the Me tab from 2026-08-21, and a tray of pills is health. It is a PEER card here, never a
   // card drawn inside Health's Surface — that was the card-in-a-card CONSISTENCY_AUDIT.md §11
   // measured, and moving screens is not a reason to rebuild it.
-  healthWeek: {
-    screen: 'health',
-    order: 1,
-    hue: 'health',
-    domain: 'health',
-    title: (t) => t.thisWeekLabel,
-    fold: 'persisted',
-    // ⚠️ Reversed in the same 2026-08-27 pass, for the same reason — see `habitsList`'s note. The
-    // refusal read: *"This week's issues are the Health tab's primary content — a pane for them is
-    // a second rendering of the screen you are already on."* Its pane mounts
-    // `HealthSurface section="week"`, which is that card's body ALONE — deliberately not the whole
-    // surface, or the pane really would be the second rendering the old refusal warned about.
-    expand: 'surface',
-    // `openAtRest` (2026-08-26, phase 5 decision (b) — "the first card on each screen rests
-    // open") — this tab's own first card, same exception as `todoToday`/`shopLists`/`habitsList`.
-    openAtRest: true,
-    // Phase 8's "Growth" group — see `habitsList`'s note and `GROUPS` below.
-    group: 'growth',
-  },
+  // ⚠️ **`healthWeek` is GONE from this registry as of 2026-09-07.** Maintainer, answering where
+  // "Denne uken" goes now that v3's Helse draws only Helseplager and Medisin: *"logging shows
+  // when full screen."*
+  //
+  // So it is not a resting card any more; its logging is the first thing `healthIssues`' pane
+  // draws, above the editor (components/CardExpandHost.tsx's `HealthIssuesExpandedBody`).
+  // Nothing is orphaned, and this one could not have been: `healthWeek` was never separate data
+  // — its card counted `thisWeekIssues` and its peek read `peek.healthWeek(thisWeekIssues.length)`,
+  // i.e. it was always a WEEK VIEW of the very issues `healthIssues` owns.
+  //
+  // ⚠️ Same storage-key treatment as `shopDishes` and `todoCalendar`: the fold row is retired,
+  // not migrated onto `healthIssues`, because the two folded independently.
+  //
+  // Its `group: 'growth'` membership goes with it — `cardsInGroup('growth')` now pairs
+  // `habitsList` with `healthIssues`, which is the card that actually holds the health half of
+  // that story now.
   healthIssues: {
     screen: 'health',
-    order: 2,
+    order: 1,
+    // The tab's first card rests open — the same 2026-08-26 phase-5 exception `todoToday`,
+    // `shopLists` and `habitsList` carry. It inherits it from `healthWeek`, which held it until
+    // that card was retired on 2026-09-07.
+    openAtRest: true,
+    // Inherited from `healthWeek` in the same move: this is the health half of the cross-screen
+    // Growth strip now (see `GROUPS`).
+    group: 'growth',
     hue: 'health',
     domain: 'health',
     icon: 'medical-outline',
