@@ -97,7 +97,7 @@ const COLLECT = () => {
   // The floating chrome: ScreenScaffold's header block (zIndex 100), an optional
   // stickyBelowHeader block (99) and the bottom block (100). They are the only absolutely
   // positioned, full-width, z-declaring boxes near the top and bottom of the window.
-  const chrome = all
+  const chromeEls = all
     .filter((el) => {
       const cs = getComputedStyle(el);
       if (cs.position !== 'absolute') return false;
@@ -106,8 +106,9 @@ const COLLECT = () => {
       const b = el.getBoundingClientRect();
       // Full-width bands only — this excludes badges and pills that also declare a z.
       return b.width > window.innerWidth * 0.9 && b.height > 16 && b.height < 260;
-    })
-    .map((el) => {
+    });
+  const chrome = chromeEls
+    .map((el, bandIndex) => {
       // ⚠️ The BAND is full-bleed (`left: 0, right: 0` on ScreenScaffold's header/sticky blocks),
       // so comparing bands tells you nothing about horizontal inset — they are all the same
       // width by construction, which is exactly why the first version of this audit passed over
@@ -136,6 +137,10 @@ const COLLECT = () => {
         }
       }
       return {
+        // ⚠️ Identity, not position. `bandId` is the index in `chromeEls`, and it is what lets a
+        // control say which band it is INSIDE rather than which band it happens to overlap —
+        // see the `inBandIds` note below. Assigned before the sort, so it survives it.
+        bandId: bandIndex,
         z: parseInt(getComputedStyle(el).zIndex, 10),
         ...box(el),
         paintedLeft: painted ? +painted.left.toFixed(2) : null,
@@ -161,7 +166,19 @@ const COLLECT = () => {
     if (!label && role !== 'button' && !testid) continue;
     const b = el.getBoundingClientRect();
     if (b.height < 8 || b.width < 8) continue;
-    controls.push({ label: label || testid || (el.textContent || '').trim().slice(0, 30), role, testid, ...box(el) });
+    // ⚠️ **Which bands CONTAIN this control — not which it overlaps (2026-09-07).** The bottom
+    // nav FLOATS over a scrolling list, so a plain content button that has scrolled under it
+    // occupies the same rectangle as a real nav item and, on box geometry alone, is
+    // indistinguishable from one. That is not hypothetical: adding a header row to Home's empty
+    // Energy card pushed every card below it down ~51px, slid the Habits card's week arrows
+    // ("Previous week"/"Next week") under the bar, and CHECK 4 reported them as ten nav items
+    // sitting 14px too low — on all five tabs, about a bar that had not moved at all. DOM
+    // containment is the question the check was always asking; overlap was standing in for it.
+    const inBandIds = [];
+    for (let i = 0; i < chromeEls.length; i += 1) {
+      if (chromeEls[i] !== el && chromeEls[i].contains(el)) inBandIds.push(i);
+    }
+    controls.push({ label: label || testid || (el.textContent || '').trim().slice(0, 30), role, testid, inBandIds, ...box(el) });
   }
 
   // The scroll CLIP window — `styles.viewport` in components/ScreenScaffold.tsx, the
@@ -365,8 +382,14 @@ function checkNavCentring(screen, bands, controls, viewportH) {
   const nav = pickNav(bands, viewportH);
   if (!nav || nav.paintedTop == null) return;
 
+  // ⚠️ `inBandIds` FIRST — a button is a nav item because it lives in the nav, not because it
+  // has scrolled underneath it. See the `inBandIds` note where controls are collected for the
+  // false positive that reached `main` (ten findings about a bar that had not moved). The box
+  // terms stay: they are what excludes the bar's own full-height wrapper from being measured
+  // against itself, and they are still the check being made once membership is settled.
   const inside = controls.filter(
     (c) => c.role === 'button' &&
+      (c.inBandIds ?? []).includes(nav.bandId) &&
       c.top >= nav.paintedTop - 1 && c.bottom <= nav.paintedBottom + 1 &&
       c.h < (nav.paintedBottom - nav.paintedTop) - 1 && c.h > 8,
   );
