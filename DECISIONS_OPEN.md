@@ -32,6 +32,35 @@ that will be re-derived, not made.**
 
 ## Open
 
+### The Budget card's Uke/Måned period
+
+**Asked 2026-09-07**, while building v3's Budsjett card (shipped the same day, monthly-only).
+
+v3 says *"Beløp per uke eller måned, brukeren velger. Lønningsdag setter nullstillingen."* The
+card ships with everything else that line asks for — the amount, the payday, and the two per-day
+figures side by side in the same unit — but **not the period toggle**, because the period is
+monthly all the way down the data model, not a display option:
+
+- `settings.monthlyResetDate` is a day-OF-MONTH payday (1–28), which has no weekly equivalent;
+- each Monthly list carries one `budgetNok` measured against that cycle;
+- `lib/budget.ts`'s `computeSpendPace` derives its period length from payday-to-payday.
+
+**Measured cost.** A weekly option is a new stored field plus a `lib/db.ts` migration, a second
+reset boundary in the automatic payday reset, and a `computeSpendPace` that takes a period rather
+than assuming a month. It is not a segment.
+
+**Why it is not half-built.** A Uke/Måned segment that redrew the same monthly numbers under a
+"Uke" label would be a control that lies — and this repo bans stub surfaces outright
+(`lib/cardRegistry.ts`'s `'none'` note, and the deleted `ComingSoonBody`).
+
+| | |
+|---|---|
+| **A** | Leave it monthly. The card is honest and complete for a monthly household budget. |
+| **B** | Build the weekly period properly: new field, migration, both reset boundaries. |
+
+**Blocks:** nothing — the card ships useful either way.
+
+
 ### v3 mockup: is this a visual pass, or an information-architecture change?
 
 **Asked 2026-09-06.** The brief was *"update visual to match v3 here, with v2 Energy"*, with

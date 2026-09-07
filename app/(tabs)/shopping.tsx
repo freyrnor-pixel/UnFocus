@@ -804,6 +804,26 @@ export default function ShoppingScreen() {
   const language = useSettingsStore((s) => s.language);
 
   const monthlyLists = useMonthlyListStore((s) => s.lists);
+
+  // ⚠️ **The Budget card's two numbers (2026-09-07, v3's Budsjett).** Same aggregation Home's
+  // shopping preview already does (app/(tabs)/index.tsx) and the same `computeSpendPace` behind
+  // app/budget.tsx — one budget maths for the whole app, so a card and its screen cannot report
+  // different figures. Budget is per Monthly list since 2026-07-22, so this sums every list and
+  // paces against the most recently reset one; in the common single-list case that is exactly
+  // that list's own boundary.
+  const budgetPace = useMemo(() => {
+    const totalBudget = monthlyLists.reduce((sum, l) => sum + l.budgetNok, 0);
+    const listIds = new Set(monthlyLists.map((l) => l.id));
+    const tagged = receipts.filter((r) => r.monthlyListId && listIds.has(r.monthlyListId));
+    const latestReset = monthlyLists.map((l) => l.lastReset).filter(Boolean).sort().pop() ?? '';
+    return {
+      pace: computeSpendPace(tagged, totalBudget, monthlyResetDate, latestReset),
+      totalBudget,
+      spent: tagged.filter((r) => r.date >= latestReset).reduce((sum, r) => sum + r.total, 0),
+      latestReset,
+    };
+  }, [receipts, monthlyLists, monthlyResetDate]);
+
   const addMonthlyList = useMonthlyListStore((s) => s.add);
   const renameMonthlyList = useMonthlyListStore((s) => s.rename);
   const toggleMonthlyListLocked = useMonthlyListStore((s) => s.toggleLocked);
@@ -2601,6 +2621,83 @@ export default function ShoppingScreen() {
     </View>
   );
 
+  // ⚠️ **The Budget card (2026-09-07)** — v3's Budsjett, third on Handle.
+  //
+  // v3: *"To tall vises: budsjett ÷ dager i perioden og brukt ÷ dager siden nullstilling. Samme
+  // enhet, side om side — det ene skal ikke være større enn det andre."* Both figures are
+  // per-day for exactly that reason: a monthly budget beside a daily spend is two units pretending
+  // to be a comparison. `computeSpendPace` already produced both — this card is a second READER
+  // of that function, never a second calculation of it.
+  //
+  // ⚠️ **v3's Uke/Måned segment is deliberately NOT built.** The period is monthly throughout the
+  // data model: `settings.monthlyResetDate` is a day-OF-MONTH payday and each Monthly list carries
+  // one `budgetNok` against it. A weekly option is a new stored field and a migration, not a
+  // toggle — and a segment that redrew the same monthly numbers under a "Uke" label would be a
+  // control that lies. Recorded in DECISIONS_OPEN.md rather than half-built; this repo bans stub
+  // surfaces (lib/cardRegistry.ts's `'none'` note).
+  const budgetCard = (
+    <View>
+      <Card
+        id="shopBudget"
+        peek={
+          budgetPace.totalBudget > 0
+            ? t.budget.spentOfBudget(String(Math.round(budgetPace.spent)), String(Math.round(budgetPace.totalBudget)))
+            : t.budget.notSetUp
+        }
+      >
+        {budgetPace.pace ? (
+          <>
+            <View style={styles.budgetFieldRow}>
+              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.budget.amountPerMonth}
+              </Text>
+              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
+                {formatKr(budgetPace.totalBudget, 0, language)}
+              </Text>
+            </View>
+            <View style={styles.budgetFieldRow}>
+              <Text style={[styles.budgetFieldLabel, { color: theme.textMuted }]} numberOfLines={1}>
+                {t.budget.paydayLabel}
+              </Text>
+              <Text style={[styles.budgetFieldValue, { color: theme.text }]}>
+                {t.budget.paydayValue(monthlyResetDate)}
+              </Text>
+            </View>
+            {/* The two numbers, side by side and in the same unit. Over-pace tints with `warn`,
+                never `bad` — a budget you are ahead of is information, not a failure
+                (DESIGN_RULES.md rule 23, and the same token app/budget.tsx uses). */}
+            <View style={styles.budgetPairRow}>
+              <View style={[styles.budgetCell, { backgroundColor: theme.surfaceInset }]}>
+                <Text style={[styles.budgetCellKey, { color: theme.textMuted }]} numberOfLines={1}>
+                  {t.budget.perDayToSpend}
+                </Text>
+                <Text style={[styles.budgetCellValue, { color: theme.text }]}>
+                  {formatKr(budgetPace.pace.budgetedPerDay, 0, language)}
+                </Text>
+              </View>
+              <View style={[styles.budgetCell, { backgroundColor: theme.surfaceInset }]}>
+                <Text style={[styles.budgetCellKey, { color: theme.textMuted }]} numberOfLines={1}>
+                  {t.budget.perDaySpent}
+                </Text>
+                <Text
+                  style={[
+                    styles.budgetCellValue,
+                    { color: budgetPace.pace.overPace ? theme.warn : theme.good },
+                  ]}
+                >
+                  {formatKr(budgetPace.pace.actualPerDay, 0, language)}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.resetNote}</Text>
+          </>
+        ) : (
+          <Text style={[styles.budgetNote, { color: theme.textMuted }]}>{t.budget.noBudgetSet}</Text>
+        )}
+      </Card>
+    </View>
+  );
+
   // ⚠️ **The cards are DATA now (2026-09-01), not three hardcoded render calls.** Each registry
   // id resolves to its already-built node and the screen renders `orderedCards('shop')`, which
   // is what makes the Manage cards sheet's reorder reach this tab. The maintainer's 2026-08-21
@@ -2609,6 +2706,7 @@ export default function ShoppingScreen() {
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
     shopLists: weeklyGroup,
     shopCatalogue: catalogueCard,
+    shopBudget: budgetCard,
   };
 
   return (
@@ -2971,6 +3069,14 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
+  budgetFieldRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, minHeight: 40 },
+  budgetFieldLabel: { flex: 1, minWidth: 0, fontSize: FontSize.sm, fontFamily: Fonts.medium },
+  budgetFieldValue: { fontSize: FontSize.sm, fontFamily: Fonts.bold },
+  budgetPairRow: { flexDirection: 'row', gap: Spacing.sm },
+  budgetCell: { flex: 1, minWidth: 0, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
+  budgetCellKey: { fontSize: FontSize.xs, fontFamily: Fonts.bold },
+  budgetCellValue: { fontSize: FontSize.lg, fontFamily: Fonts.bold },
+  budgetNote: { fontSize: FontSize.xs, fontFamily: Fonts.medium, lineHeight: 18 },
   /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
   catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },

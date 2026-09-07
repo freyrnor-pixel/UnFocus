@@ -1976,6 +1976,22 @@ const en = {
   // AP-06B — receipts + monthly grocery budget (app/budget.tsx)
   budget: {
     title: 'Budget',
+    /* The Handle-tab card (2026-09-07, v3's Budsjett). Deliberately NOT `title` — that names
+       app/budget.tsx, the full screen this card links to, and two surfaces sharing one string
+       is how a card and its screen drift apart. */
+    cardTitle: 'Budget',
+    /* v3: "To tall vises: budsjett ÷ dager i perioden og brukt ÷ dager siden nullstilling.
+       Samme enhet, side om side — det ene skal ikke være større enn det andre." Both labels
+       therefore say "per day", and neither is phrased as a target or a verdict. */
+    perDayToSpend: 'To spend per day',
+    perDaySpent: 'Spent per day',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} days`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} days since payday`,
+    paydayLabel: 'Payday',
+    paydayValue: (day: number) => `${day}. of each month`,
+    amountPerMonth: 'Amount per month',
+    resetNote: 'Resets on payday. Shopping lists count against this when items are bought.',
+    notSetUp: 'Not set up yet',
     // Shopping — Monthly redesign (2026-07-22): budget is per Monthly list now; the
     // screen title names which list is being viewed.
     titleForList: (listName: string) => `${listName} — Budget`,
@@ -3961,6 +3977,17 @@ const no: typeof en = {
   // AP-06B — kvitteringer + månedlig handlebudsjett (app/budget.tsx)
   budget: {
     title: 'Budsjett',
+    /* Se den engelske tvillingen. */
+    cardTitle: 'Budsjett',
+    perDayToSpend: 'Å bruke per dag',
+    perDaySpent: 'Brukt per dag',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dager`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dager siden lønning`,
+    paydayLabel: 'Lønningsdag',
+    paydayValue: (day: number) => `${day}. hver måned`,
+    amountPerMonth: 'Beløp per måned',
+    resetNote: 'Nullstilles på lønningsdag. Handlelistene trekker fra dette når varer kjøpes.',
+    notSetUp: 'Ikke satt opp ennå',
     titleForList: (listName: string) => `${listName} — Budsjett`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr av ${budget} kr denne måneden`,
     overBudgetHint: 'Litt over denne måneden — her er hvor pengene gikk.',
@@ -5832,6 +5859,17 @@ const is: typeof en = {
   // AP-06B — kvittanir + mánaðarleg innkaupaáætlun (app/budget.tsx)
   budget: {
     title: 'Fjárhagur',
+    /* Sjá enska tvíburann. */
+    cardTitle: 'Fjárhagur',
+    perDayToSpend: 'Til ráðstöfunar á dag',
+    perDaySpent: 'Eytt á dag',
+    perDayFrom: (amount: string, days: number) => `${amount} ÷ ${days} dagar`,
+    perDaySince: (amount: string, days: number) => `${amount} ÷ ${days} dagar frá útborgun`,
+    paydayLabel: 'Útborgunardagur',
+    paydayValue: (day: number) => `${day}. hvers mánaðar`,
+    amountPerMonth: 'Upphæð á mánuði',
+    resetNote: 'Núllstillist á útborgunardegi. Innkaupalistar dragast frá þessu þegar vörur eru keyptar.',
+    notSetUp: 'Ekki sett upp enn',
     titleForList: (listName: string) => `${listName} — Fjárhagur`,
     spentOfBudget: (spent: string, budget: string) => `${spent} kr af ${budget} kr í þessum mánuði`,
     overBudgetHint: 'Aðeins yfir í þessum mánuði — hér fóru peningarnir.',

@@ -491,8 +491,14 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   // `Collapsible`, so the stored fold did nothing on the Me tab. `Card` takes `embedded` for
   // exactly this, so the branches now differ in one prop and cannot drift apart again.
   const weekCardInner = (
+    // ⚠️ **`id="healthIssues"` since 2026-09-07, and this is no longer a card of its own.**
+    // `healthWeek` left lib/cardRegistry.ts when the maintainer ruled *"logging shows when full
+    // screen"* — see the note standing where its entry was. This body is drawn in two places
+    // now: Home's embedded copy, and `healthIssues`' full-screen pane above the editor. It
+    // borrows `healthIssues`' id because that is the card whose data it has always shown — its
+    // own peek counted `thisWeekIssues`.
     <Card
-      id="healthWeek"
+      id="healthIssues"
       embedded={embedded}
       peek={t.peek.healthWeek(thisWeekIssues.length)}
       // Flipped 2026-09-06 (maintainer ruling, DECISIONS_OPEN.md): the hint now shows
@@ -541,7 +547,6 @@ export default function HealthSurface({ embedded = false, section }: Props) {
   // rather than rendered-then-hidden: `orderedCards` returns every card the REGISTRY has, and
   // only this table knows which of them this mount site can actually draw.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
-    healthWeek: weekCard,
     /* ⚠️ **A `Card`, not a `CollapsedSection` drawer (2026-08-21).** The drawer was a card
        shape with a fold, a badge on a group-tier rail and no ⤢, and its two-tap-target header
        (chevron previews, name opens the sheet) was a deliberate exception to DESIGN_RULES

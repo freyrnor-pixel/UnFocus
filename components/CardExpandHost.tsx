@@ -224,9 +224,29 @@ function CatalogueExpandedBody() {
  * The `healthIssues` pane. It supplies the screen hue the editor's add row wears — the same
  * value the card's own header badge uses, so the pane and the card agree.
  */
+/**
+ * Helseplager full-screen: **the week's logging first, then the editor** (2026-09-07).
+ *
+ * Maintainer: *"logging shows when full screen."* `healthWeek` stopped being a resting card in
+ * the same ruling — v3's Helse draws only Helseplager and Medisin — so this pane is where its
+ * logging lives now. Nothing is orphaned: `healthWeek` was never separate data, its card counted
+ * `thisWeekIssues` and its peek read `peek.healthWeek(thisWeekIssues.length)`, i.e. it was always
+ * a week VIEW of the issues this card owns.
+ *
+ * ⚠️ **The editor stays, below it.** It became this pane on 2026-09-01 by reversing a written
+ * `expandDeclined`, after the maintainer reported *"Helseplager in Health screen has a different
+ * button than the fullscreen"* — dropping it to make room for the log would walk that fix back.
+ * Full screen is now both halves in the order you use them: log what happened, then manage what
+ * you track.
+ */
 function HealthIssuesExpandedBody() {
   const theme = useAppTheme();
-  return <HealthIssuesEditor accent={getScreenColor(theme, 'health').base} />;
+  return (
+    <>
+      <HealthSurface section="week" />
+      <HealthIssuesEditor accent={getScreenColor(theme, 'health').base} />
+    </>
+  );
 }
 
 function MedicineExpandedBody() {
@@ -284,7 +304,9 @@ const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
   // components/HealthIssuesEditor.tsx; the sheet itself is deleted, so this is the fuller
   // surface now rather than a third rendering of the same names.
   healthIssues: { title: (t) => t.healthIssues.title, Body: HealthIssuesExpandedBody },
-  healthWeek: { title: (t) => t.thisWeekLabel, Body: () => <HealthSurface section="week" /> },
+  // ⚠️ **`healthWeek` left on 2026-09-07** — it is not a card any more, and its logging is the
+  // first thing `healthIssues`' pane draws (see `HealthIssuesExpandedBody`). Maintainer:
+  // *"logging shows when full screen."*
   todoWhenever: { title: (t) => t.tasksSectionWhenever, Body: () => <TodoSurface section="whenever" /> },
   todoToday: { title: (t) => t.tasksTabToday, Body: () => <TodoSurface section="today" /> },
   // ⚠️ **`todoWeek` and `todoMonth` merged into `todoCalendar` (2026-09-01)** — one card that

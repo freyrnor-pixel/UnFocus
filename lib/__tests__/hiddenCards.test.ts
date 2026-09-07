@@ -54,7 +54,7 @@ describe('sanitizeHiddenCards — anything unrecognised becomes "the app as desi
   });
 
   it('round-trips a clean value', () => {
-    const value = ['todoPlanner', 'healthWeek'];
+    const value = ['todoPlanner', 'healthIssues'];
     expect(sanitizeHiddenCards(value)).toEqual(value);
   });
 });
@@ -71,9 +71,9 @@ describe('withHidden — one id moves, every other card is left alone', () => {
   });
 
   it('does not disturb its neighbours', () => {
-    const before: CardKey[] = ['todoPlanner', 'healthWeek'];
+    const before: CardKey[] = ['todoPlanner', 'healthIssues'];
     expect(withHidden(before, 'todoWhenever', true)).toEqual([...before, 'todoWhenever']);
-    expect(withHidden(before, 'todoPlanner', false)).toEqual(['healthWeek']);
+    expect(withHidden(before, 'todoPlanner', false)).toEqual(['healthIssues']);
   });
 
   it('never returns a value the sanitizer would change', () => {
@@ -90,7 +90,7 @@ describe('isHidden', () => {
 
   it('reads a stored id', () => {
     expect(isHidden(['todoPlanner'], 'todoPlanner')).toBe(true);
-    expect(isHidden(['todoPlanner'], 'healthWeek')).toBe(false);
+    expect(isHidden(['todoPlanner'], 'healthIssues')).toBe(false);
   });
 });
 

@@ -343,7 +343,7 @@ export const CARDS = {
 
   shopCatalogue: {
     screen: 'shop',
-    order: 3,
+    order: 2,
     hue: 'shopping',
     domain: 'shop',
     icon: 'list',
@@ -354,6 +354,22 @@ export const CARDS = {
     // header for why) — Price already shipped; Category is new as of phase 7, a wrapping chip
     // row over lib/shoppingCategories.ts's preset list.
     compose: { depth: 'panel', opts: ['price', 'category'] },
+  },
+  shopBudget: {
+    screen: 'shop',
+    order: 3,
+    hue: 'shopping',
+    domain: 'shop',
+    icon: 'wallet',
+    title: (t) => t.budget.cardTitle,
+    fold: 'persisted',
+    // No pane: `app/budget.tsx` already IS the full-screen budget, reached from a Monthly
+    // list's Budget pill, and it does more than this card (month navigation, the receipt list,
+    // the per-store breakdown). A ⤢ here would be a third, thinner rendering of a screen that
+    // already exists — the same "second rendering" test `shopLists` declines on.
+    expand: 'none',
+    expandDeclined:
+      'app/budget.tsx is already the full-screen budget, with month navigation, the receipt list and the per-store breakdown that this card deliberately omits. A pane here would be a thinner third rendering of a screen the Budget pill already opens.',
   },
   // ⚠️ **`shopMonthly` is GONE from this registry as of 2026-08-26** (phase 5 of
   // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — turned into a SECTION drawn inside `shopLists`,
@@ -475,28 +491,32 @@ export const CARDS = {
   // the Me tab from 2026-08-21, and a tray of pills is health. It is a PEER card here, never a
   // card drawn inside Health's Surface — that was the card-in-a-card CONSISTENCY_AUDIT.md §11
   // measured, and moving screens is not a reason to rebuild it.
-  healthWeek: {
-    screen: 'health',
-    order: 1,
-    hue: 'health',
-    domain: 'health',
-    title: (t) => t.thisWeekLabel,
-    fold: 'persisted',
-    // ⚠️ Reversed in the same 2026-08-27 pass, for the same reason — see `habitsList`'s note. The
-    // refusal read: *"This week's issues are the Health tab's primary content — a pane for them is
-    // a second rendering of the screen you are already on."* Its pane mounts
-    // `HealthSurface section="week"`, which is that card's body ALONE — deliberately not the whole
-    // surface, or the pane really would be the second rendering the old refusal warned about.
-    expand: 'surface',
-    // `openAtRest` (2026-08-26, phase 5 decision (b) — "the first card on each screen rests
-    // open") — this tab's own first card, same exception as `todoToday`/`shopLists`/`habitsList`.
-    openAtRest: true,
-    // Phase 8's "Growth" group — see `habitsList`'s note and `GROUPS` below.
-    group: 'growth',
-  },
+  // ⚠️ **`healthWeek` is GONE from this registry as of 2026-09-07.** Maintainer, answering where
+  // "Denne uken" goes now that v3's Helse draws only Helseplager and Medisin: *"logging shows
+  // when full screen."*
+  //
+  // So it is not a resting card any more; its logging is the first thing `healthIssues`' pane
+  // draws, above the editor (components/CardExpandHost.tsx's `HealthIssuesExpandedBody`).
+  // Nothing is orphaned, and this one could not have been: `healthWeek` was never separate data
+  // — its card counted `thisWeekIssues` and its peek read `peek.healthWeek(thisWeekIssues.length)`,
+  // i.e. it was always a WEEK VIEW of the very issues `healthIssues` owns.
+  //
+  // ⚠️ Same storage-key treatment as `shopDishes` and `todoCalendar`: the fold row is retired,
+  // not migrated onto `healthIssues`, because the two folded independently.
+  //
+  // Its `group: 'growth'` membership goes with it — `cardsInGroup('growth')` now pairs
+  // `habitsList` with `healthIssues`, which is the card that actually holds the health half of
+  // that story now.
   healthIssues: {
     screen: 'health',
-    order: 2,
+    order: 1,
+    // The tab's first card rests open — the same 2026-08-26 phase-5 exception `todoToday`,
+    // `shopLists` and `habitsList` carry. It inherits it from `healthWeek`, which held it until
+    // that card was retired on 2026-09-07.
+    openAtRest: true,
+    // Inherited from `healthWeek` in the same move: this is the health half of the cross-screen
+    // Growth strip now (see `GROUPS`).
+    group: 'growth',
     hue: 'health',
     domain: 'health',
     icon: 'medical-outline',
