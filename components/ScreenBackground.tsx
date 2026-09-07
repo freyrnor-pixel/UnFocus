@@ -698,34 +698,46 @@ function ScreenBackground({ activeRoute }: Props) {
               corner, so an empty one is no longer nearly-free. The two hue buffers mounted with
               `peak={... : 0}` — a canvas painting three shapes at alpha 0 — and the growth layer
               mounted even with `showGrowth` off (the default), where `intensity` is a flat 0.
-              Gating each on having something to draw takes the default dark screen from FIVE
-              full-screen SVG canvases to TWO, with byte-identical output: a shape at alpha 0 and
-              a shape that is absent rasterise the same.
-                Keep the gates keyed on the same value the layer's opacity uses, so "mounted" and
-              "visible" can never disagree — a buffer that mounts late must not skip its
-              crossfade. `hueA`/`hueB` are gated on their own buffer, which is exactly what the
-              opacity animation reads. */}
+              Merging the neutral pair and gating the growth layer takes the default dark screen
+              from FIVE full-screen SVG canvases to THREE, with byte-identical output.
+                ⚠️ It was FOUR changes and is now two: gating the two hue buffers the same way
+              was reverted the same day — see the comment at those layers for the measurement.
+              The rule that came out of it: a layer whose opacity ANIMATES must already be
+              mounted when the animation starts, so only layers that are either static or
+              switched by a setting may be gated on having something to draw. */}
           <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
-          {buffers[0] && (
-            <OrbLayer
-              style={hueAStyle}
-              id="sbOrbHueA"
-              color={buffers[0]}
-              peak={p.orbScreenOpacity}
-              level={level}
-              indexes={SCREEN_HUE_ORB_INDEXES}
-            />
-          )}
-          {buffers[1] && (
-            <OrbLayer
-              style={hueBStyle}
-              id="sbOrbHueB"
-              color={buffers[1]}
-              peak={p.orbScreenOpacity}
-              level={level}
-              indexes={SCREEN_HUE_ORB_INDEXES}
-            />
-          )}
+          {/* ⚠️ **The two hue buffers are mounted UNCONDITIONALLY, and a gate here was tried and
+              REVERTED on 2026-09-07 — do not re-add it.** Gating each on `buffers[n]` looked
+              free (a canvas drawing three shapes at `peak={0}` paints nothing), and it made
+              `task-editor` machine-dependent: 124 px light / 134 px dark against CI, on a screen
+              that was byte-identical on this machine across two runs and had been stable on the
+              runner for a week.
+                The mechanism is the crossfade. `setBuffers` → `setShowB` → `cross.value =
+              withTiming(...)` land in ONE commit, so under the gate buffer B MOUNTS at the exact
+              moment its fade-in starts — a fresh full-screen SVG being rasterised while it is
+              being animated. A fast machine has it painted before the shot settles and a slow
+              runner does not, which is why the only baseline that moved was `task-editor`, the
+              set's one "fresh app" reload, where B mounts for the first time near the capture.
+                A layer that is always mounted has nothing to rasterise when the fade begins —
+              which is the same distinction `OrbLayer`'s own header draws about animating a
+              VIEW's opacity rather than a prop inside the SVG. The saving was one canvas on the
+              first screen only; the cost was a false red on the densest baseline in the set. */}
+          <OrbLayer
+            style={hueAStyle}
+            id="sbOrbHueA"
+            color={buffers[0] ?? p.orbCool}
+            peak={buffers[0] ? p.orbScreenOpacity : 0}
+            level={level}
+            indexes={SCREEN_HUE_ORB_INDEXES}
+          />
+          <OrbLayer
+            style={hueBStyle}
+            id="sbOrbHueB"
+            color={buffers[1] ?? p.orbCool}
+            peak={buffers[1] ? p.orbScreenOpacity : 0}
+            level={level}
+            indexes={SCREEN_HUE_ORB_INDEXES}
+          />
           {intensity > 0 && (
             <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />
           )}
