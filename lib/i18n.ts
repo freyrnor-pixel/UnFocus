@@ -386,6 +386,10 @@ const en = {
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
+    /* The merged card states BOTH halves, since one card now holds both (2026-09-07). A card
+       whose peek named only its items would under-report itself the moment Dishes moved in. */
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0 ? 'None yet' : `${items} items · ${dishes} dishes`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Nothing to repeat yet' : `${going} going · ${untouched} untouched`,
     healthWeek: (n: number) => (n === 0 ? 'A quiet week' : `${n} logged this week`),
@@ -1051,6 +1055,12 @@ const en = {
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Food',
   catalogueTabLabel: 'Catalogue',
+  /* The two tabs INSIDE the Catalogue card (2026-09-07). v3: "Katalog = ett kort, to faner.
+     Varer viser pris per enhet. Retter viser antall varer og totalpris." These are deliberately
+     NOT `catalogueTabLabel`/`foodTabLabel` — those name the CARD and the old Food tab, and a tab
+     inside a card called Catalogue cannot also be called Catalogue. */
+  catalogueTabItems: 'Items',
+  catalogueTabDishes: 'Dishes',
   foodEmptyHint: 'No dishes yet — tap + to add one.',
   addDishToMealBtn: 'Add dish',
   // Dish "+" popup
@@ -2695,6 +2705,8 @@ const no: typeof en = {
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0 ? 'Ingen ennå' : `${items} varer · ${dishes} retter`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ingenting å gjenta ennå' : `${going} i gang · ${untouched} urørt`,
     healthWeek: (n: number) => (n === 0 ? 'En rolig uke' : `${n} logget denne uken`),
@@ -3200,6 +3212,9 @@ const no: typeof en = {
   // --- Shopping/Food redesign: in-place Food + Catalogue tabs, Unallocated section ---
   foodTabLabel: 'Mat',
   catalogueTabLabel: 'Katalog',
+  /* Se den engelske tvillingen — v3s to faner i Katalog-kortet. */
+  catalogueTabItems: 'Varer',
+  catalogueTabDishes: 'Retter',
   foodEmptyHint: 'Ingen retter ennå — trykk + for å legge til.',
   addDishToMealBtn: 'Legg til rett',
   // Dish "+" popup
@@ -4560,6 +4575,10 @@ const is: typeof en = {
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
     shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
+    shopCatalogueTabs: (items: number, dishes: number) =>
+      items === 0 && dishes === 0
+        ? 'Ekkert enn'
+        : `${isCount(items, `${items} vara`, `${items} vörur`)} · ${isCount(dishes, `${dishes} réttur`, `${dishes} réttir`)}`,
     habitsList: (going: number, untouched: number) =>
       going === 0 && untouched === 0 ? 'Ekkert að endurtaka enn' : `${going} í gangi · ${untouched} ósnert`,
     healthWeek: (n: number) => (n === 0 ? 'Róleg vika' : `${n} skráð í vikunni`),
@@ -5066,6 +5085,9 @@ const is: typeof en = {
   resetAllMonthlyListsConfirmBody: 'Fjarlægir tímabundnar vörur á öllum mánaðarlistum og byrjar nýtt tímabil.',
   foodTabLabel: 'Matur',
   catalogueTabLabel: 'Vöruskrá',
+  /* Sjá enska tvíburann — flipparnir tveir í Vöruskrá-spjaldinu. */
+  catalogueTabItems: 'Vörur',
+  catalogueTabDishes: 'Réttir',
   foodEmptyHint: 'Engir réttir enn — ýttu á + til að bæta við.',
   addDishToMealBtn: 'Bæta við rétti',
   /* Colon rather than a preposition: a dish name is user text and cannot be inflected. */

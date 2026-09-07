@@ -155,6 +155,11 @@ const BASELINE_SET = [
   'health-form',
   'medicine-form',
   'catalogue',
+  // ⚠️ **Added 2026-09-07, and `catalogue` above only started working the same day.** That
+  // baseline was byte-identical to `shopping-empty` in both themes — the walk's exact-match
+  // lookup never opened the card. Now that it does, the card has TWO tabs, and a tab no
+  // baseline photographs is a surface this gate cannot see. Same ratchet as `home-energy-budget`.
+  'catalogue-dishes',
   'quick-add-focused-empty',
   // Added 2026-08-30 once the walk could reach them. `task-editor` is the densest form in the
   // app and the one that produced the sliced-microphone bug — the single most valuable shot in

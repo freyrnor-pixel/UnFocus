@@ -318,19 +318,25 @@ export const CARDS = {
     // header. This states what was already true rather than adding anything.
     compose: { depth: 'panel', opts: ['qty', 'category'] },
   },
-  shopDishes: {
-    screen: 'shop',
-    order: 2,
-    // Food's own orange, not Shopping's green: lib/domainColor.ts aliases shop/meal/budget/scan
-    // onto one emerald, so `domain="meal"` and `domain="shop"` drew the identical badge.
-    hue: 'food',
-    domain: 'meal',
-    icon: 'fast-food',
-    badgeHue: true,
-    title: (t) => t.foodTabLabel,
-    fold: 'persisted',
-    expand: 'surface',
-  },
+  // ⚠️ **`shopDishes` is GONE from this registry as of 2026-09-07** — it is the **Retter** tab
+  // of `shopCatalogue` now, beside **Varer**. Maintainer: *"Food/Dishes is a tab with Catalogue
+  // now in its own card."* v3 draws the same thing: *"Katalog = ett kort, to faner. Varer viser
+  // pris per enhet. Retter viser antall varer og totalpris."*
+  //
+  // This is the SAME boundary move `shopMonthly` made on 2026-08-26, and for the same reason
+  // that note gives: a card is what the registry names, and Dishes held no position of its own
+  // to justify one once Catalogue could show it. Nothing is deleted — `components/FoodTab.tsx`
+  // is mounted unchanged behind the tab, reading the same store, so no dish and no meal section
+  // is lost. See app/(tabs)/shopping.tsx for where it renders now.
+  //
+  // ⚠️ **A key is a STORAGE KEY, and this one is retired rather than renamed.** `shopDishes` was
+  // `fold: 'persisted'`, so it has a row in `settings.collapsedCards` on every install that ever
+  // folded it. That row now names no card. It is harmless — `lib/collapsedCards.ts` reads by
+  // key and an unknown key is simply never asked about — and deliberately NOT migrated onto
+  // `shopCatalogue`: the two cards folded independently, so moving one card's fold state onto
+  // another would close a Catalogue somebody had left open. The stale row ages out with the
+  // column's own pruning.
+
   shopCatalogue: {
     screen: 'shop',
     order: 3,

@@ -773,14 +773,36 @@ async function main() {
 
       await excursion(page, 'catalogue', async () => {
         await tab(page, 'Shop');
-        await tryButton(page, 'Catalogue');
+        // ⚠️ **`openCard`, not `tryButton('Catalogue')`.** The exact-match lookup never matched —
+        // the toggle's accessible name is composed as "<card>: Expand list"
+        // (components/CardCollapseToggle.tsx) — so the card stayed shut and this shot was a
+        // second copy of `shopping-empty`, byte-identical to it in both themes. Same locator
+        // drift as the shopping seeding no-op; see EXECUTION_RULES.md standing debt 1.
+        await openCard(page, 'Catalogue');
         await page.waitForTimeout(900);
+        // Prove the card is actually open before shooting it. Its Items/Dishes switch only
+        // exists inside the body, so it is the cheapest thing that cannot be on screen while
+        // the card is collapsed.
+        if (!(await page.getByText('Dishes', { exact: true }).first().isVisible({ timeout: 4000 }).catch(() => false))) {
+          throw new Error('catalogue: the card did not open — refusing to shoot the Shop tab behind it');
+        }
         await shot(page, 'catalogue', {
-          title: 'Catalogue (a button on Shopping)',
-          screen: 'app/catalogue.tsx',
-          state: 'SEEDED — the one surface with content on a fresh install. It is the shopping catalogue that powers autocomplete, and receipts scanned by OCR upsert into it.',
-          components: 'CatalogueTab, InlineAddItem',
+          title: 'Catalogue — the Items tab',
+          screen: 'app/(tabs)/shopping.tsx',
+          state: 'SEEDED, and the first capture of this card that has ever actually opened it. ONE card with TWO tabs since 2026-09-07 (v3: "Katalog = ett kort, to faner") — Items is the catalogue that powers autocomplete and that OCR receipts upsert into; Dishes is the old Food card, now a tab. The lock and camera are drawn on Items only: both act on the item list and neither means anything under Dishes.',
+          components: 'CatalogueTab, TabSlider, InlineAddItem',
         });
+        // The other half of the same card. A tab whose content no baseline photographs is a
+        // surface the gate cannot see — the defect this whole excursion just stopped being.
+        if (await tryButton(page, 'Dishes')) {
+          await page.waitForTimeout(700);
+          await shot(page, 'catalogue-dishes', {
+            title: 'Catalogue — the Dishes tab',
+            screen: 'app/(tabs)/shopping.tsx',
+            state: 'The former `shopDishes` card, now Catalogue\'s second tab (maintainer, 2026-09-07). Its meal-type sections and its "Add dish" ghost trigger are unchanged — FoodTab is mounted here exactly as it was mounted in its own card, reading the same store. The header controls are gone on this tab by design.',
+            components: 'FoodTab, TabSlider',
+          });
+        }
       });
 
       await excursion(page, 'notes-empty', async () => {

@@ -188,13 +188,30 @@ describe('TAB_SLIDER_HEIGHT — one number, not five', () => {
     }
   });
 
-  it('the To-do tab and Shopping have no TabSlider left to reserve height for (2026-08-20)', () => {
+  it('the To-do tab and Shopping reserve no STICKY tab row (2026-08-20)', () => {
+    // ⚠️ **Narrowed 2026-09-07, and the property it guards is unchanged.** This used to ban the
+    // string `TabSlider` outright in these three files. That was a proxy for the real rule —
+    // *these screens reserve no sticky tab row* — and the proxy stopped matching the rule when
+    // Shopping's Catalogue card grew Items/Dishes tabs INSIDE its body (maintainer, 2026-09-07:
+    // *"Food/Dishes is a tab with Catalogue now in its own card"*; v3's *"Katalog = ett kort, to
+    // faner"*).
+    //   A slider in a card body is not a sticky row: it scrolls with the card, it is not passed
+    // to `stickyBelowHeader`, and nothing has to reserve space for it — so none of what this
+    // describes applies to it. The 2026-08-20 decision was about **Weekly vs Monthly**, two
+    // lists a user needs in view at once; hiding one behind a tab was the defect, and Weekly and
+    // Monthly still both render unconditionally.
+    //   So the assertion now names the two things that WOULD be a sticky row — importing the
+    // reserved height, or mounting the slider `attachedTop` (the flag that squares its top
+    // corners against a header, i.e. the shape only a sticky row has). Both remain absent.
     for (const file of [
       'app/(tabs)/plans.tsx',
       'components/TodoSurface.tsx',
       'app/(tabs)/shopping.tsx',
     ]) {
-      expect(code(file)).not.toMatch(/TabSlider|TAB_SLIDER_HEIGHT/);
+      const s = code(file);
+      expect({ file, reservesHeight: /TAB_SLIDER_HEIGHT/.test(s) }).toEqual({ file, reservesHeight: false });
+      expect({ file, attachedTop: /attachedTop/.test(s) }).toEqual({ file, attachedTop: false });
+      expect({ file, sticky: /stickyBelowHeader/.test(s) }).toEqual({ file, sticky: false });
     }
   });
 });

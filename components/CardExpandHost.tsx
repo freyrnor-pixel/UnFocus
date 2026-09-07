@@ -105,6 +105,7 @@ import Animated, {
 import Surface from '@/components/Surface';
 import CardExpandButton from '@/components/CardExpandButton';
 import TodoSurface from '@/components/TodoSurface';
+import TabSlider from '@/components/TabSlider';
 import MedicineSurface from '@/components/MedicineSurface';
 import MedicineReminderBell from '@/components/MedicineReminderBell';
 import NotesSurface from '@/components/NotesSurface';
@@ -159,27 +160,57 @@ type CardBodyEntry = {
  * note) and this body has no such sibling slot to reach — the underlying add/edit actions still
  * work identically, only the confirmation toast is silently skipped in this one context.
  */
-function FoodExpandedBody() {
-  return <FoodTab onNotify={() => {}} />;
-}
+/**
+ * Catalogue full-screen: the SAME two tabs the card draws (2026-09-07).
+ *
+ * ⚠️ `FoodExpandedBody` and the `shopDishes` entry are gone with it. Dishes is Catalogue's
+ * **Retter** tab now (maintainer, 2026-09-07; v3's *"Katalog = ett kort, to faner"*), so there
+ * is no `shopDishes` card left to expand — and `lib/expandableCards.ts` derives its id union
+ * from the registry, which is what turned that stale entry into a `tsc` error rather than a
+ * pane nobody could reach.
+ *
+ * The tabs are repeated here deliberately. A ⤢ that dropped one of the two libraries would make
+ * full-screen a DOWNGRADE from the card — the opposite of what the control promises — and the
+ * pane is where a long dish list most needs the room.
+ *
+ * The lock is owned here rather than by CatalogueTab (2026-08-20) because its two buttons live
+ * in whatever header the list sits under. This pane's header is CardExpandHost's own title row,
+ * which takes no per-card controls — so they go through CatalogueTab's `header` slot instead,
+ * which renders directly above the search field, i.e. still the top of this surface. If a second
+ * expandable card ever wants header controls, THAT is the point to add a `Controls` entry to
+ * CARD_BODIES rather than growing a second convention here.
+ *   They are drawn on the Items tab only, for the same reason the card does that: the lock
+ * guards the item list and the camera scans into it, and neither means anything under Dishes.
+ */
 function CatalogueExpandedBody() {
-  // The lock is owned here rather than by CatalogueTab (2026-08-20) because its two buttons
-  // live in whatever header the list sits under. This pane's header is CardExpandHost's own
-  // title row, which takes no per-card controls — so they go through CatalogueTab's `header`
-  // slot instead, which renders directly above the search field, i.e. still the top of this
-  // surface. If a second expandable card ever wants header controls, THAT is the point to add
-  // a `Controls` entry to CARD_BODIES rather than growing a second convention here.
+  const t = useT();
   const [locked, setLocked] = useState(true);
+  const [tab, setTab] = useState<'items' | 'dishes'>('items');
   return (
-    <CatalogueTab
-      onNotify={() => {}}
-      locked={locked}
-      header={
-        <View style={styles.expandedControls}>
-          <CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />
-        </View>
-      }
-    />
+    <>
+      <TabSlider
+        options={[
+          { value: 'items' as const, label: t.catalogueTabItems },
+          { value: 'dishes' as const, label: t.catalogueTabDishes },
+        ]}
+        value={tab}
+        onChange={setTab}
+        style={styles.expandedTabs}
+      />
+      {tab === 'items' ? (
+        <CatalogueTab
+          onNotify={() => {}}
+          locked={locked}
+          header={
+            <View style={styles.expandedControls}>
+              <CatalogueHeaderControls locked={locked} onToggleLock={() => setLocked((v) => !v)} />
+            </View>
+          }
+        />
+      ) : (
+        <FoodTab onNotify={() => {}} />
+      )}
+    </>
   );
 }
 
@@ -214,7 +245,10 @@ function MedicineExpandedBody() {
  * is built; `lib/__tests__/expandableCards.test.ts` fails the PR if the two lists ever diverge.
  */
 const CARD_BODIES: Record<ExpandableCardId, CardBodyEntry> = {
-  shopDishes: { title: (t) => t.foodTabLabel, Body: FoodExpandedBody },
+  // ⚠️ **`shopDishes` left on 2026-09-07** — Dishes is Catalogue's Retter tab now, so its card
+  // no longer exists and neither does its pane. Same shape as `homeHabits`/`homeHealth` below:
+  // an id whose card is gone keeps an entry alive that nothing can reach. `FoodTab` itself is
+  // untouched and renders inside `CatalogueExpandedBody`'s second tab.
   shopCatalogue: { title: (t) => t.catalogueTabLabel, Body: CatalogueExpandedBody, scrollable: false },
   // ⚠️ **There are no placeholder bodies left, and there must not be another** (2026-08-21).
   // `shopLists` was the last one; it left lib/expandableCards.ts rather than getting a body —
@@ -594,6 +628,8 @@ const styles = StyleSheet.create({
   // rule this pass established is that these two sit in the surface's top part, not in an edge
   // of their own.
   expandedControls: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+  /** Catalogue's Items/Dishes switch, sitting above whichever library is showing. */
+  expandedTabs: { marginBottom: Spacing.sm },
   // The strip sits between the pane's title bar and its body — the prototype's placement, and
   // the only one that works: above the title it would compete with the card's own name, and
   // below the body it would be off the bottom of a long list.

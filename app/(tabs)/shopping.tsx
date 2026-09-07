@@ -558,6 +558,7 @@ import PadRow from '@/components/PadRow';
 import SectionRail from '@/components/SectionRail';
 import FoodTab from '@/components/FoodTab';
 import CatalogueTab, { CatalogueHeaderControls } from '@/components/CatalogueTab';
+import TabSlider from '@/components/TabSlider';
 import NewMonthlyListRow from '@/components/NewMonthlyListRow';
 import { success, heavy, warning, tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
@@ -618,6 +619,15 @@ export default function ShoppingScreen() {
   // Local and NOT persisted: a per-visit safety catch on a one-tap delete, not a preference,
   // and it must never sync — a paired phone locking your catalogue is nonsense.
   const [catalogueLocked, setCatalogueLocked] = useState(true);
+  // ⚠️ **Which of Catalogue's two tabs is showing (2026-09-07).** Maintainer: *"Food/Dishes is a
+  // tab with Catalogue now in its own card."* v3 draws the same: *"Katalog = ett kort, to
+  // faner."*
+  //   This does NOT reopen the 2026-08-20 "no more tab switch" decision in this file's header.
+  // That pass was about **Weekly vs Monthly** — two lists a user needs in view at once, where
+  // hiding one behind a tab was the defect. These two are reference LIBRARIES, consulted one at
+  // a time, and the mockup asks for exactly this. Different pair, different reason; Weekly and
+  // Monthly still both render unconditionally.
+  const [catalogueTab, setCatalogueTab] = useState<'items' | 'dishes'>('items');
   const [focusedListId, setFocusedListId] = useState<string | null>(null);
   // Which target the shared AddDishSheet is pushing into — Monthly's own trigger, or a
   // specific Weekly list's "From a dish" add-chooser option. null = sheet closed.
@@ -2521,57 +2531,72 @@ export default function ShoppingScreen() {
     </Card>
   );
 
-  const dishesCard = (
-    <View>
-      {/* ⚠️ **Dishes wears the FOOD hue, not the screen's green (consistency audit,
-            2026-08-21).** Maintainer: *"Dishes color coding is weak/pale"* and *"color coding
-            must be based on visual navigation."* Both were true, and the cause was not the
-            drawing — it was that Dishes had no colour of its own to draw. `domain="meal"`
-            resolves through lib/domainColor.ts to `cardMeal`, which constants/colors.ts aliases
-            onto `IDENTITY_HUES.shopping.hue` — the same emerald as `cardShop`, `cardBudget` and
-            `cardScan` — so every card on this tab was one colour and the badge glyph was the
-            only thing telling them apart.
-              An orange for food already exists (`featMeal`, `#FF7A1A` dark / `#EA580C` light).
-            Its own comment says food *"can't just take Shopping's green"*, and the justification
-            for letting it — that Food has no card sharing a screen with Shopping — stopped being
-            true on 2026-08-20, when Dishes and Catalogue became siblings on this scroll.
-              `badgeHue` (new passthrough on SectionCard) is what makes the badge follow `hue`
-            rather than the aliased domain colour. The CARD's edge is untouched and still the
-            screen's — the 2026-08-05 reset owns that, and this is not reopening it. */}
-      <Card id="shopDishes" count={dishCount} peek={t.peek.shopDishes(dishCount)}>
-        <FoodTab embedded onNotify={setConfirm} />
-      </Card>
-    </View>
-  );
-
+  // ⚠️ **ONE card, two tabs, as of 2026-09-07.** `dishesCard` and `catalogueCard` were two
+  // top-level cards until today. Maintainer: *"Food/Dishes is a tab with Catalogue now in its
+  // own card."* v3: *"Katalog = ett kort, to faner. Varer viser pris per enhet. Retter viser
+  // antall varer og totalpris."* `shopDishes` left lib/cardRegistry.ts in the same move — see
+  // the note standing where its entry was for why the fold key is retired rather than migrated.
+  //
+  // Nothing about either surface changed: `FoodTab` and `CatalogueTab` are mounted exactly as
+  // before, each `embedded`, each reading its own store. Only which one is on screen is new.
+  //
+  // ⚠️ The Dishes/food hue does NOT come with it. The long note that used to stand here
+  // explained why Dishes wore `featMeal` orange rather than the screen's emerald: it was a CARD
+  // sharing a screen with Shopping's green, and a badge glyph was the only thing telling them
+  // apart. It is not a card any more — it is a tab inside a card that already has a badge and a
+  // title — so the condition that argument rested on is gone. The card keeps `shopCatalogue`'s
+  // shop hue, and the tab label is what says which library you are in.
   const catalogueCard = (
     <View>
-      {/* ⚠️ **No `count` on THIS card, and it is the only content card without one
+      {/* ⚠️ **No `count` on this card, and it is the only content card without one
             (2026-08-21).** Its header is the most crowded in the app — badge, title, camera,
             lock, fold and ⤢ — because the 2026-08-20 pass put the camera and the lock *"in the
             top part"* and the 2026-08-21 pass gave every card a fold. Something had to yield,
             and a tally of how many items the catalogue holds is the one thing in that row that
             neither acts nor names: the list saying so is directly below it. Measured, not
             guessed — with the count, "Catalogue" truncated to "Catal…" at 430px.
-              The count rule (docs/archive/AGENTS_HISTORY.md: *"a size yes, a score no"*) governs what a count may
-            MEAN, not that every card owes one. */}
-        <Card
-          id="shopCatalogue"
-          // ⚠️ **A peek where the COUNT was refused (2026-08-21), and the two are not the same
-          // question.** That note is directly above: this header is the most crowded in the app,
-          // and adding a tally to the title ROW truncated "Catalogue" to "Catal…" at 430px. A
-          // peek is a second storey — it competes with nothing on that row — so the size the
-          // card wanted to state can be stated after all, without reopening the measurement that
-          // kept it off the line.
-          peek={t.peek.shopCatalogue(catalogueSize)}
-          // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
-          // buttons for camera and lock should be in the top part instead"*) — they were inside
-          // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
-          // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
-          // right-most thing in the header.
-          controls={<CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />}
-        >
-        <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+              The count rule (docs/archive/AGENTS_HISTORY.md: *"a size yes, a score no"*) governs
+            what a count may MEAN, not that every card owes one. */}
+      <Card
+        id="shopCatalogue"
+        // ⚠️ **A peek where the COUNT was refused (2026-08-21), and the two are not the same
+        // question.** That note is directly above: this header is the most crowded in the app,
+        // and adding a tally to the title ROW truncated "Catalogue" to "Catal…" at 430px. A
+        // peek is a second storey — it competes with nothing on that row — so the size the
+        // card wanted to state can be stated after all, without reopening the measurement that
+        // kept it off the line.
+        //   It states BOTH halves now that one card holds both: a peek naming only the items
+        // would under-report the card the moment Dishes moved in.
+        peek={t.peek.shopCatalogueTabs(catalogueSize, dishCount)}
+        // The camera and the lock sit in the card's HEADER (2026-08-20, maintainer: *"the two
+        // buttons for camera and lock should be in the top part instead"*) — they were inside
+        // the list's own first box, which is deleted. `CardExpandButton` stays LAST, which is
+        // the app-wide rule this pass settled: whatever a card's own controls are, ⤢ is the
+        // right-most thing in the header.
+        //   ⚠️ Only on the **Items** tab (2026-09-07): both act on the catalogue's item list —
+        // the lock guards editing it, the camera scans INTO it — and neither has any meaning
+        // while Dishes is showing. Leaving them mounted would put two dead controls in the most
+        // crowded header in the app.
+        controls={
+          catalogueTab === 'items' ? (
+            <CatalogueHeaderControls locked={catalogueLocked} onToggleLock={() => setCatalogueLocked((v) => !v)} />
+          ) : undefined
+        }
+      >
+        <TabSlider
+          options={[
+            { value: 'items' as const, label: t.catalogueTabItems },
+            { value: 'dishes' as const, label: t.catalogueTabDishes },
+          ]}
+          value={catalogueTab}
+          onChange={setCatalogueTab}
+          style={styles.catalogueTabs}
+        />
+        {catalogueTab === 'items' ? (
+          <CatalogueTab embedded onNotify={setConfirm} locked={catalogueLocked} />
+        ) : (
+          <FoodTab embedded onNotify={setConfirm} />
+        )}
       </Card>
     </View>
   );
@@ -2583,7 +2608,6 @@ export default function ShoppingScreen() {
   // declares and still what anyone who never opens that sheet gets.
   const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
     shopLists: weeklyGroup,
-    shopDishes: dishesCard,
     shopCatalogue: catalogueCard,
   };
 
@@ -2947,5 +2971,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     minHeight: 56,
   },
+  /** Breathing room under Catalogue's Items/Dishes switch, matching the card's own body gap. */
+  catalogueTabs: { marginBottom: Spacing.sm },
   newListTriggerLabel: { fontSize: FontSize.md, fontFamily: Fonts.semibold },
 });
