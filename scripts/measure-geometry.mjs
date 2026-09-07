@@ -97,7 +97,7 @@ const COLLECT = () => {
   // The floating chrome: ScreenScaffold's header block (zIndex 100), an optional
   // stickyBelowHeader block (99) and the bottom block (100). They are the only absolutely
   // positioned, full-width, z-declaring boxes near the top and bottom of the window.
-  const chrome = all
+  const chromeEls = all
     .filter((el) => {
       const cs = getComputedStyle(el);
       if (cs.position !== 'absolute') return false;
@@ -106,8 +106,9 @@ const COLLECT = () => {
       const b = el.getBoundingClientRect();
       // Full-width bands only — this excludes badges and pills that also declare a z.
       return b.width > window.innerWidth * 0.9 && b.height > 16 && b.height < 260;
-    })
-    .map((el) => {
+    });
+  const chrome = chromeEls
+    .map((el, bandIndex) => {
       // ⚠️ The BAND is full-bleed (`left: 0, right: 0` on ScreenScaffold's header/sticky blocks),
       // so comparing bands tells you nothing about horizontal inset — they are all the same
       // width by construction, which is exactly why the first version of this audit passed over
@@ -136,6 +137,10 @@ const COLLECT = () => {
         }
       }
       return {
+        // ⚠️ Identity, not position. `bandId` is the index in `chromeEls`, and it is what lets a
+        // control say which band it is INSIDE rather than which band it happens to overlap —
+        // see the `inBandIds` note below. Assigned before the sort, so it survives it.
+        bandId: bandIndex,
         z: parseInt(getComputedStyle(el).zIndex, 10),
         ...box(el),
         paintedLeft: painted ? +painted.left.toFixed(2) : null,
@@ -156,18 +161,8 @@ const COLLECT = () => {
   // the audit reported them as nav items that were 14px off-centre. It fired on ten of them:
   // Home's shopping week arrows ("Previous week"/"Next week"), on all five tabs at once, because
   // every tab is co-mounted in the pager. None of them is a nav item and none was mis-centred.
-  //   `navEl` is the same band `pickNav` chooses, resolved here where the DOM is still in scope,
-  // so membership can be asked rather than inferred from overlap.
-  const navBands = all.filter((el) => {
-    const cs = getComputedStyle(el);
-    if (cs.position !== 'absolute' || parseInt(cs.zIndex, 10) !== 100) return false;
-    const b = el.getBoundingClientRect();
-    return b.width > window.innerWidth * 0.9 && b.bottom >= window.innerHeight - 2 && b.top > 1;
-  });
-  const navEl = navBands.length
-    ? navBands.reduce((best, x) =>
-        (x.getBoundingClientRect().height > best.getBoundingClientRect().height ? x : best), navBands[0])
-    : null;
+  //   Membership is asked, not inferred: `inBandIds` below records which chrome bands DOM-
+  // CONTAIN each control, and CHECK 4 filters on the nav's own band id.
 
   const controls = [];
   for (const el of all) {
@@ -181,13 +176,19 @@ const COLLECT = () => {
     if (!label && role !== 'button' && !testid) continue;
     const b = el.getBoundingClientRect();
     if (b.height < 8 || b.width < 8) continue;
-    controls.push({
-      label: label || testid || (el.textContent || '').trim().slice(0, 30),
-      role,
-      testid,
-      inNav: !!navEl && navEl.contains(el),
-      ...box(el),
-    });
+    // ⚠️ **Which bands CONTAIN this control — not which it overlaps (2026-09-07).** The bottom
+    // nav FLOATS over a scrolling list, so a plain content button that has scrolled under it
+    // occupies the same rectangle as a real nav item and, on box geometry alone, is
+    // indistinguishable from one. That is not hypothetical: adding a header row to Home's empty
+    // Energy card pushed every card below it down ~51px, slid the Habits card's week arrows
+    // ("Previous week"/"Next week") under the bar, and CHECK 4 reported them as ten nav items
+    // sitting 14px too low — on all five tabs, about a bar that had not moved at all. DOM
+    // containment is the question the check was always asking; overlap was standing in for it.
+    const inBandIds = [];
+    for (let i = 0; i < chromeEls.length; i += 1) {
+      if (chromeEls[i] !== el && chromeEls[i].contains(el)) inBandIds.push(i);
+    }
+    controls.push({ label: label || testid || (el.textContent || '').trim().slice(0, 30), role, testid, inBandIds, ...box(el) });
   }
 
   // The scroll CLIP window — `styles.viewport` in components/ScreenScaffold.tsx, the
@@ -391,14 +392,14 @@ function checkNavCentring(screen, bands, controls, viewportH) {
   const nav = pickNav(bands, viewportH);
   if (!nav || nav.paintedTop == null) return;
 
-  // ⚠️ **`c.inNav` is the load-bearing term (2026-09-07).** Without it this filter is "any button
-  // whose box overlaps the painted bar", which is a POSITION, not membership — and this app
-  // deliberately scrolls content under its floating nav. Ten findings came from that: Home's
-  // shopping week arrows resting beneath the bar at scroll-top, reported on all five tabs
-  // because the pager co-mounts every tab. They are not nav items; nothing was mis-centred.
-  //   The geometric terms stay, because they are still the right question FOR a nav item.
+  // ⚠️ `inBandIds` FIRST — a button is a nav item because it lives in the nav, not because it
+  // has scrolled underneath it. See the `inBandIds` note where controls are collected for the
+  // false positive that reached `main` (ten findings about a bar that had not moved). The box
+  // terms stay: they are what excludes the bar's own full-height wrapper from being measured
+  // against itself, and they are still the check being made once membership is settled.
   const inside = controls.filter(
-    (c) => c.role === 'button' && c.inNav &&
+    (c) => c.role === 'button' &&
+      (c.inBandIds ?? []).includes(nav.bandId) &&
       c.top >= nav.paintedTop - 1 && c.bottom <= nav.paintedBottom + 1 &&
       c.h < (nav.paintedBottom - nav.paintedTop) - 1 && c.h > 8,
   );

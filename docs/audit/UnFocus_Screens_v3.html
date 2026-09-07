@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>UnFocus — five tabs, v3</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#080A10;color:#E6E9EF;font-family:var(--font-sans,Nunito),system-ui;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:56px 40px 96px}
+h1{font-size:34px;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#77809A;margin-bottom:14px}
+.lede{font-size:16px;line-height:1.65;color:#9AA3B2;max-width:70ch;margin:0}
+.sec{margin-top:56px}
+h2{font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#77809A;margin:0 0 6px}
+.sec-note{font-size:14px;line-height:1.65;color:#8C95A6;max-width:74ch;margin:0 0 26px}
+.stage{display:flex;gap:38px;align-items:flex-start;flex-wrap:wrap}
+.side{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;gap:16px}
+.side h3{font-size:15px;font-weight:800;margin:0}
+.side p,.side li{font-size:13px;line-height:1.7;color:#98A1B3;margin:0}
+.side b{color:#CBD3E1}
+.side ul{margin:6px 0 0;padding-left:18px}
+.panel{border:1px solid #1D2331;border-radius:16px;padding:15px 17px;background:#0F131D}
+.toggles{display:flex;flex-wrap:wrap;gap:8px}
+.tg{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#AEB8C9;border-radius:10px;padding:8px 12px;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+.tg.on{background:#E6E9EF;color:#0B0E16;border-color:transparent}
+a{color:#8FB4FF}a:hover{color:#B9D0FF}
+
+/* phone */
+.frame{position:relative;width:372px;flex:0 0 auto;height:760px;display:flex;flex-direction:column;border-radius:34px;overflow:hidden;background:#0A0D15;isolation:isolate;box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07)}
+.frame::before{content:"";position:absolute;inset:0;z-index:0;transition:opacity .3s ease;background:radial-gradient(78% 46% at 8% -4%,color-mix(in srgb,var(--acc) 30%,transparent),transparent 72%),radial-gradient(70% 46% at 104% 26%,color-mix(in srgb,var(--acc2,var(--acc)) 22%,transparent),transparent 72%),radial-gradient(84% 42% at 46% 104%,color-mix(in srgb,var(--acc) 16%,transparent),transparent 70%)}
+.frame>*{position:relative;z-index:1}
+.top{flex:0 0 auto;display:flex;align-items:center;gap:10px;margin:14px 14px 0;padding:13px 16px;border-radius:20px;background:rgba(18,23,36,.62);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(20px) saturate(1.2)}
+.top h3{flex:1;min-width:0;margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbtn{width:32px;height:32px;flex:0 0 auto;border:0;border-radius:10px;display:grid;place-items:center;background:rgba(255,255,255,.07);color:#B9C2D2;font-size:17px;cursor:pointer}
+.stack{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:12px 14px 100px;scrollbar-width:none}
+.stack::-webkit-scrollbar{display:none}
+.stack.tin{animation:tin .34s cubic-bezier(.32,.72,0,1)}
+@keyframes tin{from{opacity:0;transform:translateX(var(--dir,12px))}to{opacity:1;transform:none}}
+.nav{position:absolute;left:14px;right:14px;bottom:14px;z-index:4;display:flex;gap:2px;padding:8px 6px;border-radius:22px;background:rgba(14,18,29,.78);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(22px) saturate(1.2)}
+.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font:inherit;font-size:10.5px;font-weight:700;color:#8B94A6;background:none;border:0;cursor:pointer;padding:2px 0}
+.nav button ion-icon{font-size:21px}
+.nav button.on{color:var(--acc)}
+
+/* card */
+.gc{--f:var(--acc);border-radius:20px;padding:11px 12px;color:#EDF0F6;background:rgba(19,25,40,.52);border:1px solid rgba(255,255,255,.11);backdrop-filter:blur(18px) saturate(1.25);box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.08);transition:opacity .22s ease,transform .22s ease}
+.gc-head{display:flex;align-items:center;gap:11px}
+.gc-icon{flex:0 0 auto;width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--f);color:var(--bubble-ink,#0B0E16);font-size:18px;box-shadow:0 0 0 1px color-mix(in srgb,var(--f) 60%,transparent),0 0 16px color-mix(in srgb,var(--f) 55%,transparent)}
+.gc-titles{flex:1;min-width:0}
+.gc-title{font-size:15.5px;font-weight:800;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-peek{font-size:12.5px;font-weight:600;color:#98A2B6;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-ctl{flex:0 0 auto;display:flex;gap:6px}
+.gc-btn{width:29px;height:29px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#C3CBDA;font-size:14px;display:grid;place-items:center;cursor:pointer}
+.gc-btn ion-icon{transition:transform .26s cubic-bezier(.32,.72,0,1)}
+.gc.open .gc-btn.chev ion-icon{transform:rotate(180deg)}
+.gc-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .26s cubic-bezier(.32,.72,0,1)}
+.gc.open .gc-wrap{grid-template-rows:1fr}
+.gc-clip{overflow:hidden;min-height:0}
+.gc-body{padding-top:9px;display:flex;flex-direction:column;gap:8px;opacity:0;transform:translateY(-4px);transition:opacity .2s ease .04s,transform .22s cubic-bezier(.32,.72,0,1) .04s}
+.gc.open .gc-body{opacity:1;transform:none}
+.hint{font-size:12px;line-height:1.45;font-weight:600;font-style:italic;color:#8B94A6;display:flex;gap:6px;align-items:flex-start;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.07)}
+.hint ion-icon{flex:0 0 auto;font-size:13px;margin-top:1px;color:#6E7789}
+.rows{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07),inset 2px 0 0 color-mix(in srgb,var(--f) 62%,transparent)}
+.row{display:flex;align-items:center;gap:10px;padding:0 11px;font-size:13.5px;font-weight:700;min-height:42px;cursor:pointer;background:none;border:0;color:inherit;font-family:inherit;text-align:left;width:100%}
+.row+.row{box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.row .txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{flex:0 0 auto;font-size:11.5px;font-weight:800;color:#98A2B6}
+.row .money{flex:0 0 auto;font-size:11.5px;font-weight:800;color:#8B94A6;font-variant-numeric:tabular-nums}
+.row.done .txt{color:#8B94A6;text-decoration:line-through}
+.row .add{width:26px;height:26px;flex:0 0 auto;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--f) 20%,transparent);color:color-mix(in srgb,var(--f) 85%,#fff 15%);font-size:14px}
+.chk{width:20px;height:20px;flex:0 0 auto;border-radius:999px;border:2px solid #79839A;display:grid;place-items:center;font-size:12px;color:transparent;transition:background .18s ease,border-color .18s ease}
+.chk.on{border-color:var(--f);background:var(--f);color:var(--bubble-ink,#0B0E16);box-shadow:0 0 13px color-mix(in srgb,var(--f) 55%,transparent)}
+.chk.cart{border-color:var(--f);color:color-mix(in srgb,var(--f) 90%,#fff)}
+.ring{width:22px;height:22px;flex:0 0 auto;border-radius:999px;background:conic-gradient(var(--f) var(--p),rgba(255,255,255,.13) 0);mask:radial-gradient(circle,transparent 55%,#000 57%)}
+.slab{display:flex;align-items:baseline;gap:8px;padding:2px 2px 0;font-size:10.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#79839A}
+.slab .n{color:color-mix(in srgb,var(--f) 78%,#fff 22%)}
+.slab .ln{flex:1;height:1px;background:rgba(255,255,255,.08)}
+.gsec{border-radius:12px;overflow:hidden;background:rgba(255,255,255,.035);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.gsec .grp{background:transparent;border:0;box-shadow:none;border-radius:0;min-height:40px;width:100%}
+.gsec .rows{border-radius:0;background:rgba(255,255,255,.03);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),inset 2px 0 0 color-mix(in srgb,var(--f) 55%,transparent)}
+.gsec .row{padding-left:20px}
+.gsec .qa,.gsec .slab{margin:0 8px 8px 20px}
+.grps{display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.grps .grp{border:0;border-radius:0;background:transparent;width:100%}
+.grps .grp+.grp{box-shadow:inset 0 1px 0 rgba(255,255,255,.07)}
+.grp{display:flex;align-items:center;gap:9px;padding:0 11px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);font:inherit;font-size:13.5px;font-weight:800;color:inherit;min-height:42px;cursor:pointer;text-align:left}
+.grp .dot{width:7px;height:7px;border-radius:99px;background:var(--f);flex:0 0 auto}
+.grp .txt{flex:1;min-width:0}
+.grp .sub{font-size:11.5px;font-weight:700;color:#98A2B6}
+.grp ion-icon{color:#8B94A6;font-size:15px}
+.qa{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 11px;border-radius:14px;background:rgba(255,255,255,.075);border:1px solid color-mix(in srgb,var(--f) 42%,transparent)}
+.qa .ph{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:#7C8698;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qa .qchip{flex:0 0 auto;font-size:10.5px;font-weight:800;padding:5px 8px;border-radius:99px;color:var(--f);background:color-mix(in srgb,var(--f) 16%,transparent);white-space:nowrap}
+.qbtn{width:29px;height:29px;flex:0 0 auto;border:0;border-radius:9px;display:grid;place-items:center;font-size:15px;cursor:pointer;background:rgba(255,255,255,.09);color:#C3CBDA}
+.qbtn.go{background:var(--f);color:var(--bubble-ink,#0B0E16)}
+.qbtn.go.off{opacity:.4}
+.empty{padding:13px;border-radius:14px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.12);text-align:center}
+.empty p{margin:0 0 10px;font-size:12.5px;font-weight:700;color:#98A2B6;line-height:1.55}
+.ebtn{border:0;border-radius:12px;padding:10px 16px;min-height:44px;font-family:inherit;font-size:13px;font-weight:800;color:var(--bubble-ink,#0B0E16);background:var(--f);cursor:pointer}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;white-space:nowrap;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#AEB8C9;border-radius:11px;padding:9px 0;font-family:inherit;font-size:12.5px;font-weight:800;cursor:pointer;min-height:40px}
+.seg button.on{background:var(--f);color:var(--bubble-ink,#0B0E16);border-color:transparent}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#AEB8C9;border-radius:99px;padding:7px 11px;font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;min-height:34px}
+.chip.on{background:color-mix(in srgb,var(--f) 22%,transparent);border-color:color-mix(in srgb,var(--f) 55%,transparent);color:color-mix(in srgb,var(--f) 88%,#fff 12%)}
+.chip.dash{border-style:dashed;color:#8B94A6}
+.fld{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:12px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07);font-size:13px;font-weight:700}
+.fld .lbl{flex:1;min-width:0;color:#98A2B6}
+.fld .val{color:#EDF0F6;font-weight:800}
+.fld input{width:78px;background:none;border:0;color:#EDF0F6;font:inherit;font-weight:800;text-align:right;outline:none}
+.big{display:flex;gap:8px}
+.bigk{flex:1;padding:11px 12px;border-radius:14px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px rgba(255,255,255,.07)}
+.bigk .k{font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#79839A}
+.bigk .v{font-size:21px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.bigk .n{font-size:11px;font-weight:700;color:#8B94A6;margin-top:2px}
+.bigk.hot .v{color:color-mix(in srgb,var(--feature-health,#F27) 80%,#fff 20%)}
+.sev{display:flex;gap:4px}
+.sev button{flex:1;min-width:0;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#8B94A6;border-radius:8px;padding:7px 0;font:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.sev button.on{background:var(--f);color:var(--bubble-ink,#0B0E16);border-color:transparent}
+.note{font-size:12px;font-weight:700;color:#8B94A6;line-height:1.5}
+
+/* fullscreen */
+.scrim{position:absolute;inset:0;z-index:5;background:rgba(6,8,13,.55);backdrop-filter:blur(6px);opacity:0;transition:opacity .3s ease}
+.scrim.on{opacity:1}
+.fs{position:absolute;z-index:6;overflow:hidden;transition:top .36s cubic-bezier(.32,.72,0,1),left .36s cubic-bezier(.32,.72,0,1),width .36s cubic-bezier(.32,.72,0,1),height .36s cubic-bezier(.32,.72,0,1),border-radius .36s cubic-bezier(.32,.72,0,1)}
+.fs .fs-in{height:100%;display:flex;flex-direction:column}
+.fs .fs-scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:9px;padding:9px 1px 14px;scrollbar-width:none}
+.fs .fs-scroll::-webkit-scrollbar{display:none}
+.fs .fs-body{opacity:0;transition:opacity .2s ease}
+.fs.on .fs-body{opacity:1}
+.stack.behind{transform:scale(.985);opacity:.6;transition:transform .36s cubic-bezier(.32,.72,0,1),opacity .3s ease}
+</style></head>
+<body>
+<div class="wrap">
+<div class="eyebrow">UnFocus · v3 · fem faner</div>
+<h1>Handle · Gjøremål · Hjem · Vaner · Helse</h1>
+<p class="lede">Klikkbar prototype av alle fem fanene. Kort utvider seg, går i fullskjerm, varer flytter seg mellom I lista, I kurven og Kjøpt, og planleggeren åpner seg som fullskjerm. Notatene under beskriver reglene og animasjonene.</p>
+
+<div class="sec">
+  <h2>Prototype</h2>
+  <p class="sec-note">Trykk chevron for å utvide, ikonet ved siden for fullskjerm. Radene er levende: avkryssing, varestatus, kategorifaner, alvorlighetsgrad.</p>
+  <div class="stage">
+    <div class="frame" id="frame"></div>
+    <div class="side">
+      <div class="panel">
+        <h3>Prøv dette</h3>
+        <div class="toggles" style="margin-top:10px" id="tgs"></div>
+        <p style="margin-top:12px">«Tomme kort» viser hvert korts instruksjonstekst — hva kortet er til, i én setning, uten tall som teller deg til null.</p>
+      </div>
+      <div class="panel" id="notes"></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Informasjonsarkitektur</h2>
+  <div class="side" style="max-width:none"><div class="panel">
+    <ul>
+      <li><b>Hjem</b> — Notater, Gjøremål (i dag), Vaner. Fullt brukbare: legg til og kryss av herfra. Notater finnes bare her, og utvides til fullskjerm.</li>
+      <li><b>Handle</b> — Handlelister (I lista → I kurven → Kjøpt), Katalog (faner: Varer / Retter), Budsjett.</li>
+      <li><b>Gjøremål</b> — Når som helst, I dag, Planlegger (fullskjerm). Mål ligger på oppgaven, ikke som eget kort.</li>
+      <li><b>Vaner</b> — egen fane, ringer og serie. Vaner er repetisjon uten dato; oppgaver har dato. Derfor er de ikke det samme kortet.</li>
+      <li><b>Helse</b> — Helseplager (notat + alvorlighetsgrad 1–10) og Medisin (når, tatt, bivirkninger).</li>
+    </ul>
+  </div></div>
+</div>
+
+<div class="sec">
+  <h2>Handle — regler</h2>
+  <div class="side" style="max-width:none"><div class="panel"><ul>
+    <li><b>Tre seksjoner, én liste.</b> En vare finnes i én seksjon om gangen. Trykk raden: <b>I lista → I kurven → Kjøpt</b>. Trykk og hold flytter tilbake. Seksjonene er merket med små caps og antall, ikke tre separate kort.</li>
+    <li><b>Legg til rett.</b> Knappen «Legg til rett» i lista åpner Retter-fanen i Katalog; å velge en rett legger alle varene i rettens I lista, med rettens navn som opphav på hver rad.</li>
+    <li><b>Katalog = ett kort, to faner.</b> Varer viser pris per enhet. Retter viser antall varer og totalpris (summen av varenes enhetspris × mengde). Hver rad har én <b>+</b> som legger til i den aktive lista.</li>
+    <li><b>Budsjett.</b> Beløp per uke eller måned, brukeren velger. Lønningsdag setter nullstillingen. To tall vises: <b>budsjett ÷ dager i perioden</b> og <b>brukt ÷ dager siden nullstilling</b>. Samme enhet, side om side — det ene skal ikke være større enn det andre.</li>
+  </ul></div></div>
+</div>
+
+<div class="sec">
+  <h2>Gjøremål — regler</h2>
+  <div class="side" style="max-width:none"><div class="panel"><ul>
+    <li><b>Planleggeren er et verksted.</b> Den lager oppgaver uten å plassere dem. Hver oppgave i planleggeren har «Tildel» → Når som helst eller I dag. Massetildeling er mulig fra fullskjerm.</li>
+    <li><b>Type først.</b> Én gang / Gjentakende som segment. Gjentakelsesfeltene — intervall, ukedager, klokkeslett — <b>finnes ikke i DOM-en</b> før Gjentakende er valgt, og glir inn med samme kurve som kortutvidelsen.</li>
+    <li><b>Mål på oppgaven.</b> Velges fra brukerens liste av mål, med «+ Nytt mål» som lager ett inline. Ingen egen Mål-fane, ingen eget kort.</li>
+  </ul></div></div>
+</div>
+
+<div class="sec">
+  <h2>Animasjon — utvid, kollaps, fullskjerm</h2>
+  <div class="specs side" style="max-width:none"><div class="panel"><ul>
+    <li><b>Utvid (260 ms, cubic-bezier(.32,.72,0,1)).</b> Kroppen animeres med <code>grid-template-rows: 0fr → 1fr</code>, så høyden er reell og ingen max-height må gjettes. Innholdet fader inn over 200 ms med 40 ms forsinkelse og glir 4 px ned, så kortet ser ut til å åpne seg og ikke bare vokse. Chevron roterer 180° på samme kurve.</li>
+    <li><b>Kollaps (220 ms, ease-out).</b> Motsatt vei, men innholdet fader ut <b>først</b> (120 ms) og høyden lukker etterpå — ellers ser man teksten bli klemt.</li>
+    <li><b>Fullskjerm (360 ms).</b> Kortet måles der det står, klones i et lag over stacken med samme topp, venstre, bredde og høyde, og animeres i én ramme ut til rammens innside. Radius 20 → 26 px. Stacken bak skalerer til 0.985 og fader til 60 %, scrim blurrer 6 px. Ingen scale på selve kortet: tekst forblir skarp og layouten reflower i sluttbredden.</li>
+    <li><b>Tilbake (300 ms).</b> Samme reise omvendt, mot den lagrede rektangelen. Hvis kortet har rullet ut av syne, animerer den mot nærmeste kant istedenfor å hoppe.</li>
+    <li><b>Fanebytte (340 ms).</b> Stacken kommer inn 12 px fra siden man kom fra, med opasitet 0 → 1. Bakgrunnsvaskene krysstoner 300 ms, så fargen skifter litt etter innholdet.</li>
+    <li><b>Rader.</b> Statusendring er 180 ms farge og bakgrunn, ingen bevegelse. Å flytte en vare mellom seksjoner bør FLIP-animeres 240 ms; i prototypen skjer det umiddelbart.</li>
+  </ul></div></div>
+</div>
+</div>
+
+<script>
+const NAV=[['Handle','cart','shop'],['Gjøremål','checkbox','tasks'],['Hjem','home','home'],['Vaner','leaf','habits'],['Helse','pulse','health']];
+const ACC={shop:['var(--feature-shop)','var(--feature-meals)'],tasks:['var(--feature-task)','var(--feature-focus)'],home:['var(--feature-task)','var(--feature-capture)'],habits:['var(--feature-habits)','var(--feature-focus)'],health:['var(--feature-health)','var(--feature-capture)']};
+const kr=n=>'kr '+n.toFixed(2).replace('.',',');
+
+const S={tab:'home',empty:false,fs:null,
+ open:{notes:0,htasks:1,hhabits:0,lists:1,katalog:0,budget:0,today:1,when:0,planner:0,vaner:1,plager:1,medisin:0},
+ notes:[['Ideer til bursdag','i går'],['Pakkeliste hytta','man'],['Ting legen sa','12. aug']],
+ today:[{t:'Ta medisin',s:'08:30',d:1,g:'Rutine'},{t:'Ring rørlegger',s:'i dag',d:0,g:'Huset'},{t:'Pakk svømmebag',s:'15:00',d:0,g:''}],
+ when:[{t:'Bytte dekk',s:'',d:0,g:'Huset'},{t:'Rydde loft',s:'',d:0,g:'Huset'},{t:'Bestille frisør',s:'',d:0,g:''}],
+ planner:[{t:'Vaske vinduer',type:'Gjentakende',rec:'Hver 2. uke · lør 10:00',g:'Huset'},{t:'Skrive søknad',type:'Én gang',rec:'',g:'Jobb'}],
+ goals:['Huset','Jobb','Rutine','Bevege meg mer'],
+ lists:[{n:'Uke',items:[{t:'Havremelk',q:2,p:24.9,st:'cart'},{t:'Brød',q:1,p:39.9,st:'list'},{t:'Kaffe',q:1,p:89.0,st:'buy'},{t:'Kjøttdeig',q:1,p:74.5,st:'list',from:'Taco'},{t:'Tortilla',q:2,p:29.9,st:'list',from:'Taco'}]},{n:'Måned',items:[]}],
+ cat:'varer',
+ varer:[{t:'Havremelk',p:24.9,u:'l'},{t:'Brød',p:39.9,u:'stk'},{t:'Kjøttdeig 400 g',p:74.5,u:'pk'},{t:'Tortilla',p:29.9,u:'pk'},{t:'Rømme',p:32.0,u:'bx'}],
+ retter:[{t:'Taco',n:6,p:238.6},{t:'Fiskegrateng',n:5,p:176.4},{t:'Havregrøt',n:3,p:61.8}],
+ budget:{amount:6400,period:'Måned',payday:25,spent:2180,daysIn:30,since:12},
+ habits:[{t:'Vann',v:'5 / 8',p:'62%'},{t:'Gå tur',v:'1 / 1',p:'100%'},{t:'Strekk',v:'0 / 1',p:'0%'},{t:'Lese',v:'2 / 3',p:'66%'}],
+ plager:[{t:'Migrene',s:'i går 14:00',sev:7},{t:'Mageknip',s:'man',sev:3}],
+ meds:[{t:'Sertralin 50 mg',s:'08:30',d:1,fx:'kvalme første timen'},{t:'Melatonin 1 mg',s:'22:00',d:0,fx:'ingen'}],
+ sev:7,plannerType:'Én gang',plannerGoal:'Huset',plannerNew:0};
+
+const H=(s,...v)=>s.reduce((a,p,i)=>a+p+(v[i-1]??''),'');
+const hint=t=>`<div class="hint"><ion-icon name="bulb-outline"></ion-icon><span>${t}</span></div>`;
+const slab=(l,n)=>`<div class="slab"><span>${l}</span>${n?`<span class="n">${n}</span>`:''}<span class="ln"></span></div>`;
+const qa=(ph,chip)=>`<div class="qa"><span class="ph">${ph}</span><span class="qchip">${chip}</span><button class="qbtn"><ion-icon name="chevron-up-outline"></ion-icon></button><button class="qbtn go off"><ion-icon name="arrow-up-outline"></ion-icon></button></div>`;
+const empty=(p,b)=>`<div class="empty"><p>${p}</p><button class="ebtn">${b}</button></div>`;
+const grp=(t,sub,act='')=>`<button class="grp" ${act}><span class="dot"></span><span class="txt">${t}</span><span class="sub">${sub}</span><ion-icon name="chevron-forward-outline"></ion-icon></button>`;
+
+function card(k,o){const open=!!S.open[k],body=S.empty&&o.emptyBody?o.emptyBody:o.body;
+ return `<div class="gc${open?' open':''}" data-card="${k}" style="--acc:${o.acc}">
+  <div class="gc-head"><div class="gc-icon"><ion-icon name="${o.icon}"></ion-icon></div>
+  <div class="gc-titles"><div class="gc-title">${o.title}</div><div class="gc-peek">${S.empty&&o.emptyPeek?o.emptyPeek:o.peek}</div></div>
+  <div class="gc-ctl"><button class="gc-btn chev" data-act="toggle" data-k="${k}"><ion-icon name="chevron-down-outline"></ion-icon></button><button class="gc-btn" data-act="fs" data-k="${k}"><ion-icon name="expand-outline"></ion-icon></button></div></div>
+  <div class="gc-wrap"><div class="gc-clip"><div class="gc-body">${body}</div></div></div></div>`}
+
+function taskRows(list,key){return `<div class="rows">${list.map((r,i)=>`<button class="row${r.d?' done':''}" data-act="task" data-list="${key}" data-i="${i}"><span class="chk${r.d?' on':''}"><ion-icon name="checkmark-outline"></ion-icon></span><span class="txt">${r.t}</span>${r.g?`<span class="sub">${r.g}</span>`:''}${r.s?`<span class="sub">${r.s}</span>`:''}</button>`).join('')}</div>`}
+
+const ST={list:['I lista','ellipse-outline'],cart:['I kurven','basket-outline'],buy:['Kjøpt','checkmark-outline']};
+function shopList(li,idx){const g=k=>li.items.map((it,i)=>[it,i]).filter(([it])=>it.st===k);
+ if(!li.items.length)return empty('Ingen varer ennå. Legg til varer fra Katalog, eller en hel rett.','Legg til rett');
+ return ['list','cart','buy'].map(k=>{const rs=g(k);if(!rs.length)return '';
+  return slab(ST[k][0],rs.length)+`<div class="rows">${rs.map(([it,i])=>`<button class="row${k==='buy'?' done':''}" data-act="cyc" data-l="${idx}" data-i="${i}"><span class="chk${k==='buy'?' on':k==='cart'?' cart':''}"><ion-icon name="${ST[k][1]}"></ion-icon></span><span class="txt">${it.t}${it.from?` <span class="sub">· ${it.from}</span>`:''}</span><span class="money">${kr(it.p)}/stk</span><span class="sub">×${it.q}</span></button>`).join('')}</div>`}).join('')
+ +qa('Legg til vare',li.n+' · ×1')+`<div class="chips"><button class="chip dash" data-act="tab-cat">+ Legg til rett</button></div>`}
+
+function katalog(){const t=S.cat;
+ return `<div class="seg"><button class="${t==='varer'?'on':''}" data-act="cat" data-v="varer">Varer</button><button class="${t==='retter'?'on':''}" data-act="cat" data-v="retter">Retter</button></div>`
+ +(t==='varer'
+  ?hint('Prisen per enhet lagres når du legger varen inn. Retter regner totalen selv.')+`<div class="rows">${S.varer.map(v=>`<button class="row" data-act="addv"><span class="txt">${v.t}</span><span class="money">${kr(v.p)}/${v.u}</span><span class="add"><ion-icon name="add-outline"></ion-icon></span></button>`).join('')}</div>`+qa('Ny vare','kr / stk')
+  :hint('En rett er flere varer. Legg den til, og alle varene havner i lista.')+`<div class="rows">${S.retter.map(r=>`<button class="row" data-act="addr"><span class="txt">${r.t}</span><span class="sub">${r.n} varer</span><span class="money">${kr(r.p)}</span><span class="add"><ion-icon name="add-outline"></ion-icon></span></button>`).join('')}</div>`+qa('Ny rett','0 varer'))}
+
+function budget(){const b=S.budget,perDay=b.amount/b.daysIn,spentDay=b.spent/b.since;
+ return `<div class="seg"><button class="${b.period==='Uke'?'on':''}" data-act="per" data-v="Uke">Uke</button><button class="${b.period==='Måned'?'on':''}" data-act="per" data-v="Måned">Måned</button></div>`
+ +`<div class="fld"><span class="lbl">Beløp per ${b.period.toLowerCase()}</span><span class="val">${kr(b.amount)}</span></div>`
+ +`<div class="fld"><span class="lbl">Lønningsdag</span><span class="val">${b.payday}. hver måned</span></div>`
+ +`<div class="big"><div class="bigk"><div class="k">Å bruke per dag</div><div class="v">${kr(perDay)}</div><div class="n">${kr(b.amount)} ÷ ${b.daysIn} dager</div></div><div class="bigk hot"><div class="k">Brukt per dag</div><div class="v">${kr(spentDay)}</div><div class="n">${kr(b.spent)} ÷ ${b.since} dager siden ${b.payday}.</div></div></div>`
+ +`<div class="note">Nullstilles automatisk på lønningsdag. Handlelistene trekker fra dette budsjettet når varer settes til Kjøpt.</div>`}
+
+function planner(fs){return hint('Lag oppgaver her først. Tildel dem når du vet når de skal skje.')
+ +(fs?`<div class="seg"><button class="${S.plannerType==='Én gang'?'on':''}" data-act="ptype" data-v="Én gang">Én gang</button><button class="${S.plannerType==='Gjentakende'?'on':''}" data-act="ptype" data-v="Gjentakende">Gjentakende</button></div>`
+  +qa('Skriv oppgave','Planlegger')
+  +(S.plannerType==='Gjentakende'?slab('Gjentakelse')+`<div class="fld"><span class="lbl">Hver</span><span class="val">2. uke</span></div><div class="chips">${['man','tir','ons','tor','fre','lør','søn'].map((d,i)=>`<button class="chip${i===5?' on':''}">${d}</button>`).join('')}</div><div class="fld"><span class="lbl">Klokkeslett</span><span class="val">10:00</span></div>`:'')
+  +slab('Mål på oppgaven')+`<div class="chips">${S.goals.map(g=>`<button class="chip${g===S.plannerGoal?' on':''}" data-act="goal" data-v="${g}">${g}</button>`).join('')}<button class="chip dash" data-act="newgoal">+ Nytt mål</button></div>`
+  +(S.plannerNew?`<div class="fld"><span class="lbl">Navn på mål</span><input value="" placeholder="Skriv…"></div>`:'')
+  :'')
+ +slab('Klar til tildeling',S.planner.length)
+ +`<div class="rows">${S.planner.map(p=>`<div class="row"><span class="chk"></span><span class="txt">${p.t}</span><span class="sub">${p.g}</span><span class="sub">${p.rec||p.type}</span></div>`).join('')}</div>`
+ +(fs?`<div class="chips"><button class="chip on" data-act="assign">Tildel → I dag</button><button class="chip" data-act="assign">Tildel → Når som helst</button></div>`:grp('Tildel oppgaver',S.planner.length+' klare','data-act="fs" data-k="planner"'))}
+
+function screen(){const [a]=ACC[S.tab];
+ if(S.tab==='home')return card('notes',{icon:'document-text-outline',acc:'var(--feature-capture)',title:'Notater',peek:S.notes.length+' notater · sist i går',emptyPeek:'Tomt — skriv ned det som haster ut av hodet',
+   body:hint('Skriv nå, rydd senere. Notater blir aldri en oppgave uten at du sier det.')+`<div class="rows">${S.notes.map(([t,d])=>`<button class="row"><span class="txt">${t}</span><span class="sub">${d}</span></button>`).join('')}</div>`+qa('Skriv notat','Notat'),
+   emptyBody:empty('Notater er for løse tanker. Skriv én linje nå — du kan gjøre den til oppgave senere.','Skriv første notat')})
+  +card('htasks',{icon:'calendar-outline',acc:'var(--feature-task)',title:'I dag',peek:`${S.today.filter(t=>!t.d).length} igjen · ${S.today.filter(t=>t.d).length} gjort`,emptyPeek:'Ingenting i dag ennå',
+   body:hint('Del det opp til det blir litt latterlig. Det er da det begynner å funke.')+taskRows(S.today,'today')+qa('Skriv oppgave','I dag'),
+   emptyBody:empty('Dagens oppgaver havner her. Én ting, så liten at du ikke kan si nei.','Legg til én ting')})
+  +card('hhabits',{icon:'leaf-outline',acc:'var(--feature-habits)',title:'Vaner',peek:`${S.habits.filter(h=>h.p==='100%').length} av ${S.habits.length} i dag`,emptyPeek:'Ingen vaner satt opp',
+   body:`<div class="rows">${S.habits.map((h,i)=>`<button class="row" data-act="hab" data-i="${i}"><span class="ring" style="--p:${h.p}"></span><span class="txt">${h.t}</span><span class="sub">${h.v}</span></button>`).join('')}</div>`,
+   emptyBody:empty('En vane er noe du gjentar, uten dato. Start med én du allerede nesten gjør.','Lag en vane')});
+ if(S.tab==='shop')return card('lists',{icon:'cart-outline',acc:'var(--feature-shop)',title:'Handlelister',peek:`${S.lists[0].n} ${S.lists[0].items.length} varer · ${S.lists[1].n} tom`,emptyPeek:'Ingen lister ennå',
+   body:hint('Trykk en vare for å flytte den: I lista → I kurven → Kjøpt.')+S.lists.map((l,i)=>`<div class="gsec">${grp(l.n,l.items.length?l.items.length+' varer':'tom')}${shopList(l,i)}</div>`).join(''),
+   emptyBody:empty('En handleliste har tre seksjoner varene flytter seg mellom. Lag en liste, så fyller vi den fra Katalog.','Lag liste')})
+  +card('katalog',{icon:'list-outline',acc:'var(--feature-meals)',title:'Katalog',peek:`${S.varer.length} varer · ${S.retter.length} retter`,emptyPeek:'Tom — legg inn det du kjøper ofte',
+   body:katalog(),emptyBody:empty('Katalogen er det du kjøper ofte, med pris per enhet, og retter satt sammen av dem.','Legg inn første vare')})
+  +card('budget',{icon:'wallet-outline',acc:'var(--feature-shop)',title:'Budsjett',peek:`${kr(S.budget.amount)} per ${S.budget.period.toLowerCase()} · ${kr(S.budget.spent)} brukt`,emptyPeek:'Ikke satt opp',
+   body:budget(),emptyBody:empty('Sett et beløp per uke eller måned og en lønningsdag. Da kan vi vise hva du har per dag.','Sett budsjett')});
+ if(S.tab==='tasks')return card('when',{icon:'checkmark-circle-outline',acc:'var(--feature-task)',title:'Når som helst',peek:S.when.length+' i backlog',emptyPeek:'Tom backlog',
+   body:taskRows(S.when,'when')+qa('Skriv oppgave','Når som helst'),
+   emptyBody:empty('Her ligger det som skal gjøres, men ikke i dag. Ingen dato, ingen skam.','Legg til noe')})
+  +card('today',{icon:'calendar-outline',acc:'var(--feature-task)',title:'I dag',peek:`${S.today.filter(t=>!t.d).length} igjen · neste 15:00`,emptyPeek:'Ingenting i dag ennå',
+   body:hint('Del det opp til det blir litt latterlig.')+taskRows(S.today,'today')+qa('Skriv oppgave','I dag'),
+   emptyBody:empty('Dagens liste. Dra hit fra Når som helst, eller skriv rett inn.','Legg til én ting')})
+  +card('planner',{icon:'construct-outline',acc:'var(--feature-focus)',title:'Planlegger',peek:S.planner.length+' klare til tildeling',emptyPeek:'Verkstedet er tomt',
+   body:planner(0),emptyBody:empty('Planleggeren lager oppgaver uten å plassere dem. Skriv flere, tildel senere.','Åpne planlegger')});
+ if(S.tab==='habits')return card('vaner',{icon:'repeat-outline',acc:'var(--feature-habits)',title:'Vaner',peek:`${S.habits.filter(h=>h.p!=='0%').length} ringer i gang`,emptyPeek:'Ingen vaner ennå',
+   body:hint('En vane du tar opp igjen er den samme vanen. Den husker ikke pausen.')+`<div class="rows">${S.habits.map((h,i)=>`<button class="row" data-act="hab" data-i="${i}"><span class="ring" style="--p:${h.p}"></span><span class="txt">${h.t}</span><span class="sub">${h.v}</span></button>`).join('')}</div>`+qa('Skriv vane','Daglig'),
+   emptyBody:empty('Vaner er repetisjon uten dato. Oppgaver har dato. Start med én vane du nesten gjør allerede.','Lag en vane')});
+ return card('plager',{icon:'bandage-outline',acc:'var(--feature-health)',title:'Helseplager',peek:`${S.plager.length} loggført · siste i går`,emptyPeek:'Ingen plager loggført',
+   body:hint('Loggfør plager med alvorlighetsgrad, så ser du mønsteret over tid.')+`<div class="rows">${S.plager.map(p=>`<button class="row"><span class="txt">${p.t}</span><span class="sub">${p.s}</span><span class="sub">${p.sev}/10</span></button>`).join('')}</div>`+slab('Ny oppføring')+qa('Hva kjenner du?','Nå')+`<div class="sev">${Array.from({length:10},(_,i)=>`<button class="${S.sev===i+1?'on':''}" data-act="sev" data-v="${i+1}">${i+1}</button>`).join('')}</div>`,
+   emptyBody:empty('Hodepine, migrene, mageknip — skriv hva det er og hvor ille det er, 1 til 10. Mønsteret dukker opp av seg selv.','Loggfør en plage')})
+  +card('medisin',{icon:'medkit-outline',acc:'var(--feature-health)',title:'Medisin',peek:`${S.meds.length} faste · neste 22:00`,emptyPeek:'Ingen medisiner lagt inn',
+   body:`<div class="rows">${S.meds.map((m,i)=>`<button class="row${m.d?' done':''}" data-act="med" data-i="${i}"><span class="chk${m.d?' on':''}"><ion-icon name="checkmark-outline"></ion-icon></span><span class="txt">${m.t}</span><span class="sub">${m.s}</span></button>`).join('')}</div>`+slab('Bivirkninger')+`<div class="rows">${S.meds.map(m=>`<div class="row"><span class="txt">${m.t.split(' ')[0]}</span><span class="sub">${m.fx}</span></div>`).join('')}</div>`+qa('Legg inn medisin','Daglig'),
+   emptyBody:empty('Legg inn hva du tar, når du skal ta det, og hvilke bivirkninger du merker.','Legg inn medisin')})}
+
+function fsBody(k){if(k==='planner')return planner(1);
+ const m={notes:['Notater',S.notes.length+' notater'],lists:['Handlelister','Uke · Måned'],katalog:['Katalog','Varer og retter'],budget:['Budsjett',S.budget.period],today:['I dag',''],when:['Når som helst',''],htasks:['I dag',''],vaner:['Vaner',''],hhabits:['Vaner',''],plager:['Helseplager',''],medisin:['Medisin','']};
+ const tmp=document.createElement('div');tmp.innerHTML=screen();const c=tmp.querySelector(`[data-card="${k}"] .gc-body`);return c?c.innerHTML:''}
+
+function render(dir){const [a,a2]=ACC[S.tab],t=NAV.find(n=>n[2]===S.tab);
+ const f=document.getElementById('frame');
+ f.style.setProperty('--acc',a);f.style.setProperty('--acc2',a2);
+ f.innerHTML=`<div class="top"><h3>${t[0]}</h3>${S.tab==='shop'||S.tab==='tasks'?'<button class="tbtn"><ion-icon name="swap-vertical-outline"></ion-icon></button>':''}<button class="tbtn"><ion-icon name="settings-outline"></ion-icon></button></div>
+ <div class="stack${dir!==undefined?' tin':''}" style="--dir:${dir||0}px">${screen()}</div>
+ <div class="nav">${NAV.map(([l,i,k])=>`<button class="${k===S.tab?'on':''}" data-act="tab" data-k="${k}"><ion-icon name="${k===S.tab?i:i+'-outline'}"></ion-icon><span>${l}</span></button>`).join('')}</div>`;
+ document.getElementById('notes').innerHTML=NOTES[S.tab];
+ document.getElementById('tgs').innerHTML=`<button class="tg${S.empty?' on':''}" data-act="empty">Tomme kort</button>`+NAV.map(([l,,k])=>`<button class="tg${k===S.tab?' on':''}" data-act="tab" data-k="${k}">${l}</button>`).join('')}
+
+const NOTES={
+ home:'<h3>Hjem</h3><p>Tre kort, alle fullt brukbare: <b>Notater</b>, <b>I dag</b>, <b>Vaner</b>. Notater finnes bare her og utvides til fullskjerm. Hjem er ikke et sammendrag man må forlate for å gjøre noe.</p>',
+ shop:'<h3>Handle</h3><p><b>Handlelister</b> med tre seksjoner varene flytter seg mellom, <b>Katalog</b> som ett kort med faner for varer og retter, og <b>Budsjett</b> med to tall i samme enhet: å bruke per dag, og brukt per dag siden lønningsdag.</p>',
+ tasks:'<h3>Gjøremål</h3><p><b>Når som helst</b>, <b>I dag</b>, <b>Planlegger</b>. Planleggeren åpnes i fullskjerm og lager oppgaver før de tildeles. Gjentakelsesfelt vises kun når Gjentakende er valgt. Mål velges per oppgave.</p>',
+ habits:'<h3>Vaner</h3><p>Egen fane fordi vaner er repetisjon uten dato, mens oppgaver har dato — samme kort ville tvunget vaner inn i en kalender. Samme vaner vises på Hjem, samme data.</p>',
+ health:'<h3>Helse</h3><p><b>Helseplager</b>: hva det er, når, og alvorlighetsgrad 1–10 som en rad med ti tall — raskere enn en slider når man har vondt. <b>Medisin</b>: hva, når, tatt eller ikke, og bivirkninger som eget avsnitt.</p>'};
+
+/* fullscreen */
+function openFs(k){const frame=document.getElementById('frame'),cardEl=frame.querySelector(`[data-card="${k}"]`);
+ if(!cardEl)return;const fr=frame.getBoundingClientRect(),r=cardEl.getBoundingClientRect();
+ const acc=cardEl.style.getPropertyValue('--acc');
+ const scrim=document.createElement('div');scrim.className='scrim';scrim.dataset.act='closefs';
+ const fs=document.createElement('div');fs.className='gc fs open';fs.style.cssText=`--acc:${acc};top:${r.top-fr.top}px;left:${r.left-fr.left}px;width:${r.width}px;height:${r.height}px;border-radius:20px`;
+ fs.innerHTML=`<div class="fs-in"><div class="gc-head"><button class="gc-btn" data-act="closefs"><ion-icon name="chevron-back-outline"></ion-icon></button><div class="gc-titles"><div class="gc-title">${cardEl.querySelector('.gc-title').textContent}</div><div class="gc-peek">${cardEl.querySelector('.gc-peek').textContent}</div></div><div class="gc-ctl"><button class="gc-btn" data-act="closefs"><ion-icon name="contract-outline"></ion-icon></button></div></div><div class="fs-scroll fs-body">${fsBody(k)}</div></div>`;
+ frame.append(scrim,fs);frame.querySelector('.stack').classList.add('behind');
+ S.fs={k,r:{t:r.top-fr.top,l:r.left-fr.left,w:r.width,h:r.height}};
+ requestAnimationFrame(()=>{scrim.classList.add('on');fs.classList.add('on');fs.style.top='14px';fs.style.left='14px';fs.style.width=(fr.width-28)+'px';fs.style.height=(fr.height-28)+'px';fs.style.borderRadius='26px'})}
+function closeFs(){const frame=document.getElementById('frame'),fs=frame.querySelector('.fs'),scrim=frame.querySelector('.scrim');if(!fs||!S.fs)return;
+ const r=S.fs.r;S.fs=null;fs.classList.remove('on');scrim.classList.remove('on');
+ fs.style.top=r.t+'px';fs.style.left=r.l+'px';fs.style.width=r.w+'px';fs.style.height=r.h+'px';fs.style.borderRadius='20px';
+ frame.querySelector('.stack').classList.remove('behind');
+ setTimeout(()=>{fs.remove();scrim.remove()},380)}
+function refreshFs(){if(!S.fs)return;const b=document.querySelector('.fs .fs-scroll');if(b)b.innerHTML=fsBody(S.fs.k)}
+
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(!el)return;const a=el.dataset.act,d=el.dataset;
+ if(a==='tab'){const from=NAV.findIndex(n=>n[2]===S.tab),to=NAV.findIndex(n=>n[2]===d.k);if(from===to)return;closeFs();S.tab=d.k;render(to>from?14:-14);return}
+ if(a==='toggle'){S.open[d.k]=!S.open[d.k];const c=document.querySelector(`[data-card="${d.k}"]`);c.classList.toggle('open',!!S.open[d.k]);return}
+ if(a==='fs'){if(!S.open[d.k]){S.open[d.k]=1;document.querySelector(`[data-card="${d.k}"]`).classList.add('open')}openFs(d.k);return}
+ if(a==='closefs'){closeFs();return}
+ if(a==='empty'){S.empty=!S.empty;closeFs();render();return}
+ if(a==='task'){const t=S[d.list][+d.i];t.d=!t.d}
+ else if(a==='hab'){const h=S.habits[+d.i],[c,tot]=h.v.split(' / ').map(Number);const n=(c+1)>tot?0:c+1;h.v=`${n} / ${tot}`;h.p=Math.round(n/tot*100)+'%'}
+ else if(a==='med'){S.meds[+d.i].d=!S.meds[+d.i].d}
+ else if(a==='cyc'){const it=S.lists[+d.l].items[+d.i];it.st=it.st==='list'?'cart':it.st==='cart'?'buy':'list'}
+ else if(a==='cat'){S.cat=d.v}
+ else if(a==='tab-cat'){S.cat='retter';S.open.katalog=1;closeFs();render();document.querySelector('[data-card="katalog"]').scrollIntoViewIfNeeded?.();return}
+ else if(a==='per'){S.budget.period=d.v;S.budget.amount=d.v==='Uke'?1500:6400;S.budget.daysIn=d.v==='Uke'?7:30;S.budget.spent=d.v==='Uke'?520:2180;S.budget.since=d.v==='Uke'?3:12}
+ else if(a==='sev'){S.sev=+d.v}
+ else if(a==='ptype'){S.plannerType=d.v}
+ else if(a==='goal'){S.plannerGoal=d.v;S.plannerNew=0}
+ else if(a==='newgoal'){S.plannerNew=!S.plannerNew}
+ else if(a==='addr'){S.lists[0].items.push({t:'Rømme',q:1,p:32,st:'list',from:'Taco'})}
+ else if(a==='addv'){S.lists[0].items.push({t:el.querySelector('.txt').textContent,q:1,p:24.9,st:'list'})}
+ else if(a==='assign'){const p=S.planner.shift();if(p)S.today.push({t:p.t,s:p.rec||'i dag',d:0,g:p.g})}
+ else return;
+ const openState={...S.open};render();Object.assign(S.open,openState);refreshFs()});
+render();
+</script>
+</body></html>
