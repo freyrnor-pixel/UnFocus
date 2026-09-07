@@ -138,12 +138,29 @@ in a class no harness can see. Known classes, from `HARNESS.md` and the round-20
 - Android optical centering — `OpticalCenter` is a no-op on web.
 - `Fonts.italic` — RN does not synthesise italic onto a named custom family on Android; every
   harness renders a perfect slant over what would ship upright.
-- Native shadow and corner rendering; `expo-blur` output.
+- Native shadow and corner rendering. (`expo-blur` was on this list until 2026-09-07; there is
+  no `BlurView` in the app any more, so the class is retired rather than satisfied.)
 - Gestures and haptics.
 - `app/scan.tsx` — the web bundle resolves a placeholder.
 - Dark-on-dark and 1-level light shifts: `HARNESS.md` records `visual` reporting a 46,329-pixel
   1-level light change as `unchanged`. After a re-bless, read `git status` — a file the gate
   called unchanged that changed on disk is a real difference the gate couldn't see.
+- **A predicate that has gone constant.** Added 2026-09-07 from a measured failure, and it is not
+  a rendering class — it is why one shipped. `Surface.tsx`'s `glassOn` gained a term that made it
+  `false` for every surface in the app; no card was translucent in either theme, and the
+  `BlurView` it gated was unreachable. `tsc` passed, 2490 jest tests passed, and **three separate
+  source-text assertions in `glassMaterial.test.ts` were updated to match the new string and
+  passed too** — a regex can confirm code exists but never that it runs. The harnesses could not
+  see it either: web renders the fallback. What catches it now is
+  `glassMaterial.test.ts`'s predicate test, which extracts the expression and EVALUATES it over
+  every context × setting, asserting some combination still yields `true`.
+  **Rule: when a change is a boolean, assert its truth table, not its source text.**
+
+**A2b — Re-blessed baselines are evidence; read them.** Across 2026-09-05→07 every dark baseline
+lost 30–55% of its PNG size (`home-populated` 167,997 → 92,630 bytes) as the app went flat. That
+was in the diff of four separate commits and nobody read it. A large one-directional size move
+across many baselines means the app got simpler, and "simpler" is rarely what a visual upgrade is
+supposed to produce. Check the byte deltas in a re-bless before accepting it.
 
 **A3 — The verification card.** Every session touching rendering ends with one, only after fixing
 **all** call sites and checking **both** themes. Budget: one round trip per item.
