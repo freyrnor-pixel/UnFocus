@@ -240,6 +240,7 @@ import { Badge } from '@/components/Badge';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
 import StarterCard from '@/components/StarterCard';
+import SectionRail from '@/components/SectionRail';
 import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
@@ -718,6 +719,37 @@ export default function EnergyMeter() {
         // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
         // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
         <StarterCard>
+          {/* ⚠️ **The card names itself (2026-09-07), which it never did.** Reported on a
+              screenshot of Home: the Energy card was the one panel on that screen with no
+              title, no badge and no summary line — a row of grey glyphs and a small pill in a
+              bare rounded box, sitting directly above `Today`, `Notes` and `Shopping list`,
+              each of which leads with a coloured icon badge, a bold name and one line saying
+              what it holds. Read beside them it did not look like a card that was empty; it
+              looked like a card that had not been finished.
+                This is the SAME header component every one of those cards uses
+              (`components/SectionRail.tsx` at `tier="card"`, which is what components/Card.tsx
+              passes), not a hand-rolled row — §8 "Component identity" exists because this app
+              had one canonical card header and fourteen variants of it, and a fifteenth here
+              would be the defect, not the fix. Energy has no entry in `lib/domainColor.ts`, so
+              the badge borrows the shape (`domain="task"`) and overrides both channels it
+              would otherwise inherit: `icon="flash"` is the strip's own glyph and `badgeHue`
+              paints the disc in `theme.accent` — the same accent the filled pips use, so the
+              badge and the bar it stands over are one colour.
+                `divider={false}` because there is no rule under a card header any more (the
+              prop is spacing only since 2026-08-27) and the pips supply their own gap.
+              ⚠️ This is the EMPTY state only. The live strip is deliberately NOT a card and
+              must not grow a header row — see this file's "Strip, not a card" note, which is
+              about the meter, not about the placeholder that stands in for it. */}
+          <SectionRail
+            hue={theme.accent}
+            domain="task"
+            icon="flash"
+            badgeHue
+            tier="card"
+            label={t.energyMeter.title}
+            peek={t.energyMeter.notSetPeek}
+            divider={false}
+          />
           {/* ⚠️ **A row of EMPTY glyphs above the button (2026-09-01), REDRAWN 2026-09-07 to match
               the bar it stands in for.** Maintainer: *"insert empty energy bubbles in the empty
               state energy card so it's not so empty."* The card was one small button on a large
