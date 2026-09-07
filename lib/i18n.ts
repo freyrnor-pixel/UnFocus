@@ -384,6 +384,7 @@ const en = {
     todoWhenever: (n: number) => (n === 0 ? 'Nothing waiting' : `${n} waiting`),
     todoRecurring: (n: number) => (n === 0 ? 'No repeats set up' : `${n} repeating`),
     shopLists: (n: number) => (n === 0 ? 'No lists yet' : `${n} lists`),
+    shopMonthly: (n: number) => (n === 0 ? 'No monthly lists yet' : `${n} lists`),
     shopDishes: (n: number) => (n === 0 ? 'No dishes saved' : `${n} dishes`),
     shopCatalogue: (n: number) => (n === 0 ? 'None yet' : `${n} items`),
     habitsList: (going: number, untouched: number) =>
@@ -2693,6 +2694,7 @@ const no: typeof en = {
     todoWhenever: (n: number) => (n === 0 ? 'Ingenting venter' : `${n} venter`),
     todoRecurring: (n: number) => (n === 0 ? 'Ingen gjentakelser' : `${n} gjentakelser`),
     shopLists: (n: number) => (n === 0 ? 'Ingen lister ennå' : `${n} lister`),
+    shopMonthly: (n: number) => (n === 0 ? 'Ingen faste lister ennå' : `${n} lister`),
     shopDishes: (n: number) => (n === 0 ? 'Ingen retter lagret' : `${n} retter`),
     shopCatalogue: (n: number) => (n === 0 ? 'Ingen ennå' : `${n} varer`),
     habitsList: (going: number, untouched: number) =>
@@ -4558,6 +4560,7 @@ const is: typeof en = {
     todoWhenever: (n: number) => (n === 0 ? 'Ekkert bíður' : isCount(n, `${n} bíður`, `${n} bíða`)),
     todoRecurring: (n: number) => (n === 0 ? 'Engar endurtekningar' : `${n} endurtekningar`),
     shopLists: (n: number) => (n === 0 ? 'Engir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
+    shopMonthly: (n: number) => (n === 0 ? 'Engir fastir listar enn' : isCount(n, `${n} listi`, `${n} listar`)),
     shopDishes: (n: number) => (n === 0 ? 'Engir réttir vistaðir' : isCount(n, `${n} réttur`, `${n} réttir`)),
     shopCatalogue: (n: number) => (n === 0 ? 'Ekkert enn' : isCount(n, `${n} vara`, `${n} vörur`)),
     habitsList: (going: number, untouched: number) =>

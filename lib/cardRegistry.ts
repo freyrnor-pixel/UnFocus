@@ -291,8 +291,14 @@ export const CARDS = {
   // read) — see components/TodoSurface.tsx for where the content actually lives now.
 
   // ── Shop ───────────────────────────────────────────────────────────────────────────────
-  // The maintainer's order, verbatim, and deliberately with NO group headers over it — he
-  // declined an "Inventory" grouping, so nobody should add one back.
+  // ⚠️ **Order is `lists → monthly → dishes → catalogue` as of 2026-09-07**, REVERSING the
+  // 2026-08-21 maintainer order ("Shopping lists, food and Catalogue, Monthly") on an explicit
+  // later instruction to match the four-peer-card Handle mockup (`DESIGN_COMPARISON` Shopping
+  // Screen, 2026-09-07: "now → fast → planlegging → kilde" — Handlelister, Månedsliste, Retter,
+  // Katalog). `shopMonthly` returns as a top-level registry card (see its entry below,
+  // reversing 2026-08-26 phase 5's demotion to a section of `shopLists`) — deliberately still
+  // with NO "Inventory" group header over Dishes/Catalogue, which the 2026-08-21 answer also
+  // declined and this pass leaves alone.
   shopLists: {
     screen: 'shop',
     order: 1,
@@ -318,9 +324,31 @@ export const CARDS = {
     // header. This states what was already true rather than adding anything.
     compose: { depth: 'panel', opts: ['qty', 'category'] },
   },
-  shopDishes: {
+  // ⚠️ **Back as a top-level card (2026-09-07), reversing 2026-08-26 phase 5's demotion to a
+  // SECTION inside `shopLists`.** That demotion's reasoning ("the per-list cards are
+  // sections… which never grow to fill the screen on their own") was true of the per-list
+  // Surfaces then and still is now — those stay sections, drawn one-per-row-of-data, same as
+  // before. What changed is the OUTER wrapper: the mockup names Månedsliste as its own peer
+  // card beside Handlelister/Retter/Katalog, each with its own fold and peek line, so the
+  // outer wrapper is a registry card again rather than an embedded `SectionCard`. `expand:
+  // 'none'` carries over unchanged — a full-screen pane over a stack of per-list Surfaces is
+  // still the same "nothing to mount that isn't already on screen" refusal.
+  shopMonthly: {
     screen: 'shop',
     order: 2,
+    hue: 'shopping',
+    domain: 'shop',
+    icon: 'repeat',
+    title: (t) => t.monthlyTabLabel,
+    fold: 'persisted',
+    expand: 'none',
+    expandDeclined:
+      "Monthly's per-list Surfaces are already fully expanded in place on the card itself — there is nothing a full-screen pane would show that isn't already on screen.",
+    compose: { depth: 'panel', opts: ['qty', 'category'] },
+  },
+  shopDishes: {
+    screen: 'shop',
+    order: 3,
     // Food's own orange, not Shopping's green: lib/domainColor.ts aliases shop/meal/budget/scan
     // onto one emerald, so `domain="meal"` and `domain="shop"` drew the identical badge.
     hue: 'food',
@@ -333,7 +361,7 @@ export const CARDS = {
   },
   shopCatalogue: {
     screen: 'shop',
-    order: 3,
+    order: 4,
     hue: 'shopping',
     domain: 'shop',
     icon: 'list',
@@ -345,15 +373,6 @@ export const CARDS = {
     // row over lib/shoppingCategories.ts's preset list.
     compose: { depth: 'panel', opts: ['price', 'category'] },
   },
-  // ⚠️ **`shopMonthly` is GONE from this registry as of 2026-08-26** (phase 5 of
-  // DESIGN_COMPARISON/19-IMPLEMENTATION.md) — turned into a SECTION drawn inside `shopLists`,
-  // the same boundary move that took `todoGoals`/`todoEarlierDays`/`todoWashedAway` out of the
-  // registry: Monthly was already declared `expand: 'none'` for exactly the section reason
-  // ("the per-list cards are sections… which never grow to fill the screen on their own") —
-  // the outer `shopMonthly` wrapper around them was the one piece of that card that was still a
-  // CARD rather than a section, and it held no user data of its own to justify it. See
-  // app/(tabs)/shopping.tsx for where the content lives now (still every bit of it — the
-  // per-list `Surface`s, the filter bar, the empty state — just without an outer registry card).
 
   // ── Home (the CENTRE tab) ──────────────────────────────────────────────────────────────
   // Maintainer, 2026-08-22: *"'Home' had easy access to todays tasks, Notes, and shopping."*
