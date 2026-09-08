@@ -1,26 +1,77 @@
 /**
  * settings.tsx — app settings
  *
- * Tabbed settings screen (Decision 001 tier='sub') — a non-scrolling 3-tab bar
- * (General | Personal | Advanced) sits directly under the header as ScreenScaffold's
+ * Tabbed settings screen (Decision 001 tier='sub') — a non-scrolling 4-tab bar
+ * (General | Lists | Alerts | More) sits directly under the header as ScreenScaffold's
  * `stickyBelowHeader`; each tab is its own scroll of cards (local `tab` state, no
  * router routes).
  *
- * - General — what people actually open Settings to change: You group ([Profile (name +
- *   language) / Appearance (dark mode, text size)] one merged panel) → Notifications (one
- *   flat card: plan, habit, medicine, weekly + time, persistent overview, quiet hours +
- *   times) → Layout (detail level, horizontal plans timeline, starting screen, re-run
+ * - General — who you are and how the app looks: Profile (name + language) → Appearance
+ *   (dark mode, text size) → Accessibility (reduced motion, particles, glass surfaces,
+ *   reduce effects, left-handed) → Layout (detail level, horizontal plans timeline, re-run
  *   setup) → Send Feedback.
- * - Personal — configured once, rarely revisited: Accessibility (reduced motion, particles,
- *   glass surfaces, left-handed, show tips again) → Shopping (weekly reset weekday, monthly
- *   reset date — the `?section=shopping` deep-link target) → Device features
- *   (voice/contacts/location/calendar + which calendars the timeline may read).
- * - Advanced — Features card (the Energy/Rewards mode SegmentedControl, then Energy's own
- *   mode + capacities when Energy mode is on, then the FEATURE_ROWS flags, then the
- *   Automations link when that flag is on) → [People/family + Paired devices] one merged
- *   panel, rendered only while SHARING_VISIBLE → Tags → Data group ([Backup & restore /
- *   Version & updates] one merged panel) → the destructive Reset data card → Debug mode
- *   (which also carries the Design Lab link while debug is on).
+ * - Lists — Shopping (weekly reset weekday, monthly reset date — the `?section=shopping`
+ *   deep-link target, and the one DisclosureRow left on this screen) → Content (doors to the
+ *   Catalogue and Food editors).
+ * - Alerts — one flat card: plan, habit, medicine, weekly + time, persistent overview,
+ *   quiet hours + times.
+ * - More — Features card (the Energy/Rewards mode SegmentedControl, then Energy's own mode +
+ *   capacities when Energy mode is on, then the FEATURE_ROWS flags, then the Automations link
+ *   when that flag is on) → [People/family + Paired devices] one merged panel, rendered only
+ *   while SHARING_VISIBLE → Tags → Device features (voice/contacts/location/calendar + which
+ *   calendars the timeline may read) → Data group ([Backup & restore / Version & updates] one
+ *   merged panel) → the destructive Reset data card → Debug mode (which also carries the
+ *   Design Lab link while debug is on).
+ *
+ * **Reorganization to the settings mockup (2026-09-08).** The maintainer supplied a Settings
+ * mockup (`docs/audit/Settings_Screen_2026-09-08.html`, committed alongside this change) and
+ * two scope decisions: restructure to its information architecture using settings that
+ * ALREADY EXIST, and leave out the rows it draws that this repo deliberately removed. Four
+ * things changed, and the gap ledger is `docs/audit/SETTINGS_GAP_2026-09-08.md`.
+ *   1. **'personal' is retired as a tab.** It was the catch-all holding the aids, the shopping
+ *      cadence and the device permissions — three unrelated subjects under a name describing
+ *      none of them. Accessibility joined Appearance on General, Shopping led the new Lists
+ *      tab, and device permissions went to More.
+ *   2. **Notifications and Lists became tabs of their own**, which is the mockup's actual
+ *      point: General had been carrying five groups again, the same drift the 2026-08-17 pass
+ *      had just corrected.
+ *   3. **The accordions are gone.** Profile, Appearance and Accessibility were `DisclosureRow`s;
+ *      they are open cards now. The mockup has no accordions on any tab, and once each of those
+ *      cards was alone under its own header it was the single-setting container the 2026-08-17
+ *      pass went through this screen deleting. Shopping is the ONE survivor and only because the
+ *      `?section=` deep link needs something to open (see SettingsSection).
+ *   4. **FOUR tabs, not the mockup's five, and the fourth label is the short word "More".**
+ *      Appearance was built as its own tab first, and `npm run wraps --lang=no --width=360`
+ *      measured all five Norwegian labels truncating at once — "Utseende" needed 30px more than
+ *      its 35px slot, "Generelt" 28px more than 32px. TabSlider has no scroll mode by design and
+ *      its header names this exact remedy: shorten the labels, or merge two tabs. Both were
+ *      needed. Re-measured after: Norwegian went from 10 truncations to 1 (pre-existing, and not
+ *      a tab), Icelandic to 0 tab truncations. **Re-splitting these tabs, or restoring
+ *      "Avansert"/"Advanced" as the fourth label, means re-running wraps in all three languages
+ *      first** — Icelandic is the tight one ("Tilkynningar" is twelve characters).
+ *
+ * ⚠️ **What the mockup draws that is deliberately NOT built** — do not read these as an
+ * oversight, and re-read the cited evidence before restoring one:
+ *   - **Jobb-modus, arbeidstid, arbeidsdager, norske helligdager.** Removed 2026-07-25 because
+ *     NOTHING in the app read the columns they wrote. They are still inert (see
+ *     store/useSettingsStore.ts's "Inert columns" note); a toggle here would write a value no
+ *     code reads, which is exactly why they went.
+ *   - **Månedlig budsjett.** Budget is per Monthly list since 2026-07-22
+ *     (store/useMonthlyListStore.ts), edited from that list's own Budget pill on the Shopping
+ *     screen. The global `monthlyBudgetNok` the mockup's field would write is inert.
+ *   - **Testdata (load / remove).** The `freyrMode*` demo seeding, removed 2026-08-17.
+ *   - **Colour themes, custom accent hue, materials, wallpaper.** These are FEATURES the app
+ *     does not have, not settings rows. `ColorTheme` is the single-member union 'default';
+ *     `bubble_material` and `custom_primary_color` are orphaned columns from the dropped
+ *     BubbleMenu and the pre-rebuild theme system; there is no wallpaper anywhere. Note the
+ *     app was deliberately FLATTENED on 2026-09-07 (no BlurView remains), so "Materiale" would
+ *     reverse a shipped decision as well as needing a new surface-rendering layer.
+ *   - **Følgesvenn (companion pet), "Vis fullførte planer", "Tips og forklaringer", "Behold
+ *     fullførte varer", camera permission.** No such setting exists. `showHints` is the nearest
+ *     to real and has zero consumers, so a switch would be inert on arrival.
+ *   - **"Faste vaner" and "Kategorier og farger" as Content links.** Habits is a top-level tab
+ *     (a link would be a second front door), and tags — the app's "categories" — are EDITED on
+ *     More rather than linked to.
  *
  * **Declutter + reorganization (2026-08-17)**, on three instructions: remove settings that
  * are not useful, move the most useful to the first page, and never wrap a container around a
@@ -141,7 +192,8 @@
  *     `?tab=` had been passed by app/(tabs)/shopping.tsx's "Nullstillingsdager" link since that
  *     link was written and read by nobody — there was no `useLocalSearchParams` here at all, so
  *     every caller silently landed on General. Two things are worth knowing before adding a
- *     second target. (1) A tab is not enough: every group here is a collapsed `DisclosureRow`,
+ *     second target. (1) A tab is not enough: Shopping is a `DisclosureRow` (the only one left
+ *     on this screen since 2026-09-08, kept precisely because this link needs something to open),
  *     so the right tab still leaves the control shut and usually off screen — a `section` opens
  *     its card AND scrolls to it, via `ScrollToNodeContext` (components/ScreenScaffold.tsx), and
  *     `?tab=` without `?section=` is a half-answer. (2) `tab` is seeded in the `useState`
@@ -155,10 +207,10 @@
  *     pill on the Shopping screen's Monthly tab (→ app/budget.tsx), not from Settings. The
  *     `monthlyResetDate` field just above it is unaffected (still one global payday-boundary
  *     date, shared by every list).
- *   - **Tab bar (updated 2026-07-25, never scrollable)**: the 3-tab bar is
+ *   - **Tab bar (updated 2026-09-08, never scrollable)**: the 4-tab bar is
  *     `components/TabSlider.tsx` — a single accent pill SLIDES to sit behind whichever
  *     category tab is active, replacing the old per-tab `TabBoxHighlight` boxes. TabSlider has no scroll mode at all (by design
- *     — see its own header), so all three tabs must fit in one row: keep `config.tabs.*`
+ *     — see its own header), so all four tabs must fit in one row: keep `config.tabs.*`
  *     labels to single short words in BOTH languages ("Personal"/"Personlig",
  *     "Advanced"/"Avansert") so they never need to scroll. Each segment always sizes to its own label
  *     (TabSlider no longer has a fixed-equal-width mode — see its "No `sizing` prop" edit
@@ -359,9 +411,18 @@ const NOTIF_SWITCHES = [
   'persistentNotifEnabled',
 ] as const satisfies readonly (keyof Settings)[];
 
-type SettingsTab = 'general' | 'personal' | 'advanced';
+/**
+ * The five category tabs (2026-09-08 mockup pass; was three — general/personal/advanced).
+ * 'personal' is GONE as a tab id: it was the catch-all that held the aids, the shopping
+ * cadence and the device permissions, which is three unrelated subjects under a name that
+ * describes none of them. Its contents were split across 'appearance' (the aids), 'lists'
+ * (shopping) and 'advanced' (permissions). A `?tab=personal` link would now fail
+ * `SETTINGS_TABS.includes` and land on General — which is why the check is there, and why
+ * there is no back-compat alias: the deep-link test proves no sender exists.
+ */
+type SettingsTab = 'general' | 'lists' | 'notifications' | 'advanced';
 /** Runtime companion to `SettingsTab`, so a `?tab=` param can be validated rather than cast. */
-const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'personal', 'advanced'] as const;
+const SETTINGS_TABS: readonly SettingsTab[] = ['general', 'lists', 'notifications', 'advanced'] as const;
 
 /**
  * A card on this screen that something else can link straight to, via `?section=`.
@@ -615,7 +676,8 @@ export default function SettingsScreen() {
 
   const TABS: { key: SettingsTab; label: string }[] = [
     { key: 'general', label: t.config.tabs.general },
-    { key: 'personal', label: t.config.tabs.personal },
+    { key: 'lists', label: t.config.tabs.lists },
+    { key: 'notifications', label: t.config.tabs.notifications },
     { key: 'advanced', label: t.config.tabs.advanced },
   ];
 
@@ -931,65 +993,90 @@ export default function SettingsScreen() {
       <View style={styles.content}>
         {tab === 'general' && (
           <>
-            {/* ===== YOU ===== */}
-            {/* Profile + Appearance — one panel of DisclosureRows (2026-07-13 layering pass;
-                the grouping pattern DisclosureRow's own header documents). Accessibility used
-                to be the panel's third card and moved to Personal in the 2026-08-17 pass: it is
-                a set of aids you configure once, and it was crowding out the rows this tab
-                exists for. Text size came the other way, out of Accessibility and into
-                Appearance — it is the single most looked-for control on this screen and it is a
-                look preference before it is an aid. */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.you}</Text>
+            {/* ===== YOU =====
+                Profile was the first of two DisclosureRows in a merged panel until the
+                2026-09-08 mockup pass; Appearance, the other one, is its own tab now. A lone
+                DisclosureRow inside a Surface is the single-setting container the 2026-08-17
+                declutter pass went through this screen removing, so what is left is flat: the
+                name field and the language picker, both visible without opening anything.
+                This is also what the mockup draws — it has no accordions on any tab. */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.sectionProfile}</Text>
             <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border, gap: Spacing.sm }]}>
-                <DisclosureRow title={t.sectionProfile} accentColor={theme.accent} first rounded>
-                  <Input
-                    label={t.yourName}
-                    value={name}
-                    onChangeText={(v) => setName(v)}
-                    onBlur={() => { applyAndSync({ userName: name }); usePeopleStore.getState().publishSelfName(name); }}
-                    placeholder={t.namePlaceholder}
-                    returnKeyType="done"
-                  />
-                  <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.name}</Text>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Input
+                  label={t.yourName}
+                  value={name}
+                  onChangeText={(v) => setName(v)}
+                  onBlur={() => { applyAndSync({ userName: name }); usePeopleStore.getState().publishSelfName(name); }}
+                  placeholder={t.namePlaceholder}
+                  returnKeyType="done"
+                />
+                <Text style={[styles.descText, { color: theme.textMuted }]}>{t.config.desc.name}</Text>
 
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
-                  {/* 2026-08-10: was a hand-rolled two-pill `langChip` row — an exclusive
-                      picker sitting three lines above the darkMode SegmentedControl in this
-                      same card, drawn as accent-filled pills instead of a sliding track. That
-                      pass moved a flag into each label rather than dropping it, on the
-                      reasoning that a flag is how a language row is recognised before you can
-                      read either option.
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.sectionLanguage}</Text>
+                {/* 2026-08-10: was a hand-rolled two-pill `langChip` row — an exclusive
+                    picker sitting three lines above the darkMode SegmentedControl in this
+                    same card, drawn as accent-filled pills instead of a sliding track. That
+                    pass moved a flag into each label rather than dropping it, on the
+                    reasoning that a flag is how a language row is recognised before you can
+                    read either option.
 
-                      **The flags came back off on 2026-08-15, when Icelandic made it three.**
-                      SegmentedControl splits its track into n equal segments, so a third
-                      option takes each one to ~71px at 327px wide (and 82px at 360) while
-                      "🇮🇸 Íslenska" measures 77px — it shipped as "Ísle…" / "Eng…" on every
-                      common phone width. Measured, not estimated: the bare words need 53px
-                      (Íslenska), 49px (English) and 40px (Norsk), which clear every width with
-                      room to spare. A truncated language name is strictly worse at being
-                      recognised-before-read than an untruncated one, which is the flags' own
-                      argument turned around. Don't re-add flags without re-measuring.
+                    **The flags came back off on 2026-08-15, when Icelandic made it three.**
+                    SegmentedControl splits its track into n equal segments, so a third
+                    option takes each one to ~71px at 327px wide (and 82px at 360) while
+                    "🇮🇸 Íslenska" measures 77px — it shipped as "Ísle…" / "Eng…" on every
+                    common phone width. Measured, not estimated: the bare words need 53px
+                    (Íslenska), 49px (English) and 40px (Norsk), which clear every width with
+                    room to spare. A truncated language name is strictly worse at being
+                    recognised-before-read than an untruncated one, which is the flags' own
+                    argument turned around. Don't re-add flags without re-measuring.
 
-                      Note these are `t.*` strings, so they follow the CURRENT language — in an
-                      English UI the row reads "Norwegian / English / Icelandic". That differs
-                      from onboarding's Basics row, which names each language in ITSELF on
-                      purpose (see t.basics.language's note: you have to find your own language
-                      without already reading the current one). Settings can afford the
-                      difference because you are already in a language you can read; if that is
-                      ever unified, unify it toward the endonyms, not away from them. */}
-                  <SegmentedControl
-                    value={settings.language}
-                    onChange={(v) => applyAndSync({ language: v as Language })}
-                    options={[
-                      { value: 'no', label: t.norwegian },
-                      { value: 'en', label: t.english },
-                      { value: 'is', label: t.icelandic },
-                    ]}
-                  />
-                </DisclosureRow>
+                    Note these are `t.*` strings, so they follow the CURRENT language — in an
+                    English UI the row reads "Norwegian / English / Icelandic". That differs
+                    from onboarding's Basics row, which names each language in ITSELF on
+                    purpose (see t.basics.language's note: you have to find your own language
+                    without already reading the current one). Settings can afford the
+                    difference because you are already in a language you can read; if that is
+                    ever unified, unify it toward the endonyms, not away from them. */}
+                <SegmentedControl
+                  value={settings.language}
+                  onChange={(v) => applyAndSync({ language: v as Language })}
+                  options={[
+                    { value: 'no', label: t.norwegian },
+                    { value: 'en', label: t.english },
+                    { value: 'is', label: t.icelandic },
+                  ]}
+                />
+              </Surface>
+            </View>
+
+            {/* ===== APPEARANCE + ACCESSIBILITY =====
+                The 2026-09-08 mockup draws these as their own "Utseende" tab, and they were
+                built that way first. They are HERE because the tab bar could not hold five:
+                `npm run wraps --lang=no --width=360` measured all five Norwegian labels
+                truncating at once — "Utseende" needed 30px more than its 35px slot, "Generelt"
+                28px more than 32px. TabSlider has no scroll mode by design, and its header names
+                this exact remedy: shorten the labels or merge two tabs. Four tabs measure clean.
+                What survives from the mockup is the flattening: both cards were DisclosureRows
+                (Appearance in General's opening panel, Accessibility a tab away on Personal) and
+                both are open cards now, which is the mockup's real point — it has no accordions.
+                Re-splitting these into a fifth tab means re-running wraps in all three languages
+                first; Icelandic is the tight one ("Tilkynningar" is twelve characters). */}
+            {/* ===== APPEARANCE =====
+                Its own tab since the 2026-09-08 mockup pass — it was the second DisclosureRow
+                in General's opening panel. Flattened out of that accordion for the same reason
+                Profile was (see General). Accessibility joins it from Personal: both cards
+                answer "how does the app look and move", and splitting them across two tabs was
+                why reduced motion and particles were hard to find.
+                ⚠️ The mockup's other three Appearance groups are NOT built and are not an
+                oversight — colour themes, materials and the wallpaper toggle are features this
+                app does not have. `ColorTheme` is the single-member union 'default'
+                (store/useSettingsStore.ts), `bubble_material` and `custom_primary_color` are
+                orphaned columns from the dropped BubbleMenu and the pre-rebuild theme system,
+                and there is no wallpaper anywhere. Each is a feature build, not a settings row;
+                see docs/audit/SETTINGS_GAP_2026-09-08.md. */}
 
                 {/* UTSEENDE — same panel. Two controls, both about what the app LOOKS like:
                     light/dark and how big the text is.
@@ -1008,34 +1095,296 @@ export default function SettingsScreen() {
                     other. `glassSurfaces` is the survivor (Personal → Accessibility) because it
                     is the broader control and the one sheets and the nav bar obey. Column and
                     Settings field survive; see components/Surface.tsx's `opaqueCards` note. */}
-                <DisclosureRow title={t.config.sections.appearance} accentColor={theme.accent} rounded>
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
-                  <SegmentedControl
-                    value={settings.darkMode}
-                    onChange={(v) => settings.update({ darkMode: v as DarkMode })}
-                    options={[
-                      { value: 'off', label: t.darkModeOff },
-                      { value: 'system', label: t.darkModeSystem },
-                      { value: 'on', label: t.darkModeOn },
-                    ]}
-                  />
-                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
-                  <SegmentedControl
-                    value={settings.fontSize}
-                    onChange={(v) => settings.update({ fontSize: v as FontSizePref })}
-                    options={[
-                      { value: 'small', label: t.settings.accessibility.fontSizeSmall },
-                      { value: 'default', label: t.settings.accessibility.fontSizeDefault },
-                      { value: 'large', label: t.settings.accessibility.fontSizeLarge },
-                    ]}
-                  />
-                </DisclosureRow>
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.appearance}</Text>
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.lightDarkModeLabel}</Text>
+                <SegmentedControl
+                  value={settings.darkMode}
+                  onChange={(v) => settings.update({ darkMode: v as DarkMode })}
+                  options={[
+                    { value: 'off', label: t.darkModeOff },
+                    { value: 'system', label: t.darkModeSystem },
+                    { value: 'on', label: t.darkModeOn },
+                  ]}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.settings.accessibility.fontSize}</Text>
+                <SegmentedControl
+                  value={settings.fontSize}
+                  onChange={(v) => settings.update({ fontSize: v as FontSizePref })}
+                  options={[
+                    { value: 'small', label: t.settings.accessibility.fontSizeSmall },
+                    { value: 'default', label: t.settings.accessibility.fontSizeDefault },
+                    { value: 'large', label: t.settings.accessibility.fontSizeLarge },
+                  ]}
+                />
               </Surface>
             </View>
 
+            {/* ===== ACCESSIBILITY ===== */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.settings.accessibility.title}</Text>
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <ToggleRow
+                  label={t.settings.accessibility.reducedMotion}
+                  checked={settings.reducedMotion}
+                  onChange={(v) => settings.update({ reducedMotion: v })}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                {/* **Back as of 2026-09-01**, with the ambient field it switches. It was removed
+                    on 2026-08-27 for the right reason — round 20 deleted
+                    `components/ParticleBackground.tsx`, so this row toggled a column nothing
+                    read — and the maintainer's follow-up was "backdrop is too empty, don't know
+                    why we removed particles and movement".
+                      It is not a second `reducedMotion`: that one stills every transition in the
+                    app, this one is only the ambient field. Onboarding's motion row expresses the
+                    pair as three rungs (lib/firstRunOptions.ts); this is the same middle rung
+                    reachable without re-running setup. */}
+                <ToggleRow
+                  label={t.settings.accessibility.particles}
+                  hint={t.settings.accessibility.particlesHint}
+                  checked={settings.particlesEnabled}
+                  onChange={(v) => settings.update({ particlesEnabled: v })}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                {/* The app's ONE reduce-transparency control since 2026-08-17. Appearance's
+                    "Solid cards" (`opaqueCards`) was a second, narrower switch over the same
+                    idea in a different card, and this one already overrode it — see
+                    components/Surface.tsx. Don't re-add the narrower one. */}
+                <ToggleRow
+                  label={t.settings.accessibility.glassSurfaces}
+                  hint={t.settings.accessibility.glassSurfacesHint}
+                  checked={settings.glassSurfaces}
+                  onChange={(v) => settings.update({ glassSurfaces: v })}
+                />
+                {/* 2026-08-29, the performance pass. Beside `glassSurfaces` because they are
+                    neighbours in kind, NOT because one subsumes the other: that switch is
+                    reduce-transparency and reaches only the blur, which is why turning it off
+                    did not make a slow device fast. This one also takes the card shadows and
+                    the backdrop's orb field — the other two per-frame GPU costs. Off by
+                    default. See store/useSettingsStore.ts for the measurement. */}
+                <ToggleRow
+                  label={t.settings.accessibility.reduceEffects}
+                  hint={t.settings.accessibility.reduceEffectsHint}
+                  checked={settings.reduceEffects}
+                  onChange={(v) => settings.update({ reduceEffects: v })}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <ToggleRow
+                  label={t.settings.accessibility.leftHanded}
+                  hint={t.settings.accessibility.leftHandedHint}
+                  checked={settings.leftHanded}
+                  onChange={(v) => settings.update({ leftHanded: v })}
+                />
+                {/* Text size moved to General → Appearance (2026-08-17): it is the control
+                    people come looking for, and it is a look preference before it is an aid.
+                    The horizontal-plans-timeline switch left in the 2026-07-25 reorganization
+                    and now sits in General → Layout with the other drawing preferences. */}
+                {/* ⚠️ **"Show tips again" is gone (2026-08-20).** It was the only way back once a
+                    screen's ⓘ intro card had been closed — and there are no ⓘ cards any more
+                    (components/HintCard.tsx is deleted app-wide; a screen's explanation lives in
+                    its empty-state card now, which comes back whenever the surface is empty and
+                    needs no restoring). `settings.dismissedHints` and `restoreHints()` survive
+                    as inert, so an existing row's stored keys are simply never read again. */}
+              </Surface>
+            </View>
+            {/* ===== LAYOUT ===== */}
+
+            {/* Moved up from Personal with Notifications (2026-08-17) — how lists are drawn and
+                which tab the app opens on are decisions a user makes early and looks for again,
+                not power-user territory. */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.layout}</Text>
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* Global default for every list-bearing surface (2026-07-27). A surface can
+                    still override this from its own header — components/LayoutPickerSheet.tsx.
+                    Presentation only: it changes how rows are DRAWN, never what the app does
+                    with them, so nothing here goes through applyAndSync the way
+                    calendarSyncEnabled/featureMedicine do. A row the chosen layout doesn't
+                    draw keeps its own reminders. */}
+                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.config.layouts.title}</Text>
+                <SegmentedControl
+                  value={settings.layoutDetail}
+                  onChange={(v) => settings.update({ layoutDetail: v as DetailLevel })}
+                  options={DETAIL_LEVELS.map((level) => ({
+                    value: level,
+                    label: t.config.layouts[level].label,
+                  }))}
+                />
+                <Text style={[styles.switchHint, { color: theme.textMuted }]}>
+                  {t.config.layouts[settings.layoutDetail].hint}
+                </Text>
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <ToggleRow
+                  label={t.settings.accessibility.timelineHorizontal}
+                  hint={t.settings.accessibility.timelineHorizontalHint}
+                  checked={settings.planTimelineHorizontal}
+                  onChange={(v) => settings.update({ planTimelineHorizontal: v })}
+                />
+                {/* ⚠️ **The starting-screen picker is GONE (consistency audit, 2026-08-21).**
+                    Maintainer: *"Middle screen is to be the Main one where app always starts
+                    when opening it fresh."* The app opens on the centre (To-do) tab now,
+                    unconditionally — `START_TAB_ROUTE` in lib/siteNav.ts. `settings.startScreen`
+                    and its column survive as inert; see store/useSettingsStore.ts's "Inert
+                    columns" note. Don't wire a new control to it. */}
+                {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
+                    in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
+                    settings the user has right now, which means walking through it and
+                    pressing Done without touching anything changes nothing at all.
+                    `?rows=all` is what makes this the SIX-row screen (2026-08-03). Onboarding
+                    itself now draws only the language row — the other five moved to Settings,
+                    where every one of them already had a home — so this link is the remaining
+                    place the full set is shown in one go. Without the param it would open the
+                    new-user welcome screen instead, which would be a strange thing to reach
+                    from a settings row. */}
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <SettingLinkRow
+                  label={t.firstRun.reRun}
+                  hint={t.firstRun.reRunHint}
+                  onPress={() => router.push('/onboarding/basics?rows=all')}
+                />
+              </Surface>
+            </View>
+            {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
+                Free-text composer → mailto: via Linking, falling back to the OS share
+                sheet if no mail client is configured. It stays on this tab while backup,
+                version and the resets moved to Advanced (2026-08-17): sending a note is
+                something any tester does, not a data-management chore. */}
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <Text style={[styles.switchLabel, { color: theme.text }]}>{t.feedback.cardTitle}</Text>
+                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.feedback.cardDesc}</Text>
+                <View style={{ marginTop: Spacing.sm }}>
+                  <Input
+                    value={feedbackText}
+                    onChangeText={setFeedbackText}
+                    placeholder={t.feedback.placeholder}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+                <PressableScale
+                  style={[styles.dangerBtn, feedbackText.trim() === '' && { opacity: 0.4 }]}
+                  onPress={handleSendFeedback}
+                  disabled={feedbackText.trim() === ''}
+                  scaleTo={0.97}
+                >
+                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.feedback.sendButton}</Text>
+                </PressableScale>
+              </Surface>
+            </View>
+          </>
+        )}
+
+        {tab === 'lists' && (
+          <>
+            {/* ===== LISTS =====
+                The mockup's "Lister" tab (2026-09-08). Shopping's two cadence fields were on
+                Personal, one tab and one closed accordion away from the Shopping screen that
+                sends people looking for them; the content editors they sit beside were
+                reachable only from their own surfaces. Monthly budget is deliberately NOT
+                here even though the mockup draws it — budget is per Monthly list since
+                2026-07-22 (store/useMonthlyListStore.ts), edited from that list's own Budget
+                pill, and the global `monthlyBudgetNok` it would write is inert. */}
+            {/* SHOPPING — the whole of the old Handle tab, which only ever held these two
+                settings and did not justify a tab of its own.
+
+                This is the one `?section=` target today (see SettingsSection): Shopping's ⓘ has
+                a "Nullstillingsdager" link that used to land on this screen's General tab with
+                this card shut. `ref` + `onLayout` are what let it be scrolled to; `open` is
+                controlled only while the deep link is live, and the first toggle hands the card
+                back to its own default-closed behaviour. It stays an DisclosureRow for exactly
+                that reason — the deep link needs something to open. */}
+            <View style={styles.section} ref={sectionNode} onLayout={onSectionLayout}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                {/* `defaultOpen` (2026-09-08): every other card on this screen is flat now, so
+                    leaving this one shut made the Lists tab read as an empty screen with a single
+                    closed row on it. It stays a DisclosureRow rather than going flat because the
+                    `?section=shopping` deep link needs something to OPEN and scroll to —
+                    `defaultOpen` changes the resting state, not the contract, and the controlled
+                    `open` below still takes over while the link is live. */}
+                <DisclosureRow
+                  title={t.sectionShopping}
+                  accentColor={theme.accent}
+                  first
+                  defaultOpen
+                  open={openSection === 'shopping' ? true : undefined}
+                  onToggle={() => setOpenSection(null)}
+                >
+                  <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
+                  {/* 2026-08-10: was a `flexWrap` row of seven `dayChip`s. Two things were wrong
+                      with it and the conversion fixes both. It is an EXCLUSIVE picker (one reset
+                      day) drawn in the multi-select chip shape, which is the thing 19a's
+                      exemption is not for — and it carried `minWidth: MIN_TAP_TARGET`, so seven
+                      chips needed 7×48 + 6×4 = 360px inside a card whose inner width is ~329px
+                      even on a 393px screen, i.e. it wrapped to a second line on every phone.
+                      That last part is ARITHMETIC, not a measurement: `npm run wraps` never
+                      reached this row, because its Settings scan does not expand the Shopping
+                      card it lives in — worth knowing before trusting a clean audit here.
+                      `SegmentedControl` divides its track into seven equal flex segments with no
+                      minWidth and shrinks the label to fit, which is precisely the shape
+                      AGENTS.md's wrap-audit note prescribes for a weekday row. */}
+                  <SegmentedControl
+                    value={settings.weeklyResetDay}
+                    onChange={(v) => applyAndSync({ weeklyResetDay: v as number })}
+                    options={DAY_LABELS.map((label, i) => ({ value: i, label: label.slice(0, 3) }))}
+                  />
+
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                  <Input
+                    label={t.monthlyResetDate}
+                    value={monthlyDateInput}
+                    onChangeText={setMonthlyDateInput}
+                    onBlur={() => {
+                      const n = parseInt(monthlyDateInput, 10);
+                      if (!isNaN(n) && n >= 1 && n <= 31) {
+                        applyAndSync({ monthlyResetDate: n });
+                      } else {
+                        setMonthlyDateInput(String(settings.monthlyResetDate));
+                        setInputWarning(t.invalidMonthlyDateMsg);
+                      }
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="1–31"
+                    maxLength={2}
+                  />
+                  <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
+                </DisclosureRow>
+              </Surface>
+            </View>
+            {/* ===== CONTENT =====
+                Doors to the two catalogues that feed the lists on this tab. The mockup also
+                draws "Faste vaner" and "Kategorier og farger" here: Habits is a top-level tab
+                (linking a tab out of Settings would be a second front door to it), and tags —
+                the app's "categories" — are EDITED on Advanced rather than linked to, so
+                neither becomes a row that only bounces. */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.content}</Text>
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <SettingLinkRow
+                  label={t.catalogueTabLabel}
+                  hint={t.config.desc.catalogueLink}
+                  onPress={() => router.push('/catalogue')}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <SettingLinkRow
+                  label={t.foodTabLabel}
+                  hint={t.config.desc.foodLink}
+                  onPress={() => router.push('/food')}
+                />
+              </Surface>
+            </View>
+
+          </>
+        )}
+
+        {tab === 'notifications' && (
+          <>
             {/* ===== NOTIFICATIONS ===== */}
-            {/* Moved up from the Personal tab (2026-08-17). This is what a user opens Settings
+            {/* Its own tab since 2026-09-08; it came off the retired Personal tab onto General
+                in 2026-08-17 and off General onto this one now. This is what a user opens Settings
                 to change, and it was two tabs and one closed accordion away.
                 It is a FLAT card under its own group header, not an DisclosureRow: the weekly
                 reminder used to be a separate accordion holding one switch and its time field,
@@ -1126,314 +1475,6 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                 )}
-              </Surface>
-            </View>
-
-            {/* ===== LAYOUT ===== */}
-            {/* Moved up from Personal with Notifications (2026-08-17) — how lists are drawn and
-                which tab the app opens on are decisions a user makes early and looks for again,
-                not power-user territory. */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.config.sections.layout}</Text>
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                {/* Global default for every list-bearing surface (2026-07-27). A surface can
-                    still override this from its own header — components/LayoutPickerSheet.tsx.
-                    Presentation only: it changes how rows are DRAWN, never what the app does
-                    with them, so nothing here goes through applyAndSync the way
-                    calendarSyncEnabled/featureMedicine do. A row the chosen layout doesn't
-                    draw keeps its own reminders. */}
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.config.layouts.title}</Text>
-                <SegmentedControl
-                  value={settings.layoutDetail}
-                  onChange={(v) => settings.update({ layoutDetail: v as DetailLevel })}
-                  options={DETAIL_LEVELS.map((level) => ({
-                    value: level,
-                    label: t.config.layouts[level].label,
-                  }))}
-                />
-                <Text style={[styles.switchHint, { color: theme.textMuted }]}>
-                  {t.config.layouts[settings.layoutDetail].hint}
-                </Text>
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.settings.accessibility.timelineHorizontal}
-                  hint={t.settings.accessibility.timelineHorizontalHint}
-                  checked={settings.planTimelineHorizontal}
-                  onChange={(v) => settings.update({ planTimelineHorizontal: v })}
-                />
-                {/* ⚠️ **The starting-screen picker is GONE (consistency audit, 2026-08-21).**
-                    Maintainer: *"Middle screen is to be the Main one where app always starts
-                    when opening it fresh."* The app opens on the centre (To-do) tab now,
-                    unconditionally — `START_TAB_ROUTE` in lib/siteNav.ts. `settings.startScreen`
-                    and its column survive as inert; see store/useSettingsStore.ts's "Inert
-                    columns" note. Don't wire a new control to it. */}
-                {/* Re-run the first-run flow. Non-destructive, so it lives here rather than
-                    in the red Reset card: it re-enters app/onboarding/basics.tsx seeded from the
-                    settings the user has right now, which means walking through it and
-                    pressing Done without touching anything changes nothing at all.
-                    `?rows=all` is what makes this the SIX-row screen (2026-08-03). Onboarding
-                    itself now draws only the language row — the other five moved to Settings,
-                    where every one of them already had a home — so this link is the remaining
-                    place the full set is shown in one go. Without the param it would open the
-                    new-user welcome screen instead, which would be a strange thing to reach
-                    from a settings row. */}
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <SettingLinkRow
-                  label={t.firstRun.reRun}
-                  hint={t.firstRun.reRunHint}
-                  onPress={() => router.push('/onboarding/basics?rows=all')}
-                />
-              </Surface>
-            </View>
-
-            {/* Send Feedback (2026-07-13) — always visible, not gated on debug mode.
-                Free-text composer → mailto: via Linking, falling back to the OS share
-                sheet if no mail client is configured. It stays on this tab while backup,
-                version and the resets moved to Advanced (2026-08-17): sending a note is
-                something any tester does, not a data-management chore. */}
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <Text style={[styles.switchLabel, { color: theme.text }]}>{t.feedback.cardTitle}</Text>
-                <Text style={[styles.descText, { color: theme.textMuted, marginTop: Spacing.xs }]}>{t.feedback.cardDesc}</Text>
-                <View style={{ marginTop: Spacing.sm }}>
-                  <Input
-                    value={feedbackText}
-                    onChangeText={setFeedbackText}
-                    placeholder={t.feedback.placeholder}
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-                <PressableScale
-                  style={[styles.dangerBtn, feedbackText.trim() === '' && { opacity: 0.4 }]}
-                  onPress={handleSendFeedback}
-                  disabled={feedbackText.trim() === ''}
-                  scaleTo={0.97}
-                >
-                  <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.feedback.sendButton}</Text>
-                </PressableScale>
-              </Surface>
-            </View>
-          </>
-        )}
-
-        {tab === 'personal' && (
-          <>
-            {/* PERSONAL — the settings you configure once and rarely revisit: the aids, the
-                shopping cadence, and which device capabilities the app may use.
-                Notifications and Layout led this tab until 2026-08-17 and are on General now
-                (they are the reason people open Settings); Accessibility came the other way,
-                out of General's opening panel. */}
-            {/* ===== ACCESSIBILITY ===== */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.settings.accessibility.title}</Text>
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ToggleRow
-                  label={t.settings.accessibility.reducedMotion}
-                  checked={settings.reducedMotion}
-                  onChange={(v) => settings.update({ reducedMotion: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* **Back as of 2026-09-01**, with the ambient field it switches. It was removed
-                    on 2026-08-27 for the right reason — round 20 deleted
-                    `components/ParticleBackground.tsx`, so this row toggled a column nothing
-                    read — and the maintainer's follow-up was "backdrop is too empty, don't know
-                    why we removed particles and movement".
-                      It is not a second `reducedMotion`: that one stills every transition in the
-                    app, this one is only the ambient field. Onboarding's motion row expresses the
-                    pair as three rungs (lib/firstRunOptions.ts); this is the same middle rung
-                    reachable without re-running setup. */}
-                <ToggleRow
-                  label={t.settings.accessibility.particles}
-                  hint={t.settings.accessibility.particlesHint}
-                  checked={settings.particlesEnabled}
-                  onChange={(v) => settings.update({ particlesEnabled: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* The app's ONE reduce-transparency control since 2026-08-17. Appearance's
-                    "Solid cards" (`opaqueCards`) was a second, narrower switch over the same
-                    idea in a different card, and this one already overrode it — see
-                    components/Surface.tsx. Don't re-add the narrower one. */}
-                <ToggleRow
-                  label={t.settings.accessibility.glassSurfaces}
-                  hint={t.settings.accessibility.glassSurfacesHint}
-                  checked={settings.glassSurfaces}
-                  onChange={(v) => settings.update({ glassSurfaces: v })}
-                />
-                {/* 2026-08-29, the performance pass. Beside `glassSurfaces` because they are
-                    neighbours in kind, NOT because one subsumes the other: that switch is
-                    reduce-transparency and reaches only the blur, which is why turning it off
-                    did not make a slow device fast. This one also takes the card shadows and
-                    the backdrop's orb field — the other two per-frame GPU costs. Off by
-                    default. See store/useSettingsStore.ts for the measurement. */}
-                <ToggleRow
-                  label={t.settings.accessibility.reduceEffects}
-                  hint={t.settings.accessibility.reduceEffectsHint}
-                  checked={settings.reduceEffects}
-                  onChange={(v) => settings.update({ reduceEffects: v })}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.settings.accessibility.leftHanded}
-                  hint={t.settings.accessibility.leftHandedHint}
-                  checked={settings.leftHanded}
-                  onChange={(v) => settings.update({ leftHanded: v })}
-                />
-                {/* Text size moved to General → Appearance (2026-08-17): it is the control
-                    people come looking for, and it is a look preference before it is an aid.
-                    The horizontal-plans-timeline switch left in the 2026-07-25 reorganization
-                    and now sits in General → Layout with the other drawing preferences. */}
-                {/* ⚠️ **"Show tips again" is gone (2026-08-20).** It was the only way back once a
-                    screen's ⓘ intro card had been closed — and there are no ⓘ cards any more
-                    (components/HintCard.tsx is deleted app-wide; a screen's explanation lives in
-                    its empty-state card now, which comes back whenever the surface is empty and
-                    needs no restoring). `settings.dismissedHints` and `restoreHints()` survive
-                    as inert, so an existing row's stored keys are simply never read again. */}
-              </Surface>
-            </View>
-
-            {/* SHOPPING — the whole of the old Handle tab, which only ever held these two
-                settings and did not justify a tab of its own.
-
-                This is the one `?section=` target today (see SettingsSection): Shopping's ⓘ has
-                a "Nullstillingsdager" link that used to land on this screen's General tab with
-                this card shut. `ref` + `onLayout` are what let it be scrolled to; `open` is
-                controlled only while the deep link is live, and the first toggle hands the card
-                back to its own default-closed behaviour. It stays an DisclosureRow for exactly
-                that reason — the deep link needs something to open. */}
-          <View style={styles.section} ref={sectionNode} onLayout={onSectionLayout}>
-            <Surface style={[styles.card, { borderColor: theme.border }]}>
-              <DisclosureRow
-                title={t.sectionShopping}
-                accentColor={theme.accent}
-                first
-                open={openSection === 'shopping' ? true : undefined}
-                onToggle={() => setOpenSection(null)}
-              >
-                <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.weeklyResetDay}</Text>
-                {/* 2026-08-10: was a `flexWrap` row of seven `dayChip`s. Two things were wrong
-                    with it and the conversion fixes both. It is an EXCLUSIVE picker (one reset
-                    day) drawn in the multi-select chip shape, which is the thing 19a's
-                    exemption is not for — and it carried `minWidth: MIN_TAP_TARGET`, so seven
-                    chips needed 7×48 + 6×4 = 360px inside a card whose inner width is ~329px
-                    even on a 393px screen, i.e. it wrapped to a second line on every phone.
-                    That last part is ARITHMETIC, not a measurement: `npm run wraps` never
-                    reached this row, because its Settings scan does not expand the Shopping
-                    card it lives in — worth knowing before trusting a clean audit here.
-                    `SegmentedControl` divides its track into seven equal flex segments with no
-                    minWidth and shrinks the label to fit, which is precisely the shape
-                    AGENTS.md's wrap-audit note prescribes for a weekday row. */}
-                <SegmentedControl
-                  value={settings.weeklyResetDay}
-                  onChange={(v) => applyAndSync({ weeklyResetDay: v as number })}
-                  options={DAY_LABELS.map((label, i) => ({ value: i, label: label.slice(0, 3) }))}
-                />
-
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <Input
-                  label={t.monthlyResetDate}
-                  value={monthlyDateInput}
-                  onChangeText={setMonthlyDateInput}
-                  onBlur={() => {
-                    const n = parseInt(monthlyDateInput, 10);
-                    if (!isNaN(n) && n >= 1 && n <= 31) {
-                      applyAndSync({ monthlyResetDate: n });
-                    } else {
-                      setMonthlyDateInput(String(settings.monthlyResetDate));
-                      setInputWarning(t.invalidMonthlyDateMsg);
-                    }
-                  }}
-                  keyboardType="number-pad"
-                  placeholder="1–31"
-                  maxLength={2}
-                />
-                <Text style={[styles.paydayHint, { color: theme.textMuted }]}>{t.monthlyDateInputHint}</Text>
-              </DisclosureRow>
-            </Surface>
-          </View>
-
-            {/* Device features (2026-07-17, moved here from the General tab 2026-07-25) —
-                toggles for the reserve-only native surface: voice dictation (title mic),
-                contacts (attach-to-task), location (tag-with-my-location), calendar (mirror
-                timed tasks). All four default off; each gates its own editor/store wiring —
-                see components/TaskCard.tsx and store/useTaskStore.ts. Calendar goes through
-                applyAndSync so toggling it immediately re-syncs every eligible task; the
-                other three are read directly by TaskCard at render time, no background job
-                to kick.
-                The group header sits OUTSIDE the card now (2026-08-17), like every other
-                group on the three tabs — it was the one heading drawn inside its own Surface. */}
-            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.permissions.sectionTitle}</Text>
-            <View style={styles.section}>
-              <Surface style={[styles.card, { borderColor: theme.border }]}>
-                <ToggleRow
-                  label={t.permissions.voiceNotes.label}
-                  hint={t.permissions.voiceNotes.hint}
-                  checked={settings.voiceNotesEnabled}
-                  onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.permissions.contacts.label}
-                  hint={t.permissions.contacts.hint}
-                  checked={settings.contactsEnabled}
-                  onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.permissions.location.label}
-                  hint={t.permissions.location.hint}
-                  checked={settings.locationEnabled}
-                  onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
-                />
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                <ToggleRow
-                  label={t.permissions.calendar.label}
-                  hint={t.permissions.calendar.hint}
-                  checked={settings.calendarSyncEnabled}
-                  onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
-                />
-
-                {/* Which device calendars the timeline may READ (2026-08-02,
-                    lib/deviceCalendar.ts). Distinct from the toggle above it, which is about
-                    WRITING a mirrored event out — that is a separate feature with its own
-                    switch, and the two are deliberately not merged.
-                    Nothing selected means ALL of them, which is the default: a picker that
-                    started empty would show nothing and read as broken. The list is empty
-                    until calendar access is granted, and stays empty if the user declines —
-                    a supported permanent state, so there is no prompt and no call to action
-                    here. */}
-                {featureDayLog && deviceCalendars.length > 0 ? (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.dayLog.calendars.title}</Text>
-                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.dayLog.calendars.hint}</Text>
-                    {deviceCalendars.map((cal) => {
-                      // Empty selection = all visible, so an untouched picker shows every
-                      // row as on rather than as an unexplained blank slate.
-                      const all = settings.dayLogCalendarIds.length === 0;
-                      const checked = all || settings.dayLogCalendarIds.includes(cal.id);
-                      return (
-                        <ToggleRow
-                          key={cal.id}
-                          label={cal.title}
-                          checked={checked}
-                          onChange={(v) => {
-                            selection();
-                            // Turning one OFF while "all" is implicit has to materialise
-                            // the full list first, or the patch would read as "only this
-                            // one" and hide every other calendar in one tap.
-                            const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
-                            const next = v
-                              ? [...new Set([...current, cal.id])]
-                              : current.filter((id) => id !== cal.id);
-                            settings.update({ dayLogCalendarIds: next });
-                          }}
-                        />
-                      );
-                    })}
-                  </>
-                ) : null}
               </Surface>
             </View>
           </>
@@ -1579,7 +1620,6 @@ export default function SettingsScreen() {
                 )}
               </Surface>
             </View>
-
             {/* PEOPLE/FAMILY + PAIRED DEVICES — one panel, and it renders nothing at all while
                 SHARING_VISIBLE is false (2026-08-05, lib/sharingVisibility.ts). Tags used to be
                 the panel's middle card, which meant that with sharing hidden the app drew a
@@ -1747,7 +1787,89 @@ export default function SettingsScreen() {
                 )}
               </Surface>
             </View>
+            {/* Device features (2026-07-17, moved here from the General tab 2026-07-25) —
+                toggles for the reserve-only native surface: voice dictation (title mic),
+                contacts (attach-to-task), location (tag-with-my-location), calendar (mirror
+                timed tasks). All four default off; each gates its own editor/store wiring —
+                see components/TaskCard.tsx and store/useTaskStore.ts. Calendar goes through
+                applyAndSync so toggling it immediately re-syncs every eligible task; the
+                other three are read directly by TaskCard at render time, no background job
+                to kick.
+                The group header sits OUTSIDE the card now (2026-08-17), like every other
+                group on this screen — it was the one heading drawn inside its own Surface. */}
+            <Text style={[styles.groupHeader, { color: theme.text }]}>{t.permissions.sectionTitle}</Text>
+            <View style={styles.section}>
+              <Surface style={[styles.card, { borderColor: theme.border }]}>
+                <ToggleRow
+                  label={t.permissions.voiceNotes.label}
+                  hint={t.permissions.voiceNotes.hint}
+                  checked={settings.voiceNotesEnabled}
+                  onChange={(v) => { selection(); settings.update({ voiceNotesEnabled: v }); }}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <ToggleRow
+                  label={t.permissions.contacts.label}
+                  hint={t.permissions.contacts.hint}
+                  checked={settings.contactsEnabled}
+                  onChange={(v) => { selection(); settings.update({ contactsEnabled: v }); }}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <ToggleRow
+                  label={t.permissions.location.label}
+                  hint={t.permissions.location.hint}
+                  checked={settings.locationEnabled}
+                  onChange={(v) => { selection(); settings.update({ locationEnabled: v }); }}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <ToggleRow
+                  label={t.permissions.calendar.label}
+                  hint={t.permissions.calendar.hint}
+                  checked={settings.calendarSyncEnabled}
+                  onChange={(v) => { selection(); applyAndSync({ calendarSyncEnabled: v }); }}
+                />
 
+                {/* Which device calendars the timeline may READ (2026-08-02,
+                    lib/deviceCalendar.ts). Distinct from the toggle above it, which is about
+                    WRITING a mirrored event out — that is a separate feature with its own
+                    switch, and the two are deliberately not merged.
+                    Nothing selected means ALL of them, which is the default: a picker that
+                    started empty would show nothing and read as broken. The list is empty
+                    until calendar access is granted, and stays empty if the user declines —
+                    a supported permanent state, so there is no prompt and no call to action
+                    here. */}
+                {featureDayLog && deviceCalendars.length > 0 ? (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.fieldLabel, { color: theme.textMuted }]}>{t.dayLog.calendars.title}</Text>
+                    <Text style={[styles.switchHint, { color: theme.textMuted }]}>{t.dayLog.calendars.hint}</Text>
+                    {deviceCalendars.map((cal) => {
+                      // Empty selection = all visible, so an untouched picker shows every
+                      // row as on rather than as an unexplained blank slate.
+                      const all = settings.dayLogCalendarIds.length === 0;
+                      const checked = all || settings.dayLogCalendarIds.includes(cal.id);
+                      return (
+                        <ToggleRow
+                          key={cal.id}
+                          label={cal.title}
+                          checked={checked}
+                          onChange={(v) => {
+                            selection();
+                            // Turning one OFF while "all" is implicit has to materialise
+                            // the full list first, or the patch would read as "only this
+                            // one" and hide every other calendar in one tap.
+                            const current = all ? deviceCalendars.map((c) => c.id) : settings.dayLogCalendarIds;
+                            const next = v
+                              ? [...new Set([...current, cal.id])]
+                              : current.filter((id) => id !== cal.id);
+                            settings.update({ dayLogCalendarIds: next });
+                          }}
+                        />
+                      );
+                    })}
+                  </>
+                ) : null}
+              </Surface>
+            </View>
             {/* ===== DATA ===== */}
             {/* Moved here from General (2026-08-17). Backup, build diagnostics and the resets
                 are things you do once or in a crisis, and they were sitting on the tab a user
@@ -1861,7 +1983,6 @@ export default function SettingsScreen() {
                 </DisclosureRow>
               </Surface>
             </View>
-
             {/* Reset data — its own red-bordered card (not folded into the panel above) so the
                 destructive action stays visually distinct, and last on the tab as a "danger
                 zone at the bottom". */}
@@ -1892,7 +2013,6 @@ export default function SettingsScreen() {
                 </DisclosureRow>
               </Surface>
             </View>
-
             {/* DEBUG MODE — the tester tooling, and the one card on this screen that is not a
                 feature. This is the ONLY way to turn debug on: components/ScreenHeader.tsx's
                 bug icon renders only while debug is already on, as the way back out.

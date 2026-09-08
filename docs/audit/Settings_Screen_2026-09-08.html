@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UnFocus — Innstillinger</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:#EDEFF3;display:flex;justify-content:center;padding:24px 12px;color:var(--text-body)}
+a{color:var(--color-primary)}a:hover{color:var(--color-accent-deep)}
+.phone{width:390px;max-width:100%;height:844px;background:var(--bg-app);border-radius:40px;border:1px solid var(--border-card);overflow:hidden;display:flex;flex-direction:column;position:relative;box-shadow:0 30px 70px rgba(22,27,38,.16)}
+.status{height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;font-size:15px;font-weight:var(--font-semibold);flex-shrink:0}
+.status .right{display:flex;gap:6px;align-items:center;color:var(--text-muted);font-size:15px}
+.head{padding:4px 20px 0;flex-shrink:0;background:var(--bg-app);z-index:5}
+.head-top{display:flex;align-items:center;gap:12px;padding-bottom:14px}
+.head-top h1{font-size:var(--text-xl);font-weight:var(--font-bold)}
+.iconbtn{width:38px;height:38px;border-radius:var(--radius-full);border:1px solid var(--border-card);background:var(--surface-card);display:flex;align-items:center;justify-content:center;color:var(--text-body);font-size:19px;cursor:pointer}
+.focus-row{display:flex;align-items:center;gap:12px;background:var(--surface-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:14px;box-shadow:0 2px 8px var(--shadow-color)}
+.focus-row .t{flex:1;min-width:0}
+.focus-row .t b{display:block;font-size:var(--text-md);font-weight:var(--font-bold)}
+.focus-row .t span{font-size:var(--text-sm);color:var(--text-muted)}
+.star{width:36px;height:36px;border-radius:var(--radius-full);background:var(--color-primary-soft);color:var(--color-accent-deep);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border-divider)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;padding:10px 6px 12px;font-size:var(--text-sm);font-weight:var(--font-bold);color:var(--text-muted);white-space:nowrap;cursor:pointer;border:0;border-bottom:2.5px solid transparent;background:none;font-family:inherit}
+.tab[aria-selected="true"]{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none;padding:0 20px 28px}
+.scroll::-webkit-scrollbar{display:none}
+.panel{display:none;padding-top:18px}
+.panel.on{display:block}
+.slabel{font-size:var(--text-sm);font-weight:var(--font-extrabold);color:var(--text-muted);margin:0 0 8px 2px}
+.slabel.danger{color:var(--priority-high)}
+.card{background:var(--surface-card);border:1px solid var(--border-card);border-radius:var(--radius-md);box-shadow:0 2px 8px var(--shadow-color);margin-bottom:20px;overflow:hidden}
+.row{display:flex;align-items:center;gap:14px;padding:14px 16px}
+.row+.row,.row+.act{border-top:1px solid var(--border-divider)}
+.row.col{display:block}
+.body{flex:1;min-width:0}
+.lbl{font-size:var(--text-md);font-weight:var(--font-semibold);line-height:1.3}
+.sub{font-size:var(--text-sm);color:var(--text-muted);line-height:1.4;margin-top:3px;text-wrap:pretty}
+.note{font-size:var(--text-sm);color:var(--text-muted);padding:14px 16px 2px;line-height:1.4}
+.switch{width:50px;height:30px;border-radius:var(--radius-full);background:var(--gray-light);position:relative;flex-shrink:0;cursor:pointer;border:0;transition:background .16s}
+.switch[aria-checked="true"]{background:var(--color-primary)}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:var(--radius-full);background:#fff;box-shadow:0 1px 3px rgba(22,27,38,.3);transition:left .16s}
+.switch[aria-checked="true"]::after{left:23px}
+.seg{display:flex;gap:3px;background:var(--surface-sunken);border-radius:var(--radius-sm);padding:3px;margin-top:10px}
+.seg button{flex:1;border:0;background:none;font-family:inherit;font-size:var(--text-sm);font-weight:var(--font-bold);color:var(--text-muted);padding:9px 6px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface-card);color:var(--text-body);box-shadow:0 1px 3px var(--shadow-color)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.pill{font-size:var(--text-sm);font-weight:var(--font-bold);padding:0 13px;min-height:38px;border-radius:var(--radius-full);border:1px solid var(--border-card);background:var(--surface-card);color:var(--text-muted);cursor:pointer;font-family:inherit}
+.pill[aria-pressed="true"]{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-on-primary)}
+.field{display:flex;gap:8px;align-items:center;margin-top:10px}
+input[type=text],input[type=number],input[type=time]{flex:1;min-width:0;font-family:inherit;font-size:var(--text-md);font-weight:var(--font-semibold);color:var(--text-body);background:var(--surface-sunken);border:1px solid var(--border-soft);border-radius:var(--radius-sm);padding:11px 12px;outline:none}
+input:focus{border-color:var(--color-primary);background:var(--surface-card)}
+.save{border:0;background:var(--color-primary);color:var(--color-on-primary);font-family:inherit;font-size:var(--text-sm);font-weight:var(--font-extrabold);padding:0 16px;height:44px;border-radius:var(--radius-sm);cursor:pointer;opacity:0;pointer-events:none;transform:scale(.9);transition:opacity .15s,transform .15s}
+.save.on{opacity:1;pointer-events:auto;transform:scale(1)}
+.times{display:flex;gap:10px;margin-top:10px}
+.times label{flex:1;font-size:var(--text-sm);color:var(--text-muted);font-weight:var(--font-bold)}
+.times input{width:100%;margin-top:5px}
+.dots{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.dot{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:var(--text-xs);color:var(--text-muted);font-weight:var(--font-bold);background:none;border:0;font-family:inherit;padding:0}
+.dot i{width:46px;height:46px;border-radius:var(--radius-full);display:block;border:2px solid transparent;box-shadow:0 2px 6px var(--shadow-color)}
+.dot[aria-pressed="true"] i{border-color:var(--color-primary);outline:2px solid var(--surface-card);outline-offset:-4px}
+.dot[aria-pressed="true"]{color:var(--text-body)}
+.hue{width:100%;margin-top:12px;appearance:none;height:12px;border-radius:var(--radius-full);background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.hue::-webkit-slider-thumb{appearance:none;width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid var(--border-card);box-shadow:0 2px 6px var(--shadow-color);cursor:pointer}
+.act{width:100%;text-align:left;background:none;border:0;font-family:inherit;font-size:var(--text-md);font-weight:var(--font-semibold);padding:15px 16px;cursor:pointer;color:var(--text-body);display:flex;align-items:center;gap:12px}
+.act+.act{border-top:1px solid var(--border-divider)}
+.act ion-icon{font-size:19px;color:var(--text-muted)}
+.act .chev{margin-left:auto;font-size:16px}
+.act.danger{color:var(--priority-high)}
+.act.danger ion-icon{color:var(--priority-high)}
+.act.good{color:var(--color-accent-deep)}
+.act.good ion-icon{color:var(--color-accent-deep)}
+.hint{background:var(--hint-bg);border:1px solid var(--hint-border);border-radius:var(--radius-sm);padding:13px 14px;font-size:var(--text-sm);line-height:1.45;color:var(--text-body);display:flex;gap:10px;margin-bottom:20px;text-wrap:pretty}
+.hint ion-icon{color:var(--hint-accent);font-size:19px;flex-shrink:0}
+.about{text-align:center;font-size:var(--text-sm);color:var(--text-muted);padding:4px 0 8px;line-height:1.7}
+.linkbtn{background:none;border:0;font-family:inherit;font-size:var(--text-sm);font-weight:var(--font-bold);color:var(--color-primary);cursor:pointer}
+#toast{position:absolute;top:56px;left:50%;transform:translateX(-50%) translateY(-10px);background:rgba(22,27,38,.92);color:#fff;font-size:var(--text-sm);font-weight:var(--font-bold);padding:10px 16px 10px 11px;border-radius:var(--radius-full);display:flex;align-items:center;gap:8px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:20;white-space:nowrap}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast i{width:20px;height:20px;border-radius:var(--radius-full);background:var(--color-secondary);display:flex;align-items:center;justify-content:center;font-size:12px;font-style:normal}
+</style>
+</head>
+<body>
+<div class="phone" data-screen-label="Innstillinger">
+<div id="toast"><i>✓</i><span id="toast-msg">Lagret</span></div>
+<div class="status"><span>9:41</span><div class="right"><ion-icon name="wifi"></ion-icon><ion-icon name="battery-half"></ion-icon></div></div>
+<div class="head">
+<div class="head-top"><button class="iconbtn" aria-label="Tilbake"><ion-icon name="chevron-back"></ion-icon></button><h1>Innstillinger</h1></div>
+<div class="focus-row"><span class="star"><ion-icon name="sparkles"></ion-icon></span><div class="t"><b>Fokus</b><span>Vis bare det som haster i dag</span></div><button class="switch" role="switch" aria-checked="false" aria-label="Fokus" data-toast="Fokus"></button></div>
+<div class="tabs" role="tablist">
+<button class="tab" role="tab" aria-selected="true" data-tab="0">Generelt</button>
+<button class="tab" role="tab" aria-selected="false" data-tab="1">Lister</button>
+<button class="tab" role="tab" aria-selected="false" data-tab="2">Varsler</button>
+<button class="tab" role="tab" aria-selected="false" data-tab="3">Utseende</button>
+<button class="tab" role="tab" aria-selected="false" data-tab="4">Data</button>
+</div>
+</div>
+<div class="scroll">
+
+<section class="panel on" data-panel="0">
+<p class="slabel">Profil</p>
+<div class="card">
+<div class="row col"><div class="lbl">Ditt navn</div><div class="sub">Brukes bare til å si hei. Ingenting forlater telefonen.</div><div class="field"><input type="text" placeholder="Fornavn (valgfritt)" data-save="Navn lagret"><button class="save">Lagre</button></div></div>
+<div class="row col"><div class="lbl">Språk</div><div class="seg" data-toast="Språk lagret"><button aria-pressed="true">Norsk</button><button aria-pressed="false">English</button></div></div>
+</div>
+
+<p class="slabel">Jobb-modus</p>
+<div class="card">
+<p class="note">Jobb-modus skjuler private planer, så jobbdagen ikke drukner i alt annet.</p>
+<div class="row"><div class="body"><div class="lbl">Aktiver jobb-modus</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Jobb-modus"></button></div>
+<div class="row"><div class="body"><div class="lbl">Aktiver automatisk</div><div class="sub">Skrus på og av med arbeidstiden</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Automatisk jobb-modus"></button></div>
+<div class="row col"><div class="lbl">Arbeidstid</div><div class="times"><label>Fra<input type="time" value="07:00" data-save="Arbeidstid lagret"></label><label>Til<input type="time" value="17:00" data-save="Arbeidstid lagret"></label></div></div>
+<div class="row col"><div class="lbl">Arbeidsdager</div><div class="pills" data-toast="Arbeidsdager lagret" data-multi="1"><button class="pill" aria-pressed="true">Man</button><button class="pill" aria-pressed="true">Tir</button><button class="pill" aria-pressed="true">Ons</button><button class="pill" aria-pressed="true">Tor</button><button class="pill" aria-pressed="true">Fre</button><button class="pill" aria-pressed="false">Lør</button><button class="pill" aria-pressed="false">Søn</button></div></div>
+<div class="row"><div class="body"><div class="lbl">Norske helligdager</div><div class="sub">Behandles som helgedager — jobb-modus og varsler tar fri</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Helligdager"></button></div>
+</div>
+
+<p class="slabel">Tilgjengelighet</p>
+<div class="card">
+<div class="row col"><div class="lbl">Skriftstørrelse</div><div class="seg" data-toast="Skriftstørrelse lagret"><button aria-pressed="false">Liten</button><button aria-pressed="true">Standard</button><button aria-pressed="false">Stor</button></div></div>
+<div class="row"><div class="body"><div class="lbl">Redusert bevegelse</div><div class="sub">Slår av animasjoner i hele appen</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Redusert bevegelse"></button></div>
+<div class="row"><div class="body"><div class="lbl">Partikkeleffekter</div><div class="sub">Levende bakgrunn på startskjermen</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Partikkeleffekter"></button></div>
+<div class="row"><div class="body"><div class="lbl">Venstrehendt modus</div><div class="sub">Flytter menyknappen til venstre side</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Venstrehendt modus"></button></div>
+</div>
+
+<p class="slabel">Motivasjon</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Vis fullførte planer</div><div class="sub">Teller opp hvert lite steg du har tatt</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Fullførte planer"></button></div>
+<div class="row"><div class="body"><div class="lbl">Tips og forklaringer</div><div class="sub">Korte hint på hvert skjermbilde</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Tips"></button></div>
+<div class="row"><div class="body"><div class="lbl">Følgeven</div><div class="sub">En liten venn som heier på deg</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Følgeven"></button></div>
+<div class="row col"><div class="lbl">Navn på følgesvenn</div><div class="field"><input type="text" value="Nusse" placeholder="Gi den et navn" data-save="Navn lagret"><button class="save">Lagre</button></div></div>
+<div class="row col"><div class="lbl">Type</div><div class="pills" data-toast="Følgeven lagret"><button class="pill" aria-pressed="true">Katt</button><button class="pill" aria-pressed="false">Hund</button><button class="pill" aria-pressed="false">Fugl</button><button class="pill" aria-pressed="false">Rev</button><button class="pill" aria-pressed="false">Kanin</button></div></div>
+</div>
+</section>
+
+<section class="panel" data-panel="1">
+<p class="slabel">Handleliste</p>
+<div class="card">
+<div class="row col"><div class="lbl">Nullstill ukesliste</div><div class="sub">Ukedagen ukeslisten tømmer seg selv</div><div class="pills" data-toast="Ukedag lagret"><button class="pill" aria-pressed="true">Man</button><button class="pill" aria-pressed="false">Tir</button><button class="pill" aria-pressed="false">Ons</button><button class="pill" aria-pressed="false">Tor</button><button class="pill" aria-pressed="false">Fre</button><button class="pill" aria-pressed="false">Lør</button><button class="pill" aria-pressed="false">Søn</button></div></div>
+<div class="row col"><div class="lbl">Nullstill månedsliste</div><div class="sub">Dato 1–31. I korte måneder nullstilles den siste dag i måneden.</div><div class="field"><input type="number" min="1" max="31" value="20" data-save="Dato lagret"><button class="save">Lagre</button></div></div>
+<div class="row col"><div class="lbl">Månedlig budsjett</div><div class="sub">Valgfritt. Vises som status på Budsjett-skjermen.</div><div class="field"><input type="number" value="4500" placeholder="f.eks. 3000" data-save="Budsjett lagret"><button class="save">Lagre</button></div></div>
+<div class="row"><div class="body"><div class="lbl">Grupper etter butikkavdeling</div><div class="sub">Sorterer listen slik du går gjennom butikken</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Gruppering"></button></div>
+<div class="row"><div class="body"><div class="lbl">Behold fullførte varer</div><div class="sub">Kryssede varer blir liggende nederst til listen nullstilles</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Fullførte varer"></button></div>
+</div>
+
+<div class="hint"><ion-icon name="bulb-outline"></ion-icon><span>Sett månedsdatoen til lønningsdagen din — månedsvarene står klare når pengene kommer.</span></div>
+
+<p class="slabel">Innhold</p>
+<div class="card">
+<button class="act"><ion-icon name="restaurant-outline"></ion-icon>Retter og ingredienser<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+<button class="act"><ion-icon name="albums-outline"></ion-icon>Varekatalog<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+<button class="act"><ion-icon name="repeat-outline"></ion-icon>Faste vaner<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+<button class="act"><ion-icon name="pricetags-outline"></ion-icon>Kategorier og farger<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+</div>
+</section>
+
+<section class="panel" data-panel="2">
+<p class="slabel">Ukentlig påminnelse</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Ukentlig påminnelse</div><div class="sub">En vennlig påminnelse på handledagen din</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Ukentlig påminnelse"></button></div>
+<div class="row col"><div class="lbl">Tidspunkt</div><div class="field"><input type="time" value="08:00" data-save="Tidspunkt lagret"><button class="save">Lagre</button></div></div>
+</div>
+
+<p class="slabel">Varsler</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Planvarsler</div><div class="sub">Påminnelse når en plan begynner</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Planvarsler"></button></div>
+<div class="row"><div class="body"><div class="lbl">Vanevarsler</div><div class="sub">Påminnelse når det er tid for en vane</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Vanevarsler"></button></div>
+<div class="row"><div class="body"><div class="lbl">Dagens oversikt</div><div class="sub">Ett varsel som holdes oppdatert med dagens gjenstående oppgaver og varer</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Dagens oversikt"></button></div>
+</div>
+
+<p class="slabel">Stille periode</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Stille periode</div><div class="sub">Påminnelser venter til perioden er over i stedet for å avbryte. De går ikke tapt.</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Stille periode"></button></div>
+<div class="row col"><div class="times"><label>Fra<input type="time" value="21:00" data-save="Stille periode lagret"></label><label>Til<input type="time" value="08:00" data-save="Stille periode lagret"></label></div></div>
+</div>
+
+<p class="slabel">Tillatelser</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Varsler fra systemet</div><div class="sub">Tillatelse er gitt</div></div><button class="linkbtn">Åpne</button></div>
+</div>
+</section>
+
+<section class="panel" data-panel="3">
+<p class="slabel">Fargetema</p>
+<div class="card">
+<div class="row col"><div class="dots" data-toast="Tema lagret">
+<button class="dot" aria-pressed="true"><i style="background:radial-gradient(circle at 32% 28%,#60A5FA,#2563EB)"></i>Standard</button>
+<button class="dot" aria-pressed="false"><i style="background:radial-gradient(circle at 32% 28%,#5DCAA5,#0F766E)"></i>Tech</button>
+<button class="dot" aria-pressed="false"><i style="background:radial-gradient(circle at 32% 28%,#AFA9EC,#534AB7)"></i>Gotisk</button>
+<button class="dot" aria-pressed="false"><i style="background:radial-gradient(circle at 32% 28%,#97C459,#1D9E75)"></i>Natur</button>
+<button class="dot" aria-pressed="false"><i style="background:radial-gradient(circle at 32% 28%,#ED93B1,#D4537E)"></i>Fluffy</button>
+<button class="dot" aria-pressed="false"><i style="background:conic-gradient(#f87171,#fbbf24,#34d399,#60a5fa,#a78bfa,#f87171)"></i>Egen</button>
+</div></div>
+<div class="row col"><div class="lbl">Egen aksentfarge</div><input class="hue" type="range" min="0" max="360" value="217" aria-label="Aksentfarge"></div>
+</div>
+
+<p class="slabel">Materiale</p>
+<div class="card">
+<div class="row col"><div class="dots" data-toast="Materiale lagret">
+<button class="dot" aria-pressed="true"><i style="background:linear-gradient(160deg,rgba(255,255,255,.95),rgba(120,160,220,.6))"></i>Glass</button>
+<button class="dot" aria-pressed="false"><i style="background:linear-gradient(160deg,#D8DCE2,#7C848F)"></i>Metall</button>
+<button class="dot" aria-pressed="false"><i style="background:linear-gradient(160deg,#B9B6AE,#6E6B64)"></i>Stein</button>
+<button class="dot" aria-pressed="false"><i style="background:linear-gradient(160deg,#FBFAF6,#D9D5C8)"></i>Papir</button>
+<button class="dot" aria-pressed="false"><i style="background:var(--color-primary)"></i>Enkel</button>
+</div><div class="sub" style="margin-top:12px">Overflaten på bobler, kort og menyknappen.</div></div>
+</div>
+
+<p class="slabel">Lys og mørk</p>
+<div class="card">
+<div class="row col"><div class="lbl">Mørk modus</div><div class="seg" data-toast="Modus lagret"><button aria-pressed="true">System</button><button aria-pressed="false">Av</button><button aria-pressed="false">På</button></div></div>
+<div class="row"><div class="body"><div class="lbl">Bakgrunnsbilde</div><div class="sub">Mykt tremotiv bak innholdet</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Bakgrunnsbilde"></button></div>
+</div>
+</section>
+
+<section class="panel" data-panel="4">
+<div class="hint"><ion-icon name="lock-closed-outline"></ion-icon><span>Alt lagres lokalt på denne telefonen. Ingen konto, ingen sky, ingen sporing.</span></div>
+
+<p class="slabel">Tillatelser</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Kalender</div><div class="sub">Viser avtaler sammen med planene dine</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Kalender"></button></div>
+<div class="row"><div class="body"><div class="lbl">Kamera</div><div class="sub">Brukes til å skanne kvitteringer og varer</div></div><button class="switch" role="switch" aria-checked="true" data-toast="Kamera"></button></div>
+<div class="row"><div class="body"><div class="lbl">Mikrofon</div><div class="sub">Legg til planer og varer med stemmen</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Mikrofon"></button></div>
+</div>
+
+<p class="slabel">Deling og sikkerhetskopi</p>
+<div class="card">
+<button class="act"><ion-icon name="qr-code-outline"></ion-icon>Del liste med QR-kode<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+<button class="act"><ion-icon name="download-outline"></ion-icon>Eksporter data<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+<button class="act"><ion-icon name="cloud-upload-outline"></ion-icon>Importer data<ion-icon class="chev" name="chevron-forward"></ion-icon></button>
+</div>
+
+<p class="slabel">Testdata</p>
+<div class="card">
+<p class="note">Fyller appen med eksempeldata, så du kan prøve funksjonene uten å legge inn noe selv.</p>
+<button class="act good"><ion-icon name="flask-outline"></ion-icon>Last inn testdata</button>
+<button class="act danger"><ion-icon name="remove-circle-outline"></ion-icon>Fjern testdata</button>
+</div>
+
+<p class="slabel danger">Nullstill</p>
+<div class="card">
+<p class="note">Dette kan ikke angres.</p>
+<button class="act danger"><ion-icon name="refresh-outline"></ion-icon>Nullstill ukesliste</button>
+<button class="act danger"><ion-icon name="refresh-outline"></ion-icon>Nullstill månedsliste</button>
+<button class="act danger"><ion-icon name="refresh-outline"></ion-icon>Nullstill alle planer</button>
+<button class="act danger"><ion-icon name="play-back-outline"></ion-icon>Nullstill introduksjon</button>
+</div>
+
+<p class="slabel">Feilsøking</p>
+<div class="card">
+<div class="row"><div class="body"><div class="lbl">Debug-modus</div><div class="sub">Legger til en flytende knapp for raske feilsøkingsnotater</div></div><button class="switch" role="switch" aria-checked="false" data-toast="Debug-modus"></button></div>
+</div>
+
+<p class="about">UnFocus 1.1.0<br>Personvern · Vilkår · Åpen kildekode</p>
+</section>
+
+</div>
+</div>
+<script>
+const qa=(s,r=document)=>[...r.querySelectorAll(s)];
+let tTimer;
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('on');clearTimeout(tTimer);tTimer=setTimeout(()=>t.classList.remove('on'),1900)}
+qa('.tab').forEach(t=>t.onclick=()=>{qa('.tab').forEach(x=>x.setAttribute('aria-selected',String(x===t)));qa('.panel').forEach(p=>p.classList.toggle('on',p.dataset.panel===t.dataset.tab));document.querySelector('.scroll').scrollTop=0});
+qa('.switch').forEach(s=>s.onclick=()=>{const on=s.getAttribute('aria-checked')!=='true';s.setAttribute('aria-checked',String(on));if(s.dataset.toast)toast(s.dataset.toast+(on?' på':' av'))});
+qa('.seg').forEach(g=>qa('button',g).forEach(b=>b.onclick=()=>{qa('button',g).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));toast(g.dataset.toast||'Lagret')}));
+qa('.pills').forEach(g=>qa('.pill',g).forEach(b=>b.onclick=()=>{if(g.dataset.multi)b.setAttribute('aria-pressed',String(b.getAttribute('aria-pressed')!=='true'));else qa('.pill',g).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));toast(g.dataset.toast||'Lagret')}));
+qa('.dots').forEach(g=>qa('.dot',g).forEach(b=>b.onclick=()=>{qa('.dot',g).forEach(x=>x.setAttribute('aria-pressed',String(x===b)));toast(g.dataset.toast||'Lagret')}));
+qa('input[data-save]').forEach(i=>{const start=i.value,btn=i.parentElement.querySelector('.save');i.oninput=()=>{if(btn)btn.classList.toggle('on',i.value!==start)};if(btn)btn.onclick=()=>{btn.classList.remove('on');toast(i.dataset.save)}});
+document.querySelector('.hue').onchange=()=>toast('Aksentfarge lagret');
+qa('.act').forEach(b=>b.onclick=()=>toast(b.textContent.trim()));
+</script>
+</body>
+</html>
