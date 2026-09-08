@@ -403,13 +403,19 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
 
   it('leaves the Energy tutorial as a real card — it IS the meter, not a note beside one', () => {
     const source = code('components/EnergyMeter.tsx');
-    const mounts = source.match(/<StarterCard[\s\S]*?>/g) ?? [];
-    expect(mounts.length).toBe(1);
-    expect(mounts[0]).not.toContain('embedded');
+    // ⚠️ **Same claim, stronger evidence, different mechanism (2026-09-08).** This asserted one
+    // non-`embedded` `<StarterCard>`, as the way of saying "the empty state is a card in its own
+    // right, not a note tucked inside somebody else's". It is now literally the SAME card as the
+    // live meter — v2's `gc slim`, one `styles.budgetCard` Surface used by both branches — which
+    // is what this test wanted all along, so it checks that instead of the component that used
+    // to stand for it.
+    expect(source).not.toMatch(/<StarterCard/);
+    const mounts = source.match(/<Surface style=\{styles\.budgetCard\}>/g) ?? [];
+    expect(mounts.length).toBe(2);
     // …and it carries NO explanatory text since 2026-08-17 ("Remove the 'Energy is how much a
-    // day holds…' block"). What is left is the card and the one button into the config sheet,
+    // day holds…' block"). What is left is the card and the one row into the config sheet,
     // which is the only thing this state exists to offer.
-    expect(mounts[0]).not.toMatch(/\btext=/);
+    expect(source).not.toMatch(/energyExplainer|starters\.energy\.text/);
   });
 
   it('is what the Goals drawer uses instead of its old hand-copied explainer', () => {

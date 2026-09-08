@@ -45,7 +45,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComposeOption } from '@/lib/cardRegistry';
 import PressableScale from '@/components/PressableScale';
 import { BORDER_WIDTH, computeBorderTone, FontSize, Fonts, MIN_TAP_TARGET, Radius, Spacing } from '@/constants/theme';
-import { useScreenColor } from '@/lib/screenColor';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 
 type Props = {
@@ -97,7 +96,6 @@ export default function QuickAddOptionRow({
 }: Props) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const hue = useScreenColor() ?? theme.border;
   const valueIsText = typeof value === 'string';
 
   const content = (
@@ -107,7 +105,9 @@ export default function QuickAddOptionRow({
         wide ? styles.wide : styles.half,
         {
           borderWidth: BORDER_WIDTH.field,
-          borderColor: computeBorderTone(hue, isDark, 'field'),
+          // See the resting-edge note in components/FormControls.tsx (2026-09-08): this cell
+          // wore `useScreenColor()` and was the box in the "border color bug" report.
+          borderColor: computeBorderTone(theme.border, isDark, 'field'),
           borderRadius: Radius.sm,
         },
       ]}

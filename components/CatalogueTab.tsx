@@ -419,7 +419,7 @@ export default function CatalogueTab({ onNotify, header, embedded = false, locke
   // Only used in `embedded` mode — see the search row's own note. Computed unconditionally
   // (a hook can't sit behind a branch, and this is a plain call beside one).
   const isDark = useIsDark();
-  const searchFieldEdge = computeBorderTone(screenHue, isDark, 'field');
+  const searchFieldEdge = computeBorderTone(theme.border, isDark, 'field');
   // ⚠️ **The search well goes through the SHARED field helpers (consistency audit, 2026-08-21).**
   // The 2026-08-20 pass got this field down to one box, which was the right call and is not
   // being undone — but it hand-rolled that box: `theme.surfaceInset` for the fill (a token no

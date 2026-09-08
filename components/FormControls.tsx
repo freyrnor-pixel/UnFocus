@@ -109,6 +109,7 @@ import { computeBorderTone, FIELD_RADIUS, FontSize, Fonts, getFieldGlow, getGlow
 import { badgeGlyphFor } from '@/lib/domainColor';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useScreenColor } from '@/lib/screenColor';
+import { segmentGeometry, SEG_PAD } from '@/lib/segmentGeometry';
 import { useToggleColor } from '@/lib/useToggleColor';
 import { Duration, Ease } from '@/constants/motion';
 import { selection } from '@/lib/haptics';
@@ -315,7 +316,8 @@ type SegmentedControlProps<T extends string | number = string> = {
   compact?: boolean;
 };
 
-const SEG_PAD = 4;
+// `SEG_PAD` and the pill maths live in lib/segmentGeometry.ts, so the padding this file
+// RENDERS and the padding that file SUBTRACTS are the same constant.
 /** Compact segment height — the value `SlideSelector` used at these call sites before it was
  *  deleted (2026-08-09). Its track is that plus `SEG_PAD` top and bottom. */
 const COMPACT_SEGMENT_HEIGHT = 32;
@@ -354,11 +356,25 @@ function SegmentedTrack<T extends string | number>({
   const { reducedMotion } = useAccessibility();
   const shape = useLabShape();
   const [track, setTrack] = useState({ w: 0, h: 0 });
+  // Read once and used BOTH as the rendered border and as the term `segmentGeometry` removes,
+  // so the two can never disagree — the design lab scales this, and a pill sized against a
+  // different border than the one drawn is the bug in a second form.
+  const trackBorder = shape.borderFieldWidth * shape.borderScale;
 
   const n = options.length;
   const activeIndex = Math.max(0, options.findIndex((o) => o.value === value));
-  const segW = track.w > 0 ? (track.w - SEG_PAD * 2) / n : 0;
-  const pillH = Math.max(0, track.h - SEG_PAD * 2);
+  // ⚠️ **The track's BORDER is part of `track.w` and must come out (2026-09-08).** `onLayout`
+  // reports the BORDER box; the segments are flex children of the CONTENT box, which is
+  // `2 × borderWidth` narrower. Subtracting only the padding therefore made every pill
+  // `2b/n` too wide and slid pill *i* `i × 2b/n` to the right of the label it is supposed to
+  // sit under — the rightmost pill overhanging its own track. Reported on device as "tab
+  // centering", on Settings' Av/System/På and Liten/Standard/Stor rows.
+  //   `segmentGeometry` is a pure function so the arithmetic can be asserted directly:
+  // `lib/__tests__/segmentGeometry.test.ts` walks every index at several widths and border
+  // scales and checks the pill lands exactly on the flex cell. The old formula fails it.
+  const geo = segmentGeometry(track.w, track.h, n, trackBorder);
+  const segW = geo.segW;
+  const pillH = geo.pillH;
 
   const tx = useSharedValue(0);
   // **The first placement SNAPS; only a later change animates (2026-08-14).** This effect used
@@ -396,7 +412,7 @@ function SegmentedTrack<T extends string | number>({
         {
           backgroundColor: theme.surfaceMuted,
           borderColor: theme.border,
-          borderWidth: shape.borderFieldWidth * shape.borderScale,
+          borderWidth: trackBorder,
           borderRadius: Radius.sm * shape.radiusScale,
           // A compact track must NOT carry the full tap-target floor, or the shorter segments
           // inside it are centred in a box that never shrank and the row costs the same height.
@@ -583,7 +599,7 @@ function ListChoice<T extends string | number>({
           styles.choiceTrigger,
           {
             minHeight: shape.minTapTarget,
-            borderColor: computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength),
+            borderColor: computeBorderTone(theme.border, isDark, 'field', shape.borderRampStrength),
             borderWidth: shape.borderFieldWidth * shape.borderScale,
             borderRadius: Radius.sm * shape.radiusScale,
             backgroundColor: theme.surface,
@@ -685,13 +701,21 @@ export const Input = React.forwardRef<TextInput, InputProps>(function Input(
   const recess = getRecessedField(theme.surface, isDark);
   const fill = recessed ? recess.paint : theme.surface;
   const focusGround = recessed ? recess.composite : theme.surface;
+  // ⚠️ **A resting edge is NEUTRAL (2026-09-08).** The screen hue moved off the edge on
+  // 2026-08-15 — constants/theme.ts's Tactile Glass note states the ruling in as many words: it
+  // "moved off the EDGE and into the pane's own faint tint and the icon badge". Cards followed
+  // (components/Surface.tsx sets `const edgeHue = theme.border`); the FIELD and BUTTON rungs did
+  // not, and no harness could catch it because every one of them renders a hue perfectly. On a
+  // device it reads as a fault — every box on Vaner rimmed in cyan, reported as "border color bug
+  // around boxes". The hue still paints the FOCUS ring, which is a state and is what brief §8
+  // actually asked for; what it no longer does is tint a control that is merely sitting there.
   const borderColor = error
     ? theme.bad
     : focused
       ? badgeGlyphFor(fieldHue, focusGround, isDark)
       : recessed
         ? 'transparent'
-        : computeBorderTone(fieldHue, isDark, 'field', shape.borderRampStrength);
+        : computeBorderTone(theme.border, isDark, 'field', shape.borderRampStrength);
 
   return (
     <View style={containerStyle}>

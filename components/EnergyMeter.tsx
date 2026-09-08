@@ -239,12 +239,14 @@ import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } 
 import { Badge } from '@/components/Badge';
 import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
-import StarterCard from '@/components/StarterCard';
+import Surface from '@/components/Surface';
+import QuickAddOptionRow from '@/components/QuickAddOptionRow';
+import { SegmentedControl } from '@/components/FormControls';
 import SectionRail from '@/components/SectionRail';
 import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
-import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor } from '@/constants/theme';
-import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
+import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor, rgba } from '@/constants/theme';
+import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
@@ -318,8 +320,35 @@ function EnergyPulse({ color, reducedMotion }: { color: string; reducedMotion: b
   );
 }
 
+/** v2's `I dag` / `Uke` segment values. */
+type EnergyScope = 'day' | 'week';
+
 export default function EnergyMeter() {
   const theme = useAppTheme();
+  const isDark = useIsDark();
+  /**
+   * Which period the card is showing — v2's `I dag` / `Uke` segment.
+   *
+   * Local and unpersisted, resetting to the day on every mount: the day is the unit this app
+   * works in, and a card that reopens on last week's numbers is answering a question nobody
+   * asked. (`components/HomeShoppingCard.tsx`'s week pager makes the same call, for the same
+   * reason and in the same words.)
+   */
+  const [scope, setScope] = useState<EnergyScope>('day');
+
+  /**
+   * The colour of an UNSPENT unit, in the bar and in the empty card's placeholder run.
+   *
+   * ⚠️ **One const, deliberately, because this is exactly where the state drifted before.**
+   * `lib/__tests__/stableLayout.test.ts` pins the placeholder to the bar's own unspent glyph,
+   * size AND colour — the assertion it grew on 2026-09-07 after the placeholder spent a day
+   * drawing a retired recipe nothing else used. Two call sites reading one identifier is what
+   * makes that guard's job structural instead of vigilant.
+   *   v2's value is `rgba(255,255,255,.2)` with no glow, dimmer than any text token in the app:
+   * an unspent unit is a place-holder for a unit, not a thing to read. Light mode needs a touch
+   * more to clear its brighter ground.
+   */
+  const emptyGlyph = rgba(theme.text, isDark ? 0.2 : 0.26);
   const t = useT();
   const { reducedMotion } = useAccessibility();
 
@@ -389,6 +418,22 @@ export default function EnergyMeter() {
   // beside it cannot tell different stories.
   const daySplit = energySplitForDay(today, tasks, habits, habitLogs);
   const weekSplit = energySplitForWeek(today, tasks, habits, habitLogs);
+
+  /**
+   * The bar the header's peek is describing — v2's peek reads off the SHOWN period
+   * ("4 av 8 brukt i dag · +1 gitt tilbake"), so it has to follow the segment. Same
+   * `energyBudgetBar` the row itself calls: one derivation, two readers, never two sums.
+   */
+  const activeSplit = scope === 'day' ? daySplit : weekSplit;
+  const activeCapacity = scope === 'day' ? dayCapacity : weekCapacity;
+  /**
+   * ⚠️ **The peek states the TRUE numbers, never the bar's.** `energyBudgetBar` scales its runs
+   * down to `MAX_PIPS` so a large capacity still fits one line — so on an 18-energy day with
+   * nothing spent the bar's own `pipCount` is 10, and a peek reading off it said "0 of 10
+   * spent" beside a bar the user had set to 18. The bar is a SHAPE and is allowed to round; the
+   * sentence under the title is a claim and is not.
+   */
+  const activeBar = energyBudgetBar(activeSplit.spent, activeSplit.gained, activeCapacity);
 
   /**
    * The tutorial gate — see the file header's "Tutorial state" note for why this exists.
@@ -560,7 +605,10 @@ export default function EnergyMeter() {
      * and nothing else so far. Never a control: it sits between the label and two real tap
      * targets, and a third target on that line would put PAIR_CLIP's arithmetic back in play.
      */
-    badge: React.ReactNode
+    badge: React.ReactNode,
+    /** Draw the row's own label/chip/controls line. False inside the v2 card, whose SectionRail
+     *  is that line — see the note at `meterTopRow` below. */
+    chrome = true
   ) => {
     // ── The v2 Energibudsjett bar (2026-09-06) ──────────────────────────────────────────
     //
@@ -580,18 +628,35 @@ export default function EnergyMeter() {
     // because energy handed back by a habit is not the same substance as budget you were given.
     // Capped in `energyBudgetBar` so it stays a shape and not a tally.
     const { pipCount, used, left, gain, overspent } = energyBudgetBar(split.spent, split.gained, capacity);
-    const glyph = (name: 'flash' | 'flash-outline', color: string, key: string) => (
-      <Ionicons key={key} name={name} size={BAR_ICON_SIZE} color={color} />
+    // ⚠️ **The three runs have to be TELLABLE APART, which is the whole point of the bar
+    // (2026-09-08).** They were `theme.accent` / `theme.textMuted` / `theme.good` flat, and on a
+    // dark ground `textMuted` is bright enough that a bar with nothing spent yet read as one
+    // undifferentiated grey row — reported twice from a device, the second time as "Energy, once
+    // again, what?". v2's own CSS is explicit about both halves of the difference and this now
+    // matches it: filled is the hue `with filter: drop-shadow(0 0 7px …)`, and empty is
+    // `rgba(255,255,255,.2)` with `filter: none` — dimmer than any text token in the app, because
+    // an unspent unit is a place-holder for a unit, not a thing to read.
+    //   The glow is a `textShadow`, not a shadow view: an Ionicon IS a `Text` glyph, so the halo
+    // follows the bolt's own outline rather than a box around it. That is what `drop-shadow`
+    // does in the mockup and a `shadowRadius` on a wrapping View would not.
+    const glyph = (name: 'flash' | 'flash-outline', color: string, key: string, lit = false) => (
+      <Ionicons
+        key={key}
+        name={name}
+        size={BAR_ICON_SIZE}
+        color={color}
+        style={lit ? { textShadowColor: rgba(color, 0.55), textShadowRadius: 7, textShadowOffset: { width: 0, height: 0 } } : undefined}
+      />
     );
     const pips = (
       <View
         style={styles.pipRow}
         accessibilityLabel={t.energyMeter.budgetPeek(used, pipCount, gain)}
       >
-        {Array.from({ length: used }).map((_, i) => glyph('flash', theme.accent, `u${i}`))}
-        {Array.from({ length: left }).map((_, i) => glyph('flash-outline', theme.textMuted, `l${i}`))}
+        {Array.from({ length: used }).map((_, i) => glyph('flash', theme.accent, `u${i}`, true))}
+        {Array.from({ length: left }).map((_, i) => glyph('flash-outline', emptyGlyph, `l${i}`))}
         {gain > 0 && <View style={[styles.barSep, { backgroundColor: theme.border }]} />}
-        {Array.from({ length: gain }).map((_, i) => glyph('flash', theme.good, `g${i}`))}
+        {Array.from({ length: gain }).map((_, i) => glyph('flash', theme.good, `g${i}`, true))}
       </View>
     );
     // The legend is the only thing that says which way the glyphs read, so all three words stay
@@ -603,7 +668,7 @@ export default function EnergyMeter() {
           <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
         </View>
         <View style={styles.legendItem}>
-          <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={theme.textMuted} />
+          <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={emptyGlyph} />
           <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendLeft}</Text>
         </View>
         <View style={styles.legendItem}>
@@ -646,7 +711,12 @@ export default function EnergyMeter() {
             pips showed up. Stacking unconditionally buys back a whole line, which is what
             makes room for both the label and an always-visible capacity stepper. */}
         <View style={styles.meterRow}>
-          <View style={styles.meterTopRow}>
+          {/* ⚠️ **Suppressed inside the v2 card (2026-09-08).** `components/SectionRail` at the
+              card rung now carries the name, the summary line and the ✏️ — see the card below —
+              so drawing this line too would put two headers on one card. It stays for the
+              `chrome` callers (there are none today; the branch is kept because 'custom' mode
+              once drew two meters and may again). */}
+          {chrome && <View style={styles.meterTopRow}>
             {/* Label + chip are ONE yielding group: the label side is what gives when a long
                 translation meets a chip at the 1.2x font scale, never the glyphs, which have
                 no width to give (the wrap audit's documented rule — AGENTS.md). */}
@@ -660,13 +730,18 @@ export default function EnergyMeter() {
             {/* Every number is set in the pop-up the ✏️ opens — see the header's correction 1.
                 A capacity stepper lived here for one day and was reversed; don't put one back. */}
             <View style={styles.topRowTrailing}>{trailing}</View>
-          </View>
+          </View>}
           {/* The value rides the end of the pip line now that the top line carries the label
               and the stepper. It reads against the pips it describes, and the line has room
               for it because nothing else is competing for that row. */}
+          {/* ⚠️ **`value` (`current / capacity`) is drawn only by the `chrome` shape (2026-09-08).**
+              Inside the v2 card the header's peek already states the day — "0 of 18 spent" — and
+              the two are different readings of it (spent-so-far vs left-of-capacity). Side by
+              side they read as a contradiction: the first render of this card showed "0 of 10
+              spent" next to "18 / 18". One card, one sentence of numbers. */}
           <View style={styles.pipLine}>
             {pips}
-            {value}
+            {chrome && value}
           </View>
           {legend}
           {overspendNote}
@@ -718,95 +793,137 @@ export default function EnergyMeter() {
         // its own terms — it is what the maintainer's later screenshot report was actually
         // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
         // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
-        <StarterCard>
-          {/* ⚠️ **The card names itself (2026-09-07), which it never did.** Reported on a
-              screenshot of Home: the Energy card was the one panel on that screen with no
-              title, no badge and no summary line — a row of grey glyphs and a small pill in a
-              bare rounded box, sitting directly above `Today`, `Notes` and `Shopping list`,
-              each of which leads with a coloured icon badge, a bold name and one line saying
-              what it holds. Read beside them it did not look like a card that was empty; it
-              looked like a card that had not been finished.
-                This is the SAME header component every one of those cards uses
-              (`components/SectionRail.tsx` at `tier="card"`, which is what components/Card.tsx
-              passes), not a hand-rolled row — §8 "Component identity" exists because this app
-              had one canonical card header and fourteen variants of it, and a fifteenth here
-              would be the defect, not the fix. Energy has no entry in `lib/domainColor.ts`, so
-              the badge borrows the shape (`domain="task"`) and overrides both channels it
-              would otherwise inherit: `icon="flash"` is the strip's own glyph and `badgeHue`
-              paints the disc in `theme.accent` — the same accent the filled pips use, so the
-              badge and the bar it stands over are one colour.
-                `divider={false}` because there is no rule under a card header any more (the
-              prop is spacing only since 2026-08-27) and the pips supply their own gap.
-              ⚠️ This is the EMPTY state only. The live strip is deliberately NOT a card and
-              must not grow a header row — see this file's "Strip, not a card" note, which is
-              about the meter, not about the placeholder that stands in for it. */}
+        <Surface style={styles.budgetCard}>
+          {/* ⚠️ **The empty state is the SAME card as the live one (2026-09-08).** It was a
+              `StarterCard` holding a bare row of ten grey bolts and a "Set the day's energy"
+              button — reported from a device twice, the second time as "Energy, once again,
+              what?". Two things were wrong with it and only one had been noticed: it did not
+              look like the card it stands in for (fixed 2026-09-07, by matching the glyphs), and
+              it was not the same SHAPE as it (this). A placeholder whose whole justification is
+              *"it is the shape of the thing you are being invited to fill in"* has to be that
+              shape, header and adjust row included — otherwise the first Energy a new user sees
+              is a panel the app never draws again, and on most installs it is the ONLY Energy
+              they ever see, because the bar does not appear until a capacity exists.
+                So: same `Surface`, same rail, same bar (all-empty at `MAX_PIPS`), same legend
+              telling you how to read it, and the same adjust row as the way in — v2's
+              `qa('Juster dagsbudsjett', …)`, which is now the one control here instead of a
+              button in a different shape. No segment: there is nothing to switch between yet. */}
           <SectionRail
             hue={theme.accent}
             domain="task"
             icon="flash"
             badgeHue
             tier="card"
-            label={t.energyMeter.title}
+            label={t.energyMeter.budgetTitle}
             peek={t.energyMeter.notSetPeek}
             divider={false}
           />
-          {/* ⚠️ **A row of EMPTY glyphs above the button (2026-09-01), REDRAWN 2026-09-07 to match
-              the bar it stands in for.** Maintainer: *"insert empty energy bubbles in the empty
-              state energy card so it's not so empty."* The card was one small button on a large
-              panel, on the app's landing screen, in the state a new user meets first — it read as
-              a placeholder rather than as an invitation.
-                **Its whole justification is that it is the SHAPE of the thing you are being
-              invited to fill in**, so when the meter changed shape this had to follow and did
-              not. On 2026-09-06 the glossy `energyPipCount` token row became v2's Energibudsjett
-              bar — a flat run of `flash` / `flash-outline` glyphs at `BAR_ICON_SIZE` (see
-              `row()`), with no ring, no inset fill and no border. This kept drawing the retired
-              recipe: ten `surfaceInset` circles with `theme.border` rims. So the first Energy a
-              new user ever saw was ten flat grey rings that resemble nothing the app goes on to
-              draw — reported as *"still not visually upgraded (just look at the Energy icons)"* —
-              and it was the ONLY Energy state most users saw, because the upgraded bar does not
-              appear until a capacity is set.
-                It is now literally the bar's own empty run: the same glyph, the same size, the
-              same gap, in `textMuted` — i.e. `left` at `used = 0`. Ten of them, matching
-              `MAX_PIPS`. ⚠️ If `row()`'s bar changes again, change this with it; a placeholder
-              that does not match its target is worse than no placeholder.
-                Decorative to a screen reader — the button beside them says what to do, and "flash
-              outline, flash outline, …" ten times says nothing. */}
+          {/* ⚠️ `tutorialPips`, NOT `pipRow`. `pipRow` carries `flex: 1` + `overflow: hidden`
+              because in the live card it shares a LINE with the value text; as a direct child of
+              this column that `flex` collapses it to zero height and the overflow rule then
+              clips all ten glyphs away — which is exactly what the first render of this card
+              did, in both themes: a legend explaining a bar that was not on screen. The glyph,
+              the size and `emptyGlyph` are still the bar's own, which is what
+              stableLayout.test.ts pins. */}
           <View
             style={styles.tutorialPips}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
             {Array.from({ length: MAX_PIPS }, (_, i) => (
-              <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={theme.textMuted} />
+              <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={emptyGlyph} />
             ))}
           </View>
-          <Button
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.accent} />
+              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <Ionicons name="flash-outline" size={LEGEND_ICON_SIZE} color={emptyGlyph} />
+              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendLeft}</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.good} />
+              <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendGivenBack}</Text>
+            </View>
+          </View>
+          <QuickAddOptionRow
+            wide
+            showsMore
+            icon="flash-outline"
             label={t.starters.energy.action}
-            variant="secondary"
-            size="sm"
+            value={t.energyMeter.notSetValue}
+            accent={theme.accent}
             onPress={() => setConfigOpen(true)}
-            style={styles.tutorialAction}
           />
-        </StarterCard>
+        </Surface>
       )}
 
-      {!pause.paused && !showTutorial && (
-        <>
-          {/* Both labels are unconditional now — see the i18n note on `energyMeter.today`.
-              The third argument after `trailingControls` is the row's static chip: today gets
-              `+N today only` while a boost is set, so borrowed energy can't hide inside the
-              total (header, correction 2). The week row never gets one — `capacityForWeek`
-              deliberately ignores the boost (store/useEnergyStore.ts), so there is nothing
-              temporary about that number to mark. */}
-          {showDay && row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, trailingControls,
-            dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null
-          )}
-          {showDay && showWeek && <View style={[styles.divider, { backgroundColor: theme.border }]} />}
-          {/* `showDay ? null : trailingControls` — the glyphs are drawn by whichever meter comes
-              FIRST, so 'weekly' mode (no day row) still gets them and 'custom' mode never gets two. */}
-          {showWeek && row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekSplit, weekPulse, showDay ? null : trailingControls, null)}
+      {/* ── v2's Energibudsjett CARD (2026-09-08) ────────────────────────────────────────
+          The mockup (docs/audit/Corrected_Screens_v2_1.html, now committed so this is checkable)
+          draws Energy as `gc slim`: a card header with a peek line, an `I dag`/`Uke` segment, the
+          bar with its legend, and one adjust row. The app drew a bare STRIP with a stacked
+          day row and week row — the v2 BAR had landed on 2026-09-06, its i18n (`budgetTitle`,
+          `scopeDay/Week`, `budgetAdjust`, `budgetUnits`) landed with it, and none of the
+          structure ever did. Two device reports in a row said Energy was still wrong; this is
+          the half that was missing, not a third guess at the bar.
 
-        </>
+          ⚠️ **This reverses "Strip, not a card" (2026-07-31), knowingly.** That note argued a
+          card here would compete with the four content cards below it. The mockup answers it
+          directly — it draws the header, the peek and the controls — and the maintainer's
+          ruling of 2026-09-08 is v2 plus "my judgement". What does NOT come back is the thing
+          that note was really about: this is not a REGISTRY card, so it has no fold, no ⤢ and
+          no `CardKey`, and `app/(tabs)/index.tsx` still renders it fixed, outside `cardNodes`.
+          The literal `tier="card"` rail is the one `cardAnatomy.test.ts`'s `CARD_RUNG_ALLOWED`
+          already licenses for this file. */}
+      {!pause.paused && !showTutorial && (
+        <Surface style={styles.budgetCard}>
+          <SectionRail
+            hue={theme.accent}
+            domain="task"
+            icon="flash"
+            badgeHue
+            tier="card"
+            label={t.energyMeter.budgetTitle}
+            peek={t.energyMeter.budgetPeek(activeSplit.spent, activeCapacity, activeSplit.gained)}
+            divider={false}
+            right={trailingControls}
+          />
+          {/* The scope segment, and ONLY when there are two scopes to pick between. In
+              `energyMode: 'daily'`/`'weekly'` one of them does not exist, and a two-option
+              control with one dead option is worse than no control. */}
+          {showDay && showWeek && (
+            <SegmentedControl<EnergyScope>
+              compact
+              options={[
+                { label: t.energyMeter.scopeDay, value: 'day' },
+                { label: t.energyMeter.scopeWeek, value: 'week' },
+              ]}
+              value={scope}
+              onChange={setScope}
+              style={styles.scopeSegment}
+            />
+          )}
+          {scope === 'day'
+            ? row('day', t.energyMeter.today, dayCurrent, dayCapacity, daySplit, dayPulse, null,
+                dayBoost > 0 ? <Badge label={t.energyMeter.boostChip(dayBoost)} /> : null, false)
+            : row('week', t.energyMeter.thisWeek, weekCurrent, weekCapacity, weekSplit, weekPulse, null, null, false)}
+          {/* v2's `qa('Juster dagsbudsjett','8 enheter')`: one row saying what it edits and what
+              the number currently is. `QuickAddOptionRow` is the app's existing shape for
+              exactly that (label line + value + ›) — DESIGN_RULES §8's whole point is that this
+              does not become a fifteenth hand-rolled row. */}
+          <QuickAddOptionRow
+            wide
+            showsMore
+            icon="flash-outline"
+            label={t.energyMeter.budgetAdjust}
+            value={t.energyMeter.budgetUnits(scope === 'day' ? dayCapacity : weekCapacity)}
+            isSet
+            accent={theme.accent}
+            onPress={() => setConfigOpen(true)}
+          />
+        </Surface>
       )}
 
       {/* The one line the pause leaves behind. It is the acknowledgement itself — the narrator
@@ -868,6 +985,12 @@ const styles = StyleSheet.create({
   // the pips sit ~16px left of the neighbouring cards' CONTENT and flush with their outer edge —
   // deliberate: it's what makes this read as chrome for the day rather than a fifth card.
   strip: { gap: Spacing.xs },
+  // v2's `gc slim`: the card's own padding and inner rhythm. `Surface` brings the fill, edge and
+  // shadow; this is only the box it wraps around the rail, the segment, the bar and the row.
+  budgetCard: { padding: Spacing.md, gap: Spacing.sm },
+  // The segment sits under the header at the body's own rhythm — v2 puts it first in the body,
+  // above the bar, so the thing it switches is directly beneath it.
+  scopeSegment: { marginTop: Spacing.xs },
   // The top line's right-hand cluster: the ✏️, plus the overspend control to its left when it
   // is showing. (It held a capacity stepper too for one day — reversed, see the header's
   // correction 1.) `marginLeft:'auto'` is what right-aligns it without meterTopRow needing a
