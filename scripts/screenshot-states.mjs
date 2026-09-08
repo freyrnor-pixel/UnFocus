@@ -132,6 +132,25 @@ async function settle(page, { budgetMs = SETTLE_BUDGET_MS, step = 250 } = {}) {
  * highlighted Shop pill. The position the app itself set is the only correct answer, so record it
  * before the wheel and put it back afterwards.
  */
+/**
+ * Put every scroller back to the top before a full-screen shot.
+ *
+ * A baseline is a picture of a SCREEN, not of wherever the last interaction happened to leave it.
+ * `home-populated` drifted the day the Energy card grew: seeding tasks scrolls the list, the shot
+ * fired at whatever offset that left, and the frame no longer contained the card the change was
+ * about — a 60% diff that was entirely scroll position. The gate cannot tell that apart from a
+ * redesign, so the walk removes the variable instead of arguing with it.
+ */
+async function scrollToTop(page) {
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('*')) {
+      if (el.scrollTop > 0) el.scrollTop = 0;
+    }
+    window.scrollTo(0, 0);
+  }).catch(() => {});
+  await page.waitForTimeout(400);
+}
+
 async function freezeScrollX(page) {
   return page
     .evaluate(() => {
@@ -314,6 +333,26 @@ async function dismissTour(page) {
   if (await skip.isVisible().catch(() => false)) {
     await skip.click({ timeout: 8000 });
     await page.waitForTimeout(700);
+  }
+}
+
+/**
+ * Fail unless the named tab is the one actually on screen.
+ *
+ * Three baselines in this file have now been caught photographing a different screen than their
+ * name claims, each time because a step navigated by assumption and nothing checked. The check is
+ * the BottomNav's own selected state, which is what "which tab am I on" means.
+ */
+async function assertOnScreen(page, marker, shotName) {
+  // The marker is a piece of text only the intended screen draws. `accessibilityState.selected`
+  // is not usable here: BottomNav sets it on `accessibilityRole="button"`, and RNW does not emit
+  // `aria-selected` for that role, so every tab reads the same to a locator. A screen's own
+  // content is the honest signal.
+  const seen = await page.getByText(marker, { exact: true }).first().isVisible({ timeout: 6000 }).catch(() => false);
+  if (!seen) {
+    throw new Error(
+      `${shotName}: "${marker}" is not on screen — refusing to shoot a baseline of the wrong screen`,
+    );
   }
 }
 
@@ -629,6 +668,16 @@ async function main() {
 
     // ---- 2. the three tabs, empty ---------------------------------------
     console.log('> tabs, empty');
+    // ⚠️ **Go to Home and PROVE you are there (2026-09-08).** This shot assumed the tour left
+    // you on Home and checked nothing, so when the tour's last spotlight moved — a card it
+    // anchored on was deleted from the Shop tab — `home-empty` and `home-populated` quietly
+    // became photographs of the SHOPPING screen, in both themes. The gate reported them as a
+    // 60% change and would have blessed the Shop tab under Home's name. Same failure class as
+    // `catalogue` == `shopping-empty` and `health-form` == `health-empty` before it: a baseline
+    // that never photographed its subject. The walk now navigates deliberately and throws rather
+    // than shoot whatever happens to be on screen.
+    await tab(page, 'Home');
+    await assertOnScreen(page, 'Energy budget', 'home-empty');
     await shot(page, 'home-empty', {
       title: 'Me — first run, nothing added yet',
       screen: 'app/(tabs)/index.tsx',
@@ -1302,6 +1351,10 @@ async function main() {
 
     console.log('> home, populated');
     await tab(page, 'Home');
+    // Same assertion as `home-empty` — this shot DID navigate, and still landed on Shop when the
+    // tour's end state moved, because a tab click that silently fails leaves you where you were.
+    await scrollToTop(page);
+    await assertOnScreen(page, 'Energy budget', 'home-populated');
     await shot(page, 'home-populated', {
       title: 'Me — with everything seeded',
       screen: 'app/(tabs)/index.tsx',

@@ -37,7 +37,6 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BORDER_WIDTH, computeBorderTone, FontSize, Radius, Spacing, MIN_TAP_TARGET } from '@/constants/theme';
 import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { useScreenColor } from '@/lib/screenColor';
 import { useT } from '@/lib/i18n';
 import { categoryLabel, categoryPresets } from '@/lib/shoppingCategories';
 import { showAppModal } from '@/components/AppModal';
@@ -59,8 +58,7 @@ export default function ShoppingFilterBar({ search, onSearchChange, category, on
   const t = useT();
   const searchLift = useKeyboardLift<TextInput>();
   // Shopping's own green, one rung lighter than the field it sits beside — see the header.
-  const screenHue = useScreenColor() ?? theme.border;
-  const buttonEdge = computeBorderTone(screenHue, isDark, 'button');
+  const buttonEdge = computeBorderTone(theme.border, isDark, 'button');
 
   function openCategoryChooser() {
     showAppModal(t.categoryPickerLabel, undefined, [

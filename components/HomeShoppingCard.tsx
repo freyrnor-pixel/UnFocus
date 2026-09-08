@@ -186,7 +186,7 @@ export default function HomeShoppingCard({
   // solid-filled circle — a heavy solid-colour blob for a plain prev/next control read as
   // over-designed (user report). Border sits at the lightest "button" rung of the screen hue,
   // same grading Button.tsx's ghost variant uses.
-  const pagerButtonBorder = computeBorderTone(screenColor.base, isDark, 'button');
+  const pagerButtonBorder = computeBorderTone(theme.border, isDark, 'button');
 
   const [localPadState, setLocalPadState] = useState<PadState>('preview');
   const state = padState ?? localPadState;

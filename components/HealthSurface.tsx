@@ -145,7 +145,7 @@ function IssueRow({
 
   const rowBox = {
     borderWidth: BORDER_WIDTH.field,
-    borderColor: computeBorderTone(screenHue, isDark, 'field'),
+    borderColor: computeBorderTone(theme.border, isDark, 'field'),
     borderRadius: Radius.sm,
   };
 

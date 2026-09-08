@@ -533,6 +533,7 @@ import SharedRequestsSection from '@/components/SharedRequestsSection';
 import ConfirmationBanner from '@/components/ConfirmationBanner';
 import { confirmDestructive, showAppModal } from '@/components/AppModal';
 import Surface from '@/components/Surface';
+import EmptyState from '@/components/EmptyState';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import DisclosureRow from '@/components/DisclosureRow';
 import Collapsible from '@/components/Collapsible';
@@ -549,7 +550,6 @@ import ShoppingItemSheet from '@/components/ShoppingItemSheet';
 import DraggableTaskRow from '@/components/DraggableTaskRow';
 import IconButton from '@/components/IconButton';
 import NarratorQuote from '@/components/NarratorQuote';
-import StarterCard from '@/components/StarterCard';
 import DebugNoteAnchor from '@/components/DebugNoteAnchor';
 import TourTarget from '@/components/TourTarget';
 import Card from '@/components/Card';
@@ -1750,11 +1750,17 @@ export default function ShoppingScreen() {
           has nothing on it. The cadence LINK went too, not just the pickers: Settings is one tap
           away on this screen's own header gear, and a card whose whole body is a door to another
           screen is the thing the original ⓘ complaint was about. */}
-      {lists.length === 0 && items.length === 0 && (
-        <StarterCard
-          text={`${t.hints.shopping.text}\n• ${t.starters.shopping.textWeekly}\n• ${t.starters.shopping.textMonthly}`}
-        />
-      )}
+      {/* ⚠️ **DELETED 2026-09-08 — v2's first fix line for this tab**: *"The bullet-list hint
+          card at the top became ONE HINT LINE inside Handlelister — it was a card with no
+          owner."* That is the whole diagnosis: a two-bullet teaching block standing above every
+          card on the screen, belonging to none of them, saying what the card directly beneath it
+          already says on its own hint line (`t.cardHint.shopLists`, drawn by Handlelister). On an
+          empty Shop it was the largest thing on screen and the first thing a new user read.
+            This is the SAME series the 2026-08-20 note above ends — four shapes of top-of-screen
+          banner in a month, closed with *"The top text box can be removed"* and "tips belong to a
+          card's empty state". This card was the fifth shape, added back under a different name.
+          The tips it carried are where that ruling put them: Handlelister's hint line, and the
+          empty state's one line and one button (v2's second fix line, above). */}
       {/* Incoming shared shopping requests — opt-in via settings.featureSharing
           (off for fresh installs). Anything already received stays in the store and
           reappears untouched if sharing is turned back on. */}
@@ -2289,6 +2295,12 @@ export default function ShoppingScreen() {
                 />
 
                 {weekLists.length === 0 ? (
+                  /* ⚠️ A quiet LINE here, deliberately — v2's "one line and one button" empty
+                     state is the whole-card one below, not this. Four week sections each holding
+                     a dashed box and a CTA is the "4 redundant 'no lists here' sections" this
+                     block's own comment above rules out, and the first attempt at v2's fix
+                     (2026-09-08) put one in every empty week: two full call-to-action boxes
+                     stacked above the week that actually had lists in it. */
                   <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
                 ) : (
                   weekLists.map((list) => {
@@ -2449,36 +2461,38 @@ export default function ShoppingScreen() {
               and one context switch for nothing. It stays on the not-empty path, where the
               trigger is a single row with no room to spell them out. */}
           {isWeeklyEmpty ? (
-            // Neutral edge (theme.border) instead of the default screen-hue edge, so this
-            // reads as a quiet "nothing here yet", not a coded surface (2026-07-20 unify
-            // placeholder cards).
-            <Surface style={styles.weekEmptyCard}>
-              <Text style={[styles.weekEmptyTitle, { color: theme.text }]}>{t.weekEmptyTitle}</Text>
-              <Text style={[styles.weekEmptyBody, { color: theme.textMuted }]}>{t.weekEmptyBody}</Text>
-              <PressableScale
-                style={[styles.newListTrigger, { borderColor: theme.accent, backgroundColor: theme.accentSoft }]}
-                onPress={handleCreateNewWeeklyList}
-                accessibilityRole="button"
-                accessibilityLabel={t.startEmptyList}
-                scaleTo={0.97}
-              >
-                <Ionicons name="add" size={22} color={theme.accent} />
-                <Text style={[styles.newListTriggerLabel, { color: theme.accent }]}>
-                  {t.startEmptyList}
-                </Text>
-              </PressableScale>
-              <PressableScale
-                style={styles.weekEmptySecondary}
-                onPress={() => setSavedListsListId('__new__')}
-                accessibilityRole="button"
-                accessibilityLabel={t.savedListsTitle}
-                scaleTo={0.97}
-              >
-                <Text style={[styles.weekEmptySecondaryLabel, { color: theme.accent }]}>
-                  {t.savedListsTitle}
-                </Text>
-              </PressableScale>
-            </Surface>
+            /* ⚠️ **ONE line and ONE button (2026-09-08)** — v2's own fix line for this tab:
+               *"Empty state is one line and one button; the nested inner card with two competing
+               links is gone."* This card had a title, a body line, a "Start empty" pressable AND
+               a second "Saved lists" link under it: the two competing links, verbatim.
+
+               ⚠️ This narrows the 2026-08-13 instruction (*"one card whose body IS the two
+               choices"*) rather than reversing it, and NEITHER path is lost. The choices are
+               still both here — they are behind the one button now, in the same chooser the
+               not-empty trigger already opens, and only when there is something to choose
+               BETWEEN: with no saved lists, "Saved lists" was a link to an empty screen, which is
+               a competing link that could not even win. So: saved lists exist → the button opens
+               the chooser; none → it starts an empty list directly, which is what the second
+               choice would have done anyway. The chooser-skip reasoning in the note above
+               (two options, a whole card, no dialog) is what that ruling was protecting, and it
+               still holds for the case it was written about.
+
+               `EmptyState` draws it — the app's one component for this shape (DESIGN_RULES §8),
+               and since 2026-09-08 it draws v2's dashed box with no illustration. */
+            <EmptyState
+              title={t.weekEmptyTitle}
+              action={{
+                label: t.startEmptyList,
+                onPress: templateLists.length > 0
+                  ? () =>
+                    showAppModal(t.newWeeklyListTitle, '', [
+                      { text: t.startEmptyList, onPress: handleCreateNewWeeklyList },
+                      { text: t.savedListsTitle, onPress: () => setSavedListsListId('__new__') },
+                      { text: t.cancel, style: 'cancel' },
+                    ])
+                  : handleCreateNewWeeklyList,
+              }}
+            />
           ) : (
             <PressableScale
               // SECONDARY — accent-tinted, the same weight as "Add dish" and the Monthly

@@ -237,6 +237,9 @@ const en = {
        row of grey glyphs and a button sat in a bare panel among titled cards. Neutral by
        construction — it states a fact about the day, and there is nothing to be behind on. */
     notSetPeek: 'Not set for today',
+    /* The adjust row's value in the EMPTY card (2026-09-08): the row is the way IN, so it says
+       there is no number yet rather than showing a zero, which would read as a budget of none. */
+    notSetValue: 'Not set',
     /* These two name the meter, not just the period (2026-08-03). They were 'Today' /
        'This week' and were passed ONLY in `energyMode: 'custom'`, where two meters are on
        screen and something has to tell them apart — the far commoner single-meter case
@@ -2675,6 +2678,7 @@ const no: typeof en = {
   energyMeter: {
     title: 'Energi',
     notSetPeek: 'Ikke satt for i dag',
+    notSetValue: 'Ikke satt',
     /* Se den engelske tvillingen: disse navngir måleren, ikke bare perioden (2026-08-03). */
     today: 'Energi i dag',
     thisWeek: 'Energi denne uken',
@@ -4564,6 +4568,7 @@ const is: typeof en = {
   energyMeter: {
     title: 'Orka',
     notSetPeek: 'Ekki stillt fyrir daginn',
+    notSetValue: 'Ekki stillt',
     /* Sjá enska tvíburann: þetta nefnir mælinn, ekki bara tímabilið (2026-08-03). */
     today: 'Orka í dag',
     thisWeek: 'Orka þessa viku',

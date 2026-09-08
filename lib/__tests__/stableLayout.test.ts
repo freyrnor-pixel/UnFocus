@@ -253,12 +253,30 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // block"*), and that half is asserted as an absence below. The card itself is what this test
     // is really about — the point was never the paragraph, it was that this spot must not draw a
     // full ten-pip bar before anything can spend it.
-    expect(src).toMatch(/<StarterCard[^>]*>/);
-    expect(src).not.toMatch(/<StarterCard[^>]*stage=/);
+    //
+    // ⚠️ **`StarterCard` is gone from this file (2026-09-08) and the rule it carried is not.**
+    // v2 draws Energy as one card — header, peek, bar, legend, adjust row — so the placeholder
+    // became that same card rather than a different-shaped panel standing in for it, and the
+    // assertion moved with it: what must hold is that this spot draws an EMPTY bar, never a full
+    // one, before anything can spend it. That is now checkable directly rather than by proxy.
+    const emptyBranch = src.slice(src.indexOf('showTutorial && ('), src.indexOf('{!pause.paused && !showTutorial'));
+    expect(emptyBranch).toMatch(/<Surface style=\{styles\.budgetCard\}>/);
+    expect(emptyBranch).toMatch(/tier="card"/);
+    // The BAR in this state is outline glyphs only. A filled pip here would be energy spent
+    // with nothing able to spend it — the exact thing this test has always been about. Scoped to
+    // the pip row on purpose: the LEGEND beneath it draws a filled bolt as its `brukt` swatch
+    // and a green one for `gitt tilbake`, which is a key to the bar, not a reading of it.
+    // `tutorialPips` since 2026-09-08 — see the note where the card renders it: `pipRow` is a
+    // flex child of the bar's LINE and collapses to nothing as a column child.
+    const pipRow = emptyBranch.slice(emptyBranch.indexOf('styles.tutorialPips'), emptyBranch.indexOf('styles.legendRow'));
+    expect(pipRow).toMatch(/name="flash-outline"/);
+    expect(pipRow).not.toMatch(/name="flash"/);
+    // And the way in is the same adjust row the live card uses, not a second control shape.
+    expect(emptyBranch).toMatch(/<QuickAddOptionRow/);
+    expect(src).not.toMatch(/<StarterCard/);
     // Scoped to the JSX rather than the whole file: the source's own comment explains where the
     // prop went, and a bare word-match would forbid saying so.
     expect(src).not.toMatch(/<StarterCard[^>]*noTree/);
-    expect(src).not.toMatch(/<StarterCard[^>]*\btext=/);
     expect(src).toMatch(/label=\{t\.starters\.energy\.action\}/);
     // ⚠️ **The EMPTY row (2026-09-01)** — maintainer: *"insert empty energy bubbles in the empty
     // state energy card so it's not so empty."* Its whole justification is that this state is the
@@ -281,8 +299,13 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     const [, barGlyph, barColor] = barLeftRun!;
     expect(barGlyph).toBe('flash-outline');
     // The tutorial row draws that same glyph, at the bar's icon size, in the bar's own colour.
+    // ⚠️ It is `styles.pipRow` since 2026-09-08, not `styles.tutorialPips`: the empty state is
+    // the same v2 card as the live one now, so it uses the bar's own row style rather than a
+    // parallel one. That is the same drift this assertion exists to catch, closed one level
+    // further up — there is no second style to go stale, and `emptyGlyph` is one const read by
+    // both runs, so the colour cannot diverge either.
     const tutorialRow = src.match(
-      /styles\.tutorialPips[\s\S]*?<Ionicons key=\{i\} name="([\w-]+)" size=\{(\w+)\} color=\{([\w.]+)\}/,
+      /length: MAX_PIPS[\s\S]*?<Ionicons key=\{i\} name="([\w-]+)" size=\{(\w+)\} color=\{([\w.]+)\}/,
     );
     expect(tutorialRow).toBeTruthy();
     expect(tutorialRow![1]).toBe(barGlyph);
