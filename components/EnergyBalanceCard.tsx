@@ -64,7 +64,7 @@ type Props = {
   date: string;
 };
 
-export default function EnergyBalanceCard({ date }: Props) {
+function EnergyBalanceCard({ date }: Props) {
   const t = useT();
   const theme = useAppTheme();
   const people = usePeopleStore((s) => s.people);
@@ -162,3 +162,10 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginTop: Spacing.xs },
   summary: { fontSize: FontSize.xs, fontFamily: Fonts.regular },
 });
+
+/**
+ * Memoised (perf, 2026-09-08). Its only prop is a `YYYY-MM-DD` string, so the default shallow
+ * compare is exact here — the card re-renders when the day changes or its own energy data
+ * does, and not because some other card on Home did.
+ */
+export default React.memo(EnergyBalanceCard);
