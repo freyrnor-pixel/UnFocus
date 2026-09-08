@@ -628,6 +628,17 @@ function ScreenBackground({ activeRoute }: Props) {
           siblings sharing one z, document order decides. */}
       {flatBase && <View pointerEvents="none" style={[styles.backdrop, { backgroundColor: p.base[0] }]} />}
       {svgHasContent && (
+    // ── Texture-cached like the orb layers (perf, 2026-09-08) ───────────────────────────────
+    // 2026-08-31 gave every ORB canvas `renderToHardwareTextureAndroid` so a tab swipe costs
+    // alpha blends of already-drawn textures instead of shader work (see `OrbLayer`). This
+    // canvas — the base gradient plus the two glows — was left out of that pass, and it is the
+    // one layer present on EVERY screen in BOTH themes, including when `reduceEffects` has
+    // removed all the orbs. Its content changes only with the theme/palette, never per frame,
+    // so it is the best texture candidate in the file.
+    // The wrapper is an absolute-fill View around an absolute-fill Svg, so it adds a node but
+    // no geometry; `renderToHardwareTextureAndroid` is a no-op off Android, which is why no
+    // baseline moves (the visual gate captures on web).
+    <View pointerEvents="none" renderToHardwareTextureAndroid style={styles.backdrop}>
     <Svg
       pointerEvents="none"
       style={styles.backdrop}
@@ -683,6 +694,7 @@ function ScreenBackground({ activeRoute }: Props) {
           surface, so a user who turns effects off is choosing not to see it. Nothing is
           un-earned — `lifetimeGrowth` keeps accruing (see lib/useGrowth.ts). */}
     </Svg>
+    </View>
       )}
       {/* ── The orb field: one canvas per layer, opacity on the VIEW ──────────────────────────
           Four sibling canvases rather than four groups in one — see `OrbLayer` for the two

@@ -35,7 +35,7 @@ import { useSharedStore } from '@/store/useSharedStore';
 
 const PREVIEW_PER_SECTION = 3;
 
-export default function HomeSharedCard() {
+function HomeSharedCard() {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -156,3 +156,13 @@ const baseStyles = StyleSheet.create({
   divider: { height: 1 },
   moreText: { fontSize: FontSize.xs, fontFamily: Fonts.regular, marginTop: 2 },
 });
+
+/**
+ * Memoised (perf, 2026-09-08). No props: everything it draws comes from the share store, so Home re-rendering cannot
+ * change its output.
+ *
+ * All three tab screens stay MOUNTED at once (app/(tabs)/_layout.tsx's `lazy: false`,
+ * reverted twice — do not reach for lazy again), so an unmemoised card here re-renders
+ * on any store write anywhere, including while its screen is off-screen.
+ */
+export default React.memo(HomeSharedCard);
