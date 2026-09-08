@@ -189,7 +189,10 @@ const L = {
     // plus a colour row that puts a swatch, two nudges and a hex field on ONE line — the
     // densest horizontal case added to the app since the task editor, and the same shape that
     // broke that editor at 327px.
-    advancedTab: 'Advanced', debugMode: 'Debug mode', designLab: 'Design lab',
+    // The Settings tab that carries Debug mode -> the Design Lab door. It is the SHORT
+    // word since 2026-09-08 (four tabs had to fit one non-scrolling row); `sections.advanced`
+    // keeps the long form, so don't 'correct' this back to 'Advanced'.
+    advancedTab: 'More', debugMode: 'Debug mode', designLab: 'Design lab',
     // The playground (empty, then with a card on it, then with a part's panel open), and the
     // token knobs on their own pushed screen. A tab this walk doesn't switch to is a tab it
     // doesn't measure — the same rule that made this five scans in the first place.
@@ -212,7 +215,7 @@ const L = {
     taskAdvanced: 'Avanserte valg', goalField: 'Mål', editGoals: 'Rediger mål',
     logSymptom: 'Logg noe', logSymptomMore: 'Flere valg',
     healthLogLink: 'Helse-logg', logSymptomTrigger: 'Hva plager deg?',
-    advancedTab: 'Avansert', debugMode: 'Feilsøkingsmodus', designLab: 'Designlab',
+    advancedTab: 'Mer', debugMode: 'Feilsøkingsmodus', designLab: 'Designlab',
     labAddCard: 'Legg til et kort', labBlankCard: 'Et tomt kort',
     labShelfGroup: 'Kontroller', labAddSlider: 'Legg til en skyvebryter',
     labTokensLink: 'Farger og former',
@@ -236,7 +239,7 @@ const L = {
     taskAdvanced: 'Ítarlegir valkostir', goalField: 'Markmið', editGoals: 'Breyta markmiðum',
     logSymptom: 'Skrá eitthvað', logSymptomMore: 'Fleiri valkostir',
     healthLogLink: 'Heilsuskrá', logSymptomTrigger: 'Hvað er að angra þig?',
-    advancedTab: 'Ítarlegt', debugMode: 'Villuleitarhamur', designLab: 'Hönnunarstofa',
+    advancedTab: 'Meira', debugMode: 'Villuleitarhamur', designLab: 'Hönnunarstofa',
     labAddCard: 'Bæta við korti', labBlankCard: 'Tómt kort',
     labShelfGroup: 'Stýringar', labAddSlider: 'Bæta við: sleði',
     labTokensLink: 'Litir og form',

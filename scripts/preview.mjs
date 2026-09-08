@@ -992,7 +992,9 @@ async function main() {
     // run, which has already proved the app's own store→DB paths by this point.
     try {
       console.log('> Settings -> design lab (build a card from blank)');
-      await page.getByText('Advanced', { exact: true }).first().click({ timeout: 10000 });
+      // 'More' since 2026-09-08 — the Settings tab bar went to four tabs and the fourth
+      // label had to be a short word to fit one non-scrolling row (app/settings.tsx).
+      await page.getByText('More', { exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(900);
       // Reached through DEBUG MODE since 2026-08-17: the lab's own `featureDesignLab` switch
       // was removed in the settings-declutter pass and the link moved inside the Debug mode

@@ -1007,7 +1007,8 @@ async function main() {
         await tab(page, 'Home');
         await tryButton(page, 'Settings');
         await page.waitForTimeout(1400);
-        await tryText(page, 'Advanced', 4000);
+        // 'More' since 2026-09-08 (four-tab Settings bar — see app/settings.tsx).
+        await tryText(page, 'More', 4000);
         await page.waitForTimeout(900);
         // Debug mode is the door since 2026-08-17 — the lab's own switch went in the
         // settings-declutter pass and its link lives inside the Debug mode card now.
