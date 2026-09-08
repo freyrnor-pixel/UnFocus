@@ -227,7 +227,7 @@ function NotesComposer({ accent, onCommit, voice }: {
   );
 }
 
-export default function HomeNotesCard() {
+function HomeNotesCard() {
   const t = useT();
   const router = useRouter();
   const theme = useAppTheme();
@@ -471,3 +471,13 @@ const baseStyles = StyleSheet.create({
   },
   doneHeaderText: { fontSize: FontSize.sm, fontFamily: Fonts.semibold },
 });
+
+/**
+ * Memoised (perf, 2026-09-08). A pure store subscriber with no props, so a re-render of Home can never change what it
+ * draws — only its own notes data can.
+ *
+ * All three tab screens stay MOUNTED at once (app/(tabs)/_layout.tsx's `lazy: false`,
+ * reverted twice — do not reach for lazy again), so an unmemoised card here re-renders
+ * on any store write anywhere, including while its screen is off-screen.
+ */
+export default React.memo(HomeNotesCard);

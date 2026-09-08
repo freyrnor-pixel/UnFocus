@@ -39,12 +39,18 @@ import MedicineSurface from '@/components/MedicineSurface';
 import { useT } from '@/lib/i18n';
 import { useMedicineStore } from '@/store/useMedicineStore';
 
-export default function MedicineCard() {
+function MedicineCard() {
   const t = useT();
   // The peek counts medicines on a TRAY (morning/midday/evening/night), not every medicine the
   // person has: an as-needed medicine belongs to no tray and nothing ever nudges you to take
   // one, so counting it as "daily" would state a schedule that deliberately does not exist.
-  const dailyCount = useMedicineStore((s) => s.medicines.filter((m) => m.trays.length > 0).length);
+  // `reduce`, not `filter().length`: a Zustand selector runs on EVERY store write and its
+  // result is compared by identity to decide whether to re-render. `filter` allocates a fresh
+  // array each run — the COUNT is then compared, so this was still correct, but the array was
+  // garbage on every write to the medicine store. Counting in place allocates nothing.
+  const dailyCount = useMedicineStore((s) =>
+    s.medicines.reduce((n, m) => (m.trays.length > 0 ? n + 1 : n), 0)
+  );
   return (
     <Card
       id="healthMedicine"
@@ -55,3 +61,13 @@ export default function MedicineCard() {
     </Card>
   );
 }
+
+/**
+ * Memoised (perf, 2026-09-08). No props; reads the medicine store itself. Home re-renders on every task/note/shopping
+ * change and none of them can affect this card.
+ *
+ * All three tab screens stay MOUNTED at once (app/(tabs)/_layout.tsx's `lazy: false`,
+ * reverted twice — do not reach for lazy again), so an unmemoised card here re-renders
+ * on any store write anywhere, including while its screen is off-screen.
+ */
+export default React.memo(MedicineCard);

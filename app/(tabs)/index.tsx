@@ -178,14 +178,20 @@ export default function HomeScreen() {
   const flightCounter = useRef(0);
   const lastScrollY = useRef(0);
 
-  function handleFlightStart(item: ShoppingItem, from: FlightRect, to: FlightRect) {
+  // `useCallback` with an empty dep list (perf, 2026-09-08): this is a prop of the memoised
+  // shopping card, and as a bare function declaration it got a fresh identity on every Home
+  // render — which would have silently defeated that memo entirely. It closes over nothing but
+  // a ref and the `setFlights` updater (both stable by construction), so [] is exact, not a
+  // shortcut. `handleFlightEnd`/`handleScreenScroll` below are NOT props of a memoised child,
+  // so they are deliberately left as plain declarations rather than churned for symmetry.
+  const handleFlightStart = useCallback((item: ShoppingItem, from: FlightRect, to: FlightRect) => {
     flightCounter.current += 1;
     const key = `${item.id}-${flightCounter.current}`;
     setFlights((prev) => [
       ...prev.filter((f) => f.itemId !== item.id),
       { key, itemId: item.id, from, to, content: <FlightPill label={item.name} /> },
     ]);
-  }
+  }, []);
   function handleFlightEnd(key: string) {
     setFlights((prev) => prev.filter((f) => f.key !== key));
   }
@@ -503,13 +509,27 @@ export default function HomeScreen() {
   // `HomeCardKind` string.** It was a `switch (kind)` over lib/homeCards.ts's own three-kind
   // union, driven by `settings.homeCardOrder`; both are gone and this screen reads the same
   // `cardOrder`/`hiddenCards` columns as the other four. The card JSX itself is unchanged.
-  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
-    homeNotes: (
+  // Hoisted out of HomeShoppingCard's props (perf, 2026-09-08): as an inline arrow it was a new
+  // function identity on every Home render, which alone would defeat the memo below.
+  const formatShoppingRange = useCallback(
+    (startDate: string, endDate: string) => formatDateRange(startDate, endDate, t.monthsShort, language),
+    [t.monthsShort, language]
+  );
+
+  const notesNode = useMemo(
+    () => (
       <DebugNoteAnchor id="home.notesPreview" label="Home — Notes preview" style={styles.section}>
         <HomeNotesCard />
       </DebugNoteAnchor>
     ),
-    homeToday: (
+    // `styles.section` is a module-level StyleSheet and therefore constant; it is listed only
+    // because the exhaustive-deps rule cannot prove that, and an ignore comment would be a
+    // worse trade than one stable reference.
+    [styles.section]
+  );
+
+  const todayNode = useMemo(
+    () => (
       <TourTarget id="tour.home.today">
         <DebugNoteAnchor id="home.plansPreview" label="Home — Plans preview" style={styles.section}>
                 <PlanTaskCard
@@ -552,13 +572,22 @@ export default function HomeScreen() {
         </DebugNoteAnchor>
       </TourTarget>
     ),
-    homeShopping: (
+    [
+      todayTasks, tasks, deletedTasks, dayLog, todoSpec, todoState, setTodoState,
+      planTimelineHorizontal, handleToggleTask, handleAddTask, handleAddTaskAndEdit,
+      handleDeleteTask, handleRestoreTask, handleAddExampleTask, handlePressLogEntry,
+      removeMoment, addMoment, styles.section,
+    ]
+  );
+
+  const shoppingNode = useMemo(
+    () => (
       <DebugNoteAnchor id="home.shoppingPreview" label="Home — Shopping preview" style={styles.section}>
             <HomeShoppingCard
               // Four pages, one per cycle week (2026-07-30) — see the `shoppingWeeks` memo.
               weeks={shoppingWeeks}
               initialWeek={currentShoppingWeek}
-              formatRange={(startDate, endDate) => formatDateRange(startDate, endDate, t.monthsShort, language)}
+              formatRange={formatShoppingRange}
               pace={shoppingPace}
               onToggle={handleToggleShopping}
               onCollect={handleCollectShopping}
@@ -572,6 +601,28 @@ export default function HomeScreen() {
             />
       </DebugNoteAnchor>
     ),
+    [
+      shoppingWeeks, currentShoppingWeek, formatShoppingRange, shoppingPace, monthlyLists,
+      shoppingCardState, setShoppingCardState, handleToggleShopping, handleCollectShopping,
+      handleRemoveShoppingItem, handleNavigateToShopping, handleAddShoppingItem,
+      handleFlightStart, styles.section,
+    ]
+  );
+
+  // ⚠️ **Each card is memoised SEPARATELY, and that is the point (perf, 2026-09-08).**
+  // This object used to be rebuilt whole on every Home render, so a new element identity for
+  // EVERY card meant one note changing re-rendered the shopping card, the to-do card and the
+  // day log with it. Home subscribes to a lot (tasks, notes, shopping, moments, energy, the
+  // clock via `nowMinutes`), so "every Home render" is often. Keeping each entry behind its own
+  // deps lets React bail out on the untouched siblings by element identity — which also covers
+  // components/Card.tsx itself, whose `children` prop makes it unmemoisable from the outside.
+  //
+  // A dep list here must name everything the card's JSX reads. Getting one wrong shows up as a
+  // card that stops updating, not as a crash — if a Home card ever goes stale, look here first.
+  const cardNodes: Partial<Record<CardKey, React.ReactNode>> = {
+    homeNotes: notesNode,
+    homeToday: todayNode,
+    homeShopping: shoppingNode,
   };
 
   // All hooks above must run on every render (Rules of Hooks), so this loading

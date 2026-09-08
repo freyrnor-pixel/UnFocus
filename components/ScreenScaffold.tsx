@@ -408,6 +408,14 @@ type Props = {
    */
   scrollable?: boolean;
   /**
+   * Opts this screen out of Android's `removeClippedSubviews` on the internal ScrollView
+   * (default true — see the prop's comment at the ScrollView itself). Set false if a screen's
+   * rows ever go blank while scrolling: clipping is an Android-side drawing optimisation and
+   * it mis-measures children that are absolutely positioned or that overflow their parent's
+   * bounds, which is exactly what a row with a halo/overhang does.
+   */
+  clipSubviews?: boolean;
+  /**
    * This screen's key in lib/screenColor.ts — the hue every card inside it wears on its
    * border (card design reset, 2026-08-05). Tab screens pass their react-navigation route
    * name ('plans', 'habits', 'health', 'shopping'); sub-tier screens pass their own key
@@ -425,6 +433,7 @@ export default function ScreenScaffold({
   title,
   tier,
   children,
+  clipSubviews = true,
   isHome = false,
   onBack,
   headerRight,
@@ -890,6 +899,16 @@ export default function ScreenScaffold({
           onScroll={handleScroll}
           scrollEventThrottle={16}
           scrollEnabled={!tourLocksScroll}
+          // ── Android subview clipping (perf, 2026-09-08) ──────────────────────────────────
+          // Every screen but Catalogue renders its rows eagerly into this one ScrollView (see
+          // app/(tabs)/_layout.tsx's `lazy` notes: "nothing outside CatalogueTab is windowed").
+          // This is not windowing — the views are still MOUNTED and measured — but it stops
+          // Android drawing the ones scrolled out of view, which is the cheap half of the win
+          // and costs no layout change, so no visual baseline moves.
+          // iOS is excluded deliberately: RN's iOS implementation of this prop has a long tail
+          // of blank-cell bugs and iOS composites scrolled-off content cheaply anyway.
+          // `clipSubviews={false}` opts a screen out — take it if rows ever flicker blank.
+          removeClippedSubviews={Platform.OS === 'android' && clipSubviews}
         >
           <ScrollIntoViewContext.Provider value={scrollIntoView}>
             <ScrollToNodeContext.Provider value={scrollToNode}>{children}</ScrollToNodeContext.Provider>
