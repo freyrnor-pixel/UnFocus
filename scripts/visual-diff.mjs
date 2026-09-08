@@ -150,10 +150,11 @@ const BASELINE_SET = [
   'health-empty',
   'health-medicine-tray',
   'health-dose-logged',
-  // Settings — all three tabs. `settings-general` is where the tab-slider centring defect
+  // Settings — all four tabs (2026-09-08; was three, and 'personal' is retired). `settings-general` is where the tab-slider centring defect
   // lives, so this is the shot that should have caught it.
   'settings-general',
-  'settings-personal',
+  'settings-lists',
+  'settings-notifications',
   'settings-advanced',
   // The densest surfaces, where horizontal and vertical pressure are highest.
   'health-form',

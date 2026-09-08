@@ -1740,6 +1740,7 @@ const en = {
          an unheaded panel and then started using headings from "Data" down, which reads as
          two different hierarchies on one screen. */
       you: 'You',
+      content: 'Content',
       data: 'Data',
       layout: 'Layout',
       features: 'Features',
@@ -1800,8 +1801,15 @@ const en = {
     // Advanced (modes + the feature opt-ins).
     tabs: {
       general: 'General',
+      lists: 'Lists',
+      notifications: 'Alerts',
+      // `appearance` and `personal` are no longer tabs (2026-09-08). Kept as keys because
+      // AI-setup payloads and archived docs still name them, and a missing key here is a tsc
+      // error in `no`/`is`. `advanced` is the tab label and is deliberately a SHORT word — see
+      // app/settings.tsx's tab-bar note; the long form lives on in `sections.advanced`.
+      appearance: 'Look',
       personal: 'Personal',
-      advanced: 'Advanced',
+      advanced: 'More',
     },
     // Feature flags (Advanced → Features). Each hides a purely additive surface when
     // off. Goals defaults on (still a toggle); Sharing & QR and Automations default off
@@ -1881,6 +1889,8 @@ const en = {
     // label cannot, which on this screen is nowhere.
     desc: {
       name: 'Your name on this device — never leaves your phone',
+      catalogueLink: 'Prices and items you usually buy',
+      foodLink: 'Dishes and the ingredients they need',
       weeklyReminders: 'A nudge on your shopping day',
       holidays: 'Public holidays on your calendar',
       shoppingDefault: 'Which list opens first',
@@ -3447,6 +3457,7 @@ const no: typeof en = {
       /* Se den engelske tvillingen (2026-08-03). */
       you: 'Deg',
       notifications: 'Varsler',
+      content: 'Innhold',
       data: 'Data',
       layout: 'Oppsett',
       features: 'Funksjoner',
@@ -3496,8 +3507,11 @@ const no: typeof en = {
     },
     tabs: {
       general: 'Generelt',
+      lists: 'Lister',
+      notifications: 'Varsler',
+      appearance: 'Utseende',
       personal: 'Personlig',
-      advanced: 'Avansert',
+      advanced: 'Mer',
     },
     features: {
       goals: {
@@ -3558,6 +3572,8 @@ const no: typeof en = {
     },
     desc: {
       name: 'Navnet ditt på denne enheten — forlater aldri telefonen',
+      catalogueLink: 'Priser og varer du pleier å kjøpe',
+      foodLink: 'Retter og ingrediensene de trenger',
       weeklyReminders: 'En påminnelse på handledagen din',
       holidays: 'Helligdager i kalenderen',
       shoppingDefault: 'Hvilken liste som åpnes først',
@@ -5336,6 +5352,7 @@ const is: typeof en = {
       /* Sjá enska tvíburann (2026-08-03). */
       you: 'Þú',
       notifications: 'Tilkynningar',
+      content: 'Efni',
       data: 'Gögn',
       layout: 'Uppsetning',
       features: 'Eiginleikar',
@@ -5386,8 +5403,11 @@ const is: typeof en = {
     },
     tabs: {
       general: 'Almennt',
+      lists: 'Listar',
+      notifications: 'Boð',
+      appearance: 'Útlit',
       personal: 'Persónulegt',
-      advanced: 'Ítarlegt',
+      advanced: 'Meira',
     },
     features: {
       goals: {
@@ -5451,6 +5471,8 @@ const is: typeof en = {
     },
     desc: {
       name: 'Nafnið þitt í þessu tæki — fer aldrei úr símanum',
+      catalogueLink: 'Verð og vörur sem þú kaupir venjulega',
+      foodLink: 'Réttir og hráefnin sem þeir þurfa',
       weeklyReminders: 'Áminning á innkaupadeginum þínum',
       holidays: 'Frídagar í dagatalinu',
       shoppingDefault: 'Hvaða listi opnast fyrst',

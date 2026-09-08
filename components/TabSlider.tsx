@@ -10,7 +10,7 @@
  *
  *   - **Screen tier — this file.** A SOFT TRANSLUCENT sliding pill in the tab's own colour,
  *     with the label in `theme.text`. At most one per screen: Today/This week/All tasks,
- *     Weekly/Monthly, Settings' three category tabs. It switches what the whole screen is
+ *     Weekly/Monthly, Settings' four category tabs. It switches what the whole screen is
  *     showing. (It was an accent-FILLED pill + `accentInk` until 2026-08-18 — maintainer:
  *     *"Active Top Tabs should use a soft, translucent pill strictly behind the text/icon."*
  *     The tier is still carried by the ACTIVE TREATMENT rather than by the corner radius; what

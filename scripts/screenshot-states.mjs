@@ -974,23 +974,31 @@ async function main() {
         await shot(page, 'settings-general', {
           title: 'Settings — General',
           screen: 'app/settings.tsx',
-          state: 'Neutral grey: Home and Settings are the only two screens with no hue of their own. Three tabs — General (profile, appearance, notifications, layout, feedback), Personal (accessibility, shopping, device features), Advanced (features, tags, backup, version, reset, debug). Reorganised 2026-08-17: what people actually come here to change is on the first tab.',
+          state: 'Neutral grey: Home and Settings are the only two screens with no hue of their own. Four tabs — General (profile, appearance, accessibility, layout, feedback), Lists (shopping cadence, catalogue and dish editors), Alerts (every notification switch, quiet hours), More (features, tags, device permissions, backup, version, reset, debug). Reorganised 2026-09-08 to the settings mockup: the old catch-all "Personal" tab is gone, every card is open rather than an accordion, and the fourth label is the short word "More" because five tabs measured as five truncated labels.',
           components: 'TabSlider, FormControls, Surface, SectionCard',
         });
-        if (await tryText(page, 'Personal', 4000)) {
+        if (await tryText(page, 'Lists', 4000)) {
           await page.waitForTimeout(900);
-          await shot(page, 'settings-personal', {
-            title: 'Settings — Personal',
+          await shot(page, 'settings-lists', {
+            title: 'Settings — Lists',
             screen: 'app/settings.tsx',
-            state: 'Notifications, shopping cadence, the global layout default, device features. "Run setup again" here re-enters onboarding\'s Basics screen with all six rows, seeded from current settings, so pressing straight through writes them back unchanged.',
+            state: 'The shopping cadence pair (weekly reset weekday, monthly reset date) beside doors to the two catalogues that feed those lists. Shopping is the one `?section=` deep-link target, so it stays a DisclosureRow when every other card on this screen is now open. Monthly budget is NOT here: budget is per Monthly list since 2026-07-22, and the global column it would write is inert.',
           });
         }
-        if (await tryText(page, 'Advanced', 4000)) {
+        if (await tryText(page, 'Alerts', 4000)) {
+          await page.waitForTimeout(900);
+          await shot(page, 'settings-notifications', {
+            title: 'Settings — Alerts',
+            screen: 'app/settings.tsx',
+            state: 'One flat card holding every notification switch — plan, habit, medicine, weekly reminder and its time, the persistent overview, and quiet hours with its two time fields. A tab of its own since 2026-09-08; it was the second group on General. Habit occurrences inside quiet hours are skipped, not deferred — task reminders shift past the window.',
+          });
+        }
+        if (await tryText(page, 'More', 4000)) {
           await page.waitForTimeout(900);
           await shot(page, 'settings-advanced', {
-            title: 'Settings — Advanced',
+            title: 'Settings — More',
             screen: 'app/settings.tsx',
-            state: 'Feature flags in three states: on-by-default-but-real (Energy, Goals, Medicine, Day log), off-by-default opt-in (Automations), and hidden outright — every sharing-with-other-people surface is currently behind one constant while the single-user basics are reworked. Nothing was deleted to hide them.',
+            state: 'Feature flags in three states: on-by-default-but-real (Energy, Goals, Medicine, Day log), off-by-default opt-in (Automations), and hidden outright — every sharing-with-other-people surface is currently behind one constant while the single-user basics are reworked. Nothing was deleted to hide them. Device permissions moved here from the retired Personal tab.',
           });
         }
       });
