@@ -195,8 +195,8 @@
  *     ever goes flat again after a react-navigation/expo-router upgrade, check this
  *     sceneStyle override first.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { TopTabs, MaterialTopTabBarProps } from 'expo-router/js-top-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
@@ -206,7 +206,7 @@ import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
+import { START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 import { CHROME_FLOAT_INSET } from '@/constants/theme';
 
@@ -215,24 +215,9 @@ import { CHROME_FLOAT_INSET } from '@/constants/theme';
 // per-screen background did (see file header). The layer is oversized by this much on each
 // side so the drift never reveals a bare edge.
 const MAX_PARALLAX = 14;
-// Route-name order matching the pager's registered screens (also SITE_ITEMS' visual left-to-
-// right order, lib/siteNav.ts) — used to turn the settled tab name into a 0..n-1 index for the
-// background-parallax animation below. Derived from SITE_ITEMS/TAB_ROUTE_NAME instead of a
-// second hardcoded array so the two orderings can't drift apart.
-const TAB_ROUTE_ORDER = SITE_ITEMS.map((item) => TAB_ROUTE_NAME[item.route]!);
-// One parallax stop per tab, spread evenly from +MAX_PARALLAX (leftmost) to -MAX_PARALLAX
-// (rightmost), so the backdrop drifts the same total distance however many tabs there are.
-// Both derived from TAB_ROUTE_ORDER — the count lives in exactly one place (SITE_ITEMS).
-const PARALLAX_INPUT = TAB_ROUTE_ORDER.map((_, i) => i);
-const PARALLAX_OUTPUT = TAB_ROUTE_ORDER.map((_, i) =>
-  TAB_ROUTE_ORDER.length === 1
-    ? 0
-    : MAX_PARALLAX - (2 * MAX_PARALLAX * i) / (TAB_ROUTE_ORDER.length - 1)
-);
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
   onActiveRouteChange: (routeName: string) => void;
-  onPosition: (position: Animated.AnimatedInterpolation<number>) => void;
   // Lifts the real react-navigation `navigation` object out to TabsLayout, which hands it to
   // PagerFloatingNav (below) — see this component's own return-null note for why the bar no
   // longer renders here.
@@ -248,19 +233,11 @@ type TabBarSyncProps = MaterialTopTabBarProps & {
 // it — the previous flex-sibling layout made that structurally impossible (content could never
 // render into the tab bar's own reserved rectangle, so the bar's rounded corners could only ever
 // show the plain field, never a scrolled card — the bug this whole change fixes; see file header).
-function TabBarWithBackgroundSync({ onActiveRouteChange, onPosition, navigationRef, ...tabBarProps }: TabBarSyncProps) {
+function TabBarWithBackgroundSync({ onActiveRouteChange, navigationRef, ...tabBarProps }: TabBarSyncProps) {
   const activeRouteName = tabBarProps.state.routes[tabBarProps.state.index]?.name;
   React.useEffect(() => {
     if (activeRouteName) onActiveRouteChange(activeRouteName);
   }, [activeRouteName, onActiveRouteChange]);
-  // Lift the pager's live scroll `position` (a react-navigation Animated node, 0..n across
-  // tabs, updated continuously during a swipe) up to TabsLayout so it can drive the shared
-  // background's parallax drift. It's a stable node — this fires once on mount.
-  const position = tabBarProps.position;
-  React.useEffect(() => {
-    if (position) onPosition(position);
-  }, [position, onPosition]);
-
   // Latest-ref pattern (no dependency array — always the newest `navigation`, same object
   // identity react-navigation gives the real tab bar, so PagerFloatingNav's tap-to-navigate
   // hits the exact same `navigate()` call, native jumpTo/instant-snap included, as before).
@@ -379,13 +356,6 @@ export default function TabsLayout() {
 
   // The pager's live scroll position (0..n-1 across the tabs), lifted up from the tab bar
   // (see TabBarWithBackgroundSync). Null until the first tab-bar render sets it. We only ever
-  // READ this to mirror live swipe motion (see bgIndexAnim below) — the background transform
-  // itself is driven by our own node, not this one directly (see the file header's "Actual
-  // fix" note for why).
-  const [pagerPosition, setPagerPosition] = useState<Animated.AnimatedInterpolation<number> | null>(null);
-  const onPosition = useCallback((p: Animated.AnimatedInterpolation<number>) => {
-    setPagerPosition((prev) => prev ?? p);
-  }, []);
 
   // The real react-navigation `navigation` object, lifted from TabBarWithBackgroundSync so
   // PagerFloatingNav's overlay bar (rendered outside react-navigation's own tab-bar slot) can
@@ -395,71 +365,24 @@ export default function TabsLayout() {
   // Our own background-parallax value (see file header's "Actual fix" note for the full
   // reasoning) — decoupled from react-native-tab-view's `position` node so a BottomNav tap's
   // native onPageScrolled echo can't race/overwrite an in-flight tween on it.
-  const initialTabIndex = Math.max(0, TAB_ROUTE_ORDER.indexOf(activeRouteName));
-  const bgIndexAnim = useRef(new Animated.Value(initialTabIndex)).current;
-  const bgIndexRef = useRef(initialTabIndex);
-  const suppressLiveMirrorRef = useRef(false);
-
-  // Mirror the pager's live position into bgIndexAnim frame by frame — this is what makes a
-  // real finger-swipe's parallax feel live; it's a direct passthrough, never eased, since a
-  // swipe already arrives smoothly one small delta at a time.
-  useEffect(() => {
-    if (!pagerPosition) return;
-    // ⚠️ Not installed at all when the backdrop is still (2026-09-01). This is a JS callback on
-    // EVERY frame of every swipe, and with `bgParallax` null there is nothing for it to drive —
-    // it was writing a shared value nobody read, which is the most expensive kind of no-op.
-    if (stillBackdrop) return;
-    const id = pagerPosition.addListener(({ value }) => {
-      bgIndexRef.current = value;
-      if (!suppressLiveMirrorRef.current) {
-        bgIndexAnim.setValue(value);
-      }
-    });
-    return () => pagerPosition.removeListener(id);
-  }, [pagerPosition, bgIndexAnim, stillBackdrop]);
-
-  // On every settle (activeRouteName changing — fires for both a BottomNav tap and a swipe
-  // landing), give a still-distant bgIndexAnim an explicit eased tween to the new index. A
-  // swipe landing already left it within a hair of the target (tracked live above) — nothing
-  // to do there. A tap jumped the pager with no intervening frames, so this is what actually
-  // produces the smooth motion for a tap.
-  useEffect(() => {
-    const targetIndex = TAB_ROUTE_ORDER.indexOf(activeRouteName);
-    if (targetIndex < 0) return;
-    if (stillBackdrop) {
-      bgIndexAnim.setValue(targetIndex);
-      bgIndexRef.current = targetIndex;
-      return;
-    }
-    if (Math.abs(bgIndexRef.current - targetIndex) < 0.05) return;
-    suppressLiveMirrorRef.current = true;
-    Animated.timing(bgIndexAnim, {
-      toValue: targetIndex,
-      duration: Duration.tabSwitch,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished) bgIndexRef.current = targetIndex;
-      suppressLiveMirrorRef.current = false;
-    });
-  }, [activeRouteName, stillBackdrop, bgIndexAnim]);
-
-  const bgParallax = stillBackdrop
-    ? null
-    : {
-        transform: [
-          {
-            translateX: bgIndexAnim.interpolate({
-              // Derived from the tab count, never a hardcoded list of stops — it was
-              // `[0,1,2,3,4]`/`[+14,+7,0,-7,-14]` until the 2026-08-20 5→3 merge, and a
-              // stale stop list silently clamps the drift to the wrong end of the backdrop.
-              inputRange: PARALLAX_INPUT,
-              outputRange: PARALLAX_OUTPUT,
-              extrapolate: 'clamp',
-            }),
-          },
-        ],
-      };
+  // ⚠️ **The background parallax is GONE (2026-09-09), and with it a per-frame JS round trip
+  // on every swipe. Do not reintroduce it without a native-driven replacement.**
+  //   It drifted the backdrop ±MAX_PARALLAX (14px) with the pager. To do that it installed
+  // `pagerPosition.addListener(...)`, a JS callback on EVERY frame of every swipe, whose body
+  // called `bgIndexAnim.setValue(value)` — and `bgIndexAnim` drove a plain (non-native) style
+  // interpolation, so each frame cost native→JS to deliver the position and JS→native to push
+  // the transform. Two bridge crossings per frame, for 14 pixels of drift.
+  //   The maintainer's report is what identifies it, and the wording is the whole diagnosis:
+  // *"Rythmic lag when Swiping between Screens. Never varies, always the same lag."* GPU or
+  // layout cost scales with what is on screen and therefore VARIES by tab; a fixed per-frame
+  // bridge cost does not. "Always the same" is the signature of work done per frame regardless
+  // of content, which is exactly what this was.
+  //   The file already had the correct code path for this: `stillBackdrop` (reducedMotion or
+  // `reduceEffects`) skipped the listener entirely and rendered a fixed backdrop. That path is
+  // now the only path, so this is a deletion rather than a new behaviour — the still backdrop
+  // has shipped and been exercised since 2026-09-01.
+  //   `styles.bgLayer` keeps its ±MAX_PARALLAX oversize deliberately: removing it would resize
+  // the backdrop SVG's canvas and move pixels, and this change is meant to move none.
 
   // Both backgrounds stay mounted; we cross-fade the hero layer's opacity instead of
   // swapping which one is mounted (see file header). ScreenBackground sits underneath at
@@ -487,22 +410,20 @@ export default function TabsLayout() {
         {/* Shared L1/L2 background, rendered once behind the whole pager (see file header).
             ScreenBackground is the shared blue field + corner branch accents (same on every
             tab); HomeHeroBackground is an extra focal glow that cross-fades in over it on Home.
-            The whole group lives in a parallax layer that drifts ±MAX_PARALLAX horizontally
-            with the pager scroll — oversized by MAX_PARALLAX on each side (styles.bgLayer) so
-            the drift never exposes a bare edge. bgParallax is null under reducedMotion (or
-            before the position node arrives), leaving the backdrop fixed as before. */}
-        <Animated.View style={[styles.bgLayer, bgParallax]} pointerEvents="none">
+            The group is FIXED — it no longer drifts with the pager (2026-09-09; see the
+            deletion note above for the per-frame bridge cost that bought). `styles.bgLayer`
+            keeps its ±MAX_PARALLAX oversize so this change moves no pixels. */}
+        <View style={styles.bgLayer} pointerEvents="none">
           <ScreenBackground activeRoute={activeRouteName} />
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
           </Animated.View>
           {/* L2: the ambient particle field, restored 2026-09-01 — see that file's header for
-              why it was deleted and why it came back. Mounted ONCE here, inside the parallax
-              layer, so the dots drift with the backdrop on a swipe instead of sitting still over
-              a moving field. It gates itself on `particlesEnabled`/`reducedMotion`/`reduceEffects`
+              why it was deleted and why it came back. Mounted ONCE here, in the same fixed
+              backdrop layer as the field itself, so the dots and the field stay in register. It gates itself on `particlesEnabled`/`reducedMotion`/`reduceEffects`
               and renders `null` when off, so this costs a mount and nothing else. */}
           <ParticleBackground />
-        </Animated.View>
+        </View>
 
         <TopTabs
         initialRouteName={startRouteName}
@@ -559,7 +480,7 @@ export default function TabsLayout() {
           sceneStyle: { backgroundColor: 'transparent' },
         }}
         tabBar={(props: MaterialTopTabBarProps) => (
-          <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} onPosition={onPosition} navigationRef={navigationRef} />
+          <TabBarWithBackgroundSync {...props} onActiveRouteChange={setActiveRouteName} navigationRef={navigationRef} />
         )}
       >
         {/* Order MUST match SITE_ITEMS (lib/siteNav.ts) AND constants/motifs.ts's

@@ -234,5 +234,20 @@ export function quoteAt(category: NarratorCategory, lang: Lang, index: number): 
  * launches starts to read as a message aimed at you.
  */
 export function randomQuoteIndex(category: NarratorCategory, lang: Lang): number {
+  // ⚠️ **A headless harness can pin this, and must (2026-09-09).** A pixel-diff gate cannot
+  // compare a screen whose copy is drawn from `Math.random()` on every mount: `plans-empty` and
+  // `quick-add-focused-empty` failed CI at random, on any branch, with a diff that was ENTIRELY
+  // this line of text — 3517 px of red on two different machines for a change that touched
+  // neither screen. That is worse than a flaky test, because the obvious response is to re-bless
+  // it, which writes one random quote into the baseline and leaves the gate just as flaky.
+  //   `__unfocusFixedQuoteIndex__` is set by scripts/force-appearance.mjs's `freezeNarratorQuote`
+  // through Playwright's `addInitScript`, i.e. only ever from OUTSIDE the app, before the bundle
+  // loads. There is no in-app writer and no setting for it; on a real install the global is
+  // undefined and this stays random, which is the behaviour the quotes are for.
+  const fixed = (globalThis as { __unfocusFixedQuoteIndex__?: number }).__unfocusFixedQuoteIndex__;
+  if (typeof fixed === 'number') {
+    // Modulo, so one pinned index is valid for every category regardless of its length.
+    return fixed % Math.max(1, narratorQuotes(category, lang).length);
+  }
   return Math.floor(Math.random() * narratorQuotes(category, lang).length);
 }

@@ -126,6 +126,26 @@ export default function Collapsible({ open, children, style }: Props) {
    * curve is actually started, by whichever of the two paths gets there first.
    */
   const pendingOpen = useSharedValue(false);
+  /**
+   * The last height `onLayout` actually ASKED for — which is not the same thing as `measured`,
+   * because the open-resize branch below animates `measured` toward it over `Duration.card`.
+   *
+   * ⚠️ **This exists to fix a real device bug (2026-09-09): a card open at the WRONG height,
+   * with its last row sliced by the card's own bottom edge, plus a jitter while opening.**
+   * `onLayout`'s dedupe used to read `h === measured.value`, i.e. compare the newly measured
+   * height against a value that is MID-TWEEN. Two ways that goes wrong, and the report had
+   * both:
+   *   · The tween passes through `h` on its way somewhere else. The guard sees equality, returns
+   *     early, and the target is never reached — the clip sits at whatever height the animation
+   *     was at, and the body is cut there. Nothing re-triggers it, so it is stuck until the next
+   *     unrelated layout pass.
+   *   · It does not match, so a SECOND `withTiming` starts from the current value while the
+   *     first is still running. Successive layout passes stack more of them, and the height
+   *     visibly stutters instead of easing once.
+   * Comparing against the target is what makes the dedupe mean "we already asked for this
+   * height", which is the question it was always trying to ask.
+   */
+  const measuredTarget = useSharedValue(0);
 
   /** The open curve. Shared by the effect and the deferred path so they cannot disagree. */
   function runOpen() {
@@ -149,6 +169,7 @@ export default function Collapsible({ open, children, style }: Props) {
       if (!open) setMounted(false);
       return;
     }
+
 
     if (open) {
       // **Nothing starts until there is a height to grow to.** `setMounted(true)` above and this
@@ -196,7 +217,10 @@ export default function Collapsible({ open, children, style }: Props) {
     // natural height regardless of the clip's current (possibly 0) height — this always reports
     // the real content height, even while collapsed.
     const h = e.nativeEvent.layout.height;
-    if (h <= 0 || h === measured.value) return;
+    // Against the TARGET, never against the live (possibly mid-tween) `measured` — see
+    // `measuredTarget`'s comment for the two device bugs that reading `measured` here caused.
+    if (h <= 0 || h === measuredTarget.value) return;
+    measuredTarget.value = h;
     // **A height that changes while the card is OPEN is animated, not assigned.** `progress` is
     // already 1, so writing `measured` straight through re-renders the animated style at the new
     // numeric height in one frame — a row added to or removed from an open card jumped. Scoped
