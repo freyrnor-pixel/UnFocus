@@ -6,7 +6,7 @@
  * `filledEdge(base, isDark)` is the border of a FILLED control, derived from its own fill —
  * all that survives of `getMaterialStyle()`, which computed a whole frosted-glass recipe and
  * was deleted 2026-08-08 with components/GlassFill.tsx (see its tombstone comment below).
- * `getLayeredShadow(shadowColor?, level?)` returns the three-pass `boxShadow` depth.
+ * `getLayeredShadow(shadowColor?, level?)` returns the two-pass `boxShadow` depth.
  * `getGlow(color, level?)` (2026-07-18) returns a two-pass colored `boxShadow` halo —
  * the purposeful active/focus indicator; apply sparingly (see its own doc comment).
  * `getElevation(level, shadowColor?)` is the 3-tier depth scale (flat/raised/floating) —
@@ -1450,14 +1450,27 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft', radius
  */
 export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
   const k = level === 'floating' ? 1.6 : 1;
-  // Strengthened (2026-07-18 vision tune): higher alphas + a deeper cast so raised-keycap cards
-  // POP off the colorful field with real depth/layering, not sit flush like flat tiles. The
-  // three passes are contact (tight, grounds the key), near (the bulk of the lift), and cast
-  // (soft/wide ambient drop).
+  // Strengthened (2026-07-18 vision tune): higher alphas so raised-keycap cards POP off the
+  // colorful field with real depth/layering, not sit flush like flat tiles.
+  //
+  // ⚠️ **TWO passes since 2026-09-09, down from three — this is a perf change with a visible
+  // cost, made deliberately.** The dropped third pass was the ambient cast: `offsetY 10*k,
+  // blurRadius 26*k, spread -2` — a 26px blur at `raised` and 42px at `floating`.
+  //   Why it went: a blur is a per-frame GPU pass per card, and this app draws a lot of cards.
+  // The maintainer had reported three times over two months that toggling "reduce visual
+  // effects" (which drops the shadow entirely — see Surface.tsx's `shadowStyle`) "helps a lot",
+  // which is the same finding from the other end. Cutting the WIDEST pass is the best
+  // speed-per-pixel-changed trade available here: blur cost scales with radius, so the 26/42px
+  // pass was the most expensive of the three and the least individually visible — it reads as
+  // a soft halo rather than as the card's edge.
+  //   What is kept, and why these two: `contact` (tight, grounds the card so it doesn't float)
+  // and `near` (the bulk of the perceived lift). Between them the card keeps its depth; what
+  // it loses is the softest outer falloff.
+  //   If depth needs restoring, raise `near`'s alpha before re-adding a third pass — an alpha
+  // costs nothing per frame and a blur pass costs every frame.
   return [
     { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.10) },
     { offsetX: 0, offsetY: Math.round(4 * k), blurRadius: Math.round(14 * k), spreadDistance: 0, color: rgba(shadowColor, 0.14) },
-    { offsetX: 0, offsetY: Math.round(10 * k), blurRadius: Math.round(26 * k), spreadDistance: -2, color: rgba(shadowColor, 0.10) },
   ];
 }
 

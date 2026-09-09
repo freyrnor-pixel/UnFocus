@@ -472,15 +472,21 @@ describe('getGlow', () => {
 });
 
 describe('getLayeredShadow', () => {
-  it('returns three shadow passes (contact / near / cast)', () => {
-    expect(getLayeredShadow('#000', 'raised')).toHaveLength(3);
+  // TWO since 2026-09-09, not three: the ambient cast pass (26px blur at `raised`, 42px at
+  // `floating`) was dropped as a perf change — see getLayeredShadow's own comment for the
+  // reasoning and for what to reach for first if the depth needs restoring.
+  it('returns two shadow passes (contact / near)', () => {
+    expect(getLayeredShadow('#000', 'raised')).toHaveLength(2);
   });
 
   it('floating tier is deeper than raised', () => {
     const raised = getLayeredShadow('#000', 'raised');
     const floating = getLayeredShadow('#000', 'floating');
-    expect(floating[2].blurRadius).toBeGreaterThan(raised[2].blurRadius);
-    expect(floating[2].offsetY).toBeGreaterThan(raised[2].offsetY);
+    // Indexed to the LAST pass rather than a literal 2, so this keeps asserting the deepest
+    // pass whatever the count becomes.
+    const last = raised.length - 1;
+    expect(floating[last].blurRadius).toBeGreaterThan(raised[last].blurRadius);
+    expect(floating[last].offsetY).toBeGreaterThan(raised[last].offsetY);
   });
 
   it('tints the shadow with the passed colour', () => {
