@@ -234,6 +234,35 @@ would have hidden it.
 mis-centred by Android font padding is invisible here **by construction**. That class still needs
 a device.
 
+### Jitter — `npm run jitter` (2026-09-09)
+Answers a question none of the others can: **does anything on a resting screen change size on
+its own?** `visual` takes ONE screenshot per screen, so a layout oscillating between two heights
+is captured at whichever one the shutter caught and reported as *unchanged*; `geometry` and
+`wraps` measure one settled frame for the same reason. A loop is invisible to all three **by
+construction**, which is why three device reports in a row — "flicker", "jump mid-animation",
+finally *"they jitter in height, all the time"* — were each answered by reading the source
+instead of measuring.
+
+It parks on a screen, touches nothing, and samples the top edge of every leaf text node every
+50ms for 4s. A resting screen returns one value per anchor; anything else is something
+re-laying itself out with no input, and the report names the anchor and how far it moved. It
+reports **how many times a value changed**, not how many distinct values — a one-off settle and
+a loop span the same range and only one is a bug.
+
+Eleven scenarios per run: the tour still up (its overlay re-measures every target on a 240ms
+cadence), then each of the five tabs at rest and again after a fold/unfold. Because
+`app/(tabs)/_layout.tsx` runs `lazy: false`, **all five screen trees are mounted the whole
+time** and every sweep sees all of them — a screen does not have to be visible to be looping.
+
+⚠️ **It was probed with a deliberate defect before being trusted** (the S0.2 discipline): an
+8px height toggled every 200ms inside `Card`'s body was caught as 38 moving anchors, 78 changes
+in 4s. A "clean ✓" from an unprobed sampler would have meant nothing.
+
+⚠️ **A clean run does not clear the app.** It runs react-native-web, so it sees a
+layout/measure feedback loop — platform-independent, and the likeliest shape of "jitters
+forever". It cannot see Reanimated's UI-thread timing, Android clipping, or gestures. Clean here
+**narrows the cause to the native side**, which is worth knowing and was not knowable before.
+
 ### The visual gates run in CI (2026-08-29; both themes since 2026-09-01)
 `.github/workflows/ci.yml` has a second job that builds the bundle once and runs `visual`,
 `geometry`, `wraps` and `halos`, each `if: always()` so one failure does not hide the others,
