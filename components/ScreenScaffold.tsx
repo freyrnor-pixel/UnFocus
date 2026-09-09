@@ -208,6 +208,23 @@
  *     header card always visible"* — so the card is unconditional and there is no
  *     scroll-dependent chrome state left. Don't reintroduce one: a header that is only sometimes
  *     a card is the thing that was reported.
+ *   - **⚠️ `removeClippedSubviews` was tried here and REVERTED (2026-09-08 → 09). Do not
+ *     re-add it to this ScrollView.** It was added to buy the cheap half of virtualisation —
+ *     nothing outside CatalogueTab is windowed, so Android was drawing every row of every
+ *     screen — and it did help: the maintainer reported the app "much better" on the same
+ *     build. It also broke expand/collapse, reported the same day as *"clipped or cut off"*
+ *     plus *"flicker or jump mid-animation"*.
+ *       The mechanism, and why the `clipSubviews` opt-out that shipped with it was no fix:
+ *     components/Collapsible.tsx opens a card by animating the WRAPPER's height 0 → measured
+ *     while the child sits at its natural height inside. Android's clipping decides what to
+ *     draw from the bounds it has, and mid-animation those bounds are a lie — so the body is
+ *     drawn clipped, then snaps when the height settles. EVERY registry card folds through
+ *     that path (components/Card.tsx → CardShell → Collapsible), so the conflict is app-wide
+ *     and a per-screen opt-out would have had to be set on essentially every screen.
+ *       The lesson generalises past this prop: a drawing optimisation that reads a child's
+ *     bounds cannot be mounted above a subtree that ANIMATES its own bounds. If the row cost
+ *     is worth attacking again, attack it where it is real — virtualise a specific long list
+ *     the way CatalogueTab does — rather than by clipping the whole app's scroll container.
  *   - **scrollable (perf, 2026-07-15)**: default true. When false, children render in a plain
  *     flex View (chrome padding still applied) instead of the internal ScrollView, so a child
  *     can own scrolling with a virtualising FlatList. Used by app/catalogue.tsx (was
@@ -408,14 +425,6 @@ type Props = {
    */
   scrollable?: boolean;
   /**
-   * Opts this screen out of Android's `removeClippedSubviews` on the internal ScrollView
-   * (default true — see the prop's comment at the ScrollView itself). Set false if a screen's
-   * rows ever go blank while scrolling: clipping is an Android-side drawing optimisation and
-   * it mis-measures children that are absolutely positioned or that overflow their parent's
-   * bounds, which is exactly what a row with a halo/overhang does.
-   */
-  clipSubviews?: boolean;
-  /**
    * This screen's key in lib/screenColor.ts — the hue every card inside it wears on its
    * border (card design reset, 2026-08-05). Tab screens pass their react-navigation route
    * name ('plans', 'habits', 'health', 'shopping'); sub-tier screens pass their own key
@@ -433,7 +442,6 @@ export default function ScreenScaffold({
   title,
   tier,
   children,
-  clipSubviews = true,
   isHome = false,
   onBack,
   headerRight,
@@ -899,16 +907,6 @@ export default function ScreenScaffold({
           onScroll={handleScroll}
           scrollEventThrottle={16}
           scrollEnabled={!tourLocksScroll}
-          // ── Android subview clipping (perf, 2026-09-08) ──────────────────────────────────
-          // Every screen but Catalogue renders its rows eagerly into this one ScrollView (see
-          // app/(tabs)/_layout.tsx's `lazy` notes: "nothing outside CatalogueTab is windowed").
-          // This is not windowing — the views are still MOUNTED and measured — but it stops
-          // Android drawing the ones scrolled out of view, which is the cheap half of the win
-          // and costs no layout change, so no visual baseline moves.
-          // iOS is excluded deliberately: RN's iOS implementation of this prop has a long tail
-          // of blank-cell bugs and iOS composites scrolled-off content cheaply anyway.
-          // `clipSubviews={false}` opts a screen out — take it if rows ever flicker blank.
-          removeClippedSubviews={Platform.OS === 'android' && clipSubviews}
         >
           <ScrollIntoViewContext.Provider value={scrollIntoView}>
             <ScrollToNodeContext.Provider value={scrollToNode}>{children}</ScrollToNodeContext.Provider>
