@@ -51,3 +51,23 @@ export function themeFromArgs(argv = process.argv) {
   const theme = argv.find((a) => a.startsWith('--theme='))?.split('=')[1] || 'light';
   return { theme, darkModeValue: theme === 'dark' ? 'on' : 'off' };
 }
+
+/**
+ * Pin the narrator quote so a pixel gate can compare screens that draw one.
+ *
+ * `lib/narratorQuotes.ts`'s `randomQuoteIndex` picks with `Math.random()` on every mount — good
+ * for the app (two empty cards on one screen shouldn't open on the same line), fatal for a
+ * screenshot diff. `plans-empty` and `quick-add-focused-empty` failed CI at random on any
+ * branch, with the diff being entirely the quote text.
+ *
+ * Set from outside the app, before the bundle loads, exactly like forceAppearance above — the
+ * app has no writer for this global, so nothing on a real install can reach it.
+ *
+ * Call BEFORE the first `page.goto()`.
+ */
+export async function freezeNarratorQuote(page, index = 0) {
+  await page.addInitScript((i) => {
+    // eslint-disable-next-line no-undef
+    window.__unfocusFixedQuoteIndex__ = i;
+  }, index);
+}

@@ -38,7 +38,7 @@ import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveChromium } from './chromium-path.mjs';
-import { forceAppearance } from './force-appearance.mjs';
+import { forceAppearance, freezeNarratorQuote } from './force-appearance.mjs';
 
 const BASE_URL = process.env.PREVIEW_URL || 'http://127.0.0.1:8787';
 const args = process.argv.slice(2);
@@ -659,6 +659,10 @@ async function main() {
   // the same picture twice. Caught by the gate itself: a change scoped to `isDark` moved the
   // "light" baselines by exactly the amount it moved the dark ones, which is impossible.
   await forceAppearance(page, THEME === 'dark' ? 'on' : 'off');
+  // Pin the narrator quote (2026-09-09). Without this, `plans-empty` and
+  // `quick-add-focused-empty` differ run to run by the quote text alone — a random 3517 px of
+  // diff on any branch, on any machine. See freezeNarratorQuote's comment.
+  await freezeNarratorQuote(page);
 
   try {
     // ---- 1. onboarding + tour -------------------------------------------
