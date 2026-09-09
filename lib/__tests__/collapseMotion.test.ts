@@ -64,6 +64,36 @@ describe('Collapsible — the reveal waits for a height', () => {
   });
 });
 
+describe('Collapsible — the dedupe compares against the TARGET, not the live value', () => {
+  const src = codeOnly(read('components/Collapsible.tsx'));
+
+  /**
+   * Reported from a device on 2026-09-09, with a screenshot: the Energy card open at the wrong
+   * height, its "Sett dagens energi" row sliced by the card's own bottom edge, plus a jitter
+   * while opening and closing.
+   *
+   * `onLayout` guarded with `h === measured.value`, and `measured` is animated by the
+   * open-resize branch directly below that guard. Comparing a fresh measurement against a
+   * mid-tween value fails in both directions: the tween passing through `h` makes the guard
+   * return early so the target is never reached (stuck clipped), and a miss starts a second
+   * withTiming on top of the first (stutter).
+   */
+  it('does not dedupe a new measurement against the animated value', () => {
+    expect(src).not.toMatch(/h === measured\.value/);
+  });
+
+  it('dedupes against the last requested height instead', () => {
+    expect(src).toMatch(/if \(h <= 0 \|\| h === measuredTarget\.value\) return;/);
+  });
+
+  it('records the target it just asked for, on every path out of the guard', () => {
+    // Both branches below the guard (instant assign, and the animated resize) must be covered by
+    // one write, or the next layout pass compares against a stale target and the bug returns in
+    // the other direction — a real height change ignored rather than a fake one accepted.
+    expect(src).toMatch(/measuredTarget\.value = h;[\s\S]*?if \(progress\.value === 1/);
+  });
+});
+
 describe('AnimatedChevron — the arrow lands with the body', () => {
   const chevron = codeOnly(read('components/AnimatedChevron.tsx'));
   const collapsible = codeOnly(read('components/Collapsible.tsx'));
