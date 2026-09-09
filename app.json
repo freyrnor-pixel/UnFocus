@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "scheme": "unfocus",
-    "runtimeVersion": "1.7.0",
+    "runtimeVersion": "1.7.1",
     "updates": {
       "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
