@@ -486,8 +486,17 @@ describe('a collapsed card draws no rule and reserves no room', () => {
     // 8px bottom inset and sat the title 4px above the closed card's centre — reported as
     // "titles are not vertically centered". Both halves of "closed is a bare header" have to be
     // asserted, or the shell can go on reserving room for a body it is not drawing.
-    expect(src).toMatch(/style=\{isClosed \? styles\.railClosed : undefined\}/);
+    // ⚠️ **Since 2026-09-09 the condition is `folds`, not `isClosed`, and the gap it cancels
+    // moved into the animated body.** Cancelling it on `collapsed` changed a layout prop on the
+    // first frame of the fold animation, so the body jumped 8px at the start of every close and
+    // an empty 8px gap appeared at the start of every open — the device's "flicker or jump
+    // mid-animation". Both halves still have to be asserted, or the shell can go back to
+    // reserving room for a body it is not drawing: the rail reserves nothing for a folding card,
+    // and the body carries the gap so it grows and shrinks with the reveal.
+    expect(src).toMatch(/style=\{folds \? styles\.railClosed : undefined\}/);
     expect(src).toMatch(/railClosed:\s*\{\s*marginBottom:\s*0\s*\}/);
+    expect(src).toMatch(/folds\s*&&\s*styles\.contentFoldGap/);
+    expect(src).toMatch(/contentFoldGap:\s*\{\s*paddingTop:\s*Spacing\.sm\s*\}/);
   });
 
   it('the rail it is cancelling really does carry that margin', () => {

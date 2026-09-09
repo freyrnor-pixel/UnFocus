@@ -32,6 +32,51 @@ that will be re-derived, not made.**
 
 ## Open
 
+### The swipe "hump": patch ViewPager2's own touch slop, or accept the feel?
+
+**Asked 2026-09-09**, after the third failed attempt at the same report.
+
+The report has been the same three times: *"Rythmic lag when Swiping between Screens. Never
+varies, always the same lag"*, then *"the lag just feels like it's caught on a hump"*, and after
+the 1.7.1 build, *"Same lag when Swiping."*
+
+**Three diagnoses, three no-changes.** Each was reasonable, each shipped, none moved it:
+
+| PR | Diagnosis | Result |
+|---|---|---|
+| #682 | Home's cards re-rendering each other; Android over-drawing | no change (and its `removeClippedSubviews` half caused a separate bug, reverted in #684) |
+| #686 | the background parallax's per-frame JS↔native round trip | no change — correctly deleted anyway, it bought 14px of drift for two bridge crossings a frame |
+| #687 | `NestedScrollableHost`'s capture threshold (`.5f` → `1f` → `1.4f`) | no change, **and it broke vertical scrolling on Home** — reverted to `1f` in this PR |
+
+**What #687 established, which is the useful part.** `NestedScrollableHost` disallows intercept
+on `ACTION_DOWN`, but ViewPager2's inner `RecyclerView` has already seen that DOWN and recorded
+its own initial touch point. When the host later releases the gesture, RecyclerView begins
+intercepting from *its* ~8dp slop, measured from that same DOWN. So the finger travels
+`max(hostSlop, 8dp)` before the page moves no matter what factor the patch writes — which is
+exactly why lowering it from `1f` to `1.4f` changed nothing, and why `.5f → 1f` in July probably
+changed nothing either. **The dead zone at the start of a swipe is RecyclerView's slop, and the
+patch cannot reach it from where it is written.**
+
+**The decision.** The only lever left in JS-reachable territory is a native patch that reduces
+that inner RecyclerView's touch slop directly — the standard `ViewPager2` reflection
+(`recyclerView` field `mTouchSlop`, halved). That is:
+
+- **a native change**, so it reaches nobody without a new build (no OTA);
+- **unverifiable in this repo** — no harness here can see a frame of a swipe (`HARNESS.md`);
+- **on the same knob that just broke vertical scrolling**. Halving the pager's slop makes the
+  pager win more of the ambiguous diagonal drags, which is the mechanism behind *"unable to
+  scroll vertically in home"*, arrived at from the other end.
+
+So the options are (a) ship the reflection patch in the next build and test both swiping AND
+vertical scrolling on device, accepting one more round trip if it repeats the 1.7.1 regression;
+(b) leave the swipe as it is — it is AOSP's default pager feel, which is what every other
+ViewPager2 app has; (c) something else entirely, if the "hump" is not the start-of-swipe dead
+zone at all — a fresh, specific description (does the page move under the finger immediately and
+then stutter, or does it not move at all until it jumps?) would redirect this.
+
+**Blocks:** nothing shipping. It blocks a fourth guess, which is what the three rows above say
+is not worth making — see `CLAUDE.md`'s A3 rule.
+
 ### The Budget card's Uke/Måned period
 
 **Asked 2026-09-07**, while building v3's Budsjett card (shipped the same day, monthly-only).

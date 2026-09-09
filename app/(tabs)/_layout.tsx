@@ -83,8 +83,15 @@
  *     "sticky, slow to start" feel vs a native Samsung/OneUI pager (~1x slop). `patches/
  *     react-native-pager-view+8.0.1.patch` (applied via patch-package postinstall) drops that
  *     to 1x slop in NestedScrollableHost.kt. It's native, so it only takes effect in a fresh
- *     build (maintainer-cut), not via OTA. If tab swipes ever start stealing vertical-scroll
- *     drags on a list, that patch's factor is the knob to dial back.
+ *     build, not via OTA.
+ *     ⚠️ **That factor went to 1.4f on 2026-09-09 and came straight back to 1f (2026-09-09,
+ *     this pass).** 1.4f was an attempt at the "caught on a hump" swipe report; it did not
+ *     change the hump, and because the same scaled value is BOTH the capture threshold and the
+ *     axis test it narrowed the parallel/perpendicular split from 45° to ~35° — reported from
+ *     the device as *"unable to scroll vertically in home"*. Read the patch file's own comment
+ *     before touching it again: it records why no value written there can fix the hump
+ *     (ViewPager2's inner RecyclerView re-applies its own ~8dp slop from the same ACTION_DOWN),
+ *     and the swipe-lag item is open in DECISIONS_OPEN.md rather than guessed at a fourth time.
  *   - `swipeEnabled: true` is the whole point of this migration. (Scan used to flip it off
  *     mid-OCR via `navigation.setOptions` while it was one of these 5 co-mounted tabs;
  *     now that it's a pushed sub-screen at app/scan.tsx, 2026-07-23, that guard doesn't
