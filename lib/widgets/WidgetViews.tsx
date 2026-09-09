@@ -386,7 +386,20 @@ function Header({
       style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
     >
       <FlexWidget style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-        {/* The inverted badge: a neutral frosted plate with the hue fully opaque on top. */}
+        {/* The inverted badge: a neutral frosted plate with the hue fully opaque on top, inside
+            a hue-tinted RING.
+              ⚠️ **The ring is new on 2026-09-09 and is the app's, not an invention.**
+            components/CardAccent.tsx's `CardAccentBadge` — the disc every card header in the app
+            wears — is `backgroundColor: frost.paint` PLUS
+            `borderColor: rgba(glyphColor, isDark ? 0.34 : 0.22)` at `borderWidth: 1`. The widget
+            had the plate and the hue but never the ring, so its badge read as a flat dot on a
+            grey disc while the app's reads as a lit ring around a glyph. The alpha pair below is
+            that same 0.34/0.22, applied to the same hue.
+              The GLYPH still does not come across, and that is still deliberate — see this
+            file's header: rasterising an icon font in a headless RemoteViews render can blank
+            the whole widget. Plate + ring + dot is the badge's construction minus the one part
+            that carries that risk, which is why adding the ring is worth it: it closes most of
+            the remaining gap for none of the danger. */}
         <FlexWidget
           style={{
             width: 20,
@@ -396,6 +409,12 @@ function Header({
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: p.plate,
+            borderWidth: 1,
+            // Composited, not an alpha — this file's standing rule (see the Edit notes). The app
+            // passes `rgba(hue, 0.34/0.22)` straight to a border because it draws over a known
+            // card; a RemoteViews border has no such guarantee, so the same two alphas are mixed
+            // into the plate the ring sits on.
+            borderColor: composite(p.plate, accent, p.dark ? 0.34 : 0.22),
           }}
         >
           <FlexWidget style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: accent }} />

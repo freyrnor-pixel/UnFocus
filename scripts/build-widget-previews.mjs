@@ -102,6 +102,12 @@ const [KEY_BODY_D, KEY_BODY_L] = keyAlpha('body', /composite\(p\.card, accent, p
 const [KEY_LIT_D, KEY_LIT_L] = keyAlpha('lit', /composite\(p\.card, GLASS_LIGHT, p\.dark \? ([\d.]+) : ([\d.]+)\)/);
 const KEY_SHADE = keyAlpha('shade', /p\.dark \? composite\(p\.card, GLASS_LIGHT, ([\d.]+)\) : composite\(p\.card, accent, ([\d.]+)\)/);
 
+// The badge's hue ring (2026-09-09), extracted from WidgetViews rather than copied — same rule
+// as every alpha above. The widget composites it over the plate; so does this.
+const [RING_D, RING_L] = keyAlpha('badge ring', /composite\(p\.plate, accent, p\.dark \? ([\d.]+) : ([\d.]+)\)/);
+/** The badge's ring colour for a given hue, matching WidgetViews' own composite. */
+const badgeRing = (accent) => mix(palette.plate, accent, THEME === 'dark' ? RING_D : RING_L);
+
 /** The matte key (constants/theme.ts's glassKey), for the preview's one button. */
 const key = (accent) => {
   const dark = THEME === 'dark';
@@ -183,7 +189,7 @@ const severity = (accent, n) =>
 function head(accent, title, peek, right = '') {
   return `<div class="head">
       <div class="grow">
-        <i class="badge" style="background:${palette.plate}"><i class="badgeDot" style="background:${accent}"></i></i>
+        <i class="badge" style="background:${palette.plate};border-color:${badgeRing(accent)}"><i class="badgeDot" style="background:${accent}"></i></i>
         <span class="titles">
           <span class="title">${esc(title)}</span>
           ${peek ? `<span class="peek">${esc(peek)}</span>` : ''}
@@ -253,6 +259,7 @@ const html = (inner) => `<!doctype html><meta charset="utf-8"><style>
   .grow{display:flex;align-items:center;min-width:0;flex:1 1 auto}
   /* The inverted badge: a neutral frosted plate with the hue fully opaque on top. */
   .badge{width:${px(20)};height:${px(20)};border-radius:50%;margin-right:${px(8)};flex:none;
+         border-style:solid;border-width:${px(1)};
          display:inline-flex;align-items:center;justify-content:center}
   .badgeDot{width:${px(8)};height:${px(8)};border-radius:50%;display:block}
   .titles{display:flex;flex-direction:column;min-width:0}

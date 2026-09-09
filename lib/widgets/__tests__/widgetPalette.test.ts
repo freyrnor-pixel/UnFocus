@@ -206,6 +206,33 @@ describe('the composited layers equal the app layers they stand in for', () => {
     expect(p.PLATE).toBe(getBadgeFrost(theme.surface, isDark).plate.toUpperCase());
   });
 
+  /**
+   * The badge RING, added 2026-09-09. Unlike the plate it cannot be a literal in the palette
+   * table — it is mixed from the widget's own hue at render time — so it is pinned by matching
+   * the two alphas against the app component that owns the badge. If CardAccentBadge's ring
+   * alpha ever changes, this fails and the widget follows it, which is the whole point of this
+   * file: the palette sat a year out of date because a comment asked the next session to keep
+   * it in step and nothing checked.
+   */
+  it('badge ring uses CardAccentBadge\'s own dark/light alphas, composited over the plate', () => {
+    const badge = fs.readFileSync(
+      path.join(__dirname, '..', '..', '..', 'components', 'CardAccent.tsx'),
+      'utf8'
+    );
+    // The app: `borderColor: rgba(glyphColor, isDark ? 0.34 : 0.22)`.
+    const appAlphas = badge.match(/rgba\(glyphColor,\s*isDark\s*\?\s*([\d.]+)\s*:\s*([\d.]+)\)/);
+    expect(appAlphas).not.toBeNull();
+    const [, appDark, appLight] = appAlphas!;
+    // The widget: `composite(p.plate, accent, p.dark ? 0.34 : 0.22)`.
+    const widgetAlphas = SRC.match(
+      /composite\(p\.plate,\s*accent,\s*p\.dark\s*\?\s*([\d.]+)\s*:\s*([\d.]+)\)/
+    );
+    expect(widgetAlphas).not.toBeNull();
+    const [, wDark, wLight] = widgetAlphas!;
+    expect(wDark).toBe(appDark);
+    expect(wLight).toBe(appLight);
+  });
+
   it.each(cases)('%s row box is PadSheet\'s own fill and edge, composited', (name, isDark, theme) => {
     const p = literalTable(name);
     const suffix = isDark ? 'DARK' : 'LIGHT';

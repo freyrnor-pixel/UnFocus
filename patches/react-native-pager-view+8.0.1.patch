@@ -8,14 +8,14 @@ index 87b58d0..8fb86ab 100644
  
 -      // assuming ViewPager2 touch-slop is 2x touch-slop of child
 -      val scaledDx = dx.absoluteValue * if (isVpHorizontal) .5f else 1f
-+      // UnFocus patch (patches/react-native-pager-view+8.0.1.patch): the upstream `.5f`
-+      // makes a horizontal pager wait for 2x touch-slop (~16dp of finger travel) before it
-+      // captures the swipe — the "sticky, slow to start" feel vs a native Samsung/OneUI pager,
-+      // which grabs at ~1x slop (~8dp). Raising the horizontal factor to 1f captures at 1x
-+      // slop and also turns the parallel/perpendicular test below into a clean 45° split
-+      // (pages when |dx| >= |dy|, otherwise the child scroll keeps the gesture). This is the
-+      // single tuning knob: dial back toward .75f/.5f if it ever steals vertical-scroll drags.
-+      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1f else 1f
++      // UnFocus patch: upstream `.5f` makes a horizontal pager wait for 2x touch-slop (~16dp)
++      // before capturing — nothing moves under the finger until then, which is felt as a dead
++      // zone at the start of a swipe and reported (2026-09-09) as "caught on a hump": travel,
++      // then a catch-up jump. 1f (2026-07-19) halved that to ~8dp; 1.4f captures at ~0.7x slop
++      // (~6dp), which is about as early as is safe. The axis test becomes |dx| > 0.71*|dy|
++      // (~35°) rather than a 45° split, i.e. mildly biased toward paging. THIS IS THE KNOB:
++      // if tab swipes start stealing vertical-scroll drags on a list, come back to 1f, not .5f.
++      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1.4f else 1f
        val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
  
        if (scaledDx > touchSlop || scaledDy > touchSlop) {
