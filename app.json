@@ -3,13 +3,13 @@
     "name": "UnFocus",
     "slug": "unfocus",
     "owner": "freyrnor-pixel",
-    "version": "1.7.1",
+    "version": "1.7.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "scheme": "unfocus",
-    "runtimeVersion": "1.7.1",
+    "runtimeVersion": "1.7.2",
     "updates": {
       "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
