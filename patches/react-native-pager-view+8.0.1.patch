@@ -2,20 +2,32 @@ diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reac
 index 87b58d0..8fb86ab 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
-@@ -72,8 +72,14 @@ class NestedScrollableHost : FrameLayout {
+@@ -72,8 +72,26 @@ class NestedScrollableHost : FrameLayout {
        val dy = e.y - initialY
        val isVpHorizontal = orientation == ORIENTATION_HORIZONTAL
  
 -      // assuming ViewPager2 touch-slop is 2x touch-slop of child
 -      val scaledDx = dx.absoluteValue * if (isVpHorizontal) .5f else 1f
 +      // UnFocus patch: upstream `.5f` makes a horizontal pager wait for 2x touch-slop (~16dp)
-+      // before capturing — nothing moves under the finger until then, which is felt as a dead
-+      // zone at the start of a swipe and reported (2026-09-09) as "caught on a hump": travel,
-+      // then a catch-up jump. 1f (2026-07-19) halved that to ~8dp; 1.4f captures at ~0.7x slop
-+      // (~6dp), which is about as early as is safe. The axis test becomes |dx| > 0.71*|dy|
-+      // (~35°) rather than a 45° split, i.e. mildly biased toward paging. THIS IS THE KNOB:
-+      // if tab swipes start stealing vertical-scroll drags on a list, come back to 1f, not .5f.
-+      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1.4f else 1f
++      // before capturing. 1f captures at 1x slop AND keeps the parallel/perpendicular test
++      // below a clean 45° split (pages when |dx| >= |dy|, child scroll otherwise).
++      //
++      // ⚠️ **1.4f was tried on 2026-09-09 and REVERTED the same day. Do not try it again.**
++      // It was meant to fix a swipe that "feels like it's caught on a hump" by capturing at
++      // ~0.7x slop. It did not: the hump is not this threshold (see below), and because
++      // `scaledDx` is BOTH the capture threshold and the axis test, 1.4f turned the 45° split
++      // into |dx| > 0.71*|dy| (~35°) — so a vertical drag that wandered more than 35° off
++      // vertical was handed to the pager. Reported from the device as *"unable to scroll
++      // vertically in home"*.
++      //
++      // **Why lowering this could never have fixed the hump.** NestedScrollableHost calls
++      // `requestDisallowInterceptTouchEvent(true)` on ACTION_DOWN, but ViewPager2's inner
++      // RecyclerView has already SEEN that DOWN and recorded its initial touch point. When
++      // this host later releases the gesture, RecyclerView starts intercepting from its own
++      // ~8dp slop measured from that same DOWN. So the finger travels max(thisSlop, 8dp)
++      // before anything moves, whatever factor is written here. The reachable knob is
++      // RecyclerView's own touch slop, not this one.
++      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1f else 1f
        val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
  
        if (scaledDx > touchSlop || scaledDy > touchSlop) {

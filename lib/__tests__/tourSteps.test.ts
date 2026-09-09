@@ -137,6 +137,26 @@ describe('every step is actually wired up', () => {
     }
   });
 
+  /**
+   * ⚠️ **A target has to wrap ONE named element, never a fragment (2026-09-09).**
+   *
+   * The test above passed for weeks while the Shopping step pointed at nothing: its
+   * `<TourTarget id="tour.shopping.list">` wrapped a `<>` fragment whose every child was
+   * conditional, and two separate deletions (the first-run banner, then the last hint card)
+   * emptied it out until it measured 0×0 on a fresh install. components/TourTarget.tsx refuses
+   * to register a zero-size rect, so the step had no target, and the tour stopped dead on step 2
+   * of 3 — reported as *"Onboarding only shows 1 of 3"* and *"Starts fresh at Shopping"*.
+   *   A fragment is the shape that lets that happen silently, because it has no size of its own
+   * and nothing about deleting a child of it looks like deleting a tour target. Wrapping a named
+   * element instead means the target is exactly as present as the thing it is pointing at.
+   */
+  test('no target wraps a bare fragment', () => {
+    const offenders = [...screens.matchAll(/<TourTarget id="([^"]+)"[^>]*>\s*(<>|\{)/g)].map(
+      (m) => m[1],
+    );
+    expect(offenders).toEqual([]);
+  });
+
   test('each step has copy in EVERY language', () => {
     // `no: typeof en` / `is: typeof en` catch a missing key at compile time, but not a step id
     // with no entry at all — t.tour.steps is indexed dynamically by step id.

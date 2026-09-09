@@ -515,6 +515,7 @@ import { useMonthlyListStore, MonthlyList, monthlyListLabel } from '@/store/useM
 import { useSettingsStore } from '@/store/useSettingsStore';
 import type { CardKey } from '@/lib/cardRegistry';
 import { useOrderedCards } from '@/lib/useCardOrder';
+import { useIsCardHidden } from '@/lib/useHiddenCard';
 import { SHARING_VISIBLE } from '@/lib/sharingVisibility';
 import { useReceiptStore } from '@/store/useReceiptStore';
 import { useAutomationStore } from '@/store/useAutomationStore';
@@ -740,6 +741,11 @@ export default function ShoppingScreen() {
   const layoutSpec = useSurfaceLayout('shopping');
   const [manageCardsOpen, setManageCardsOpen] = useState(false);
   const cardOrder = useOrderedCards('shop');
+  // Read here as well as inside `Card` so `weeklyGroup` can render NOTHING (not an empty
+  // wrapper) when the card is put away — its `TourTarget` wrapper would otherwise be a
+  // zero-height flex child booking a whole gap slot in the screen's `gap`-ed content column,
+  // the same defect components/Collapsible.tsx documents for a closed fold.
+  const shopListsHidden = useIsCardHidden('shopLists');
   // Arrived from a note's ⋯ → Send it to… → Shopping list (2026-07-30). The text seeds the add
   // row of the list that covers today — `currentList` is the same helper Home's card uses to
   // pick its default target, so both entry points agree on which list "the shopping list" is.
@@ -1710,64 +1716,27 @@ export default function ShoppingScreen() {
     setConfirm(t.listSavedAsTemplateToast);
   }
 
-  // Screen intro chrome (first-run explainer + incoming shared requests), shown once above
-  // both list groups now (2026-08-20, tabs-to-cards pass — see the header note at the top of
-  // this file). This used to be shared by two hidden-behind-a-tab sections; now it's just the
-  // top of a scrollable stack, same as any other screen's intro.
+  // Screen intro chrome, above the card stack. This is down to ONE conditional row: the
+  // incoming shared-shopping requests section, opt-in via `settings.featureSharing` (off for
+  // fresh installs). Anything already received stays in the store and reappears untouched if
+  // sharing is turned back on.
   //
-  // **The tour target moved here from the old sticky tab row.** Its Shopping step is about the
-  // weekly and monthly lists — "a weekly list for groceries and a monthly one for what the
-  // house needs; the weekly list starts fresh on the day you choose" — and the starter card
-  // below says the same thing. The old anchor (the TabSlider that switched between them) is
-  // gone along with the tab switch itself.
-  // ⚠️ **The target is CONDITIONAL, and it always was — only the condition changed
-  // (2026-08-20).** It used to hang off a dismissible intro banner that returned null once
-  // closed; that banner is deleted app-wide, and what is here now is the starter card, which
-  // renders only while the lists are empty. Either way the guided tour runs once, immediately
-  // after onboarding on a fresh install, when the lists ARE empty — so it is a reliable target
-  // for the one visit that matters. Don't reuse this target id assuming it's always present
-  // later in the tree; for a returning user with a full list there is nothing here to ring.
-  const shoppingIntro = (
-    <TourTarget id="tour.shopping.list">
-    <>
-      {/* First-run explainer (2026-07-26, example rows dropped 2026-07-28): when to add
-          something, and what the two reset cadences actually mean — the weekly/monthly
-          distinction is exactly what's opaque before you have one of each. No suggested-add
-          example rows here any more (user report: Shopping doesn't need one, just a short
-          explanation) — text-only. This screen KEEPS the two-line weekly/monthly form while
-          Home's card dropped to one short line (2026-07-30, `t.starters.shopping.text`): this
-          is where the two lists actually sit side by side, so the split is the point here and
-          a detail there. Gated on no weekly lists
-          AND no items anywhere, NOT on monthlyLists: lib/db.ts seeds one empty monthly list on
-          install (the `INSERT … WHERE NOT EXISTS` migration), so that count is never 0 and
-          would suppress this for every new user. Items covers the seeded list having been
-          filled in. */}
-      {/* ⚠️ **No ⓘ banner since 2026-08-20.** It had been four shapes in a month — an
-          auto-opening first-visit card, a collapsed-until-you-tap-ⓘ card, a bottom sheet, and a
-          closable inline card — and the maintainer ended the series rather than picking a fifth:
-          *"The top text box can be removed"*, with tips belonging to a card's empty state. Its
-          sentence is on the StarterCard directly below, which is what this screen says while it
-          has nothing on it. The cadence LINK went too, not just the pickers: Settings is one tap
-          away on this screen's own header gear, and a card whose whole body is a door to another
-          screen is the thing the original ⓘ complaint was about. */}
-      {/* ⚠️ **DELETED 2026-09-08 — v2's first fix line for this tab**: *"The bullet-list hint
-          card at the top became ONE HINT LINE inside Handlelister — it was a card with no
-          owner."* That is the whole diagnosis: a two-bullet teaching block standing above every
-          card on the screen, belonging to none of them, saying what the card directly beneath it
-          already says on its own hint line (`t.cardHint.shopLists`, drawn by Handlelister). On an
-          empty Shop it was the largest thing on screen and the first thing a new user read.
-            This is the SAME series the 2026-08-20 note above ends — four shapes of top-of-screen
-          banner in a month, closed with *"The top text box can be removed"* and "tips belong to a
-          card's empty state". This card was the fifth shape, added back under a different name.
-          The tips it carried are where that ruling put them: Handlelister's hint line, and the
-          empty state's one line and one button (v2's second fix line, above). */}
-      {/* Incoming shared shopping requests — opt-in via settings.featureSharing
-          (off for fresh installs). Anything already received stays in the store and
-          reappears untouched if sharing is turned back on. */}
-      {featureSharing && <SharedRequestsSection kind="shopping" />}
-    </>
-    </TourTarget>
-  );
+  // ⚠️ **The guided tour's Shopping target is NOT here any more (2026-09-09), and the way it
+  // stopped being here is the bug worth remembering.** `tour.shopping.list` used to wrap this
+  // block, back when the block held a first-run explainer banner (2026-07-26) and later a
+  // starter card. Both were deleted — the banner app-wide on 2026-08-20, the last hint card on
+  // 2026-09-08 — and each deletion left the `TourTarget` wrapping less, until with
+  // `featureSharing` off it wrapped NOTHING. `components/TourTarget.tsx` refuses to register a
+  // zero-size rect (`if (!width || !height) return`), so the target never existed on a fresh
+  // install, and `components/TourSpotlight.tsx` had already navigated the user here for step 2
+  // of 3 and then drew nothing at all: the tour died on Shopping, and — because the step walker
+  // re-runs on every launch while the tour is unfinished — every later cold start opened on
+  // Shopping too. Reported as *"Starts fresh at Shopping"* and *"Onboarding only shows 1 of 3"*.
+  //   The target now hangs off the Handlelister card itself (see `weeklyGroup`), which is what
+  // the step's copy is about and is drawn whether or not the lists are empty. TourSpotlight
+  // additionally no longer stalls on a target it cannot measure. Don't move a `TourTarget` onto
+  // a block whose contents are all conditional.
+  const shoppingIntro = featureSharing ? <SharedRequestsSection kind="shopping" /> : null;
 
   // Food and Catalogue moved off the sticky tab row to button-launched sub-screens
   // (UX audit F1, 2026-07-23) — Weekly/Monthly are the two things a user opens
@@ -2143,7 +2112,13 @@ export default function ShoppingScreen() {
     </Card>
   );
 
-  const weeklyGroup = (
+  const weeklyGroup = shopListsHidden ? null : (
+    // ⚠️ **The guided tour's Shopping step rings THIS card (2026-09-09).** Its copy is about the
+    // weekly and monthly lists, and this card is drawn whether they are empty or full — unlike
+    // the screen-intro block the target used to hang off, which had been emptied out by two
+    // separate deletions until it measured 0×0 and the tour silently died on this tab (the full
+    // story is on `shoppingIntro` above). Skipped entirely when the card is hidden, so the
+    // wrapper never books a gap slot for a card that isn't drawn.
     // ⚠️ **A `Card`, not a bare rail over loose cards (2026-08-21).** Shop drew ~12 top-level
     // `Surface`s: two group headers sitting on the backdrop with a stack of per-list cards under
     // each, plus the two library cards. The registry's boundary settles it — a CARD is a thing
@@ -2157,6 +2132,7 @@ export default function ShoppingScreen() {
     //
     // This is the one Shop card that RESTS OPEN: the "Shopping" in the maintainer's *"All card
     // start in closed state, except 'Today' 'Notes' and 'Shopping'"*.
+    <TourTarget id="tour.shopping.list">
     <Card
       id="shopLists"
       count={nonTemplateLists.length || undefined}
@@ -2557,6 +2533,7 @@ export default function ShoppingScreen() {
       )}
 
     </Card>
+    </TourTarget>
   );
 
   // ⚠️ **ONE card, two tabs, as of 2026-09-07.** `dishesCard` and `catalogueCard` were two

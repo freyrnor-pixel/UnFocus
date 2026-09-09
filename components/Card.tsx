@@ -329,7 +329,19 @@ export function CardShell({
       // `paddingBottom` half of this was already handled by `cardCollapsed`; this is the same
       // rule one level up, and it is why closed is a bare header BY CONSTRUCTION rather than
       // by each caller remembering.
-      style={isClosed ? styles.railClosed : undefined}
+      // ⚠️ **A FOLDING card's rail never reserves the header→body gap — `folds`, not `isClosed`
+      // (2026-09-09).** `SectionRail`'s container carries `marginBottom: Spacing.sm` to hold the
+      // header off the rows it labels, and a folded card has no rows, so this used to be
+      // cancelled the moment `collapsed` flipped. That is a LAYOUT prop changing on the first
+      // frame of a 200/240ms animation: the body jumped 8px up as it started closing and 8px of
+      // empty gap appeared before it had begun opening. Reported from the device as a *"flicker
+      // or jump mid-animation"*, twice, and looked for inside `components/Collapsible.tsx` both
+      // times — it was never in there, because the thing that moved was outside the clip.
+      //   For a folding card the gap now rides INSIDE the animated body instead
+      // (`styles.contentFoldGap` below), where it grows and shrinks with the reveal. Both rest
+      // states are pixel-identical to before: open is rail-margin 0 + body padding 8, closed is
+      // 0 + nothing drawn. A card that does NOT fold keeps the rail's own margin, unchanged.
+      style={folds ? styles.railClosed : undefined}
       right={
         <>
           {/* ⚠️ **The fold, then the caller's own controls, then the ⤢ — always, and the ⤢ is
@@ -363,7 +375,7 @@ export function CardShell({
   // 2026-08-12) and is now used again. Inside the `Collapsible`, so a folded card takes its
   // explanation away with its content.
   const body = (
-    <View style={[styles.content, contentStyle]}>
+    <View style={[styles.content, folds && styles.contentFoldGap, contentStyle]}>
       {hint ? <CardHintLine text={hint} /> : null}
       {children}
     </View>
@@ -416,6 +428,10 @@ const styles = StyleSheet.create({
   // header" is a construction the card system depends on (lib/__tests__/cardAnatomy.test.ts),
   // and it must not silently stop being expressed if the open card's bottom inset ever grows.
   cardCollapsed: { paddingBottom: Spacing.sm },
+  // The header→body gap for a FOLDING card, carried by the body instead of by the rail so it
+  // animates with the fold rather than snapping on its first frame — see the `railClosed` note
+  // at the rail's `style` prop. Same 8px, one level down.
+  contentFoldGap: { paddingTop: Spacing.sm },
   // Closed, the rail labels nothing, so it reserves no gap under itself either — see the
   // `style` prop passed above.
   railClosed: { marginBottom: 0 },

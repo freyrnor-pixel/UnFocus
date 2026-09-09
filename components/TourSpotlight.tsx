@@ -121,6 +121,23 @@ import { hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
 /** Space the coach card is guaranteed, so it can never be pushed off either edge. */
 const CARD_RESERVE = 260;
 /**
+ * How long a step waits for its target to measure before it draws itself WITHOUT one.
+ *
+ * ⚠️ **This exists because a step whose target never measures used to end the tour silently
+ * (2026-09-09).** `tour.shopping.list` had been left wrapping a block whose every child was
+ * conditional, so on a fresh install it was a 0×0 view and `components/TourTarget.tsx` — which
+ * refuses to register a zero-size rect — never registered it. The walker below had already
+ * navigated to Shopping for step 2 of 3; this component then rendered `null` and stayed there
+ * for good. Reported as *"Onboarding only shows 1 of 3"* and, because the walker re-runs on
+ * every launch while the tour is unfinished, *"Starts fresh at Shopping"*.
+ *   A missing rect is now a step drawn with a plain scrim and no ring — the same honest picture
+ * the hole clamp already falls back to when a target is scrolled entirely behind the chrome, and
+ * the same reasoning: the coach card still renders, so the tour stays advanceable. The delay is
+ * what keeps a normal step (whose target measures a frame or two after the tab is walked to)
+ * from flashing the ring-less form first.
+ */
+const TARGET_GRACE = 1200;
+/**
  * How often the active step re-measures its target (and this overlay its own origin). One
  * `measureInWindow` per mounted target,
  * and TourTarget's own measure() skips the update (and the re-render) whenever the rect is
@@ -225,8 +242,22 @@ export default function TourSpotlight() {
     return () => clearInterval(iv);
   }, [step, measureOrigin]);
 
+  /**
+   * True once this step has waited `TARGET_GRACE` for a rect that never came — see that
+   * constant. Reset by every change of step AND by a rect arriving, so a target that measures
+   * late simply cancels the timer instead of leaving the step permanently ring-less.
+   */
+  const [targetless, setTargetless] = useState(false);
+  const hasRect = Boolean(rect);
+  useEffect(() => {
+    setTargetless(false);
+    if (!step || hasRect) return;
+    const id = setTimeout(() => setTargetless(true), TARGET_GRACE);
+    return () => clearTimeout(id);
+  }, [step, hasRect]);
+
   const fade = useRef(new Animated.Value(0)).current;
-  const visible = Boolean((step && rect) || showFinale);
+  const visible = Boolean((step && (rect || targetless)) || showFinale);
   useEffect(() => {
     if (!visible) {
       fade.setValue(0);
@@ -335,7 +366,10 @@ export default function TourSpotlight() {
     );
   }
 
-  if (!step || !rect) return frame(null);
+  // Nothing to draw yet: no step at all, or a step still inside its grace window waiting for
+  // its target to measure. `targetless` is what stops that second case being permanent — see
+  // TARGET_GRACE.
+  if (!step || (!rect && !targetless)) return frame(null);
 
   // ── The hole ──────────────────────────────────────────────────────────────
   // **Clamped to where the target is actually VISIBLE, not to its whole rect** (2026-08-14,
@@ -356,7 +390,13 @@ export default function TourSpotlight() {
   // the user on a dimmed screen with no way forward.
   const screen = { width, height };
   const band = tabChromeBand(insets, PixelRatio.getFontScale());
-  const hole = spotlightHole(rect, screen, band);
+  // A step whose target never measured has no hole at all: the four dim rects below degenerate
+  // to a full-screen scrim and the ring is skipped, exactly as they do for a target scrolled
+  // fully behind the chrome. The card still draws, so the step is still advanceable.
+  // The mid-screen `y` is only about where the card lands (it is placed relative to the
+  // hole): a zero-height hole at the middle puts the coach card in the lower half rather than
+  // jammed under the header.
+  const hole = rect ? spotlightHole(rect, screen, band) : { x: 0, y: Math.round(height / 2), w: 0, h: 0 };
   const ring = spotlightRing(hole, screen, band);
   const lit = hasHole(hole);
   // Put the card on whichever side of the hole has more room, and pin it to that EDGE rather

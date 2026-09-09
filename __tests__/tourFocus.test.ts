@@ -103,3 +103,44 @@ describe('TourTarget registers its measurer where the cadence can reach it', () 
     expect(src).toMatch(/measurers\.delete\(id\)/);
   });
 });
+
+/**
+ * A step whose target never measures must not END the tour (2026-09-09).
+ *
+ * The failure this guards: `tour.shopping.list` was left wrapping a block whose every child had
+ * been deleted, so on a fresh install it measured 0×0 and components/TourTarget.tsx — which
+ * refuses to register a zero-size rect — never registered it. TourSpotlight's walker had already
+ * navigated to Shopping for step 2 of 3; the component then hit `if (!step || !rect) return
+ * frame(null)` and stayed there permanently. The tour never reached step 3, never recorded
+ * itself dismissed, and because the walker re-runs while the tour is unfinished, EVERY later
+ * cold start reopened on Shopping. Reported as *"Onboarding only shows 1 of 3"* and *"Starts
+ * fresh at Shopping"*.
+ *
+ * Source scan for the same reason the suite above is one: there is no component-rendering
+ * harness here (TESTING.md), and the web preview cannot see a measure-dependent path either.
+ * What is pinned is the mechanism — a grace timer, and a hole that is optional rather than
+ * required — not one spelling of it.
+ */
+describe('a missing target degrades to a ring-less step, never to a dead tour', () => {
+  const src = readCode('components/TourSpotlight.tsx');
+
+  it('waits a bounded time for the rect instead of forever', () => {
+    expect(src).toMatch(/const TARGET_GRACE = \d+;/);
+    expect(src).toMatch(/setTimeout\(\(\) => setTargetless\(true\), TARGET_GRACE\)/);
+  });
+
+  it('cancels the timer when the rect arrives, so a late target still gets its ring', () => {
+    expect(src).toMatch(/if \(!step \|\| hasRect\) return;/);
+    expect(src).toMatch(/return \(\) => clearTimeout\(\w+\)/);
+  });
+
+  it('still renders the step once the grace has passed', () => {
+    // The bug was exactly this early return without the `targetless` half of the condition.
+    expect(src).toMatch(/if \(!step \|\| \(!rect && !targetless\)\) return frame\(null\)/);
+    expect(src).not.toMatch(/if \(!step \|\| !rect\) return frame\(null\)/);
+  });
+
+  it('draws no hole rather than requiring one', () => {
+    expect(src).toMatch(/const hole = rect \? spotlightHole\(/);
+  });
+});
