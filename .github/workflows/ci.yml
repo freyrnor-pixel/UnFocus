@@ -95,8 +95,25 @@ jobs:
       # Chromium is pre-installed on this image via Playwright's own download step. The repo
       # never runs `playwright install` locally (the remote env pins PLAYWRIGHT_BROWSERS_PATH),
       # but CI has no such pre-seeded browser, so it is fetched here.
+      #
+      # ⚠️ **Retried 3x (2026-09-09) — this step failed the whole visual job twice in a row on
+      # a #688 that touched nothing but a JSON version number, so the failure was in the step,
+      # not the change.** `--with-deps` runs `apt-get update` against every configured source,
+      # including the Google Chrome repo the runner image ships pre-added — even though we ask
+      # only for `chromium`, not `google-chrome`. Both runs failed identically:
+      # `E: Failed to fetch .../dl.google.com/.../Packages.gz  Hash Sum mismatch` — a transient
+      # state on Google's own mirror, external to this repo, not something a third re-run of
+      # the JOB would reliably dodge since GitHub Actions caches nothing here to fall back to.
+      # A short retry loop around the STEP itself is the fix: cheap, and it turns a one-off
+      # mirror hiccup back into what it actually is — noise — instead of a red PR.
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          for i in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "playwright install failed (attempt $i/3), retrying in 10s…"
+            sleep 10
+          done
+          exit 1
 
       # Build ONCE and reuse it for all four audits — each of the run-*.sh wrappers reuses an
       # existing dist/ and only builds when it is missing.
