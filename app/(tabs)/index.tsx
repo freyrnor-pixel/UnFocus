@@ -127,6 +127,7 @@ import { NativeScrollEvent, NativeSyntheticEvent, StyleSheet, Text, View } from 
 import { useRouter, usePathname } from 'expo-router';
 import ScreenScaffold from '@/components/ScreenScaffold';
 import EnergyMeter from '@/components/EnergyMeter';
+import { countRender } from '@/lib/perfTrace';
 import PlanTaskCard from '@/components/PlanTaskCard';
 import HomeNotesCard from '@/components/HomeNotesCard';
 import HomeSharedCard from '@/components/HomeSharedCard';
@@ -164,6 +165,11 @@ import { useOrderedCards } from '@/lib/useCardOrder';
 // HomeSharedCard is a separate, automatic/data-driven inbox rather than a discretionary card,
 // which is why it is not in lib/cardRegistry.ts and cannot be hidden or moved.
 export default function HomeScreen() {
+  // ⚠️ **Temporary instrument (2026-09-10), paired with the one in components/EnergyMeter.tsx.**
+  // Two counters answer a question one cannot: if Home and the Energy card tick at the SAME
+  // rate, something is re-rendering the whole screen and the card is only where it shows;
+  // if the card runs far ahead of Home, the loop is inside the card. Remove both together.
+  countRender('Home');
   const t = useT();
   const router = useRouter();
   const pathname = usePathname();

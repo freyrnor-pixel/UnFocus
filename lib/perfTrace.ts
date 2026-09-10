@@ -65,3 +65,61 @@ export function resetRenderCounts(): void {
   counts.clear();
   lastDump.clear();
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * The release-build half
+ *
+ * ⚠️ **Everything above is `__DEV__`-only, and that is exactly why it could not answer the
+ * question it was built for.** The header's promise — "nothing in this file may allocate,
+ * subscribe, or measure in the APK the user installs" — is right about cost and wrong about
+ * reach: the bugs that survive to a device report are, by selection, the ones no harness and
+ * no dev build reproduce. On 2026-09-10 a card on Home would not stop re-laying itself out on
+ * a release install while `visual` (both themes), `geometry`, `wraps` and `jitter` were all
+ * clean, four fixes had missed, and the one instrument that could have said "this tree renders
+ * 900 times a second" was compiled out of the only build that showed the bug.
+ *
+ * So there is a second, tiny counter that DOES run in release. It is one `Map` get/set per
+ * render of an explicitly instrumented component: no allocation, no subscription, no timer, no
+ * React state, and nothing reads it unless a person opens Settings with Debug mode on. That is
+ * a real cost and it is a rounding error next to a re-render storm you cannot see.
+ *
+ * Instrument deliberately and temporarily, the same way as `useRenderCount`: add a call, take
+ * the measurement, take it back out. A call site left behind is not dangerous, it is just
+ * untidy.
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/** Release-safe render tally, kept apart from the dev counters so neither can skew the other. */
+const liveCounts = new Map<string, number>();
+/** When counting began, so a caller can turn a total into a RATE — see `renderCountsSnapshot`. */
+let liveSince = Date.now();
+
+/**
+ * Counts a render of `label` in EVERY build, release included.
+ *
+ * A side effect during render, like `useRenderCount` and for the same reason: tracking renders
+ * with state would cause renders. The value is never read during render and never affects
+ * output, so a double-invoked render in StrictMode over-counts and nothing else breaks.
+ */
+export function countRender(label: string): void {
+  liveCounts.set(label, (liveCounts.get(label) ?? 0) + 1);
+}
+
+/**
+ * Every instrumented label as `name: total (rate/s)`, busiest first, plus the window it covers.
+ *
+ * **Read it as a rate.** A card that renders a few dozen times while you use it is ordinary; the
+ * same card at hundreds per second is the thing being hunted. The rate is what makes a single
+ * number meaningful without asking anyone to time it themselves.
+ */
+export function renderCountsSnapshot(): string {
+  const secs = Math.max(1, Math.round((Date.now() - liveSince) / 1000));
+  const rows = [...liveCounts.entries()].sort((a, b) => b[1] - a[1]);
+  if (rows.length === 0) return 'no counters';
+  return `${secs}s — ` + rows.map(([label, n]) => `${label}: ${n} (${(n / secs).toFixed(1)}/s)`).join(' · ');
+}
+
+/** Clears the release counters and restarts the window, so a fresh measurement can be timed. */
+export function resetLiveRenderCounts(): void {
+  liveCounts.clear();
+  liveSince = Date.now();
+}

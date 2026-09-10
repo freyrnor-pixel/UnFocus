@@ -390,6 +390,7 @@ import { buildFeedbackMailUrl } from '@/lib/feedbackMail';
 import { useT, getTranslations } from '@/lib/i18n';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 import { selection, heavy } from '@/lib/haptics';
+import { renderCountsSnapshot, resetLiveRenderCounts } from '@/lib/perfTrace';
 import { FontSize, Fonts, Radius, Spacing, Type, MIN_TAP_TARGET, HitSlop, CHROME_FLOAT_INSET } from '@/constants/theme';
 import { BUILD_SUBJECT, shortCommit } from '@/constants/buildInfo';
 import TabSlider, { TAB_SLIDER_HEIGHT } from '@/components/TabSlider';
@@ -2044,6 +2045,31 @@ export default function SettingsScreen() {
                   <>
                     <View style={[styles.divider, { backgroundColor: theme.border }]} />
                     <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>{t.debug.howToUse}</Text>
+                    {/* ⚠️ **Temporary instrument (2026-09-10) — remove with the `countRender`
+                        call sites in components/EnergyMeter.tsx and app/(tabs)/index.tsx.**
+                        The Home flicker survived four fixes and every headless gate in this
+                        repo; the maintainer's own bisection put it on the Energy card, and the
+                        one question left — a re-render storm, or something under React — can
+                        only be answered on a release install, which is precisely the build
+                        `perfTrace`'s dev-only counters compile out of. Read as a RATE: a few
+                        dozen renders while you use a screen is ordinary, hundreds per second is
+                        the bug. Snapshotted on render, deliberately NOT live — a read-out that
+                        refreshed itself would be the busiest thing on the screen and would
+                        perturb what it is measuring (perfTrace's own standing warning). */}
+                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                    <Text style={[styles.descText, { color: theme.text, marginTop: 0 }]}>
+                      {t.debug.renderCounts}: {renderCountsSnapshot()}
+                    </Text>
+                    <Text style={[styles.descText, { color: theme.textMuted, marginTop: 0 }]}>
+                      {t.debug.renderCountsHint}
+                    </Text>
+                    <PressableScale
+                      style={styles.dangerBtn}
+                      onPress={() => { selection(); resetLiveRenderCounts(); settings.update({}); }}
+                      scaleTo={0.93}
+                    >
+                      <Text style={[styles.dangerBtnText, { color: theme.accent }]}>{t.debug.renderCountsReset}</Text>
+                    </PressableScale>
                     <PressableScale
                       style={[styles.dangerBtn, feedbackNoteCount === 0 && { opacity: 0.4 }]}
                       onPress={() => confirmReset(t.debug.resetNotes.toLowerCase(), clearFeedbackNotes)}

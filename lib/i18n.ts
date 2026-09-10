@@ -2292,6 +2292,12 @@ const en = {
     mailSubject: 'UnFocus debug notes',
     exportHeading: (date: string) => `UnFocus debug notes — ${date}`,
     resetNotes: 'Reset all notes',
+    /* Debug-mode only, and deliberately technical: this is an instrument reading, not app copy.
+       Added 2026-09-10 to tell a re-render storm apart from something under React on a RELEASE
+       install — see lib/perfTrace.ts's release-build note. Remove with the counters. */
+    renderCounts: 'Render counts',
+    renderCountsHint: 'Open Home, watch it for ten seconds, come back and read the rate.',
+    renderCountsReset: 'Restart counting',
     saveAndSend: 'Save and send',
   },
   // Design lab (2026-08-06) — lib/designLab.ts. A workbench for deciding what the app
@@ -4196,6 +4202,9 @@ const no: typeof en = {
     mailSubject: 'UnFocus feilsøkingsnotater',
     exportHeading: (date: string) => `UnFocus feilsøkingsnotater — ${date}`,
     resetNotes: 'Nullstill alle notater',
+    renderCounts: 'Rendringstellere',
+    renderCountsHint: 'Åpne Hjem, se på den i ti sekunder, kom tilbake og les raten.',
+    renderCountsReset: 'Start tellingen på nytt',
     saveAndSend: 'Lagre og send',
   },
   designLab: {
@@ -6088,6 +6097,9 @@ const is: typeof en = {
     mailSubject: 'UnFocus villuleitarpunktar',
     exportHeading: (date: string) => `UnFocus villuleitarpunktar — ${date}`,
     resetNotes: 'Núllstilla alla punkta',
+    renderCounts: 'Teiknitalning',
+    renderCountsHint: 'Opnaðu Heim, horfðu á hann í tíu sekúndur, komdu til baka og lestu hraðann.',
+    renderCountsReset: 'Byrja talningu upp á nýtt',
     saveAndSend: 'Vista og senda',
   },
   designLab: {

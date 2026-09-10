@@ -247,6 +247,7 @@ import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { countRender } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
@@ -324,6 +325,15 @@ function EnergyPulse({ color, reducedMotion }: { color: string; reducedMotion: b
 type EnergyScope = 'day' | 'week';
 
 export default function EnergyMeter() {
+  // ⚠️ **Temporary instrument (2026-09-10) — take it out once the Home flicker is settled.**
+  // The maintainer's own bisection landed on this card: turning Energy off in Settings stops
+  // the flicker, and it follows the card into BOTH of its states. Everything shared between
+  // those states reads clean (`Surface`'s style partitioning routes `gap` correctly, both
+  // sheets render null while hidden, `useEnergyPause` is memoised and documents that it cannot
+  // loop on itself, `TabSlider`'s two layout handlers both dedupe), and no harness here can see
+  // a device. This counts renders in the RELEASE build so the next report can say whether this
+  // is a re-render storm or something under React — see lib/perfTrace.ts's release-build note.
+  countRender('EnergyMeter');
   const theme = useAppTheme();
   const isDark = useIsDark();
   /**
