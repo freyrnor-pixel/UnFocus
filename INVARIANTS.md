@@ -112,6 +112,20 @@ read it before claiming a visual change is done.
   `useWebDefaults` is false in RN) — invisible on web (RNW emits basis:auto). State
   `flexGrow`/`flexShrink`/`flexBasis` explicitly, or `flex` alone, never both together. Guard:
   `lib/__tests__/dialogButtonLayout.test.ts` (verified present).
+- **A PERCENTAGE `flexBasis` resolves against the parent's MAIN axis, so a row-grid cell dropped
+  into a column asks for a share of the parent's HEIGHT** — and when that parent hugs its
+  content, the child's size depends on the parent's while the parent's depends on the child's.
+  Native re-lays-out; CSS stops at `content`, so **react-native-web draws it correctly and every
+  harness here reports it clean**. Confirmed on a device 2026-09-10: `components/EnergyMeter.tsx`
+  handed `QuickAddOptionRow`'s `wide` (`flexBasis:'100%'`, a WIDTH percentage — its panel is a
+  row) straight to a column card, and the device showed the last row sliced by the card's own
+  bottom edge plus a card that would not settle, while `visual` was 24/24 unchanged in both
+  themes, `geometry`, `wraps` and `jitter` all clean, and `home-empty.png`'s baseline looked
+  perfect. The fix is a `flexDirection:'row'` wrapper — restore the container the cell's styles
+  assume — never editing the cell's own basis, which is what makes a wide cell take a whole line
+  in the real grid. All four percentage-basis styles in the app were swept: the two in
+  `HealthSurface`/`MedicineSurface` sit in `row`+`wrap` containers and are correct. Guard:
+  `lib/__tests__/stableLayout.test.ts` (verified to fail against the unwrapped form).
 - **A composer's own controls (a `<Modal>`, a bottom sheet, a pushed route) can steal focus**,
   and a blur handler that tears down UI on "the user left" must first ask whether its own control
   took the focus. Guard: `lib/__tests__/composerFocusSteal.test.ts`.
