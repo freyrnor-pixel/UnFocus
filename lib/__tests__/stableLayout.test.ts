@@ -182,6 +182,36 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect(src).not.toMatch(/styles\.stripLine/);
   });
 
+  /**
+   * ⚠️ **Every `wide` cell sits in a ROW wrapper (2026-09-10), and this is a native-only
+   * invariant no other gate in this repo can hold.**
+   *
+   * `QuickAddOptionRow` is a GRID CELL: its own header says cells "pair up two-per-line", and
+   * its `wide` style is `flexGrow:1 / flexShrink:1 / flexBasis:'100%'` — a percentage that is a
+   * WIDTH because the panel it was built for is a row. Both of this card's uses drop it into
+   * `budgetCard`, a plain column, where `100%` is read against the MAIN axis (the card's
+   * height) against a parent whose height is indefinite.
+   *
+   * react-native-web resolves that to content and draws it correctly, so `visual`, `geometry`,
+   * `wraps` and `jitter` were all clean while the device showed "Set the day's energy" sliced
+   * by the card's own bottom edge under `Surface`'s `overflow:'hidden'` mask. That is
+   * `INVARIANTS.md`'s crash-class trap — a flex/basis combination wrong on native and invisible
+   * on web — one rung along from the `flex:N + flexBasis:'auto'` case it names, and it is
+   * exactly why this has to be a source scan: **no harness here can see it.**
+   *
+   * Fixing it by editing `wide` instead would be wrong: that basis is what makes a wide cell
+   * take a whole line inside the real grid.
+   */
+  it('wraps every `wide` cell in a row container, so its basis means width', () => {
+    expect(src).toMatch(/qaLine: \{ flexDirection: 'row' \}/);
+    // Each `wide` cell is opened by the wrapper immediately above it. Scoped to the wrapper +
+    // the component + the prop in that order so an unwrapped call site cannot pass by sitting
+    // somewhere else in the file.
+    const wrapped = [...src.matchAll(/<View style=\{styles\.qaLine\}>\s*<QuickAddOptionRow\s+wide\b/g)];
+    const allWide = [...src.matchAll(/<QuickAddOptionRow\s+wide\b/g)];
+    expect({ wrapped: wrapped.length, total: allWide.length }).toEqual({ wrapped: 2, total: 2 });
+  });
+
   it('always passes a label — the row signature no longer admits null', () => {
     expect(src).toMatch(/label: string,/);
     expect(src).not.toMatch(/label: string \| null/);

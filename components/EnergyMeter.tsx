@@ -848,15 +848,35 @@ export default function EnergyMeter() {
               <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendGivenBack}</Text>
             </View>
           </View>
-          <QuickAddOptionRow
-            wide
-            showsMore
-            icon="flash-outline"
-            label={t.starters.energy.action}
-            value={t.energyMeter.notSetValue}
-            accent={theme.accent}
-            onPress={() => setConfigOpen(true)}
-          />
+          {/* ⚠️ **The row wrapper is load-bearing, and it is a NATIVE-ONLY fix (2026-09-10).**
+              `QuickAddOptionRow` is a GRID CELL — read its header: cells "pair up two-per-line"
+              and its `wide` style is `flexGrow:1 / flexShrink:1 / flexBasis:'100%'`, where the
+              percentage is a WIDTH because the panel it was built for is a ROW. Dropped straight
+              into this card, whose `budgetCard` style is a plain column, that `100%` becomes a
+              percentage of the MAIN axis — the card's HEIGHT — asked for against a parent whose
+              height is indefinite.
+                react-native-web resolves that to content and draws it correctly, which is why
+              every harness here has always shown this card intact and why `home-empty`'s
+              baseline is not a bug report. Yoga does not, and the device showed the result:
+              *"Sett dagens energi"* sliced by the card's own bottom edge, under `Surface`'s
+              `overflow:'hidden'` mask. This is `INVARIANTS.md`'s documented crash-class trap —
+              a flex/basis combination that is wrong on native and **invisible on web** — one
+              rung along from the `flex:N + flexBasis:'auto'` case it names.
+                A `flexDirection:'row'` wrapper is the whole fix: it restores the container the
+              cell's own styles assume, so `100%` means width again. Don't "simplify" it away,
+              and don't fix it by editing `wide` — that basis is what makes a wide cell take a
+              whole line inside the real grid. */}
+          <View style={styles.qaLine}>
+            <QuickAddOptionRow
+              wide
+              showsMore
+              icon="flash-outline"
+              label={t.starters.energy.action}
+              value={t.energyMeter.notSetValue}
+              accent={theme.accent}
+              onPress={() => setConfigOpen(true)}
+            />
+          </View>
         </Surface>
       )}
 
@@ -913,16 +933,19 @@ export default function EnergyMeter() {
               the number currently is. `QuickAddOptionRow` is the app's existing shape for
               exactly that (label line + value + ›) — DESIGN_RULES §8's whole point is that this
               does not become a fifteenth hand-rolled row. */}
-          <QuickAddOptionRow
-            wide
-            showsMore
-            icon="flash-outline"
-            label={t.energyMeter.budgetAdjust}
-            value={t.energyMeter.budgetUnits(scope === 'day' ? dayCapacity : weekCapacity)}
-            isSet
-            accent={theme.accent}
-            onPress={() => setConfigOpen(true)}
-          />
+          {/* Same row wrapper, same reason as the tutorial card's — see that call site's note. */}
+          <View style={styles.qaLine}>
+            <QuickAddOptionRow
+              wide
+              showsMore
+              icon="flash-outline"
+              label={t.energyMeter.budgetAdjust}
+              value={t.energyMeter.budgetUnits(scope === 'day' ? dayCapacity : weekCapacity)}
+              isSet
+              accent={theme.accent}
+              onPress={() => setConfigOpen(true)}
+            />
+          </View>
         </Surface>
       )}
 
@@ -988,6 +1011,10 @@ const styles = StyleSheet.create({
   // v2's `gc slim`: the card's own padding and inner rhythm. `Surface` brings the fill, edge and
   // shadow; this is only the box it wraps around the rail, the segment, the bar and the row.
   budgetCard: { padding: Spacing.md, gap: Spacing.sm },
+  // The ROW container a `QuickAddOptionRow` assumes it is in — see both call sites' notes. Its
+  // `wide` basis is a width percentage, and this card is otherwise a column, where the same
+  // number would be read against the card's own height.
+  qaLine: { flexDirection: 'row' },
   // The segment sits under the header at the body's own rhythm — v2 puts it first in the body,
   // above the bar, so the thing it switches is directly beneath it.
   scopeSegment: { marginTop: Spacing.xs },
