@@ -106,7 +106,7 @@ import type { WidgetSnapshot } from './snapshot';
 // The live set (drives the app-side requestWidgetUpdate fan-out + app.json). 'Overview' was
 // retired in favour of dedicated Habits + Health widgets; its render case is kept below for
 // installs whose native build still has the old Overview receiver until they update.
-export const WIDGET_NAMES = ['Shopping', 'Tasks', 'Notes', 'Habits', 'Health'] as const;
+export const WIDGET_NAMES = ['Shopping', 'Tasks', 'Notes', 'Habits', 'Health', 'Energy'] as const;
 export type WidgetName = (typeof WIDGET_NAMES)[number];
 
 type Hex = `#${string}`;
@@ -126,6 +126,13 @@ type Palette = {
   rowEdge: Hex;
   /** The card's lit top-left lip (`getGlassEdge`'s first stop), composited over `card`. */
   edgeLit: Hex;
+  /**
+   * `theme.good` — the app's success hue, and here the ONE thing it marks: a unit of energy a
+   * habit gave BACK. Added 2026-09-11 with the Energy widget. It is a token in its own right
+   * rather than a reuse of an identity hue because give-back is a STATE, not a domain: the
+   * Energy card draws it green in every theme for the same reason a met habit is green.
+   */
+  good: Hex;
   dark: boolean;
 };
 
@@ -170,11 +177,13 @@ const LIGHT: Palette = {
   // the palette test exists to catch, and it caught all five.
   card: '#FAFCFE', text: '#1B2432', muted: '#535D6B', line: '#65768F',
   plate: '#ECEEF1', rowFill: '#F0F2F5', rowEdge: '#E4E6EA', edgeLit: '#CDD4DD',
+  good: '#167651',
   dark: false,
 };
 const DARK: Palette = {
   card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95',
   plate: '#383838', rowFill: '#303030', rowEdge: '#3A3A3A', edgeLit: '#474747',
+  good: '#00E58A',
   dark: true,
 };
 
@@ -660,6 +669,81 @@ function HabitsWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
   );
 }
 
+// ── Energy (today's budget bar) ──────────────────────────────────────────────
+/**
+ * One unit of the day's budget, drawn as a BLOCK rather than the app's flash glyph.
+ *
+ * components/EnergyMeter.tsx draws `Ionicons name="flash"` filled for spent and outline for
+ * left. Neither can come here: rasterising an icon font in a headless RemoteViews render is the
+ * failure mode this file's header warns about — a glyph that fails to draw blanks the whole
+ * widget. A small rounded block says the same thing with the same three states, using the
+ * construction the `Check` above already proves works: filled = spent, a ring = still yours,
+ * filled in the good colour = given back.
+ */
+function Pip({ kind, accent, p }: { kind: 'used' | 'left' | 'gain'; accent: Hex; p: Palette }) {
+  const fill = kind === 'used' ? accent : kind === 'gain' ? p.good : undefined;
+  return (
+    <FlexWidget
+      style={{
+        width: 10,
+        height: 14,
+        borderRadius: 3,
+        marginRight: 3,
+        borderWidth: 2,
+        borderColor: fill ?? p.line,
+        ...(fill ? { backgroundColor: fill } : null),
+      }}
+    />
+  );
+}
+
+/**
+ * The day's energy budget.
+ *
+ * ⚠️ **Read-only, and the only widget that is so by construction rather than by choice.** Every
+ * other card's rows write back on a tap; there is nothing a single tap could mean here, because
+ * setting a budget is a NUMBER chosen with steppers in a pop-up. So the whole card is one
+ * OPEN_APP target — the same call Health's symptom rows make, for the same reason.
+ *
+ * The bar arrives pre-scaled from `energyBudgetBar` (lib/energy.ts, via the snapshot): the app
+ * owns that arithmetic and the widget must not re-derive it. `hasContent` false means no
+ * capacity is set — the app teaches instead of measuring in that state, and so does this, by
+ * showing the same `notSetPeek` line and no bar at all rather than ten empty blocks, which would
+ * read as a day with nothing spent instead of a budget nobody has set.
+ */
+function EnergyWidget({ snap, p }: { snap: WidgetSnapshot; p: Palette }) {
+  const s = snap.energy;
+  const accent = ink(hex(s.accent), p);
+  return (
+    <FlexWidget clickAction="OPEN_APP" style={frame(p)}>
+      <Header title={s.title} peek={s.subtitle} accent={accent} p={p} />
+      {!s.hasContent ? (
+        <Empty text={s.empty} p={p} />
+      ) : (
+        <FlexWidget style={{ width: 'match_parent', flex: 1, justifyContent: 'center' }}>
+          <FlexWidget style={{ width: 'match_parent', flexDirection: 'row', alignItems: 'center', marginTop: S.xs }}>
+            {Array.from({ length: s.used }, (_, i) => (
+              <Pip key={`u${i}`} kind="used" accent={accent} p={p} />
+            ))}
+            {Array.from({ length: s.left }, (_, i) => (
+              <Pip key={`l${i}`} kind="left" accent={accent} p={p} />
+            ))}
+            {/* The give-back run sits after a gap, the way the app's divided bar separates it —
+                it is extra ON TOP of the budget, never part of the spend. */}
+            {s.gain > 0 ? <FlexWidget style={{ width: S.xs, height: 1 }} /> : null}
+            {Array.from({ length: s.gain }, (_, i) => (
+              <Pip key={`g${i}`} kind="gain" accent={accent} p={p} />
+            ))}
+          </FlexWidget>
+          {s.over ? (
+            <TextWidget text={s.over} maxLines={1} truncate="END" style={{ fontSize: 12, color: p.muted, marginTop: S.sm }} />
+          ) : null}
+        </FlexWidget>
+      )}
+    </FlexWidget>
+  );
+}
+
 // ── Health (medicine trays + symptom entries) ────────────────────────────────
 /**
  * One medicine tray. The ONLY actionable row on this widget — a tap logs the whole window
@@ -760,6 +844,8 @@ function viewForName(name: string, snap: WidgetSnapshot, p: Palette) {
       return <HabitsWidget snap={snap} p={p} />;
     case 'Health':
       return <HealthWidget snap={snap} p={p} />;
+    case 'Energy':
+      return <EnergyWidget snap={snap} p={p} />;
     case 'Overview':
     default:
       // Retired widget — retained for installs still running the pre-Habits/Health native build.

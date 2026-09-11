@@ -71,6 +71,8 @@ import { useHabitStore, type Habit } from '@/store/useHabitStore';
 import { useHealthStore } from '@/store/useHealthStore';
 import { useMedicineStore } from '@/store/useMedicineStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useEnergyStore } from '@/store/useEnergyStore';
+import { energyBudgetBar, energySplitForDay } from '@/lib/energy';
 
 // Widgets scroll (ListWidget), so we can bake more than a handful of rows; overflow
 // beyond this still shows a "+N more" footer.
@@ -215,6 +217,28 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
   if (ongoingCount > 0) overviewLines.push(t.widgets.healthOngoing(ongoingCount));
   if (nextTaskLine) overviewLines.push(nextTaskLine);
 
+  // ── Energy (today's budget) ──
+  // Every number here comes from lib/energy.ts, the same module components/EnergyMeter.tsx
+  // reads: `energySplitForDay` for spent/given-back and `energyBudgetBar` for the scaled pip
+  // run. The widget re-derives NOTHING. Two surfaces computing the same budget by eye is how
+  // they end up disagreeing, and a widget disagreeing with the app is worse than no widget —
+  // it renders while the app is dead, so there is nothing on screen to correct it.
+  const energyState = useEnergyStore.getState();
+  const energyCapacity = energyState.capacityForDay(today);
+  // RAW store arrays, not the filtered preview lists above: `energySplitForDay` does its own
+  // date filtering and counts habits by `habitMetOn`, so handing it `todayTasks` (already
+  // narrowed to completable cards) would silently drop energy the app counts.
+  const energySplit = energySplitForDay(
+    today,
+    useTaskStore.getState().tasks,
+    habitState.habits,
+    habitState.logs
+  );
+  const energyBar = energyBudgetBar(energySplit.spent, energySplit.gained, energyCapacity);
+  // `energySystemEnabled` off ⇒ the app draws no Energy anywhere, so the widget shows its
+  // not-set line rather than a bar for a system the user has switched off.
+  const energyOn = useSettingsStore.getState().energySystemEnabled && energyCapacity > 0;
+
   const healthSubtitle = [
     dueMedicines > 0 ? t.widgets.medicineDue(dueMedicines) : '',
     ongoingCount > 0 ? t.widgets.healthOngoing(ongoingCount) : '',
@@ -277,6 +301,22 @@ export function buildWidgetSnapshot(): WidgetSnapshot {
       empty: t.widgets.noHabits,
       accent: WIDGET_ACCENT.habits,
       hasContent: todayHabits.length > 0,
+    },
+    energy: {
+      title: t.energyMeter.budgetTitle,
+      // The app's own peek, verbatim — "4 of 8 spent · +1 given back". Reusing `energyMeter`'s
+      // strings rather than minting `widgets.*` twins means the card and the widget cannot drift
+      // into saying the same thing two ways, and it adds no new keys to translate.
+      subtitle: energyOn ? t.energyMeter.budgetPeek(energySplit.spent, energyCapacity, energySplit.gained) : '',
+      used: energyOn ? energyBar.used : 0,
+      left: energyOn ? energyBar.left : 0,
+      gain: energyOn ? energyBar.gain : 0,
+      // Stated calmly and only when true. `budgetOver` is the app's wording ("2 past today's
+      // budget"), which is deliberately not "over budget" — see its i18n comment.
+      over: energyOn && energyBar.overspent > 0 ? t.energyMeter.budgetOver(energyBar.overspent) : '',
+      empty: t.energyMeter.notSetPeek,
+      accent: WIDGET_ACCENT.energy,
+      hasContent: energyOn,
     },
     health: {
       title: t.widgets.healthTitle,

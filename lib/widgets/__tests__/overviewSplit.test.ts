@@ -44,7 +44,14 @@ const state = {
 };
 
 jest.mock('@/store/useTaskStore', () => ({
-  useTaskStore: { getState: () => ({ tasksForDate: () => state.tasks }) },
+  // `tasks` as well as `tasksForDate` since 2026-09-11: the Energy slice hands the RAW array to
+  // `energySplitForDay`, which does its own date filtering (lib/widgets/sync.ts says why).
+  useTaskStore: { getState: () => ({ tasks: state.tasks, tasksForDate: () => state.tasks }) },
+}));
+jest.mock('@/store/useEnergyStore', () => ({
+  // No capacity in these fixtures, so the Energy card is in its not-set state and contributes
+  // nothing to the overview — which is what these tests are about.
+  useEnergyStore: { getState: () => ({ capacityForDay: () => 0 }) },
 }));
 jest.mock('@/store/useShoppingStore', () => ({
   useShoppingStore: { getState: () => ({ items: [] }) },
@@ -70,6 +77,7 @@ jest.mock('@/store/useSettingsStore', () => ({
       language: 'en',
       persistentNotifEnabled: true,
       featureMedicine: state.featureMedicine,
+      energySystemEnabled: true,
       medicineTrayTimes: { morning: '08:00', midday: '12:00', evening: '18:00', night: '21:00' },
     }),
   },

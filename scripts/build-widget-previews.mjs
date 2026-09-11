@@ -203,6 +203,15 @@ function card(accent, title, peek, body, right = '') {
   return `<div class="frame">${head(accent, title, peek, right)}<div class="body">${body}</div></div>`;
 }
 
+/**
+ * One unit of the day's budget. The widget draws these as BLOCKS, not the app's flash glyph —
+ * an icon font cannot be rasterised in a headless RemoteViews render (lib/widgets/WidgetViews.tsx
+ * says why) — so the preview draws blocks too. A preview that flatters the real thing is the
+ * hand-drawn drift this whole file exists to end.
+ */
+const pip = (fill, line) =>
+  `<i class="unit" style="border-color:${fill || line};${fill ? `background:${fill}` : ''}"></i>`;
+
 const WIDGETS = {
   shopping: () => {
     const a = ink(accents.shop);
@@ -240,6 +249,22 @@ const WIDGETS = {
       .join('');
     return card(a, strings.healthTitle, `1 ${LANG === 'no' ? 'medisin gjenstår' : 'medicine still due'}`, trays + entries);
   },
+  // Energy: the only read-only card by construction — there is nothing a single tap could mean
+  // when the value is a number set with steppers. Sample numbers, like every other card's rows.
+  energy: () => {
+    const a = ink(accents.energy);
+    const bar =
+      Array.from({ length: 4 }, () => pip(a, palette.line)).join('') +
+      Array.from({ length: 6 }, () => pip(null, palette.line)).join('') +
+      `<i class="unitGap"></i>` +
+      pip(palette.good, palette.line);
+    return card(
+      a,
+      strings.energyTitle,
+      LANG === 'no' ? '4 av 10 brukt · +1 gitt tilbake' : '4 of 10 spent · +1 given back',
+      `<div class="bar">${bar}</div>`
+    );
+  },
 };
 
 const html = (inner) => `<!doctype html><meta charset="utf-8"><style>
@@ -254,6 +279,16 @@ const html = (inner) => `<!doctype html><meta charset="utf-8"><style>
          padding:${px(8)} ${px(12)} ${px(12)};display:flex;flex-direction:column;
          color:${palette.text};overflow:hidden}
   .head{display:flex;align-items:center;justify-content:space-between;flex:none;gap:${px(8)}}
+  /* The budget bar. Centred in the body because the Energy card has one thing to show and no
+     rows to stack — see WidgetViews' EnergyWidget. */
+  .bar{display:flex;align-items:center;flex:1}
+  /* NOT .pip — that name is already the health card's 7px severity dot, declared further down
+     and therefore winning the cascade; the first version of this collided with it and the budget
+     bar rendered as a row of little circles. (No backticks in here: this block is inside a JS
+     template literal, and one would end the string.) */
+  .unit{width:${px(10)};height:${px(14)};border-radius:${px(3)};margin-right:${px(3)};
+        border-style:solid;border-width:${px(2)};display:block;flex:none}
+  .unitGap{width:${px(6)};display:block;flex:none}
   /* min-width:0 is what lets the TITLE ellipsis instead of shoving its neighbour off the
      card — the same failure npm run wraps exists to catch on the app's own rows. */
   .grow{display:flex;align-items:center;min-width:0;flex:1 1 auto}

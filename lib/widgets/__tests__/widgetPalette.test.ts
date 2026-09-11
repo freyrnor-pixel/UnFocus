@@ -32,6 +32,7 @@ import path from 'path';
 import { getThemePalette, IDENTITY_HUES } from '@/constants/colors';
 import { getBadgeFrost, getGlassEdge, glassKey, mix, relLuminance } from '@/constants/theme';
 import { WIDGET_ACCENT } from '@/lib/widgets/snapshot';
+import { WIDGET_NAMES } from '@/lib/widgets/WidgetViews';
 
 const LIGHT = getThemePalette('default', false);
 const DARK = getThemePalette('default', true);
@@ -415,5 +416,44 @@ describe('the widget card is built like the app card', () => {
       fs.readFileSync(path.join(__dirname, '..', f), 'utf8'),
     );
     for (const src of producers) expect(src).not.toMatch(/empty: '',/);
+  });
+});
+
+/**
+ * ⚠️ **A widget exists in TWO places, and neither half works alone (added 2026-09-11 with the
+ * Energy widget, which is the first one added since the pairing went unguarded).**
+ *
+ * `WIDGET_NAMES` is the JS side: what `renderWidgetByName` can draw. `app.json`'s
+ * react-native-android-widget block is the NATIVE side: what Android will offer in the picker
+ * and hand a receiver to. Each failure is silent in its own way, which is why prose was never
+ * going to hold this:
+ *
+ *   · in `app.json` but not in `WIDGET_NAMES` → `viewForName`'s `default` branch catches it and
+ *     the user plants a widget that renders the RETIRED Overview layout;
+ *   · in `WIDGET_NAMES` but not in `app.json` → nothing is registered, so it never appears in
+ *     the picker at all and there is nothing on screen to explain why;
+ *   · a `previewImage` pointing at a file that does not exist → the picker entry is blank, and
+ *     the preview is the only look anyone gets before deciding to place it.
+ *
+ * `Overview` is excluded deliberately: it is retired, kept in `viewForName` only for installs
+ * whose native build predates Habits/Health, and it is correctly absent from `app.json`.
+ */
+describe('every widget is registered on both sides', () => {
+  const appJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', '..', 'app.json'), 'utf8'));
+  const plugin = appJson.expo.plugins.find(
+    (p: unknown): p is [string, { widgets: { name: string; previewImage: string }[] }] =>
+      Array.isArray(p) && p[0] === 'react-native-android-widget'
+  );
+  const registered: { name: string; previewImage: string }[] = plugin![1].widgets;
+
+  it('declares the same set in WIDGET_NAMES and app.json', () => {
+    expect([...registered.map((w) => w.name)].sort()).toEqual([...WIDGET_NAMES].sort());
+  });
+
+  it('points every previewImage at a file that exists', () => {
+    const missing = registered
+      .map((w) => w.previewImage)
+      .filter((rel) => !fs.existsSync(path.join(__dirname, '..', '..', '..', rel)));
+    expect(missing).toEqual([]);
   });
 });

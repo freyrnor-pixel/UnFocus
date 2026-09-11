@@ -54,6 +54,9 @@ type Strings = {
   notesTitle: string;
   habitsTitle: string;
   healthTitle: string;
+  /** `energyMeter.budgetTitle` and `.notSetPeek` — the two Energy strings this fallback needs. */
+  energyTitle: string;
+  energyNotSet: string;
   overviewTitle: string;
   itemsLeft: (n: number) => string;
   tasksLeft: (n: number) => string;
@@ -90,6 +93,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     notesTitle: 'Notes',
     habitsTitle: 'Habits',
     healthTitle: 'Health',
+    energyTitle: 'Energy budget',
+    energyNotSet: 'Not set for today',
     overviewTitle: "Today's overview",
     itemsLeft: (n) => (n === 1 ? '1 item left' : `${n} items left`),
     tasksLeft: (n) => (n === 1 ? '1 task left' : `${n} tasks left`),
@@ -115,6 +120,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     notesTitle: 'Notater',
     habitsTitle: 'Vaner',
     healthTitle: 'Helse',
+    energyTitle: 'Energibudsjett',
+    energyNotSet: 'Ikke satt for i dag',
     overviewTitle: 'Dagens oversikt',
     itemsLeft: (n) => (n === 1 ? '1 vare igjen' : `${n} varer igjen`),
     tasksLeft: (n) => (n === 1 ? '1 oppgave igjen' : `${n} oppgaver igjen`),
@@ -140,6 +147,8 @@ const WIDGET_STRINGS: Record<'en' | 'no' | 'is', Strings> = {
     notesTitle: 'Minnispunktar',
     habitsTitle: 'Venjur',
     healthTitle: 'Heilsa',
+    energyTitle: 'Orkuáætlun',
+    energyNotSet: 'Ekki stillt fyrir daginn',
     overviewTitle: 'Yfirlit dagsins',
     itemsLeft: (n) => `${n} ${isCount(n, 'vara', 'vörur')} eftir`,
     tasksLeft: (n) => `${n} verkefni eftir`,
@@ -395,6 +404,38 @@ export function buildHeadlessSnapshot(): WidgetSnapshot | null {
 
     return {
       updatedAt: Date.now(),
+      /**
+       * ⚠️ **The fallback draws the NOT-SET card, and that is a claim about when this code runs
+       * rather than a shrug.**
+       *
+       * The day's budget is `capacityForDay` — a base row, a weekday override and a boost row,
+       * resolved in store/useEnergyStore.ts — minus `energySplitForDay` over every task and
+       * habit. The split is pure and importable; the CAPACITY is store logic, and re-deriving it
+       * in SQL would put a second answer in the one layer that must never disagree with the app,
+       * because it renders while the app is dead and nothing on screen can correct it.
+       *
+       * So this states the not-set line, which is TRUE exactly when this path runs. The fallback
+       * exists for a widget planted on an install the app has never synced from; setting a
+       * capacity means opening the app and using the config sheet, which itself syncs. An
+       * established install with a lost snapshot row is the narrow exception, and the next
+       * foreground sync — seconds away, the same window that corrects every other approximation
+       * in this file — replaces it with the real bar.
+       *
+       * `empty`, not silence: `widgetPalette.test.ts` bans `empty: ''` at both producers, because
+       * habits and health once drew a header over a blank body. That rule is right and this obeys
+       * it rather than carving out an exception.
+       */
+      energy: {
+        title: s.energyTitle,
+        subtitle: '',
+        used: 0,
+        left: 0,
+        gain: 0,
+        over: '',
+        empty: s.energyNotSet,
+        accent: ACCENT.energy,
+        hasContent: false,
+      },
       shopping: {
         title: s.shoppingTitle,
         subtitle: shopRemaining > 0 ? s.itemsLeft(shopRemaining) : '',
