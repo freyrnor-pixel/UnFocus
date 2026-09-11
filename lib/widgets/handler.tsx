@@ -53,6 +53,7 @@ function placeholder(): WidgetSnapshot {
     notes: { title: 'UnFocus', items: [], more: '', empty: '—', voiceLabel: '', accent: WIDGET_ACCENT.notes, hasContent: false },
     habits: { title: 'UnFocus', subtitle: '', items: [], more: '', empty: '—', accent: WIDGET_ACCENT.habits, hasContent: false },
     health: { title: 'UnFocus', subtitle: '', items: [], trays: [], more: '', empty: '—', accent: WIDGET_ACCENT.health, hasContent: false },
+    energy: { title: 'UnFocus', subtitle: '', used: 0, left: 0, gain: 0, over: '', empty: '—', accent: WIDGET_ACCENT.energy, hasContent: false },
   };
 }
 

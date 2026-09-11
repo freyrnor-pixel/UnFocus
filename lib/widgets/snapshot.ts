@@ -56,6 +56,10 @@ export const WIDGET_ACCENT = {
   notes: '#B660FF', // IDENTITY_HUES.notes
   habits: '#05D9E8', // IDENTITY_HUES.habits
   health: '#FF8CB2', // IDENTITY_HUES.health
+  // The Energy card's badge is the app ACCENT, not one of the five identity hues — Energy is a
+  // budget for the day rather than a domain, and Home is IDENTITY_NEUTRAL. Same value as
+  // `overview` above, and deliberately so: they are the same blue for the same reason.
+  energy: '#298AFF', // DARK.accent
 } as const;
 
 /** One task row shown in the Tasks widget. `id` lets a widget tap toggle it (WIDGET_CLICK). */
@@ -169,6 +173,35 @@ export type WidgetSnapshot = {
     more: string;
     empty: string;
     accent: string;
+    hasContent: boolean;
+  };
+  /**
+   * The day's energy budget — the home-screen twin of components/EnergyMeter.tsx's card.
+   *
+   * Read-only by design. Every other widget's rows write back (a tap toggles a task, cycles a
+   * shopping item, logs a tray), but there is nothing here a single tap could mean: setting a
+   * budget is a number, and it is chosen in a pop-up with steppers. So the whole card opens the
+   * app, the same call Health's symptom rows make for the same reason.
+   *
+   * The bar arrives PRE-SCALED (`energyBudgetBar`), not as raw spent/capacity. A widget must not
+   * re-derive a shape the app already owns — that is how the two drift — and the scaling is the
+   * interesting part: 1:1 up to ten pips, proportional above, so a capacity of 40 does not ask
+   * RemoteViews to lay out forty blocks.
+   */
+  energy: {
+    title: string;
+    /** `energyMeter.budgetPeek` — "4 of 8 spent · +1 given back". States, never scores. */
+    subtitle: string;
+    /** Pip counts from `energyBudgetBar`: filled, outline, and the capped give-back run. */
+    used: number;
+    left: number;
+    gain: number;
+    /** `energyMeter.budgetOver` when the day ran past its budget, else ''. Calm, not red. */
+    over: string;
+    /** `energyMeter.notSetPeek` — shown when no capacity exists yet. */
+    empty: string;
+    accent: string;
+    /** A capacity has been set. False ⇒ the card teaches instead of measuring, exactly as in-app. */
     hasContent: boolean;
   };
   health: {

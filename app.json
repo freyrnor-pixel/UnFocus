@@ -3,13 +3,13 @@
     "name": "UnFocus",
     "slug": "unfocus",
     "owner": "freyrnor-pixel",
-    "version": "1.7.2",
+    "version": "1.7.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#000000",
     "scheme": "unfocus",
-    "runtimeVersion": "1.7.2",
+    "runtimeVersion": "1.7.3",
     "updates": {
       "url": "https://u.expo.dev/9c7c7e82-8c6e-4be7-aae1-e588b4ebc495",
       "channel": "preview"
@@ -125,6 +125,18 @@
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000,
               "previewImage": "./assets/widget-previews/health.png"
+            },
+            {
+              "name": "Energy",
+              "label": "UnFocus Energy",
+              "description": "Today's energy budget",
+              "minWidth": "180dp",
+              "minHeight": "90dp",
+              "targetCellWidth": 3,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000,
+              "previewImage": "./assets/widget-previews/energy.png"
             }
           ]
         }
