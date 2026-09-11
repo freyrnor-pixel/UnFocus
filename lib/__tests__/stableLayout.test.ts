@@ -216,26 +216,6 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     expect({ wrapped: wrapped.length, total: allWide.length }).toEqual({ wrapped: 2, total: 2 });
   });
 
-  /**
-   * ⚠️ **The card's height is PINNED, and this is the guard that keeps it that way (2026-09-11).**
-   *
-   * Maintainer instruction after four failed fixes: *"I'd rather change it and fix the issue,
-   * rather than finding the exact cause… a static size just like header and bottom nav, but
-   * moves with the other cards when scrolling."* A box that cannot change height cannot
-   * oscillate in one, so this removes the degree of freedom instead of hunting what moved it.
-   *
-   * Both branches have to carry it, or the card renegotiates its height every time it crosses
-   * between them — which it already did, by 2px, before this. The `custom` two-meter mode is
-   * deliberately exempt (no harness here can measure it), which is why the style is a ternary
-   * rather than a constant on `budgetCard` itself: that shape is load-bearing, not a flourish.
-   */
-  it('pins its own height in both states, so neither can renegotiate it', () => {
-    expect(src).toMatch(/export const ENERGY_CARD_HEIGHT = \d+;/);
-    expect(src).toMatch(/const cardHeightStyle = twoMeters \? null : \{ height: ENERGY_CARD_HEIGHT \}/);
-    const pinned = src.match(/<Surface style=\{\[styles\.budgetCard, cardHeightStyle\]\}>/g) ?? [];
-    expect(pinned.length).toBe(2);
-  });
-
   it('always passes a label — the row signature no longer admits null', () => {
     expect(src).toMatch(/label: string,/);
     expect(src).not.toMatch(/label: string \| null/);
@@ -314,10 +294,7 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // assertion moved with it: what must hold is that this spot draws an EMPTY bar, never a full
     // one, before anything can spend it. That is now checkable directly rather than by proxy.
     const emptyBranch = src.slice(src.indexOf('showTutorial && ('), src.indexOf('{!pause.paused && !showTutorial'));
-    // `\[?` since 2026-09-11: the card's height is pinned through a composed style array
-    // (`ENERGY_CARD_HEIGHT`). What this asserts is that the empty state IS the card — a
-    // `Surface` carrying `budgetCard` — which a second style in the array does not weaken.
-    expect(emptyBranch).toMatch(/<Surface style=\{\[?styles\.budgetCard\b/);
+    expect(emptyBranch).toMatch(/<Surface style=\{styles\.budgetCard\}>/);
     expect(emptyBranch).toMatch(/tier="card"/);
     // The BAR in this state is outline glyphs only. A filled pip here would be energy spent
     // with nothing able to spend it — the exact thing this test has always been about. Scoped to
