@@ -410,7 +410,11 @@ describe('StarterCard — `embedded` wherever it is mounted inside another card'
     // is what this test wanted all along, so it checks that instead of the component that used
     // to stand for it.
     expect(source).not.toMatch(/<StarterCard/);
-    const mounts = source.match(/<Surface style=\{styles\.budgetCard\}>/g) ?? [];
+    // Matched the bare `style={styles.budgetCard}` until 2026-09-11, when the card's height was
+    // pinned (`ENERGY_CARD_HEIGHT`) and the style became a composed array. The claim here is
+    // "both branches mount the same card", which is about `styles.budgetCard` being on a
+    // `Surface` in both — not about whether a second style travels with it.
+    const mounts = source.match(/<Surface style=\{\[?styles\.budgetCard\b/g) ?? [];
     expect(mounts.length).toBe(2);
     // …and it carries NO explanatory text since 2026-08-17 ("Remove the 'Energy is how much a
     // day holds…' block"). What is left is the card and the one row into the config sheet,
