@@ -292,6 +292,42 @@ const PIP_GAP = 4;
 /** The flash glyph inside a pip — ~60% of the badge, same proportion the 24px pip used. */
 /** v2's bar glyph and its legend key. The bar reads at a glance; the legend is a footnote. */
 const BAR_ICON_SIZE = 17;
+
+/**
+ * ⚠️ **The Energy card's height is FIXED, the way the header's and the bottom nav's are
+ * (2026-09-11) — maintainer instruction, and a deliberate trade.**
+ *
+ * *"I'd rather change it and fix the issue, rather than finding the exact cause. It must be
+ * possible to make it look the same, but work differently. Like a static size just like header
+ * and bottom nav, but moves with the other cards when scrolling."*
+ *
+ * The Home flicker was bisected to this card by the maintainer (Energy off ⇒ steady; and it
+ * follows the card into BOTH of its states), and then four fixes missed it. The last measurement
+ * is why this is a height and not another fix: on a release install Home and this card each
+ * rendered **5 times in 45 seconds** while it was visibly unsettled, so whatever moves is not
+ * React re-rendering, and every candidate above that layer had already been eliminated. Rather
+ * than keep hunting for which thing renegotiates the height, this removes the card's ability to
+ * have its height renegotiated at all. A box that cannot change height cannot oscillate in one.
+ *
+ * **196 is measured, not chosen**: the tutorial card settles at 196px painted (194 content + the
+ * Surface's 1px edge each side) and the live one-meter card at 194, in the web preview at the
+ * 430px reference width. Pinning to the taller leaves the fresh-install state pixel-identical and
+ * grows the live card by 2px — which is the 2px of renegotiation between its own two states that
+ * this is here to end.
+ *
+ * ⚠️ **It stays in the scroll content** — this is a fixed SIZE, not a fixed POSITION. It scrolls
+ * with the cards exactly as before; nothing here makes it sticky.
+ *
+ * ⚠️ **Two known limits, both stated rather than papered over.**
+ *   · A fixed height CLIPS if the content is ever taller than it — a longer translation wrapping
+ *     the legend to two lines, or a large text scale. `legendRow` and `tutorialPips` keep their
+ *     `flexWrap` so nothing overflows horizontally, but a wrap now costs the bottom of the card
+ *     rather than growing it. If a language does that, this constant is the knob.
+ *   · `energyMode: 'custom'` draws TWO meter rows and is therefore taller. No harness here can
+ *     reach that state to measure it (the walk cannot drive the Settings segment), so it is left
+ *     unpinned rather than pinned to an invented number — see `cardHeightStyle` below.
+ */
+export const ENERGY_CARD_HEIGHT = 196;
 const LEGEND_ICON_SIZE = 12;
 
 /** One-shot ~1.5s glow behind a meter row — see the file header's "Depleted/recovered pulse"
@@ -399,6 +435,14 @@ export default function EnergyMeter() {
   // week total is derived from the seven day amounts.
   const showDay = energyMode !== 'weekly';
   const showWeek = energyMode !== 'daily';
+  /**
+   * The fixed height, applied to BOTH card states so neither can renegotiate — see
+   * `ENERGY_CARD_HEIGHT`. `'custom'` mode stacks two meter rows and is genuinely taller; it is
+   * left to hug its content because no measurement of it exists here, and a pinned height that
+   * is too small would clip a row rather than steady it.
+   */
+  const twoMeters = showDay && showWeek;
+  const cardHeightStyle = twoMeters ? null : { height: ENERGY_CARD_HEIGHT };
   /* `singleMeter` lived here until 2026-08-03. It picked the one-line, label-less strip for
      'daily'/'weekly' and the stacked shape for 'custom'. There is one layout now — the stacked
      one, in every mode — so nothing needs to ask the question any more. See the header. */
@@ -809,7 +853,7 @@ export default function EnergyMeter() {
         // its own terms — it is what the maintainer's later screenshot report was actually
         // objecting to. Its halo, while it was `primary`, correctly wore the to-do gold in dark
         // as of round 20, not blue, once app/(tabs)/index.tsx started naming Home's screen hue.)*
-        <Surface style={styles.budgetCard}>
+        <Surface style={[styles.budgetCard, cardHeightStyle]}>
           {/* ⚠️ **The empty state is the SAME card as the live one (2026-09-08).** It was a
               `StarterCard` holding a bare row of ten grey bolts and a "Set the day's energy"
               button — reported from a device twice, the second time as "Energy, once again,
@@ -915,7 +959,7 @@ export default function EnergyMeter() {
           The literal `tier="card"` rail is the one `cardAnatomy.test.ts`'s `CARD_RUNG_ALLOWED`
           already licenses for this file. */}
       {!pause.paused && !showTutorial && (
-        <Surface style={styles.budgetCard}>
+        <Surface style={[styles.budgetCard, cardHeightStyle]}>
           <SectionRail
             hue={theme.accent}
             domain="task"
