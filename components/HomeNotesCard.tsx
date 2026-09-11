@@ -86,6 +86,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { countLayout } from '@/lib/perfTrace';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '@/components/PressableScale';
@@ -342,6 +343,11 @@ function HomeNotesCard() {
 
   return (
     <>
+    {/* ⚠️ **Temporary control probe (2026-09-11) — remove with the Energy card's.** A layout
+        count means nothing on its own: a screen scrolling or a keyboard opening re-lays out
+        everything. This is a card on the SAME screen that does NOT flicker, so the Energy
+        card's numbers can be read against it instead of against a guess about what is normal. */}
+    <View onLayout={() => countLayout('L:notesControl')} />
     <Card
       id="homeNotes"
       count={notes.length > 0 ? { left: leftCount, total: notes.length } : undefined}

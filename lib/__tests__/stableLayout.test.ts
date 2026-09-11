@@ -207,7 +207,11 @@ describe('EnergyMeter — the strip names itself, and is set from a pop-up', () 
     // Each `wide` cell is opened by the wrapper immediately above it. Scoped to the wrapper +
     // the component + the prop in that order so an unwrapped call site cannot pass by sitting
     // somewhere else in the file.
-    const wrapped = [...src.matchAll(/<View style=\{styles\.qaLine\}>\s*<QuickAddOptionRow\s+wide\b/g)];
+    // A BOUNDED lazy gap, not `[^>]*`, so the wrapper may carry other props — a temporary
+    // `onLayout` probe, say — without failing a guard that is about the CONTAINER rather than
+    // its attribute list. `[^>]` cannot cross an arrow function's own `>`, which is exactly how
+    // this first failed; the length cap is what stops the lazy form matching across the file.
+    const wrapped = [...src.matchAll(/<View style=\{styles\.qaLine\}[\s\S]{0,120}?<QuickAddOptionRow\s+wide\b/g)];
     const allWide = [...src.matchAll(/<QuickAddOptionRow\s+wide\b/g)];
     expect({ wrapped: wrapped.length, total: allWide.length }).toEqual({ wrapped: 2, total: 2 });
   });

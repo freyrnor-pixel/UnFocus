@@ -123,3 +123,22 @@ export function resetLiveRenderCounts(): void {
   liveCounts.clear();
   liveSince = Date.now();
 }
+
+/**
+ * Counts a native LAYOUT pass of `label`. Same counter map as `countRender`, so one read-out
+ * shows both — prefix layout labels (`L:strip`) to keep them apart at a glance.
+ *
+ * ⚠️ **This is the half that can see what `countRender` cannot.** A React render and a native
+ * layout are different events, and on 2026-09-10 a device separated them decisively: Home and
+ * the Energy card each rendered 5 times in 45 seconds — 0.1/s, a static tree — while the card
+ * visibly would not settle. Whatever moves is below React, so counting renders can only ever
+ * say "not here". `onLayout` fires on the native pass itself, with no re-render required, which
+ * makes it the only instrument in this codebase that can watch a layout loop from inside the
+ * app.
+ *
+ * Attach as `onLayout={() => countLayout('L:name')}`. A handler is not free — it marshals a
+ * layout event per pass — so instrument a handful of suspects, take the reading, take it out.
+ */
+export function countLayout(label: string): void {
+  liveCounts.set(label, (liveCounts.get(label) ?? 0) + 1);
+}
