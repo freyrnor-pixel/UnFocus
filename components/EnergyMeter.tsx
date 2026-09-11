@@ -247,7 +247,7 @@ import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
 import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
-import { countRender } from '@/lib/perfTrace';
+import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
 import { todayStr } from '@/lib/date';
 import { energyDeltaForDay, energyDeltaForWeek, energySplitForDay, energySplitForWeek, energyBudgetBar, MAX_PIPS } from '@/lib/energy';
@@ -749,7 +749,7 @@ export default function EnergyMeter() {
               the two are different readings of it (spent-so-far vs left-of-capacity). Side by
               side they read as a contradiction: the first render of this card showed "0 of 10
               spent" next to "18 / 18". One card, one sentence of numbers. */}
-          <View style={styles.pipLine}>
+          <View style={styles.pipLine} onLayout={() => countLayout('L:pipLine')}>
             {pips}
             {chrome && value}
           </View>
@@ -761,7 +761,13 @@ export default function EnergyMeter() {
   };
 
   return (
-    <View style={styles.strip}>
+    /* ⚠️ **Temporary layout probes (2026-09-11) — remove with the `countRender` pair.**
+       The device separated the two events decisively: Home and this card each rendered 5 times
+       in 45 seconds (0.1/s, a static tree) while the card visibly would not settle. So whatever
+       moves is BELOW React, and only `onLayout` can see it — it fires on the native pass with no
+       re-render required. One probe per suspect region, so the next reading names the view that
+       is re-laying-out rather than the screen it is on. */
+    <View style={styles.strip} onLayout={() => countLayout('L:strip')}>
       {/* Paused (2026-08-02, "I'm good"): the strip stays mounted but draws NOTHING for the
           rest of the day — no meter, no editor, no hint, no control. This is presentation
           only, exactly like a card layout: every energy cost keeps being recorded, every
@@ -837,6 +843,7 @@ export default function EnergyMeter() {
               stableLayout.test.ts pins. */}
           <View
             style={styles.tutorialPips}
+            onLayout={() => countLayout('L:pips')}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           >
@@ -844,7 +851,7 @@ export default function EnergyMeter() {
               <Ionicons key={i} name="flash-outline" size={BAR_ICON_SIZE} color={emptyGlyph} />
             ))}
           </View>
-          <View style={styles.legendRow}>
+          <View style={styles.legendRow} onLayout={() => countLayout('L:legend')}>
             <View style={styles.legendItem}>
               <Ionicons name="flash" size={LEGEND_ICON_SIZE} color={theme.accent} />
               <Text style={[styles.legendText, { color: theme.textMuted }]} numberOfLines={1}>{t.energyMeter.legendSpent}</Text>
@@ -876,7 +883,7 @@ export default function EnergyMeter() {
               cell's own styles assume, so `100%` means width again. Don't "simplify" it away,
               and don't fix it by editing `wide` — that basis is what makes a wide cell take a
               whole line inside the real grid. */}
-          <View style={styles.qaLine}>
+          <View style={styles.qaLine} onLayout={() => countLayout('L:qaLine')}>
             <QuickAddOptionRow
               wide
               showsMore
@@ -944,7 +951,7 @@ export default function EnergyMeter() {
               exactly that (label line + value + ›) — DESIGN_RULES §8's whole point is that this
               does not become a fifteenth hand-rolled row. */}
           {/* Same row wrapper, same reason as the tutorial card's — see that call site's note. */}
-          <View style={styles.qaLine}>
+          <View style={styles.qaLine} onLayout={() => countLayout('L:qaLine')}>
             <QuickAddOptionRow
               wide
               showsMore
