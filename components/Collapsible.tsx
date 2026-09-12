@@ -8,7 +8,8 @@
  *
  * Connections:
  *   Imports → react-native-reanimated (useSharedValue/useAnimatedStyle/withTiming/runOnJS),
- *             constants/motion (Duration, Ease), lib/useAppTheme (useAccessibility)
+ *             constants/motion (Duration, Ease), lib/layoutGrid (sameLayout),
+ *             lib/useAppTheme (useAccessibility)
  *   Used by → components/TaskCard.tsx, components/PlanTaskCard.tsx, components/DisclosureRow.tsx,
  *             components/PadSheet.tsx, app/(tabs)/plans.tsx, app/health-form.tsx,
  *             app/habit-form.tsx, app/automations.tsx,
@@ -92,6 +93,16 @@
  *     immediately at natural height (the narrow mount-open `height: undefined` branch), no
  *     entrance animation.
  *   - reducedMotion drops the animation entirely (instant mount/unmount).
+ *   - ⚠️ **Never compare a measured height with `===` here (2026-09-12).** `onLayout`'s dedupe
+ *     did, and that is what kept the loop above open on device long after `measuredTarget` had
+ *     fixed the mid-tween half of it. Android rounds layout to the physical pixel grid, so a
+ *     node's reported height moves with its POSITION: the clip's own tween slides its contents
+ *     by fractions of a pixel, unchanged content re-measures `1 / PixelRatio.get()` dp
+ *     different, exact equality lets that through, and the open-resize branch starts another
+ *     tween toward it forever. `sameLayout` (lib/layoutGrid.ts) is the dedupe that means what
+ *     this one was always trying to mean. Nothing in this repo could see it: no React render
+ *     happens in the cycle, so the render counters read a static tree, and `npm run jitter`
+ *     runs react-native-web, which has no pixel grid to round on.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -103,6 +114,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
+import { sameLayout } from '@/lib/layoutGrid';
 import { useAccessibility } from '@/lib/useAppTheme';
 
 type Props = {
@@ -224,7 +236,38 @@ export default function Collapsible({ open, children, style }: Props) {
     const h = e.nativeEvent.layout.height;
     // Against the TARGET, never against the live (possibly mid-tween) `measured` — see
     // `measuredTarget`'s comment for the two device bugs that reading `measured` here caused.
-    if (h <= 0 || h === measuredTarget.value) return;
+    //
+    // ⚠️ **`sameLayout`, never `===` (2026-09-12).** This comparison was exact float equality,
+    // and that is what left the loop this whole file is careful about still open on device.
+    // Android rounds every layout edge to the physical pixel grid, so a node's reported height
+    // depends on its absolute POSITION: while the clip below tweens, everything inside and under
+    // it slides by fractions of a pixel and re-rounds, and unchanged content measures
+    // `1 / PixelRatio.get()` dp taller or shorter than it did last frame. Exact equality lets
+    // that noise through, the open-resize branch below starts a fresh tween toward it, the tween
+    // moves the node again — and nothing ever converges. Nested Collapsibles (a card's body
+    // holding TaskCard/DisclosureRow bodies) drive each other the same way.
+    //   It is invisible to almost everything: the whole cycle is `onLayout` plus shared values,
+    // so no React render happens and `lib/perfTrace.ts` reads a static tree (measured on device:
+    // 5 renders in 45s on a card that would not stop moving), and `npm run jitter` runs
+    // react-native-web, which has no pixel grid and so cannot reproduce it at all. It is also
+    // why the same build sits still on one phone and flickers on the next — the error is a
+    // function of the display's density. See lib/layoutGrid.ts.
+    if (h <= 0) return;
+
+    // **Pixel-grid noise: track it, never animate it.** Committing the value keeps the clip on
+    // the true content height, which is what makes the resting layout deterministic; refusing to
+    // ANIMATE toward it is what breaks the loop, because the tween is the only part of the cycle
+    // that moves the node. `measuredTarget` deliberately does NOT move here — it is the anchor
+    // the "is this real?" question is asked against, and letting noise advance it would let the
+    // height random-walk a quantum at a time with every step looking legitimate.
+    //   The assignment cannot feed itself: the measurer is `position:'absolute'` at `top: 0` of
+    // this clip, so its own position does not depend on the clip's height, and one instant
+    // sub-physical-pixel change is a settle rather than a driver.
+    if (sameLayout(h, measuredTarget.value)) {
+      if (progress.value === 1) measured.value = h;
+      return;
+    }
+
     measuredTarget.value = h;
     // **A height that changes while the card is OPEN is animated, not assigned.** `progress` is
     // already 1, so writing `measured` straight through re-renders the animated style at the new

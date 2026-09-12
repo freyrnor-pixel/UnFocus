@@ -86,7 +86,7 @@
  *     StarterCard family. It's plain muted text now, same finish as `cardBody` above it.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PixelRatio, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, PixelRatio, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,10 +116,8 @@ import { tabChromeBand } from '@/components/ScreenScaffold';
 import { START_TAB_ROUTE_PATH } from '@/lib/siteNav';
 // The hole/ring arithmetic, pure and unit-tested — see lib/tourSpotlight.ts's header for why
 // it does not live inline here.
-import { hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
+import { coachCardBox, hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
 
-/** Space the coach card is guaranteed, so it can never be pushed off either edge. */
-const CARD_RESERVE = 260;
 /**
  * How long a step waits for its target to measure before it draws itself WITHOUT one.
  *
@@ -344,15 +342,22 @@ export default function TourSpotlight() {
       <Animated.View style={[StyleSheet.absoluteFill, styles.finaleWrap, { opacity: fade }]}>
         <View style={[styles.scrimFull, { backgroundColor: theme.overlay }]} />
         <View style={[styles.card, styles.finaleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.finaleIcon}>
-            <Motif id="halo-ring" color={theme.accent} fit="meet" style={styles.finaleMotif} />
-            <Ionicons name="leaf-outline" size={26} color={theme.accent} />
-          </View>
-          <Text style={[styles.cardTitle, { color: theme.text }]}>{t.tour.finale.title}</Text>
-          <Text style={[styles.cardBody, { color: theme.textMuted }]}>{t.tour.finale.body}</Text>
-          <Text style={[styles.cardNote, { color: theme.textMuted }]}>
-            {t.tour.finale.experimental}
-          </Text>
+          {/* Same bound as a step card, for the same reason: this one carries the most copy in
+              the tour (title, body, and the experimental-build note) and it is centred in a
+              fixed frame, so on a short screen at a large font scale it would grow past both
+              edges of the viewport at once. The two buttons stay outside the scroll so the way
+              out of onboarding is never the thing that scrolled off. */}
+          <ScrollView style={styles.cardScroll} contentContainerStyle={styles.finaleScrollBody} bounces={false}>
+            <View style={styles.finaleIcon}>
+              <Motif id="halo-ring" color={theme.accent} fit="meet" style={styles.finaleMotif} />
+              <Ionicons name="leaf-outline" size={26} color={theme.accent} />
+            </View>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>{t.tour.finale.title}</Text>
+            <Text style={[styles.cardBody, { color: theme.textMuted }]}>{t.tour.finale.body}</Text>
+            <Text style={[styles.cardNote, { color: theme.textMuted }]}>
+              {t.tour.finale.experimental}
+            </Text>
+          </ScrollView>
           <Button
             label={t.aiSetup.downloadButton}
             onPress={handleAiGuide}
@@ -399,12 +404,15 @@ export default function TourSpotlight() {
   const hole = rect ? spotlightHole(rect, screen, band) : { x: 0, y: Math.round(height / 2), w: 0, h: 0 };
   const ring = spotlightRing(hole, screen, band);
   const lit = hasHole(hole);
-  // Put the card on whichever side of the hole has more room, and pin it to that EDGE rather
-  // than to the hole. Anchoring it to the hole meant a target near the top of the screen
-  // pushed the card off the top, where it was clipped and unreadable — and a tall target
-  // (Shopping's whole content region) made that the normal case, not the edge case.
-  const spaceBelow = height - (hole.y + hole.h);
-  const cardBelow = spaceBelow >= hole.y;
+  // Where the card goes — an anchored edge plus the room it may take, never a predicted height.
+  // ⚠️ **This used to pin one edge and clamp it with a fixed `CARD_RESERVE = 260`**, which is a
+  // claim that a step counter, a title, up to four lines of Norwegian body copy and a button row
+  // come to at most 260dp. They do not, and the card went off the top of the screen on every
+  // phone shorter than the 430×932 viewport the harnesses run at — the reported "onboarding
+  // looks off". `coachCardBox` measures the band instead; see its docblock for the four
+  // viewports and the clipped values. The card can no longer leave the screen at any size, in
+  // any language, at any font scale, because nothing here guesses how tall it is.
+  const box = coachCardBox(hole, screen, { top: insets.top + Spacing.sm, bottom: insets.bottom + Spacing.sm }, Spacing.md);
   const copy = t.tour.steps[step.id as keyof typeof t.tour.steps];
 
   return frame(
@@ -439,16 +447,27 @@ export default function TourSpotlight() {
         style={[
           styles.card,
           { backgroundColor: theme.surface, borderColor: theme.border },
-          cardBelow
-            ? { top: Math.min(hole.y + hole.h + Spacing.md, height - CARD_RESERVE) }
-            : { bottom: Math.min(height - hole.y + Spacing.md, height - CARD_RESERVE) },
+          box.edge === 'top' ? { top: box.top } : { bottom: box.bottom },
+          { maxHeight: box.maxHeight },
         ]}
       >
-        <Text style={[styles.cardStep, { color: theme.textMuted }]}>
-          {t.tour.step(stepPosition(step.id), TOUR_STEPS.length)}
-        </Text>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>{copy.title}</Text>
-        <Text style={[styles.cardBody, { color: theme.textMuted }]}>{copy.body}</Text>
+        {/* The copy scrolls, the buttons do not. `maxHeight` above guarantees the card fits the
+            screen; this guarantees the words inside it are all reachable when the band is short
+            — a 360×640 phone at the `large` font scale in Icelandic is the case that needs it —
+            while "Skip the tour" and the primary stay pinned where they can always be pressed.
+            Without the scroll the maxHeight would simply crop the body, which is the same defect
+            in a different place. */}
+        <ScrollView
+          style={styles.cardScroll}
+          contentContainerStyle={styles.cardScrollBody}
+          bounces={false}
+        >
+          <Text style={[styles.cardStep, { color: theme.textMuted }]}>
+            {t.tour.step(stepPosition(step.id), TOUR_STEPS.length)}
+          </Text>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>{copy.title}</Text>
+          <Text style={[styles.cardBody, { color: theme.textMuted }]}>{copy.body}</Text>
+        </ScrollView>
         {/* ONE primary and ONE escape (rule 6). There used to be three buttons here, and two
             of them — "Skip this" and "Got it" — called `record(step.id)`, i.e. they were the
             same button with two labels. That is a consequence of progress being a SET, which
@@ -499,9 +518,18 @@ const baseStyles = StyleSheet.create({
     gap: Spacing.xs,
     ...Shadow.cardHeavy,
   },
-  finaleCard: { position: 'relative', left: 0, right: 0, alignSelf: 'stretch', gap: Spacing.sm },
+  // `maxHeight: '100%'` is what gives the ScrollView inside something to shrink against — the
+  // wrapper is an absoluteFill with padding, so without it the card sizes to its content and
+  // grows past both edges of the frame at once.
+  finaleCard: { position: 'relative', left: 0, right: 0, alignSelf: 'stretch', maxHeight: '100%', gap: Spacing.sm },
+  finaleScrollBody: { gap: Spacing.sm },
   finaleIcon: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   finaleMotif: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  // `flexShrink: 1` is what makes the card's `maxHeight` reach the scroll view: without it the
+  // ScrollView asks for its content's full height and the card overflows the band it was just
+  // given, which is the bug this pass exists to close, moved one level in.
+  cardScroll: { flexShrink: 1 },
+  cardScrollBody: { gap: Spacing.xs },
   cardStep: { fontSize: FontSize.xs, fontFamily: Fonts.medium },
   cardTitle: { fontSize: FontSize.lg, fontFamily: Fonts.semibold },
   cardBody: { fontSize: FontSize.sm, lineHeight: 20 },

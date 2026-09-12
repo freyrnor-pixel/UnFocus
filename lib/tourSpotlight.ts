@@ -29,6 +29,9 @@
  *   - A fully-clipped target yields a zero-size hole rather than a negative one. The caller
  *     draws a plain full-screen scrim in that case and keeps the coach card, so a tour step
  *     whose target has been scrolled behind the chrome is still advanceable.
+ *   - **`coachCardBox` returns a BAND, never a height** (2026-09-12). It says which edge the
+ *     card hangs from and how much room it may occupy; the card's own content decides how much
+ *     of that it uses. That is the property that makes it size-independent — see its docblock.
  */
 
 /** A measured target, in root-view coordinates. Mirrors TourTarget's `TargetRect`. */
@@ -96,4 +99,76 @@ export function spotlightRing(hole: Box, screen: { width: number; height: number
     screen,
     band,
   );
+}
+
+/**
+ * Where the coach card may sit: which edge it hangs from, and the most room it may take.
+ *
+ * ⚠️ **This replaces a fixed `CARD_RESERVE = 260` guess, which put the card off the screen on
+ * every phone smaller than the one the harnesses run at** (2026-09-12, reported from the device
+ * as *"the onboarding looks off"*, with the step counter and the top of the title missing).
+ * The old placement pinned one edge of the card and then clamped that pin with
+ * `height - CARD_RESERVE` — i.e. it asserted the card would be at most 260dp tall. A coach card
+ * is a step counter, a title, two or three lines of body copy and a button row, in Norwegian or
+ * Icelandic, at the user's chosen font scale: 260 is not a bound, it is one measurement of one
+ * card in one language on one screen. Measured across four Android viewports before this change:
+ *
+ *   360×640  step 1  card top  −12   ·  step 3  card top   −22   (clipped off the top)
+ *   360×740  step 1  card top  −12   ·  step 3  card bottom 762   (clipped off the bottom)
+ *   384×854                         ·  step 3  card bottom 876   (clipped off the bottom)
+ *   412×915  clean — and 430×932, which every harness in this repo runs at, is cleaner still.
+ *
+ * **The fix is to stop predicting the height.** This returns the band between the hole and the
+ * safe area on whichever side has more room, as an anchor plus a `maxHeight`. The card grows
+ * from the anchored edge and simply stops at the far one, so it cannot leave the screen at any
+ * size, in any language, at any font scale — the caller makes its body scrollable for the case
+ * where the copy genuinely needs more room than the band. No number here is a guess about
+ * content.
+ *
+ * When neither side has a usable band (`MIN_BAND_RATIO` of the screen — a tall target on a short
+ * phone, which is step 3 at 360×740), the card gives up on sitting beside the hole and anchors
+ * to the far safe-area edge with the whole screen to grow into. It then overlays part of the
+ * dimmed area, which is honest: there was nowhere else for it to be, and a readable card over
+ * the scrim beats a clipped one beside the target.
+ */
+export type CoachCardBox =
+  | { edge: 'top'; top: number; maxHeight: number }
+  | { edge: 'bottom'; bottom: number; maxHeight: number };
+
+/**
+ * The smallest band, as a fraction of screen height, that still counts as room to put the card
+ * beside the hole. A ratio rather than a constant for the same reason the rest of this function
+ * measures rather than predicts: what "enough room" means is a property of the screen, and a
+ * fixed dp figure is the mistake `CARD_RESERVE` was.
+ */
+export const MIN_BAND_RATIO = 0.34;
+
+export function coachCardBox(
+  hole: Box,
+  screen: { width: number; height: number },
+  safe: { top: number; bottom: number },
+  gap: number,
+): CoachCardBox {
+  const limitTop = safe.top;
+  const limitBottom = screen.height - safe.bottom;
+
+  const bandAbove = Math.max(0, hole.y - gap - limitTop);
+  const bandBelow = Math.max(0, limitBottom - (hole.y + hole.h) - gap);
+  const below = bandBelow >= bandAbove;
+  const band = below ? bandBelow : bandAbove;
+
+  // Enough room beside the hole: hang off the hole's edge and stop at the safe area.
+  if (band >= screen.height * MIN_BAND_RATIO) {
+    return below
+      ? { edge: 'top', top: hole.y + hole.h + gap, maxHeight: band }
+      : { edge: 'bottom', bottom: screen.height - (hole.y - gap), maxHeight: band };
+  }
+
+  // Nowhere beside it. Anchor to the far safe-area edge — the one the hole is furthest from —
+  // and allow the full safe band, so the card is whole and on screen even though it now covers
+  // some of the scrim.
+  const full = Math.max(0, limitBottom - limitTop);
+  return below
+    ? { edge: 'bottom', bottom: safe.bottom, maxHeight: full }
+    : { edge: 'top', top: safe.top, maxHeight: full };
 }

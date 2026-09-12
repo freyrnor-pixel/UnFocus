@@ -263,6 +263,27 @@ layout/measure feedback loop — platform-independent, and the likeliest shape o
 forever". It cannot see Reanimated's UI-thread timing, Android clipping, or gestures. Clean here
 **narrows the cause to the native side**, which is worth knowing and was not knowable before.
 
+⚠️ **And on 2026-09-12 the native side is where it was.** The loop this could not reproduce needs
+Android's pixel grid: Yoga rounds every layout edge to a physical pixel, so unchanged content
+re-measures `1 / PixelRatio.get()` dp different whenever an animating ancestor slides it by a
+fraction of a pixel, and `components/Collapsible.tsx`'s `onLayout` dedupe compared that with
+`===` and started a fresh tween toward each one. **A browser has no pixel grid to round on**, so
+this harness cannot generate the input the bug needs — the clean runs above were honest and the
+app was still moving. Both other instruments were blind for their own reasons: the cycle is
+`onLayout` plus shared values, so no React render happens and `lib/perfTrace.ts`'s counters read
+a static tree. What can see it is `lib/__tests__/layoutGrid.test.ts`, which reconstructs the
+rounding arithmetic at seven real Android densities and runs the predicate over it. Keep that
+shape in mind for the next "clean here": a harness cannot see a bug whose CAUSE it cannot
+reproduce, and the fix is usually a unit test over the mechanism rather than a bigger walk.
+
+⚠️ **And `visual`, run three times, is what caught the first fix being half right.** Suppressing
+the noisy measurement without committing it froze each card's height on whichever measurement
+arrived first, so the gate flagged a different screen on each of three runs where the pre-change
+tree had been 26/26 unchanged three times over. **A repeated run is a real instrument** — a gate
+designed to answer "did this change the app" also answers "is this app deterministic", and the
+second question is the one a flicker fix has to pass. Take the before-reading on the unchanged
+tree first, or a flaky gate reads as a flaky harness.
+
 ### The visual gates run in CI (2026-08-29; both themes since 2026-09-01)
 `.github/workflows/ci.yml` has a second job that builds the bundle once and runs `visual`,
 `geometry`, `wraps` and `halos`, each `if: always()` so one failure does not hide the others,

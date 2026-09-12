@@ -83,7 +83,50 @@ describe('Collapsible — the dedupe compares against the TARGET, not the live v
   });
 
   it('dedupes against the last requested height instead', () => {
-    expect(src).toMatch(/if \(h <= 0 \|\| h === measuredTarget\.value\) return;/);
+    expect(src).toMatch(/sameLayout\(h, measuredTarget\.value\)/);
+  });
+
+  /**
+   * The second half of the same bug, found on 2026-09-12 when the first fix had been shipped for
+   * three days and the device still would not settle. `measuredTarget` stopped the dedupe
+   * comparing against a mid-tween value; it did not stop it comparing with `===`. Android rounds
+   * layout to the physical pixel grid, so unchanged content re-measures a fraction of a dp
+   * different every time the clip's own tween slides it — exact equality lets that through and
+   * the resize branch below tweens toward it forever.
+   *
+   * ⚠️ **This assertion is the weak half and it knows it** (CLAUDE.md A2). A regex can confirm
+   * the call is written; it cannot confirm the comparison actually absorbs the noise. The half
+   * that can is `lib/__tests__/layoutGrid.test.ts`, which reconstructs Yoga's rounding at seven
+   * real Android densities and RUNS the predicate over it. Neither test replaces the other:
+   * this one pins the call site, that one pins the behaviour.
+   */
+  it('compares that height with sameLayout, never with ===', () => {
+    expect(src).toMatch(/sameLayout/);
+    expect(src).not.toMatch(/h === measuredTarget\.value/);
+  });
+
+  /**
+   * The noise path COMMITS and does not animate, and both halves are load-bearing.
+   *
+   * Not animating is what breaks the loop: the tween is the only part of the cycle that moves
+   * the node, so a sub-quantum change that starts one keeps the cycle fed.
+   *
+   * Committing is what keeps the resting layout deterministic, and the first cut of this pass
+   * left it out — the guard just returned, so the height froze on whichever measurement happened
+   * to arrive first. Measured cost of that: `npm run visual` went from 26/26 unchanged on three
+   * consecutive runs (verified on the pre-change tree) to flagging a different screen on each,
+   * as two screens' cards settled a pixel apart run to run. Bounded and invisible on a device,
+   * and still wrong — a dedupe should not decide the layout.
+   */
+  it('commits a sub-quantum measurement without animating it', () => {
+    const noisePath = src.match(/if \(sameLayout\(h, measuredTarget\.value\)\) \{([\s\S]*?)\n    \}/);
+    expect(noisePath).not.toBeNull();
+    const body = noisePath![1];
+    expect(body).toMatch(/measured\.value = h;/);
+    expect(body).not.toMatch(/withTiming/);
+    // And the anchor must not move on this path, or the height random-walks a quantum at a time
+    // with every step passing the "is this real?" test.
+    expect(body).not.toMatch(/measuredTarget\.value =/);
   });
 
   it('records the target it just asked for, on every path out of the guard', () => {
