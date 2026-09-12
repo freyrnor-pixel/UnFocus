@@ -949,10 +949,10 @@ export function computeBorderTone(
  * because a lip that stops halfway round is what reads as a thick piece of glass catching a
  * light source above and to the left, where a closed rectangle reads as a drawn frame. It was
  * implemented as a THIRD GRADIENT STOP fading to transparent, not as per-side border widths
- * (these edges are drawn as a `LinearGradient` padding-ring — see `getGlassEdge` and
- * components/Surface.tsx — because RN's native border renderer cannot blend two colours around
- * a rounded corner; a hard 1px→0px transition at a `Radius.lg` corner is visibly a cut, where a
- * gradient reaching zero alpha by the bottom-right survives it), scoped to the CARD rung in
+ * (these edges were drawn as a `LinearGradient` padding-ring at the time, because RN's native
+ * border renderer cannot blend two colours around a rounded corner; a hard 1px→0px transition
+ * at a `Radius.lg` corner is visibly a cut, where a gradient reaching zero alpha by the
+ * bottom-right survives it), scoped to the CARD rung in
  * DARK mode only — a card is a container, separated from the page by its own fill plus a
  * `getLayeredShadow`, so it could afford to lose its bottom-right edge where a field or button
  * (which carry a real WCAG 1.4.11 control boundary) could not.
@@ -1003,11 +1003,19 @@ const GLASS_LIGHT = '#FFFFFF';
  * The Tactile Glass edge: one stroke that catches the light on its TOP-LEFT and carries the
  * control boundary on its BOTTOM-RIGHT.
  *
- * Returns a `RimGradient`, so it drops straight into the `LinearGradient` padding-ring
- * `components/Surface.tsx` already renders — no new plumbing at the call site, exactly as
- * `computeBorderRamp` did. The difference is the DIAGONAL (`start` top-left → `end`
+ * Returns a `RimGradient`. ⚠️ **It is no longer rendered as a gradient.** This doc used to say
+ * the shape "drops straight into the `LinearGradient` padding-ring `components/Surface.tsx`
+ * already renders"; that ring was deleted on 2026-08-27 because a gradient behind an
+ * 86%-transparent mask washes the whole pane instead of edging it (white body text measured
+ * 3.55:1 — see components/Surface.tsx's header). Its only consumer, `Surface`, now reads
+ * `colors[0]` as `borderTop/LeftColor` and the last stop as `borderBottom/RightColor`.
+ *
+ * The shape is kept because the ENDPOINTS are still exactly what a per-side border needs, and
+ * because the design lab's `strength: 0` knob still wants the 3-stop form below. `start`/`end`
+ * are vestigial as pixels but load-bearing as documentation of the diagonal (top-left →
  * bottom-right): a vertical sweep would light the top edge and leave the left one dark, which
  * is not how a pane of glass catches a light source above and to the left of it.
+ * `__tests__/glassMaterial.test.ts` still pins them.
  *
  * ── The asymmetric case (2026-08-16, brief §3; REVERSED for `card` 2026-08-26, see
  *    `GLASS_EDGE`'s block above) ──────────────────────────────────────────────────────────────

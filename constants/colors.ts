@@ -165,8 +165,11 @@ export interface ThemePalette {
   /**
    * The overlay/nav tier — sheets, modals, the floating header, the bottom nav. Brighter
    * (more tint, less transparent) so a surface that floats ABOVE content reads as raised.
-   * These are also the only places that mount a real `BlurView`: they are the only ones
-   * with content behind them worth blurring. See components/Surface.tsx's `surfaceContext`.
+   * ⚠️ **This used to add "and the only places that mount a real `BlurView`". Nothing mounts
+   * one — `expo-blur` left the app on 2026-09-07 and `__tests__/glassMaterial.test.ts` now
+   * scans every `.tsx` for a mount.** These tiers are also the ones that do NOT transmit: an
+   * `overlay`/`nav` pane has the app's own cards behind it, so it paints `surfaceRaised`
+   * opaque (2026-08-18/08-20). See components/Surface.tsx's `surfaceContext` and `glassOn`.
    */
   surfaceGlassStrong: string;
   /**

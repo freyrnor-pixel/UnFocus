@@ -334,16 +334,24 @@ export type Settings = {
    * screen ran 5-10x over the 16ms line with the graph dominated by the red "issue commands"
    * and orange "swap buffers" bands, which is Android's own signature for "the app is doing
    * too much work on the GPU". The cost is not proportional to content — it is the fixed
-   * per-frame stack, which on any screen is: a `BlurView` on every card, a THREE-pass
+   * per-frame stack, which AS MEASURED THEN was: a `BlurView` on every card, a THREE-pass
    * `boxShadow` on every card, and a full-screen SVG backdrop of 13 gradient-filled shapes
    * that both translates and cross-fades during a swipe.
    *
+   * ⚠️ **Two thirds of that stack is gone, so this switch is worth less than it was.** The
+   * `BlurView` was deleted on 2026-09-07 (`expo-blur` has no mount left in the app) and the
+   * shadow's widest pass was cut on 2026-09-09, leaving two. What this flag still takes is the
+   * remaining two-pass `boxShadow`, the pane's translucency (an opaque pane composites in one
+   * step) and the backdrop orb field — see components/Surface.tsx and ScreenBackground.tsx.
+   * Keep the paragraph above as the measurement's premise, not as current state.
+   *
    * ⚠️ **This is deliberately ONE switch over all three, and it is NOT `glassSurfaces`.** That
    * one is the reduce-transparency accessibility setting and its copy promises exactly that
-   * ("frosted glass on cards and buttons"); it reaches the blur and NOTHING else, which is why
-   * turning it off did not make a slow device fast — the maintainer's report was "slow either
-   * way". Widening it would have made an accessibility setting quietly mean something bigger.
-   * `glassSurfaces` still wins for the blur: with it off, cards are opaque whatever this says.
+   * ("frosted glass on cards and buttons"); it reaches the pane's translucency and NOTHING
+   * else (the blur it used to reach no longer exists), which is why turning it off did not make
+   * a slow device fast — the maintainer's report was "slow either way". Widening it would have
+   * made an accessibility setting quietly mean something bigger.
+   * `glassSurfaces` still wins over this one: with it off, cards are opaque whatever this says.
    *
    * Not in `aiSetupApply`'s SETTINGS_WHITELIST — same carve-out as `collapsed_cards` and
    * `design_lab`: an AI-authored file must not be able to restyle the app. No
