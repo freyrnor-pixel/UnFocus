@@ -106,6 +106,32 @@ read it before claiming a visual change is done.
   `Gesture.*` builder method, Reanimated hooks, `withTiming`/`withSpring`/etc.'s completion
   callback, `runOnUI`) crashes on device with zero symptom on web (worklets run JS-thread there).
   Hop with `runOnJS(fn)(args)`. Guard: `__tests__/workletSafety.test.ts` (verified present).
+- **Never compare a MEASURED layout value with `===`.** Android rounds every layout edge to the
+  physical pixel grid (Yoga's point-scale factor is the display density), so a node's reported
+  size is a function of where it SITS, not only of what is inside it: unchanged content
+  re-measures `1 / PixelRatio.get()` dp different whenever an ancestor slides it by a fraction of
+  a pixel. Harmless until something feeds it back — a component that measures itself with
+  `onLayout` and then animates toward what it measured has built a loop that cannot converge, and
+  one that **no instrument in this repo could see**. It contains no React render, so
+  `lib/perfTrace.ts`'s counters read a static tree (measured on device: 5 renders in 45s on a card
+  that would not stop moving); and `npm run jitter` runs react-native-web, which has no pixel grid
+  and therefore cannot produce the noise at all — its "clean narrows the cause to the native side"
+  caveat was pointing straight at this. It is also why the same build sits still on one phone and
+  flickers on the next: the error is a function of the display's density, and an integer-density
+  screen can be quiet while a 2.625 or 2.75 one oscillates forever. Ask `sameLayout(a, b)`
+  (`lib/layoutGrid.ts`) instead — but **only where the measurement feeds back into layout, and
+  always COMMIT the value while suppressing the animation.** Both halves were learned by getting
+  them wrong. A guard that merely skips freezes the height on whichever measurement arrived
+  first, which makes the resting layout non-deterministic: `npm run visual` went from 26/26
+  unchanged on three consecutive runs to flagging a different screen on each. And a measurement
+  that drives an absolutely-positioned thing — `TabSlider`'s and `FormControls`' pills — is not
+  this class at all, because an absolute pill cannot change the track it was measured from;
+  guarding those bought nothing and risked a stale pill. The correct shape is
+  `Collapsible.tsx`'s `onLayout`: commit sub-quantum noise instantly, never start a tween for
+  it, and never let it advance the anchor the comparison is made against. Guards:
+  `lib/__tests__/layoutGrid.test.ts` (reconstructs Yoga's rounding at seven real densities and
+  RUNS the predicate over it — the behavioural half), `lib/__tests__/collapseMotion.test.ts`
+  (pins the call site and the commit-without-animating rule).
 - **`useRef` read inside a worklet is frozen at its first value** (`__DEV__` freezes the object;
   release builds don't) — use `useSharedValue` for anything a worklet mutates and reads back.
 - **`flex: N` + `flexBasis: 'auto'` in one composed style resolves to basis 0 on native** (Yoga;

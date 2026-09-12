@@ -10,7 +10,16 @@
  */
 import fs from 'fs';
 import path from 'path';
-import { HOLE_PAD, RING_GAP, hasHole, spotlightHole, spotlightRing } from '@/lib/tourSpotlight';
+import {
+  HOLE_PAD,
+  MIN_BAND_RATIO,
+  RING_GAP,
+  coachCardBox,
+  hasHole,
+  spotlightHole,
+  spotlightRing,
+  type CoachCardBox,
+} from '@/lib/tourSpotlight';
 
 // A phone-shaped screen with the tab chrome's real footprint: a header card down to y=79 and
 // a floating nav block 80 tall at the bottom.
@@ -140,5 +149,69 @@ describe('the tour measures both ends of its subtraction the same way', () => {
     expect(spotlight).toMatch(/overlayRef\.current\?\.measureInWindow\(/);
     expect(spotlight).toMatch(/-\s*origin\.x/);
     expect(spotlight).toMatch(/-\s*origin\.y/);
+  });
+});
+
+/**
+ * coachCardBox — the placement that replaced `CARD_RESERVE = 260`.
+ *
+ * The property under test is not a set of numbers, it is an INVARIANT: whatever the hole and
+ * whatever the screen, the band this returns lies inside the safe area. That is the thing the
+ * fixed reserve could not promise, and the four viewports in the last block are the measured
+ * counter-examples it shipped — each one a real Android size smaller than the 430×932 every
+ * harness in this repo runs at, which is why nothing here caught it for a month.
+ */
+describe('coachCardBox', () => {
+  const SAFE = { top: 8, bottom: 8 };
+  const GAP = 16;
+
+  /** Resolve a returned band to the [top, bottom] strip the card may actually occupy. */
+  function strip(box: CoachCardBox, screenHeight: number) {
+    return box.edge === 'top'
+      ? { top: box.top, bottom: box.top + box.maxHeight }
+      : { top: screenHeight - box.bottom - box.maxHeight, bottom: screenHeight - box.bottom };
+  }
+
+  it('hangs below a target near the top, stopping at the bottom safe edge', () => {
+    const box = coachCardBox({ x: 0, y: 60, w: 393, h: 200 }, SCREEN, SAFE, GAP);
+    expect(box).toEqual({ edge: 'top', top: 260 + GAP, maxHeight: SCREEN.height - SAFE.bottom - 260 - GAP });
+  });
+
+  it('hangs above a target near the bottom, stopping at the top safe edge', () => {
+    const box = coachCardBox({ x: 0, y: 500, w: 393, h: 300 }, SCREEN, SAFE, GAP);
+    expect(box).toEqual({ edge: 'bottom', bottom: SCREEN.height - (500 - GAP), maxHeight: 500 - GAP - SAFE.top });
+  });
+
+  it('picks the side with more room', () => {
+    // 300 above, 252 below → above wins, and the anchor says so.
+    expect(coachCardBox({ x: 0, y: 316, w: 393, h: 268 }, SCREEN, SAFE, GAP).edge).toBe('bottom');
+  });
+
+  it('gives up on sitting beside a tall target and takes the whole safe band', () => {
+    // A 566-tall hole on a 740 screen: 47 above, 111 below, neither a usable band.
+    const screen = { width: 360, height: 740 };
+    const box = coachCardBox({ x: 0, y: 71, w: 360, h: 546 }, screen, SAFE, GAP);
+    expect(box).toEqual({ edge: 'bottom', bottom: SAFE.bottom, maxHeight: screen.height - SAFE.top - SAFE.bottom });
+  });
+
+  /**
+   * The regression itself. Each row is a hole measured in the web preview on a real Android
+   * viewport, with the card height the old code then drew off the screen. Asserting the BAND
+   * rather than a position is the point: the card is no longer allowed to be taller than the
+   * room it has, so "does it fit" stops depending on how much copy the step happens to carry.
+   */
+  it.each([
+    ['360x640 step 1', { width: 360, height: 640 }, { x: 4, y: 279, w: 352, h: 290 }],
+    ['360x640 step 3', { width: 360, height: 640 }, { x: 4, y: 71, w: 352, h: 498 }],
+    ['360x740 step 3', { width: 360, height: 740 }, { x: 4, y: 71, w: 352, h: 546 }],
+    ['384x854 step 3', { width: 384, height: 854 }, { x: 4, y: 71, w: 376, h: 546 }],
+    ['412x915 step 3', { width: 412, height: 915 }, { x: 4, y: 71, w: 404, h: 546 }],
+  ])('keeps the card inside the safe area on %s', (_label, screen, hole) => {
+    const box = coachCardBox(hole, screen, SAFE, GAP);
+    const { top, bottom } = strip(box, screen.height);
+    expect(top).toBeGreaterThanOrEqual(SAFE.top);
+    expect(bottom).toBeLessThanOrEqual(screen.height - SAFE.bottom);
+    // And a band worth having: a card squeezed to nothing is off-screen by another name.
+    expect(box.maxHeight).toBeGreaterThanOrEqual(screen.height * MIN_BAND_RATIO);
   });
 });
