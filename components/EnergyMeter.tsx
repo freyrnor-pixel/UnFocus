@@ -237,7 +237,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated';
 import { Badge } from '@/components/Badge';
-import Button from '@/components/Button';
 import PressableScale from '@/components/PressableScale';
 import Surface from '@/components/Surface';
 import QuickAddOptionRow from '@/components/QuickAddOptionRow';
@@ -245,7 +244,7 @@ import { SegmentedControl } from '@/components/FormControls';
 import SectionRail from '@/components/SectionRail';
 import EnergyConfigSheet from '@/components/EnergyConfigSheet';
 import EnergyPauseSheet from '@/components/EnergyPauseSheet';
-import { Fonts, FontSize, Radius, RowTrailing, Spacing, contrastOn, darken, lighten, getGlow, hitSlopFor, rgba } from '@/constants/theme';
+import { Fonts, FontSize, Radius, RowTrailing, Spacing, getGlow, hitSlopFor, rgba } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { countRender, countLayout } from '@/lib/perfTrace';
 import { useT } from '@/lib/i18n';
@@ -434,16 +433,20 @@ export default function EnergyMeter() {
    * ("4 av 8 brukt i dag · +1 gitt tilbake"), so it has to follow the segment. Same
    * `energyBudgetBar` the row itself calls: one derivation, two readers, never two sums.
    */
-  const activeSplit = scope === 'day' ? daySplit : weekSplit;
-  const activeCapacity = scope === 'day' ? dayCapacity : weekCapacity;
   /**
    * ⚠️ **The peek states the TRUE numbers, never the bar's.** `energyBudgetBar` scales its runs
    * down to `MAX_PIPS` so a large capacity still fits one line — so on an 18-energy day with
    * nothing spent the bar's own `pipCount` is 10, and a peek reading off it said "0 of 10
    * spent" beside a bar the user had set to 18. The bar is a SHAPE and is allowed to round; the
    * sentence under the title is a claim and is not.
+   *
+   * That is why these two are the raw split and the raw capacity, and why the peek below
+   * (`t.energyMeter.budgetPeek`) is their only reader. An `activeBar = energyBudgetBar(...)`
+   * sat here until 2026-09-12 — the very call the warning is about — left behind unread when
+   * the peek was corrected. Nothing may reintroduce it: a rounded number is not a claim.
    */
-  const activeBar = energyBudgetBar(activeSplit.spent, activeSplit.gained, activeCapacity);
+  const activeSplit = scope === 'day' ? daySplit : weekSplit;
+  const activeCapacity = scope === 'day' ? dayCapacity : weekCapacity;
 
   /**
    * The tutorial gate — see the file header's "Tutorial state" note for why this exists.

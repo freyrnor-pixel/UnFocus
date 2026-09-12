@@ -232,10 +232,15 @@ describe('pad sizes are presentation only', () => {
     // Same structural guarantee lib/cardLayout.ts carries: how BIG a card is drawn must never
     // be able to create, cancel or reschedule anything. A closed card still owns its rows'
     // reminders. If this needs store state, pass it in as an argument.
+    // `require` rather than a top-level import: this assertion is about padState.ts's SOURCE
+    // text, and importing node builtins at the top of a test that also mocks native modules
+    // has bitten this suite before.
+    /* eslint-disable @typescript-eslint/no-require-imports */
     const src = require('fs').readFileSync(
       require('path').join(__dirname, '..', 'padState.ts'),
       'utf8'
     );
+    /* eslint-enable @typescript-eslint/no-require-imports */
     const imports = [...src.matchAll(/from\s+'([^']+)'/g)].map((m: string[]) => m[1]);
     for (const spec of imports) {
       expect(spec).not.toMatch(/notifications|reminders|\/db$|store\//);

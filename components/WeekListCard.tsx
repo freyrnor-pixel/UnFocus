@@ -27,9 +27,9 @@
  *             layout's row), lib/shoppingStarters (SHOPPING_STARTERS — the quick-add tray's
  *             bundles), constants/theme (incl. getMatte, shared by the chips and the tray),
  *             lib/cardLayout (LayoutSpec),
- *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets,
- *             categoryLabel — the "In the store" aisle headers),
- *             lib/shoppingGroups (listProgress, listTotal, groupByCategory), lib/useAppTheme, lib/haptics,
+ *             lib/i18n, lib/money (formatKr), lib/shoppingCategories (categoryPresets — the
+ *             filter bar's category chips),
+ *             lib/shoppingGroups (listProgress), lib/useAppTheme, lib/haptics,
  *             lib/screenColor, store/useShoppingListStore (ShoppingList type),
  *             store/useShoppingStore (ShoppingItem type), store/useMonthlyListStore (MonthlyList type)
  *   Used by → app/(tabs)/shopping.tsx
@@ -188,9 +188,9 @@ import { MonthlyList } from '@/store/useMonthlyListStore';
 import { Fonts, FontSize, getMatte, IconSize, MIN_TAP_TARGET, Radius, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { listProgress, groupByCategory } from '@/lib/shoppingGroups';
+import { listProgress } from '@/lib/shoppingGroups';
 import { formatKr } from '@/lib/money';
-import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
+import { categoryPresets } from '@/lib/shoppingCategories';
 import Surface from '@/components/Surface';
 import { CardAccentBadge } from '@/components/CardAccent';
 import IconButton from '@/components/IconButton';
@@ -453,14 +453,6 @@ export default function WeekListCard({
     [dishGroups]
   );
   const allChecked = useMemo(() => [...checked, ...dishChecked], [checked, dishChecked]);
-  // "In the store" (spec.groupByAisle) flattens the ungrouped + dish rows back together and
-  // re-buckets them by shop category. Only computed when that layout is active — every other
-  // layout keeps the dragged order, and this must never be allowed to leak into them.
-  const aisleGroups = useMemo(
-    () => (spec.groupByAisle ? groupByCategory([...ungroupedUnchecked, ...dishUnchecked]) : []),
-    [spec.groupByAisle, ungroupedUnchecked, dishUnchecked]
-  );
-
   const progress = listProgress({ dishGroups, ungroupedUnchecked, checked });
   const inListTotal = calcSectionTotal([...ungroupedUnchecked, ...dishUnchecked]);
   const inCartTotal = calcSectionTotal(allChecked);

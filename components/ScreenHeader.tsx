@@ -140,6 +140,7 @@ import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { shortCommit } from '@/constants/buildInfo';
+import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
 import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
@@ -260,7 +261,9 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   async function handleEmailNotesPress() {
     tap();
     if (feedbackNotes.length === 0) return;
-    const heading = t.debug.exportHeading(new Date().toISOString().slice(0, 10));
+    // Local date, not `toISOString().slice(0, 10)` — the heading names the day the user
+    // pressed the button, and the UTC date is a different day for part of every evening.
+    const heading = t.debug.exportHeading(todayStr());
     const info = {
       appVersion: Constants.expoConfig?.version ?? '—',
       runtimeVersion: String(Updates.runtimeVersion ?? '—'),

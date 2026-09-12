@@ -36,7 +36,7 @@
  *     hand-rolled copies in MonthlyTableRow / InlineAddItem / MonthlyResetReviewSheet.
  */
 import React, { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShoppingItem } from '@/store/useShoppingStore';
 import { Fonts, FontSize, glassKey, HitSlop, Radius, Spacing, OpticalCenter } from '@/constants/theme';

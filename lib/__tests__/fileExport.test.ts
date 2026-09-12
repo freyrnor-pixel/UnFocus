@@ -43,6 +43,9 @@ jest.mock('expo-file-system/legacy', () => ({
   },
 }));
 
+// Imported AFTER the jest.mock calls above on purpose: the module reads its native deps at
+// import time, so hoisting this to the top of the file loads the real expo-file-system.
+// eslint-disable-next-line import/first
 import { safDirectoryLabel, saveTextToDevice, shareTextFile, TextFileSpec } from '@/lib/fileExport';
 
 const SPEC: TextFileSpec = {

@@ -495,10 +495,23 @@ const SETTINGS_WHITELIST = [
   'leftHanded', 'remindersEnabled', 'reminderTime', 'taskNotificationsEnabled',
   'habitNotificationsEnabled', 'persistentNotifEnabled', 'quietHoursEnabled', 'quietHoursStart',
   'quietHoursEnd', 'weeklyResetDay', 'monthlyResetDate', 'energyMode', 'energyDailyCapacity',
-  'energyWeeklyCapacity', 'featureGoals', 'featureSharing', 'featureAutomations',
+  'energyWeeklyCapacity', 'featureGoals', 'featureAutomations',
   'energySystemEnabled', 'showGrowth',
-  'photoAspectRatio', 'peopleModeEnabled',
+  'photoAspectRatio',
 ] as const satisfies readonly (keyof AiSettingsPatch)[];
+
+/**
+ * Settings that EXIST and are still stored, but that no visible surface reads today — so
+ * applying one would change nothing the user can observe. They are reported as skipped with
+ * reason `unavailable` rather than dropped in silence: an unknown key is the AI's mistake and
+ * says nothing useful, but a key the app used to document is the user's reasonable request,
+ * and "nothing happened" is the one answer they must not be left to infer.
+ *
+ * Both entries here are behind `SHARING_VISIBLE` (lib/sharingVisibility.ts, pinned false since
+ * 2026-08-05). They left the documented schema in v9 — move them back to the whitelist in the
+ * same edit that flips that constant.
+ */
+const INERT_SETTINGS = new Set<string>(['featureSharing', 'peopleModeEnabled']);
 
 const LANGUAGES = ['en', 'no', 'is'] as const;
 const DARK_MODES = ['system', 'on', 'off'] as const;
@@ -508,9 +521,8 @@ const ASPECT_RATIOS = ['fit', 'square', 'classic', 'widescreen', 'golden'] as co
 const BOOLEAN_KEYS = new Set<string>([
   'reducedMotion', 'particlesEnabled', 'glassSurfaces', 'opaqueCards', 'leftHanded', 'remindersEnabled',
   'taskNotificationsEnabled', 'habitNotificationsEnabled', 'persistentNotifEnabled',
-  'quietHoursEnabled', 'featureGoals', 'featureSharing', 'featureAutomations',
+  'quietHoursEnabled', 'featureGoals', 'featureAutomations',
   'energySystemEnabled', 'showGrowth',
-  'peopleModeEnabled',
 ]);
 const TIME_KEYS = new Set(['reminderTime', 'quietHoursStart', 'quietHoursEnd']);
 
@@ -544,6 +556,10 @@ function processSettings(
   const patch: Partial<Settings> = {};
 
   for (const key of Object.keys(d)) {
+    if (INERT_SETTINGS.has(key)) {
+      skipped.push({ field: key, reason: 'unavailable' });
+      continue;
+    }
     if (!(SETTINGS_WHITELIST as readonly string[]).includes(key)) continue; // not documented — silently dropped
     const value = validateSettingValue(key, d[key]);
     if (value === undefined) {

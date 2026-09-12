@@ -282,6 +282,12 @@ export default function HomeScreen() {
   // sit in that header row are gone, and the screen opens on its first card. Hiding and moving
   // a card are both the "Manage cards" header control since 2026-09-01; neither needs a mode.
 
+  // `tasks` is NOT an unnecessary dependency, whatever eslint's exhaustive-deps says here:
+  // `tasksForDate` is a Zustand store method whose identity never changes and which reads
+  // `get().tasks` internally. Drop `tasks` and this memo never recomputes — Home would keep
+  // rendering the task list it saw on mount. Verified by the store: useTaskStore.ts's
+  // `tasksForDate(date)` is `get().tasks.filter(...)`.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const todayTasks = useMemo(() => tasksForDate(today), [tasksForDate, today, tasks]);
 
   // The day log (2026-08-02) — the same hook and the same 60s "now" tick the To-do tab's

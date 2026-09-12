@@ -69,7 +69,6 @@ import PressableScale from '@/components/PressableScale';
 import { hitSlopFor, IconSize, MIN_TAP_TARGET } from '@/constants/theme';
 import { tap } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
 
 type Props = {
   /** True when the card is folded away — the stored sense. See the edit notes. */
@@ -83,7 +82,6 @@ type Props = {
 };
 
 export default function CardCollapseToggle({ collapsed, onToggle, cardLabel }: Props) {
-  const theme = useAppTheme();
   const t = useT();
   const action = collapsed ? t.expandListLabel : t.collapseListLabel;
 

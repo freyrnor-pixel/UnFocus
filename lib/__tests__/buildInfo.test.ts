@@ -86,3 +86,28 @@ describe('build stamp — it is wired into the publish path', () => {
     expect(SCRIPT_SRC).toContain('MAX_SUBJECT = 72');
   });
 });
+
+/**
+ * `app.json` is the single source of truth for the app's version — `Constants.expoConfig.version`
+ * is what the app, the OTA channel and every build read. `package.json`'s own `version` field is
+ * consumed by nothing, which is precisely why it drifted: it sat at 1.7.0 while the app shipped
+ * 1.7.3, so anyone reading the repo root got the wrong number with no failing check anywhere.
+ *
+ * This does not make package.json authoritative. It makes the drift loud: bump app.json, and the
+ * suite tells you the other one is stale rather than leaving it to be noticed months later.
+ */
+describe('the two version fields agree', () => {
+  it('package.json matches app.json', () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+    const app = JSON.parse(readFileSync(join(ROOT, 'app.json'), 'utf8'));
+    expect(pkg.version).toBe(app.expo.version);
+  });
+
+  it('runtimeVersion matches the app version, so OTA reaches this build', () => {
+    // OTA only reaches installs whose runtime == app.json's runtimeVersion (see CLAUDE.md's
+    // Publishing section). Keeping the two equal is this repo's convention; a deliberate
+    // divergence should change this test in the same commit, not slip past it.
+    const app = JSON.parse(readFileSync(join(ROOT, 'app.json'), 'utf8'));
+    expect(app.expo.runtimeVersion).toBe(app.expo.version);
+  });
+});

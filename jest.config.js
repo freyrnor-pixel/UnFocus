@@ -2,6 +2,8 @@ module.exports = {
   preset: 'jest-expo',
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/jest.setup.js'],
+  // Pins TZ to Europe/Oslo — see that file for why a test file cannot do this itself.
+  globalSetup: '<rootDir>/jest.globalSetup.js',
   transform: {
     '^.+\\.tsx?$': ['babel-jest', { presets: ['babel-preset-expo'] }],
   },

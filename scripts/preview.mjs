@@ -271,20 +271,22 @@ async function main() {
       await shot(page, shotName);
     }
 
-    // Food and Catalogue are always-open peer SectionCards on Shopping now (2026-08-20,
-    // "full-screen card expansion" — they were button-launched pushed sub-screens, then
-    // CollapsedSection drawers, before this), so they need no navigation at all: both are
-    // already visible in the 'shopping' screenshot above. This just confirms neither card
-    // failed to mount (which a page/console error elsewhere in the walk would already catch,
-    // but the explicit text check pins the labels specifically).
-    console.log('> Shopping -> Food/Catalogue peer cards');
+    // ⚠️ **There is no Food card any more (2026-09-07).** Food and Catalogue were peer
+    // SectionCards on Shopping from 2026-08-20; the v3 pass folded Food into Catalogue as its
+    // second inner TAB ("Katalog = ett kort, to faner"), so Shopping's cards are now Shopping
+    // lists · Monthly list · Catalogue · Budget and the Catalogue peek counts both halves
+    // ("286 · 66 dishes"). This step went on looking for a `Food` peer card and its
+    // `Food: Expand list` chevron until 2026-09-12 — two standing page errors on `main` that
+    // described a card the app had deliberately stopped drawing.
+    //   What is worth checking survived the move, so the step follows it: the Catalogue card
+    // mounts, and its Dishes tab still draws the meal sections that used to live in the Food
+    // card. See lib/i18n.ts's `catalogueTabItems`/`catalogueTabDishes` note for why those tabs
+    // are NOT called Catalogue/Food.
+    console.log('> Shopping -> Catalogue card (Items + Dishes tabs)');
     await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
     await page.waitForTimeout(800);
-    const foodCardVisible = await page.getByText('Food', { exact: true }).first().isVisible().catch(() => false);
     const catalogueCardVisible = await page.getByText('Catalogue', { exact: true }).first().isVisible().catch(() => false);
-    console.log(`  Food card rendered: ${foodCardVisible}`);
     console.log(`  Catalogue card rendered: ${catalogueCardVisible}`);
-    if (!foodCardVisible) pageErrors.push('The Food peer card did not render on Shopping');
     if (!catalogueCardVisible) pageErrors.push('The Catalogue peer card did not render on Shopping');
     await shot(page, 'food-catalogue-cards');
 
@@ -294,19 +296,30 @@ async function main() {
     // badge stopped being a private `rgba(hue, 0.16)` plate in the same pass, so the one thing
     // worth confirming is that `CardAccentBadge` renders in its place with the section names
     // beside it. A silent regression here would look exactly like a card that is simply shut.
-    const foodFold = page.getByRole('button', { name: 'Food: Expand list', exact: true }).first();
-    if (await foodFold.count()) {
-      await foodFold.scrollIntoViewIfNeeded();
-      await foodFold.click({ timeout: 10000 });
+    const catalogueFold = page.getByRole('button', { name: 'Catalogue: Expand list', exact: true }).first();
+    if (await catalogueFold.count()) {
+      await catalogueFold.scrollIntoViewIfNeeded();
+      await catalogueFold.click({ timeout: 10000 });
       await page.waitForTimeout(700);
-      const mealsDrawn = await page.getByText('Breakfast', { exact: true }).first().isVisible().catch(() => false);
-      console.log(`  meal sections drawn inside the Food card: ${mealsDrawn}`);
-      if (!mealsDrawn) pageErrors.push('Opening the Food card drew no meal sections');
+      // Every card rests CLOSED (lib/cardDefaults.ts), so without the click above this step
+      // photographs a header and reports success.
+      const dishesTab = page.getByText('Dishes', { exact: true }).first();
+      const hasDishesTab = await dishesTab.isVisible().catch(() => false);
+      console.log(`  the Catalogue card offers a Dishes tab: ${hasDishesTab}`);
+      if (!hasDishesTab) pageErrors.push('The Catalogue card drew no Dishes tab');
+      if (hasDishesTab) {
+        await dishesTab.click({ timeout: 10000 });
+        await page.waitForTimeout(700);
+        // The meal sections that used to prove the Food card mounted now prove the tab does.
+        const mealsDrawn = await page.getByText('Breakfast', { exact: true }).first().isVisible().catch(() => false);
+        console.log(`  meal sections drawn under the Dishes tab: ${mealsDrawn}`);
+        if (!mealsDrawn) pageErrors.push('The Catalogue card\'s Dishes tab drew no meal sections');
+      }
       await shot(page, 'food-card-open');
-      await page.getByRole('button', { name: 'Food: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Catalogue: Collapse list', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(500);
     } else {
-      pageErrors.push('No "Food: Expand list" chevron — the Food card may have lost its fold');
+      pageErrors.push('No "Catalogue: Expand list" chevron — the Catalogue card may have lost its fold');
     }
 
     // ⚠️ **The layout-picker step is DELETED (2026-09-01).** It opened Shopping's "How lists
@@ -596,22 +609,25 @@ async function main() {
     // when the user acts here is an explicit `false` — "I opened this one" — which is a value
     // the bag could not hold at all while open was the default. Round-tripping an OPENED card is
     // therefore the case worth walking: it is the one the storage rewrite introduced.
-    // ⚠️ **`Week` → `Calendar` (2026-09-01).** The Week and Month cards merged into one card that
-    // owns its own range — a week/month segment and a pair of arrows — so the fold under test is
-    // that card's. Everything the step is FOR is unchanged: the chevron adds and removes the day
-    // sections, and the choice survives leaving the tab.
-    console.log('> Calendar card unfolds as one, and remembers');
-    const weekUnfold = page.getByRole('button', { name: 'Calendar: Expand list', exact: true }).first();
+    // ⚠️ **`Week` → `Calendar` (2026-09-01) → `Planner` (`todoPlanner`).** The Week and Month
+    // cards merged into one card that owns its own range — a week/month segment and a pair of
+    // arrows — and Calendar and Recurring then became sections of one card titled "Planner"
+    // (lib/i18n.ts's `todoPlannerTitle`, lib/cardRegistry.ts's `todoPlanner`). This step kept
+    // asking for a `Calendar: Expand list` chevron until 2026-09-12, a standing page error on
+    // `main` naming a card the app no longer has. Everything the step is FOR is unchanged: the
+    // chevron adds and removes the day sections, and the choice survives leaving the tab.
+    console.log('> Planner card unfolds as one, and remembers');
+    const weekUnfold = page.getByRole('button', { name: 'Planner: Expand list', exact: true }).first();
     if (await weekUnfold.count()) {
       const mondayBefore = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays absent while the card rests closed: ${!mondayBefore}`);
-      if (mondayBefore) pageErrors.push('Calendar card: day sections drawn while the card rests collapsed');
+      if (mondayBefore) pageErrors.push('Planner card: day sections drawn while the card rests collapsed');
       await weekUnfold.scrollIntoViewIfNeeded();
       await weekUnfold.click({ timeout: 10000 });
       await page.waitForTimeout(700);
       const mondayAfter = await anyVisibleText(page, 'Monday');
       console.log(`  weekdays drawn after unfolding: ${mondayAfter}`);
-      if (!mondayAfter) pageErrors.push('Calendar card: unfolding it drew no day sections');
+      if (!mondayAfter) pageErrors.push('Planner card: unfolding it drew no day sections');
       await shot(page, 'todo-calendar-unfolded');
       await page.getByRole('button', { name: 'Shop', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(500);
@@ -619,12 +635,12 @@ async function main() {
       await page.waitForTimeout(900);
       const stillOpen = await anyVisibleText(page, 'Monday');
       console.log(`  the opened state survived a tab round-trip: ${stillOpen}`);
-      if (!stillOpen) pageErrors.push('Calendar card: an explicit open did not persist across a tab round-trip');
+      if (!stillOpen) pageErrors.push('Planner card: an explicit open did not persist across a tab round-trip');
       // Put it back, so the screenshots further down show the ordinary resting state.
-      await page.getByRole('button', { name: 'Calendar: Collapse list', exact: true }).first().click({ timeout: 10000 });
+      await page.getByRole('button', { name: 'Planner: Collapse list', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     } else {
-      pageErrors.push('No "Calendar: Expand list" chevron on the To-do tab — the card fold may not be wired');
+      pageErrors.push('No "Planner: Expand list" chevron on the To-do tab — the card fold may not be wired');
     }
 
     // Exercise a second store's write path: add a habit from components/HabitsSurface.tsx's
@@ -848,16 +864,20 @@ async function main() {
     console.log('> Health -> manage cards (reorder)');
     await manageBtn.click({ timeout: 10000 });
     await page.waitForTimeout(700);
-    // Health's registry order is This week → Health issues → Medicine, so moving Medicine up
-    // twice puts it first. Two presses rather than one, so a single accidental swap cannot pass.
+    // ⚠️ **Health has TWO cards, not three** — `healthIssues` then `healthMedicine`. This step
+    // pressed "Move Medicine up" TWICE and compared against a card called "This week" until
+    // 2026-09-12, both written when the screen had three cards. `healthWeek` was retired from
+    // lib/cardRegistry.ts on 2026-09-07 and the step was not updated with it, so the first press
+    // put Medicine at the top, the second found a correctly-disabled arrow, and the walk died on
+    // a 10s Playwright timeout — on `main`, for five days, with the app itself behaving
+    // perfectly. One press is the whole reorder here; the assertion below is what keeps a
+    // no-op from passing.
     const moveUp = page.getByRole('button', { name: /^Move .*Medicine.* up$/i }).first();
     const canMove = (await moveUp.count()) > 0;
     console.log(`  the sheet offers an arrow: ${canMove}`);
     if (!canMove) pageErrors.push('Manage cards drew no reorder arrow');
     if (canMove) {
       await moveUp.click({ timeout: 10000 });
-      await page.waitForTimeout(400);
-      await page.getByRole('button', { name: /^Move .*Medicine.* up$/i }).first().click({ timeout: 10000 });
       await page.waitForTimeout(400);
       await shot(page, 'manage-cards-reordered');
       await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
@@ -879,18 +899,22 @@ async function main() {
         return box ? box.y : null;
       };
       const medY = await topOf('Medicine');
-      const weekY = await topOf('This week');
-      const movedToTop = medY !== null && weekY !== null && medY < weekY;
-      console.log(`  Medicine at y=${medY}, This week at y=${weekY} (moved above: ${movedToTop})`);
-      if (!movedToTop) pageErrors.push('A reordered card did not survive navigating away and returning');
+      const issuesY = await topOf('Health issues');
+      const movedToTop = medY !== null && issuesY !== null && medY < issuesY;
+      console.log(`  Medicine at y=${medY}, Health issues at y=${issuesY} (moved above: ${movedToTop})`);
+      // A null on either side is a missing card, not a passing reorder — say which.
+      if (medY === null) pageErrors.push('Reorder check: no Medicine card on the Health screen');
+      if (issuesY === null) pageErrors.push('Reorder check: no Health issues card on the Health screen');
+      if (medY !== null && issuesY !== null && !movedToTop) {
+        pageErrors.push('A reordered card did not survive navigating away and returning');
+      }
 
       // Put it back, so nothing later in the walk is looking at a rearranged screen.
       await manageBtn.click({ timeout: 10000 });
       await page.waitForTimeout(700);
-      for (let i = 0; i < 2; i++) {
-        await page.getByRole('button', { name: /^Move .*Medicine.* down$/i }).first().click({ timeout: 10000 });
-        await page.waitForTimeout(400);
-      }
+      // One press back, matching the one press up above.
+      await page.getByRole('button', { name: /^Move .*Medicine.* down$/i }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(400);
       await page.getByRole('button', { name: 'Done', exact: true }).first().click({ timeout: 10000 });
       await page.waitForTimeout(700);
     }

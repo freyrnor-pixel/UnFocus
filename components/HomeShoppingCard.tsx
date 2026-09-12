@@ -87,7 +87,6 @@ import PadSheet from '@/components/PadSheet';
 import PadRow from '@/components/PadRow';
 import DraftComposer from '@/components/DraftComposer';
 import PadFooterToggle from '@/components/PadFooterToggle';
-import PressableScale from '@/components/PressableScale';
 import ProgressBar from '@/components/ProgressBar';
 import Stepper from '@/components/Stepper';
 import QuickAddOptionsPanel from '@/components/QuickAddOptionsPanel';
@@ -99,13 +98,10 @@ import {
   FontSize,
   Fonts,
   HOME_PREVIEW_CARD_MIN_HEIGHT,
-  OpticalCenter,
   PAD_GUTTER,
-  Radius,
   Spacing,
   TabularNums,
   computeBorderTone,
-  rgba,
 } from '@/constants/theme';
 import { Duration, Ease } from '@/constants/motion';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';

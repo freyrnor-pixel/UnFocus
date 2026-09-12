@@ -1,8 +1,8 @@
 diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
-index 87b58d0..8fb86ab 100644
+index 87b58d0..cf1842b 100644
 --- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
 +++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/NestedScrollableHost.kt
-@@ -72,8 +72,26 @@ class NestedScrollableHost : FrameLayout {
+@@ -72,8 +72,31 @@ class NestedScrollableHost : FrameLayout {
        val dy = e.y - initialY
        val isVpHorizontal = orientation == ORIENTATION_HORIZONTAL
  
@@ -27,7 +27,12 @@ index 87b58d0..8fb86ab 100644
 +      // ~8dp slop measured from that same DOWN. So the finger travels max(thisSlop, 8dp)
 +      // before anything moves, whatever factor is written here. The reachable knob is
 +      // RecyclerView's own touch slop, not this one.
-+      val scaledDx = dx.absoluteValue * if (isVpHorizontal) 1f else 1f
++      //
++      // The ternary is gone because both of its branches were 1f: `if (isVpHorizontal) 1f
++      // else 1f` reads as an orientation-dependent factor and is not one, which is exactly
++      // the misreading that made 1.4f look like a safe local tweak. `scaledDy` below keeps
++      // its ternary because its branches genuinely differ.
++      val scaledDx = dx.absoluteValue * 1f
        val scaledDy = dy.absoluteValue * if (isVpHorizontal) 1f else .5f
  
        if (scaledDx > touchSlop || scaledDy > touchSlop) {

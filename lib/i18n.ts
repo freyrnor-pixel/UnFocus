@@ -78,11 +78,8 @@ const en = {
   // languages so it reads as a tag, not a sentence fragment.
   optionalTag: 'Opt',
   webPreview: { notAvailable: 'Not available in the web preview.' },
-  // Home screen
-  addNew: '+ New',
   backlog: 'Not started',
   // Plans widget (home preview + full /plans screen)
-  notesCollapse: 'Show less',
   timelineEmptyAdd: 'Add a plan',
   timelineNow: 'Now',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -106,9 +103,7 @@ const en = {
   // key stays `plans` for history; the user-facing label is "To-do list" (short
   // form "To-do" in the bottom nav, see nav.plans).
   tasksTitle: 'To-do list',
-  tasksTabAll: 'All tasks',
   tasksTabToday: 'Today',
-  tasksTabWeek: 'This week',
   /**
    * "Reset the day" (2026-08-20) — moves today's unfinished one-offs into Whenever. The
    * words carry the whole no-shame contract, so keep them on this side of it: the day is
@@ -209,7 +204,6 @@ const en = {
     // card until there are some, so this points at the fix rather than reporting a fault.
     noSteps: 'Add a step to take it one at a time',
   },
-  shoppingPreview: 'Shop soon',
   seeAll: 'See all →',
   /** Tail row of Shopping's Catalogue drawer (components/CatalogueTab.tsx in `embedded`
    *  mode) — the drawer shows a capped run of rows, this says how many it didn't and
@@ -327,12 +321,6 @@ const en = {
   },
   a11yAdd: 'Add',
   a11yDiscardRow: 'Discard new row',
-  showHint: 'How this works',
-  hideHint: 'Hide instructions',
-  /** Closes a pop-up. Named for the job, not for one caller — components/HintSheet.tsx was the
-   *  original one and has not existed since August 2026; components/CenterModalScreen.tsx's ×
-   *  is the main consumer now. */
-  hintSheetDone: 'Done',
   /**
    * The pad (notepad) language, 2026-07-30 — shared by every list-bearing card so the four
    * Home cards stop wording the same control four different ways. `summary` is the closed
@@ -514,7 +502,6 @@ const en = {
   newTask: 'New task',
   add: 'Add',
   taskTitlePlaceholder: 'What needs to be done?',
-  dateLabel: 'Date',
   calendar: {
     prevMonth: 'Previous month',
     nextMonth: 'Next month',
@@ -526,15 +513,12 @@ const en = {
   pickOtherDate: (date: string) => `Pick another date (${date})`,
   hideCalendar: 'Hide calendar',
   timeLabel: 'Time',
-  wheneverHint: 'No fixed time — just something to do that day',
   lightDarkModeLabel: 'Light/Dark mode',
   darkModeSystem: 'System',
   darkModeOn: 'On',
   darkModeOff: 'Off',
   durationLabel: 'Duration (minutes)',
   durationPlaceholder: 'min',
-  // Energy system (task-form + habit-form)
-  energyConsumeLabel: 'Affects energy',
   // 2026-07-26 clarity pass: the separate "Affects energy" switch + "Energy value" stepper
   // collapsed into ONE labelled stepper where 0 = no effect (energyEnabled is derived on
   // save). Same maths, half the controls.
@@ -674,17 +658,6 @@ const en = {
   deleteConfirmTitle: (label: string) => `Delete ${label}?`,
   deleteConfirmBody: 'Are you sure?',
   deleteConfirmBtn: 'Delete',
-  // Onboarding
-  features: [
-    { icon: 'home-outline', text: 'Home — quick actions and a simple overview of your day' },
-    { icon: 'checkbox-outline', text: "A to-do list that holds what today needs, so you don't have to remember it" },
-    { icon: 'cart-outline', text: "Shopping lists that reset themselves, what's already in your cupboards, and recipes you can push straight to the list" },
-    { icon: 'repeat-outline', text: 'Habits that give your days structure, one day at a time — no streak to lose' },
-    { icon: 'heart-outline', text: 'Health — log symptoms and occurrences, and see the trends over time' },
-    { icon: 'battery-half-outline', text: 'An energy system that balances to-dos, habits and health against the energy you actually have' },
-  ],
-  monthlyResetDateQuestion: 'Which date does the monthly list reset?',
-  weeklyRemindersOnboarding: 'Weekly reminders',
   /* The AI setup guide. It was one of three peer cards on the deleted branch screen; since
      2026-08-03 it is a secondary link on app/onboarding/privacy.tsx, plus Settings and the
      guided tour's closing card. `aiSetupDesc` went with the card — a link does not carry a
@@ -824,15 +797,11 @@ const en = {
       left: { label: 'Left', desc: 'Menu button on the left, for a left hand.' },
     },
   },
-  chooseLanguage: 'Choose language',
-  chooseLanguageSub: 'You can change this in Settings at any time.',
   english: 'English',
   norwegian: 'Norwegian',
   icelandic: 'Icelandic',
   dayLabels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   dayFull: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-  today: 'Today',
-  addTime: '+ Add time',
   permissionTitle: 'Permission needed',
   permissionBody: 'Camera access is required to scan receipts.',
   // Shopping screen
@@ -854,7 +823,6 @@ const en = {
   weeklyTabLabel: 'Shopping lists',
   monthlyTabLabel: 'Monthly list',
   // --- Katalog/Ukeliste redesign ---
-  inWeeklyListSection: 'Shopping list',
   purchasedThisMonthSection: 'Purchased this month',
   tripLabel: (date: string) => `Shopped ${date}`,
   temporaryBadge: 'Temporary',
@@ -972,11 +940,6 @@ const en = {
   scanTargetWeekly: 'Matching against this shopping list',
   scanTargetMonthly: 'Matching against this monthly list',
   scanTargetCatalogue: 'Adding and updating catalogue prices',
-  shoppingCadenceLink: 'Reset days',
-  // Settings → General: brings back every intro card the user has closed.
-  restoreHintsLabel: 'Show tips again',
-  restoreHintsDone: 'Tips are back',
-  sortLabel: 'Sort',
   categoryLabels: {
     produce: 'Produce',
     bakery: 'Bakery',
@@ -1018,10 +981,6 @@ const en = {
   recentlyUsedSection: (n: number) => `Recently used (${n})`,
   purchasedSection: (n: number) => `Purchased (${n})`,
   fromMonthlySection: 'From monthly list',
-  moveToCartBtn: 'Put in cart',
-  moveToListBtn: 'Back to list',
-  markBoughtBtn: 'Bought',
-  undoBoughtBtn: 'Back to cart',
   addSelectedItemsBtn: (n: number) => `Add (${n})`,
   categoryFilterAllLabel: 'All categories',
   categoryFilterAccessibilityLabel: 'Filter by category',
@@ -1118,29 +1077,10 @@ const en = {
   errorBoundaryTitle: 'Something went wrong',
   errorBoundaryRetry: 'Try again',
   category: 'Category',
-  shoppingCategories: {
-    produce: 'Fruit & veg',
-    dairy: 'Dairy',
-    meat: 'Meat',
-    fish: 'Fish',
-    bread: 'Bread',
-    frozen: 'Frozen',
-    canned: 'Canned',
-    dry: 'Dry goods',
-    snacks: 'Snacks',
-    drinks: 'Drinks',
-    cleaning: 'Cleaning',
-    personal: 'Personal care',
-    other: 'Other',
-  },
   monthlyDateInputHint: 'Any day 1–31. Short months use the last day.',
   invalidMonthlyDateMsg: 'Needs a day between 1 and 31 — reverted.',
   // Habits
   habitsTitle: 'Habits',
-  habitToday: 'Today',
-  habitWeekView: 'Week',
-  habitMonthView: 'Month',
-  reminders: 'Reminders',
   habitFormTitle: 'New habit',
   habitFormEdit: 'Edit habit',
   habitDailyGoal: 'Times per day',
@@ -1433,7 +1373,6 @@ const en = {
   shoppingWeekPrev: 'Previous week',
   shoppingWeekNext: 'Next week',
   inStockLabel: 'In stock',
-  priceTotal: (total: string) => `${total} total`,
   // Shopping item detail sheet (components/ShoppingItemSheet.tsx). Quantity moved out of the
   // row and into here (row rule, 2026-07-28): a row shows a quantity, a sheet edits one.
   shoppingItemSheet: {
@@ -1446,7 +1385,6 @@ const en = {
     category: 'Where in the shop',
     done: 'Done',
   },
-  suggestions: 'Suggestions',
   // Meals screen
   mealTypes: { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snacks', kveldsmat: 'Evening snack' },
   mealDifficulty: { easy: 'Easy', normal: 'Normal' },
@@ -1467,7 +1405,6 @@ const en = {
   // --- end W-C additions ---
   // Health screen
   healthTitle: 'Health',
-  thisWeekLabel: 'This week',
   quickLogLabel: 'Quick log',
   healthLogTitle: 'Health log',
   logSymptomTrigger: "What's bothering you?",
@@ -1983,17 +1920,6 @@ const en = {
   // Toggle on/off labels
   on: 'on',
   off: 'off',
-  // Hints (one per screen)
-  // Cover screen (Galaxy Z Flip outer display)
-  cover: {
-    tasksToday: 'Today',
-    taskCount: (n: number) => `${n} task${n !== 1 ? 's' : ''}`,
-    noTasks: 'All done!',
-    quickAdd: '+ Add',
-    habitsToday: 'Habits',
-    habitsSummary: (done: number, total: number) => `${done}/${total} done`,
-    moreTasksHint: (n: number) => `+${n} more`,
-  },
   // Per-screen incoming shared-item prompts (components/SharedRequestsSection.tsx)
   sharedRequests: {
     sectionTitle: 'Shared with you',
@@ -2588,10 +2514,8 @@ const no: typeof en = {
   ok: 'OK',
   optionalTag: 'Valgfri',
   webPreview: { notAvailable: 'Ikke tilgjengelig i nettleserforhåndsvisningen.' },
-  addNew: '+ Ny',
   backlog: 'Ikke startet',
   // Plans widget (home preview + full /plans screen)
-  notesCollapse: 'Vis mindre',
   timelineEmptyAdd: 'Legg til en plan',
   timelineNow: 'Nå',
   // Day-view rail (components/PlanTaskCard.tsx — full /plans screen + read-only Home preview)
@@ -2611,9 +2535,7 @@ const no: typeof en = {
   dayViewDeleteTask: 'Slett',
   // Gjøremålsliste-skjerm (app/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Gjøremålsliste',
-  tasksTabAll: 'Alle',
   tasksTabToday: 'I dag',
-  tasksTabWeek: 'Denne uka',
   // Bevisst IKKE "Nullstill dagen": Innstillinger har allerede "Nullstill alle gjøremål",
   // som sletter for godt. Denne flytter bare til Når som helst — samme ord ville lest som
   // samme slags handling. "Legg bort" sier hva som faktisk skjer, og dømmer ikke dagen.
@@ -2678,7 +2600,6 @@ const no: typeof en = {
     back: 'Ett steg tilbake',
     noSteps: 'Legg til et steg for å ta det ett om gangen',
   },
-  shoppingPreview: 'Handle snart',
   seeAll: 'Se alt →',
   emptyMonthlyList: 'Ingenting her ennå — legg til din første faste vare.',
   smallThingsCount: (n: number) => `Du har fullført ${n} ting — småting teller!`,
@@ -2741,9 +2662,6 @@ const no: typeof en = {
   },
   a11yAdd: 'Legg til',
   a11yDiscardRow: 'Forkast ny rad',
-  showHint: 'Slik fungerer det',
-  hideHint: 'Skjul instruksjoner',
-  hintSheetDone: 'Ferdig',
   cardHint: {
     todoToday: 'Del det opp til det blir litt latterlig. Det er da det begynner å funke.',
     todoWeek: 'En uke er for å se hva som kommer, ikke for å bestemme det nå.',
@@ -2834,7 +2752,6 @@ const no: typeof en = {
   newTask: 'Ny oppgave',
   add: 'Legg til',
   taskTitlePlaceholder: 'Hva må gjøres?',
-  dateLabel: 'Dato',
   calendar: {
     prevMonth: 'Forrige måned',
     nextMonth: 'Neste måned',
@@ -2846,7 +2763,6 @@ const no: typeof en = {
   pickOtherDate: (date: string) => `Velg en annen dato (${date})`,
   hideCalendar: 'Skjul kalender',
   timeLabel: 'Tidspunkt',
-  wheneverHint: 'Ingen fast tid – bare noe å gjøre den dagen',
   lightDarkModeLabel: 'Lys/Mørk modus',
   darkModeSystem: 'System',
   darkModeOn: 'På',
@@ -2854,7 +2770,6 @@ const no: typeof en = {
   durationLabel: 'Varighet (minutter)',
   durationPlaceholder: 'min',
   // Energy system (task-form + habit-form)
-  energyConsumeLabel: 'Påvirker energi',
   energyGiveTakeLabel: 'Energi gir / tar',
   energyGiveTakeHint: 'Minus koster energi, pluss gir tilbake, 0 = ingen effekt',
   stepPlaceholder: 'Legg til et steg',
@@ -2974,16 +2889,6 @@ const no: typeof en = {
   deleteConfirmTitle: (label: string) => `Slette ${label}?`,
   deleteConfirmBody: 'Er du sikker?',
   deleteConfirmBtn: 'Slett',
-  features: [
-    { icon: 'home-outline', text: 'Hjem — hurtigvalg og en enkel oversikt over dagen' },
-    { icon: 'checkbox-outline', text: 'En gjøremålsliste som holder på det dagen krever, så du slipper å huske det' },
-    { icon: 'cart-outline', text: 'Handlelister som setter seg selv opp, oversikt over hva du har hjemme, og matretter du kan skyve rett til lista' },
-    { icon: 'repeat-outline', text: 'Vaner som gir dagene struktur, én dag av gangen — uten en rekke å miste' },
-    { icon: 'heart-outline', text: 'Helse — logg symptomer og hendelser, og se trendene over tid' },
-    { icon: 'battery-half-outline', text: 'Et energisystem som balanserer gjøremål, vaner og helse mot energien du faktisk har' },
-  ],
-  monthlyResetDateQuestion: 'Hvilken dato nullstilles månedslisten?',
-  weeklyRemindersOnboarding: 'Ukentlige påminnelser',
   aiSetupBtn: 'Sett opp med AI',
   aiSetupPickAnother: 'Du kan velge en annen måte å starte på.',
   firstRun: {
@@ -3072,15 +2977,11 @@ const no: typeof en = {
       left: { label: 'Venstre', desc: 'Menyknappen til venstre, for venstre hånd.' },
     },
   },
-  chooseLanguage: 'Velg språk',
-  chooseLanguageSub: 'Du kan endre dette i innstillingene når som helst.',
   english: 'English',
   norwegian: 'Norsk',
   icelandic: 'Íslenska',
   dayLabels: ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'],
   dayFull: ['Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag', 'Søndag'],
-  today: 'I dag',
-  addTime: '+ Legg til tidspunkt',
   permissionTitle: 'Tilgang nødvendig',
   permissionBody: 'Kameraet trenger tilgang for å skanne kvitteringer.',
   shoppingTitle: 'Handleliste',
@@ -3101,7 +3002,6 @@ const no: typeof en = {
   weeklyTabLabel: 'Handlelister',
   monthlyTabLabel: 'Måned',
   // --- Katalog/Ukeliste redesign ---
-  inWeeklyListSection: 'Handleliste',
   purchasedThisMonthSection: 'Kjøpt denne måneden',
   tripLabel: (date: string) => `Handlet ${date}`,
   temporaryBadge: 'Midlertidig',
@@ -3195,10 +3095,6 @@ const no: typeof en = {
   scanTargetWeekly: 'Sammenlignes med denne handlelisten',
   scanTargetMonthly: 'Sammenlignes med denne månedslisten',
   scanTargetCatalogue: 'Legger til og oppdaterer katalogpriser',
-  shoppingCadenceLink: 'Nullstillingsdager',
-  restoreHintsLabel: 'Vis tipsene igjen',
-  restoreHintsDone: 'Tipsene er tilbake',
-  sortLabel: 'Sorter',
   categoryLabels: {
     produce: 'Frukt & grønt',
     bakery: 'Bakevarer',
@@ -3227,10 +3123,6 @@ const no: typeof en = {
   recentlyUsedSection: (n: number) => `Brukt nylig (${n})`,
   purchasedSection: (n: number) => `Kjøpt (${n})`,
   fromMonthlySection: 'Fra månedsliste',
-  moveToCartBtn: 'Legg i handlekurv',
-  moveToListBtn: 'Tilbake i lista',
-  markBoughtBtn: 'Kjøpt',
-  undoBoughtBtn: 'Tilbake i kurven',
   addSelectedItemsBtn: (n: number) => `Legg til (${n})`,
   categoryFilterAllLabel: 'Alle kategorier',
   categoryFilterAccessibilityLabel: 'Filtrer etter kategori',
@@ -3314,21 +3206,6 @@ const no: typeof en = {
   errorBoundaryTitle: 'Noe gikk galt',
   errorBoundaryRetry: 'Prøv igjen',
   category: 'Kategori',
-  shoppingCategories: {
-    produce: 'Frukt og grønt',
-    dairy: 'Meieri',
-    meat: 'Kjøtt',
-    fish: 'Fisk',
-    bread: 'Brød og bakst',
-    frozen: 'Frysevarer',
-    canned: 'Hermetikk',
-    dry: 'Tørrmat',
-    snacks: 'Snacks',
-    drinks: 'Drikke',
-    cleaning: 'Rengjøring',
-    personal: 'Personlig pleie',
-    other: 'Annet',
-  },
   monthlyDateInputHint: 'Valgfri dato 1–31. I korte måneder nullstilles listen siste dag.',
   invalidMonthlyDateMsg: 'Trenger en dag mellom 1 og 31 — tilbakestilt.',
   // Habits
@@ -3668,10 +3545,6 @@ const no: typeof en = {
   on: 'på',
   off: 'av',
   habitsTitle: 'Vaner',
-  habitToday: 'I dag',
-  habitWeekView: 'Uke',
-  habitMonthView: 'Måned',
-  reminders: 'Påminnelser',
   habitFormTitle: 'Ny vane',
   habitFormEdit: 'Rediger vane',
   habitDailyGoal: 'Ganger per dag',
@@ -3900,7 +3773,6 @@ const no: typeof en = {
   shoppingWeekPrev: 'Forrige uke',
   shoppingWeekNext: 'Neste uke',
   inStockLabel: 'På lager',
-  priceTotal: (total: string) => `${total} totalt`,
   shoppingItemSheet: {
     quantity: 'Hvor mange',
     quantityPlaceholder: '2, eller «en bunt»',
@@ -3911,7 +3783,6 @@ const no: typeof en = {
     category: 'Hvor i butikken',
     done: 'Ferdig',
   },
-  suggestions: 'Forslag',
   mealTypes: { breakfast: 'Frokost', lunch: 'Lunsj', dinner: 'Middag', snack: 'Snacks', kveldsmat: 'Kveldsmat' },
   mealDifficulty: { easy: 'Enkel', normal: 'Vanlig' },
   dishDifficultyPickerLabel: 'Vanskelighetsgrad',
@@ -3930,7 +3801,6 @@ const no: typeof en = {
   // --- W-C Grocery additions (meals) ---
   // --- end W-C additions ---
   healthTitle: 'Helse',
-  thisWeekLabel: 'Denne uken',
   quickLogLabel: 'Hurtiglogg',
   healthLogTitle: 'Helse-logg',
   logSymptomTrigger: 'Hva plager deg?',
@@ -4004,16 +3874,6 @@ const no: typeof en = {
     nutrition: 'Ernæring',
     other: 'Annet',
   } as Record<string, string>,
-  // --- end W-D additions ---
-  cover: {
-    tasksToday: 'I dag',
-    taskCount: (n: number) => `${n} oppgave${n !== 1 ? 'r' : ''}`,
-    noTasks: 'Alt klart!',
-    quickAdd: '+ Legg til',
-    habitsToday: 'Vaner',
-    habitsSummary: (done: number, total: number) => `${done}/${total} ferdig`,
-    moreTasksHint: (n: number) => `+${n} til`,
-  },
   // Per-skjerm "delt med deg"-forslag (components/SharedRequestsSection.tsx)
   sharedRequests: {
     sectionTitle: 'Delt med deg',
@@ -4484,9 +4344,7 @@ const is: typeof en = {
   // long for the slot, so it is abbreviated the way Icelandic abbreviates it in print.
   optionalTag: 'Valfr.',
   webPreview: { notAvailable: 'Ekki í boði í vafraútgáfunni.' },
-  addNew: '+ Nýtt',
   backlog: 'Ekki byrjað',
-  notesCollapse: 'Sýna minna',
   timelineEmptyAdd: 'Bæta við plani',
   timelineNow: 'Núna',
   dayViewGapUntil: (time: string) => `Ekkert fyrr en ${time}`,
@@ -4505,9 +4363,7 @@ const is: typeof en = {
   dayViewDeleteTask: 'Eyða',
   // Verkefnalistaskjár (app/plans.tsx + components/TaskCard.tsx)
   tasksTitle: 'Verkefnalisti',
-  tasksTabAll: 'Allt',
   tasksTabToday: 'Í dag',
-  tasksTabWeek: 'Þessi vika',
   dayResetAction: 'Leggja daginn til hliðar',
   // "verkefni" er eins í eintölu og fleirtölu, svo það er SÖGNIN sem beygist — þess vegna
   // fer allur frasinn gegnum isCount, ekki bara nafnorðið.
@@ -4576,7 +4432,6 @@ const is: typeof en = {
     back: 'Eitt skref til baka',
     noSteps: 'Bættu skrefi við til að taka það eitt í einu',
   },
-  shoppingPreview: 'Kaupa fljótlega',
   seeAll: 'Sjá allt →',
   emptyMonthlyList: 'Ekkert hér enn — bættu við fyrstu föstu vörunni.',
   smallThingsCount: (n: number) => `Þú hefur klárað ${n} ${isCount(n, 'hlut', 'hluti')} — smáatriðin telja!`,
@@ -4640,9 +4495,6 @@ const is: typeof en = {
   },
   a11yAdd: 'Bæta við',
   a11yDiscardRow: 'Henda nýrri línu',
-  showHint: 'Svona virkar þetta',
-  hideHint: 'Fela leiðbeiningar',
-  hintSheetDone: 'Búið',
   // Talnasamræmi: `isCount` fer með alla setninguna, ekki bara nafnorðið — sjá skýringuna efst.
   cardHint: {
     todoToday: 'Skiptu því niður þar til það verður hálf hlægilegt. Þá fer það að virka.',
@@ -4736,7 +4588,6 @@ const is: typeof en = {
   newTask: 'Nýtt verkefni',
   add: 'Bæta við',
   taskTitlePlaceholder: 'Hvað þarf að gera?',
-  dateLabel: 'Dagsetning',
   calendar: {
     prevMonth: 'Fyrri mánuður',
     nextMonth: 'Næsti mánuður',
@@ -4748,7 +4599,6 @@ const is: typeof en = {
   pickOtherDate: (date: string) => `Velja aðra dagsetningu (${date})`,
   hideCalendar: 'Fela dagatal',
   timeLabel: 'Tími',
-  wheneverHint: 'Enginn fastur tími – bara eitthvað til að gera þann dag',
   lightDarkModeLabel: 'Ljóst/dökkt',
   darkModeSystem: 'Kerfi',
   darkModeOn: 'Kveikt',
@@ -4756,7 +4606,6 @@ const is: typeof en = {
   durationLabel: 'Lengd (mínútur)',
   durationPlaceholder: 'mín',
   // Orkukerfi (task-form + habit-form)
-  energyConsumeLabel: 'Hefur áhrif á orku',
   energyGiveTakeLabel: 'Orkugildi',
   energyGiveTakeHint: 'Mínus kostar orku, plús gefur til baka, 0 = engin áhrif',
   stepPlaceholder: 'Bæta við skrefi',
@@ -4878,16 +4727,6 @@ const is: typeof en = {
   deleteConfirmTitle: (label: string) => `Eyða „${label}“?`,
   deleteConfirmBody: 'Ertu viss?',
   deleteConfirmBtn: 'Eyða',
-  features: [
-    { icon: 'home-outline', text: 'Heim — flýtileiðir og einfalt yfirlit yfir daginn' },
-    { icon: 'checkbox-outline', text: 'Verkefnalisti sem heldur utan um það sem dagurinn krefst, svo þú þurfir ekki að muna það' },
-    { icon: 'cart-outline', text: 'Innkaupalistar sem setja sig upp sjálfir, yfirlit yfir það sem til er heima, og réttir sem þú ýtir beint á listann' },
-    { icon: 'repeat-outline', text: 'Venjur sem gefa dögunum umgjörð, einn dag í einu — engin röð til að missa' },
-    { icon: 'heart-outline', text: 'Heilsa — skráðu einkenni og atvik, og sjáðu þróunina yfir tíma' },
-    { icon: 'battery-half-outline', text: 'Orkukerfi sem vegur verkefni, venjur og heilsu á móti orkunni sem þú átt í raun' },
-  ],
-  monthlyResetDateQuestion: 'Hvaða dag núllstillist mánaðarlistinn?',
-  weeklyRemindersOnboarding: 'Vikulegar áminningar',
   aiSetupBtn: 'Setja upp með gervigreind',
   aiSetupPickAnother: 'Þú getur valið aðra leið til að byrja.',
   firstRun: {
@@ -4976,15 +4815,11 @@ const is: typeof en = {
       left: { label: 'Vinstri', desc: 'Valmyndarhnappur vinstra megin, fyrir vinstri hönd.' },
     },
   },
-  chooseLanguage: 'Veldu tungumál',
-  chooseLanguageSub: 'Þú getur breytt þessu í stillingunum hvenær sem er.',
   english: 'English',
   norwegian: 'Norsk',
   icelandic: 'Íslenska',
   dayLabels: ['Mán', 'Þri', 'Mið', 'Fim', 'Fös', 'Lau', 'Sun'],
   dayFull: ['Mánudagur', 'Þriðjudagur', 'Miðvikudagur', 'Fimmtudagur', 'Föstudagur', 'Laugardagur', 'Sunnudagur'],
-  today: 'Í dag',
-  addTime: '+ Bæta við tíma',
   permissionTitle: 'Aðgangs er þörf',
   permissionBody: 'Myndavélin þarf aðgang til að skanna kvittanir.',
   shoppingTitle: 'Innkaupalisti',
@@ -5004,7 +4839,6 @@ const is: typeof en = {
   itemPutBackToInventory: (name: string) => `${name} fór aftur í birgðir`,
   weeklyTabLabel: 'Innkaupalistar',
   monthlyTabLabel: 'Mánuður',
-  inWeeklyListSection: 'Innkaupalisti',
   purchasedThisMonthSection: 'Keypt í þessum mánuði',
   tripLabel: (date: string) => `Verslað ${date}`,
   temporaryBadge: 'Tímabundið',
@@ -5097,12 +4931,6 @@ const is: typeof en = {
   scanTargetWeekly: 'Borið saman við þennan innkaupalista',
   scanTargetMonthly: 'Borið saman við þennan mánaðarlista',
   scanTargetCatalogue: 'Bætir við og uppfærir verð í vöruskrá',
-  shoppingCadenceLink: 'Núllstillingardagar',
-  restoreHintsLabel: 'Sýna ábendingarnar aftur',
-  restoreHintsDone: 'Ábendingarnar eru komnar aftur',
-  /* The segment draws no "Raða" label of its own, so the two options carry the question.
-     "Eftir tegund" overran its segment by 12px; the bare nouns fit and read the same. */
-  sortLabel: 'Raða',
   categoryLabels: {
     produce: 'Ávextir og grænmeti',
     bakery: 'Brauð og bakkelsi',
@@ -5131,10 +4959,6 @@ const is: typeof en = {
   recentlyUsedSection: (n: number) => `Nýlega notað (${n})`,
   purchasedSection: (n: number) => `Keypt (${n})`,
   fromMonthlySection: 'Úr mánaðarlista',
-  moveToCartBtn: 'Setja í körfu',
-  moveToListBtn: 'Aftur á listann',
-  markBoughtBtn: 'Keypt',
-  undoBoughtBtn: 'Aftur í körfu',
   addSelectedItemsBtn: (n: number) => `Bæta við (${n})`,
   categoryFilterAllLabel: 'Allir flokkar',
   categoryFilterAccessibilityLabel: 'Sía eftir flokki',
@@ -5215,21 +5039,6 @@ const is: typeof en = {
   errorBoundaryTitle: 'Eitthvað fór úrskeiðis',
   errorBoundaryRetry: 'Reyna aftur',
   category: 'Flokkur',
-  shoppingCategories: {
-    produce: 'Ávextir og grænmeti',
-    dairy: 'Mjólkurvörur',
-    meat: 'Kjöt',
-    fish: 'Fiskur',
-    bread: 'Brauð og bakkelsi',
-    frozen: 'Frystivörur',
-    canned: 'Niðursuðuvörur',
-    dry: 'Þurrvara',
-    snacks: 'Snakk',
-    drinks: 'Drykkir',
-    cleaning: 'Hreinlætisvörur',
-    personal: 'Snyrtivörur',
-    other: 'Annað',
-  },
   monthlyDateInputHint: 'Valfrjáls dagsetning 1–31. Í stuttum mánuðum núllstillist listinn síðasta dag.',
   invalidMonthlyDateMsg: 'Þarf dag á milli 1 og 31 — fyrra gildi sett aftur.',
   habits: {
@@ -5569,10 +5378,6 @@ const is: typeof en = {
   on: 'kveikt',
   off: 'slökkt',
   habitsTitle: 'Venjur',
-  habitToday: 'Í dag',
-  habitWeekView: 'Vika',
-  habitMonthView: 'Mánuður',
-  reminders: 'Áminningar',
   habitFormTitle: 'Ný venja',
   habitFormEdit: 'Breyta venju',
   habitDailyGoal: 'Skipti á dag',
@@ -5804,7 +5609,6 @@ const is: typeof en = {
   shoppingWeekPrev: 'Fyrri vika',
   shoppingWeekNext: 'Næsta vika',
   inStockLabel: 'Til á lager',
-  priceTotal: (total: string) => `${total} samtals`,
   shoppingItemSheet: {
     quantity: 'Hversu mikið',
     quantityPlaceholder: 't.d. 2, eða „eitt búnt“',
@@ -5815,7 +5619,6 @@ const is: typeof en = {
     category: 'Hvar í búðinni',
     done: 'Búið',
   },
-  suggestions: 'Tillögur',
   mealTypes: { breakfast: 'Morgunmatur', lunch: 'Hádegismatur', dinner: 'Kvöldmatur', snack: 'Snarl', kveldsmat: 'Kvöldhressing' },
   mealDifficulty: { easy: 'Einfalt', normal: 'Venjulegt' },
   dishDifficultyPickerLabel: 'Hversu flókið',
@@ -5832,7 +5635,6 @@ const is: typeof en = {
   duplicateDishBtn: 'Afrita rétt',
   dishCopySuffix: ' (afrit)',
   healthTitle: 'Heilsa',
-  thisWeekLabel: 'Þessa viku',
   quickLogLabel: 'Fljótskráning',
   healthLogTitle: 'Heilsuskrá',
   logSymptomTrigger: 'Hvað er að angra þig?',
@@ -5901,15 +5703,6 @@ const is: typeof en = {
     nutrition: 'Næring',
     other: 'Annað',
   } as Record<string, string>,
-  cover: {
-    tasksToday: 'Í dag',
-    taskCount: (n: number) => `${n} verkefni`,
-    noTasks: 'Allt klárt!',
-    quickAdd: '+ Bæta við',
-    habitsToday: 'Venjur',
-    habitsSummary: (done: number, total: number) => `${done}/${total} búið`,
-    moreTasksHint: (n: number) => `+${n} í viðbót`,
-  },
   // Tillögur um það sem aðrir hafa deilt (components/SharedRequestsSection.tsx)
   sharedRequests: {
     sectionTitle: 'Deilt með þér',

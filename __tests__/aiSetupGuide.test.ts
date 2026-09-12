@@ -14,6 +14,7 @@ import {
   AI_SETUP_BEGIN,
   AI_SETUP_END,
   AI_SETUP_SCHEMA_VERSION,
+  buildAiSetupGuideText,
   parseAiSetupFile,
   type AiSetupConfig,
 } from '@/lib/aiSetupGuide';
@@ -255,6 +256,43 @@ describe('applyAiSetupConfig — settings whitelist', () => {
     expect(result.settings.skipped).toEqual([]);
     expect(useSettingsStore.getState().darkMode).toBe('on');
     expect(useSettingsStore.getState().accountName).toBe(before);
+  });
+
+  /**
+   * The distinction this pins: an UNKNOWN key is the AI's mistake and is dropped in silence,
+   * but `featureSharing`/`peopleModeEnabled` are real settings the guide documented until v9.
+   * Every surface reading them is behind `SHARING_VISIBLE` (false since 2026-08-05), so
+   * applying one would write a value nothing observes. Reporting them as skipped is what
+   * stops "I asked for sharing and nothing happened" from being the user's only signal.
+   */
+  it('reports the sharing settings as unavailable instead of writing them', () => {
+    const beforeSharing = useSettingsStore.getState().featureSharing;
+    const beforePeople = useSettingsStore.getState().peopleModeEnabled;
+    const result = applyAiSetupConfig({
+      version: AI_SETUP_SCHEMA_VERSION,
+      settings: {
+        darkMode: 'off',
+        featureSharing: !beforeSharing,
+        peopleModeEnabled: !beforePeople,
+      } as never,
+    });
+    expect(result.settings.applied).toEqual(['darkMode']);
+    expect(result.settings.skipped).toEqual([
+      { field: 'featureSharing', reason: 'unavailable' },
+      { field: 'peopleModeEnabled', reason: 'unavailable' },
+    ]);
+    // The stored values are untouched, so flipping SHARING_VISIBLE restores the user's setup.
+    expect(useSettingsStore.getState().featureSharing).toBe(beforeSharing);
+    expect(useSettingsStore.getState().peopleModeEnabled).toBe(beforePeople);
+  });
+
+  it('keeps the guide text and the whitelist naming the same fields', () => {
+    // The whitelist is the enforcement and the guide text is the promise; a field in one and
+    // not the other is how featureSharing came to be offered but inert. Neither may name the
+    // inert pair.
+    const guide = buildAiSetupGuideText();
+    expect(guide).not.toContain('featureSharing');
+    expect(guide).not.toContain('peopleModeEnabled');
   });
 });
 

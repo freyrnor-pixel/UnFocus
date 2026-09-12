@@ -8,7 +8,7 @@
  * delete/edit affordances, this is a recap, not a list to manage.
  *
  * Connections:
- *   Imports → components/AnimatedBottomSheet, components/Surface, components/PressableScale,
+ *   Imports → lib/date (utcStampToLocalDate — purchasedAt is UTC), components/AnimatedBottomSheet, components/Surface, components/PressableScale,
  *             constants/theme, lib/date, lib/i18n, lib/useAppTheme, store/useShoppingStore
  *             (types only)
  *   Used by → app/(tabs)/shopping.tsx
@@ -22,7 +22,10 @@
  *   - Both inventoryItems and adHocItems arrive already sorted chronologically by
  *     purchasedAt (oldest first) from the store — don't re-sort here.
  *   - purchasedAt is a full ISO datetime (doneShopping stamps it via `new Date().toISOString()`),
- *     so this only ever renders its first 10 chars (the YYYY-MM-DD date portion).
+ *     which is **UTC**. It is rendered through lib/date.ts's `utcStampToLocalDate`, never
+ *     `.slice(0, 10)`: the slice reads the UTC date, so in Norway (UTC+1/+2) anything bought
+ *     after 22:00/23:00 local was listed under the previous day. Fixed 2026-09-12; the old
+ *     note here described the slice as intentional, and it was simply wrong.
  *   - Ported (2026-07-02, Session A2·2, expanded scope — see PROGRESS_LOG). Rebuilt on
  *     `<Surface surfaceContext="overlay">` instead of the old repo's bare `View` +
  *     `theme.white` + `Shadow.fab` — same rationale as SavedListsModal.tsx. `theme` prop
@@ -36,6 +39,7 @@ import { Fonts, FontSize, glassKey, MIN_TAP_TARGET, Radius, Spacing, TabularNums
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
 import { formatKr } from '@/lib/money';
+import { utcStampToLocalDate } from '@/lib/date';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
@@ -87,7 +91,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
               {lastSummary.inventoryItems.map((item) => (
                 <View key={item.id} style={styles.itemRow}>
                   <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                  <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
+                  <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{utcStampToLocalDate(item.purchasedAt) ?? ''}</Text>
                   {item.price > 0 && (
                     <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                   )}
@@ -101,7 +105,7 @@ export default function MonthlyResetSummaryModal({ visible, summary, onClose }: 
                 {lastSummary.adHocItems.map((item) => (
                   <View key={item.id} style={styles.itemRow}>
                     <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                    <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{(item.purchasedAt ?? '').slice(0, 10)}</Text>
+                    <Text style={[styles.itemMeta, { color: theme.textMuted }]}>{utcStampToLocalDate(item.purchasedAt) ?? ''}</Text>
                     {item.price > 0 && (
                       <Text style={[styles.itemPrice, TabularNums, { color: theme.textMuted }]}>{formatKr(item.price, 0)}</Text>
                     )}

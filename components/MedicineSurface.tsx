@@ -135,7 +135,7 @@ import {
   trayProgress,
   traysInUse,
 } from '@/lib/medicineSchedule';
-import { FIELD_GLOW_CLEARANCE, FontSize, Fonts, Radius, Spacing, Type, HitSlop } from '@/constants/theme';
+import { FIELD_GLOW_CLEARANCE, FontSize, Fonts, Radius, Spacing, HitSlop } from '@/constants/theme';
 
 /** Time-of-day glyph per tray — the pill-organiser row, read left to right. */
 const TRAY_ICONS: Record<TrayId, React.ComponentProps<typeof Ionicons>['name']> = {

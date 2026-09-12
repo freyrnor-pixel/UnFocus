@@ -213,6 +213,28 @@ export function utcStampToLocalMinutes(stamp: string, localDate: string): number
 }
 
 /**
+ * The date half of `utcStampToLocalMinutes`: the LOCAL `YYYY-MM-DD` an ISO-8601 UTC
+ * stamp (or a SQLite `datetime('now')` stamp) actually falls on. Returns null on
+ * anything that doesn't parse.
+ *
+ * This exists because `stamp.slice(0, 10)` looks like the obvious answer and is wrong:
+ * it reads the stamp's UTC date, so a purchase made at 23:30 local in Norway (21:30Z)
+ * renders under the previous day. Two call sites had that bug — see the Edit notes.
+ */
+export function utcStampToLocalDate(stamp: string | null | undefined): string | null {
+  const trimmed = stamp?.trim();
+  if (!trimmed) return null;
+  // Same normalisation as utcStampToLocalMinutes: `YYYY-MM-DD HH:MM:SS` carries no
+  // timezone designator, so Date would read it as LOCAL. Force UTC before parsing.
+  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed)
+    ? trimmed.replace(' ', 'T')
+    : `${trimmed.replace(' ', 'T')}Z`;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return dateStr(d);
+}
+
+/**
  * Parses a strict `H:MM`/`HH:MM` 24h time string into minutes since midnight, or null if
  * malformed/out of range.
  *
