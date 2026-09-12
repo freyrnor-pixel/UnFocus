@@ -10,7 +10,7 @@
  * that can fail for the right reason.
  */
 import { PixelRatio } from 'react-native';
-import { pixelQuantum, sameLayout } from '@/lib/layoutGrid';
+import { pixelQuantum, resizeMode, sameLayout } from '@/lib/layoutGrid';
 
 /** Android densities that ship in volume. 2.625 and 2.75 are the fractional ones. */
 const DENSITIES = [1, 1.5, 2, 2.625, 2.75, 3, 3.5];
@@ -94,5 +94,75 @@ describe('sameLayout', () => {
       // One extra row of the smallest kind the app draws is far outside the quantum.
       expect(sameLayout(roundedHeight(0.4, 137.37 + 24, 2.625), settled)).toBe(false);
     });
+  });
+});
+
+/**
+ * resizeMode — ease a discrete height change, track a continuous one.
+ *
+ * Same discipline as the density sweep above: these run the rule over real frame sequences
+ * rather than asserting that `Collapsible.tsx` contains the word `resizeMode`. The sequences are
+ * the two the component actually meets, and telling them apart is the whole job.
+ */
+describe('resizeMode', () => {
+  /**
+   * The window is `Duration.card` at the call site, but that module imports Reanimated and
+   * cannot load here — see lib/layoutGrid.ts's Imports note. The rule is window-agnostic, so the
+   * sequences below use the same number literally and `collapseMotion.test.ts` pins that
+   * `Collapsible.tsx` really passes the token.
+   */
+  const RESIZE_WINDOW = 220;
+
+  /** Replay a series of `onLayout` timestamps through the rule the way the component does. */
+  function replay(times: number[]): ('ease' | 'track')[] {
+    let settlesAt = 0;
+    return times.map((now) => {
+      const mode = resizeMode(now, settlesAt);
+      settlesAt = now + RESIZE_WINDOW;
+      return mode;
+    });
+  }
+
+  it('eases a lone change — a row added to an open card', () => {
+    expect(replay([1000])).toEqual(['ease']);
+  });
+
+  it('eases every change when they are far apart', () => {
+    // Three separate row edits, seconds apart. Each is discrete and each should be animated;
+    // this is the 2026-08-14 behaviour and narrowing it must not have cost it.
+    expect(replay([0, 3000, 7000])).toEqual(['ease', 'ease', 'ease']);
+  });
+
+  /**
+   * The regression. A nested Collapsible revealing inside an open card fires `onLayout` on the
+   * parent every frame for the length of the reveal. Easing each one restarts the tween, so the
+   * clip crawls ~100px behind its own content and then snaps — the reported "wrong height and
+   * flickering".
+   */
+  it('tracks a target that is still moving — a nested reveal at 60fps', () => {
+    const frames = Array.from({ length: 14 }, (_, i) => i * 16.7);
+    const modes = replay(frames);
+    expect(modes[0]).toBe('ease');
+    expect(modes.slice(1)).toEqual(Array(13).fill('track'));
+  });
+
+  it('keeps tracking for as long as the events keep coming', () => {
+    // A slow reveal on a struggling frame budget: still inside the window, still moving.
+    const frames = Array.from({ length: 20 }, (_, i) => i * (RESIZE_WINDOW - 20));
+    expect(replay(frames).slice(1).every((m) => m === 'track')).toBe(true);
+  });
+
+  it('goes back to easing once the content has settled', () => {
+    // A reveal, then a pause longer than the window, then one discrete edit.
+    const reveal = [0, 16.7, 33.4, 50.1];
+    const modes = replay([...reveal, 50.1 + RESIZE_WINDOW + 1]);
+    expect(modes[modes.length - 1]).toBe('ease');
+  });
+
+  it('treats the exact window boundary as settled, not moving', () => {
+    // `<` not `<=`: at exactly `settlesAt` the previous animation has finished, so there is
+    // nothing to chase and the next change is discrete again.
+    expect(resizeMode(RESIZE_WINDOW, RESIZE_WINDOW)).toBe('ease');
+    expect(resizeMode(RESIZE_WINDOW - 1, RESIZE_WINDOW)).toBe('track');
   });
 });
