@@ -214,9 +214,18 @@ import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 
 /**
- * Which backdrop this surface sits over. **Presentational no-op since the 2026-08-05 card
- * reset** — all three render identically (opaque fill, one border). Kept for the call sites
- * and as a place for a future sheets-differ-from-cards decision; see the Edit notes.
+ * Which backdrop this surface sits over, and it DECIDES THE MATERIAL — ⚠️ this doc used to say
+ * the opposite ("presentational no-op since the 2026-08-05 card reset — all three render
+ * identically"), which has been false since 2026-08-18.
+ *
+ * `ambient` is the only translucent tier: it sits in a vertical list that never overlaps
+ * itself, so it transmits the lit backdrop. `overlay` and `nav` paint OPAQUE, because a sheet
+ * or the bottom bar has the app's own cards behind it and frost there is not depth — it is the
+ * card underneath reading through (maintainer, against a screenshot: *"Cards that overlap other
+ * cards should never be translucent."*). The two tiers also pick different fill pairs:
+ * `surfaceGlass`/`surface` vs `surfaceGlassStrong`/`surfaceRaised`.
+ *
+ * See `glassOn` and the Edit notes for the full ruling.
  */
 export type SurfaceContext = 'ambient' | 'overlay' | 'nav';
 
@@ -395,9 +404,12 @@ export default function Surface({
   // below became unreachable code. The commit's own message said *"`overlay`/`nav` are
   // untouched"*; they had not been reachable for three weeks.
   //   ⚠️ **Never add a term to this predicate without checking the other terms don't already
-  // cover the space.** `lib/__tests__/glassPredicate.test.ts` now evaluates it over every
-  // `(context × setting)` combination and fails if no combination yields `true` — a source-text
-  // regex cannot see a constant, which is exactly why three of them passed over this one.
+  // cover the space.** `__tests__/glassMaterial.test.ts` ("opaqueCards is scoped to CARDS, and
+  // glassSurfaces still wins over it") EXTRACTS this expression and evaluates it over every
+  // `(context × setting)` combination — 48 of them — asserting some combination still yields
+  // `true`, that ambient-at-defaults is `true`, and that each switch can individually force
+  // `false`. A source-text regex cannot see a constant, which is exactly why three of them
+  // passed over this one.
   //
   // **The contrast objection that motivated it was REAL, and is answered by a budget rather
   // than by opacity.** It is worth restating because it is the thing that must not regress:
@@ -672,10 +684,6 @@ export default function Surface({
 
 
 const styles = StyleSheet.create({
-  // The gradient ring sits between the outer shadow-casting view and the mask, `padding:
-  // EDGE_WIDTH` revealing itself as the border around it. alignSelf:'stretch' spans the full
-  // card width; the HEIGHT counterpart (flexGrow) is conditional via `maskGrowStyle`.
-  ring: { alignSelf: 'stretch' },
   // ── Key-press housing ───────────────────────────────────────────────────────────────────
   // The same two-part shape components/Button.tsx uses, so a pressed card and a pressed button
   // are the same object in two sizes rather than two techniques. `relative` is what the
