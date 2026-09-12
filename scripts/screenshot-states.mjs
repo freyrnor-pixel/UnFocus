@@ -315,6 +315,20 @@ async function tryButtonLike(page, fragment, timeout = 4000) {
 async function closeOverlays(page) {
   for (let i = 0; i < 4; i++) {
     let closed = false;
+    // ⚠️ **An EXPANDED CARD first, and by accessible name — it has no text button at all.**
+    //
+    // `components/CardExpandHost.tsx` draws a full-screen absolutely-positioned layer whose only
+    // dismiss control is a `CardExpandButton` icon, labelled `collapseCardLabel`. Two
+    // consequences the text loop below cannot handle: `getByText` never matches an icon, and the
+    // host is not a ROUTE, so `back()`'s `page.goBack()` does not close it either. The layer then
+    // sits over the bottom nav and every later `tab()` click is "intercepted by a subtree",
+    // which is how `catalogue` and `day-log` timed out (2026-09-12).
+    const collapse = page.getByRole('button', { name: 'Collapse card', exact: true }).first();
+    if (await collapse.isVisible({ timeout: 400 }).catch(() => false)) {
+      await collapse.click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      continue;
+    }
     for (const label of ['Done', 'Close', 'Skip', 'Got it', 'Got it →', 'OK', 'Cancel']) {
       const btn = page.getByText(label, { exact: true }).first();
       if (await btn.isVisible({ timeout: 400 }).catch(() => false)) {
@@ -356,9 +370,33 @@ async function assertOnScreen(page, marker, shotName) {
   }
 }
 
+/**
+ * Switch to a bottom-nav tab.
+ *
+ * ⚠️ **The retry is load-bearing, not defensive padding.** The FIRST `tab()` after an excursion
+ * that pushed a screen (`habits-empty`) times out at 10s every run: `back()`'s `ensureTabs`
+ * only asserts that the Home button is VISIBLE, which it is while the pop animation is still
+ * settling and the nav is not yet hittable.
+ *
+ * That cost was hidden until 2026-09-12 because a stale `food` excursion sat immediately after
+ * `habits-empty` and absorbed the failure — it timed out, `excursion()` swallowed it, and the
+ * NEXT excursion found a settled nav and passed. Removing `food` (its Food button stopped
+ * existing on 2026-09-07) moved the identical timeout onto `catalogue`, which does have
+ * baselines, and turned two silent "coverage gap" lines into two `[not captured]` findings.
+ * A sacrificial excursion is not a mechanism; retrying the click once is.
+ */
 async function tab(page, name) {
   await closeOverlays(page);
-  await page.getByRole('button', { name, exact: true }).first().click({ timeout: 10000 });
+  const btn = () => page.getByRole('button', { name, exact: true }).first();
+  try {
+    await btn().click({ timeout: 10000 });
+  } catch {
+    // Let the pop animation finish, clear anything it revealed, and try once more. A second
+    // failure is a real one and throws, so the excursion still reports it.
+    await page.waitForTimeout(1200);
+    await closeOverlays(page);
+    await btn().click({ timeout: 10000 });
+  }
   await page.waitForTimeout(900);
   await closeOverlays(page);
 }
@@ -840,17 +878,20 @@ async function main() {
         });
       });
 
-      await excursion(page, 'food', async () => {
-        await tab(page, 'Shop');
-        await tryButton(page, 'Food');
-        await page.waitForTimeout(900);
-        await shot(page, 'food', {
-          title: 'Food & meals (a button on Shopping, not a tab)',
-          screen: 'app/food.tsx',
-          state: 'EMPTY. Orange screen hue. The per-meal "add a dish" trigger sits at the BOTTOM of the list it appends to — it used to be a small "+" wedged into the section header beside the collapse chevron, close enough that the two read as one crowded control.',
-          components: 'FoodTab, AddDishSheet, AddRow',
-        });
-      });
+      // ⚠️ **The `food` excursion is RETIRED (2026-09-12), not temporarily broken.**
+      //
+      // It did `tryButton(page, 'Food')` on the Shop tab and shot `app/food.tsx`. There has been
+      // no Food button there since 2026-09-07: Food stopped being a peer card and became the
+      // Catalogue card's second inner tab ("Katalog = ett kort, to faner" — see lib/i18n.ts's
+      // `catalogueTabItems`/`catalogueTabDishes`). The excursion then threw a 10s click timeout
+      // on every run, in BOTH themes, and visual-diff.mjs blamed a neighbouring coverage gap on
+      // it ("the `food` excursion above it times out for a related reason").
+      //
+      // Nothing is lost by removing it: it had NO baseline in either visual-baselines/light or
+      // /dark, so it was never in the compared set — it cost two timeouts a run and produced an
+      // image nobody looked at. The screen's content is covered by the `catalogue` and
+      // `catalogue-dishes` shots immediately below, which DO have baselines and which already
+      // assert the Items/Dishes switch. `app/food.tsx` survives as a back-compat route.
 
       await excursion(page, 'catalogue', async () => {
         await tab(page, 'Shop');
@@ -900,9 +941,17 @@ async function main() {
 
       await excursion(page, 'day-log', async () => {
         // Earlier days is a SECTION inside To-do's Today card since 2026-08-26.
+        // ⚠️ **`openCard`, not `tryButton('Earlier days')`** — it is a `SectionCard`
+        // (components/TodoSurface.tsx), so its control is a `CardCollapseToggle` whose accessible
+        // name is composed as "Earlier days: Expand list". The exact-match `tryButton` never
+        // matched, returned false without throwing, and this shot was the To-do tab with the
+        // section still SHUT — the same silent locator drift the `catalogue` entry below records,
+        // and the reason this shot was not blessed until 2026-09-12 even once the walk reached it.
         await tab(page, 'To-do');
         await openCard(page, 'Today');
-        await tryButton(page, 'Earlier days');
+        if (!(await openCard(page, 'Earlier days'))) {
+          throw new Error('day-log: no "Earlier days: Expand list" toggle — refusing to shoot a shut section');
+        }
         await page.waitForTimeout(1000);
         await shot(page, 'day-log-screen', {
           title: 'Earlier days (the day log, one day at a time)',

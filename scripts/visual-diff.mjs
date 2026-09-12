@@ -139,6 +139,13 @@ const BASELINE_SET = [
   // Planner COLLAPSED, so its two sections — the whole of that change — would have been
   // invisible here. Same ratchet as `home-energy-budget` and `catalogue-dishes`.
   'todo-planner',
+  // ⚠️ **Promoted out of WANTED_BUT_UNCAPTURED on 2026-09-12**, when the `day-log` excursion
+  // stopped timing out. It was never the tab retarget that was wrong: `closeOverlays` could not
+  // dismiss an EXPANDED CARD (components/CardExpandHost.tsx draws a full-screen layer whose only
+  // control is an icon, and which `page.goBack()` cannot close), so the layer left by
+  // `habits-empty` sat over the bottom nav and ate the next three excursions' tab clicks. See
+  // that helper's note in scripts/screenshot-states.mjs.
+  'day-log-screen',
   // ⚠️ `habits-empty` was here and is now in MACHINE_DEPENDENT below — read that entry
   // before putting it back.
   'habits-populated',
@@ -147,6 +154,11 @@ const BASELINE_SET = [
   'shopping-empty',
   'shopping-populated',
   'shopping-monthly',
+  // ⚠️ Promoted the same day and for the same reason as `day-log-screen` above. Its old note
+  // blamed the `food` excursion — correctly, but not causally: `food` was the excursion that
+  // absorbed the expanded-card overlay, and retiring it (its Food button stopped existing on
+  // 2026-09-07) simply moved the timeout onto `catalogue`. The overlay was the cause.
+  'shopping-list-expanded-empty',
   'health-empty',
   'health-medicine-tray',
   'health-dose-logged',
@@ -185,8 +197,10 @@ const BASELINE_SET = [
  * moment its excursion is repaired — that is the ratchet, and it only goes one way.
  */
 const WANTED_BUT_UNCAPTURED = [
-  ['day-log-screen', 'the walk’s `day-log` excursion times out — Earlier days is a SECTION inside To-do’s Today card since 2026-08-26, and retargeting the tab was not enough'],
-  ['shopping-list-expanded-empty', 'needs a list created first; the `food` excursion above it times out for a related reason'],
+  // `day-log-screen` and `shopping-list-expanded-empty` left this list on 2026-09-12 — both are
+  // in BASELINE_SET above now. Their reasons here had gone stale as well as unfixed: each
+  // blamed a neighbouring excursion's timeout, when the single cause of all of them was an
+  // expanded card `closeOverlays` could not dismiss.
   // ⚠️ **Replaces `goals-drawer`, which this set held until 2026-09-01 and which no longer
   // exists** — the Goals editor was a folded section inside To-do's Today card and is a centre
   // pop-up now, reached from the "Edit goals" row at the foot of a goal picker. The walk tries
