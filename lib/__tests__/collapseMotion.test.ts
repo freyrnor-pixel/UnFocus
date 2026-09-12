@@ -129,6 +129,20 @@ describe('Collapsible — the dedupe compares against the TARGET, not the live v
     expect(body).not.toMatch(/measuredTarget\.value =/);
   });
 
+  /**
+   * The resize window must BE the resize animation's duration — the question it asks is "would
+   * the last request have landed yet?", and two different numbers would make it ask something
+   * else. `lib/__tests__/layoutGrid.test.ts` runs the rule over real frame sequences; this pins
+   * that the call site feeds it the right clock, which that test cannot see (it cannot import
+   * `constants/motion` — Reanimated will not load in node).
+   */
+  it('opens the chase window for exactly as long as the ease it replaces', () => {
+    expect(src).toMatch(/resizeSettlesAt\.value = now \+ Duration\.card;/);
+    expect(src).toMatch(/resizeMode\(now, resizeSettlesAt\.value\)/);
+    // And the two outcomes are the right way round: track = follow exactly, ease = animate.
+    expect(src).toMatch(/if \(mode === 'track'\) measured\.value = h;/);
+  });
+
   it('records the target it just asked for, on every path out of the guard', () => {
     // Both branches below the guard (instant assign, and the animated resize) must be covered by
     // one write, or the next layout pass compares against a stale target and the bug returns in

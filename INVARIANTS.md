@@ -106,6 +106,23 @@ read it before claiming a visual change is done.
   `Gesture.*` builder method, Reanimated hooks, `withTiming`/`withSpring`/etc.'s completion
   callback, `runOnUI`) crashes on device with zero symptom on web (worklets run JS-thread there).
   Hop with `runOnJS(fn)(args)`. Guard: `__tests__/workletSafety.test.ts` (verified present).
+- **Never EASE a measured height that is itself still moving.** The companion to the `===` rule
+  below, from the same device and the same component. Animating toward a newly measured height is
+  right for a DISCRETE change (a row added to an open card) and wrong for a CONTINUOUS one: a
+  nested `Collapsible` revealing inside an open card fires the parent's `onLayout` every frame,
+  and every one of those RESTARTS `withTiming` from wherever it had got to. A tween restarted
+  every frame never gets past its own first few frames. Measured in the web preview on an
+  already-open card while its child revealed: the clip fell **103px behind its own content for
+  ~200ms** — that much of the card's body sliced off by its own bottom edge — then **snapped 63px**
+  when the measurements stopped and the last tween finally completed. Reported as *"wrong height
+  and flickering"*, and the snap is the part that reads as flicker, because it lands when
+  everything else has stopped. **You cannot smooth something that is already smooth; you can only
+  lag it.** `resizeMode(now, settlesAt)` (`lib/layoutGrid.ts`) tells the two apart: the first
+  request eases, and a second arriving before that ease would have finished means the target is
+  moving, so the clip tracks it exactly from then on. The window must BE the ease's own duration.
+  After: 33px lag on a first open, 3px on a second, no snap. Guards:
+  `lib/__tests__/layoutGrid.test.ts` (replays real frame sequences through the rule),
+  `lib/__tests__/collapseMotion.test.ts` (pins the call site and the window's token).
 - **Never compare a MEASURED layout value with `===`.** Android rounds every layout edge to the
   physical pixel grid (Yoga's point-scale factor is the display density), so a node's reported
   size is a function of where it SITS, not only of what is inside it: unchanged content

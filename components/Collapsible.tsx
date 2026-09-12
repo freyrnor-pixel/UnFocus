@@ -78,12 +78,19 @@
  *     touches only shared values, and a plain JS call in there crashes on device while looking
  *     perfect in the web preview, which runs worklets on the JS thread (see AGENTS.md's
  *     Reanimated note and `__tests__/workletSafety.test.ts`).
- *   - **A height change while OPEN is animated too.** `onLayout` assigned `measured` straight
- *     through, and with `progress` already at 1 that re-rendered the clip at the new height in
- *     one frame — adding or removing a row inside an open card jumped. Deliberately scoped to
- *     the already-open, already-measured, not-reduced-motion case: the FIRST measurement must
- *     land instantly (the deferred reveal above is waiting on it), and a body resizing while it
- *     is still opening should ride its existing curve rather than start a competing one.
+ *   - **A height change while OPEN is animated too — but only a DISCRETE one** (2026-08-14,
+ *     narrowed 2026-09-12). `onLayout` assigned `measured` straight through, and with `progress`
+ *     already at 1 that re-rendered the clip at the new height in one frame — adding or removing
+ *     a row inside an open card jumped. Deliberately scoped to the already-open,
+ *     already-measured, not-reduced-motion case: the FIRST measurement must land instantly (the
+ *     deferred reveal above is waiting on it), and a body resizing while it is still opening
+ *     should ride its existing curve rather than start a competing one.
+ *     ⚠️ **A CONTINUOUS change must not be eased, and easing it is a visible bug** — a nested
+ *     Collapsible revealing inside an open card fires `onLayout` every frame, each restarting
+ *     the tween, so the clip falls 104px behind its own content and snaps 63px at the end
+ *     (measured; see `resizeSettlesAt`). That is the "wrong height and flickering on the first
+ *     opens" device report. The two cases are told apart by whether a second request arrives
+ *     inside the first's window.
  *   - **Lazy mount preserved:** children render only while `open` OR while a close animation is
  *     still playing; the close `withTiming` completion callback unmounts them (`runOnJS`). A
  *     fully-collapsed instance renders no children (matters for long lists like WeekListCard
@@ -114,7 +121,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
-import { sameLayout } from '@/lib/layoutGrid';
+import { resizeMode, sameLayout } from '@/lib/layoutGrid';
 import { useAccessibility } from '@/lib/useAppTheme';
 
 type Props = {
@@ -158,6 +165,30 @@ export default function Collapsible({ open, children, style }: Props) {
    * height", which is the question it was always trying to ask.
    */
   const measuredTarget = useSharedValue(0);
+  /**
+   * When the in-flight resize tween would finish — the clock that tells a DISCRETE height change
+   * apart from a CONTINUOUS one.
+   *
+   * ⚠️ **Added 2026-09-12 from a measured device report: "wrong height and flickering" on the
+   * first opens of a card, settling afterwards.** The resize branch below eases `measured`
+   * toward a newly measured height, which is right for the case it was written for (a row added
+   * to or removed from an open card — 2026-08-14). It is exactly wrong when the content is
+   * ITSELF animating, which is what a nested Collapsible revealing inside an open card does:
+   * `onLayout` then fires every frame, each one RESTARTS `withTiming` from the current value,
+   * and a tween restarted every frame never gets past its own first few frames. Measured in the
+   * web preview on the To-do tab, an already-open card while its child revealed:
+   *
+   *     content  300 → 333 → 371 → 403 → 429 → 451 → 467 → 480 → 490 → 496 → 500 → 504
+   *     clip     300   300   300   300   306   316   330   346   364   382   399   441 → 504
+   *
+   * **104px of the card's own content sliced off by its own bottom edge for ~200ms**, then a
+   * 63px snap when the measurements stop and the last tween finally completes. You cannot smooth
+   * something that is already smooth; you can only lag it.
+   *   So: the first resize still eases (the discrete case is unchanged), and a second request
+   * arriving before that ease would have finished means the target is moving — from there the
+   * clip tracks the content exactly, for as long as the events keep coming.
+   */
+  const resizeSettlesAt = useSharedValue(0);
 
   /** The open curve. Shared by the effect and the deferred path so they cannot disagree. */
   function runOpen() {
@@ -276,7 +307,17 @@ export default function Collapsible({ open, children, style }: Props) {
     // land instantly (the curve is waiting on it), and a body that resizes while it is still
     // opening should follow its own curve rather than start a second one.
     if (progress.value === 1 && measured.value > 0 && !reducedMotion) {
-      measured.value = withTiming(h, { duration: Duration.card, easing: Ease.enter });
+      // Is the target moving? A second request inside the first one's window means the content
+      // is animating, not stepping — see `resizeSettlesAt` and lib/layoutGrid.ts's `resizeMode`,
+      // which is where the rule lives so it can be tested. `onLayout` runs on the JS thread, so
+      // a plain clock read is fine here.
+      const now = Date.now();
+      const mode = resizeMode(now, resizeSettlesAt.value);
+      // `Duration.card` — the same duration the ease below runs for, which is what makes the
+      // window mean "would the last request have landed yet?".
+      resizeSettlesAt.value = now + Duration.card;
+      if (mode === 'track') measured.value = h;
+      else measured.value = withTiming(h, { duration: Duration.card, easing: Ease.enter });
       return;
     }
     measured.value = h;

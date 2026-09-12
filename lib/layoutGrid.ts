@@ -1,5 +1,12 @@
 /**
- * layoutGrid.ts — is a change in a measured layout REAL, or is it the pixel grid rounding?
+ * layoutGrid.ts — how to react to an `onLayout` value without building a loop.
+ *
+ * Two questions, both of which a component that measures itself and then animates toward what
+ * it measured has to get right, and both of which were got wrong in `components/Collapsible.tsx`
+ * in ways that reached a device:
+ *
+ *   1. **Is this change REAL, or is it the pixel grid rounding?** — `sameLayout`, below.
+ *   2. **Is the target STILL MOVING?** — `resizeMode`, at the bottom.
  *
  * **Why this exists.** Android lays out on a physical-pixel grid. Yoga is given the display's
  * density as its point-scale factor, so every node's edges are rounded to whole device pixels
@@ -28,7 +35,11 @@
  * supposed to stop a loop silently stops stopping it.
  *
  * Connections:
- *   Imports → react-native (PixelRatio)
+ *   Imports → react-native (PixelRatio). ⚠️ **Nothing else, and `constants/motion` in
+ *             particular is out** — it pulls in react-native-reanimated, which cannot load in
+ *             the node test environment, and importing it here took the whole suite down. The
+ *             resize WINDOW is passed in by the caller for that reason; same dependency-free
+ *             rule lib/tourSpotlight.ts keeps, and for the same payoff.
  *   Used by → components/Collapsible.tsx (the measured-height clip — the loop this was written
  *             for)
  *   Data    → none (pure, apart from reading the display density)
@@ -91,4 +102,46 @@ const FLOAT_SLACK = 1e-6;
  */
 export function sameLayout(a: number, b: number): boolean {
   return Math.abs(a - b) <= pixelQuantum() + FLOAT_SLACK;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Is the target still moving?
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Should a newly measured height be EASED toward, or TRACKED exactly?
+ *
+ * ⚠️ **Easing a height that is itself animating is a visible bug, and it shipped** (2026-09-12,
+ * device report: *"wrong height and flickering"* on a card's first opens). Easing is right for a
+ * DISCRETE change — a row added to or removed from an open card, which is what the 2026-08-14
+ * pass added it for. It is wrong for a CONTINUOUS one: a nested `Collapsible` revealing inside
+ * an open card makes its parent's `onLayout` fire every frame, and every one of those RESTARTS
+ * the tween from wherever it had got to. A tween restarted every frame never gets past its own
+ * first few frames.
+ *
+ * Measured in the web preview, an already-open card while its child revealed:
+ *
+ *   before   content 300 → 333 → 371 → 403 → 429 → 451 → 467 → 480 → 490 → 496 → 500 → 504
+ *            clip    300   300   300   300   306   316   331   348   365   382   399  440 → 504
+ *            max lag 103px for ~200ms, then a 63px snap when the measurements stopped
+ *   after    clip    300   300   300   371   403   429   451   467   480   490   496   503  504
+ *            max lag 33px on a first open, 3px on a second, and no snap at all
+ *
+ * Every pixel of that lag is content sliced off by the card's own bottom edge, and the snap
+ * lands when everything else has stopped moving, which is what makes it read as a flicker.
+ *
+ * **You cannot smooth something that is already smooth; you can only lag it.** So the first
+ * request eases (the discrete case is unchanged) and, if another arrives before `settlesAt`, the
+ * target is moving and the clip tracks it exactly from then on.
+ *
+ * `settlesAt` is the caller's own `now + <the resize animation's duration>` — the window has to
+ * BE that duration, because the question is precisely "would the last one have landed yet?".
+ *
+ * Pure, and separate from the component, for the reason `lib/commitOnce.ts` is: this repo has no
+ * hook- or component-rendering library, so a rule left inline in JSX cannot be exercised by
+ * anything. `lib/__tests__/layoutGrid.test.ts` runs it over real frame sequences.
+ */
+export function resizeMode(now: number, settlesAt: number): 'ease' | 'track' {
+  return now < settlesAt ? 'track' : 'ease';
 }

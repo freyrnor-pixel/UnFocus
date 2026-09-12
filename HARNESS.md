@@ -276,6 +276,17 @@ rounding arithmetic at seven real Android densities and runs the predicate over 
 shape in mind for the next "clean here": a harness cannot see a bug whose CAUSE it cannot
 reproduce, and the fix is usually a unit test over the mechanism rather than a bigger walk.
 
+⚠️ **Neither can any of them see a clip that LAGS its content** — and that is a second real
+defect, found 2026-09-12 by sampling instead of screenshotting. Every audit here reads a settled
+frame, so a card that spends 200ms showing only part of its own body and then snaps to size is,
+to all of them, a card that looks correct. A frame-by-frame probe (a `requestAnimationFrame` loop
+recording each `overflow:hidden` clip's height against its measurer's, keyed by an expando id —
+**not** by body text: `lazy: false` mounts the same card on several tabs at once, and text keys
+collide into one series that looks like a per-frame oscillation, which cost one reading of the
+probe) showed the parent of a revealing card sitting 103px short of its content and then jumping
+63px. The general lesson: **when the complaint is about the middle of an animation, no
+screenshot-shaped gate can help; record the trajectory.**
+
 ⚠️ **And `visual`, run three times, is what caught the first fix being half right.** Suppressing
 the noisy measurement without committing it froze each card's height on whichever measurement
 arrived first, so the gate flagged a different screen on each of three runs where the pre-change
