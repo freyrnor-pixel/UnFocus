@@ -18,6 +18,16 @@
  * blur still smears the card behind onto the pane (the 2026-08-18 lesson from the card menu),
  * so the fill and the frost come off together or not at all.
  *
+ * **The card's edges (2026-09-12) — it used to have exactly one.** This row draws all four sides
+ * of `getGlassEdge`'s `'card'` ramp now, at `BORDER_WIDTH.card`, lit on the top-left and shaded
+ * on the bottom-right: the same stroke `components/Surface.tsx` gives a card and gives the bottom
+ * bar through `surfaceContext="nav"`. Before that it had a single hairline along the BOTTOM and
+ * nothing on the other three sides, because this file does not route through `Surface` and so
+ * inherited none of its edge. Two chrome surfaces drawn by two mechanisms cannot match, and the
+ * maintainer report that prompted this named both: *"especially the header and bottom nav (and
+ * borders there as well)."* The lines are absolutely positioned, not a real `borderWidth` — see
+ * the comment at the mount for why, and note they add no layout, so `geometry` sees the same box.
+ *
  * This reverses TWO shipped passes, deliberately, and neither comes back piecemeal:
  *   - **2026-08-16, "no pill background at rest"** — the row sat directly on
  *     `components/ScreenBackground.tsx` with nothing behind it, and a `scrolled` prop mounted a
@@ -45,8 +55,10 @@
  * know which list you meant and so could only ever ADD rows. See lib/scanTarget.ts.
  *
  * Connections:
- *   Imports → constants/theme, constants/buildInfo (the commit in the debug-note mail footer),
- *             lib/haptics, lib/i18n, lib/useAppTheme, lib/feedbackMail
+ *   Imports → constants/theme (BORDER_WIDTH, getGlassEdge — the card/nav edge ramp, see "The
+ *             card's edges" below), constants/buildInfo (the commit in the debug-note mail
+ *             footer), lib/haptics, lib/i18n, lib/useAppTheme (useAppTheme + useIsDark,
+ *             the ramp needs the mode), lib/feedbackMail
  *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
  *             store/useFeedbackStore, components/PressableScale, components/DebugNoteAnchor,
  *             components/AppModal (showAppModal), expo-router, expo-updates, expo-constants,
@@ -138,11 +150,11 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getGlassEdge, getHeaderMetrics, HitSlop } from '@/constants/theme';
 import { shortCommit } from '@/constants/buildInfo';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
-import { useAppTheme } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { buildDebugNotesMailUrl, formatDebugNotesMessage } from '@/lib/feedbackMail';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -182,6 +194,7 @@ type Props = {
 export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onManageCardsPress, attachedBelow }: Props) {
   const t = useT();
   const theme = useAppTheme();
+  const isDark = useIsDark();
   const router = useRouter();
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
@@ -447,6 +460,10 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // this replaced — and no `BlurView`, because content genuinely passes behind this row now and
   // frost would make the app's own cards legible through the title. `styles.headerClip` is what
   // keeps it inside whatever corner radius ScreenScaffold passes.
+  // The card, the nav bar and this header are ONE material at three sizes — same ramp, same
+  // width. `'card'` is deliberate: the nav passes the same weight through `Surface`.
+  const headerRamp = getGlassEdge(theme.border, isDark, 'card');
+  const edgeWidth = BORDER_WIDTH.card;
   const headerBackdrop = (
     <>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
@@ -463,9 +480,26 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       {attachedBelow ? null : (
         <View
           pointerEvents="none"
-          style={[styles.headerEdge, { backgroundColor: theme.border }]}
+          style={[styles.headerEdge, { height: edgeWidth, backgroundColor: headerRamp.colors[1] }]}
         />
       )}
+      {/* ── The LIT edge (2026-09-12) — the header had no top or side boundary at all ────────
+          Maintainer, against a build: *"it still does not look like glass, especially not the
+          borders, and especially the header and bottom nav (and borders there as well)."*
+            The cause is that this header and the bottom bar were drawn by two different
+          mechanisms and could not match. `components/BottomNav.tsx` routes through `Surface`
+          with `surfaceContext="nav"` and gets a full four-sided `getGlassEdge` ramp; this file
+          is a plain View and had ONE hairline along the bottom — no top, no sides, no lit lip.
+          A floating card with a boundary on exactly one of its four sides does not read as a
+          pane of anything.
+            Same ramp, same width, same diagonal as the card and the nav now: lit on top-left,
+          shade on bottom-right. Absolutely positioned rather than a real `borderWidth` for the
+          reason the bottom edge already documents above — this view sits inside `headerClip`,
+          and a border would round with the corners and change the box. These lines cost no
+          layout: `geometry` measures the same header it did before. */}
+      <View pointerEvents="none" style={[styles.headerEdgeTop, { height: edgeWidth, backgroundColor: headerRamp.colors[0] }]} />
+      <View pointerEvents="none" style={[styles.headerEdgeLeft, { width: edgeWidth, backgroundColor: headerRamp.colors[0] }]} />
+      <View pointerEvents="none" style={[styles.headerEdgeRight, { width: edgeWidth, backgroundColor: headerRamp.colors[1] }]} />
     </>
   );
 
@@ -567,12 +601,37 @@ const styles = StyleSheet.create({
   // passes for a floating header. Load-bearing since 2026-08-20: the wash is opaque and always
   // mounted, so an unclipped one would paint over the very corner notches that are supposed to
   // show the content scrolling behind it.
+  // ⚠️ **Height is set at the call site now (2026-09-12), not here.** It was
+  // `StyleSheet.hairlineWidth` while this was the header's ONLY edge; it carries
+  // `BORDER_WIDTH.card` since the header gained the other three, so that all four sides — and
+  // the nav bar, and every card — are one stroke weight.
   headerEdge: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: StyleSheet.hairlineWidth,
+  },
+  // The other three sides of the same ramp. Width/height come from the call site for the same
+  // reason. All four are inside `headerClip`, so they are cut by the corner radius rather than
+  // squaring off past it — the lit top line stops where the corner starts, which is what a
+  // rounded pane's highlight does anyway.
+  headerEdgeTop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+  },
+  headerEdgeLeft: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+  },
+  headerEdgeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
   headerClip: {
     overflow: 'hidden',
