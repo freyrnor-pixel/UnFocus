@@ -24,8 +24,7 @@
  * `getLayeredShadow` — and `GlassFill.tsx` stays deleted: the new material is ~15 lines inside
  * `Surface`, not a resurrected component.
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
 import { THEMES, contrastRatio, IDENTITY_HUES } from '@/constants/colors';
@@ -545,7 +544,10 @@ describe('glass settings', () => {
     // matters is not its text but that it still has a `true` in it.
     const expr = surface.match(/const glassOn = ([^;]+);/)![1];
     const evalGlass = (ctx: 'ambient' | 'overlay' | 'nav', o: Record<string, unknown>) =>
-      // eslint-disable-next-line no-new-func
+      // `new Function` is the point, not a shortcut: the predicate has to be EVALUATED, and a
+      // regex asserting its text is exactly the check that passed while glassOn was constantly
+      // false. (`no-new-func` is not enabled in eslint.config.js, so a disable directive here
+      // reports as unused — this comment carries the intent instead.)
       new Function(
         'glassPref', 'reduceEffects', 'tint', 'overlapsCards', 'isAmbient', 'opaqueCards',
         `return (${expr});`,

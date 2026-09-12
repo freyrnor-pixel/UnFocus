@@ -61,6 +61,11 @@ import { useAppTheme } from '@/lib/useAppTheme';
  * The onboarding steps in order, by route segment. Kept in sync with the screens that exist
  * under app/onboarding/ by `__tests__/onboardingFlow.test.ts` — see the header above.
  */
+// Unused in this module BY DESIGN — nothing has read it since 2026-08-14. It survives as the
+// one written-down list of the flow's screens, and `__tests__/onboardingFlow.test.ts` asserts
+// against it by regex over this file's source (see that test's STEPS block). Deleting it
+// removes the structural guard, so it is kept and silenced rather than dropped.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const STEPS = ['basics', 'privacy', 'restore'] as const;
 
 /**

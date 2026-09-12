@@ -122,15 +122,6 @@ export type LayoutSpec = {
    */
   groupByPerson?: boolean;
   /**
-   * Re-group the list by shop category (aisle) instead of its usual order. You walk a store
-   * in an order, so the list should be in that order too — but ONLY here: everywhere else
-   * Weekly rows keep the position the user dragged them to, and a category re-cluster would
-   * silently undo that (see lib/shoppingGroups.ts's note on groupByCategory being
-   * Monthly-only). Grouping is presentation: no row's stored `orderIndex` is touched, so
-   * switching back restores the dragged order exactly.
-   */
-  groupByAisle?: boolean;
-  /**
    * Draw the day as a clock-time calendar grid (lib/dayGrid + components/DayGridLines)
    * instead of a ruled list. A surface asks for this flag, never for the `timeline` id — same
    * rule as every other flag here.

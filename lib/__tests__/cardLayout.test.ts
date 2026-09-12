@@ -150,19 +150,24 @@ describe('surface/layout registry integrity', () => {
     }
   });
 
-  it('no layout groups by aisle any more — "In the store" is gone', () => {
-    // ⚠️ **`inStore` was deleted on 2026-09-01 with the layout picker**, which was its only
-    // entry point (maintainer: remove Shopping's "how things look" button, and the picker with
-    // it). It was the sole carrier of `groupByAisle` and of the `chips` flag, so
-    // `components/ShoppingChip.tsx` and `components/KeepAwakeInStore.tsx` went with it.
-    //   The assertion is kept, inverted: `groupByAisle` re-clusters a list the user has dragged
-    // into their own order, so a layout quietly acquiring it would undo a manual drag on every
-    // render — the exact reason lib/shoppingGroups.ts keeps groupByCategory off the Weekly tab.
-    // Nothing may set it now that nothing reaches it.
-    for (const id of Object.keys(LAYOUT_SPECS) as (keyof typeof LAYOUT_SPECS)[]) {
-      expect(LAYOUT_SPECS[id].groupByAisle).toBeFalsy();
-    }
-  });
+  /**
+   * ⚠️ **No `groupByAisle` assertion here any more — the flag itself is gone (2026-09-12).**
+   *
+   * `inStore` was deleted on 2026-09-01 with the layout picker, which was its only entry point
+   * (maintainer: remove Shopping's "how things look" button, and the picker with it). It was
+   * the sole carrier of `groupByAisle` and of the `chips` flag, so `components/ShoppingChip.tsx`
+   * and `components/KeepAwakeInStore.tsx` went with it.
+   *
+   * The flag outlived it by eleven days as pure scaffolding: declared on `LayoutSpec`, computed
+   * into an `aisleGroups` memo in `components/WeekListCard.tsx` that nothing rendered, and
+   * pinned here by an assertion that could only ever pass. Deleting the field is what the
+   * inverted assertion was standing in for — a layout cannot acquire a property that does not
+   * exist, and `tsc` says so at the point of the mistake rather than in a test run.
+   *
+   * The reason it must not come back unexamined: re-clustering by aisle undoes a list the user
+   * has dragged into their own order, on every render — the same reason lib/shoppingGroups.ts
+   * keeps `groupByCategory` off the Weekly tab.
+   */
 
   it('leaves shopping with the three shared detail levels and nothing of its own', () => {
     expect(SURFACE_LAYOUTS.shopping).toEqual(['basic', 'normal', 'everything']);

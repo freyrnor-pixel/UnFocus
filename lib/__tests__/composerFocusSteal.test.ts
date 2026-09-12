@@ -163,7 +163,7 @@ describe('AddRow — the tier-3 "More" escalation (session R20.5, 2026-09-05)', 
 describe('the composers this protects are the ones that open a focus-stealing picker', () => {
   // A map of the surfaces the fix covers, asserted so that a caller moving its picker
   // somewhere else shows up here rather than as another "it froze" report.
-  const openers: Array<[string, RegExp]> = [
+  const openers: [string, RegExp][] = [
     // habits — the reported one; mounted by app/(tabs)/habits.tsx via components/HabitsSurface.tsx
     ['lib/useHabitRecurrenceDraft.ts', /showAppModal\(/],
     // a task's Repeat, inside PadTypeRow's panel

@@ -354,7 +354,7 @@ function InlineTaskAdd({
     setGoalId(null);
     setChosenDate(date);
     return task;
-  }, [value, commitDate, time, energyValue, goalId, date, compose, assigneeId, assignee, addTask]);
+  }, [value, commitDate, time, energyValue, goalId, date, assigneeId, assignee, addTask]);
 
   const commitAndEdit = useCommitAndEdit();
 

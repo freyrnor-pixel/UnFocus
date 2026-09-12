@@ -423,7 +423,7 @@ let requestListener: ((req: ExpandRequest | null) => void) | null = null;
 // Separate from `requestListener` because a switch carries no rect — it reuses the open pane's,
 // which only the component holds. See switchExpandedCard.
 let switchListener: ((id: ExpandableCardId) => void) | null = null;
-let idListeners: Array<(id: ExpandableCardId | null) => void> = [];
+let idListeners: ((id: ExpandableCardId | null) => void)[] = [];
 
 /** Grow `id`'s registered body from `rect` (window coordinates, from measureInWindow) to fill the screen. */
 export function expandCard(id: ExpandableCardId, rect: ExpandRect) {

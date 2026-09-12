@@ -17,8 +17,10 @@
 import { Translations } from '@/lib/i18n';
 
 /**
- * The app's ONE shopping-category vocabulary — in shop-walk order, which is what the
- * "In the store" layout's aisle headers read down (`groupByAisle`, lib/cardLayout.ts).
+ * The app's ONE shopping-category vocabulary — kept in shop-walk order, which is the order
+ * the filter bar's chips read down. (It was originally the order the "In the store" layout's
+ * aisle headers read; that layout went with the layout picker on 2026-09-01 and its
+ * `groupByAisle` flag was deleted on 2026-09-12 — see lib/__tests__/cardLayout.test.ts.)
  *
  * **There were TWO of these until 2026-08-13, and the bigger half of the data was filed
  * under the one nothing read.** This list held 8 values while `lib/catalogSeed.ts` and

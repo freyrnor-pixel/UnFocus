@@ -34,7 +34,6 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { getGlow, mix } from '@/constants/theme';
 import { contrastRatio, IDENTITY_HUES, THEMES } from '@/constants/colors';
-import { GROWTH_LEVELS } from '@/lib/growth';
 
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');

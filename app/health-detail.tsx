@@ -10,7 +10,8 @@
  * Connections:
  *   Imports → components/ScreenScaffold, components/Surface, components/PressableScale,
  *             components/EpisodeCloseSheet (closing an ongoing entry from history),
- *             constants/theme (TabularNums), lib/episodes (isOpen, episodeDurationMinutes,
+ *             constants/theme (TabularNums), lib/date (dateStr — the sparkline's LOCAL day keys),
+ *             lib/episodes (isOpen, episodeDurationMinutes,
  *             describeDuration), lib/i18n, lib/severity, lib/useAppTheme, store/useHealthStore,
  *             store/useMedicineStore (naming a recorded relief medicine — read-only)
  *   Used by → Expo Router route "/health-detail"; pushed from app/(tabs)/health.tsx and
@@ -50,20 +51,30 @@ import CenterModalScreen from '@/components/CenterModalScreen';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import EpisodeCloseSheet from '@/components/EpisodeCloseSheet';
+import { dateStr } from '@/lib/date';
 import { describeDuration, episodeDurationMinutes, isOpen } from '@/lib/episodes';
 import { useT } from '@/lib/i18n';
 import { SEVERITY_COLORS, severities, severityInk } from '@/lib/severity';
 import { FontSize, Fonts, Radius, Spacing, TabularNums } from '@/constants/theme';
 import { useAppTheme, useScaledStyles } from '@/lib/useAppTheme';
 
-/** Last N calendar dates (oldest→newest) as YYYY-MM-DD, for the history sparkline. */
+/**
+ * Last N calendar dates (oldest→newest) as YYYY-MM-DD, for the history sparkline.
+ *
+ * ⚠️ **LOCAL dates, via `dateStr`.** This used `cur.toISOString().slice(0, 10)` until
+ * 2026-09-12, which is the UTC date: in Norway (UTC+1/+2) every key generated between
+ * local midnight and 01:00/02:00 was a day behind the keys the store actually writes
+ * (`components/HealthSurface.tsx` logs with `date: todayStr()`), so the sparkline read
+ * the wrong day's severity and "today" never matched. See lib/date.ts's header — these
+ * are local-time formatters and toISOString() is never the answer for a date key.
+ */
 function lastNDates(n: number): string[] {
   const out: string[] = [];
   const d = new Date();
   for (let i = n - 1; i >= 0; i--) {
     const cur = new Date(d);
     cur.setDate(d.getDate() - i);
-    out.push(cur.toISOString().slice(0, 10));
+    out.push(dateStr(cur));
   }
   return out;
 }

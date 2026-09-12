@@ -193,6 +193,11 @@ export default function Collapsible({ open, children, style }: Props) {
         if (finished) runOnJS(setMounted)(false);
       }
     );
+  // `runOpen` is deliberately NOT a dependency. It is a `'worklet'` (see its own docblock
+  // below) and adding it here re-runs this effect on every render that re-creates it, which
+  // restarts the open/close curve mid-flight. Shared values are stable identities, so the
+  // listed deps are the whole real input set.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reducedMotion, progress, measured, pendingOpen]);
 
   /**

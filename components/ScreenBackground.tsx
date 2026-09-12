@@ -121,9 +121,8 @@ import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect, Ellipse } from '
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Duration, Ease } from '@/constants/motion';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { useIsDark, useAccessibility } from '@/lib/useAppTheme';
+import { useAppTheme, useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
-import { useAppTheme } from '@/lib/useAppTheme';
 import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
 
 

@@ -345,8 +345,6 @@ import { getScreenColor } from '@/lib/screenColor';
 import { dayOfWeekMon0 } from '@/lib/date';
 import { useNowMinutes } from '@/lib/useNowMinutes';
 import { useEnergyPause } from '@/lib/useEnergyPause';
-import { CardAccentBadge } from '@/components/CardAccent';
-import { Badge } from '@/components/Badge';
 import GlowPulse from '@/components/GlowPulse';
 import StarterExampleRow from '@/components/StarterExampleRow';
 import NarratorQuote from '@/components/NarratorQuote';

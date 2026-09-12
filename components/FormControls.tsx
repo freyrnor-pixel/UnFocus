@@ -554,7 +554,6 @@ function ListChoice<T extends string | number>({
 }: SegmentedControlProps<T> & { mode: 'inline' | 'sheet' }) {
   const theme = useAppTheme();
   const isDark = useIsDark();
-  const fieldHue = useScreenColor() ?? theme.border;
   const shape = useLabShape();
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.value === value);
