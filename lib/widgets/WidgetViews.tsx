@@ -182,7 +182,7 @@ const LIGHT: Palette = {
 };
 const DARK: Palette = {
   card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95',
-  plate: '#383838', rowFill: '#303030', rowEdge: '#3A3A3A', edgeLit: '#474747',
+  plate: '#383838', rowFill: '#303030', rowEdge: '#3A3A3A', edgeLit: '#9C9C9C',
   good: '#00E58A',
   dark: true,
 };

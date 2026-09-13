@@ -973,9 +973,9 @@ const GLASS_EDGE: Record<
   BorderWeight,
   { lit: number; litDark: number; shade: number; shadeDark?: number }
 > = {
-  card: { lit: 0.3, litDark: 0.16, shade: 1 },
-  field: { lit: 0.26, litDark: 0.12, shade: 0.68 },
-  button: { lit: 0.22, litDark: 0.1, shade: 0.52 },
+  card: { lit: 0.3, litDark: 0.55, shade: 1 },
+  field: { lit: 0.26, litDark: 0.42, shade: 0.68 },
+  button: { lit: 0.22, litDark: 0.34, shade: 0.52 },
 };
 
 /**
@@ -996,6 +996,41 @@ const GLASS_EDGE: Record<
  * lit edge is where the boundary is WEAKEST. Same diagonal, same light source, opposite sign.
  * The shaded side is unchanged in both modes and is still the one contrast promise
  * (`__tests__/glassMaterial.test.ts`); the lit side never was one.
+ *
+ * ── ⚠️ The DARK lit stops were RAISED on 2026-09-12, because the light was coming from the
+ *    wrong side ────────────────────────────────────────────────────────────────────────────
+ * Maintainer, against a build: *"it still does not look like glass, especially not the borders."*
+ * The cause is arithmetic, not taste, and it inverted the whole material:
+ *
+ *   · lit  was white at **0.16** over a `#242424` card → `rgb(71,71,71)`
+ *   · shade is `#8A8A95` at **1.0**                    → `rgb(138,138,149)`
+ *
+ * The SHADED side was nearly twice as bright as the LIT one. Every doc in this repo — this
+ * block, `getGlassEdge` below, `components/Surface.tsx`'s header — says a pane "catches the
+ * light on its TOP-LEFT", and the numbers put the light source at the bottom-right. A pane lit
+ * from the side its own shadow falls on does not read as a lit pane; it reads as a drawn frame,
+ * which is exactly what was reported.
+ *
+ * `litDark` now clears the shade stop so the diagonal runs the way the design says it does:
+ * card 0.55 → `rgb(156,156,156)` against the shade's 138. Field and button move in the same
+ * proportion (1 : 0.76 : 0.62) so the three weights stay one family.
+ *
+ * **This is free, and that is why it is the lit side that moved.** WCAG 1.4.11's 3:1 boundary
+ * promise is carried entirely by the SHADE stop (4.546:1 on the pane, `lib/glassBudget.ts`'s
+ * `borderMin`); the lit stop has never had a floor under it. The shade stops are deliberately
+ * UNTOUCHED here — softening them is the obvious next lever and it spends real contrast
+ * margin, so it is a separate decision with a measurement attached.
+ *
+ * **LIGHT mode is deliberately unchanged.** Its lit side is the boundary colour held back, and
+ * on a near-white card that is correct by the paragraph above: weakest where the light lands.
+ * There is no inversion to fix there — the bug was dark-only.
+ *
+ * ⚠️ Not a reversal of the specular ban, and it must not be cited as one.
+ * `DESIGN_COMPARISON/16-solid-pressable-materials.md` §2 bans a shine on the FACE and names
+ * borders as the sanctioned alternative — *"Get solidity from borders, bases and travel
+ * instead"* — and its 2026-08-15 addendum says outright that *"a translucent FILL and a lit
+ * EDGE are not a shine on the FACE."* The ban's guard in `__tests__/glassMaterial.test.ts`
+ * stays exactly as it was.
  */
 const GLASS_LIGHT = '#FFFFFF';
 
