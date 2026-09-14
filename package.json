@@ -72,7 +72,8 @@
     "pngjs": "^7.0.0",
     "prettier": "^3.9.5",
     "sql.js": "^1.14.1",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "yoga-layout": "^3.2.1"
   },
   "scripts": {
     "postinstall": "patch-package",
@@ -94,7 +95,8 @@
     "widget-previews": "node scripts/build-widget-previews.mjs",
     "visual": "bash scripts/run-visual.sh",
     "geometry": "bash scripts/run-geometry.sh",
-    "jitter": "bash scripts/run-jitter.sh"
+    "jitter": "bash scripts/run-jitter.sh",
+    "yoga": "node scripts/measure-yoga.mjs"
   },
   "private": true
 }

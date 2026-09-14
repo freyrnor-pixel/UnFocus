@@ -76,22 +76,57 @@ export function pixelQuantum(): number {
   return density > 0 ? 1 / density : 1;
 }
 
+/** One float32 unit in the last place, relative — 2^-23. Yoga's storage precision. */
+const FLOAT32_EPSILON = 1.1920929e-7;
+
 /**
- * Slack for binary floating point, and nothing else.
+ * The largest absolute layout coordinate this app can produce, in dp.
  *
- * A gap of exactly one quantum IS the rounding, so the comparison below has to include it — but
- * both sides arrive as `n / density` divisions, and at density 3.5 the two rounded heights of
- * unchanged content came out `0.2857142857142918` apart against a quantum of
- * `0.2857142857142857`. Six parts in 10^15 too wide, and a bare `<=` called it a real change:
- * exactly the noise this module exists to absorb, let through by the representation rather than
- * by the arithmetic. Caught by the density sweep in lib/__tests__/layoutGrid.test.ts, which is
- * why that sweep runs every density rather than one representative one.
- *
- * It is a float-error allowance, NOT a tuning knob — a millionth of a dp is far below anything
- * a layout can express, so widening it cannot buy anything and would only start hiding real
- * changes.
+ * Generous on purpose: a long scroll's content height is the biggest number a layout edge ever
+ * takes, and 16384dp is far past anything this app builds (the tallest real screen measures in
+ * the low thousands). It is an upper BOUND for an error term, so over-estimating it is the safe
+ * direction — see `FLOAT_SLACK` for the margin that leaves.
  */
-const FLOAT_SLACK = 1e-6;
+const MAX_LAYOUT_COORD = 16384;
+
+/**
+ * Slack for Yoga's float32 representation, and nothing else.
+ *
+ * ⚠️ **This was `1e-6` until 2026-09-14, and that number was derived in the wrong precision.**
+ * The original arithmetic was sound: reconstruct `Math.round(v * density) / density`, and two
+ * rounded heights of unchanged content land `0.2857142857142918` apart against a quantum of
+ * `0.2857142857142857` — six parts in 10^15, so a millionth of a dp was ample. But that
+ * reconstruction runs in JS, i.e. **float64**, and Yoga stores computed layout in **float32**.
+ * What an `onLayout` actually delivers is a float32 widened to a double — verified against the
+ * engine itself, where `Math.fround(h) === h` for every height it returns.
+ *
+ * **And the error belongs to the POSITION, not the height.** A height is `bottomEdge - topEdge`,
+ * both of them float32 absolute coordinates, so the absolute error in the difference scales with
+ * how far DOWN THE SCREEN the node sits — not with how tall it is. A 14dp legend row a hundred dp
+ * into a card carries ~6.2e-6 of error, six times the old slack, while the same row at the top of
+ * the screen carries a tenth of that. Measured at density 2.625:
+ *
+ *   node                          excess over one quantum
+ *   a 41dp title at the top       3.5e-6
+ *   a 14dp legend row, 100dp down 6.2e-6
+ *
+ * So `sameLayout` returned FALSE for exactly one quantum of genuine pixel-grid rounding at
+ * densities 2.625, 2.75, 3 and 3.5 — every fractional density and the commonest integer one —
+ * for anything below the top of a card. That is the #700 loop still armed: the guard written to
+ * stop a tween starting on rounding noise was starting one instead, on the densities the flicker
+ * was reported from.
+ *
+ * `lib/__tests__/layoutGrid.test.ts` passed throughout because it modelled the arithmetic in
+ * float64 too — the same shape as the `glassMaterial` defect in CLAUDE.md A2: a test that
+ * reproduces the mechanism at the wrong fidelity passes for the wrong reason. It rounds through
+ * `Math.fround` now, and `npm run yoga` evaluates this predicate over the real engine's output.
+ *
+ * Still NOT a tuning knob. It is a float32 ulp at the largest coordinate the app can produce —
+ * the smallest difference the engine can represent there. The smallest difference a layout can
+ * MEAN is one quantum: 0.25dp at density 4, which is **128× this value**. There is no room to
+ * grow it into a real change, and shrinking it re-arms the loop.
+ */
+const FLOAT_SLACK = MAX_LAYOUT_COORD * FLOAT32_EPSILON;
 
 /**
  * Are these two measured layout values the same thing, allowing for pixel-grid rounding?

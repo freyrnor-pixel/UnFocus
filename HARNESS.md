@@ -234,6 +234,49 @@ would have hidden it.
 mis-centred by Android font padding is invisible here **by construction**. That class still needs
 a device.
 
+### Yoga — `npm run yoga` (2026-09-14)
+The only harness here that measures **the engine the app actually ships**. Every other one
+renders react-native-web in Chromium, i.e. browser flexbox; the app lays out with Yoga. They
+agree most of the time, and this exists for the times they do not — which is, by selection,
+where the bugs that reach a device report live. It needs no build, no server and no baseline
+(`yoga-layout` is Yoga compiled to WASM), runs in about a second, and is in the `verify` CI job
+rather than the `visual` one for exactly that reason.
+
+Three checks, and check 0 is the one to read first:
+
+- **self-probe** — re-plants `HEADER_CLIP_DEBUG.md` fix #8's defect (`flex:1` on a Text inside a
+  column wrapper under a definite-height ancestor) and requires this harness to report the 0dp
+  frame, plus a control that lays out normally, plus a demonstration that the pixel-grid check
+  still fails against the pre-2026-09-14 slack. **If any of the three does not fire, the other
+  checks do not run and the harness reports itself blind.** Same discipline `jitter` earned its
+  trust with, and it is not decoration: this file's first real run found a shipped bug.
+- **zero-height** — a modelled node computing 0dp while carrying content. Android paints that
+  frame sliced in a straight line by the nearest `overflow:'hidden'` ancestor; web measures the
+  content and looks perfect. Two device bugs of this class are already documented in the code
+  (`HEADER_CLIP_DEBUG.md` fix #8, `components/EnergyMeter.tsx:869-892`).
+- **pixel-grid** — content whose HEIGHT changes when only its POSITION does, by more than
+  `lib/layoutGrid.ts`'s `sameLayout()` allows. This is `jitter`'s question asked in the engine
+  that can actually answer it (see that section's 2026-09-12 caveat: "a browser has no pixel
+  grid to round on, so this harness cannot generate the input the bug needs").
+
+⚠️ **What it found on its first run, and the reading to keep.** `sameLayout()`'s `FLOAT_SLACK`
+was an absolute `1e-6`, derived by reconstructing the rounding in JS — i.e. **float64**. Yoga
+stores computed layout in **float32**, and a height is `bottomEdge - topEdge` of two float32
+absolute coordinates, so the error scales with how far DOWN THE SCREEN a node sits, not with how
+tall it is. One quantum of genuine rounding therefore read as a real change at densities 2.625,
+2.75, 3 and 3.5 for anything below the top of a card — the #700 loop still armed, on precisely
+the densities the flicker was reported from. `lib/__tests__/layoutGrid.test.ts` passed the whole
+time because it modelled the arithmetic in float64 too. **The lesson generalises: a test that
+reproduces a mechanism at the wrong PRECISION passes for the wrong reason**, the same shape as
+the `glassMaterial` source-text defect in CLAUDE.md A2, one level down.
+
+⚠️ **Its subtrees are hand-transcribed models** (`scripts/yoga-subtrees.mjs`), each citing the
+`file:line` it mirrors. Change one of those styles and change the model in the same edit — a
+drifted model reports clean about a tree the app no longer has. Coverage is deliberately narrow:
+the value is in the ENGINE, not the breadth, and a whole-app transcription would rot faster than
+it caught anything. A clean run here says the MODELLED subtrees are sound; it says nothing about
+the rest.
+
 ### Jitter — `npm run jitter` (2026-09-09)
 Answers a question none of the others can: **does anything on a resting screen change size on
 its own?** `visual` takes ONE screenshot per screen, so a layout oscillating between two heights
