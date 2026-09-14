@@ -716,7 +716,19 @@ function ScreenBackground({ activeRoute }: Props) {
               The rule that came out of it: a layer whose opacity ANIMATES must already be
               mounted when the animation starts, so only layers that are either static or
               switched by a setting may be gated on having something to draw. */}
-          <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
+          {/* ⚠️ **Wrapped in a hardware-texture View on 2026-09-14 — it was the ONE orb layer
+              without one.** The three below get it from `OrbLayer`; this base layer was mounted
+              bare because it never animates, and that reasoning had it backwards. A layer that
+              never animates is exactly the one worth rasterising: it is always on screen, so
+              every window repaint re-ran its three radial-gradient shaders from scratch. With a
+              texture the same repaint is a blit.
+                This matters because of what repaints the window — see `components/Surface.tsx`
+              at `opaqueFill`. Drifting particles used to dirty the whole screen every frame;
+              opaque cards now clip that to the gutters, and the gutters are exactly where this
+              layer is visible. Cheap repaints there are the other half of that fix. */}
+          <View pointerEvents="none" renderToHardwareTextureAndroid style={styles.backdrop}>
+            <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
+          </View>
           {/* ⚠️ **The two hue buffers are mounted UNCONDITIONALLY, and a gate here was tried and
               REVERTED on 2026-09-07 — do not re-add it.** Gating each on `buffers[n]` looked
               free (a canvas drawing three shapes at `peak={0}` paints nothing), and it made
