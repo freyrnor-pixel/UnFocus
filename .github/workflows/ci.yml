@@ -52,6 +52,16 @@ jobs:
       - name: Test (with coverage)
         run: npm run test:coverage
 
+      # The real-Yoga layout audit. It lives in THIS job rather than the `visual` one below
+      # because it needs no Chromium and no static server — `yoga-layout` is the engine compiled
+      # to WASM, so it is a plain node process that finishes in about a second. It is also the
+      # only gate here that measures the engine the app actually ships: every harness in the
+      # `visual` job renders react-native-web, which has no pixel grid and resolves flex-basis:0
+      # from content, so both of the bug classes this checks are invisible there BY
+      # CONSTRUCTION. See scripts/measure-yoga.mjs's header for the three device bugs that cost.
+      - name: Layout audit (real Yoga)
+        run: npm run yoga
+
   # ---------------------------------------------------------------------------
   # The VISUAL gate.
   #

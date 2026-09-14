@@ -31,7 +31,15 @@ function atDensity(density: number, run: () => void) {
  */
 function roundedHeight(top: number, contentHeight: number, density: number) {
   const px = (v: number) => Math.round(v * density);
-  return (px(top + contentHeight) - px(top)) / density;
+  // ⚠️ **`Math.fround` is the whole fidelity of this model, added 2026-09-14.** Yoga stores
+  // computed layout as float32, so the number an `onLayout` hands JS is a float32 widened to a
+  // double — confirmed against the real engine, where `Math.fround(h) === h` for every height it
+  // returns. Without this the division below stays in float64 and the error against an exact
+  // quantum is ~1e-15, which made the sweep pass at every density while the shipped predicate
+  // was rejecting one quantum of genuine rounding at 2.625, 2.75, 3 and 3.5. A model that
+  // reproduces the mechanism in the wrong PRECISION passes for the wrong reason — the same trap
+  // CLAUDE.md A2 records for `glassMaterial`, one level down.
+  return Math.fround((px(top + contentHeight) - px(top)) / density);
 }
 
 describe('pixelQuantum', () => {
@@ -86,6 +94,33 @@ describe('sameLayout', () => {
       const settled = heights[0];
       for (const h of heights) expect(sameLayout(h, settled)).toBe(true);
     });
+  });
+
+  /**
+   * The slack is derived, not chosen, and TWO files depend on the derivation:
+   * `lib/layoutGrid.ts` uses it, and `scripts/measure-yoga.mjs` mirrors the number because a
+   * plain node script cannot import a module that pulls in react-native. A mirror that drifts is
+   * a harness quietly measuring something else, so pin the arithmetic here — the one place both
+   * can be checked against.
+   *
+   * Read `FLOAT_SLACK`'s block in `lib/layoutGrid.ts` before touching these numbers: shrinking
+   * them re-arms the #700 loop, and there is no room to grow them into a real change.
+   */
+  it('allows a float32 ulp at the largest layout coordinate, and nothing near a real change', () => {
+    const FLOAT32_EPSILON = 1.1920929e-7;
+    const MAX_LAYOUT_COORD = 16384;
+    const slack = MAX_LAYOUT_COORD * FLOAT32_EPSILON;
+
+    // What scripts/measure-yoga.mjs hardcodes. Same product, written the same way.
+    expect(16384 * 1.1920929e-7).toBeCloseTo(slack, 12);
+
+    // The margin that makes it safe: the smallest quantum this app can meet is 1/4 (density 4),
+    // and the slack has to stay far under it or it starts swallowing real changes.
+    expect(slack).toBeLessThan(0.25 / 100);
+
+    // And it has to be big enough for the error it exists for: float32 at a real card's depth.
+    // A node 100dp down a screen carries ~6.2e-6; the old absolute 1e-6 did not cover that.
+    expect(slack).toBeGreaterThan(6.2e-6);
   });
 
   it('still sees a real change through that noise', () => {
