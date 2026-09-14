@@ -91,6 +91,25 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/**
+ * An `rgba(...)` edge stop composited over an opaque `#rrggbb` ground, as a luminance.
+ *
+ * The two edge stops are not comparable as written — the lit one is white at a low alpha and
+ * the shaded one is the boundary hue at a high alpha, so neither the alpha nor the hue alone
+ * says which side of the pane is brighter. Only the composite does, and the composite is what
+ * the eye sees.
+ */
+function compositeLuminance(stop: string, groundHex: string): number {
+  const m = /^rgba\((\d+), (\d+), (\d+), ([\d.]+)\)$/.exec(stop);
+  if (!m) throw new Error(`compositeLuminance: not an rgba() stop: ${stop}`);
+  const [r, g, b, a] = [m[1], m[2], m[3], m[4]].map(Number);
+  const v = groundHex.replace('#', '');
+  const ground = [0, 1, 2].map((i) => parseInt(v.slice(i * 2, i * 2 + 2), 16));
+  const mixed = [r, g, b].map((c, i) => Math.round(c * a + ground[i] * (1 - a)));
+  const hex = `#${mixed.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+  return relativeLuminance(hex);
+}
+
 describe('filledEdge — the one surviving piece of the material recipe', () => {
   const base = '#3366CC';
 
@@ -349,7 +368,18 @@ describe('the material system stays deleted, and stays matte', () => {
       // Two stops, not three: the asymmetric fade-to-nothing branch is unreachable for any
       // weight at the default strength now that nothing sets `shadeDark`.
       expect(ramp.colors).toHaveLength(2);
-      expect(ramp.colors[0]).toMatch(/^rgba\(255, 255, 255, 0\.1/);
+      // ⚠️ **This used to pin the literal `0.1x` alpha, and the literal was pinning a DEFECT.**
+      // At `litDark: 0.16` the lit stop composited to rgb(71,71,71) on a `#242424` card while
+      // the shade stop drew rgb(138,138,149) — the SHADED side was nearly twice as bright as
+      // the LIT one, so the pane was lit from the bottom-right while every doc in the repo said
+      // top-left. It read as a drawn frame, which is what the maintainer reported on 2026-09-12.
+      //   So assert the PROPERTY the design promises, not the number that happened to be there:
+      // the lit side is white, and it is brighter than the shaded side. A future retune is free
+      // to move the value and can never silently re-invert the light source.
+      expect(ramp.colors[0]).toMatch(/^rgba\(255, 255, 255, 0?\.\d+\)$/);
+      expect(compositeLuminance(ramp.colors[0], p.surface)).toBeGreaterThan(
+        compositeLuminance(ramp.colors[1], p.surface),
+      );
       // `card`'s shade is full strength (1) — a real closed boundary, not a fractional one —
       // where `field`/`button` step down to 0.68/0.52; both are legitimate `shade` values.
       expect(ramp.colors[1]).toMatch(new RegExp(`^rgba\\(${br}, ${bg}, ${bb}, (0\\.|1\\))`));
