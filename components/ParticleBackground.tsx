@@ -153,7 +153,17 @@ function ParticleBackground() {
   const dotColor = isDark ? 'rgba(110,175,255,0.7)' : 'rgba(100,155,255,0.6)';
 
   return (
-    <View style={styles.backdrop} pointerEvents="none">
+    // ⚠️ **`renderToHardwareTextureAndroid` (2026-09-14), and it is the load-bearing prop in
+    // this file.** These dots animate forever by design — the maintainer's ask is a field that
+    // *"moves around like a normal vivid wallpaper would"* — so the window never idles and every
+    // frame is a real composite. That is affordable only if the frame is cheap.
+    //   Without a texture, each frame re-rasterises this layer. With one, Android keeps it as a
+    // GPU texture and the per-frame work is an alpha/transform composite of something already
+    // drawn. The dots' own `Animated` values are already native-driven, so nothing here touches
+    // the JS thread either way; this is about what the COMPOSITOR has to redo.
+    //   The other half of the same fix is that `components/Surface.tsx` paints cards opaque now,
+    // so this layer's motion can only dirty the gutters instead of every card it showed through.
+    <View style={styles.backdrop} pointerEvents="none" renderToHardwareTextureAndroid>
       {DOTS.map((spec, i) => (
         <RisingDot key={i} spec={spec} color={dotColor} />
       ))}

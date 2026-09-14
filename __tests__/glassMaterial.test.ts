@@ -242,10 +242,17 @@ describe('the material system stays deleted, and stays matte', () => {
     // still means no blur anywhere, which is the half that must not weaken.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/glassSurfaces/);
-    // `glassOn` is what the switch reaches, and it must reach the FILL — that is the whole
-    // material now that there is no blur to turn off. The evaluation below the regex in the
-    // 'opaqueCards is scoped to CARDS' test is what proves the switch can actually flip it.
-    expect(surface).toMatch(/getGlassFill\(glassFill, opaqueFill, glassOn\)/);
+    // ⚠️ **2026-09-14: the switch reaches the EDGE, not the fill — every pane is opaque now.**
+    // It used to have to reach the fill, because the fill was the whole material. A translucent
+    // pane is what turned drifting particles into a full-screen repaint (see Surface.tsx's
+    // block at `opaqueFill`), so transmission is gone and `litEdgeOn` governs the lit/shaded
+    // diagonal instead: switch it off and a card keeps a flat closed boundary. The truth-table
+    // evaluation in 'the reduce-transparency switch still does something visible' is what
+    // proves the switch can actually flip it.
+    expect(surface).toMatch(/const litEdgeOn = glassPref && !reduceEffects/);
+    expect(surface).toMatch(/litEdgeOn\s*\?\s*getGlassEdge\(/);
+    // And nothing may quietly reintroduce a translucent ambient fill.
+    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
   });
 
   it('the painted glass and the measured composite agree', () => {
@@ -294,9 +301,12 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(surface).toMatch(
       /const overlapsCards = surfaceContext === 'overlay' \|\| surfaceContext === 'nav';/,
     );
-    // The frost gate must include it, or the fill goes opaque while a BlurView still smears
-    // the card behind it over the top — the bug in a form that looks half-fixed.
-    expect(surface).toMatch(/const glassOn = .*!overlapsCards/);
+    // ⚠️ **`overlapsCards` no longer gates a fill, because no tier has a translucent one
+    // (2026-09-14).** It is kept because the DISTINCTION is still real and still load-bearing:
+    // overlay/nav paint the raised rung, ambient the base one. The guarantee this test exists
+    // for — a sheet never lets the card behind it through — is now structural rather than
+    // conditional, so it is asserted directly on the fill instead of on a gate.
+    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
     expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
     // The same pairing `surface`/`surfaceGlass` have one rung down: the opaque token is the
     // translucent one already composited, so a sheet over empty backdrop is unchanged and the
@@ -544,84 +554,62 @@ describe('glass settings', () => {
     expect(useSettingsStore.getState().opaqueCards).toBe(false);
   });
 
-  it('opaqueCards is scoped to CARDS, and glassSurfaces still wins over it', () => {
-    // The two switches are deliberately different sizes and this is what keeps them that way.
-    // `glassSurfaces` is the global reduce-transparency mode; `opaqueCards` reaches ambient
-    // panes only, so the card material can be judged on its own. Written as ONE boolean so the
-    // precedence is readable in one line: glassSurfaces off ⇒ opaque everywhere regardless, and
-    // `tint` still wins over both. 2026-08-18 added a fourth term, `!overlapsCards`, in the same
-    // one-line boolean — the sheet rule, which 2026-08-20 widened to the nav bar (see 'a sheet —
-    // and now the nav bar — never lets the card behind it through'). `opaqueCards` is still the
-    // only one of the five scoped to ambient panes, which is what this test is about.
-    //   ⚠️ **A FIFTH term, `!reduceEffects`, joined on 2026-08-29** (the performance pass). It is
-    // NOT a rival to `glassSurfaces` and does not change any precedence above it: it is a wider
-    // switch that also takes the card SHADOWS and the backdrop's orb field, which
-    // `glassSurfaces` — reduce-transparency, whose copy promises frosted glass and nothing else
-    // — deliberately does not reach. That gap is why turning `glassSurfaces` off did not make a
-    // GPU-bound device fast. Both still hold here: either one off ⇒ no blur, and `tint` wins
-    // over all of them.
+  it('the reduce-transparency switch still does something visible, and stays scoped', () => {
+    // ⚠️ **This test was 'opaqueCards is scoped to CARDS, and glassSurfaces still wins over it',
+    // and it guarded `glassOn` — the FILL predicate. Every pane is opaque since 2026-09-14, so
+    // there is no fill predicate left to guard.** It is repointed rather than deleted, because
+    // the property it protects has nothing to do with fills: a settings switch must be able to
+    // change something a user can see, and the guard must be able to notice when it cannot.
+    //
+    // `litEdgeOn` is what `glassSurfaces` reaches now — the lit/shaded diagonal on the card
+    // edge. Off ⇒ one flat boundary colour on all four sides. `opaqueCards` stays scoped to
+    // ambient panes; `glassSurfaces` still wins over it; `reduceEffects` is the wider switch
+    // that also takes the shadows and the backdrop's orb field.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(
-      /const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !\(isAmbient && opaqueCards\);/,
+      /const litEdgeOn = glassPref && !reduceEffects && !\(isAmbient && opaqueCards\);/,
     );
     // ⚠️ **And then EVALUATE it, because the regex above cannot see a constant.**
-    // On 2026-09-06 a sixth term (`&& !isAmbient`) was appended to this predicate. Since
-    // `!overlapsCards` already excluded the only other two contexts, the expression became
-    // constant-false: no pane in the app was translucent, in either theme, at any setting, and
-    // the BlurView it gated was unreachable. Three source-text assertions in this file were
-    // updated to match the new string and all three passed.
-    //   So the predicate is extracted and run over the whole input space. The property that
-    // matters is not its text but that it still has a `true` in it.
-    const expr = surface.match(/const glassOn = ([^;]+);/)![1];
-    const evalGlass = (ctx: 'ambient' | 'overlay' | 'nav', o: Record<string, unknown>) =>
-      // `new Function` is the point, not a shortcut: the predicate has to be EVALUATED, and a
-      // regex asserting its text is exactly the check that passed while glassOn was constantly
-      // false. (`no-new-func` is not enabled in eslint.config.js, so a disable directive here
-      // reports as unused — this comment carries the intent instead.)
+    // On 2026-09-06 a term was appended to this file's fill predicate that made it constant-
+    // FALSE app-wide: no pane was translucent in either theme at any setting, and the BlurView
+    // it gated was unreachable. Three source-text assertions in this file were updated to match
+    // the new string and all three passed. A regex can confirm code exists; never that it runs.
+    const expr = surface.match(/const litEdgeOn = ([^;]+);/)![1];
+    const evalEdge = (ctx: 'ambient' | 'overlay' | 'nav', o: Record<string, unknown>) =>
+      // `new Function` is the point, not a shortcut: the predicate has to be EVALUATED.
       new Function(
-        'glassPref', 'reduceEffects', 'tint', 'overlapsCards', 'isAmbient', 'opaqueCards',
+        'glassPref', 'reduceEffects', 'isAmbient', 'opaqueCards',
         `return (${expr});`,
-      )(
-        o.glassPref, o.reduceEffects, o.tint,
-        ctx === 'overlay' || ctx === 'nav', ctx === 'ambient', o.opaqueCards,
-      );
+      )(o.glassPref, o.reduceEffects, ctx === 'ambient', o.opaqueCards);
     const CONTEXTS = ['ambient', 'overlay', 'nav'] as const;
     const results: { ctx: string; on: boolean }[] = [];
     for (const ctx of CONTEXTS) {
       for (const glassPref of [true, false]) {
         for (const reduceEffects of [true, false]) {
           for (const opaqueCards of [true, false]) {
-            for (const tint of [null, '#123456']) {
-              results.push({
-                ctx,
-                on: !!evalGlass(ctx, { glassPref, reduceEffects, opaqueCards, tint }),
-              });
-            }
+            results.push({ ctx, on: !!evalEdge(ctx, { glassPref, reduceEffects, opaqueCards }) });
           }
         }
       }
     }
-    // Some combination must turn glass ON — otherwise the material does not exist.
+    // Some combination must light the edge — otherwise the switch governs nothing and the
+    // material has quietly gone flat everywhere, which is the defect class above.
     expect(results.some((r) => r.on)).toBe(true);
-    // Specifically, the DEFAULT settings on an ambient card must be glass: that is ~59 of the
-    // app's ~60 surfaces and the whole population the brief is about.
-    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(true);
-    // And each switch must still be able to turn it off, or the escape hatches are decorative.
-    expect(evalGlass('ambient', { glassPref: false, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
-    expect(evalGlass('ambient', { glassPref: true, reduceEffects: true, opaqueCards: false, tint: null })).toBe(false);
-    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: true, tint: null })).toBe(false);
-    expect(evalGlass('ambient', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: '#123456' })).toBe(false);
-    // overlay/nav stay opaque — a sheet has the app's own cards behind it (2026-08-18/20).
-    expect(evalGlass('overlay', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
-    expect(evalGlass('nav', { glassPref: true, reduceEffects: false, opaqueCards: false, tint: null })).toBe(false);
-    // A card drawn opaque must land on the SAME colour the frosted pane composites to, or
-    // turning the switch on would change what lib/__tests__/colors.test.ts measures rather
-    // than only what is drawn. getGlassFill's opaque arm is `opaqueFill`, which resolves to
-    // `theme.surface` for exactly the ambient population this switch reaches — and to the
-    // overlay tier's own composite otherwise. Both are asserted for real above; this pins that
-    // the opaque path still routes through the pairing rather than picking a colour.
+    // And some combination must turn it OFF, or the switch is decorative.
+    expect(results.some((r) => !r.on)).toBe(true);
+    // Defaults on an ambient card: lit. That is the app's whole card population.
+    expect(evalEdge('ambient', { glassPref: true, reduceEffects: false, opaqueCards: false })).toBe(true);
+    // Each switch must be able to turn it off.
+    expect(evalEdge('ambient', { glassPref: false, reduceEffects: false, opaqueCards: false })).toBe(false);
+    expect(evalEdge('ambient', { glassPref: true, reduceEffects: true, opaqueCards: false })).toBe(false);
+    expect(evalEdge('ambient', { glassPref: true, reduceEffects: false, opaqueCards: true })).toBe(false);
+    // `opaqueCards` is STILL scoped to cards: it must not reach a sheet or the nav bar.
+    expect(evalEdge('overlay', { glassPref: true, reduceEffects: false, opaqueCards: true })).toBe(true);
+    expect(evalEdge('nav', { glassPref: true, reduceEffects: false, opaqueCards: true })).toBe(true);
+    // The tier pairing survives the move to opaque: ambient paints the base rung, overlay/nav
+    // the raised one. This is the colour every contrast test in the repo measures, so it must
+    // keep resolving through the pairing rather than picking a literal.
     expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
-    expect(surface).toMatch(/getGlassFill\(glassFill, opaqueFill, glassOn\)/);
   });
 });
 

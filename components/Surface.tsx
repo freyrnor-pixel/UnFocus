@@ -434,15 +434,39 @@ export default function Surface({
   // shadow. None of those cost anything per frame. The `BlurView` is deleted rather than left
   // switched off, so the next reader doesn't mistake dead code for a feature that is merely
   // disabled; `expo-blur` had no other mount in the app.
-  const glassOn = glassPref && !reduceEffects && !tint && !overlapsCards && !(isAmbient && opaqueCards);
-  const glassFill = isAmbient ? theme.surfaceGlass : theme.surfaceGlassStrong;
-  // The opaque half follows the same tier as the glass half, so turning frost off (here, or via
-  // `glassSurfaces`) changes what is drawn and never how bright the surface reads. `nav`'s
-  // fallback used to be `surface` — one rung darker than the frost it replaced.
+  // ── EVERY pane is opaque (2026-09-14), and this is a PERFORMANCE ruling first ───────────
+  //
+  // Maintainer, against a device, with Android's "show surface updates" on: *"the entire screen
+  // flickered in the app, while only blinking while scrolling in the phone's settings."* The
+  // whole window was repainting every frame. `reduceEffects` (opaque cards + no particles + no
+  // orb field) stopped it completely; `reducedMotion` (particles only) stopped most of it.
+  //
+  // **A translucent card is what turned moving particles into a FULL-SCREEN repaint.** The
+  // ambient pane transmitted 86%, and `components/ParticleBackground.tsx` drifts dots behind it
+  // on a loop with no end condition. Every dot that moves dirties the backdrop, and every card
+  // showing that backdrop through must recomposite with it — so the dirty region is not five
+  // dots, it is every card on screen, at 120Hz, forever. Opaque panes CLIP that: the motion can
+  // only dirty the gutters between cards, which is what the phone's own Settings app does.
+  //
+  // The maintainer's own framing, and it is the whole design ruling in one line: *"Cards can
+  // look like glass, but can just cover whatever is behind so it does not have to render how
+  // the particles or lights would look shining through."*
+  //
+  // ⚠️ **The glass read does not depend on transmission and has not since 2026-09-12.** What
+  // makes this pane read as glass is the lit top-left EDGE clearing its shaded side (#701) plus
+  // the drop shadow. Both are static paint on an opaque fill. See this file's header.
+  //
+  // ⚠️ **`glassOn` no longer picks the FILL, and that is deliberate.** Leaving it in the fill
+  // path would have made it constant-`false` for every surface — the exact 2026-09-06 defect
+  // where three source-text assertions were updated to match and all passed while no pane was
+  // translucent. The predicate is not left lying around looking live: it now drives the EDGE,
+  // which is a real, visible difference, so `glassSurfaces` still does something a user can see.
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
-  const fill = staticPressed
-    ? theme.surfaceMuted
-    : tint ?? getGlassFill(glassFill, opaqueFill, glassOn);
+  const fill = staticPressed ? theme.surfaceMuted : tint ?? opaqueFill;
+  // `glassSurfaces` off (or `reduceEffects` on) now means a FLAT boundary — one colour on all
+  // four sides instead of the lit/shaded diagonal. That is the honest meaning of a
+  // "reduce visual effects" switch once nothing transmits: fewer simulated light sources.
+  const litEdgeOn = glassPref && !reduceEffects && !(isAmbient && opaqueCards);
   // ── The pane carries NO screen colour (2026-08-20) ──────────────────────────────────────
   // A card is plain white glass on every screen. What used to be here was the 2026-08-15
   // ruling's other half: the identity hue, taken off the edge and repainted as a 5%
@@ -481,9 +505,14 @@ export default function Surface({
   // on every store write, and (see app/_layout.tsx's AppState handler) on every foreground.
   // Every dep here is already stable per theme/lab state, so for a normal user these now
   // compute once and keep one reference for the app's lifetime.
+  // `litEdgeOn` false ⇒ one flat boundary colour on all four sides. Not the 3-stop
+  // fade-to-nothing branch (that is the design lab's own knob) — a flat CLOSED border, because
+  // a card still needs a boundary when its simulated light source is switched off.
   const ramp = useMemo(
-    () => getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength),
-    [edgeHue, isDark, shape.borderRampStrength],
+    () => (litEdgeOn
+      ? getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength)
+      : { colors: [edgeHue, edgeHue], locations: [0, 1], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }),
+    [edgeHue, isDark, shape.borderRampStrength, litEdgeOn],
   );
   const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
   // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no flat

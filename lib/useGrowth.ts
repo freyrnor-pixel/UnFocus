@@ -29,7 +29,7 @@
  *     backdrop. Keep any new return value quantised the same way.
  *   - `enabled` gates only the RETURNED visual values, never the persistence above.
  */
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { todayStr } from '@/lib/date';
 import { growthState } from '@/lib/growth';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -47,31 +47,71 @@ export type Growth = {
   intensity: number;
 };
 
+/**
+ * ⚠️ **This does NOT subscribe to the task/habit stores through React (2026-09-14).**
+ *
+ * It used to read `s.tasks`, `s.habits` and `s.logs` as three whole arrays to produce two
+ * numbers. Zustand hands back a new array identity on every write, so **every checkbox toggle
+ * re-rendered `components/ScreenBackground.tsx`** — a tree of ten `<Svg>` elements with radial
+ * gradients — and re-ran the bounded scan once per mounted instance (the pager holds one, and
+ * every sub-tier screen mounts another). The previous pass quantised the RETURNED value so the
+ * tint would not move; that fixed what was drawn and not what was rendered, and this file's own
+ * edit notes said so.
+ *
+ * Now the stores are subscribed imperatively and `setState` is called only when a QUANTISED
+ * value actually changes — which is rare. A task write still runs the scan, but it no longer
+ * reaches React at all unless the backdrop would genuinely look different.
+ *
+ * ⚠️ Keep the equality check below exact. Returning a fresh object when the numbers are equal
+ * puts the re-render straight back, and no test or harness in this repo can see that — it is a
+ * performance property, not a pixel one.
+ */
 export function useGrowth(): Growth {
-  const tasks = useTaskStore((s) => s.tasks);
-  const habits = useHabitStore((s) => s.habits);
-  const logs = useHabitStore((s) => s.logs);
   const enabled = useSettingsStore((s) => s.showGrowth);
   const storedBest = useSettingsStore((s) => s.lifetimeGrowth);
 
-  const today = todayStr();
-  const state = useMemo(
-    () => growthState(tasks, habits, logs, storedBest, today),
-    [tasks, habits, logs, storedBest, today]
-  );
+  const compute = useCallback((): { level: number; intensity: number; best: number } => {
+    const t = useTaskStore.getState();
+    const h = useHabitStore.getState();
+    const st = growthState(t.tasks, h.habits, h.logs, storedBest, todayStr());
+    return {
+      level: st.level,
+      intensity: Math.round(st.intensity * QUANT) / QUANT,
+      best: st.best,
+    };
+  }, [storedBest]);
+
+  const [raw, setRaw] = useState(compute);
+
+  useEffect(() => {
+    const sync = () => {
+      const next = compute();
+      // Identity is held unless a quantised number moved — this is the whole point of the file.
+      setRaw((prev) =>
+        prev.level === next.level && prev.intensity === next.intensity && prev.best === next.best
+          ? prev
+          : next,
+      );
+    };
+    sync(); // `storedBest` changed, or first mount: re-derive before listening.
+    const offTasks = useTaskStore.subscribe(sync);
+    const offHabits = useHabitStore.subscribe(sync);
+    return () => {
+      offTasks();
+      offHabits();
+    };
+  }, [compute]);
 
   // Bank a new personal best. Runs at most once per improvement: after the write,
   // storedBest === best, so the effect's condition is false on the re-render.
   useEffect(() => {
-    if (state.best > storedBest) {
-      useSettingsStore.getState().update({ lifetimeGrowth: state.best });
+    if (raw.best > storedBest) {
+      useSettingsStore.getState().update({ lifetimeGrowth: raw.best });
     }
-  }, [state.best, storedBest]);
-
-  const intensity = Math.round(state.intensity * QUANT) / QUANT;
+  }, [raw.best, storedBest]);
 
   return useMemo(
-    () => (enabled ? { level: state.level, intensity } : { level: 0, intensity: 0 }),
-    [enabled, state.level, intensity]
+    () => (enabled ? { level: raw.level, intensity: raw.intensity } : { level: 0, intensity: 0 }),
+    [enabled, raw.level, raw.intensity]
   );
 }
