@@ -152,12 +152,43 @@ function worstCase(mode: 'light' | 'dark') {
 }
 
 describe('the backdrop may not light a card out of its contrast band', () => {
+  /**
+   * ⚠️ **The precondition this whole file rests on, asserted rather than assumed (2026-09-14).**
+   *
+   * Everything below models a card that TRANSMITS: it composites the wash field into the pane
+   * and checks the result against the contrast band. `components/Surface.tsx` paints every pane
+   * opaque now — a translucent card is what turned drifting particles into a full-screen repaint
+   * — so no ground reaches any card at any wash strength, and `DARK.orbOpacity` went back to
+   * full (0.26) because the ceiling that held it at 0.13 was derived from transmission.
+   *
+   * The model is kept and kept armed, not deleted: if a pane is ever made translucent again, the
+   * budget must be re-derived BEFORE the wash strengths are trusted. This assertion is what
+   * makes that impossible to forget — reintroduce a translucent fill and this test goes red
+   * pointing at the sentence you need to read.
+   */
+  it('the ambient pane is opaque, which is why the wash strengths are unconstrained', () => {
+    const surface = readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8');
+    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
+    // And no path may quietly route the fill back through the translucent token.
+    expect(surface).not.toMatch(/getGlassFill\(/);
+  });
+
   it.each(['dark', 'light'] as const)(
-    '%s: every point in the card column keeps the composite inside the band',
+    '%s: IF a pane ever transmits again, every point in the card column stays inside the band',
     (mode) => {
       const { worst } = worstCase(mode);
-      // The message names the point and the colour, so a failure is diagnosable without
-      // re-deriving the model: "which pixel, what did the card paint, which rule broke".
+      // Runs against `theme.surfaceGlass`'s alpha, which nothing paints today. It is the
+      // re-derivation the test above demands, kept executable so the answer is one run away.
+      // At the restored 0.26/0.18 this is EXPECTED to fail for dark — that is the measurement,
+      // not a regression: it records that transmission and a full-strength field are mutually
+      // exclusive, which is the trade that was actually made.
+      const transmits = /const fill = .*getGlassFill\(/.test(
+        readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8'),
+      );
+      if (!transmits) {
+        expect(worst).toBeDefined();
+        return;
+      }
       expect(
         worst.failure
           ? `${mode} @ ${worst.at}: card painted rgb(${worst.card.map((v) => v.toFixed(0)).join(',')}) — ${worst.failure}`

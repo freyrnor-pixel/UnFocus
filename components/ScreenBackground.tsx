@@ -399,8 +399,19 @@ const DARK: Palette = {
   // nothing has to meet a contrast floor, and the app now shows the wash through ~86% of the
   // card area instead of only in the gutters — so the amount of the screen carrying colour goes
   // sharply UP relative to the opaque-card build this replaces, at half the peak alpha.
-  orbOpacity: 0.13,
-  orbScreenOpacity: 0.09,
+  // ⚠️ **RESTORED to 0.26/0.18 on 2026-09-14 — the ceiling above was derived from a premise
+  // that no longer exists.** Everything in the block above is true only while a card TRANSMITS:
+  // the budget bounds the ground because a translucent pane composites the wash into the card,
+  // where `textMuted` measured 3.20:1. `components/Surface.tsx` paints every pane opaque now
+  // (see its block at `opaqueFill`), so the wash reaches no card at any strength and there is
+  // nothing left to bound. `lib/glassBudget.ts` and its test stay — they are the guard that
+  // fires if transmission ever comes back — but they no longer constrain these two numbers.
+  //   Maintainer's ask, and the reason to spend the headroom rather than bank it: particles
+  // *"blue and 'angelic'… they can just move around like a normal vivid wallpaper would."* Half
+  // strength was a tax paid for a feature that has been removed; the field is the only place
+  // colour lives now that cards are opaque, so it goes back to full.
+  orbOpacity: 0.26,
+  orbScreenOpacity: 0.18,
 };
 
 /**

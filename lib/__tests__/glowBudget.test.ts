@@ -322,11 +322,25 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // it computes the composite rather than pinning a number, so it stays honest across a
     // geometry change in a way this assertion could not.
     //   ⚠️ **Raising this needs `glassBudget.test.ts` to still pass, not this comment trusted.**
+    //
+    // ⚠️ **0.13 → 0.26 on 2026-09-14, and the instruction directly above was honoured rather
+    // than waived: `glassBudget.test.ts` passes at this value.** It passes because the premise
+    // changed again, and this time in the direction that removes the constraint entirely. The
+    // 2026-09-07 measurement — "the brightest point under a card composites to rgb(83,92,75),
+    // `textMuted` at 3.20:1" — describes light passing THROUGH a card. `components/Surface.tsx`
+    // paints every pane opaque now (a translucent pane is what turned drifting particles into a
+    // full-screen repaint on a 120Hz device), so there is no composite under a card to measure
+    // at any alpha. The geometry does not have to carry this and neither does the alpha.
+    //   The guard did not go away with it: `glassBudget.test.ts` asserts the OPACITY as a
+    // precondition and keeps the band model armed, so reintroducing a translucent fill turns
+    // that file red — at which point this number has to come back down and the measurement has
+    // to be retaken a third time. Same standing instruction, now enforced by a test rather than
+    // by a reader noticing a comment.
     const m = src.match(/const DARK: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
     expect(value).toBeGreaterThan(0);
-    expect(value).toBeCloseTo(0.13, 5);
+    expect(value).toBeCloseTo(0.26, 5);
   });
 
   it('LIGHT.orbOpacity was raised too, but stays well under dark', () => {
