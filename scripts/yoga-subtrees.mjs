@@ -193,14 +193,19 @@ export const SUBTREES = {
    */
   energyBudgetCard: {
     source: 'components/EnergyMeter.tsx:830-900',
-    build(Y, { density, offset }) {
+    // Opts into checkBasisTrap — this subtree is the one that has produced the class twice.
+    probeBounded: true,
+    rootName: 'budgetCard',
+    build(Y, { density, offset, boundedHeight, plantBasisDefect }) {
       return layout(Y, {
         density,
         offset,
         root: {
           name: 'budgetCard',
           // `budgetCard: { padding: Spacing.md, gap: Spacing.sm }` — a plain COLUMN.
-          style: { width: 358, padding: Spacing.md, gap: Spacing.sm },
+          // `boundedHeight` is the basis-trap probe, not a style the app sets: see
+          // `checkBasisTrap` in measure-yoga.mjs for why a definite height has to be TRIED.
+          style: { width: 358, padding: Spacing.md, gap: Spacing.sm, ...(boundedHeight ? { height: boundedHeight } : null) },
           children: [
             { name: 'rail', style: { height: 28 }, children: [] },
             {
@@ -231,10 +236,42 @@ export const SUBTREES = {
               style: { flexDirection: 'row' },
               children: [
                 {
-                  // `QuickAddOptionRow`'s `wide` — flexGrow:1 / flexShrink:1 / flexBasis:'100%'
-                  name: 'quickAddWide',
+                  // ⚠️ **TWO nodes, not one, and the difference is a live bug (2026-09-15).**
+                  // The first model here collapsed `PressableScale` and the cell into a single
+                  // node carrying `wide` once. The real tree applies `wide` TWICE —
+                  // `QuickAddOptionRow.tsx:104` on the cell and `:143` on the Pressable that
+                  // wraps it — so the model asserted a fix against a tree the app does not have.
+                  // Exactly the staleness this file's header warns about, found the first time
+                  // the harness was pointed at a real question.
+                  //   `PressableScale` sets no `flexDirection`, so it is a COLUMN: the inner
+                  // `flexBasis: '100%'` is a percentage of ITS height, not a width.
+                  name: 'quickAddPressable',
                   style: { flexGrow: 1, flexShrink: 1, flexBasis: '100%', minWidth: 0 },
-                  children: [{ name: 'quickAddLabel', text: { w: 140, h: 18 } }],
+                  children: [
+                    {
+                      name: 'quickAddCell',
+                      // ⚠️ **NO growth keys here, and that is the fix, not an omission.**
+                      // `QuickAddOptionRow.tsx` spread `wide`/`half` onto BOTH this cell and the
+                      // Pressable wrapping it until 2026-09-15. `PressableScale` is a column, so
+                      // the inner `flexBasis:'100%'` was a percentage of its HEIGHT — latent
+                      // until an ancestor had a definite height, and then it absorbed the card.
+                      // If a future edit puts them back, `checkBasisTrap` fires. It was verified
+                      // firing on the doubled tree before the fix landed (164dp at a 196dp card).
+                      style: {
+                        // `plantBasisDefect` re-spreads the growth keys the way the shipped code
+                        // did before 2026-09-15, so `checkBasisTrap` can prove it still detects.
+                        ...(plantBasisDefect ? { flexGrow: 1, flexShrink: 1, flexBasis: '100%', minWidth: 0 } : null),
+                        justifyContent: 'center',
+                        paddingHorizontal: Spacing.sm,
+                        paddingVertical: Spacing.xs,
+                        gap: 2,
+                      },
+                      children: [
+                        { name: 'quickAddLabelLine', style: { flexDirection: 'row' }, children: [{ name: 'quickAddLabel', text: { w: 120, h: 15 } }] },
+                        { name: 'quickAddValueLine', style: { flexDirection: 'row' }, children: [{ name: 'quickAddValue', text: { w: 140, h: 18 } }] },
+                      ],
+                    },
+                  ],
                 },
               ],
             },

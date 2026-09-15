@@ -98,11 +98,28 @@ export default function QuickAddOptionRow({
   const isDark = useIsDark();
   const valueIsText = typeof value === 'string';
 
+  // ⚠️ **The growth keys go on the OUTERMOST node and nowhere else (2026-09-15).**
+  // They used to be here AND on the `PressableScale` below, and the comment at that spread
+  // already stated the correct rule — the code just did both. `PressableScale` sets no
+  // `flexDirection`, so it is a COLUMN: a `flexBasis: '100%'` inside it is a percentage of ITS
+  // HEIGHT, not a width. Harmless while nothing above has a definite height, and this app is one
+  // fold away from that at all times (`components/Collapsible.tsx:338` commits a numeric
+  // `height`). Measured in real Yoga, this cell inside the Energy card:
+  //
+  //     card 196dp -> row 164dp        card 320dp -> row 288dp        (doubled)
+  //     card 196dp -> row  45.5dp      card 320dp -> row  45.5dp      (fixed)
+  //
+  // which is PR #696's report exactly — *"the row stretched tall with its own text hanging past
+  // its border, the card's content spilling below the card"*. That was blamed on #695's
+  // `height: 196` and reverted; the pin was the trigger and this was the bug.
+  //   `npm run yoga`'s `basis-trap` check is the guard, and it was verified failing on the
+  // doubled tree before this line changed.
+  const growth = wide ? styles.wide : styles.half;
   const content = (
     <View
       style={[
         styles.cell,
-        wide ? styles.wide : styles.half,
+        onPress ? null : growth,
         {
           borderWidth: BORDER_WIDTH.field,
           // See the resting-edge note in components/FormControls.tsx (2026-09-08): this cell
@@ -142,7 +159,7 @@ export default function QuickAddOptionRow({
       // The growth keys live on the PRESSABLE when there is one, not on the cell inside it:
       // a Pressable that hugs its content would leave the cell at its natural width and the
       // grid would go ragged, which is the open space point 5 is about.
-      style={wide ? styles.wide : styles.half}
+      style={growth}
     >
       {content}
     </PressableScale>

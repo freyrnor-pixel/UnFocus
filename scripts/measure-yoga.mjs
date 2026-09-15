@@ -141,7 +141,31 @@ async function selfProbe(Y) {
     );
   }
 
-  return { defectSeen, healthy, gridSensitive };
+  // ── Check 3's own sensitivity ───────────────────────────────────────────────────────────────
+  // Same discipline: re-spread the growth keys onto the inner cell the way QuickAddOptionRow did
+  // before 2026-09-15 and require the basis-trap check to notice. A latent-bug detector that
+  // cannot see the bug it was written for is worse than none, because it reports clean.
+  const basisSensitive = (() => {
+    const a = SUBTREES.energyBudgetCard.build(Y, { density: 2.75, boundedHeight: 196, plantBasisDefect: true });
+    const b = SUBTREES.energyBudgetCard.build(Y, { density: 2.75, boundedHeight: 320, plantBasisDefect: true });
+    const byName = new Map(a.nodes.map((n) => [n.name, n.height]));
+    return b.nodes.some((n) => {
+      const other = byName.get(n.name);
+      return other !== undefined && n.name !== 'budgetCard' && Math.abs(n.height - other) > 1;
+    });
+  })();
+
+  if (!basisSensitive) {
+    finding(
+      'self-probe',
+      'scripts/measure-yoga.mjs',
+      'HARNESS BLIND: the basis-trap check no longer flags a percentage basis on the main axis. ' +
+        'That is the class that cost PRs #695 and #696 and that react-native-web cannot reproduce ' +
+        'by construction. If planting it produces no finding, check 3 is decorative.',
+    );
+  }
+
+  return { defectSeen, healthy, gridSensitive, basisSensitive };
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -229,15 +253,71 @@ function checkPixelGrid(Y) {
 
 /* ────────────────────────────────────────────────────────────────────────────── */
 
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Check 3 — the percentage-basis trap
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * A node whose height is a percentage of an ancestor rather than of its own content.
+ *
+ * ⚠️ **This class has already cost this repo two PRs, and it is invisible to every other
+ * harness by construction.** `components/QuickAddOptionRow.tsx` gives a grid cell
+ * `flexBasis: '100%'` — a WIDTH percentage, because the grid it was written for is a ROW.
+ * Dropped into a COLUMN the same number is read against the parent's HEIGHT.
+ * `components/EnergyMeter.tsx:869-892` records the device result ("Sett dagens energi" sliced by
+ * the card's own bottom edge) and notes the reason nothing caught it: *"react-native-web resolves
+ * that to content and draws it correctly, which is why every harness here has always shown this
+ * card intact."*
+ *
+ * **The trap is LATENT until an ancestor has a definite height**, which is why a plain layout of
+ * the shipped tree shows nothing and why this check has to TRY one. Measured here: with the card
+ * unbounded the row is 45.5dp either way; bound the card to 196dp — exactly PR #695's
+ * `height: 196` — and the row inflates to 164dp, absorbing the card and pushing its siblings out.
+ * That is #696's report ("the row stretched tall with its own text hanging past its border, the
+ * card's content spilling below the card"), which was blamed on the height pin and reverted. The
+ * pin was the trigger; this is the bug.
+ *
+ * `components/Collapsible.tsx:338` commits a numeric `height`, so every card body that folds is
+ * such an ancestor. A latent trap in this app is one fold away from live.
+ *
+ * The test: lay the subtree out at two different definite ancestor heights. Any node whose own
+ * height MOVES with the ancestor's is sized by the ancestor, not by its content.
+ */
+function checkBasisTrap(Y) {
+  for (const [name, spec] of Object.entries(SUBTREES)) {
+    if (!spec.probeBounded) continue;
+    const density = 2.75;
+    const a = spec.build(Y, { density, boundedHeight: 196 });
+    const b = spec.build(Y, { density, boundedHeight: 320 });
+    const byName = new Map(a.nodes.map((n) => [n.name, n.height]));
+    for (const node of b.nodes) {
+      const other = byName.get(node.name);
+      if (other === undefined || node.name === spec.rootName) continue;
+      if (Math.abs(node.height - other) > 1) {
+        finding(
+          'basis-trap',
+          `${spec.source} (model: ${name}.${node.name})`,
+          `height tracks its ANCESTOR's, not its own content: ${other.toFixed(1)}dp at a 196dp ` +
+            `card and ${node.height.toFixed(1)}dp at a 320dp one. A percentage basis on the main ` +
+            `axis (flexBasis:'100%' in a column) does this, and it is invisible on ` +
+            `react-native-web, which resolves it from content. See EnergyMeter.tsx:869-892.`,
+        );
+      }
+    }
+  }
+}
+
 async function main() {
   const Y = await loadYoga();
 
   const probe = await selfProbe(Y);
   // Only run the real checks if the instrument demonstrably works. Reporting "clean" from a blind
   // harness is the single failure mode this repo keeps paying for.
-  if (probe.defectSeen && probe.healthy && probe.gridSensitive) {
+  if (probe.defectSeen && probe.healthy && probe.gridSensitive && probe.basisSensitive) {
     checkZeroHeight(Y);
     checkPixelGrid(Y);
+    checkBasisTrap(Y);
   }
 
   if (AS_JSON) {
@@ -245,12 +325,12 @@ async function main() {
   } else {
     console.log(`\n=== yoga audit — ${DENSITIES.length} densities × ${OFFSETS.length} offsets ===\n`);
     console.log(
-      probe.defectSeen && probe.healthy && probe.gridSensitive
-        ? '  self-probe ✓  saw fix #8\'s planted defect; control normal; grid check sensitive\n'
+      probe.defectSeen && probe.healthy && probe.gridSensitive && probe.basisSensitive
+        ? '  self-probe ✓  fix #8 defect seen; control normal; grid + basis checks sensitive\n'
         : '  self-probe ✗  THIS HARNESS IS NOT MEASURING WHAT IT CLAIMS — see findings\n',
     );
     if (findings.length === 0) {
-      console.log('  clean ✓  no 0dp content frames, no position-dependent heights\n');
+      console.log('  clean ✓  no 0dp frames, no position-dependent heights, no ancestor-sized nodes\n');
       console.log('  ⚠️  Clean here means the MODELLED subtrees are sound in the real engine. It');
       console.log('      says nothing about subtrees not modelled — see this file\'s header.\n');
     } else {
