@@ -1,19 +1,48 @@
 /**
- * Surface.tsx — the one card shape: a translucent glass pane with a light-catching edge.
+ * Surface.tsx — the one card shape: an OPAQUE pane, painted as if lit from the top left.
  * Also exported as `GlassCard`, the Tactile Glass brief's name for it (see the bottom).
  *
- * **Tactile Glass, 2026-08-15 (maintainer brief).** A card is a pane of dark glass floating
- * over the backdrop: a translucent fill (`theme.surfaceGlass`), ONE edge that catches the
- * light on its top-left (`getGlassEdge`), and a drop shadow. Colour comes from the lit backdrop
- * TRANSMITTED through the pane, never from the edge.
+ * ── Current state, 2026-09-15 (the frosted-glass brief). Read this first ───────────────────
  *
- * ⚠️ **There is no `BlurView` (removed 2026-09-07).** The brief called for one and the app
- * carried one for three weeks; it is gone because the tier that still mounted it was switched
- * off on 2026-09-06, which left it unreachable, and because what makes this pane read as glass
- * is transmission — `surfaceGlass` passes 86% of the lit field in dark — which costs nothing
- * per frame where a blur costs a render-effect pass per card per frame. See the comment where
- * it used to mount, and `lib/glassBudget.ts` for the contrast budget that makes the
- * transmission safe.
+ * Maintainer, against a Home screenshot: *"I struggle to see how this is supposed to look like
+ * frosted glass."* They were right, and the cause was structural rather than a mistuned value.
+ * A card was `backgroundColor: theme.surface` — ONE colour — plus a `theme.border` hairline,
+ * and a rectangle of one colour reads as a rectangle whatever a file header calls the material.
+ *
+ * So a card is now three pieces of paint, all static, described in full at `getGlassPane`
+ * (constants/theme.ts):
+ *   1. **a RAMP across its face** — `glassTop` at the lit corner to `glassBottom` at the shaded
+ *      one, on a 155° diagonal, as a `backgroundImage` ON the fill view;
+ *   2. **a specular RIM** along the top edge and a **WELL** along the bottom, both inset
+ *      `boxShadow`s at zero blur — which is how the lit edge came back WITHOUT the two-colour
+ *      border that forces Android off its antialiased corner path (see `getGlassPane`);
+ *   3. **the drop SHADOW** below it, unchanged (`getLayeredShadow`).
+ *
+ * ⚠️ **The pane is OPAQUE, and every word of that is load-bearing — this is the 2026-09-14
+ * particle ruling honoured, not walked back.** The obvious way to make a card look like glass
+ * is to let the lit backdrop through it. This app shipped that and measured why it cannot: a
+ * translucent pane over `components/ParticleBackground.tsx`'s drifting dots means every dot that
+ * moves dirties the backdrop AND every card showing it through, so the dirty region is the whole
+ * window at 120Hz. Maintainer's own resolution: *"Cards can look like glass, but can just cover
+ * whatever is behind so it does not have to render how the particles or lights would look
+ * shining through."* A baked ramp is that sentence implemented — the pane LOOKS lit without
+ * SAMPLING anything, so the compositor still sees an opaque rect.
+ *   `theme.surface` is kept UNDER the ramp rather than replaced by it, so a platform that drops
+ * `backgroundImage` degrades to exactly the old card instead of to a transparent hole.
+ *
+ * ⚠️ **There is still no `BlurView` (removed 2026-09-07), and the frost did not bring it back.**
+ * A blur samples what is behind it by definition, so it cannot be bought on the terms above at
+ * any price, and it costs a render-effect pass per card per frame on lists that scroll. The
+ * paint above costs one gradient in a drawable the view was already painting. See the comment
+ * where it used to mount.
+ *
+ * ⚠️ **`settings.glassSurfaces` is LIVE again** and paints the pane flat — the same
+ * "reduce transparency" job it has always had, stated in terms of the material the app actually
+ * draws. It had gone inert earlier the same day; see the `paneOn` block for the full sequence.
+ *
+ * ── Everything below this line is history. It is true about how the shape was reached and is
+ *    NOT current state — several of its claims (a translucent fill, transmission as the
+ *    material, `surfaceGlass` as what a card paints) were reversed by the block above ────────
  *
  * **Amended 2026-08-16 (the neon/OLED brief).** Two clauses above changed, and this header used
  * to state their opposite — that the edge "carries the control boundary on its bottom-right".
@@ -199,10 +228,11 @@
  *     `radii` object below is for (it was three identical inline literals until 2026-08-28).
  */
 import React, { useMemo } from 'react';
-import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { AccessibilityRole, Platform, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import {
   BORDER_WIDTH,
   darken,
+  getGlassPane,
   getLayeredShadow,
   Radius,
 } from '@/constants/theme';
@@ -352,11 +382,19 @@ export default function Surface({
   // content cards only, leaving sheets, the header and the nav frosted, so the card material
   // can be judged without also changing the chrome around it. `glassSurfaces` still wins —
   // with it off, everything here is opaque whatever this says. See the Edit notes.
-  // `glassSurfaces` and `opaqueCards` are NOT read here any more (2026-09-15). Both fed the
-  // lit/shaded edge, which is gone — see the block below. They are dropped rather than read and
-  // ignored: a live store subscription re-renders every Surface on a toggle that now changes
-  // nothing they can see, and a dead read is the thing that makes the next reader believe the
-  // switch still works. `DECISIONS_OPEN.md` carries what to do about the orphaned setting.
+  // ── `glassSurfaces` is LIVE again, and this closes a loose end rather than inventing a job ──
+  // It went inert earlier on 2026-09-15 when the lit/shaded edge was deleted: that edge was its
+  // last consumer, so the row in Settings stopped changing anything a user could see, and the
+  // honest move at the time was to drop the read and record the orphan in `DECISIONS_OPEN.md`
+  // rather than leave a dead subscription looking load-bearing.
+  //   The glass pane below gives it a real meaning back, and the SAME one it always had:
+  // "reduce transparency" now means "paint the pane flat instead of lit". That is a difference
+  // the user can see on any screen, so the switch is honest again without being redefined.
+  //   ⚠️ `opaqueCards` stays unread and stays deprecated. It was the card-only half of this
+  // switch, invented to judge the material with the chrome left alone; the material is settled
+  // now and a second, narrower switch over the same property is the thing that made the
+  // 2026-08-15 pair confusing in the first place.
+  const glassSurfaces = useSettingsStore((s) => s.glassSurfaces);
   // "Reduce visual effects" (2026-08-29) — the user's escape hatch for a GPU-bound device.
   // It now takes this component's one remaining per-frame GPU cost, the two-pass boxShadow,
   // plus the translucency (an opaque pane composites in one step). The BlurView it was also
@@ -467,6 +505,65 @@ export default function Surface({
   // which is a real, visible difference, so `glassSurfaces` still does something a user can see.
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
   const fill = staticPressed ? theme.surfaceMuted : tint ?? opaqueFill;
+  // ── The pane is LIT (2026-09-15, the frosted-glass brief) ───────────────────────────────
+  //
+  // Maintainer, against a Home screenshot: *"I struggle to see how this is supposed to look
+  // like frosted glass."* They were right, and nothing here was mistuned — the line above is
+  // the whole answer. `fill` is ONE colour, so a card was a `#242424` rectangle with a
+  // `#9A9AA6` hairline round it, and a rectangle of one colour reads as a rectangle whatever
+  // this file's header calls the material. Glass reads as glass because its face is NOT
+  // uniform: brighter where the light lands, darker where it falls away, with a specular line
+  // along the lit edge. `getGlassPane` (constants/theme.ts) is those three things, and its doc
+  // carries the reasoning for each; what matters at this call site is the three gates below.
+  //
+  // ⚠️ **The pane stays OPAQUE — this is not the translucency ruling being walked back.** The
+  // block above records why a see-through card cost a full-window repaint per particle frame,
+  // and the maintainer's own resolution of it: *"Cards can look like glass, but can just cover
+  // whatever is behind so it does not have to render how the particles or lights would look
+  // shining through."* A BAKED ramp is that sentence implemented — the pane looks lit without
+  // sampling anything behind it, so the compositor still sees an opaque rect, the dirty region
+  // stays in the gutters, and there is still no `BlurView` (a blur samples by definition, so it
+  // cannot be bought on these terms at any price). `fill` is kept UNDER the ramp rather than
+  // replaced by it, so a platform that drops `backgroundImage` degrades to exactly today's card
+  // instead of to a transparent hole.
+  //
+  // Three things withhold the ramp, and each is a different question:
+  //   · `tint` — a caller passed a specific colour because it needs THAT colour, not a lit
+  //     approximation of it. Same reasoning that already keeps `tint` opaque above.
+  //   · `staticPressed` — a pressed card is showing `surfaceMuted` to say "held"; lighting it
+  //     at the same time fights the one thing that state exists to communicate.
+  //   · `reduceEffects` / `glassSurfaces` — the user's two escape hatches. Costed below.
+  const paneOn = !tint && !staticPressed && !reduceEffects && glassSurfaces;
+  // ⚠️ **Memoised for the same reason `shadowStyle` and `radii` are, and it matters more here.**
+  // This mints a template string and an array of two fresh objects; Fabric re-commits a
+  // `boxShadow` whenever its VALUE IDENTITY changes, so an unmemoised version would re-commit
+  // an inset shadow on every render of every card — the exact cost the 2026-08-28 pass was
+  // cutting. Every dep is stable per theme, so for a normal user this computes once.
+  const pane = useMemo(
+    () => (paneOn
+      ? getGlassPane(
+          isAmbient ? theme.glassTop : theme.glassTopRaised,
+          isAmbient ? theme.glassBottom : theme.glassBottomRaised,
+          theme.glassRim,
+          theme.glassWell,
+        )
+      : null),
+    [paneOn, isAmbient, theme.glassTop, theme.glassBottom, theme.glassTopRaised,
+      theme.glassBottomRaised, theme.glassRim, theme.glassWell],
+  );
+  // ⚠️ **Two different style keys for one value, and this is not a polyfill — both are real.**
+  // React Native 0.85 takes a CSS gradient string on `experimental_backgroundImage`;
+  // react-native-web has no such key, but its style validator is a DENYLIST (see
+  // `node_modules/react-native-web/.../StyleSheet/validate.js` — `background` is on it,
+  // `backgroundImage` is not), so a plain `backgroundImage` passes through to the DOM untouched.
+  //   The web branch is not cosmetic. It is what lets `npm run preview` and the `visual` gate
+  // SEE this change at all: most of this app's native rendering work lands in a class no harness
+  // can look at (CLAUDE.md's A2 list), and a card material that renders on web is one that a
+  // screenshot diff can actually fail on. Spread as a computed key so neither platform's style
+  // object carries the other's dead property.
+  const paneImage = pane
+    ? { [Platform.OS === 'web' ? 'backgroundImage' : 'experimental_backgroundImage']: pane.image }
+    : null;
   // ⚠️ **`litEdgeOn` IS GONE (2026-09-15), and it is deleted rather than left constant-false.**
   // That is #703's own lesson applied to #703's own predicate: a switch that still reads as live
   // while every branch lands in the same place is how 2026-09-06 shipped a whole app with no
@@ -727,6 +824,14 @@ export default function Surface({
               borderBottomColor: ramp.colors[ramp.colors.length - 1],
               borderRightColor: ramp.colors[ramp.colors.length - 1],
             },
+            // ⚠️ **The ramp and the rim go HERE, on the mask, and not on the outer view.** The
+            // outer view is the one casting the drop shadow, and a second `boxShadow` there
+            // would replace that array rather than add to it. The mask is also the view whose
+            // rounded corners are drawn by the background drawable — which is the whole reason
+            // the rim can be an inset shadow (see `getGlassPane`'s note on Android's
+            // `BorderDrawable` and the clipped corners a two-colour border produced).
+            paneImage,
+            pane ? { boxShadow: pane.insets } : null,
           ]}
         >
           {/* ── There is no `BlurView` here, and that is a decision, not an omission ────────

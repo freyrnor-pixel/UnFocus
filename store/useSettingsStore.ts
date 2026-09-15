@@ -317,11 +317,18 @@ export type Settings = {
   reducedMotion: boolean;
   particlesEnabled: boolean;
   /**
-   * @deprecated INERT since 2026-09-15 — nothing reads it, and its Settings row is gone.
+   * **Reduce transparency.** On (the default), a card is painted as a lit RAMP with a specular
+   * rim — `constants/theme.ts`'s `getGlassPane`, drawn by `components/Surface.tsx`. Off, the
+   * pane is a flat `theme.surface` fill, which is exactly what every card looked like before
+   * the frosted-glass brief.
    *
-   * It was the app's reduce-transparency mode ("Glass, take two", 2026-07-17): on, cards,
+   * ⚠️ **This was `@deprecated INERT` for part of 2026-09-15 and is LIVE again — do not
+   * re-retire it on the strength of a stale comment.** The history is worth keeping because the
+   * shape repeats, and because the revival met a condition the retirement itself set.
+   *
+   * It began as the app's reduce-transparency mode ("Glass, take two", 2026-07-17): on, cards,
    * buttons and the FAB drew a frosted glass finish; off, they fell back to plain opaque
-   * surfaces. Three passes retired it in stages, and none of them was about this switch:
+   * surfaces. Three passes then retired it in stages, and none of them was about this switch:
    *   · #703 made every pane opaque for a PERFORMANCE reason (a translucent card turned five
    *     drifting particles into a full-screen repaint), which left a reduce-transparency
    *     switch with no transparency to reduce. It was repointed to the card edge's
@@ -333,15 +340,22 @@ export type Settings = {
    *     `__tests__/glassMaterial.test.ts` exists to catch, and one
    *     `components/AddFAB.tsx` records this same setting having once before.
    *
-   * **The field and its DB column stay, per the never-drop rule** (see `lib/db.ts`) — a
-   * retired setting keeps its column so an old backup stays readable and a future decision
-   * can revive it. Same treatment as `childProfiles` above.
+   * **The field and its DB column stayed through all of that, per the never-drop rule** (see
+   * `lib/db.ts`) — a retired setting keeps its column so an old backup stays readable **and a
+   * future decision can revive it**. This is that revival, and it is the clearest argument for
+   * the rule there is: had the column been dropped, the switch could not have come back.
    *
-   * ⚠️ **Do not wire anything to it without giving it something visible to do first.** A dead
-   * READ is what makes the next reader believe the switch still works, and a live subscription
-   * re-renders every `Surface` in the app on a toggle that changes nothing.
-   * `glassMaterial.test.ts` ('offers no Settings row for a switch that reaches nothing') is the
-   * guard, and `DECISIONS_OPEN.md` carries the reasoning.
+   * The retirement's own comment set the condition — *"Don't wire anything to it without giving
+   * it something visible to do first"* — and the frosted-glass brief met it hours later: the
+   * pane became a ramp, so there is a material to flatten again. The job is the ORIGINAL job,
+   * restated in terms of what the app now draws; it is not a switch redefined to keep it alive.
+   *
+   * ⚠️ That condition still binds anything that changes the material again. The guard is
+   * `glassMaterial.test.ts` ('the reduce-transparency switch reaches something visible, and has
+   * its row back'), which EXTRACTS `Surface.tsx`'s four-term `paneOn` predicate and evaluates
+   * its truth table rather than scanning for it — a boolean gone constant is this codebase's
+   * recurring defect (see 2026-09-06) and no source-text assertion can see one.
+   * `DECISIONS_OPEN.md` carries the full reasoning.
    */
   glassSurfaces: boolean;
   /**
