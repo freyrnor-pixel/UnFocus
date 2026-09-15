@@ -490,14 +490,12 @@ function processMonthlyLists(drafts: AiMonthlyListDraft[] | undefined, dryRun: b
 
 /** MUST stay in sync with lib/aiSetupGuide.ts's guide text — see that file's Edit notes. */
 const SETTINGS_WHITELIST = [
-  'language', 'darkMode', 'fontSize', 'reducedMotion', 'particlesEnabled', 'glassSurfaces',
-  'opaqueCards',
+  'language', 'darkMode', 'fontSize', 'reducedMotion', 'particlesEnabled',
   'leftHanded', 'remindersEnabled', 'reminderTime', 'taskNotificationsEnabled',
   'habitNotificationsEnabled', 'persistentNotifEnabled', 'quietHoursEnabled', 'quietHoursStart',
   'quietHoursEnd', 'weeklyResetDay', 'monthlyResetDate', 'energyMode', 'energyDailyCapacity',
   'energyWeeklyCapacity', 'featureGoals', 'featureAutomations',
   'energySystemEnabled', 'showGrowth',
-  'photoAspectRatio',
 ] as const satisfies readonly (keyof AiSettingsPatch)[];
 
 /**
@@ -507,19 +505,36 @@ const SETTINGS_WHITELIST = [
  * says nothing useful, but a key the app used to document is the user's reasonable request,
  * and "nothing happened" is the one answer they must not be left to infer.
  *
- * Both entries here are behind `SHARING_VISIBLE` (lib/sharingVisibility.ts, pinned false since
- * 2026-08-05). They left the documented schema in v9 — move them back to the whitelist in the
- * same edit that flips that constant.
+ * `featureSharing` and `peopleModeEnabled` are behind `SHARING_VISIBLE`
+ * (lib/sharingVisibility.ts, pinned false since 2026-08-05) and left the documented schema in v9;
+ * move them back to the whitelist in the same edit that flips that constant. The three that
+ * joined in v10 have no flag to flip — they are settings whose SURFACE was removed, so each goes
+ * back only if it is given one. See the entries in lib/aiSetupGuide.ts's changelog.
+ *   ⚠️ This set is checked BEFORE the whitelist below, which is what makes the difference
+ * between the two visible: a key here is reported, a key in neither is dropped in silence. There
+ * is no version gate on import — AI_SETUP_SCHEMA_VERSION is a guide-side signal only — so a v9
+ * file naming one of these still arrives, and reporting it is the whole point.
  */
-const INERT_SETTINGS = new Set<string>(['featureSharing', 'peopleModeEnabled']);
+const INERT_SETTINGS = new Set<string>([
+  'featureSharing',
+  'peopleModeEnabled',
+  // Joined in v10 (2026-09-15), for the same reason and by the same route. `glassSurfaces` and
+  // `opaqueCards` went inert when #703 made every pane opaque and #706 removed the lit edge —
+  // components/Surface.tsx reads neither, and the Settings rows are gone. `photoAspectRatio` is
+  // subtler: components/PhotoFrame.tsx does read it, but the app has exactly one <PhotoFrame>
+  // (app/budget.tsx) and it passes `format` explicitly, so the default it feeds is unreachable.
+  // A live read is not the same as a reachable effect, and this set is about the second.
+  'glassSurfaces',
+  'opaqueCards',
+  'photoAspectRatio',
+]);
 
 const LANGUAGES = ['en', 'no', 'is'] as const;
 const DARK_MODES = ['system', 'on', 'off'] as const;
 const FONT_SIZES = ['small', 'default', 'large'] as const;
 const ENERGY_MODES = ['daily', 'weekly', 'custom'] as const;
-const ASPECT_RATIOS = ['fit', 'square', 'classic', 'widescreen', 'golden'] as const;
 const BOOLEAN_KEYS = new Set<string>([
-  'reducedMotion', 'particlesEnabled', 'glassSurfaces', 'opaqueCards', 'leftHanded', 'remindersEnabled',
+  'reducedMotion', 'particlesEnabled', 'leftHanded', 'remindersEnabled',
   'taskNotificationsEnabled', 'habitNotificationsEnabled', 'persistentNotifEnabled',
   'quietHoursEnabled', 'featureGoals', 'featureAutomations',
   'energySystemEnabled', 'showGrowth',
@@ -534,7 +549,6 @@ function validateSettingValue(key: string, value: unknown): unknown {
   if (key === 'darkMode') return isEnum(value, DARK_MODES) ? value : undefined;
   if (key === 'fontSize') return isEnum(value, FONT_SIZES) ? value : undefined;
   if (key === 'energyMode') return isEnum(value, ENERGY_MODES) ? value : undefined;
-  if (key === 'photoAspectRatio') return isEnum(value, ASPECT_RATIOS) ? value : undefined;
   const n = finiteNum(value);
   if (key === 'weeklyResetDay') return n !== null && n >= 0 && n <= 6 ? Math.floor(n) : undefined;
   if (key === 'monthlyResetDate') return n !== null && n >= 1 && n <= 31 ? Math.floor(n) : undefined;
