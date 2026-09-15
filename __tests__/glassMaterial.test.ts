@@ -304,14 +304,19 @@ describe('the material system stays deleted, and stays matte', () => {
     // Invisible to a screenshot of any single surface and to the web preview alike, hence a
     // source scan plus the arithmetic below.
     const surface = read('components/Surface.tsx');
-    expect(surface).toMatch(
-      /const overlapsCards = surfaceContext === 'overlay' \|\| surfaceContext === 'nav';/,
-    );
-    // ⚠️ **`overlapsCards` no longer gates a fill, because no tier has a translucent one
-    // (2026-09-14).** It is kept because the DISTINCTION is still real and still load-bearing:
-    // overlay/nav paint the raised rung, ambient the base one. The guarantee this test exists
-    // for — a sheet never lets the card behind it through — is now structural rather than
-    // conditional, so it is asserted directly on the fill instead of on a gate.
+    // ⚠️ **The `overlapsCards` source-text assertion that stood here is GONE (2026-09-15),
+    // and removing it is the point rather than a concession.** The note below it already said the
+    // binding "no longer gates a fill, because no tier has a translucent one" — so this file was
+    // pinning the literal text of a line that computed a value nothing read, which `eslint`
+    // reported as an unused variable for a full day while this test went on passing.
+    //   That is this repo's documented worst case, from CLAUDE.md's A2 list: *"a regex can confirm
+    // code exists but never that it runs"*, written after three assertions in THIS file passed
+    // over a predicate that had gone constant-false. Re-pointing the regex at the replacement text
+    // would have reproduced the defect exactly; deleting the binding and the assertion together is
+    // what actually closes it.
+    //   Nothing is lost, because the guarantee this test exists for was ALREADY asserted
+    // structurally rather than conditionally, on the fill itself — the two `toMatch`es below plus
+    // the composite arithmetic. Those are what make a sheet opaque; the deleted line was not.
     expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
     expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
     // The same pairing `surface`/`surfaceGlass` have one rung down: the opaque token is the

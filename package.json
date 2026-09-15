@@ -84,7 +84,7 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "format": "prettier --write .",
     "preview:build": "node scripts/build-web.mjs",
     "preview:serve": "node scripts/serve-web.mjs",

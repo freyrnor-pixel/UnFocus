@@ -535,8 +535,16 @@ describe('ScreenScaffold — the clipped viewport matches the floating chrome', 
     // header over a moving card is that card read through the title — the same defect the card
     // menu was reported for. So the nav bar joins `overlay` in `Surface`'s opaque set, and the
     // header (which doesn't route through Surface) paints its own `surfaceRaised` fill.
+    // ⚠️ **Assert the FILL, not a gate (2026-09-15).** This used to match
+    // `const overlapsCards = surfaceContext === 'overlay' || surfaceContext === 'nav';` — a
+    // binding that computed a value no expression in that file read, and which `eslint` reported
+    // as unused. A source-text match on a dead line proves nothing about what the app paints, and
+    // this repo has been burned by exactly that before (CLAUDE.md's A2: *"a regex can confirm code
+    // exists but never that it runs"*). The binding is gone; the rule it named is not.
+    //   `opaqueFill` is the expression that actually makes the bar opaque: `nav` is not `ambient`,
+    // so it takes `surfaceRaised`, and there is no translucent branch left for it to fall into.
     expect(code('components/Surface.tsx')).toMatch(
-      /const overlapsCards = surfaceContext === 'overlay' \|\| surfaceContext === 'nav';/,
+      /const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/,
     );
     expect(code('components/ScreenHeader.tsx')).toMatch(/backgroundColor: theme\.surfaceRaised/);
   });
