@@ -33,6 +33,8 @@ import { useMedicineStore, Medicine } from '@/store/useMedicineStore';
 import { useNotesStore, Note } from '@/store/useNotesStore';
 import { syncTrayReminders } from '@/lib/medicineNotifications';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import db from '@/lib/db';
 
 jest.mock('@/lib/db', () => ({
@@ -220,5 +222,41 @@ describe('useNotesStore — the control that always had the guard', () => {
     expect(runSync).toHaveBeenCalledWith('UPDATE notes SET header = ? WHERE id = ?', ['edited', 'n1']);
     expect(useNotesStore.getState().notes[0].header).toBe('edited');
     expect(widgetSync).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A screen must not subscribe to the WHOLE settings store.
+ *
+ * `useSettingsStore()` with no selector re-renders its caller on every write to any field in
+ * the store — and the settings store is written by toggles, by onboarding, by the widget sync
+ * and by the theme. `app/(tabs)/index.tsx` states the rule ("Field selectors, NOT a whole-store
+ * subscription") and nothing enforced it, so `app/settings.tsx` — the largest file in the repo —
+ * re-rendered end to end on every switch a user flipped, until 2026-09-15.
+ *
+ * The allowlist is deliberately short and each entry has to earn its place: mounted once and
+ * briefly, or a dev-only surface. A screen on the hot path does not qualify.
+ */
+describe('settings-store subscriptions', () => {
+  const ALLOWED = [
+    // Mounted once at first run, unmounted for the rest of the app's life.
+    'app/onboarding/basics.tsx',
+    'app/onboarding/privacy.tsx',
+    // Dev-only surface, reached from Debug mode.
+    'app/design-lab/tokens.tsx',
+  ];
+
+  it('no screen outside the allowlist takes a bare useSettingsStore()', () => {
+    const root = join(__dirname, '..');
+    const walk = (dir: string): string[] =>
+      readdirSync(join(root, dir), { withFileTypes: true }).flatMap((e) =>
+        e.isDirectory() ? walk(join(dir, e.name)) : e.name.endsWith('.tsx') ? [join(dir, e.name)] : [],
+      );
+    const offenders = [...walk('app'), ...walk('components')].filter(
+      (rel) =>
+        !ALLOWED.includes(rel.split(sep).join('/')) &&
+        /=\s*useSettingsStore\(\)\s*;/.test(readFileSync(join(root, rel), 'utf8')),
+    );
+    expect(offenders).toEqual([]);
   });
 });
