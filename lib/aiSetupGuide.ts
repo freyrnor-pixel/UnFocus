@@ -60,6 +60,22 @@ import {
 /**
  * Bump whenever the guide's schema or documented content changes — see Edit notes.
  *
+ * v10 (2026-09-15) — `glassSurfaces`, `opaqueCards` and `photoAspectRatio` LEFT the documented
+ * schema, for the same reason v9's two did and by the same route (lib/aiSetupApply.ts's
+ * INERT_SETTINGS → reported as skipped with reason `unavailable`, never silently dropped).
+ * All three are real and still stored; none of them reaches anything a user can see:
+ *   · `glassSurfaces` / `opaqueCards` — #703 made every pane opaque and #706 removed the lit
+ *     edge, so components/Surface.tsx stopped reading either one (see its header). The Settings
+ *     row was retired on 2026-09-15. Note v7 below, which added `opaqueCards` and argued it
+ *     cleared the whitelist bar: that was true when the card had a frosted state to turn off.
+ *   · `photoAspectRatio` — components/PhotoFrame.tsx takes it as the default format, but the
+ *     app contains exactly ONE <PhotoFrame> (app/budget.tsx) and it passes `format="square"`
+ *     explicitly, so the default has never been reachable. app/settings.tsx said as much when
+ *     its row was removed; the AI whitelist was the half nobody swept.
+ * ⚠️ This is not a migration and nothing is deleted — the DB columns stay under lib/db.ts's
+ * never-drop rule so an old backup still reads. Put any of the three back here in the same edit
+ * that gives it a surface again.
+ *
  * v9 (2026-09-12) — `featureSharing` and `peopleModeEnabled` LEFT the documented schema.
  * Both settings are real and still stored, but every surface that reads them is behind
  * `SHARING_VISIBLE` (lib/sharingVisibility.ts), pinned `false` since 2026-08-05 — so a guide
@@ -92,7 +108,7 @@ import {
  * applies exactly as before; it just reads as 'stale' now, which is the correct signal that
  * the document it was generated from has been reworded.
  */
-export const AI_SETUP_SCHEMA_VERSION = 9;
+export const AI_SETUP_SCHEMA_VERSION = 10;
 
 /** Verbatim markers the guide instructs the AI to reproduce around its JSON reply. */
 export const AI_SETUP_BEGIN = '===UNFOCUS-AI-CONFIG-BEGIN===';
@@ -106,8 +122,7 @@ export type AiSettingsPatch = {
   fontSize?: 'small' | 'default' | 'large';
   reducedMotion?: boolean;
   particlesEnabled?: boolean;
-  glassSurfaces?: boolean;
-  opaqueCards?: boolean;
+  // glassSurfaces / opaqueCards deliberately absent — see the v10 changelog entry.
   leftHanded?: boolean;
   remindersEnabled?: boolean;
   reminderTime?: string;
@@ -127,7 +142,7 @@ export type AiSettingsPatch = {
   featureAutomations?: boolean;
   energySystemEnabled?: boolean;
   showGrowth?: boolean;
-  photoAspectRatio?: 'fit' | 'square' | 'classic' | 'widescreen' | 'golden';
+  // photoAspectRatio deliberately absent — see the v10 changelog entry.
 };
 
 export type AiTaskDraft = {
@@ -289,8 +304,7 @@ accepted (anything else is ignored):
   language: "en" | "no" | "is"
   darkMode: "system" | "on" | "off"
   fontSize: "small" | "default" | "large"
-  reducedMotion, particlesEnabled, glassSurfaces, leftHanded: boolean
-  opaqueCards: boolean (draw content cards as solid panels instead of frosted glass)
+  reducedMotion, particlesEnabled, leftHanded: boolean
   remindersEnabled: boolean
   reminderTime: "HH:MM"
   taskNotificationsEnabled, habitNotificationsEnabled,
@@ -306,7 +320,6 @@ accepted (anything else is ignored):
     mode has no meter, no costs and no budget; per-task/habit energy values are
     kept untouched while it is off and reappear intact on switching back)
   showGrowth: boolean (ambient growth in the app backdrop)
-  photoAspectRatio: "fit" | "square" | "classic" | "widescreen" | "golden"
   (Account/device/permission settings are never importable this way — those
   stay a manual, in-app action.)
 

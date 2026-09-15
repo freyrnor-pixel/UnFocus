@@ -17,7 +17,7 @@
  * flight-animation refs are a materially riskier extraction than this one.)
  *
  * Connections:
- *   Imports → lib/rowList (the shared connected-list recipe — this surface hand-copied
+ *   Imports → lib/rowList (the shared connected-list recipe — this surface hand-copied lib/reorder (projectOrder),
  *             PadSheet's literals until 2026-08-28), components/PadRow, components/PadTypeRow,
  *             components/QuickAddOptionsPanel,
  *             components/QuickAddOptionRow, components/HabitRecurrenceCells, components/Stepper,
@@ -106,6 +106,7 @@ import { rowListStyle } from '@/lib/rowList';
 import { useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { getScreenColor } from '@/lib/screenColor';
 import { success, selection, tap } from '@/lib/haptics';
+import { projectOrder } from '@/lib/reorder';
 
 /** Starter chips the empty Habits list offers. See the row's own comment for the measurement. */
 const HABIT_STARTER_CHIPS = 2;
@@ -625,10 +626,7 @@ export default function HabitsSurface() {
     reorderHabits
   );
   const draggedHabits = useMemo(
-    () =>
-      habitDrag.order
-        .map((id) => visibleHabits.find((h) => h.id === id))
-        .filter((h): h is (typeof visibleHabits)[number] => !!h),
+    () => projectOrder(habitDrag.order, visibleHabits),
     [habitDrag.order, visibleHabits]
   );
 

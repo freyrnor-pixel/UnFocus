@@ -10,7 +10,7 @@
  * back-compat, but new habits are written with kind='neutral' and empty step fields.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update), lib/reorder (retainKnownIds),
  *             lib/id, lib/habitNotifications, store/useSettingsStore,
  *             store/useGoalStore (registerProgress on increment when a habit has a goalId),
  *             lib/widgets/sync (scheduleWidgetSync — debounced widget/notification refresh on
@@ -90,6 +90,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useGoalStore } from '@/store/useGoalStore';
 import { syncHabitReminder as scheduleHabitReminder, cancelHabitReminders } from '@/lib/habitNotifications';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
+import { retainKnownIds } from '@/lib/reorder';
 
 export type HabitKind = 'build' | 'break' | 'neutral';
 /** 'weekly-flexible' (2026-07-22) — due every day of the week; met once the week's
@@ -413,7 +414,7 @@ export const useHabitStore = create<HabitStore>((set, get) => ({
     const sorted = [...habits].sort(
       (a, b) => a.routineOrder - b.routineOrder || a.createdAt.localeCompare(b.createdAt)
     );
-    const queue = orderedIds.filter((id) => habits.some((h) => h.id === id));
+    const queue = retainKnownIds(orderedIds, habits);
     if (queue.length < 2) return;
     const moving = new Set(queue);
     const nextIds = sorted.map((h) => (moving.has(h.id) ? queue.shift()! : h.id));

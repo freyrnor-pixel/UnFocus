@@ -188,8 +188,11 @@ export default function HomeScreen() {
   // shopping card, and as a bare function declaration it got a fresh identity on every Home
   // render — which would have silently defeated that memo entirely. It closes over nothing but
   // a ref and the `setFlights` updater (both stable by construction), so [] is exact, not a
-  // shortcut. `handleFlightEnd`/`handleScreenScroll` below are NOT props of a memoised child,
-  // so they are deliberately left as plain declarations rather than churned for symmetry.
+  // shortcut. `handleFlightEnd` below is NOT a prop of a memoised child, so it is deliberately
+  // left as a plain declaration rather than churned for symmetry.
+  //   ⚠️ This sentence used to name `handleScreenScroll` alongside it, and that half was
+  // wrong — see its own note below. A comment asserting what a value is a prop OF is a claim to
+  // check against the call site, which is the trap INVARIANTS.md names.
   const handleFlightStart = useCallback((item: ShoppingItem, from: FlightRect, to: FlightRect) => {
     flightCounter.current += 1;
     const key = `${item.id}-${flightCounter.current}`;
@@ -201,11 +204,22 @@ export default function HomeScreen() {
   function handleFlightEnd(key: string) {
     setFlights((prev) => prev.filter((f) => f.key !== key));
   }
-  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+  // ⚠️ **`useCallback` here is NOT symmetry — it feeds a native prop (2026-09-15).** The
+  // comment above used to say this one was "NOT a prop of a memoised child", and that was
+  // wrong: it is passed to ScreenScaffold, whose own `handleScroll` is memoised on `[onScroll]`
+  // and handed to a <ScrollView> with `scrollEventThrottle={16}`. As a bare declaration it got a
+  // fresh identity every render, so that memo was invalidated every render and the ScrollView's
+  // `onScroll` prop was re-sent to the native side on every render of one of the app's two
+  // busiest screens.
+  //   The dep list is `[]` rather than `[flights.length]` because the functional updater makes
+  // it exact: returning `prev` unchanged is a React bail-out (Object.is), so the guard costs
+  // nothing and the identity is stable for the component's whole life rather than only while
+  // the flight count holds still.
+  const handleScreenScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    if (Math.abs(y - lastScrollY.current) > 4) setFlights((prev) => (prev.length > 0 ? [] : prev));
     lastScrollY.current = y;
-  }
+  }, []);
   const tasks = useTaskStore((s) => s.tasks);
   const tasksForDate = useTaskStore((s) => s.tasksForDate);
   const toggleTask = useTaskStore((s) => s.toggle);

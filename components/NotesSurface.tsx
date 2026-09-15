@@ -9,7 +9,7 @@
  * that rule) and mounts this component for the row list itself.
  *
  * Connections:
- *   Imports → components/NoteRow, components/AnimatedListItem, components/DraggableTaskRow,
+ *   Imports → components/NoteRow, components/AnimatedListItem, components/DraggableTaskRow, lib/reorder (projectOrder),
  *             components/SendToSheet, components/GhostRow, components/CardHintLine.tsx, lib/i18n,
  *             lib/prefill, lib/screenColor, lib/useDragReorder, lib/useGhostTimeout,
  *             lib/useAppTheme, store/useNotesStore
@@ -45,6 +45,7 @@ import { useDragReorder } from '@/lib/useDragReorder';
 import { useGhostTimeout } from '@/lib/useGhostTimeout';
 import { FontSize, Fonts, SCREEN_GAP, Spacing } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
+import { projectOrder } from '@/lib/reorder';
 
 type Props = {
   /** Mounted inside CardExpandHost's own pane — drops the ⓘ hint. See the header note. */
@@ -106,10 +107,7 @@ export default function NotesSurface({ embedded = false }: Props) {
   }
 
   function renderSection(section: (typeof notes), drag: ReturnType<typeof useDragReorder>) {
-    return drag.order
-      .map((id) => section.find((n) => n.id === id))
-      .filter((n): n is (typeof notes)[number] => !!n)
-      .map((note) => renderRow(note, drag));
+    return projectOrder(drag.order, section).map((note) => renderRow(note, drag));
   }
 
   return (

@@ -46,7 +46,7 @@ import { LayoutAnimation, StyleSheet, Text, View } from 'react-native';
 import { Fonts, FontSize, glassKey, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, Spacing } from '@/constants/theme';
 import { useAccessibility, useAppTheme, useIsDark, useScaledStyles } from '@/lib/useAppTheme';
 import { useT } from '@/lib/i18n';
-import { reorderByDrag } from '@/lib/reorder';
+import { projectOrder, reorderByDrag } from '@/lib/reorder';
 import Surface from '@/components/Surface';
 import PressableScale from '@/components/PressableScale';
 import AnimatedBottomSheet from '@/components/AnimatedBottomSheet';
@@ -149,7 +149,7 @@ export default function MonthlyResetReviewSheet({
     onFinalize([...discardedIds]);
   }
 
-  const orderedLists = liveOrder.map((id) => lists.find((l) => l.id === id)).filter((l): l is ShoppingList => !!l);
+  const orderedLists = projectOrder(liveOrder, lists);
 
   return (
     <AnimatedBottomSheet visible={visible} onClose={handleSkip}>
