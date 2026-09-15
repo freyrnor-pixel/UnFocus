@@ -257,22 +257,44 @@ export const SCREEN_GAP = Spacing.smd;
 export const CHROME_REST_GAP = Spacing.smd;
 
 /**
- * How far the floating chrome cards — the header and the bottom nav — sit in from the screen
- * edge. **The same number every screen's content pads by**, and that is the whole point of it
- * being here rather than spelled twice (2026-08-27, round 20).
+ * The horizontal gutter every screen's CONTENT pads by — the card column's outer edge.
  *
- * It was `Spacing.sm` in `ScreenScaffold` and a separate `NAV_FLOAT_GAP` in
- * `app/(tabs)/_layout.tsx`, both 8, while every screen padded its content by `Spacing.md`. The
- * 2026-07-24 note that set the first one only ever asked that the header and the bar read as the
- * same width *as each other*; the content card — the third card on screen, and the one the eye
- * actually tracks down the page — was never in the comparison. So the chrome's left edge sat 8px
- * outside every card's left edge on every screen, in both themes, by nobody's decision.
+ * Named here (2026-09-15) so the relationship below can be stated and tested. It was only ever
+ * spelled as a bare `Spacing.md` at each screen, which is why the 2026-08-27 pass had to reason
+ * about "the third card on screen" in prose instead of comparing two constants.
+ */
+export const CARD_GUTTER = Spacing.md;
+
+/**
+ * How far the floating chrome cards — the header and the bottom nav — sit in from the screen
+ * edge. **Deliberately SMALLER than `CARD_GUTTER`**, so the chrome is wider than the card column.
+ *
+ * ⚠️ **This was `Spacing.md` — the same number as the content — until 2026-09-15, and the change
+ * is a maintainer ruling, not a tidy-up.** The report: *"Top header and bottom nav should be
+ * slightly wider and look more popped out than cards, to create the illusion of elements going
+ * behind when scrolling."* With one number doing both jobs, the chrome's outer edge and every
+ * card's outer edge landed on the same x. Nothing overlapped, so nothing could read as passing
+ * behind — the effect `ScreenScaffold`'s own `viewportInset` block already describes wanting
+ * ("the corners should show content behind it").
+ *
+ * The 2026-08-27 pass that unified them was right about the bug it found (the chrome sat 8px
+ * OUTSIDE every card by nobody's decision, which read as a mistake) and reached for sameness as
+ * the fix. Sameness is not the only way to look deliberate: a consistent, chosen difference is
+ * the other, and it is the one that buys depth. The two are still derived from one scale and one
+ * relationship, which is what stops the drift that pass was written against.
+ *
+ * ⚠️ **It does NOT narrow any card.** The scroll clip window follows the chrome
+ * (`viewportInset`), but `ScreenScaffold`'s `viewportBleed` applies the mirror-image negative
+ * margin, so content keeps the exact x it had when the window was full-bleed. That file's
+ * "widen the inset and every card gets narrower" warning ends "without that" — `viewportBleed`
+ * IS that, and it already exists.
  *
  * ⚠️ **`NAV_FLOAT_GAP` is still separate and still 8, deliberately.** That one is the VERTICAL
  * float — the band of backdrop below the bar — which has no reason to equal the side inset.
- * Changing this constant must not drag that one with it.
+ * Changing this constant must not drag that one with it. They are equal again as of this edit,
+ * which is a coincidence of the scale and not a relationship to lean on.
  */
-export const CHROME_FLOAT_INSET = Spacing.md;
+export const CHROME_FLOAT_INSET = Spacing.sm;
 
 export const Radius = {
   sm: 12,
@@ -683,15 +705,26 @@ export const OpticalCenter: { includeFontPadding: boolean; textAlignVertical: 'c
   textAlignVertical: 'center',
 };
 
-export type ElevationLevel = 'flat' | 'raised' | 'floating';
+export type ElevationLevel = 'flat' | 'raised' | 'floating' | 'chrome';
 
 /**
- * 3-tier depth scale (Purposeful Depth System, 2026-07-14): `flat` = informational/
+ * 4-tier depth scale (Purposeful Depth System, 2026-07-14): `flat` = informational/
  * read-only, `raised` = tappable at rest, `floating` = the one focused/active/modal
  * surface on screen. Roughly: `Shadow.card`/`button` ≈ `raised`, `Shadow.cardHeavy`/
  * `fab` ≈ `floating` — new code should prefer `getElevation` over the `Shadow` map
  * below (kept for its 15+ existing call sites, not migrated in this pass). Pass
  * `theme.shadow` for a theme-tinted shadow (matches Surface); omit for legacy black.
+ *
+ * ⚠️ **`chrome` is the fourth rung, added 2026-09-15, and it is ABOVE `floating` on purpose.**
+ * It belongs to the header and the bottom nav and to nothing else. The scale was three rungs and
+ * the top one was already spent on content — `PlanTaskCard` passes `elevated`, so an expanded
+ * card sat on `floating` while `BottomNav` sat on `raised`, i.e. the chrome was literally beneath
+ * the content it is supposed to float over. A surface that content scrolls UNDER has to out-rank
+ * every surface that scrolls, or the illusion it exists for cannot work.
+ *
+ * Do not reach for it to make something else important. `floating` is still the top of the
+ * CONTENT scale; this rung is the chrome's, and `Surface` assigns it from `surfaceContext`
+ * rather than from a prop precisely so a caller cannot promote itself into it.
  */
 export function getElevation(level: ElevationLevel, shadowColor: string = '#000') {
   switch (level) {
@@ -701,6 +734,8 @@ export function getElevation(level: ElevationLevel, shadowColor: string = '#000'
       return { shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4 };
     case 'floating':
       return { shadowColor, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.20, shadowRadius: 14, elevation: 10 };
+    case 'chrome':
+      return { shadowColor, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 20, elevation: 16 };
   }
 }
 
@@ -1492,7 +1527,14 @@ export function getGlow(color: string, level: 'soft' | 'strong' = 'soft', radius
  * spread: `raised` for resting cards/buttons, `floating` for the FAB and focus-popped cards.
  */
 export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<ElevationLevel, 'flat'> = 'raised') {
-  const k = level === 'floating' ? 1.6 : 1;
+  // ⚠️ `chrome` (2026-09-15) is the header/nav rung — see `getElevation`'s block for why the
+  // scale needed a fourth one. It is a wider, slightly stronger version of the SAME two passes,
+  // not a third pass: the note below is explicit that a blur costs every frame and an alpha costs
+  // nothing, and the whole reason this function is two passes instead of three is that cards are
+  // numerous. The chrome is two surfaces, so the wider blur here is affordable in a way it was
+  // not for `floating` — but it still buys depth with alpha first and radius second.
+  const k = level === 'chrome' ? 2.2 : level === 'floating' ? 1.6 : 1;
+  const alpha = level === 'chrome' ? { contact: 0.16, near: 0.22 } : { contact: 0.10, near: 0.14 };
   // Strengthened (2026-07-18 vision tune): higher alphas so raised-keycap cards POP off the
   // colorful field with real depth/layering, not sit flush like flat tiles.
   //
@@ -1512,8 +1554,8 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
   //   If depth needs restoring, raise `near`'s alpha before re-adding a third pass — an alpha
   // costs nothing per frame and a blur pass costs every frame.
   return [
-    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, 0.10) },
-    { offsetX: 0, offsetY: Math.round(4 * k), blurRadius: Math.round(14 * k), spreadDistance: 0, color: rgba(shadowColor, 0.14) },
+    { offsetX: 0, offsetY: 1, blurRadius: 2, spreadDistance: 0, color: rgba(shadowColor, alpha.contact) },
+    { offsetX: 0, offsetY: Math.round(4 * k), blurRadius: Math.round(14 * k), spreadDistance: 0, color: rgba(shadowColor, alpha.near) },
   ];
 }
 
