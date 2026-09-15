@@ -175,13 +175,15 @@ const LIGHT: Palette = {
   // ⚠️ Re-derived 2026-09-01 with light `surfaceGlass` 0.94 -> 0.82, which moved `surface` to
   // `#FAFCFE`. Everything below that composites over the card moved with it — exactly the drift
   // the palette test exists to catch, and it caught all five.
-  card: '#FAFCFE', text: '#1B2432', muted: '#535D6B', line: '#65768F',
-  plate: '#ECEEF1', rowFill: '#F0F2F5', rowEdge: '#E4E6EA', edgeLit: '#CDD4DD',
+  // `line` re-derived 2026-09-15 with the glass pass's `border` lift (#65768F -> #5A6B84).
+  card: '#FAFCFE', text: '#1B2432', muted: '#535D6B', line: '#5A6B84',
+  plate: '#ECEEF1', rowFill: '#F0F2F5', rowEdge: '#E4E6EA', edgeLit: '#CAD1D9',
   good: '#167651',
   dark: false,
 };
 const DARK: Palette = {
-  card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#8A8A95',
+  // `line` re-derived 2026-09-15 with the glass pass's `border` lift (#8A8A95 -> #9A9AA6).
+  card: '#242424', text: '#FFFFFF', muted: '#B0B0BA', line: '#9A9AA6',
   plate: '#383838', rowFill: '#303030', rowEdge: '#3A3A3A', edgeLit: '#9C9C9C',
   good: '#00E58A',
   dark: true,
@@ -255,15 +257,18 @@ const GLASS_LIGHT = '#FFFFFF' as Hex;
  */
 function keyStyle(accent: Hex, p: Palette) {
   const body = composite(p.card, accent, p.dark ? 0.14 : 0.16);
-  const lit = composite(p.card, GLASS_LIGHT, p.dark ? 0.3 : 0.9);
-  const shade = p.dark ? composite(p.card, GLASS_LIGHT, 0.07) : composite(p.card, accent, 0.35);
+  // ⚠️ ONE edge colour on all four sides, mirroring `glassKey()` since 2026-09-15 — white on a
+  // dark ground, the hue itself on a light one. See that function's block in constants/theme.ts
+  // for why the surviving stop differs by mode. A widget cannot read the runtime theme, so this
+  // is a hand-copy and `widgetPalette.test.ts` is what stops it drifting from the app.
+  const edge = p.dark ? composite(p.card, GLASS_LIGHT, 0.3) : composite(p.card, accent, 0.35);
   return {
     backgroundColor: body,
     borderWidth: 1.25,
-    borderTopColor: lit,
-    borderLeftColor: lit,
-    borderBottomColor: shade,
-    borderRightColor: shade,
+    borderTopColor: edge,
+    borderLeftColor: edge,
+    borderBottomColor: edge,
+    borderRightColor: edge,
   };
 }
 

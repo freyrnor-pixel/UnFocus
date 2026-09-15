@@ -859,7 +859,12 @@ export type BorderWeight = 'card' | 'field' | 'button';
  * turn into a grid of equal-weight lines.
  */
 export const BORDER_WIDTH: Record<BorderWeight, number> = {
-  card: 1.5,
+  // 1.5 -> 1.75 (2026-09-15, the glass pass): a thicker rim is the second half of making the
+  // edge read as the thickness of a pane rather than as a drawn outline. Pinned only
+  // RELATIONALLY (`card > field`, see borderRamp.test.ts / exampleRows.test.ts), and `field` is
+  // 1.25, so the family order is unchanged. One scalar drives all four sides, so the
+  // equal-WIDTHS half of Android's antialiased-border condition is safe by construction.
+  card: 1.75,
   field: 1.25,
   button: 1.25,
 };
@@ -1168,24 +1173,52 @@ const KEY_BODY_ALPHA = {
   dark: { key: 0.14, loud: 0.24, quiet: 0.08 },
   light: { key: 0.16, loud: 0.24, quiet: 0.1 },
 } as const;
-/** The lit top-left lip, and the bottom-right boundary that keeps WCAG 1.4.11's 3:1 job. */
-const KEY_EDGE_LIT = { dark: 0.3, light: 0.9 } as const;
-const KEY_EDGE_SHADE_DARK = 0.07;
-const KEY_EDGE_SHADE_LIGHT = 0.35;
+/**
+ * The key's boundary — **ONE colour on all four sides since 2026-09-15.**
+ *
+ * ⚠️ **This was a lit top-left lip and a shaded bottom-right, and #706 missed it.** That PR made
+ * the CARD's rim uniform because React Native's `BorderDrawable` takes its antialiased
+ * `canvas.drawRoundRect` path only when all four widths AND all four colours are equal; with two
+ * colours it falls to `clipPath` + four filled quadrilaterals, which is not antialiased on a
+ * hardware canvas. It fixed `Surface` and `ScreenHeader` and left this function alone — so every
+ * `Button` in the app, `AppModal`'s keys and ~8 sheet done-buttons kept drawing stair-stepped
+ * corner arcs. Same defect, same report (*"borders look weird and corners are clipped"*), one
+ * function further down.
+ *
+ * **Which stop survives is per-MODE, and that is not a compromise — it is the stop that was
+ * already doing the work.** This function's stops are the opposite way round from the card's:
+ *
+ *   dark   body `rgba(hue, 0.14)` on near-black  · lit white 0.30 · shade white 0.07
+ *   light  body `rgba(hue, 0.16)` on near-white  · lit white 0.90 · shade hue   0.35
+ *
+ * In dark the shade is white at 7% — very nearly nothing — and the lit lip is the only visible
+ * boundary. In light the lit lip is white at 90% ON A NEAR-WHITE SURFACE, i.e. invisible, and the
+ * hue shade is the boundary. So each mode keeps the stop a user can actually see, and both modes
+ * gain a CLOSED boundary where they had half of one. Nothing is spent: WCAG 1.4.11's 3:1 job goes
+ * to the stronger stop in each mode rather than to the weaker one.
+ */
+const KEY_EDGE_UNIFORM_DARK = 0.3;
+const KEY_EDGE_UNIFORM_LIGHT = 0.35;
 
 export type KeyWeight = keyof (typeof KEY_BODY_ALPHA)['dark'];
 
 export function glassKey(hue: string, isDark: boolean, weight: KeyWeight = 'key', width = BORDER_WIDTH.button) {
   const mode = isDark ? 'dark' : 'light';
-  const lit = rgba(GLASS_LIGHT, KEY_EDGE_LIT[mode]);
-  const shade = isDark ? rgba(GLASS_LIGHT, KEY_EDGE_SHADE_DARK) : rgba(hue, KEY_EDGE_SHADE_LIGHT);
+  // White on a dark ground, the hue itself on a light one — see KEY_EDGE_UNIFORM_*'s block for
+  // why the surviving stop differs by mode and why that is the stronger choice in both.
+  const edge = isDark
+    ? rgba(GLASS_LIGHT, KEY_EDGE_UNIFORM_DARK)
+    : rgba(hue, KEY_EDGE_UNIFORM_LIGHT);
   return {
     backgroundColor: rgba(hue, KEY_BODY_ALPHA[mode][weight]),
     borderWidth: width,
-    borderTopColor: lit,
-    borderLeftColor: lit,
-    borderBottomColor: shade,
-    borderRightColor: shade,
+    // ⚠️ All four the SAME value, and it must stay that way: one `borderColor` would be tidier,
+    // but these four keys are what `__tests__/glassMaterial.test.ts` reads to prove Android stays
+    // on its antialiased border path. Spelling them out keeps the guard able to see them.
+    borderTopColor: edge,
+    borderLeftColor: edge,
+    borderBottomColor: edge,
+    borderRightColor: edge,
   };
 }
 
@@ -1534,7 +1567,13 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
   // numerous. The chrome is two surfaces, so the wider blur here is affordable in a way it was
   // not for `floating` — but it still buys depth with alpha first and radius second.
   const k = level === 'chrome' ? 2.2 : level === 'floating' ? 1.6 : 1;
-  const alpha = level === 'chrome' ? { contact: 0.16, near: 0.22 } : { contact: 0.10, near: 0.14 };
+  // ⚠️ **Content alphas 0.10/0.14 -> 0.12/0.20 (2026-09-15, the glass pass), and ALPHA is the
+  // lever on purpose.** This function's own note below says it outright: *"If depth needs
+  // restoring, raise `near`'s alpha before re-adding a third pass — an alpha costs nothing per
+  // frame and a blur pass costs every frame."* The blur radii are untouched, so ~60 cards cost
+  // exactly what they did yesterday; only the source colour changed. The `chrome` rung already
+  // ran 0.16/0.22, so this narrows a gap rather than inventing a value.
+  const alpha = level === 'chrome' ? { contact: 0.16, near: 0.22 } : { contact: 0.12, near: 0.20 };
   // Strengthened (2026-07-18 vision tune): higher alphas so raised-keycap cards POP off the
   // colorful field with real depth/layering, not sit flush like flat tiles.
   //

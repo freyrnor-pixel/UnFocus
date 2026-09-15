@@ -255,28 +255,35 @@ describe('the composited layers equal the app layers they stand in for', () => {
 
   it.each(cases)('%s matte key equals glassKey() for every hue a widget can wear', (name, isDark, theme) => {
     // keyStyle() is arithmetic rather than a table (the body is the HUE's own wash, so it
-    // varies per widget) — so this recomputes the whole style rather than one value, including
-    // light mode's hue-tinted shade side, which is the half most likely to be "simplified".
-    const alphas = { body: isDark ? 0.14 : 0.16, lit: isDark ? 0.3 : 0.9, shade: isDark ? 0.07 : 0.35 };
+    // varies per widget) — so this recomputes the whole style rather than one value.
+    //
+    // ⚠️ **It asserted a LIT top-left and a SHADED bottom-right until 2026-09-15.** `glassKey()`
+    // paints one colour on all four sides now: two border colours force RN Android's
+    // `BorderDrawable` off its antialiased `drawRoundRect` path onto an un-antialiased
+    // `clipPath`, which is what #706 fixed for cards and missed here. Which stop survives is
+    // per-mode and is the one that was already visible — white on a dark ground, the hue itself
+    // on a light one (white at 0.9 on a near-white card is not a boundary).
+    const alphas = { body: isDark ? 0.14 : 0.16, edge: isDark ? 0.3 : 0.35 };
     for (const hue of Object.values(IDENTITY_HUES).map((h) => h.hue)) {
       const app = glassKey(hue, isDark, 'key', 1.25);
       expect(flatten(app.backgroundColor, theme.surface)).toBe(
         mix(theme.surface, hue, alphas.body).toUpperCase()
       );
-      expect(flatten(app.borderTopColor, theme.surface)).toBe(
-        mix(theme.surface, '#FFFFFF', alphas.lit).toUpperCase()
-      );
-      expect(flatten(app.borderBottomColor, theme.surface)).toBe(
-        mix(theme.surface, isDark ? '#FFFFFF' : hue, alphas.shade).toUpperCase()
-      );
+      const expectedEdge = mix(theme.surface, isDark ? '#FFFFFF' : hue, alphas.edge).toUpperCase();
+      // All four, not just two: the equal-colour property IS the antialiasing fix, so assert it
+      // rather than assuming a shared local. A per-side colour coming back fails here.
+      for (const side of ['borderTopColor', 'borderLeftColor', 'borderBottomColor', 'borderRightColor'] as const) {
+        expect(flatten(app[side], theme.surface)).toBe(expectedEdge);
+      }
     }
-    // ...and that keyStyle() is still built from those same three numbers. The loop above
-    // proves the app's recipe; this proves the widget copied THAT recipe and not another one.
+    // ...and that keyStyle() is still built from those same numbers. The loop above proves the
+    // app's recipe; this proves the widget copied THAT recipe and not another one.
     const keyBody = /function keyStyle\(([\s\S]*?)\n}/.exec(CODE)?.[1] ?? '';
     expect(keyBody).toContain('p.dark ? 0.14 : 0.16');
-    expect(keyBody).toContain('p.dark ? 0.3 : 0.9');
-    expect(keyBody).toContain('0.07');
-    expect(keyBody).toContain('0.35');
+    expect(keyBody).toContain('p.dark ? composite(p.card, GLASS_LIGHT, 0.3) : composite(p.card, accent, 0.35)');
+    // The widget must carry ONE edge value into all four sides, like the app.
+    expect(keyBody).not.toMatch(/borderTopColor: (?!edge)/);
+    expect(keyBody).not.toMatch(/borderBottomColor: (?!edge)/);
   });
 });
 
