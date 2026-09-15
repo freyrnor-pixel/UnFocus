@@ -2,7 +2,7 @@
  * designTokens.test.ts — DESIGN_RULES.md rules 1, 17 and 21, enforced.
  *
  * Two kinds of check:
- *   (a) Token *shape* — the scales are internally consistent, MIN_TAP_TARGET is 44, every
+ *   (a) Token *shape* — the scales are internally consistent, MIN_TAP_TARGET is 48 (it rose 44→48 on 2026-08-08), every
  *       HitSlop token actually lifts the control size it claims to, hitSlopFor() does the
  *       arithmetic right, and essential transitions stay inside the ≤200ms band.
  *   (b) Token *use* — a source scan over components/ and app/ that fails when a bare `44`,

@@ -10,34 +10,43 @@
  * existing card language rather than a bare image dropped on top.
  *
  * Connections:
- *   Imports → expo-image, constants/theme (AspectRatio, Radius), lib/useAppTheme,
- *             store/useSettingsStore (default format when `format` prop is omitted)
+ *   Imports → expo-image, constants/theme (AspectRatio, Radius), lib/useAppTheme
  *   Used by → app/budget.tsx (receipt thumbnail)
  *   Data    → none (presentational; caller supplies the photo uri)
  *
  * Edit notes:
  *   - Only use a fixed-ratio `format` on genuinely visual/media tiles — never force
  *     one onto variable-length text/content cards, it reads as visually broken.
+ *   - ⚠️ **`format` is REQUIRED, and the `settings.photoAspectRatio` fallback is gone
+ *     (2026-09-15).** This component used to subscribe to that setting and use it when `format`
+ *     was omitted. The app contains exactly one <PhotoFrame> — app/budget.tsx's receipt
+ *     thumbnail — and it has always passed `format="square"` explicitly, so the fallback was
+ *     never once reached. app/settings.tsx already records that the setting's row was removed
+ *     because "nothing on screen has ever read" it; this was the other half.
+ *       What the subscription actually cost: a live store read re-renders this component on a
+ *     value it cannot use. components/Surface.tsx names the wider hazard — "a dead read is the
+ *     thing that makes the next reader believe the switch still works". Making `format`
+ *     required means a second call site has to CHOOSE a ratio rather than inherit one that
+ *     never worked. The setting keeps its DB column (lib/db.ts never-drop) and is reported as
+ *     `unavailable` to AI setup imports (lib/aiSetupApply.ts's INERT_SETTINGS, schema v10).
  */
 import React from 'react';
 import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { AspectRatio, AspectRatioKey, Radius } from '@/constants/theme';
 import { useAppTheme } from '@/lib/useAppTheme';
-import { useSettingsStore } from '@/store/useSettingsStore';
 
 type PhotoFrameProps = {
   uri: string;
-  /** Defaults to the user's global settings.photoAspectRatio when omitted. */
-  format?: AspectRatioKey;
+  /** Required — there is no global default any more; see the header's 2026-09-15 note. */
+  format: AspectRatioKey;
   radius?: number;
   style?: StyleProp<ViewStyle>;
 };
 
 export default function PhotoFrame({ uri, format, radius = Radius.sm, style }: PhotoFrameProps) {
   const theme = useAppTheme();
-  const defaultFormat = useSettingsStore((s) => s.photoAspectRatio);
-  const ratio = AspectRatio[format ?? defaultFormat];
+  const ratio = AspectRatio[format];
 
   return (
     <View

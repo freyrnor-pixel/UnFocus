@@ -11,7 +11,7 @@
  * mechanism every other card in the app now offers, replacing what used to be a tab switch.
  *
  * Connections:
- *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard,
+ *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard, lib/reorder (projectOrder),
  *             components/PlanTaskCard, components/DraggableTaskRow, components/CardExpandButton,
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
@@ -143,6 +143,7 @@ import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
 import { getScreenColor } from '@/lib/screenColor';
+import { projectOrder } from '@/lib/reorder';
 
 export type TodoSection = 'whenever' | 'today' | 'calendar' | 'recurring' | 'planner';
 
@@ -1014,10 +1015,7 @@ export default function TodoSurface({ section, onDayReset }: Props) {
   }, []);
 
   const wheneverDragged = useMemo(
-    () =>
-      wheneverDrag.order
-        .map((id) => wheneverAll.find((tk) => tk.id === id))
-        .filter((tk): tk is Task => !!tk),
+    () => projectOrder(wheneverDrag.order, wheneverAll),
     [wheneverDrag.order, wheneverAll]
   );
 

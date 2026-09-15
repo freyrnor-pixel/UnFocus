@@ -286,13 +286,71 @@ describe('applyAiSetupConfig — settings whitelist', () => {
     expect(useSettingsStore.getState().peopleModeEnabled).toBe(beforePeople);
   });
 
+  /**
+   * The v10 counterpart (2026-09-15). Three more settings went inert, and unlike v9's pair
+   * there is no flag to flip that would bring them back — their SURFACES were removed:
+   *   · `glassSurfaces` / `opaqueCards` — #703 made every pane opaque, #706 took the lit edge,
+   *     and components/Surface.tsx stopped reading either. The Settings rows are gone.
+   *   · `photoAspectRatio` — the subtle one. components/PhotoFrame.tsx DID read it, so a
+   *     grep for the field would have said "live". But the app holds exactly one <PhotoFrame>
+   *     and it passes `format` explicitly, so the default was never reached. A live read is not
+   *     a reachable effect, which is the distinction this whole set is about.
+   *
+   * ⚠️ There is NO version gate on import — AI_SETUP_SCHEMA_VERSION is a guide-side signal
+   * only — so a v9 file naming any of these still arrives here. That is exactly why they were
+   * moved to INERT_SETTINGS rather than simply deleted from the whitelist: deleted, they would
+   * be dropped in silence and the user would be left to infer that nothing happened.
+   */
+  it('reports the retired presentation settings as unavailable instead of writing them', () => {
+    const before = {
+      glassSurfaces: useSettingsStore.getState().glassSurfaces,
+      opaqueCards: useSettingsStore.getState().opaqueCards,
+      photoAspectRatio: useSettingsStore.getState().photoAspectRatio,
+    };
+    const result = applyAiSetupConfig({
+      version: AI_SETUP_SCHEMA_VERSION,
+      settings: {
+        darkMode: 'off',
+        glassSurfaces: !before.glassSurfaces,
+        opaqueCards: !before.opaqueCards,
+        photoAspectRatio: 'widescreen',
+      } as never,
+    });
+    expect(result.settings.applied).toEqual(['darkMode']);
+    expect(result.settings.skipped).toEqual([
+      { field: 'glassSurfaces', reason: 'unavailable' },
+      { field: 'opaqueCards', reason: 'unavailable' },
+      { field: 'photoAspectRatio', reason: 'unavailable' },
+    ]);
+    // Stored values untouched — an old backup keeps whatever the user had.
+    expect(useSettingsStore.getState().glassSurfaces).toBe(before.glassSurfaces);
+    expect(useSettingsStore.getState().opaqueCards).toBe(before.opaqueCards);
+    expect(useSettingsStore.getState().photoAspectRatio).toBe(before.photoAspectRatio);
+  });
+
   it('keeps the guide text and the whitelist naming the same fields', () => {
     // The whitelist is the enforcement and the guide text is the promise; a field in one and
-    // not the other is how featureSharing came to be offered but inert. Neither may name the
-    // inert pair.
+    // not the other is how featureSharing came to be offered but inert. Neither may name an
+    // inert field.
     const guide = buildAiSetupGuideText();
-    expect(guide).not.toContain('featureSharing');
-    expect(guide).not.toContain('peopleModeEnabled');
+    for (const field of [
+      'featureSharing',
+      'peopleModeEnabled',
+      'glassSurfaces',
+      'opaqueCards',
+      'photoAspectRatio',
+    ]) {
+      expect(guide).not.toContain(field);
+    }
+  });
+
+  /**
+   * The bump is the only signal a reader gets that the documented schema changed, and this
+   * file's own changelog is where the reason lives. Pinning the number means a future edit
+   * that retires another field cannot quietly skip the bump the invariant requires.
+   */
+  it('is at schema v10, the version that retired the three presentation settings', () => {
+    expect(AI_SETUP_SCHEMA_VERSION).toBe(10);
   });
 });
 

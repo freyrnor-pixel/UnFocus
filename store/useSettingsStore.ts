@@ -170,14 +170,19 @@
  *     `photoAspectRatio`, `opaqueCards`, `accountName`, `accountCreated`, `freyrModeEnabled`
  *     /`freyrSeedIds` and `featureDesignLab`. Their rows came off app/settings.tsx and the
  *     reason differs per column, which matters if one is ever revived:
- *     - `photoAspectRatio` and `opaqueCards` are still READ (components/PhotoFrame.tsx and
- *       components/Surface.tsx respectively) and still resolve correctly — they simply have
- *       no control any more. PhotoFrame's only caller hard-codes `square` and documents that
- *       it ignores the default, so the picker had never changed anything visible; `opaqueCards`
- *       was the card-only half of `glassSurfaces`, which overrides it, so the app carried two
- *       switches over one idea. Both stay in the AI-setup whitelist deliberately: removing a
- *       key from it is a schema change (AI_SETUP_SCHEMA_VERSION), and neither value is wrong,
- *       just unreachable from the UI.
+ *     - `photoAspectRatio` and `opaqueCards` — ⚠️ **this bullet said "still READ … they simply
+ *       have no control any more", and as of 2026-09-15 neither half holds.** Both now carry
+ *       `@deprecated INERT` at their declarations (#711 for `opaqueCards` and `glassSurfaces`,
+ *       this pass for `photoAspectRatio`), which is where a reader meets them.
+ *         The bullet is kept rather than deleted because of HOW it went stale. It was accurate
+ *       when written and it contained its own refutation: it says the picker "had never changed
+ *       anything visible" in the same breath as calling the field READ. Both are true —
+ *       PhotoFrame really did subscribe to it — and the conclusion was never drawn, so the field
+ *       sat labelled "live" for a month. **A live read is not a reachable effect.**
+ *         Its last sentence has been acted on rather than contradicted: removing a key from the
+ *       AI-setup whitelist IS a schema change, so all three went to lib/aiSetupApply.ts's
+ *       INERT_SETTINGS under AI_SETUP_SCHEMA_VERSION 10 — an importing user is told
+ *       `unavailable` instead of having a no-op written for them.
  *     - `accountName`/`accountCreated` are the classic flavour — written by a "Create local
  *       account" button and read by NOTHING, ever. That button's whole effect was to replace
  *       itself with the date it had just stamped.
@@ -493,9 +498,25 @@ export type Settings = {
   // Column is still `lifetime_bonsai_points` (never dropped); the field was renamed off
   // the deleted Bonsai system on 2026-07-31.
   lifetimeGrowth: number;
-  // Default aspect-ratio format for photo tiles (components/PhotoFrame.tsx) app-wide —
-  // 'fit' shows a photo's natural proportions; the others center-crop to a fixed ratio.
-  // A per-call `format` prop can still override this for a specific tile.
+  /**
+   * @deprecated INERT since 2026-09-15 — the third field to take this label, and the one whose
+   * deadness was hardest to see. It was the app-wide default format for photo tiles: 'fit' kept
+   * a photo's natural proportions, the others center-cropped to a fixed ratio.
+   *
+   * It is not like `glassSurfaces`/`opaqueCards` above, which stopped being READ. This one was
+   * read — components/PhotoFrame.tsx subscribed to it as the fallback for an omitted `format`
+   * prop — so every grep for it came back "live". What no grep showed is that the app contains
+   * exactly ONE <PhotoFrame> (app/budget.tsx's receipt thumbnail) and it has always passed
+   * `format="square"` explicitly. The fallback was never once reached.
+   *   **A live read is not a reachable effect**, and the difference is why this survived the
+   * 2026-08-17 declutter that took its Settings row: the note further up this header recorded it
+   * as "still READ" and moved on. PhotoFrame's subscription is gone now and its `format` prop is
+   * required, so a second caller has to choose a ratio rather than inherit one that never worked.
+   *
+   * Column stays (never-drop); reported to AI setup imports as `unavailable`
+   * (lib/aiSetupApply.ts's INERT_SETTINGS, schema v10). Reviving it means giving PhotoFrame an
+   * optional `format` again AND a control that sets this — not just reading the column.
+   */
   photoAspectRatio: AspectRatioKey;
   // ---- Feature flags (2026-07-25 settings reorganization; defaults revised same day) ----
   // Each one gates a purely ADDITIVE surface — the app keeps working, the feature's own

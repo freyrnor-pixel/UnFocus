@@ -110,7 +110,7 @@
  *             heavy, warning), lib/i18n, lib/money (formatKr), lib/shoppingGroups (groupByDish,
  *             groupByCategory, computeListGroups, listProgress, catalogItemsForList),
  *             lib/shoppingCategories (categoryPresets, categoryLabel),
- *             lib/reorder (reorderByDrag), lib/useAppTheme, lib/prefill (usePrefill — a note
+ *             lib/reorder (reorderByDrag, projectOrder), lib/useAppTheme, lib/prefill (usePrefill — a note
  *             sent here seeds THIS week's add row),
  *             lib/domainColor, lib/budget (computeSpendPace),
  *             store/useSettingsStore, store/useShoppingListStore, store/useMonthlyListStore,
@@ -568,12 +568,25 @@ import { useAppTheme, useAccessibility } from '@/lib/useAppTheme';
 import { useKeyboardLift } from '@/lib/useKeyboardLift';
 import { Fonts, FontSize, HitSlop, MIN_TAP_TARGET, OpticalCenter, Radius, SCREEN_GAP, Spacing, TITLE_FIELD, Type } from '@/constants/theme';
 import { groupByDish, groupByCategory, computeListGroups, listProgress, catalogItemsForList } from '@/lib/shoppingGroups';
+import { projectOrder, reorderByDrag } from '@/lib/reorder';
 import { categoryPresets, categoryLabel } from '@/lib/shoppingCategories';
-import { reorderByDrag } from '@/lib/reorder';
 import { formatKr } from '@/lib/money';
 import { computeSpendPace } from '@/lib/budget';
 import { getDomainColor } from '@/lib/domainColor';
 import { getScreenColor } from '@/lib/screenColor';
+
+/**
+ * The shape `computeListGroups` returns, empty. Only reachable if a list is rendered that was not
+ * in `nonTemplateLists` when `groupsByList` was built — which the shared deps make impossible
+ * today, but a `?? EMPTY_LIST_GROUPS` is one allocation-free line and the alternative is a crash
+ * inside a `.map()` during a drag.
+ */
+const EMPTY_LIST_GROUPS: ReturnType<typeof computeListGroups> = {
+  dishGroups: [],
+  ungroupedUnchecked: [],
+  checked: [],
+  purchased: [],
+};
 
 type DragState = {
   listId: string;
@@ -1365,6 +1378,25 @@ export default function ShoppingScreen() {
     return map;
   }, [nonTemplateLists, monthlyResetDate]);
 
+  /**
+   * Every non-template list's groups, computed ONCE per change of `items`, instead of once per
+   * list per render (2026-09-15).
+   *
+   * `computeListGroups` filters the whole `items` array twice and sorts three times. It used to
+   * be called inline in the JSX below, inside `weekLists.map(...)`, so the cost was
+   * O(lists × items × log items) on EVERY render of this screen — and this screen re-renders per
+   * movement during a drag, which is exactly when there is least frame budget to spare. Nothing
+   * in it depends on render-local state, so there was never a reason for it to live there.
+   *
+   * Keyed on `nonTemplateLists` rather than `listsByWeek` because the week buckets are derived
+   * from it: same inputs, one less indirection, and it stays correct if the bucketing changes.
+   */
+  const groupsByList = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computeListGroups>>();
+    for (const list of nonTemplateLists) map.set(list.id, computeListGroups(items, list.id));
+    return map;
+  }, [nonTemplateLists, items]);
+
   /** Rewrites the live store back to exactly what `snap` captured — undoes any add/
    *  remove/toggle/qty/merge/rename made since the snapshot, via the same store actions
    *  those operations normally go through (so LWW/sync stamping stays correct). */
@@ -1475,11 +1507,22 @@ export default function ShoppingScreen() {
     setFlights((prev) => prev.filter((f) => f.key !== key));
   }
 
-  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+  // ⚠️ **`useCallback` here is NOT symmetry — it feeds a native prop (2026-09-15).** The
+  // comment above used to say this one was "NOT a prop of a memoised child", and that was
+  // wrong: it is passed to ScreenScaffold, whose own `handleScroll` is memoised on `[onScroll]`
+  // and handed to a <ScrollView> with `scrollEventThrottle={16}`. As a bare declaration it got a
+  // fresh identity every render, so that memo was invalidated every render and the ScrollView's
+  // `onScroll` prop was re-sent to the native side on every render of one of the app's two
+  // busiest screens.
+  //   The dep list is `[]` rather than `[flights.length]` because the functional updater makes
+  // it exact: returning `prev` unchanged is a React bail-out (Object.is), so the guard costs
+  // nothing and the identity is stable for the component's whole life rather than only while
+  // the flight count holds still.
+  const handleScreenScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    if (Math.abs(y - lastScrollY.current) > 4) setFlights((prev) => (prev.length > 0 ? [] : prev));
     lastScrollY.current = y;
-  }
+  }, []);
 
   function handleDragStart(listId: string, itemId: string, itemName: string, order: string[]) {
     // Measure the sibling reorder rows + this list's dish-group cards in window space (the
@@ -2280,12 +2323,12 @@ export default function ShoppingScreen() {
                   <Text style={[styles.weekSectionEmptyText, { color: theme.textMuted }]}>{t.weekSectionEmpty}</Text>
                 ) : (
                   weekLists.map((list) => {
-                    const groups = computeListGroups(items, list.id);
+                    const groups = groupsByList.get(list.id) ?? EMPTY_LIST_GROUPS;
                     const groupsProgress = listProgress(groups);
                     const order = groups.ungroupedUnchecked.map((i) => i.id);
                     const displayUngrouped =
                       drag && drag.listId === list.id
-                        ? (drag.order.map((id) => groups.ungroupedUnchecked.find((i) => i.id === id)).filter(Boolean) as ShoppingItem[])
+                        ? projectOrder(drag.order, groups.ungroupedUnchecked)
                         : groups.ungroupedUnchecked;
                     const expanded = !!expandedListIds[list.id];
 

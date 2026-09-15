@@ -11,7 +11,7 @@
  * Decision 015 notImplemented stub.
  *
  * Connections:
- *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update),
+ *   Imports → lib/db, lib/dataAccess, lib/storeCrud (the guarded by-id update), lib/reorder (retainKnownIds),
  *             lib/id, lib/date, lib/cardType (the per-item card type
  *             + the isCompletable rule a 'note' turns on), lib/notifications, lib/taskNotifications,
  *             lib/taskRecurrence (taskOccursOn — re-exported here for existing callers/tests),
@@ -209,6 +209,7 @@ import { softDelete } from '@/lib/liveSync';
 import { broadcastRow } from '@/lib/syncService';
 import { syncRow, syncRows } from '@/lib/syncRow';
 import { scheduleWidgetSync } from '@/lib/widgets/sync';
+import { retainKnownIds } from '@/lib/reorder';
 
 export type TaskType = 'start-at' | 'time-box';
 export type Recurring = 'none' | 'daily' | 'weekly' | 'monthly';
@@ -967,7 +968,7 @@ export const useTaskStore = create<TaskStore>((set, get) => {
     // What the user was looking at: the Whenever list's order, which is sort_order with the
     // load order (task_date, task_time) as the tie-break every task starts life on.
     const sorted = tasks.map((t, i) => ({ t, i })).sort((a, b) => a.t.sortOrder - b.t.sortOrder || a.i - b.i);
-    const queue = orderedIds.filter((id) => tasks.some((t) => t.id === id));
+    const queue = retainKnownIds(orderedIds, tasks);
     if (queue.length < 2) return;
     const moving = new Set(queue);
     // The moved rows go back into the SLOTS they already occupied, in their new order, so a
