@@ -1630,8 +1630,6 @@ const en = {
     accessibility: {
       title: 'Accessibility',
       reducedMotion: 'Reduced motion',
-      glassSurfaces: 'Glass surfaces',
-      glassSurfacesHint: 'Frosted glass on cards and buttons — off for solid surfaces',
       particles: 'Drifting background',
       particlesHint: 'A few soft dots drifting up behind the app',
       reduceEffects: 'Reduce visual effects',
@@ -3300,8 +3298,6 @@ const no: typeof en = {
     accessibility: {
       title: 'Tilgjengelighet',
       reducedMotion: 'Redusert bevegelse',
-      glassSurfaces: 'Glassflater',
-      glassSurfacesHint: 'Frostet glass på kort og knapper — av for heldekkende flater',
       particles: 'Drivende bakgrunn',
       particlesHint: 'Noen få myke prikker som driver oppover bak appen',
       reduceEffects: 'Reduser visuelle effekter',
@@ -5131,8 +5127,6 @@ const is: typeof en = {
     accessibility: {
       title: 'Aðgengi',
       reducedMotion: 'Minni hreyfing',
-      glassSurfaces: 'Glerfletir',
-      glassSurfacesHint: 'Frostað gler á kortum og hnöppum — slökkt fyrir gegnheila fleti',
       particles: 'Reikandi bakgrunnur',
       particlesHint: 'Fáeinir mjúkir punktar sem reika upp á bak við appið',
       reduceEffects: 'Draga úr sjónrænum áhrifum',

@@ -126,24 +126,23 @@
  *     is a narrowing of the every-pane rule by two named contexts, not a re-opening of the
  *     ambient argument. `theme.surfaceRaised` is `surfaceGlassStrong` already composited, so a
  *     sheet or a bar over empty backdrop is unchanged.
- *   - **`settings.glassSurfaces` is LIVE again** (it was inert here from 2026-08-05, because
- *     everything was already opaque — the state that toggle asks for). Off ⇒ the opaque
- *     composite everywhere. It needs no new copy: the shipped EN/NO strings
- *     already describe exactly this ("Frosted glass finish on cards, buttons and the add
- *     button. Turn off for plain, solid surfaces"). A caller-supplied `tint` also stays
- *     opaque — those callers want that exact colour, not a frosted approximation of it.
- *   - **`settings.opaqueCards` is the CARD-ONLY version of that switch** (2026-08-15), added so
- *     the maintainer can A/B this material against a solid one. It is NOT a duplicate of
- *     `glassSurfaces` and the difference is the whole reason it exists: `glassSurfaces` is the
- *     global reduce-transparency mode and also restyles buttons, the FAB, sheets, the header
- *     and the nav, so flipping it changes several materials at once and can't answer "is the
- *     CARD better solid?". This one gates on `surfaceContext === 'ambient'`, which is exactly
- *     the content-card population, and leaves every chrome surface frosted.
- *     Three ordering facts, all of them load-bearing: `glassSurfaces` still wins outright (off
- *     ⇒ opaque everywhere regardless of this); `tint` still wins over both; and the opaque fill
- *     is `theme.surface`, the SAME colour `surfaceGlass` already composites to, so this changes
- *     what is drawn and never what `colors.test.ts` measures. It defaults OFF — glass is the
- *     shipped look and this is the experiment, not the other way round.
+ *   - ⚠️ **NEITHER `settings.glassSurfaces` NOR `settings.opaqueCards` is read by this file any
+ *     more (2026-09-15), and this block used to say the opposite of both.** They are listed here
+ *     only so the next reader does not go looking for a branch that was deleted.
+ *       `glassSurfaces` was the reduce-transparency mode. #703 made every pane opaque, which
+ *     left it nothing to reduce, so it was repointed to the card edge's lit/shaded diagonal —
+ *     and that diagonal is what forced Android off its antialiased border path and chewed every
+ *     card corner (see the block at the ramp). Removing it left the switch unable to change
+ *     anything a user could see, so its Settings ROW was retired on the maintainer's call. The
+ *     store field and its DB column stay, under the never-drop rule; nothing reads them.
+ *     `opaqueCards` was the card-only A/B of the same idea and went inert with it.
+ *       **Do not re-add a read of either without giving it something visible to do first** —
+ *     a dead read is what makes the next reader believe a switch still works, and a live
+ *     subscription re-renders every Surface in the app on a toggle that changes nothing.
+ *     `__tests__/glassMaterial.test.ts` ('offers no Settings row for a switch that reaches
+ *     nothing') is the guard.
+ *       A caller-supplied `tint` still wins over the fill, as it always has — those callers want
+ *     that exact colour.
  *   - Depth is still `getLayeredShadow(theme.shadow)` — a three-pass `boxShadow` — and this
  *     view must NOT also set the `shadow*`/`elevation` keys (they would double up).
  *     `elevated` deepens it to the `floating` tier. Shadow was not part of the reset brief:
@@ -202,7 +201,6 @@ import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react
 import {
   BORDER_WIDTH,
   darken,
-  getGlassEdge,
   getGlassFill,
   getLayeredShadow,
   Radius,
@@ -210,7 +208,7 @@ import {
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLabShape } from '@/lib/useDesignLab';
 import { Travel } from '@/constants/motion';
-import { useAccessibility, useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useAccessibility, useAppTheme } from '@/lib/useAppTheme';
 import PressableScale from '@/components/PressableScale';
 
 /**
@@ -331,7 +329,6 @@ export default function Surface({
   children,
 }: Props) {
   const theme = useAppTheme();
-  const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const isKey = !!onPress;
   // Reduced motion gets a static pressed COLOUR instead of a sink — travel is motion, and
@@ -354,8 +351,11 @@ export default function Surface({
   // content cards only, leaving sheets, the header and the nav frosted, so the card material
   // can be judged without also changing the chrome around it. `glassSurfaces` still wins —
   // with it off, everything here is opaque whatever this says. See the Edit notes.
-  const glassPref = useSettingsStore((s) => s.glassSurfaces);
-  const opaqueCards = useSettingsStore((s) => s.opaqueCards);
+  // `glassSurfaces` and `opaqueCards` are NOT read here any more (2026-09-15). Both fed the
+  // lit/shaded edge, which is gone — see the block below. They are dropped rather than read and
+  // ignored: a live store subscription re-renders every Surface on a toggle that now changes
+  // nothing they can see, and a dead read is the thing that makes the next reader believe the
+  // switch still works. `DECISIONS_OPEN.md` carries what to do about the orphaned setting.
   // "Reduce visual effects" (2026-08-29) — the user's escape hatch for a GPU-bound device.
   // It now takes this component's one remaining per-frame GPU cost, the three-pass boxShadow,
   // plus the translucency (an opaque pane composites in one step). The BlurView it was also
@@ -463,10 +463,30 @@ export default function Surface({
   // which is a real, visible difference, so `glassSurfaces` still does something a user can see.
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
   const fill = staticPressed ? theme.surfaceMuted : tint ?? opaqueFill;
-  // `glassSurfaces` off (or `reduceEffects` on) now means a FLAT boundary — one colour on all
-  // four sides instead of the lit/shaded diagonal. That is the honest meaning of a
-  // "reduce visual effects" switch once nothing transmits: fewer simulated light sources.
-  const litEdgeOn = glassPref && !reduceEffects && !(isAmbient && opaqueCards);
+  // ⚠️ **`litEdgeOn` IS GONE (2026-09-15), and it is deleted rather than left constant-false.**
+  // That is #703's own lesson applied to #703's own predicate: a switch that still reads as live
+  // while every branch lands in the same place is how 2026-09-06 shipped a whole app with no
+  // translucent pane and three green source-text assertions.
+  //
+  // What it did: `true` gave the four sides a LIT top-left and a SHADED bottom-right. On Android
+  // that is not a style choice, it is a rendering mode. React Native's `BorderDrawable` takes its
+  // antialiased `canvas.drawRoundRect` path ONLY when all four widths and **all four colours**
+  // are equal; with two colours it falls to `clipPath` + four filled quadrilaterals, and
+  // `clipPath` is not antialiased on a hardware canvas. So every card and the nav bar drew a
+  // stair-stepped rim across a smoothly-drawn fill corner — the maintainer's *"borders look weird
+  // and corners are clipped"*. The lit diagonal cost the corners, on every card, always.
+  //
+  // Maintainer's ruling, given the trade in full: one uniform colour. So the edge is the ramp's
+  // SHADE stop on all four sides — deliberately that one and not the lit stop, because it is the
+  // stop carrying WCAG 1.4.11's 3:1 boundary in both themes (the lit stop has never had a floor
+  // under it, and in LIGHT it is the boundary colour held back at 0.3 alpha, which as a whole
+  // border would be no boundary at all).
+  //
+  // ⚠️ **`glassSurfaces` now changes nothing about a card**, and that is a real loose end, not a
+  // detail. It was this predicate's last live use in the app — see `components/AddFAB.tsx`, which
+  // records the previous time the toggle went inert app-wide as a defect. It is recorded in
+  // `DECISIONS_OPEN.md` rather than papered over with an invented job, because the honest options
+  // (retire the row, or give it a new meaning) are a product call and not this pass's to make.
   // ── The pane carries NO screen colour (2026-08-20) ──────────────────────────────────────
   // A card is plain white glass on every screen. What used to be here was the 2026-08-15
   // ruling's other half: the identity hue, taken off the edge and repainted as a 5%
@@ -505,14 +525,17 @@ export default function Surface({
   // on every store write, and (see app/_layout.tsx's AppState handler) on every foreground.
   // Every dep here is already stable per theme/lab state, so for a normal user these now
   // compute once and keep one reference for the app's lifetime.
-  // `litEdgeOn` false ⇒ one flat boundary colour on all four sides. Not the 3-stop
-  // fade-to-nothing branch (that is the design lab's own knob) — a flat CLOSED border, because
-  // a card still needs a boundary when its simulated light source is switched off.
+  // ONE flat boundary colour on all four sides — see the block at `opaqueFill` for why the
+  // lit/shaded diagonal had to go, and why it is the SHADE stop that survives. Not the 3-stop
+  // fade-to-nothing branch either (that is the design lab's own knob): a flat CLOSED border,
+  // because a card still needs a boundary.
+  //   Kept as a `RimGradient`-shaped pair rather than a bare colour so the four `borderColor`
+  // assignments below stay literally identical in shape — the thing Android is actually testing
+  // is that they are EQUAL, and two reads of the same array element is the clearest way to say
+  // that and the hardest way to break it by editing one side.
   const ramp = useMemo(
-    () => (litEdgeOn
-      ? getGlassEdge(edgeHue, isDark, 'card', shape.borderRampStrength)
-      : { colors: [edgeHue, edgeHue], locations: [0, 1], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }),
-    [edgeHue, isDark, shape.borderRampStrength, litEdgeOn],
+    () => ({ colors: [edgeHue, edgeHue], locations: [0, 1], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }),
+    [edgeHue],
   );
   // ⚠️ **The nav takes the `chrome` rung from its CONTEXT, and the design lab cannot override it
   // (2026-09-15).** The rung exists so content visibly passes UNDER the bar; a knob that could

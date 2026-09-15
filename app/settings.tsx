@@ -1149,21 +1149,23 @@ export default function SettingsScreen() {
                   onChange={(v) => settings.update({ particlesEnabled: v })}
                 />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* The app's ONE reduce-transparency control since 2026-08-17. Appearance's
-                    "Solid cards" (`opaqueCards`) was a second, narrower switch over the same
-                    idea in a different card, and this one already overrode it — see
-                    components/Surface.tsx. Don't re-add the narrower one. */}
-                <ToggleRow
-                  label={t.settings.accessibility.glassSurfaces}
-                  hint={t.settings.accessibility.glassSurfacesHint}
-                  checked={settings.glassSurfaces}
-                  onChange={(v) => settings.update({ glassSurfaces: v })}
-                />
-                {/* 2026-08-29, the performance pass. Beside `glassSurfaces` because they are
-                    neighbours in kind, NOT because one subsumes the other: that switch is
-                    reduce-transparency and reaches only the blur, which is why turning it off
-                    did not make a slow device fast. This one also takes the card shadows and
-                    the backdrop's orb field — the other two per-frame GPU costs. Off by
+                {/* ⚠️ **"Glass surfaces" (`glassSurfaces`) was RETIRED here on 2026-09-15, and it
+                    is the switch itself that is obsolete, not merely unused.** It was the app's
+                    reduce-transparency control, and since #703 made every pane opaque there is
+                    no transparency in the app for it to reduce. Its last remaining effect was
+                    the card edge's lit/shaded diagonal — which turned out to be what forced
+                    Android off its antialiased border path and chewed every card corner, so that
+                    went too (see components/Surface.tsx).
+                      Removing the row rather than leaving it is the point: a toggle that changes
+                    nothing a user can see is the defect `__tests__/glassMaterial.test.ts` exists
+                    to catch, and `components/AddFAB.tsx` records the last time this same setting
+                    went quietly inert app-wide.
+                      **The store field and its DB column stay** (never-drop rule — see
+                    store/useSettingsStore.ts). Only the control is gone. "Reduce visual effects"
+                    below is the surviving switch, and it is the one that was doing the work.
+                    Don't re-add this row without giving it something visible to do first. */}
+                {/* 2026-08-29, the performance pass. This one takes the card shadows and
+                    the backdrop's orb field — the per-frame GPU costs. Off by
                     default. See store/useSettingsStore.ts for the measurement. */}
                 <ToggleRow
                   label={t.settings.accessibility.reduceEffects}
