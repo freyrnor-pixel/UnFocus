@@ -32,6 +32,10 @@
  *     the tour never targets one.
  *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
  *     L4.5 optional sticky-below-header block → L5 bottom block
+ *   - **`decorative={false}` drops L1's orbs and L2 entirely** (2026-09-15), keeping the page
+ *     colour and every piece of chrome. It is a navigation-cost prop, not a styling one — the
+ *     `ownBackground` path rebuilds both layers on every push and tears them down on every pop.
+ *     See the prop's own doc; `app/settings.tsx` is the only caller so far.
  *   - **ScrollIntoViewContext (2026-07-13 keyboard fix; 2026-07-16 made row-relative)**:
  *     wraps `children` inside the ScrollView, exposing a `scrollIntoView(node)` that measures
  *     the focused AddRow in window coords and scrolls only enough to lift it above the
@@ -405,6 +409,32 @@ type Props = {
    */
   plainBackground?: boolean;
   /**
+   * Whether this screen's own backdrop draws the DECORATIVE layers — the orb field (L1) and the
+   * drifting particles (L2) — over the page colour. Default true. `false` keeps the page colour
+   * and the chrome exactly as they are; only the ambient field goes.
+   *
+   * ⚠️ **This exists for navigation cost, and it is NOT `plainBackground` (2026-09-15).**
+   * `plainBackground` also flattens the page to pure white/black and squares the header
+   * (`floatChrome = !plainBackground`), which is a redesign of the screen. This prop changes
+   * nothing about the chrome, the fill or the card treatment.
+   *
+   * **Why it is worth a prop.** The 5 pager tabs pass `ownBackground={false}` and share ONE
+   * backdrop instance that lives for the whole session — its orbs are rasterised once. Every
+   * sub-tier screen mounts its OWN through the `ownBackground` path, so a push BUILDS a
+   * full-screen `<Svg>` of radial-gradient shaders plus a second five-dot animated field (the
+   * pager's own keeps running underneath, invisible), and a pop TEARS THEM DOWN. That is
+   * symmetric work, which matches the report: *"going in and out of settings still lag"*, slow
+   * in both directions, and gone when Accessibility → Reduce effects is on.
+   *
+   * ⚠️ **What is NOT proven.** `reduceEffects` drops three things, not one: these orbs, the
+   * particles, AND `components/Surface.tsx`'s two-pass `boxShadow` on every card. The device
+   * evidence implicates the BUNDLE, not this member of it. So this is the bounded half — the
+   * work that is provably rebuilt on every navigation and hidden behind opaque cards — and if
+   * the lag survives it, the remaining suspect is the Fabric shadow re-commit across ~60 cards
+   * that `Surface.tsx`'s own header documents. See `DECISIONS_OPEN.md`.
+   */
+  decorative?: boolean;
+  /**
    * Optional override colour for the small filler strip between the header and the
    * sticky-below-header block (default: the page background `theme.bg`). Plans, Shopping,
    * and Settings all pass `theme.surface` so that seam reads white/clean instead of the
@@ -454,6 +484,7 @@ export default function ScreenScaffold({
   pagerFloatingNav = false,
   ownBackground = true,
   plainBackground = false,
+  decorative = true,
   stickyGapColor,
   onScroll,
   scrollable = true,
@@ -944,7 +975,7 @@ export default function ScreenScaffold({
           standalone backdrop — so render the base always and add the glow on Home. */}
       {ownBackground && !plainBackground && (
         <>
-          <ScreenBackground />
+          <ScreenBackground decorative={decorative} />
           {isHome && <HomeHeroBackground />}
         </>
       )}
@@ -952,7 +983,7 @@ export default function ScreenScaffold({
       {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground.
           Restored 2026-09-01 with the component; this is the sub-tier / non-pager path, where the
           pager's own single instance does not reach. */}
-      {ownBackground && !plainBackground && <ParticleBackground />}
+      {ownBackground && !plainBackground && decorative && <ParticleBackground />}
 
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in
