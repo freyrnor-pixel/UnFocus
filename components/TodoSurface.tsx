@@ -11,7 +11,7 @@
  * mechanism every other card in the app now offers, replacing what used to be a tab switch.
  *
  * Connections:
- *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard, lib/reorder (projectOrder),
+ *   Imports → components/SectionCard, components/Card.tsx, components/TaskCard, lib/reorder (projectOrder), lib/longList (longListVisible/longListHidden),
  *             components/PlanTaskCard, components/DraggableTaskRow, components/CardExpandButton,
  *             lib/useCardExpand, lib/useSurfaceLayout, lib/useDayLog, lib/useCalendarEvents,
  *             lib/useNowMinutes, lib/taskReset, lib/useEnergyPause, lib/useDragReorder,
@@ -138,7 +138,8 @@ import { useTagStore } from '@/store/useTagStore';
 import { matchesTagFilter, toggleTagId } from '@/lib/tags';
 import { effectiveAssigneeId } from '@/lib/taskRotation';
 import { personColor } from '@/lib/personColor';
-import { FontSize, Radius, SCREEN_GAP, Spacing, Type, IconSize, Fonts } from '@/constants/theme';
+import { FontSize, HitSlop, MIN_TAP_TARGET, Radius, SCREEN_GAP, Spacing, Type, IconSize, Fonts } from '@/constants/theme';
+import { longListHidden, longListVisible } from '@/lib/longList';
 import { Spring } from '@/constants/motion';
 import type { LayoutSpec } from '@/lib/cardLayout';
 import { isCompletable } from '@/lib/cardType';
@@ -157,6 +158,46 @@ function byTime(a: Task, b: Task): number {
 
 /** How many unfinished tasks "Now and next" leaves on screen. */
 const FOCUS_VISIBLE = 2;
+
+/**
+ * The "N more" row a capped section draws under its last visible row.
+ *
+ * Deliberately NOT `components/PadFooterToggle.tsx`, though it borrows that control's shape and
+ * its `t.pad.more(n)` string. That one cycles a pad card's PERSISTED size (`settings.cardStates`)
+ * between preview and open, and it is a two-way toggle. This is one-way and local: it lifts a
+ * performance ceiling the user never chose, and folding the section away resets it. Reusing the
+ * component would have meant giving To-do's sections a pad state they do not have.
+ *
+ * Borrowing the LANGUAGE is the point, though — `PadFooterToggle`'s own header records why the
+ * app settled on a chevron plus a count ("3 more" reads as a promise, "Show all notes" reads as
+ * a label), and a second vocabulary for the same gesture would undo that.
+ *
+ * Renders nothing when `hidden` is 0, which is the everyday case: a user with fewer than
+ * LONG_LIST_CAP rows in a section never learns this exists.
+ */
+function ShowAllRow({ hidden, onPress }: { hidden: number; onPress: () => void }) {
+  const t = useT();
+  const theme = useAppTheme();
+  if (hidden <= 0) return null;
+  return (
+    <PressableScale
+      style={styles.showAllRow}
+      hitSlop={HitSlop.base}
+      scaleTo={0.97}
+      releaseSpring={Spring.calm}
+      onPress={() => { tap(); onPress(); }}
+    >
+      <Text style={[styles.showAllLabel, { color: theme.accent }]}>{t.pad.more(hidden)}</Text>
+      {/* ⚠️ **No `color`/`size` here, unlike PadFooterToggle's accent chevron.** That file is on
+          `cardAnatomy.test.ts`'s CHEVRON_STYLE_ALLOWED list; this one is not, and the allowlist is
+          a ratchet that may shrink and never grow (CONSISTENCY_AUDIT.md §2 — the app once shipped
+          13/14/16/18px chevrons in three colours because both props were REQUIRED). The label
+          carries the action colour; the chevron takes its one default. Verified by that test
+          failing on the accent override before this comment existed. */}
+      <AnimatedChevron open={false} />
+    </PressableScale>
+  );
+}
 /** How many rows "One thing at a time" draws under its hero. */
 const FOCUS_THEN_VISIBLE = 2;
 
@@ -181,12 +222,22 @@ function DoneSplitList({
   const t = useT();
   const [doneOpen, setDoneOpen] = useState(false);
   const [restOpen, setRestOpen] = useState(false);
+  // The long-list ceiling's "show everything" flags (2026-09-15, lib/longList.ts). Local and
+  // deliberately not persisted, and RESET when the section folds away: the cap is a floor the
+  // app imposes, not a size the user chose, so it should never be something they have to undo
+  // twice. See lib/longList.ts's header for why these two lists and not the others.
+  const [restShowAll, setRestShowAll] = useState(false);
+  const [doneShowAll, setDoneShowAll] = useState(false);
   const unfinished = useMemo(() => tasks.filter((tk) => !tk.done), [tasks]);
   const finished = useMemo(() => tasks.filter((tk) => tk.done), [tasks]);
   const actionable = useMemo(() => unfinished.filter((tk) => isCompletable(tk.cardType)), [unfinished]);
   const unfinishedNotes = useMemo(() => unfinished.filter((tk) => !isCompletable(tk.cardType)), [unfinished]);
   const focused = focusMode ? actionable.slice(0, FOCUS_VISIBLE) : unfinished;
   const rest = focusMode ? [...actionable.slice(FOCUS_VISIBLE), ...unfinishedNotes] : [];
+  const restVisible = longListVisible(rest, restShowAll);
+  const restHidden = longListHidden(rest.length, restShowAll);
+  const finishedVisible = longListVisible(finished, doneShowAll);
+  const finishedHidden = longListHidden(finished.length, doneShowAll);
 
   const renderAnimated = (tk: Task) => (
     <AnimatedListItem key={tk.id} enabled>
@@ -208,7 +259,7 @@ function DoneSplitList({
       {focused.length > 0 && <View style={styles.cardStack}>{focused.map(renderAnimated)}</View>}
       {rest.length > 0 && (
         <View style={styles.cardStack}>
-          <PressableScale onPress={() => { tap(); setRestOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
+          <PressableScale onPress={() => { tap(); setRestOpen((v) => { if (v) setRestShowAll(false); return !v; }); }} scaleTo={0.97} releaseSpring={Spring.calm}>
             {/* ⚠️ **`tier="sub"`, and the rule follows the fold (2026-08-21,
                 CONSISTENCY_AUDIT.md §2/§13).** These two are headings over ROWS inside a card
                 whose own header is already a 24px group rail, so drawing them at the group tier
@@ -227,14 +278,15 @@ function DoneSplitList({
             />
           </PressableScale>
           <Collapsible open={restOpen}>
-            <View style={styles.cardStack}>{rest.map(renderAnimated)}</View>
+            <View style={styles.cardStack}>{restVisible.map(renderAnimated)}</View>
+            <ShowAllRow hidden={restHidden} onPress={() => setRestShowAll(true)} />
           </Collapsible>
         </View>
       )}
       {footer}
       {finished.length > 0 && (
         <View style={[styles.doneZone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <PressableScale onPress={() => { tap(); setDoneOpen((v) => !v); }} scaleTo={0.97} releaseSpring={Spring.calm}>
+          <PressableScale onPress={() => { tap(); setDoneOpen((v) => { if (v) setDoneShowAll(false); return !v; }); }} scaleTo={0.97} releaseSpring={Spring.calm}>
             <SectionRail
               tier="sub"
               hue={theme.good}
@@ -245,7 +297,8 @@ function DoneSplitList({
             />
           </PressableScale>
           <Collapsible open={doneOpen}>
-            <View style={styles.cardStack}>{finished.map(renderAnimated)}</View>
+            <View style={styles.cardStack}>{finishedVisible.map(renderAnimated)}</View>
+            <ShowAllRow hidden={finishedHidden} onPress={() => setDoneShowAll(true)} />
           </Collapsible>
         </View>
       )}
@@ -1749,6 +1802,20 @@ export default function TodoSurface({ section, onDayReset }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // Trailing edge, mirroring components/PadFooterToggle.tsx's corner so the two read as one
+  // affordance rather than two inventions.
+  showAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: Spacing.xs,
+    minHeight: MIN_TAP_TARGET,
+    paddingHorizontal: Spacing.sm,
+  },
+  showAllLabel: {
+    fontFamily: Fonts.semibold,
+    fontSize: FontSize.sm,
+  },
   // No horizontal padding here, on purpose — this component is mounted two ways (the tab
   // wrapper and CardExpandHost's expanded body) and each caller already supplies its own
   // horizontal inset, the same convention components/FoodTab.tsx's `root` follows.
