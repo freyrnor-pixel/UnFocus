@@ -230,8 +230,32 @@ const ORBS: Orb[] = [
   { cx: 22, cy: -24, rx: 218, ry: 279, weight: 1, tone: 'warm' },
   // v2 wash 2 — off the right edge, upper third
   { cx: 291, cy: 158, rx: 196, ry: 279, weight: 0.73, tone: 'cool' },
-  // v2 wash 3 — bottom centre, the quietest, giving the screen a floor
-  { cx: 129, cy: 631, rx: 235, ry: 255, weight: 0.53, tone: 'warm' },
+  // v2 wash 3 — bottom centre, the quietest, giving the screen a floor.
+  //
+  // ⚠️ **Re-aimed 2026-09-15: its CORE was off-canvas and what reached the screen was hidden by
+  // the nav.** Maintainer: the lower half of the screen is dead black. That was geometry, not
+  // alpha. At `cy: 631` against a canvas 607 tall, this wash's solid core (0→30% of `ry`, where
+  // `ORB_STOPS` still holds alpha 0.82–1.0) ran from y≈554 downward — i.e. almost entirely
+  // below the bottom edge, and the sliver that did land sat under `BOTTOM_NAV_HEIGHT`'s opaque
+  // 56px. The screen only ever saw this wash's shoulder, which is the faintest part of it.
+  //
+  // `cy` comes up to just outside the canvas and the radii grow, so the core lands ABOVE the nav.
+  // Modelled over the real falloff at the centre column, dark, before → after:
+  //
+  //     y=380   rgb(0,0,0)    -> rgb(3,2,5)      pure black, now lit
+  //     y=440   rgb(3,1,4)    -> rgb(7,3,10)
+  //     y=500   rgb(6,3,10)   -> rgb(12,6,18)
+  //
+  // ⚠️ `cy` MUST stay outside the canvas — `chromeRhythm.test.ts` requires every wash centre to
+  // be off-canvas on at least one axis, which is what keeps these reading as washes bleeding in
+  // from the edges rather than as three discs sitting on the screen. 612 against a height of 607
+  // is deliberate and is the whole margin there is; do not "tidy" it to 600.
+  //
+  // The weight goes 0.53 → 0.62 and the LADDER IS PRESERVED (1.00 / 0.73 / 0.62, still ordered
+  // and still distinct). That test's own note warns that "a wash silently going to full strength
+  // is a real regression" — this is a nudge to the quietest rung, not a flattening of the three,
+  // and the geometry above is what does most of the work.
+  { cx: 129, cy: 612, rx: 250, ry: 300, weight: 0.62, tone: 'warm' },
 ];
 
 /**

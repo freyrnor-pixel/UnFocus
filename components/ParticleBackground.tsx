@@ -71,12 +71,26 @@ type DotSpec = {
 // overlay view the pager composites on each swipe frame. ANIMATION_GUIDELINES §6 wants
 // "no more than a few simultaneous moving elements". Spread across the width so the thinner
 // set still reads as an even, gentle drift.
+// ⚠️ **Re-spread 2026-09-15, and it is the SAME FIVE dots — no sixth.** §6 above bounds the
+// number of simultaneous moving elements, and it counts elements, not positions, so where they
+// sit is free and how many there are is not.
+//
+// What was wrong: every `bottom` sat between 18% and 58% and every dot only ever drifts UP, so
+// the field occupied the middle and upper-middle band and **nothing ever entered the lower ~18%**
+// — the same dead zone the maintainer reported as black. The washes light it now (see
+// `ORBS` wash 3); this is what puts movement there.
+//
+// Sizes and the peak opacity go up a rung with it. Both were set while cards were 86%
+// transparent and every moving dot behind one dirtied it — the repaint problem #703 fixed by
+// making panes opaque. A dot can be seen properly now without costing a card anything, which is
+// what the maintainer asked for: *"blue and 'angelic'… they can just move around like a normal
+// vivid wallpaper would."* The colour was already that blue.
 const DOTS: DotSpec[] = [
-  { size: 5,  left: '12%', bottom: '20%', duration: 7000,  delay: 0,    rise: 200 },
-  { size: 3,  left: '38%', bottom: '35%', duration: 9500,  delay: 1800, rise: 180 },
-  { size: 4,  left: '62%', bottom: '18%', duration: 8000,  delay: 3400, rise: 220 },
-  { size: 3,  left: '80%', bottom: '46%', duration: 10500, delay: 900,  rise: 160 },
-  { size: 4,  left: '50%', bottom: '58%', duration: 8800,  delay: 2600, rise: 170 },
+  { size: 6,  left: '12%', bottom: '4%',  duration: 7000,  delay: 0,    rise: 240 },
+  { size: 4,  left: '38%', bottom: '22%', duration: 9500,  delay: 1800, rise: 200 },
+  { size: 5,  left: '62%', bottom: '2%',  duration: 8000,  delay: 3400, rise: 260 },
+  { size: 4,  left: '80%', bottom: '30%', duration: 10500, delay: 900,  rise: 180 },
+  { size: 5,  left: '50%', bottom: '14%', duration: 8800,  delay: 2600, rise: 220 },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -150,7 +164,9 @@ function ParticleBackground() {
 
   // Soft-blue drifting dots keyed to the blue field — the dark pair is a touch brighter so it
   // reads against the deeper dark ground.
-  const dotColor = isDark ? 'rgba(110,175,255,0.7)' : 'rgba(100,155,255,0.6)';
+  // Alpha lifted 2026-09-15 (0.7/0.6 -> 0.85/0.7) — see DOTS for why this was safe to spend
+  // only after #703 made every pane opaque.
+  const dotColor = isDark ? 'rgba(110,175,255,0.85)' : 'rgba(100,155,255,0.7)';
 
   return (
     // ⚠️ **`renderToHardwareTextureAndroid` (2026-09-14), and it is the load-bearing prop in
