@@ -99,6 +99,14 @@ read it before claiming a visual change is done.
   TestFlight stay maintainer-only (real signing/store credentials).
 - Native module versions stay pinned to the current Expo SDK's bundled set (`~X.Y.Z`, not
   `^X.Y.Z`) — upgrade the whole SDK together, not individual native packages.
+- **`npm audit`'s ~29 findings are known, dev-only, and NOT actionable here** (measured
+  2026-09-15: 18 moderate / 11 high). Every one is transitive through build tooling — `@expo/cli`,
+  `@expo/config-plugins`, `metro`, `babel` — and the named packages (`xmldom`, `browserslist`,
+  `postcss`, `js-yaml`, `nanoid`, `image-size`, `brace-expansion`) are parser/bundler dependencies
+  that do not ship in the APK. `npm audit fix` is the WRONG tool: it would move pinned native
+  packages off the SDK's bundled set, which the row above forbids. These clear when the Expo SDK
+  is upgraded as a whole. Re-check this row at the next SDK bump; don't re-derive the verdict every
+  session.
 
 ## Known crash-class traps (verified present as source-scan tests — read before writing in this area)
 

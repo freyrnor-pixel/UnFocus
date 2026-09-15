@@ -377,7 +377,10 @@ export default function Surface({
   // same answer. (`components/ScreenHeader.tsx` doesn't route through Surface and paints its own
   // opaque fill for the same reason.) An `ambient` card still frosts: it sits in a vertical list
   // that never overlaps itself.
-  const overlapsCards = surfaceContext === 'overlay' || surfaceContext === 'nav';
+  //   The `overlapsCards` binding that used to stand here is GONE (2026-09-15). #703 made every
+  // pane opaque, so the rule above is now carried by `glassOn`'s own terms below rather than by a
+  // named const, and the const was left computed-but-never-read — which is the dead read this
+  // file's own header warns about two screens up. The RULE is unchanged; only its spelling is.
   // ── History: two superseded rulings on the ambient pane, kept short ─────────────────────
   //
   // Both were sound on their premises and both premises have since been retired. They are
@@ -543,7 +546,7 @@ export default function Surface({
   // demote it to `raised` — the same rung as the cards sliding beneath it — would silently switch
   // that off, and the lab's `cardElevation` is, by its own name and doc, about CARDS. Assigning
   // from context rather than a prop is also what stops a caller promoting itself with `elevated`.
-  //   ⚠️ **Deliberately `'nav'` and NOT `overlapsCards`**, which also covers `'overlay'`. A sheet
+  //   ⚠️ **Deliberately `'nav'` alone, and NOT `'overlay'` as well.** A sheet
   // does sit above the card plane and is arguably under-elevated too, but it already reads as
   // separate because it comes with a scrim, and raising it would move every modal's shadow —
   // a different question from the one this pass was asked, and one that should be measured on
