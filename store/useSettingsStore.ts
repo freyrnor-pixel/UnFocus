@@ -312,19 +312,41 @@ export type Settings = {
   reducedMotion: boolean;
   particlesEnabled: boolean;
   /**
-   * Glass surface finish ("Glass, take two", 2026-07-17). On (default) renders the
-   * frosted rim/specular/scrim/drifting-sheen glass on cards, buttons, and the FAB; off
-   * falls back to plain opaque surfaces — a user-facing reduce-transparency mode.
+   * @deprecated INERT since 2026-09-15 — nothing reads it, and its Settings row is gone.
+   *
+   * It was the app's reduce-transparency mode ("Glass, take two", 2026-07-17): on, cards,
+   * buttons and the FAB drew a frosted glass finish; off, they fell back to plain opaque
+   * surfaces. Three passes retired it in stages, and none of them was about this switch:
+   *   · #703 made every pane opaque for a PERFORMANCE reason (a translucent card turned five
+   *     drifting particles into a full-screen repaint), which left a reduce-transparency
+   *     switch with no transparency to reduce. It was repointed to the card edge's
+   *     lit/shaded diagonal so it would still change something visible.
+   *   · #706 removed that diagonal, because two border colours force RN Android's
+   *     `BorderDrawable` off its antialiased path and chew every card corner.
+   *   · At that point it could not be made honest, so the ROW was retired (maintainer's call)
+   *     rather than left on screen doing nothing — the defect
+   *     `__tests__/glassMaterial.test.ts` exists to catch, and one
+   *     `components/AddFAB.tsx` records this same setting having once before.
+   *
+   * **The field and its DB column stay, per the never-drop rule** (see `lib/db.ts`) — a
+   * retired setting keeps its column so an old backup stays readable and a future decision
+   * can revive it. Same treatment as `childProfiles` above.
+   *
+   * ⚠️ **Do not wire anything to it without giving it something visible to do first.** A dead
+   * READ is what makes the next reader believe the switch still works, and a live subscription
+   * re-renders every `Surface` in the app on a toggle that changes nothing.
+   * `glassMaterial.test.ts` ('offers no Settings row for a switch that reaches nothing') is the
+   * guard, and `DECISIONS_OPEN.md` carries the reasoning.
    */
   glassSurfaces: boolean;
   /**
    * Paint content CARDS as opaque panes (2026-08-15). Off by default — the frosted glass the
    * app currently ships with is the default look, and this exists to compare against it.
    *
-   * Deliberately narrower than `glassSurfaces`, which is the global reduce-transparency
-   * switch: this one reaches only `surfaceContext === 'ambient'` surfaces, leaving sheets,
-   * the nav and the header frosted, so the card material can be judged on its own. With
-   * `glassSurfaces` off everything is opaque regardless — that switch still wins.
+   * @deprecated INERT since 2026-09-15 — it went with `glassSurfaces` above, for the same
+   * reasons and under the same never-drop rule. It was the CARD-ONLY version of that switch,
+   * added so the card material could be A/B'd against a solid one; every pane is opaque
+   * unconditionally since #703, so there is no longer an A and a B.
    */
   opaqueCards: boolean;
   /**

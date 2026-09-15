@@ -259,6 +259,24 @@ column so an old backup stays readable. The open question is only whether the FI
 identically under all three. It blocks only the question of how long a dead field sits there
 unlabelled.
 
+---
+
+### ANSWERED 2026-09-15 — (c), the `@deprecated` tag.
+
+Not (a): "left inert and documented" is what it already was, and the documentation lived in this
+file rather than at the declaration, which is the wrong place for it — a reader meets the field
+in `store/useSettingsStore.ts`, not here.
+
+Not (b): giving it the `getGlow()` halos would make the switch real again, but it would mean
+bringing the ROW back with a different meaning than its name, days after the maintainer retired
+it. The halos surviving `reduceEffects` while its copy claims otherwise is a real bug and is
+still open — it is just not this field's job to fix, and pinning it here would have hidden it.
+
+So (c): `glassSurfaces` and `opaqueCards` both carry `@deprecated INERT since 2026-09-15` at the
+declaration, the way `childProfiles` already did, with the three-pass history of how they were
+retired and the never-drop rule spelled out. The columns stay. Nothing reads them, and
+`glassMaterial.test.ts` fails if anything starts.
+
 ## Answered
 
 ### Does Home's energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?

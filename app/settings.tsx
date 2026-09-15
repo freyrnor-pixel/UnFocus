@@ -364,6 +364,7 @@ import {
   EnergyMode,
   Language,
 } from '@/store/useSettingsStore';
+import { useShallow } from 'zustand/react/shallow';
 import { DeviceCalendarInfo, listDeviceCalendars } from '@/lib/deviceCalendar';
 import { DETAIL_LEVELS, type DetailLevel } from '@/lib/cardLayout';
 import { useShoppingStore } from '@/store/useShoppingStore';
@@ -504,7 +505,69 @@ function formatBackupTime(iso: string): string {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const settings = useSettingsStore();
+  // ⚠️ **Field selectors, NOT `useSettingsStore()` (2026-09-15).** A bare call subscribes to
+  // EVERY field, so any write anywhere in the app re-rendered this whole screen — and this file
+  // is the largest in the repo. `app/(tabs)/index.tsx` already documents the rule this broke.
+  //
+  // `useShallow` over one explicit pick rather than 45 separate `useSettingsStore(s => s.x)`
+  // calls: it is the same subscription either way, and keeping it in one block is what makes it
+  // checkable — `tsc` fails on any `settings.x` this list forgot, so it cannot silently fall
+  // behind the screen. Add a field here when you add a row that reads one.
+  const settings = useSettingsStore(
+    useShallow((s) => ({
+      update: s.update,
+      userName: s.userName,
+      language: s.language,
+      darkMode: s.darkMode,
+      fontSize: s.fontSize,
+      leftHanded: s.leftHanded,
+      layoutDetail: s.layoutDetail,
+      childProfiles: s.childProfiles,
+      dismissedHints: s.dismissedHints,
+      debugModeEnabled: s.debugModeEnabled,
+      reducedMotion: s.reducedMotion,
+      particlesEnabled: s.particlesEnabled,
+      reduceEffects: s.reduceEffects,
+      // ⚠️ Every `FeatureFlagKey` must be here, including ones no row reads by name: the
+      // FEATURE_ROWS loop indexes `settings[key]` DYNAMICALLY, so a flag missing from this pick
+      // is a type error at that index rather than a silently stale switch. That is the whole
+      // reason this list is one typed object and not 45 separate selector calls.
+      featureGoals: s.featureGoals,
+      featureSharing: s.featureSharing,
+      featureAutomations: s.featureAutomations,
+      featureMedicine: s.featureMedicine,
+      featureDayLog: s.featureDayLog,
+      featureTaskDecay: s.featureTaskDecay,
+      showGrowth: s.showGrowth,
+      peopleModeEnabled: s.peopleModeEnabled,
+      voiceNotesEnabled: s.voiceNotesEnabled,
+      energySystemEnabled: s.energySystemEnabled,
+      energyMode: s.energyMode,
+      energyDailyCapacity: s.energyDailyCapacity,
+      energyWeeklyCapacity: s.energyWeeklyCapacity,
+      energyCustomCapacities: s.energyCustomCapacities,
+      remindersEnabled: s.remindersEnabled,
+      reminderTime: s.reminderTime,
+      taskNotificationsEnabled: s.taskNotificationsEnabled,
+      habitNotificationsEnabled: s.habitNotificationsEnabled,
+      medicineRemindersEnabled: s.medicineRemindersEnabled,
+      persistentNotifEnabled: s.persistentNotifEnabled,
+      quietHoursEnabled: s.quietHoursEnabled,
+      quietHoursStart: s.quietHoursStart,
+      quietHoursEnd: s.quietHoursEnd,
+      weeklyResetDay: s.weeklyResetDay,
+      monthlyResetDate: s.monthlyResetDate,
+      planTimelineHorizontal: s.planTimelineHorizontal,
+      locationEnabled: s.locationEnabled,
+      contactsEnabled: s.contactsEnabled,
+      calendarSyncEnabled: s.calendarSyncEnabled,
+      dayLogCalendarIds: s.dayLogCalendarIds,
+      autoBackupEnabled: s.autoBackupEnabled,
+      autoBackupUri: s.autoBackupUri,
+      autoBackupLabel: s.autoBackupLabel,
+      autoBackupLastAt: s.autoBackupLastAt,
+    }))
+  );
   const featureDayLog = settings.featureDayLog;
   // The device's calendars, for the read-visibility picker below. Loaded once on mount and
   // ONLY if access is already held — listDeviceCalendars() never prompts. Settings is not
