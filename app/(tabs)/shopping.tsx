@@ -1475,11 +1475,22 @@ export default function ShoppingScreen() {
     setFlights((prev) => prev.filter((f) => f.key !== key));
   }
 
-  function handleScreenScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+  // ⚠️ **`useCallback` here is NOT symmetry — it feeds a native prop (2026-09-15).** The
+  // comment above used to say this one was "NOT a prop of a memoised child", and that was
+  // wrong: it is passed to ScreenScaffold, whose own `handleScroll` is memoised on `[onScroll]`
+  // and handed to a <ScrollView> with `scrollEventThrottle={16}`. As a bare declaration it got a
+  // fresh identity every render, so that memo was invalidated every render and the ScrollView's
+  // `onScroll` prop was re-sent to the native side on every render of one of the app's two
+  // busiest screens.
+  //   The dep list is `[]` rather than `[flights.length]` because the functional updater makes
+  // it exact: returning `prev` unchanged is a React bail-out (Object.is), so the guard costs
+  // nothing and the identity is stable for the component's whole life rather than only while
+  // the flight count holds still.
+  const handleScreenScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    if (Math.abs(y - lastScrollY.current) > 4 && flights.length > 0) setFlights([]);
+    if (Math.abs(y - lastScrollY.current) > 4) setFlights((prev) => (prev.length > 0 ? [] : prev));
     lastScrollY.current = y;
-  }
+  }, []);
 
   function handleDragStart(listId: string, itemId: string, itemName: string, order: string[]) {
     // Measure the sibling reorder rows + this list's dish-group cards in window space (the

@@ -139,11 +139,19 @@ const TARGET_GRACE = 1200;
  * How often the active step re-measures its target (and this overlay its own origin). One
  * `measureInWindow` per mounted target,
  * and TourTarget's own measure() skips the update (and the re-render) whenever the rect is
- * unchanged — which is the normal case. Duration.card because that is the timescale the
- * layout shifts this exists to catch actually move on; the point is a stale ring corrects
- * itself within a frame or two of the thing that moved, not that it polls fast.
+ * unchanged — which is the normal case. 220ms because that is the timescale the layout shifts
+ * this exists to catch actually move on; the point is a stale ring corrects itself within a
+ * frame or two of the thing that moved, not that it polls fast.
+ *
+ * ⚠️ **Its own constant, not `Duration.card` (2026-09-15).** This was written as
+ * `Duration.card` and the number is deliberately unchanged — but that token means "how long a
+ * card's animation runs", a meaning `lib/__tests__/designTokens.test.ts` actively guards, and
+ * this is a POLLING CADENCE. Borrowing it coupled two unrelated things: anyone retuning the
+ * card animation for how it looks would silently have changed how often the tour re-measures
+ * five targets, with nothing to tell them. The value matching a motion duration is a
+ * coincidence worth keeping and a dependency worth not having.
  */
-const REMEASURE_INTERVAL = Duration.card;
+const REMEASURE_INTERVAL = 220;
 
 export default function TourSpotlight() {
   const router = useRouter();
