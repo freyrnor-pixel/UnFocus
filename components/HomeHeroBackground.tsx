@@ -43,7 +43,7 @@
  *     See the block above — that is an OLED/legibility constraint, not a taste setting.
  */
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { useIsDark } from '@/lib/useAppTheme';
 
@@ -59,7 +59,18 @@ function HomeHeroBackground() {
   const cy = isDark ? '-6%' : '34%';
 
   return (
-    <Svg pointerEvents="none" style={styles.backdrop} preserveAspectRatio="xMidYMid slice">
+    // ⚠️ **`renderToHardwareTextureAndroid` (2026-09-15) — this was the ONE backdrop canvas
+    // without it.** `ScreenBackground`'s base and orb layers and `ParticleBackground` all got one
+    // in #703 for the same reason: an always-on layer that never changes its own content should be
+    // a blit, not a re-run of its radial-gradient shader on every window repaint. This canvas
+    // never animates its contents at all (`app/(tabs)/_layout.tsx` cross-fades a wrapping
+    // `Animated.View`'s OPACITY, which is exactly the cheap half of that distinction), so it is
+    // the best candidate of the lot and was simply missed.
+    //   The prop needs a real View to sit on — an `<Svg>` does not take it — which is why this
+    // gains a wrapper rather than growing an attribute. `renderToHardwareTextureAndroid` is a
+    // no-op off Android.
+    <View pointerEvents="none" renderToHardwareTextureAndroid style={styles.backdrop}>
+    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} preserveAspectRatio="xMidYMid slice">
       <Defs>
         <RadialGradient id="homeHeroGlow" cx="50%" cy={cy} rx="70%" ry="46%">
           <Stop offset="0" stopColor={color} stopOpacity={peak} />
@@ -69,6 +80,7 @@ function HomeHeroBackground() {
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill="url(#homeHeroGlow)" />
     </Svg>
+    </View>
   );
 }
 
