@@ -277,6 +277,29 @@ declaration, the way `childProfiles` already did, with the three-pass history of
 retired and the never-drop rule spelled out. The columns stay. Nothing reads them, and
 `glassMaterial.test.ts` fails if anything starts.
 
+#### SUPERSEDED for `glassSurfaces` the same day — it is (b) after all, with its own name back
+
+The frosted-glass brief landed hours later and made the pane a RAMP with a specular rim
+(`constants/theme.ts`'s `getGlassPane`), so the switch has something visible to change again —
+it paints the pane flat. That is (b), "given a new job", except that the job is the one the
+switch already had: **reduce transparency**, restated in terms of the material the app actually
+draws. The objection recorded above against (b) was specifically that the `getGlow()` candidate
+would have meant *"bringing the ROW back with a different meaning than its name"*; this does not,
+which is the whole reason it clears a bar that one did not.
+
+So: the row is back in Settings, the field reads again, and `glassMaterial.test.ts`'s guard is
+inverted rather than deleted — it now extracts the four-term `paneOn` predicate and evaluates its
+truth table, because a boolean that has gone constant is this file's own recurring defect and a
+source-text scan cannot see one.
+
+⚠️ **`opaqueCards` stays retired, inert and `@deprecated`.** It was the card-only half of
+`glassSurfaces`, and two overlapping switches over the same property is what made the 2026-08-15
+pair confusing enough to need retiring in the first place. The answer above still stands for it.
+
+⚠️ **The `getGlow()` over-promise is still open and still nobody's job.** The halos survive both
+switches while `reduceEffects`' copy claims otherwise (`lib/i18n.ts`, "Turns off card shadows…").
+Recorded here so reviving `glassSurfaces` does not look like it was fixed.
+
 ## Answered
 
 ### Does Home's energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?

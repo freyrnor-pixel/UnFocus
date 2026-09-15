@@ -191,6 +191,68 @@ export interface ThemePalette {
    */
   surfaceRaised: string;
 
+  // ── The pane's light (2026-09-15, the frosted-glass brief) ───────────────
+  /**
+   * **The six tokens below are the whole "why doesn't this look like glass" answer, and the
+   * answer is that a flat fill cannot.** The maintainer, against a Home screenshot: *"I struggle
+   * to see how this is supposed to look like frosted glass."* They were right, and nothing about
+   * the card was broken — `surface` is ONE colour, so a card was a `#242424` rectangle with a
+   * `#9A9AA6` hairline. A rectangle of one colour is a rectangle whatever the header above it
+   * calls the material. Glass reads as glass because its surface is not uniform: it is brighter
+   * where the light lands and darker where it falls away, and it has a specular line along the
+   * lit edge. That is a GRADIENT and a RIM, and neither is expressible as a single token.
+   *
+   * So `surface` gains a pair — `glassTop`/`glassBottom`, the two ends of the ramp painted
+   * across the pane — and the overlay/nav rung gains its own pair one step lighter. Both pairs
+   * are **OPAQUE**, and that is the load-bearing word.
+   *
+   * ⚠️ **Opaque is not a compromise here, it is the 2026-09-14 ruling honoured.** The obvious
+   * way to make a card look like glass is to let the lit backdrop through it, and this app tried
+   * exactly that and measured why it cannot: a translucent pane over
+   * `components/ParticleBackground.tsx`'s drifting dots means every dot that moves dirties the
+   * backdrop AND every card showing it through, so the dirty region is the whole window at
+   * 120Hz. Maintainer's own framing: *"Cards can look like glass, but can just cover whatever is
+   * behind so it does not have to render how the particles or lights would look shining
+   * through."* A baked gradient is that sentence implemented — the pane LOOKS lit without
+   * SAMPLING anything behind it, so the compositor sees an opaque rect and the dirty region
+   * stays in the gutters. See components/Surface.tsx for the paint, and note that this is also
+   * why there is still no `BlurView`: a blur has to sample what is behind it by definition.
+   *
+   * ⚠️ **Both stops carry the contrast, not their average.** `text`, `textMuted` and `border`
+   * now sit on a RANGE, so every ratio has to hold at BOTH ends — a mean that clears 4.5:1 is
+   * worth nothing if the bottom stop is at 3.9:1 where the card's last row of text sits.
+   * `__tests__/colors.test.ts` measures each stop separately for exactly that reason, and the
+   * halation ceiling (rule 10a, 7–17:1) is what bounds `glassBottom` from below — a darker
+   * bottom stop would look better and would bloom white text.
+   */
+  glassTop: string;
+  /** The shaded end of a content card's ramp. See `glassTop`. */
+  glassBottom: string;
+  /**
+   * The overlay/nav rung's lit stop — a sheet, modal, floating header or bottom bar.
+   * Must stay lighter than `glassTop` or "raised" reads backwards; asserted in
+   * `__tests__/glassMaterial.test.ts` the same way `surfaceRaised` > `surface` already is.
+   */
+  glassTopRaised: string;
+  /** The overlay/nav rung's shaded stop. Must stay lighter than `glassBottom`. */
+  glassBottomRaised: string;
+  /**
+   * The specular line along the pane's TOP edge — an inset shadow at zero blur, so it is a
+   * 1.5px line rather than a glow, and costs no blur pass.
+   *
+   * ⚠️ **This is drawn as an inset `boxShadow`, NOT as a second border colour, and the
+   * distinction is an Android rendering constraint rather than taste.** RN's `BorderDrawable`
+   * only takes its antialiased `drawRoundRect` path when all four border COLOURS are equal;
+   * give it a lit top and a shaded bottom and it falls back to `clipPath` + four filled quads,
+   * which is not antialiased on a hardware canvas — the maintainer's *"borders look weird and
+   * corners are clipped"* that cost this app its lit diagonal on 2026-09-15. An inset shadow is
+   * drawn by the BACKGROUND drawable, which has no such restriction, so the rim comes back with
+   * the smooth corners intact and all four borders stay one colour.
+   */
+  glassRim: string;
+  /** The shaded counterpart along the pane's BOTTOM edge. Same inset-shadow mechanism. */
+  glassWell: string;
+
   // ── Text ─────────────────────────────────────────────────────────────────
   text: string;            // Primary text (must be ≥ 4.5:1 contrast on bg AND surface)
   textMuted: string;       // Secondary text (must be ≥ 4.5:1 contrast on bg AND surface)
@@ -623,6 +685,25 @@ const defaultLight: ThemePalette = {
   // 4.59:1 on it).
   surfaceGlassStrong: 'rgba(255,255,255,0.95)',
   surfaceRaised: '#FEFEFF',   // = surfaceGlassStrong composited over the backdrop's darkest stop
+  // ── The pane's ramp in LIGHT (2026-09-15) ────────────────────────────────────────────────
+  // The range straddles `surface` (#FAFCFE) rather than sitting above it: light's top rung is
+  // already near its ceiling (see `surface`'s note — it was literally `#FFFFFF` once, and came
+  // down because a pane cannot reach the ceiling and still be a pane), so the ramp buys its
+  // contrast at the BOTTOM. `#F0F4FB` is the shaded stop; it is deliberately not darker,
+  // because in light mode the bottom stop is where `text`'s halation headroom is spent.
+  //   Light's ramp is also shallower than dark's on purpose. A white pane in a bright room has
+  // very little tonal range across it — push it and the card stops reading as glass and starts
+  // reading as a gradient someone applied to a card.
+  glassTop: '#FEFEFF',
+  glassBottom: '#F0F4FB',
+  glassTopRaised: '#FFFFFF',
+  glassBottomRaised: '#F7FAFE',
+  // Near-white at high alpha: on a pale pane the specular line is the one place the material is
+  // allowed to touch the ceiling, because it is a 1.5px line and carries no text.
+  glassRim: 'rgba(255,255,255,0.95)',
+  // The same blue-grey the light theme's `shadow` is mixed from, so the pane's underside and
+  // its cast shadow agree about where the light is.
+  glassWell: 'rgba(38,58,92,0.12)',
   text: '#1B2432',
   // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg. 2026-08-20 contrast
   // pass: #5F6978 → #535D6B, 5.36:1 → 6.44:1 on `surface` and 4.58 → 5.51 on `bg`, which was
@@ -868,6 +949,42 @@ const defaultDark: ThemePalette = {
   // rung).
   surfaceGlassStrong: 'rgba(255,255,255,0.1882)',   // -> #303030, the overlay/nav tier
   surfaceRaised: '#303030',   // that composite, painted flat — what a sheet/modal actually uses
+  // ── The pane's ramp in DARK (2026-09-15) ─────────────────────────────────────────────────
+  // `surface` is `#242424` (raw 36) and the ramp straddles it: `#3B3B45` (raw ~59 mean) at the
+  // lit corner down to `#232328` (raw ~36) at the shaded one, so the pane AVERAGES a shade
+  // above where it used to sit flat and reads as a slab catching light rather than as a filled
+  // rectangle. The values are picked against two hard bounds, both measured rather than chosen:
+  //   · **`glassBottom` is bounded from BELOW by halation, not by taste.** `text` is pure
+  //     `#FFFFFF` here, and DESIGN_RULES rule 10a caps it at 17:1. `#232328` puts it at
+  //     ~15.6:1 — inside the band with a little room. `#1E1E22`, which looks better, measures
+  //     ~16.6:1 and spends all of it; don't take the bottom stop down without re-measuring.
+  //   · **`glassTop` is bounded from ABOVE by `border`.** `#9A9AA6` has to clear WCAG 1.4.11's
+  //     3:1 against the LIGHTEST thing the pane paints, and `#3B3B45` leaves it at ~3.5:1.
+  // Both stops carry a hint of blue (`45`/`28` in the blue channel against `3B`/`23`) because a
+  // neutral grey ramp on a true-black page reads as dust rather than as glass — the same reason
+  // `rule` is `#3A3A42` and not `#3A3A3A`.
+  glassTop: '#3B3B45',
+  glassBottom: '#232328',
+  // One rung lighter at both ends, the same relationship `surfaceRaised` (#303030) already has
+  // to `surface` (#242424) — a sheet, modal, floating header or nav bar floats ABOVE the cards,
+  // so it cannot be painted darker than they are.
+  //   ⚠️ **`#42424A` is a CEILING found by measurement, not a taste pick, and `textMuted` is
+  // what sets it — not `border`, which is the bound on the ambient rung.** This started at
+  // `#47474F` and `lib/__tests__/colors.test.ts` rejected it: `#B0B0BA` on `#47474F` is
+  // **4.28:1**, under WCAG AA, and a sheet is mostly secondary text. `#42424A` is the first
+  // value up from there that clears (4.63:1), with `border` at 3.58:1 and `text` at 9.95:1,
+  // comfortably inside rule 10a's band. This is the app's LIGHTEST painted surface, so it is
+  // the stop every "does the ink still work" question is worst-case against — don't lift it
+  // without re-running that block.
+  glassTopRaised: '#42424A',
+  glassBottomRaised: '#2C2C32',
+  // 38% white. Strong enough to read as a specular line on a near-black page, low enough that
+  // it is a highlight on the pane rather than a second border around it.
+  glassRim: 'rgba(255,255,255,0.38)',
+  // Deeper than the rim is bright, because on a black ground the underside of a pane is the
+  // edge that disappears — the shade is what keeps the bottom of a card from bleeding into the
+  // gutter beneath it.
+  glassWell: 'rgba(0,0,0,0.55)',
   // Supplied as "border.subtle". It is a DIVIDER weight, not a control boundary — 1.119:1 on
   // `surface`, nowhere near WCAG 1.4.11's 3:1 — so it lands on `rule`, which is exactly the
   // token this codebase split out for decorative hairlines, and NOT on `border`. Using it as

@@ -719,6 +719,81 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
     });
   });
 
+  // ── (f) The pane's RAMP — every ratio has to hold at BOTH ends (2026-09-15) ───────────────
+  //
+  // ⚠️ **This block exists because `surface` stopped being the colour a card actually paints.**
+  // Until the frosted-glass pass a card was `backgroundColor: theme.surface` — one colour — so
+  // measuring `text` against `surface` measured what a user saw. `components/Surface.tsx` now
+  // paints a RAMP from `glassTop` to `glassBottom`, and every assertion above still measures the
+  // single token. That is not wrong (the token is still the tier's reference, and the composite
+  // tests in `__tests__/glassMaterial.test.ts` still derive from it), but on its own it would be
+  // the exact shape of the round-20 defect this repo keeps re-learning: a suite measuring a
+  // colour no card draws.
+  //
+  // **A mean that clears 4.5:1 is worth nothing.** Text sits at the TOP of a card and at the
+  // BOTTOM of it; a hairline runs along all four edges. So each ratio is measured at both stops
+  // and the WORSE one has to clear the floor. The two bounds that actually bind, both recorded
+  // at the tokens themselves in constants/colors.ts:
+  //   · `glassBottom` is bounded from BELOW by halation — dark's `text` is pure white, and a
+  //     darker bottom stop pushes it past rule 10a's 17:1 ceiling and blooms.
+  //   · `glassTop`/`glassTopRaised` are bounded from ABOVE by `border` — the lightest thing the
+  //     app paints is the raised rung's lit stop, and the hairline still owes WCAG 1.4.11 its
+  //     3:1 there.
+  // The two squeeze from opposite ends, so a change to either stop needs this whole block re-run
+  // rather than the one number that failed.
+  describe('(f) the glass pane\'s ramp carries contrast at both stops', () => {
+    THEME_NAMES.forEach((themeName) => {
+      (['light', 'dark'] as const).forEach((mode) => {
+        const p = THEMES[themeName][mode];
+        // Every surface the ramp can paint, on either rung.
+        const stops = [
+          ['glassTop', p.glassTop], ['glassBottom', p.glassBottom],
+          ['glassTopRaised', p.glassTopRaised], ['glassBottomRaised', p.glassBottomRaised],
+        ] as const;
+
+        stops.forEach(([name, stop]) => {
+          test(`${themeName} ${mode}: text and textMuted clear AA on ${name}`, () => {
+            expect(contrastRatio(p.text, stop)).toBeGreaterThanOrEqual(4.5);
+            expect(contrastRatio(p.textMuted, stop)).toBeGreaterThanOrEqual(4.5);
+          });
+
+          test(`${themeName} ${mode}: border holds WCAG 1.4.11's 3:1 on ${name}`, () => {
+            expect(contrastRatio(p.border, stop)).toBeGreaterThanOrEqual(3);
+          });
+        });
+
+        if (mode === 'dark') {
+          test(`${themeName} dark: body text stays inside the 7–17:1 halation band across the whole ramp`, () => {
+            // The ceiling is what bounds `glassBottom` from below — see rule 10a and the note at
+            // the token. The floor is what bounds `glassTop` from above for TEXT, where `border`
+            // bounds it for the hairline; whichever is tighter is the real limit.
+            stops.forEach(([name, stop]) => {
+              const ratio = contrastRatio(p.text, stop);
+              expect(`${name}:${ratio >= 7}`).toBe(`${name}:true`);
+              expect(`${name}:${ratio <= 17}`).toBe(`${name}:true`);
+            });
+          });
+        }
+
+        test(`${themeName} ${mode}: the ramp is lit at the top and shaded at the bottom`, () => {
+          // A pane lit from below is not a pane. This also catches the two stops being swapped
+          // in a palette edit, which no contrast assertion above would notice — both ends
+          // clearing their floors says nothing about which end is which.
+          expect(toLuminance(p.glassTop)).toBeGreaterThan(toLuminance(p.glassBottom));
+          expect(toLuminance(p.glassTopRaised)).toBeGreaterThan(toLuminance(p.glassBottomRaised));
+        });
+
+        test(`${themeName} ${mode}: the raised rung outranks the ambient one at both stops`, () => {
+          // Same invariant `surfaceRaised > surface` already carries one rung down: a sheet or
+          // the nav bar floats ABOVE the cards, so it cannot be painted darker than they are or
+          // "raised" reads backwards. Asserted at BOTH ends because a ramp can cross.
+          expect(toLuminance(p.glassTopRaised)).toBeGreaterThanOrEqual(toLuminance(p.glassTop));
+          expect(toLuminance(p.glassBottomRaised)).toBeGreaterThanOrEqual(toLuminance(p.glassBottom));
+        });
+      });
+    });
+  });
+
   describe('getThemePalette resolver', () => {
     test('returns correct palette for light mode', () => {
       const palette = getThemePalette('default', false);

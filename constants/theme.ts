@@ -1598,3 +1598,105 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
   ];
 }
 
+
+/**
+ * The pane's LIGHT — the paint that makes a card read as a slab of glass instead of a filled
+ * rectangle (2026-09-15, the frosted-glass brief).
+ *
+ * Maintainer, against a Home screenshot: *"I struggle to see how this is supposed to look like
+ * frosted glass."* They were right, and the cause is structural rather than a mistuned value:
+ * until now a card was `backgroundColor: theme.surface` — ONE colour — plus a `theme.border`
+ * hairline. A rectangle of one colour reads as a rectangle no matter what the file header calls
+ * the material. Real glass is not uniform across its face; it is brighter where the light lands,
+ * darker where the light falls away, and it carries a specular line along its lit edge. This
+ * function is those three things and nothing else:
+ *
+ *   1. **a diagonal RAMP across the face** — `top` at the lit corner, `bottom` at the shaded
+ *      one, with a middle stop that holds the bright end short of halfway so the light reads as
+ *      landing on the pane rather than as a gradient someone applied to a card;
+ *   2. **a specular RIM** along the top edge (`rim`), and
+ *   3. **a WELL** along the bottom edge (`well`), which is what gives the pane thickness.
+ *
+ * ── Three constraints shaped this, and each one has killed a previous attempt ──────────────
+ *
+ * ⚠️ **It is OPAQUE, and that is the 2026-09-14 perf ruling honoured rather than dodged.** The
+ * obvious way to make a card look like glass is to let the lit backdrop through it. This app
+ * shipped that and measured why it cannot: a translucent pane over
+ * `components/ParticleBackground.tsx`'s drifting dots means every dot that moves dirties the
+ * backdrop AND every card that shows it through, so the dirty region is not five dots, it is
+ * the whole window, every frame. The maintainer's framing is the design rule in one line:
+ * *"Cards can look like glass, but can just cover whatever is behind so it does not have to
+ * render how the particles or lights would look shining through."* A baked ramp is exactly
+ * that — the pane LOOKS lit without SAMPLING anything, so the compositor still sees an opaque
+ * rect. It is also why there is still no `BlurView`: a blur samples what is behind it by
+ * definition, so it cannot be bought on these terms at any price.
+ *
+ * ⚠️ **The rim is an inset SHADOW, never a second border colour.** RN's Android
+ * `BorderDrawable` only takes its antialiased `drawRoundRect` path when all four border colours
+ * are equal; give it a lit top and a shaded bottom and it falls back to `clipPath` plus four
+ * filled quadrilaterals, which is not antialiased on a hardware canvas. That is precisely the
+ * *"borders look weird and corners are clipped"* that cost this app its lit diagonal earlier the
+ * same day. An inset shadow is drawn by the BACKGROUND drawable, which has no such restriction —
+ * so the lit edge comes back, the corners stay smooth, and all four borders stay one colour.
+ *
+ * ⚠️ **Zero blur radius on both insets, deliberately.** A blurred inset would be prettier and
+ * would cost a GPU blur pass per card per frame — the exact cost `getLayeredShadow` above went
+ * from three passes to two to avoid. At `blurRadius: 0` an inset shadow is a hairline fill, so
+ * this whole function costs one extra gradient in a drawable the view was already painting.
+ * **Don't add blur here without a measurement**; raise an alpha instead, same as the shadow.
+ *
+ * ── Reading the output ────────────────────────────────────────────────────────────────────
+ * `image` is a CSS gradient STRING rather than the structured `LinearGradientValue` array,
+ * because the string form is what both targets accept: React Native 0.85 takes it on
+ * `experimental_backgroundImage`, and react-native-web passes a `backgroundImage` through to the
+ * DOM untouched (its style validator uses a denylist, and `backgroundImage` is not on it). One
+ * string, two platforms, and the web preview harness can therefore actually SEE this change —
+ * which is not true of most of this app's native rendering work. The caller picks the key; see
+ * components/Surface.tsx.
+ *
+ * `155deg` is the light source: above and to the LEFT, the same direction `getGlassEdge`'s
+ * `start`/`end` diagonal has documented since 2026-08-15. CSS angles run clockwise from "to
+ * top", so 155deg points down-and-right — i.e. the ramp travels FROM the lit top-left corner
+ * TOWARD the shaded bottom-right one. A vertical sweep would light the top edge and leave the
+ * left one dark, which is not how a pane catches a light above and to its left.
+ *
+ * @param top    the lit stop — `theme.glassTop` for a card, `theme.glassTopRaised` for a sheet
+ *               or the nav bar.
+ * @param bottom the shaded stop — `theme.glassBottom` / `theme.glassBottomRaised`.
+ * @param rim    `theme.glassRim`, the specular line. Already an rgba string.
+ * @param well   `theme.glassWell`, the underside. Already an rgba string.
+ */
+export function getGlassPane(top: string, bottom: string, rim: string, well: string) {
+  return {
+    // The middle stop sits at 44%, not 50%. Centring it makes the ramp linear across the face,
+    // which the eye reads as a gradient fill; holding the bright half short means the light
+    // falls off faster than it climbs, which is what a curved, thick surface actually does.
+    image: `linear-gradient(155deg, ${top} 0%, ${mixHex(top, bottom, 0.55)} 44%, ${bottom} 100%)`,
+    insets: [
+      { offsetX: 0, offsetY: 1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: rim },
+      { offsetX: 0, offsetY: -1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: well },
+    ],
+  };
+}
+
+/**
+ * Linear blend between two `#rrggbb` strings, `t` of the way from `a` to `b`.
+ *
+ * Local to this module and deliberately minimal — `constants/` imports nothing (see the note at
+ * `BorderWeight`), so this cannot reach for a colour library, and it does not need to: both
+ * callers pass palette hexes, which are always full six-digit `#rrggbb`. It blends in plain
+ * sRGB rather than a perceptual space on purpose; the two stops are close together and a
+ * gamma-correct mix between them differs by under a level, which is below what
+ * `docs/audit/HARNESS_THEME_COVERAGE.md` records the visual gate as able to see.
+ */
+function mixHex(a: string, b: string, t: number): string {
+  const parse = (h: string) => [
+    parseInt(h.slice(1, 3), 16),
+    parseInt(h.slice(3, 5), 16),
+    parseInt(h.slice(5, 7), 16),
+  ];
+  const [ar, ag, ab] = parse(a);
+  const [br, bg, bb] = parse(b);
+  const ch = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  return `#${ch(ar, br)}${ch(ag, bg)}${ch(ab, bb)}`;
+}

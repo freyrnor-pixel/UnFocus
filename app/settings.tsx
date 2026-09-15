@@ -528,6 +528,7 @@ export default function SettingsScreen() {
       reducedMotion: s.reducedMotion,
       particlesEnabled: s.particlesEnabled,
       reduceEffects: s.reduceEffects,
+      glassSurfaces: s.glassSurfaces,
       // ⚠️ Every `FeatureFlagKey` must be here, including ones no row reads by name: the
       // FEATURE_ROWS loop indexes `settings[key]` DYNAMICALLY, so a flag missing from this pick
       // is a type error at that index rather than a silently stale switch. That is the whole
@@ -1212,21 +1213,31 @@ export default function SettingsScreen() {
                   onChange={(v) => settings.update({ particlesEnabled: v })}
                 />
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                {/* ⚠️ **"Glass surfaces" (`glassSurfaces`) was RETIRED here on 2026-09-15, and it
-                    is the switch itself that is obsolete, not merely unused.** It was the app's
-                    reduce-transparency control, and since #703 made every pane opaque there is
-                    no transparency in the app for it to reduce. Its last remaining effect was
-                    the card edge's lit/shaded diagonal — which turned out to be what forced
-                    Android off its antialiased border path and chewed every card corner, so that
-                    went too (see components/Surface.tsx).
-                      Removing the row rather than leaving it is the point: a toggle that changes
-                    nothing a user can see is the defect `__tests__/glassMaterial.test.ts` exists
-                    to catch, and `components/AddFAB.tsx` records the last time this same setting
-                    went quietly inert app-wide.
-                      **The store field and its DB column stay** (never-drop rule — see
-                    store/useSettingsStore.ts). Only the control is gone. "Reduce visual effects"
-                    below is the surviving switch, and it is the one that was doing the work.
-                    Don't re-add this row without giving it something visible to do first. */}
+                {/* ⚠️ **"Lit card surfaces" (`glassSurfaces`) is BACK, later the same day it was
+                    retired — and the condition the retirement set is the reason it may be.**
+                      That comment (see git history for 2026-09-15) said the row was going
+                    because the switch had nothing visible left to change: #703 had made every
+                    pane opaque, and its last effect — the card edge's lit/shaded diagonal — was
+                    what forced Android off its antialiased border path and chewed every card
+                    corner. It ended with the standing condition: *"Don't re-add this row without
+                    giving it something visible to do first."*
+                      It has something visible to do. The frosted-glass pass gave a card a RAMP
+                    across its face and a specular rim (constants/theme.ts's `getGlassPane`), and
+                    this switch is what paints that flat instead — which is the same job it
+                    always had, "reduce transparency", stated in terms of the material the app
+                    actually draws now. It is not a redefinition and it is not a new switch; the
+                    copy is new only because the old strings described a frost that no longer
+                    exists.
+                      ⚠️ `opaqueCards` stays retired and stays unread. It was the card-only half
+                    of this one, and two overlapping switches over the same property is what made
+                    the 2026-08-15 pair confusing enough to need retiring in the first place. */}
+                <ToggleRow
+                  label={t.settings.accessibility.glassSurfaces}
+                  hint={t.settings.accessibility.glassSurfacesHint}
+                  checked={settings.glassSurfaces}
+                  onChange={(v) => settings.update({ glassSurfaces: v })}
+                />
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 {/* 2026-08-29, the performance pass. This one takes the card shadows and
                     the backdrop's orb field — the per-frame GPU costs. Off by
                     default. See store/useSettingsStore.ts for the measurement. */}

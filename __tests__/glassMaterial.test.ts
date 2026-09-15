@@ -26,10 +26,11 @@
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { filledEdge, getGlassEdge, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
+import { filledEdge, getGlassEdge, getGlassPane, getLayeredShadow, getGlow, getRecessedField, rgba, lighten } from '@/constants/theme';
 import { THEMES, contrastRatio, IDENTITY_HUES } from '@/constants/colors';
 import { badgeGlyphFor } from '@/lib/domainColor';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { getTranslations } from '@/lib/i18n';
 
 // Keep the settings-store import DB-free: the module reaches @/lib/db via dataAccess at
 // import time, and load() isn't called here, so a minimal stub is enough.
@@ -241,24 +242,59 @@ describe('the material system stays deleted, and stays matte', () => {
     // this switch governs the `overlay`/`nav` tiers and the ambient FILL path. `glassOn` false
     // still means no blur anywhere, which is the half that must not weaken.
     const surface = read('components/Surface.tsx');
-    // ⚠️ **2026-09-15: `glassSurfaces` is not read by this file at all any more, and the
-    // assertion is INVERTED rather than deleted.**
+    // ⚠️ **2026-09-15, second pass: `glassSurfaces` READS AGAIN, and this assertion is a truth
+    // table rather than a source scan — which is the whole point of it.**
     //
-    // The history in three steps, because the shape repeats: the switch reached the FILL while
-    // the fill was the material; #703 made every pane opaque, so it was repointed to the card
-    // edge's lit/shaded diagonal; and that diagonal turned out to be what forces Android off its
-    // antialiased border path (see the uniform-edge test). Removing the diagonal left the switch
-    // with nothing visible to change, so the ROW was retired from Settings — the maintainer's
-    // call — rather than left on screen doing nothing.
+    // The history in four steps, because the shape keeps repeating: the switch reached the FILL
+    // while the fill was the material; #703 made every pane opaque, so it was repointed to the
+    // card edge's lit/shaded diagonal; that diagonal turned out to be what forces Android off
+    // its antialiased border path (see the uniform-edge test), so it went too, leaving the
+    // switch inert and its row retired; and the frosted-glass pass then gave it a real job back
+    // — `paneOn` decides whether a card is painted as a lit RAMP or as a flat fill.
     //
-    // What this now guards is that the retirement is complete: a store field nothing reads is
-    // fine and the column must stay, but a dead READ here would be the thing that makes the next
-    // reader believe the switch still works, and a live subscription would re-render every
-    // Surface on a toggle that changes nothing.
-    expect(surface).not.toMatch(/\(s\) => s\.(glassSurfaces|opaqueCards)/);
+    // ⚠️ **`paneOn` is a four-term boolean, which is exactly the shape that went constant-false
+    // on 2026-09-06 while three source-text assertions were updated to match it and passed.** A
+    // regex can confirm the expression exists; only evaluating it can confirm it still yields
+    // `true` for a real user. So this EXTRACTS the expression and runs it over every
+    // combination of its inputs — the same technique the `glassOn` predicate test used before
+    // that predicate stopped existing, applied to its successor.
+    const expr = surface.match(/const paneOn = ([^;]+);/)?.[1];
+    expect(expr).toBeTruthy();
+    const paneOn = new Function('tint', 'staticPressed', 'reduceEffects', 'glassSurfaces',
+      `return ${expr};`) as (t: unknown, p: boolean, r: boolean, g: boolean) => boolean;
+    const bools = [false, true];
+    const table = [undefined, '#ff0000'].flatMap((tint) =>
+      bools.flatMap((pressed) => bools.flatMap((reduce) => bools.map((glass) => ({
+        tint, pressed, reduce, glass, on: !!paneOn(tint, pressed, reduce, glass),
+      })))));
+    // It is not constant in either direction: the shipped defaults light the pane, and every
+    // switch can individually put it out.
+    expect(table.find((r) => !r.tint && !r.pressed && !r.reduce && r.glass)!.on).toBe(true);
+    expect(table.some((r) => r.on)).toBe(true);
+    expect(table.some((r) => !r.on)).toBe(true);
+    // Each of the four terms is load-bearing ON ITS OWN — a term that never changes the answer
+    // is a term that has silently been absorbed by another, which is how `&& !isAmbient` hid.
+    expect(paneOn(undefined, false, false, true)).toBe(true);
+    expect(paneOn('#ff0000', false, false, true)).toBe(false);   // a caller's colour wins
+    expect(paneOn(undefined, true, false, true)).toBe(false);    // held reads as held
+    expect(paneOn(undefined, false, true, true)).toBe(false);    // reduce visual effects
+    expect(paneOn(undefined, false, false, false)).toBe(false);  // reduce transparency
+    // The switch must actually be subscribed, or the truth table above describes a function
+    // nothing calls with a real value.
+    expect(surface).toMatch(/useSettingsStore\(\(s\) => s\.glassSurfaces\)/);
+    // `opaqueCards` stays retired: a second, narrower switch over the same property is what
+    // made the 2026-08-15 pair confusing enough to need retiring at all.
+    expect(surface).not.toMatch(/\(s\) => s\.opaqueCards/);
     expect(surface).not.toMatch(/const litEdgeOn\b/);
-    // Nothing may quietly reintroduce a translucent ambient fill.
+    // Nothing may quietly reintroduce a translucent ambient fill — the ramp is opaque at BOTH
+    // stops, which is what keeps the particle repaint chain cut (see Surface.tsx's block).
     expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      [p.glassTop, p.glassBottom, p.glassTopRaised, p.glassBottomRaised].forEach((stop) => {
+        expect(stop).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      });
+    });
   });
 
   it('the painted glass and the measured composite agree', () => {
@@ -623,42 +659,53 @@ describe('glass settings', () => {
     expect(useSettingsStore.getState().opaqueCards).toBe(false);
   });
 
-  it('offers no Settings row for a switch that reaches nothing', () => {
-    // ⚠️ **This test was 'the reduce-transparency switch still does something visible, and stays
-    // scoped', and before that 'opaqueCards is scoped to CARDS'. It is repointed a third time,
-    // and the property it protects has never changed: a settings toggle must be able to change
-    // something a user can see, and this guard must be able to notice when it cannot.**
+  it('the reduce-transparency switch reaches something visible, and has its row back', () => {
+    // ⚠️ **This test has been repointed four times, and the property it protects has never
+    // changed: a settings toggle must be able to change something a user can see, and this
+    // guard must be able to notice when it cannot.** It has been 'opaqueCards is scoped to
+    // CARDS', then 'the reduce-transparency switch still does something visible', then — when
+    // #703 left `glassSurfaces` with nothing to reduce and the row was retired — 'offers no
+    // Settings row for a switch that reaches nothing'.
     //
-    // What changed is which side of that the app is on. `glassSurfaces` was the
-    // reduce-transparency control; #703 made every pane opaque, leaving it nothing to reduce, so
-    // it was repointed to the card edge's lit/shaded diagonal. On 2026-09-15 that diagonal was
-    // removed too — it is what forces Android off its antialiased border path and chews every
-    // card corner (see 'paints all four border sides from one colour'). At that point the switch
-    // could not be made honest, so the ROW was retired on the maintainer's call.
-    //
-    // The previous version of this test evaluated the predicate's truth table with
-    // `new Function`, to catch a predicate gone constant. That technique is not reachable now
-    // because there is no predicate — which is precisely why the assertion has to invert rather
-    // than be deleted. A deleted guard is how the row would quietly come back.
+    // That last version set an explicit condition for undoing itself: *"Don't re-add this row
+    // without giving it something visible to do first."* The frosted-glass pass met it. A card
+    // is painted as a lit ramp with a specular rim now (constants/theme.ts's `getGlassPane`),
+    // and this switch paints it flat instead — the same "reduce transparency" job it always
+    // had, stated in terms of the material the app actually draws. So the assertion inverts
+    // again, and BOTH halves are checked: the row exists, and the thing it drives is real.
     const settingsSrc = read('app/settings.tsx');
-    // No control may bind to it. `checked={settings.glassSurfaces}` / `onChange` writing it are
-    // the two shapes a row takes; neither may appear.
-    expect(settingsSrc).not.toMatch(/checked=\{settings\.glassSurfaces\}/);
-    expect(settingsSrc).not.toMatch(/glassSurfaces:\s*v/);
-    // ⚠️ **The FIELD and its DB column stay, and that is deliberate, not an oversight.** The
-    // never-drop rule (store/useSettingsStore.ts, lib/db.ts) means a retired setting keeps its
-    // column so an old backup stays readable and a future decision can revive it. So this must
-    // NOT be turned into "the field is gone".
+    // The row is bound in both directions. A `checked` with no `onChange` is a switch that
+    // cannot be moved; an `onChange` with no `checked` is one that never shows its own state.
+    expect(settingsSrc).toMatch(/checked=\{settings\.glassSurfaces\}/);
+    expect(settingsSrc).toMatch(/glassSurfaces: v/);
+    // ...and it is subscribed, or the row renders a stale value forever. This is the specific
+    // way app/settings.tsx can break: its selector is one typed pick, and a field missing from
+    // it is not a type error at a `settings.x` read.
+    expect(settingsSrc).toMatch(/glassSurfaces: s\.glassSurfaces/);
+    // Copy in all three languages, or `tsc` would have caught it — but a row whose label is an
+    // empty string would not be caught by anything else.
+    (['en', 'no', 'is'] as const).forEach((lang) => {
+      const a = getTranslations(lang).settings.accessibility;
+      expect(a.glassSurfaces.length).toBeGreaterThan(0);
+      expect(a.glassSurfacesHint.length).toBeGreaterThan(0);
+    });
+    // ⚠️ **The FIELD and its DB column stay whatever the row does** (never-drop rule — see
+    // store/useSettingsStore.ts, lib/db.ts), and it defaults ON, so a new install gets the lit
+    // pane rather than the flat fallback.
     expect(useSettingsStore.getState().glassSurfaces).toBe(true);
 
-    // The surviving switch has to still be real, or retiring the other one just moved the
-    // problem. `reduceEffects` takes the card shadows and the backdrop's orb field.
+    // The other switch has to still be real, or this one just took over its job. `reduceEffects`
+    // takes the card shadows and the backdrop's orb field — the per-frame GPU costs — and is a
+    // strictly wider hammer than the material choice above.
     const surface = read('components/Surface.tsx');
     expect(surface).toMatch(/reduceEffects/);
     // The tier pairing survives all of it: ambient paints the base rung, overlay/nav the raised
     // one. This is the colour every contrast test in the repo measures, so it must keep
-    // resolving through the pairing rather than picking a literal.
+    // resolving through the pairing rather than picking a literal. The ramp added its own
+    // parallel pairing (`glassTop`/`glassTopRaised`), asserted beside it.
     expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
+    expect(surface).toMatch(/isAmbient \? theme\.glassTop : theme\.glassTopRaised/);
+    expect(surface).toMatch(/isAmbient \? theme\.glassBottom : theme\.glassBottomRaised/);
   });
 });
 
@@ -766,7 +813,7 @@ describe('getRecessedField — the inputs are sunk into the pane, not drawn on i
   });
 });
 
-describe('the pane is painted by ONE flat fill, with nothing behind it', () => {
+describe('the pane is painted ON its fill, with nothing behind it', () => {
   /**
    * ⚠️ **The defect this exists for shipped for twelve days and every test in this file stayed
    * green through it** (2026-08-27, round 20; user report: *"This looks too stale, not like
@@ -781,26 +828,67 @@ describe('the pane is painted by ONE flat fill, with nothing behind it', () => {
    *
    * Every composite check in this file was therefore measuring a colour no card drew. At the
    * centre of a pane all five identity hues fail AA; at the bottom, white body text falls to
-   * 3.55:1. **That is what a passing suite looked like.** So the structural fact — nothing is
-   * painted behind the fill — is asserted here directly, not inferred from a colour.
+   * 3.55:1. **That is what a passing suite looked like.**
+   *
+   * ── Renamed 2026-09-15: the pane has a RAMP now, and that is not this bug ────────────────
+   * The frosted-glass pass gave a card a gradient across its face, so "ONE flat fill" — which
+   * is what this block used to be called — would now be a name for something the app has
+   * deliberately stopped doing, sitting on top of assertions that still pass. That is the
+   * green-but-stale shape this very file was written to catch, so the name moved to the
+   * property that actually matters and has never changed:
+   *
+   *   **BEHIND the fill is where the bug lives; ON the fill is where the material lives.**
+   *
+   * A `<LinearGradient>` is a separate VIEW, and a view under a pane can only be seen by
+   * shining through it — so mounting one is either invisible (opaque pane) or a wash across the
+   * whole card (translucent pane), which is exactly what shipped. `getGlassPane`'s ramp is a
+   * `backgroundImage` on the fill view ITSELF: it replaces what that one view paints rather
+   * than adding a layer under it, both of its stops are opaque hexes, and nothing composites
+   * through it. The two are not the same technique and the difference is the whole finding.
    */
   const surface = readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8');
 
-  it('mounts no gradient behind the fill', () => {
-    // A gradient ANYWHERE in this component is the shape of the bug: the only way one can be
-    // drawn here is as a layer under or over the pane, and both wash it.
+  it('mounts no gradient VIEW behind the fill', () => {
+    // A gradient view anywhere in this component is the shape of the bug: the only way one can
+    // be drawn here is as a layer under or over the pane, and both wash it.
     expect(surface).not.toMatch(/<LinearGradient/);
     expect(surface).not.toMatch(/from 'expo-linear-gradient'/);
   });
 
+  it('paints the ramp on the fill view itself, and both its stops are opaque', () => {
+    // The structural half: the ramp is a background-image key, which is a property of the view
+    // that already paints `fill`, not a child or a sibling of it.
+    expect(surface).toMatch(/experimental_backgroundImage/);
+    expect(surface).toMatch(/backgroundColor: fill,/);
+    // The colour half, and the one that keeps the 2026-09-14 particle ruling intact: every stop
+    // the ramp can paint is a six-digit hex. An `rgba()` stop here would reopen the repaint
+    // chain (a card sampling the backdrop) while every assertion in this file went on measuring
+    // an opaque composite — the same two-sided failure as the wash above.
+    (['light', 'dark'] as const).forEach((mode) => {
+      const p = THEMES.default[mode];
+      [p.glassTop, p.glassBottom, p.glassTopRaised, p.glassBottomRaised].forEach((stop) => {
+        expect(stop).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      });
+    });
+    // ...and the rim is an inset shadow at ZERO blur, not a blurred one. A blur radius here is a
+    // GPU pass per card per frame — the cost `getLayeredShadow` dropped a whole pass to avoid.
+    const pane = getGlassPane('#3B3B45', '#232328', 'rgba(255,255,255,0.38)', 'rgba(0,0,0,0.55)');
+    expect(pane.insets).toHaveLength(2);
+    pane.insets.forEach((i) => {
+      expect(i.blurRadius).toBe(0);
+      expect(i.inset).toBe(true);
+    });
+    // Lit on top, shaded underneath — a pane lit from below is not a pane, it is a footlight.
+    expect(pane.insets[0].offsetY).toBeGreaterThan(0);
+    expect(pane.insets[1].offsetY).toBeLessThan(0);
+  });
+
   it('draws the edge as per-side border colours, the way glassKey already does', () => {
-    // Two colours, lit at the top-left and shaded at the bottom-right — the same edge the ring
-    // described, on the technique `constants/theme.ts`'s glassKey() has used for every button
-    // since the 2026-08-17 matte pass.
+    // All four sides from one ramp — see 'paints all four border sides from one colour' for why
+    // Android requires them EQUAL, and why the lit/shaded diagonal had to leave the border and
+    // come back as the inset rim asserted above.
     for (const side of ['borderTopColor', 'borderLeftColor', 'borderBottomColor', 'borderRightColor']) {
       expect(surface).toMatch(new RegExp(`${side}: ramp\\.colors\\[`));
     }
-    // ...and the fill is a single flat colour on that same view, so there is exactly one paint.
-    expect(surface).toMatch(/backgroundColor: fill,/);
   });
 });
