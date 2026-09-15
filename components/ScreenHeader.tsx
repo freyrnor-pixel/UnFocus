@@ -57,7 +57,7 @@
  * Connections:
  *   Imports → constants/theme (BORDER_WIDTH, getGlassEdge — the card/nav edge ramp, see "The
  *             card's edges" below), constants/buildInfo (the commit in the debug-note mail
- *             footer), lib/haptics, lib/i18n, lib/useAppTheme (useAppTheme + useIsDark,
+ *             footer), lib/haptics, lib/i18n, lib/useAppTheme (useAppTheme — useIsDark left with the two-stop edge ramp,
  *             the ramp needs the mode), lib/feedbackMail
  *             (buildDebugNotesMailUrl/formatDebugNotesMessage), store/useSettingsStore,
  *             store/useFeedbackStore, components/PressableScale, components/DebugNoteAnchor,
@@ -150,11 +150,11 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getGlassEdge, getHeaderMetrics, getLayeredShadow, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, getLayeredShadow, HitSlop } from '@/constants/theme';
 import { shortCommit } from '@/constants/buildInfo';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
-import { useAppTheme, useIsDark } from '@/lib/useAppTheme';
+import { useAppTheme } from '@/lib/useAppTheme';
 import { tap } from '@/lib/haptics';
 import { buildDebugNotesMailUrl, formatDebugNotesMessage } from '@/lib/feedbackMail';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -194,7 +194,6 @@ type Props = {
 export default function ScreenHeader({ title, tier, isHome, onBack, headerRight, style, onSharePress, onScanPress, onManageCardsPress, attachedBelow }: Props) {
   const t = useT();
   const theme = useAppTheme();
-  const isDark = useIsDark();
   const router = useRouter();
   const leftHanded = useSettingsStore((s) => s.leftHanded);
   const debugModeEnabled = useSettingsStore((s) => s.debugModeEnabled);
@@ -462,8 +461,19 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // keeps it inside whatever corner radius ScreenScaffold passes.
   // The card, the nav bar and this header are ONE material at three sizes — same ramp, same
   // width. `'card'` is deliberate: the nav passes the same weight through `Surface`.
-  const headerRamp = getGlassEdge(theme.border, isDark, 'card');
+  // ONE flat boundary colour on all four sides — the same value and the same reasoning as
+  // `components/Surface.tsx`'s `edgeHue`, so the header, the nav bar and every card are one
+  // material drawn by one mechanism. `getGlassEdge` is no longer called from here: its two-stop
+  // lit/shaded ramp is what forced Android off its antialiased border path.
+  const edgeHue = theme.border;
   const edgeWidth = BORDER_WIDTH.card;
+  // All four sides, except where a sticky bar is attached below — there the header and the bar
+  // are ONE card (2026-08-14) and the boundary belongs under the pair, not through its middle.
+  const headerEdge = {
+    borderWidth: edgeWidth,
+    borderColor: edgeHue,
+    ...(attachedBelow ? { borderBottomWidth: 0 } : null),
+  };
   // ⚠️ **The header's first shadow (2026-09-15), and the reason it had none is worth keeping.**
   // #701 gave this row all four edges so it would read as the same material as a card — and an
   // edge is not depth. The maintainer's follow-up was that the header and the bar should look
@@ -478,42 +488,41 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // border box and unaffected by its own `overflow`. Only a DESCENDANT's shadow would be clipped
   // away. `ScreenScaffold`'s `headerBlock` sets no overflow either, so nothing above cuts it.
   const headerLift = { boxShadow: getLayeredShadow(theme.shadow, 'chrome') };
+  // ⚠️ **The opaque wash is the header view's OWN `backgroundColor` now (2026-09-15), not an
+  // `absoluteFill` child.** It was a child so it would clip to whatever radius `ScreenScaffold`
+  // passes; the view it sat in already carries that radius AND `overflow:'hidden'`, so painting
+  // the fill directly follows the corner natively and one View per header goes away.
+  //   It also has to be this way round now that the header draws a real border: an `absoluteFill`
+  // child positions against the PADDING box, so it started 1.5px inside the border and
+  // `geometry`'s `chrome-inset` check — which measures the widest background-painting descendant
+  // — read the header as inset 9 where the sticky bar was 8. Caught by that check, in both
+  // themes, before this shipped.
+  const headerFill = { backgroundColor: theme.surfaceRaised };
   const headerBackdrop = (
     <>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
-      {/* ⚠️ **The card's bottom edge (2026-09-01), and it is a LIGHT-MODE fix.** The wash above is
-          the whole of what separated this header from the content under it, and in light that is
-          `surfaceRaised` `#FEFEFF` against a first card of `surface` `#FDFEFF` — a 1/255 step. At
-          rest `CHROME_REST_GAP` shows some backdrop, but while scrolling a card passes under the
-          header and simply *stops existing* at a coordinate with no line, no shadow and no tonal
-          change: reported as "light top header looks like it's part of content while scrolling".
-            Absolutely positioned rather than a `borderBottomWidth`, because this view is inside
-          `headerClip` and a real border would round with the corners and change the box. Skipped
-          when a sticky bar is attached: there the two are ONE card by construction (2026-08-14),
-          so the boundary belongs under the bar, not through the middle of the pair. */}
-      {attachedBelow ? null : (
-        <View
-          pointerEvents="none"
-          style={[styles.headerEdge, { height: edgeWidth, backgroundColor: headerRamp.colors[1] }]}
-        />
-      )}
-      {/* ── The LIT edge (2026-09-12) — the header had no top or side boundary at all ────────
-          Maintainer, against a build: *"it still does not look like glass, especially not the
-          borders, and especially the header and bottom nav (and borders there as well)."*
-            The cause is that this header and the bottom bar were drawn by two different
-          mechanisms and could not match. `components/BottomNav.tsx` routes through `Surface`
-          with `surfaceContext="nav"` and gets a full four-sided `getGlassEdge` ramp; this file
-          is a plain View and had ONE hairline along the bottom — no top, no sides, no lit lip.
-          A floating card with a boundary on exactly one of its four sides does not read as a
-          pane of anything.
-            Same ramp, same width, same diagonal as the card and the nav now: lit on top-left,
-          shade on bottom-right. Absolutely positioned rather than a real `borderWidth` for the
-          reason the bottom edge already documents above — this view sits inside `headerClip`,
-          and a border would round with the corners and change the box. These lines cost no
-          layout: `geometry` measures the same header it did before. */}
-      <View pointerEvents="none" style={[styles.headerEdgeTop, { height: edgeWidth, backgroundColor: headerRamp.colors[0] }]} />
-      <View pointerEvents="none" style={[styles.headerEdgeLeft, { width: edgeWidth, backgroundColor: headerRamp.colors[0] }]} />
-      <View pointerEvents="none" style={[styles.headerEdgeRight, { width: edgeWidth, backgroundColor: headerRamp.colors[1] }]} />
+      {/* ⚠️ **The four edge STRIPS are gone (2026-09-15) — they were the "corners are clipped".**
+          From 2026-09-01 (bottom) and #701 (the other three), each side was an absolutely
+          positioned View spanning edge to edge, on the reasoning recorded here and in #701: this
+          row sits inside `headerClip`, and a real border "would round with the corners and change
+          the box". The first clause was the problem. A straight strip cannot follow an arc, and
+          `headerClip` cuts it at `Radius.lg` — so at each corner the top strip stopped ~16-24dp
+          short and the side strip stopped the same distance down, leaving roughly 38dp of outline
+          MISSING per corner, four times over. #701 turned one faint gap into four obvious ones
+          while trying to make this row read as the same material as a card, and the maintainer's
+          next report was *"borders look weird and corners are clipped"*.
+            A real `borderWidth` wraps the radius natively, so that is what this is now — the same
+          mechanism `Surface` uses for the card and the nav bar, which is what #701 actually
+          wanted and could not have while the edge needed two colours. It can be a real border
+          now for exactly that reason: the ramp is ONE flat colour app-wide (see Surface.tsx), and
+          a uniform border is also the only kind Android antialiases.
+            ⚠️ **"and change the box" was the true half, and it is paid for rather than ignored.**
+          `styles.header` subtracts `BORDER_WIDTH.card` from its padding on both axes, so the
+          CONTENT box is identical to the day before this change and `getHeaderMetrics`' band
+          math is untouched. `npm run geometry` is the check — it measures this row in both
+          themes and must stay clean.
+            The bottom edge is still skipped when a sticky bar is attached: there the two are ONE
+          card by construction (2026-08-14), so the boundary belongs under the bar, not through
+          the middle of the pair. */}
     </>
   );
 
@@ -546,7 +555,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       </View>
     );
     return (
-      <View style={[styles.header, styles.headerClip, headerLift, style]}>
+      <View style={[styles.header, styles.headerClip, headerFill, headerEdge, headerLift, style]}>
         {headerBackdrop}
         {leftHanded ? (
           <>
@@ -566,7 +575,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <View style={[styles.header, styles.headerClip, headerLift, style]}>
+    <View style={[styles.header, styles.headerClip, headerFill, headerEdge, headerLift, style]}>
       {headerBackdrop}
       {Platform.OS === 'ios' && onBack ? (
         <PressableScale onPress={onBack} hitSlop={HitSlop.base} scaleTo={0.97}>
@@ -590,7 +599,14 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
+    // ⚠️ **Both paddings subtract `BORDER_WIDTH.card` (2026-09-15).** The header draws a REAL
+    // four-sided border now instead of four absolutely-positioned strips (see the block at
+    // `headerEdge` for why the strips had to go), and a real border eats into the box — which
+    // is the true half of the objection the strips were chosen to avoid. Paying it back here
+    // keeps the CONTENT box identical to before, so `getHeaderMetrics`' band math below is
+    // untouched and `geometry` measures the same row. Change the border weight and change
+    // these two with it.
+    paddingHorizontal: Spacing.md - BORDER_WIDTH.card,
     // Spacing.md (not .sm) top+bottom so this row's own height exactly fills
     // getHeaderMetrics' headerHeight (titleLineHeight + Spacing.sm*2 + Spacing.md — the two
     // constants sum the same either way since Spacing.md === Spacing.sm*2). Surface's inner
@@ -599,7 +615,7 @@ const styles = StyleSheet.create({
     // short of the band and sat top-aligned inside it, reading as "not centered" — the extra
     // Spacing.md of band slack all landed below the title as dead space instead of split
     // above/below it. Matching the row's own height to the band removes that leftover gap.
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md - BORDER_WIDTH.card,
     // Row gap between the title (flex:1) and the controls group. Spacing.sm (was .md) so a
     // long title like "HANDLELISTE" gets a few more dp next to a crowded 5-icon control row —
     // part of the 2026-07-24 fix that dropped the Shopping-only autosize shrink hack. Vertical
@@ -619,34 +635,10 @@ const styles = StyleSheet.create({
   // `StyleSheet.hairlineWidth` while this was the header's ONLY edge; it carries
   // `BORDER_WIDTH.card` since the header gained the other three, so that all four sides — and
   // the nav bar, and every card — are one stroke weight.
-  headerEdge: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   // The other three sides of the same ramp. Width/height come from the call site for the same
   // reason. All four are inside `headerClip`, so they are cut by the corner radius rather than
   // squaring off past it — the lit top line stops where the corner starts, which is what a
   // rounded pane's highlight does anyway.
-  headerEdgeTop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-  },
-  headerEdgeLeft: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-  },
-  headerEdgeRight: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
   headerClip: {
     overflow: 'hidden',
   },
