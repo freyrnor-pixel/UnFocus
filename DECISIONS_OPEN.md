@@ -77,6 +77,36 @@ then stutter, or does it not move at all until it jumps?) would redirect this.
 **Blocks:** nothing shipping. It blocks a fourth guess, which is what the three rows above say
 is not worth making — see `CLAUDE.md`'s A3 rule.
 
+---
+
+### ANSWERED 2026-09-15 — option (c). It was not the touch slop.
+
+The fresh description this entry asked for arrived: *"a slight **tug** when swiping between
+screens. Same tug every time at the same time."* That is the first branch of the question above —
+the page moves under the finger and then catches — so the start-of-swipe dead zone is **not** what
+was being reported, and (a) is not the next move.
+
+What it was: `components/ScreenBackground.tsx`'s screen-hue crossfade. Every tab has a distinct
+hue, so it fires on every swipe; it writes the new hue into an `OrbLayer`'s `color` **prop**, and
+that prop mints the `<RadialGradient>` `<Defs>` of a full-screen `<Svg>` — invalidating the canvas
+and, because the layer is `renderToHardwareTextureAndroid`, forcing an offscreen texture
+re-raster. `activeRoute` changes only at the swipe boundary (by design —
+`app/(tabs)/_layout.tsx`), so all of that landed on one deterministic frame: the first frame of
+the settle. Hence "the same tug, every time, at the same time".
+
+Confirmed on device *before* the fix, which is what makes this an answer rather than a fourth
+guess: with **"Reduce visual effects" ON** — the switch that unmounts the whole orb block — the
+tug is gone.
+
+Fixed by deferring the buffer write and the tween to `InteractionManager.runAfterInteractions`,
+so the work lands after the settle rather than on it.
+
+**What stays open:** nothing here. The three earlier diagnoses were each aimed at *per-frame* cost
+(over-draw, the parallax bridge, the capture threshold) and this was a *one-frame burst*, which is
+why none of them moved it and why the patch's own note is right that lowering the slop could never
+have. Option (b) — accept AOSP's dead zone before motion starts — remains the standing answer for
+the thing this entry was originally about, and it has not been re-reported.
+
 ### The Budget card's Uke/Måned period
 
 **Asked 2026-09-07**, while building v3's Budsjett card (shipped the same day, monthly-only).

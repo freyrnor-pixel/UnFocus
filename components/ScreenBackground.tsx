@@ -574,20 +574,73 @@ function ScreenBackground({ activeRoute }: Props) {
   const theme = useAppTheme();
   const screenKey = activeRoute ? ROUTE_HUE[activeRoute] : undefined;
   const screenHue = screenKey ? getScreenColor(theme, screenKey).base : null;
+  // Whether this INSTANCE is one that can ever carry a route hue — see the block at the hue
+  // buffers. Deliberately derived from `activeRoute`, the prop, and NOT from `buffers`/
+  // `screenHue`: the prop is fixed for the life of an instance (the pager passes one, every
+  // sub-tier screen passes none), where the buffers change mid-crossfade and gating on those
+  // is the 2026-09-07 mistake.
+  const hasRouteHue = screenKey !== undefined;
   const [buffers, setBuffers] = useState<[string | null, string | null]>([screenHue, null]);
   const [showB, setShowB] = useState(false);
   const cross = useSharedValue(0);
+  // ⚠️ **This whole body runs AFTER the swipe settles, not on the frame it lands (2026-09-15).**
+  //
+  // Device report: *"a slight tug when swiping between screens. Same tug every time at the same
+  // time."* The "same time" is the tell — a burst of work on one deterministic frame, not random
+  // jank. This was that burst.
+  //
+  // `activeRoute` changes only at the swipe boundary, by design:
+  // `app/(tabs)/_layout.tsx` — *"the fade starts at the swipe boundary rather than sliding with
+  // the drag"*. Every tab has a distinct hue, so this effect fires on EVERY swipe and never
+  // short-circuits at the guard above. Writing `screenHue` into the hidden buffer changes an
+  // `OrbLayer`'s `color` **prop**, and that prop mints the `<RadialGradient>` `<Defs>` of a
+  // full-screen `<Svg>` — the exact thing `OrbLayer`'s own header warns about: *"Animating a prop
+  // INSIDE an SVG invalidates the canvas."* The layer also carries
+  // `renderToHardwareTextureAndroid`, so the invalidation forces an offscreen texture re-raster
+  // too. All of it landed on the first frame of the settle animation.
+  //
+  // Confirmed on device before changing anything: with "Reduce visual effects" ON — which
+  // unmounts this whole orb block — **the tug is gone**. That pins the cost to this field.
+  //
+  // The fix is to run it AFTER the page has settled, where there is slack. The hue starts
+  // crossing a beat later, which is not a regression: it stops competing with the page's own
+  // settle animation, and `Duration.ambient` is the slowest tween in the app precisely because
+  // nobody is meant to be watching it land.
+  //
+  // ⚠️ **It is a `setTimeout`, and `InteractionManager.runAfterInteractions` was tried first and
+  // REJECTED — by `npm run visual`, which is the only reason this is not a shipped bug.** That is
+  // the idiomatic RN spelling and it reads better, but it never fires in the web build: the run
+  // came back with 15 of 26 screens changed by up to 33%, because the hue layer simply never
+  // appeared. `plans`, `shopping` and `health` moved most (strong hues) and `home` least (its
+  // blue is nearest the neutral wash) — the signature of a backdrop with its colour missing
+  // rather than late. Whether that shim is web-only was not worth finding out: a deferral whose
+  // firing cannot be confirmed is the "predicate gone constant" class this repo has paid for
+  // twice, and here it would mean a permanently colourless backdrop. `setTimeout` is implemented
+  // natively on every platform and the same run is 26/26 unchanged with it.
+  //
+  // The delay is `Duration.tabSwitch` because that is what is being waited out — the page's own
+  // settle, not a card or a modal. A bare `setTimeout(0)` also renders correctly, but it only
+  // moves the work one macrotask, which still lands inside the settle it is trying to avoid.
+  //
+  // ⚠️ Do NOT "simplify" this back to a bare effect body, and do not reach for the reverted
+  // per-buffer mount gate instead (see the block at the hue buffers) — that one puts a canvas's
+  // FIRST rasterisation inside its own fade, which is strictly worse than this was.
   useEffect(() => {
     const current = showB ? buffers[1] : buffers[0];
     if (screenHue === current) return;
-    // Write into the hidden buffer, then cross to it. Both halves in one effect so a rapid swipe
-    // cannot leave the visible buffer holding a colour nothing is animating toward.
-    setBuffers((prev) => (showB ? [screenHue, prev[1]] : [prev[0], screenHue]));
-    const next = !showB;
-    setShowB(next);
-    cross.value = still
-      ? (next ? 1 : 0)
-      : withTiming(next ? 1 : 0, { duration: Duration.ambient, easing: Ease.move });
+    const handle = setTimeout(() => {
+      // Write into the hidden buffer, then cross to it. Both halves in one callback so a rapid
+      // swipe cannot leave the visible buffer holding a colour nothing is animating toward.
+      setBuffers((prev) => (showB ? [screenHue, prev[1]] : [prev[0], screenHue]));
+      const next = !showB;
+      setShowB(next);
+      cross.value = still
+        ? (next ? 1 : 0)
+        : withTiming(next ? 1 : 0, { duration: Duration.ambient, easing: Ease.move });
+    }, Duration.tabSwitch);
+    // Cancelling matters on a fast back-and-forth swipe: the effect re-runs before the previous
+    // callback has fired, and two queued writes would race to set opposite `showB` values.
+    return () => clearTimeout(handle);
   }, [screenHue, showB, buffers, cross, still]);
   const hueAStyle = useAnimatedStyle(() => ({ opacity: 1 - cross.value }));
   const hueBStyle = useAnimatedStyle(() => ({ opacity: cross.value }));
@@ -627,7 +680,14 @@ function ScreenBackground({ activeRoute }: Props) {
   // OLED/glass design is tuned for. Light keeps one SVG rect.
   const glowsVisible = p.topGlowOpacity > 0 || p.botGlowOpacity > 0;
   const flatBase = p.base[0] === p.base[1] && p.base[1] === p.base[2];
-  const svgHasContent = glowsVisible || !flatBase || !reduceEffects;
+  // ⚠️ **The `|| !reduceEffects` term is GONE (2026-09-15), and it was mounting a canvas that
+  // drew nothing.** It is a leftover from when the orbs lived inside THIS `<Svg>`; they moved to
+  // their own `OrbCanvas` layers below, and the term stayed. The two draw sites inside this
+  // canvas are `{!flatBase && <Rect sbBase/>}` and `{glowsVisible && …}` — so at dark defaults
+  // (flat black base, both glow opacities 0, `reduceEffects` off) it mounted a full-screen `<Svg>`
+  // holding three gradient `<Defs>` and **zero shapes**, on every screen.
+  //   The condition now says what it means: this canvas mounts when it has something to draw.
+  const svgHasContent = glowsVisible || !flatBase;
 
   return (
     <>
@@ -740,8 +800,32 @@ function ScreenBackground({ activeRoute }: Props) {
           <View pointerEvents="none" renderToHardwareTextureAndroid style={styles.backdrop}>
             <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
           </View>
-          {/* ⚠️ **The two hue buffers are mounted UNCONDITIONALLY, and a gate here was tried and
-              REVERTED on 2026-09-07 — do not re-add it.** Gating each on `buffers[n]` looked
+          {/* ⚠️ **The two hue buffers mount only on a screen that HAS a route hue (2026-09-15),
+              and this is NOT the gate that was reverted on 2026-09-07 — read the difference
+              before touching it.**
+
+              The reverted gate was per-BUFFER, on `buffers[n]`, on a screen that crossfades.
+              `setBuffers` → `setShowB` → `cross.value = withTiming(...)` land in ONE commit, so
+              under that gate buffer B MOUNTED at the exact moment its fade-in started — a fresh
+              full-screen SVG being rasterised while it was being animated. `task-editor` went
+              machine-dependent (124 px light / 134 px dark against CI) because it is the set's one
+              "fresh app" reload, where B mounts for the first time near the capture. That gate is
+              still wrong and is still not here: both buffers mount together, unconditionally,
+              wherever a crossfade can run.
+
+              This gate is per-INSTANCE and static. Only the five pager tabs pass `activeRoute`
+              (`app/(tabs)/_layout.tsx`); every sub-tier screen — Settings, Budget, Notes, the
+              editors — mounts its own `ScreenBackground` through
+              `components/ScreenScaffold.tsx`'s `ownBackground` path with no route at all. There
+              `screenHue` is null for the whole life of the instance, so `buffers` never changes,
+              the effect never fires, `cross` never animates, and these two canvases drew
+              `peak={0}` — **two full-screen `<Svg>`s painting nothing, on every sub-tier screen**.
+              Nothing can mount mid-fade here because there is no fade.
+                The maintainer's report was *"going in and out of settings is still laggy"*, and
+              Settings passes neither `ownBackground={false}` nor `plainBackground`, so it was
+              paying for the base canvas, the neutral orb canvas, these two empty ones and a
+              particle field to show a plain list. */}
+          {/* Historic note kept for the reverted gate's reasoning: gating each on `buffers[n]` looked
               free (a canvas drawing three shapes at `peak={0}` paints nothing), and it made
               `task-editor` machine-dependent: 124 px light / 134 px dark against CI, on a screen
               that was byte-identical on this machine across two runs and had been stable on the
@@ -756,22 +840,26 @@ function ScreenBackground({ activeRoute }: Props) {
               which is the same distinction `OrbLayer`'s own header draws about animating a
               VIEW's opacity rather than a prop inside the SVG. The saving was one canvas on the
               first screen only; the cost was a false red on the densest baseline in the set. */}
-          <OrbLayer
-            style={hueAStyle}
-            id="sbOrbHueA"
-            color={buffers[0] ?? p.orbCool}
-            peak={buffers[0] ? p.orbScreenOpacity : 0}
-            level={level}
-            indexes={SCREEN_HUE_ORB_INDEXES}
-          />
-          <OrbLayer
-            style={hueBStyle}
-            id="sbOrbHueB"
-            color={buffers[1] ?? p.orbCool}
-            peak={buffers[1] ? p.orbScreenOpacity : 0}
-            level={level}
-            indexes={SCREEN_HUE_ORB_INDEXES}
-          />
+          {hasRouteHue && (
+            <>
+              <OrbLayer
+                style={hueAStyle}
+                id="sbOrbHueA"
+                color={buffers[0] ?? p.orbCool}
+                peak={buffers[0] ? p.orbScreenOpacity : 0}
+                level={level}
+                indexes={SCREEN_HUE_ORB_INDEXES}
+              />
+              <OrbLayer
+                style={hueBStyle}
+                id="sbOrbHueB"
+                color={buffers[1] ?? p.orbCool}
+                peak={buffers[1] ? p.orbScreenOpacity : 0}
+                level={level}
+                indexes={SCREEN_HUE_ORB_INDEXES}
+              />
+            </>
+          )}
           {intensity > 0 && (
             <OrbLayer style={tintStyle} id="sbOrbGrowth" color={p.orbGrowth} peak={p.orbOpacity} level={level} />
           )}
