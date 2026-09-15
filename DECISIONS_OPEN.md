@@ -107,6 +107,91 @@ why none of them moved it and why the patch's own note is right that lowering th
 have. Option (b) — accept AOSP's dead zone before motion starts — remains the standing answer for
 the thing this entry was originally about, and it has not been re-reported.
 
+### Settings navigation lag: which half of the trip is slow, and is the backdrop expendable?
+
+**Asked 2026-09-15**, after the second no-change on the same report.
+
+The report: *"Going in and out of settings still lag."* Two passes have now shipped against it,
+both diagnosing something real and neither moving the symptom — the same shape as the swing the
+swipe "hump" entry above records, and `CLAUDE.md`'s A3 rule says a third guess is not the next
+move.
+
+| PR | Diagnosis | Result |
+|---|---|---|
+| #708 | Settings mounted two full-screen `<Svg>` canvases painting nothing (`hasRouteHue` gate) | no change |
+| #711 | `app/settings.tsx` took a bare `useSettingsStore()`, so every write re-rendered the largest file in the repo | no change |
+
+**What this pass measured, and it points away from both.** Driving the web preview through
+five settings round trips with the screen stubbed at four levels (`scripts` were temporary, not
+committed — the probe swapped `SettingsScreen`'s return):
+
+| variant | what it rendered | in | out |
+|---|---|---|---|
+| `full` | the real screen | ~100ms | ~24ms |
+| `scaffold` | `ScreenScaffold` + one `<Text>` | ~73ms | ~22ms |
+| `empty` | one `<View>`, all 45 hooks still running | ~76ms | ~22ms |
+| `bare` | one `<Text>`, **every hook skipped** | ~70ms | ~19ms |
+
+So on that harness the screen's own content is ~30ms of ~100ms, its hooks are ~6ms, and **~70%
+is there for a route that renders a single text node**. Shrinking Settings further — the lever
+both shipped passes pulled — has little left to give. For scale, going *back* remounts Home's
+659 DOM nodes in ~22ms, while Settings' General tab is 44 elements.
+
+⚠️ **The harness cannot settle this, and the reason is structural, not incidental.**
+`expo-router` ships `Stack.web.js` (the `_web-modal` stack) and `Stack.js` (`StackClient` →
+native-stack via `react-native-screens`). The web preview measures a **different navigator
+implementation** than the device runs, so the ~70ms above is evidence that Settings' content is
+not the driver — and is *not* evidence about what that 70ms is made of on Android. This is a
+blind class in `CLAUDE.md` A2 terms, and it is why this entry asks rather than ships.
+
+**One lever is already ruled out — do not spend a PR on it.** `freezeOnBlur` is the standard fix
+for "the screens under a push keep working", and it cannot help here. `app/(tabs)/_layout.tsx`
+runs `lazy: false`, so all five tab screens are permanently mounted and live behind Settings, and
+nothing in the app sets `freezeOnBlur` (react-native-screens' global `ENABLE_FREEZE` is `false`).
+But the vendored native-stack computes:
+
+```js
+const shouldFreeze = isFabric()
+    ? !isPreloaded && !isFocused && !isBelowFocused && !isModalOnIos
+    : !isPreloaded && !isFocused && !isModalOnIos;
+```
+
+`isFabric()` is `'nativeFabricUIManager' in global`, true on SDK 56 / RN 0.85 (New Architecture
+only). The tabs group sits **directly below** Settings, so `isBelowFocused` excludes it from
+freezing whatever the option says. Setting `freezeOnBlur: true` would be a no-op for this report.
+
+**The question, and it is the one that redirected the swipe entry.** "In and out" is two
+different trips with two different costs, and the table above says they are not symmetric:
+
+- **(a) Going IN is slow** — the gear is tapped and the slide starts late or the screen lands
+  blank/stuttering. That is mount cost on the JS thread, and the next place to look is what a
+  sub-tier push mounts *besides* the list: `ScreenScaffold`'s `ownBackground` path gives Settings
+  its own `ScreenBackground` (in dark: a flat `View` plus one texture-cached `OrbCanvas`) and its
+  own `ParticleBackground` — a **second** five-dot field spinning up while the pager's hoisted one
+  keeps animating underneath, all behind opaque cards that hide it.
+- **(b) Going OUT is slow** — back is tapped and the tabs take a beat to come back. Settings is
+  not on screen for that, so its size is irrelevant and the cost is in the tabs group re-waking.
+- **(c) Both equally**, which would point at the transition itself rather than either screen.
+
+**What would answer it without another guess:** which of (a)/(b)/(c), and whether the lag
+survives **Settings → Accessibility → Reduce effects ON**. That toggle already strips the orb
+canvases and the particle field (`components/ScreenBackground.tsx`'s `reduceEffects` gate,
+`components/ParticleBackground.tsx`'s). If the lag goes away with it on, the backdrop is the
+cost and the fix is bounded; if it does not, the backdrop is exonerated and (b)/(c) is where the
+next pass goes.
+
+**And the ruling an agent cannot make.** If it *is* the backdrop: `ScreenScaffold` already has a
+`plainBackground` prop, built as a "Settings request", currently passed by **no screen**. It
+drops both decorative layers for a flat white/black fill — and also squares the header chrome
+(`floatChrome = !plainBackground`). That is a visible redesign of the screen, not a perf tweak, so
+it needs a yes. The middle option is to keep the look and mount the decorative layers *after* the
+push settles, which trades the lag for the backdrop fading in a beat late.
+
+**Blocks:** a third diagnosis. Nothing is shipping against this until one of (a)/(b)/(c) comes
+back.
+
+---
+
 ### The Budget card's Uke/Måned period
 
 **Asked 2026-09-07**, while building v3's Budsjett card (shipped the same day, monthly-only).
