@@ -367,6 +367,21 @@ export const PAD_SPARE_LINES = 2;
 export const PAD_PREVIEW_ROWS = 3;
 
 /**
+ * How many rows a long, already-unfolded list draws before it offers the rest behind a tap.
+ *
+ * Not a preview length — `PAD_PREVIEW_ROWS` above is that, and it is 3 because a glance wants
+ * three. This is a CEILING on a list the user has deliberately opened, and it exists because
+ * `RETENTION_DAYS` is 365: a To-do "Ferdig" zone accumulates every completed task for a year,
+ * and each row mounts a ~2000-line `TaskCard`. Opening it after two years should not mount
+ * eight hundred of them on one frame.
+ *
+ * 50 rather than a rounder 20 or 100 because it has to clear the everyday case completely —
+ * nobody should meet this control in a normal week — while still bounding the pathological one.
+ * A user with fewer than 50 finished tasks never sees it exist.
+ */
+export const LONG_LIST_CAP = 50;
+
+/**
  * A finished row's fade. Struck through AND faded, in place — the shared "done" treatment
  * for notes, tasks, shopping items and completed habits, so one tick looks the same
  * everywhere. Promoted here from components/ShoppingRow.tsx's `CHECKED_OPACITY` (same

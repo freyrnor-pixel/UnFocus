@@ -32,51 +32,36 @@ that will be re-derived, not made.**
 
 ## Open
 
-### Unfolded cards render every row: cap, virtualise, or accept?
+### ANSWERED 2026-09-15 — option A, and two of the row's own facts were wrong
 
-**Asked 2026-09-15**, during the warnings/performance sweep. Nothing is broken today — this is a
-question about a user two years from now, and it is the one thing in that sweep an agent cannot
-legitimately decide, because every option changes what the app shows.
+Asked and answered the same day, so the question is kept only for the corrections it earned.
 
-**The measurement.** `components/CatalogueTab.tsx` is the ONLY virtualised list in the app, and it
-is correctly configured (`initialNumToRender=10`, `windowSize=11`, `removeClippedSubviews`).
-Everything else is `.map()` inside `ScreenScaffold`'s `ScrollView`.
+**Shipped:** `LONG_LIST_CAP = 50` (`constants/theme.ts`) with `lib/longList.ts`, applied to To-do's
+**"Mer"** and **"Ferdig"** sections. Over 50 rows the section draws the first 50 and a `"N flere"`
+row; tapping it shows everything; folding the section away resets it. Under 50 — every ordinary
+user — nothing changes and the control never renders.
 
-Collapsed cards are bounded, so first paint is safe at any data size: `PAD_PREVIEW_ROWS = 3`,
-`FOCUS_VISIBLE = 2`, `PREVIEW_PER_SECTION = 3`. **Unfolded cards have no cap.** Five sites in
-`components/TodoSurface.tsx` alone mount one row component per row with no ceiling:
+**Correction 1: `calGroups` was never unbounded.** This row listed it among the five uncapped
+sites. It is bounded by `calDates`: seven entries in week mode, at most ~31 in month mode. It
+needed nothing.
 
-| line | list |
-|---|---|
-| `:230` | `rest` — everything unfinished beyond the focus pair |
-| `:248` | `finished` — every completed task still inside retention |
-| `:1221` | `wheneverDragged` |
-| `:1510` | `calGroups` |
-| `:1554` | `recurringAll` |
+**Correction 2: "Når som helst" is deliberately left uncapped, and that is not an oversight.**
+It is a DRAG list (`DraggableTaskRow` + `useDragReorder`). A drag order naming a row the cap has
+not rendered is a reorder that cannot complete, so capping it would trade a cost that appears
+after two years for a bug that appears at row 51. `lib/longList.ts`'s header carries this warning
+so the next reader does not "finish the job".
 
-The row each one mounts is `TaskCard` (2066 lines) or `PlanTaskCard` (2153). `RETENTION_DAYS` is
-365, and `pruneOldData()` only deletes **completed, dated, non-recurring** tasks past that window —
-so an open task, a recurring one, or anything undated is kept forever by design. A user who
-unfolds "Ferdig" after two years mounts every one of them.
+So the real answer to the original question was **two sections, not five** — and the two are
+exactly the ones with no drag, already behind a fold, that grow without limit
+(`RETENTION_DAYS = 365` keeps completed tasks for a year, and open/recurring/undated ones
+forever).
 
-**Why no harness here will ever report this.** It is not a rendering defect; it is a cost that
-scales with a data set no harness has. `npm run visual` walks screens seeded with a handful of
-rows, so it is 26/26 unchanged at any list length. This will arrive as a device report about one
-tab feeling slow, years after the code that caused it shipped.
+**Not chosen, and why.** (B) virtualising inside `scrollable={false}`: correct at any size, but
+#684 reverted `removeClippedSubviews` for breaking expand/collapse, and this is the same
+mechanism on a main tab. (C) pruning harder: deletes user data on a rule the user did not set.
 
-**Options**
-
-| | what changes | cost |
-|---|---|---|
-| **A** | Cap the unfolded list too (say 50) with a "Show all" row underneath. | Smallest change, no architecture. But it puts a second fold inside a card that is already unfolded, which is a UX question, not a perf one. |
-| **B** | Virtualise inside the existing `scrollable={false}` escape hatch `app/catalogue.tsx` already uses. | Correct at any size, and the pattern is proven in this repo. But it is a real restructure of To-do, and #684 reverted `removeClippedSubviews` precisely because it broke expand/collapse — the same mechanism. |
-| **C** | Accept it. Prune harder instead: shorten retention, or let `pruneOldData()` reach completed undated tasks. | No UI change at all, but it deletes user data on a rule they did not set. |
-
-⚠️ Whatever the answer, it is **not** "swap in a `FlatList`": `ScreenScaffold` owns the scrolling,
-and a nested same-axis `VirtualizedList` is exactly what `app/catalogue.tsx`'s header warns against.
-Option B means using the `scrollable={false}` hatch, not adding a second scroll container.
-
-**Blocks:** nothing shipping. It blocks knowing whether the To-do tab has a ceiling.
+⚠️ **Unverified on device.** No harness here can see this: the cap only engages past 50 rows and
+`npm run visual` seeds a handful. What the harnesses DO confirm is that nothing else moved.
 
 
 ### The swipe "hump": patch ViewPager2's own touch slop, or accept the feel?
