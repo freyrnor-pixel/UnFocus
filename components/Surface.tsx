@@ -514,7 +514,20 @@ export default function Surface({
       : { colors: [edgeHue, edgeHue], locations: [0, 1], start: { x: 0, y: 0 }, end: { x: 1, y: 1 } }),
     [edgeHue, isDark, shape.borderRampStrength, litEdgeOn],
   );
-  const shadowLevel = LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
+  // ⚠️ **The nav takes the `chrome` rung from its CONTEXT, and the design lab cannot override it
+  // (2026-09-15).** The rung exists so content visibly passes UNDER the bar; a knob that could
+  // demote it to `raised` — the same rung as the cards sliding beneath it — would silently switch
+  // that off, and the lab's `cardElevation` is, by its own name and doc, about CARDS. Assigning
+  // from context rather than a prop is also what stops a caller promoting itself with `elevated`.
+  //   ⚠️ **Deliberately `'nav'` and NOT `overlapsCards`**, which also covers `'overlay'`. A sheet
+  // does sit above the card plane and is arguably under-elevated too, but it already reads as
+  // separate because it comes with a scrim, and raising it would move every modal's shadow —
+  // a different question from the one this pass was asked, and one that should be measured on
+  // its own. `ScreenHeader` does not route through this component and takes the same rung by
+  // hand; see its own note.
+  const shadowLevel = surfaceContext === 'nav'
+    ? 'chrome'
+    : LAB_ELEVATION[shape.cardElevation] ?? (elevated ? 'floating' : 'raised');
   // 'flat' is the design lab's cardElevation 0 and means no shadow at all — there is no flat
   // tier in getLayeredShadow (it starts at 'raised'), so the pass is skipped rather than asked
   // for a zero-strength one.

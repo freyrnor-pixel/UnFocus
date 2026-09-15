@@ -32,7 +32,7 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { getGlow, mix } from '@/constants/theme';
+import { getElevation, getGlow, getLayeredShadow, mix, Spacing } from '@/constants/theme';
 import { contrastRatio, IDENTITY_HUES, THEMES } from '@/constants/colors';
 
 const ROOT = join(__dirname, '..', '..');
@@ -294,13 +294,13 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(source).toMatch(/const viewportBleed = \{ marginHorizontal: -headerFloatH \};/);
   });
 
-  it('insets the header, the nav and the content by ONE shared number', () => {
+  it('insets both chrome surfaces by ONE shared number, and the content by a WIDER one', () => {
     // The bug this pins is a drift, not a value. `ScreenScaffold` spelled `Spacing.sm` and
     // `app/(tabs)/_layout.tsx` spelled `NAV_FLOAT_GAP` — both 8, which made the header and the
     // bar agree with each other and disagree with every content card, which pads `Spacing.md`.
     // The 2026-07-24 note that set it only ever asked those two to match *each other*; the third
     // card on screen was never in the comparison. So assert the two chrome sites read the SAME
-    // constant, and that it is the one the screens pad by.
+    // constant.
     expect(code('components/ScreenScaffold.tsx')).toMatch(
       /const headerFloatH = floatChrome \? CHROME_FLOAT_INSET : 0;/,
     );
@@ -309,8 +309,51 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     // the side inset, the band under the bar must not follow it.
     expect(code('app/(tabs)/_layout.tsx')).toMatch(/paddingBottom: insetsBottom \+ NAV_FLOAT_GAP,/);
     const theme = code('constants/theme.ts');
-    expect(theme).toMatch(/export const CHROME_FLOAT_INSET = Spacing\.md;/);
+
+    // ⚠️ **This assertion was `CHROME_FLOAT_INSET = Spacing.md` — the SAME number the content
+    // pads by — until 2026-09-15. It is re-pointed on a maintainer ruling, not relaxed.**
+    // Report: *"Top header and bottom nav should be slightly wider and look more popped out than
+    // cards, to create the illusion of elements going behind when scrolling."* One number doing
+    // both jobs put the chrome's outer edge and every card's outer edge on the same x, so nothing
+    // overlapped and nothing could read as passing behind.
+    //   The 2026-08-27 pass that unified them was right about its bug (the chrome sat 8px outside
+    // every card by nobody's decision) and reached for sameness as the fix. What this test still
+    // guards is the thing that actually mattered there: that the relationship is CHOSEN and
+    // written down in one place, rather than falling out of two constants edited months apart.
+    // So it asserts the ordering, not a coincidence of values — chrome strictly wider than the
+    // card column, both still on the spacing scale.
+    expect(theme).toMatch(/export const CARD_GUTTER = Spacing\.md;/);
+    expect(theme).toMatch(/export const CHROME_FLOAT_INSET = Spacing\.sm;/);
+    expect(Spacing.sm).toBeLessThan(Spacing.md);
     expect(theme).toMatch(/export const SCREEN_GAP = Spacing\.smd;/);
+  });
+
+  /**
+   * The chrome has to out-rank the content it floats over, or the "passes behind" illusion the
+   * inset above buys is thrown away by the shadow.
+   *
+   * Pinned because it was wrong in exactly that way until 2026-09-15: `BottomNav` mounts a
+   * `Surface` with no `elevated` prop, which resolved to `raised` — the card default — while
+   * `PlanTaskCard` passes `elevated` and so sat on `floating`. The bar was beneath the cards
+   * sliding under it. The header, meanwhile, cast no shadow at all.
+   */
+  it('puts the chrome on a rung above every card', () => {
+    const theme = code('constants/theme.ts');
+    // The rung exists, and above `floating` on both scales.
+    expect(theme).toMatch(/export type ElevationLevel = 'flat' \| 'raised' \| 'floating' \| 'chrome';/);
+    expect(getElevation('chrome').elevation).toBeGreaterThan(getElevation('floating').elevation);
+    expect(getElevation('chrome').shadowRadius).toBeGreaterThan(getElevation('floating').shadowRadius);
+    // `getLayeredShadow` is what Surface actually paints — the near pass must be wider and
+    // stronger than a floating card's, or the rung is decorative.
+    const chromeNear = getLayeredShadow('#000', 'chrome')[1];
+    const floatingNear = getLayeredShadow('#000', 'floating')[1];
+    expect(chromeNear.blurRadius).toBeGreaterThan(floatingNear.blurRadius);
+    expect(chromeNear.color).not.toBe(floatingNear.color);
+    // Both chrome surfaces take it, and by two different routes — Surface assigns it from
+    // `surfaceContext` (so the design lab and the `elevated` prop cannot override it), while
+    // ScreenHeader does not route through Surface and spells it by hand. They must move together.
+    expect(code('components/Surface.tsx')).toMatch(/surfaceContext === 'nav'\s*\n?\s*\? 'chrome'/);
+    expect(code('components/ScreenHeader.tsx')).toMatch(/getLayeredShadow\(theme\.shadow, 'chrome'\)/);
   });
 
   it('rests the same gap at the top and the bottom', () => {

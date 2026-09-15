@@ -150,7 +150,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getGlassEdge, getHeaderMetrics, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getGlassEdge, getHeaderMetrics, getLayeredShadow, HitSlop } from '@/constants/theme';
 import { shortCommit } from '@/constants/buildInfo';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
@@ -464,6 +464,20 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // width. `'card'` is deliberate: the nav passes the same weight through `Surface`.
   const headerRamp = getGlassEdge(theme.border, isDark, 'card');
   const edgeWidth = BORDER_WIDTH.card;
+  // ⚠️ **The header's first shadow (2026-09-15), and the reason it had none is worth keeping.**
+  // #701 gave this row all four edges so it would read as the same material as a card — and an
+  // edge is not depth. The maintainer's follow-up was that the header and the bar should look
+  // "more popped out than cards, to create the illusion of elements going behind when
+  // scrolling", which a border cannot do at any weight.
+  //   `'chrome'` is the rung above `floating`; see `getElevation`'s block for why the scale
+  // needed a fourth one. `BottomNav` takes the same rung through `Surface`'s `surfaceContext`,
+  // which this component deliberately does not route through — so it is spelled by hand here,
+  // and the two must move together.
+  //   It hangs on the same View as `headerClip`, which is safe for the reason
+  // `components/CardExpandHost.tsx:590` documents: a view's own `boxShadow` is outside its
+  // border box and unaffected by its own `overflow`. Only a DESCENDANT's shadow would be clipped
+  // away. `ScreenScaffold`'s `headerBlock` sets no overflow either, so nothing above cuts it.
+  const headerLift = { boxShadow: getLayeredShadow(theme.shadow, 'chrome') };
   const headerBackdrop = (
     <>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: theme.surfaceRaised }]} />
@@ -532,7 +546,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
       </View>
     );
     return (
-      <View style={[styles.header, styles.headerClip, style]}>
+      <View style={[styles.header, styles.headerClip, headerLift, style]}>
         {headerBackdrop}
         {leftHanded ? (
           <>
@@ -552,7 +566,7 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // Sub tier: back link (iOS) leftmost, title immediately right of it and left-aligned,
   // right slot for the screen-specific action. Not mirrored (back link is platform-fixed).
   return (
-    <View style={[styles.header, styles.headerClip, style]}>
+    <View style={[styles.header, styles.headerClip, headerLift, style]}>
       {headerBackdrop}
       {Platform.OS === 'ios' && onBack ? (
         <PressableScale onPress={onBack} hitSlop={HitSlop.base} scaleTo={0.97}>
