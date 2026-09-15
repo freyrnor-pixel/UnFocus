@@ -500,6 +500,28 @@ describe('the pane carries no screen colour (2026-08-20)', () => {
    * assignments and asserts they are the SAME expression, so re-introducing a second colour
    * fails here no matter how it is spelled.
    */
+  /**
+   * ⚠️ **The same property, for every BUTTON — and this is the gap that let #706 ship half a fix.**
+   *
+   * #706 made the card's rim uniform and stopped there. `glassKey()` kept a lit top-left and a
+   * shaded bottom-right, and it draws every `Button` in the app, `AppModal`'s keys and the sheet
+   * done-buttons — so those corners stayed on Android's un-antialiased `clipPath` path while the
+   * cards around them were fixed. The guard above could not see it because it only ever read
+   * `Surface.tsx`.
+   *
+   * So the rule is asserted where the rule lives: any function that hands React Native four
+   * `border*Color` keys has to hand it four of the SAME value.
+   */
+  it('gives every key the same four border colours, for the same reason a card does', () => {
+    const src = read('constants/theme.ts');
+    const body = /export function glassKey\([\s\S]*?\n}/.exec(src)?.[0] ?? '';
+    expect(body).not.toBe('');
+    const sides = ['borderTopColor', 'borderLeftColor', 'borderBottomColor', 'borderRightColor']
+      .map((side) => new RegExp(`${side}:\\s*([^,\\n]+)`).exec(body)?.[1]?.trim());
+    expect(sides.every(Boolean)).toBe(true);
+    expect(new Set(sides).size).toBe(1);
+  });
+
   it('paints all four border sides from one colour, or Android stops antialiasing the corners', () => {
     const src = read('components/Surface.tsx');
     const sides = ['borderTopColor', 'borderLeftColor', 'borderBottomColor', 'borderRightColor']

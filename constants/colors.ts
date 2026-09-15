@@ -638,7 +638,13 @@ const defaultLight: ThemePalette = {
   // 3.128 → 3.814 on `bg`. `bg` was the binding side and had barely a tenth of clearance over
   // 1.4.11's 3:1; the card edge is the whole boundary in light mode under rule 10b, so that
   // margin was too thin to be the thing the layout rests on.
-  border: '#65768F',
+  // ⚠️ **#65768F -> #5A6B84 (2026-09-15) — DARKER, and that is the same change as dark's.**
+  // "Brighter rim" is the ask; on a near-white card a brighter edge is a LESS visible one, so
+  // light moves the other way down the scale to mean the same thing. It also repairs the
+  // tightest contrast margin in the app: `border` on `bg` was 3.814 against a 3:1 floor (it had
+  // already been lifted once, 2026-08-20, from 3.128 as "too thin to be the thing the layout
+  // rests on"), and is 4.475 now. On `surface` 4.496 -> 5.275.
+  border: '#5A6B84',
   borderStrong: '#2B5FD9',
   // accent = Save/primary action colour. Was the card-accent DS's --color-primary #2563EB;
   // darkened a hair to #235EE0 in the 2026-07-31 ladder pass — see the note below for why the
@@ -912,7 +918,12 @@ const defaultDark: ThemePalette = {
   // Re-measured after the 2026-08-26 `surface` correction to `#242424`: 4.546:1 on `surface`
   // (was 4.090:1 during the same phase's `#2C2C2C` attempt; bg/surfaceMuted ratios unchanged,
   // since neither token moved) — still comfortably clear of the 3:1 floor.
-  border: '#8A8A95',
+  // ⚠️ **#8A8A95 -> #9A9AA6 (2026-09-15), the glass pass.** The rim is the whole of a card's
+  // boundary since #706 made it one uniform colour on four sides, so making a card read as a
+  // pane of glass is mostly making its edge read. This SPENDS nothing: on `surface` it goes
+  // 4.546 -> 5.579 and on `bg` 6.150 -> 7.547, so WCAG 1.4.11's 3:1 floor gains margin rather
+  // than losing it, and it moves further from `rule` (1.378), whose own pin is an upper bound.
+  border: '#9A9AA6',
   borderStrong: '#A8A8B4',
   // ── Vibrant pass, 2026-08-16 (brief §4: "highly saturated, vibrant jewel tones") ──────────
   // Dark mode only — light keeps its own accessible values, which are constrained by a pale

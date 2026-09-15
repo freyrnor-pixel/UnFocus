@@ -28,6 +28,7 @@ import {
   type LabOverrides,
 } from '@/lib/designLab';
 import { getThemePalette } from '@/constants/colors';
+import { BORDER_WIDTH } from '@/constants/theme';
 
 const palette = getThemePalette('default', false);
 const meta: ReportMeta = { stamp: '2026-08-06', appVersion: '1.1.0', isDark: false };
@@ -83,7 +84,10 @@ describe('formatDesignLabReport', () => {
   it('shows the real before → after for each changed token', () => {
     expect(text).toContain(`${palette.accent} → #2e7d5b`);
     expect(text).toContain('1 → 1.35');
-    expect(text).toContain('1.5 → 2');
+    // ⚠️ Read from the TOKEN, not spelled `1.5` (2026-09-15). The "before" here is the
+    // shipped card border width, so hardcoding it made this test fail the day that token
+    // moved — which says nothing about the report formatter, the thing under test.
+    expect(text).toContain(`${BORDER_WIDTH.card} → 2`);
     expect(text).toContain('switch → segmented');
     expect(text).toContain('time → energy');
   });

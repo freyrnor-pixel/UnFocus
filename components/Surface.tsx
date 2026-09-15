@@ -76,7 +76,7 @@
  *   - **There is no blur.** See the comment where the `BlurView` used to mount.
  *
  * Connections:
- *   Imports → constants/theme (BORDER_WIDTH, darken, getGlassEdge, getGlassFill,
+ *   Imports → constants/theme (BORDER_WIDTH, darken,
  *             getLayeredShadow, Radius), constants/motion (Travel),
  *             lib/useAppTheme (useAppTheme, useIsDark, useAccessibility),
  *             lib/useDesignLab (useLabShape — the design lab's geometry,
@@ -143,7 +143,9 @@
  *     nothing') is the guard.
  *       A caller-supplied `tint` still wins over the fill, as it always has — those callers want
  *     that exact colour.
- *   - Depth is still `getLayeredShadow(theme.shadow)` — a three-pass `boxShadow` — and this
+ *   - Depth is still `getLayeredShadow(theme.shadow)` — a TWO-pass `boxShadow` since
+ *     2026-09-09, when the widest (and so most expensive) blur was cut; this said "three"
+ *     until 2026-09-15 — and this
  *     view must NOT also set the `shadow*`/`elevation` keys (they would double up).
  *     `elevated` deepens it to the `floating` tier. Shadow was not part of the reset brief:
  *     a flat white card on a light backdrop needs *something* to sit on, and a shadow is the
@@ -201,7 +203,6 @@ import { AccessibilityRole, StyleProp, StyleSheet, View, ViewStyle } from 'react
 import {
   BORDER_WIDTH,
   darken,
-  getGlassFill,
   getLayeredShadow,
   Radius,
 } from '@/constants/theme';
@@ -357,7 +358,7 @@ export default function Surface({
   // nothing they can see, and a dead read is the thing that makes the next reader believe the
   // switch still works. `DECISIONS_OPEN.md` carries what to do about the orphaned setting.
   // "Reduce visual effects" (2026-08-29) — the user's escape hatch for a GPU-bound device.
-  // It now takes this component's one remaining per-frame GPU cost, the three-pass boxShadow,
+  // It now takes this component's one remaining per-frame GPU cost, the two-pass boxShadow,
   // plus the translucency (an opaque pane composites in one step). The BlurView it was also
   // written to disable no longer exists. Off by default; see store/useSettingsStore.ts.
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);

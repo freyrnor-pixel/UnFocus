@@ -593,12 +593,22 @@ describe('Button — matte glass, not plastic', () => {
     }
   });
 
-  it('lights the top-left edge and keeps a boundary on the bottom-right', () => {
-    // Per-side COLOURS at one width, not the brief's per-side widths — RN renders mixed border
-    // widths on a Radius.full pill inconsistently, and dropping two sides takes away the
-    // WCAG 1.4.11 control boundary a button (unlike a card) cannot afford to lose.
-    expect(theme).toMatch(/borderTopColor: lit,\s+borderLeftColor: lit,/);
-    expect(theme).toMatch(/borderBottomColor: shade,\s+borderRightColor: shade,/);
+  it('keeps a closed boundary, in ONE colour so Android antialiases the pill', () => {
+    // ⚠️ **This asserted a LIT top-left and a SHADED bottom-right until 2026-09-15.** The
+    // per-side-COLOURS decision was sound on its own terms (the brief wanted per-side WIDTHS, and
+    // RN renders mixed widths on a `Radius.full` pill inconsistently), and it survived the whole
+    // glass era. What retired it is not taste: RN Android's `BorderDrawable` takes its
+    // antialiased `canvas.drawRoundRect` path only when all four widths AND all four colours are
+    // equal — any per-side colour drops it onto an un-antialiased `clipPath` + four quads, which
+    // is the "corners are clipped" report #706 fixed for cards and missed here.
+    //   The half that mattered is kept and is now stronger: a button, unlike a card, cannot
+    // afford to lose its WCAG 1.4.11 control boundary, so the surviving stop is the one that was
+    // actually visible in each mode rather than the average of the two.
+    for (const side of ['Top', 'Left', 'Bottom', 'Right']) {
+      expect(theme).toMatch(new RegExp(`border${side}Color: edge,`));
+    }
+    // And nothing may reintroduce a second stop under another name.
+    expect(theme).not.toMatch(/border(Top|Left|Bottom|Right)Color: (lit|shade),/);
     // One width for all four sides, and it stays a token rather than a bare 1 — Button hands it
     // the design lab's own `edgeWidth`, and the default is BORDER_WIDTH.button.
     expect(theme).toMatch(/width = BORDER_WIDTH\.button/);

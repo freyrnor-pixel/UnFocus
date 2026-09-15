@@ -231,6 +231,34 @@ them.
 
 ---
 
+### The orphaned "Glass surfaces" setting: retire the field, or give it a new job?
+
+**Asked 2026-09-15**, when #706 removed the card's lit/shaded edge and left the switch with
+nothing visible to change. `components/Surface.tsx` cites this entry; it did not exist until now,
+which is itself the kind of dangling reference `#699` cleaned up.
+
+The row is already gone from Settings — the maintainer's call, and the right one: a toggle that
+changes nothing a user can see is the defect `__tests__/glassMaterial.test.ts` exists to catch,
+and `components/AddFAB.tsx` records the last time this same setting went quietly inert app-wide.
+
+What is NOT decided is the field. `settings.glassSurfaces` still exists, still defaults `true`,
+still has its DB column, and nothing reads it. Under the never-drop rule (`lib/db.ts`,
+`store/useSettingsStore.ts`) the column must stay whatever happens — a retired setting keeps its
+column so an old backup stays readable. The open question is only whether the FIELD is:
+
+  (a) left inert and documented as retired — cheapest, and honest as long as the "no dead reads"
+      guard stays pointed at it, but it is one more thing a future reader has to be told is dead;
+  (b) given a new job — the obvious candidate is the `getGlow()` halos, which currently survive
+      BOTH `glassSurfaces` and `reduceEffects` while the Settings copy for the latter claims
+      otherwise (`lib/i18n.ts`, "Turns off card shadows…"). That would make the switch real again
+      AND fix a live over-promise, at the cost of it meaning something different from its name;
+  (c) formally deprecated in the store's type with a `@deprecated` tag, the way `childProfiles`
+      already is — no behaviour change, but the next reader is told without having to grep.
+
+**Blocks:** nothing. Every pane is opaque and nothing reads the field, so the app behaves
+identically under all three. It blocks only the question of how long a dead field sits there
+unlabelled.
+
 ## Answered
 
 ### Does Home's energy card stay a capacity budget, or become a daily Lav/Middels/Høy level?
