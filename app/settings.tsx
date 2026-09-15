@@ -1051,6 +1051,22 @@ export default function SettingsScreen() {
       // filler here read as a mismatched solid box sitting under a floating card. Matching
       // the header's own treatment removes that artifact.
       stickyGapColor="transparent"
+      // ⚠️ **No ambient field on this screen (2026-09-15) — a navigation-cost change, and the
+      // third pass at "going in and out of settings still lag".** The two before it (#708's
+      // empty-canvas gate, #711's store subscription) each fixed something real and moved
+      // nothing; measuring said why. A Settings stubbed down to ONE TEXT NODE WITH EVERY HOOK
+      // SKIPPED still cost ~70% of the full screen's mount, so the list was never the weight.
+      //   What is: the `ownBackground` path gives every sub-tier screen its OWN backdrop, so a
+      // push builds a full-screen `<Svg>` of radial-gradient shaders plus a second five-dot
+      // field — the pager's own keeps drifting underneath, invisible — and a pop tears both
+      // down. Symmetric work, and the report is symmetric ("both equally"). The maintainer
+      // confirmed the lag disappears with Accessibility → Reduce effects on, which is the gate
+      // over exactly these layers.
+      //   This is NOT `plainBackground`: the page colour, the floating chrome and the cards are
+      // untouched: only the orbs and the dots go, and they were behind opaque cards. Settings is
+      // the one screen reported, so it is the only one changed — see ScreenScaffold's
+      // `decorative` for what is still unproven and which screen is next if this is not enough.
+      decorative={false}
       stickyBelowHeader={tabBar}
       stickyBelowHeaderHeight={TAB_BAR_HEIGHT}
     >

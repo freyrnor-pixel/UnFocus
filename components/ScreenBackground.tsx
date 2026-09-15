@@ -137,6 +137,23 @@ type Props = {
    * dark (see `SCREEN_HUE_ORBS` and the palette's `orbScreenOpacity`).
    */
   activeRoute?: string;
+  /**
+   * Whether this instance draws the DECORATIVE field — the orb canvases — on top of the page
+   * colour. Default true. `false` keeps the base (the flat fill in dark, the one `<Svg>` rect in
+   * light), because that is the page's COLOUR and not an effect, and drops the orbs.
+   *
+   * ⚠️ **This is a navigation-cost prop, not a styling one (2026-09-15).** The pager mounts ONE
+   * shared instance that lives for the whole session, so its orbs are rasterised once and cost
+   * nothing per swipe. Every sub-tier screen instead mounts its OWN instance through
+   * `components/ScreenScaffold.tsx`'s `ownBackground` path, which means a full-screen `<Svg>` of
+   * radial-gradient shaders is built on every push and torn down on every pop — symmetric work
+   * on both halves of a trip the maintainer reported as laggy in both directions, behind opaque
+   * cards that hide most of it.
+   *
+   * See `components/ScreenScaffold.tsx`'s `decorative` prop for the measurement this came from
+   * and what is still unproven about it.
+   */
+  decorative?: boolean;
 };
 
 /**
@@ -554,7 +571,7 @@ function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
   );
 }
 
-function ScreenBackground({ activeRoute }: Props) {
+function ScreenBackground({ activeRoute, decorative = true }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
@@ -796,7 +813,7 @@ function ScreenBackground({ activeRoute }: Props) {
           `zIndex: -1`: the neutral pair underneath, the screen's own hue over it, growth on top,
           because growth is the thing the user earned and stays the top note. Only two of the
           three discs take the screen hue — see SCREEN_HUE_ORB_INDEXES. */}
-      {reduceEffects ? null : (
+      {reduceEffects || !decorative ? null : (
         <>
           {/* ⚠️ **Three of these five canvases used to mount unconditionally and draw NOTHING
               (2026-09-07).** Each `OrbCanvas` is a full-screen `<Svg>` with gradient-filled

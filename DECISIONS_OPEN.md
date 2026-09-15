@@ -234,8 +234,44 @@ drops both decorative layers for a flat white/black fill — and also squares th
 it needs a yes. The middle option is to keep the look and mount the decorative layers *after* the
 push settles, which trades the lag for the backdrop fading in a beat late.
 
-**Blocks:** a third diagnosis. Nothing is shipping against this until one of (a)/(b)/(c) comes
-back.
+**Blocks:** nothing any more — answered the same day, below.
+
+---
+
+### ANSWERED 2026-09-15 — "both equally", and Reduce effects clears it.
+
+Both questions came back in one go: the lag is **the same in both directions**, and it
+**disappears with Accessibility → Reduce effects ON**.
+
+That is the bounded case. "Both equally" is what the backdrop hypothesis predicts and the
+alternatives do not: a sub-tier push BUILDS the orb canvas and the particle field, and a pop
+TEARS THEM DOWN, so the work is symmetric by construction. A cost living only in Settings' own
+tree would be heavy going in and nearly free coming out — the harness table above measures
+exactly that asymmetry (~100ms in, ~24ms out) for the render, and the report says the felt lag
+is not shaped like it.
+
+**Shipped:** `decorative={false}` on Settings' `ScreenScaffold` (a new prop, default true). It
+drops L1's orb canvas and L2's particle field and changes nothing else — page colour, floating
+chrome, cards and shadows are untouched. Deliberately **not** `plainBackground`, which would
+also flatten the fill and square the header; that redesign is still unasked-for and still
+un-needed.
+
+Measured on the web preview, same build, Settings route: `svg` 5 → 4 and SVG child nodes 52 → 38
+(one full-screen canvas of radial-gradient shaders and its three ellipses), 487 → 465 DOM nodes
+(the five particle views). Home is byte-identical at 659/4/38 — the five pager tabs share one
+long-lived instance and were never the problem.
+
+`npm run visual` is **26/26 unchanged in BOTH themes with no baseline re-blessed** — which here
+is a *blind* result, not a passing one, and is recorded as such: the removed layers sit behind
+opaque cards, and `CLAUDE.md` A2's "dark-on-dark and 1-level light shifts" class is exactly this.
+The DOM counts above are the evidence that the change landed; the gate is not.
+
+**Still open, and it is the reason this entry is not deleted.** `reduceEffects` gates THREE
+things, not one — these orbs, these particles, and `components/Surface.tsx`'s two-pass
+`boxShadow` on every card. The device answer implicates the **bundle**. If the lag survives this
+PR, the remaining suspect is the Fabric shadow re-commit across ~60 cards that `Surface.tsx`'s
+own header already documents, and the next pass goes there rather than further into the
+backdrop. **Do not re-try `freezeOnBlur`** — the entry above proves it is a no-op on Fabric.
 
 ---
 
