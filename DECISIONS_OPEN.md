@@ -268,6 +268,84 @@ the heavy destination, not that this fixes the hitch.
 
 **What stays open:** option (2), pending a yes, if the swipe is still uneven toward Shop.
 
+---
+
+### Swipe lag, round 6: does "Reduce visual effects" ON make swiping smooth?
+
+**Asked 2026-09-16**, the same day the entry above shipped, because it did not move it and
+`CLAUDE.md`'s A3 rule says the next move is a question rather than a sixth diagnosis.
+
+The report: *"Fortsatt tregt. Hjem er også tregt."* Home is new; the earlier ranking was Shop
+worst, Habits and Health fine.
+
+**#719 was DELIVERED, and that is what makes this useful rather than another dead end.** Before
+writing anything here, the Android bundle was exported and its Hermes string table checked:
+`offscreenPageLimit` is present, alongside `overScrollMode`, `swipeEnabled` and `animationEnabled`
+— the props that demonstrably work. The last APK (run 22, 2026-09-11, `ec19991`) was built at
+`runtimeVersion` 1.7.3 and `app.json` still says 1.7.3, so the OTA channel reaches that install.
+So the prop shipped, arrived, and changed nothing. **The attach at drag start is excluded by
+experiment, not by argument.** That is the first thing this line has ruled out with a measurement
+rather than a guess.
+
+**What the exclusions now leave.** Every per-frame mechanism tried has been a JS or gesture one:
+
+| PR | mechanism | result |
+|---|---|---|
+| #682 | Android over-draw (`removeClippedSubviews`) | no change |
+| #686 | per-frame JS↔native bridge (parallax listener) | no change |
+| #687 | gesture capture threshold | no change, + broke vertical scroll |
+| #71x | settle-frame SVG re-raster (screen-hue crossfade) | **fixed the "tug"** — a different symptom |
+| #718 | Android 12+ stretch EdgeEffect at the ends | addressed the rubber band |
+| #719 | page attach + first display-list record | no change, **delivery verified** |
+
+What has never been tried is the one per-frame cost that is neither JS nor gesture, and it is
+already named in this repo by the component that owns it. `components/Surface.tsx:399`:
+
+> "Reduce visual effects" … takes this component's **one remaining per-frame GPU cost, the
+> two-pass `boxShadow`** …
+
+and at `:658`, on why `reduceEffects` drops it rather than thinning it: *"a boxShadow's cost is
+the blur, so two passes of three is still two blurs per card per frame."*
+
+**And it ranks with the report.** The web preview's per-scene count (empty profile, all five
+scenes resident under `lazy: false`) measured shadow-casting elements alongside nodes:
+
+| scene | Shop | To-do | Home | Habits | Health |
+|---|---|---|---|---|---|
+| nodes, cards closed | 105 | 119 | 190 | 60 | 71 |
+| **shadowed elements** | **10** | 7 | **9** | **3** | **5** |
+| reported | worst | — | slow | fine | fine |
+
+The two screens reported slow carry 9–10 shadowed elements; the two reported fine carry 3–5. A
+pager slide is exactly when every card on **two** pages is composited while moving, and a tap —
+reported fine throughout — is one frame of that.
+
+**This is not being shipped as guess six.** The Settings entry above reached its answer by asking
+the maintainer to flip one switch the app already has, and the same switch settles this one, from
+the opposite end: it was already confirmed on 2026-09-15 that **Reduce effects ON clears the
+Settings navigation lag**. If it also clears the swipe, the shadow is convicted and the fix is
+bounded — `reduceEffects` gates orbs, particles and this, and the pager's orbs and particles are
+ONE hoisted instance shared by all five tabs (`app/(tabs)/_layout.tsx`), already exonerated for a
+per-screen ranking by #715.
+
+**The question, and it costs ten seconds:** with **Settings → Accessibility → Reduce effects ON**,
+is swiping between tabs smooth?
+
+- **Yes** → it is the per-card shadow. The bounded fix is to stop paying the blur while the pager
+  is moving (drop to a cheaper shadow tier, or none, between `swipeStart` and `swipeEnd` —
+  react-navigation already emits both) rather than making anyone live with the switch on.
+- **No** → the whole backdrop-and-shadow bundle is exonerated for swiping, and what is left is the
+  page tree itself. That is option (2) from the entry above — reduce what Shop and Home mount at
+  rest — which is a visible product change and needs a separate yes.
+
+**One housekeeping call attached to this.** #719 shipped a `patch-package` patch on
+`react-native-tab-view` for a change with no observed benefit, which is a standing upgrade cost.
+It is not harmful and reverts in one line, so it is left in place for now rather than churned out
+and back in; say the word if you would rather carry no patch until something earns it.
+
+**Blocks:** the sixth attempt. Nothing else.
+
+
 
 ---
 
