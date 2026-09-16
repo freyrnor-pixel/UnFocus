@@ -345,6 +345,64 @@ and back in; say the word if you would rather carry no patch until something ear
 
 **Blocks:** the sixth attempt. Nothing else.
 
+---
+
+### MEASURED 2026-09-16 — it is not what mounts and loads, and the harness can prove that one
+
+The maintainer's read on the question above: *"Det må jo være hvor mye som mounter og laster
+inn."* It is the natural reading and it is the one thing on this line the web preview can settle
+outright, because mount and render cost is **JS work** — the one layer this harness measures
+faithfully. Four windows, from a `PerformanceObserver` on `longtask` installed via
+`addInitScript` before the bundle runs:
+
+| window | long tasks | total | longest |
+|---|---|---|---|
+| boot + onboarding | 3 | 570 ms | 317 ms |
+| **mounting the whole five-screen tab group + tour** | 2 | **151 ms** | 86 ms |
+| **6 s idle, nothing touched** | **0** | **0 ms** | — |
+| **each BottomNav tab tap** (all five, twice for Shop and Home) | **0** | **0 ms** | — |
+
+Read in order, those say: the five screens are built **once**, for ~151 ms, behind the splash.
+After that the JS thread is **completely quiet at rest** — nothing re-renders, no store thrash, no
+loop. And **a tab change costs no measurable JS at all**, on any tab, including the two reported
+slow.
+
+**So there is nothing left to mount or load at swipe time.** `lazy: false` mounts all five up
+front, and `@react-navigation/core`'s `StaticContainer` stops the navigator's own re-renders from
+reaching the screen trees (`useDescriptors` memoizes nothing, but its `name`/`render`/`navigation`/
+`route` props all come from `useNavigationCache`/`useRouteCache` and are stable).
+
+**And the maintainer's own observation closes it without the numbers.** *Tapping between them in
+bottom nav works well.* A tap and a swipe land on the same page, mount the same subtree, run the
+same focus effects and read the same stores. Whatever work a tab change does, **a tap does all of
+it too.** So the difference between a fine tap and a laggy swipe cannot live in mounting or
+loading. It can only live in what happens *during the drag* — which is per-frame native
+compositing of two pages at once, and is the one thing no harness here can see.
+
+⚠️ **The honest limits of the table.** `longtask` only fires at >=50 ms, so a tab change could
+cost 20 ms and read as 0; and this is react-native-web on an empty profile, not Fabric on the
+maintainer's data. Neither limit touches the argument, because both apply equally to the tap and
+to the swipe, and the tap is fine.
+
+**Where that leaves it — unchanged from the entry above, now by elimination rather than by
+argument.** The remaining per-frame cost is `components/Surface.tsx`'s two-pass `boxShadow`, which
+that file calls *"this component's one remaining per-frame GPU cost"*, and whose count tracks the
+reported ranking (Shop 10, Home 9 — slow; Habits 3, Health 5 — fine). **Reduce effects ON** is
+still the ten-second discriminator, and it is now the only open question on this line.
+
+**The trial, if the maintainer would rather something were attempted than asked.** Promote each
+pager page to a hardware texture for the duration of the drag only — react-navigation emits
+`swipeStart`/`swipeEnd`, and `renderToHardwareTextureAndroid` is already how this repo keeps the
+backdrop layers cheap. A rasterised page slides as a texture blit, shadows included, with no
+change to how anything looks at rest. It is not free of risk: the layer promotion itself lands on
+the first frame of the drag, which is where a hitch would be least welcome, and it is still a
+guess about the mechanism rather than a measurement of it. That is why it is offered rather than
+shipped.
+
+**Blocks:** the sixth attempt, still. What it no longer blocks is the mount hypothesis — that one
+is answered.
+
+
 
 
 ---
