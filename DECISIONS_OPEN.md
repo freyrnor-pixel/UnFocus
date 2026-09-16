@@ -139,6 +139,63 @@ why none of them moved it and why the patch's own note is right that lowering th
 have. Option (b) — accept AOSP's dead zone before motion starts — remains the standing answer for
 the thing this entry was originally about, and it has not been re-reported.
 
+---
+
+### Swipe lag, the residual: is `offscreenPageLimit` worth a JS patch to react-native-tab-view?
+
+**Asked 2026-09-16**, after the report came back split in two: *"Still some small lag when
+Swiping, and especially when Swiping beyond the last screen (when cards drag like a rubber
+band)."*
+
+**The second half is answered and shipped, and it is not a guess.** "Cards drag like a rubber
+band" names the Android 12+ (API 31) *stretch* `EdgeEffect`. It is not the old glow: the container's
+entire content is captured into an offscreen `RenderNode` and distorted by a `RuntimeShader` on
+every frame of the over-drag. In a `ViewPager2` that container is the inner `RecyclerView`, so the
+thing being captured and warped is a whole tab page — every card and every shadow on it. The cost
+is per-frame and it exists *only* at the two ends of the pager, which is exactly the shape of
+"especially ... beyond the last screen". Fixed with `overScrollMode="never"` on the `TopTabs`
+navigator (`app/(tabs)/_layout.tsx`) — a plain JS prop over native code already in the binary, so
+it ships over OTA, unlike `patches/react-native-pager-view+8.0.1.patch`. It removes the rubber
+band entirely; the end of the pager becomes a firm stop, which is what iOS already does here
+(`overdrag` defaults to `false` and this app never sets it).
+
+**The first half — "some small lag" on an ordinary swipe — is what this entry is about, and it is
+deliberately not guessed at.** The ledger above is four rounds long (over-draw, the parallax
+bridge, the capture threshold, then the `ScreenBackground` hue tween that finally was the "tug"),
+and `CLAUDE.md`'s A3 rule says the next move is a question, not a fifth diagnosis.
+
+**What was ruled out this pass, so nobody re-walks it:**
+
+| suspect | verdict |
+|---|---|
+| a JS listener on the pager's `position`/`offset` | **none left.** `onPageScroll` is an `Animated.event` with `useNativeDriver: true`; the parallax listener that used to read it was deleted in #686. The only `addListener` in `PagerViewAdapter` is `offset`'s in `onPageScrollStateChanged`, and it removes itself inside its first callback. |
+| the navigator re-rendering all five screens on every settle | **no.** `setActiveRouteName` does re-run `useDescriptors` (which memoizes nothing), but `@react-navigation/core`'s `SceneView` wraps each screen in `StaticContainer`, whose props (`name`/`render`/`navigation`/`route`) all come from `useNavigationCache`/`useRouteCache` and are stable. The screen trees do not re-render. |
+| a JS-driven loop competing for frames | **no.** `ParticleBackground`'s is `useNativeDriver: true`; `GlowPulse`/`NewSinceGlow` are Reanimated (UI thread). |
+
+**The one lever identified and NOT pulled.** `ViewPagerAdapter.onBindViewHolder` calls
+`holder.setIsRecyclable(false)`, so a page that scrolls outside ViewPager2's offscreen window is
+not pooled — its holder is discarded and a fresh one is created and re-bound the next time you
+swipe toward it. With the default `OFFSCREEN_PAGE_LIMIT_DEFAULT` and five tabs, that is a
+`createViewHolder` + `addView` of a full page at the start of most swipes. `offscreenPageLimit={2}`
+would keep all five attached permanently — the same trade `lazy: false` already makes, and for the
+same reason.
+
+Two things stop it being shipped blind. **(1)** `react-native-tab-view`'s `TabView` forwards a
+fixed list to the pager and `offscreenPageLimit` is not on it (`overScrollMode` is — that is why
+the fix above needed no patch). So this needs a `patch-package` patch to a JS dependency: OTA-able,
+but a standing maintenance cost on every upgrade. **(2)** The expected win may be small: RN
+Android's `ReactViewGroup.onMeasure`/`onLayout` do not traverse children (RN does its own layout),
+so re-attaching a page is a view add plus an invalidate, not a measure pass over its whole tree.
+
+**What would answer it without another guess:** whether the residual lag is *at the start* of a
+swipe (a hitch as the page begins to move — that is the attach cost above, and the patch is worth
+it) or *throughout* the slide (evenly rough while two pages are on screen — that is draw cost for
+two full pages and no pager prop will touch it; the lever there is what a page draws at rest).
+
+**Blocks:** nothing shipping. It blocks a JS patch to a dependency.
+
+---
+
 ### Settings navigation lag: which half of the trip is slow, and is the backdrop expendable?
 
 **Asked 2026-09-15**, after the second no-change on the same report.

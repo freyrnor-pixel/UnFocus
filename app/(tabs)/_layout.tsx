@@ -92,6 +92,12 @@
  *     before touching it again: it records why no value written there can fix the hump
  *     (ViewPager2's inner RecyclerView re-applies its own ~8dp slop from the same ACTION_DOWN),
  *     and the swipe-lag item is open in DECISIONS_OPEN.md rather than guessed at a fourth time.
+ *   - **`overScrollMode="never"` (2026-09-16, ships over OTA — no build needed)**: kills the
+ *     Android 12+ *stretch* edge effect at the two ends of the pager. That effect renders the
+ *     whole tab page into an offscreen RenderNode and warps it with a RuntimeShader on every
+ *     frame of the over-drag, which is the *"cards drag like a rubber band"* the maintainer
+ *     reported as the worst of the swipe lag. Unlike the Kotlin patch two bullets up, this is a
+ *     plain JS prop on native code that already ships in the binary. Full write-up at the prop.
  *   - `swipeEnabled: true` is the whole point of this migration. (Scan used to flip it off
  *     mid-OCR via `navigation.setOptions` while it was one of these 5 co-mounted tabs;
  *     now that it's a pushed sub-screen at app/scan.tsx, 2026-07-23, that guard doesn't
@@ -435,6 +441,43 @@ export default function TabsLayout() {
         <TopTabs
         initialRouteName={startRouteName}
         tabBarPosition="bottom"
+        // ── `overScrollMode="never"` — the rubber band at the ends of the pager (2026-09-16) ──
+        // The report: *"Still some small lag when Swiping, and especially when Swiping beyond the
+        // last screen (when cards drag like a rubber band)."* The second half of that sentence
+        // names a specific Android behaviour, and it is the one thing in the swipe path whose
+        // cost is BOTH per-frame and concentrated exactly where the report says the lag is worst.
+        //
+        // **What the rubber band is.** Since Android 12 (API 31) the `EdgeEffect` at the end of a
+        // scrolling container is no longer the old blue glow — it is a *stretch*: the container's
+        // whole content is rendered into an offscreen `RenderNode` and distorted by a
+        // `RuntimeShader` for every frame of the over-drag. In a ViewPager2 that container is the
+        // inner RecyclerView, so the thing being captured and warped 60×/s is an entire tab page —
+        // every card, every shadow, the lot. That is why it costs more than the swipe either side
+        // of it, and why "cards drag like a rubber band" is the visible half of the same event.
+        //
+        // `never` sets `OVER_SCROLL_NEVER` on that RecyclerView, so no edge effect is created and
+        // no offscreen capture happens. The pager still scrolls and flings identically within
+        // range — this only removes the out-of-range effect. The end of the pager becomes a firm
+        // stop, which is what iOS already does here: react-native-pager-view's `overdrag` prop
+        // (the iOS bounce) defaults to `false` and this app never sets it, so this makes Android
+        // match iOS rather than introducing a new behaviour.
+        //
+        // **Why this is a prop and not a patch.** `overScrollMode` is a real `@ReactProp` on
+        // react-native-pager-view's `PagerViewViewManager` (its `overdrag` sibling is an
+        // Android no-op — see `PagerViewViewManagerImpl.setOverScrollMode`), so the native code is
+        // already in the installed binary and only the prop VALUE changes. **This ships over OTA;
+        // it does not need a build** — unlike `patches/react-native-pager-view+8.0.1.patch`, which
+        // is Kotlin and does. It is also a navigator-level prop, not a `screenOptions` entry:
+        // `MaterialTopTabView` spreads its unrecognised props straight onto react-native-tab-view's
+        // `TabView`, which forwards `overScrollMode` (and only a fixed list besides) to the pager.
+        // On web the pager is `PanResponderAdapter`, which never sees the prop — no-op, no warning.
+        //
+        // ⚠️ **What this does NOT claim.** The first half of the report — "some small lag when
+        // Swiping" in general — is NOT addressed here and must not be recorded as fixed by it. See
+        // `DECISIONS_OPEN.md`'s "Swipe lag, the residual" entry for what is left and the one lever
+        // identified but deliberately not pulled (`offscreenPageLimit`, which react-native-tab-view
+        // does not forward and would need a JS patch).
+        overScrollMode="never"
         screenOptions={{
           swipeEnabled: true,
           // ── `lazy: false` — REVERTED back on 2026-08-28, same day ──────────────────────
