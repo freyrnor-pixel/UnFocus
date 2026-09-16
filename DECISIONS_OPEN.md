@@ -196,6 +196,81 @@ two full pages and no pager prop will touch it; the lever there is what a page d
 
 ---
 
+### ANSWERED 2026-09-16 — the patch was worth it. It is the attach, not the draw.
+
+The question above asked *start of the swipe* or *throughout the slide*. The answer came back
+shaped differently and is stronger than either: *"Seems to lag a bit depending on which screen I
+am Swiping to. Shopping is most laggy, Health and habits work fine. Tapping between them in bottom
+nav works well."*
+
+Two independent discriminators in one sentence, and together they leave one mechanism standing:
+
+- **It scales with the DESTINATION's tree.** That rules out every per-frame cost that is the same
+  in both directions — which is all three of the 2026-09-09 diagnoses. "Never varies, always the
+  same lag" was a different bug; this one varies by where you are going.
+- **A TAP to the same screen is fine.** `animationEnabled: false` sends a BottomNav tap through
+  `setPageWithoutAnimation` — an instant snap. The incoming page is attached there too, so the
+  attach cost is paid on both paths. The difference is that a tap has nothing animating for a long
+  frame to stutter against. Only a swipe puts that frame inside a 60fps follow-finger slide.
+
+That is `offscreenPageLimit`, exactly as the entry above described it and declined to ship blind.
+ViewPager2's `OFFSCREEN_PAGE_LIMIT_DEFAULT` lays out only the page you are looking at, and
+`ViewPagerAdapter.onBindViewHolder` calls `holder.setIsRecyclable(false)`, so a page that leaves
+that window is not pooled — its holder is discarded and a fresh `onCreateViewHolder` +
+`onBindViewHolder` + `container.addView(child)` runs on the first frame of the next drag toward
+it, with that page's display list recorded from scratch behind it.
+
+**The measurement, and it corrects this entry's own guess.** The web preview counts each mounted
+scene's subtree (all five are resident under `lazy: false`). On an empty profile, at rest:
+
+| scene | Shop | To-do | Home | Habits | Health |
+|---|---|---|---|---|---|
+| nodes, all cards closed | 105 | 119 | **190** | 60 | 71 |
+| nodes, Catalogue opened | **271** | 119 | 190 | 60 | 71 |
+
+At rest Shop is the *second smallest*, which is not what the report says — every card rests closed
+(`lib/cardDefaults.ts`). Opening **one** card takes it 105 → 271, past Home, on a profile with no
+user data at all; with real weekly lists, monthly lists and an archive it grows on axes no other
+tab has. Habits (60) and Health (71) are the two smallest scenes and the two reported fine. So the
+ranking in the report is a ranking of tree size, once you account for which cards are open.
+
+**Shipped:** `offscreenPageLimit={SITE_ITEMS.length - 1}` on the `TopTabs` navigator, plus
+`patches/react-native-tab-view+4.3.1.patch` — four added lines making `TabView` forward the prop it
+otherwise drops one hop before the native view. JS, so it ships over OTA.
+
+**The options weighed, since the maintainer asked for the trade-offs:**
+
+| | option | effect | cost |
+|---|---|---|---|
+| **1 ✅** | `offscreenPageLimit` — keep all five pages attached | removes the attach + first display-list record from the drag entirely | a 4-line patch on a JS dependency to carry across upgrades; all five pages laid out at start-up instead of one |
+| 2 | shrink what Shop mounts (close/unmount the embedded Catalogue surface at rest) | permanent, and speeds up scrolling Shop too | a **visible product change** — the maintainer loses Catalogue at a glance on Shop. Needs a yes, so it is not in this PR |
+| 3 | virtualise Shop's lists | correct at any size | #684 reverted `removeClippedSubviews` for breaking expand/collapse, and this is the same mechanism on a main tab |
+| 4 | `lazy: true` (+ `lazyPreloadDistance`) | smaller boot | **ruled out twice already** — the 2026-08-28 regression (*"things load after Swiping"*) and the 2026-07-13 touch-delivery bug. Do not reach for it |
+| 5 | accept it | — | the report is a report |
+
+(1) wins on the one axis that separates it: it is the only option that changes *nothing the user
+can see* and reverts in one line. Its start-up cost is the same trade `lazy: false` already makes
+and for the reason this file has stated twice — a launch happens once, behind a splash; a swipe
+happens constantly, in front of you. (2) is the follow-up if (1) is not enough, and it is the
+maintainer's call, not an agent's.
+
+**The guard.** `<TopTabs offscreenPageLimit={n}>` typechecks with no patch applied and silently
+does nothing — this repo's documented dead-config class. `patch-package` fails loudly if the patch
+stops applying, but not if an upgrade restructures `TabView` around it, so
+`lib/__tests__/pagerOffscreen.test.ts` asserts the forwarding is present in the dependency Metro
+loads, checks both `src/` and `lib/module/` (the package ships an `exports` map with a `source`
+condition), and pins that the limit is derived from `SITE_ITEMS.length` rather than written as
+`4`. It was probed with a planted defect — deleting the forwarding line fails it.
+
+⚠️ **`unverified` on device.** The web pager is `PanResponderAdapter`; `offscreenPageLimit` is a
+ViewPager2 concept and no harness here can see it. The node counts above are evidence that Shop is
+the heavy destination, not that this fixes the hitch.
+
+**What stays open:** option (2), pending a yes, if the swipe is still uneven toward Shop.
+
+
+---
+
 ### Settings navigation lag: which half of the trip is slow, and is the backdrop expendable?
 
 **Asked 2026-09-15**, after the second no-change on the same report.
