@@ -217,6 +217,7 @@ import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
+import PaintWarmup from '@/components/PaintWarmup';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
@@ -475,6 +476,12 @@ export default function TabsLayout() {
             deletion note above for the per-frame bridge cost that bought). `styles.bgLayer`
             keeps its ±MAX_PARALLAX oversize so this change moves no pixels. */}
         <View style={styles.bgLayer} pointerEvents="none">
+          {/* FIRST child, so ScreenBackground's opaque field paints over it on the same frame.
+              It draws the app's blurred shadows, the pane gradient and the font once at launch —
+              behind the splash — and then unmounts itself. See its header for the two cold caches
+              that buys: Skia's program cache, and the layer texture pool #722's per-drag
+              promotion allocates from. */}
+          <PaintWarmup />
           <ScreenBackground activeRoute={activeRouteName} />
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
