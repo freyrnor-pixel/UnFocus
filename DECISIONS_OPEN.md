@@ -463,6 +463,56 @@ switch drops the pane and keeps the shadow. Smooth → it is the pane's gradient
 still rough → it is the shadow's two blur passes. Either answer names a bounded, permanent change,
 and both are visible ones that need a yes.
 
+---
+
+### ANSWERED 2026-09-17 — #722 landed. What is left is a cold cache, not a per-frame cost.
+
+*"Nå lagger det bare de første par gangene, men etter noen sveip går det fint."*
+
+**That sentence is the diagnosis, and it is a different KIND of cost than everything before it.**
+A per-frame cost does not improve with repetition — swipe twenty would cost what swipe one cost.
+One that disappears after a few swipes and stays gone is a **cache that starts cold**. So #722 did
+its job: the steady per-frame GPU paint is handled, and what it uncovered underneath is a
+one-time-per-page **first-draw warm-up** that was always there, masked by the larger cost.
+
+**What is actually warming.** A page laid out outside the pager's clip is never drawn — with
+`offscreenPageLimit` (#719) all five are *attached*, but attachment is not a draw. The first time a
+page enters the clip, Android must, for that page:
+
+1. **compile the blur paints.** `getLayeredShadow` is a **two-pass** blurred shadow, with radii
+   scaled per tier (`k` = 1 raised / 1.6 floating / 2.2 chrome) — so each tier × theme is a
+   distinct Skia paint, and each is compiled on first use and cached after. `constants/theme.ts`
+   already spells out the standing cost: *"a blur is a per-frame GPU pass per card, and this app
+   draws a lot of cards."* First draw adds compilation on top of that pass.
+2. **populate the glyph atlas** with that page's text and icon-font glyphs.
+3. **record its display list** for the first time.
+
+All three are per-process and cached afterwards, which is exactly "the first couple of times, then
+fine". Android also persists GPU program caches to disk per app, so the blur half of it should get
+less noticeable across launches rather than more.
+
+**Why this is close to the floor for this content, stated plainly.** The app draws ~10
+blurred card shadows on Shop and 9 on Home. The first time those pages are drawn, that work
+happens somewhere. It cannot be deleted, only moved or made smaller.
+
+**The options, with what each actually costs:**
+
+| | option | effect | cost |
+|---|---|---|---|
+| **A ✅** | accept it | nothing to build; it warms in two swipes and self-heals per launch | the first couple of swipes after a cold start stay soft |
+| B | make the first draw smaller | permanent, and helps scrolling and Settings too | a **visible** change — either the pane's gradient and rim, or a shadow tier's depth. Needs a yes, and needs the split test first: **Reduce effects OFF + "Lit card surfaces" OFF** (that switch drops the pane, keeps the shadow) |
+| C | pre-warm the blur paints behind the splash | invisible; moves the compile to where nobody is watching | ~20 lines and a permanently odd hidden component, and it warms only the PAINTS — not the glyph atlas or the display lists, so it may be a partial fix or a no-op. Unmeasurable here |
+| D | pre-warm by paging through all five tabs at launch | warms everything properly | a visible flicker unless hidden under `LaunchReveal`, and it fires five screens' focus effects (Shop's monthly-reset sheet among them). Not worth the blast radius |
+
+**Recommended: A.** Six rounds in, the symptom has gone from "every swipe, always the same" to "the
+first two after a cold start", and the remaining cost is inherent to how much the two heaviest
+pages draw. B is the only option that genuinely removes it, and it is a design decision rather than
+a perf fix — so it should be made deliberately, if at all, and not as round seven.
+
+**Blocks:** nothing. B is available whenever the maintainer wants it, and the split test that aims
+it is ten seconds.
+
+
 
 
 
