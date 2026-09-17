@@ -233,7 +233,7 @@ import {
   BORDER_WIDTH,
   darken,
   getGlassPane,
-  getLayeredShadow,
+  getElevation,
   Radius,
 } from '@/constants/theme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -671,10 +671,51 @@ export default function Surface({
   // `components/NarratorQuote.tsx` picks a random line on mount — and the noise floor's max
   // channel delta (121/125) is exactly the figure the "shadows are visible" reading rested on.
   // Any future attempt at this question needs a harness that pins the narrator first.
+  // ── The card depth is `elevation`, not a two-pass `boxShadow` (2026-09-17) ──────────────
+  // **This is the change the whole swipe-lag hunt converged on, and it is a change of KIND, not
+  // of amount.** The maintainer's framing is what identified it: *"dette skal egentlig være
+  // ekstremt lett å kjøre. Andre lignende apper er null stress selv for vanlige telefoner, og jeg
+  // tester på en kraftig én."*
+  //
+  // Measured first: on an EMPTY profile the app held **42 blurred shadow layers** at once (Shop
+  // 12, Home 10, To-do 8, Health 6, Habits 4 — the reported ranking), from 21 casters of which 20
+  // were card-sized. So there was no stray nested shadow to delete; the cards were the weight.
+  //
+  // Then read out of RN's own source, which is what makes this a fix rather than a tenth guess.
+  // `ReactAndroid/.../drawable/OutsetBoxShadowDrawable.kt`'s `draw()` runs **per layer, per
+  // frame** and: allocates two `Path` objects, two `RectF`, two `floatArray(8)`, a
+  // `ComputedBorderRadius` and four `CornerRadii`; calls `canvas.clipOutPath(...)`, forgoing
+  // Android's fast rect clip; then `drawPath()` with a **`BlurMaskFilter`** paint — which is not
+  // GPU-accelerated on Android. ~10 allocations, a path clip and a software blur, ×2 layers,
+  // ×cards on screen, ×2 pages mid-swipe.
+  //
+  // `elevation` is the other implementation entirely: the framework draws it from the view's
+  // OUTLINE inside the GPU pipeline, cached, allocating nothing per frame. It is what the
+  // comparable apps use, and `getElevation` has been sitting in `constants/theme.ts` the whole
+  // time.
+  //
+  // ⚠️ **Two facts that make this safe, both verified in RN's source rather than assumed:**
+  //   1. `CompositeBackgroundDrawable.getOutline()` builds a ROUNDED-rect outline from
+  //      `borderRadius` — its own comment says "Android's elevation implementation requires this
+  //      to be implemented to know where to draw the elevation shadow". It keys off borderRadius,
+  //      NOT backgroundColor. This outer view already receives `radii`, so the shadow follows the
+  //      card's corners. The "square shadow behind a rounded card" this pass was warned about
+  //      cannot happen here.
+  //   2. `BaseViewManager.setShadowColor` calls `setOutlineAmbientShadowColor` and
+  //      `setOutlineSpotShadowColor` on API 28+, so `theme.shadow` still tints the shadow —
+  //      dark mode does not silently fall back to pure black.
+  //
+  // ⚠️ **What no harness here can check.** `elevation` is Android-only and react-native-web
+  // ignores it; what the web render DOES pick up is `getElevation`'s iOS `shadow*` keys, as a
+  // single blurred box-shadow. So the visual gate shows a PROXY of the new look, not the look.
+  // The `unverified` tag stands until the device says otherwise.
+  //
+  // `getLayeredShadow` is deliberately still exported and still used by the design lab; this
+  // swaps the CALLER, so the two-pass shadow remains one edit away if the look is rejected.
   const shadowStyle = useMemo(
     () => (shadowLevel === 'flat' || reduceEffects
       ? null
-      : { boxShadow: getLayeredShadow(theme.shadow, shadowLevel) }),
+      : getElevation(shadowLevel, theme.shadow)),
     [theme.shadow, shadowLevel, reduceEffects],
   );
 

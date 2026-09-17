@@ -32,6 +32,9 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 const warmup = read('components/PaintWarmup.tsx');
 const surface = read('components/Surface.tsx');
 const layout = read('app/(tabs)/_layout.tsx');
+/** The callers that still draw a BLURRED boxShadow, now that Surface uses `elevation`. */
+const header = read('components/ScreenHeader.tsx');
+const expandHost = read('components/CardExpandHost.tsx');
 /** Source with comments stripped — this component explains itself at length in its header. */
 const codeOnly = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
@@ -49,25 +52,19 @@ describe('PaintWarmup warms the paints the app really draws', () => {
     }
   });
 
-  it('covers every tier Surface can ask getLayeredShadow for', () => {
-    // Surface's level is `surfaceContext === 'nav' ? 'chrome' : LAB_ELEVATION[...] ?? (elevated
-    // ? 'floating' : 'raised')`, and LAB_ELEVATION is typed to 'flat' | 'raised' | 'floating'.
-    // 'flat' is never passed (the pass is skipped), so the askable set is chrome/raised/floating.
-    const code = codeOnly(surface);
-    const stmt = code.match(/const shadowLevel =[\s\S]*?;/)?.[0] ?? '';
-    const labType = code.match(/LAB_ELEVATION:[^=]*=/)?.[0] ?? '';
+  it('covers every tier a REMAINING getLayeredShadow caller draws', () => {
+    // ⚠️ **Repointed 2026-09-17, and the rename is the point.** This used to read "every tier
+    // Surface can ask for" — and it kept PASSING after `Surface` moved to `elevation`, because
+    // `shadowLevel` is still computed there and still names all three tiers. A green assertion
+    // about a shadow the app had stopped drawing is the exact green-but-stale shape this repo
+    // renamed the 'ONE flat fill' block to avoid, so the source of truth moves with the code.
+    const callers = [header, expandHost].map(codeOnly).join('\n');
     const asked = new Set(
-      [...stmt.matchAll(/'(\w+)'/g), ...labType.matchAll(/'(\w+)'/g)]
-        .map((m) => m[1])
-        .filter((t) => t !== 'flat' && t !== 'nav')
+      [...callers.matchAll(/getLayeredShadow\([^,]+,\s*'(\w+)'\)/g)].map((m) => m[1])
     );
-
-    // ⚠️ The guard that keeps this from passing by measuring nothing. An earlier version of this
-    // test extracted with a regex that matched no tiers at all, so the loop below never ran and
-    // warming ONE tier passed — caught by deliberately planting exactly that defect. If the
-    // extraction above ever silently stops finding tiers, this line fails instead of the suite
-    // going quietly green.
-    expect([...asked].sort()).toEqual(['chrome', 'floating', 'raised']);
+    // The vacuity guard, kept from the original: if the extraction stops finding callers this
+    // fails loudly instead of the loop below running zero times.
+    expect([...asked].sort()).toEqual(['chrome', 'floating']);
 
     const warmed = new Set(
       (codeOnly(warmup).match(/WARM_TIERS = \[([^\]]+)\]/)?.[1] ?? '')
@@ -75,10 +72,6 @@ describe('PaintWarmup warms the paints the app really draws', () => {
         .map((t) => t.trim().replace(/['"]/g, ''))
         .filter(Boolean)
     );
-    // Evaluated, not compared as strings: what matters is that the warm-up produces the same
-    // shadow VALUE for every tier Surface can request. A tier left out compiles its blur on the
-    // first card that uses it, which is the first swipe — the whole cost this component exists
-    // to move.
     for (const tier of asked) {
       const wanted = JSON.stringify(getLayeredShadow('#000', tier as never));
       const covered = [...warmed].some(
@@ -86,6 +79,16 @@ describe('PaintWarmup warms the paints the app really draws', () => {
       );
       expect(covered).toBe(true);
     }
+  });
+
+  it('warms nothing the app has stopped drawing', () => {
+    // The other half of the same rule. `Surface` is where ~20 of the app's 21 shadow casters
+    // live; it draws `elevation` now, so a `raised` blur has no caller and warming it would be
+    // dead work. If Surface ever goes back to a layered shadow, this fails and says so — which
+    // is the signal to put `raised` back on WARM_TIERS.
+    expect(codeOnly(surface)).not.toMatch(/getLayeredShadow\(/);
+    const warmed = (codeOnly(warmup).match(/WARM_TIERS = \[([^\]]+)\]/)?.[1] ?? '');
+    expect(warmed).not.toMatch(/raised/);
   });
 
   it('builds its shadow and pane from the shared helpers, not transcribed values', () => {
