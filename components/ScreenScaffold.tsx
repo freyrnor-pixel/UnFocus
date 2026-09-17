@@ -15,13 +15,6 @@
  *             lib/useAppTheme, store/useSettingsStore (tourProgress/setupComplete, read-only —
  *             see the `tourLocksScroll` edit note), lib/tourSteps (nextStep/parseProgress, the
  *             same pure helpers components/TourTarget.tsx uses),
- *             lib/usePagerSwipeRaster (2026-09-17 — true only while a finger is dragging the tab
- *             pager, and only on a pager page, i.e. one that passed `pagerFloatingNav`; it drives
- *             `renderToHardwareTextureAndroid` on the outer SafeAreaView so a page slides as a
- *             baked texture instead of repainting every card's shadow and pane per frame. See
- *             that file's header for the six rounds of device evidence behind it)
- *             (2026-07-31 A.5: lib/screenColor's ScreenColorContext is NO LONGER imported/provided —
- *             the per-screen hue is retired, so an un-coded Surface draws a neutral edge)
  *   Used by → every app screen (app/(tabs)/index.tsx, app/(tabs)/shopping.tsx, etc.); also
  *             exports ScrollIntoViewContext, consumed by components/AddRow.tsx to scroll
  *             itself above the keyboard on focus (see that Edit note below)
@@ -275,7 +268,6 @@ import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
-import usePagerSwipeRaster from '@/lib/usePagerSwipeRaster';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
 import { getScreenColor, ScreenColorContext, type ScreenKey } from '@/lib/screenColor';
@@ -496,9 +488,6 @@ export default function ScreenScaffold({
   scrollable = true,
   screenKey,
 }: Props) {
-  // ── Rasterise a pager page for the duration of a swipe (2026-09-17) ────────────────────
-  // See `usePagerSwipeRaster`'s doc below for the device evidence this rests on.
-  const swipeRaster = usePagerSwipeRaster(pagerFloatingNav);
   const theme = useAppTheme();
   const isDark = useIsDark();
   // The screen's own hue, handed to every Surface in the body via context (card design reset,
@@ -975,7 +964,7 @@ export default function ScreenScaffold({
     // for the whole pager), so it stays neutral by construction, which is correct: it belongs
     // to no single screen.
     <ScreenColorContext.Provider value={screenHue}>
-    <SafeAreaView edges={safeAreaEdges} renderToHardwareTextureAndroid={swipeRaster} style={[styles.safeArea, { paddingTop: topInset }, ownBackground && { backgroundColor: bgColor }]}>
+    <SafeAreaView edges={safeAreaEdges} style={[styles.safeArea, { paddingTop: topInset }, ownBackground && { backgroundColor: bgColor }]}>
       {/* L1: Background — skipped when a parent (the tabs pager) already renders a
           shared instance behind this screen (see ownBackground doc above), or when
           plainBackground asks for a flat white/black fill with no accent blob.

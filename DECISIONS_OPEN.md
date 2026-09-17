@@ -706,6 +706,63 @@ on `Surface`'s inner mask, not on the shadow-casting outer view) — but because
 design-visible, harness-invisible change into an install that may not receive it would produce
 another unreadable round.
 
+---
+
+### 2026-09-17 — delivery confirmed, A shipped, and everything unconfirmed reverted
+
+**`04d7cd1` was showing in Settings.** So the OTAs land, and every report this session is real
+evidence rather than noise. Two consequences, and the second one is about my own work.
+
+**A shipped (#728).** Cards use `getElevation` instead of a two-pass `boxShadow`. Verified in RN's
+source rather than assumed: `CompositeBackgroundDrawable.getOutline()` builds a **rounded** outline
+from `borderRadius` (not `backgroundColor`), so the square-shadow failure the previous entry warned
+about cannot happen; and `BaseViewManager.setShadowColor` wires `setOutlineAmbientShadowColor` /
+`setOutlineSpotShadowColor` on API 28+, so `theme.shadow` still tints it.
+
+**Then: *"Alt av visuelle innstillinger skrudd av, fortsatt lag."*** That contradicts the
+2026-09-17 confirmation that Reduce effects ON made swiping smooth — and the contradiction points
+at this session's own changes, because **three of them are not gated by `reduceEffects` and
+therefore survive every settings toggle:**
+
+| shipped | gated by reduceEffects? | ever confirmed to help? |
+|---|---|---|
+| #718 `overScrollMode="never"` | no | no — but it only REMOVES work |
+| #719 `offscreenPageLimit={4}` | no | **no — measured no-change**, prop confirmed in the shipped bundle |
+| #722 per-drag hardware raster | **no** | **no** — and it allocates a full-screen FBO per page per drag |
+| #724 `PaintWarmup` | no | no |
+| #725 `SceneView` stagger | n/a (launch) | **yes — measured 156 ms → 89 ms** |
+| #728 cards → `elevation` | yes (it IS the shadow) | mechanism verified in RN's source |
+
+#722 is the one that would explain losing the signal: promoting every pager page to a hardware
+layer at `swipeStart` and tearing it down at `swipeEnd` is a per-swipe native allocation that no
+setting can switch off. It was shipped on a hypothesis and never confirmed.
+
+**So everything shipped on a hypothesis and never confirmed is reverted**, keeping only what was
+measured or read out of source:
+
+- **reverted** — #719 (`offscreenPageLimit`, plus the half of
+  `patches/react-native-tab-view+4.3.1.patch` that forwarded it), #722 (`lib/usePagerSwipeRaster.ts`
+  and its use in `ScreenScaffold`), #724 (`components/PaintWarmup.tsx`) — with their tests;
+- **kept** — #718 (pure removal of work), #725 (the measured stagger; the patch now carries only
+  that), #728 (the mechanism fix).
+
+**What the revert buys, and it is the point.** `reduceEffects` becomes a clean instrument again: with
+#722 gone, nothing ungated is left in the swipe path, so "everything off and still laggy" will mean
+what it says instead of measuring my own additions. It also drops a component, a hook, two test
+files and half a dependency patch — none of which had earned their keep.
+
+⚠️ **Verified as a no-op visually:** `npm run visual --theme=dark` is **26/26 unchanged**, which is
+the right answer — `PaintWarmup` sat at `opacity: 0.01` behind an opaque backdrop, so removing it
+must move no pixels, and #728's re-blessed baselines still match.
+
+**What stays open.** If the app is still heavy with every visual setting off and only #718/#725/#728
+in place, then none of the 87 paint operations is the cause and the remaining structural suspect is
+the **view count**: `lazy: false` keeps five screen trees (~650 nodes) permanently mounted, and
+nothing outside `CatalogueTab` is virtualised. That is a bigger conversation than a shadow, and it
+has two known-bad exits already recorded above (`lazy: true`, twice) — so it needs its own entry
+and its own measurement, not a tenth guess.
+
+
 
 
 
