@@ -150,7 +150,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
-import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, getLayeredShadow, HitSlop } from '@/constants/theme';
+import { BORDER_WIDTH, FontSize, Fonts, OpticalCenter, Spacing, getHeaderMetrics, getElevation, HitSlop } from '@/constants/theme';
 import { shortCommit } from '@/constants/buildInfo';
 import { todayStr } from '@/lib/date';
 import { useT } from '@/lib/i18n';
@@ -487,7 +487,36 @@ export default function ScreenHeader({ title, tier, isHome, onBack, headerRight,
   // `components/CardExpandHost.tsx:590` documents: a view's own `boxShadow` is outside its
   // border box and unaffected by its own `overflow`. Only a DESCENDANT's shadow would be clipped
   // away. `ScreenScaffold`'s `headerBlock` sets no overflow either, so nothing above cuts it.
-  const headerLift = { boxShadow: getLayeredShadow(theme.shadow, 'chrome') };
+  // ── The chrome lift is `elevation` now, not a 31px software blur (2026-09-17) ────────────
+  // **Measured, after #728 moved the cards off `boxShadow`: this was the widest blur left in the
+  // app and there were FIVE of them.** The web-preview paint census counted 27 blurred layers
+  // app-wide, of which 14×8px and 1×20px are `getElevation`'s iOS `shadowRadius` rendered by
+  // react-native-web and therefore free on Android. Of the twelve that are real on Android, TEN
+  // are this header: five mounted screens × (31px `near` + 2px `contact`), each over a 414×67
+  // box, with two of them drawn at once mid-swipe. At `k = 2.2` the chrome rung's blur is 2.2×
+  // a card's, and blur cost scales with radius.
+  //
+  // Same mechanism as #728, same reason: `OutsetBoxShadowDrawable.draw()` allocates two `Path`s,
+  // two `RectF`, two float arrays and four `CornerRadii`, takes a `clipOutPath` and then draws
+  // through a `BlurMaskFilter` — which Android does not GPU-accelerate — **per layer, per frame**.
+  // `elevation` is drawn from the view's outline inside the GPU pipeline, cached, allocating
+  // nothing.
+  //
+  // ⚠️ **The outline is correct here for a reason worth stating.** `elevation` needs
+  // `CompositeBackgroundDrawable.getOutline()`, which builds its rounded rect from
+  // `borderRadius`. This style array already carries `headerClip` (the radius, plus
+  // `overflow:'hidden'`) and `headerFill` (the background), so the shadow follows the header's
+  // corners. `overflow:'hidden'` does not clip it either: an elevation shadow is drawn by the
+  // PARENT from this view's outline, so it is outside this view's own clip — the same reason the
+  // old `boxShadow` was safe here, arrived at from the other side.
+  //
+  // ⚠️ **The chrome rung is now ONE function for both chrome surfaces.** `Surface` resolves
+  // `surfaceContext === 'nav'` to `'chrome'` and (since #728) paints it with `getElevation`;
+  // this header does not route through `Surface` and spells the same rung by hand. They used to
+  // be two different helpers agreeing by convention — `getLayeredShadow` here and there — which
+  // `lib/__tests__/chromeRhythm.test.ts` had to pin with a source-text match on both. Now they
+  // agree by sharing the helper, and that test asserts the rung on `getElevation`'s own numbers.
+  const headerLift = getElevation('chrome', theme.shadow);
   // ⚠️ **The opaque wash is the header view's OWN `backgroundColor` now (2026-09-15), not an
   // `absoluteFill` child.** It was a child so it would clip to whatever radius `ScreenScaffold`
   // passes; the view it sat in already carries that radius AND `overflow:'hidden'`, so painting

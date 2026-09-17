@@ -343,17 +343,26 @@ describe('chrome edges — content is clipped, not merely padded', () => {
     expect(theme).toMatch(/export type ElevationLevel = 'flat' \| 'raised' \| 'floating' \| 'chrome';/);
     expect(getElevation('chrome').elevation).toBeGreaterThan(getElevation('floating').elevation);
     expect(getElevation('chrome').shadowRadius).toBeGreaterThan(getElevation('floating').shadowRadius);
-    // `getLayeredShadow` is what Surface actually paints — the near pass must be wider and
-    // stronger than a floating card's, or the rung is decorative.
+    // ⚠️ **Rewritten 2026-09-17 with #728 and the header conversion: the rung is the same, the
+    // paint under it is not.** Both chrome surfaces used to draw `getLayeredShadow('chrome')` —
+    // a two-pass blurred `boxShadow`, 31px wide — and this block pinned the rung by comparing
+    // those layers and then source-matching BOTH call sites, because two helpers had to be kept
+    // in step by convention. They now share ONE helper: `Surface` paints `getElevation` from
+    // `surfaceContext === 'nav' ? 'chrome'`, and `ScreenHeader` spells the same rung by hand.
+    // So the rung is asserted on `getElevation`'s own numbers (above), and what is checked here
+    // is that neither route has drifted back onto the blurred path — which was measured as the
+    // widest blur left in the app, five of them, ten of the twelve real Android blur layers.
+    //   `getLayeredShadow` is still exported and still correct; `CardExpandHost` draws the
+    // `floating` rung with it. This is about the two CHROME surfaces only.
     const chromeNear = getLayeredShadow('#000', 'chrome')[1];
     const floatingNear = getLayeredShadow('#000', 'floating')[1];
     expect(chromeNear.blurRadius).toBeGreaterThan(floatingNear.blurRadius);
     expect(chromeNear.color).not.toBe(floatingNear.color);
-    // Both chrome surfaces take it, and by two different routes — Surface assigns it from
-    // `surfaceContext` (so the design lab and the `elevated` prop cannot override it), while
-    // ScreenHeader does not route through Surface and spells it by hand. They must move together.
     expect(code('components/Surface.tsx')).toMatch(/surfaceContext === 'nav'\s*\n?\s*\? 'chrome'/);
-    expect(code('components/ScreenHeader.tsx')).toMatch(/getLayeredShadow\(theme\.shadow, 'chrome'\)/);
+    expect(code('components/ScreenHeader.tsx')).toMatch(/getElevation\('chrome', theme\.shadow\)/);
+    // Neither chrome surface may go back to the per-frame software blur without this failing.
+    expect(code('components/ScreenHeader.tsx')).not.toMatch(/getLayeredShadow/);
+    expect(code('components/Surface.tsx')).not.toMatch(/getLayeredShadow/);
   });
 
   it('rests the same gap at the top and the bottom', () => {
