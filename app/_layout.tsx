@@ -183,6 +183,7 @@ import { Fonts, MAX_FONT_SCALE } from '@/constants/theme';
 import { Duration } from '@/constants/motion';
 import { initDb, pruneOldData } from '@/lib/db';
 import { getTranslations } from '@/lib/i18n';
+import { runStaggered, type StaggerHandle } from '@/lib/deferredBoot';
 import { cancelHabitReNudge, cancelReNudge, cancelTrayReNudge, onHabitAction, onMedicineAction, onNotificationAction, syncNotificationCategories } from '@/lib/notifications';
 import { registerMedicineCategory, snoozeTrayReminder } from '@/lib/medicineNotifications';
 import { registerHabitCategory, snoozeHabitReminder } from '@/lib/habitNotifications';
@@ -336,6 +337,9 @@ export default function RootLayout() {
     ...MaterialCommunityIcons.font,
   });
 
+  // Holds the Tier B frame chain so a remount cannot leave two of them walking the same list.
+  const staggerRef = useRef<StaggerHandle | null>(null);
+
   // One-shot cold-start bootstrap in a single mount effect: initDb(), settings,
   // then the Tier A stores that back the first screens (synchronous getAllSync
   // scans), then Tier B deferred behind InteractionManager. loadSettings() flips
@@ -403,50 +407,69 @@ export default function RootLayout() {
     if (__DEV__) {
       console.log(`[perf] cold-start sync boot (initDb + Tier A store loads): ${Date.now() - t0}ms`);
     }
-    // Tier B: only back screens 2+ swipes from Home (Scan's receipts) or non-tab
-    // screens — deferred a beat so they don't compete with the first paint.
-    InteractionManager.runAfterInteractions(() => {
-      useFeedbackStore.getState().load();
-      usePeersStore.getState().load();
-      useReceiptStore.getState().load();
-      // Tombstoned tasks, for the day-view's "Recently deleted" restore zone (2026-07-27).
-      // Tier B since 2026-07-28: nothing on any first paint draws a tombstone — the zone
-      // only appears once you open the day view's restore affordance.
-      useTaskStore.getState().loadDeleted();
-      // Monthly recurring tasks have no native "day-of-month, clamped"/"nth weekday"
-      // repeating trigger, so their reminder is scheduled as a one-off for the next
-      // occurrence and re-armed on boot + every foreground rather than once ever.
-      // Tier B since 2026-07-28: this is a per-task native scheduling call that nothing
-      // painted depends on, and the foreground handler re-runs it anyway.
-      useTaskStore.getState().syncMonthlyTaskNotifications();
-      // Register the 'task-reminder' category's Done / Remind-me-later buttons. Every task
-      // reminder is scheduled with categoryIdentifier: 'task-reminder', but until 2026-07-27
-      // this only ran from app/settings.tsx's language-change branch — so a user who never
-      // switched language never got the buttons at all. Settings still re-syncs on a language
-      // change to relabel them; this is the baseline registration. getTranslations() (not
-      // useT()) because we're outside the component tree here.
-      {
-        const tNotif = getTranslations();
-        void syncNotificationCategories(tNotif.notif.actionDone, tNotif.notif.actionRemindLater);
+    // ── Tier B — nine steps, ONE PER FRAME (2026-09-17) ───────────────────────────────────
+    // Only backs screens 2+ swipes from Home (Scan's receipts) or non-tab screens, so none of it
+    // is on any first paint. It used to be ONE `runAfterInteractions` callback holding all nine,
+    // and that shape is what the swipe report finally turned out to be — see
+    // `lib/deferredBoot.ts`'s header for the measurement and the two properties that made it land
+    // exactly on the first swipes:
+    //   · `runAfterInteractions` waits for ANIMATIONS, not for the user. A native ViewPager2 swipe
+    //     creates no JS interaction handle, so it fires DURING a swipe, in the gap between the
+    //     `Animated` runs it does wait for (LaunchReveal's 800ms, the tabs' hero cross-fade).
+    //   · It runs once — which is exactly why the lag "warmed up" and then stayed gone.
+    // `runStaggered` keeps the ORDER (syncWidgetsAndOverview must see the stores the loads above
+    // it filled) and gives each step its own frame, so nine short tasks replace one long one. It
+    // also guards each step: this block had no try/catch, so a throw in any load silently skipped
+    // the notification categories and the widget refresh with it.
+    const tierB = InteractionManager.runAfterInteractions(() => {
+      staggerRef.current = runStaggered([
+        () => useFeedbackStore.getState().load(),
+        () => usePeersStore.getState().load(),
+        () => useReceiptStore.getState().load(),
+        // Tombstoned tasks, for the day-view's "Recently deleted" restore zone (2026-07-27).
+        // Tier B since 2026-07-28: nothing on any first paint draws a tombstone — the zone
+        // only appears once you open the day view's restore affordance.
+        () => useTaskStore.getState().loadDeleted(),
+        // Monthly recurring tasks have no native "day-of-month, clamped"/"nth weekday"
+        // repeating trigger, so their reminder is scheduled as a one-off for the next
+        // occurrence and re-armed on boot + every foreground rather than once ever.
+        // Tier B since 2026-07-28: this is a per-task native scheduling call that nothing
+        // painted depends on, and the foreground handler re-runs it anyway.
+        () => useTaskStore.getState().syncMonthlyTaskNotifications(),
+        // Register the 'task-reminder' category's Done / Remind-me-later buttons. Every task
+        // reminder is scheduled with categoryIdentifier: 'task-reminder', but until 2026-07-27
+        // this only ran from app/settings.tsx's language-change branch — so a user who never
+        // switched language never got the buttons at all. Settings still re-syncs on a language
+        // change to relabel them; this is the baseline registration. getTranslations() (not
+        // useT()) because we're outside the component tree here.
+        () => {
+          const tNotif = getTranslations();
+          void syncNotificationCategories(tNotif.notif.actionDone, tNotif.notif.actionRemindLater);
+        },
         // The medicine tray reminders' own Taken / Remind-me-later category (separate from
         // 'task-reminder' — different payload, different meaning). app/settings.tsx re-registers
         // all three on a language change to relabel the OS-level buttons.
-        registerMedicineCategory(useSettingsStore.getState().language);
+        () => registerMedicineCategory(useSettingsStore.getState().language),
         // Habit reminders' Done / Remind-me-later. They were the one reminder type in the app
         // with no buttons at all until 2026-08-15 — a habit nudge could only be dismissed or
         // tapped through, which is the wrong ask for the reminder most likely to arrive while
         // your hands are full.
-        registerHabitCategory(useSettingsStore.getState().language);
-      }
-      // Push today's tasks/shopping to the home-screen widgets + persistent overview
-      // notification. Deferred to Tier B (was synchronous in the boot tick): its
-      // buildWidgetSnapshot() walks every store, localises strings, and writes the
-      // widget_snapshot row — all synchronously before the first `await`, so calling
-      // it inline blocked the held splash / first paint. The widgets already render
-      // from the last saved snapshot via the headless handler, so refreshing them a
-      // beat after the app is visible is imperceptible and off the cold-start critical path.
-      void syncWidgetsAndOverview();
+        () => registerHabitCategory(useSettingsStore.getState().language),
+        // Push today's tasks/shopping to the home-screen widgets + persistent overview
+        // notification. Deferred to Tier B (was synchronous in the boot tick): its
+        // buildWidgetSnapshot() walks every store, localises strings, and writes the
+        // widget_snapshot row — all synchronously before the first `await`, so calling
+        // it inline blocked the held splash / first paint. The widgets already render
+        // from the last saved snapshot via the headless handler, so refreshing them a
+        // beat after the app is visible is imperceptible and off the cold-start critical path.
+        // LAST on purpose: it reads the stores every step above it fills.
+        () => syncWidgetsAndOverview(),
+      ]);
     });
+    return () => {
+      tierB.cancel?.();
+      staggerRef.current?.cancel();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

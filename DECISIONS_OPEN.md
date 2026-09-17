@@ -512,6 +512,66 @@ a perf fix — so it should be made deliberately, if at all, and not as round se
 **Blocks:** nothing. B is available whenever the maintainer wants it, and the split test that aims
 it is ten seconds.
 
+---
+
+### ANSWERED 2026-09-17 — "not what loads, but when and how". It was four screens in one commit.
+
+*"Tror ikke det nødvendigvis er hva som lastes inn, men når og hvordan."* That redirect found it,
+and it found a hole in this file's own measurement.
+
+**The hole.** #721's idle probe looked at a 6-second window taken **after** the guided-tour walk —
+roughly eight seconds after the tabs appeared — and reported 0ms. True, and useless: everything
+interesting had already happened. Re-measured in the window it skipped, with a `longtask` observer
+AND a rAF frame-gap monitor, from the instant the tab group mounts:
+
+| window after the tabs appear | long tasks | total | worst |
+|---|---|---|---|
+| 0–1s | 2 | **156 ms** | 91 ms at +45 ms, **65 ms at +151 ms** |
+| 1–8s | 0 | 0 ms | — |
+
+Two spikes, not one. The first is the tab-group mount. **The second, ~150ms later, is
+`react-native-tab-view`'s `SceneView`**: with `lazy: false` every non-focused scene schedules its
+own `setTimeout(() => setIsLoading(false), 0)`, so all four fire in the same timer batch and React
+commits **every off-screen screen tree in one render.** That is "when and how" exactly — not what
+loads, but four screens' worth of it landing on a single frame.
+
+**Confirmed by experiment before being fixed**, which is what makes this an answer rather than a
+ninth guess: staggering that timer by distance from the focused page removed the 65ms task from the
+long-task list entirely, leaving only the mount. Re-run end to end:
+
+| | long tasks, 0–1s | total | worst frame gap |
+|---|---|---|---|
+| before | 2 | 156 ms | 83 ms |
+| after | **1** | **89 ms** | 67 ms |
+
+**Shipped:** `patches/react-native-tab-view+4.3.1.patch` gains the stagger
+(`Math.abs(navigationState.index - index) * 24`), distance-ordered so the adjacent pages — the ones
+a first swipe reaches — still render first. Every page is still on screen within ~50ms of launch,
+behind the splash. **This is NOT `lazy: true`**, which is separately documented as a regression
+("things load after Swiping", 2026-08-28) because a page there does not render until visited.
+`lib/__tests__/pagerOffscreen.test.ts` guards it, including asserting the upstream `, 0)` form is
+ABSENT so an upgrade that restores it fails rather than passing on a leftover line.
+
+**Also shipped, and it did NOT move the number — recorded as such.** Tier B's nine deferred boot
+steps were one `runAfterInteractions` callback; `lib/deferredBoot.ts` now gives each its own frame.
+The hypothesis was that this block landed on the first swipes (`runAfterInteractions` waits for
+`Animated` handles, and a native ViewPager2 swipe creates none, so it does not wait for a swipe).
+Measured: chunking it changed the spike not at all — 65ms before, 65ms after. **It is kept anyway,
+for a reason that is not performance:** the old block had no try/catch, so a throw in any one load
+silently skipped everything after it, the notification-category registrations and the widget
+refresh included. Each step is guarded now.
+
+⚠️ **Empty profile, and that is the live caveat.** The 65ms commit is four EMPTY screen trees; on
+the maintainer's data it is larger and lands later, which is the direction that makes it matter
+more, not less. And this is react-native-web, so the numbers are JS-thread work only — the native
+draw cost stays invisible here (`HARNESS.md`).
+
+**What stays open:** whether this is what the device was feeling. If the first swipes are still
+soft, the remaining first-draw cost is the two heaviest pages' own drawing, which only drawing
+less can reach — option (B) above, a visible change, aimed by the ten-second split test
+(**Reduce effects OFF + "Lit card surfaces" OFF**).
+
+
 
 
 

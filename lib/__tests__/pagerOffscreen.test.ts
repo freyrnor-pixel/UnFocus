@@ -86,6 +86,42 @@ describe('the pager keeps every tab resident', () => {
   });
 });
 
+describe('the off-screen scenes reveal staggered, not all in one commit', () => {
+  const SCENE_FILES = [
+    'node_modules/react-native-tab-view/lib/module/SceneView.js',
+    'node_modules/react-native-tab-view/src/SceneView.tsx',
+  ];
+
+  it.each(SCENE_FILES)('%s staggers by distance from the focused page', (rel) => {
+    // Upstream is `setTimeout(..., 0)` for EVERY non-focused scene, so with `lazy: false` they
+    // all fire in one timer batch and React commits every off-screen screen tree in a single
+    // render. Measured in the web preview: one 65ms long task ~150ms after the tabs appear on an
+    // EMPTY profile, gone from the long-task list once staggered.
+    expect(read(rel)).toMatch(
+      /setTimeout\(\(\) => setIsLoading\(false\), Math\.abs\(navigationState\.index - index\) \* \d+\)/
+    );
+  });
+
+  it.each(SCENE_FILES)('%s no longer schedules every scene at zero', (rel) => {
+    // The form that would regress it, asserted absent rather than the fix asserted present —
+    // an upgrade that restores upstream's line would otherwise pass the test above by
+    // leaving BOTH lines in place.
+    expect(read(rel)).not.toMatch(/setTimeout\(\(\) => setIsLoading\(false\), 0\)/);
+  });
+
+  it('keeps the delay small enough not to be lazy mounting in disguise', () => {
+    // `lazy: true` is separately documented as a regression ("things load after Swiping",
+    // 2026-08-28) because a page there does not render until visited. This must stay a
+    // launch-time stagger, not that: every page on screen within a splash's worth of time.
+    const step = Number(
+      read(SCENE_FILES[0]).match(/navigationState\.index - index\) \* (\d+)\)/)?.[1]
+    );
+    expect(step).toBeGreaterThan(0);
+    // Five tabs, so the farthest page is distance 2 → step * 2 must stay well under the splash.
+    expect(step * 2).toBeLessThan(200);
+  });
+});
+
 describe('the rubber band at the ends stays off', () => {
   // Shipped 2026-09-16 (#718) against the Android 12+ stretch EdgeEffect. It rides the same
   // prop chain as offscreenPageLimit but needed no patch, because TabView's fixed list happens
