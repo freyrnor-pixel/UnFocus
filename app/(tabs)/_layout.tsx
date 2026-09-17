@@ -217,10 +217,9 @@ import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
 import ParticleBackground from '@/components/ParticleBackground';
-import PaintWarmup from '@/components/PaintWarmup';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { SITE_ITEMS, START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
+import { START_TAB_ROUTE, TAB_ROUTE_NAME } from '@/lib/siteNav';
 import { Duration } from '@/constants/motion';
 import { CHROME_FLOAT_INSET } from '@/constants/theme';
 
@@ -230,53 +229,6 @@ import { CHROME_FLOAT_INSET } from '@/constants/theme';
 // side so the drift never reveals a bare edge.
 const MAX_PARALLAX = 14;
 
-/**
- * How many pages ViewPager2 keeps LAID OUT on each side of the current one.
- *
- * ⚠️ **This is not `lazy`, and it is not `lazyPreloadDistance`. Read this before assuming it is
- * one of the two flags this file has already flipped and un-flipped.** Those two govern whether
- * a screen is MOUNTED in React. This governs whether an already-mounted screen's Android views
- * are ATTACHED to the pager's inner RecyclerView. `lazy: false` below means all five screen
- * trees exist at frame 0 — but ViewPager2's default (`OFFSCREEN_PAGE_LIMIT_DEFAULT`) still lays
- * out only the page you are looking at, and `ViewPagerAdapter.onBindViewHolder` calls
- * `holder.setIsRecyclable(false)`, so a page that leaves that window is not pooled: its holder is
- * discarded, and a fresh `onCreateViewHolder` + `onBindViewHolder` + `container.addView(child)`
- * runs the next time you swipe toward it. The first draw after that attach has to RECORD that
- * page's display list from scratch, and that happens on the first frame of the drag — mid-slide,
- * where a long frame is visible.
- *
- * **The device report this answers** (2026-09-16): *"Seems to lag a bit depending on which screen
- * I am Swiping to. Shopping is most laggy, Health and habits work fine. Tapping between them in
- * bottom nav works well."* Both halves of that are the signature of this and of nothing else in
- * the swipe path:
- *   · **It scales with the DESTINATION's tree.** Shop mounts two whole other surfaces in
- *     `embedded` mode (FoodTab + CatalogueTab) on top of one card per weekly list, per monthly
- *     list and per archive row; Habits and Health mount one list each. A per-frame bridge or
- *     GPU cost would be the same whichever way you swipe — that is what the 2026-09-09 parallax
- *     deletion was aimed at, and it is why "never varies, always the same lag" was a different
- *     bug with a different fix.
- *   · **A TAP to the same screen is fine.** `animationEnabled: false` routes a BottomNav tap
- *     through `setPageWithoutAnimation`, an instant snap. The attach costs exactly the same
- *     there — but with nothing animating, a long frame has nothing to stutter against. Swiping
- *     is the only path that puts that frame inside a 60fps follow-finger slide.
- *
- * `SITE_ITEMS.length - 1` keeps every page resident, derived rather than written as `4` so that
- * adding a sixth tab cannot silently leave one page paying the attach cost again (screen order
- * here already MUST match `SITE_ITEMS` — see the Edit notes).
- *
- * **What it costs:** all five pages are laid out at start-up instead of one. That is the same
- * trade `lazy: false` already makes, for the same stated reason — a launch happens once, behind a
- * splash, where nobody is watching for it; a swipe happens constantly, in front of you.
- *
- * ⚠️ **react-native-tab-view does not forward this prop on its own** — `TabView` passes a FIXED
- * list to its pager and `offscreenPageLimit` is not on it, so `<TopTabs offscreenPageLimit={n}>`
- * typechecks (the type comes from `PagerViewProps`) and does NOTHING without
- * `patches/react-native-tab-view+4.3.1.patch`. That is this repo's documented
- * silently-dead-config failure class, so `lib/__tests__/pagerOffscreen.test.ts` asserts the
- * forwarding is present in the dependency Metro actually loads, not just that the prop is
- * written here. The patch is JS, so unlike the pager-view Kotlin patch it ships over OTA.
- */
-const PAGER_OFFSCREEN_LIMIT = SITE_ITEMS.length - 1;
 
 type TabBarSyncProps = MaterialTopTabBarProps & {
   onActiveRouteChange: (routeName: string) => void;
@@ -476,12 +428,6 @@ export default function TabsLayout() {
             deletion note above for the per-frame bridge cost that bought). `styles.bgLayer`
             keeps its ±MAX_PARALLAX oversize so this change moves no pixels. */}
         <View style={styles.bgLayer} pointerEvents="none">
-          {/* FIRST child, so ScreenBackground's opaque field paints over it on the same frame.
-              It draws the app's blurred shadows, the pane gradient and the font once at launch —
-              behind the splash — and then unmounts itself. See its header for the two cold caches
-              that buys: Skia's program cache, and the layer texture pool #722's per-drag
-              promotion allocates from. */}
-          <PaintWarmup />
           <ScreenBackground activeRoute={activeRouteName} />
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
@@ -527,13 +473,14 @@ export default function TabsLayout() {
         // `TabView`, which forwards `overScrollMode` (and only a fixed list besides) to the pager.
         // On web the pager is `PanResponderAdapter`, which never sees the prop — no-op, no warning.
         //
-        // ⚠️ **What this does NOT claim.** The first half of the report — "some small lag when
-        // Swiping" in general — is NOT addressed here and must not be recorded as fixed by it. See
-        // `DECISIONS_OPEN.md`'s "Swipe lag, the residual" entry for what is left and the one lever
-        // identified but deliberately not pulled (`offscreenPageLimit`, which react-native-tab-view
-        // does not forward and would need a JS patch).
+        // ⚠️ **What this does NOT claim, and one correction.** It addresses the rubber band at the
+        // ends, nothing else — the general swipe lag is not fixed by it. And the lever this comment
+        // used to call "identified but deliberately not pulled", `offscreenPageLimit`, WAS pulled
+        // (#719) and then **reverted** (2026-09-17): it needed a dependency patch and five
+        // permanently attached page trees, the prop was confirmed present in the shipped Android
+        // bundle, and the device measured no change. See `DECISIONS_OPEN.md` — do not re-add it
+        // without a measurement.
         overScrollMode="never"
-        offscreenPageLimit={PAGER_OFFSCREEN_LIMIT}
         screenOptions={{
           swipeEnabled: true,
           // ── `lazy: false` — REVERTED back on 2026-08-28, same day ──────────────────────
