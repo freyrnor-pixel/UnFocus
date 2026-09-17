@@ -571,6 +571,89 @@ soft, the remaining first-draw cost is the two heaviest pages' own drawing, whic
 less can reach — option (B) above, a visible change, aimed by the ten-second split test
 (**Reduce effects OFF + "Lit card surfaces" OFF**).
 
+---
+
+### The card shadow is the weight, and RN draws it the expensive way. Which way out?
+
+**Asked 2026-09-17**, after: *"Vi må optimalisere enda mer. Husk dette skal egentlig være ekstremt
+lett å kjøre. Andre lignende apper er null stress selv for vanlige telefoner, og jeg tester på en
+kraftig én."*
+
+That reframing is correct and it ends the shaving. Nine rounds of this line have moved real things
+(the tug, the rubber band, a 156ms→89ms launch burst) without changing the answer to *"why is a
+lightweight local list app heavy on a fast phone"*. This entry is that answer, measured, plus the
+one ruling an agent cannot make.
+
+**What the app asks the GPU for, on an EMPTY profile, measured in the web preview:**
+
+| | Shop | To-do | Home | Habits | Health | app-wide |
+|---|---|---|---|---|---|---|
+| **blurred shadow layers** | 12 | 8 | 10 | 4 | 6 | **42** |
+| inset hairline passes | 8 | 6 | 8 | 2 | 4 | 30 |
+| gradient shaders | 4 | 3 | 4 | 1 | 2 | 15 |
+| **total paint ops** | 24 | 17 | 22 | 7 | 12 | **87** |
+
+21 elements cast those 42 blur layers, and **20 of the 21 are card-sized** — so there is no
+wasted nested shadow to delete. They are the cards.
+
+**Why that is worse than the count suggests, read out of React Native's own source.**
+`ReactAndroid/.../drawable/OutsetBoxShadowDrawable.kt` (RN 0.85.3), in `draw()` — which runs per
+layer, per frame:
+
+- allocates **two `Path` objects**, two `RectF`, two `floatArray(8)`, plus a
+  `ComputedBorderRadius` and four `CornerRadii`;
+- calls **`canvas.clipOutPath(...)`** — a path clip, which forgoes Android's fast rect-clip path;
+- calls `canvas.drawPath(path, shadowPaint)` where `shadowPaint` carries a **`BlurMaskFilter`**.
+
+A `BlurMaskFilter` on a path is not GPU-accelerated on Android; Skia takes a fallback. So each card
+shadow layer costs ~10 allocations, a path clip and a software blur **every frame it is drawn** —
+×2 layers, ×cards on screen, ×2 pages during a swipe.
+
+**That is exactly the difference from "other similar apps".** They use Android `elevation`, which
+the framework draws from the view's outline inside the GPU pipeline with a cached shadow: no
+allocation, no blur, no path clip. **This repo already has that path** — `constants/theme.ts`'s
+`getElevation()` returns the `shadowColor/Offset/Opacity/Radius` + `elevation` (4 / 10 / 16) set,
+and `Surface.tsx:178` notes a view must not set both. `Surface` deliberately uses the `boxShadow`
+one.
+
+**Two things settled on the way here, so nobody re-walks them:**
+
+1. ⚠️ **`Surface.tsx`'s open question — "is the dark card shadow invisible?" — is ANSWERED: no.**
+   The file records that a pixel diff could not settle it because the narrator quote randomised
+   (~43 000 px noise floor). That is fixable now: `__unfocusFixedQuoteIndex__` pins it. Dropping
+   the `raised` blur in dark changes **25 screens, up to 21 167 px (5.28%)** on `shopping-empty`.
+   The tempting "black at 7% over black is black" argument is wrong. There is no free removal.
+2. **The cheap tuning was measured too.** Narrowing `near`'s blur 14k → 9k with alpha +0.04
+   (the compensation this function's own note recommends) changes the same 25 screens at
+   **~2.2%** instead of 5.3% — about a third off the dominant blur radius for half the look cost
+   of removing it.
+
+**The options, with what each actually buys and costs:**
+
+| | option | removes | costs |
+|---|---|---|---|
+| **A** | cards → `elevation` | essentially **all 42 blur layers'** per-frame allocation, path clip and software blur | Android's own shadow falloff instead of the tuned two-pass look. **And a real implementation catch:** `elevation` draws from the view's OUTLINE, which comes from its background drawable — `Surface` puts the fill on the *inner* mask, so the shadow-casting outer view has none and would cast a SQUARE shadow behind a rounded card. Giving that outer view the fill (hidden under the mask anyway) plausibly fixes it in a few lines, but it is still a change to the card system every surface routes through |
+| **B** | narrow `near`'s blur, raise alpha | ~a third of the dominant blur radius | measured: 25 screens, ~2.2% of pixels |
+| **C** | drop the pane (`glassSurfaces` off by default) | **45 of the 87** ops — all 30 insets and all 15 gradients | cards lose the lit ramp and the specular rim; flat-filled instead. **Already implemented** as a setting, so it is a default change and not new code |
+| **D** | accept | — | the app stays heavier than comparable ones |
+
+**Recommended: A, then C.** A is the only one that changes the *kind* of work rather than the
+amount, and it is the specific thing comparable apps do differently. C is the largest op-count cut
+available for zero new code.
+
+⚠️ **The verification gap that stops this being shipped on an agent's judgement.** `elevation` is
+Android-only and react-native-web ignores it, so the visual gate would report every shadow
+*vanishing* — a false alarm, not a verification. A is therefore both a design ruling AND a change
+no harness here can see, which is `CLAUDE.md` A2 and A3 together. It needs a yes and a device.
+
+**What would make the call cheap:** **"Lit card surfaces" OFF** (Personal → Accessibility), with
+Reduce effects left off. That removes exactly C's 45 paint ops and nothing else, so it separates
+the pane's cost from the shadow's in one toggle — and if the app feels light with it off, C is the
+answer and A may not be needed at all.
+
+**Blocks:** option A, which is the step change. B and C are available on a word.
+
+
 
 
 
