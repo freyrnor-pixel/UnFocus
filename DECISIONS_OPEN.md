@@ -653,6 +653,60 @@ answer and A may not be needed at all.
 
 **Blocks:** option A, which is the step change. B and C are available on a word.
 
+---
+
+### BLOCKING 2026-09-17 — is any of this reaching the device? Read the commit in Settings.
+
+*"Alt er av, og det er identisk. Føles ikke egentlig som om det er gjort endringer i det siste."*
+
+**The first sentence answers the split test. The second one invalidates five rounds if it is
+literal, and it must be settled before another line is optimised.**
+
+**What the split test said.** With Reduce effects OFF and **"Lit card surfaces" OFF** — which
+drops the pane and keeps the shadow — the app is *identical*. That exonerates option C: the 30
+inset passes and 15 gradient shaders are **not** the weight. By elimination the weight is the
+shadow, which is what option A addresses and what RN's `OutsetBoxShadowDrawable` source predicts.
+So A is the answer and C is not. **C should not be built.**
+
+⚠️ **But "doesn't feel like anything has changed lately" is the `CLAUDE.md` gotcha, and it has a
+five-second answer this repo already built.** `constants/buildInfo.ts` exists precisely for this —
+its own header says the unanswerable question *"is the fix even in the build you are holding?"* had
+already cost a session's worth of guessing twice. `.github/workflows/update.yml` stamps the merge
+commit into it immediately before `eas update`, and `app/settings.tsx` draws it in the
+**Version & updates** card.
+
+**The delivery chain checks out from this end:** the stamp step runs before `eas update`; the
+publish is `eas update --branch preview --platform all`; `app.json` is channel `preview`,
+runtimeVersion `1.7.3`; `ScreenHeader` calls `checkForUpdateAsync` on mount, on foreground and
+every 10 minutes, and applies with `fetchUpdateAsync()` + `reloadAsync()`. Every OTA run this
+session finished green.
+
+**The one thing this end cannot see:** whether the installed APK is the runtime those updates
+target. The last preview APK is **run 22, 2026-09-11, commit `ec19991`** — the commit that set
+`runtimeVersion` to 1.7.3. An install older than that build is on **1.7.2**, and an OTA published
+against 1.7.3 reaches it **never, silently**. That would make every "no change" report from #718
+onward noise rather than evidence — and it fits that the one thing which *did* work for the
+maintainer was **a setting** (Reduce effects), which works on any build.
+
+**What to read, and what it should say.** Settings → Version & updates:
+
+| row | if OTAs are landing | if they are not |
+|---|---|---|
+| **commit** | `04d7cd1` | an older SHA, or `development` (never took an OTA) |
+| **update published** | 2026-09-17, ~14:41 UTC | an older date, or `—` |
+| **runtime** | `1.7.3` | `1.7.2` or earlier → **no OTA since 2026-09-11 has arrived** |
+
+This session's merges, newest first, for matching against that row: `04d7cd1` (#726) ·
+`587fdbd` (#725) · `4f48b29` (#724) · `f79a74d` (#723) · `46eff68` (#722) · `8c0ad0d` (#721) ·
+`83ee2da` (#720) · `2d181c5` (#719) · `b94d148` (#718).
+
+**Blocks:** option A, and every further optimisation. Not because A is not ready — the shadow is
+identified and the implementation catch is understood (`elevation` needs the OUTLINE, which lives
+on `Surface`'s inner mask, not on the shadow-casting outer view) — but because shipping a
+design-visible, harness-invisible change into an install that may not receive it would produce
+another unreadable round.
+
+
 
 
 
