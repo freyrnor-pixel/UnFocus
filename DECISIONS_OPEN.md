@@ -402,6 +402,68 @@ shipped.
 **Blocks:** the sixth attempt, still. What it no longer blocks is the mount hypothesis — that one
 is answered.
 
+---
+
+### ANSWERED 2026-09-17 — Reduce effects ON makes swiping smooth. It is per-card GPU paint.
+
+*"Du hadde rett, av en eller annen grunn funker det å redusere visuelle effekter."* Six rounds,
+and the thing that identified it was a switch the app already shipped.
+
+**What that convicts, and what it does not.** `reduceEffects` gates exactly three things:
+`ParticleBackground`'s field, `ScreenBackground`'s orb canvas, and `Surface.tsx`'s pane + two-pass
+`boxShadow`. The first two are ONE hoisted instance shared by all five tabs
+(`app/(tabs)/_layout.tsx`), fixed behind the pager and not sliding with it — so they cannot produce
+a per-screen ranking, and #715 already exonerated them for one. The two that ARE per card are the
+pane and the shadow, and those scale with the page exactly as the report did: Shop and Home slow
+(10 and 9 shadow-casting elements), Habits and Health fine (3 and 5).
+
+So the cost is **per-frame GPU paint of card surfaces while two pages are on screen at once** —
+the only mechanism class left after #719 excluded the attach and #721 excluded mount/render, both
+by measurement.
+
+**Shipped:** `lib/usePagerSwipeRaster.ts` → `renderToHardwareTextureAndroid` on each pager page's
+outer SafeAreaView, true only between `swipeStart` and `swipeEnd`. Android bakes the subtree into
+a texture once and the slide becomes a blit, blurs and gradients included. It is the same technique
+this repo already uses for `ScreenBackground`, `HomeHeroBackground` and `ParticleBackground`.
+
+**Why the drag and not permanently.** A hardware layer re-rasterises when its content changes, so
+a permanent one would turn every checkbox tick on Home into a full-page re-raster — trading a cost
+that only happens while swiping for one that happens on every interaction. Between `swipeStart` and
+`swipeEnd` nothing in the page changes, which is exactly when a texture is free.
+
+**Why this and not the obvious alternative.** Dropping the pane and shadow during the drag would
+also work and needs no native texture — but it changes card *fill* and depth mid-swipe, a visible
+pop on every gesture, and it would re-commit shadow nodes across ~60 cards on the drag's first
+frame (`Surface.tsx:624` documents that cost). Rastering changes nothing about how anything looks,
+at rest or in motion.
+
+**Two traps avoided, both recorded because each would have shipped a silent no-op.**
+- The listener must be a **screen's** navigation object, not the navigator's. The tab bar's
+  `navigation` spreads its `addListener` from the PARENT navigator (`useNavigationHelpers` takes
+  `emit` from this emitter but `addListener` from `parentNavigationHelpers`), so subscribing there
+  registers on the Stack and never hears the pager's untargeted `emit`. That is why the hook lives
+  in the scaffold each tab screen renders rather than once in the layout.
+- **No `Platform.OS === 'android'` guard.** `renderToHardwareTextureAndroid` is already a no-op off
+  Android, and a platform check would have made the flag dead on the one harness that can watch it
+  move.
+
+**Verified in motion, not on paper.** `lib/__tests__/pagerSwipeRaster.test.ts` evaluates the hook's
+truth table over both `enabled` values and both events (7 tests, probed: forcing the hook to return
+a constant fails two of them). The web preview drove a **real drag** against a temporary marker
+attribute: **0 pages rastering at rest → 5 while the finger was down → 0 after release.**
+
+⚠️ **The performance claim itself stays `unverified`.** `renderToHardwareTextureAndroid` is a no-op
+everywhere a harness can run, so nothing here can see whether the swipe actually got smoother. The
+wiring is proven; the effect needs the device.
+
+**What stays open if this does not land.** The per-card paint is then still too expensive on that
+device and the fix has to make it cheaper rather than mask it during one gesture. The split is one
+more ten-second test: **Reduce effects OFF + "Lit card surfaces" (`glassSurfaces`) OFF** — that
+switch drops the pane and keeps the shadow. Smooth → it is the pane's gradient and inset rim;
+still rough → it is the shadow's two blur passes. Either answer names a bounded, permanent change,
+and both are visible ones that need a yes.
+
+
 
 
 
