@@ -71,8 +71,18 @@ const WARM_ALPHA = 0.01;
 /** Frames to stay mounted. Two is enough for one draw pass plus the layer promotion. */
 const WARM_FRAMES = 2;
 
-/** The shadow tiers a card, a sheet and the chrome actually use — each its own Skia paint. */
-const WARM_TIERS = ['raised', 'floating', 'chrome'] as const;
+/**
+ * The tiers still drawn as a BLURRED `boxShadow`, and therefore still worth compiling early.
+ *
+ * ⚠️ **`raised` came off this list on 2026-09-17 and must not come back unprompted.** That was
+ * the CARD tier, and `Surface` no longer draws a `boxShadow` at all — it uses `elevation`, which
+ * the framework draws from the view's outline with a cached shadow and nothing to compile. What
+ * remains on the blurred path is `ScreenHeader`'s chrome lift and `CardExpandHost`'s expanded
+ * pane. Warming `raised` here would compile a paint the app never draws, which is a warm-up that
+ * looks right and warms nothing — so `lib/__tests__/paintWarmup.test.ts` checks this list against
+ * the REMAINING callers, and fails if `Surface` starts asking for a layered shadow again.
+ */
+const WARM_TIERS = ['floating', 'chrome'] as const;
 
 export default function PaintWarmup() {
   const theme = useAppTheme();
