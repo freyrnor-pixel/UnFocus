@@ -1,3 +1,28 @@
+diff --git a/node_modules/react-native-tab-view/lib/module/SceneView.js b/node_modules/react-native-tab-view/lib/module/SceneView.js
+index 4880e9b..114c484 100644
+--- a/node_modules/react-native-tab-view/lib/module/SceneView.js
++++ b/node_modules/react-native-tab-view/lib/module/SceneView.js
+@@ -38,7 +38,19 @@ export function SceneView({
+     } else if (isLoading) {
+       // If lazy mode is not enabled, render the scene with a delay if not loaded already
+       // This improves the initial startup time as the scene is no longer blocking
+-      timer = setTimeout(() => setIsLoading(false), 0);
++      // UnFocus patch: STAGGER the reveal by distance from the focused page.
++      // Upstream schedules every non-focused scene's `setIsLoading(false)` at 0ms, so with
++      // `lazy: false` all of them fire in the same timer batch and React commits every
++      // off-screen screen tree in ONE render. Measured in this repo's web preview: a single
++      // 65ms long task ~150ms after the tabs appear, on an EMPTY profile; staggering by
++      // distance removes it from the long-task list entirely (see lib/deferredBoot.ts and
++      // DECISIONS_OPEN.md's swipe-lag entries for the eight-round hunt this closes).
++      // Distance-ordered on purpose: the adjacent pages, the ones a first swipe actually
++      // reaches, still render first. Everything is still on screen within ~50ms of launch,
++      // behind the splash — this is NOT `lazy: true`, which is separately documented as a
++      // regression ("things load after Swiping", 2026-08-28) because a page there does not
++      // render until you visit it.
++      timer = setTimeout(() => setIsLoading(false), Math.abs(navigationState.index - index) * 24);
+     }
+     return () => {
+       unsubscribe?.();
 diff --git a/node_modules/react-native-tab-view/lib/module/TabView.js b/node_modules/react-native-tab-view/lib/module/TabView.js
 index 079ee72..0f97590 100644
 --- a/node_modules/react-native-tab-view/lib/module/TabView.js
@@ -18,6 +43,31 @@ index 079ee72..0f97590 100644
        style: pagerStyle,
        layoutDirection: direction,
        children: ({
+diff --git a/node_modules/react-native-tab-view/src/SceneView.tsx b/node_modules/react-native-tab-view/src/SceneView.tsx
+index f03cc96..6d475b2 100644
+--- a/node_modules/react-native-tab-view/src/SceneView.tsx
++++ b/node_modules/react-native-tab-view/src/SceneView.tsx
+@@ -62,7 +62,19 @@ export function SceneView<T extends Route>({
+     } else if (isLoading) {
+       // If lazy mode is not enabled, render the scene with a delay if not loaded already
+       // This improves the initial startup time as the scene is no longer blocking
+-      timer = setTimeout(() => setIsLoading(false), 0);
++      // UnFocus patch: STAGGER the reveal by distance from the focused page.
++      // Upstream schedules every non-focused scene's `setIsLoading(false)` at 0ms, so with
++      // `lazy: false` all of them fire in the same timer batch and React commits every
++      // off-screen screen tree in ONE render. Measured in this repo's web preview: a single
++      // 65ms long task ~150ms after the tabs appear, on an EMPTY profile; staggering by
++      // distance removes it from the long-task list entirely (see lib/deferredBoot.ts and
++      // DECISIONS_OPEN.md's swipe-lag entries for the eight-round hunt this closes).
++      // Distance-ordered on purpose: the adjacent pages, the ones a first swipe actually
++      // reaches, still render first. Everything is still on screen within ~50ms of launch,
++      // behind the splash — this is NOT `lazy: true`, which is separately documented as a
++      // regression ("things load after Swiping", 2026-08-28) because a page there does not
++      // render until you visit it.
++      timer = setTimeout(() => setIsLoading(false), Math.abs(navigationState.index - index) * 24);
+     }
+ 
+     return () => {
 diff --git a/node_modules/react-native-tab-view/src/TabView.tsx b/node_modules/react-native-tab-view/src/TabView.tsx
 index 07c6570..c8964a5 100644
 --- a/node_modules/react-native-tab-view/src/TabView.tsx
