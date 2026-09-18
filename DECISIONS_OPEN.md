@@ -708,6 +708,58 @@ another unreadable round.
 
 ---
 
+### CLOSED 2026-09-18 — "Works!". It was the shadow, and RN draws that one the expensive way.
+
+Twelve rounds, from *"Rythmic lag when Swiping between Screens"* (2026-09-09) to *"Works!"*. The
+answer, in one line: **the app asked Android for dozens of blurred `boxShadow` layers, and RN
+implements that with a per-frame software blur — where a comparable app uses `elevation`, which the
+framework draws from a view's outline in the GPU pipeline, cached.**
+
+**What actually fixed it**, in the order it landed:
+
+| | change | why it worked |
+|---|---|---|
+| #718 | `overScrollMode="never"` | removed the Android 12+ stretch EdgeEffect, which captured a whole page into an offscreen RenderNode per over-drag frame |
+| #725 | `SceneView` reveal stagger (patch) | four off-screen screen trees were committing in ONE React render ~150 ms after launch; measured 156 ms → 89 ms of long tasks |
+| #728 | cards → `getElevation` | 42 blurred layers, 20 of 21 casters card-sized |
+| #730 | header → `getElevation` | of the 12 blur layers real on Android after #728, **ten were the five headers** at 31 px — the widest in the app |
+
+**What did not, and was reverted** (#729): `offscreenPageLimit` (#719, measured no-change with the
+prop confirmed present in the shipped bundle), the per-drag hardware raster (#722, never confirmed
+and **ungated by `reduceEffects`**, so it survived every settings toggle and masked the one
+instrument that worked), and `PaintWarmup` (#724). Reverting #722 is what made "everything off"
+mean something again — and the maintainer reported the app *"plutselig en del bedre"* immediately
+after.
+
+**The three lessons worth keeping, because each cost a round:**
+
+1. **A no-change is only evidence if delivery is proven.** Five rounds were nearly invalidated by
+   *"føles ikke som det er gjort endringer i det siste"*. `constants/buildInfo.ts` answered it in
+   five seconds — it exists for exactly that, and should be the FIRST thing checked on any "still
+   broken" report, not the twelfth.
+2. **Never ship a fix that the user's own diagnostic switch cannot turn off.** #722 was ungated, so
+   it corrupted the `reduceEffects` signal that had identified the problem in the first place.
+3. **A zero is not a measurement until you prove the probe fired.** Four interaction probes read
+   zero; three had never fired. The same trap green-lit a warm-up test that was checking a shadow
+   the app had stopped drawing.
+
+**What is left, ranked, and none of it is blocking:**
+
+- **`getGlow`** — still a two-pass blur, 15/27 px soft and **22/40 px strong**, wider than the card
+  shadow ever was. `NewSinceGlow` draws it **per row**, plus `GoalGlowDot`, `EnergyMeter`,
+  `PressableScale`. It **cannot** become `elevation`: that shadow is drawn from the outline in the
+  shadow colour, so a coloured halo loses its colour. The ways out — a pre-rendered radial gradient,
+  a blur-free coloured edge, or a cap on how many show at once — are all visible changes and so are
+  the maintainer's call.
+- **`CardExpandHost`** — the last `getLayeredShadow` caller, `floating` rung, drawn only while a
+  card is expanded.
+- **The structural one** — `lazy: false` keeps five screen trees (~650 nodes) permanently mounted
+  and nothing outside `CatalogueTab` is virtualised. Two known-bad exits are already on record
+  (`lazy: true`, reverted twice). Needs its own measurement, not a guess.
+
+
+---
+
 ### 2026-09-17 — delivery confirmed, A shipped, and everything unconfirmed reverted
 
 **`04d7cd1` was showing in Settings.** So the OTAs land, and every report this session is real
