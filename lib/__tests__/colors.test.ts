@@ -775,6 +775,68 @@ describe('Decision 006 — Colour Theme Token Layer', () => {
           });
         }
 
+        // ── The pane paints BRIGHTER than any of those four stops (2026-09-18) ────────────
+        //
+        // ⚠️ **This test exists because the four assertions above went green over a change that
+        // broke none of them and could have broken AA anyway** — the exact shape this whole
+        // block's own header warns about, one layer further in. `getGlassPane` now stacks two
+        // white `rgba()` layers (`glassSheen`, `glassBloom`) ON TOP of the ramp, so the
+        // lightest colour a card paints stopped being `glassTop` the moment they landed, and a
+        // sweep over the four ramp tokens was once again measuring a colour no card draws.
+        //
+        // The worst case is both layers at FULL strength over the lit stop — which is brighter
+        // than anything really painted, because the sheen's ellipse is centred outside the card
+        // and has already fallen off by the time it reaches a corner. That is deliberate: the
+        // bound has to hold on the ALPHAS, not on the current geometry of the gradient, or
+        // retuning the ellipse silently invalidates it while this file goes on passing. See the
+        // note at `glassSheen` in constants/colors.ts for the two levels of highlight that cost.
+        const litComposite = compositeOver([p.glassBloom, p.glassSheen], p.glassTop);
+
+        test(`${themeName} ${mode}: text and textMuted clear AA on the pane's lit HOTSPOT`, () => {
+          expect(contrastRatio(p.text, litComposite)).toBeGreaterThanOrEqual(4.5);
+          expect(contrastRatio(p.textMuted, litComposite)).toBeGreaterThanOrEqual(4.5);
+        });
+
+        test(`${themeName} ${mode}: border holds 3:1 on the pane's lit HOTSPOT`, () => {
+          // `border` is bounded from above by the LIGHTEST thing the pane paints, and this is
+          // now that thing rather than `glassTop`.
+          expect(contrastRatio(p.border, litComposite)).toBeGreaterThanOrEqual(3);
+        });
+
+        test(`${themeName} ${mode}: the sheen is a real layer, measured where it can show`, () => {
+          // A sheen that composites to the stop underneath it is a layer doing nothing, and
+          // nothing above would notice — every AA floor passes MORE easily the dimmer it gets.
+          // So this is the other half of the guard: the layers have to be real.
+          //
+          // ⚠️ **Measured over `glassBottom`, and the first draft measured over `glassTop` and
+          // FAILED in light for a reason worth keeping.** Light's lit stop is `#FEFEFF`; white
+          // at any alpha over that rounds back to `#FEFEFF`, so the hotspot is literally a
+          // no-op at the one corner it is centred on. That is not a defect — a highlight needs
+          // somewhere to lift FROM, and in light the tonal room is all at the shaded end, which
+          // is why `glassBottom` came down a step in the same pass. Over the shaded stop both
+          // themes lift clearly, which is the property that actually matters: the sheen's job
+          // is to curve the ramp, and it can only do that where the ramp is not already white.
+          const shaded = compositeOver([p.glassBloom, p.glassSheen], p.glassBottom);
+          expect(toLuminance(shaded)).toBeGreaterThan(toLuminance(p.glassBottom));
+        });
+
+        test(`${themeName} ${mode}: the ramp's shaded corner still separates from the PAGE`, () => {
+          // ⚠️ **The other end of the same blind spot this block was written about.** (e)'s
+          // ladder pin measures `bg`↔`surface` and nothing measures `bg`↔`glassBottom`, so the
+          // ramp's far end could be taken all the way down to the page tone with every ratio in
+          // this file improving as it went — a darker light surface reads BETTER against dark
+          // ink. A draft of the 2026-09-18 pass did exactly that and put light's shaded corner
+          // 1.049 above the page; the card bottom and the page were the same colour.
+          //   The floor is deliberately low. A card's boundary has been the EDGE rather than the
+          // fill step since 2026-08-15 (see the ladder pin's own note), so this is not rule
+          // 10b's 1.17 restated — it is the point past which the fill step stops being a cue at
+          // all. What holds the boundary is asserted separately, above, at 3:1 on both sides.
+          const step = contrastRatio(p.glassBottom, p.bg);
+          // Reported as a string so a failure names the measured step rather than just "false".
+          expect(`bg↔glassBottom ${step.toFixed(3)} ≥ 1.07: ${step >= 1.07}`)
+            .toBe(`bg↔glassBottom ${step.toFixed(3)} ≥ 1.07: true`);
+        });
+
         test(`${themeName} ${mode}: the ramp is lit at the top and shaded at the bottom`, () => {
           // A pane lit from below is not a pane. This also catches the two stops being swapped
           // in a palette edit, which no contrast assertion above would notice — both ends
@@ -955,6 +1017,31 @@ function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   if (h.length !== 6) return [100, 100, 100];
   return [parseInt(h.substring(0, 2), 16), parseInt(h.substring(2, 4), 16), parseInt(h.substring(4, 6), 16)];
+}
+
+/**
+ * Composite a stack of translucent `rgba()` layers over an opaque `#rrggbb` base, bottom-first,
+ * and return the resulting hex — i.e. what a pixel under all of them actually IS.
+ *
+ * Needed because `contrastRatio` cannot take a translucent colour (see REQUIRED_TOKENS' note at
+ * the top of this file), and the pane's brightest pixel is no longer a token: it is
+ * `glassSheen` over `glassBloom` over `glassTop`. Source-of-truth caveat: the layer ORDER is
+ * fixed here by hand rather than read out of `getGlassPane`, so it is asserted against that
+ * function's output in `__tests__/glassMaterial.test.ts` rather than trusted on both sides.
+ */
+function compositeOver(layers: string[], base: string): string {
+  const parse = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  let [r, g, b] = parse(base);
+  for (const layer of layers) {
+    const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(layer);
+    if (!m) throw new Error(`compositeOver: not an rgba() layer: ${layer}`);
+    const [lr, lg, lb] = [m[1], m[2], m[3]].map(Number);
+    const a = m[4] == null ? 1 : Number(m[4]);
+    r = Math.round(lr * a + r * (1 - a));
+    g = Math.round(lg * a + g * (1 - a));
+    b = Math.round(lb * a + b * (1 - a));
+  }
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 }
 
 function toLuminance(hex: string): number {

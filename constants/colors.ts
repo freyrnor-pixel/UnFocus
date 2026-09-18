@@ -252,6 +252,44 @@ export interface ThemePalette {
   glassRim: string;
   /** The shaded counterpart along the pane's BOTTOM edge. Same inset-shadow mechanism. */
   glassWell: string;
+  /**
+   * The SHEEN — a soft specular hotspot thrown off the pane's top-left corner, painted as a
+   * `radial-gradient` LAYER above the ramp (see `getGlassPane` in constants/theme.ts).
+   *
+   * ⚠️ **This is the 2026-09-18 answer to "make the cards look more like frosted or shiny
+   * glass", and it is the piece the ramp alone could not give.** A linear ramp is a tonal
+   * SHIFT across a face; every surface in the physical world has one, which is why the ramp
+   * made cards read as lit without making them read as glass. What separates glass from matte
+   * paper is a HOTSPOT: a bounded bright region where the light source reflects off the
+   * surface rather than diffusing into it. That is a radial falloff anchored near a corner,
+   * and it cannot be expressed as another stop on the 155° ramp — the ramp runs corner to
+   * corner by construction, so anything added to it brightens a whole diagonal band.
+   *
+   * ⚠️ **It is white-with-alpha, and the pane is still OPAQUE.** The alpha composites against
+   * the layer BELOW IT INSIDE THE SAME DRAWABLE — the ramp, whose stops are opaque hexes, over
+   * `backgroundColor: fill` under that. Nothing samples the backdrop, so the 2026-09-14
+   * particle ruling is untouched and the compositor still sees an opaque rect. Fade it to
+   * `rgba(255,255,255,0)` and never to `transparent`: Android's shaders interpolate
+   * non-premultiplied ARGB, so a `transparent` stop drags the ramp toward BLACK on its way out
+   * and paints a grey smudge where a highlight should be. `fadeOut()` in constants/theme.ts is
+   * what enforces that, and it is the reason these tokens are `rgba()` strings rather than a
+   * hex plus an alpha number.
+   */
+  glassSheen: string;
+  /**
+   * The BLOOM — light diffusing a short way DOWN into the material from the lit top edge,
+   * painted as a second `linear-gradient` layer between the sheen and the ramp.
+   *
+   * This is the "frosted" half of the brief where `glassSheen` is the "shiny" half. A polished
+   * pane reflects light at its edge and stops; a FROSTED one scatters it, so the brightness
+   * bleeds a few pixels into the face before it falls away. `glassRim` is the hairline the
+   * light lands on and this is the short falloff under it — the two are one effect in two
+   * pieces, and a rim without a bloom is what makes a card read as a drawn frame.
+   *
+   * Same opacity contract as `glassSheen` above: white-with-alpha over an opaque ramp, faded
+   * to zero-alpha WHITE, never to `transparent`.
+   */
+  glassBloom: string;
 
   // ── Text ─────────────────────────────────────────────────────────────────
   text: string;            // Primary text (must be ≥ 4.5:1 contrast on bg AND surface)
@@ -695,7 +733,24 @@ const defaultLight: ThemePalette = {
   // very little tonal range across it — push it and the card stops reading as glass and starts
   // reading as a gradient someone applied to a card.
   glassTop: '#FEFEFF',
-  glassBottom: '#F0F4FB',
+  // 2026-09-18, the shiny-glass pass: was `#F0F4FB`. The light pane's whole problem is that it
+  // has almost no range to be lit ACROSS — `glassTop` is pinned near the ceiling (see above), so
+  // every bit of tonal depth a white card can have has to be bought at the bottom. This widens
+  // the ramp by ~20% in relative luminance, which is what gives the sheen and the well something
+  // to read against.
+  //   ⚠️ **Bounded from below by the PAGE, not by contrast, and the first draft of this pass got
+  // that wrong.** It went to `#E9EFF9`, on the reasoning that every ratio improves as a light
+  // surface darkens — `text` 13.5:1, `textMuted` 5.8:1, `border` 4.7:1, all fine, and every
+  // guard in `lib/__tests__/colors.test.ts` stayed green. What none of them measured is the step
+  // from the card's shaded CORNER to `bg` (`#E2EAF5`), which that value took to **1.049** — a
+  // card bottom essentially the same tone as the page it sits on. The ladder pin measures
+  // `bg`↔`surface` (1.179) and never sees the ramp's far end, which is the same green-but-stale
+  // shape as measuring `glassTop` while the sheen paints past it. Both ends now have a guard.
+  //   `#EDF2FA` holds that step at 1.079. That is still under rule 10b's relaxed floor and
+  // deliberately so — the 2026-08-15 ruling moved a card's boundary off the fill step and onto
+  // the EDGE, where `border` measures 4.83:1 against this stop and 4.48:1 against the page. The
+  // fill step is a cue here, not the boundary. Don't spend what is left of it.
+  glassBottom: '#EDF2FA',
   glassTopRaised: '#FFFFFF',
   glassBottomRaised: '#F7FAFE',
   // Near-white at high alpha: on a pale pane the specular line is the one place the material is
@@ -703,7 +758,27 @@ const defaultLight: ThemePalette = {
   glassRim: 'rgba(255,255,255,0.95)',
   // The same blue-grey the light theme's `shadow` is mixed from, so the pane's underside and
   // its cast shadow agree about where the light is.
-  glassWell: 'rgba(38,58,92,0.12)',
+  //   2026-09-18: 0.12 → 0.18. This is the change that does the most for LIGHT mode, and it is
+  // the opposite of the change that does the most for dark. A white pane on a pale ground
+  // cannot get glassier by being lit — it is already the brightest thing on the screen — so its
+  // thickness has to come from the shaded side. The inset now runs diagonally (-1.5, -1.5), so
+  // this shades the RIGHT edge as well as the bottom and the card reads as a slab with a
+  // measurable depth rather than a white rectangle with a line under it.
+  glassWell: 'rgba(38,58,92,0.18)',
+  // White on near-white does little, and that is correct rather than a mistuning: a pane in a
+  // bright room has a wide, weak highlight, not a hot one. 0.45 lifts the top-left corner onto
+  // `#FFFFFF` and fades out across the face, so what the sheen actually buys in light is a
+  // CURVED falloff over the widened ramp above — the card stops reading as a flat plane.
+  // Pushing this higher does not make light mode shinier, it makes the ramp disappear.
+  //   ⚠️ **Light is the theme with HEADROOM, and that is the whole reason these two numbers are
+  // an order of magnitude above dark's.** The ceiling on a white layer is whatever still lets
+  // `textMuted` (`#535D6B`) clear AA, and on pure `#FFFFFF` that measures 6.68:1 — so this layer
+  // may paint all the way to white and nothing breaks. Dark has five levels of room for the same
+  // move (see `glassSheen` there); light has the full range. Spend it.
+  glassSheen: 'rgba(255,255,255,0.45)',
+  // Weaker than the sheen, and kept non-zero so the rim has a falloff under it rather than a
+  // hard stop. See the token's doc for why a rim without a bloom reads as a drawn frame.
+  glassBloom: 'rgba(255,255,255,0.40)',
   text: '#1B2432',
   // 2026-07-31: was #5F6A79 — re-cleared 4.5:1 against the darker bg. 2026-08-20 contrast
   // pass: #5F6978 → #535D6B, 5.36:1 → 6.44:1 on `surface` and 4.58 → 5.51 on `bg`, which was
@@ -958,8 +1033,16 @@ const defaultDark: ThemePalette = {
   //     `#FFFFFF` here, and DESIGN_RULES rule 10a caps it at 17:1. `#232328` puts it at
   //     ~15.6:1 — inside the band with a little room. `#1E1E22`, which looks better, measures
   //     ~16.6:1 and spends all of it; don't take the bottom stop down without re-measuring.
-  //   · **`glassTop` is bounded from ABOVE by `border`.** `#9A9AA6` has to clear WCAG 1.4.11's
-  //     3:1 against the LIGHTEST thing the pane paints, and `#3B3B45` leaves it at ~3.5:1.
+  //   · **`glassTop` is bounded from ABOVE — and as of 2026-09-18 it is `textMuted` that binds,
+  //     not `border`.** This used to read "bounded from ABOVE by `border`", which was true while
+  //     the ramp was the only thing the pane painted. The sheen and the bloom now stack white
+  //     over the lit corner, so "the LIGHTEST thing the pane paints" is a COMPOSITE rather than
+  //     a token, and re-measuring against that composite is what found the tighter of the two
+  //     bounds: at `#43434B` `border` still holds 3.52:1 with room to spare, while `textMuted`
+  //     (`#B0B0BA`) is down to 4.56:1 and about to fail AA on the cards it is printed on.
+  //     **So the pane's ceiling in dark is ~`#43434B`, it is five levels above `glassTop`, and
+  //     the sheen's alpha is what spends them** — see `glassSheen` below. Raise `glassTop` and
+  //     the sheen has to come down by the same amount; they share one budget.
   // Both stops carry a hint of blue (`45`/`28` in the blue channel against `3B`/`23`) because a
   // neutral grey ramp on a true-black page reads as dust rather than as glass — the same reason
   // `rule` is `#3A3A42` and not `#3A3A3A`.
@@ -978,9 +1061,43 @@ const defaultDark: ThemePalette = {
   // without re-running that block.
   glassTopRaised: '#42424A',
   glassBottomRaised: '#2C2C32',
-  // 38% white. Strong enough to read as a specular line on a near-black page, low enough that
-  // it is a highlight on the pane rather than a second border around it.
-  glassRim: 'rgba(255,255,255,0.38)',
+  // ⚠️ **0.38 → 0.72 on 2026-09-18, and the old value was not a mistuning — it was INVISIBLE by
+  // construction.** The rim is drawn just INSIDE the card's border, and that border is
+  // `theme.border` = `#9A9AA6` on all four sides (it has to be: WCAG 1.4.11's 3:1 boundary, and
+  // Android will only antialias a rounded corner when all four border colours are EQUAL). At 38%
+  // white over `#3B3B45` the rim composited to `#85858C`, luminance 0.237 — **darker than the
+  // `#9A9AA6` frame sitting immediately outside it**, luminance 0.327. So the app drew a bright
+  // line with a dimmer line inside it, which the eye reads as a double frame and never as a lit
+  // edge. That is the measured reason the 2026-09-15 ramp landed and the cards still did not
+  // look like glass: the one element that was supposed to say "light source" was being outshone
+  // by the element that says "boundary".
+  //   At 0.72 it composites to `#C8C8CB`, luminance 0.579 — comfortably past the border — so the
+  // sequence from outside in is finally shadow → frame → LIGHT → pane. It carries no text, so
+  // unlike every other white layer on this pane it has no AA ceiling over it; what bounds it is
+  // taste. Past ~0.85 the rim stops reading as an edge catching light and starts reading as a
+  // white outline drawn around the card.
+  glassRim: 'rgba(255,255,255,0.72)',
+  // ⚠️ **These two are SMALL, and the smallness is arithmetic rather than timidity — read this
+  // before "fixing" them upward.** Dark mode has almost no brightness headroom left. The pane
+  // may not paint brighter than about `#43434B` or `textMuted` (`#B0B0BA`) drops under AA on the
+  // very cards it is printed on, and `glassTop` is already `#3B3B45`. That is **five levels of
+  // room**, total, for every white layer stacked on the lit corner.
+  //   0.028 and 0.015 stack to alpha 0.0426 over `glassTop` — `#43434D`, where `textMuted`
+  // measures 4.545:1 and `border` 3.512:1. Both floors hold with the margin of a rounding error,
+  // which is the honest description of this ceiling.
+  //   ⚠️ **That 0.0426 is the alpha with NO radial falloff applied, and it is deliberately the
+  // number the guard checks.** The sheen's actual in-card peak is lower (its centre sits outside
+  // the card, so the brightest pixel a card shows is already ~20% down the falloff), and an
+  // earlier draft of this pass spent that difference — 0.035 rather than 0.028 — on a slightly
+  // hotter highlight. It was taken back out on purpose: a bound that survives only because of
+  // the gradient's geometry silently becomes false the moment someone retunes the ellipse, and
+  // `lib/__tests__/colors.test.ts` would have gone on passing. Two levels of highlight is not
+  // worth a guard that can drift. Full alpha is what the palette is bounded on.
+  //   So in DARK the sheen is what gives the face curvature, and it is the rim above and the
+  // well below that do the visible work. In LIGHT it is the other way round. Neither theme gets
+  // the same effect by the same means, and a pass that retunes one should not assume the other.
+  glassSheen: 'rgba(255,255,255,0.028)',
+  glassBloom: 'rgba(255,255,255,0.015)',
   // Deeper than the rim is bright, because on a black ground the underside of a pane is the
   // edge that disappears — the shade is what keeps the bottom of a card from bleeding into the
   // gutter beneath it.

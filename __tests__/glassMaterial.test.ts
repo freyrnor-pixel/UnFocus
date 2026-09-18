@@ -134,13 +134,41 @@ describe('filledEdge — the one surviving piece of the material recipe', () => 
 });
 
 describe('the material system stays deleted, and stays matte', () => {
-  // DESIGN_COMPARISON/16 §2: "do not re-add the specular highlight… Get solidity from borders,
-  // bases and travel instead. If you conclude the highlight is genuinely required, that is a
-  // maintainer conversation and a separate PR — not a quiet test edit." Same for the frost.
-  it('no specular / gloss token anywhere in the theme or the components', () => {
-    const files = ['constants/theme.ts', 'components/Surface.tsx', 'components/Button.tsx', 'components/AddFAB.tsx'];
-    const offenders = files.filter((f) => /\bspecular\b\s*[:=]/.test(read(f)));
-    expect(offenders).toEqual([]);
+  // ⚠️ **REVERSED BY MAINTAINER REQUEST, 2026-09-18, and rewritten rather than deleted — the
+  // same treatment the BlurView assertion below got, for the same reason.**
+  //
+  // This used to be 'no specular / gloss token anywhere in the theme or the components', a
+  // source scan for `specular:` enforcing DESIGN_COMPARISON/16 §2: *"do not re-add the specular
+  // highlight… If you conclude the highlight is genuinely required, that is a maintainer
+  // conversation and a separate PR — not a quiet test edit."* That conversation happened —
+  // *"What remains is making the cards look more like frosted or shiny glass"* — and this is
+  // that PR, so the ban is lifted rather than worked around. See that file's 2026-09-18
+  // addendum.
+  //   ⚠️ **Leaving the old test in place would have been the worst of the options**, and it is
+  // worth saying why, because it would have passed: the pass names its tokens `glassSheen` and
+  // `glassBloom`, so a regex for `specular:` goes green over a card with a highlight on its
+  // face. A guard that bans a WORD while the app ships the THING is the green-but-stale shape
+  // this file exists to catch, one level up.
+  //
+  // What replaces it is the property actually worth protecting now that a face highlight is
+  // allowed: **there is exactly one of it.** The card registry's whole argument is that a card
+  // is named rather than described; a highlight re-rollable at a call site is how the app gets
+  // fourteen of them again. `getGlassPane` owns the material, `components/Surface.tsx` is the
+  // only file that may mount it, and a gradient painted onto any other surface is the defect.
+  it('only Surface may paint a gradient onto a pane — there is one card material', () => {
+    // Matches the two shapes a style key can take — a plain `backgroundImage:` and the computed
+    // `['…backgroundImage']:` this file uses to pick a platform's spelling — and neither can be
+    // produced by prose, which mentions the word inside backticks and never before a colon.
+    const painters = ALL_SOURCES.filter(
+      (f) => /(experimental_)?backgroundImage(['"]\s*\])?\s*:/.test(read(f)),
+    );
+    expect(painters).toEqual(['components/Surface.tsx']);
+    // ...and it gets the string from `getGlassPane` rather than assembling one locally, so the
+    // bounds documented at the tokens (dark's five levels of headroom above all) cannot be
+    // sidestepped by writing a second gradient here.
+    const surfaceSrc = read('components/Surface.tsx');
+    expect(surfaceSrc).toMatch(/getGlassPane\(/);
+    expect(surfaceSrc).not.toMatch(/`(linear|radial)-gradient\(/);
   });
 
   // Matches real USAGE — an import or a mounted element — never a mention. These files
@@ -886,6 +914,103 @@ describe('the pane is painted ON its fill, with nothing behind it', () => {
     // Lit on top, shaded underneath — a pane lit from below is not a pane, it is a footlight.
     expect(pane.insets[0].offsetY).toBeGreaterThan(0);
     expect(pane.insets[1].offsetY).toBeLessThan(0);
+    // ⚠️ **And lit from the LEFT as well (2026-09-18).** These were `offsetX: 0` — a lit line
+    // under the top edge and a shaded one over the bottom, with the left and right edges getting
+    // neither, on a material every doc in this repo describes as lit from above-LEFT. An inset
+    // shadow at zero blur costs one fill whatever direction it is offset in, so the diagonal was
+    // free; what it buys is a bevel instead of a line. Asserted as a SIGN rather than a value so
+    // a retune can move 1.5 without coming here, and can never re-flatten the light source.
+    expect(pane.insets[0].offsetX).toBeGreaterThan(0);
+    expect(pane.insets[1].offsetX).toBeLessThan(0);
+  });
+
+  // ── The sheen and the bloom (2026-09-18) ────────────────────────────────────────────────
+  //
+  // Maintainer, after the ramp shipped: *"What remains is making the cards look more like
+  // frosted or shiny glass."* The answer was two more `backgroundImage` layers — a radial
+  // hotspot off the top-left corner and a short diffusion under the lit edge — and they are the
+  // first translucent thing this pane has painted since the 2026-09-14 opacity ruling. So the
+  // three tests below pin the three ways that could go wrong, and none of them is a style check.
+  const RAMP = ['#3B3B45', '#232328', 'rgba(255,255,255,0.72)', 'rgba(0,0,0,0.55)'] as const;
+
+  /**
+   * Split a `backgroundImage` string into its top-level layers, tracking paren DEPTH.
+   *
+   * ⚠️ Deliberately not RN's own `,(?![^(]*\))` stop-splitter, which was the first thing tried
+   * here and is wrong at this level: that regex separates colour stops INSIDE one gradient, and
+   * on a three-layer string it returns seven fragments. A gradient's argument list contains both
+   * commas and parens, so depth is the only thing that distinguishes "next layer" from "next
+   * stop", and a test that mis-splits would count layers that do not exist.
+   */
+  const splitLayers = (image: string): string[] => {
+    const out: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let i = 0; i < image.length; i += 1) {
+      const c = image[i];
+      if (c === '(') depth += 1;
+      else if (c === ')') depth -= 1;
+      else if (c === ',' && depth === 0) {
+        out.push(image.slice(start, i).trim());
+        start = i + 1;
+      }
+    }
+    out.push(image.slice(start).trim());
+    return out;
+  };
+
+  it('keeps the pane OPAQUE by putting the ramp last, whatever the layers above it do', () => {
+    // ⚠️ **This is the invariant, and it is deliberately NOT "no layer has alpha".** That
+    // phrasing is the tempting one — it is what the 2026-09-14 ruling sounds like in one line —
+    // and it would ban the material outright. What actually keeps a card from sampling the
+    // backdrop is that the BOTTOM layer is opaque: CSS background layers composite against each
+    // other inside the drawable, so a translucent sheen over an opaque ramp over
+    // `backgroundColor: fill` is an opaque view, and the compositor still sees an opaque rect.
+    const { image } = getGlassPane(...RAMP, 'rgba(255,255,255,0.028)', 'rgba(255,255,255,0.015)');
+    const layers = splitLayers(image);
+    expect(layers).toHaveLength(3);
+    // Last layer is the ramp, and every stop in it is an opaque six-digit hex.
+    const last = layers[layers.length - 1];
+    expect(last.startsWith('linear-gradient(155deg')).toBe(true);
+    expect(last).not.toMatch(/rgba?\(/);
+    expect(last.match(/#[0-9A-Fa-f]{6}/g)).toHaveLength(3);
+    // ⚠️ The ORDER is also what lib/__tests__/colors.test.ts's `compositeOver` assumes when it
+    // measures AA on the lit hotspot — sheen on top, bloom under it, ramp at the bottom. That
+    // helper fixes the order by hand, so this is the assertion that keeps the two in step.
+    expect(layers[0].startsWith('radial-gradient')).toBe(true);
+    expect(layers[1].startsWith('linear-gradient(to bottom')).toBe(true);
+  });
+
+  it('never fades a highlight to `transparent`, which on Android fades it to BLACK', () => {
+    // Android's gradient shaders interpolate non-premultiplied ARGB and CSS `transparent` is
+    // black at zero alpha, so `white → transparent` walks through grey and smudges the pane.
+    // `fadeOut()` in constants/theme.ts is what makes the wrong form unspellable; this asserts
+    // it is actually being used, on both layers, rather than that it exists.
+    const { image } = getGlassPane(...RAMP, 'rgba(255,255,255,0.028)', 'rgba(255,255,255,0.015)');
+    expect(image).not.toMatch(/\btransparent\b/);
+    expect(image.match(/rgba\(255,255,255,0\)/g)).toHaveLength(2);
+  });
+
+  it('gives the AMBIENT rung a hotspot and the raised rung none, at every combination', () => {
+    // ⚠️ **A truth table, not a source scan, per CLAUDE.md's A2 note on `glassOn`** — three
+    // string assertions once confirmed a predicate that had gone constant-false for the whole
+    // app. Both branches are evaluated here and the layer COUNT is what distinguishes them.
+    //   The ruling: `glassTopRaised` is `#42424A`, and its own token doc records that value as a
+    // CEILING found by measuring `textMuted` against it at 4.63:1. A sheet is mostly secondary
+    // text, so there is no headroom above it for a white layer of any strength — 2.8% white over
+    // it lands where `textMuted` fails AA. A sheet gets the ramp, the rim and the well.
+    const p = THEMES.default.dark;
+    const ambient = getGlassPane(p.glassTop, p.glassBottom, p.glassRim, p.glassWell, p.glassSheen, p.glassBloom);
+    const raised = getGlassPane(p.glassTopRaised, p.glassBottomRaised, p.glassRim, p.glassWell, null, null);
+    expect(splitLayers(ambient.image)).toHaveLength(3);
+    expect(splitLayers(raised.image)).toHaveLength(1);
+    expect(raised.image).not.toMatch(/radial-gradient/);
+    // Both rungs keep the bevel — it is the hotspot that is scoped, not the light source.
+    expect(raised.insets).toHaveLength(2);
+    // ...and Surface is what passes the `null`s, keyed on the same `isAmbient` that picks the
+    // fill pair. A hotspot on a sheet cannot be reached from a call site.
+    expect(surface).toMatch(/isAmbient \? theme\.glassSheen : null/);
+    expect(surface).toMatch(/isAmbient \? theme\.glassBloom : null/);
   });
 
   it('draws the edge as per-side border colours, the way glassKey already does', () => {
