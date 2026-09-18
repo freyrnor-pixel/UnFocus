@@ -1629,10 +1629,40 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
  *   1. **a diagonal RAMP across the face** — `top` at the lit corner, `bottom` at the shaded
  *      one, with a middle stop that holds the bright end short of halfway so the light reads as
  *      landing on the pane rather than as a gradient someone applied to a card;
- *   2. **a specular RIM** along the top edge (`rim`), and
- *   3. **a WELL** along the bottom edge (`well`), which is what gives the pane thickness.
+ *   2. **a specular RIM** along the top-left edges (`rim`), and
+ *   3. **a WELL** along the bottom-right edges (`well`), which gives the pane thickness.
  *
- * ── Three constraints shaped this, and each one has killed a previous attempt ──────────────
+ * ── Amended 2026-09-18: a ramp is not a shine, so there are two more layers ────────────────
+ *
+ * Maintainer, after the above shipped: *"What remains is making the cards look more like
+ * frosted or shiny glass."* The ramp was right and it was not enough, and the reason is worth
+ * stating because it is not a matter of degree:
+ *
+ *   **A linear ramp is a tonal SHIFT, and every surface in the world has one.** A sheet of
+ *   matte paper lit from a window has a ramp across it. What separates glass from paper is a
+ *   HOTSPOT — a bounded bright region where the light REFLECTS off the surface instead of
+ *   diffusing into it — and a hotspot is a radial falloff anchored near a corner. It cannot be
+ *   expressed as another stop on the 155° ramp, because that ramp runs corner to corner by
+ *   construction: anything added to it brightens a whole diagonal band, which is a ramp again.
+ *
+ * So two layers go ON TOP of the ramp, inside the same `backgroundImage`, and they split the
+ * maintainer's two words between them:
+ *
+ *   4. **the SHEEN** (`sheen`) — the *shiny* half. A `radial-gradient` ellipse centred just
+ *      off the top-left corner, so what the card shows is the falloff of a highlight whose
+ *      centre is outside it. That is what a reflection of a light source above and to the left
+ *      actually looks like on a pane, and it is why the centre is at `4% -12%` rather than at
+ *      the corner itself — a highlight centred ON the card reads as a spotlight shone at it.
+ *   5. **the BLOOM** (`bloom`) — the *frosted* half. A short vertical falloff from the top
+ *      edge. A polished pane reflects light at its edge and stops; a FROSTED one scatters it,
+ *      so the brightness bleeds a few pixels into the face before dying. `rim` is the hairline
+ *      the light lands on and this is the diffusion under it — one effect in two pieces, and a
+ *      rim without a bloom is exactly what makes a card read as a drawn frame.
+ *
+ * Both are optional (`null` skips the layer), because the RAISED rung cannot have them: see
+ * the `sheen` param doc for the measurement that settled that.
+ *
+ * ── Four constraints shaped this, and each one has killed a previous attempt ───────────────
  *
  * ⚠️ **It is OPAQUE, and that is the 2026-09-14 perf ruling honoured rather than dodged.** The
  * obvious way to make a card look like glass is to let the lit backdrop through it. This app
@@ -1657,8 +1687,34 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
  * ⚠️ **Zero blur radius on both insets, deliberately.** A blurred inset would be prettier and
  * would cost a GPU blur pass per card per frame — the exact cost `getLayeredShadow` above went
  * from three passes to two to avoid. At `blurRadius: 0` an inset shadow is a hairline fill, so
- * this whole function costs one extra gradient in a drawable the view was already painting.
+ * this whole function costs gradients in a drawable the view was already painting.
  * **Don't add blur here without a measurement**; raise an alpha instead, same as the shadow.
+ *
+ * ⚠️ **The two insets run DIAGONALLY (2026-09-18), and they used to run vertically.** They were
+ * `(0, ±1.5)` — a lit line on the top edge and a shaded one on the bottom, with the left and
+ * right edges getting neither. Every doc in this repo says the light is above and to the LEFT,
+ * and a light above-left puts a highlight on the left edge too; the old insets were lighting
+ * the card as if from directly overhead. `(1.5, 1.5)` and `(-1.5, -1.5)` cost exactly what
+ * `(0, 1.5)` and `(0, -1.5)` did — an inset shadow at zero blur is one fill whatever direction
+ * it is offset in — so this is the cheapest of the four changes in this pass and, on a wide
+ * card, the most visible: it is the difference between a line under the top edge and a bevel.
+ *
+ * ⚠️ **The extra layers do NOT make the pane translucent, and the check is mechanical.** The
+ * sheen and the bloom are `rgba()` white, which is the one thing `__tests__/glassMaterial.test.
+ * ts` has a whole block warning about. They are safe for a structural reason rather than a
+ * tuned one: CSS background layers composite against each other WITHIN the drawable, the
+ * BOTTOM layer here is always the ramp (opaque hexes, by the palette's own type), and under
+ * that sits `backgroundColor: fill`. So the view is opaque no matter what alpha these two
+ * carry, the compositor still sees an opaque rect, and nothing samples the backdrop. The
+ * invariant to protect is therefore "the LAST layer is opaque", not "no layer has alpha" —
+ * which is what the test asserts, because the second phrasing would ban the material.
+ *
+ * ⚠️ **Fade a translucent stop to zero-alpha WHITE, never to `transparent`.** Android's
+ * gradient shaders interpolate non-premultiplied ARGB, and CSS `transparent` is
+ * `rgba(0,0,0,0)` — so `white → transparent` walks the colour toward BLACK while the alpha
+ * drops, and paints a grey smudge where a highlight should be. `fadeOut()` below is what makes
+ * that unspellable, and it is why `sheen`/`bloom` arrive as `rgba()` strings rather than as a
+ * hex plus an alpha number.
  *
  * ── Reading the output ────────────────────────────────────────────────────────────────────
  * `image` is a CSS gradient STRING rather than the structured `LinearGradientValue` array,
@@ -1680,18 +1736,76 @@ export function getLayeredShadow(shadowColor: string = '#000', level: Exclude<El
  * @param bottom the shaded stop — `theme.glassBottom` / `theme.glassBottomRaised`.
  * @param rim    `theme.glassRim`, the specular line. Already an rgba string.
  * @param well   `theme.glassWell`, the underside. Already an rgba string.
+ * @param sheen  `theme.glassSheen`, the reflected hotspot — or `null` for no hotspot.
+ *
+ *   ⚠️ **`null` is what the RAISED rung passes, and it is a measurement rather than a taste
+ *   call.** `glassTopRaised` is `#42424A` in dark, and its own token doc records that the value
+ *   is a CEILING found by measuring `textMuted` (`#B0B0BA`) against it at 4.63:1 — a sheet is
+ *   mostly secondary text, and one step lighter fails AA. So there is no headroom above the
+ *   raised rung for a white layer of any strength: 3.5% white over it lands on `#4A4A52`, where
+ *   `textMuted` measures **4.08:1**. A sheet gets the ramp, the rim and the well; the hotspot
+ *   is an ambient-card effect, and `components/Surface.tsx` is where that is decided.
+ * @param bloom  `theme.glassBloom`, the frost's diffusion under the rim — or `null`, same rule.
  */
-export function getGlassPane(top: string, bottom: string, rim: string, well: string) {
-  return {
-    // The middle stop sits at 44%, not 50%. Centring it makes the ramp linear across the face,
+export function getGlassPane(
+  top: string,
+  bottom: string,
+  rim: string,
+  well: string,
+  sheen: string | null = null,
+  bloom: string | null = null,
+) {
+  // CSS stacks background layers FIRST-ON-TOP, and RN's Android implementation matches it
+  // deliberately (`BackgroundImageDrawable.draw()` iterates `layers.indices.reversed()`, with
+  // the comment "first background image appears closer to user"). So the order below is the
+  // painting order read backwards, and the RAMP being last is what keeps the pane opaque —
+  // see the header's note on why that is the invariant worth protecting.
+  const layers = [
+    // The SHEEN. Centred at `4% -12%` — just OFF the top-left corner, so the card shows the
+    // falloff of a highlight rather than its middle. The ellipse is wider than the card
+    // (125% × 105%) and dies at 58%, which puts the last of it around the card's centre; past
+    // that the ramp is on its own, which is what stops the two layers reading as one wash.
+    sheen && `radial-gradient(125% 105% at 4% -12%, ${sheen} 0%, ${fadeOut(sheen)} 58%)`,
+    // The BLOOM. 22% of the card's height, top-down. Short on purpose: this is light scattering
+    // a few pixels into a frosted material, and a long one is just a second ramp fighting the
+    // first.
+    bloom && `linear-gradient(to bottom, ${bloom} 0%, ${fadeOut(bloom)} 22%)`,
+    // The RAMP, and it must stay LAST — every layer above composites against it, and its stops
+    // are the palette's opaque hexes.
+    //   The middle stop sits at 44%, not 50%. Centring it makes the ramp linear across the face,
     // which the eye reads as a gradient fill; holding the bright half short means the light
     // falls off faster than it climbs, which is what a curved, thick surface actually does.
-    image: `linear-gradient(155deg, ${top} 0%, ${mixHex(top, bottom, 0.55)} 44%, ${bottom} 100%)`,
+    `linear-gradient(155deg, ${top} 0%, ${mixHex(top, bottom, 0.55)} 44%, ${bottom} 100%)`,
+  ].filter(Boolean);
+  return {
+    image: layers.join(', '),
     insets: [
-      { offsetX: 0, offsetY: 1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: rim },
-      { offsetX: 0, offsetY: -1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: well },
+      // Lit from above-LEFT, shaded below-right. See the header for why these went diagonal.
+      { offsetX: 1.5, offsetY: 1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: rim },
+      { offsetX: -1.5, offsetY: -1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: well },
     ],
   };
+}
+
+/**
+ * The same `rgba()` colour at zero alpha — `rgba(255,255,255,0.09)` → `rgba(255,255,255,0)`.
+ *
+ * ⚠️ **This exists so that `transparent` is never spellable as a gradient's end stop**, and the
+ * reason is a rendering detail rather than a style preference: Android's gradient shaders
+ * interpolate non-premultiplied ARGB, and CSS `transparent` is *black* at zero alpha. Ending a
+ * white highlight on `transparent` therefore drags it through grey on the way out and smudges
+ * the pane instead of fading off it. Ending on the same RGB at alpha 0 is a clean fade on both
+ * targets. Verified against RN 0.85's parser, which resolves this form to `0x00FFFFFF` — the
+ * colour preserved, the alpha gone.
+ *
+ * Local to this module for the same reason `mixHex` is: `constants/` imports nothing (see the
+ * note at `BorderWeight`). Falls back to the input untouched if it is handed something that is
+ * not an `rgba()` string, so a palette typo degrades to a visible wrong colour rather than to a
+ * silently dropped layer.
+ */
+function fadeOut(rgba: string): string {
+  const m = /^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,[^)]*)?\)$/.exec(rgba);
+  return m ? `rgba(${m[1]},${m[2]},${m[3]},0)` : rgba;
 }
 
 /**

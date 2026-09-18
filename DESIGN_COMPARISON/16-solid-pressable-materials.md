@@ -174,3 +174,38 @@ addendum. `DESIGN_RULES_AUDIT.md`'s 2026-08-15 entry has the four rulings.
 feel "hard and pressable" — they were already sinking, collapsing their shadow and darkening
 their face (2026-08-12); this pass added the resting top-edge highlight, the resting coloured
 halo, and the pressed inner shade. Five cues on one curve.
+
+---
+
+## Addendum, 2026-09-18 — the specular ban is lifted, on the same terms it was set
+
+§2's condition was met. It read: *"If you conclude the highlight is genuinely required, that is
+a maintainer conversation and a separate PR — not a quiet test edit."* The maintainer, against
+the shipped 2026-09-15 ramp: *"What remains is making the cards look more like frosted or shiny
+glass."* That is the conversation; the PR carrying this addendum is the PR.
+
+**What was reversed.** A card face now carries a highlight — `glassSheen`, a radial hotspot off
+the top-left corner, and `glassBloom`, a short diffusion under the lit edge, both painted as
+`backgroundImage` layers over the ramp in `getGlassPane`. The 2026-08-15 addendum above says
+this explicitly was not licence to do that; it is superseded here rather than reinterpreted.
+
+**Why a lit EDGE genuinely was not enough,** which is worth recording because the earlier
+position was reasoned rather than lazy: a linear ramp is a tonal SHIFT across a face, and matte
+paper by a window has one. What distinguishes glass is a bounded region where light reflects
+instead of diffusing — a radial falloff — and that cannot be spelled as another stop on a
+corner-to-corner ramp. The old position held that "frosted is no more glossy than hard and solid
+was", and that is still true of the word; it turned out not to be true of what the maintainer
+was asking to see.
+
+**What the ban is replaced by, because a lifted ban needs a successor and not a gap.**
+`__tests__/glassMaterial.test.ts`'s `specular:` scan is rewritten in place — the same treatment
+the BlurView assertion got, and for a sharper reason: the new tokens are named `glassSheen` and
+`glassBloom`, so the old regex would have stayed GREEN over exactly the change it existed to
+forbid. What replaces it asserts that there is **one** card material: `components/Surface.tsx`
+is the only file in the app permitted to paint a gradient onto a surface, and it must get the
+string from `getGlassPane` rather than assembling one locally. A highlight re-rollable at a call
+site is how the app grew fourteen card headers.
+
+**What still holds, unchanged:** §1's "a cap with no base is the bug"; `Radius.md` at 16; and
+the rule that a BUTTON's solidity comes from borders, bases and travel — this addendum is about
+the card pane, and no gloss was added to `components/Button.tsx` or `components/AddFAB.tsx`.

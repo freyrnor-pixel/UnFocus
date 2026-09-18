@@ -9,14 +9,42 @@
  * A card was `backgroundColor: theme.surface` — ONE colour — plus a `theme.border` hairline,
  * and a rectangle of one colour reads as a rectangle whatever a file header calls the material.
  *
- * So a card is now three pieces of paint, all static, described in full at `getGlassPane`
+ * So a card is now five pieces of paint, all static, described in full at `getGlassPane`
  * (constants/theme.ts):
  *   1. **a RAMP across its face** — `glassTop` at the lit corner to `glassBottom` at the shaded
  *      one, on a 155° diagonal, as a `backgroundImage` ON the fill view;
- *   2. **a specular RIM** along the top edge and a **WELL** along the bottom, both inset
- *      `boxShadow`s at zero blur — which is how the lit edge came back WITHOUT the two-colour
- *      border that forces Android off its antialiased corner path (see `getGlassPane`);
- *   3. **the drop SHADOW** below it, unchanged (`getLayeredShadow`).
+ *   2. **a SHEEN** — a radial hotspot centred just off the top-left corner, layered over the
+ *      ramp in the same `backgroundImage`, and **3. a BLOOM**, a short diffusion falling from
+ *      the lit edge into the face. These two are the 2026-09-18 pass; see below;
+ *   4. **a specular RIM** along the top-left edges and a **WELL** along the bottom-right, both
+ *      inset `boxShadow`s at zero blur — which is how the lit edge came back WITHOUT the
+ *      two-colour border that forces Android off its antialiased corner path (`getGlassPane`);
+ *   5. **the drop SHADOW** below it (`getElevation` since 2026-09-17).
+ *
+ * ── Amended 2026-09-18: a ramp is a tonal shift, and glass needs a HOTSPOT ─────────────────
+ *
+ * Maintainer, after the ramp shipped: *"What remains is making the cards look more like frosted
+ * or shiny glass."* Three things came out of taking that literally, and the third is the one a
+ * future session is most likely to undo by accident:
+ *
+ *   · **A linear ramp is not a shine.** Matte paper by a window has a ramp across it. What
+ *     separates glass from paper is a bounded region where light REFLECTS rather than diffuses,
+ *     and that is a radial falloff — unspellable as another stop on a corner-to-corner ramp.
+ *     Hence `glassSheen` (the shiny half) and `glassBloom` (the frosted half: light scattering
+ *     a few pixels into the material under the lit edge).
+ *   · **The RIM was invisible, and by construction rather than by mistuning.** It is drawn just
+ *     inside the card's border, that border is `theme.border` = `#9A9AA6` on all four sides, and
+ *     at 38% white the rim composited DARKER than the frame outside it. The app was drawing a
+ *     bright line with a dimmer line inside it — a double frame, never a lit edge. At 0.72 the
+ *     order is finally shadow → frame → light → pane. This is the most visible change in the
+ *     pass and it is one number; see the token's doc in constants/colors.ts.
+ *   · ⚠️ **DARK HAS NO BRIGHTNESS HEADROOM, so do not "fix" the sheen upward.** The pane may
+ *     not paint brighter than about `#43434B` or `textMuted` drops under AA on the very cards it
+ *     is printed on, and `glassTop` is already `#3B3B45`: five levels, total, for every white
+ *     layer stacked on the lit corner. `lib/__tests__/colors.test.ts` measures the COMPOSITE for
+ *     exactly this reason — a sweep over the four ramp tokens would have gone green over a
+ *     layer that paints past all of them. In LIGHT the budget is the whole range, and it is the
+ *     shaded end that does the work instead. The two themes get the same look by opposite means.
  *
  * ⚠️ **The pane is OPAQUE, and every word of that is load-bearing — this is the 2026-09-14
  * particle ruling honoured, not walked back.** The obvious way to make a card look like glass
@@ -539,6 +567,16 @@ export default function Surface({
   // `boxShadow` whenever its VALUE IDENTITY changes, so an unmemoised version would re-commit
   // an inset shadow on every render of every card — the exact cost the 2026-08-28 pass was
   // cutting. Every dep is stable per theme, so for a normal user this computes once.
+  //   ⚠️ **The hotspot is AMBIENT-ONLY (2026-09-18), and `null` here is a measurement, not a
+  // style preference.** `glassTopRaised` is `#42424A` in dark and its token doc records that
+  // the value is a CEILING found by measuring `textMuted` (`#B0B0BA`) against it at 4.63:1 — a
+  // sheet is mostly secondary text and one step lighter fails AA. So the raised rung has no
+  // headroom left for a white layer of any strength: 3.5% white over it lands on `#4A4A52`,
+  // where `textMuted` is **4.08:1**. A sheet, a modal and the nav bar get the ramp, the rim and
+  // the well; they do not get the sheen or the bloom.
+  //   This is `surfaceContext` doing the same job it has done since 2026-08-18 (see its doc):
+  // the two tiers pick different material, and the difference is a measured constraint on the
+  // brighter rung rather than a decorative distinction.
   const pane = useMemo(
     () => (paneOn
       ? getGlassPane(
@@ -546,10 +584,13 @@ export default function Surface({
           isAmbient ? theme.glassBottom : theme.glassBottomRaised,
           theme.glassRim,
           theme.glassWell,
+          isAmbient ? theme.glassSheen : null,
+          isAmbient ? theme.glassBloom : null,
         )
       : null),
     [paneOn, isAmbient, theme.glassTop, theme.glassBottom, theme.glassTopRaised,
-      theme.glassBottomRaised, theme.glassRim, theme.glassWell],
+      theme.glassBottomRaised, theme.glassRim, theme.glassWell, theme.glassSheen,
+      theme.glassBloom],
   );
   // ⚠️ **Two different style keys for one value, and this is not a polyfill — both are real.**
   // React Native 0.85 takes a CSS gradient string on `experimental_backgroundImage`;
