@@ -5864,3 +5864,92 @@ Reply with the numbers only. Anything not listed was not changed.
 
 **unverified** — nothing above saw native rendering; awaiting the maintainer's device pass per
 the card above.
+
+## 2026-09-19 — Phase: Visual / the `Backdrop_Handoff` "canopy × halo" layer
+**Status: Built, harness-verified, unverified on device.**
+
+A design handoff (`Backdrop_Handoff.dc.html`, two tintable 390×844 SVG backdrops — "Hero" and
+"Crown") was brought into the app as one new backdrop layer with three call sites.
+
+**Deliverables:**
+- **`lib/boughlight.ts`** — all geometry and strength values as pure data, plus the containment
+  predicate (`clearZoneOffenders`) and the bounding helpers it runs on. Split out of the
+  component deliberately: the claim that makes this layer shippable is a property of the crown's
+  coordinates, and a property has to be testable.
+- **`components/BoughlightBackdrop.tsx`** — draws either frame. `zIndex: -1`, `pointerEvents
+  none`, gated off entirely by `reduceEffects` and down to its static layer by `reducedMotion`.
+  Two moving elements, both whole-layer (bough sway, light breath) — no per-shape animation and
+  no `<G opacity>`, following `ScreenBackground.tsx`'s measured conclusions on both.
+- **Three call sites:** the tabs pager (`crown`, over ScreenBackground, taking the active tab's
+  hue), `ScreenScaffold`'s sub-tier `ownBackground` path (`crown`, behind the same `decorative`
+  gate as ParticleBackground), and onboarding (`hero`).
+- **The growth channel** — the handoff's *"new branches append off the bough… they never
+  un-grow"* wired to `lib/growth.ts`'s existing `level`, five branches over `GROWTH_LEVELS`' five
+  tiers above zero. The tint channel is deliberately NOT duplicated; ScreenBackground already
+  draws it off the same `intensity`.
+- **`constants/motion.ts`** — `Duration.swayLong` (7500) and `Duration.breathe` (5500), the two
+  ambient half-cycles, above `sway`/`ambient` for the same reason those sit above the §1 bands.
+- **`lib/__tests__/boughlight.test.ts`** (19 tests) and `lib/boughlight.ts` between them pin the
+  containment property at every growth tier, the strength ladder against the art deleted on
+  2026-08-17, the trunk-to-twig ordering, and the growth list's prefix stability.
+- **`lib/__tests__/chromeRhythm.test.ts` §6** — the new layer added to `LAYERS`, so the
+  backdrop-group `zIndex` rule binds it too.
+
+**The tension this change sits in, stated plainly:** line art in the backdrop was deleted on
+2026-08-17 on a maintainer report (*"sharp, chaotic vine/line art… too distracting"*), and
+chromeRhythm §6 still forbids it in `ScreenBackground.tsx` permanently. This is a different file
+answering a newer brief, and the three things that make it a different proposition — confinement
+to the frame, a third-to-half the old strength, and a `reduceEffects` kill switch — are written
+down at the top of the component and checked where they can be checked. If the maintainer's
+answer is still "no line art", the revert is deleting three JSX lines; the layer is additive and
+nothing else depends on it.
+
+**Departure from the brief, and why:** the handoff is dark-mode only. Its alphas were chosen
+against `#060C18`, where the hue is a LIGHT mark on a dark ground; at the same alpha on
+`#f7faff` the same hue is a light mark on a lighter one, i.e. invisible — which is what the first
+light render actually looked like. Light therefore inverts the material (tint and mote cores are
+the hue taken DOWN, via `darken`) rather than just taking a lower alpha. Even so, **light reads
+as a whisper and dark reads as the scene.** Giving light a backdrop of equal presence needs a
+light-mode art direction the handoff does not contain; that is a maintainer call, not one to
+invent here.
+
+**Test result:** `tsc` clean, `eslint --max-warnings=0` clean, 142 suites / 2665 tests passing.
+Both theme baselines re-blessed: **every one of the 47 changed baselines grew, 2–13% in light and
+9–31% in dark.** Per CLAUDE.md A2b that is the right direction — the 2026-09-07 regression showed
+up as a large one-directional SHRINK. `npm run preview` walked the app with 0 page errors and 0
+console errors.
+
+## Verification — 2026-09-19 boughlight
+Fixed at 3 call sites: `app/(tabs)/_layout.tsx:441`, `components/ScreenScaffold.tsx:992`,
+`app/onboarding/_layout.tsx:100`
+Harnesses that saw it: tsc, jest (19 new + 2665 total), visual (both themes, 27 baselines each),
+preview (0 page/console errors)
+Blind to this change: native rendering of a translucent full-screen SVG composited over the
+pager; whether the sway reads as a draught or as a wobble on a real 60/120Hz panel; Android's
+`renderToHardwareTextureAndroid` behaviour on these layers; the per-swipe frame cost, which is
+the one thing that would justify reverting on grounds other than taste.
+
+Check on device, both themes:
+1. [dark]  Onboarding step 1: a halo ring sits behind the logo, with light shafts above it and a
+           bough falling from the top right.                                  pass / fail
+2. [dark]  Any tab (Habits is clearest): a bough crest in the top-right corner takes THAT tab's
+           hue, and changes hue when you swipe to another tab.                pass / fail
+3. [dark]  Any tab, lower half: soft motes in the left/right gutters and a glow along the floor
+           — the band that was reported as dead black.                        pass / fail
+4. [dark]  Watch the top-right corner for ~15s: the bough sways once, slowly, and does not
+           detach from the screen edge.                                       pass / fail
+5. [dark]  Push a sub-tier screen (Health → medicine form) off a tab: the scenery stays. It does
+           NOT stay in Settings — that screen passes `decorative={false}` and is meant to be bare.
+                                                                              pass / fail
+6. [light] Steps 1–3 again. Expect a whisper, not a scene — the open question above is whether
+           the whisper is worth its cost or should be turned off in light entirely.
+                                                                              pass / fail / too faint
+7. [dark]  Settings → Accessibility → "Reduce visual effects" ON: the whole layer is gone.
+                                                                              pass / fail
+8. [dark]  Settings → Accessibility → "Reduced motion" ON: the art is all still there, nothing
+           sways or breathes.                                                 pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+
+**unverified** — no harness in this repo can see native compositing or motion feel; awaiting a
+device pass on the card above.
