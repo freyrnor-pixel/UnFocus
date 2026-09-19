@@ -1,16 +1,40 @@
 /**
  * glassBudget.ts — how much light the backdrop may put under a card.
  *
- * **Why this file exists.** `components/Surface.tsx` paints a card with `theme.surfaceGlass`, a
- * translucent fill, and `theme.surface` is that fill ALREADY COMPOSITED over the backdrop — the
- * colour every contrast assertion in the app measures against. Dark's alpha (0.1412) was derived
- * on the premise that the ground under a card is pure `#000000`, which was true while
+ * ⚠️ **READ THIS FIRST (2026-09-19): nothing in this module constrains the app today, and the
+ * paragraph below used to claim the opposite in the present tense.** It described
+ * `components/Surface.tsx` as painting `theme.surfaceGlass`, a translucent fill. That has been
+ * false since #703 (2026-09-14) made every pane OPAQUE: the card paints `theme.surface`, an
+ * opaque hex, and every `surfaceGlass` mention left in Surface.tsx is prose about the past.
+ *
+ * Why that mattered enough to correct rather than tidy: this module's derived ceiling is what
+ * halved the dark backdrop (`orbOpacity` 0.26 → 0.13) on 2026-09-07. The pane went opaque a week
+ * later, which voided the derivation — the ground reaches no card at any strength — but the
+ * halved field stayed, and the alphas were only restored on 2026-09-14. A bound outliving its
+ * premise is the failure mode this repo keeps re-finding; this header was still stating the dead
+ * premise as fact, so the next reader had no way to know the module was inert.
+ *
+ * **What is live instead.** The field is now bounded by what sits NEXT TO a card rather than by
+ * what reaches through it: the backdrop may not out-shine `glassTop` (the brightest thing a card
+ * paints), and `border` still owes WCAG 1.4.11 its 3:1 against the ground outside a card. Both
+ * are asserted in `lib/__tests__/glassBudget.test.ts`, which samples the real wash field.
+ *
+ * **What this module is kept for.** It is the guard that fires IF transmission ever comes back —
+ * its test still models a translucent pane at `surfaceGlass`'s alpha and checks the composite
+ * across the card column, so the day a pane stops being opaque the old failure is caught on the
+ * first run rather than shipped. Everything below describes that hypothetical, not today's app.
+ *
+ * ── History: the premise this was built on, kept because the arithmetic is still correct ────
+ *
+ * `theme.surface` is `surfaceGlass` ALREADY COMPOSITED over the backdrop — the colour every
+ * contrast assertion in the app measures against. Dark's alpha (0.1412) was derived on the
+ * premise that the ground under a card is pure `#000000`, which was true while
  * `components/ScreenBackground.tsx` anchored its washes at the corners. It stopped being true on
  * 2026-09-06, when v2's geometry carried them across the frame — and at 0.1412 the pane transmits
  * **86%**, so the card started painting a colour its own contrast system was not measuring.
  *
  * That was caught, and the fix taken at the time was to make the pane OPAQUE, which made every
- * assertion true by construction and removed the material the brief is about. This module takes
+ * assertion true by construction and removed the material the brief is about. This module took
  * the other route: bound the GROUND instead, so the composite stays inside the band the contrast
  * rules already define and the pane can go on transmitting.
  *

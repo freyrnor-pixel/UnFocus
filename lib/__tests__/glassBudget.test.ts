@@ -37,6 +37,7 @@ import {
   cardLuminanceBand,
   compositeOver,
   maxGroundLuminance,
+  contrastRatio,
   parseHex,
   relativeLuminance,
   type RGB,
@@ -232,6 +233,76 @@ describe('the backdrop may not light a card out of its contrast band', () => {
       }
     }
     expect(failed).toBe(true);
+  });
+
+  // ── The bound that is actually LIVE now that every pane is opaque (2026-09-19) ───────────
+  //
+  // ⚠️ **Everything above this point models a TRANSLUCENT card, and no card in the app is one.**
+  // That is not dead weight — `components/ScreenBackground.tsx`'s palette block names those
+  // assertions as the guard that fires if transmission ever comes back, and they are kept for
+  // exactly that. But it does mean they cannot bound the field any more: nothing composites
+  // through an opaque pane, so the wash could be taken to full white and every assertion above
+  // would go on passing. When the 2026-09-19 pass widened the wash radii to stop the middle of
+  // the screen being rgb(1,2,3), this file did not notice — it parses the real geometry, so it
+  // SAW the change, and its model simply has no path from the ground to the card any more.
+  //
+  // So here is the constraint that replaced it, and it is a different shape: not "how much light
+  // may reach the card" but **"how much light may sit NEXT TO it"**.
+  (['light', 'dark'] as const).forEach((mode) => {
+    it(`${mode}: the field never out-shines the brightest thing a card paints`, () => {
+      // ⚠️ **The ceiling is `glassTop`, and the first draft of this guard used `glassBottom` and
+      // was WRONG in an instructive way.** `glassBottom` is the card's darkest stop and sits at
+      // the card's bottom-right; the field peaks at the screen's TOP-LEFT, where a card paints
+      // its LIT stop. Comparing the field's brightest point to the card's darkest one compares
+      // two places that are never adjacent, and it reported 224% on the geometry that ships
+      // today — i.e. it called the shipped app broken, which is the signature of a bound that
+      // describes nothing real.
+      //   What actually goes wrong is the field out-shining the card AT THE SAME POINT, and
+      // since both are brightest at the top-left, `glassTop` is the honest ceiling. A backdrop
+      // past it is not a lit ground — it is a card cut out of a bright page. Today's geometry
+      // measures 85% of it; that headroom is the budget a future widening spends.
+      const p = palette(mode === 'dark' ? 'DARK' : 'LIGHT');
+      const theme = THEMES.default[mode];
+      const floor = relativeLuminance(parseHex(theme.glassTop));
+      let worst = { lum: -1, at: '', rgb: [0, 0, 0] as unknown as RGB };
+      for (const hue of HUES) {
+        for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
+          for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
+            const g = groundAt(p, x, y, hue);
+            const L = relativeLuminance(g);
+            if (L > worst.lum) worst = { lum: L, at: `${x},${y} hue ${hue}`, rgb: g };
+          }
+        }
+      }
+      // In LIGHT the card is near-white and the page is a pale wash, so this is slack by
+      // construction; it is asserted in both modes anyway, because the failure it describes is
+      // a mode-independent one and a guard that runs in one mode invites a light-only defect.
+      const ratio = worst.lum / floor;
+      expect(
+        `${mode}: field peaks at ${(ratio * 100).toFixed(0)}% of glassTop (rgb(${worst.rgb.join(',')}) at ${worst.at}) — under 100%: ${ratio < 1}`,
+      ).toBe(
+        `${mode}: field peaks at ${(ratio * 100).toFixed(0)}% of glassTop (rgb(${worst.rgb.join(',')}) at ${worst.at}) — under 100%: true`,
+      );
+    });
+
+    it(`${mode}: the card border still holds 3:1 against the field outside it`, () => {
+      // WCAG 1.4.11, measured on the OUTER side of the boundary. This is the bound that decides
+      // how much brighter a future pass may take the backdrop, so it is worth knowing it is not
+      // close: dark clears it by a wide margin at the current geometry.
+      const p = palette(mode === 'dark' ? 'DARK' : 'LIGHT');
+      const theme = THEMES.default[mode];
+      const border = parseHex(theme.border);
+      let worst = 99;
+      for (const hue of HUES) {
+        for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
+          for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
+            worst = Math.min(worst, contrastRatio(border, groundAt(p, x, y, hue)));
+          }
+        }
+      }
+      expect(`${mode} border-on-field ${worst.toFixed(2)}:1 >= 3: ${worst >= 3}`)
+        .toBe(`${mode} border-on-field ${worst.toFixed(2)}:1 >= 3: true`);
+    });
   });
 
   it('parsed the real geometry, not an empty match', () => {
