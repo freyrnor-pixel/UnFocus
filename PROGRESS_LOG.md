@@ -6026,3 +6026,66 @@ needs a device measurement BEFORE it reaches `main`, not a verification card aft
 backdrop"* — no sway, no breath, one canvas rather than three, and no per-screen second instance.
 That version costs one rasterisation at mount and nothing per frame, and it is the only version
 that should be tried without a device profiler in hand.
+
+## 2026-09-20 — Phase: the card material, round four (transmission)
+**Status: Shipped, device verification OPEN** — the verification card below is unanswered.
+
+**What this round was.** The fourth report of *"ser fortsatt ikke ut som frosted
+eller shiny glass"*. Rounds one and two (#717's ramp, #732's sheen/bloom/rim) both
+changed the CARD. Round three (#733) lit the field a little. CLAUDE.md's A3 rule says
+two failures on one line means the diagnosis is wrong, so round four measured before
+changing anything, and the measurement was not on the card:
+
+> A card was opaque, and it sat on `rgb(1,2,3)`. Glass reads as glass by transmitting
+> a lit ground. There was no lit ground, and the pane let nothing through.
+
+**Both halves, because each alone is worse than neither.** Both were built and
+rendered before being discarded, which is the part worth keeping:
+
+| experiment | result |
+|---|---|
+| translucent pane over the old dark field | flat uniform slabs — the v2 note's own prediction |
+| vivid field under an opaque pane | `border` 1.91:1, under WCAG 1.4.11 — cards as holes in a wallpaper |
+
+**The veil is dark now.** `surfaceGlass` `rgba(255,255,255,0.1412)` →
+`rgba(48,48,48,0.75)`: identical over black (48 × 0.75 = 36 = `#242424`), but
+transmitting 25% instead of 86%. That inversion is what buys the backdrop its
+headroom — `lib/glassBudget.ts`, once `maxGroundLuminance` stopped assuming a white
+pane, puts the ground ceiling at 37/255 for the old veil and **128/255** for the new
+one. The backdrop then roughly doubles (`DARK.orbOpacity` 0.20 → 0.36), swept rather
+than picked: 0.42 clean, 0.48 fails on `border` 3:1.
+
+**The performance ruling is intact and is now unspellable.** `transmits` requires
+`!particlesEnabled`; particles default off; over a static backdrop a translucent pane
+is one composite, not a per-frame repaint. Turning the dots back on restores the
+opaque card automatically.
+
+**New decisions:** none added to REBUILD_DECISIONS.md. The reversal of the 2026-09-14
+opacity ruling is recorded at `components/Surface.tsx`'s header and in
+`DESIGN_COMPARISON/16`'s 2026-09-18 addendum.
+
+### Verification — transmission pass (2026-09-20)
+Changed at: `constants/colors.ts` (`surfaceGlass`), `constants/theme.ts` (`veil()`,
+`getGlassPane`), `components/Surface.tsx` (`transmits`/`baseFill`),
+`components/ScreenBackground.tsx` (orb alphas), `store/useSettingsStore.ts` +
+`lib/db.ts` (particles off).
+Harnesses that saw it: `visual` (both themes — alpha compositing and SVG gradients
+render faithfully on web, so this is evidence rather than a proxy), jest, tsc, eslint.
+Blind to this change: native corner and inset-shadow rendering, the `elevation`
+shadow, and **actual frame cost on device**.
+
+Check on device, both themes:
+1. [dark]  Home → a card's face: takes on the colour of the glow behind it, and differs top-left vs bottom-right.   pass / fail
+2. [dark]  Scroll Home: the card's tint CHANGES as it moves over the field (this is what separates transmission from a baked gradient).   pass / fail
+3. [dark]  Between cards: a visible blue/violet field, not black.   pass / fail
+4. [light] As 1, much subtler by design — a faint cool cast, not a grey wash.   pass / fail
+5. [either] Settings → particles ON makes cards go flat/opaque again. That is the interlock, not a bug.   pass / fail
+6. [dark]  Scrolling and tab-swipe feel, unchanged from #731's "Works!".   pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+
+⚠️ **Item 6 carries the risk, and it is an argument rather than a measurement.** A
+translucent pane over a STATIC backdrop should be one composite rather than a
+per-frame repaint, and the interlock enforces the static part — but frame cost cannot
+be measured from this end. If 6 fails, `transmits` → `false` is a one-line revert that
+returns the opaque card without touching anything else.
