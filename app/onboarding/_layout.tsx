@@ -29,7 +29,7 @@
  *
  * Connections:
  *   Imports → expo-router (Stack, ThemeProvider, DefaultTheme), react-native,
- *             @/components/ScreenBackground, @/lib/useAppTheme
+ *             @/components/ScreenBackground, @/components/BoughlightBackdrop, @/lib/useAppTheme
  *   Used by → onboarding stack layout (router layout for /onboarding/*)
  *   Data    → none (presentational)
  *
@@ -55,6 +55,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import ScreenBackground from '@/components/ScreenBackground';
+import BoughlightBackdrop from '@/components/BoughlightBackdrop';
 import { useAppTheme } from '@/lib/useAppTheme';
 
 /**
@@ -90,6 +91,13 @@ export default function OnboardingLayout() {
           continuous field the screens slide over rather than something that changes with them
           — see the header for the swap this replaced. */}
       <ScreenBackground />
+      {/* The boughlight HERO (2026-09-19 `Backdrop_Handoff`) — the full-frame read: three light
+          shafts, a halo ring at (195,118), a long bough with eight leaves, and motes down both
+          gutters. `hero` rather than `crown` because onboarding is exactly the case its brief
+          names — *"any screen with no card stack over the middle"* — so the bough is free to fall
+          through the frame instead of being folded above it. Outside the Stack, beside the field,
+          so the whole flow slides over one continuous scene. */}
+      <BoughlightBackdrop variant="hero" />
       {/* `contentStyle` alone is NOT enough to see the backdrop. The navigator also paints its
           screen container from the navigation theme's `colors.background`, which defaults to
           an opaque #F2F2F2 — so the backdrop rendered perfectly and was covered by a flat grey
