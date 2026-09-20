@@ -121,7 +121,11 @@ describe('the strength ladder stays under the art that was deleted', () => {
     }
   });
 
-  it('halves the whole layer in light, where a tinted stroke is a mark rather than a light', () => {
+  it('holds light under dark, where a tinted stroke is a mark rather than a light', () => {
+    // ⚠️ The gap is a fifth, not a half — light started at 0.5 and went to 0.8 when the first
+    // render showed the layer was simply invisible there. See `FIELD_OPACITY`'s note. What this
+    // pins is the ORDER, which is the part that has a reason behind it; the size of the gap is a
+    // measured taste call and is allowed to move.
     expect(FIELD_OPACITY.light).toBeLessThan(FIELD_OPACITY.dark);
     expect(FIELD_OPACITY.dark).toBe(1);
   });
