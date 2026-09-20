@@ -89,6 +89,16 @@ export default function OnboardingLayout() {
       {/* The app's ordinary backdrop, on every step. Rendered outside the Stack, so it is one
           continuous field the screens slide over rather than something that changes with them
           — see the header for the swap this replaced. */}
+      {/* ⚠️ **This takes the CROWN frame (the default), not the handoff's `hero`, and the
+          difference is a rule rather than a preference.** Hero is the full-frame read and is
+          deliberately exempt from `CLEAR_ZONE` — its fourth branch falls through the middle of
+          the frame and two of its leaves sit at (194,306) and (182,372). Onboarding is the one
+          place in the app where full-bleed art sits DIRECTLY UNDER the controls rather than
+          around a protected centre box, which is what `lib/__tests__/stableLayout.test.ts`'s
+          *"draws no bespoke art under the onboarding controls"* is about: the motif this flow
+          used to draw was removed for exactly that, and the guarantee the rule now rests on is
+          that every step draws the ordinary backdrop, *"which keeps a clear centre box by
+          construction"*. The crown keeps it; the hero is the one frame that does not. */}
       <ScreenBackground />
       {/* `contentStyle` alone is NOT enough to see the backdrop. The navigator also paints its
           screen container from the navigation theme's `colors.background`, which defaults to
