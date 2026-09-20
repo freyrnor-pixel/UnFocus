@@ -28,11 +28,12 @@
  *     an already-drawn hole and the ring visibly lagged behind it — the fix is to stop the source
  *     of the drift rather than remeasure faster. Sub-tier screens (forms, Settings) are untouched;
  *     the tour never targets one.
- *   - Layer order is critical: L1 background → L2 particles → L3 content → L4 top block →
- *     L4.5 optional sticky-below-header block → L5 bottom block
- *   - **`decorative={false}` drops L1's orbs and L2 entirely** (2026-09-15), keeping the page
+ *   - Layer order is critical: L1 background → L3 content → L4 top block →
+ *     L4.5 optional sticky-below-header block → L5 bottom block. **There is no L2 on this path
+ *     any more** (2026-09-20) — see the block where it used to mount.
+ *   - **`decorative={false}` drops L1's orbs and the crown** (2026-09-15), keeping the page
  *     colour and every piece of chrome. It is a navigation-cost prop, not a styling one — the
- *     `ownBackground` path rebuilds both layers on every push and tears them down on every pop.
+ *     `ownBackground` path rebuilds that layer on every push and tears it down on every pop.
  *     See the prop's own doc; `app/settings.tsx` is the only caller so far.
  *   - **ScrollIntoViewContext (2026-07-13 keyboard fix; 2026-07-16 made row-relative)**:
  *     wraps `children` inside the ScrollView, exposing a `scrollIntoView(node)` that measures
@@ -266,7 +267,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
-import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
 import DebugGeneralNoteButton from '@/components/DebugGeneralNoteButton';
@@ -392,7 +392,8 @@ type Props = {
    */
   pagerFloatingNav?: boolean;
   /**
-   * Whether this screen renders its own L1 background + L2 particle overlay.
+   * Whether this screen renders its own L1 background. (It used to mean "+ L2 particle
+   * overlay" too; this path stopped mounting one on 2026-09-20 — see the block where it was.)
    * Default true. The 5 pager tab sites (app/(tabs)/*) pass false, since
    * app/(tabs)/_layout.tsx already renders one shared instance behind the whole
    * pager — without this, each swiped tab would carry its own backdrop and the
@@ -407,9 +408,12 @@ type Props = {
    */
   plainBackground?: boolean;
   /**
-   * Whether this screen's own backdrop draws the DECORATIVE layers — the orb field (L1) and the
-   * drifting particles (L2) — over the page colour. Default true. `false` keeps the page colour
-   * and the chrome exactly as they are; only the ambient field goes.
+   * Whether this screen's own backdrop draws the DECORATIVE layer — the orb field and the crown
+   * art it carries (L1) — over the page colour. Default true. `false` keeps the page colour and
+   * the chrome exactly as they are; only the ambient field goes.
+   *
+   * ⚠️ It no longer also gates a particle field: this path stopped mounting one on 2026-09-20,
+   * so `decorative` now governs exactly one layer on a sub-tier screen.
    *
    * ⚠️ **This exists for navigation cost, and it is NOT `plainBackground` (2026-09-15).**
    * `plainBackground` also flattens the page to pure white/black and squares the header
@@ -419,10 +423,13 @@ type Props = {
    * **Why it is worth a prop.** The 5 pager tabs pass `ownBackground={false}` and share ONE
    * backdrop instance that lives for the whole session — its orbs are rasterised once. Every
    * sub-tier screen mounts its OWN through the `ownBackground` path, so a push BUILDS a
-   * full-screen `<Svg>` of radial-gradient shaders plus a second five-dot animated field (the
-   * pager's own keeps running underneath, invisible), and a pop TEARS THEM DOWN. That is
-   * symmetric work, which matches the report: *"going in and out of settings still lag"*, slow
-   * in both directions, and gone when Accessibility → Reduce effects is on.
+   * full-screen `<Svg>` of radial-gradient shaders and a pop TEARS IT DOWN. That is symmetric
+   * work, which matches the report: *"going in and out of settings still lag"*, slow in both
+   * directions, and gone when Accessibility → Reduce effects is on.
+   *
+   * ⚠️ **It used to build a second five-dot animated field here too** — the pager's own kept
+   * running underneath, invisible — and that half is gone unconditionally as of 2026-09-20,
+   * for every sub-tier screen rather than only the ones that pass this prop.
    *
    * ⚠️ **What is NOT proven.** `reduceEffects` drops three things, not one: these orbs, the
    * particles, AND `components/Surface.tsx`'s two-pass `boxShadow` on every card. The device
@@ -978,10 +985,26 @@ export default function ScreenScaffold({
         </>
       )}
 
-      {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground.
-          Restored 2026-09-01 with the component; this is the sub-tier / non-pager path, where the
-          pager's own single instance does not reach. */}
-      {ownBackground && !plainBackground && decorative && <ParticleBackground />}
+      {/* ── L2 (the drifting dots) IS NOT MOUNTED HERE ANY MORE (2026-09-20) ─────────────────
+          This path is the SUB-TIER one — a pushed screen, built on every push and torn down on
+          every pop — and it used to mount a SECOND `ParticleBackground` on top of the pager's,
+          which stays alive underneath. Five more views and five more loops per push, for a field
+          whose whole job is ambient drift on a screen the user is passing through.
+
+          ⚠️ **This is the cost half of the crown re-land, and it is deliberate.** #735 reverted
+          #734 partly for *"a FOURTH instance per sub-tier screen"*; this pass adds the crown to
+          the sub-tier backdrop (`components/CrownArt.tsx` draws it INSIDE the orb canvas, so it
+          adds no canvas) and removes a moving layer in the same breath. The net is that a push
+          is **cheaper than it was before the art existed**, not more expensive — which is the
+          only honest way to put this art on every screen after what #734 cost.
+
+          What a pushed screen shows instead of drift: the crown's own **17 static motes**, which
+          are part of the raster and cost nothing. The pager's three tabs are untouched and keep
+          the live field — see `app/(tabs)/_layout.tsx`, which mounts the one shared instance.
+
+          If a sub-tier screen ever needs the live dots back, this is one line; put it back behind
+          `decorative` exactly as it was. `lib/__tests__/chromeRhythm.test.ts` §6 pins the count of
+          particle mounts in the app at one so a second cannot reappear unnoticed. */}
 
 
       {/* L3: Content — swipe-between-sites navigation now lives one level up, in

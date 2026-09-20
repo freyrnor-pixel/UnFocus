@@ -34,6 +34,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { getElevation, getGlow, getLayeredShadow, mix, Spacing } from '@/constants/theme';
 import { contrastRatio, IDENTITY_HUES, THEMES } from '@/constants/colors';
+import { CROWN, CROWN_GROWTH, HERO } from '@/lib/boughlight';
 
 const ROOT = join(__dirname, '..', '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
@@ -847,12 +848,16 @@ describe('the backdrop — under everything, and out of the middle', () => {
   // the platform whose sorting rule you happened not to be looking at, and "does an orb reach the
   // middle of the screen" is arithmetic nobody eyeballs correctly. Hence a source scan.
 
-  // Two layers, not three: `components/ParticleBackground.tsx` was DELETED on 2026-08-27
-  // (round 20's stray artefacts — the loose drifting dots). The rule below is unchanged and
-  // still binds every backdrop layer that exists; a new one has to be added here.
+  // ⚠️ **THREE layers, and the third is a correction.** This list said "two, not three" because
+  // `components/ParticleBackground.tsx` was deleted on 2026-08-27 (round 20's stray artefacts —
+  // the loose drifting dots). **It was restored on 2026-09-01 and this list was never updated**,
+  // so for three weeks the app's one animating backdrop layer was outside every rule below —
+  // including the `zIndex: -1` pin, which is the rule that exists because a backdrop once drew
+  // over the bottom nav. A new backdrop layer has to be added here.
   const LAYERS = [
     'components/ScreenBackground.tsx',
     'components/HomeHeroBackground.tsx',
+    'components/ParticleBackground.tsx',
   ];
 
   it('pins every backdrop layer under the chrome', () => {
@@ -877,6 +882,138 @@ describe('the backdrop — under everything, and out of the middle', () => {
     expect(s).not.toMatch(/<Path/);
     expect(s).not.toMatch(/stroke=/);
     expect(s).not.toMatch(/BRANCHES|GROWTH_STROKES|GROWTH_LEAVES|leafD/);
+  });
+
+  // ⚠️ **THE LINE-ART RULE IS RE-OPENED, DELIBERATELY, AND THIS IS THE REPLACEMENT — read it
+  // before treating the test above as the whole rule (2026-09-20).**
+  //
+  // The 2026-08-17 ruling deleted line art from the backdrop and the test above makes that
+  // permanent *for that file*. On 2026-09-20 the maintainer asked for the `Backdrop_Handoff`
+  // brief's art back — halo, bough, leaves and motes — and chose the full crown over the light
+  // alone, knowing what had been ruled. `components/CrownArt.tsx` draws it.
+  //
+  // **A new file is not an answer to a rule about a filename.** Letting the strokes move one
+  // module over and calling the guard satisfied is the exact shape this repo keeps paying for.
+  // So the rule is rewritten in place: what the 2026-08-17 report was actually about — art that
+  // fights the content and is louder than the field — becomes two checked properties, and the
+  // old test keeps the orb field itself clean.
+  //
+  //   1. **It stays out of the card column.** `lib/__tests__/boughlight.test.ts` runs
+  //      `clearZoneOffenders(CROWN)` at every growth tier. That is the property the 2026-08-17
+  //      art failed and it is arithmetic, not a promise.
+  //   2. **It is quieter than the art that was pulled**, which drew at 0.42 — checked below and
+  //      in that file's strength-ladder block.
+  it('keeps the crown quieter than the line art that was deleted', () => {
+    // 0.42 is `branchOpacity` on the 2026-07-19 branch-and-leaf art, the value it was drawing at
+    // when it was pulled. Every stroke in both of the handoff's frames sits under it, so the
+    // drawing that came back is strictly fainter than the one that was ruled against — a
+    // different proposition rather than the same one in a new file.
+    const strokes = [...HERO.bough.strokes, ...CROWN.bough.strokes, ...CROWN_GROWTH.map((g) => g.branch)];
+    expect(strokes.length).toBeGreaterThan(0);
+    for (const b of strokes) expect(b.o).toBeLessThan(0.42);
+  });
+
+  it('draws the crown in ONE canvas, the one that was already there', () => {
+    // Cause 3 of #735's post-mortem: *"three new full-screen layers, plus a FOURTH instance per
+    // sub-tier screen"*. The art is composed into `OrbCanvas`'s existing `<Svg>` — so it is
+    // shapes in a raster this file already builds and already caches as a hardware texture, and
+    // the per-frame layer count is exactly what it was before the art existed.
+    const s = code('components/ScreenBackground.tsx');
+    // Exactly one `<Svg` per canvas component, and no new one minted for the crown.
+    expect(s.match(/<CrownArt/g) ?? []).toHaveLength(1);
+    expect(s.match(/<CrownDefs/g) ?? []).toHaveLength(1);
+    // ...and it goes to the NEUTRAL canvas only. Handing it to the two hue buffers or the growth
+    // layer as well would draw three copies and put the layer count straight back.
+    expect(s).toMatch(/id="sbOrbNeutral"[\s\S]{0,240}?crown=\{/);
+    for (const id of ['sbOrbHueA', 'sbOrbHueB', 'sbOrbGrowth']) {
+      expect({ id, gets: /crown=/.test(s.slice(s.indexOf(`id="${id}"`), s.indexOf(`id="${id}"`) + 200)) })
+        .toEqual({ id, gets: false });
+    }
+  });
+
+  // ── The per-frame-cost rules (2026-09-20) ──────────────────────────────────────────────────
+  //
+  // ⚠️ **These exist because of a PROCESS failure, not a code one, and #735 named it: _"No
+  // harness in this repo measures frame cost. `npm run visual` proves a static render; `jest`
+  // proves logic. A change whose main risk is per-frame GPU work had no gate here at all, so
+  // 'CI is green' was never evidence about it."_**
+  //
+  // #734's verification card explicitly listed per-swipe frame cost as a blind class, and the
+  // change was merged anyway on green CI, and the maintainer measured 20fps on the shipped app.
+  // Nothing below measures a frame either — that is still a device check. What they do is make
+  // the two SHAPES that cost those frames impossible to write without deleting a test, which is
+  // the most a source scan can honestly buy.
+
+  it('animates nothing but opacity on a full-screen backdrop layer', () => {
+    // ⚠️ **Cause 1 of the #734 regression, and it had ALREADY shipped twice.** The bough was a
+    // full-screen `<Svg>` in an `Animated.View` whose transform included `rotate`, so the GPU
+    // resampled the whole surface every frame; `components/ParticleBackground.tsx` had the same
+    // mistake one layer down, on its container, until 2026-09-20.
+    //   A layer's OPACITY is a blend of something already drawn. A layer's TRANSFORM is a
+    // resample of it. That is the whole distinction, and it is why the orb crossfades are free
+    // and the sway was not.
+    for (const file of LAYERS) {
+      const s = code(file);
+      // Every Reanimated style in the group, extracted and read rather than pattern-matched:
+      // the assertion is about which KEYS the returned object has.
+      const bodies = [...s.matchAll(/useAnimatedStyle\(\(\) => \(\{([^}]*)\}\)\)/g)].map((m) => m[1]);
+      for (const body of bodies) {
+        const keys = [...body.matchAll(/(\w+)\s*:/g)].map((m) => m[1]);
+        expect({ file, keys }).toEqual({ file, keys: keys.map(() => 'opacity') });
+      }
+    }
+  });
+
+  it('confines every animated transform to the dots, which are a few px across', () => {
+    // The particle field DOES animate transforms, legitimately — that is the app's only motion
+    // in the backdrop now. What makes it affordable is that each dot is a 4–6px view, so the
+    // damage rect is five small quads rather than the window. The same animation on a
+    // full-screen view is #734.
+    const s = code('components/ParticleBackground.tsx');
+    // The moving element carries `styles.dot`, never the absolute-fill `styles.backdrop`.
+    expect(s).toMatch(/<Animated\.View[\s\S]{0,80}?styles\.dot/);
+    expect(s).not.toMatch(/<Animated\.View[\s\S]{0,80}?styles\.backdrop/);
+    // ...and the container that IS full-screen is a plain View with no texture request, because
+    // its CONTENTS move rather than the view itself — RN's own scoping of that prop.
+    expect(s).not.toMatch(/renderToHardwareTextureAndroid/);
+    // The sizes are bounded, so "a dot" cannot quietly become a panel.
+    const sizes = [...s.matchAll(/\{\s*size:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(sizes.length).toBeGreaterThanOrEqual(3);
+    for (const px of sizes) expect(px).toBeLessThanOrEqual(8);
+  });
+
+  it('runs exactly one endless loop in the whole backdrop group', () => {
+    // ⚠️ **Cause 2 of the #734 regression.** It added two, at 15s and 11s, *"deliberately not
+    // multiples of each other, so the window is always dirty"* — an always-animating backdrop is
+    // affordable only if the frame is cheap, and three more full-screen composites per frame is
+    // not cheap. The crown's sway and breath are gone (see components/CrownArt.tsx), so the dots
+    // are the only thing left that never ends.
+    //   An allow-list rather than a ban: a new loop is a decision, and this is where it gets
+    // declared. Raise the number here and say why, or find another way.
+    const loops = LAYERS.flatMap((file) => {
+      const s = code(file);
+      return [...s.matchAll(/Animated\.loop\(|withRepeat\(/g)].map(() => file);
+    });
+    expect(loops).toEqual(['components/ParticleBackground.tsx']);
+  });
+
+  it('stops that loop when the app is not in front', () => {
+    // It is the app's only endless animation, so it is the only one that can go on scheduling
+    // work for a window nobody is looking at. Same lever lib/useNowMinutes.ts uses.
+    const s = code('components/ParticleBackground.tsx');
+    expect(s).toMatch(/AppState\.addEventListener\('change'/);
+    expect(s).toMatch(/loop\.stop\(\)/);
+  });
+
+  it('mounts the particle field exactly once in the app', () => {
+    // ⚠️ **Cause 3, in its cheapest form.** `components/ScreenScaffold.tsx` mounted a SECOND
+    // instance on every sub-tier push — five more views and five more loops, on top of the
+    // pager's, which stays alive underneath — and tore it down on every pop. That came out on
+    // 2026-09-20 in the same pass that put the crown on those screens, so a push is cheaper than
+    // it was before the art existed rather than more expensive.
+    const mounts = ['app/(tabs)/_layout.tsx', 'components/ScreenScaffold.tsx']
+      .filter((f) => /<ParticleBackground\s*\/>/.test(code(f)));
+    expect(mounts).toEqual(['app/(tabs)/_layout.tsx']);
   });
 
   it('is two or three orbs at the brief\'s opacity, in both themes', () => {

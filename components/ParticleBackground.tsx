@@ -27,9 +27,11 @@
  * again, probe the DOM on a non-deterministic page, the way this was.
  *
  * Connections:
- *   Imports → lib/useAppTheme (useIsDark, useAccessibility), store/useSettingsStore
- *   Used by → components/ScreenScaffold (L2, for sub-tier and non-pager site screens);
- *             app/(tabs)/_layout.tsx (hoisted, one shared instance behind the whole pager)
+ *   Imports → react-native (Animated, AppState), lib/useAppTheme (useIsDark, useAccessibility),
+ *             store/useSettingsStore
+ *   Used by → app/(tabs)/_layout.tsx — the app's ONE mount, hoisted behind the whole pager.
+ *             ⚠️ `components/ScreenScaffold` mounted a SECOND instance on every sub-tier push
+ *             until 2026-09-20; see the block where it was for why that came out.
  *
  * Edit notes:
  *   - Same render contract as ScreenBackground: absolutely positioned, pointerEvents="none",
@@ -48,6 +50,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
+  AppState,
   Easing,
   StyleSheet,
   View,
@@ -98,6 +101,15 @@ const DOTS: DotSpec[] = [
 function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
   const progress = useRef(new Animated.Value(0)).current;
 
+  // ⚠️ **The loop is STOPPED while the app is backgrounded (2026-09-20).** `Animated.loop` has no
+  // end condition, so without this the five dots go on scheduling work for a window nobody is
+  // looking at — and this field is the app's only always-running animation now that the crown's
+  // sway and breath are gone (see `components/CrownArt.tsx`). Android stops delivering frames to
+  // a hidden window, but the loop's own JS bookkeeping does not know that and keeps turning over
+  // at each leg boundary.
+  //   `AppState` is the same lever `lib/useNowMinutes.ts` already uses for the same reason. The
+  // dots resume from wherever they were rather than resetting, because `progress` is kept across
+  // the pause — a user coming back to the app should not see the whole field snap to the floor.
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -111,8 +123,18 @@ function RisingDot({ spec, color }: { spec: DotSpec; color: string }) {
         Animated.timing(progress, { toValue: 0, duration: 0, useNativeDriver: true }),
       ])
     );
-    loop.start();
-    return () => loop.stop();
+    if (AppState.currentState === 'active') loop.start();
+    // Optional chaining on purpose: react-native-web's AppState returns nothing at all from
+    // `addEventListener` on some versions, which is the same shim `lib/useNowMinutes.ts` guards
+    // against — and the web preview is where this file is hardest to see failing.
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') loop.start();
+      else loop.stop();
+    });
+    return () => {
+      loop.stop();
+      sub?.remove?.();
+    };
   }, [progress, spec.delay, spec.duration]);
 
   const translateY = progress.interpolate({

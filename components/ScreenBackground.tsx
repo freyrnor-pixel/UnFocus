@@ -124,6 +124,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { useAppTheme, useIsDark, useAccessibility } from '@/lib/useAppTheme';
 import { useGrowth } from '@/lib/useGrowth';
 import { getScreenColor, type ScreenKey } from '@/lib/screenColor';
+import { CrownArt, CrownDefs, type BoughlightVariant } from '@/components/CrownArt';
 
 
 type Props = {
@@ -154,6 +155,18 @@ type Props = {
    * and what is still unproven about it.
    */
   decorative?: boolean;
+  /**
+   * Which `Backdrop_Handoff` frame the neutral canvas carries, or `'none'` for the plain wash
+   * field. Default `'crown'` — the frame held to `CLEAR_ZONE`, i.e. the one that can sit under a
+   * card stack. Onboarding passes `'hero'`, which has no card column to stay out of.
+   *
+   * ⚠️ **This is a prop and not a constant so the re-land has a one-word revert.** #734 shipped
+   * this art and #735 took it back out at 20fps; the whole shape of the re-land (see
+   * `components/CrownArt.tsx`) is that the art is additive shapes in a canvas that already
+   * exists, and nothing depends on it. `crown="none"` returns the app to exactly the field it
+   * shipped with, with no other edit.
+   */
+  crown?: BoughlightVariant | 'none';
 };
 
 /**
@@ -541,7 +554,7 @@ function orbStops(color: string, peak: number) {
  * silently win for both — a bug that surfaces as "the growth tint is the wrong colour" long
  * after the change that caused it, and that native would not reproduce.
  */
-function OrbCanvas({ id, color, colorByIndex, peak, level, indexes }: {
+function OrbCanvas({ id, color, colorByIndex, peak, level, indexes, crown }: {
   id: string;
   /** One colour for every disc this canvas draws. Mutually exclusive with `colorByIndex`. */
   color?: string;
@@ -560,6 +573,16 @@ function OrbCanvas({ id, color, colorByIndex, peak, level, indexes }: {
   peak: number;
   level: number;
   indexes?: readonly number[];
+  /**
+   * The `Backdrop_Handoff` frame to draw INSIDE this canvas, if any.
+   *
+   * ⚠️ **Passed to the NEUTRAL canvas only, and that is the whole performance argument.** The
+   * art is extra shapes in a raster this file already builds and already caches as a hardware
+   * texture, so it adds nothing the compositor has to blend per frame — which is the cost #735
+   * reverted #734 for. Handing it to the hue buffers or the growth canvas as well would draw
+   * three copies of it and put the layer count straight back.
+   */
+  crown?: BoughlightVariant;
 }) {
   const grow = level * ORB_GROWTH_STEP;
   const idxs = indexes ?? ORBS.map((_, i) => i);
@@ -577,6 +600,11 @@ function OrbCanvas({ id, color, colorByIndex, peak, level, indexes }: {
           </RadialGradient>
         ))}
       </Defs>
+      {/* A second `<Defs>` rather than merging into the one above: react-native-svg wants
+          gradient defs as direct children of a `<Defs>`, two of them in one `<Svg>` is valid SVG,
+          and keeping the crown's ids in their own block means neither set can collide with the
+          other as either grows. */}
+      {crown && <CrownDefs variant={crown} level={level} />}
       {idxs.map((i) => {
         const o = ORBS[i];
         return (
@@ -593,6 +621,9 @@ function OrbCanvas({ id, color, colorByIndex, peak, level, indexes }: {
           />
         );
       })}
+      {/* Drawn AFTER the washes: the handoff's halo is the light source and the washes are the
+          air it lights, so the art reads as being in front of the field rather than behind it. */}
+      {crown && <CrownArt variant={crown} level={level} />}
     </Svg>
   );
 }
@@ -636,7 +667,7 @@ function OrbLayer({ style, ...canvas }: React.ComponentProps<typeof OrbCanvas>
   );
 }
 
-function ScreenBackground({ activeRoute, decorative = true }: Props) {
+function ScreenBackground({ activeRoute, decorative = true, crown = 'crown' }: Props) {
   const isDark = useIsDark();
   const { reducedMotion } = useAccessibility();
   const { level, intensity } = useGrowth();
@@ -904,7 +935,13 @@ function ScreenBackground({ activeRoute, decorative = true }: Props) {
               opaque cards now clip that to the gutters, and the gutters are exactly where this
               layer is visible. Cheap repaints there are the other half of that fix. */}
           <View pointerEvents="none" renderToHardwareTextureAndroid style={styles.backdrop}>
-            <OrbCanvas id="sbOrbNeutral" colorByIndex={neutralOrbColors(p)} peak={p.orbOpacity} level={level} />
+            <OrbCanvas
+              id="sbOrbNeutral"
+              colorByIndex={neutralOrbColors(p)}
+              peak={p.orbOpacity}
+              level={level}
+              crown={crown === 'none' ? undefined : crown}
+            />
           </View>
           {/* ⚠️ **The two hue buffers mount only on a screen that HAS a route hue (2026-09-15),
               and this is NOT the gate that was reverted on 2026-09-07 — read the difference

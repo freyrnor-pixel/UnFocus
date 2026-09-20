@@ -6089,3 +6089,85 @@ translucent pane over a STATIC backdrop should be one composite rather than a
 per-frame repaint, and the interlock enforces the static part — but frame cost cannot
 be measured from this end. If 6 fails, `transmits` → `false` is a one-line revert that
 returns the opaque card without touching anything else.
+
+## 2026-09-20 — Phase: the canopy re-land, as shapes rather than layers
+**Status: Shipped, device verification OPEN** — the verification card below is unanswered.
+
+**The ask.** *"I want a vivid background, with particles, and frosted glass cards. But it has to
+be done in a SIMPLE way so that it looks good without the screen refreshing all the time… The
+backdrop can just run, and does not HAVE to be shown through the cards."* With the same
+`Backdrop_Handoff` brief attached that #734 implemented and #735 reverted — so a re-land.
+
+**Three of the four pieces already existed** after #733 (frosted pane at 25% transmission, a lit
+ground, and five particles with the hardware-texture mistake taken off them). The missing one was
+**structure**: the field was three soft washes with no shape in it. That is all this pass adds.
+
+**The diagnosis that shaped it.** #735's post-mortem named three causes and **none was the
+drawing** — a full-screen `<Svg>` in an `Animated.View` whose transform included `rotate`; two
+loops at deliberately non-multiple periods so the window never idled; and three new layers plus a
+fourth instance per sub-tier screen. Those are properties of the MOUNT. So:
+
+| #735's cause | what this does instead |
+|---|---|
+| animated full-screen transform | nothing animates — the bough is drawn at rest |
+| two endless loops | the breath is drawn at `LIGHT_REST`, the midpoint of its own travel |
+| three layers + a per-screen fourth | **zero new layers** — the art is SVG children of the orb canvas that already exists |
+
+`components/CrownArt.tsx` exports `<CrownDefs>` and `<CrownArt>` — SVG nodes, not a view. It
+renders no `View`, owns no `<Svg>`, imports nothing from `react-native`, holds no `Animated`
+value and asks for no hardware texture. `components/ScreenBackground.tsx` composes it into the
+**neutral** orb canvas only (`CROWN_TO_ORB = 607/844`; the two frames agree on aspect to 0.2%), so
+the per-frame layer count on every screen is exactly what it was before the art existed.
+
+**And the sub-tier path got CHEAPER, not more expensive.** `components/ScreenScaffold.tsx` was
+mounting a SECOND `ParticleBackground` on every push — five more views and five more loops on top
+of the pager's, which stays alive underneath — and tearing it down on every pop. That is gone. A
+pushed screen now gains the crown and loses a moving layer; it shows the crown's 17 **static**
+motes instead of drift. The loops also stop on `AppState` background now.
+
+**Onboarding takes the CROWN, not the hero — found by a test, not by taste.** `HERO` is
+deliberately exempt from `CLEAR_ZONE`, and onboarding is the one screen where full-bleed art sits
+directly under the controls; `lib/__tests__/stableLayout.test.ts` already forbids that, from a
+report about trunk strokes reading as lines on the controls. Nothing in the app mounts `HERO`
+today and `lib/boughlight.ts` says so at the export rather than leaving it looking switched off.
+
+**The guards, because #735's real finding was a process one** — *"No harness in this repo measures
+frame cost… 'CI is green' was never evidence about it."* Seven new ones, each **self-probed in
+both directions** (S0.2): an animated transform on a backdrop layer, a second endless loop, the
+crown becoming a layer, the crown drawn in a second canvas, the gate gone constant-false, a second
+particle mount, and the hardware texture back on the particle container — **all seven fail on
+their defect and pass clean**. §6's `LAYERS` list also gains `ParticleBackground`, which was
+restored on 2026-09-01 and never re-listed, so for three weeks the app's one animating backdrop
+layer sat outside every rule in that section including the `zIndex: -1` pin.
+
+**The line-art rule is re-opened deliberately, and rewritten in place rather than sidestepped.**
+Moving the strokes to a new file does not answer a rule about a filename. §6 keeps the orb field
+clean and adds the two properties the 2026-08-17 report was actually about: the crown stays out of
+the card column (`clearZoneOffenders` at every growth tier) and every stroke is below the 0.42 the
+deleted art drew at.
+
+### Verification — crown re-land (2026-09-20)
+Changed at: `lib/boughlight.ts` (restored, `SWAY_DEG` deleted, `CROWN_TO_ORB`/`LIGHT_REST` added),
+`components/CrownArt.tsx` (new), `components/ScreenBackground.tsx` (`crown` prop + composition),
+`components/ScreenScaffold.tsx` (second particle field removed),
+`components/ParticleBackground.tsx` (`AppState` pause), `app/onboarding/_layout.tsx` (comment),
+`lib/__tests__/boughlight.test.ts` + `lib/__tests__/chromeRhythm.test.ts` (the guards).
+Harnesses that saw it: `visual` both themes (18 screens each), jest (142 suites / 2679 tests),
+tsc, eslint, `jitter` clean, `preview` 0 page / 0 console errors.
+Blind to this change: **actual frame cost on device** — the one that matters, and the one #734 got
+wrong; plus native corner/inset shadow, `elevation`, gestures and haptics.
+
+Check on device, both themes:
+1. [dark]  Home at rest: halo crest + bough above the card stack, nothing in the middle column.   pass / fail
+2. [dark]  Swipe between all 3 tabs, twice: no tug, no framerate drop vs today.                   pass / fail
+3. [dark]  Scroll Home hard: cards' tint shifts over the field; scrolling feels like today.       pass / fail
+4. [dark]  Push into Plans and pop back, 3x each: no lag either direction.                        pass / fail
+5. [light] As 1 — much subtler by design.                                                         pass / fail
+6. [either] Settings → "Reduce visual effects" ON: crown, orbs and dots all gone; cards opaque.   pass / fail
+
+Reply with the numbers only. Anything not listed was not changed.
+
+⚠️ **Items 2 and 4 carry the risk and cannot be measured from this end.** If either fails,
+`crown="none"` on `ScreenBackground` is a one-word revert that returns the app to the field it
+shipped with, touching nothing else. Per A3, two failures on one line stops the item and it goes
+to `DECISIONS_OPEN.md` rather than a third attempt.
