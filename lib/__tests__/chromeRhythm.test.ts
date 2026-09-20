@@ -850,16 +850,9 @@ describe('the backdrop — under everything, and out of the middle', () => {
   // Two layers, not three: `components/ParticleBackground.tsx` was DELETED on 2026-08-27
   // (round 20's stray artefacts — the loose drifting dots). The rule below is unchanged and
   // still binds every backdrop layer that exists; a new one has to be added here.
-  //
-  // `components/BoughlightBackdrop.tsx` joined on 2026-09-19 (the `Backdrop_Handoff` brief). It
-  // is the one layer in this list that draws LINE ART, which is what the ruling above had
-  // deleted — so it carries the extra containment guard the others don't need:
-  // `lib/__tests__/boughlight.test.ts` proves its under-cards variant never enters the card
-  // column. The z rule below binds it the same as the rest, and for the same reason.
   const LAYERS = [
     'components/ScreenBackground.tsx',
     'components/HomeHeroBackground.tsx',
-    'components/BoughlightBackdrop.tsx',
   ];
 
   it('pins every backdrop layer under the chrome', () => {

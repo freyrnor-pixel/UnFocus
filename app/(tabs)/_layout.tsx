@@ -33,7 +33,7 @@
  *   Imports → expo-router/js-top-tabs (TopTabs — Expo Router's own SDK-56 top-tabs
  *             wrapper, not @react-navigation/material-top-tabs directly; see Edit notes),
  *             react-native-safe-area-context, components/BottomNav, components/ScreenBackground,
- *             components/HomeHeroBackground, components/BoughlightBackdrop, lib/siteNav
+ *             components/HomeHeroBackground, lib/siteNav
  *   Note    → the navigator's `initialRouteName` is the user's chosen starting tab
  *             (fixed at the centre tab since 2026-08-21 — see START_TAB_ROUTE below),
  *             frozen at mount. That is NOT the same thing as `unstable_settings.
@@ -216,7 +216,6 @@ import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/Botto
 import ScreenBackground from '@/components/ScreenBackground';
 import TourSpotlight from '@/components/TourSpotlight';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
-import BoughlightBackdrop from '@/components/BoughlightBackdrop';
 import ParticleBackground from '@/components/ParticleBackground';
 import { useAccessibility } from '@/lib/useAppTheme';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -430,15 +429,6 @@ export default function TabsLayout() {
             keeps its ±MAX_PARALLAX oversize so this change moves no pixels. */}
         <View style={styles.bgLayer} pointerEvents="none">
           <ScreenBackground activeRoute={activeRouteName} />
-          {/* L1.5: the boughlight CROWN (2026-09-19 `Backdrop_Handoff`). ScreenBackground's three
-              washes give the frame its light; this gives that light a SOURCE — a halo whose crest
-              clears the top edge, a short bough above the card column, and static motes in the
-              gutters and on the floor. `crown` is the variant chosen deliberately: it is the one
-              whose geometry stays out of x 84-306 / y 236-612, which is where this pager's cards
-              sit (lib/boughlight.ts, checked by lib/__tests__/boughlight.test.ts). It takes the
-              active tab's hue from the same `activeRouteName` the field does, so the two stay in
-              register on a swipe, and gates itself off on `reduceEffects`. */}
-          <BoughlightBackdrop variant="crown" activeRoute={activeRouteName} />
           <Animated.View style={[StyleSheet.absoluteFill, { opacity: heroOpacity }]} pointerEvents="none">
             <HomeHeroBackground />
           </Animated.View>

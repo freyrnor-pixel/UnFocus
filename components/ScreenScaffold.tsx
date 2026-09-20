@@ -8,7 +8,6 @@
  *
  * Connections:
  *   Imports → react-native, react-native-safe-area-context, components/ScreenBackground, components/HomeHeroBackground,
- *             components/BoughlightBackdrop,
  *             components/ScreenHeader (now also passed `isHome`, so
  *             ScreenHeader can gate its OTA "update available" button to Home only), components/BottomNav,
  *             components/DebugGeneralNoteButton (floating "Add general note" FAB, self-gated on
@@ -267,7 +266,6 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { nextStep, parseProgress } from '@/lib/tourSteps';
 import ScreenBackground from '@/components/ScreenBackground';
 import HomeHeroBackground from '@/components/HomeHeroBackground';
-import BoughlightBackdrop from '@/components/BoughlightBackdrop';
 import ParticleBackground from '@/components/ParticleBackground';
 import ScreenHeader from '@/components/ScreenHeader';
 import BottomNav, { NAV_FLOAT_GAP, NAV_PAINTED_HEIGHT } from '@/components/BottomNav';
@@ -978,18 +976,6 @@ export default function ScreenScaffold({
           <ScreenBackground decorative={decorative} />
           {isHome && <HomeHeroBackground />}
         </>
-      )}
-
-      {/* L1.5: the boughlight CROWN — the sub-tier / non-pager half of the pair the tabs pager
-          mounts (2026-09-19 `Backdrop_Handoff`). Without it, pushing Settings or a form off a tab
-          drops the halo, the bough and the motes for the length of that screen, which reads as
-          the scenery flickering out rather than as a new page.
-            Gated on `decorative` alongside L2 and NOT on `ownBackground` alone: this is a second
-          full-screen `<Svg>` on a path that already builds one per push, and `decorative={false}`
-          is the prop that exists to buy that back. `crown`, never `hero` — a sub-tier screen has a
-          card stack like any other (lib/boughlight.ts's CLEAR_ZONE note). */}
-      {ownBackground && !plainBackground && decorative && (
-        <BoughlightBackdrop variant="crown" activeRoute={screenKey} />
       )}
 
       {/* L2: Particle overlay — same ownBackground gating as L1; also dropped for plainBackground.
