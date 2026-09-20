@@ -1013,7 +1013,22 @@ const defaultDark: ThemePalette = {
   // not by taste: at 7% the pane would be `#121212` and `text` measures 17.0:1 on it, past the
   // 16:1 bound rule 10a defends. 14.12% is what `#242424` actually needs; it is not a free
   // choice.
-  surfaceGlass: 'rgba(255,255,255,0.1412)',
+  // ⚠️ **A DARK VEIL AT 0.75, NOT A WHITE ONE AT 0.1412 (2026-09-20) — and the change is what
+  // makes a vivid backdrop possible at all.** Over black this composites to `#242424` exactly,
+  // the same `surface` every contrast assertion in the app measures, so a card on an unlit part
+  // of the screen is pixel-identical to the opaque one it replaces. What changes is everywhere
+  // else: it transmits **25%** where the old value transmitted **86%**.
+  //   That inversion is the whole unlock. At 86% transmission the ground IS the card — over a
+  // ground of rgb(40,60,110) the old veil composited to rgb(70,88,130), which is why every pass
+  // since 2026-09-06 had to keep the backdrop at 1–4% luminance and why the cards have had
+  // nothing to catch. At 25% the same ground gives rgb(46,51,66): a visible blue cast on the
+  // pane, white text at 12.6:1, `textMuted` at 5.85:1 and `border` at 4.52:1 — all clear. The
+  // backdrop can now be a wallpaper instead of a whisper, which is the half of "frosted glass"
+  // the card was never going to supply on its own.
+  //   ⚠️ The colour is `48,48,48` because 48 × 0.75 = 36 = `#242424`'s channel, exactly. Change
+  // the alpha and this must be re-derived with it (`__tests__/glassMaterial.test.ts`'s
+  // 'the painted glass and the measured composite agree' is what fails if you don't).
+  surfaceGlass: 'rgba(48,48,48,0.75)',
   // ⚠️ **0.1882, re-derived 2026-08-26 alongside the `#242424` correction.** `surfaceRaised`
   // (the overlay/nav tier — a sheet, modal, or floating header/bar) has to stay LIGHTER than
   // plain `surface`, or "raised" reads backwards; `__tests__/glassMaterial.test.ts` asserts

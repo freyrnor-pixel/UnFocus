@@ -336,11 +336,43 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     // that file red — at which point this number has to come back down and the measurement has
     // to be retaken a third time. Same standing instruction, now enforced by a test rather than
     // by a reader noticing a comment.
+    //
+    // ⚠️ **0.26 → 0.20 on 2026-09-19, and THIS ASSERTION STOPPED PINNING A LITERAL** — it had
+    // been rewritten in place four times by then, once per retune, which is the tell that it
+    // was pinning the wrong thing. This repo's own rule, written at the card-edge test after
+    // the same mistake: *"assert the PROPERTY the design promises, not the number that happened
+    // to be there."*
+    //   The change itself is a trade inside one total, not a retreat. The wash RADII grew (see
+    // `ORBS`) because the middle of the screen measured rgb(1,2,3) on the shipped render and a
+    // card cannot look like glass sitting on black — that was the third "doesn't look like
+    // glass" report, and the first two rounds had both changed the card. Widening a falloff
+    // lifts its shoulder everywhere, which would have taken the canvas PEAK from 0.0383 to
+    // 0.0496 relative luminance, past `glassTop` (0.0449). Scaling the alpha by that same 0.773
+    // holds the peak where it ships today while the middle rises about tenfold.
+    //   **So the number here is now an output, and the bound is computed elsewhere.** What
+    // decides how bright the field may be is `lib/__tests__/glassBudget.test.ts`: the field's
+    // peak must stay under `glassTop`, and `border` must keep 3:1 on the ground outside a card.
+    // Both sample the real wash field, so they survive a geometry change that this assertion
+    // could only ever notice by going stale. All this one still owes is that the value stays
+    // inside v2's own 16–30% band — outside it, the app is not drawing v2's backdrop any more,
+    // whatever the composite says.
     const m = src.match(/const DARK: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
-    expect(value).toBeGreaterThan(0);
-    expect(value).toBeCloseTo(0.26, 5);
+    //
+    // ⚠️ **The upper bound moves 0.30 → 0.42 on 2026-09-20 with the transmission change, and
+    // this is the one place to say why that is not just relaxing a guard to fit.** v2's 16–30%
+    // band describes a backdrop drawn BEHIND OPAQUE CARDS — light in the frame, decoration in
+    // the gutters. The ambient pane transmits again at 25%, so the field is now the card's light
+    // source: it is what the material catches, and it is the only reason a card can look like
+    // glass at all. A band measured for the other regime cannot bound this one.
+    //   What bounds it instead is `lib/__tests__/glassBudget.test.ts`, which computes the limit
+    // from the field the app actually draws — the card's composite must stay inside its contrast
+    // band, and `border` must keep 3:1 on the ground outside the card. Swept against those: 0.42
+    // clean, 0.48 fails on the border. This assertion is a cap AT that measured edge, standing
+    // behind the real guard, not a second opinion about brightness.
+    expect(`DARK.orbOpacity ${value} inside 0.16-0.42: ${value >= 0.16 && value <= 0.42}`)
+      .toBe(`DARK.orbOpacity ${value} inside 0.16-0.42: true`);
   });
 
   it('LIGHT.orbOpacity was raised too, but stays well under dark', () => {

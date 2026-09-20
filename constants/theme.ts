@@ -1754,6 +1754,7 @@ export function getGlassPane(
   well: string,
   sheen: string | null = null,
   bloom: string | null = null,
+  veilBase: string | null = null,
 ) {
   // CSS stacks background layers FIRST-ON-TOP, and RN's Android implementation matches it
   // deliberately (`BackgroundImageDrawable.draw()` iterates `layers.indices.reversed()`, with
@@ -1775,7 +1776,9 @@ export function getGlassPane(
     //   The middle stop sits at 44%, not 50%. Centring it makes the ramp linear across the face,
     // which the eye reads as a gradient fill; holding the bright half short means the light
     // falls off faster than it climbs, which is what a curved, thick surface actually does.
-    `linear-gradient(155deg, ${top} 0%, ${mixHex(top, bottom, 0.55)} 44%, ${bottom} 100%)`,
+    veilBase
+      ? `linear-gradient(155deg, ${veil(top, veilBase)} 0%, ${veil(mixHex(top, bottom, 0.55), veilBase)} 44%, ${veil(bottom, veilBase)} 100%)`
+      : `linear-gradient(155deg, ${top} 0%, ${mixHex(top, bottom, 0.55)} 44%, ${bottom} 100%)`,
   ].filter(Boolean);
   return {
     image: layers.join(', '),
@@ -1785,6 +1788,39 @@ export function getGlassPane(
       { offsetX: -1.5, offsetY: -1.5, blurRadius: 0, spreadDistance: 0, inset: true, color: well },
     ],
   };
+}
+
+/**
+ * The alpha at which a veiled ramp stop is drawn. Low enough that the pane still transmits
+ * through the ramp (the two multiply: 0.75 × 0.84 leaves ~21% getting through), high enough
+ * that `veil()` below can reach the ramp's lit stop without asking for a channel over 255.
+ */
+const VEIL_ALPHA = 0.16;
+
+/**
+ * Express an OPAQUE ramp stop as a translucent overlay that composites to the same colour over
+ * `base` — so a transmitting pane draws a ramp that is pixel-identical on an unlit ground and
+ * lets the lit ground through everywhere else.
+ *
+ * ⚠️ **This is what lets the ramp survive the 2026-09-20 transmission change without being
+ * re-tuned by hand.** The ramp's look is still owned by the `glassTop`/`glassBottom` HEXES — one
+ * source of truth, unchanged — and this derives the transmitting form from them rather than
+ * duplicating the design in a second pair of tokens that would drift the first time one moved.
+ *
+ * Solving `stop = C·a + base·(1 − a)` for the overlay colour gives `C = (stop − base·(1 − a))/a`.
+ * At `VEIL_ALPHA` and dark's `#242424` base that lands inside 0–255 for every stop the palette
+ * defines; a channel that would overflow is CLAMPED, which shifts the stop slightly rather than
+ * producing an invalid colour. If a future palette change makes a stop unreachable, the honest
+ * fix is to raise `VEIL_ALPHA` (and spend transmission) rather than to let the clamp silently
+ * flatten the ramp — `__tests__/glassMaterial.test.ts` asserts the round-trip, so it will say so.
+ */
+function veil(stop: string, base: string): string {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [sr, sg, sb] = p(stop);
+  const [br, bg, bb] = p(base);
+  const c = (sv: number, bv: number) =>
+    Math.max(0, Math.min(255, Math.round((sv - bv * (1 - VEIL_ALPHA)) / VEIL_ALPHA)));
+  return `rgba(${c(sr, br)},${c(sg, bg)},${c(sb, bb)},${VEIL_ALPHA})`;
 }
 
 /**

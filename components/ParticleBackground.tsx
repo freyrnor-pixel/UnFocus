@@ -169,17 +169,29 @@ function ParticleBackground() {
   const dotColor = isDark ? 'rgba(110,175,255,0.85)' : 'rgba(100,155,255,0.7)';
 
   return (
-    // ⚠️ **`renderToHardwareTextureAndroid` (2026-09-14), and it is the load-bearing prop in
-    // this file.** These dots animate forever by design — the maintainer's ask is a field that
-    // *"moves around like a normal vivid wallpaper would"* — so the window never idles and every
-    // frame is a real composite. That is affordable only if the frame is cheap.
-    //   Without a texture, each frame re-rasterises this layer. With one, Android keeps it as a
-    // GPU texture and the per-frame work is an alpha/transform composite of something already
-    // drawn. The dots' own `Animated` values are already native-driven, so nothing here touches
-    // the JS thread either way; this is about what the COMPOSITOR has to redo.
-    //   The other half of the same fix is that `components/Surface.tsx` paints cards opaque now,
-    // so this layer's motion can only dirty the gutters instead of every card it showed through.
-    <View style={styles.backdrop} pointerEvents="none" renderToHardwareTextureAndroid>
+    // ⚠️ **`renderToHardwareTextureAndroid` IS REMOVED (2026-09-20), and the comment that used
+    // to be here argued for it on a premise that is backwards.** It said: *"Without a texture,
+    // each frame re-rasterises this layer. With one, Android keeps it as a GPU texture and the
+    // per-frame work is an alpha/transform composite of something already drawn."*
+    //
+    // That is true only when the view's CONTENTS are static and the view ITSELF is what animates
+    // — RN's own doc scopes the prop to exactly that: *"useful for animations and interactions
+    // that only modify opacity, rotation, translation, and/or scale: in those cases, the view
+    // doesn't have to be redrawn... The texture can be re-used and re-composited with different
+    // parameters."* Here the opposite holds. This container never moves; its five CHILDREN move,
+    // every frame, forever. So the cached texture is invalid on every frame and can never be
+    // re-used — it is re-rendered and re-uploaded instead, which is a full-screen texture upload
+    // per frame in place of compositing five 4–6px quads.
+    //
+    // ⚠️ **That is the same failure #735 named when it reverted the canopy backdrop**
+    // (*"renderToHardwareTextureAndroid makes that worse on a view whose transform changes per
+    // frame, since the texture is re-uploaded rather than reused"*) — this file had the identical
+    // mistake, one layer down, and its own comment asserted the opposite as fact. A claim about
+    // a safety or performance property is a thing to verify, not to trust.
+    //
+    // ⚠️ **UNMEASURED, like everything about frame cost from this end**, and flagged as the
+    // first thing to put back if the dots get slower rather than faster. The prop is one word.
+    <View style={styles.backdrop} pointerEvents="none">
       {DOTS.map((spec, i) => (
         <RisingDot key={i} spec={spec} color={dotColor} />
       ))}

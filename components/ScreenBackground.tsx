@@ -242,11 +242,65 @@ type Orb = {
  * (onboarding) still has a field; the per-tab hue layer now covers all three washes rather than
  * two, because v2's backdrop IS the tab's accent.
  */
+// ⚠️ **THE RADII GREW ON 2026-09-19, AND THIS IS THE "CARDS DON'T LOOK LIKE GLASS" FIX.**
+// Read this before shrinking one back, because the change looks like a tuning nudge and is not.
+//
+// Third report in a row: *"Ser fortsatt ikke ut som frosted eller shiny glass."* The first two
+// rounds (#717's ramp, #732's sheen/bloom/rim) both changed the CARD, and both failed. Per
+// CLAUDE.md's A3 rule that is a wrong diagnosis, not a weak implementation — so this round
+// measured the render instead of tuning it again.
+//
+// **What the render says.** Sampling the shipped dark baseline down the centre column, in the
+// GUTTERS between cards — i.e. the ground a card sits on:
+//
+//     y=68  (above the first card)   rgb(11,16,31)
+//     y=280 (between two cards)      rgb( 4,12,20)
+//     y=756 (between two cards)      rgb( 9,10,25)
+//
+// and modelling this field over the whole canvas puts the middle of the screen at **rgb(1,2,3)**.
+// A card sits on black. Glass reads as glass by transmitting or catching a LIT ground, so no
+// amount of paint on the card can produce the effect — which is exactly why two rounds of card
+// paint did not. This file's own v2 note said it on 2026-09-06 and the geometry never delivered
+// it: *"Glass had nothing to blur. Cards sat on flat near-black, so blur produced uniform grey
+// slabs."*
+//
+// **Why the middle was dark even at full alpha.** `orbOpacity` was restored to v2's 0.26 on
+// 2026-09-14, so this was never an alpha problem. It is the aspect ratio: `rx` was 78% of the
+// viewBox WIDTH while `ry` was only 46% of its HEIGHT, on a canvas nearly twice as tall as it is
+// wide. Three washes each covering 46% of the height, anchored top / upper-right / bottom, leave
+// a band across the middle that all three have already fallen to zero in — and the card column
+// is that band. Modelled at the centre column with the real `ORB_STOPS` curve, before → after:
+//
+//     y=280   rgb( 5,11,18)  ->  rgb(16,25,45)
+//     y=480   rgb( 1, 2, 3)  ->  rgb(14,21,39)
+//     y=680   rgb( 9,10,21)  ->  rgb(17,20,41)
+//
+// ⚠️ **Only `rx`/`ry` moved. No centre, weight or alpha changed, and that is the point** — the
+// washes' bright CORES are exactly where they were, so this does not make the backdrop louder,
+// it stops it from dying in the middle. Measured over the whole canvas the field's PEAK moves
+// 0.0186 → 0.0195 relative luminance, under 5%, while the middle goes up roughly fifteenfold.
+//
+// **The two bounds this is held by, both re-derived rather than inherited:**
+//   · `border` (`#9A9AA6`) still owes WCAG 1.4.11 its 3:1 against the ground outside a card. At
+//     the field's new peak that measures **5.43:1** — the constraint is nowhere near binding, and
+//     there is room for a much brighter field if a later pass wants one.
+//   · **A card must never be DARKER than the ground it sits on**, or its bottom edge dissolves
+//     into the page. `glassBottom` is `#232328` (luminance 0.0171) and the field peaks at 0.0195
+//     — 114% — but that peak is at the canvas's top-left CORNER, which is under `ScreenHeader`'s
+//     own opaque Surface, so no card sits in it. Across the card column the field runs 0.006 to
+//     0.013, i.e. 35–76% of the card's darkest stop. `lib/__tests__/glowBudget.test.ts` samples
+//     this rather than trusting the sentence.
+//
+// **The cost, stated rather than buried:** more lit pixels on an OLED is more power, and this
+// file's older comments treat "the centre of the screen stays true black" as a feature partly
+// for that reason. That trade was made deliberately — the other half of that sentence was a
+// contrast guarantee for a TRANSLUCENT card, and #703 made every pane opaque, so the ground
+// under a card reaches no card at any strength (see `lib/glassBudget.ts`'s header, now corrected).
 const ORBS: Orb[] = [
   // v2 wash 1 — top-left, the strongest, bleeding in from off the top edge
-  { cx: 22, cy: -24, rx: 218, ry: 279, weight: 1, tone: 'warm' },
+  { cx: 22, cy: -24, rx: 250, ry: 470, weight: 1, tone: 'warm' },
   // v2 wash 2 — off the right edge, upper third
-  { cx: 291, cy: 158, rx: 196, ry: 279, weight: 0.73, tone: 'cool' },
+  { cx: 291, cy: 158, rx: 230, ry: 470, weight: 0.73, tone: 'cool' },
   // v2 wash 3 — bottom centre, the quietest, giving the screen a floor.
   //
   // ⚠️ **Re-aimed 2026-09-15: its CORE was off-canvas and what reached the screen was hidden by
@@ -272,7 +326,7 @@ const ORBS: Orb[] = [
   // and still distinct). That test's own note warns that "a wash silently going to full strength
   // is a real regression" — this is a nudge to the quietest rung, not a flattening of the three,
   // and the geometry above is what does most of the work.
-  { cx: 129, cy: 612, rx: 250, ry: 300, weight: 0.62, tone: 'warm' },
+  { cx: 129, cy: 612, rx: 280, ry: 480, weight: 0.62, tone: 'warm' },
 ];
 
 /**
@@ -451,7 +505,18 @@ const DARK: Palette = {
   // *"blue and 'angelic'… they can just move around like a normal vivid wallpaper would."* Half
   // strength was a tax paid for a feature that has been removed; the field is the only place
   // colour lives now that cards are opaque, so it goes back to full.
-  orbOpacity: 0.26,
+  //   ⚠️ **0.26 → 0.20 and 0.18 → 0.14 on 2026-09-19, and this is NOT the 2026-09-07 retreat
+  // repeated.** That one halved the field to protect a translucent card's contrast. This one is
+  // a trade INSIDE the same total: the wash radii grew (see `ORBS`) so the field reaches the
+  // middle of the screen at all, and widening a falloff raises its shoulder everywhere — which
+  // would have pushed the canvas PEAK from 0.0383 to 0.0496 relative luminance, past `glassTop`
+  // (0.0449). A backdrop brighter than the brightest part of a card is not a lit ground, it is
+  // a card cut out of a bright page, and it is the one thing this geometry could get wrong.
+  //   Scaling the peak alpha by the same 0.773 holds the canvas peak exactly where it ships
+  // today while the middle still rises about tenfold. **Hold the peak, raise the floor** — the
+  // field gets no louder, it stops being absent. `lib/__tests__/glassBudget.test.ts` pins the
+  // ceiling (`glassTop`) so a future widening cannot quietly spend it.
+  orbOpacity: 0.36,
   orbScreenOpacity: 0.18,
 };
 

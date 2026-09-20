@@ -975,6 +975,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   darkMode: 'on' as DarkMode,
   childProfiles: [],
   reducedMotion: false,
+  // ⚠️ **Briefly defaulted OFF earlier on 2026-09-20 and restored the same day.** The card
+  // material was gated on the dots being off; the maintainer challenged that a good backdrop
+  // WITH particles should be affordable on a high-end device, and they were right — see the
+  // block at `transmits` in components/Surface.tsx for why the interlock's premise was a
+  // rasterisation cost misread as a compositing one. The two are independent again, so this
+  // owes the card material nothing.
   particlesEnabled: true,
   glassSurfaces: true,
   reduceEffects: false,

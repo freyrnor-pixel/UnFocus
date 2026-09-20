@@ -37,6 +37,7 @@ import {
   cardLuminanceBand,
   compositeOver,
   maxGroundLuminance,
+  contrastRatio,
   parseHex,
   relativeLuminance,
   type RGB,
@@ -125,12 +126,23 @@ const BAND = { x0: 12, x1: 268, y0: 70, y1: 545 };
 const HUES = ['#FFD700', '#3B82F6', '#22C55E', '#10B981', '#EF4444'];
 const STEP = 4;
 
+/** Split an `rgba(r,g,b,a)` pane token into its colour and its alpha. */
+function paneOf(token: string): { rgb: RGB; a: number } {
+  const m = /rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\)/.exec(token);
+  if (!m) throw new Error(`glassBudget.test: not an rgba() pane token: ${token}`);
+  return { rgb: [Number(m[1]), Number(m[2]), Number(m[3])] as unknown as RGB, a: Number(m[4]) };
+}
+
 function worstCase(mode: 'light' | 'dark') {
   const p = palette(mode === 'dark' ? 'DARK' : 'LIGHT');
   const theme = THEMES.default[mode];
   const tokens = { text: theme.text, textMuted: theme.textMuted, border: theme.border };
-  const alpha = Number(/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/.exec(theme.surfaceGlass)![1]);
-  const fill = parseHex(mode === 'dark' ? '#FFFFFF' : '#FFFFFF');
+  // ⚠️ **The pane's COLOUR is parsed now, not assumed white (2026-09-20).** `fill` was literally
+  // `parseHex('#FFFFFF')` for both modes, which was right while dark's veil was
+  // `rgba(255,255,255,0.1412)` and became wrong the moment it became `rgba(48,48,48,0.75)`. A
+  // model that assumes the pane is white over-estimates every composite it computes, so the
+  // whole band check would have been measuring a card brighter than the app draws.
+  const { rgb: fill, a: alpha } = paneOf(theme.surfaceGlass);
   let worst: { failure: string | null; at: string; ground: RGB; card: RGB } | null = null;
   let brightest = -1;
   for (const hue of HUES) {
@@ -166,15 +178,44 @@ describe('the backdrop may not light a card out of its contrast band', () => {
    * makes that impossible to forget — reintroduce a translucent fill and this test goes red
    * pointing at the sentence you need to read.
    */
-  it('the ambient pane is opaque, which is why the wash strengths are unconstrained', () => {
+  // ⚠️ **This slot has held three rulings in three days, so read the arc before changing it.**
+  //
+  //   · 'the ambient pane is opaque, which is why the wash strengths are unconstrained' — a
+  //     source pin on the 2026-09-14 opacity ruling.
+  //   · 'a pane may transmit only while the particle field is off', when transmission came back
+  //     behind an interlock with the particle field.
+  //   · Now neither. Maintainer: *"I think it should be possible to have a good looking backdrop
+  //     with particles without it breaking performance on a high end device."* The interlock's
+  //     premise — a translucent card over drifting dots dirties the whole window per frame — was
+  //     inherited from a measurement taken while the app drew two SOFTWARE-blurred shadows per
+  //     card. Blur is rasterisation; alpha is a GPU blend. See `transmits` in Surface.tsx.
+  //
+  // What is asserted instead is the clause all three rulings left untouched: **transmission is
+  // an AMBIENT-only material**, because a sheet and the nav bar have the app's own cards behind
+  // them, so frost there is the card underneath reading through rather than depth.
+  it('transmission is ambient-only, and both escape hatches still reach it', () => {
     const surface = readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8');
-    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
-    // And no path may quietly route the fill back through the translucent token.
+    expect(surface).toMatch(/const transmits = isAmbient && !reduceEffects && glassSurfaces;/);
+    expect(surface).toMatch(/const baseFill = transmits \? theme\.surfaceGlass : opaqueFill;/);
+    // The truth table, evaluated rather than read — a predicate that looks live and is constant
+    // is what this file exists to catch.
+    const expr = (isAmbient: boolean, reduceEffects: boolean, glassSurfaces: boolean) =>
+      isAmbient && !reduceEffects && glassSurfaces;
+    expect(expr(true, false, true)).toBe(true);    // the shipped default
+    expect(expr(false, false, true)).toBe(false);  // a sheet is never translucent
+    expect(expr(true, true, true)).toBe(false);    // reduce effects
+    expect(expr(true, false, false)).toBe(false);  // reduce transparency
+    // ⚠️ The interlock is really gone, not merely unreferenced: a dead subscription would
+    // re-render every Surface in the app on a toggle that changes nothing a card draws.
+    expect(surface).not.toMatch(/s\.particlesEnabled/);
+    // The dots are independent again, so their default owes the card material nothing.
+    const store = readFileSync(join(ROOT, 'store/useSettingsStore.ts'), 'utf8');
+    expect(store).toMatch(/particlesEnabled: true,/);
     expect(surface).not.toMatch(/getGlassFill\(/);
   });
 
   it.each(['dark', 'light'] as const)(
-    '%s: IF a pane ever transmits again, every point in the card column stays inside the band',
+    '%s: every point in the card column keeps the card inside its contrast band',
     (mode) => {
       const { worst } = worstCase(mode);
       // Runs against `theme.surfaceGlass`'s alpha, which nothing paints today. It is the
@@ -206,10 +247,18 @@ describe('the backdrop may not light a card out of its contrast band', () => {
     const band = cardLuminanceBand(tokens);
     expect(band.min).toBeLessThan(36);        // today's `surface` sits inside its own band
     expect(band.max).toBeGreaterThan(36);
-    const ceiling = maxGroundLuminance(alpha, tokens);
-    // Dark transmits ~86%, so the ceiling on the GROUND is only a little above the band's top.
-    expect(ceiling).toBeGreaterThan(20);
-    expect(ceiling).toBeLessThan(60);
+    const pane = paneOf(THEMES.default.dark.surfaceGlass);
+    const ceiling = maxGroundLuminance(alpha, tokens, pane.rgb[0]);
+    // ⚠️ **This used to read "dark transmits ~86%, so the ceiling is only a little above the
+    // band's top" and assert 20 < ceiling < 60.** Both the sentence and the numbers were
+    // properties of `rgba(255,255,255,0.1412)`. The veil is `rgba(48,48,48,0.75)` now — 25%
+    // transmission instead of 86% — and the SAME contrast band therefore tolerates a ground
+    // several times brighter, which is the entire reason the veil changed. Asserted as a
+    // property with both sides open: the ground must have real room (or the backdrop is back
+    // to being a whisper) and must still be bounded (or the model has stopped constraining
+    // anything, which is how 2026-09-07's ceiling outlived its premise).
+    expect(`dark ground ceiling ${ceiling.toFixed(0)} in (60, 255): ${ceiling > 60 && ceiling < 255}`)
+      .toBe(`dark ground ceiling ${ceiling.toFixed(0)} in (60, 255): true`);
   });
 
   it('the model actually sees the field — a deliberately over-bright wash must FAIL', () => {
@@ -221,17 +270,86 @@ describe('the backdrop may not light a card out of its contrast band', () => {
     const theme = THEMES.default.dark;
     const tokens = { text: theme.text, textMuted: theme.textMuted, border: theme.border };
     const alpha = Number(/rgba\(\s*\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/.exec(theme.surfaceGlass)![1]);
-    const loud = { ...p, orbOpacity: 0.26, orbScreenOpacity: 0.18 };
+    // ⚠️ **0.26/0.18 until 2026-09-20 — the value that measured 3.20:1 — and it stopped failing
+    // here, which is the change working rather than the probe rotting.** That figure was a
+    // property of an 86%-transmissive white pane; against a 25%-transmissive dark veil the same
+    // wash is comfortably inside the band. The probe has to move with the model it probes, so it
+    // now uses a wash loud enough to break the CURRENT pane. If this ever stops failing again,
+    // the model has gone blind — do not relax it, find out why.
+    // ...and the COLOURS go white with it, which is the part that makes this probe possible at
+    // all. Raising the alpha alone could not break the band at any value: the palette's washes
+    // are `#0E7C8C` and `#5B2E8C`, and a 25%-transmissive veil over even a full-strength dark
+    // teal composites to about rgb(59,48,71) — still comfortably legible. That is a real result
+    // about the new veil rather than a broken probe, and it is worth stating plainly: with this
+    // pane the app's own wash palette CANNOT light a card out of its band, whatever the alpha.
+    //   So the probe drives the model past what the palette can reach, to prove the model still
+    // SEES the field. A guard that cannot be shown failing is the thing this file exists to
+    // avoid becoming.
+    const loud = { ...p, orbOpacity: 1, orbScreenOpacity: 1, orbCool: '#FFFFFF', orbWarm: '#FFFFFF' };
     let failed = false;
     for (const hue of HUES) {
       for (let x = BAND.x0; x <= BAND.x1 && !failed; x += STEP) {
         for (let y = BAND.y0; y <= BAND.y1 && !failed; y += STEP) {
-          const card = compositeOver(groundAt(loud, x, y, hue), [255, 255, 255], alpha);
+          const card = compositeOver(groundAt(loud, x, y, hue), paneOf(theme.surfaceGlass).rgb, alpha);
           if (cardFailure(card, tokens)) failed = true;
         }
       }
     }
     expect(failed).toBe(true);
+  });
+
+  // ── The bound that is actually LIVE now that every pane is opaque (2026-09-19) ───────────
+  //
+  // ⚠️ **Everything above this point models a TRANSLUCENT card, and no card in the app is one.**
+  // That is not dead weight — `components/ScreenBackground.tsx`'s palette block names those
+  // assertions as the guard that fires if transmission ever comes back, and they are kept for
+  // exactly that. But it does mean they cannot bound the field any more: nothing composites
+  // through an opaque pane, so the wash could be taken to full white and every assertion above
+  // would go on passing. When the 2026-09-19 pass widened the wash radii to stop the middle of
+  // the screen being rgb(1,2,3), this file did not notice — it parses the real geometry, so it
+  // SAW the change, and its model simply has no path from the ground to the card any more.
+  //
+  // So here is the constraint that replaced it, and it is a different shape: not "how much light
+  // may reach the card" but **"how much light may sit NEXT TO it"**.
+  (['light', 'dark'] as const).forEach((mode) => {
+    // ⚠️ **A guard added on 2026-09-19 lived here and is DELETED, one day later, by the change
+    // that voided its premise — recorded rather than quietly dropped.**
+    //
+    // It asserted that the wash field may not out-shine `glassTop`, the brightest thing a card
+    // paints. That is the right question while the pane is OPAQUE: the card is then a fixed
+    // colour, the ground is independent of it, and a ground brighter than the card turns every
+    // card into a hole punched in a wallpaper (measured at the time: `border` fell to 1.91:1).
+    //
+    // It stops being answerable the moment the pane TRANSMITS, because the card is no longer a
+    // fixed colour — it is `veil over ground`, so it tracks the field by construction. At the
+    // shipped veil a card paints `36 + 0.25 × ground` per channel, which is brighter than the
+    // ground below channel 48 and darker above it. Comparing the field to `glassTop` therefore
+    // compares it to a colour the card only paints where the field is dark, and would have
+    // capped the backdrop at roughly a third of what the contrast rules actually allow — i.e.
+    // it would have blocked exactly the vivid ground this pass exists to enable.
+    //
+    // What answers the question now is the pair that follows and precedes it: the card's
+    // composite stays inside its contrast band at every sampled point (above), and `border`
+    // keeps WCAG 1.4.11's 3:1 against the ground outside the card (below). The second is the
+    // one that actually binds, and it is the direct successor to the 1.91:1 failure.
+    it(`${mode}: the card border still holds 3:1 against the field outside it`, () => {
+      // WCAG 1.4.11, measured on the OUTER side of the boundary. This is the bound that decides
+      // how much brighter a future pass may take the backdrop, so it is worth knowing it is not
+      // close: dark clears it by a wide margin at the current geometry.
+      const p = palette(mode === 'dark' ? 'DARK' : 'LIGHT');
+      const theme = THEMES.default[mode];
+      const border = parseHex(theme.border);
+      let worst = 99;
+      for (const hue of HUES) {
+        for (let x = BAND.x0; x <= BAND.x1; x += STEP) {
+          for (let y = BAND.y0; y <= BAND.y1; y += STEP) {
+            worst = Math.min(worst, contrastRatio(border, groundAt(p, x, y, hue)));
+          }
+        }
+      }
+      expect(`${mode} border-on-field ${worst.toFixed(2)}:1 >= 3: ${worst >= 3}`)
+        .toBe(`${mode} border-on-field ${worst.toFixed(2)}:1 >= 3: true`);
+    });
   });
 
   it('parsed the real geometry, not an empty match', () => {
