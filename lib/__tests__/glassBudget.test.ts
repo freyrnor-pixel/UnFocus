@@ -178,46 +178,39 @@ describe('the backdrop may not light a card out of its contrast band', () => {
    * makes that impossible to forget — reintroduce a translucent fill and this test goes red
    * pointing at the sentence you need to read.
    */
-  // ⚠️ **REVERSED 2026-09-20. This test was called 'the ambient pane is opaque, which is why the
-  // wash strengths are unconstrained', and both halves of that sentence are now false.**
+  // ⚠️ **This slot has held three rulings in three days, so read the arc before changing it.**
   //
-  // The ambient pane transmits again — a dark veil at 25%, not the white one at 86% that the
-  // 2026-09-14 opacity ruling removed — so this module is LIVE rather than armed-for-later, and
-  // the wash strengths are constrained by it again. That is the point: the whole reason the veil
-  // is dark and mostly-opaque is that the same contrast band then tolerates a much brighter
-  // ground, which is what lets the backdrop be a wallpaper instead of a whisper.
+  //   · 'the ambient pane is opaque, which is why the wash strengths are unconstrained' — a
+  //     source pin on the 2026-09-14 opacity ruling.
+  //   · 'a pane may transmit only while the particle field is off', when transmission came back
+  //     behind an interlock with the particle field.
+  //   · Now neither. Maintainer: *"I think it should be possible to have a good looking backdrop
+  //     with particles without it breaking performance on a high end device."* The interlock's
+  //     premise — a translucent card over drifting dots dirties the whole window per frame — was
+  //     inherited from a measurement taken while the app drew two SOFTWARE-blurred shadows per
+  //     card. Blur is rasterisation; alpha is a GPU blend. See `transmits` in Surface.tsx.
   //
-  // What replaces the opacity assertion is the INTERLOCK, because that is the property keeping
-  // the 2026-09-14 performance measurement true. A translucent card over drifting particles
-  // dirties the whole window every frame; nothing about that changed. What changed is that the
-  // pair is now unspellable: `components/Surface.tsx` lets a pane transmit only while the
-  // particle field is off, and `particlesEnabled` defaults off. Asserted as the predicate's
-  // TEXT and as its truth table, because a source scan alone is what let a constant-false
-  // `glassOn` ship for a day.
-  it('a pane may transmit only while the particle field is off', () => {
+  // What is asserted instead is the clause all three rulings left untouched: **transmission is
+  // an AMBIENT-only material**, because a sheet and the nav bar have the app's own cards behind
+  // them, so frost there is the card underneath reading through rather than depth.
+  it('transmission is ambient-only, and both escape hatches still reach it', () => {
     const surface = readFileSync(join(ROOT, 'components/Surface.tsx'), 'utf8');
-    expect(surface).toMatch(
-      /const transmits = isAmbient && !particlesEnabled && !reduceEffects && glassSurfaces;/,
-    );
+    expect(surface).toMatch(/const transmits = isAmbient && !reduceEffects && glassSurfaces;/);
     expect(surface).toMatch(/const baseFill = transmits \? theme\.surfaceGlass : opaqueFill;/);
-    // The truth table, evaluated rather than read: every combination with particles ON must be
-    // opaque, and the shipped combination must transmit — otherwise this is a predicate that
-    // looks live and is constant.
-    const expr = (isAmbient: boolean, particlesEnabled: boolean, reduceEffects: boolean, glassSurfaces: boolean) =>
-      isAmbient && !particlesEnabled && !reduceEffects && glassSurfaces;
-    for (const isAmbient of [true, false]) {
-      for (const reduceEffects of [true, false]) {
-        for (const glassSurfaces of [true, false]) {
-          expect(expr(isAmbient, true, reduceEffects, glassSurfaces)).toBe(false);
-        }
-      }
-    }
-    expect(expr(true, false, false, true)).toBe(true);   // the shipped default
-    expect(expr(false, false, false, true)).toBe(false); // a sheet is never translucent
-    // ...and the default that makes the shipped combination reachable at all.
+    // The truth table, evaluated rather than read — a predicate that looks live and is constant
+    // is what this file exists to catch.
+    const expr = (isAmbient: boolean, reduceEffects: boolean, glassSurfaces: boolean) =>
+      isAmbient && !reduceEffects && glassSurfaces;
+    expect(expr(true, false, true)).toBe(true);    // the shipped default
+    expect(expr(false, false, true)).toBe(false);  // a sheet is never translucent
+    expect(expr(true, true, true)).toBe(false);    // reduce effects
+    expect(expr(true, false, false)).toBe(false);  // reduce transparency
+    // ⚠️ The interlock is really gone, not merely unreferenced: a dead subscription would
+    // re-render every Surface in the app on a toggle that changes nothing a card draws.
+    expect(surface).not.toMatch(/s\.particlesEnabled/);
+    // The dots are independent again, so their default owes the card material nothing.
     const store = readFileSync(join(ROOT, 'store/useSettingsStore.ts'), 'utf8');
-    expect(store).toMatch(/particlesEnabled: false,/);
-    // And no path may quietly route the fill back through a helper this file cannot see.
+    expect(store).toMatch(/particlesEnabled: true,/);
     expect(surface).not.toMatch(/getGlassFill\(/);
   });
 

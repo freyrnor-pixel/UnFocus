@@ -761,7 +761,7 @@ function rowToSettings(row: Row): Settings {
     darkMode: readEnum<DarkMode>(row, 'dark_mode', ['system', 'on', 'off'], 'on'),
     childProfiles: readJson<string[]>(row, 'child_profiles', []),
     reducedMotion: readBool(row, 'reduced_motion'),
-    particlesEnabled: readInt(row, 'particles_enabled', 0) !== 0,
+    particlesEnabled: readInt(row, 'particles_enabled', 1) !== 0,
     glassSurfaces: readInt(row, 'glass_surfaces', 1) !== 0,
     reduceEffects: readInt(row, 'reduce_effects', 0) !== 0,
     opaqueCards: readBool(row, 'opaque_cards'),
@@ -975,13 +975,13 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   darkMode: 'on' as DarkMode,
   childProfiles: [],
   reducedMotion: false,
-  // ⚠️ **OFF since 2026-09-20, and it is the price of the card material rather than a verdict
-  // on the dots.** `components/Surface.tsx` lets an ambient pane transmit only while this is
-  // false: a translucent card over drifting particles dirties the whole window every frame
-  // (the 2026-09-14 measurement), so the two cannot both be on. Maintainer's call, given the
-  // trade in full — particles off, glass on. Existing installs are moved across by a one-time
-  // migration in lib/db.ts; turning the dots back on restores the opaque card automatically.
-  particlesEnabled: false,
+  // ⚠️ **Briefly defaulted OFF earlier on 2026-09-20 and restored the same day.** The card
+  // material was gated on the dots being off; the maintainer challenged that a good backdrop
+  // WITH particles should be affordable on a high-end device, and they were right — see the
+  // block at `transmits` in components/Surface.tsx for why the interlock's premise was a
+  // rasterisation cost misread as a compositing one. The two are independent again, so this
+  // owes the card material nothing.
+  particlesEnabled: true,
   glassSurfaces: true,
   reduceEffects: false,
   opaqueCards: false,

@@ -22,14 +22,14 @@
  * what buys the backdrop its headroom: at 86% transmission the contrast band caps the ground
  * at 37/255, at 25% it allows 128/255. `lib/glassBudget.ts` is that arithmetic.
  *
- * ⚠️ **THE PERFORMANCE RULING IS NOT WALKED BACK — it is made unspellable.** A translucent pane
- * over `components/ParticleBackground.tsx`'s drifting dots means every dot that moves dirties
- * the backdrop AND every card showing it through: the whole window, every frame, at 120Hz. That
- * measurement stands. What changed is that the pair can no longer both exist — `transmits`
- * requires `!particlesEnabled`, and particles now default OFF (maintainer's call, given the
- * trade in full: particles off, glass on). Over a STATIC backdrop a translucent pane is one
- * composite, not a per-frame repaint. Turn the dots back on and the opaque card returns
- * automatically. `lib/__tests__/glassBudget.test.ts` asserts that predicate's truth table.
+ * ⚠️ **Particles and glass are INDEPENDENT — an interlock between them existed for a few hours
+ * on 2026-09-20 and was removed the same day**, on the maintainer's challenge that a good
+ * backdrop with particles ought to be affordable on a high-end device. It was: the interlock's
+ * premise was a rasterisation cost (software-blurred shadows, since replaced by `elevation` in
+ * #728) misread as a compositing one. Alpha blending is what a GPU is for. The full reasoning,
+ * and the honest statement that it is an argument rather than a measurement, is at `transmits`.
+ *   What that leaves: the two toggles are separate, `reduceEffects` still drops both, and if a
+ * device disagrees the bisect is one switch rather than a revert of this material.
  *
  * ⚠️ **There is still no `BlurView`**, and the frost did not bring one back. A blur samples what
  * is behind it per frame; transmission is static compositing. See the comment where it mounted.
@@ -460,19 +460,39 @@ export default function Surface({
   // plus the translucency (an opaque pane composites in one step). The BlurView it was also
   // written to disable no longer exists. Off by default; see store/useSettingsStore.ts.
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);
-  // ⚠️ **The pane transmits ONLY while the particle field is off, and this is a hard interlock
-  // rather than a preference (2026-09-20).** The 2026-09-14 ruling that made every pane opaque
-  // was not wrong about its measurement: a translucent card over `components/ParticleBackground
-  // .tsx`'s drifting dots means every dot that moves dirties the backdrop AND every card showing
-  // it through, so the dirty region is the whole window at 120Hz. That is still true and this
-  // does not walk it back — it makes the pair unspellable. Over a STATIC backdrop a translucent
-  // pane is one composite, not a per-frame repaint, so transmission is affordable exactly when
-  // nothing behind it animates.
-  //   Maintainer's call, given the trade in full: particles off, glass on. `particlesEnabled`
-  // now defaults off (store/useSettingsStore.ts), so this reads `true` out of the box; a user who
-  // turns the dots back on gets the opaque card back automatically and pays no frame cost for a
-  // material they can no longer see through anyway.
-  const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
+  // ⚠️ **THE PARTICLE INTERLOCK IS GONE (2026-09-20, same day it was added), on the
+  // maintainer's challenge: *"I think it should be possible to have a good looking backdrop with
+  // particles without it breaking performance on a high end device."* They are right, and the
+  // reasoning that produced the interlock was inherited rather than measured.**
+  //
+  // What it said: a translucent card over drifting dots dirties the whole window every frame, so
+  // transmission is affordable only when nothing behind it animates. The premise is the
+  // 2026-09-14 ruling — but read what that ruling was measured ON. The app then drew two
+  // SOFTWARE-BLURRED box shadows per card (`OutsetBoxShadowDrawable` + `BlurMaskFilter`, not GPU
+  // accelerated — #728 replaced them with `elevation`) and had only just removed a `BlurView`.
+  // Those are RASTERISATION costs: when the region under them is dirtied, the blur is recomputed
+  // on the CPU. Alpha compositing is not in that class — a translucent quad over a dirty region
+  // is a GPU blend, which is the operation the compositor exists to do.
+  //
+  // The same distinction is what #735 just diagnosed on the canopy backdrop: its cost was a
+  // full-screen `<Svg>` inside a rotating `Animated.View`, so the GPU resampled the whole surface
+  // every frame. Again rasterisation, not blending.
+  //
+  // What transmission actually costs is the OCCLUSION it gives up: an opaque card lets the GPU
+  // skip what is behind it, a translucent one does not, so more pixels are blended. On the
+  // backdrop this app draws — gradients and five 4–6px dots — that is overdraw of simple fills,
+  // which is the cheapest thing a modern GPU does.
+  //
+  // ⚠️ **This is an ARGUMENT, not a measurement, and no harness here can make it one.** #735's
+  // reusable lesson is that green CI was never evidence about frame cost. So: the two are now
+  // INDEPENDENT rather than exclusive — particles have their own Settings toggle, `reduceEffects`
+  // still drops both, and if the device disagrees the bisect is one switch rather than a revert.
+  //
+  // ⚠️ **So this file does NOT read `particlesEnabled`, deliberately.** The interlock's
+  // subscription is removed rather than left reading into a `void`: a live subscription here
+  // re-renders every Surface in the app on a toggle that no longer changes anything a card
+  // draws, which is the cost this component's own memo block was written to avoid. If the
+  // interlock ever comes back, the read comes back with it.
   const isAmbient = surfaceContext === 'ambient';
   // ── An overlay pane is OPAQUE (2026-08-18), and so is the nav bar (2026-08-20) ──────────
   // Maintainer, against a screenshot of the card menu: *"Cards that overlap other cards should
@@ -579,7 +599,7 @@ export default function Surface({
   // Transmission is an AMBIENT-only property, for the reason `surfaceContext` has carried since
   // 2026-08-18: a sheet or the nav bar has the app's own CARDS behind it, so "frost" there is the
   // card underneath reading through, not depth. Those tiers stay opaque at every setting.
-  const transmits = isAmbient && !particlesEnabled && !reduceEffects && glassSurfaces;
+  const transmits = isAmbient && !reduceEffects && glassSurfaces;
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
   const baseFill = transmits ? theme.surfaceGlass : opaqueFill;
   const fill = staticPressed ? theme.surfaceMuted : tint ?? baseFill;
