@@ -5976,3 +5976,53 @@ Reply with the numbers only. Anything not listed was not changed.
 
 **unverified** — no harness in this repo can see native compositing or motion feel; awaiting a
 device pass on the card above.
+
+## 2026-09-20 — REVERTED: the canopy backdrop (#734)
+
+**Status: reverted on a maintainer report of a shipped regression.** *"Now the app is constantly
+slow again. Looks like it is in 20fps all the time."*
+
+`git revert` of the whole of #734 — `components/BoughlightBackdrop.tsx`, `lib/boughlight.ts`,
+its test, the three call sites, the two motion tokens, chromeRhythm §6's LAYERS entry, and both
+theme baselines. The entry above is kept as the record of what was built; this one records that
+it does not ship.
+
+**Why it was reverted rather than tuned first.** The report is about the LIVE app, on the
+maintainer's own device, and a revert is the only change guaranteed to restore the framerate it
+had yesterday. Tuning would have been a guess shipped on top of a regression. The layer was
+additive and nothing depended on it, which is exactly the property that was claimed for it when
+it landed — this is that claim being cashed.
+
+**What the cost almost certainly was, for whoever picks this up.** Not proven on a device; this
+is the reading of the code against what this repo already knows about its own frame budget, and
+it should be measured before any re-land, not trusted:
+
+1. **A full-screen layer with an animated ROTATION.** `BoughLayer` is an absolute-fill `<Svg>`
+   inside an `Animated.View` whose transform includes `rotate`. A rotating layer cannot be
+   composited by blitting — the GPU resamples the whole surface every frame — and
+   `renderToHardwareTextureAndroid` makes that *worse*, not better, on a view whose transform
+   changes each frame: the texture is re-uploaded rather than reused. `ParticleBackground`'s five
+   dots are tiny views; this was the full viewport.
+2. **It never idles, by construction.** Two loops, 15s and 11s, deliberately not multiples of
+   each other, so the window is always dirty. `components/ParticleBackground.tsx`'s header
+   already flags that an always-animating backdrop is affordable *only if the frame is cheap*.
+   Three more full-screen composites per frame is not cheap.
+3. **Three new layers, not one**, and a FOURTH instance per sub-tier screen via
+   `ScreenScaffold`'s `ownBackground` path — on top of `ScreenBackground`'s orb canvases,
+   `HomeHeroBackground` and `ParticleBackground`. The 2026-08-29 note in `ScreenBackground.tsx`
+   says the backdrop is already this GPU-bound app's largest fixed per-frame cost.
+
+**The process failure worth naming, because it is the reusable part.** `CLAUDE.md`'s A2 asks a
+session to declare up front which blind classes a change lands in, and the verification card
+filed with #734 *did* name this one — "the per-swipe frame cost, which is the one thing that
+would justify reverting on grounds other than taste". It was listed as blind and then the change
+was merged anyway, on the strength of green CI. **No harness in this repo measures frame cost**;
+`npm run visual` proves a static render, `jest` proves logic. A change whose main risk is
+per-frame GPU work has no gate here at all, so "CI is green" was never evidence about it. The
+lesson is not "tune the numbers" — it is that a layer which animates the whole viewport forever
+needs a device measurement BEFORE it reaches `main`, not a verification card afterwards.
+
+**If this is re-landed**, the static layer alone is what the handoff calls *"a complete, finished
+backdrop"* — no sway, no breath, one canvas rather than three, and no per-screen second instance.
+That version costs one rasterisation at mount and nothing per frame, and it is the only version
+that should be tried without a device profiler in hand.

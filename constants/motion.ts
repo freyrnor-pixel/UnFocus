@@ -103,16 +103,6 @@ export const Duration = {
    *  for the same reason `ambient` is above the §1 bands, only more so: this is scenery
    *  breathing, bound to nothing, and must never look like a response to a tap. */
   sway: 3000,
-  /** One leg of the boughlight bough's sway (components/BoughlightBackdrop.tsx). The handoff
-   *  specifies ±1.4° over a 15s cycle, and the sway is one `withRepeat(..., -1, true)`, so a
-   *  7500ms leg is that 15s round trip. Above `sway` for the same reason `sway` is above
-   *  `ambient`: a bough moving in a draught must be slower than anything the user did. */
-  swayLong: 7500,
-  /** One leg of the boughlight light breathing — the hero's shafts (11s cycle) and the crown's
-   *  full-frame haze. Same `withRepeat` halving: 5500ms out, 5500ms back. Deliberately NOT a
-   *  multiple of `swayLong`, so the bough and the light never fall into lockstep and the field
-   *  never reads as one pulsing object. */
-  breathe: 5500,
 } as const;
 
 /** Easing presets: ease-out for entrances/taps, ease-in for exits, ease-in-out for travel. */
