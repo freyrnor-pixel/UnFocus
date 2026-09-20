@@ -316,7 +316,14 @@ describe('the material system stays deleted, and stays matte', () => {
     expect(surface).not.toMatch(/const litEdgeOn\b/);
     // Nothing may quietly reintroduce a translucent ambient fill — the ramp is opaque at BOTH
     // stops, which is what keeps the particle repaint chain cut (see Surface.tsx's block).
-    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
+    // ⚠️ **`opaqueFill` → `baseFill` (2026-09-20): the ambient pane transmits again.** The line
+      // this pinned said every tier paints an opaque colour. `baseFill` is `theme.surfaceGlass`
+      // when the pane transmits and `opaqueFill` otherwise, and `transmits` requires `isAmbient`
+      // — so what this assertion is actually protecting, that a SHEET and the NAV BAR never let
+      // the app's own cards read through them, is unchanged and is now carried by that term
+      // rather than by there being no translucent path at all.
+      expect(surface).toMatch(/const baseFill = transmits \? theme\.surfaceGlass : opaqueFill;/);
+      expect(surface).toMatch(/const transmits = isAmbient && /);
     (['light', 'dark'] as const).forEach((mode) => {
       const p = THEMES.default[mode];
       [p.glassTop, p.glassBottom, p.glassTopRaised, p.glassBottomRaised].forEach((stop) => {
@@ -381,7 +388,14 @@ describe('the material system stays deleted, and stays matte', () => {
     //   Nothing is lost, because the guarantee this test exists for was ALREADY asserted
     // structurally rather than conditionally, on the fill itself — the two `toMatch`es below plus
     // the composite arithmetic. Those are what make a sheet opaque; the deleted line was not.
-    expect(surface).toMatch(/const fill = staticPressed \? theme\.surfaceMuted : tint \?\? opaqueFill;/);
+    // ⚠️ **`opaqueFill` → `baseFill` (2026-09-20): the ambient pane transmits again.** The line
+      // this pinned said every tier paints an opaque colour. `baseFill` is `theme.surfaceGlass`
+      // when the pane transmits and `opaqueFill` otherwise, and `transmits` requires `isAmbient`
+      // — so what this assertion is actually protecting, that a SHEET and the NAV BAR never let
+      // the app's own cards read through them, is unchanged and is now carried by that term
+      // rather than by there being no translucent path at all.
+      expect(surface).toMatch(/const baseFill = transmits \? theme\.surfaceGlass : opaqueFill;/);
+      expect(surface).toMatch(/const transmits = isAmbient && /);
     expect(surface).toMatch(/const opaqueFill = isAmbient \? theme\.surface : theme\.surfaceRaised;/);
     // The same pairing `surface`/`surfaceGlass` have one rung down: the opaque token is the
     // translucent one already composited, so a sheet over empty backdrop is unchanged and the

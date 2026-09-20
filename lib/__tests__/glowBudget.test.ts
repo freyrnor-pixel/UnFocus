@@ -359,8 +359,20 @@ describe('the backdrop orbs stay inside the glow budget (ScreenBackground.tsx)',
     const m = src.match(/const DARK: Palette = \{[\s\S]*?orbOpacity:\s*([\d.]+),/);
     expect(m).toBeTruthy();
     const value = Number(m![1]);
-    expect(`DARK.orbOpacity ${value} inside v2's 0.16-0.30 band: ${value >= 0.16 && value <= 0.30}`)
-      .toBe(`DARK.orbOpacity ${value} inside v2's 0.16-0.30 band: true`);
+    //
+    // ⚠️ **The upper bound moves 0.30 → 0.42 on 2026-09-20 with the transmission change, and
+    // this is the one place to say why that is not just relaxing a guard to fit.** v2's 16–30%
+    // band describes a backdrop drawn BEHIND OPAQUE CARDS — light in the frame, decoration in
+    // the gutters. The ambient pane transmits again at 25%, so the field is now the card's light
+    // source: it is what the material catches, and it is the only reason a card can look like
+    // glass at all. A band measured for the other regime cannot bound this one.
+    //   What bounds it instead is `lib/__tests__/glassBudget.test.ts`, which computes the limit
+    // from the field the app actually draws — the card's composite must stay inside its contrast
+    // band, and `border` must keep 3:1 on the ground outside the card. Swept against those: 0.42
+    // clean, 0.48 fails on the border. This assertion is a cap AT that measured edge, standing
+    // behind the real guard, not a second opinion about brightness.
+    expect(`DARK.orbOpacity ${value} inside 0.16-0.42: ${value >= 0.16 && value <= 0.42}`)
+      .toBe(`DARK.orbOpacity ${value} inside 0.16-0.42: true`);
   });
 
   it('LIGHT.orbOpacity was raised too, but stays well under dark', () => {

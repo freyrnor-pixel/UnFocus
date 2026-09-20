@@ -148,11 +148,30 @@ export function cardLuminanceBand(tokens: CardTokens): { min: number; max: numbe
  * The brightest neutral GROUND a card may sit on, given its fill alpha — the number
  * `components/ScreenBackground.tsx` has to respect.
  *
- * Inverts `painted = 255·alpha + ground·(1 − alpha)` at the top of the band. Neutral-grey is an
+ * Inverts `painted = pane·alpha + ground·(1 − alpha)` at the top of the band. Neutral-grey is an
  * approximation of a chromatic wash, so the test that consumes this evaluates real colours point
  * by point via `cardFailure` and uses this only to report headroom.
+ *
+ * ⚠️ **`paneValue` was hardcoded as 255 until 2026-09-20, i.e. this silently assumed the pane is
+ * WHITE.** That was true of `rgba(255,255,255,0.1412)` and stopped being true when dark's veil
+ * became `rgba(48,48,48,0.75)`; at that value the old formula returned **−493**, a ground
+ * luminance below black, which is the arithmetic saying "this model no longer describes the
+ * thing". It is a parameter now, and the two together are what decide the headroom:
+ *
+ *   · white at 0.1412 → the pane is 86% ground, so the ceiling lands just above the band's top
+ *     and the backdrop has to stay near-black. That is the regime every pass from 2026-09-06 to
+ *     2026-09-19 was fighting, without naming it.
+ *   · a dark veil at 0.75 → the pane is 25% ground, so the SAME contrast band tolerates a ground
+ *     several times brighter. The backdrop can be a wallpaper.
+ *
+ * Which is the whole reason the veil changed: the pane's alpha is what sets how vivid the app is
+ * allowed to be, and nothing had ever stated that as the trade it is.
  */
-export function maxGroundLuminance(alpha: number, tokens: CardTokens): number {
+export function maxGroundLuminance(
+  alpha: number,
+  tokens: CardTokens,
+  paneValue = 255,
+): number {
   const { max } = cardLuminanceBand(tokens);
-  return (max - 255 * alpha) / (1 - alpha);
+  return (max - paneValue * alpha) / (1 - alpha);
 }

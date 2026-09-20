@@ -516,8 +516,8 @@ const DARK: Palette = {
   // today while the middle still rises about tenfold. **Hold the peak, raise the floor** — the
   // field gets no louder, it stops being absent. `lib/__tests__/glassBudget.test.ts` pins the
   // ceiling (`glassTop`) so a future widening cannot quietly spend it.
-  orbOpacity: 0.20,
-  orbScreenOpacity: 0.14,
+  orbOpacity: 0.36,
+  orbScreenOpacity: 0.18,
 };
 
 /**

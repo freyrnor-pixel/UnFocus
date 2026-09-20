@@ -1438,6 +1438,24 @@ export function initDb() {
     // than the truth — so a card added later appears instead of vanishing for anyone who has
     // ever reordered. Presentation only, device-local, same as hidden_cards above.
     'ALTER TABLE settings ADD COLUMN card_order TEXT DEFAULT \'{}\'',
+    // ── 2026-09-20: particles off, so the card material can transmit ──────────────────────
+    //
+    // `particles_enabled`'s column DEFAULT is 1 and CANNOT be changed — this log is append-only
+    // and the ALTER that created it (index 40) has long since run on every install. So a fresh
+    // install is handled in `defaultSettings` (store/useSettingsStore.ts) and EXISTING installs
+    // are handled here, the same split `dark_mode` uses above and for the same reason.
+    //
+    // ⚠️ **This overwrites a user who deliberately turned the dots ON, and it is instructed
+    // rather than careless.** The two are now mutually exclusive by construction:
+    // `components/Surface.tsx` only lets a card transmit while the particle field is off,
+    // because a translucent pane over drifting dots is what turned the whole window into a
+    // per-frame repaint (the 2026-09-14 ruling, unchanged — this makes the pair unspellable
+    // instead of walking it back). Leaving the flag on would hand an existing install the
+    // opaque card and none of the material the same update is shipping, silently.
+    //   Nothing is removed: the dots are one tap away in Settings, the choice sticks from then
+    // on because this runs exactly once, and turning them back on restores the opaque pane
+    // automatically rather than costing frames for a material that can no longer be seen.
+    'UPDATE settings SET particles_enabled = 0',
   ];
   // Track applied migrations with PRAGMA user_version so we don't re-run the whole
   // (ever-growing) list on every launch. IMPORTANT: the migrations array is an

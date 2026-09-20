@@ -1,6 +1,38 @@
 /**
- * Surface.tsx — the one card shape: an OPAQUE pane, painted as if lit from the top left.
- * Also exported as `GlassCard`, the Tactile Glass brief's name for it (see the bottom).
+ * Surface.tsx — the one card shape: a pane that TRANSMITS the lit field behind it, painted as
+ * if lit from the top left. Also exported as `GlassCard` (see the bottom).
+ *
+ * ── Current state, 2026-09-20 (the transmission pass). Read this first ─────────────────────
+ *
+ * Third *"doesn't look like frosted or shiny glass"* report. The first two rounds changed the
+ * CARD — a ramp (#717), then a sheen, bloom and rim (#732) — and both failed. The fourth round
+ * measured instead, and the answer was not on the card at all:
+ *
+ *   **A card was opaque, and it sat on rgb(1,2,3).** Glass reads as glass by transmitting a lit
+ *   ground. The ground was black (#733 fixed the geometry; the field was still a whisper) and
+ *   the pane let nothing through, so there was nothing to see and nothing to see it with.
+ *
+ * Two changes, and NEITHER works without the other — both were built and rendered alone first,
+ * and each alone is worse than neither:
+ *   · a translucent pane over a dark field → flat uniform slabs;
+ *   · a vivid field under an opaque pane → `border` at 1.91:1, cards as holes in a wallpaper.
+ *
+ * So: the pane transmits **25%** (`theme.surfaceGlass`, a DARK veil at 0.75 — not thewhite 86%
+ * one the 2026-09-14 ruling removed), and the backdrop roughly doubles. The veil's alpha is
+ * what buys the backdrop its headroom: at 86% transmission the contrast band caps the ground
+ * at 37/255, at 25% it allows 128/255. `lib/glassBudget.ts` is that arithmetic.
+ *
+ * ⚠️ **THE PERFORMANCE RULING IS NOT WALKED BACK — it is made unspellable.** A translucent pane
+ * over `components/ParticleBackground.tsx`'s drifting dots means every dot that moves dirties
+ * the backdrop AND every card showing it through: the whole window, every frame, at 120Hz. That
+ * measurement stands. What changed is that the pair can no longer both exist — `transmits`
+ * requires `!particlesEnabled`, and particles now default OFF (maintainer's call, given the
+ * trade in full: particles off, glass on). Over a STATIC backdrop a translucent pane is one
+ * composite, not a per-frame repaint. Turn the dots back on and the opaque card returns
+ * automatically. `lib/__tests__/glassBudget.test.ts` asserts that predicate's truth table.
+ *
+ * ⚠️ **There is still no `BlurView`**, and the frost did not bring one back. A blur samples what
+ * is behind it per frame; transmission is static compositing. See the comment where it mounted.
  *
  * ── Current state, 2026-09-15 (the frosted-glass brief). Read this first ───────────────────
  *
@@ -428,6 +460,19 @@ export default function Surface({
   // plus the translucency (an opaque pane composites in one step). The BlurView it was also
   // written to disable no longer exists. Off by default; see store/useSettingsStore.ts.
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);
+  // ⚠️ **The pane transmits ONLY while the particle field is off, and this is a hard interlock
+  // rather than a preference (2026-09-20).** The 2026-09-14 ruling that made every pane opaque
+  // was not wrong about its measurement: a translucent card over `components/ParticleBackground
+  // .tsx`'s drifting dots means every dot that moves dirties the backdrop AND every card showing
+  // it through, so the dirty region is the whole window at 120Hz. That is still true and this
+  // does not walk it back — it makes the pair unspellable. Over a STATIC backdrop a translucent
+  // pane is one composite, not a per-frame repaint, so transmission is affordable exactly when
+  // nothing behind it animates.
+  //   Maintainer's call, given the trade in full: particles off, glass on. `particlesEnabled`
+  // now defaults off (store/useSettingsStore.ts), so this reads `true` out of the box; a user who
+  // turns the dots back on gets the opaque card back automatically and pays no frame cost for a
+  // material they can no longer see through anyway.
+  const particlesEnabled = useSettingsStore((s) => s.particlesEnabled);
   const isAmbient = surfaceContext === 'ambient';
   // ── An overlay pane is OPAQUE (2026-08-18), and so is the nav bar (2026-08-20) ──────────
   // Maintainer, against a screenshot of the card menu: *"Cards that overlap other cards should
@@ -531,8 +576,13 @@ export default function Surface({
   // where three source-text assertions were updated to match and all passed while no pane was
   // translucent. The predicate is not left lying around looking live: it now drives the EDGE,
   // which is a real, visible difference, so `glassSurfaces` still does something a user can see.
+  // Transmission is an AMBIENT-only property, for the reason `surfaceContext` has carried since
+  // 2026-08-18: a sheet or the nav bar has the app's own CARDS behind it, so "frost" there is the
+  // card underneath reading through, not depth. Those tiers stay opaque at every setting.
+  const transmits = isAmbient && !particlesEnabled && !reduceEffects && glassSurfaces;
   const opaqueFill = isAmbient ? theme.surface : theme.surfaceRaised;
-  const fill = staticPressed ? theme.surfaceMuted : tint ?? opaqueFill;
+  const baseFill = transmits ? theme.surfaceGlass : opaqueFill;
+  const fill = staticPressed ? theme.surfaceMuted : tint ?? baseFill;
   // ── The pane is LIT (2026-09-15, the frosted-glass brief) ───────────────────────────────
   //
   // Maintainer, against a Home screenshot: *"I struggle to see how this is supposed to look
@@ -586,11 +636,16 @@ export default function Surface({
           theme.glassWell,
           isAmbient ? theme.glassSheen : null,
           isAmbient ? theme.glassBloom : null,
+          // The ramp's stops are OPAQUE hexes, so on a transmitting pane they would cover the
+          // very thing the veil is letting through. `veilBase` re-expresses each stop as an
+          // overlay that composites to the same colour over `theme.surface` — identical on an
+          // unlit ground, transparent to a lit one. See `veil()` in constants/theme.ts.
+          transmits ? theme.surface : null,
         )
       : null),
     [paneOn, isAmbient, theme.glassTop, theme.glassBottom, theme.glassTopRaised,
       theme.glassBottomRaised, theme.glassRim, theme.glassWell, theme.glassSheen,
-      theme.glassBloom],
+      theme.glassBloom, transmits, theme.surface],
   );
   // ⚠️ **Two different style keys for one value, and this is not a polyfill — both are real.**
   // React Native 0.85 takes a CSS gradient string on `experimental_backgroundImage`;

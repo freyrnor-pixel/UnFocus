@@ -895,11 +895,25 @@ describe('the backdrop — under everything, and out of the middle', () => {
     // before and after, i.e. it cost no identity hue. LIGHT is untouched at 0.10 and must stay
     // there: it has far less headroom before an ambient wash competes with a card, and none of
     // the measurement above was taken on it. See lib/__tests__/glowBudget.test.ts for the number.
+    //   ⚠️ **The 0.30 cap was raised to 0.42 on 2026-09-20, and the reason is that the backdrop
+    // changed JOB.** Every number in the paragraph above was measured while a card was OPAQUE,
+    // so the field was decoration that only ever showed in the gutters — "light the frame, not
+    // the card column" is literally that constraint. The ambient pane transmits again (a dark
+    // veil at 25%, `constants/colors.ts`'s `surfaceGlass`), which makes the field the card's
+    // LIGHT SOURCE rather than a border decoration: it is the thing a card catches, and a field
+    // the eye cannot see is a card with nothing to catch. That was the whole finding behind
+    // three rounds of "doesn't look like glass".
+    //   The ceiling is not taste and is not this number. `lib/__tests__/glassBudget.test.ts`
+    // computes it from the real wash field: the card's composite must stay inside its contrast
+    // band, and `border` must keep WCAG 1.4.11's 3:1 against the ground outside the card. Swept
+    // against those, dark is clean at 0.42 and fails at 0.48 on the border. 0.42 is that
+    // measured edge, so this assertion is a CAP behind the real guard rather than a second
+    // opinion about brightness — raising it past the sweep would simply make glassBudget red.
     const peaks = [...s.matchAll(/orbOpacity:\s*([\d.]+)/g)].map((m) => Number(m[1]));
     expect(peaks).toHaveLength(2); // one per theme, and neither may be forgotten
     for (const peak of peaks) {
       expect(peak).toBeGreaterThanOrEqual(0.1);
-      expect(peak).toBeLessThanOrEqual(0.30);
+      expect(peak).toBeLessThanOrEqual(0.42);
     }
   });
 
