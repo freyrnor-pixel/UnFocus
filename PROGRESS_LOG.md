@@ -5913,11 +5913,32 @@ as a whisper and dark reads as the scene.** Giving light a backdrop of equal pre
 light-mode art direction the handoff does not contain; that is a maintainer call, not one to
 invent here.
 
-**Test result:** `tsc` clean, `eslint --max-warnings=0` clean, 142 suites / 2665 tests passing.
-Both theme baselines re-blessed: **every one of the 47 changed baselines grew, 2–13% in light and
-9–31% in dark.** Per CLAUDE.md A2b that is the right direction — the 2026-09-07 regression showed
-up as a large one-directional SHRINK. `npm run preview` walked the app with 0 page errors and 0
-console errors.
+**CI caught a real defect in the first push, and it was mine.** The visual job came back red with
+14 of 26 light baselines "changed" by 0.01–0.58% against ones blessed locally minutes earlier.
+Not a toolchain drift and not noise: `scripts/screenshot-states.mjs --deterministic` freezes
+`Date.now()` and nothing else, and the first version drove its two ambient loops with Reanimated,
+which clocks off `requestAnimationFrame`. So `settle()` — that file's two-identical-frames
+predicate — could never return "settled" on any screen carrying this layer, spent its budget, and
+captured at whatever phase the machine had reached. That is precisely the machine-speed dependence
+`settle()` was written to remove (2026-08-30, the TabSlider pill), reintroduced one layer lower.
+  The fix is the mechanism `components/ParticleBackground.tsx` already documents: RN's JS-driven
+`Animated.timing` clocks off the frozen `Date.now()`, so both loops sit at progress 0 under the
+harness and every capture is identical. Both values are `useNativeDriver: true` transforms/opacity,
+so nothing is given up on device. `lib/__tests__/boughlight.test.ts` now source-scans for it —
+`tsc` is happy either way and a GREEN pixel gate is the symptom of the mechanism working, so
+there is nothing else that can see this. **Standing caveat, same as ParticleBackground's: a clean
+pixel-gate run says nothing about whether this layer's motion works.**
+
+**Test result:** `tsc` clean, `eslint --max-warnings=0` clean, 142 suites / 2666 tests passing.
+Both theme baselines re-blessed after the determinism fix, then **re-run without `--update` in
+both themes: 26/26 unchanged, `clean ✓`** — which is the proof the baselines are stable run to run
+and the thing the first push could not have produced. Byte deltas against `main`: every changed
+baseline GREW (2–13% light, 9–31% dark). Per CLAUDE.md A2b that is the right direction — the
+2026-09-07 regression showed up as a large one-directional SHRINK. `npm run preview` walked the
+app with 0 page errors and 0 console errors.
+  ⚠️ The failure was reproduced on CI, not locally in isolation — the local evidence is the clean
+bless-then-re-diff AFTER the fix, which the pre-fix code could not have produced, plus the
+mechanism above. A local control run against the Reanimated version was not taken.
 
 ## Verification — 2026-09-19 boughlight
 Fixed at 3 call sites: `app/(tabs)/_layout.tsx:441`, `components/ScreenScaffold.tsx:992`,
@@ -5937,7 +5958,9 @@ Check on device, both themes:
 3. [dark]  Any tab, lower half: soft motes in the left/right gutters and a glow along the floor
            — the band that was reported as dead black.                        pass / fail
 4. [dark]  Watch the top-right corner for ~15s: the bough sways once, slowly, and does not
-           detach from the screen edge.                                       pass / fail
+           detach from the screen edge. **This is the one no harness can answer** — the loops are
+           deliberately frozen under the pixel gate, so a green CI run says nothing here.
+                                                                              pass / fail
 5. [dark]  Push a sub-tier screen (Health → medicine form) off a tab: the scenery stays. It does
            NOT stay in Settings — that screen passes `decorative={false}` and is meant to be bare.
                                                                               pass / fail

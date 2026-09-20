@@ -16,6 +16,8 @@
  * Android's compositing of a translucent SVG over the pager. Appearance is a device check — see
  * CLAUDE.md's reporting contract.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { GROWTH_LEVELS } from '@/lib/growth';
 import {
   CLEAR_ZONE,
@@ -214,5 +216,47 @@ describe('the growth channel', () => {
     const maxed = growthFrame(CROWN, 'crown', CROWN_GROWTH.length);
     expect(growthFrame(CROWN, 'crown', 99)).toEqual(maxed);
     expect(growthFrame(CROWN, 'crown', -3)).toBe(CROWN);
+  });
+});
+
+describe('the ambient loops stay invisible to the pixel gate', () => {
+  // ⚠️ **This is a CI-determinism guard, not a style rule, and it was written from a real red
+  // run.** `scripts/screenshot-states.mjs --deterministic` freezes `Date.now()` and nothing
+  // else. Its `settle()` predicate — two byte-identical frames — can never return "settled" on a
+  // screen carrying an endless animation, so it spends its budget and captures at whatever phase
+  // the MACHINE reached. The first CI run of this layer used Reanimated, which clocks off
+  // `requestAnimationFrame`, and 14 of 26 light baselines came back "changed" by 0.01–0.58%
+  // against locally-blessed ones — the exact machine-speed dependence `settle()` exists to
+  // remove, reintroduced one layer lower.
+  //   RN's JS-driven `Animated.timing` clocks off the frozen `Date.now()` instead, so both loops
+  // sit at progress 0 under the harness and every capture is identical. That is the same reason
+  // `components/ParticleBackground.tsx` is invisible to the gate, documented in its header.
+  //
+  // A source scan, because there is nothing else that can see this: `tsc` is happy either way,
+  // and a green pixel gate is precisely the symptom of the mechanism working.
+  const src = readFileSync(
+    join(__dirname, '..', '..', 'components', 'BoughlightBackdrop.tsx'),
+    'utf8'
+  );
+
+  it('drives the sway and the breath from react-native Animated', () => {
+    expect(src).toMatch(/import \{[^}]*\bAnimated\b[^}]*\} from 'react-native'/);
+    expect(src).toMatch(/Animated\.loop\(/);
+    expect(src).toMatch(/useNativeDriver: true/);
+  });
+
+  it('does not reach for Reanimated in this file', () => {
+    // Reanimated is the right tool almost everywhere else in this app; it is the wrong one here,
+    // and only here, for the reason above. If a future change genuinely needs it, the harness
+    // has to learn to freeze rAF first — deleting this test is not the fix.
+    expect(src).not.toMatch(/from 'react-native-reanimated'/);
+  });
+
+  it('rests both loops at progress 0, which is the phase every baseline shows', () => {
+    expect(src).toMatch(/new Animated\.Value\(0\)/);
+    // The still path (reducedMotion / reduceEffects) has to land on that same phase, or the
+    // gate's picture and a reduced-motion user's picture would be two different drawings.
+    expect(src).toMatch(/sway\.setValue\(0\)/);
+    expect(src).toMatch(/breath\.setValue\(0\)/);
   });
 });

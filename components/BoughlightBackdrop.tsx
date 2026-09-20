@@ -46,7 +46,8 @@
  * wrapping a whole `<Svg>` — which is a view composite, not a canvas buffer.
  *
  * Connections:
- *   Imports → react-native-svg, react-native-reanimated, constants/motion (Duration, Ease),
+ *   Imports → react-native-svg, react-native (Animated — NOT Reanimated, see below),
+ *             constants/motion (Duration),
  *             constants/theme (darken — light mode's inverted material, see below),
  *             lib/boughlight (all geometry + strength values — see that file for why the
  *             numbers live outside the component), lib/useAppTheme (useAppTheme, useIsDark,
@@ -69,6 +70,22 @@
  *     rather than as hue. **LIGHT inverts that material** — see the block at `tint`/`core` for the
  *     measurement behind it. That is the one place this layer departs from the brief, and it is
  *     the departure that makes light mode render at all.
+ *   - ⚠️ **The two loops use RN's `Animated`, NOT Reanimated, and that is load-bearing for CI.**
+ *     `scripts/screenshot-states.mjs --deterministic` freezes `Date.now()` and nothing else, so a
+ *     Reanimated loop — which clocks off `requestAnimationFrame` — keeps running under it. This
+ *     layer's first CI run proved what that costs: `settle()` (that file's two-identical-frames
+ *     predicate) can never return "settled" on a screen with an endless animation, so it spends
+ *     its budget and captures at whatever phase the MACHINE happened to reach, and 14 of 26
+ *     baselines came back "changed" by 0.01–0.58% against locally-blessed ones. That is the exact
+ *     machine-speed dependence `settle()` was written to remove, reintroduced one layer lower.
+ *       RN's JS-driven `Animated.timing` clocks off the frozen `Date.now()`, so under
+ *     `--deterministic` both loops sit at progress 0 and every capture is identical. This is not a
+ *     new trick — it is precisely why `components/ParticleBackground.tsx` is invisible to the
+ *     pixel gate, documented in that file's header. Both values are `useNativeDriver: true`
+ *     transforms/opacity, so nothing is given up on device.
+ *       The same fact is the standing caveat: **a clean pixel-gate run says nothing about whether
+ *     this layer's motion works.** Check it on a device, or probe the DOM on a page without the
+ *     deterministic override, the way ParticleBackground's header describes.
  *   - **Two moving elements, maximum, and they are both a whole layer.** The bough sways and the
  *     light breathes; nothing else animates, and the motes here are all STATIC (the crown's own
  *     note: *"No falling motes — the card stack would cross them"*). The app's drifting motion
@@ -82,8 +99,8 @@
  *     this layer shippable is a containment property of the crown's coordinates; a property has
  *     to be testable, and a coordinate baked into JSX is not.
  */
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -94,15 +111,8 @@ import Svg, {
   RadialGradient,
   Stop,
 } from 'react-native-svg';
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
 import { darken } from '@/constants/theme';
-import { Duration, Ease } from '@/constants/motion';
+import { Duration } from '@/constants/motion';
 import {
   FIELD_OPACITY,
   FRAME,
@@ -340,31 +350,50 @@ function BoughlightBackdrop({ variant = 'crown', activeRoute }: Props) {
   const reduceEffects = useSettingsStore((s) => s.reduceEffects);
 
   const still = reducedMotion || reduceEffects;
-  const sway = useSharedValue(0);
-  const breath = useSharedValue(1);
+  // 0 → 1 → 0, driven by RN's `Animated` so the frozen clock in `--deterministic` pins both at 0.
+  // See the header's note on why this is not Reanimated; it is a CI-determinism constraint, not a
+  // preference. Starting (and resting) at 0 is deliberate too: that is the phase every harness
+  // capture sees, so the blessed baselines show the bough at one end of its travel rather than at
+  // an arbitrary point in it.
+  const sway = useRef(new Animated.Value(0)).current;
+  const breath = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (still) {
-      sway.value = 0;
-      breath.value = 1;
+      sway.setValue(0);
+      breath.setValue(0);
       return;
     }
-    // -1 / reverse, so one 7500ms leg is the handoff's 15s round trip. The two loops have
-    // co-prime-ish periods on purpose (see Duration.swayLong / Duration.breathe) — a bough and
-    // the light it hangs in must never pulse together.
-    sway.value = withRepeat(
-      withTiming(1, { duration: Duration.swayLong, easing: Ease.move }),
-      -1,
-      true
-    );
-    breath.value = withRepeat(
-      withTiming(0, { duration: Duration.breathe, easing: Ease.move }),
-      -1,
-      true
-    );
+    // One leg out, one leg back, so a `swayLong` of 7500ms is the handoff's 15s round trip.
+    // `Easing.inOut(Easing.quad)` is `Ease.move`'s shape in RN's own easing vocabulary — the
+    // Reanimated `Ease` tokens are not interchangeable with this API, which is the one thing the
+    // port had to restate rather than reuse.
+    const loop = (value: Animated.Value, leg: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(value, {
+            toValue: 1,
+            duration: leg,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(value, {
+            toValue: 0,
+            duration: leg,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    // The two periods are deliberately not multiples of each other (see Duration.swayLong /
+    // Duration.breathe) — a bough and the light it hangs in must never fall into lockstep.
+    const swayLoop = loop(sway, Duration.swayLong);
+    const breathLoop = loop(breath, Duration.breathe);
+    swayLoop.start();
+    breathLoop.start();
     return () => {
-      cancelAnimation(sway);
-      cancelAnimation(breath);
+      swayLoop.stop();
+      breathLoop.stop();
     };
   }, [still, sway, breath]);
 
@@ -390,24 +419,25 @@ function BoughlightBackdrop({ variant = 'crown', activeRoute }: Props) {
   const pivotX = frame.bough.px - VB.w / 2;
   const pivotY = frame.bough.py - VB.h / 2;
 
-  const swayStyle = useAnimatedStyle(() => {
-    const deg = (sway.value * 2 - 1) * SWAY_DEG;
-    return {
-      transform: [
-        { translateX: pivotX },
-        { translateY: pivotY },
-        { rotate: `${deg}deg` },
-        { translateX: -pivotX },
-        { translateY: -pivotY },
-      ],
-    };
-  });
+  const swayStyle = {
+    transform: [
+      { translateX: pivotX },
+      { translateY: pivotY },
+      {
+        rotate: sway.interpolate({
+          inputRange: [0, 1],
+          outputRange: [`${-SWAY_DEG}deg`, `${SWAY_DEG}deg`],
+        }),
+      },
+      { translateX: -pivotX },
+      { translateY: -pivotY },
+    ],
+  };
 
-  // The handoff's two breaths: shafts .35→.80, the crown haze .50→.95. Both are the same
-  // shared value read through a different range, so they stay in step with one clock.
+  // The handoff's two breaths: the hero's shafts .35→.80, the crown's full-frame haze .50→.95.
   const lo = variant === 'hero' ? 0.35 : 0.5;
   const hi = variant === 'hero' ? 0.8 : 0.95;
-  const lightStyle = useAnimatedStyle(() => ({ opacity: lo + (hi - lo) * breath.value }));
+  const lightStyle = { opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [lo, hi] }) };
 
   if (reduceEffects) return null;
 
